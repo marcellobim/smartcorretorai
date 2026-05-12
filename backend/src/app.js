@@ -12,16 +12,33 @@ const generateRoutes = require('./routes/generate')
 const subscriptionRoutes = require('./routes/subscriptions')
 const socialRoutes = require('./routes/social')
 const renderRoutes = require('./routes/render')
+const { webhook: stripeWebhook } = require('./controllers/subscriptionController')
 const { errorHandler } = require('./middleware/errorHandler')
 
 const app = express()
 
 app.use(helmet())
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://smartcorretorai.vercel.app',
+  'https://smartcorretorai.com.br',
+  'https://www.smartcorretorai.com.br',
+  'http://localhost:5173',
+].filter(Boolean)
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS bloqueado: ${origin}`))
+  },
   credentials: true,
 }))
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
+
+// Stripe webhook precisa do body raw — montado ANTES do express.json
+app.post('/api/subscriptions/webhook', express.raw({ type: 'application/json' }), stripeWebhook)
+
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
@@ -29,6 +46,8 @@ const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   message: { success: false, message: 'Muitas requisições. Tente novamente em 15 minutos.' },
+  // Polling de status do Creatomate (6s) estouraria o limite sozinho — autenticado, idempotente, sem custo
+  skip: (req) => req.path.startsWith('/render/') && req.path.endsWith('/status'),
 })
 app.use('/api', globalLimiter)
 
