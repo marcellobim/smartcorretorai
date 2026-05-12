@@ -11,6 +11,7 @@ const campaignRoutes = require('./routes/campaigns')
 const generateRoutes = require('./routes/generate')
 const subscriptionRoutes = require('./routes/subscriptions')
 const socialRoutes = require('./routes/social')
+const renderRoutes = require('./routes/render')
 const { errorHandler } = require('./middleware/errorHandler')
 
 const app = express()
@@ -42,6 +43,7 @@ app.use('/api/campaigns', campaignRoutes)
 app.use('/api/generate', generateRoutes)
 app.use('/api/subscriptions', subscriptionRoutes)
 app.use('/api/social', socialRoutes)
+app.use('/api/render', renderRoutes)
 
 app.use(errorHandler)
 

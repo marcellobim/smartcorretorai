@@ -542,6 +542,11 @@ export default function NovaCampanha() {
   const [formatosSel, setFormatosSel] = useState(initFormatosSel)
   const [showAgendamento, setShowAgendamento] = useState(false)
 
+  // Creatomate — geração de banners e vídeos
+  const [renders, setRenders] = useState(null) // _renders do DB
+  const [gerandoBanners, setGerandoBanners] = useState(false)
+  const renderPollRef = useRef(null)
+
   const toggleFormato = (groupId, itemId) => setFormatosSel(prev => {
     const s = new Set(prev[groupId]); s.has(itemId) ? s.delete(itemId) : s.add(itemId)
     return { ...prev, [groupId]: s }
@@ -576,7 +581,7 @@ export default function NovaCampanha() {
     return () => clearInterval(iv)
   }, [fase, msgs.length])
 
-  useEffect(() => () => clearInterval(pollRef.current), [])
+  useEffect(() => () => { clearInterval(pollRef.current); clearInterval(renderPollRef.current) }, [])
 
   // ── Fotos ──
   const handleFotos = async (files) => {
@@ -685,6 +690,32 @@ export default function NovaCampanha() {
       toast.error(err.message || 'Erro ao postar no Instagram')
     } finally {
       setPostando(false)
+    }
+  }
+
+  // ── Gerar banners e vídeos via Creatomate ──
+  const gerarBanners = async () => {
+    if (!campanhaId || gerandoBanners) return
+    setGerandoBanners(true)
+    try {
+      await api.post(`/render/campaign/${campanhaId}`, { fotos: fotos.map(f => ({ dados: f.dados, tipo: f.tipo })) })
+      toast.success('Geração de banners iniciada!')
+      renderPollRef.current = setInterval(async () => {
+        try {
+          const res = await api.get(`/render/campaign/${campanhaId}/status`)
+          const r = res.renders
+          if (!r) return
+          setRenders(r)
+          const emAndamento = Object.values(r).some(x => x.status === 'planned' || x.status === 'rendering')
+          if (!emAndamento) {
+            clearInterval(renderPollRef.current)
+            setGerandoBanners(false)
+          }
+        } catch { /* ignora */ }
+      }, 6000)
+    } catch (err) {
+      toast.error(err.message || 'Erro ao iniciar geração de banners')
+      setGerandoBanners(false)
     }
   }
 
@@ -1437,6 +1468,84 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
+              {/* Banners e Vídeos Creatomate */}
+              <AnimatedCard delay={2400}>
+                <div className="card p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center text-white shrink-0">
+                      <span className="text-lg">🎨</span>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-sm">Banners e Vídeos profissionais</h3>
+                      <p className="text-xs text-gray-500">Gerados automaticamente com suas fotos e dados</p>
+                    </div>
+                  </div>
+
+                  {!renders && !gerandoBanners && (
+                    <button onClick={gerarBanners}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md">
+                      <span>✨</span> Gerar banners e vídeos
+                    </button>
+                  )}
+
+                  {gerandoBanners && !renders && (
+                    <div className="flex items-center justify-center gap-3 py-4">
+                      <div className="w-5 h-5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
+                      <span className="text-sm text-gray-500">Iniciando geração...</span>
+                    </div>
+                  )}
+
+                  {renders && (
+                    <div className="space-y-2">
+                      {Object.entries(renders).map(([key, r]) => {
+                        const label = {
+                          banner_luxo: 'Banner Luxo',
+                          banner_popular: 'Banner Popular',
+                          story_premium: 'Story Premium',
+                          reels_moderno: 'Reels Moderno',
+                          video_cinematico: 'Vídeo Cinematográfico',
+                        }[key] || key
+
+                        const isOk = r.status === 'succeeded'
+                        const isFail = r.status === 'failed'
+                        const isPending = !isOk && !isFail
+
+                        return (
+                          <div key={key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm ${isOk ? 'bg-green-100' : isFail ? 'bg-red-100' : 'bg-purple-100'}`}>
+                              {isOk ? '✅' : isFail ? '❌' : '⏳'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-900">{label}</p>
+                              <p className="text-xs text-gray-400 capitalize">
+                                {isOk ? 'Pronto' : isFail ? (r.error || 'Falhou') : 'Gerando...'}
+                              </p>
+                            </div>
+                            {isOk && r.url && (
+                              <a href={r.url} target="_blank" rel="noopener noreferrer"
+                                className="text-xs font-semibold text-purple-600 hover:text-purple-800 shrink-0">
+                                Baixar
+                              </a>
+                            )}
+                            {isOk && r.snapshot_url && (
+                              <img src={r.snapshot_url} alt={label}
+                                className="w-14 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {gerandoBanners && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <div className="w-3 h-3 border border-purple-300 border-t-purple-600 rounded-full animate-spin" />
+                          <span className="text-xs text-gray-400">Aguardando renders...</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </AnimatedCard>
+
               {/* Novo anúncio */}
               <AnimatedCard delay={3000}>
                 <div className="card p-5 text-center">
@@ -1448,6 +1557,7 @@ export default function NovaCampanha() {
                       setBairro(''); setCidade(''); setDiferenciais([]); setFotos([]); setTelefone('')
                       setResultado(null); setCampanhaId(null); setIgPostado(false)
                       setFormatosSel(initFormatosSel()); setShowAgendamento(false)
+                      setRenders(null); setGerandoBanners(false); clearInterval(renderPollRef.current)
                     }}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-white font-bold hover:opacity-90 transition-opacity">
                     <Plus className="w-4 h-4" />

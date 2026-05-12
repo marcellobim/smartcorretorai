@@ -1,6 +1,7 @@
 const crypto = require('crypto')
 const supabase = require('../services/supabase')
 const { gerarTextosCampanha } = require('../services/claude')
+const { uploadFotos } = require('../utils/storage')
 const { success, error } = require('../utils/response')
 
 const MONTHLY_LIMITS = {
@@ -145,7 +146,7 @@ async function campaign(req, res, next) {
     }
 
     // ── Cria campanha ────────────────────────────────────────────
-    const { fotos: _fotos, ...dadosSemFotos } = req.body
+    const { fotos: fotosBase64, ...dadosSemFotos } = req.body
 
     const titulo =
       req.body.titulo ||
@@ -173,6 +174,18 @@ async function campaign(req, res, next) {
 
     // ── Geração em background ────────────────────────────────────
     try {
+      // Upload fotos para Storage e guarda URLs públicas em dados_imovel
+      let fotosUrls = []
+      if (fotosBase64?.length) {
+        fotosUrls = await uploadFotos(fotosBase64, campanha.id)
+        if (fotosUrls.length) {
+          await supabase
+            .from('campaigns')
+            .update({ dados_imovel: { ...dadosSemFotos, fotos_urls: fotosUrls } })
+            .eq('id', campanha.id)
+        }
+      }
+
       const textos = await gerarTextosCampanha(req.body)
 
       await supabase
