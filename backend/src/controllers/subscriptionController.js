@@ -2,17 +2,36 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const supabase = require('../services/supabase')
 const { success, error } = require('../utils/response')
 
-// Planos recorrentes
-const PRICE_IDS = {
-  start: process.env.STRIPE_PRICE_START,
-  pro: process.env.STRIPE_PRICE_PRO,
-  enterprise: process.env.STRIPE_PRICE_ENTERPRISE,
+const LAUNCH_MODE = process.env.LAUNCH_MODE === 'true'
+
+// Planos recorrentes: 3 primeiros meses no preço promo, depois transita para o mensal cheio
+const PLAN_PRICES = {
+  start: {
+    promo: process.env.STRIPE_PRICE_START_PROMO,
+    mensal: process.env.STRIPE_PRICE_START_MENSAL,
+  },
+  pro: {
+    promo: process.env.STRIPE_PRICE_PRO_PROMO,
+    mensal: process.env.STRIPE_PRICE_PRO_MENSAL,
+  },
+  imobiliaria: {
+    promo: process.env.STRIPE_PRICE_IMOBILIARIA_PROMO,
+    mensal: process.env.STRIPE_PRICE_IMOBILIARIA_MENSAL,
+  },
 }
 
-// Pacotes avulsos (pagamento único)
+// Pacotes avulsos: promo durante LAUNCH_MODE, cheio depois
 const AVULSO_PACKS = {
-  avulso1: { priceId: process.env.STRIPE_PRICE_AVULSO1, creditos: 5 },
-  avulso2: { priceId: process.env.STRIPE_PRICE_AVULSO2, creditos: 10 },
+  avulso5: {
+    promo: process.env.STRIPE_PRICE_AVULSO5_PROMO,
+    full: process.env.STRIPE_PRICE_AVULSO5,
+    creditos: 5,
+  },
+  avulso10: {
+    promo: process.env.STRIPE_PRICE_AVULSO10_PROMO,
+    full: process.env.STRIPE_PRICE_AVULSO10,
+    creditos: 10,
+  },
 }
 
 async function checkout(req, res, next) {
@@ -20,17 +39,17 @@ async function checkout(req, res, next) {
     const { plan_id } = req.body
     const user = req.user
 
-    // Pacote avulso (pagamento único)
     if (AVULSO_PACKS[plan_id]) {
       const pack = AVULSO_PACKS[plan_id]
-      if (!pack.priceId) {
+      const priceId = LAUNCH_MODE ? pack.promo : pack.full
+      if (!priceId) {
         return error(res, 'Pacote avulso não configurado ainda. Aguarde.', 503)
       }
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: 'payment',
         customer_email: user.email,
-        line_items: [{ price: pack.priceId, quantity: 1 }],
+        line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${process.env.FRONTEND_URL}/dashboard?upgrade=success`,
         cancel_url: `${process.env.FRONTEND_URL}/planos?canceled=true`,
         metadata: { user_id: user.id, plan_id, creditos: String(pack.creditos) },
@@ -38,19 +57,25 @@ async function checkout(req, res, next) {
       return success(res, { checkout_url: session.url })
     }
 
-    // Assinatura recorrente
-    if (!PRICE_IDS[plan_id]) {
+    const plan = PLAN_PRICES[plan_id]
+    if (!plan || !plan.promo || !plan.mensal) {
       return error(res, 'Plano inválido', 400)
     }
 
+    // Assinatura inicia no promo; webhook converte em schedule de 3 meses promo → mensal cheio
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       customer_email: user.email,
-      line_items: [{ price: PRICE_IDS[plan_id], quantity: 1 }],
+      line_items: [{ price: plan.promo, quantity: 1 }],
       success_url: `${process.env.FRONTEND_URL}/dashboard?upgrade=success`,
       cancel_url: `${process.env.FRONTEND_URL}/planos?canceled=true`,
-      metadata: { user_id: user.id, plan_id },
+      metadata: {
+        user_id: user.id,
+        plan_id,
+        promo_price: plan.promo,
+        mensal_price: plan.mensal,
+      },
     })
 
     return success(res, { checkout_url: session.url })
@@ -72,7 +97,7 @@ async function webhook(req, res) {
   // Assinatura paga / renovada
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
-    const { user_id, plan_id, creditos } = session.metadata
+    const { user_id, plan_id, creditos, promo_price, mensal_price } = session.metadata
 
     if (creditos) {
       // Pacote avulso: soma créditos ao saldo existente
@@ -95,6 +120,24 @@ async function webhook(req, res) {
         stripe_subscription_id: session.subscription,
         status: 'ativo',
       })
+
+      // Cria schedule: 3 meses no promo → mensal cheio indefinido
+      if (session.subscription && promo_price && mensal_price) {
+        try {
+          const schedule = await stripe.subscriptionSchedules.create({
+            from_subscription: session.subscription,
+          })
+          await stripe.subscriptionSchedules.update(schedule.id, {
+            end_behavior: 'release',
+            phases: [
+              { items: [{ price: promo_price, quantity: 1 }], iterations: 3 },
+              { items: [{ price: mensal_price, quantity: 1 }] },
+            ],
+          })
+        } catch (e) {
+          console.error('Falha ao criar schedule promo→mensal:', e.message)
+        }
+      }
     }
   }
 

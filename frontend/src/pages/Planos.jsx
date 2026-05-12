@@ -36,10 +36,11 @@ const allPlans = [
     link: '/cadastro',
   },
   {
-    id: 'avulso1',
+    id: 'avulso5',
     tipo: 'avulso',
     nome: 'Avulso · 5 anúncios',
-    preco: '38,97',
+    preco: '59',
+    precoCheio: '79',
     periodo: null,
     anuncios: 5,
     desc: 'Sem mensalidade · não expiram',
@@ -47,10 +48,11 @@ const allPlans = [
     cta: 'Comprar',
   },
   {
-    id: 'avulso2',
+    id: 'avulso10',
     tipo: 'avulso',
     nome: 'Avulso · 10 anúncios',
-    preco: '57,97',
+    preco: '87',
+    precoCheio: '127',
     periodo: null,
     anuncios: 10,
     desc: 'Sem mensalidade · não expiram',
@@ -62,6 +64,7 @@ const allPlans = [
     tipo: 'plano',
     nome: 'Start',
     preco: '97',
+    precoCheio: '147',
     periodo: '/mês',
     anuncios: 15,
     logins: 1,
@@ -73,7 +76,8 @@ const allPlans = [
     id: 'pro',
     tipo: 'plano',
     nome: 'Pro',
-    preco: '187',
+    preco: '197',
+    precoCheio: '247',
     periodo: '/mês',
     anuncios: 35,
     logins: 1,
@@ -82,17 +86,17 @@ const allPlans = [
     cta: 'Assinar Pro',
   },
   {
-    id: 'enterprise',
+    id: 'imobiliaria',
     tipo: 'plano',
     nome: 'Imobiliária',
-    preco: '417',
+    preco: '397',
+    precoCheio: '547',
     periodo: '/mês',
     anuncios: 80,
     logins: null,
     desc: 'Para imobiliárias e equipes',
     destaque: false,
-    cta: 'Falar com a equipe',
-    link: 'mailto:contato@smartcorretorai.com.br',
+    cta: 'Assinar Imobiliária',
   },
 ]
 
@@ -185,13 +189,20 @@ export default function Planos() {
                   ) : (
                     <span className="text-3xl font-extrabold text-gray-900">Grátis</span>
                   )}
+                  {plan.precoCheio && (
+                    <p className="text-xs text-amber-700 font-semibold mt-1">
+                      {isAvulso
+                        ? `Preço de lançamento · de R$ ${plan.precoCheio} por R$ ${plan.preco}`
+                        : `Primeiros 3 meses · depois R$ ${plan.precoCheio}/mês`}
+                    </p>
+                  )}
                   <p className="text-sm text-primary-700 font-semibold mt-2">
                     {plan.anuncios} anúncio{plan.anuncios > 1 ? 's' : ''}
                     {isAvulso ? ' · não expiram' : ' por mês'}
                   </p>
                   {!isAvulso && (
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {plan.logins ? `${plan.logins} login · intransferível` : 'Múltiplos usuários · contato comercial'}
+                      {plan.logins ? `${plan.logins} login · intransferível` : 'Múltiplos usuários · login compartilhado'}
                     </p>
                   )}
                 </div>
