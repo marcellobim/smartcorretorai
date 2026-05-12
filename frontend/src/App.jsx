@@ -10,6 +10,8 @@ import MeusImoveis from './pages/MeusImoveis'
 import PacotesGerados from './pages/PacotesGerados'
 import Configuracoes from './pages/Configuracoes'
 import Planos from './pages/Planos'
+import TermosDeUso from './pages/TermosDeUso'
+import Privacidade from './pages/Privacidade'
 
 function PrivateRoute({ children }) {
   const { user } = useAuthStore()
@@ -26,6 +28,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/planos" element={<Planos />} />
+      <Route path="/termos" element={<TermosDeUso />} />
+      <Route path="/privacidade" element={<Privacidade />} />
       <Route
         path="/login"
         element={<PublicRoute><LoginPage /></PublicRoute>}
