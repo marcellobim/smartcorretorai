@@ -8,3 +8,4 @@ build/
 .vercel
 .netlify
 coverage/
+.claude/settings.local.json
