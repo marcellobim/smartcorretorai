@@ -291,9 +291,9 @@ export default function LandingPage() {
             </div>
             <p className="text-sm">© 2026 SmartCorretorAI. Todos os direitos reservados.</p>
             <div className="flex items-center gap-6 text-sm">
-              <a href="#" className="hover:text-white transition-colors">Termos</a>
-              <a href="#" className="hover:text-white transition-colors">Privacidade</a>
-              <a href="#" className="hover:text-white transition-colors">Contato</a>
+              <Link to="/termos" className="hover:text-white transition-colors">Termos</Link>
+              <Link to="/privacidade" className="hover:text-white transition-colors">Privacidade</Link>
+              <a href="mailto:contato@smartcorretorai.com.br" className="hover:text-white transition-colors">Contato</a>
             </div>
           </div>
         </div>
