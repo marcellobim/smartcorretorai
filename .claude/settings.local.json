@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\bbqbi\\\\smartcorretorai\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Users\\\\bbqbi\\\\smartcorretorai\\\\\", \"\"\\) } | Sort-Object)",
+      "Skill(claude-api)",
+      "PowerShell(Start-Process cmd -ArgumentList '/c cd C:\\\\Users\\\\bbqbi\\\\smartcorretorai\\\\backend && npm run dev' -WindowStyle Normal)",
+      "PowerShell(Start-Process cmd -ArgumentList '/c cd C:\\\\Users\\\\bbqbi\\\\smartcorretorai\\\\frontend && npm run dev' -WindowStyle Normal)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(winget install *)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\('PATH', 'Machine'\\) + ';' + [System.Environment]::GetEnvironmentVariable\\('PATH', 'User'\\); cd C:\\\\Users\\\\bbqbi\\\\smartcorretorai; git --version)",
+      "PowerShell(git init *)",
+      "PowerShell(git add *)"
+    ]
+  }
+}
