@@ -59,13 +59,18 @@ SaaS imobiliário premium. Corretor entra com foto + dados do imóvel, sai com p
 - Diretrizes do produto documentadas
 - Roteiro vídeo explainer criado
 - Skill + arquivo de contexto criados
+- **Creatomate integrado** — 46 templates listados via API, 22 mapeados por categoria e formato em `backend/src/services/creatomate.js` (5 famílias SC_ + new_listing_story, searchlight, photo_montage, triple_carousel, real_estate_card em 9:16/1:1/4:5/16:9)
+- **Rotas de render** — `POST /api/render/campaign/:id` e `GET /api/render/campaign/:id/status` (controller + routes + integração no `app.js`)
+- **Upload de fotos no Supabase Storage** — fluxo automático no `generateController` antes de disparar Creatomate
+- **Frontend NovaCampanha** — botão "Gerar banners e vídeos", polling de status (6s), thumbnails + downloads por render
+- **Stripe configurado** — 5 produtos criados, Price IDs listados via API e salvos no `.env` (START R$ 97, PRO R$ 187, ENTERPRISE R$ 417, AVULSO1 R$ 38,97, AVULSO2 R$ 57,97)
+- **Backend online no Railway** — bug `authenticate → authMiddleware` em `routes/render.js` corrigido, deploy automático via GitHub
 
 ## 🔴 PRÓXIMO (prioridade máxima)
-1. Reconectar Creatomate API no código
-2. Mapear templates por categoria automaticamente
-3. Testar geração completa: foto + dados → pacote completo
-4. Stripe (pagamentos)
-5. Testar tudo ao máximo
+1. **Rodar migrações no Supabase Dashboard** — tabelas `profiles`, `properties`, `campaigns`, `subscriptions`, `password_resets` ainda não existem (apenas `social_connections` está OK). Usar SQL com `DROP TRIGGER/POLICY IF EXISTS` (Postgres 15 não suporta `CREATE ... IF NOT EXISTS` para triggers/policies) e finalizar com `NOTIFY pgrst, 'reload schema'`
+2. **Adicionar env vars no Railway Dashboard** (Variables → Raw Editor): `CREATOMATE_API_KEY`, `CREATOMATE_PUBLIC_TOKEN`, `STRIPE_PRICE_START/PRO/ENTERPRISE/AVULSO1/AVULSO2` — token UUID disponível é project-scoped, não dá acesso à API pessoal
+3. Testar geração end-to-end: cadastro → campanha → renders Creatomate
+4. Testar pagamento Stripe checkout
 
 ## 🟡 DEPOIS
 - Domínio GoDaddy → Vercel (A: @ → 76.76.21.21 / CNAME: www → cname.vercel-dns.com)
@@ -85,4 +90,4 @@ SaaS imobiliário premium. Corretor entra com foto + dados do imóvel, sai com p
 
 ---
 
-*Atualizado: Mai/2026*
+*Atualizado: 2026-05-12*
