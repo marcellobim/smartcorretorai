@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://smartcorretorai-production.up.railway.app/api',
+  baseURL: 'https://smartcorretorai-production.up.railway.app/api',
   timeout: 30000,
 })
 
