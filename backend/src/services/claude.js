@@ -195,7 +195,7 @@ Adapte todo o tom, vocabulário e argumentos de venda ao perfil da categoria. Os
   userContent.push({ type: 'text', text: prompt })
 
   const response = await anthropic.messages.create({
-    model: 'claude-opus-4-7',
+    model: 'claude-sonnet-4-6',
     max_tokens: 6000,
     thinking: { type: 'adaptive' },
     messages: [{ role: 'user', content: userContent }],
