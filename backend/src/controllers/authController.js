@@ -26,7 +26,7 @@ async function register(req, res, next) {
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password: senha,
-      email_confirm: true,
+      email_confirm: false,
     })
 
     if (authError) throw authError
@@ -83,6 +83,17 @@ async function login(req, res, next) {
       return error(res, 'E-mail ou senha incorretos', 401)
     }
 
+    // Verificar se o email foi confirmado
+    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(user.id)
+    
+    if (authError) {
+      console.error('Erro ao verificar usuário:', authError)
+    }
+
+    if (authUser && !authUser.user.email_confirmed_at) {
+      return error(res, 'Verifique seu email para ativar sua conta', 403)
+    }
+
     const token = generateToken(user.id)
 
     return success(res, {
@@ -131,4 +142,47 @@ async function forgotPassword(req, res, next) {
   }
 }
 
-module.exports = { register, login, me, logout, forgotPassword }
+async function resendConfirmation(req, res, next) {
+  try {
+    const { email } = req.body
+
+    if (!email) {
+      return error(res, 'E-mail é obrigatório', 400)
+    }
+
+    // Verificar se o usuário existe
+    const { data: user } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
+
+    if (!user) {
+      return success(res, { message: 'Se o e-mail existir, você receberá o link de confirmação.' })
+    }
+
+    // Verificar se já está confirmado
+    const { data: authUser } = await supabase.auth.admin.getUserById(user.id)
+    
+    if (authUser && authUser.user.email_confirmed_at) {
+      return error(res, 'Este e-mail já está confirmado', 400)
+    }
+
+    // Reenviar email de confirmação
+    const { error: resendError } = await supabase.auth.admin.generateLink({
+      type: 'signup',
+      email: email,
+    })
+
+    if (resendError) {
+      console.error('Erro ao reenviar confirmação:', resendError)
+      throw resendError
+    }
+
+    return success(res, { message: 'E-mail de confirmação reenviado com sucesso' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { register, login, me, logout, forgotPassword, resendConfirmation }

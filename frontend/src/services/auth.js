@@ -24,4 +24,8 @@ export const authService = {
   async logout() {
     return api.post('/auth/logout')
   },
+
+  async resendConfirmation(email) {
+    return api.post('/auth/resend-confirmation', { email })
+  },
 }

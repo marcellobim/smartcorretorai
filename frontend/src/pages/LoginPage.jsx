@@ -1,25 +1,54 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Zap, Eye, EyeOff } from 'lucide-react'
+import { Zap, Eye, EyeOff, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../hooks/useAuth'
+import { authService } from '../services/auth'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
+  const [showResendButton, setShowResendButton] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
   const { login, loading } = useAuth()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
     try {
+      setUserEmail(data.email)
       await login(data.email, data.senha)
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
     } catch (err) {
+      // Verificar se o erro é de email não confirmado
+      if (err.message.includes('Verifique seu email') || err.message.includes('ativar sua conta')) {
+        setShowResendButton(true)
+      } else {
+        setShowResendButton(false)
+      }
       toast.error(err.message)
+    }
+  }
+
+  const handleResendConfirmation = async () => {
+    if (!userEmail) {
+      toast.error('Por favor, insira seu e-mail primeiro')
+      return
+    }
+
+    setResendingEmail(true)
+    try {
+      await authService.resendConfirmation(userEmail)
+      toast.success('E-mail de confirmação reenviado! Verifique sua caixa de entrada.')
+      setShowResendButton(false)
+    } catch (err) {
+      toast.error(err.message || 'Erro ao reenviar e-mail de confirmação')
+    } finally {
+      setResendingEmail(false)
     }
   }
 
@@ -105,6 +134,31 @@ export default function LoginPage() {
             <Button type="submit" loading={loading} className="w-full mt-2">
               Entrar
             </Button>
+
+            {showResendButton && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Mail className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-800 font-medium mb-2">
+                      Email não confirmado
+                    </p>
+                    <p className="text-xs text-amber-700 mb-3">
+                      Você precisa confirmar seu email antes de fazer login. Não recebeu o email?
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      loading={resendingEmail}
+                      variant="outline"
+                      className="w-full text-sm"
+                    >
+                      Reenviar email de confirmação
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </form>
         </div>
       </div>
