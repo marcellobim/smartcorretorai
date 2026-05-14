@@ -65,6 +65,7 @@ SaaS imobiliário premium. Corretor entra com foto + dados do imóvel, sai com p
 - **Frontend NovaCampanha** — botão "Gerar banners e vídeos", polling de status (6s), thumbnails + downloads por render
 - **Stripe configurado** — 5 produtos criados, Price IDs listados via API e salvos no `.env` (START R$ 97, PRO R$ 187, ENTERPRISE R$ 417, AVULSO1 R$ 38,97, AVULSO2 R$ 57,97)
 - **Backend online no Railway** — bug `authenticate → authMiddleware` em `routes/render.js` corrigido, deploy automático via GitHub
+- **Geração de textos em background corrigida** — modelo Claude atualizado para `claude-3-5-sonnet-20241022`, parâmetro `thinking` removido, logging detalhado implementado (commit b315bd5)
 
 ## 🔴 PRÓXIMO (prioridade máxima)
 1. **Rodar migrações no Supabase Dashboard** — tabelas `profiles`, `properties`, `campaigns`, `subscriptions`, `password_resets` ainda não existem (apenas `social_connections` está OK). Usar SQL com `DROP TRIGGER/POLICY IF EXISTS` (Postgres 15 não suporta `CREATE ... IF NOT EXISTS` para triggers/policies) e finalizar com `NOTIFY pgrst, 'reload schema'`

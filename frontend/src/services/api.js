@@ -18,7 +18,14 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout()
+      // Token inválido ou expirado - fazer logout
+      const { logout } = useAuthStore.getState()
+      logout()
+      
+      // Redirecionar para login se não estiver já lá
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login?expired=true'
+      }
     }
     const message = error.response?.data?.message || 'Erro ao conectar com o servidor'
     return Promise.reject(new Error(message))

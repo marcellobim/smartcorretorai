@@ -18,14 +18,23 @@ async function authMiddleware(req, res, next) {
       .eq('id', decoded.userId)
       .single()
 
-    if (error || !user) {
-      return res.status(401).json({ success: false, message: 'Token inválido' })
+    if (error) {
+      console.error('=== ERRO AUTH MIDDLEWARE ===')
+      console.error('User ID:', decoded.userId)
+      console.error('Supabase error:', error)
+      return res.status(401).json({ success: false, message: 'Usuário não encontrado', code: 'USER_NOT_FOUND' })
+    }
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Usuário não encontrado', code: 'USER_NOT_FOUND' })
     }
 
     req.user = user
     next()
-  } catch {
-    return res.status(401).json({ success: false, message: 'Token inválido ou expirado' })
+  } catch (err) {
+    console.error('=== ERRO JWT VERIFY ===')
+    console.error('Error:', err.message)
+    return res.status(401).json({ success: false, message: 'Token inválido ou expirado', code: 'INVALID_TOKEN' })
   }
 }
 
