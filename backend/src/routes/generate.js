@@ -5,7 +5,7 @@ const { authMiddleware } = require('../middleware/auth')
 
 const generateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: 50,
   message: { success: false, message: 'Aguarde um momento antes de gerar outra campanha.' },
 })
 
