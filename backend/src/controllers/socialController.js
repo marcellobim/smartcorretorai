@@ -62,12 +62,24 @@ async function instagramStatus(req, res, next) {
 
 async function postarInstagram(req, res, next) {
   try {
-    const { campaign_id } = req.body
+    const { campaign_id, video_url, is_reel, cover_url, share_to_feed } = req.body
     if (!campaign_id) return error(res, 'campaign_id é obrigatório', 400)
-    const result = await instagramService.postCampaign(req.user.id, campaign_id)
+    
+    const options = {}
+    if (video_url) {
+      options.videoUrl = video_url
+      options.isReel = is_reel !== false // default true para vídeos
+      if (cover_url) options.coverUrl = cover_url
+      if (share_to_feed !== undefined) options.shareToFeed = share_to_feed
+    }
+    
+    const result = await instagramService.postCampaign(req.user.id, campaign_id, options)
+    
+    const mediaType = result.type === 'reel' ? 'Reel' : result.type === 'video' ? 'Vídeo' : 'Post'
     return success(res, {
       post_id: result.id,
-      message: 'Publicado com sucesso no Instagram!',
+      type: result.type,
+      message: `${mediaType} publicado com sucesso no Instagram!`,
     })
   } catch (err) {
     next(err)

@@ -144,7 +144,7 @@ async function gerarBanner({ titulo, bairro, cidade, preco, categoria }) {
 
 // ── Posting ──────────────────────────────────────────────────────────────────
 
-async function postCampaign(userId, campaignId) {
+async function postCampaign(userId, campaignId, options = {}) {
   const conn = await getConnection(userId)
   if (!conn) throw new Error('Sua conta do Instagram não está conectada. Acesse Configurações → Redes Sociais.')
 
@@ -162,42 +162,84 @@ async function postCampaign(userId, campaignId) {
   if (!igTextos) throw new Error('Textos para Instagram não encontrados nesta campanha.')
 
   const dadosImovel = camp.dados_imovel || {}
-
-  // 1) Gera banner
-  const imgBuffer = await gerarBanner({
-    titulo: camp.titulo,
-    bairro: dadosImovel.bairro,
-    cidade: dadosImovel.cidade,
-    preco: dadosImovel.preco,
-    categoria: dadosImovel.categoria,
-  })
-
-  // 2) Upload para Supabase Storage (bucket deve ser público)
-  const storagePath = `instagram/${userId}/${campaignId}.jpg`
-  const { error: upErr } = await supabase.storage
-    .from(process.env.STORAGE_BUCKET)
-    .upload(storagePath, imgBuffer, { contentType: 'image/jpeg', upsert: true })
-
-  if (upErr) throw new Error('Erro ao salvar imagem: ' + upErr.message)
-
-  const { data: { publicUrl } } = supabase.storage
-    .from(process.env.STORAGE_BUCKET)
-    .getPublicUrl(storagePath)
+  const token = conn.page_access_token || conn.access_token
 
   // 3) Caption
   const caption = [igTextos.legenda, igTextos.hashtags, igTextos.cta ? `\n👉 ${igTextos.cta}` : '']
     .filter(Boolean).join('\n\n').substring(0, 2200)
 
-  const token = conn.page_access_token || conn.access_token
+  let container, published
 
-  // 4) Cria container de mídia
-  const container = await gfetch(`${GRAPH}/${conn.ig_user_id}/media`, {
-    method: 'POST',
-    body: new URLSearchParams({ image_url: publicUrl, caption, access_token: token }),
-  })
+  // Verifica se é para postar vídeo/reel ou imagem
+  if (options.videoUrl) {
+    // Postagem de Reel/Vídeo
+    const mediaType = options.isReel ? 'REELS' : 'VIDEO'
+    
+    container = await gfetch(`${GRAPH}/${conn.ig_user_id}/media`, {
+      method: 'POST',
+      body: new URLSearchParams({ 
+        media_type: mediaType,
+        video_url: options.videoUrl, 
+        caption, 
+        access_token: token,
+        ...(options.coverUrl && { cover_url: options.coverUrl }),
+        ...(options.shareToFeed !== undefined && { share_to_feed: options.shareToFeed })
+      }),
+    })
+
+    // Aguarda processamento do vídeo (pode levar alguns segundos)
+    let attempts = 0
+    const maxAttempts = 30 // 30 tentativas = ~2 minutos
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 4000)) // 4 segundos entre checks
+      
+      const statusCheck = await gfetch(
+        `${GRAPH}/${container.id}?fields=status_code&access_token=${token}`
+      )
+      
+      if (statusCheck.status_code === 'FINISHED') break
+      if (statusCheck.status_code === 'ERROR') {
+        throw new Error('Erro ao processar vídeo no Instagram')
+      }
+      attempts++
+    }
+
+    if (attempts >= maxAttempts) {
+      throw new Error('Timeout ao processar vídeo. Tente novamente em alguns minutos.')
+    }
+
+  } else {
+    // Postagem de Imagem (comportamento original)
+    // 1) Gera banner
+    const imgBuffer = await gerarBanner({
+      titulo: camp.titulo,
+      bairro: dadosImovel.bairro,
+      cidade: dadosImovel.cidade,
+      preco: dadosImovel.preco,
+      categoria: dadosImovel.categoria,
+    })
+
+    // 2) Upload para Supabase Storage (bucket deve ser público)
+    const storagePath = `instagram/${userId}/${campaignId}.jpg`
+    const { error: upErr } = await supabase.storage
+      .from(process.env.STORAGE_BUCKET)
+      .upload(storagePath, imgBuffer, { contentType: 'image/jpeg', upsert: true })
+
+    if (upErr) throw new Error('Erro ao salvar imagem: ' + upErr.message)
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(process.env.STORAGE_BUCKET)
+      .getPublicUrl(storagePath)
+
+    // 4) Cria container de mídia
+    container = await gfetch(`${GRAPH}/${conn.ig_user_id}/media`, {
+      method: 'POST',
+      body: new URLSearchParams({ image_url: publicUrl, caption, access_token: token }),
+    })
+  }
 
   // 5) Publica
-  const published = await gfetch(`${GRAPH}/${conn.ig_user_id}/media_publish`, {
+  published = await gfetch(`${GRAPH}/${conn.ig_user_id}/media_publish`, {
     method: 'POST',
     body: new URLSearchParams({ creation_id: container.id, access_token: token }),
   })
@@ -207,7 +249,7 @@ async function postCampaign(userId, campaignId) {
     .update({ instagram_post_id: published.id, updated_at: new Date().toISOString() })
     .eq('id', campaignId)
 
-  return { id: published.id }
+  return { id: published.id, type: options.videoUrl ? (options.isReel ? 'reel' : 'video') : 'image' }
 }
 
 module.exports = { getOAuthUrl, handleCallback, getConnection, disconnect, postCampaign }

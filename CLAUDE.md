@@ -66,6 +66,7 @@ SaaS imobiliário premium. Corretor entra com foto + dados do imóvel, sai com p
 - **Stripe configurado** — 5 produtos criados, Price IDs listados via API e salvos no `.env` (START R$ 97, PRO R$ 187, ENTERPRISE R$ 417, AVULSO1 R$ 38,97, AVULSO2 R$ 57,97)
 - **Backend online no Railway** — bug `authenticate → authMiddleware` em `routes/render.js` corrigido, deploy automático via GitHub
 - **Geração de textos em background corrigida** — modelo Claude atualizado para `claude-3-5-sonnet-20241022`, parâmetro `thinking` removido, logging detalhado implementado (commit b315bd5)
+- **Meta Graph API integrada** — rotas completas para OAuth Instagram (`/api/social/instagram/*`), suporte para postagem de imagens, vídeos e reels, documentação completa em `META_INSTAGRAM_SETUP.md`
 
 ## 🔴 PRÓXIMO (prioridade máxima)
 1. **Rodar migrações no Supabase Dashboard** — tabelas `profiles`, `properties`, `campaigns`, `subscriptions`, `password_resets` ainda não existem (apenas `social_connections` está OK). Usar SQL com `DROP TRIGGER/POLICY IF EXISTS` (Postgres 15 não suporta `CREATE ... IF NOT EXISTS` para triggers/policies) e finalizar com `NOTIFY pgrst, 'reload schema'`
@@ -74,9 +75,8 @@ SaaS imobiliário premium. Corretor entra com foto + dados do imóvel, sai com p
 4. Testar pagamento Stripe checkout
 
 ## 🟡 DEPOIS
-- Domínio GoDaddy → Vercel (A: @ → 76.76.21.21 / CNAME: www → cname.vercel-dns.com)
+- [x] Domínio GoDaddy → Vercel (A: @ → 76.76.21.21 / CNAME: www → cname.vercel-dns.com) — ✅ Concluído
 - Compliance CRECI no cadastro
-- Meta Graph API → postagem direta Instagram
 - Dashboard métricas
 - Reorganizar UX (planos só na aba de planos)
 - Vídeo explainer na home
