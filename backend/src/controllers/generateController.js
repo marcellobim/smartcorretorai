@@ -198,7 +198,7 @@ async function campaign(req, res, next) {
         })
         .eq('id', campanha.id)
     } catch (procErr) {
-      console.error('Erro ao gerar anúncios:', procErr.message)
+      console.error('=== erro geracao === anúncios:', procErr.message)
 
       // Devolve crédito avulso se a geração falhou
       if (usarAvulso) {
