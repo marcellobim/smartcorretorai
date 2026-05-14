@@ -5,8 +5,15 @@ const { authMiddleware } = require('../middleware/auth')
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 20,
   message: { success: false, message: 'Muitas tentativas. Aguarde 15 minutos.' },
+  skip: (req) => {
+    // Remove rate limit para usuário admin
+    if (req.user && req.user.email === 'Riccieri68@gmail.com') {
+      return true
+    }
+    return false
+  },
 })
 
 router.post('/register', authLimiter, register)

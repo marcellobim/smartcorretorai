@@ -47,7 +47,17 @@ const globalLimiter = rateLimit({
   max: 200,
   message: { success: false, message: 'Muitas requisições. Tente novamente em 15 minutos.' },
   // Polling de status do Creatomate (6s) estouraria o limite sozinho — autenticado, idempotente, sem custo
-  skip: (req) => req.path.startsWith('/render/') && req.path.endsWith('/status'),
+  skip: (req) => {
+    // Skip para polling de status do Creatomate
+    if (req.path.startsWith('/render/') && req.path.endsWith('/status')) {
+      return true
+    }
+    // Remove rate limit para usuário admin
+    if (req.user && req.user.email === 'Riccieri68@gmail.com') {
+      return true
+    }
+    return false
+  },
 })
 app.use('/api', globalLimiter)
 
