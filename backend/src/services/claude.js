@@ -195,16 +195,39 @@ Adapte todo o tom, vocabulário e argumentos de venda ao perfil da categoria. Os
   userContent.push({ type: 'text', text: prompt })
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 6000,
-    thinking: { type: 'adaptive' },
     messages: [{ role: 'user', content: userContent }],
   })
 
   const textBlock = response.content.find(b => b.type === 'text')
-  const raw = textBlock ? textBlock.text.trim() : ''
+  if (!textBlock) {
+    throw new Error('Resposta da API não contém bloco de texto')
+  }
+
+  const raw = textBlock.text.trim()
+  if (!raw) {
+    throw new Error('Resposta da API está vazia')
+  }
+
+  // Remove markdown code blocks se presentes
   const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-  return JSON.parse(jsonStr)
+  
+  try {
+    const parsed = JSON.parse(jsonStr)
+    
+    // Valida estrutura mínima
+    if (!parsed.textos || typeof parsed.textos !== 'object') {
+      throw new Error('Resposta JSON não contém campo "textos" válido')
+    }
+    
+    return parsed
+  } catch (parseErr) {
+    console.error('=== ERRO PARSE JSON CLAUDE ===')
+    console.error('Raw response:', raw.substring(0, 500))
+    console.error('Parse error:', parseErr.message)
+    throw new Error(`Falha ao processar resposta da IA: ${parseErr.message}`)
+  }
 }
 
 module.exports = { gerarTextosCampanha }

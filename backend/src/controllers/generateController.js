@@ -198,7 +198,11 @@ async function campaign(req, res, next) {
         })
         .eq('id', campanha.id)
     } catch (procErr) {
-      console.error('=== erro geracao === anúncios:', procErr.message)
+      console.error('=== ERRO GERAÇÃO ANÚNCIOS ===')
+      console.error('Campanha ID:', campanha.id)
+      console.error('User ID:', user.id)
+      console.error('Erro completo:', procErr)
+      console.error('Stack trace:', procErr.stack)
 
       // Devolve crédito avulso se a geração falhou
       if (usarAvulso) {
@@ -210,7 +214,11 @@ async function campaign(req, res, next) {
 
       await supabase
         .from('campaigns')
-        .update({ status: 'erro', updated_at: new Date().toISOString() })
+        .update({ 
+          status: 'erro', 
+          error_message: procErr.message || 'Erro desconhecido',
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', campanha.id)
     }
   } catch (err) {
