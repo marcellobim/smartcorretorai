@@ -12,10 +12,18 @@ import Configuracoes from './pages/Configuracoes'
 import Planos from './pages/Planos'
 import TermosDeUso from './pages/TermosDeUso'
 import Privacidade from './pages/Privacidade'
+import AdminDashboard from './pages/AdminDashboard'
 
 function PrivateRoute({ children }) {
   const { user } = useAuthStore()
   return user ? children : <Navigate to="/login" replace />
+}
+
+function AdminRoute({ children }) {
+  const { user } = useAuthStore()
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role !== 'admin') return <Navigate to="/dashboard" replace />
+  return children
 }
 
 function PublicRoute({ children }) {
@@ -37,6 +45,10 @@ export default function App() {
       <Route
         path="/cadastro"
         element={<PublicRoute><RegisterPage /></PublicRoute>}
+      />
+      <Route
+        path="/admin"
+        element={<AdminRoute><AdminDashboard /></AdminRoute>}
       />
       <Route
         element={<PrivateRoute><AppLayout /></PrivateRoute>}

@@ -12,6 +12,7 @@ const generateRoutes = require('./routes/generate')
 const subscriptionRoutes = require('./routes/subscriptions')
 const socialRoutes = require('./routes/social')
 const renderRoutes = require('./routes/render')
+const adminRoutes = require('./routes/admin')
 const { webhook: stripeWebhook } = require('./controllers/subscriptionController')
 const { errorHandler } = require('./middleware/errorHandler')
 
@@ -73,6 +74,7 @@ app.use('/api/generate', generateRoutes)
 app.use('/api/subscriptions', subscriptionRoutes)
 app.use('/api/social', socialRoutes)
 app.use('/api/render', renderRoutes)
+app.use('/api/admin', adminRoutes)
 
 app.use(errorHandler)
 
