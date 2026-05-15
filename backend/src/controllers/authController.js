@@ -88,7 +88,7 @@ async function login(req, res, next) {
     const token = generateToken(user.id)
 
     return success(res, {
-      user: { id: user.id, nome: user.nome, email: user.email, plano: user.plano, creci: user.creci, estado: user.estado },
+      user: { id: user.id, nome: user.nome, email: user.email, plano: user.plano, creci: user.creci, estado: user.estado, role: user.role },
       token,
     })
   } catch (err) {
