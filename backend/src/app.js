@@ -2,7 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const morgan = require('morgan')
-const rateLimit = require('express-rate-limit')
+// const rateLimit = require('express-rate-limit')
 
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/users')
@@ -45,24 +45,25 @@ app.post('/api/subscriptions/webhook', express.raw({ type: 'application/json' })
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: { success: false, message: 'Muitas requisições. Tente novamente em 15 minutos.' },
-  // Polling de status do Creatomate (6s) estouraria o limite sozinho — autenticado, idempotente, sem custo
-  skip: (req) => {
-    // Skip para polling de status do Creatomate
-    if (req.path.startsWith('/render/') && req.path.endsWith('/status')) {
-      return true
-    }
-    // Remove rate limit para usuário admin
-    if (req.user && req.user.email === 'Riccieri68@gmail.com') {
-      return true
-    }
-    return false
-  },
-})
-app.use('/api', globalLimiter)
+// Rate limit configuration commented out
+// const globalLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 200,
+//   message: { success: false, message: 'Muitas requisições. Tente novamente em 15 minutos.' },
+//   // Polling de status do Creatomate (6s) estouraria o limite sozinho — autenticado, idempotente, sem custo
+//   skip: (req) => {
+//     // Skip para polling de status do Creatomate
+//     if (req.path.startsWith('/render/') && req.path.endsWith('/status')) {
+//       return true
+//     }
+//     // Remove rate limit para usuário admin
+//     if (req.user && req.user.email === 'Riccieri68@gmail.com') {
+//       return true
+//     }
+//     return false
+//   },
+// })
+// app.use('/api', globalLimiter)
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
