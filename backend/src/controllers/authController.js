@@ -66,7 +66,7 @@ async function register(req, res, next) {
 
 async function login(req, res, next) {
   try {
-    const { email, senha } = req.body
+    const { email, senha, password } = req.body\n    const senhaFinal = senha || password
 
     const { data: user, error: dbError } = await supabase
       .from('profiles')
@@ -78,7 +78,7 @@ async function login(req, res, next) {
       return error(res, 'E-mail ou senha incorretos', 401)
     }
 
-    const senhaCorreta = await bcrypt.compare(senha, user.senha_hash)
+    const senhaCorreta = await bcrypt.compare(senhaFinal, user.senha_hash)
     if (!senhaCorreta) {
       return error(res, 'E-mail ou senha incorretos', 401)
     }
