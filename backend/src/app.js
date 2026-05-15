@@ -25,6 +25,8 @@ const allowedOrigins = [
   'https://smartcorretorai.vercel.app',
   'https://smartcorretorai.com.br',
   'https://www.smartcorretorai.com.br',
+  'https://www.smartcorretorai.com',
+  'https://smartcorretorai.com',
   'http://localhost:5173',
 ].filter(Boolean)
 
