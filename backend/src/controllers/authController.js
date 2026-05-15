@@ -66,8 +66,8 @@ async function register(req, res, next) {
 
 async function login(req, res, next) {
   try {
-    const { email, senha, password } = req.body\n    const senhaFinal = senha || password
-
+    const { email, senha, password } = req.body 
+    const senhaFinal = senha || password
     const { data: user, error: dbError } = await supabase
       .from('profiles')
       .select('*')
