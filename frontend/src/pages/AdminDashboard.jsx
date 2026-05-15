@@ -47,7 +47,7 @@ export default function AdminDashboard() {
   const loadStats = async () => {
     try {
       const response = await api.get('/admin/stats')
-      setStats(response.data.data)
+      setStats(response.data)
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error)
     }
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   const loadUsers = async () => {
     try {
       const response = await api.get('/admin/users?limit=100')
-      setUsers(response.data.data.users)
+      setUsers(response.data.users)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
     } finally {
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
   const loadCampaigns = async () => {
     try {
       const response = await api.get('/admin/campaigns?limit=50')
-      setCampaigns(response.data.data.campaigns)
+      setCampaigns(response.data.campaigns)
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error)
     }
