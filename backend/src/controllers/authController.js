@@ -26,7 +26,7 @@ async function register(req, res, next) {
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password: senha,
-      email_confirm: false,
+      email_confirm: false, // Usuário precisa confirmar email antes de fazer login
     })
 
     if (authError) throw authError
