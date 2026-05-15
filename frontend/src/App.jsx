@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import AppLayout from './components/layout/AppLayout'
@@ -33,12 +32,6 @@ function PublicRoute({ children }) {
 }
 
 export default function App() {
-  const initialize = useAuthStore((s) => s.initialize)
-
-  useEffect(() => {
-    initialize()
-  }, [])
-
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
