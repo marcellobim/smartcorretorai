@@ -9,6 +9,20 @@ export const useAuthStore = create(
       token: null,
       loading: false,
 
+      // Busca dados frescos do backend ao iniciar o app (garante que role está salvo)
+      initialize: async () => {
+        const { token } = get()
+        if (!token) return
+        try {
+          const data = await authService.me()
+          // /auth/me pode retornar { user: {...} } ou o objeto direto
+          set({ user: data.user ?? data })
+        } catch {
+          // Token inválido ou expirado — desloga
+          set({ user: null, token: null })
+        }
+      },
+
       login: async (email, password) => {
         set({ loading: true })
         try {
