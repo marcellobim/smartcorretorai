@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, Search, Download } from 'lucide-react'
+import { Package, Search, Download, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import { CampaignCard } from '../components/marketing/CampaignCard'
@@ -15,6 +15,11 @@ export default function PacotesGerados() {
   const filtered = campaigns.filter((c) =>
     c.titulo?.toLowerCase().includes(search.toLowerCase())
   )
+
+  // Separa campanhas por status
+  const concluidas = filtered.filter(c => c.status === 'concluido')
+  const gerando = filtered.filter(c => c.status === 'gerando')
+  const comErro = filtered.filter(c => c.status === 'erro')
 
   const handleDownload = (campaign) => {
     if (campaign.download_url) {

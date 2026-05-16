@@ -1,6 +1,6 @@
 const crypto = require('crypto')
 const supabase = require('../services/supabase')
-const { gerarTextosCampanha } = require('../services/claude')
+const { gerarTextosCampanha } = require('../services/openai')
 const { uploadFotos } = require('../utils/storage')
 const { success, error } = require('../utils/response')
 
