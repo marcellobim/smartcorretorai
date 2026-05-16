@@ -8,6 +8,7 @@ import {
   Crown,
   LogOut,
   Zap,
+  Shield,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -51,6 +52,22 @@ export default function Sidebar() {
             {label}
           </NavLink>
         ))}
+        
+        {user?.role === 'admin' && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                isActive
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`
+            }
+          >
+            <Shield className="w-4.5 h-4.5 shrink-0" />
+            Admin
+          </NavLink>
+        )}
       </nav>
 
       <div className="px-3 py-4 border-t border-gray-100 space-y-2">
