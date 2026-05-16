@@ -76,7 +76,7 @@ export default function AdminDashboard() {
   const handleViewUser = async (userId) => {
     try {
       const response = await api.get(`/admin/users/${userId}`)
-      setSelectedUser(response.data.data)
+      setSelectedUser(response)
       setShowUserModal(true)
     } catch (error) {
       console.error('Erro ao carregar detalhes do usuário:', error)
