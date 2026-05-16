@@ -262,12 +262,19 @@ async function status(req, res, next) {
     const { id } = req.params
     const { data, error: dbError } = await supabase
       .from('campaigns')
-      .select('id, status, titulo, preview_url, redes_sociais, textos_gerados, created_at')
+      .select('id, status, titulo, preview_url, redes_sociais, textos_gerados, error_message, created_at')
       .eq('id', id)
       .eq('user_id', req.user.id)
       .single()
 
     if (dbError || !data) return error(res, 'Anúncio não encontrado', 404)
+    
+    console.log("[CAMPAIGN_STATUS_RESPONSE]", {
+      campaignId: id,
+      status: data.status,
+      error: data.error_message
+    })
+    
     return success(res, { campaign: data })
   } catch (err) {
     next(err)
