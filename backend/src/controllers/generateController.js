@@ -172,7 +172,8 @@ async function campaign(req, res, next) {
 
     res.status(202).json({ success: true, campaign: campanha, message: 'Seus anúncios estão sendo criados' })
 
-    // ── Geração em background ────────────────────────────────────
+    // Geração em background
+    console.log('=== INICIANDO GERAÇÃO ===', campanha.id)
     try {
       // Upload fotos para Storage e guarda URLs públicas em dados_imovel
       let fotosUrls = []
