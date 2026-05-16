@@ -75,6 +75,11 @@ async function credits(req, res, next) {
 
 async function campaign(req, res, next) {
   try {
+    console.log("[ROUTE_GENERATE_CAMPAIGN_HIT]", {
+      userId: req.user?.id,
+      bodyKeys: Object.keys(req.body || {})
+    });
+    
     const user = req.user
 
     // Resolve plano (Enterprise sub-usuários herdam do dono)
@@ -202,8 +207,17 @@ async function campaign(req, res, next) {
       console.error('=== ERRO GERAÇÃO ANÚNCIOS ===')
       console.error('Campanha ID:', campanha.id)
       console.error('User ID:', user.id)
-      console.error('Erro completo:', procErr)
+      console.error('Erro tipo:', procErr.name)
+      console.error('Erro mensagem:', procErr.message)
       console.error('Stack trace:', procErr.stack)
+      
+      // Log adicional para erros da API Anthropic
+      if (procErr.status) {
+        console.error('API Status:', procErr.status)
+      }
+      if (procErr.error) {
+        console.error('API Error:', JSON.stringify(procErr.error, null, 2))
+      }
 
       // Devolve crédito avulso se a geração falhou
       if (usarAvulso) {
@@ -213,11 +227,27 @@ async function campaign(req, res, next) {
           .eq('id', user.id)
       }
 
+      // Mensagem de erro mais clara para o usuário
+      let errorMessage = 'Erro ao gerar anúncios'
+      if (procErr.message) {
+        if (procErr.message.includes('API key')) {
+          errorMessage = 'Erro de configuração da API. Contate o suporte.'
+        } else if (procErr.message.includes('rate limit')) {
+          errorMessage = 'Limite de requisições atingido. Tente novamente em alguns minutos.'
+        } else if (procErr.message.includes('timeout')) {
+          errorMessage = 'Tempo limite excedido. Tente novamente.'
+        } else if (procErr.message.includes('JSON')) {
+          errorMessage = 'Erro ao processar resposta da IA. Tente novamente.'
+        } else {
+          errorMessage = procErr.message.substring(0, 200)
+        }
+      }
+
       await supabase
         .from('campaigns')
         .update({ 
           status: 'erro', 
-          error_message: procErr.message || 'Erro desconhecido',
+          error_message: errorMessage,
           updated_at: new Date().toISOString() 
         })
         .eq('id', campanha.id)
