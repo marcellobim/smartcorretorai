@@ -198,35 +198,16 @@ Adapte todo o tom, vocabulário e argumentos de venda ao perfil da categoria. Os
   }
   userContent.push({ type: 'text', text: prompt })
 
-  // Modelo principal: claude-sonnet-4-20250514
-  // Fallback: claude-3-5-haiku-20241022
-  let model = 'claude-sonnet-4-20250514'
-  console.log("[CLAUDE_MODEL_ACTIVE]", model)
+  // Modelo forçado: apenas claude-3-haiku-20240307 (compatível)
+  const model = 'claude-3-haiku-20240307'
+  console.log("[FINAL_ANTHROPIC_MODEL]", 'claude-3-haiku-20240307')
   
-  let response
-  try {
-    response = await anthropic.messages.create({
-      model,
-      max_tokens: 6000,
-      temperature: 1,
-      messages: [{ role: 'user', content: userContent }],
-    })
-  } catch (error) {
-    if (error.status === 404 || error.message?.includes('model_not_found')) {
-      console.log("[CLAUDE_MODEL_FALLBACK] Tentando fallback para claude-3-5-haiku-20241022")
-      model = 'claude-3-5-haiku-20241022'
-      console.log("[CLAUDE_MODEL_ACTIVE]", model)
-      
-      response = await anthropic.messages.create({
-        model,
-        max_tokens: 6000,
-        temperature: 1,
-        messages: [{ role: 'user', content: userContent }],
-      })
-    } else {
-      throw error
-    }
-  }
+  const response = await anthropic.messages.create({
+    model: 'claude-3-haiku-20240307',
+    max_tokens: 6000,
+    temperature: 1,
+    messages: [{ role: 'user', content: userContent }],
+  })
 
   const textBlock = response.content.find(b => b.type === 'text')
   if (!textBlock) {
