@@ -194,9 +194,13 @@ Adapte todo o tom, vocabulário e argumentos de venda ao perfil da categoria. Os
   }
   userContent.push({ type: 'text', text: prompt })
 
+  const model = 'claude-3-5-sonnet-latest'
+  console.log("[CLAUDE_MODEL]", model)
+  
   const response = await anthropic.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
+    model,
     max_tokens: 6000,
+    temperature: 1,
     messages: [{ role: 'user', content: userContent }],
   })
 
