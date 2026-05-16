@@ -1,6 +1,10 @@
 const Anthropic = require('@anthropic-ai/sdk')
+const packageJson = require('../../package.json')
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+// Log da versão do SDK
+console.log("[ANTHROPIC_SDK_VERSION]", packageJson.dependencies['@anthropic-ai/sdk'])
 
 const CATEGORIA_CONFIG = {
   alto_padrao: {
@@ -194,15 +198,35 @@ Adapte todo o tom, vocabulário e argumentos de venda ao perfil da categoria. Os
   }
   userContent.push({ type: 'text', text: prompt })
 
-  const model = 'claude-3-haiku-20240307'
+  // Modelo principal: claude-sonnet-4-20250514
+  // Fallback: claude-3-5-haiku-20241022
+  let model = 'claude-sonnet-4-20250514'
   console.log("[CLAUDE_MODEL_ACTIVE]", model)
   
-  const response = await anthropic.messages.create({
-    model,
-    max_tokens: 6000,
-    temperature: 1,
-    messages: [{ role: 'user', content: userContent }],
-  })
+  let response
+  try {
+    response = await anthropic.messages.create({
+      model,
+      max_tokens: 6000,
+      temperature: 1,
+      messages: [{ role: 'user', content: userContent }],
+    })
+  } catch (error) {
+    if (error.status === 404 || error.message?.includes('model_not_found')) {
+      console.log("[CLAUDE_MODEL_FALLBACK] Tentando fallback para claude-3-5-haiku-20241022")
+      model = 'claude-3-5-haiku-20241022'
+      console.log("[CLAUDE_MODEL_ACTIVE]", model)
+      
+      response = await anthropic.messages.create({
+        model,
+        max_tokens: 6000,
+        temperature: 1,
+        messages: [{ role: 'user', content: userContent }],
+      })
+    } else {
+      throw error
+    }
+  }
 
   const textBlock = response.content.find(b => b.type === 'text')
   if (!textBlock) {
