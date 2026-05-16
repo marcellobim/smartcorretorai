@@ -194,8 +194,8 @@ Adapte todo o tom, vocabulário e argumentos de venda ao perfil da categoria. Os
   }
   userContent.push({ type: 'text', text: prompt })
 
-  const model = 'claude-3-5-sonnet-latest'
-  console.log("[CLAUDE_MODEL]", model)
+  const model = 'claude-3-haiku-20240307'
+  console.log("[CLAUDE_MODEL_ACTIVE]", model)
   
   const response = await anthropic.messages.create({
     model,
