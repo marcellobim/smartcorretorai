@@ -82,7 +82,7 @@ const TEXT_FORMATS_FIXOS = [
 
 const initFormatosSel = () => {
   const m = {}
-  FORMAT_GROUPS.forEach(g => { m[g.id] = new Set(g.items.map(i => i.id)) })
+  FORMAT_GROUPS.forEach(g => { m[g.id] = new Set() })
   return m
 }
 
@@ -557,7 +557,11 @@ export default function NovaCampanha() {
     const allSel = all.every(id => prev[groupId].has(id))
     return { ...prev, [groupId]: allSel ? new Set() : new Set(all) }
   })
-  const selecionarTudo = () => setFormatosSel(initFormatosSel)
+  const selecionarTudo = () => {
+    const m = {}
+    FORMAT_GROUPS.forEach(g => { m[g.id] = new Set(g.items.map(i => i.id)) })
+    setFormatosSel(m)
+  }
 
   // Anúncios disponíveis e popup de confirmação
   const [creditos, setCreditos] = useState(null) // { plano, limite_mensal, restantes_mes, creditos_avulsos, total_disponivel }
@@ -609,6 +613,14 @@ export default function NovaCampanha() {
   // ── Abre popup de confirmação ──
   const confirmarGeracao = () => {
     if (!podaGerar) { toast.error('Preencha os campos obrigatórios'); return }
+    
+    // Validar se pelo menos um formato foi selecionado
+    const totalSelecionados = Object.values(formatosSel).reduce((acc, set) => acc + set.size, 0)
+    if (totalSelecionados === 0) {
+      toast.error('Selecione pelo menos um formato para gerar sua campanha.')
+      return
+    }
+    
     setShowConfirm(true)
   }
 
@@ -649,7 +661,8 @@ export default function NovaCampanha() {
             setTimeout(() => setShowAgendamento(true), 1800)
           } else if (camp.status === 'erro') {
             clearInterval(pollRef.current)
-            toast.error('Ocorreu um erro ao gerar. Tente novamente.')
+            const errorMsg = camp.error_message || 'Ocorreu um erro ao gerar os anúncios. Tente novamente.'
+            toast.error(errorMsg, { duration: 6000 })
             setFase('form')
           }
         } catch { /* ignora */ }
