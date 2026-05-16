@@ -1,3 +1,5 @@
+console.log("[GENERATE_ROUTE_FILE_LOADED]");
+
 const router = require('express').Router()
 const rateLimit = require('express-rate-limit')
 const { campaign, status, credits } = require('../controllers/generateController')
@@ -12,6 +14,7 @@ const generateLimiter = rateLimit({
 router.use(authMiddleware)
 
 router.get('/credits', credits)
+console.log("[POST_GENERATE_CAMPAIGN_ROUTE_REGISTERED]");
 router.post('/campaign', generateLimiter, campaign)
 router.get('/campaign/:id/status', status)
 

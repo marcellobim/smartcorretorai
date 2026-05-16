@@ -74,12 +74,12 @@ async function credits(req, res, next) {
 }
 
 async function campaign(req, res, next) {
+  console.log("[ROUTE_GENERATE_CAMPAIGN_HIT]", {
+    userId: req.user?.id,
+    bodyKeys: Object.keys(req.body || {})
+  });
+  
   try {
-    console.log("[ROUTE_GENERATE_CAMPAIGN_HIT]", {
-      userId: req.user?.id,
-      bodyKeys: Object.keys(req.body || {})
-    });
-    
     const user = req.user
 
     // Resolve plano (Enterprise sub-usuários herdam do dono)
