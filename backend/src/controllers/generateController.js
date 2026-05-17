@@ -79,6 +79,16 @@ async function campaign(req, res, next) {
     bodyKeys: Object.keys(req.body || {})
   });
   
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("🔍 [DIAGNÓSTICO] PAYLOAD RECEBIDO:");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("User ID:", req.user?.id);
+  console.log("User Email:", req.user?.email);
+  console.log("User Plano:", req.user?.plano);
+  console.log("Dados do Imóvel:", JSON.stringify(req.body, null, 2));
+  console.log("Número de fotos:", req.body.fotos?.length || 0);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  
   try {
     const user = req.user
 
@@ -183,7 +193,13 @@ async function campaign(req, res, next) {
       // Upload fotos para Storage e guarda URLs públicas em dados_imovel
       let fotosUrls = []
       if (fotosBase64?.length) {
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📸 [DIAGNÓSTICO] UPLOAD DE FOTOS:");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("Quantidade de fotos:", fotosBase64.length);
         fotosUrls = await uploadFotos(fotosBase64, campanha.id)
+        console.log("URLs geradas:", fotosUrls);
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         if (fotosUrls.length) {
           await supabase
             .from('campaigns')
@@ -192,9 +208,39 @@ async function campaign(req, res, next) {
         }
       }
 
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🤖 [DIAGNÓSTICO] CHAMANDO OPENAI GPT-4o-mini:");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Dados enviados para IA:", {
+        categoria: req.body.categoria,
+        tipo: req.body.tipo,
+        quartos: req.body.quartos,
+        preco: req.body.preco,
+        cidade: req.body.cidade,
+        tem_fotos: fotosUrls.length > 0
+      });
+      
       const textos = await gerarTextosCampanha(req.body)
+      
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("✅ [DIAGNÓSTICO] RESPOSTA DA OPENAI:");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Título da campanha:", textos.titulo_campanha);
+      console.log("Textos gerados:", Object.keys(textos.textos || {}));
+      console.log("Instagram Feed:", textos.textos?.instagram_feed ? "✅ OK" : "❌ FALTANDO");
+      console.log("WhatsApp:", textos.textos?.whatsapp ? "✅ OK" : "❌ FALTANDO");
+      console.log("Portais:", textos.textos?.portais ? "✅ OK" : "❌ FALTANDO");
+      console.log("JSON completo válido:", typeof textos === 'object' ? "✅ SIM" : "❌ NÃO");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-      await supabase
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("💾 [DIAGNÓSTICO] SALVANDO NO SUPABASE:");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Campaign ID:", campanha.id);
+      console.log("Status:", "concluido");
+      console.log("Título:", textos.titulo_campanha || titulo);
+      
+      const updateResult = await supabase
         .from('campaigns')
         .update({
           status: 'concluido',
@@ -203,6 +249,22 @@ async function campaign(req, res, next) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', campanha.id)
+      
+      if (updateResult.error) {
+        console.log("❌ ERRO ao salvar no Supabase:", updateResult.error);
+      } else {
+        console.log("✅ Campanha salva com sucesso no Supabase");
+      }
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // TODO: Integração com Creatomate será feita após validar textos
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🎬 [DIAGNÓSTICO] CREATOMATE:");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Status: ⏸️ PAUSADO (aguardando validação dos textos)");
+      console.log("Categoria:", campanha.dados_imovel?.categoria || 'medio_padrao');
+      console.log("Fotos disponíveis:", fotosUrls.length);
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     } catch (procErr) {
       console.error('=== ERRO GERAÇÃO ANÚNCIOS ===')
       console.error('Campanha ID:', campanha.id)
