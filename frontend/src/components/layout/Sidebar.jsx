@@ -10,7 +10,7 @@ import {
   Zap,
   Shield,
 } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth } from '../../lib/auth-context'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
