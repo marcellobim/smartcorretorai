@@ -11,21 +11,26 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const { register: authRegister, loading } = useAuth()
   const navigate = useNavigate()
-  const { register, handleSubmit, watch, formState: { errors } } = useForm()
+  const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
     try {
       await authRegister({
-        nome: data.nome,
         email: data.email,
-        senha: data.senha,
+        password: data.senha,
+        nome: data.nome,
+        telefone: data.telefone,
         creci: data.creci,
         estado: data.estado,
       })
-      toast.success('Conta criada! Bem-vindo ao SmartCorretorAI!')
-      navigate('/dashboard')
+      toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
+      navigate('/login')
     } catch (err) {
-      toast.error(err.message)
+      if (err.message.includes('User already registered')) {
+        toast.error('Este email já está cadastrado.')
+      } else {
+        toast.error(err.message)
+      }
     }
   }
 
@@ -63,6 +68,17 @@ export default function RegisterPage() {
             {...register('email', {
               required: 'E-mail obrigatório',
               pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+            })}
+          />
+
+          <Input
+            label="Telefone / WhatsApp"
+            type="tel"
+            placeholder="(11) 99999-9999"
+            error={errors.telefone?.message}
+            {...register('telefone', {
+              required: 'Telefone obrigatório',
+              pattern: { value: /^[\d\s\(\)\-\+]{10,15}$/, message: 'Telefone inválido' },
             })}
           />
 

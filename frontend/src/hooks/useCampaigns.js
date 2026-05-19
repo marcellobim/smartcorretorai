@@ -1,45 +1,65 @@
-import { useState, useEffect, useCallback } from 'react'
-import api from '../services/api'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { api } from '../services/api'
 import toast from 'react-hot-toast'
 
 export function useCampaigns() {
   const [campaigns, setCampaigns] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
 
-  const fetch = useCallback(async (params = {}) => {
-    setLoading(true)
+  const fetch = async (params = {}) => {
     try {
-      const data = await api.get('/campaigns', { params })
-      setCampaigns(data.campaigns)
+      setLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setCampaigns(data || [])
     } catch (err) {
-      toast.error(err.message)
+      toast.error('Erro ao carregar campanhas')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
-  const generate = useCallback(async (payload) => {
-    setGenerating(true)
+  const generate = async (payload) => {
     try {
-      const data = await api.post('/generate/campaign', payload)
-      setCampaigns((prev) => [data.campaign, ...prev])
-      toast.success('Pacote de marketing gerado com sucesso!')
-      return data.campaign
+      setGenerating(true)
+      const data = await api.post('/gerar-campanha', payload)
+      setCampaigns((prev) => [data.campanha, ...prev])
+      toast.success('Campanha gerada com sucesso!')
+      return data
     } catch (err) {
-      toast.error(err.message)
+      toast.error(err.message || 'Erro ao gerar campanha')
       throw err
     } finally {
       setGenerating(false)
     }
-  }, [])
+  }
 
-  const remove = useCallback(async (id) => {
-    await api.delete(`/campaigns/${id}`)
-    setCampaigns((prev) => prev.filter((c) => c.id !== id))
-  }, [])
+  const remove = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', id)
 
-  useEffect(() => { fetch() }, [fetch])
+      if (error) throw error
+      setCampaigns((prev) => prev.filter((c) => c.id !== id))
+      toast.success('Campanha removida')
+    } catch (err) {
+      toast.error('Erro ao remover campanha')
+    }
+  }
+
+  useEffect(() => { fetch() }, [])
 
   return { campaigns, loading, generating, fetch, generate, remove }
 }

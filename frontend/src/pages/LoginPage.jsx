@@ -24,13 +24,14 @@ export default function LoginPage() {
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
     } catch (err) {
-      // Verificar se o erro é de email não confirmado
-      if (err.message.includes('Verifique seu email') || err.message.includes('ativar sua conta')) {
+      if (err.message.includes('Email not confirmed')) {
         setShowResendButton(true)
+        toast.error('Confirme seu email antes de fazer login.')
+      } else if (err.message.includes('Invalid login credentials')) {
+        toast.error('Email ou senha incorretos.')
       } else {
-        setShowResendButton(false)
+        toast.error(err.message)
       }
-      toast.error(err.message)
     }
   }
 
@@ -39,7 +40,6 @@ export default function LoginPage() {
       toast.error('Por favor, insira seu e-mail primeiro')
       return
     }
-
     setResendingEmail(true)
     try {
       await authService.resendConfirmation(userEmail)
