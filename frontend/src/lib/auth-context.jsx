@@ -62,18 +62,31 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  const reloadProfile = useCallback(async () => {
+    if (authUser?.id) return loadProfile(authUser.id)
+    return null
+  }, [authUser?.id, loadProfile])
+
+  const updateUser = (partial) => {
+    setProfile((prev) => ({ ...(prev || {}), ...(partial || {}) }))
+  }
+
   const user = authUser ? { ...authUser, ...(profile || {}) } : null
   const isPro = !!(profile?.plano && profile.plano !== 'starter')
+  const isAuthenticated = !!authUser
 
   const value = {
     user,
     profile,
     loading,
+    isAuthenticated,
     init,
     signIn,
     signUp,
     signOut,
     logout: signOut,
+    reloadProfile,
+    updateUser,
     isPro,
   }
 

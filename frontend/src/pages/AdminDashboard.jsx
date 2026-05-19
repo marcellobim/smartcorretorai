@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import api from '../services/api'
+import toast from 'react-hot-toast'
+import { useAuthStore } from '../lib/auth-context'
+import { supabase } from '../lib/supabase'
 import {
   Users,
   TrendingUp,
@@ -45,18 +46,30 @@ export default function AdminDashboard() {
   }, [user, navigate])
 
   const loadStats = async () => {
-    try {
-      const response = await api.get('/admin/stats')
-      setStats(response)
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error)
-    }
+    const [{ count: totalUsers }, { count: totalCampaigns }] = await Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      supabase.from('campaigns').select('id', { count: 'exact', head: true }),
+    ])
+    setStats({
+      users: { total: totalUsers || 0, newToday: 0, online: 0, byPlan: {} },
+      campaigns: { total: totalCampaigns || 0, today: 0 },
+      revenue: {
+        today: 0, month: 0, year: 0, mrr: 0,
+        byPlan: { start: 0, pro: 0, imobiliaria: 0 },
+        avulsoSales: { avulso5: { count: 0, revenue: 0 }, avulso10: { count: 0, revenue: 0 } },
+      },
+    })
   }
 
   const loadUsers = async () => {
     try {
-      const response = await api.get('/admin/users?limit=100')
-      setUsers(response.users)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      setUsers((data || []).map((u) => ({ ...u, totalCampaigns: 0 })))
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
     } finally {
@@ -66,8 +79,13 @@ export default function AdminDashboard() {
 
   const loadCampaigns = async () => {
     try {
-      const response = await api.get('/admin/campaigns?limit=50')
-      setCampaigns(response.campaigns)
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*, profiles(nome, email)')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      setCampaigns(data || [])
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error)
     }
@@ -75,60 +93,44 @@ export default function AdminDashboard() {
 
   const handleViewUser = async (userId) => {
     try {
-      const response = await api.get(`/admin/users/${userId}`)
-      setSelectedUser(response)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (error) throw error
+      setSelectedUser({
+        user: data,
+        stats: { totalCampaigns: 0, totalProperties: 0 },
+      })
       setShowUserModal(true)
     } catch (error) {
       console.error('Erro ao carregar detalhes do usuário:', error)
-      alert('Erro ao carregar detalhes do usuário')
+      toast.error('Erro ao carregar detalhes do usuário')
     }
   }
 
   const handleUpdateUser = async (userId, updates) => {
     try {
-      await api.put(`/admin/users/${userId}`, updates)
-      alert('Usuário atualizado com sucesso!')
+      const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
+      if (error) throw error
+      toast.success('Usuário atualizado')
       loadUsers()
       setShowUserModal(false)
     } catch (error) {
       console.error('Erro ao atualizar usuário:', error)
-      alert('Erro ao atualizar usuário')
+      toast.error('Erro ao atualizar usuário')
     }
   }
 
-  const handleDeleteUser = async (userId) => {
-    if (!confirm('Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.')) {
-      return
-    }
-
-    try {
-      await api.delete(`/admin/users/${userId}`)
-      alert('Usuário deletado com sucesso!')
-      loadUsers()
-      setShowUserModal(false)
-    } catch (error) {
-      console.error('Erro ao deletar usuário:', error)
-      alert('Erro ao deletar usuário')
-    }
+  const handleDeleteUser = async () => {
+    toast('Exclusão de usuário chega em breve (precisa de Edge Function admin).', { icon: '🚧' })
   }
 
   const handleAdjustCredits = async () => {
-    if (!selectedUser || !creditAmount) return
-
-    try {
-      await api.post(`/admin/users/${selectedUser.user.id}/credits`, {
-        amount: parseInt(creditAmount),
-        operation: creditOperation,
-      })
-      alert('Créditos ajustados com sucesso!')
-      setCreditAmount('')
-      setShowCreditModal(false)
-      handleViewUser(selectedUser.user.id)
-      loadUsers()
-    } catch (error) {
-      console.error('Erro ao ajustar créditos:', error)
-      alert('Erro ao ajustar créditos')
-    }
+    toast('Ajuste de créditos chega em breve.', { icon: '🚧' })
+    setShowCreditModal(false)
+    setCreditAmount('')
   }
 
   const formatCurrency = (value) => {

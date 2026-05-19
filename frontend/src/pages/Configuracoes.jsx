@@ -6,8 +6,8 @@ import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import { Input, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
-import { useAuth } from '../hooks/useAuth'
-import api from '../services/api'
+import { useAuth } from '../lib/auth-context'
+import { supabase } from '../lib/supabase'
 
 const tabs = [
   { id: 'perfil',      label: 'Perfil',          icon: User },
@@ -19,52 +19,18 @@ const tabs = [
 
 // ── Instagram Status Card ────────────────────────────────────────────────────
 function InstagramCard() {
-  const [status, setStatus] = useState(null) // null=loading, {}=loaded
+  const [status] = useState({ conectado: false, username: null })
   const [conectando, setConectando] = useState(false)
-  const [desconectando, setDesconectando] = useState(false)
-
-  const carregarStatus = async () => {
-    try {
-      const data = await api.get('/social/instagram/status')
-      setStatus(data)
-    } catch {
-      setStatus({ conectado: false, username: null })
-    }
-  }
-
-  useEffect(() => { carregarStatus() }, [])
+  const [desconectando] = useState(false)
 
   const conectar = async () => {
     setConectando(true)
-    try {
-      const data = await api.get('/social/instagram/connect')
-      window.location.href = data.url
-    } catch (err) {
-      toast.error(err.message || 'Erro ao iniciar conexão com Instagram')
-      setConectando(false)
-    }
+    toast('Conexão com Instagram chega em breve.', { icon: '🚧' })
+    setTimeout(() => setConectando(false), 600)
   }
 
   const desconectar = async () => {
-    if (!window.confirm('Tem certeza que deseja desconectar o Instagram?')) return
-    setDesconectando(true)
-    try {
-      await api.delete('/social/instagram/disconnect')
-      toast.success('Instagram desconectado')
-      setStatus({ conectado: false, username: null })
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setDesconectando(false)
-    }
-  }
-
-  if (!status) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-      </div>
-    )
+    toast('Em breve.', { icon: '🚧' })
   }
 
   return (
@@ -186,19 +152,31 @@ export default function Configuracoes() {
 
   const onSavePerfil = async (data) => {
     try {
-      const res = await api.put('/users/me', data)
-      updateUser(res.user)
+      const { data: updated, error } = await supabase
+        .from('profiles')
+        .update({
+          nome: data.nome,
+          creci: data.creci,
+          estado: data.estado,
+          telefone: data.telefone,
+        })
+        .eq('id', user.id)
+        .select()
+        .single()
+      if (error) throw error
+      updateUser(updated)
       toast.success('Perfil atualizado!')
-    } catch (err) { toast.error(err.message) }
+    } catch (err) { toast.error(err.message || 'Erro ao salvar perfil') }
   }
 
   const onSaveSenha = async (data) => {
     if (data.nova_senha !== data.confirmar_senha) { toast.error('As senhas não conferem'); return }
     try {
-      await api.put('/users/me/password', { senha_atual: data.senha_atual, nova_senha: data.nova_senha })
+      const { error } = await supabase.auth.updateUser({ password: data.nova_senha })
+      if (error) throw error
       toast.success('Senha alterada!')
       resetSenha()
-    } catch (err) { toast.error(err.message) }
+    } catch (err) { toast.error(err.message || 'Erro ao alterar senha') }
   }
 
   return (

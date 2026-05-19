@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Zap, Eye, EyeOff, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../hooks/useAuth'
-import { authService } from '../services/auth'
+import { useAuth } from '../lib/auth-context'
+import { supabase } from '../lib/supabase'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 
@@ -13,25 +13,29 @@ export default function LoginPage() {
   const [showResendButton, setShowResendButton] = useState(false)
   const [resendingEmail, setResendingEmail] = useState(false)
   const [userEmail, setUserEmail] = useState('')
-  const { login, loading } = useAuth()
+  const [loading, setLoading] = useState(false)
+  const { signIn } = useAuth()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
+    setLoading(true)
     try {
       setUserEmail(data.email)
-      await login(data.email, data.senha)
+      await signIn(data.email, data.senha)
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
     } catch (err) {
-      if (err.message.includes('Email not confirmed')) {
+      if (err.message?.includes('Email not confirmed')) {
         setShowResendButton(true)
         toast.error('Confirme seu email antes de fazer login.')
-      } else if (err.message.includes('Invalid login credentials')) {
+      } else if (err.message?.includes('Invalid login credentials')) {
         toast.error('Email ou senha incorretos.')
       } else {
-        toast.error(err.message)
+        toast.error(err.message || 'Erro ao fazer login')
       }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -42,7 +46,8 @@ export default function LoginPage() {
     }
     setResendingEmail(true)
     try {
-      await authService.resendConfirmation(userEmail)
+      const { error } = await supabase.auth.resend({ type: 'signup', email: userEmail })
+      if (error) throw error
       toast.success('E-mail de confirmação reenviado! Verifique sua caixa de entrada.')
       setShowResendButton(false)
     } catch (err) {

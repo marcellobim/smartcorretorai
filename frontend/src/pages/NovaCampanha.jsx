@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
-import api from '../services/api'
+import { supabase } from '../lib/supabase'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -568,12 +568,14 @@ export default function NovaCampanha() {
   const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
-    api.get('/social/instagram/status')
-      .then(d => setIgConectado(!!d?.conectado))
-      .catch(() => {})
-    api.get('/generate/credits')
-      .then(d => setCreditos(d))
-      .catch(() => {})
+    setIgConectado(false)
+    setCreditos({
+      plano: 'starter',
+      limite_mensal: 5,
+      restantes_mes: 5,
+      creditos_avulsos: 0,
+      total_disponivel: 5,
+    })
   }, [])
 
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
@@ -634,40 +636,56 @@ export default function NovaCampanha() {
         ...diferenciais,
         ...(difCustom.trim() ? [difCustom.trim()] : []),
       ]
-      const data = await api.post('/generate/campaign', {
-        categoria, tipo, finalidade, quartos, banheiros, vagas,
-        area: area || null, preco, bairro, cidade,
-        diferenciais: todosDisferenciais,
-        telefone_contato: telefone,
-        fotos: fotos.map(f => ({ dados: f.dados, tipo: f.tipo })),
-        redes_sociais: ['instagram_feed', 'instagram_stories', 'whatsapp', 'facebook', 'tiktok'],
-        formatos_selecionados: Object.fromEntries(
-          Object.entries(formatosSel).map(([gId, s]) => [gId, [...s]])
-        ),
+
+      // Upload das fotos para Supabase Storage antes de invocar a Edge Function
+      const fotos_urls = []
+      for (let i = 0; i < fotos.length; i++) {
+        const f = fotos[i]
+        const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
+        const blob = new Blob([bin], { type: f.tipo })
+        const path = `campaigns/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}.jpg`
+        const { error: upErr } = await supabase.storage
+          .from('smartcorretor-assets')
+          .upload(path, blob, { contentType: f.tipo, upsert: false })
+        if (upErr) throw upErr
+        const { data: pub } = supabase.storage
+          .from('smartcorretor-assets')
+          .getPublicUrl(path)
+        fotos_urls.push(pub.publicUrl)
+      }
+
+      const { data, error } = await supabase.functions.invoke('gerar-campanha', {
+        body: {
+          categoria,
+          tipo,
+          dados: {
+            finalidade, quartos, banheiros, vagas,
+            area: area || null, preco, bairro, cidade,
+            diferenciais: todosDisferenciais,
+            telefone_contato: telefone,
+            formatos_selecionados: Object.fromEntries(
+              Object.entries(formatosSel).map(([gId, s]) => [gId, [...s]])
+            ),
+          },
+          fotos_urls,
+          redes_sociais: ['instagram_feed', 'instagram_stories', 'whatsapp', 'facebook', 'tiktok'],
+        },
       })
-      const id = data.campaign.id
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await api.get(`/generate/campaign/${id}/status`)
-          const camp = res.campaign
-          if (camp.status === 'concluido') {
-            clearInterval(pollRef.current)
-            setResultado(camp)
-            setCampanhaId(camp.id)
-            setIgPostado(false)
-            setFase('resultado')
-            api.get('/generate/credits').then(d => setCreditos(d)).catch(() => {})
-            // Pergunta sobre agendamento após 1.8s (tempo das animações)
-            setTimeout(() => setShowAgendamento(true), 1800)
-          } else if (camp.status === 'erro') {
-            clearInterval(pollRef.current)
-            const errorMsg = camp.error_message || 'Ocorreu um erro ao gerar os anúncios. Tente novamente.'
-            toast.error(errorMsg, { duration: 6000 })
-            setFase('form')
-          }
-        } catch { /* ignora */ }
-      }, 3000)
-    } catch { setFase('form') }
+      if (error) throw error
+
+      // Edge Function é síncrona — atraso artificial para exibir a animação "gerando..."
+      await new Promise((r) => setTimeout(r, 1800))
+
+      const camp = data.campanha
+      setResultado(camp)
+      setCampanhaId(camp.id)
+      setIgPostado(false)
+      setFase('resultado')
+      setTimeout(() => setShowAgendamento(true), 1800)
+    } catch (err) {
+      toast.error(err.message || 'Erro ao gerar campanha')
+      setFase('form')
+    }
   }
 
   // ── Copiar / WA / Download ──
@@ -693,43 +711,12 @@ export default function NovaCampanha() {
   }
 
   const postarNoInstagram = async () => {
-    if (!campanhaId) return
-    setPostando(true)
-    try {
-      await api.post('/social/instagram/post', { campaign_id: campanhaId })
-      toast.success('Publicado no Instagram!')
-      setIgPostado(true)
-    } catch (err) {
-      toast.error(err.message || 'Erro ao postar no Instagram')
-    } finally {
-      setPostando(false)
-    }
+    toast('Publicação no Instagram chega em breve.', { icon: '🚧' })
   }
 
   // ── Gerar banners e vídeos via Creatomate ──
   const gerarBanners = async () => {
-    if (!campanhaId || gerandoBanners) return
-    setGerandoBanners(true)
-    try {
-      await api.post(`/render/campaign/${campanhaId}`, { fotos: fotos.map(f => ({ dados: f.dados, tipo: f.tipo })) })
-      toast.success('Geração de banners iniciada!')
-      renderPollRef.current = setInterval(async () => {
-        try {
-          const res = await api.get(`/render/campaign/${campanhaId}/status`)
-          const r = res.renders
-          if (!r) return
-          setRenders(r)
-          const emAndamento = Object.values(r).some(x => x.status === 'planned' || x.status === 'rendering')
-          if (!emAndamento) {
-            clearInterval(renderPollRef.current)
-            setGerandoBanners(false)
-          }
-        } catch { /* ignora */ }
-      }, 6000)
-    } catch (err) {
-      toast.error(err.message || 'Erro ao iniciar geração de banners')
-      setGerandoBanners(false)
-    }
+    toast('Geração de banners/vídeos (Creatomate) chega em breve.', { icon: '🚧' })
   }
 
   // ════════════════════════════════════════════════════════════

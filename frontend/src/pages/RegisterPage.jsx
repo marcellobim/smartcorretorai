@@ -3,21 +3,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Zap, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../lib/auth-context'
 import { Input, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const { register: authRegister, loading } = useAuth()
+  const [loading, setLoading] = useState(false)
+  const { signUp } = useAuth()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
+    setLoading(true)
     try {
-      await authRegister({
-        email: data.email,
-        password: data.senha,
+      await signUp(data.email, data.senha, {
         nome: data.nome,
         telefone: data.telefone,
         creci: data.creci,
@@ -26,11 +26,13 @@ export default function RegisterPage() {
       toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
     } catch (err) {
-      if (err.message.includes('User already registered')) {
+      if (err.message?.includes('User already registered')) {
         toast.error('Este email já está cadastrado.')
       } else {
-        toast.error(err.message)
+        toast.error(err.message || 'Erro ao criar conta')
       }
+    } finally {
+      setLoading(false)
     }
   }
 

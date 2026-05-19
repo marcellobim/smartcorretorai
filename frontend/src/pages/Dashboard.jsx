@@ -3,7 +3,7 @@ import { Building2, Sparkles, Package, TrendingUp, ArrowRight, Clock, Zap } from
 import Header from '../components/layout/Header'
 import { StatsCard } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../lib/auth-context'
 import { formatDateTime } from '../utils/formatters'
 
 const recentActivity = [

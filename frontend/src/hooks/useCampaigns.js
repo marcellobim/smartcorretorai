@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { api } from '../services/api'
 import toast from 'react-hot-toast'
 
 export function useCampaigns() {
@@ -32,8 +31,9 @@ export function useCampaigns() {
   const generate = async (payload) => {
     try {
       setGenerating(true)
-      const data = await api.post('/gerar-campanha', payload)
-      setCampaigns((prev) => [data.campanha, ...prev])
+      const { data, error } = await supabase.functions.invoke('gerar-campanha', { body: payload })
+      if (error) throw error
+      if (data?.campanha) setCampaigns((prev) => [data.campanha, ...prev])
       toast.success('Campanha gerada com sucesso!')
       return data
     } catch (err) {

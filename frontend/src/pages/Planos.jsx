@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Check, Zap, ArrowLeft, Sparkles, Info } from 'lucide-react'
-import { useAuth } from '../hooks/useAuth'
-import api from '../services/api'
+import { useAuth } from '../lib/auth-context'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 
@@ -107,14 +106,8 @@ export default function Planos() {
   const assinar = async (planId) => {
     if (!isAuthenticated) return
     setLoadingPlan(planId)
-    try {
-      const res = await api.post('/subscriptions/checkout', { plan_id: planId })
-      window.location.href = res.checkout_url
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setLoadingPlan(null)
-    }
+    toast('Checkout chega em breve. Fale com a gente pelo contato@smartcorretorai.com.br', { icon: '🚧', duration: 5000 })
+    setTimeout(() => setLoadingPlan(null), 600)
   }
 
   return (
