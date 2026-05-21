@@ -81,16 +81,24 @@ export default function Sidebar() {
           </NavLink>
         )}
 
-        <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-primary-700">
-              {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{user?.nome || 'Usuário'}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.email}</p>
-          </div>
+        {(() => {
+          const nomeExibicao =
+            user?.displayName ||
+            user?.full_name ||
+            user?.nome ||
+            (user?.email ? user.email.split('@')[0] : null) ||
+            'Usuário'
+          return (
+            <div className="flex items-center gap-3 px-3 py-2">
+              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                <span className="text-xs font-bold text-primary-700">
+                  {nomeExibicao.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{nomeExibicao}</p>
+                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+              </div>
           <button
             onClick={logout}
             className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -99,6 +107,8 @@ export default function Sidebar() {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+            )
+          })()}
       </div>
     </aside>
   )

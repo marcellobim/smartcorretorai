@@ -3,6 +3,7 @@ import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X,
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth-context'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -17,6 +18,12 @@ const CATEGORIAS = [
 ]
 
 const TIPOS = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno', 'Sala Comercial', 'Outro']
+
+const ESTADOS_BR = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
 
 const DIFERENCIAIS_PRESET = [
   'Piscina', 'Academia', 'Churrasqueira', 'Varanda / Sacada', 'Vista para o mar',
@@ -41,16 +48,16 @@ const FORMAT_GROUPS = [
     grid: 'grid-cols-2 sm:grid-cols-5',
     cor: { sel: 'border-primary-400 bg-primary-50 text-primary-800', check: 'border-primary-500 bg-primary-500', btn: 'text-primary-600 hover:bg-primary-50', count: 'text-primary-600' },
     items: [
-      { id: 'banner_principal', nome: 'Banner Principal',    desc: 'Foto · preço · m²' },
-      { id: 'banner_dif1',      nome: 'Diferencial 1',       desc: 'Principal ponto forte' },
-      { id: 'banner_dif2',      nome: 'Diferencial 2',       desc: 'Segundo ponto forte' },
-      { id: 'stories_enquete',  nome: 'Stories Enquete',     desc: 'Você moraria aqui? Sim/Não' },
-      { id: 'stories_contato',  nome: 'Stories Contato',     desc: 'Card WhatsApp direto' },
-      { id: 'banner_feed',      nome: 'Feed Insta/Facebook', desc: 'Post quadrado para feed' },
-      { id: 'banner_linkedin',  nome: 'LinkedIn',            desc: 'Perfil profissional' },
-      { id: 'banner_google',    nome: 'Google Ads',          desc: 'Banner horizontal busca' },
-      { id: 'banner_portal',    nome: 'Portal Imobiliário',  desc: 'Otimizado para busca' },
-      { id: 'banner_whatsapp',  nome: 'WhatsApp Card',       desc: 'Envio direto' },
+      { id: '74097a36-5b5d-434a-8db7-4038e4c76f55', nome: 'SC_Banner_Luxo_01',     desc: 'Ideal para portais e Google Ads' },
+      { id: 'a637acac-6a7b-42f8-b7d8-e25361eff207', nome: 'SC_Banner_Popular_01',  desc: 'Ideal para portais e Facebook' },
+      { id: '7ab695ae-e12b-4322-87dc-eb085760dd01', nome: 'Real Estate Banner',    desc: 'Banner completo com features' },
+      { id: 'b0438295-5282-4a5e-b4eb-4fcd3d8d287b', nome: 'Real Estate Card',      desc: 'Card para portais' },
+      { id: 'f6054e9d-0d28-40b2-81a9-21d291a9897b', nome: 'Real Estate Detailed',  desc: 'Banner detalhado' },
+      { id: '96a25196-5a64-4f65-9b3e-c9c8b0d871f2', nome: 'Triple Slide Carousel', desc: 'Carrossel Instagram' },
+      { id: 'ad9f8382-ea38-4ef6-84cc-049f1b289345', nome: 'New Listing Story',     desc: 'Story novo lançamento' },
+      { id: '7fc36174-64a6-4dbb-bb92-bb957471577e', nome: 'Photo Montage',         desc: 'Montagem de fotos' },
+      { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Polaroid Photos',       desc: 'Estilo polaroid diferenciado' },
+      { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Animated Review',       desc: 'Review animado' },
     ],
   },
   {
@@ -60,10 +67,10 @@ const FORMAT_GROUPS = [
     grid: 'grid-cols-2 sm:grid-cols-4',
     cor: { sel: 'border-purple-400 bg-purple-50 text-purple-800', check: 'border-purple-500 bg-purple-500', btn: 'text-purple-600 hover:bg-purple-50', count: 'text-purple-600' },
     items: [
-      { id: 'video_reels',   nome: 'Reels Descoberta', desc: 'Alcançar novos clientes' },
-      { id: 'video_tiktok',  nome: 'TikTok Dinâmico',  desc: 'Tendência + viralização' },
-      { id: 'video_stories', nome: 'Stories com CTA',  desc: 'Arraste para cima' },
-      { id: 'video_feed',    nome: 'Feed Quadrado',    desc: 'Visualização rápida' },
+      { id: '13696443-a295-4019-802b-d504e9d3c2ac', nome: 'SC_Video_Cinematic_01',     desc: 'Vídeo cinematic para Reels e TikTok' },
+      { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'SC_Reels_Moderno_01',       desc: 'Reels moderno para Instagram' },
+      { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'SC_Story_Premium_01',       desc: 'Story premium com CTA' },
+      { id: 'c5338ec4-1f93-476a-a81c-ff0e7f2e91cf', nome: 'Real Estate Video Montage', desc: 'Montagem de vídeo profissional' },
     ],
   },
 ]
@@ -196,7 +203,6 @@ function AgendamentoPopup({ titulo, onClose }) {
 
         {!cronograma ? (
           <>
-            {/* Seleção de dias */}
             <div className="mb-4">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Dias da semana</label>
               <div className="flex gap-1.5 flex-wrap">
@@ -211,7 +217,6 @@ function AgendamentoPopup({ titulo, onClose }) {
               </div>
             </div>
 
-            {/* Horário */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Horário de publicação</label>
               <div className="flex gap-2 flex-wrap">
@@ -334,8 +339,6 @@ function TikTokPlayer({ roteiro }) {
     <div className="mx-auto relative rounded-3xl overflow-hidden shadow-2xl border border-white/10"
          style={{ width: '200px', aspectRatio: '9/16', background: 'linear-gradient(135deg, #1a0533, #0d0d0d, #1a0533)' }}>
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-transparent to-pink-900/30" />
-
-      {/* Progress bars */}
       <div className="absolute top-4 left-3 right-3 flex gap-0.5">
         {cenas.map((_, i) => (
           <div key={i} className="flex-1 h-0.5 rounded-full bg-white/25 overflow-hidden">
@@ -343,16 +346,12 @@ function TikTokPlayer({ roteiro }) {
           </div>
         ))}
       </div>
-
-      {/* Cena */}
       <div className="absolute inset-x-3 top-1/3 bottom-24 flex items-center justify-center text-center">
         <p className={`text-white text-xs font-semibold leading-relaxed transition-all duration-350 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}
            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
           {cenas[idx] || ''}
         </p>
       </div>
-
-      {/* Side actions */}
       <div className="absolute right-2.5 bottom-28 flex flex-col gap-3.5 items-center">
         {[['❤️', '2,3k'], ['💬', '84'], ['↗️', '412']].map(([icon, count]) => (
           <div key={icon} className="flex flex-col items-center gap-0.5">
@@ -361,8 +360,6 @@ function TikTokPlayer({ roteiro }) {
           </div>
         ))}
       </div>
-
-      {/* Controls */}
       <div className="absolute bottom-5 left-3 right-12 flex items-center justify-center gap-2.5">
         <button onClick={() => goTo(idx - 1)} className="w-7 h-7 bg-white/15 rounded-full text-white text-xs flex items-center justify-center hover:bg-white/25">⏮</button>
         <button onClick={() => setPlaying(p => !p)} className="w-9 h-9 bg-white/25 rounded-full text-white text-sm flex items-center justify-center hover:bg-white/35">
@@ -370,7 +367,6 @@ function TikTokPlayer({ roteiro }) {
         </button>
         <button onClick={() => goTo(idx + 1)} className="w-7 h-7 bg-white/15 rounded-full text-white text-xs flex items-center justify-center hover:bg-white/25">⏭</button>
       </div>
-
       <div className="absolute top-8 right-3 text-white/50 text-xs">{idx + 1}/{cenas.length}</div>
     </div>
   )
@@ -508,10 +504,9 @@ async function resizeFoto(file, maxPx = 900) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  // Fases: 'form' | 'gerando' | 'resultado'
+  const { user: authedUser } = useAuth()
   const [fase, setFase] = useState('form')
 
-  // Formulário
   const [categoria, setCategoria] = useState(null)
   const [tipo, setTipo] = useState('')
   const [finalidade, setFinalidade] = useState('Venda')
@@ -522,12 +517,14 @@ export default function NovaCampanha() {
   const [preco, setPreco] = useState('')
   const [bairro, setBairro] = useState('')
   const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
+  const [cidades, setCidades] = useState([])
+  const [carregandoCidades, setCarregandoCidades] = useState(false)
   const [diferenciais, setDiferenciais] = useState([])
   const [difCustom, setDifCustom] = useState('')
-  const [fotos, setFotos] = useState([]) // { preview, dados, tipo }
+  const [fotos, setFotos] = useState([])
   const [telefone, setTelefone] = useState('')
 
-  // Geração
   const [msgIdx, setMsgIdx] = useState(0)
   const [resultado, setResultado] = useState(null)
   const [campanhaId, setCampanhaId] = useState(null)
@@ -538,12 +535,10 @@ export default function NovaCampanha() {
   const pollRef = useRef(null)
   const fileRef = useRef(null)
 
-  // Seleção de formatos por grupo
   const [formatosSel, setFormatosSel] = useState(initFormatosSel)
   const [showAgendamento, setShowAgendamento] = useState(false)
 
-  // Creatomate — geração de banners e vídeos
-  const [renders, setRenders] = useState(null) // _renders do DB
+  const [renders, setRenders] = useState(null)
   const [gerandoBanners, setGerandoBanners] = useState(false)
   const renderPollRef = useRef(null)
 
@@ -563,8 +558,7 @@ export default function NovaCampanha() {
     setFormatosSel(m)
   }
 
-  // Anúncios disponíveis e popup de confirmação
-  const [creditos, setCreditos] = useState(null) // { plano, limite_mensal, restantes_mes, creditos_avulsos, total_disponivel }
+  const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
@@ -589,7 +583,35 @@ export default function NovaCampanha() {
 
   useEffect(() => () => { clearInterval(pollRef.current); clearInterval(renderPollRef.current) }, [])
 
-  // ── Fotos ──
+  // Carrega cidades do IBGE quando o estado muda
+  useEffect(() => {
+    if (!estado) {
+      setCidades([])
+      setCarregandoCidades(false)
+      return
+    }
+    let abortado = false
+    setCarregandoCidades(true)
+    setCidade('') // reseta cidade ao trocar UF
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios`)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('IBGE ' + r.status)))
+      .then(arr => {
+        if (abortado) return
+        const nomes = Array.isArray(arr) ? arr.map(m => m?.nome).filter(Boolean) : []
+        nomes.sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        setCidades(nomes)
+      })
+      .catch(err => {
+        if (abortado) return
+        console.error('[IBGE] falha ao carregar municípios:', err)
+        setCidades([])
+      })
+      .finally(() => {
+        if (!abortado) setCarregandoCidades(false)
+      })
+    return () => { abortado = true }
+  }, [estado])
+
   const handleFotos = async (files) => {
     const novos = Array.from(files).slice(0, 4 - fotos.length)
     const processadas = await Promise.all(novos.map(async f => ({
@@ -601,7 +623,6 @@ export default function NovaCampanha() {
 
   const removerFoto = (idx) => setFotos(prev => prev.filter((_, i) => i !== idx))
 
-  // ── Diferenciais ──
   const toggleDif = (d) => setDiferenciais(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
 
   const adicionarDifCustom = () => {
@@ -609,86 +630,214 @@ export default function NovaCampanha() {
     if (v && !diferenciais.includes(v)) { setDiferenciais(prev => [...prev, v]); setDifCustom('') }
   }
 
-  // ── Validação ──
-  const podaGerar = categoria && tipo && bairro.trim() && cidade.trim() && preco
+  const podaGerar = categoria && tipo && bairro.trim() && cidade.trim() && estado && preco
 
-  // ── Abre popup de confirmação ──
   const confirmarGeracao = () => {
     if (!podaGerar) { toast.error('Preencha os campos obrigatórios'); return }
-    
-    // Validar se pelo menos um formato foi selecionado
-    const totalSelecionados = Object.values(formatosSel).reduce((acc, set) => acc + set.size, 0)
-    if (totalSelecionados === 0) {
-      toast.error('Selecione pelo menos um formato para gerar sua campanha.')
-      return
-    }
-    
     setShowConfirm(true)
   }
 
-  // ── Geração real (chamada após confirmação) ──
+  // ══════════════════════════════════════════════════════════
+  //  GERAÇÃO — CORRIGIDA
+  //  Upload de fotos não trava mais o processo.
+  //  Se falhar, continua sem fotos e avisa o usuário.
+  // ══════════════════════════════════════════════════════════
   const gerarAnuncios = async () => {
     setShowConfirm(false)
     setFase('gerando')
     setMsgIdx(0)
+
     try {
+      console.log('[gerarAnuncios] iniciado | authedUser.id =', authedUser?.id)
+
       const todosDisferenciais = [
         ...diferenciais,
         ...(difCustom.trim() ? [difCustom.trim()] : []),
       ]
 
-      // Upload das fotos para Supabase Storage antes de invocar a Edge Function
-      const fotos_urls = []
-      for (let i = 0; i < fotos.length; i++) {
-        const f = fotos[i]
-        const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
-        const blob = new Blob([bin], { type: f.tipo })
-        const path = `campaigns/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}.jpg`
-        const { error: upErr } = await supabase.storage
-          .from('smartcorretor-assets')
-          .upload(path, blob, { contentType: f.tipo, upsert: false })
-        if (upErr) throw upErr
-        const { data: pub } = supabase.storage
-          .from('smartcorretor-assets')
-          .getPublicUrl(path)
-        fotos_urls.push(pub.publicUrl)
+      // Verificar autenticação — leitura síncrona do AuthContext (sem HTTP, sem hang)
+      const userId = authedUser?.id
+      if (!userId) throw new Error('Usuário não autenticado — faça login novamente')
+
+      // Confirmar sessão Supabase válida ANTES de iniciar o upload (JWT precisa
+      // estar fresco no client para o Storage aceitar o request).
+      console.log('[gerarAnuncios] >>> chamando supabase.auth.getSession()')
+      try {
+        const sessRace = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout 5000ms')), 5000)),
+        ])
+        const sessAtual = sessRace?.data?.session
+        console.log('[gerarAnuncios] <<< getSession retornou', { hasSession: !!sessAtual, userId: sessAtual?.user?.id })
+        if (!sessAtual) {
+          toast.error('Sua sessão expirou. Faça login novamente para continuar.')
+          setFase('form')
+          return
+        }
+      } catch (sessErr) {
+        console.error('[gerarAnuncios] getSession lançou exceção:', sessErr)
+        toast.error('Falha ao verificar sessão: ' + (sessErr?.message || sessErr))
+        setFase('form')
+        return
       }
 
-      const { data, error } = await supabase.functions.invoke('gerar-campanha', {
-        body: {
-          categoria,
-          tipo,
-          dados: {
-            finalidade, quartos, banheiros, vagas,
-            area: area || null, preco, bairro, cidade,
-            diferenciais: todosDisferenciais,
-            telefone_contato: telefone,
-            formatos_selecionados: Object.fromEntries(
-              Object.entries(formatosSel).map(([gId, s]) => [gId, [...s]])
-            ),
-          },
-          fotos_urls,
-          redes_sociais: ['instagram_feed', 'instagram_stories', 'whatsapp', 'facebook', 'tiktok'],
-        },
-      })
-      if (error) throw error
+      // ── Upload das fotos com TIMEOUT por foto (8s) ──
+      // Garante que NENHUM upload travado pode bloquear o invoke da Edge Function.
+      // Se a foto demorar > 8s, descarta e segue. Se falhar, segue. invoke é OBRIGATÓRIO.
+      const uploadComTimeout = (path, blob, contentType, ms = 120000) =>
+        Promise.race([
+          supabase.storage
+            .from('smartcorretor-assets')
+            .upload(path, blob, { contentType, upsert: true }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`upload timeout ${ms}ms`)), ms)),
+        ])
 
-      // Edge Function é síncrona — atraso artificial para exibir a animação "gerando..."
-      await new Promise((r) => setTimeout(r, 1800))
+      const fotos_urls = []
+      console.log('[gerarAnuncios] iniciando upload de', fotos.length, 'fotos')
+      for (let i = 0; i < fotos.length; i++) {
+        try {
+          const f = fotos[i]
+          const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
+          const blob = new Blob([bin], { type: f.tipo })
+          const path = `${userId}/campaigns/${Date.now()}_${i}.jpg`
+          const { error: upErr } = await uploadComTimeout(path, blob, f.tipo)
+          if (upErr) {
+            console.error('[upload] foto', i + 1, 'falhou (continuando sem ela):', upErr.message)
+          } else {
+            const { data: pub } = supabase.storage
+              .from('smartcorretor-assets')
+              .getPublicUrl(path)
+            fotos_urls.push(pub.publicUrl)
+            console.log('[upload] OK foto', i + 1)
+          }
+        } catch (uploadErr) {
+          console.error('[upload] erro/timeout na foto', i + 1, '— continuando:', uploadErr)
+        }
+      }
+      console.log('[gerarAnuncios] fim do upload loop. fotos_urls:', fotos_urls.length)
+
+      // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
+      console.log('[gerarAnuncios] >>> DISPARANDO invoke(gerar-campanha) + invoke(gerar-banners) em paralelo')
+
+      // Inputs derivados do formulário para o gerar-banners (não dependem do AI ainda)
+      const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
+        + (estado ? ` - ${estado}` : '')
+      const tituloPreliminar = `${tipo || 'Imóvel'} ${quartos ? quartos + 'q ' : ''}em ${bairro || cidade || ''}`.trim()
+      const descricaoPreliminar = [
+        `${tipo || 'Imóvel'} ${categoria ? '(' + categoria + ')' : ''}`,
+        `${quartos} quarto${quartos !== 1 ? 's' : ''}, ${banheiros} banheiro${banheiros !== 1 ? 's' : ''}, ${vagas} vaga${vagas !== 1 ? 's' : ''}`,
+        area ? `${area}m²` : '',
+        enderecoCompleto,
+        todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
+      ].filter(Boolean).join('. ')
+
+      setGerandoBanners(true)
+      setRenders(null)
+
+      const [campaignResult, bannersResult] = await Promise.allSettled([
+        supabase.functions.invoke('gerar-campanha', {
+          body: {
+            user_id: userId,
+            categoria,
+            tipo,
+            dados: {
+              finalidade, quartos, banheiros, vagas,
+              area: area || null, preco, bairro, cidade, estado,
+              diferenciais: todosDisferenciais,
+              telefone_contato: telefone,
+              formatos_selecionados: Object.fromEntries(
+                Object.entries(formatosSel).map(([gId, s]) => [gId, [...s]])
+              ),
+            },
+            fotos_urls,
+            redes_sociais: ['instagram_feed', 'instagram_stories', 'whatsapp', 'facebook', 'tiktok'],
+          },
+        }),
+        supabase.functions.invoke('gerar-banners', {
+          body: {
+            // campaign_id é opcional agora; vamos linkar depois
+            fotos_urls,
+            titulo: tituloPreliminar,
+            descricao: descricaoPreliminar,
+            preco,
+            endereco: enderecoCompleto,
+            tipo_imovel: tipo,
+            corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
+            marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
+          },
+        }),
+      ])
+
+      console.log('[gerarAnuncios] resultados paralelos:', { campaignResult, bannersResult })
+
+      // ── Processar resultado da CAMPANHA (textos) ──
+      if (campaignResult.status === 'rejected') {
+        const err = campaignResult.reason
+        try {
+          const errBody = await err?.context?.json?.()
+          throw new Error(errBody?.error || err?.message || 'Erro ao gerar campanha')
+        } catch {
+          throw err
+        }
+      }
+      const { data, error } = campaignResult.value
+      if (error) {
+        try {
+          const errBody = await error.context?.json?.()
+          throw new Error(errBody?.error || error.message || 'Erro desconhecido')
+        } catch {
+          throw error
+        }
+      }
+      if (!data) throw new Error('Resposta vazia da Edge Function (gerar-campanha)')
 
       const camp = data.campanha
+      if (!camp) throw new Error('Dados da campanha não retornados: ' + JSON.stringify(data))
+
       setResultado(camp)
       setCampanhaId(camp.id)
       setIgPostado(false)
       setFase('resultado')
+
+      // ── Processar resultado dos BANNERS (renders) ──
+      if (bannersResult.status === 'fulfilled') {
+        const { data: bData, error: bError } = bannersResult.value
+        if (bError) {
+          console.error('[gerar-banners] erro:', bError)
+          toast.error('Falha ao gerar banners (textos OK)')
+        } else if (bData?.renders?.length) {
+          const rs = bData.renders
+          setRenders(rs)
+          if (bData.warning) toast(bData.warning, { icon: '⚠️' })
+          toast.success(`${rs.length} render${rs.length > 1 ? 's' : ''} disparado${rs.length > 1 ? 's' : ''}. Processando...`)
+          iniciarPollingRenders(rs)
+          // Linkar renders à campanha recém-criada (gerar-banners rodou sem campaign_id)
+          supabase
+            .from('campaigns')
+            .update({ banners: rs })
+            .eq('id', camp.id)
+            .then(({ error: updErr }) => {
+              if (updErr) console.warn('[link banners] falhou:', updErr.message)
+            })
+        } else {
+          console.warn('[gerar-banners] sem renders no retorno', bData)
+        }
+      } else {
+        console.error('[gerar-banners] rejeitado:', bannersResult.reason)
+        toast.error('Falha ao gerar banners (textos OK)')
+      }
+
+      setGerandoBanners(false)
       setTimeout(() => setShowAgendamento(true), 1800)
+
     } catch (err) {
+      console.error('[gerarAnuncios] erro:', err)
       toast.error(err.message || 'Erro ao gerar campanha')
+      setGerandoBanners(false)
       setFase('form')
     }
   }
 
-  // ── Copiar / WA / Download ──
   const copiar = async (texto, id) => {
     await navigator.clipboard.writeText(texto)
     setCopiadoId(id); toast.success('Copiado!')
@@ -714,9 +863,110 @@ export default function NovaCampanha() {
     toast('Publicação no Instagram chega em breve.', { icon: '🚧' })
   }
 
-  // ── Gerar banners e vídeos via Creatomate ──
+  // Chave Creatomate para polling direto de status no browser.
+  // Conforme instruído. Idealmente moveríamos para uma Edge Function proxy.
+  const CREATOMATE_API_KEY = '0283795cc6344e2989c19f28f2080624b6ed357a3aa123df81b11dd3d26aea542c4eae9ed5963b58a8db867e02e45bc4'
+
+  const iniciarPollingRenders = (iniciais) => {
+    clearInterval(renderPollRef.current)
+    let current = [...iniciais]
+
+    const finalizado = (r) => !r.render_id || r.status === 'succeeded' || r.status === 'failed'
+
+    if (current.every(finalizado)) return
+
+    renderPollRef.current = setInterval(async () => {
+      try {
+        const atualizados = await Promise.all(current.map(async (r) => {
+          if (finalizado(r)) return r
+          try {
+            const res = await fetch(`https://api.creatomate.com/v1/renders/${r.render_id}`, {
+              headers: { Authorization: `Bearer ${CREATOMATE_API_KEY}` },
+            })
+            if (!res.ok) return r
+            const body = await res.json()
+            return {
+              ...r,
+              status: body.status || r.status,
+              url: body.url || r.url || null,
+              snapshot_url: body.snapshot_url || r.snapshot_url || null,
+            }
+          } catch (err) {
+            console.error('[polling] erro em render', r.render_id, err)
+            return r
+          }
+        }))
+        current = atualizados
+        setRenders(atualizados)
+        if (atualizados.every(finalizado)) {
+          clearInterval(renderPollRef.current)
+          renderPollRef.current = null
+          const sucesso = atualizados.filter(r => r.status === 'succeeded').length
+          if (sucesso > 0) toast.success(`${sucesso} arquivo${sucesso > 1 ? 's' : ''} pronto${sucesso > 1 ? 's' : ''} para download`)
+        }
+      } catch (err) {
+        console.error('[polling renders] erro geral:', err)
+      }
+    }, 5000)
+  }
+
   const gerarBanners = async () => {
-    toast('Geração de banners/vídeos (Creatomate) chega em breve.', { icon: '🚧' })
+    if (!campanhaId) return toast.error('Campanha não encontrada — gere os textos primeiro')
+    if (gerandoBanners) return
+
+    setGerandoBanners(true)
+    setRenders(null)
+
+    try {
+      const fotos_urls = resultado?.dados_imovel?.fotos_urls
+        || resultado?.fotos_urls
+        || []
+
+      const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
+        + (estado ? ` - ${estado}` : '')
+
+      const descricaoCurta = resultado?.textos_gerados?.descricao_portal
+        || resultado?.textos_gerados?.post_instagram
+        || resultado?.textos_gerados?.mensagem_whatsapp
+        || ''
+
+      const { data, error } = await supabase.functions.invoke('gerar-banners', {
+        body: {
+          campaign_id: campanhaId,
+          fotos_urls,
+          titulo: resultado?.titulo || resultado?.textos_gerados?.titulo_campanha || '',
+          descricao: descricaoCurta,
+          preco,
+          endereco: enderecoCompleto,
+          tipo_imovel: tipo,
+          corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
+          marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
+        },
+      })
+
+      if (error) {
+        try {
+          const errBody = await error.context?.json?.()
+          throw new Error(errBody?.error || error.message || 'Falha na Edge Function')
+        } catch {
+          throw error
+        }
+      }
+
+      const rs = Array.isArray(data?.renders) ? data.renders : []
+      if (rs.length === 0) throw new Error('Nenhum render foi disparado')
+
+      setRenders(rs)
+      if (data?.warning) toast(data.warning, { icon: '⚠️' })
+      toast.success(`${rs.length} render${rs.length > 1 ? 's' : ''} disparado${rs.length > 1 ? 's' : ''}. Processando...`)
+
+      iniciarPollingRenders(rs)
+    } catch (err) {
+      console.error('[gerarBanners] erro:', err)
+      toast.error(err.message || 'Falha ao gerar banners')
+    } finally {
+      setGerandoBanners(false)
+    }
   }
 
   // ════════════════════════════════════════════════════════════
@@ -727,7 +977,6 @@ export default function NovaCampanha() {
       <Header title="Criar anúncios" subtitle="Preencha os dados básicos e a IA gera tudo" />
       <div className="p-6 max-w-3xl mx-auto">
 
-        {/* ═══ POPUP DE CONFIRMAÇÃO ═══ */}
         {showConfirm && creditos && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 animate-fade-in">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -743,7 +992,6 @@ export default function NovaCampanha() {
                 </div>
               </div>
 
-              {/* Saldo atual */}
               <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Plano <span className="font-semibold capitalize">{creditos.plano}</span> · este mês</span>
@@ -765,16 +1013,10 @@ export default function NovaCampanha() {
                 </div>
               </div>
 
-              {/* Aviso principal */}
               {creditos.total_disponivel > 0 && (
                 <div className="p-3 bg-primary-50 rounded-xl text-xs text-primary-800 font-medium mb-4">
                   Após esta geração você terá{' '}
                   <strong>{creditos.total_disponivel - 1} anúncio{creditos.total_disponivel - 1 !== 1 ? 's' : ''} restante{creditos.total_disponivel - 1 !== 1 ? 's' : ''}</strong>.
-                  {creditos.restantes_mes === 0 && creditos.creditos_avulsos > 0 && (
-                    <span className="block mt-1 text-amber-700">
-                      Seus anúncios mensais acabaram — será usado 1 anúncio avulso.
-                    </span>
-                  )}
                 </div>
               )}
 
@@ -786,17 +1028,12 @@ export default function NovaCampanha() {
               )}
 
               <div className="flex gap-3">
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                >
+                <button onClick={() => setShowConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                   Cancelar
                 </button>
-                <button
-                  onClick={gerarAnuncios}
-                  disabled={creditos.total_disponivel === 0}
-                  className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
+                <button onClick={gerarAnuncios} disabled={creditos.total_disponivel === 0}
+                  className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                   <Sparkles className="w-4 h-4" />
                   Gerar agora
                 </button>
@@ -805,16 +1042,13 @@ export default function NovaCampanha() {
           </div>
         )}
 
-        {/* ═══ POPUP DE AGENDAMENTO ═══ */}
         {showAgendamento && resultado && (
           <AgendamentoPopup titulo={resultado.titulo} onClose={() => setShowAgendamento(false)} />
         )}
 
-        {/* ═══ FORMULÁRIO ═══ */}
         {fase === 'form' && (
           <div className="space-y-5 animate-fade-in">
 
-            {/* 1 · Categoria */}
             <div className="card p-6">
               <h2 className="text-base font-bold text-gray-900 mb-1">Tipo do imóvel <span className="text-red-400">*</span></h2>
               <p className="text-xs text-gray-500 mb-4">Cada tipo gera texto, tom e roteiro de vídeo completamente diferentes</p>
@@ -834,11 +1068,9 @@ export default function NovaCampanha() {
               </div>
             </div>
 
-            {/* 2 · Dados principais */}
             <div className="card p-6 space-y-5">
               <h2 className="text-base font-bold text-gray-900">Dados do imóvel</h2>
 
-              {/* Tipo */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo <span className="text-red-400">*</span></label>
                 <div className="flex flex-wrap gap-2">
@@ -851,7 +1083,6 @@ export default function NovaCampanha() {
                 </div>
               </div>
 
-              {/* Finalidade */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Finalidade <span className="text-red-400">*</span></label>
                 <div className="flex gap-2">
@@ -864,7 +1095,6 @@ export default function NovaCampanha() {
                 </div>
               </div>
 
-              {/* Contadores */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">Quantidade</label>
                 <div className="flex gap-6 flex-wrap">
@@ -874,16 +1104,29 @@ export default function NovaCampanha() {
                 </div>
               </div>
 
-              {/* Localização + Área */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Bairro <span className="text-red-400">*</span></label>
-                  <input value={bairro} onChange={e => setBairro(e.target.value)} placeholder="Ex: Moema"
-                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Estado <span className="text-red-400">*</span></label>
+                  <select value={estado} onChange={e => setEstado(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white">
+                    <option value="">UF</option>
+                    {ESTADOS_BR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Cidade <span className="text-red-400">*</span></label>
-                  <input value={cidade} onChange={e => setCidade(e.target.value)} placeholder="Ex: São Paulo"
+                  <select value={cidade} onChange={e => setCidade(e.target.value)}
+                    disabled={!estado || carregandoCidades}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white disabled:bg-gray-50 disabled:text-gray-400">
+                    <option value="">
+                      {!estado ? 'Selecione o estado primeiro' : carregandoCidades ? 'Carregando cidades...' : 'Selecione a cidade'}
+                    </option>
+                    {cidades.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Bairro <span className="text-red-400">*</span></label>
+                  <input value={bairro} onChange={e => setBairro(e.target.value)} placeholder="Ex: Moema, Jardins, Copacabana"
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
                 </div>
               </div>
@@ -901,7 +1144,6 @@ export default function NovaCampanha() {
                 </div>
               </div>
 
-              {/* Diferenciais */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Diferenciais e comodidades</label>
                 <div className="flex flex-wrap gap-2">
@@ -925,7 +1167,6 @@ export default function NovaCampanha() {
               </div>
             </div>
 
-            {/* 3 · Fotos */}
             <div className="card p-6">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-base font-bold text-gray-900">Fotos do imóvel</h2>
@@ -962,7 +1203,6 @@ export default function NovaCampanha() {
               )}
             </div>
 
-            {/* 4 · Formatos de conteúdo */}
             <div className="card p-6">
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-base font-bold text-gray-900">Formatos de conteúdo</h2>
@@ -1013,7 +1253,6 @@ export default function NovaCampanha() {
                   )
                 })}
 
-                {/* Textos sempre incluídos */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-bold text-gray-800">📝 Textos, PDF e Segmentação</span>
@@ -1034,7 +1273,6 @@ export default function NovaCampanha() {
               </div>
             </div>
 
-            {/* 5 · Contato + Botão */}
             <div className="card p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1076,7 +1314,6 @@ export default function NovaCampanha() {
           </div>
         )}
 
-        {/* ═══ GERANDO ═══ */}
         {fase === 'gerando' && (
           <div className="card p-14 text-center animate-fade-in">
             <div className={`w-24 h-24 bg-gradient-to-br ${catAtual?.cor || 'from-primary-500 to-primary-400'} rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-2xl`}>
@@ -1093,15 +1330,32 @@ export default function NovaCampanha() {
           </div>
         )}
 
-        {/* ═══ RESULTADO — SHOW VISUAL ═══ */}
         {fase === 'resultado' && resultado && (() => {
           const tg = resultado.textos_gerados || {}
           const grad = catAtual?.cor || 'from-primary-500 to-primary-400'
 
+          const textosEdge = [
+            { key: 'titulo_campanha',         icon: '🏷️', titulo: 'Título da Campanha' },
+            { key: 'descricao_portal',        icon: '🏠', titulo: 'Descrição para Portal' },
+            { key: 'post_instagram',          icon: '📸', titulo: 'Post Instagram' },
+            { key: 'script_video_reels',      icon: '🎬', titulo: 'Script Vídeo / Reels' },
+            { key: 'carrossel_passo_a_passo', icon: '🎠', titulo: 'Carrossel Passo a Passo' },
+            { key: 'mensagem_whatsapp',       icon: '💬', titulo: 'Mensagem WhatsApp' },
+          ]
+          const getTextoEdge = (k) => {
+            const v = resultado[k] ?? tg[k]
+            if (v == null) return ''
+            if (Array.isArray(v)) {
+              return v
+                .map((item) => `📍 ${typeof item === 'string' ? item : JSON.stringify(item)}`)
+                .join('\n')
+            }
+            return typeof v === 'string' ? v : JSON.stringify(v, null, 2)
+          }
+
           return (
             <div className="space-y-6">
 
-              {/* Header */}
               <AnimatedCard delay={0}>
                 <div className="card p-5">
                   <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1126,7 +1380,31 @@ export default function NovaCampanha() {
                 </div>
               </AnimatedCard>
 
-              {/* Instagram Feed */}
+              {textosEdge.map((item, idx) => {
+                const conteudo = getTextoEdge(item.key)
+                if (!conteudo) return null
+                const copyId = `edge_${item.key}`
+                return (
+                  <AnimatedCard key={item.key} delay={100 + idx * 100}>
+                    <div className="card p-5">
+                      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{item.icon}</span>
+                          <h3 className="font-bold text-gray-900 text-lg">{item.titulo}</h3>
+                        </div>
+                        <button onClick={() => copiar(conteudo, copyId)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                          {copiadoId === copyId ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
+                        </button>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+                        {conteudo}
+                      </div>
+                    </div>
+                  </AnimatedCard>
+                )
+              })}
+
               {tg.instagram_feed && (
                 <AnimatedCard delay={300}>
                   <div className="card p-5">
@@ -1141,16 +1419,6 @@ export default function NovaCampanha() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-medium hover:bg-green-600">
                           <MessageCircle className="w-3.5 h-3.5" />WhatsApp
                         </button>
-                        {igConectado && (
-                          <button onClick={postarNoInstagram} disabled={postando || igPostado}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-60 ${
-                              igPostado
-                                ? 'bg-green-100 text-green-700 border border-green-200'
-                                : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:opacity-90'
-                            }`}>
-                            {igPostado ? <><CheckCircle2 className="w-3.5 h-3.5" />Publicado!</> : postando ? <>Publicando...</> : <><Send className="w-3.5 h-3.5" />Postar no Instagram</>}
-                          </button>
-                        )}
                       </div>
                     </div>
                     <InstagramFeedCard dados={tg.instagram_feed} gradiente={grad} />
@@ -1159,7 +1427,6 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              {/* Stories */}
               {tg.instagram_stories && (
                 <AnimatedCard delay={600}>
                   <div className="card p-5">
@@ -1175,7 +1442,6 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              {/* WhatsApp */}
               {tg.whatsapp && (
                 <AnimatedCard delay={900}>
                   <div className="card p-5">
@@ -1197,7 +1463,6 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              {/* Facebook */}
               {tg.facebook && (
                 <AnimatedCard delay={1200}>
                   <div className="card p-5">
@@ -1219,7 +1484,6 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              {/* TikTok / Reels */}
               {tg.tiktok && (
                 <AnimatedCard delay={1500}>
                   <div className="card p-5">
@@ -1236,239 +1500,6 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              {/* Portais Imobiliários */}
-              {tg.portais && (
-                <AnimatedCard delay={1800}>
-                  <div className="card p-5">
-                    <div className="flex items-center gap-2 mb-5">
-                      <span className="text-2xl">🏢</span>
-                      <h3 className="font-bold text-gray-900 text-lg">Portais Imobiliários</h3>
-                    </div>
-                    <div className="space-y-4">
-                      {[
-                        { key: 'zap_imoveis',  nome: 'ZAP Imóveis', icon: '🏠', bg: 'bg-red-50',    border: 'border-red-200' },
-                        { key: 'olx',          nome: 'OLX',         icon: '🔶', bg: 'bg-orange-50', border: 'border-orange-200' },
-                        { key: 'vivareal',     nome: 'Viva Real',   icon: '🏡', bg: 'bg-blue-50',   border: 'border-blue-200' },
-                        { key: 'imovelweb',    nome: 'ImovelWeb',   icon: '🌐', bg: 'bg-purple-50', border: 'border-purple-200' },
-                      ].map(({ key, nome, icon, bg, border }) => {
-                        const portal = tg.portais[key]
-                        if (!portal) return null
-                        return (
-                          <div key={key} className={`rounded-xl border p-4 ${bg} ${border}`}>
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">{icon}</span>
-                                <span className="font-bold text-gray-900 text-sm">{nome}</span>
-                              </div>
-                              <button onClick={() => copiar([portal.titulo, portal.descricao].join('\n\n'), key)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:bg-gray-50">
-                                {copiadoId === key ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
-                              </button>
-                            </div>
-                            <p className="text-sm font-semibold text-gray-800 mb-2">{portal.titulo}</p>
-                            <p className="text-xs text-gray-600 leading-relaxed mb-3">{portal.descricao}</p>
-                            {portal.destaques?.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {portal.destaques.map((d, i) => (
-                                  <span key={i} className="text-xs px-2 py-1 rounded-full bg-white border border-gray-200 text-gray-600">✓ {d}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </AnimatedCard>
-              )}
-
-              {/* PDF Catálogo */}
-              {tg.catalogo_pdf && (
-                <AnimatedCard delay={2100}>
-                  <div className="card p-5">
-                    <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">📄</span>
-                        <h3 className="font-bold text-gray-900 text-lg">PDF Catálogo do Imóvel</h3>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => copiar([
-                          tg.catalogo_pdf.titulo,
-                          tg.catalogo_pdf.subtitulo,
-                          '',
-                          tg.catalogo_pdf.descricao_principal,
-                          '',
-                          'SOBRE O IMÓVEL',
-                          tg.catalogo_pdf.sobre_o_imovel,
-                          '',
-                          'SOBRE O BAIRRO',
-                          tg.catalogo_pdf.sobre_o_bairro,
-                          '',
-                          'PONTOS FORTES',
-                          ...(tg.catalogo_pdf.pontos_fortes || []).map(p => `• ${p}`),
-                          '',
-                          tg.catalogo_pdf.cta,
-                        ].filter(Boolean).join('\n'), 'catalogo')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                          {copiadoId === 'catalogo' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
-                        </button>
-                        <button onClick={() => {
-                          const w = window.open('', '_blank')
-                          w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${tg.catalogo_pdf.titulo}</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:20px;color:#1a1a1a}h1{font-size:24px;font-weight:700;margin-bottom:4px}h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin:20px 0 6px;border-bottom:1px solid #eee;padding-bottom:4px}.sub{color:#666;font-size:13px;margin-bottom:24px}p{font-size:13px;line-height:1.75;color:#333}.pontos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.ponto{background:#f5f5f5;border-radius:999px;padding:4px 14px;font-size:12px}.cta{margin-top:28px;padding:14px;background:#eff6ff;border-radius:10px;text-align:center;font-weight:600;font-size:14px}@media print{body{margin:0}}</style></head><body><h1>${tg.catalogo_pdf.titulo}</h1><p class="sub">${tg.catalogo_pdf.subtitulo || ''}</p><p>${tg.catalogo_pdf.descricao_principal || ''}</p><h2>Sobre o Imóvel</h2><p>${tg.catalogo_pdf.sobre_o_imovel || ''}</p><h2>Sobre o Bairro</h2><p>${tg.catalogo_pdf.sobre_o_bairro || ''}</p><h2>Pontos Fortes</h2><div class="pontos">${(tg.catalogo_pdf.pontos_fortes || []).map(p => `<span class="ponto">✓ ${p}</span>`).join('')}</div><div class="cta">${tg.catalogo_pdf.cta || ''}</div><script>setTimeout(()=>window.print(),400)</script></body></html>`)
-                          w.document.close()
-                        }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-primary text-white text-xs font-medium hover:opacity-90">
-                          <Download className="w-3.5 h-3.5" />Baixar PDF
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 space-y-4">
-                      <div>
-                        <h4 className="text-base font-bold text-gray-900">{tg.catalogo_pdf.titulo}</h4>
-                        {tg.catalogo_pdf.subtitulo && <p className="text-sm text-gray-500 mt-0.5">{tg.catalogo_pdf.subtitulo}</p>}
-                      </div>
-                      <p className="text-xs text-gray-700 leading-relaxed">{tg.catalogo_pdf.descricao_principal}</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Sobre o Imóvel</p>
-                          <p className="text-xs text-gray-600 leading-relaxed">{tg.catalogo_pdf.sobre_o_imovel}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Sobre o Bairro</p>
-                          <p className="text-xs text-gray-600 leading-relaxed">{tg.catalogo_pdf.sobre_o_bairro}</p>
-                        </div>
-                      </div>
-                      {tg.catalogo_pdf.pontos_fortes?.length > 0 && (
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Pontos Fortes</p>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {tg.catalogo_pdf.pontos_fortes.map((p, i) => (
-                              <div key={i} className="flex items-start gap-1.5 text-xs text-gray-700">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
-                                {p}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {tg.catalogo_pdf.cta && (
-                        <div className="bg-primary-50 rounded-lg px-4 py-3 text-sm font-semibold text-primary-800 text-center">
-                          {tg.catalogo_pdf.cta}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </AnimatedCard>
-              )}
-
-              {/* Roteiro de Locução */}
-              {tg.roteiro_locucao && (
-                <AnimatedCard delay={2400}>
-                  <div className="card p-5">
-                    <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">🎙️</span>
-                        <h3 className="font-bold text-gray-900 text-lg">Roteiro de Locução</h3>
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">45-60 segundos</span>
-                      </div>
-                      <button onClick={() => copiar(tg.roteiro_locucao, 'locucao')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                        {copiadoId === 'locucao' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar script</>}
-                      </button>
-                    </div>
-                    <div className="bg-gray-900 rounded-xl p-5">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-gray-400 text-xs font-mono font-bold uppercase tracking-widest">Script · Locutor Profissional</span>
-                      </div>
-                      <pre className="text-gray-100 text-sm leading-relaxed font-mono whitespace-pre-wrap">{tg.roteiro_locucao}</pre>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      💡 [pausa] = momento para respirar · MAIÚSCULAS = ênfase na leitura · [respira] = pausa longa
-                    </p>
-                  </div>
-                </AnimatedCard>
-              )}
-
-              {/* Google Ads */}
-              {tg.google_ads && (
-                <AnimatedCard delay={2700}>
-                  <div className="card p-5">
-                    <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">🎯</span>
-                        <h3 className="font-bold text-gray-900 text-lg">Público-alvo · Google Ads</h3>
-                      </div>
-                      <button onClick={() => copiar([
-                        `PÚBLICO: ${tg.google_ads.publico_descricao}`,
-                        `Faixa etária: ${tg.google_ads.faixa_etaria}`,
-                        `Renda estimada: ${tg.google_ads.renda_estimada}`,
-                        `Raio: ${tg.google_ads.raio_km}km`,
-                        '',
-                        `HEADLINE 1: ${tg.google_ads.headline1}`,
-                        `HEADLINE 2: ${tg.google_ads.headline2}`,
-                        `HEADLINE 3: ${tg.google_ads.headline3}`,
-                        `DESCRIÇÃO 1: ${tg.google_ads.descricao1}`,
-                        `DESCRIÇÃO 2: ${tg.google_ads.descricao2}`,
-                        '',
-                        'PALAVRAS-CHAVE:',
-                        ...(tg.google_ads.palavras_chave || []),
-                        '',
-                        'INTERESSES:',
-                        ...(tg.google_ads.interesses || []),
-                      ].join('\n'), 'gads')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                        {copiadoId === 'gads' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar segmentação</>}
-                      </button>
-                    </div>
-
-                    {/* Perfil do público */}
-                    <div className="bg-blue-50 rounded-xl p-4 mb-4">
-                      <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Perfil do Público</p>
-                      <p className="text-sm text-blue-900 mb-3">{tg.google_ads.publico_descricao}</p>
-                      <div className="flex flex-wrap gap-4">
-                        <div><p className="text-xs text-blue-400">Faixa etária</p><p className="text-sm font-bold text-blue-800">{tg.google_ads.faixa_etaria}</p></div>
-                        <div><p className="text-xs text-blue-400">Renda estimada</p><p className="text-sm font-bold text-blue-800">{tg.google_ads.renda_estimada}</p></div>
-                        <div><p className="text-xs text-blue-400">Raio de alcance</p><p className="text-sm font-bold text-blue-800">{tg.google_ads.raio_km}km</p></div>
-                      </div>
-                    </div>
-
-                    {/* Prévia do anúncio */}
-                    <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
-                      <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-semibold">Prévia do anúncio</p>
-                      <p className="text-xs text-green-700 mb-1">www.seusite.com.br/imoveis</p>
-                      <p className="text-base font-bold text-blue-700 mb-1 leading-tight">
-                        {[tg.google_ads.headline1, tg.google_ads.headline2, tg.google_ads.headline3].filter(Boolean).join(' | ')}
-                      </p>
-                      <p className="text-xs text-gray-600 leading-relaxed">{tg.google_ads.descricao1}</p>
-                      {tg.google_ads.descricao2 && <p className="text-xs text-gray-600 leading-relaxed">{tg.google_ads.descricao2}</p>}
-                    </div>
-
-                    {/* Keywords + Interesses */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs font-bold text-gray-700 mb-2">Palavras-chave</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(tg.google_ads.palavras_chave || []).map((kw, i) => (
-                            <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">{kw}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-700 mb-2">Interesses do público</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(tg.google_ads.interesses || []).map((int, i) => (
-                            <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">{int}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </AnimatedCard>
-              )}
-
-              {/* Banners e Vídeos Creatomate */}
               <AnimatedCard delay={2400}>
                 <div className="card p-5">
                   <div className="flex items-center gap-3 mb-4">
@@ -1480,73 +1511,81 @@ export default function NovaCampanha() {
                       <p className="text-xs text-gray-500">Gerados automaticamente com suas fotos e dados</p>
                     </div>
                   </div>
-
-                  {!renders && !gerandoBanners && (
-                    <button onClick={gerarBanners}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md">
-                      <span>✨</span> Gerar banners e vídeos
-                    </button>
-                  )}
-
-                  {gerandoBanners && !renders && (
-                    <div className="flex items-center justify-center gap-3 py-4">
-                      <div className="w-5 h-5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-                      <span className="text-sm text-gray-500">Iniciando geração...</span>
-                    </div>
-                  )}
-
-                  {renders && (
-                    <div className="space-y-2">
-                      {Object.entries(renders).map(([key, r]) => {
-                        const label = {
-                          banner_luxo: 'Banner Luxo',
-                          banner_popular: 'Banner Popular',
-                          story_premium: 'Story Premium',
-                          reels_moderno: 'Reels Moderno',
-                          video_cinematico: 'Vídeo Cinematográfico',
-                        }[key] || key
-
-                        const isOk = r.status === 'succeeded'
-                        const isFail = r.status === 'failed'
-                        const isPending = !isOk && !isFail
-
-                        return (
-                          <div key={key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm ${isOk ? 'bg-green-100' : isFail ? 'bg-red-100' : 'bg-purple-100'}`}>
-                              {isOk ? '✅' : isFail ? '❌' : '⏳'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-gray-900">{label}</p>
-                              <p className="text-xs text-gray-400 capitalize">
-                                {isOk ? 'Pronto' : isFail ? (r.error || 'Falhou') : 'Gerando...'}
-                              </p>
-                            </div>
-                            {isOk && r.url && (
-                              <a href={r.url} target="_blank" rel="noopener noreferrer"
-                                className="text-xs font-semibold text-purple-600 hover:text-purple-800 shrink-0">
-                                Baixar
-                              </a>
-                            )}
-                            {isOk && r.snapshot_url && (
-                              <img src={r.snapshot_url} alt={label}
-                                className="w-14 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
-                            )}
-                          </div>
-                        )
-                      })}
-
-                      {gerandoBanners && (
-                        <div className="flex items-center gap-2 pt-1">
-                          <div className="w-3 h-3 border border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-                          <span className="text-xs text-gray-400">Aguardando renders...</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <button onClick={gerarBanners}
+                    disabled={gerandoBanners || !!(renders && renders.length > 0)}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed">
+                    {gerandoBanners
+                      ? <><span className="animate-spin">⏳</span> Disparando renders...</>
+                      : renders && renders.length > 0
+                        ? <><CheckCircle2 className="w-4 h-4" /> Renders disparados</>
+                        : <><span>✨</span> Gerar banners e vídeos</>}
+                  </button>
                 </div>
               </AnimatedCard>
 
-              {/* Novo anúncio */}
+              {renders && renders.length > 0 && (
+                <AnimatedCard delay={2700}>
+                  <div className="card p-5">
+                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">🖼️</span>
+                        <h3 className="font-bold text-gray-900 text-lg">Banners e Vídeos</h3>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {renders.filter(r => r.status === 'succeeded').length}/{renders.length} prontos
+                      </span>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {renders.map((r, i) => {
+                        const ok = r.status === 'succeeded'
+                        const falhou = r.status === 'failed' || !!r.erro
+                        const ehVideo = r.url && /\.(mp4|webm|mov)$/i.test(r.url)
+                        return (
+                          <div key={r.render_id || `r-${i}`} className="border border-gray-200 rounded-xl overflow-hidden flex flex-col bg-white">
+                            <div className="p-3 pb-2 flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold text-gray-700 truncate">{r.template_nome || 'Template'}</p>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                                ok ? 'bg-green-100 text-green-700'
+                                  : falhou ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {ok ? 'pronto' : falhou ? 'falhou' : (r.status || 'processando')}
+                              </span>
+                            </div>
+                            <div className="bg-gray-100 aspect-video flex items-center justify-center overflow-hidden">
+                              {ok && ehVideo ? (
+                                <video src={r.url} controls className="w-full h-full object-contain bg-black" />
+                              ) : ok && r.url ? (
+                                <img src={r.snapshot_url || r.url} alt={r.template_nome} className="w-full h-full object-contain" />
+                              ) : r.snapshot_url ? (
+                                <img src={r.snapshot_url} alt={r.template_nome} className="w-full h-full object-contain opacity-70" />
+                              ) : (
+                                <div className="text-xs text-gray-500 px-3 py-6 text-center">
+                                  {falhou ? (r.erro || 'falhou') : 'Renderizando...'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3 pt-2">
+                              {ok && r.url ? (
+                                <a href={r.url} download target="_blank" rel="noopener noreferrer"
+                                  className="block text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                                  <Download className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                                  Download
+                                </a>
+                              ) : (
+                                <div className="text-[11px] text-gray-400 text-center py-2">
+                                  {falhou ? 'arquivo indisponível' : 'aguardando…'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </AnimatedCard>
+              )}
+
               <AnimatedCard delay={3000}>
                 <div className="card p-5 text-center">
                   <p className="text-gray-500 text-sm mb-4">Quer criar anúncios para outro imóvel?</p>
@@ -1554,7 +1593,7 @@ export default function NovaCampanha() {
                     onClick={() => {
                       setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
                       setQuartos(2); setBanheiros(1); setVagas(1); setArea(''); setPreco('')
-                      setBairro(''); setCidade(''); setDiferenciais([]); setFotos([]); setTelefone('')
+                      setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setFotos([]); setTelefone('')
                       setResultado(null); setCampanhaId(null); setIgPostado(false)
                       setFormatosSel(initFormatosSel()); setShowAgendamento(false)
                       setRenders(null); setGerandoBanners(false); clearInterval(renderPollRef.current)

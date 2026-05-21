@@ -22,11 +22,61 @@ export default function PacotesGerados() {
   const comErro = filtered.filter(c => c.status === 'erro')
 
   const handleDownload = (campaign) => {
-    if (campaign.download_url) {
-      window.open(campaign.download_url, '_blank')
-    } else {
+    const tg = campaign?.textos_gerados
+    if (!tg || typeof tg !== 'object') {
       toast.error('Arquivo não disponível ainda')
+      return
     }
+
+    const formatValor = (v) => {
+      if (v == null) return ''
+      if (Array.isArray(v)) {
+        return v
+          .map((item) => `📍 ${typeof item === 'string' ? item : JSON.stringify(item)}`)
+          .join('\n')
+      }
+      return typeof v === 'string' ? v : JSON.stringify(v, null, 2)
+    }
+
+    const SECOES = [
+      { key: 'titulo_campanha',         label: '🏷️ TÍTULO DA CAMPANHA' },
+      { key: 'descricao_portal',        label: '🏠 DESCRIÇÃO PARA PORTAL' },
+      { key: 'post_instagram',          label: '📸 POST INSTAGRAM' },
+      { key: 'script_video_reels',      label: '🎬 SCRIPT VÍDEO / REELS' },
+      { key: 'carrossel_passo_a_passo', label: '🎠 CARROSSEL PASSO A PASSO' },
+      { key: 'mensagem_whatsapp',       label: '💬 MENSAGEM WHATSAPP' },
+    ]
+
+    const partes = SECOES
+      .map(({ key, label }) => {
+        const conteudo = formatValor(tg[key])
+        if (!conteudo) return ''
+        return `${label}\n${'─'.repeat(40)}\n${conteudo}\n`
+      })
+      .filter(Boolean)
+
+    if (partes.length === 0) {
+      toast.error('Esta campanha não tem textos para baixar')
+      return
+    }
+
+    const header = `✅ PACOTE — ${campaign.titulo || 'Imóvel'}\n${'═'.repeat(40)}\n\n`
+    const txt = header + partes.join('\n')
+
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const slug = (campaign.titulo || 'pacote')
+      .toString()
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+      .slice(0, 50)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pacote-${slug}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const handleDelete = async () => {
