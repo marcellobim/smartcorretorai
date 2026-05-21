@@ -659,24 +659,45 @@ export default function NovaCampanha() {
       const userId = authedUser?.id
       if (!userId) throw new Error('Usuário não autenticado — faça login novamente')
 
-      // Confirmar sessão Supabase válida ANTES de iniciar o upload (JWT precisa
-      // estar fresco no client para o Storage aceitar o request).
-      console.log('[gerarAnuncios] >>> chamando supabase.auth.getSession()')
-      try {
-        const sessRace = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout 5000ms')), 5000)),
+      // Confirmar sessão Supabase válida ANTES de iniciar o upload.
+      // Lógica robusta: tenta refreshSession() primeiro para garantir JWT fresco;
+      // se falhar, cai para getSession() (lê o token persistido). Ambas com timeout
+      // generoso de 15s individual para tolerar rede lenta sem matar o fluxo.
+      console.log('[gerarAnuncios] >>> verificando/refrescando sessão Supabase')
+      const withTimeout = (promise, ms, label) =>
+        Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout ${ms}ms`)), ms)),
         ])
-        const sessAtual = sessRace?.data?.session
-        console.log('[gerarAnuncios] <<< getSession retornou', { hasSession: !!sessAtual, userId: sessAtual?.user?.id })
-        if (!sessAtual) {
-          toast.error('Sua sessão expirou. Faça login novamente para continuar.')
+
+      let sessAtual = null
+      try {
+        const refreshed = await withTimeout(supabase.auth.refreshSession(), 15000, 'refreshSession')
+        if (refreshed?.data?.session) {
+          sessAtual = refreshed.data.session
+          console.log('[gerarAnuncios] <<< refreshSession OK', { userId: sessAtual.user?.id })
+        } else if (refreshed?.error) {
+          console.warn('[gerarAnuncios] refreshSession devolveu erro, vai tentar getSession:', refreshed.error.message)
+        }
+      } catch (refreshErr) {
+        console.warn('[gerarAnuncios] refreshSession falhou/timeout, vai tentar getSession:', refreshErr?.message || refreshErr)
+      }
+
+      if (!sessAtual) {
+        try {
+          const sessResp = await withTimeout(supabase.auth.getSession(), 15000, 'getSession')
+          sessAtual = sessResp?.data?.session || null
+          console.log('[gerarAnuncios] <<< getSession retornou', { hasSession: !!sessAtual, userId: sessAtual?.user?.id })
+        } catch (sessErr) {
+          console.error('[gerarAnuncios] getSession lançou exceção:', sessErr)
+          toast.error('Falha ao verificar sessão: ' + (sessErr?.message || sessErr))
           setFase('form')
           return
         }
-      } catch (sessErr) {
-        console.error('[gerarAnuncios] getSession lançou exceção:', sessErr)
-        toast.error('Falha ao verificar sessão: ' + (sessErr?.message || sessErr))
+      }
+
+      if (!sessAtual) {
+        toast.error('Sua sessão expirou. Faça login novamente para continuar.')
         setFase('form')
         return
       }
