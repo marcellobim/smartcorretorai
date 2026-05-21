@@ -504,7 +504,7 @@ async function resizeFoto(file, maxPx = 900) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  const { user: authedUser } = useAuth()
+  const { user: authedUser, session: authedSession, loading: authLoading } = useAuth()
   const [fase, setFase] = useState('form')
 
   const [categoria, setCategoria] = useState(null)
@@ -655,52 +655,22 @@ export default function NovaCampanha() {
         ...(difCustom.trim() ? [difCustom.trim()] : []),
       ]
 
-      // Verificar autenticação — leitura síncrona do AuthContext (sem HTTP, sem hang)
+      // Verificação de autenticação — TUDO do AuthContext, ZERO chamadas a
+      // supabase.auth.* aqui. O onAuthStateChange já mantém session/user
+      // atualizados; o cliente supabase usa o JWT da sua sessão interna em
+      // todas as chamadas (storage, edge functions) automaticamente.
+      if (authLoading) {
+        toast.error('Aguarde — carregando sessão...')
+        setFase('form')
+        return
+      }
       const userId = authedUser?.id
-      if (!userId) throw new Error('Usuário não autenticado — faça login novamente')
-
-      // Confirmar sessão Supabase válida ANTES de iniciar o upload.
-      // Lógica robusta: tenta refreshSession() primeiro para garantir JWT fresco;
-      // se falhar, cai para getSession() (lê o token persistido). Ambas com timeout
-      // generoso de 15s individual para tolerar rede lenta sem matar o fluxo.
-      console.log('[gerarAnuncios] >>> verificando/refrescando sessão Supabase')
-      const withTimeout = (promise, ms, label) =>
-        Promise.race([
-          promise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout ${ms}ms`)), ms)),
-        ])
-
-      let sessAtual = null
-      try {
-        const refreshed = await withTimeout(supabase.auth.refreshSession(), 15000, 'refreshSession')
-        if (refreshed?.data?.session) {
-          sessAtual = refreshed.data.session
-          console.log('[gerarAnuncios] <<< refreshSession OK', { userId: sessAtual.user?.id })
-        } else if (refreshed?.error) {
-          console.warn('[gerarAnuncios] refreshSession devolveu erro, vai tentar getSession:', refreshed.error.message)
-        }
-      } catch (refreshErr) {
-        console.warn('[gerarAnuncios] refreshSession falhou/timeout, vai tentar getSession:', refreshErr?.message || refreshErr)
-      }
-
-      if (!sessAtual) {
-        try {
-          const sessResp = await withTimeout(supabase.auth.getSession(), 15000, 'getSession')
-          sessAtual = sessResp?.data?.session || null
-          console.log('[gerarAnuncios] <<< getSession retornou', { hasSession: !!sessAtual, userId: sessAtual?.user?.id })
-        } catch (sessErr) {
-          console.error('[gerarAnuncios] getSession lançou exceção:', sessErr)
-          toast.error('Falha ao verificar sessão: ' + (sessErr?.message || sessErr))
-          setFase('form')
-          return
-        }
-      }
-
-      if (!sessAtual) {
+      if (!userId || !authedSession?.access_token) {
         toast.error('Sua sessão expirou. Faça login novamente para continuar.')
         setFase('form')
         return
       }
+      console.log('[gerarAnuncios] sessão OK via contexto', { userId, hasToken: !!authedSession.access_token })
 
       // ── Upload das fotos com TIMEOUT por foto (8s) ──
       // Garante que NENHUM upload travado pode bloquear o invoke da Edge Function.

@@ -5,6 +5,7 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
+  const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const initialResolvedRef = useRef(false)
@@ -60,10 +61,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true
 
-    const resolveSession = async (session, source) => {
+    const resolveSession = async (newSession, source) => {
       if (!mounted) return
       try {
-        const sessionUser = session?.user ?? null
+        const sessionUser = newSession?.user ?? null
+        setSession(newSession ?? null)
         setAuthUser(sessionUser)
         if (sessionUser) {
           await loadProfile(sessionUser.id)
@@ -133,9 +135,10 @@ export function AuthProvider({ children }) {
     const handleFocus = async () => {
       if (!initialResolvedRef.current) return // ainda hidratando — não interfere
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          setAuthUser(session.user)
+        const { data: { session: liveSession } } = await supabase.auth.getSession()
+        if (liveSession?.user) {
+          setSession(liveSession)
+          setAuthUser(liveSession.user)
           return
         }
         // getSession devolveu null. Tenta refresh; se falhar, NÃO desloga.
@@ -145,6 +148,7 @@ export function AuthProvider({ children }) {
           return
         }
         if (refreshed?.session?.user) {
+          setSession(refreshed.session)
           setAuthUser(refreshed.session.user)
           await loadProfile(refreshed.session.user.id)
         }
@@ -162,9 +166,10 @@ export function AuthProvider({ children }) {
   const init = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      setAuthUser(session?.user ?? null)
-      if (session?.user) await loadProfile(session.user.id)
+      const { data: { session: liveSession } } = await supabase.auth.getSession()
+      setSession(liveSession ?? null)
+      setAuthUser(liveSession?.user ?? null)
+      if (liveSession?.user) await loadProfile(liveSession.user.id)
       else setProfile(null)
     } catch (err) {
       console.error('[init] erro:', err)
@@ -193,6 +198,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     // Limpa o estado local IMEDIATAMENTE para a UI redirecionar sem esperar a rede.
     setAuthUser(null)
+    setSession(null)
     setProfile(null)
     try {
       await supabase.auth.signOut()
@@ -225,9 +231,14 @@ export function AuthProvider({ children }) {
   const isAuthenticated = !!authUser
   const isAdmin = mergedRole === 'admin'
 
+  // JWT direto do contexto — quem precisar pode ler sem chamar supabase.auth.*
+  const accessToken = session?.access_token || null
+
   const value = {
     user,
     profile,
+    session,
+    accessToken,
     loading,
     isAuthenticated,
     init,
