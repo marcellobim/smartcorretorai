@@ -80,10 +80,197 @@ REGRAS:
 - Se um nome aparece duas vezes, use ambos com valores diferentes.
 - Distribua fotos_urls pelos elementos de imagem na ordem em que aparecem (primeira foto no primeiro elemento de imagem, etc.). Se faltarem fotos, repita a última disponível.
 - Para elementos de vídeo: use uma foto como source se não houver vídeos; o Creatomate aceita imagens em slots de vídeo na maioria dos casos. Em último caso, omita.
-- Para textos: combine título, preço, endereço, descrição curta, CTA, marca, nome do corretor conforme o significado parece adequado dado o nome e o valor padrão do elemento. Se o nome contém "price", "valor", coloque o preço. Se contém "address", "location", coloque o endereço. Se contém "title", "headline", "head", coloque o título. Se contém "cta", "button", coloque CTA. Se contém "agent", "broker", coloque o corretor. Se contém "brand", "company", "logo" (text), coloque a marca.
+- Para textos: combine título, preço, endereço, descrição curta, CTA, marca, nome do corretor conforme o significado parece adequado dado o nome e o valor padrão do elemento. Se o nome contém "price", "valor", coloque o preço. Se contém "address", "location", coloque o endereço. Se contém "title", "headline", "head", coloque o título. Se contém "cta", "button", coloque CTA. Se contém "agent", "broker", "realtor", coloque o nome do corretor. Se contém "brand", "company", "agency" (text), coloque a Imobiliária/Marca. Se contém "phone", "tel", "whatsapp", coloque o WhatsApp/Telefone do corretor. Se contém "email", "mail", coloque o email. Se contém "creci", coloque "CRECI <número>". Se contém "site", "url", "website", coloque o site. Se contém "instagram", "insta", "social", coloque o @ do Instagram. NUNCA use dados fictícios em inglês como "John Doe", "(123) 555-1234", "info@example.com", "mybrand.com", "New York, NY".
+- Para slots de imagem que parecem ser LOGO (nome contém "logo"): use a URL do logo da imobiliária se disponível.
+- Para slots de imagem que parecem ser AVATAR/AGENT (nome contém "avatar", "agent", "broker", "realtor", "person", "headshot", "profile"): use a URL da foto do corretor (avatar) se disponível.
+- Para slots de imagem que NÃO são logo nem avatar: distribua as fotos do IMÓVEL na ordem.
 - Tom: alto_padrao = sofisticado e exclusivo; popular_mcmv/medio_padrao = acolhedor e acessível; lancamento = urgência e novidade; em_construcao = transparência e valorização.
 - Não invente dados. Se uma informação não foi fornecida, omita a chave correspondente.
 - Mantenha textos curtos para caber no template (Headline ≤ 40 chars, Subhead ≤ 60 chars, Description ≤ 120 chars, CTA ≤ 20 chars).`
+
+// ═══════════════════════════════════════════════════════════════
+// SANITIZER — garante PT-BR e remove placeholders fictícios
+// ═══════════════════════════════════════════════════════════════
+
+type SanitizeContext = {
+  preco?: string
+  endereco?: string
+  bairro?: string
+  cidade?: string
+  estado?: string
+  corretor_nome?: string
+  corretor_email?: string
+  corretor_creci?: string
+  marca_imovel?: string
+  telefone_contato?: string
+  whatsapp?: string
+  site?: string
+  instagram?: string
+  titulo?: string
+}
+
+const PLACEHOLDER_EMAIL_DOMAINS = [
+  'example.com', 'example.org', 'example.net',
+  'mybrand.com', 'yourbrand.com', 'brand.com',
+  'company.com', 'yourcompany.com',
+  'realestate.com', 'realtors.com', 'realty.com',
+  'website.com', 'yourwebsite.com',
+  'sample.com', 'test.com', 'placeholder.com', 'domain.com', 'mail.com',
+]
+
+const PLACEHOLDER_EMAIL_USERS = new Set([
+  'john', 'jane', 'doe', 'johndoe', 'janedoe',
+  'elisabeth', 'elizabeth', 'michael', 'sarah', 'jessica', 'david', 'mary', 'james', 'patricia',
+  'info', 'contact', 'support', 'hello', 'hi', 'admin', 'office',
+  'noreply', 'no-reply', 'test', 'user', 'sample', 'placeholder', 'demo', 'example',
+])
+
+const PLACEHOLDER_DOMAINS = [
+  'mybrand.com', 'yourbrand.com', 'brand.com',
+  'example.com', 'example.org', 'example.net',
+  'realestate.com', 'realtors.com', 'realty.com',
+  'company.com', 'yourcompany.com',
+  'website.com', 'yoursite.com', 'yourwebsite.com',
+  'sample.com', 'test.com', 'placeholder.com', 'domain.com',
+]
+
+const ENGLISH_CITIES = [
+  'new york', 'los angeles', 'chicago', 'houston', 'phoenix', 'philadelphia',
+  'san antonio', 'san diego', 'dallas', 'san jose', 'austin', 'jacksonville',
+  'fort worth', 'columbus', 'indianapolis', 'charlotte', 'san francisco',
+  'seattle', 'denver', 'washington', 'boston', 'el paso', 'detroit',
+  'nashville', 'memphis', 'portland', 'oklahoma city', 'las vegas',
+  'louisville', 'baltimore', 'milwaukee', 'albuquerque', 'tucson', 'fresno',
+  'sacramento', 'mesa', 'kansas city', 'atlanta', 'long beach', 'miami',
+  'beverly hills', 'hollywood', 'malibu', 'manhattan', 'brooklyn', 'queens',
+  'london', 'manchester', 'liverpool', 'birmingham', 'leeds',
+  'sydney', 'melbourne', 'toronto', 'vancouver', 'montreal', 'paris', 'berlin',
+]
+
+const US_STATE_CODE_RE = /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/
+
+const ENGLISH_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'your', 'our', 'this', 'that', 'these', 'those',
+  'is', 'are', 'was', 'were', 'be', 'been', 'will', 'would', 'could', 'should',
+  'have', 'has', 'had', 'about', 'into', 'from',
+  'home', 'house', 'price', 'beautiful', 'modern', 'luxury', 'family',
+  'bedroom', 'bathroom', 'living', 'kitchen', 'available', 'now',
+  'call', 'today', 'contact', 'experience', 'discover', 'welcome', 'feature',
+  'features', 'sale', 'rent', 'rental', 'best', 'new', 'amazing', 'stunning',
+  'gorgeous', 'spacious', 'cozy', 'dream', 'perfect',
+])
+
+const PORTUGUESE_STOPWORDS = new Set([
+  'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas',
+  'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas',
+  'por', 'pelo', 'pela', 'para', 'com', 'sem', 'sob', 'sobre',
+  'que', 'qual', 'quais',
+  'é', 'são', 'foi', 'foram', 'ser', 'estar', 'está', 'estão',
+  'tem', 'têm', 'ter', 'há',
+  'casa', 'apartamento', 'imóvel', 'imovel', 'imóveis',
+  'venda', 'aluguel', 'preço', 'preco',
+  'belo', 'bonito', 'moderno', 'luxo', 'família', 'familia',
+  'quarto', 'quartos', 'banheiro', 'banheiros', 'sala', 'cozinha',
+  'sua', 'seu', 'nosso', 'nossa',
+])
+
+function detectLanguage(s: string): 'pt' | 'en' | 'unknown' {
+  // Acento ou cedilha → quase certamente PT
+  if (/[áàâãéêíóôõúüç]/i.test(s)) return 'pt'
+  const tokens = s.toLowerCase().split(/[\s,.;:!?()'"\-/]+/).filter((t) => t.length > 0)
+  if (tokens.length < 2) return 'unknown'
+  let pt = 0
+  let en = 0
+  for (const t of tokens) {
+    if (PORTUGUESE_STOPWORDS.has(t)) pt++
+    if (ENGLISH_STOPWORDS.has(t)) en++
+  }
+  if (pt > 0) return 'pt'
+  if (en >= 3) return 'en'
+  if (en >= 2 && tokens.length <= 5) return 'en'
+  return 'unknown'
+}
+
+function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
+  if (typeof input !== 'string') return ''
+  let s = input.trim()
+  if (!s) return ''
+
+  const enderecoFinal = (ctx.endereco
+    || [ctx.bairro, ctx.cidade, ctx.estado].filter(Boolean).join(', ')
+  ).trim()
+
+  // 1. Substituir cidades em inglês (com ou sem código de estado US: "New York, NY")
+  for (const c of ENGLISH_CITIES) {
+    const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`\\b${escaped}(?:\\s*,?\\s*[A-Z]{2})?\\b`, 'gi')
+    if (re.test(s)) {
+      s = s.replace(re, enderecoFinal)
+    }
+  }
+  // Estado US isolado ("CA", "NY") em texto curto → endereço real
+  if (US_STATE_CODE_RE.test(s) && s.length <= 30 && !PORTUGUESE_STOPWORDS.has(s.toLowerCase())) {
+    s = s.replace(US_STATE_CODE_RE, enderecoFinal ? ctx.estado || '' : '')
+  }
+
+  // 2. Emails placeholder (info@example.com, elisabeth@..., john@mybrand.com, etc.)
+  s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (m) => {
+    const lower = m.toLowerCase()
+    const [user, domain] = lower.split('@')
+    const userBase = user.split(/[+.]/)[0]
+    if (PLACEHOLDER_EMAIL_DOMAINS.some((d) => domain.endsWith(d))) return ''
+    if (PLACEHOLDER_EMAIL_USERS.has(userBase)) return ''
+    return m
+  })
+
+  // 3. Domínios placeholder (mybrand.com, example.com, etc.)
+  for (const d of PLACEHOLDER_DOMAINS) {
+    const escaped = d.replace(/\./g, '\\.')
+    const re = new RegExp(`(?:https?://)?(?:www\\.)?${escaped}(?:/\\S*)?`, 'gi')
+    if (re.test(s)) {
+      s = s.replace(re, ctx.marca_imovel || '')
+    }
+  }
+
+  // 4. Telefones fake estilo americano: "(123) 555-1234", "+1 555-...", padrão "555-xxxx"
+  const phoneReal = ctx.telefone_contato || ''
+  // Telefone com bloco "555" claramente placeholder
+  s = s.replace(/\+?1?[\s.()-]*\d{3}[\s.()-]*555[\s.()-]*\d{4}/g, phoneReal)
+  // String inteira sendo um número US-style (10 dígitos, com opcional "+1")
+  if (/^\+?1[\s.()-]*\(?\d{3}\)?[\s.()-]*\d{3}[\s.()-]*\d{4}$/.test(s)) {
+    s = phoneReal
+  }
+
+  // 5. Limpar resíduos (vírgulas duplas, hifens órfãos, espaços extras)
+  s = s
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*,/g, ',')
+    .replace(/\(\s*\)/g, '')
+    .replace(/^[\s,;:\-|]+|[\s,;:\-|]+$/g, '')
+    .trim()
+
+  if (!s) return ''
+
+  // 6. Se o que sobrou estiver em inglês, tentar substituição semântica pelo dado real;
+  //    se não houver, retornar string vazia.
+  const lang = detectLanguage(s)
+  if (lang === 'en') {
+    const lower = s.toLowerCase()
+    if (/\b(price|cost|value|valor|amount)\b/.test(lower) && ctx.preco) return String(ctx.preco)
+    if (/\b(address|location|street|neighborhood|area|local)\b/.test(lower) && enderecoFinal) return enderecoFinal
+    if (/\b(agent|broker|realtor|representative|seller|sales)\b/.test(lower) && ctx.corretor_nome) return ctx.corretor_nome
+    if (/\b(brand|company|agency|office|realty|estate)\b/.test(lower) && ctx.marca_imovel) return ctx.marca_imovel
+    if (/\b(headline|title|home|house|property)\b/.test(lower) && ctx.titulo) return ctx.titulo
+    if (/\b(phone|tel|whatsapp|call)\b/.test(lower) && (ctx.whatsapp || ctx.telefone_contato)) return ctx.whatsapp || ctx.telefone_contato || ''
+    if (/\b(email|e-mail|mail)\b/.test(lower) && ctx.corretor_email) return ctx.corretor_email
+    if (/\b(creci)\b/.test(lower) && ctx.corretor_creci) return `CRECI ${ctx.corretor_creci}`
+    if (/\b(website|site|url|web)\b/.test(lower) && ctx.site) return ctx.site
+    if (/\b(instagram|insta|social|follow)\b/.test(lower) && ctx.instagram) return ctx.instagram.startsWith('@') ? ctx.instagram : `@${ctx.instagram}`
+    return ''
+  }
+
+  return s
+}
 
 type ElementInfo = { name: string; type: string; defaultValue?: string }
 
@@ -163,6 +350,7 @@ serve(async (req) => {
     const payload = await req.json().catch(() => ({}))
     const {
       campaign_id,
+      user_id,
       fotos_urls = [],
       titulo,
       descricao,
@@ -175,22 +363,64 @@ serve(async (req) => {
 
     const fotosArr = Array.isArray(fotos_urls) ? (fotos_urls as string[]).filter(Boolean) : []
     const hasCampaignId = typeof campaign_id === 'string' && campaign_id.length > 0
+    const hasUserId = typeof user_id === 'string' && user_id.length > 0
 
-    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | fotos=${fotosArr.length}`)
+    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${hasUserId ? user_id : '(sem id)'} | fotos=${fotosArr.length}`)
 
     // Buscar dados da campanha (opcional — se foi passado um campaign_id, enriquecemos)
-    let campaignRow: { titulo?: string; dados_imovel?: Record<string, unknown>; textos_gerados?: Record<string, unknown> } | null = null
+    let campaignRow: { titulo?: string; dados_imovel?: Record<string, unknown>; textos_gerados?: Record<string, unknown>; user_id?: string } | null = null
     if (hasCampaignId) {
       const { data } = await supabase
         .from('campaigns')
-        .select('id, titulo, dados_imovel, textos_gerados')
+        .select('id, titulo, dados_imovel, textos_gerados, user_id')
         .eq('id', campaign_id)
         .maybeSingle()
       campaignRow = data as typeof campaignRow
     }
 
+    // Buscar perfil do corretor (nome, contato, marca, social, avatar, logo)
+    // Prioridade: user_id do payload > user_id da campanha
+    const profileId = hasUserId
+      ? String(user_id)
+      : (campaignRow?.user_id || null)
+
+    type ProfileRow = {
+      nome?: string
+      email?: string
+      creci?: string
+      telefone?: string
+      whatsapp?: string
+      imobiliaria?: string
+      site?: string
+      instagram?: string
+      avatar_url?: string
+      logo_url?: string
+    }
+    let profileRow: ProfileRow | null = null
+    if (profileId) {
+      const { data, error: profileErr } = await supabase
+        .from('profiles')
+        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url')
+        .eq('id', profileId)
+        .maybeSingle()
+      if (profileErr) console.warn(`[${reqId}] profile fetch erro:`, profileErr.message)
+      profileRow = (data as ProfileRow) || null
+    }
+
     const dadosImovel = (campaignRow?.dados_imovel as Record<string, unknown>) || {}
     const categoria = String(dadosImovel.categoria || tipo_imovel || 'medio_padrao')
+
+    // Merge: profile do banco tem prioridade sobre payload (fonte de verdade)
+    const corretorNomeFinal  = profileRow?.nome        || (typeof corretor_nome === 'string' ? corretor_nome : '') || ''
+    const corretorEmail      = profileRow?.email       || ''
+    const corretorCRECI      = profileRow?.creci       || ''
+    const corretorTelefone   = profileRow?.telefone    || String(dadosImovel.telefone_contato || '')
+    const corretorWhatsApp   = profileRow?.whatsapp    || corretorTelefone
+    const marcaFinal         = profileRow?.imobiliaria || (typeof marca_imovel === 'string' ? marca_imovel : '') || ''
+    const siteFinal          = profileRow?.site        || ''
+    const instagramFinal     = profileRow?.instagram   || ''
+    const logoUrl            = profileRow?.logo_url    || ''
+    const avatarUrl          = profileRow?.avatar_url  || ''
 
     // Bloco compartilhado com os dois prompts
     const dadosImovelBloco = `DADOS DO IMÓVEL:
@@ -200,9 +430,19 @@ serve(async (req) => {
 - Descrição: ${descricao || ''}
 - Preço: ${preco || dadosImovel.preco || ''}
 - Endereço: ${endereco || `${dadosImovel.bairro || ''}${dadosImovel.cidade ? ', ' + dadosImovel.cidade : ''}${dadosImovel.estado ? ' - ' + dadosImovel.estado : ''}`}
-- Marca/Imobiliária: ${marca_imovel || ''}
-- Corretor: ${corretor_nome || ''}
-- Fotos disponíveis (${fotosArr.length}): ${JSON.stringify(fotosArr)}`
+- Fotos do imóvel (${fotosArr.length}): ${JSON.stringify(fotosArr)}
+
+DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telefones fictícios em inglês):
+- Nome: ${corretorNomeFinal || '(não informado)'}
+- CRECI: ${corretorCRECI || '(não informado)'}
+- Telefone: ${corretorTelefone || '(não informado)'}
+- WhatsApp: ${corretorWhatsApp || '(não informado)'}
+- Email: ${corretorEmail || '(não informado)'}
+- Imobiliária/Marca: ${marcaFinal || '(não informado)'}
+- Site: ${siteFinal || '(não informado)'}
+- Instagram: ${instagramFinal || '(não informado)'}
+- Foto do corretor (avatar): ${avatarUrl || '(não informada)'}
+- Logo da imobiliária: ${logoUrl || '(não informada)'}`
 
     // === ESTÁGIO 1: IA seleciona os template_ids ==========================
     const pickUserPrompt = `${dadosImovelBloco}
@@ -333,6 +573,28 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       elementosPorTemplate.set(s.id, m)
     }
 
+    // Contexto compartilhado para o sanitizer (PT-BR + dados reais do imóvel + do corretor)
+    const sanitizeCtx: SanitizeContext = {
+      preco: preco != null ? String(preco) : (dadosImovel.preco != null ? String(dadosImovel.preco) : ''),
+      endereco: typeof endereco === 'string' && endereco.trim()
+        ? endereco
+        : [dadosImovel.bairro, dadosImovel.cidade, dadosImovel.estado].filter(Boolean).join(', '),
+      bairro: String(dadosImovel.bairro || ''),
+      cidade: String(dadosImovel.cidade || ''),
+      estado: String(dadosImovel.estado || ''),
+      corretor_nome: corretorNomeFinal,
+      corretor_email: corretorEmail,
+      corretor_creci: corretorCRECI,
+      marca_imovel: marcaFinal,
+      telefone_contato: corretorTelefone,
+      whatsapp: corretorWhatsApp,
+      site: siteFinal,
+      instagram: instagramFinal,
+      titulo: typeof titulo === 'string' && titulo
+        ? titulo
+        : (campaignRow?.titulo || ''),
+    }
+
     const aprovadasLimpas = aprovadas.map((sel) => {
       const elementos = elementosPorTemplate.get(sel.template_id)
       const mods: Record<string, unknown> = {}
@@ -348,7 +610,14 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           const expectedProp = elem.type === 'text' ? 'text' : 'source'
           if (prop !== expectedProp) continue
           if (typeof v !== 'string' || !v.trim()) continue
-          mods[k] = v
+
+          if (prop === 'text') {
+            const limpo = sanitizeTemplateText(v, sanitizeCtx)
+            if (!limpo) continue
+            mods[k] = limpo
+          } else {
+            mods[k] = v
+          }
         }
       }
       return { template_id: sel.template_id, modifications: mods }

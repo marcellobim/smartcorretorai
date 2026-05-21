@@ -1,13 +1,72 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { User, Lock, Bell, CreditCard, Share2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { User, Lock, Bell, CreditCard, Share2, CheckCircle2, AlertCircle, Loader2, Upload, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import { Input, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+
+// ── Uploader de imagem de perfil (avatar ou logo) ─────────────────────────────
+function ImageUploader({ label, value, onChange, shape = 'circle', placeholderIcon = '👤' }) {
+  const inputRef = useRef(null)
+  const [preview, setPreview] = useState(value || null)
+  const [uploading, setUploading] = useState(false)
+
+  useEffect(() => { setPreview(value || null) }, [value])
+
+  const handleFile = (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Apenas imagens (jpg/png/webp)'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Imagem maior que 5MB'); return }
+    setUploading(true)
+    const objUrl = URL.createObjectURL(file)
+    setPreview(objUrl)
+    onChange(file)
+    // Libera o blob após o upload externo terminar (controlado pelo pai)
+    setTimeout(() => setUploading(false), 400)
+  }
+
+  const limpar = (e) => {
+    e.stopPropagation()
+    setPreview(null)
+    onChange(null)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-xl'
+
+  return (
+    <div className="flex items-center gap-4">
+      <button type="button" onClick={() => inputRef.current?.click()}
+        className={`${shapeClass} w-20 h-20 border-2 border-dashed border-gray-300 hover:border-primary-400 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden relative shrink-0`}>
+        {preview ? (
+          <>
+            <img src={preview} alt={label} className="w-full h-full object-cover" />
+            <button type="button" onClick={limpar}
+              className="absolute top-0 right-0 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600">
+              <X className="w-3 h-3" />
+            </button>
+          </>
+        ) : (
+          <span className="text-2xl text-gray-400">{uploading ? '...' : placeholderIcon}</span>
+        )}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-800">{label}</p>
+        <p className="text-xs text-gray-500">PNG/JPG/WebP até 5MB</p>
+        <button type="button" onClick={() => inputRef.current?.click()}
+          className="mt-1 text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1">
+          <Upload className="w-3 h-3" /> {preview ? 'Trocar' : 'Enviar'}
+        </button>
+      </div>
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp"
+        className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
+    </div>
+  )
+}
 
 const tabs = [
   { id: 'perfil',      label: 'Perfil',          icon: User },
@@ -144,14 +203,73 @@ export default function Configuracoes() {
     }
   }, []) // eslint-disable-line
 
-  const { register: regPerfil, handleSubmit: handlePerfil, formState: { isSubmitting: savingPerfil } } = useForm({
-    defaultValues: { nome: user?.nome, email: user?.email, creci: user?.creci, estado: user?.estado, telefone: user?.telefone },
+  const { register: regPerfil, handleSubmit: handlePerfil, reset: resetPerfil, formState: { isSubmitting: savingPerfil } } = useForm({
+    defaultValues: {
+      nome: user?.nome || '',
+      email: user?.email || '',
+      creci: user?.creci || '',
+      estado: user?.estado || '',
+      telefone: user?.telefone || '',
+      whatsapp: user?.whatsapp || '',
+      imobiliaria: user?.imobiliaria || '',
+      instagram: user?.instagram || '',
+    },
   })
+
+  // Resetar form quando o profile chegar (caso o user inicial estivesse vazio)
+  useEffect(() => {
+    if (user?.id) {
+      resetPerfil({
+        nome: user?.nome || '',
+        email: user?.email || '',
+        creci: user?.creci || '',
+        estado: user?.estado || '',
+        telefone: user?.telefone || '',
+        whatsapp: user?.whatsapp || '',
+        imobiliaria: user?.imobiliaria || '',
+        instagram: user?.instagram || '',
+      })
+      setAvatarFile(null)
+      setLogoFile(null)
+    }
+  }, [user?.id, user?.nome, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.estado, resetPerfil])
+
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [logoFile, setLogoFile] = useState(null)
 
   const { register: regSenha, handleSubmit: handleSenha, reset: resetSenha, formState: { isSubmitting: savingSenha } } = useForm()
 
+  const uploadProfileImage = async (file, slot) => {
+    if (!file || !(file instanceof File)) return null
+    const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${user.id}/profile/${slot}-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from('smartcorretor-assets')
+      .upload(path, file, { contentType: file.type, upsert: true })
+    if (upErr) throw new Error(`Falha ao subir ${slot}: ${upErr.message}`)
+    const { data: pub } = supabase.storage.from('smartcorretor-assets').getPublicUrl(path)
+    return pub.publicUrl
+  }
+
   const onSavePerfil = async (data) => {
     try {
+      let avatar_url = user?.avatar_url || null
+      let logo_url = user?.logo_url || null
+
+      // Avatar: file novo (upload), null (limpar), undefined (não mexido)
+      if (avatarFile instanceof File) {
+        avatar_url = await uploadProfileImage(avatarFile, 'avatar')
+      } else if (avatarFile === null && user?.avatar_url) {
+        // Usuário limpou explicitamente
+        avatar_url = null
+      }
+
+      if (logoFile instanceof File) {
+        logo_url = await uploadProfileImage(logoFile, 'logo')
+      } else if (logoFile === null && user?.logo_url) {
+        logo_url = null
+      }
+
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
@@ -159,12 +277,19 @@ export default function Configuracoes() {
           creci: data.creci,
           estado: data.estado,
           telefone: data.telefone,
+          whatsapp: data.whatsapp,
+          imobiliaria: data.imobiliaria,
+          instagram: data.instagram,
+          avatar_url,
+          logo_url,
         })
         .eq('id', user.id)
         .select()
         .single()
       if (error) throw error
       updateUser(updated)
+      setAvatarFile(undefined)
+      setLogoFile(undefined)
       toast.success('Perfil atualizado!')
     } catch (err) { toast.error(err.message || 'Erro ao salvar perfil') }
   }
@@ -203,10 +328,32 @@ export default function Configuracoes() {
             {/* ── Perfil ── */}
             {activeTab === 'perfil' && (
               <div className="card p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Informações do perfil</h2>
-                <form onSubmit={handlePerfil(onSavePerfil)} className="space-y-4">
-                  <Input label="Nome completo" {...regPerfil('nome')} />
-                  <Input label="E-mail" type="email" {...regPerfil('email')} />
+                <h2 className="text-base font-semibold text-gray-900 mb-1">Perfil do Corretor</h2>
+                <p className="text-sm text-gray-500 mb-6">
+                  Esses dados são usados pela IA para preencher os banners e vídeos gerados.
+                </p>
+                <form onSubmit={handlePerfil(onSavePerfil)} className="space-y-5">
+
+                  {/* Imagens */}
+                  <div className="grid sm:grid-cols-2 gap-5 p-4 bg-gray-50 rounded-xl">
+                    <ImageUploader
+                      label="Foto de perfil (opcional)"
+                      value={avatarFile === null ? null : (avatarFile instanceof File ? null : user?.avatar_url)}
+                      onChange={setAvatarFile}
+                      shape="circle"
+                      placeholderIcon="👤"
+                    />
+                    <ImageUploader
+                      label="Logo da imobiliária (opcional)"
+                      value={logoFile === null ? null : (logoFile instanceof File ? null : user?.logo_url)}
+                      onChange={setLogoFile}
+                      shape="square"
+                      placeholderIcon="🏢"
+                    />
+                  </div>
+
+                  {/* Identidade */}
+                  <Input label="Nome completo" placeholder="Seu nome como aparece nos anúncios" {...regPerfil('nome')} />
                   <div className="grid grid-cols-2 gap-3">
                     <Input label="CRECI" placeholder="Ex: 12345-F" {...regPerfil('creci')} />
                     <Select label="Estado" {...regPerfil('estado')}>
@@ -216,7 +363,18 @@ export default function Configuracoes() {
                       ))}
                     </Select>
                   </div>
-                  <Input label="WhatsApp" type="tel" placeholder="(11) 99999-9999" {...regPerfil('telefone')} />
+
+                  {/* Contato */}
+                  <Input label="E-mail" type="email" placeholder="seu@email.com" readOnly disabled {...regPerfil('email')} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Telefone" type="tel" placeholder="(11) 3333-4444" {...regPerfil('telefone')} />
+                    <Input label="WhatsApp" type="tel" placeholder="(11) 99999-9999" {...regPerfil('whatsapp')} />
+                  </div>
+
+                  {/* Marca */}
+                  <Input label="Nome da imobiliária (opcional)" placeholder="Ex: ABC Imóveis" {...regPerfil('imobiliaria')} />
+                  <Input label="Instagram (opcional)" placeholder="@seuinsta" {...regPerfil('instagram')} />
+
                   <Button type="submit" loading={savingPerfil}>Salvar alterações</Button>
                 </form>
               </div>

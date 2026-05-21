@@ -1,0 +1,4 @@
+project_id = "sfbowejaevlmhcvsxhbk"
+
+[functions.gerar-campanha]
+verify_jwt = false

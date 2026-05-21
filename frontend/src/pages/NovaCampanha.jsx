@@ -756,6 +756,7 @@ export default function NovaCampanha() {
         supabase.functions.invoke('gerar-banners', {
           body: {
             // campaign_id é opcional agora; vamos linkar depois
+            user_id: userId,
             fotos_urls,
             titulo: tituloPreliminar,
             descricao: descricaoPreliminar,
@@ -763,7 +764,7 @@ export default function NovaCampanha() {
             endereco: enderecoCompleto,
             tipo_imovel: tipo,
             corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
-            marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
+            marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
           },
         }),
       ])
