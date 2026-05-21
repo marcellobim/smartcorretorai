@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
@@ -7,98 +7,171 @@ export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const initialResolvedRef = useRef(false)
 
   const loadProfile = useCallback(async (uid) => {
     if (!uid) { setProfile(null); return null }
-    let { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .maybeSingle()
-    if (error) console.error('profile load error', error)
+    try {
+      let { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', uid)
+        .maybeSingle()
+      if (error) console.error('[loadProfile] select error:', error)
 
-    if (!data) {
-      const { data: { user: authU } } = await supabase.auth.getUser()
-      if (authU?.id === uid) {
-        const { error: insertErr } = await supabase
-          .from('profiles')
-          .upsert({ id: uid, email: authU.email }, { onConflict: 'id', ignoreDuplicates: true })
-        if (insertErr) console.error('profile auto-create error', insertErr)
-        const retry = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', uid)
-          .maybeSingle()
-        if (retry.error) console.error('profile reload after create error', retry.error)
-        data = retry.data
+      if (!data) {
+        try {
+          const { data: { user: authU } } = await supabase.auth.getUser()
+          if (authU?.id === uid) {
+            const { error: insertErr } = await supabase
+              .from('profiles')
+              .upsert({ id: uid, email: authU.email }, { onConflict: 'id', ignoreDuplicates: true })
+            if (insertErr) console.error('[loadProfile] auto-create error:', insertErr)
+            const retry = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', uid)
+              .maybeSingle()
+            if (retry.error) console.error('[loadProfile] retry error:', retry.error)
+            data = retry.data
+          }
+        } catch (innerErr) {
+          console.error('[loadProfile] erro ao tentar auto-criar profile:', innerErr)
+        }
+      }
+
+      setProfile(data || null)
+      return data
+    } catch (err) {
+      console.error('[loadProfile] erro fatal:', err)
+      setProfile(null)
+      return null
+    }
+  }, [])
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Inicialização única + listener de eventos (single source of truth)
+  //
+  // O Supabase v2 dispara INITIAL_SESSION logo após o subscribe, com a sessão
+  // restaurada do localStorage. Isso elimina a necessidade de chamar getSession
+  // em paralelo — basta esperar o callback. Mantemos um timer de segurança caso
+  // o INITIAL_SESSION não dispare em 3s.
+  // ──────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true
+
+    const resolveSession = async (session, source) => {
+      if (!mounted) return
+      try {
+        const sessionUser = session?.user ?? null
+        setAuthUser(sessionUser)
+        if (sessionUser) {
+          await loadProfile(sessionUser.id)
+        } else {
+          setProfile(null)
+        }
+      } catch (err) {
+        console.error(`[auth ${source}] erro ao resolver sessão:`, err)
+      } finally {
+        if (mounted && !initialResolvedRef.current) {
+          initialResolvedRef.current = true
+          setLoading(false)
+        }
       }
     }
 
-    setProfile(data || null)
-    return data
-  }, [])
-
-  const init = useCallback(async () => {
-    setLoading(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    setAuthUser(session?.user ?? null)
-    if (session?.user) await loadProfile(session.user.id)
-    setLoading(false)
-  }, [loadProfile])
-
-  useEffect(() => {
-    init()
+    // 1) Subscribe — INITIAL_SESSION dispara assim que o cliente hidrata.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setAuthUser(session?.user ?? null)
-        if (session?.user) await loadProfile(session.user.id)
-        else setProfile(null)
+      async (event, session) => {
+        if (!mounted) return
+        console.log('[auth] event:', event, 'hasSession:', !!session, 'userId:', session?.user?.id)
+        await resolveSession(session, event)
       }
     )
-    return () => subscription.unsubscribe()
-  }, [init, loadProfile])
 
-  // Fallback: se authUser existe mas profile ficou null após init (ex.: falha de
-  // rede, RLS momentâneo, hard reload), força um reload do profile.
+    // 2) Fallback — se INITIAL_SESSION não disparar em 3s, força um getSession.
+    //    Cobre cenários raros de hidratação travada do client.
+    const fallbackTimer = setTimeout(async () => {
+      if (!mounted || initialResolvedRef.current) return
+      console.warn('[auth] INITIAL_SESSION não disparou em 3s — fallback getSession()')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!initialResolvedRef.current) {
+          await resolveSession(session, 'fallback-getSession')
+        }
+      } catch (err) {
+        console.error('[auth fallback] erro:', err)
+        if (mounted && !initialResolvedRef.current) {
+          initialResolvedRef.current = true
+          setLoading(false)
+        }
+      }
+    }, 3000)
+
+    return () => {
+      mounted = false
+      clearTimeout(fallbackTimer)
+      subscription.unsubscribe()
+    }
+  }, [loadProfile])
+
+  // Fallback: se authUser existe mas profile ficou null (RLS momentâneo, rede),
+  // tenta recarregar o profile sem mexer no authUser.
   useEffect(() => {
     if (!loading && authUser?.id && !profile) {
       loadProfile(authUser.id)
     }
   }, [authUser?.id, profile, loading, loadProfile])
 
-  // Mantém a sessão "viva": ao ganhar foco da aba, força getSession() e, se vier
-  // null, tenta refreshSession() automaticamente. O onAuthStateChange acima
-  // captura TOKEN_REFRESHED e atualiza authUser/profile, mas também atualizamos
-  // explicitamente aqui para evitar janela de race.
+  // ──────────────────────────────────────────────────────────────────────────
+  // Foco da aba: revalida a sessão SEM derrubar o usuário em falhas transitórias.
+  // - Só age após a inicialização ter concluído (evita race com hidratação).
+  // - Se refreshSession falhar (rede, etc.), mantém o estado atual; o
+  //   onAuthStateChange detectará SIGNED_OUT real se for o caso.
+  // ──────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleFocus = async () => {
+      if (!initialResolvedRef.current) return // ainda hidratando — não interfere
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           setAuthUser(session.user)
           return
         }
-        // Sessão nula: tentar refresh
+        // getSession devolveu null. Tenta refresh; se falhar, NÃO desloga.
         const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession()
         if (refreshErr) {
-          console.warn('[auth focus] refreshSession falhou:', refreshErr.message)
-          setAuthUser(null)
-          setProfile(null)
+          console.warn('[auth focus] refreshSession falhou (mantendo estado atual):', refreshErr.message)
           return
         }
         if (refreshed?.session?.user) {
           setAuthUser(refreshed.session.user)
           await loadProfile(refreshed.session.user.id)
-        } else {
-          setAuthUser(null)
-          setProfile(null)
         }
+        // Se refresh deu sucesso mas sem session.user, mantém estado — o
+        // onAuthStateChange dispara SIGNED_OUT explicitamente se for o caso.
       } catch (err) {
         console.error('[auth focus] erro:', err)
       }
     }
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
+  }, [loadProfile])
+
+  // Função `init` exposta no contexto (re-executa a hidratação sob demanda).
+  const init = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      setAuthUser(session?.user ?? null)
+      if (session?.user) await loadProfile(session.user.id)
+      else setProfile(null)
+    } catch (err) {
+      console.error('[init] erro:', err)
+    } finally {
+      initialResolvedRef.current = true
+      setLoading(false)
+    }
   }, [loadProfile])
 
   const signIn = async (email, password) => {
