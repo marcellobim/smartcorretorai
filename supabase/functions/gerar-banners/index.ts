@@ -86,6 +86,7 @@ REGRAS:
 - Para slots de imagem que NÃO são logo nem avatar: distribua as fotos do IMÓVEL na ordem.
 - Tom: alto_padrao = sofisticado e exclusivo; popular_mcmv/medio_padrao = acolhedor e acessível; lancamento = urgência e novidade; em_construcao = transparência e valorização.
 - Não invente dados. Se uma informação não foi fornecida, omita a chave correspondente.
+- Quando um campo tiver valor REMOVER_ELEMENTO, defina o valor do elemento como string vazia '' e adicione a propriedade 'track': false se disponível. NUNCA use placeholders fictícios.
 - Mantenha textos curtos para caber no template (Headline ≤ 40 chars, Subhead ≤ 60 chars, Description ≤ 120 chars, CTA ≤ 20 chars).`
 
 // ═══════════════════════════════════════════════════════════════
@@ -436,13 +437,13 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
 - Nome: ${corretorNomeFinal || '(não informado)'}
 - CRECI: ${corretorCRECI || '(não informado)'}
 - Telefone: ${corretorTelefone || '(não informado)'}
-- WhatsApp: ${corretorWhatsApp || '(não informado)'}
-- Email: ${corretorEmail || '(não informado)'}
+- WhatsApp: ${corretorWhatsApp || 'REMOVER_ELEMENTO'}
+- Email: ${corretorEmail || 'REMOVER_ELEMENTO'}
 - Imobiliária/Marca: ${marcaFinal || '(não informado)'}
-- Site: ${siteFinal || '(não informado)'}
-- Instagram: ${instagramFinal || '(não informado)'}
-- Foto do corretor (avatar): ${avatarUrl || '(não informada)'}
-- Logo da imobiliária: ${logoUrl || '(não informada)'}`
+- Site: ${siteFinal || 'REMOVER_ELEMENTO'}
+- Instagram: ${instagramFinal || 'REMOVER_ELEMENTO'}
+- Foto do corretor: ${avatarUrl || 'REMOVER_ELEMENTO'}
+- Logo da imobiliária: ${logoUrl || 'REMOVER_ELEMENTO'}`
 
     // === ESTÁGIO 1: IA seleciona os template_ids ==========================
     const pickUserPrompt = `${dadosImovelBloco}
@@ -600,16 +601,39 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       const mods: Record<string, unknown> = {}
       if (elementos && sel.modifications && typeof sel.modifications === 'object') {
         for (const [k, v] of Object.entries(sel.modifications)) {
-          // Espera chave no formato "<name>.text" ou "<name>.source"
+          // Chave esperada: "<name>.text", "<name>.source" ou "<name>.track"
           const dot = k.lastIndexOf('.')
           if (dot < 0) continue
           const name = k.slice(0, dot)
           const prop = k.slice(dot + 1)
           const elem = elementos.get(name)
           if (!elem) continue
+
+          // .track: booleano, válido para qualquer tipo de elemento.
+          // Usado pela IA para "desativar" elementos quando o dado real não
+          // existe (instrução REMOVER_ELEMENTO no prompt).
+          if (prop === 'track') {
+            if (typeof v === 'boolean') {
+              mods[k] = v
+            }
+            continue
+          }
+
+          // .text só em elementos type=text; .source em image/video/audio.
           const expectedProp = elem.type === 'text' ? 'text' : 'source'
           if (prop !== expectedProp) continue
-          if (typeof v !== 'string' || !v.trim()) continue
+          if (typeof v !== 'string') continue
+
+          // String vazia EXPLÍCITA: passa direto. É a outra metade da
+          // remoção — apaga o texto/source default do template. Costuma
+          // vir junto com .track: false.
+          if (v === '') {
+            mods[k] = ''
+            continue
+          }
+
+          // Apenas whitespace: descarta (não é remoção intencional, é lixo).
+          if (!v.trim()) continue
 
           if (prop === 'text') {
             const limpo = sanitizeTemplateText(v, sanitizeCtx)
