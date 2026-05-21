@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 
 // ── Uploader de imagem de perfil (avatar ou logo) ─────────────────────────────
-function ImageUploader({ label, value, onChange, shape = 'circle', placeholderIcon = '👤' }) {
+function ImageUploader({ label, value, onChange, shape = 'circle', placeholderIcon = '👤', optional = false }) {
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(value || null)
   const [uploading, setUploading] = useState(false)
@@ -56,6 +56,7 @@ function ImageUploader({ label, value, onChange, shape = 'circle', placeholderIc
       </button>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-800">{label}</p>
+        {optional && <p className="text-xs text-gray-400">(opcional)</p>}
         <p className="text-xs text-gray-500">PNG/JPG/WebP até 5MB</p>
         <button type="button" onClick={() => inputRef.current?.click()}
           className="mt-1 text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1">
@@ -337,14 +338,16 @@ export default function Configuracoes() {
                   {/* Imagens */}
                   <div className="grid sm:grid-cols-2 gap-5 p-4 bg-gray-50 rounded-xl">
                     <ImageUploader
-                      label="Foto de perfil (opcional)"
+                      label="Foto de perfil"
+                      optional
                       value={avatarFile === null ? null : (avatarFile instanceof File ? null : user?.avatar_url)}
                       onChange={setAvatarFile}
                       shape="circle"
                       placeholderIcon="👤"
                     />
                     <ImageUploader
-                      label="Logo da imobiliária (opcional)"
+                      label="Logo da imobiliária"
+                      optional
                       value={logoFile === null ? null : (logoFile instanceof File ? null : user?.logo_url)}
                       onChange={setLogoFile}
                       shape="square"
