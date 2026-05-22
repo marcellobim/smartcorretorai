@@ -672,9 +672,9 @@ export default function NovaCampanha() {
       }
       console.log('[gerarAnuncios] sessão OK via contexto', { userId, hasToken: !!authedSession.access_token })
 
-      // ── Upload das fotos com TIMEOUT por foto (8s) ──
-      // Garante que NENHUM upload travado pode bloquear o invoke da Edge Function.
-      // Se a foto demorar > 8s, descarta e segue. Se falhar, segue. invoke é OBRIGATÓRIO.
+      // ── Upload das fotos: sequencial, timeout 120s por tentativa, retry 1x ──
+      // Cada foto tem até 2 tentativas; se ambas falharem/expirarem, segue sem ela.
+      // invoke da Edge Function é OBRIGATÓRIO — uploads não podem bloquear o fluxo.
       const uploadComTimeout = (path, blob, contentType, ms = 120000) =>
         Promise.race([
           supabase.storage
@@ -686,24 +686,29 @@ export default function NovaCampanha() {
       const fotos_urls = []
       console.log('[gerarAnuncios] iniciando upload de', fotos.length, 'fotos')
       for (let i = 0; i < fotos.length; i++) {
-        try {
-          const f = fotos[i]
-          const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
-          const blob = new Blob([bin], { type: f.tipo })
-          const path = `${userId}/campaigns/${Date.now()}_${i}.jpg`
-          const { error: upErr } = await uploadComTimeout(path, blob, f.tipo)
-          if (upErr) {
-            console.error('[upload] foto', i + 1, 'falhou (continuando sem ela):', upErr.message)
-          } else {
+        const f = fotos[i]
+        const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
+        const blob = new Blob([bin], { type: f.tipo })
+        const path = `${userId}/campaigns/${Date.now()}_${i}.jpg`
+        let url = null
+        for (let tentativa = 1; tentativa <= 2; tentativa++) {
+          try {
+            const { error: upErr } = await uploadComTimeout(path, blob, f.tipo)
+            if (upErr) {
+              console.error(`[upload] foto ${i + 1} tentativa ${tentativa} falhou:`, upErr.message)
+              continue
+            }
             const { data: pub } = supabase.storage
               .from('smartcorretor-assets')
               .getPublicUrl(path)
-            fotos_urls.push(pub.publicUrl)
-            console.log('[upload] OK foto', i + 1)
+            url = pub.publicUrl
+            console.log('[upload] OK foto', i + 1, tentativa > 1 ? `(tentativa ${tentativa})` : '')
+            break
+          } catch (uploadErr) {
+            console.error(`[upload] foto ${i + 1} tentativa ${tentativa} erro/timeout:`, uploadErr)
           }
-        } catch (uploadErr) {
-          console.error('[upload] erro/timeout na foto', i + 1, '— continuando:', uploadErr)
         }
+        if (url) fotos_urls.push(url)
       }
       console.log('[gerarAnuncios] fim do upload loop. fotos_urls:', fotos_urls.length)
 
