@@ -348,10 +348,23 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
+    // === Auth: validar JWT inbound e derivar user_id da identidade autenticada ===
+    // NUNCA aceitar user_id do body — cliente roda com service_role e RLS bypass.
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization')
+    if (!authHeader || !/^Bearer\s+/i.test(authHeader)) {
+      return jsonResponse({ error: 'Authorization header ausente ou invalido' }, 401)
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser(token)
+    if (authErr || !authUser) {
+      console.warn(`[${reqId}] JWT invalido:`, authErr?.message)
+      return jsonResponse({ error: 'Token invalido ou expirado' }, 401)
+    }
+    const authenticatedUserId = authUser.id
+
     const payload = await req.json().catch(() => ({}))
     const {
       campaign_id,
-      user_id,
       fotos_urls = [],
       titulo,
       descricao,
@@ -364,9 +377,8 @@ serve(async (req) => {
 
     const fotosArr = Array.isArray(fotos_urls) ? (fotos_urls as string[]).filter(Boolean) : []
     const hasCampaignId = typeof campaign_id === 'string' && campaign_id.length > 0
-    const hasUserId = typeof user_id === 'string' && user_id.length > 0
 
-    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${hasUserId ? user_id : '(sem id)'} | fotos=${fotosArr.length}`)
+    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${authenticatedUserId} | fotos=${fotosArr.length}`)
 
     // Buscar dados da campanha (opcional — se foi passado um campaign_id, enriquecemos)
     let campaignRow: { titulo?: string; dados_imovel?: Record<string, unknown>; textos_gerados?: Record<string, unknown>; user_id?: string } | null = null
@@ -377,13 +389,16 @@ serve(async (req) => {
         .eq('id', campaign_id)
         .maybeSingle()
       campaignRow = data as typeof campaignRow
+
+      // Ownership: campanha tem que pertencer ao usuario autenticado
+      if (campaignRow && campaignRow.user_id && campaignRow.user_id !== authenticatedUserId) {
+        console.warn(`[${reqId}] usuario ${authenticatedUserId} tentou acessar campanha ${campaign_id} de outro usuario`)
+        return jsonResponse({ error: 'Campanha nao pertence ao usuario autenticado' }, 403)
+      }
     }
 
-    // Buscar perfil do corretor (nome, contato, marca, social, avatar, logo)
-    // Prioridade: user_id do payload > user_id da campanha
-    const profileId = hasUserId
-      ? String(user_id)
-      : (campaignRow?.user_id || null)
+    // user_id agora SEMPRE vem do JWT — body.user_id e campaignRow.user_id sao ignorados como fontes
+    const profileId: string = authenticatedUserId
 
     type ProfileRow = {
       nome?: string
