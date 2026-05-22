@@ -213,6 +213,7 @@ export default function Configuracoes() {
       telefone: user?.telefone || '',
       whatsapp: user?.whatsapp || '',
       imobiliaria: user?.imobiliaria || '',
+      site: user?.site || '',
       instagram: user?.instagram || '',
     },
   })
@@ -228,12 +229,13 @@ export default function Configuracoes() {
         telefone: user?.telefone || '',
         whatsapp: user?.whatsapp || '',
         imobiliaria: user?.imobiliaria || '',
+        site: user?.site || '',
         instagram: user?.instagram || '',
       })
       setAvatarFile(null)
       setLogoFile(null)
     }
-  }, [user?.id, user?.nome, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.estado, resetPerfil])
+  }, [user?.id, user?.nome, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.site, user?.instagram, user?.estado, resetPerfil])
 
   const [avatarFile, setAvatarFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
@@ -280,6 +282,7 @@ export default function Configuracoes() {
           telefone: data.telefone,
           whatsapp: data.whatsapp,
           imobiliaria: data.imobiliaria,
+          site: data.site,
           instagram: data.instagram,
           avatar_url,
           logo_url,
@@ -376,6 +379,7 @@ export default function Configuracoes() {
 
                   {/* Marca */}
                   <Input label="Nome da imobiliária (opcional)" placeholder="Ex: ABC Imóveis" {...regPerfil('imobiliaria')} />
+                  <Input label="Site (opcional)" placeholder="https://seusite.com.br" {...regPerfil('site')} />
                   <Input label="Instagram (opcional)" placeholder="@seuinsta" {...regPerfil('instagram')} />
 
                   <Button type="submit" loading={savingPerfil}>Salvar alterações</Button>
