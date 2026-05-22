@@ -450,11 +450,11 @@ serve(async (req) => {
 
 DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telefones fictícios em inglês):
 - Nome: ${corretorNomeFinal || '(não informado)'}
-- CRECI: ${corretorCRECI || '(não informado)'}
+- CRECI: ${corretorCRECI || 'REMOVER_ELEMENTO'}
 - Telefone: ${corretorTelefone || '(não informado)'}
 - WhatsApp: ${corretorWhatsApp || 'REMOVER_ELEMENTO'}
 - Email: ${corretorEmail || 'REMOVER_ELEMENTO'}
-- Imobiliária/Marca: ${marcaFinal || '(não informado)'}
+- Imobiliária/Marca: ${marcaFinal || 'REMOVER_ELEMENTO'}
 - Site: ${siteFinal || 'REMOVER_ELEMENTO'}
 - Instagram: ${instagramFinal || 'REMOVER_ELEMENTO'}
 - Foto do corretor: ${avatarUrl || 'REMOVER_ELEMENTO'}
