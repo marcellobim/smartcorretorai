@@ -230,6 +230,18 @@ function detectLanguage(s: string): 'pt' | 'en' | 'unknown' {
 // ═══════════════════════════════════════════════════════════════
 
 const EN_PT_DICTIONARY: Record<string, string> = {
+  // ── Headlines compostas (devem rodar antes dos termos curtos) ─
+  'See full listing in description': 'Veja o anúncio completo na descrição',
+  'Home For Sale': 'Imóvel à Venda',
+  'House For Sale': 'Casa à Venda',
+  'House For Rent': 'Casa para Alugar',
+  'Home For Rent': 'Imóvel para Alugar',
+  'Price Starts At': 'A partir de',
+  'Starts At': 'A partir de',
+  'Great Features': 'Diferenciais',
+  'Key Features': 'Diferenciais',
+  'Built in': 'Construído em',
+
   // ── Status / labels do anúncio ──────────────────────────────
   'For Sale': 'À Venda',
   'For Rent': 'Para Alugar',
@@ -313,6 +325,8 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Family Room': 'Sala de Família',
   'Kitchen': 'Cozinha',
   'Garage': 'Garagem',
+  'Garage Spaces': 'Vagas de Garagem',
+  'Garage Space': 'Vaga de Garagem',
   'Parking Spots': 'Vagas',
   'Parking Spot': 'Vaga',
   'Parking Spaces': 'Vagas',
@@ -452,11 +466,25 @@ const EN_PT_RULES: Array<{ pattern: RegExp; replacement: string }> = (() => {
     })
 })()
 
+// Preserva o caso do termo casado:
+// - "HOME FOR SALE" (ALL CAPS)  → "IMÓVEL À VENDA"
+// - "Home For Sale" (Title Case) → "Imóvel à Venda"
+// - "home for sale" (lower)      → "Imóvel à Venda" (canonical do dicionário)
+// Exceção: unidades de medida com convenção própria ("m²") não viram caixa alta.
+function applyCase(matched: string, replacement: string): string {
+  if (!replacement) return replacement
+  if (replacement === 'm²') return replacement
+  const isAllCaps = matched.length > 0
+    && matched === matched.toUpperCase()
+    && /[A-Za-zÀ-ÿ]/.test(matched)
+  return isAllCaps ? replacement.toLocaleUpperCase('pt-BR') : replacement
+}
+
 function translateFixedEnglish(text: string): string {
   if (!text) return text
   let out = text
   for (const { pattern, replacement } of EN_PT_RULES) {
-    out = out.replace(pattern, replacement)
+    out = out.replace(pattern, (m) => applyCase(m, replacement))
   }
   return out
 }
