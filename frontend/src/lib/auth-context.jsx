@@ -10,6 +10,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const initialResolvedRef = useRef(false)
 
+  // Busca o perfil COMPLETO em profiles. SELECT * para evitar drift
+  // quando colunas novas forem adicionadas (full_name, avatar_url, creci,
+  // telefone, whatsapp, role, plano, imobiliaria, site, instagram, etc.).
+  // Se a linha não existe ainda (signup recém-feito), auto-cria via upsert
+  // e re-fetch. Loga aviso se full_name vier vazio — sintoma do bug em
+  // que a sidebar caía pra mostrar o email.
   const loadProfile = useCallback(async (uid) => {
     if (!uid) { setProfile(null); return null }
     try {
@@ -39,6 +45,10 @@ export function AuthProvider({ children }) {
         } catch (innerErr) {
           console.error('[loadProfile] erro ao tentar auto-criar profile:', innerErr)
         }
+      }
+
+      if (data && !data.full_name && !data.nome) {
+        console.warn('[loadProfile] profile sem full_name nem nome — usuário vai aparecer como "Usuário" na UI. uid:', uid)
       }
 
       setProfile(data || null)
@@ -220,9 +230,12 @@ export function AuthProvider({ children }) {
   // Achatamos para `user.role` para que checagens simples (ex. Sidebar `user.role === 'admin'`) funcionem.
   const mergedRole = profile?.role || authUser?.user_metadata?.role || null
 
-  // displayName: usa full_name do profile; se null, cai para a parte antes do @ do email.
-  const emailLocal = authUser?.email ? authUser.email.split('@')[0] : null
-  const displayName = profile?.full_name || profile?.nome || emailLocal || 'Usuário'
+  // displayName: vem SEMPRE de profiles (full_name → nome). Email NÃO é
+  // fallback — se o nome não estiver cadastrado, mostramos "Usuário"
+  // para o corretor perceber que precisa preencher em Configurações.
+  // Cair pro email mascarava o problema (a sidebar mostrava o e-mail
+  // como se fosse o nome) e quebrava a personalização das peças.
+  const displayName = profile?.full_name || profile?.nome || 'Usuário'
 
   const user = authUser
     ? { ...authUser, ...(profile || {}), role: mergedRole, displayName, nome: displayName }
