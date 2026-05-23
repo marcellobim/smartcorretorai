@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './lib/auth-context'
 import AppLayout from './components/layout/AppLayout'
@@ -33,9 +32,9 @@ function PublicRoute({ children }) {
 }
 
 export default function App() {
-  const init = useAuthStore((s) => s.init)
-  useEffect(() => { init() }, [])
-  
+  // O AuthProvider já hidrata a sessão sozinho via onAuthStateChange
+  // (lib/auth-context.jsx). Antes havia um useAuthStore(s => s.init) aqui
+  // que duplicava a hidratação — removido junto com a função init.
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
