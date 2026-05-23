@@ -483,7 +483,11 @@ function FacebookCard({ dados }) {
 //  UTILITÁRIOS
 // ═══════════════════════════════════════════════════════════════
 
-async function resizeFoto(file, maxPx = 900) {
+// Redimensiona e comprime a foto no browser (canvas) antes do upload.
+// - Lado maior cap em 1920px (preserva proporção; imagens menores passam direto).
+// - JPEG qualidade 0.80 — equilíbrio entre nitidez e peso.
+// O corretor não precisa pensar em tamanho/peso: sempre normalizamos aqui.
+async function resizeFoto(file, maxPx = 1920) {
   return new Promise(resolve => {
     const img = new Image()
     const url = URL.createObjectURL(file)
@@ -494,7 +498,7 @@ async function resizeFoto(file, maxPx = 900) {
       canvas.height = Math.round(img.height * scale)
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
       URL.revokeObjectURL(url)
-      resolve({ dados: canvas.toDataURL('image/jpeg', 0.78).split(',')[1], tipo: 'image/jpeg' })
+      resolve({ dados: canvas.toDataURL('image/jpeg', 0.80).split(',')[1], tipo: 'image/jpeg' })
     }
     img.src = url
   })
@@ -680,7 +684,7 @@ export default function NovaCampanha() {
       // ── Upload das fotos: sequencial, timeout 120s por tentativa, retry 1x ──
       // Cada foto tem até 2 tentativas; se ambas falharem/expirarem, segue sem ela.
       // invoke da Edge Function é OBRIGATÓRIO — uploads não podem bloquear o fluxo.
-      const uploadComTimeout = (path, blob, contentType, ms = 120000) =>
+      const uploadComTimeout = (path, blob, contentType, ms = 180000) =>
         Promise.race([
           supabase.storage
             .from('smartcorretor-assets')
