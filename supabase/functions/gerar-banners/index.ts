@@ -46,20 +46,7 @@ const TEMPLATES: TemplateMeta[] = [
   { id: 'ba3afcf4-01cc-48e3-919a-8bc6d2dd4ca4', nome: 'Video Compilation',         categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
 ]
 
-const PICK_SYSTEM_PROMPT = `Você é um diretor de arte de marketing imobiliário. Recebe o perfil de um imóvel e uma lista de templates Creatomate e seleciona entre 4 e 6 templates apropriados.
-
-Responda APENAS com um objeto JSON válido (sem markdown), no formato:
-{ "template_ids": ["uuid1", "uuid2", "uuid3", "uuid4"] }
-
-REGRAS:
-- Selecione APENAS template_ids que existem na lista fornecida.
-- Para alto_padrao priorize: SC_Banner_Luxo_01, SC_Story_Premium_01, SC_Video_Cinematic_01, Real Estate Detailed.
-- Para popular_mcmv ou medio_padrao priorize: SC_Banner_Popular_01, Real Estate Banner, Real Estate Card, Photo Montage.
-- Para lancamento ou em_construcao inclua: New Listing Story, SC_Reels_Moderno_01, Triple Slide Carousel.
-- Diversifique formatos: pelo menos 1 banner, 1 story/vertical, 1 vídeo e 1 carrossel quando possível.
-- Não escolha mais que 6.`
-
-const FILL_SYSTEM_PROMPT = `Você produz objetos "modifications" do Creatomate para uma lista de templates já selecionados. Para cada template, você recebe o NOME REAL de cada elemento modificável e seu TIPO (text, image, video, audio).
+const FILL_SYSTEM_PROMPT = `Você produz objetos "modifications" do Creatomate para uma lista de templates já selecionados. Para cada template, você recebe o NOME REAL (ou um rótulo virtual numerado, quando há slots duplicados) de cada elemento modificável e seu TIPO (text, image, video, audio).
 
 Responda APENAS com um objeto JSON válido (sem markdown), no formato:
 {
@@ -67,23 +54,53 @@ Responda APENAS com um objeto JSON válido (sem markdown), no formato:
     {
       "template_id": "uuid",
       "modifications": {
-        "<nome do elemento>.text": "texto",
-        "<nome do elemento>.source": "https://url-da-imagem-ou-video"
+        "<rótulo do elemento>.text": "texto",
+        "<rótulo do elemento>.source": "https://url-da-imagem-ou-video"
       }
     }
   ]
 }
 
-REGRAS:
-- Use SOMENTE chaves no formato "<nome>.text" (para elementos type=text) ou "<nome>.source" (para image/video/audio).
-- O <nome> deve ser EXATAMENTE um dos nomes listados em "elementos reais". Não invente nomes.
-- Se um nome aparece duas vezes, use ambos com valores diferentes.
-- Distribua fotos_urls pelos elementos de imagem na ordem em que aparecem (primeira foto no primeiro elemento de imagem, etc.). Se faltarem fotos, repita a última disponível.
-- Para elementos de vídeo: use uma foto como source se não houver vídeos; o Creatomate aceita imagens em slots de vídeo na maioria dos casos. Em último caso, omita.
-- Para textos: combine título, preço, endereço, descrição curta, CTA, marca, nome do corretor conforme o significado parece adequado dado o nome e o valor padrão do elemento. Se o nome contém "price", "valor", coloque o preço. Se contém "address", "location", coloque o endereço. Se contém "title", "headline", "head", coloque o título. Se contém "cta", "button", coloque CTA. Se contém "agent", "broker", "realtor", coloque o nome do corretor. Se contém "brand", "company", "agency" (text), coloque a Imobiliária/Marca. Se contém "phone", "tel", "whatsapp", coloque o WhatsApp/Telefone do corretor. Se contém "email", "mail", coloque o email. Se contém "creci", coloque "CRECI <número>". Se contém "site", "url", "website", coloque o site. Se contém "instagram", "insta", "social", coloque o @ do Instagram. NUNCA use dados fictícios em inglês como "John Doe", "(123) 555-1234", "info@example.com", "mybrand.com", "New York, NY".
-- Para slots de imagem que parecem ser LOGO (nome contém "logo"): use a URL do logo da imobiliária se disponível.
-- Para slots de imagem que parecem ser AVATAR/AGENT (nome contém "avatar", "agent", "broker", "realtor", "person", "headshot", "profile"): use a URL da foto do corretor (avatar) se disponível.
-- Para slots de imagem que NÃO são logo nem avatar: distribua as fotos do IMÓVEL na ordem.
+REGRAS GERAIS:
+- Use SOMENTE chaves no formato "<rótulo>.text" (para elementos type=text) ou "<rótulo>.source" (para image/video/audio).
+- O <rótulo> deve ser EXATAMENTE um dos listados em "elementos reais". Não invente nomes.
+- Quando o template tem MÚLTIPLOS slots com o mesmo nome (carrosséis, montagens, slideshows), a lista os apresenta com sufixos numerados — ex.: "Photo" para o primeiro, "Photo-2" para o segundo, "Photo-3" para o terceiro. Cada sufixo é um SLOT DISTINTO e DEVE ser preenchido individualmente.
+
+DISTRIBUIÇÃO DE FOTOS DO IMÓVEL (regra crítica):
+- A PRIMEIRA URL em fotos_urls é a FOTO PRINCIPAL e DEVE ocupar o PRIMEIRO slot de imagem do imóvel do template (o primeiro slot listado cujo rótulo NÃO seja de logo nem de avatar).
+- As URLs seguintes em fotos_urls são fotos secundárias e devem preencher, EM ORDEM, todos os demais slots de imagem do imóvel ("Photo-2", "Photo-3", "Image-2", etc.).
+- TODOS os slots de imagem do imóvel disponíveis devem ser preenchidos com .source. Se houver mais slots que fotos, repita a última foto disponível para os slots restantes. NUNCA deixe um slot de imagem do imóvel sem .source.
+- Para elementos do tipo video que representem cenas do imóvel: use uma foto como source se não houver vídeos; o Creatomate aceita imagens em slots de vídeo na maioria dos casos.
+
+CLASSIFICAÇÃO DE SLOTS DE IMAGEM:
+- LOGO (rótulo contém "logo" ou "brand"): use a URL do logo da imobiliária se disponível; senão, valor "" + .track: false.
+- AVATAR/AGENT (rótulo contém "avatar", "agent", "broker", "realtor", "person", "headshot", "profile"): use a URL da foto do corretor se disponível; senão, valor "" + .track: false.
+- Demais slots de imagem/vídeo: pertencem ao IMÓVEL e seguem a regra de distribuição acima.
+
+TEXTOS:
+- Combine título, preço, endereço, descrição curta, marca, nome do corretor conforme o significado do rótulo e seu valor padrão. Se o rótulo contém "price"/"valor", coloque o preço. Se contém "address"/"location", o endereço. Se contém "title"/"headline"/"head", o título. Se contém "agent"/"broker"/"realtor", o nome do corretor. Se contém "brand"/"company"/"agency" (text), a Imobiliária/Marca. Se contém "phone"/"tel"/"whatsapp", o WhatsApp/Telefone. Se contém "email"/"mail", o email. Se contém "creci", "CRECI <número>". Se contém "site"/"url"/"website", o site. Se contém "instagram"/"insta"/"social", o @ do Instagram. NUNCA use dados fictícios em inglês como "John Doe", "(123) 555-1234", "info@example.com", "mybrand.com", "New York, NY".
+
+TRADUÇÃO OBRIGATÓRIA DE FRASES FIXAS EM INGLÊS (regra GLOBAL, sem exceções):
+- Templates stock do Creatomate possuem caixas de texto travadas com frases em inglês americano. NUNCA preserve o valor original em inglês — substitua por equivalente em português adequado ao contexto do imóvel brasileiro, ou deixe a string vazia (''+ track:false) quando não houver equivalente útil. Mapeamento obrigatório:
+  • "NEW ON SALE" → "Novo à Venda" (ou, conforme o perfil: "Lançamento", "Oportunidade")
+  • "NEW YORK, NY" → endereço real do imóvel (bairro, cidade, estado)
+  • "NEW YORK" → cidade do imóvel
+  • "NY" (estado isolado) → estado do imóvel (UF brasileiro) ou ''
+  • "Please join us for an Open House" → "Agende sua visita" (ou '' se não houver contexto)
+  • "Open House" → "Visitação"
+  • "FOR SALE" / "FOR RENT" → "À Venda" / "Para Alugar"
+  • "JUST LISTED" → "Recém-Anunciado"
+  • "CONTACT US" / "CALL TODAY" → respeite a regra de CTA (apenas "Saiba Mais" / "Me Ligue" / "Descrição abaixo")
+- Qualquer outro texto fixo em inglês americano (endereços tipo "123 Main St", ZIP codes, "MLS#", "BR/BA", etc.) deve ser traduzido para o contexto brasileiro ou retornar string vazia.
+
+CTA (regra ESTRITA, sem exceções):
+- Para QUALQUER elemento de texto cujo rótulo contenha "cta", "button" ou "action", o valor DEVE ser EXATAMENTE uma destas três variações profissionais, escolhida conforme a intenção do criativo:
+  • "Saiba Mais" — curiosidade / direcionar para mais detalhes (banners, cards de portal, posts informativos).
+  • "Me Ligue" — incentivar contato telefônico direto (Stories, Reels com áudio, banners com telefone visível).
+  • "Descrição abaixo" — feeds/posts onde a legenda complementa o criativo (Instagram Feed, Facebook Feed).
+- É PROIBIDO usar qualquer outra variação ("Compre Agora", "Veja Mais", "Confira", "Clique Aqui", "Saiba+", "Agende uma Visita", "Entre em Contato", "Fale Conosco", etc.). APENAS as três acima são aceitas.
+
+TOM E DEMAIS REGRAS:
 - Tom: alto_padrao = sofisticado e exclusivo; popular_mcmv/medio_padrao = acolhedor e acessível; lancamento = urgência e novidade; em_construcao = transparência e valorização.
 - Não invente dados. Se uma informação não foi fornecida, omita a chave correspondente.
 - Quando um campo tiver valor REMOVER_ELEMENTO, defina o valor do elemento como string vazia '' e adicione a propriedade 'track': false se disponível. NUNCA use placeholders fictícios.
@@ -192,6 +209,61 @@ function detectLanguage(s: string): 'pt' | 'en' | 'unknown' {
   return 'unknown'
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Frases fixas em inglês — substituição GLOBAL e obrigatória.
+// Templates stock vêm com caixas de texto travadas em frases
+// americanas ("NEW ON SALE", "NEW YORK, NY", "Please join us for
+// an Open House", etc.). A IA tende a preservar esses valores
+// quando não vê um equivalente PT-BR explícito. Esta lista força
+// a tradução / contextualização antes de qualquer outra etapa do
+// sanitizer. A ordem importa: frases mais específicas primeiro.
+// ═══════════════════════════════════════════════════════════════
+
+type FixedPhraseRule = {
+  pattern: RegExp
+  resolve: (ctx: SanitizeContext, enderecoFinal: string) => string
+}
+
+const FIXED_ENGLISH_PHRASES: FixedPhraseRule[] = [
+  // Endereço composto americano → endereço real do imóvel
+  {
+    pattern: /\bNEW\s+YORK\s*,\s*NY\b/gi,
+    resolve: (_ctx, enderecoFinal) => enderecoFinal,
+  },
+  // Convite para visitação
+  {
+    pattern: /\bplease\s+join\s+us\s+for\s+(?:an?\s+)?open\s+house\b/gi,
+    resolve: () => 'Agende sua visita',
+  },
+  // Selo "novidade"
+  { pattern: /\bNEW\s+ON\s+SALE\b/gi, resolve: () => 'Novo à Venda' },
+  { pattern: /\bJUST\s+LISTED\b/gi,    resolve: () => 'Recém-Anunciado' },
+  // Finalidade
+  { pattern: /\bFOR\s+SALE\b/gi, resolve: () => 'À Venda' },
+  { pattern: /\bFOR\s+RENT\b/gi, resolve: () => 'Para Alugar' },
+  // Eventos
+  { pattern: /\bOpen\s+House\b/gi, resolve: () => 'Visitação' },
+  // Cidade isolada
+  {
+    pattern: /\bNEW\s+YORK\b/gi,
+    resolve: (ctx) => ctx.cidade || '',
+  },
+  // Estado abreviado isolado (também coberto por US_STATE_CODE_RE,
+  // mas explicitar garante substituição em qualquer comprimento de texto)
+  {
+    pattern: /\bNY\b/g,
+    resolve: (ctx) => ctx.estado || '',
+  },
+]
+
+function applyFixedEnglishPhrases(text: string, ctx: SanitizeContext, enderecoFinal: string): string {
+  let out = text
+  for (const rule of FIXED_ENGLISH_PHRASES) {
+    out = out.replace(rule.pattern, rule.resolve(ctx, enderecoFinal))
+  }
+  return out
+}
+
 function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
   if (typeof input !== 'string') return ''
   let s = input.trim()
@@ -200,6 +272,11 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
   const enderecoFinal = (ctx.endereco
     || [ctx.bairro, ctx.cidade, ctx.estado].filter(Boolean).join(', ')
   ).trim()
+
+  // 0. Frases fixas em inglês (NEW ON SALE, NEW YORK NY, Open House, ...).
+  //    Aplicado ANTES das demais etapas para que o restante do pipeline
+  //    veja já o texto em PT-BR / com o dado real do imóvel.
+  s = applyFixedEnglishPhrases(s, ctx, enderecoFinal)
 
   // 1. Substituir cidades em inglês (com ou sem código de estado US: "New York, NY")
   for (const c of ENGLISH_CITIES) {
@@ -273,7 +350,38 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
   return s
 }
 
-type ElementInfo = { name: string; type: string; defaultValue?: string }
+// ═══════════════════════════════════════════════════════════════
+// CTAs aprovados — apenas estas três variações profissionais podem
+// aparecer em slots de CTA. Qualquer outra coisa que a IA retornar
+// é mapeada (snapCta) para uma destas três opções.
+// ═══════════════════════════════════════════════════════════════
+
+const APPROVED_CTAS = ['Saiba Mais', 'Me Ligue', 'Descrição abaixo'] as const
+
+function isCtaElement(elementName: string): boolean {
+  return /cta|button|action/i.test(elementName)
+}
+
+function snapCta(value: string): string {
+  const lower = value.trim().toLowerCase()
+  if (!lower) return 'Saiba Mais'
+  for (const cta of APPROVED_CTAS) {
+    if (lower === cta.toLowerCase()) return cta
+  }
+  if (/(ligu|liga|call|telefon|phone|whats|fal[ea])/.test(lower)) return 'Me Ligue'
+  if (/(descri[çc][aã]o|abaixo|below|swipe|deslize|arraste|bio|legenda)/.test(lower)) return 'Descrição abaixo'
+  return 'Saiba Mais'
+}
+
+// Slot de imagem do IMÓVEL = qualquer image/video que não seja logo nem avatar.
+function isPropertyPhotoSlot(name: string): boolean {
+  const lower = name.toLowerCase()
+  if (/logo|brand/.test(lower)) return false
+  if (/avatar|agent|broker|realtor|person|headshot|profile/.test(lower)) return false
+  return true
+}
+
+type ElementInfo = { name: string; type: string; id?: string; virtualLabel?: string; defaultValue?: string }
 
 function extractElements(node: unknown, out: ElementInfo[] = []): ElementInfo[] {
   if (!node || typeof node !== 'object') return out
@@ -288,7 +396,8 @@ function extractElements(node: unknown, out: ElementInfo[] = []): ElementInfo[] 
         typeof n.text === 'string' ? n.text :
         typeof n.source === 'string' ? n.source :
         undefined
-      out.push({ name: n.name, type: n.type, defaultValue })
+      const id = typeof n.id === 'string' ? n.id : undefined
+      out.push({ name: n.name, type: n.type, id, defaultValue })
     }
   }
   if (Array.isArray(n.elements)) extractElements(n.elements, out)
@@ -308,16 +417,19 @@ async function fetchTemplateElements(reqId: string, templateId: string): Promise
     }
     const body = await res.json()
     const elements = extractElements(body?.source)
-    // Dedup by name+type while preserving order (some templates repeat element names)
-    const seen = new Set<string>()
-    const uniq: ElementInfo[] = []
+    // Sufixa rótulos virtuais para nomes duplicados (Photo, Photo-2, Photo-3, ...)
+    // em vez de descartá-los. Slots de mesmo nome são comuns em templates de
+    // carrossel/montagem e precisam ser endereçados individualmente. A chave
+    // final enviada ao Creatomate usa o ID do elemento (não o virtualLabel)
+    // para evitar ambiguidade quando os nomes colidem.
+    const counts = new Map<string, number>()
     for (const e of elements) {
       const key = `${e.name}|${e.type}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      uniq.push(e)
+      const idx = (counts.get(key) || 0) + 1
+      counts.set(key, idx)
+      e.virtualLabel = idx === 1 ? e.name : `${e.name}-${idx}`
     }
-    return { id: templateId, name: String(body?.name || ''), elements: uniq }
+    return { id: templateId, name: String(body?.name || ''), elements }
   } catch (err) {
     console.error(`[${reqId}] GET template ${templateId} erro:`, err)
     return { id: templateId, name: '', elements: [], erro: err instanceof Error ? err.message : String(err) }
@@ -366,19 +478,36 @@ serve(async (req) => {
     const {
       campaign_id,
       fotos_urls = [],
+      foto_principal,
       titulo,
       descricao,
       preco,
       endereco,
       tipo_imovel,
       corretor_nome,
+      corretor_avatar_url,
       marca_imovel,
+      selectedTemplates,
     } = payload as Record<string, unknown>
 
-    const fotosArr = Array.isArray(fotos_urls) ? (fotos_urls as string[]).filter(Boolean) : []
+    // fotos_urls é a fonte de verdade, EM ORDEM (a primeira é a principal).
+    // Se vier foto_principal explícita e ela não estiver na lista, prependa.
+    const fotosRaw = Array.isArray(fotos_urls) ? (fotos_urls as string[]).filter(Boolean) : []
+    const fotosArr = (() => {
+      const principal = typeof foto_principal === 'string' && foto_principal.length > 0 ? foto_principal : ''
+      if (!principal) return fotosRaw
+      if (fotosRaw[0] === principal) return fotosRaw
+      return [principal, ...fotosRaw.filter((u) => u !== principal)]
+    })()
     const hasCampaignId = typeof campaign_id === 'string' && campaign_id.length > 0
 
-    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${authenticatedUserId} | fotos=${fotosArr.length}`)
+    // Templates escolhidos pelo usuário (frontend manda em selectedTemplates).
+    // Fonte única de verdade: backend NUNCA escolhe sozinho.
+    const selectedArrRaw = Array.isArray(selectedTemplates)
+      ? (selectedTemplates as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0)
+      : []
+
+    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${authenticatedUserId} | fotos=${fotosArr.length} | selectedTemplates=${selectedArrRaw.length}`)
 
     // Buscar dados da campanha (opcional — se foi passado um campaign_id, enriquecemos)
     let campaignRow: { titulo?: string; dados_imovel?: Record<string, unknown>; textos_gerados?: Record<string, unknown>; user_id?: string } | null = null
@@ -436,7 +565,17 @@ serve(async (req) => {
     const siteFinal          = profileRow?.site        || ''
     const instagramFinal     = profileRow?.instagram   || ''
     const logoUrl            = profileRow?.logo_url    || ''
-    const avatarUrl          = profileRow?.avatar_url  || ''
+
+    // Avatar do corretor:
+    // - Se o profile do banco tem avatar_url, é a fonte de verdade.
+    // - Se o profile NÃO tem, mas o payload mandou 'REMOVER_ELEMENTO' explícito,
+    //   honra isso (frontend já validou que não há foto cadastrada).
+    // - Caso contrário, segue REMOVER_ELEMENTO padrão (string vazia abaixo vira REMOVER_ELEMENTO no prompt).
+    const avatarFromPayload = typeof corretor_avatar_url === 'string' ? corretor_avatar_url : ''
+    const avatarUrl =
+      profileRow?.avatar_url
+        ? profileRow.avatar_url
+        : (avatarFromPayload && avatarFromPayload !== 'REMOVER_ELEMENTO' ? avatarFromPayload : '')
 
     // Bloco compartilhado com os dois prompts
     const dadosImovelBloco = `DADOS DO IMÓVEL:
@@ -460,57 +599,38 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
 - Foto do corretor: ${avatarUrl || 'REMOVER_ELEMENTO'}
 - Logo da imobiliária: ${logoUrl || 'REMOVER_ELEMENTO'}`
 
-    // === ESTÁGIO 1: IA seleciona os template_ids ==========================
-    const pickUserPrompt = `${dadosImovelBloco}
-
-TEMPLATES DISPONÍVEIS:
-${TEMPLATES.map((t) => `- ${t.nome} (id: ${t.id}) [perfil: ${t.perfil.join(', ')}] [formato: ${t.formato}]`).join('\n')}
-
-Selecione entre 4 e 6 templates apropriados e retorne só os IDs no JSON.`
-
-    const pickRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: PICK_SYSTEM_PROMPT },
-          { role: 'user', content: pickUserPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 500,
-      }),
-      signal: AbortSignal.timeout(45000),
-    })
-
-    if (!pickRes.ok) {
-      const errBody = await pickRes.text()
-      console.error(`[${reqId}] pick OpenAI ${pickRes.status}:`, errBody.slice(0, 300))
-      return jsonResponse({ error: `OpenAI (pick) ${pickRes.status}: ${errBody.slice(0, 300)}` }, 502)
-    }
-
-    let pickedIds: string[] = []
-    try {
-      const pickData = await pickRes.json()
-      const raw = pickData?.choices?.[0]?.message?.content
-      const parsed = JSON.parse(raw)
-      pickedIds = Array.isArray(parsed.template_ids) ? parsed.template_ids.filter((x: unknown) => typeof x === 'string') : []
-    } catch (e) {
-      console.error(`[${reqId}] pick parse:`, e)
-      return jsonResponse({ error: 'OpenAI (pick) retornou JSON inválido' }, 502)
-    }
-
+    // === ESTÁGIO 1: seleção de templates ==================================
+    // ESTRITAMENTE os IDs marcados pelo corretor (frontend → selectedTemplates).
+    // SEM fallback de IA, SEM cap. Lista vazia => 400.
     const validIds = new Map(TEMPLATES.map((t) => [t.id, t]))
-    pickedIds = pickedIds.filter((id) => validIds.has(id)).slice(0, 6)
+    let pickedIds: string[] = []
 
-    if (pickedIds.length === 0) {
-      return jsonResponse({ error: 'IA não selecionou nenhum template válido' }, 502)
+    // SEM fallback de IA. SEM cap. A lista marcada pelo corretor é a fonte
+    // única de verdade. Se o frontend não enviar selectedTemplates (ou
+    // enviar lista vazia / só IDs inválidos), retornamos erro — NUNCA o
+    // backend escolhe sozinho.
+    if (selectedArrRaw.length === 0) {
+      return jsonResponse({
+        error: 'selectedTemplates é obrigatório. O backend não escolhe templates autonomamente: envie a lista completa marcada pelo corretor.',
+      }, 400)
     }
 
-    console.log(`[${reqId}] estágio 1: ${pickedIds.length} templates selecionados`)
+    const filtrados = selectedArrRaw.filter((id) => validIds.has(id))
+    const invalidos = selectedArrRaw.filter((id) => !validIds.has(id))
+    if (invalidos.length > 0) {
+      console.warn(`[${reqId}] selectedTemplates contém IDs inválidos (ignorados):`, invalidos)
+    }
+    // Lote completo: 1, 10, 15 ou todos os 18+ templates passam direto.
+    // Apenas deduplica IDs repetidos; NENHUM teto (nem 6, nem 7, nem outro)
+    // é aplicado aqui ou em qualquer ponto subsequente do pipeline.
+    pickedIds = Array.from(new Set(filtrados))
+    if (pickedIds.length === 0) {
+      return jsonResponse({
+        error: 'Nenhum template válido em selectedTemplates',
+        invalid_ids: invalidos,
+      }, 400)
+    }
+    console.log(`[${reqId}] estágio 1 (user-only, sem cap): ${pickedIds.length} templates em lote`)
 
     // === ESTÁGIO 2: GET de cada template para descobrir elementos reais ===
     const schemas = await Promise.all(pickedIds.map((id) => fetchTemplateElements(reqId, id)))
@@ -526,7 +646,7 @@ Selecione entre 4 e 6 templates apropriados e retorne só os IDs no JSON.`
     const elementosBloco = schemasComElementos.map((s) => {
       const meta = validIds.get(s.id)
       const lista = s.elements
-        .map((e) => `  - "${e.name}" (${e.type})${e.defaultValue ? ` [default: ${JSON.stringify(e.defaultValue.slice(0, 80))}]` : ''}`)
+        .map((e) => `  - "${e.virtualLabel || e.name}" (${e.type})${e.defaultValue ? ` [default: ${JSON.stringify(e.defaultValue.slice(0, 80))}]` : ''}`)
         .join('\n')
       return `TEMPLATE id="${s.id}" nome="${s.name || meta?.nome || ''}" formato="${meta?.formato || ''}"
 Elementos reais:
@@ -581,11 +701,13 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       return jsonResponse({ error: 'IA (fill) não produziu modifications para nenhum template' }, 502)
     }
 
-    // Validar/filtrar as modifications para conter SOMENTE chaves de elementos reais
+    // Validar/filtrar as modifications para conter SOMENTE chaves de elementos reais.
+    // Indexamos por virtualLabel (o rótulo que a IA viu), não por name — assim slots
+    // duplicados (Photo, Photo-2, ...) são endereçáveis individualmente.
     const elementosPorTemplate = new Map<string, Map<string, ElementInfo>>()
     for (const s of schemasComElementos) {
       const m = new Map<string, ElementInfo>()
-      for (const e of s.elements) m.set(e.name, e)
+      for (const e of s.elements) m.set(e.virtualLabel || e.name, e)
       elementosPorTemplate.set(s.id, m)
     }
 
@@ -616,20 +738,26 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       const mods: Record<string, unknown> = {}
       if (elementos && sel.modifications && typeof sel.modifications === 'object') {
         for (const [k, v] of Object.entries(sel.modifications)) {
-          // Chave esperada: "<name>.text", "<name>.source" ou "<name>.track"
+          // Chave da IA: "<rótulo>.text|source|track", onde <rótulo> é o virtualLabel
+          // que a IA viu (ex.: "Photo", "Photo-2"). A chave final enviada ao Creatomate
+          // usa o ID do elemento quando disponível, evitando ambiguidade entre slots
+          // de mesmo nome.
           const dot = k.lastIndexOf('.')
           if (dot < 0) continue
-          const name = k.slice(0, dot)
+          const label = k.slice(0, dot)
           const prop = k.slice(dot + 1)
-          const elem = elementos.get(name)
+          const elem = elementos.get(label)
           if (!elem) continue
+
+          const keyBase = elem.id || elem.name
+          const finalKey = `${keyBase}.${prop}`
 
           // .track: booleano, válido para qualquer tipo de elemento.
           // Usado pela IA para "desativar" elementos quando o dado real não
           // existe (instrução REMOVER_ELEMENTO no prompt).
           if (prop === 'track') {
             if (typeof v === 'boolean') {
-              mods[k] = v
+              mods[finalKey] = v
             }
             continue
           }
@@ -643,7 +771,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           // remoção — apaga o texto/source default do template. Costuma
           // vir junto com .track: false.
           if (v === '') {
-            mods[k] = ''
+            mods[finalKey] = ''
             continue
           }
 
@@ -653,9 +781,11 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           if (prop === 'text') {
             const limpo = sanitizeTemplateText(v, sanitizeCtx)
             if (!limpo) continue
-            mods[k] = limpo
+            // CTA: força estritamente uma das variações profissionais aprovadas,
+            // independente do que a IA tenha gerado.
+            mods[finalKey] = isCtaElement(elem.name) ? snapCta(limpo) : limpo
           } else {
-            mods[k] = v
+            mods[finalKey] = v
           }
         }
       }
@@ -666,6 +796,37 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       return jsonResponse({
         error: 'Nenhuma modification válida sobrou após validação contra elementos reais',
       }, 502)
+    }
+
+    // === Rede de segurança: garante que TODOS os slots de imagem do imóvel
+    // de cada template estejam preenchidos. A primeira foto (foto principal)
+    // ocupa o primeiro slot; as demais ocupam, em ordem, os slots seguintes;
+    // se houver mais slots que fotos, a última foto se repete. Slots já
+    // preenchidos pela IA com uma URL http(s) válida são preservados. Slots
+    // marcados com .track: false pela IA são respeitados (não preenche).
+    if (fotosArr.length > 0) {
+      const elementosArrPorTemplate = new Map<string, ElementInfo[]>()
+      for (const s of schemasComElementos) elementosArrPorTemplate.set(s.id, s.elements)
+      for (const sel of aprovadasLimpas) {
+        const els = elementosArrPorTemplate.get(sel.template_id) || []
+        const propertySlots = els.filter(
+          (e) => (e.type === 'image' || e.type === 'video') && isPropertyPhotoSlot(e.name)
+        )
+        let fotoIdx = 0
+        for (const slot of propertySlots) {
+          const keyBase = slot.id || slot.name
+          const sourceKey = `${keyBase}.source`
+          const trackKey = `${keyBase}.track`
+          if (sel.modifications[trackKey] === false) continue
+          const existing = sel.modifications[sourceKey]
+          if (typeof existing === 'string' && /^https?:\/\//i.test(existing.trim())) {
+            fotoIdx++
+            continue
+          }
+          sel.modifications[sourceKey] = fotosArr[Math.min(fotoIdx, fotosArr.length - 1)]
+          fotoIdx++
+        }
+      }
     }
 
     console.log(`[${reqId}] estágio 3: ${aprovadasLimpas.length} templates prontos para render`)
@@ -738,12 +899,13 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
         return jsonResponse({
           warning: `Renders disparados, mas não foi possível salvar em campaigns.banners: ${updErr.message}`,
           renders,
+          pick_source: 'user',
         }, 200)
       }
     }
 
-    console.log(`[${reqId}] OK | ${renders.length} renders disparados`)
-    return jsonResponse({ success: true, renders }, 200)
+    console.log(`[${reqId}] OK | ${renders.length} renders disparados | pick=user`)
+    return jsonResponse({ success: true, renders, pick_source: 'user' }, 200)
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
     const msg = error instanceof Error ? error.message : String(error)
