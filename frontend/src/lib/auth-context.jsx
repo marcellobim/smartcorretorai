@@ -3,122 +3,159 @@ import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
+// ─── Helpers ──────────────────────────────────────────────────────────────
+// Promise.race com timeout — não deixa nenhuma chamada de rede travar a UI.
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timeout ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const initialResolvedRef = useRef(false)
+  const profileInFlightRef = useRef(false)
 
-  // Busca o perfil COMPLETO em profiles. SELECT * para evitar drift
-  // quando colunas novas forem adicionadas (full_name, avatar_url, creci,
-  // telefone, whatsapp, role, plano, imobiliaria, site, instagram, etc.).
-  // Se a linha não existe ainda (signup recém-feito), auto-cria via upsert
-  // e re-fetch. Loga aviso se full_name vier vazio — sintoma do bug em
-  // que a sidebar caía pra mostrar o email.
-  const loadProfile = useCallback(async (uid) => {
+  // ─── loadProfile ──────────────────────────────────────────────────────────
+  // Busca a linha em `profiles` para o uid passado.
+  // - Schema: `profiles.nome` (full name), email, creci, telefone, whatsapp,
+  //   avatar_url, logo_url, imobiliaria, site, instagram, role, plano.
+  // - RLS: `auth.uid() = id` (migração 20260517).
+  // - SELECT * para evitar drift quando colunas novas forem adicionadas.
+  // - Timeout duro de 8s por tentativa + 1 retry com 600ms de espera.
+  // - Auto-cria a linha (upsert) se não existir, sem chamar supabase.auth.getUser()
+  //   (esse método faz request de rede e foi fonte de timeouts; usamos o email
+  //   passado pelo caller, que vem do authUser já em memória).
+  // - Lock via ref evita chamadas concorrentes que poderiam intercalar
+  //   setProfile(null) com setProfile(data) e zerar a UI.
+  const loadProfile = useCallback(async (uid, email, attempt = 1) => {
     if (!uid) { setProfile(null); return null }
+
+    if (profileInFlightRef.current && attempt === 1) {
+      console.log('[loadProfile] já em andamento — skip')
+      return null
+    }
+    profileInFlightRef.current = true
+
     try {
-      let { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .maybeSingle()
-      if (error) console.error('[loadProfile] select error:', error)
+      console.log(`[loadProfile] start uid=${uid} attempt=${attempt}`)
+      const { data, error } = await withTimeout(
+        supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
+        8000,
+        'loadProfile select'
+      )
 
-      if (!data) {
-        try {
-          const { data: { user: authU } } = await supabase.auth.getUser()
-          if (authU?.id === uid) {
-            const { error: insertErr } = await supabase
-              .from('profiles')
-              .upsert({ id: uid, email: authU.email }, { onConflict: 'id', ignoreDuplicates: true })
-            if (insertErr) console.error('[loadProfile] auto-create error:', insertErr)
-            const retry = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', uid)
-              .maybeSingle()
-            if (retry.error) console.error('[loadProfile] retry error:', retry.error)
-            data = retry.data
-          }
-        } catch (innerErr) {
-          console.error('[loadProfile] erro ao tentar auto-criar profile:', innerErr)
+      if (error) {
+        console.error('[loadProfile] select error:', error.message || error)
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 600))
+          return loadProfile(uid, email, attempt + 1)
         }
+        return null
       }
 
-      if (data && !data.full_name && !data.nome) {
-        console.warn('[loadProfile] profile sem full_name nem nome — usuário vai aparecer como "Usuário" na UI. uid:', uid)
+      // Linha não existe ainda — tenta auto-criar (signup sem trigger).
+      // NÃO chamamos supabase.auth.getUser() (faz request, pode travar);
+      // usamos o email passado pelo caller.
+      if (!data) {
+        console.warn('[loadProfile] row não existe — auto-create')
+        const payload = email ? { id: uid, email } : { id: uid }
+        const { error: insertErr } = await withTimeout(
+          supabase.from('profiles').upsert(payload, { onConflict: 'id', ignoreDuplicates: true }),
+          5000,
+          'loadProfile upsert'
+        )
+        if (insertErr) console.error('[loadProfile] auto-create error:', insertErr.message || insertErr)
+
+        const retry = await withTimeout(
+          supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
+          5000,
+          'loadProfile retry select'
+        )
+        if (retry.error) console.error('[loadProfile] retry error:', retry.error.message || retry.error)
+        const final = retry.data || null
+        setProfile(final)
+        if (final) console.log('[loadProfile] auto-created OK | nome:', final.nome || '(vazio)')
+        return final
       }
 
-      setProfile(data || null)
+      if (!data.nome && !data.full_name) {
+        console.warn('[loadProfile] perfil sem nome — exibirá "Usuário". Preencha em Configurações. uid:', uid)
+      } else {
+        console.log('[loadProfile] OK | nome:', data.nome || data.full_name)
+      }
+      setProfile(data)
       return data
     } catch (err) {
-      console.error('[loadProfile] erro fatal:', err)
-      setProfile(null)
+      console.error('[loadProfile] fatal:', err.message || err)
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 800))
+        return loadProfile(uid, email, attempt + 1)
+      }
       return null
+    } finally {
+      if (attempt === 1) profileInFlightRef.current = false
     }
   }, [])
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Inicialização única + listener de eventos (single source of truth)
-  //
-  // O Supabase v2 dispara INITIAL_SESSION logo após o subscribe, com a sessão
-  // restaurada do localStorage. Isso elimina a necessidade de chamar getSession
-  // em paralelo — basta esperar o callback. Mantemos um timer de segurança caso
-  // o INITIAL_SESSION não dispare em 3s.
-  // ──────────────────────────────────────────────────────────────────────────
+  // ─── Single source of truth: onAuthStateChange ───────────────────────────
+  // O cliente Supabase dispara INITIAL_SESSION imediatamente após o subscribe,
+  // com a sessão restaurada do localStorage. Não usamos getSession() pra
+  // hidratar — é mais lento e foi fonte de timeouts. Apenas escutamos.
   useEffect(() => {
     let mounted = true
 
     const resolveSession = async (newSession, source) => {
       if (!mounted) return
-      try {
-        const sessionUser = newSession?.user ?? null
-        setSession(newSession ?? null)
-        setAuthUser(sessionUser)
-        if (sessionUser) {
-          await loadProfile(sessionUser.id)
-        } else {
-          setProfile(null)
-        }
-      } catch (err) {
-        console.error(`[auth ${source}] erro ao resolver sessão:`, err)
-      } finally {
-        if (mounted && !initialResolvedRef.current) {
-          initialResolvedRef.current = true
-          setLoading(false)
-        }
+      const sessionUser = newSession?.user ?? null
+      console.log(`[auth ${source}] hasSession=${!!newSession} userId=${sessionUser?.id || '(nenhum)'}`)
+      setSession(newSession ?? null)
+      setAuthUser(sessionUser)
+      if (sessionUser) {
+        await loadProfile(sessionUser.id, sessionUser.email)
+      } else {
+        setProfile(null)
+      }
+      if (mounted && !initialResolvedRef.current) {
+        initialResolvedRef.current = true
+        setLoading(false)
       }
     }
 
-    // 1) Subscribe — INITIAL_SESSION dispara assim que o cliente hidrata.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
-        console.log('[auth] event:', event, 'hasSession:', !!session, 'userId:', session?.user?.id)
+        // INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED.
+        // Pra todos eles tratamos a sessão de forma uniforme — assim o profile
+        // é re-checado após token refresh e USER_UPDATED também.
         await resolveSession(session, event)
       }
     )
 
-    // 2) Fallback — se INITIAL_SESSION não disparar em 3s, força um getSession.
-    //    Cobre cenários raros de hidratação travada do client.
+    // Rede de segurança: se INITIAL_SESSION NÃO disparar em 4s, força um
+    // getSession com timeout. Cobre casos raros de hidratação travada.
     const fallbackTimer = setTimeout(async () => {
       if (!mounted || initialResolvedRef.current) return
-      console.warn('[auth] INITIAL_SESSION não disparou em 3s — fallback getSession()')
+      console.warn('[auth] INITIAL_SESSION não disparou em 4s — fallback getSession()')
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data } = await withTimeout(supabase.auth.getSession(), 4000, 'fallback getSession')
         if (!initialResolvedRef.current) {
-          await resolveSession(session, 'fallback-getSession')
+          await resolveSession(data?.session ?? null, 'fallback-getSession')
         }
       } catch (err) {
-        console.error('[auth fallback] erro:', err)
+        console.error('[auth fallback] erro:', err.message || err)
         if (mounted && !initialResolvedRef.current) {
           initialResolvedRef.current = true
           setLoading(false)
         }
       }
-    }, 3000)
+    }, 4000)
 
     return () => {
       mounted = false
@@ -127,68 +164,42 @@ export function AuthProvider({ children }) {
     }
   }, [loadProfile])
 
-  // Fallback: se authUser existe mas profile ficou null (RLS momentâneo, rede),
-  // tenta recarregar o profile sem mexer no authUser.
+  // ─── Re-fetch defensivo ──────────────────────────────────────────────────
+  // Se authUser existe mas profile ficou null (loadProfile inicial falhou por
+  // timing/RLS), tenta uma vez extra após pequeno delay. Não fica em loop:
+  // se o segundo loadProfile também devolver null, paramos.
+  const retryAttemptedRef = useRef(false)
   useEffect(() => {
-    if (!loading && authUser?.id && !profile) {
-      loadProfile(authUser.id)
+    if (loading) return
+    if (!authUser?.id) {
+      retryAttemptedRef.current = false
+      return
     }
-  }, [authUser?.id, profile, loading, loadProfile])
+    if (profile || retryAttemptedRef.current) return
+    retryAttemptedRef.current = true
+    console.log('[auth] profile null com authUser válido — retry defensivo')
+    loadProfile(authUser.id, authUser.email)
+  }, [authUser?.id, authUser?.email, profile, loading, loadProfile])
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Foco da aba: revalida a sessão SEM derrubar o usuário em falhas transitórias.
-  // - Só age após a inicialização ter concluído (evita race com hidratação).
-  // - Se refreshSession falhar (rede, etc.), mantém o estado atual; o
-  //   onAuthStateChange detectará SIGNED_OUT real se for o caso.
-  // ──────────────────────────────────────────────────────────────────────────
+  // ─── Foco da aba ─────────────────────────────────────────────────────────
+  // Não fazemos getSession/refreshSession manual aqui — o cliente Supabase
+  // já tem autoRefreshToken: true (ver lib/supabase.js) e mantém o JWT vivo
+  // em background. A única coisa útil no focus é re-fetch do profile caso
+  // ele tenha caído pra null por algum motivo (RLS transitório, rede).
   useEffect(() => {
-    const handleFocus = async () => {
-      if (!initialResolvedRef.current) return // ainda hidratando — não interfere
-      try {
-        const { data: { session: liveSession } } = await supabase.auth.getSession()
-        if (liveSession?.user) {
-          setSession(liveSession)
-          setAuthUser(liveSession.user)
-          return
-        }
-        // getSession devolveu null. Tenta refresh; se falhar, NÃO desloga.
-        const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession()
-        if (refreshErr) {
-          console.warn('[auth focus] refreshSession falhou (mantendo estado atual):', refreshErr.message)
-          return
-        }
-        if (refreshed?.session?.user) {
-          setSession(refreshed.session)
-          setAuthUser(refreshed.session.user)
-          await loadProfile(refreshed.session.user.id)
-        }
-        // Se refresh deu sucesso mas sem session.user, mantém estado — o
-        // onAuthStateChange dispara SIGNED_OUT explicitamente se for o caso.
-      } catch (err) {
-        console.error('[auth focus] erro:', err)
+    const handleFocus = () => {
+      if (!initialResolvedRef.current) return
+      if (authUser?.id && !profile) {
+        console.log('[auth focus] profile null — recarregando')
+        retryAttemptedRef.current = false
+        loadProfile(authUser.id, authUser.email)
       }
     }
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [loadProfile])
+  }, [authUser?.id, authUser?.email, profile, loadProfile])
 
-  // Função `init` exposta no contexto (re-executa a hidratação sob demanda).
-  const init = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: { session: liveSession } } = await supabase.auth.getSession()
-      setSession(liveSession ?? null)
-      setAuthUser(liveSession?.user ?? null)
-      if (liveSession?.user) await loadProfile(liveSession.user.id)
-      else setProfile(null)
-    } catch (err) {
-      console.error('[init] erro:', err)
-    } finally {
-      initialResolvedRef.current = true
-      setLoading(false)
-    }
-  }, [loadProfile])
-
+  // ─── Ações de auth ───────────────────────────────────────────────────────
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
@@ -197,45 +208,43 @@ export function AuthProvider({ children }) {
 
   const signUp = async (email, password, metadata = {}) => {
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: metadata },
+      email, password, options: { data: metadata },
     })
     if (error) throw error
     return data
   }
 
   const signOut = async () => {
-    // Limpa o estado local IMEDIATAMENTE para a UI redirecionar sem esperar a rede.
+    // Limpa estado local IMEDIATAMENTE pra UI redirecionar sem esperar rede.
     setAuthUser(null)
     setSession(null)
     setProfile(null)
-    try {
-      await supabase.auth.signOut()
-    } catch (err) {
-      console.error('signOut error', err)
-    }
+    try { await supabase.auth.signOut() } catch (err) { console.error('signOut error', err) }
   }
 
   const reloadProfile = useCallback(async () => {
-    if (authUser?.id) return loadProfile(authUser.id)
-    return null
-  }, [authUser?.id, loadProfile])
+    if (!authUser?.id) return null
+    retryAttemptedRef.current = false
+    return loadProfile(authUser.id, authUser.email)
+  }, [authUser?.id, authUser?.email, loadProfile])
 
   const updateUser = (partial) => {
     setProfile((prev) => ({ ...(prev || {}), ...(partial || {}) }))
   }
 
+  // ─── Derivados ───────────────────────────────────────────────────────────
   // role pode estar em `profiles.role` OU em `auth.users.user_metadata.role`.
-  // Achatamos para `user.role` para que checagens simples (ex. Sidebar `user.role === 'admin'`) funcionem.
   const mergedRole = profile?.role || authUser?.user_metadata?.role || null
 
-  // displayName: vem SEMPRE de profiles (full_name → nome). Email NÃO é
-  // fallback — se o nome não estiver cadastrado, mostramos "Usuário"
-  // para o corretor perceber que precisa preencher em Configurações.
-  // Cair pro email mascarava o problema (a sidebar mostrava o e-mail
-  // como se fosse o nome) e quebrava a personalização das peças.
-  const displayName = profile?.full_name || profile?.nome || 'Usuário'
+  // displayName: prioridade do schema real (`profiles.nome`), com fallback pra
+  // metadata do JWT (preenchida no signUp via options.data) e por fim
+  // 'Usuário'. NUNCA cai pro email — isso mascarava o problema antes.
+  const metaName =
+    authUser?.user_metadata?.full_name
+    || authUser?.user_metadata?.nome
+    || authUser?.user_metadata?.name
+    || null
+  const displayName = profile?.nome || profile?.full_name || metaName || 'Usuário'
 
   const user = authUser
     ? { ...authUser, ...(profile || {}), role: mergedRole, displayName, nome: displayName }
@@ -244,7 +253,7 @@ export function AuthProvider({ children }) {
   const isAuthenticated = !!authUser
   const isAdmin = mergedRole === 'admin'
 
-  // JWT direto do contexto — quem precisar pode ler sem chamar supabase.auth.*
+  // JWT direto do contexto — consumidores leem sem chamar supabase.auth.*
   const accessToken = session?.access_token || null
 
   const value = {
@@ -254,7 +263,6 @@ export function AuthProvider({ children }) {
     accessToken,
     loading,
     isAuthenticated,
-    init,
     signIn,
     signUp,
     signOut,
