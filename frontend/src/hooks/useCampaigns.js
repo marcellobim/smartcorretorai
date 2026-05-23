@@ -1,22 +1,23 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth-context'
 import toast from 'react-hot-toast'
 
 export function useCampaigns() {
+  const { user, accessToken } = useAuth()
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
 
-  const fetch = async (params = {}) => {
+  const fetch = async () => {
     try {
       setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!user?.id) return
 
       const { data, error } = await supabase
         .from('campaigns')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -31,7 +32,11 @@ export function useCampaigns() {
   const generate = async (payload) => {
     try {
       setGenerating(true)
-      const { data, error } = await supabase.functions.invoke('gerar-campanha', { body: payload })
+      if (!accessToken) throw new Error('Sessão expirada — faça login novamente')
+      const { data, error } = await supabase.functions.invoke('gerar-campanha', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: payload,
+      })
       if (error) throw error
       if (data?.campanha) setCampaigns((prev) => [data.campanha, ...prev])
       toast.success('Campanha gerada com sucesso!')
@@ -59,7 +64,9 @@ export function useCampaigns() {
     }
   }
 
-  useEffect(() => { fetch() }, [])
+  useEffect(() => {
+    if (user?.id) fetch()
+  }, [user?.id])
 
   return { campaigns, loading, generating, fetch, generate, remove }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
@@ -504,7 +505,8 @@ async function resizeFoto(file, maxPx = 900) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  const { user: authedUser, session: authedSession, loading: authLoading } = useAuth()
+  const { user: authedUser, accessToken, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
   const [fase, setFase] = useState('form')
 
   const [categoria, setCategoria] = useState(null)
@@ -613,12 +615,12 @@ export default function NovaCampanha() {
   }, [estado])
 
   const handleFotos = async (files) => {
-    const novos = Array.from(files).slice(0, 4 - fotos.length)
+    const novos = Array.from(files).slice(0, 10 - fotos.length)
     const processadas = await Promise.all(novos.map(async f => ({
       preview: URL.createObjectURL(f),
       ...(await resizeFoto(f)),
     })))
-    setFotos(prev => [...prev, ...processadas].slice(0, 4))
+    setFotos(prev => [...prev, ...processadas].slice(0, 10))
   }
 
   const removerFoto = (idx) => setFotos(prev => prev.filter((_, i) => i !== idx))
@@ -655,22 +657,25 @@ export default function NovaCampanha() {
         ...(difCustom.trim() ? [difCustom.trim()] : []),
       ]
 
-      // Verificação de autenticação — TUDO do AuthContext, ZERO chamadas a
-      // supabase.auth.* aqui. O onAuthStateChange já mantém session/user
-      // atualizados; o cliente supabase usa o JWT da sua sessão interna em
-      // todas as chamadas (storage, edge functions) automaticamente.
+      // Autenticação — APENAS via AuthContext. Zero chamadas a
+      // supabase.auth.getSession()/refreshSession() (eles davam timeout).
+      // O JWT vem do contexto e é repassado EXPLICITAMENTE no header
+      // Authorization de cada invoke — assim o supabase-js não tenta
+      // recuperar sessão sozinho.
       if (authLoading) {
         toast.error('Aguarde — carregando sessão...')
         setFase('form')
         return
       }
       const userId = authedUser?.id
-      if (!userId || !authedSession?.access_token) {
-        toast.error('Sua sessão expirou. Faça login novamente para continuar.')
+      const token = accessToken
+      if (!userId || !token) {
+        toast.error('Sua sessão expirou. Faça login novamente.')
         setFase('form')
+        navigate('/login', { replace: true })
         return
       }
-      console.log('[gerarAnuncios] sessão OK via contexto', { userId, hasToken: !!authedSession.access_token })
+      console.log('[gerarAnuncios] sessão OK via contexto', { userId, hasToken: true })
 
       // ── Upload das fotos: sequencial, timeout 120s por tentativa, retry 1x ──
       // Cada foto tem até 2 tentativas; se ambas falharem/expirarem, segue sem ela.
@@ -712,6 +717,14 @@ export default function NovaCampanha() {
       }
       console.log('[gerarAnuncios] fim do upload loop. fotos_urls:', fotos_urls.length)
 
+      // ── Templates escolhidos pelo usuário (somente os marcados) ──
+      // Bloqueia qualquer geração automática de templates não escolhidos.
+      const selectedTemplates = [
+        ...[...formatosSel.banners],
+        ...[...formatosSel.videos],
+      ]
+      console.log('[gerarAnuncios] selectedTemplates:', selectedTemplates)
+
       // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
       console.log('[gerarAnuncios] >>> DISPARANDO invoke(gerar-campanha) + invoke(gerar-banners) em paralelo')
 
@@ -727,11 +740,43 @@ export default function NovaCampanha() {
         todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
       ].filter(Boolean).join('. ')
 
+      // Foto do corretor: se o perfil não tem avatar cadastrado, força REMOVER_ELEMENTO
+      // (assim o template não renderiza a mulher fictícia padrão).
+      const avatarPerfil = authedUser?.avatar_url || authedUser?.foto_url || authedUser?.photo_url || ''
+      const corretorAvatarUrl = avatarPerfil ? avatarPerfil : 'REMOVER_ELEMENTO'
+
+      // fotos_urls vai EM ORDEM — a primeira é a principal do imóvel, demais são secundárias.
+      const fotosOrdenadas = fotos_urls.slice(0, 10)
+      const fotoPrincipal = fotosOrdenadas[0] || null
+
       setGerandoBanners(true)
       setRenders(null)
 
+      // Só dispara gerar-banners se o usuário escolheu pelo menos 1 template.
+      const bannersInvoke = selectedTemplates.length > 0
+        ? supabase.functions.invoke('gerar-banners', {
+            headers: { Authorization: `Bearer ${token}` },
+            body: {
+              // campaign_id é opcional agora; vamos linkar depois
+              user_id: userId,
+              selectedTemplates,
+              fotos_urls: fotosOrdenadas,
+              foto_principal: fotoPrincipal,
+              titulo: tituloPreliminar,
+              descricao: descricaoPreliminar,
+              preco,
+              endereco: enderecoCompleto,
+              tipo_imovel: tipo,
+              corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
+              corretor_avatar_url: corretorAvatarUrl,
+              marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
+            },
+          })
+        : Promise.resolve({ data: { renders: [], skipped: true }, error: null })
+
       const [campaignResult, bannersResult] = await Promise.allSettled([
         supabase.functions.invoke('gerar-campanha', {
+          headers: { Authorization: `Bearer ${token}` },
           body: {
             user_id: userId,
             categoria,
@@ -744,25 +789,14 @@ export default function NovaCampanha() {
               formatos_selecionados: Object.fromEntries(
                 Object.entries(formatosSel).map(([gId, s]) => [gId, [...s]])
               ),
+              selectedTemplates,
             },
-            fotos_urls,
+            fotos_urls: fotosOrdenadas,
+            foto_principal: fotoPrincipal,
             redes_sociais: ['instagram_feed', 'instagram_stories', 'whatsapp', 'facebook', 'tiktok'],
           },
         }),
-        supabase.functions.invoke('gerar-banners', {
-          body: {
-            // campaign_id é opcional agora; vamos linkar depois
-            user_id: userId,
-            fotos_urls,
-            titulo: tituloPreliminar,
-            descricao: descricaoPreliminar,
-            preco,
-            endereco: enderecoCompleto,
-            tipo_imovel: tipo,
-            corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
-            marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
-          },
-        }),
+        bannersInvoke,
       ])
 
       console.log('[gerarAnuncios] resultados paralelos:', { campaignResult, bannersResult })
@@ -911,13 +945,32 @@ export default function NovaCampanha() {
     if (!campanhaId) return toast.error('Campanha não encontrada — gere os textos primeiro')
     if (gerandoBanners) return
 
+    // Token direto do AuthContext (sem getSession/refreshSession).
+    const token = accessToken
+    if (!token) {
+      toast.error('Sua sessão expirou. Faça login novamente.')
+      navigate('/login', { replace: true })
+      return
+    }
+
+    const selectedTemplates = [
+      ...[...formatosSel.banners],
+      ...[...formatosSel.videos],
+    ]
+    if (selectedTemplates.length === 0) {
+      toast.error('Selecione ao menos um banner ou vídeo no formulário')
+      return
+    }
+
     setGerandoBanners(true)
     setRenders(null)
 
     try {
-      const fotos_urls = resultado?.dados_imovel?.fotos_urls
+      const fotosBrutas = resultado?.dados_imovel?.fotos_urls
         || resultado?.fotos_urls
         || []
+      const fotosOrdenadas = (Array.isArray(fotosBrutas) ? fotosBrutas : []).slice(0, 10)
+      const fotoPrincipal = fotosOrdenadas[0] || null
 
       const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
@@ -927,16 +980,24 @@ export default function NovaCampanha() {
         || resultado?.textos_gerados?.mensagem_whatsapp
         || ''
 
+      // Sem avatar do corretor → remove o slot pra evitar a mulher fictícia padrão.
+      const avatarPerfil = authedUser?.avatar_url || authedUser?.foto_url || authedUser?.photo_url || ''
+      const corretorAvatarUrl = avatarPerfil ? avatarPerfil : 'REMOVER_ELEMENTO'
+
       const { data, error } = await supabase.functions.invoke('gerar-banners', {
+        headers: { Authorization: `Bearer ${token}` },
         body: {
           campaign_id: campanhaId,
-          fotos_urls,
+          selectedTemplates,
+          fotos_urls: fotosOrdenadas,
+          foto_principal: fotoPrincipal,
           titulo: resultado?.titulo || resultado?.textos_gerados?.titulo_campanha || '',
           descricao: descricaoCurta,
           preco,
           endereco: enderecoCompleto,
           tipo_imovel: tipo,
           corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
+          corretor_avatar_url: corretorAvatarUrl,
           marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
         },
       })
@@ -1167,17 +1228,22 @@ export default function NovaCampanha() {
             <div className="card p-6">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-base font-bold text-gray-900">Fotos do imóvel</h2>
-                <span className="text-xs text-gray-400 font-medium">{fotos.length}/4 fotos</span>
+                <span className="text-xs text-gray-400 font-medium">{fotos.length}/10 fotos</span>
               </div>
               <p className="text-xs text-gray-500 mb-4">
                 A IA analisa as fotos e descreve os ambientes automaticamente nos textos
               </p>
 
               {fotos.length > 0 && (
-                <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mb-3">
                   {fotos.map((f, i) => (
                     <div key={i} className="relative aspect-square rounded-xl overflow-hidden group">
                       <img src={f.preview} alt="" className="w-full h-full object-cover" />
+                      {i === 0 && (
+                        <span className="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-600 text-white shadow">
+                          Principal
+                        </span>
+                      )}
                       <button onClick={() => removerFoto(i)}
                         className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                         <X className="w-3 h-3" />
@@ -1187,7 +1253,7 @@ export default function NovaCampanha() {
                 </div>
               )}
 
-              {fotos.length < 4 && (
+              {fotos.length < 10 && (
                 <div onClick={() => fileRef.current.click()} onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); handleFotos(e.dataTransfer.files) }}
                   className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-all">
@@ -1195,7 +1261,7 @@ export default function NovaCampanha() {
                     onChange={e => handleFotos(e.target.files)} />
                   <Camera className="w-7 h-7 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm font-medium text-gray-600">Clique ou arraste as fotos aqui</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG · até 4 fotos</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG · até 10 fotos · a primeira é a principal</p>
                 </div>
               )}
             </div>

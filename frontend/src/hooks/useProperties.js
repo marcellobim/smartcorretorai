@@ -1,22 +1,23 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth-context'
 import toast from 'react-hot-toast'
 
 export function useProperties() {
+  const { user } = useAuth()
   const [properties, setProperties] = useState([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
 
-  const fetch = async (params = {}) => {
+  const fetch = async () => {
     try {
       setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!user?.id) return
 
       const { data, error, count } = await supabase
         .from('properties')
         .select('*', { count: 'exact' })
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -31,10 +32,10 @@ export function useProperties() {
 
   const create = async (payload) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      if (!user?.id) throw new Error('Sessão expirada — faça login novamente')
       const { data, error } = await supabase
         .from('properties')
-        .insert({ ...payload, user_id: session.user.id })
+        .insert({ ...payload, user_id: user.id })
         .select()
         .single()
 
@@ -82,7 +83,9 @@ export function useProperties() {
     }
   }
 
-  useEffect(() => { fetch() }, [])
+  useEffect(() => {
+    if (user?.id) fetch()
+  }, [user?.id])
 
   return { properties, loading, total, fetch, create, update, remove }
 }
