@@ -210,13 +210,262 @@ function detectLanguage(s: string): 'pt' | 'en' | 'unknown' {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Frases fixas em inglês — substituição GLOBAL e obrigatória.
-// Templates stock vêm com caixas de texto travadas em frases
-// americanas ("NEW ON SALE", "NEW YORK, NY", "Please join us for
-// an Open House", etc.). A IA tende a preservar esses valores
-// quando não vê um equivalente PT-BR explícito. Esta lista força
-// a tradução / contextualização antes de qualquer outra etapa do
-// sanitizer. A ordem importa: frases mais específicas primeiro.
+// DICIONÁRIO INGLÊS → PT-BR — primeira camada de tradução.
+//
+// Templates Creatomate (stock) vêm com textos americanos travados:
+// "FOR SALE", "NEW LISTING", "Open House", "Beautiful Modern Home",
+// rótulos de specs como "Bedrooms"/"Square Feet", placeholders tipo
+// "MY BRAND" / "New York, NY". Esta camada faz substituição literal
+// case-insensitive ANTES do sanitizeTemplateText, garantindo que
+// frases conhecidas virem PT-BR (ou vazio, quando são placeholders
+// fictícios sem equivalente útil).
+//
+// Como funciona:
+// - Cada entrada é compilada em regex `\bTERMO\b` com flag /gi.
+// - Espaços viram `\s+` para tolerar espaços múltiplos / quebras.
+// - Lista é ordenada por tamanho descendente — "Real Estate Agent"
+//   roda antes de "Agent" pra evitar "Real Estate Corretor".
+// - Valor '' significa REMOVER o placeholder (deixa string vazia
+//   para a próxima etapa decidir; sanitize/CTA tratam o vazio).
+// ═══════════════════════════════════════════════════════════════
+
+const EN_PT_DICTIONARY: Record<string, string> = {
+  // ── Status / labels do anúncio ──────────────────────────────
+  'For Sale': 'À Venda',
+  'For Rent': 'Para Alugar',
+  'For Lease': 'Para Alugar',
+  'On Sale': 'À Venda',
+  'New Listing': 'Novo Imóvel',
+  'Just Listed': 'Recém-Anunciado',
+  'New on Sale': 'Novo à Venda',
+  'New On Sale': 'Novo à Venda',
+  'Coming Soon': 'Em Breve',
+  'Now Available': 'Disponível Agora',
+  'Available Now': 'Disponível Agora',
+  'Price Reduced': 'Preço Reduzido',
+  'Reduced Price': 'Preço Reduzido',
+  'Sold': 'Vendido',
+  'Rented': 'Alugado',
+  'Pending': 'Reservado',
+  'Featured Listing': 'Imóvel em Destaque',
+  'Featured Property': 'Imóvel em Destaque',
+  'Featured': 'Destaque',
+  'Exclusive Listing': 'Imóvel Exclusivo',
+  'Exclusive': 'Exclusivo',
+  'Luxury': 'Luxo',
+  'Available': 'Disponível',
+
+  // ── Eventos / convite ───────────────────────────────────────
+  'Please join us for an Open House': 'Agende sua Visita',
+  'Join us for an Open House': 'Agende sua Visita',
+  'Open House': 'Visita Aberta',
+  'House Tour': 'Tour pela Casa',
+  'Virtual Tour': 'Tour Virtual',
+
+  // ── CTAs e ações ────────────────────────────────────────────
+  'Schedule a Visit': 'Agende uma Visita',
+  'Schedule a Tour': 'Agende um Tour',
+  'Schedule a Showing': 'Agende uma Visita',
+  'Book a Tour': 'Agende um Tour',
+  'Book a Visit': 'Agende uma Visita',
+  'Request a Viewing': 'Solicite uma Visita',
+  'Contact Us': 'Fale Conosco',
+  'Get in Touch': 'Entre em Contato',
+  'Reach Out': 'Entre em Contato',
+  'Call Now': 'Ligue Agora',
+  'Call Today': 'Ligue Hoje',
+  'Call Us': 'Ligue para Nós',
+  'View Details': 'Ver Detalhes',
+  'See Details': 'Ver Detalhes',
+  'See More': 'Ver Mais',
+  'Read More': 'Leia Mais',
+  'Learn More': 'Saiba Mais',
+  'Find Out More': 'Saiba Mais',
+  'Visit Our Website': 'Visite Nosso Site',
+  'Visit Website': 'Visite o Site',
+  'Inquire Now': 'Consulte Agora',
+  'Apply Now': 'Inscreva-se',
+  'Get Started': 'Comece Agora',
+  'Buy Now': 'Compre Agora',
+  'Rent Now': 'Alugue Agora',
+  'Reserve Now': 'Reserve Agora',
+  'Browse Listings': 'Veja os Imóveis',
+  'See All Listings': 'Veja Todos os Imóveis',
+
+  // ── Especificações do imóvel ────────────────────────────────
+  'Square Feet': 'm²',
+  'Square Meters': 'm²',
+  'Sq Ft': 'm²',
+  'Sqft': 'm²',
+  'Sq M': 'm²',
+  'Bedrooms': 'Quartos',
+  'Bedroom': 'Quarto',
+  'Bathrooms': 'Banheiros',
+  'Bathroom': 'Banheiro',
+  'Baths': 'Banheiros',
+  'Bath': 'Banheiro',
+  'Beds': 'Quartos',
+  'Bed': 'Quarto',
+  'Half Baths': 'Lavabos',
+  'Half Bath': 'Lavabo',
+  'Living Room': 'Sala de Estar',
+  'Dining Room': 'Sala de Jantar',
+  'Family Room': 'Sala de Família',
+  'Kitchen': 'Cozinha',
+  'Garage': 'Garagem',
+  'Parking Spots': 'Vagas',
+  'Parking Spot': 'Vaga',
+  'Parking Spaces': 'Vagas',
+  'Parking Space': 'Vaga',
+  'Parking': 'Estacionamento',
+  'Pool': 'Piscina',
+  'Backyard': 'Quintal',
+  'Garden': 'Jardim',
+  'Balcony': 'Sacada',
+  'Terrace': 'Terraço',
+  'Patio': 'Pátio',
+  'Fireplace': 'Lareira',
+
+  // ── Labels de campo ─────────────────────────────────────────
+  'Asking Price': 'Preço Pedido',
+  'Listing Price': 'Preço Anunciado',
+  'Monthly Rent': 'Aluguel Mensal',
+  'Price': 'Preço',
+  'Address': 'Endereço',
+  'Location': 'Localização',
+  'Neighborhood': 'Bairro',
+  'Description': 'Descrição',
+  'Details': 'Detalhes',
+  'Features': 'Características',
+  'Amenities': 'Comodidades',
+  'Highlights': 'Destaques',
+  'Property Type': 'Tipo de Imóvel',
+  'Property': 'Imóvel',
+
+  // ── Tipos de imóvel ─────────────────────────────────────────
+  'Single Family Home': 'Casa',
+  'Single Family': 'Casa',
+  'Studio Apartment': 'Studio',
+  'Townhouse': 'Sobrado',
+  'Apartment': 'Apartamento',
+  'Condo': 'Apartamento',
+
+  // ── Pessoas / papéis ────────────────────────────────────────
+  'Real Estate Agent': 'Corretor de Imóveis',
+  'Real Estate Agency': 'Imobiliária',
+  'Real Estate Broker': 'Corretor de Imóveis',
+  'Real Estate': 'Imóveis',
+  'Listing Agent': 'Corretor Responsável',
+  'Brokerage': 'Imobiliária',
+  'Agency': 'Imobiliária',
+  'Realtor': 'Corretor',
+  'Broker': 'Corretor',
+  'Agent': 'Corretor',
+  'Seller': 'Vendedor',
+  'Buyer': 'Comprador',
+  'Owner': 'Proprietário',
+  'Tenant': 'Inquilino',
+
+  // ── Boas-vindas / emocional ─────────────────────────────────
+  'Welcome Home': 'Bem-vindo ao Seu Lar',
+  'Welcome to': 'Bem-vindo ao',
+  'Your Dream Home': 'O Lar dos Seus Sonhos',
+  'Dream Home': 'Lar dos Sonhos',
+  'Find Your Home': 'Encontre Seu Lar',
+  'Your New Home': 'Sua Nova Casa',
+  'New Home': 'Nova Casa',
+  'Make It Yours': 'Faça Dele o Seu',
+
+  // ── Adjetivos comuns ────────────────────────────────────────
+  'Newly Renovated': 'Recém-Reformado',
+  'Move-In Ready': 'Pronto para Morar',
+  'Move In Ready': 'Pronto para Morar',
+  'Beautiful': 'Belo',
+  'Stunning': 'Deslumbrante',
+  'Gorgeous': 'Lindo',
+  'Modern': 'Moderno',
+  'Spacious': 'Amplo',
+  'Cozy': 'Aconchegante',
+  'Charming': 'Charmoso',
+  'Elegant': 'Elegante',
+  'Bright': 'Iluminado',
+  'Sunny': 'Ensolarado',
+  'Renovated': 'Reformado',
+
+  // ── Contato ─────────────────────────────────────────────────
+  'Phone Number': 'Telefone',
+  'Email Address': 'Email',
+  'Phone': 'Telefone',
+  'Website': 'Site',
+  'Follow Us On': 'Siga-nos no',
+  'Follow Us': 'Siga-nos',
+  'Visit Us At': 'Visite-nos em',
+  'Visit Us': 'Visite-nos',
+  'Find Us On': 'Encontre-nos no',
+
+  // ── Placeholders que viram vazio (sem equivalente PT-BR útil) ─
+  'New York, NY': '',
+  'New York': '',
+  'Los Angeles, CA': '',
+  'Los Angeles': '',
+  'San Francisco, CA': '',
+  'San Francisco': '',
+  'Chicago, IL': '',
+  'Miami, FL': '',
+  'Boston, MA': '',
+  'Brooklyn, NY': '',
+  'Manhattan, NY': '',
+  'MY BRAND': '',
+  'My Brand': '',
+  'Your Brand': '',
+  'BRAND NAME': '',
+  'Brand Name': '',
+  'YOUR LOGO': '',
+  'Your Logo': '',
+  'My Logo': '',
+  'Logo Here': '',
+  'COMPANY NAME': '',
+  'Company Name': '',
+  'Your Company': '',
+  'Company Tagline': '',
+  'Tagline Here': '',
+  'Lorem Ipsum': '',
+  'John Doe': '',
+  'Jane Doe': '',
+  'YOUR NAME': '',
+  'Your Name': '',
+  'Sample Text': '',
+  'Click Here': '',
+}
+
+// Pré-compila lista ordenada por tamanho desc (mais longa primeiro).
+// Espaços do termo viram \s+ para tolerar espaços múltiplos / quebras.
+const EN_PT_RULES: Array<{ pattern: RegExp; replacement: string }> = (() => {
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return Object.entries(EN_PT_DICTIONARY)
+    .sort(([a], [b]) => b.length - a.length)
+    .map(([en, pt]) => {
+      const body = escape(en).replace(/\s+/g, '\\s+')
+      const start = /^\w/.test(en) ? '\\b' : ''
+      const end = /\w$/.test(en) ? '\\b' : ''
+      return { pattern: new RegExp(`${start}${body}${end}`, 'gi'), replacement: pt }
+    })
+})()
+
+function translateFixedEnglish(text: string): string {
+  if (!text) return text
+  let out = text
+  for (const { pattern, replacement } of EN_PT_RULES) {
+    out = out.replace(pattern, replacement)
+  }
+  return out
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Frases fixas em inglês — segunda camada (context-aware).
+// Defensa em profundidade: roda dentro do sanitizeTemplateText
+// depois do dicionário EN→PT. Mantém regras de longo prazo que
+// dependem de contexto do imóvel (não pertencem ao dicionário).
 // ═══════════════════════════════════════════════════════════════
 
 type FixedPhraseRule = {
@@ -779,7 +1028,14 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           if (!v.trim()) continue
 
           if (prop === 'text') {
-            const limpo = sanitizeTemplateText(v, sanitizeCtx)
+            // CAMADA 1 — dicionário EN→PT: substitui frases fixas conhecidas
+            // ("For Sale", "Bedrooms", "MY BRAND", etc.) antes de qualquer
+            // outra etapa. Garante que placeholders americanos virem PT-BR
+            // (ou vazio) mesmo se a IA não tenha traduzido.
+            const traduzido = translateFixedEnglish(v)
+            // CAMADA 2 — sanitizer (cidades em inglês, placeholders de email,
+            // domínios fictícios, números US-style, detecção de idioma).
+            const limpo = sanitizeTemplateText(traduzido, sanitizeCtx)
             if (!limpo) continue
             // CTA: força estritamente uma das variações profissionais aprovadas,
             // independente do que a IA tenha gerado.
