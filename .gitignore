@@ -9,3 +9,5 @@ build/
 .netlify
 coverage/
 .claude/settings.local.json
+# Supabase CLI scratch metadata (regenerated automatically)
+**/supabase/.temp/
