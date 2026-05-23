@@ -14,6 +14,53 @@ function withTimeout(promise, ms, label) {
   ])
 }
 
+// Direct PostgREST fetch com Authorization explícito.
+//
+// Por que não usar supabase.from('profiles').select()? Após F5, o estado
+// interno do supabase-js (auth.session, postgrest auth headers) tem race
+// condition: o INITIAL_SESSION dispara com o session correto, mas o
+// postgrest sub-client pode ainda não ter o JWT propagado. Resultado:
+// a query vai sem Authorization, RLS aplica `auth.uid() = id` com uid
+// nulo, e a resposta volta vazia silenciosamente.
+//
+// Fetch direto com header explícito ignora completamente esse estado
+// interno — o servidor PostgREST recebe o JWT, valida, e RLS roda com
+// o uid correto.
+async function fetchProfileDirect(uid, accessToken) {
+  const url = `${supabase.supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=*`
+  const res = await fetch(url, {
+    headers: {
+      apikey: supabase.supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`PostgREST ${res.status}: ${body.slice(0, 200)}`)
+  }
+  const arr = await res.json()
+  return Array.isArray(arr) && arr.length > 0 ? arr[0] : null
+}
+
+async function upsertProfileDirect(uid, email, accessToken) {
+  const payload = email ? { id: uid, email } : { id: uid }
+  const res = await fetch(`${supabase.supabaseUrl}/rest/v1/profiles`, {
+    method: 'POST',
+    headers: {
+      apikey: supabase.supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=ignore-duplicates,return=minimal',
+    },
+    body: JSON.stringify(payload),
+  })
+  // 409 = conflict (linha já existia) — também é OK.
+  if (!res.ok && res.status !== 409) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`PostgREST upsert ${res.status}: ${body.slice(0, 200)}`)
+  }
+}
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [session, setSession] = useState(null)
@@ -34,55 +81,70 @@ export function AuthProvider({ children }) {
   //   passado pelo caller, que vem do authUser já em memória).
   // - Lock via ref evita chamadas concorrentes que poderiam intercalar
   //   setProfile(null) com setProfile(data) e zerar a UI.
-  const loadProfile = useCallback(async (uid, email, attempt = 1) => {
+  const loadProfile = useCallback(async (uid, email, accessToken) => {
     if (!uid) { setProfile(null); return null }
-
-    if (profileInFlightRef.current && attempt === 1) {
+    if (profileInFlightRef.current) {
       console.log('[loadProfile] já em andamento — skip')
       return null
     }
     profileInFlightRef.current = true
 
     try {
-      console.log(`[loadProfile] start uid=${uid} attempt=${attempt}`)
-      const { data, error } = await withTimeout(
-        supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
-        8000,
-        'loadProfile select'
-      )
+      console.log(`[loadProfile] start uid=${uid} hasToken=${!!accessToken}`)
 
-      if (error) {
-        console.error('[loadProfile] select error:', error.message || error)
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 600))
-          return loadProfile(uid, email, attempt + 1)
+      // Tenta UMA fetch — direct fetch (com token) ou client supabase (sem token).
+      // Direct fetch é o caminho preferido pós F5: bypassa o estado interno do
+      // postgrest sub-client (que pode estar dessincronizado e fazer a query
+      // sem Authorization, levando RLS a retornar vazio).
+      const fetchOnce = async () => {
+        if (accessToken) {
+          return await withTimeout(
+            fetchProfileDirect(uid, accessToken),
+            8000,
+            'loadProfile direct fetch'
+          )
         }
-        return null
+        // Sem token (caso raro) — usa o client. Aceita o risco da race.
+        const { data, error } = await withTimeout(
+          supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
+          8000,
+          'loadProfile client select'
+        )
+        if (error) throw error
+        return data
       }
 
-      // Linha não existe ainda — tenta auto-criar (signup sem trigger).
-      // NÃO chamamos supabase.auth.getUser() (faz request, pode travar);
-      // usamos o email passado pelo caller.
-      if (!data) {
-        console.warn('[loadProfile] row não existe — auto-create')
-        const payload = email ? { id: uid, email } : { id: uid }
-        const { error: insertErr } = await withTimeout(
-          supabase.from('profiles').upsert(payload, { onConflict: 'id', ignoreDuplicates: true }),
-          5000,
-          'loadProfile upsert'
-        )
-        if (insertErr) console.error('[loadProfile] auto-create error:', insertErr.message || insertErr)
+      // 2 tentativas com 600ms de espera entre elas.
+      let data = null
+      try {
+        data = await fetchOnce()
+      } catch (err) {
+        console.error('[loadProfile] tentativa 1 falhou:', err.message || err)
+        await new Promise((r) => setTimeout(r, 600))
+        try {
+          data = await fetchOnce()
+        } catch (err2) {
+          console.error('[loadProfile] tentativa 2 falhou:', err2.message || err2)
+          setProfile(null)
+          return null
+        }
+      }
 
-        const retry = await withTimeout(
-          supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
-          5000,
-          'loadProfile retry select'
-        )
-        if (retry.error) console.error('[loadProfile] retry error:', retry.error.message || retry.error)
-        const final = retry.data || null
-        setProfile(final)
-        if (final) console.log('[loadProfile] auto-created OK | nome:', final.nome || '(vazio)')
-        return final
+      // Linha não existe — auto-create (somente possível com token).
+      if (!data && accessToken) {
+        console.warn('[loadProfile] row não existe — auto-create')
+        try {
+          await withTimeout(upsertProfileDirect(uid, email, accessToken), 5000, 'loadProfile upsert')
+          data = await withTimeout(fetchProfileDirect(uid, accessToken), 5000, 'loadProfile post-upsert fetch')
+        } catch (err) {
+          console.error('[loadProfile] auto-create error:', err.message || err)
+        }
+      }
+
+      if (!data) {
+        console.warn('[loadProfile] sem profile após todas as tentativas. uid:', uid)
+        setProfile(null)
+        return null
       }
 
       if (!data.nome && !data.full_name) {
@@ -92,15 +154,8 @@ export function AuthProvider({ children }) {
       }
       setProfile(data)
       return data
-    } catch (err) {
-      console.error('[loadProfile] fatal:', err.message || err)
-      if (attempt < 2) {
-        await new Promise((r) => setTimeout(r, 800))
-        return loadProfile(uid, email, attempt + 1)
-      }
-      return null
     } finally {
-      if (attempt === 1) profileInFlightRef.current = false
+      profileInFlightRef.current = false
     }
   }, [])
 
@@ -118,7 +173,9 @@ export function AuthProvider({ children }) {
       setSession(newSession ?? null)
       setAuthUser(sessionUser)
       if (sessionUser) {
-        await loadProfile(sessionUser.id, sessionUser.email)
+        // Passa o access_token explicitamente — loadProfile usa direct fetch
+        // pra evitar a race do estado interno do postgrest no F5.
+        await loadProfile(sessionUser.id, sessionUser.email, newSession?.access_token)
       } else {
         setProfile(null)
       }
@@ -178,8 +235,8 @@ export function AuthProvider({ children }) {
     if (profile || retryAttemptedRef.current) return
     retryAttemptedRef.current = true
     console.log('[auth] profile null com authUser válido — retry defensivo')
-    loadProfile(authUser.id, authUser.email)
-  }, [authUser?.id, authUser?.email, profile, loading, loadProfile])
+    loadProfile(authUser.id, authUser.email, session?.access_token)
+  }, [authUser?.id, authUser?.email, session?.access_token, profile, loading, loadProfile])
 
   // ─── Foco da aba ─────────────────────────────────────────────────────────
   // Não fazemos getSession/refreshSession manual aqui — o cliente Supabase
@@ -192,12 +249,12 @@ export function AuthProvider({ children }) {
       if (authUser?.id && !profile) {
         console.log('[auth focus] profile null — recarregando')
         retryAttemptedRef.current = false
-        loadProfile(authUser.id, authUser.email)
+        loadProfile(authUser.id, authUser.email, session?.access_token)
       }
     }
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [authUser?.id, authUser?.email, profile, loadProfile])
+  }, [authUser?.id, authUser?.email, session?.access_token, profile, loadProfile])
 
   // ─── Ações de auth ───────────────────────────────────────────────────────
   const signIn = async (email, password) => {
@@ -225,8 +282,8 @@ export function AuthProvider({ children }) {
   const reloadProfile = useCallback(async () => {
     if (!authUser?.id) return null
     retryAttemptedRef.current = false
-    return loadProfile(authUser.id, authUser.email)
-  }, [authUser?.id, authUser?.email, loadProfile])
+    return loadProfile(authUser.id, authUser.email, session?.access_token)
+  }, [authUser?.id, authUser?.email, session?.access_token, loadProfile])
 
   const updateUser = (partial) => {
     setProfile((prev) => ({ ...(prev || {}), ...(partial || {}) }))
