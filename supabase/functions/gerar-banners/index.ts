@@ -23,6 +23,12 @@ type TemplateMeta = {
   categoria: 'banner' | 'story' | 'reels' | 'video' | 'carousel' | 'card' | 'social' | 'detailed'
   perfil: string[]
   formato: string
+  family?: string
+  variant?: string
+  objective?: string
+  placement?: string[]
+  active?: boolean
+  legacyCategory?: string
 }
 
 const TEMPLATES: TemplateMeta[] = [
