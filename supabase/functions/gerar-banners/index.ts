@@ -1,6 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+declare const EdgeRuntime: {
+  waitUntil?: (promise: Promise<unknown>) => void
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -420,6 +424,14 @@ function isCtaElement(elementName: string): boolean {
   return /cta|button|action/i.test(elementName)
 }
 
+function ctaForTemplate(meta?: TemplateMeta): string {
+  const family = (meta?.family || '').toLowerCase()
+  const categoria = (meta?.categoria || '').toLowerCase()
+  if (/chat|contact|phone|whatsapp/.test(family)) return 'Me Ligue'
+  if (/story|reels|social|frase|avaliacao|momentos/.test(family) || /story|reels|social/.test(categoria)) return 'Descrição abaixo'
+  return 'Saiba Mais'
+}
+
 function snapCta(value: string): string {
   const lower = value.trim().toLowerCase()
   if (!lower) return 'Saiba Mais'
@@ -429,6 +441,28 @@ function snapCta(value: string): string {
   if (/(ligu|liga|call|telefon|phone|whats|fal[ea])/.test(lower)) return 'Me Ligue'
   if (/(descri[çc][aã]o|abaixo|below|swipe|deslize|arraste|bio|legenda)/.test(lower)) return 'Descrição abaixo'
   return 'Saiba Mais'
+}
+
+function isPhoneTextElement(name: string): boolean {
+  return /^(agent_phone|broker_phone|phone|telefone|whatsapp|broker_whatsapp)$/i.test(name)
+    || /\b(agent|broker|corretor)?[_ -]?(phone|telefone|tel|whatsapp)\b/i.test(name)
+}
+
+function isPersonMediaSlot(name: string): boolean {
+  return /avatar|agent|broker|realtor|person|headshot|profile|client[_ -]?photo|customer[_ -]?photo/i.test(name)
+}
+
+function isReviewTextElement(name: string): boolean {
+  return /review|testimonial|depoimento|avaliacao|quote/i.test(name)
+}
+
+function capText(value: string, max: number): string {
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (compact.length <= max) return compact
+  const sliced = compact.slice(0, max + 1)
+  const lastSpace = sliced.lastIndexOf(' ')
+  const base = (lastSpace > 40 ? sliced.slice(0, lastSpace) : compact.slice(0, max)).trim()
+  return `${base.replace(/[.,;:!?]+$/, '')}...`
 }
 
 // Slot de imagem do IMÓVEL = qualquer image/video que não seja logo nem avatar.
@@ -544,6 +578,8 @@ serve(async (req) => {
       tipo_imovel,
       corretor_nome,
       corretor_avatar_url,
+      telefone_contato,
+      whatsapp,
       marca_imovel,
       selectedTemplates,
     } = payload as Record<string, unknown>
@@ -617,8 +653,10 @@ serve(async (req) => {
     const corretorNomeFinal  = profileRow?.nome        || (typeof corretor_nome === 'string' ? corretor_nome : '') || ''
     const corretorEmail      = profileRow?.email       || ''
     const corretorCRECI      = profileRow?.creci       || ''
-    const corretorTelefone   = profileRow?.telefone    || String(dadosImovel.telefone_contato || '')
-    const corretorWhatsApp   = profileRow?.whatsapp    || corretorTelefone
+    const telefonePayload    = typeof telefone_contato === 'string' ? telefone_contato : ''
+    const whatsappPayload    = typeof whatsapp === 'string' ? whatsapp : ''
+    const corretorTelefone   = profileRow?.telefone    || telefonePayload || String(dadosImovel.telefone_contato || '')
+    const corretorWhatsApp   = profileRow?.whatsapp    || whatsappPayload || corretorTelefone
     const marcaFinal         = profileRow?.imobiliaria || (typeof marca_imovel === 'string' ? marca_imovel : '') || ''
     const siteFinal          = profileRow?.site        || ''
     const instagramFinal     = profileRow?.instagram   || ''
@@ -690,280 +728,424 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
     }
     console.log(`[${reqId}] estágio 1 (user-only, sem cap): ${pickedIds.length} templates em lote`)
 
-    // === ESTÁGIO 2: GET de cada template para descobrir elementos reais ===
-    const schemas = await Promise.all(pickedIds.map((id) => fetchTemplateElements(reqId, id)))
-    const schemasComElementos = schemas.filter((s) => s.elements.length > 0)
+    if (pickedIds.length > 8) {
+      const selectedTemplateMetas = pickedIds
+        .map((id) => validIds.get(id))
+        .filter((template): template is TemplateMeta => Boolean(template))
 
-    if (schemasComElementos.length === 0) {
-      return jsonResponse({ error: 'Não foi possível obter elementos de nenhum template' }, 502)
+      const { data: renderJob, error: renderJobErr } = await supabase
+        .from('render_jobs')
+        .insert({
+          user_id: authenticatedUserId,
+          campaign_id: hasCampaignId ? campaign_id : null,
+          status: 'queued',
+          total: pickedIds.length,
+          selected_templates: selectedTemplateMetas,
+          payload: {
+            ...(payload as Record<string, unknown>),
+            selectedTemplates: pickedIds,
+          },
+        })
+        .select('id, status, total')
+        .single()
+
+      if (renderJobErr || !renderJob) {
+        console.error(`[${reqId}] render_jobs insert error:`, renderJobErr)
+        return jsonResponse({
+          error: `Erro ao criar job de renderizacao: ${renderJobErr?.message || 'erro desconhecido'}`,
+        }, 500)
+      }
+
+      const processUrl = `${SUPABASE_URL}/functions/v1/process-render-job`
+      const kickoff = fetch(processUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: renderJob.id }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const body = await res.text()
+          console.error(`[${reqId}] process-render-job kickoff ${res.status}:`, body.slice(0, 300))
+        }
+      }).catch((err) => {
+        console.error(`[${reqId}] process-render-job kickoff failed:`, err)
+      })
+
+      if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
+        EdgeRuntime.waitUntil(kickoff)
+      } else {
+        console.warn(`[${reqId}] EdgeRuntime.waitUntil indisponivel; job ficara queued ate novo disparo`)
+      }
+
+      return jsonResponse({
+        async: true,
+        jobId: renderJob.id,
+        status: 'queued',
+        total: pickedIds.length,
+      }, 200)
     }
 
-    console.log(`[${reqId}] estágio 2: ${schemasComElementos.length} templates com elementos reais`)
+    {
+      const sanitizeCtx: SanitizeContext = {
+        preco: preco != null ? String(preco) : (dadosImovel.preco != null ? String(dadosImovel.preco) : ''),
+        endereco: typeof endereco === 'string' && endereco.trim()
+          ? endereco
+          : [dadosImovel.bairro, dadosImovel.cidade, dadosImovel.estado].filter(Boolean).join(', '),
+        bairro: String(dadosImovel.bairro || ''),
+        cidade: String(dadosImovel.cidade || ''),
+        estado: String(dadosImovel.estado || ''),
+        corretor_nome: corretorNomeFinal,
+        corretor_email: corretorEmail,
+        corretor_creci: corretorCRECI,
+        marca_imovel: marcaFinal,
+        telefone_contato: corretorTelefone,
+        whatsapp: corretorWhatsApp,
+        site: siteFinal,
+        instagram: instagramFinal,
+        titulo: typeof titulo === 'string' && titulo
+          ? titulo
+          : (campaignRow?.titulo || ''),
+      }
 
-    // === ESTÁGIO 3: IA produz modifications usando elementos REAIS ========
-    const elementosBloco = schemasComElementos.map((s) => {
-      const meta = validIds.get(s.id)
-      const lista = s.elements
-        .map((e) => `  - "${e.virtualLabel || e.name}" (${e.type})${e.defaultValue ? ` [default: ${JSON.stringify(e.defaultValue.slice(0, 80))}]` : ''}`)
-        .join('\n')
-      return `TEMPLATE id="${s.id}" nome="${s.name || meta?.nome || ''}" formato="${meta?.formato || ''}"
+      const renders: Array<Record<string, unknown>> = []
+      const failedTemplates: Array<{ template_id: string; template_nome?: string; reason: string }> = []
+      const BATCH_SIZE = 8
+      const batches: string[][] = []
+      for (let i = 0; i < pickedIds.length; i += BATCH_SIZE) {
+        batches.push(pickedIds.slice(i, i + BATCH_SIZE))
+      }
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batchIds = batches[batchIndex]
+        console.log(`[${reqId}] lote ${batchIndex + 1}/${batches.length}: ${batchIds.length} templates`)
+
+        try {
+          const schemas = await Promise.all(batchIds.map((id) => fetchTemplateElements(reqId, id)))
+          const schemasComElementos = schemas.filter((s) => s.elements.length > 0)
+          const schemasIds = new Set(schemasComElementos.map((s) => s.id))
+          for (const id of batchIds.filter((id) => !schemasIds.has(id))) {
+            failedTemplates.push({
+              template_id: id,
+              template_nome: validIds.get(id)?.nome,
+              reason: 'Não foi possível obter elementos do template',
+            })
+          }
+          if (schemasComElementos.length === 0) continue
+
+          const elementosBloco = schemasComElementos.map((s) => {
+            const meta = validIds.get(s.id)
+            const lista = s.elements
+              .map((e) => `  - "${e.virtualLabel || e.name}" (${e.type})${e.defaultValue ? ` [default: ${JSON.stringify(e.defaultValue.slice(0, 80))}]` : ''}`)
+              .join('\n')
+            return `TEMPLATE id="${s.id}" nome="${s.name || meta?.nome || ''}" formato="${meta?.formato || ''}"
 Elementos reais:
 ${lista}`
-    }).join('\n\n')
+          }).join('\n\n')
 
-    const fillUserPrompt = `${dadosImovelBloco}
+          const fillUserPrompt = `${dadosImovelBloco}
 
 TEMPLATES SELECIONADOS COM ELEMENTOS REAIS:
 ${elementosBloco}
 
 Para cada template, gere um objeto "modifications" usando APENAS os nomes de elementos listados acima.`
 
-    const fillRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: FILL_SYSTEM_PROMPT },
-          { role: 'user', content: fillUserPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 3500,
-      }),
-      signal: AbortSignal.timeout(60000),
-    })
+          const fillRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                { role: 'system', content: FILL_SYSTEM_PROMPT },
+                { role: 'user', content: fillUserPrompt },
+              ],
+              response_format: { type: 'json_object' },
+              max_tokens: 3500,
+            }),
+            signal: AbortSignal.timeout(60000),
+          })
 
-    if (!fillRes.ok) {
-      const errBody = await fillRes.text()
-      console.error(`[${reqId}] fill OpenAI ${fillRes.status}:`, errBody.slice(0, 300))
-      return jsonResponse({ error: `OpenAI (fill) ${fillRes.status}: ${errBody.slice(0, 300)}` }, 502)
-    }
-
-    let plano: { selecoes?: Array<{ template_id: string; modifications?: Record<string, unknown> }> }
-    try {
-      const fillData = await fillRes.json()
-      const raw = fillData?.choices?.[0]?.message?.content
-      plano = JSON.parse(raw)
-    } catch (e) {
-      console.error(`[${reqId}] fill parse:`, e)
-      return jsonResponse({ error: 'OpenAI (fill) retornou JSON inválido' }, 502)
-    }
-
-    const aprovadas = (Array.isArray(plano.selecoes) ? plano.selecoes : [])
-      .filter((s) => s.template_id && validIds.has(s.template_id))
-
-    if (aprovadas.length === 0) {
-      return jsonResponse({ error: 'IA (fill) não produziu modifications para nenhum template' }, 502)
-    }
-
-    // Validar/filtrar as modifications para conter SOMENTE chaves de elementos reais.
-    // Indexamos por virtualLabel (o rótulo que a IA viu), não por name — assim slots
-    // duplicados (Photo, Photo-2, ...) são endereçáveis individualmente.
-    const elementosPorTemplate = new Map<string, Map<string, ElementInfo>>()
-    for (const s of schemasComElementos) {
-      const m = new Map<string, ElementInfo>()
-      for (const e of s.elements) m.set(e.virtualLabel || e.name, e)
-      elementosPorTemplate.set(s.id, m)
-    }
-
-    // Contexto compartilhado para o sanitizer (PT-BR + dados reais do imóvel + do corretor)
-    const sanitizeCtx: SanitizeContext = {
-      preco: preco != null ? String(preco) : (dadosImovel.preco != null ? String(dadosImovel.preco) : ''),
-      endereco: typeof endereco === 'string' && endereco.trim()
-        ? endereco
-        : [dadosImovel.bairro, dadosImovel.cidade, dadosImovel.estado].filter(Boolean).join(', '),
-      bairro: String(dadosImovel.bairro || ''),
-      cidade: String(dadosImovel.cidade || ''),
-      estado: String(dadosImovel.estado || ''),
-      corretor_nome: corretorNomeFinal,
-      corretor_email: corretorEmail,
-      corretor_creci: corretorCRECI,
-      marca_imovel: marcaFinal,
-      telefone_contato: corretorTelefone,
-      whatsapp: corretorWhatsApp,
-      site: siteFinal,
-      instagram: instagramFinal,
-      titulo: typeof titulo === 'string' && titulo
-        ? titulo
-        : (campaignRow?.titulo || ''),
-    }
-
-    const aprovadasLimpas = aprovadas.map((sel) => {
-      const elementos = elementosPorTemplate.get(sel.template_id)
-      const mods: Record<string, unknown> = {}
-      if (elementos && sel.modifications && typeof sel.modifications === 'object') {
-        for (const [k, v] of Object.entries(sel.modifications)) {
-          // Chave da IA: "<rótulo>.text|source|track", onde <rótulo> é o virtualLabel
-          // que a IA viu (ex.: "Photo", "Photo-2"). A chave final enviada ao Creatomate
-          // usa o ID do elemento quando disponível, evitando ambiguidade entre slots
-          // de mesmo nome.
-          const dot = k.lastIndexOf('.')
-          if (dot < 0) continue
-          const label = k.slice(0, dot)
-          const prop = k.slice(dot + 1)
-          const elem = elementos.get(label)
-          if (!elem) continue
-
-          const keyBase = elem.id || elem.name
-          const finalKey = `${keyBase}.${prop}`
-
-          // .track: booleano, válido para qualquer tipo de elemento.
-          // Usado pela IA para "desativar" elementos quando o dado real não
-          // existe (instrução REMOVER_ELEMENTO no prompt).
-          if (prop === 'track') {
-            if (typeof v === 'boolean') {
-              mods[finalKey] = v
+          if (!fillRes.ok) {
+            const errBody = await fillRes.text()
+            const reason = `OpenAI (fill) ${fillRes.status}: ${errBody.slice(0, 200)}`
+            console.error(`[${reqId}] lote ${batchIndex + 1} fill OpenAI ${fillRes.status}:`, errBody.slice(0, 300))
+            for (const id of schemasComElementos.map((s) => s.id)) {
+              failedTemplates.push({ template_id: id, template_nome: validIds.get(id)?.nome, reason })
             }
             continue
           }
 
-          // .text só em elementos type=text; .source em image/video/audio.
-          const expectedProp = elem.type === 'text' ? 'text' : 'source'
-          if (prop !== expectedProp) continue
-          if (typeof v !== 'string') continue
-
-          // String vazia EXPLÍCITA: passa direto. É a outra metade da
-          // remoção — apaga o texto/source default do template. Costuma
-          // vir junto com .track: false.
-          if (v === '') {
-            mods[finalKey] = ''
+          let plano: { selecoes?: Array<{ template_id: string; modifications?: Record<string, unknown> }> }
+          try {
+            const fillData = await fillRes.json()
+            const raw = fillData?.choices?.[0]?.message?.content
+            plano = JSON.parse(raw)
+          } catch (e) {
+            const reason = 'OpenAI (fill) retornou JSON inválido'
+            console.error(`[${reqId}] lote ${batchIndex + 1} fill parse:`, e)
+            for (const id of schemasComElementos.map((s) => s.id)) {
+              failedTemplates.push({ template_id: id, template_nome: validIds.get(id)?.nome, reason })
+            }
             continue
           }
 
-          // Apenas whitespace: descarta (não é remoção intencional, é lixo).
-          if (!v.trim()) continue
+          const batchValidIds = new Set(schemasComElementos.map((s) => s.id))
+          const aprovadas = (Array.isArray(plano.selecoes) ? plano.selecoes : [])
+            .filter((s) => s.template_id && batchValidIds.has(s.template_id))
+          const aprovadasIds = new Set(aprovadas.map((s) => s.template_id))
+          for (const id of [...batchValidIds].filter((id) => !aprovadasIds.has(id))) {
+            failedTemplates.push({
+              template_id: id,
+              template_nome: validIds.get(id)?.nome,
+              reason: 'IA (fill) não produziu modifications para este template',
+            })
+          }
+          if (aprovadas.length === 0) continue
 
-          if (prop === 'text') {
-            const limpo = sanitizeTemplateText(v, sanitizeCtx)
-            if (!limpo) continue
-            // CTA: força estritamente uma das variações profissionais aprovadas,
-            // independente do que a IA tenha gerado.
-            mods[finalKey] = isCtaElement(elem.name) ? snapCta(limpo) : limpo
-          } else {
-            mods[finalKey] = v
+          const elementosPorTemplate = new Map<string, Map<string, ElementInfo>>()
+          for (const s of schemasComElementos) {
+            const m = new Map<string, ElementInfo>()
+            for (const e of s.elements) m.set(e.virtualLabel || e.name, e)
+            elementosPorTemplate.set(s.id, m)
+          }
+
+          const aprovadasLimpas = aprovadas.map((sel) => {
+            const meta = validIds.get(sel.template_id)
+            const elementos = elementosPorTemplate.get(sel.template_id)
+            const mods: Record<string, unknown> = {}
+            if (elementos && sel.modifications && typeof sel.modifications === 'object') {
+              for (const [k, v] of Object.entries(sel.modifications)) {
+                const dot = k.lastIndexOf('.')
+                if (dot < 0) continue
+                const label = k.slice(0, dot)
+                const prop = k.slice(dot + 1)
+                const elem = elementos.get(label)
+                if (!elem) continue
+
+                const keyBase = elem.id || elem.name
+                const finalKey = `${keyBase}.${prop}`
+
+                if (prop === 'track') {
+                  if (typeof v === 'boolean') mods[finalKey] = v
+                  continue
+                }
+
+                const expectedProp = elem.type === 'text' ? 'text' : 'source'
+                if (prop !== expectedProp) continue
+                if (typeof v !== 'string') continue
+
+                if (v === '') {
+                  mods[finalKey] = ''
+                  continue
+                }
+                if (!v.trim()) continue
+
+                if (prop === 'text') {
+                  const limpo = sanitizeTemplateText(v, sanitizeCtx)
+                  if (!limpo) continue
+                  if (isCtaElement(elem.name)) {
+                    mods[finalKey] = ctaForTemplate(meta)
+                  } else if (isReviewTextElement(elem.name)) {
+                    mods[finalKey] = capText(limpo, 86)
+                  } else {
+                    mods[finalKey] = limpo
+                  }
+                } else {
+                  mods[finalKey] = v
+                }
+              }
+            }
+
+            if (elementos) {
+              for (const elem of elementos.values()) {
+                const keyBase = elem.id || elem.name
+
+                if (elem.type === 'text' && isPhoneTextElement(elem.name)) {
+                  const phoneValue = corretorWhatsApp || corretorTelefone
+                  mods[`${keyBase}.text`] = phoneValue || ''
+                  if (!phoneValue) mods[`${keyBase}.track`] = false
+                }
+
+                if (elem.type === 'text' && isCtaElement(elem.name)) {
+                  mods[`${keyBase}.text`] = ctaForTemplate(meta)
+                }
+
+                if (elem.type === 'text' && isReviewTextElement(elem.name)) {
+                  const textKey = `${keyBase}.text`
+                  if (typeof mods[textKey] === 'string') mods[textKey] = capText(mods[textKey], 86)
+                }
+
+                if ((elem.type === 'image' || elem.type === 'video') && isPersonMediaSlot(elem.name)) {
+                  const sourceKey = `${keyBase}.source`
+                  const trackKey = `${keyBase}.track`
+                  if (avatarUrl && !/client|customer|review|testimonial/i.test(elem.name)) {
+                    mods[sourceKey] = avatarUrl
+                  } else {
+                    mods[sourceKey] = ''
+                    mods[trackKey] = false
+                  }
+                }
+              }
+            }
+
+            return { template_id: sel.template_id, modifications: mods }
+          }).filter((s) => Object.keys(s.modifications).length > 0)
+
+          const limpasIds = new Set(aprovadasLimpas.map((s) => s.template_id))
+          for (const id of aprovadas.map((s) => s.template_id).filter((id) => !limpasIds.has(id))) {
+            failedTemplates.push({
+              template_id: id,
+              template_nome: validIds.get(id)?.nome,
+              reason: 'Nenhuma modification válida sobrou após validação contra elementos reais',
+            })
+          }
+          if (aprovadasLimpas.length === 0) continue
+
+          if (fotosArr.length > 0) {
+            const elementosArrPorTemplate = new Map<string, ElementInfo[]>()
+            for (const s of schemasComElementos) elementosArrPorTemplate.set(s.id, s.elements)
+            for (const sel of aprovadasLimpas) {
+              const els = elementosArrPorTemplate.get(sel.template_id) || []
+              const propertySlots = els.filter(
+                (e) => (e.type === 'image' || e.type === 'video') && isPropertyPhotoSlot(e.name)
+              )
+              let fotoIdx = 0
+              for (const slot of propertySlots) {
+                const keyBase = slot.id || slot.name
+                const sourceKey = `${keyBase}.source`
+                const trackKey = `${keyBase}.track`
+                if (sel.modifications[trackKey] === false) continue
+                const existing = sel.modifications[sourceKey]
+                if (typeof existing === 'string' && /^https?:\/\//i.test(existing.trim())) {
+                  fotoIdx++
+                  continue
+                }
+                sel.modifications[sourceKey] = fotosArr[Math.min(fotoIdx, fotosArr.length - 1)]
+                fotoIdx++
+              }
+            }
+          }
+
+          await Promise.all(aprovadasLimpas.map(async (sel) => {
+            const meta = validIds.get(sel.template_id)!
+            try {
+              const createRes = await fetch('https://api.creatomate.com/v1/renders', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${CREATOMATE_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  template_id: sel.template_id,
+                  modifications: sel.modifications,
+                }),
+                signal: AbortSignal.timeout(30000),
+              })
+
+              if (!createRes.ok) {
+                const errBody = await createRes.text()
+                const reason = `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`
+                console.error(`[${reqId}] Creatomate render ${createRes.status} em ${meta.nome}:`, errBody.slice(0, 200))
+                failedTemplates.push({ template_id: sel.template_id, template_nome: meta.nome, reason })
+                renders.push({
+                  template_id: sel.template_id,
+                  template_nome: meta.nome,
+                  categoria: meta.categoria,
+                  erro: reason,
+                })
+                return
+              }
+
+              const body = await createRes.json()
+              const items = Array.isArray(body) ? body : [body]
+              for (const item of items) {
+                renders.push({
+                  render_id: item.id,
+                  template_id: sel.template_id,
+                  template_nome: meta.nome,
+                  categoria: meta.categoria,
+                  formato: meta.formato,
+                  status: item.status || 'planned',
+                  url: item.url || null,
+                  snapshot_url: item.snapshot_url || null,
+                })
+              }
+            } catch (err) {
+              const reason = err instanceof Error ? err.message : String(err)
+              console.error(`[${reqId}] erro ao chamar Creatomate para ${meta.nome}:`, err)
+              failedTemplates.push({ template_id: sel.template_id, template_nome: meta.nome, reason })
+              renders.push({
+                template_id: sel.template_id,
+                template_nome: meta.nome,
+                categoria: meta.categoria,
+                erro: reason,
+              })
+            }
+          }))
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err)
+          console.error(`[${reqId}] lote ${batchIndex + 1} falhou:`, err)
+          for (const id of batchIds) {
+            failedTemplates.push({ template_id: id, template_nome: validIds.get(id)?.nome, reason })
           }
         }
       }
-      return { template_id: sel.template_id, modifications: mods }
-    }).filter((s) => Object.keys(s.modifications).length > 0)
 
-    if (aprovadasLimpas.length === 0) {
+      const failedById = new Map<string, { template_id: string; template_nome?: string; reason: string }>()
+      for (const f of failedTemplates) failedById.set(f.template_id, f)
+      const succeededIds = new Set(
+        renders
+          .filter((r) => r.render_id && !r.erro)
+          .map((r) => String(r.template_id || ''))
+          .filter(Boolean)
+      )
+      const failedTemplatesUnique = Array.from(failedById.values())
+        .filter((f) => !succeededIds.has(f.template_id))
+      const totalSucceeded = succeededIds.size
+      const totalFailed = failedTemplatesUnique.length
+
+      if (hasCampaignId) {
+        const { error: updErr } = await supabase
+          .from('campaigns')
+          .update({ banners: renders })
+          .eq('id', campaign_id)
+
+        if (updErr) {
+          console.error(`[${reqId}] falha ao salvar banners:`, updErr)
+          return jsonResponse({
+            success: totalSucceeded > 0 && totalFailed === 0,
+            partial_success: totalSucceeded > 0 && totalFailed > 0,
+            warning: `Renders processados, mas não foi possível salvar em campaigns.banners: ${updErr.message}`,
+            totalSelected: pickedIds.length,
+            totalSucceeded,
+            totalFailed,
+            failedTemplates: failedTemplatesUnique,
+            renders,
+            pick_source: 'user',
+          }, 200)
+        }
+      }
+
+      const status = totalSucceeded > 0 ? 200 : 502
+      console.log(`[${reqId}] OK batches=${batches.length} | succeeded=${totalSucceeded} | failed=${totalFailed} | pick=user`)
       return jsonResponse({
-        error: 'Nenhuma modification válida sobrou após validação contra elementos reais',
-      }, 502)
+        success: totalSucceeded > 0 && totalFailed === 0,
+        partial_success: totalSucceeded > 0 && totalFailed > 0,
+        error: totalSucceeded === 0 && totalFailed > 0 ? 'Nenhum render foi disparado com sucesso' : undefined,
+        totalSelected: pickedIds.length,
+        totalSucceeded,
+        totalFailed,
+        failedTemplates: failedTemplatesUnique,
+        renders,
+        pick_source: 'user',
+      }, status)
     }
 
-    // === Rede de segurança: garante que TODOS os slots de imagem do imóvel
-    // de cada template estejam preenchidos. A primeira foto (foto principal)
-    // ocupa o primeiro slot; as demais ocupam, em ordem, os slots seguintes;
-    // se houver mais slots que fotos, a última foto se repete. Slots já
-    // preenchidos pela IA com uma URL http(s) válida são preservados. Slots
-    // marcados com .track: false pela IA são respeitados (não preenche).
-    if (fotosArr.length > 0) {
-      const elementosArrPorTemplate = new Map<string, ElementInfo[]>()
-      for (const s of schemasComElementos) elementosArrPorTemplate.set(s.id, s.elements)
-      for (const sel of aprovadasLimpas) {
-        const els = elementosArrPorTemplate.get(sel.template_id) || []
-        const propertySlots = els.filter(
-          (e) => (e.type === 'image' || e.type === 'video') && isPropertyPhotoSlot(e.name)
-        )
-        let fotoIdx = 0
-        for (const slot of propertySlots) {
-          const keyBase = slot.id || slot.name
-          const sourceKey = `${keyBase}.source`
-          const trackKey = `${keyBase}.track`
-          if (sel.modifications[trackKey] === false) continue
-          const existing = sel.modifications[sourceKey]
-          if (typeof existing === 'string' && /^https?:\/\//i.test(existing.trim())) {
-            fotoIdx++
-            continue
-          }
-          sel.modifications[sourceKey] = fotosArr[Math.min(fotoIdx, fotosArr.length - 1)]
-          fotoIdx++
-        }
-      }
-    }
-
-    console.log(`[${reqId}] estágio 3: ${aprovadasLimpas.length} templates prontos para render`)
-
-    // === Disparar renders no Creatomate (paralelo) ========================
-    const renders: Array<Record<string, unknown>> = []
-
-    await Promise.all(aprovadasLimpas.map(async (sel) => {
-      const meta = validIds.get(sel.template_id)!
-      try {
-        const createRes = await fetch('https://api.creatomate.com/v1/renders', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${CREATOMATE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            template_id: sel.template_id,
-            modifications: sel.modifications,
-          }),
-          signal: AbortSignal.timeout(30000),
-        })
-
-        if (!createRes.ok) {
-          const errBody = await createRes.text()
-          console.error(`[${reqId}] Creatomate render ${createRes.status} em ${meta.nome}:`, errBody.slice(0, 200))
-          renders.push({
-            template_id: sel.template_id,
-            template_nome: meta.nome,
-            categoria: meta.categoria,
-            erro: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
-          })
-          return
-        }
-
-        const body = await createRes.json()
-        const items = Array.isArray(body) ? body : [body]
-        for (const item of items) {
-          renders.push({
-            render_id: item.id,
-            template_id: sel.template_id,
-            template_nome: meta.nome,
-            categoria: meta.categoria,
-            formato: meta.formato,
-            status: item.status || 'planned',
-            url: item.url || null,
-            snapshot_url: item.snapshot_url || null,
-          })
-        }
-      } catch (err) {
-        console.error(`[${reqId}] erro ao chamar Creatomate para ${meta.nome}:`, err)
-        renders.push({
-          template_id: sel.template_id,
-          template_nome: meta.nome,
-          categoria: meta.categoria,
-          erro: err instanceof Error ? err.message : String(err),
-        })
-      }
-    }))
-
-    // === Persistir em campaigns.banners (jsonb) — somente se campaign_id ==
-    if (hasCampaignId) {
-      const { error: updErr } = await supabase
-        .from('campaigns')
-        .update({ banners: renders })
-        .eq('id', campaign_id)
-
-      if (updErr) {
-        console.error(`[${reqId}] falha ao salvar banners:`, updErr)
-        return jsonResponse({
-          warning: `Renders disparados, mas não foi possível salvar em campaigns.banners: ${updErr.message}`,
-          renders,
-          pick_source: 'user',
-        }, 200)
-      }
-    }
-
-    console.log(`[${reqId}] OK | ${renders.length} renders disparados | pick=user`)
-    return jsonResponse({ success: true, renders, pick_source: 'user' }, 200)
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
     const msg = error instanceof Error ? error.message : String(error)

@@ -588,7 +588,9 @@ export default function NovaCampanha() {
 
   const [renders, setRenders] = useState(null)
   const [gerandoBanners, setGerandoBanners] = useState(false)
+  const [renderJob, setRenderJob] = useState(null)
   const renderPollRef = useRef(null)
+  const renderJobPollRef = useRef(null)
 
   const toggleFormato = (groupId, itemId) => setFormatosSel(prev => {
     const s = new Set(prev[groupId]); s.has(itemId) ? s.delete(itemId) : s.add(itemId)
@@ -629,7 +631,11 @@ export default function NovaCampanha() {
     return () => clearInterval(iv)
   }, [fase, msgs.length])
 
-  useEffect(() => () => { clearInterval(pollRef.current); clearInterval(renderPollRef.current) }, [])
+  useEffect(() => () => {
+    clearInterval(pollRef.current)
+    clearInterval(renderPollRef.current)
+    clearInterval(renderJobPollRef.current)
+  }, [])
 
   // Carrega cidades do IBGE quando o estado muda
   useEffect(() => {
@@ -797,6 +803,7 @@ export default function NovaCampanha() {
 
       setGerandoBanners(true)
       setRenders(null)
+      setRenderJob(null)
 
       // Só dispara gerar-banners se o usuário escolheu pelo menos 1 template.
       const bannersInvoke = selectedTemplates.length > 0
@@ -815,6 +822,8 @@ export default function NovaCampanha() {
               tipo_imovel: tipo,
               corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
               corretor_avatar_url: corretorAvatarUrl,
+              telefone_contato: telefone,
+              whatsapp: telefone,
               marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
             },
           })
@@ -877,11 +886,26 @@ export default function NovaCampanha() {
       setFase('resultado')
 
       // ── Processar resultado dos BANNERS (renders) ──
+      let bannerAsyncStarted = false
       if (bannersResult.status === 'fulfilled') {
         const { data: bData, error: bError } = bannersResult.value
         if (bError) {
           console.error('[gerar-banners] erro:', bError)
           toast.error('Falha ao gerar banners (textos OK)')
+        } else if (bData?.async && bData?.jobId) {
+          bannerAsyncStarted = true
+          setRenderJob({
+            jobId: bData.jobId,
+            status: bData.status || 'queued',
+            total: bData.total || selectedTemplates.length,
+            completed: 0,
+            failed: 0,
+            failedTemplates: [],
+            error: null,
+          })
+          setRenders([])
+          toast.success(`${bData.total || selectedTemplates.length} renders na fila. Acompanhe o progresso abaixo.`)
+          iniciarPollingRenderJob(bData.jobId, { campaignIdToLink: camp.id })
         } else if (bData?.renders?.length) {
           const rs = bData.renders
           setRenders(rs)
@@ -904,7 +928,7 @@ export default function NovaCampanha() {
         toast.error('Falha ao gerar banners (textos OK)')
       }
 
-      setGerandoBanners(false)
+      if (!bannerAsyncStarted) setGerandoBanners(false)
       setTimeout(() => setShowAgendamento(true), 1800)
 
     } catch (err) {
@@ -987,6 +1011,88 @@ export default function NovaCampanha() {
     }, 5000)
   }
 
+  const iniciarPollingRenderJob = useCallback((jobId, opts = {}) => {
+    const { campaignIdToLink = null } = opts
+    if (!jobId) return
+
+    clearInterval(renderJobPollRef.current)
+    setGerandoBanners(true)
+    setRenderJob(prev => ({
+      jobId,
+      status: prev?.jobId === jobId ? prev.status : 'queued',
+      total: prev?.jobId === jobId ? prev.total : 0,
+      completed: prev?.jobId === jobId ? prev.completed : 0,
+      failed: prev?.jobId === jobId ? prev.failed : 0,
+      failedTemplates: prev?.jobId === jobId ? prev.failedTemplates : [],
+      ...(prev?.jobId === jobId ? prev : {}),
+    }))
+
+    const terminal = new Set(['completed', 'partial_success', 'failed'])
+
+    const poll = async () => {
+      try {
+        const token = accessToken
+        if (!token) {
+          clearInterval(renderJobPollRef.current)
+          renderJobPollRef.current = null
+          setGerandoBanners(false)
+          toast.error('Sua sessao expirou. Faca login novamente.')
+          return
+        }
+
+        const { data, error } = await supabase.functions.invoke('get-render-job', {
+          headers: { Authorization: `Bearer ${token}` },
+          body: { jobId },
+        })
+
+        if (error) {
+          console.error('[get-render-job] erro:', error)
+          return
+        }
+
+        if (!data) return
+
+        const nextRenders = Array.isArray(data.renders) ? data.renders : []
+        setRenderJob({
+          jobId: data.jobId || jobId,
+          status: data.status || 'queued',
+          total: data.total || 0,
+          completed: data.completed || 0,
+          failed: data.failed || 0,
+          failedTemplates: Array.isArray(data.failedTemplates) ? data.failedTemplates : [],
+          error: data.error || null,
+        })
+        if (nextRenders.length > 0) setRenders(nextRenders)
+
+        if (terminal.has(data.status)) {
+          clearInterval(renderJobPollRef.current)
+          renderJobPollRef.current = null
+          setGerandoBanners(false)
+
+          if (campaignIdToLink && nextRenders.length > 0) {
+            supabase
+              .from('campaigns')
+              .update({ banners: nextRenders })
+              .eq('id', campaignIdToLink)
+              .then(({ error: updErr }) => {
+                if (updErr) console.warn('[link async banners] falhou:', updErr.message)
+              })
+          }
+
+          if (nextRenders.length > 0) iniciarPollingRenders(nextRenders)
+          if (data.status === 'completed') toast.success('Todos os renders foram disparados. Processando arquivos...')
+          else if (data.status === 'partial_success') toast('Alguns renders falharam, mas os demais foram disparados.', { icon: '⚠️' })
+          else toast.error(data.error || 'Nenhum render foi disparado com sucesso')
+        }
+      } catch (err) {
+        console.error('[polling render job] erro:', err)
+      }
+    }
+
+    poll()
+    renderJobPollRef.current = setInterval(poll, 4000)
+  }, [accessToken])
+
   const gerarBanners = async () => {
     if (!campanhaId) return toast.error('Campanha não encontrada — gere os textos primeiro')
     if (gerandoBanners) return
@@ -1010,7 +1116,9 @@ export default function NovaCampanha() {
 
     setGerandoBanners(true)
     setRenders(null)
+    setRenderJob(null)
 
+    let asyncStarted = false
     try {
       const fotosBrutas = resultado?.dados_imovel?.fotos_urls
         || resultado?.fotos_urls
@@ -1044,6 +1152,8 @@ export default function NovaCampanha() {
           tipo_imovel: tipo,
           corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
           corretor_avatar_url: corretorAvatarUrl,
+          telefone_contato: telefone,
+          whatsapp: telefone,
           marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
         },
       })
@@ -1055,6 +1165,23 @@ export default function NovaCampanha() {
         } catch {
           throw error
         }
+      }
+
+      if (data?.async && data?.jobId) {
+        asyncStarted = true
+        setRenderJob({
+          jobId: data.jobId,
+          status: data.status || 'queued',
+          total: data.total || selectedTemplates.length,
+          completed: 0,
+          failed: 0,
+          failedTemplates: [],
+          error: null,
+        })
+        setRenders([])
+        toast.success(`${data.total || selectedTemplates.length} renders na fila. Acompanhe o progresso abaixo.`)
+        iniciarPollingRenderJob(data.jobId, { campaignIdToLink: campanhaId })
+        return
       }
 
       const rs = Array.isArray(data?.renders) ? data.renders : []
@@ -1069,7 +1196,7 @@ export default function NovaCampanha() {
       console.error('[gerarBanners] erro:', err)
       toast.error(err.message || 'Falha ao gerar banners')
     } finally {
-      setGerandoBanners(false)
+      if (!asyncStarted) setGerandoBanners(false)
     }
   }
 
@@ -1632,6 +1759,46 @@ export default function NovaCampanha() {
                 </div>
               </AnimatedCard>
 
+              {renderJob && (
+                <AnimatedCard delay={2600}>
+                  <div className="card p-5">
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-lg">Fila de renders</h3>
+                        <p className="text-xs text-gray-500">Job {renderJob.jobId}</p>
+                      </div>
+                      <span className={`text-[11px] px-2.5 py-1 rounded-full font-bold ${
+                        renderJob.status === 'completed' ? 'bg-green-100 text-green-700'
+                          : renderJob.status === 'partial_success' ? 'bg-amber-100 text-amber-700'
+                            : renderJob.status === 'failed' ? 'bg-red-100 text-red-700'
+                              : 'bg-violet-100 text-violet-700'
+                      }`}>
+                        {renderJob.status || 'queued'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="font-semibold text-gray-700">
+                        {renderJob.completed || 0}/{renderJob.total || 0} disparados
+                      </span>
+                      <span className="text-gray-500">
+                        {renderJob.failed || 0} falha{renderJob.failed === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all"
+                        style={{
+                          width: `${Math.min(100, Math.round(((renderJob.completed || 0) + (renderJob.failed || 0)) / Math.max(1, renderJob.total || 1) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                    {renderJob.error && (
+                      <p className="text-xs text-red-600 mt-3">{renderJob.error}</p>
+                    )}
+                  </div>
+                </AnimatedCard>
+              )}
+
               {renders && renders.length > 0 && (
                 <AnimatedCard delay={2700}>
                   <div className="card p-5">
@@ -1705,7 +1872,7 @@ export default function NovaCampanha() {
                       setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setFotos([]); setTelefone('')
                       setResultado(null); setCampanhaId(null); setIgPostado(false)
                       setFormatosSel(initFormatosSel()); setShowAgendamento(false)
-                      setRenders(null); setGerandoBanners(false); clearInterval(renderPollRef.current)
+                      setRenders(null); setRenderJob(null); setGerandoBanners(false); clearInterval(renderPollRef.current); clearInterval(renderJobPollRef.current)
                     }}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-white font-bold hover:opacity-90 transition-opacity">
                     <Plus className="w-4 h-4" />
