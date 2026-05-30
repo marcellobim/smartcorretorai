@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
+import CreditSummary from '../components/CreditSummary'
+import { CAMPAIGN_MODES, CAMPAIGN_MODE_ORDER } from '../data/campaignModes'
+import { TEMPLATE_CATALOG } from '../data/templateCatalog'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 
@@ -92,6 +95,29 @@ const initFormatosSel = () => {
   const m = {}
   FORMAT_GROUPS.forEach(g => { m[g.id] = new Set() })
   return m
+}
+
+const TEMPLATE_CATALOG_BY_TEMPLATE_ID = Object.fromEntries(
+  TEMPLATE_CATALOG.map(template => [template.templateId, template])
+)
+
+const TYPE_LABELS = {
+  banner: 'Arte',
+  card: 'Arte',
+  detailed: 'Arte',
+  carousel: 'Arte',
+  story: 'Video',
+  reels: 'Video',
+  video: 'Video',
+  social: 'Arte',
+}
+
+const FORMAT_LABELS = {
+  square: '1:1',
+  vertical: '9:16',
+  horizontal: '16:9',
+  card: 'Card',
+  detailed: 'Detalhado',
 }
 
 const DIAS_SEMANA = [
@@ -566,6 +592,7 @@ export default function NovaCampanha() {
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [visualCreditMode, setVisualCreditMode] = useState('economica')
 
   useEffect(() => {
     setIgConectado(false)
@@ -580,6 +607,8 @@ export default function NovaCampanha() {
 
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
+  const selectedTemplateIds = FORMAT_GROUPS.flatMap(group => Array.from(formatosSel[group.id] || []))
+  const simulatedCreditBalance = 150
 
   useEffect(() => {
     if (fase !== 'gerando') return
@@ -1271,15 +1300,57 @@ export default function NovaCampanha() {
             </div>
 
             <div className="card p-6">
+              <div className="mb-4">
+                <h2 className="text-base font-bold text-gray-900">Pacotes sugeridos</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Escolha o pacote visual para estimar seus creditos. A selecao tecnica continua no catalogo abaixo.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {CAMPAIGN_MODE_ORDER.map(modeId => {
+                  const mode = CAMPAIGN_MODES[modeId]
+                  const active = visualCreditMode === mode.id
+                  return (
+                    <div key={mode.id} className={`rounded-2xl border p-4 text-white shadow-sm transition-all ${
+                      active ? 'border-amber-300 bg-gradient-to-br from-gray-950 to-gray-800 ring-2 ring-amber-200' : 'border-gray-200 bg-gradient-to-br from-gray-950 to-gray-800'
+                    }`}>
+                      <div className="min-h-[118px]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-black">{mode.label}</h3>
+                            <p className="text-xs text-gray-300 mt-1 leading-relaxed">{mode.shortDescription}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[11px] font-bold text-amber-200">
+                            {mode.creditCost} creditos
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setVisualCreditMode(mode.id)}
+                        className={`mt-4 w-full rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                          active ? 'bg-amber-300 text-gray-950' : 'bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {active ? 'Pacote selecionado' : 'Selecionar pacote'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="card p-6">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-base font-bold text-gray-900">Formatos de conteúdo</h2>
+                <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
                 <button type="button" onClick={selecionarTudo}
                   className="text-xs font-semibold text-primary-600 hover:text-primary-800 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition-colors">
                   Selecionar tudo
                 </button>
               </div>
               <p className="text-xs text-gray-500 mb-5">
-                Independente da seleção, sempre é consumido <strong>1 anúncio</strong> do seu plano.
+                Selecione as artes e videos que deseja gerar. Textos IA nao consomem creditos.
               </p>
 
               <div className="space-y-5">
@@ -1298,23 +1369,56 @@ export default function NovaCampanha() {
                           {allSel ? 'Desmarcar todos' : 'Selecionar todos'}
                         </button>
                       </div>
-                      <div className={`${grupo.grid || 'grid-cols-2 sm:grid-cols-4'} grid gap-2`}>
-                        {grupo.items.map(item => (
-                          <button key={item.id} type="button" onClick={() => toggleFormato(grupo.id, item.id)}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                              sel.has(item.id) ? grupo.cor.sel : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                            }`}>
-                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
-                              sel.has(item.id) ? grupo.cor.check : 'border-gray-300 bg-white'
-                            }`}>
-                              {sel.has(item.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {grupo.items.map(item => {
+                          const meta = TEMPLATE_CATALOG_BY_TEMPLATE_ID[item.id]
+                          const selected = sel.has(item.id)
+                          const typeLabel = TYPE_LABELS[meta?.type] || 'Arte'
+                          const formatLabel = FORMAT_LABELS[meta?.format] || meta?.format || 'Digital'
+                          return (
+                            <div key={item.id}
+                              className={`rounded-2xl border p-4 transition-all ${
+                                selected
+                                  ? 'border-primary-400 bg-gray-950 text-white shadow-lg shadow-primary-900/20'
+                                  : 'border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-md'
+                              }`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-black truncate">{meta?.publicName || 'Formato premium'}</p>
+                                  <p className={`mt-1 text-xs leading-relaxed line-clamp-2 ${selected ? 'text-gray-300' : 'text-gray-500'}`}>
+                                    {meta?.description || item.desc}
+                                  </p>
+                                </div>
+                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                  selected ? 'border-primary-400 bg-primary-500' : 'border-gray-300 bg-white'
+                                }`}>
+                                  {selected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
+                                <span className={`rounded-full px-2 py-1 ${selected ? 'bg-white/10 text-gray-100' : 'bg-gray-100 text-gray-600'}`}>
+                                  {typeLabel}
+                                </span>
+                                <span className={`rounded-full px-2 py-1 ${selected ? 'bg-white/10 text-gray-100' : 'bg-gray-100 text-gray-600'}`}>
+                                  {formatLabel}
+                                </span>
+                                <span className={`rounded-full px-2 py-1 ${selected ? 'bg-amber-300 text-gray-950' : 'bg-amber-100 text-amber-700'}`}>
+                                  {meta?.creditWeight || 0} creditos
+                                </span>
+                              </div>
+
+                              <button type="button" onClick={() => toggleFormato(grupo.id, item.id)}
+                                className={`mt-4 w-full rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                                  selected
+                                    ? 'bg-white text-gray-950 hover:bg-gray-100'
+                                    : 'bg-gray-950 text-white hover:bg-gray-800'
+                                }`}>
+                                {selected ? 'Desmarcar' : 'Selecionar'}
+                              </button>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold truncate">{item.nome}</p>
-                              <p className="text-xs text-gray-400 truncate">{item.desc}</p>
-                            </div>
-                          </button>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )
@@ -1340,6 +1444,12 @@ export default function NovaCampanha() {
               </div>
             </div>
 
+            <CreditSummary
+              simulatedBalance={simulatedCreditBalance}
+              modeId={visualCreditMode}
+              selectedTemplateIds={selectedTemplateIds}
+            />
+
             <div className="card p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1354,7 +1464,7 @@ export default function NovaCampanha() {
                   podaGerar ? 'gradient-primary text-white shadow-lg shadow-primary-500/30 hover:opacity-90' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}>
                 <Sparkles className="w-5 h-5" />
-                Gerar anúncios agora
+                Gerar campanha
               </button>
 
               {creditos && creditos.total_disponivel > 0 && (
