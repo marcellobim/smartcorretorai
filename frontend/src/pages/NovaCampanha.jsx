@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import CreditSummary from '../components/CreditSummary'
 import { CAMPAIGN_MODES, CAMPAIGN_MODE_ORDER } from '../data/campaignModes'
+import { CAMPAIGN_TEMPLATES } from '../data/campaignTemplates'
 import { TEMPLATE_CATALOG } from '../data/templateCatalog'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
@@ -119,6 +120,52 @@ const FORMAT_LABELS = {
   card: 'Card',
   detailed: 'Detalhado',
 }
+
+const SMART_CAMPAIGNS = [
+  {
+    id: 'venda_rapida',
+    title: 'Venda Rápida',
+    description: 'Campanha direta para gerar contatos em imóveis prontos.',
+    benefits: ['Mais velocidade para captar leads', 'Ótima para oportunidade de preço', 'Formatos essenciais para redes sociais'],
+  },
+  {
+    id: 'luxo_premium',
+    title: 'Luxo Premium',
+    description: 'Apresentação sofisticada para imóveis de alto padrão.',
+    benefits: ['Valoriza acabamento e exclusividade', 'Visual mais refinado', 'Ideal para fotos fortes e imóveis premium'],
+  },
+  {
+    id: 'lancamento',
+    title: 'Lançamento',
+    description: 'Campanha para gerar expectativa, urgência e pré-venda.',
+    benefits: ['Boa para planta e obra', 'Destaque para oportunidade', 'Ajuda a comunicar escassez e novidade'],
+  },
+  {
+    id: 'mcmv',
+    title: 'Minha Casa Minha Vida',
+    description: 'Comunicação clara para financiamento, entrada e WhatsApp.',
+    benefits: ['Linguagem acessível', 'Foco em conversa e simulação', 'Boa para primeiro imóvel'],
+  },
+  {
+    id: 'airbnb_temporada',
+    title: 'Airbnb / Temporada',
+    description: 'Campanha focada em experiência, lazer e reservas.',
+    benefits: ['Valoriza ambientes e lifestyle', 'Boa para imóveis mobiliados', 'Ideal para diária e temporada'],
+  },
+  {
+    id: 'comercial',
+    title: 'Comercial',
+    description: 'Campanha objetiva para salas, lojas, terrenos e galpões.',
+    benefits: ['Foco em localização e metragem', 'Comunicação mais racional', 'Boa para decisão B2B'],
+  },
+]
+
+const DEMO_CAMPAIGN_ID = 'venda_rapida'
+const DEMO_TEMPLATE_IDS = [
+  '7ab695ae-e12b-4322-87dc-eb085760dd01',
+  'ad9f8382-ea38-4ef6-84cc-049f1b289345',
+  '96a25196-5a64-4f65-9b3e-c9c8b0d871f2',
+]
 
 const DIAS_SEMANA = [
   { id: 'seg', nome: 'Seg', label: 'Segunda' }, { id: 'ter', nome: 'Ter', label: 'Terça' },
@@ -535,7 +582,7 @@ async function resizeFoto(file, maxPx = 1920) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  const { user: authedUser, accessToken, loading: authLoading } = useAuth()
+  const { user: authedUser, accessToken, loading: authLoading, isPro } = useAuth()
   const navigate = useNavigate()
   const [fase, setFase] = useState('form')
 
@@ -593,6 +640,8 @@ export default function NovaCampanha() {
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
+  const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
+  const [demoUsed, setDemoUsed] = useState(false)
 
   useEffect(() => {
     setIgConectado(false)
@@ -605,10 +654,36 @@ export default function NovaCampanha() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!demoStorageKey) return
+    setDemoUsed(localStorage.getItem(demoStorageKey) === 'true')
+  }, [demoStorageKey])
+
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
   const selectedTemplateIds = FORMAT_GROUPS.flatMap(group => Array.from(formatosSel[group.id] || []))
   const simulatedCreditBalance = 150
+  const isDemoPlan = !isPro
+  const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
+
+  const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
+    if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
+    const selected = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId]?.selectedTemplates || []
+    const allowed = isDemoPlan ? DEMO_TEMPLATE_IDS : selected
+    const next = {}
+    FORMAT_GROUPS.forEach(group => {
+      next[group.id] = new Set(group.items.filter(item => allowed.includes(item.id)).map(item => item.id))
+    })
+    setFormatosSel(next)
+    setSelectedSmartCampaign(campaignId)
+  }
+
+  const selectCampaignMode = (modeId) => {
+    setVisualCreditMode(modeId)
+    if (selectedSmartCampaign) {
+      applySmartCampaign(selectedSmartCampaign, modeId)
+    }
+  }
 
   useEffect(() => {
     if (fase !== 'gerando') return
@@ -669,6 +744,17 @@ export default function NovaCampanha() {
 
   const confirmarGeracao = () => {
     if (!podaGerar) { toast.error('Preencha os campos obrigatórios'); return }
+    if (isDemoPlan && demoUsed) {
+      toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
+      return
+    }
+    if (isDemoPlan && selectedSmartCampaign && selectedSmartCampaign !== DEMO_CAMPAIGN_ID) {
+      toast.error('No plano demonstrativo, somente Venda Rápida está disponível.')
+      return
+    }
+    if (isDemoPlan && !selectedSmartCampaign) {
+      applySmartCampaign(DEMO_CAMPAIGN_ID)
+    }
     setShowConfirm(true)
   }
 
@@ -861,6 +947,10 @@ export default function NovaCampanha() {
       setResultado(camp)
       setCampanhaId(camp.id)
       setIgPostado(false)
+      if (isDemoPlan && demoStorageKey) {
+        localStorage.setItem(demoStorageKey, 'true')
+        setDemoUsed(true)
+      }
       setFase('resultado')
 
       // ── Processar resultado dos BANNERS (renders) ──
@@ -1065,7 +1155,7 @@ export default function NovaCampanha() {
   // ════════════════════════════════════════════════════════════
   return (
     <div>
-      <Header title="Criar anúncios" subtitle="Preencha os dados básicos e a IA gera tudo" />
+      <Header title="Criar campanha" subtitle="Preencha os dados básicos e a IA gera tudo" />
       <div className="p-6 max-w-3xl mx-auto">
 
         {showConfirm && creditos && (
@@ -1078,11 +1168,20 @@ export default function NovaCampanha() {
                 <div>
                   <h3 className="font-bold text-gray-900 text-base">Confirmar geração</h3>
                   <p className="text-xs text-gray-500">
-                    Você está prestes a usar <strong>1 anúncio</strong>
+                    {isDemoPlan
+                      ? 'Você está prestes a usar sua campanha demonstrativa.'
+                      : 'Você está prestes a gerar uma campanha.'}
                   </p>
                 </div>
               </div>
 
+              {isDemoPlan && (
+                <div className="bg-amber-50 rounded-xl p-4 mb-4 text-xs text-amber-800 font-medium">
+                  Plano demonstrativo: esta geração libera textos IA, hashtags, descrição, post Instagram, roteiro Reels, 1 banner feed, 1 story e 1 carrossel simples.
+                </div>
+              )}
+
+              {!isDemoPlan && (<>
               <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Plano <span className="font-semibold capitalize">{creditos.plano}</span> · este mês</span>
@@ -1118,12 +1217,14 @@ export default function NovaCampanha() {
                 </div>
               )}
 
+              </>)}
+
               <div className="flex gap-3">
                 <button onClick={() => setShowConfirm(false)}
                   className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                   Cancelar
                 </button>
-                <button onClick={gerarAnuncios} disabled={creditos.total_disponivel === 0}
+                <button onClick={gerarAnuncios} disabled={!isDemoPlan && creditos.total_disponivel === 0}
                   className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                   <Sparkles className="w-4 h-4" />
                   Gerar agora
@@ -1139,6 +1240,24 @@ export default function NovaCampanha() {
 
         {fase === 'form' && (
           <div className="space-y-5 animate-fade-in">
+
+            {isDemoPlan && (
+              <div className={`rounded-2xl border p-4 ${demoUsed ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+                <div className="flex items-start gap-3">
+                  <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${demoUsed ? 'text-red-600' : 'text-amber-600'}`} />
+                  <div>
+                    <p className={`text-sm font-bold ${demoUsed ? 'text-red-800' : 'text-amber-900'}`}>
+                      {demoUsed ? 'Sua campanha demonstrativa já foi utilizada.' : 'Você está usando sua campanha gratuita de demonstração.'}
+                    </p>
+                    <p className={`text-xs mt-1 ${demoUsed ? 'text-red-700' : 'text-amber-800'}`}>
+                      {demoUsed
+                        ? 'Escolha um plano para continuar.'
+                        : 'Disponível: textos IA, hashtags, descrição, post, roteiro, 1 banner feed, 1 story e 1 carrossel simples.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="card p-6">
               <h2 className="text-base font-bold text-gray-900 mb-1">Tipo do imóvel <span className="text-red-400">*</span></h2>
@@ -1328,7 +1447,7 @@ export default function NovaCampanha() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setVisualCreditMode(mode.id)}
+                        onClick={() => selectCampaignMode(mode.id)}
                         className={`mt-4 w-full rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
                           active ? 'bg-amber-300 text-gray-950' : 'bg-white/10 text-white hover:bg-white/20'
                         }`}
@@ -1342,6 +1461,80 @@ export default function NovaCampanha() {
             </div>
 
             <div className="card p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Escolha uma campanha inteligente. O sistema seleciona internamente os formatos recomendados.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {SMART_CAMPAIGNS.map(campaign => {
+                  const active = selectedSmartCampaign === campaign.id
+                  const locked = isDemoPlan && campaign.id !== DEMO_CAMPAIGN_ID
+                  const selectedCount = CAMPAIGN_TEMPLATES[campaign.id]?.modes?.[visualCreditMode]?.selectedTemplates?.length || 0
+                  return (
+                    <div
+                      key={campaign.id}
+                      className={`rounded-2xl border overflow-hidden transition-all ${
+                        locked
+                          ? 'border-gray-200 bg-gray-100 text-gray-400 opacity-80'
+                          :
+                        active
+                          ? 'border-primary-400 bg-gray-950 text-white shadow-xl shadow-primary-950/20 ring-2 ring-primary-200'
+                          : 'border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-lg'
+                      }`}
+                    >
+                      <div className={`h-28 p-4 flex items-end bg-gradient-to-br ${
+                        locked ? 'from-gray-500 via-gray-600 to-gray-700' : active ? 'from-primary-600 via-gray-900 to-gray-950' : 'from-gray-950 via-gray-800 to-primary-900'
+                      }`}>
+                        <div>
+                          <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-amber-200 mb-2">
+                            {locked ? '🔒 Disponível nos planos pagos' : `${selectedCount} peças recomendadas`}
+                          </span>
+                          <h3 className="text-lg font-black text-white">{campaign.title}</h3>
+                        </div>
+                      </div>
+
+                      <div className="p-4">
+                        <p className={`text-sm leading-relaxed ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                          {campaign.description}
+                        </p>
+
+                        <div className="mt-4 space-y-2">
+                          {campaign.benefits.map(benefit => (
+                            <div key={benefit} className="flex items-start gap-2">
+                              <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-amber-300' : 'text-primary-500'}`} />
+                              <span className={`text-xs ${active ? 'text-gray-200' : 'text-gray-600'}`}>{benefit}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => applySmartCampaign(campaign.id)}
+                          className={`mt-5 w-full rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${
+                            locked ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : active ? 'bg-amber-300 text-gray-950 hover:bg-amber-200' : 'bg-gray-950 text-white hover:bg-gray-800'
+                          }`}
+                        >
+                          {locked ? 'Plano pago' : active ? 'Campanha selecionada' : 'Selecionar'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-5 flex items-start gap-2 rounded-xl bg-green-50 border border-green-100 p-3">
+                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-green-800">
+                  Textos, PDF, segmentação e roteiros continuam incluídos. O cliente não vê templates técnicos.
+                </p>
+              </div>
+            </div>
+
+            <div className="hidden">
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
                 <button type="button" onClick={selecionarTudo}
@@ -1444,11 +1637,20 @@ export default function NovaCampanha() {
               </div>
             </div>
 
-            <CreditSummary
-              simulatedBalance={simulatedCreditBalance}
-              modeId={visualCreditMode}
-              selectedTemplateIds={selectedTemplateIds}
-            />
+            {isDemoPlan ? (
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+                <h2 className="text-base font-bold text-amber-950">Plano demonstrativo</h2>
+                <p className="text-sm text-amber-800 mt-1">
+                  Sem créditos nesta etapa: sua demonstração libera uma campanha única com formatos fixos.
+                </p>
+              </div>
+            ) : (
+              <CreditSummary
+                simulatedBalance={simulatedCreditBalance}
+                modeId={visualCreditMode}
+                selectedTemplateIds={selectedTemplateIds}
+              />
+            )}
 
             <div className="card p-6 space-y-4">
               <div>
@@ -1459,15 +1661,15 @@ export default function NovaCampanha() {
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
               </div>
 
-              <button onClick={confirmarGeracao} disabled={!podaGerar}
+              <button onClick={confirmarGeracao} disabled={!podaGerar || (isDemoPlan && demoUsed)}
                 className={`w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-3 transition-all ${
-                  podaGerar ? 'gradient-primary text-white shadow-lg shadow-primary-500/30 hover:opacity-90' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  podaGerar && !(isDemoPlan && demoUsed) ? 'gradient-primary text-white shadow-lg shadow-primary-500/30 hover:opacity-90' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}>
                 <Sparkles className="w-5 h-5" />
                 Gerar campanha
               </button>
 
-              {creditos && creditos.total_disponivel > 0 && (
+              {!isDemoPlan && creditos && creditos.total_disponivel > 0 && (
                 <p className="text-center text-xs text-gray-500">
                   Você está usando <strong>1 anúncio</strong> —{' '}
                   <span className={creditos.total_disponivel <= 3 ? 'text-amber-600 font-semibold' : ''}>
@@ -1476,7 +1678,7 @@ export default function NovaCampanha() {
                 </p>
               )}
 
-              {creditos && creditos.total_disponivel === 0 && (
+              {!isDemoPlan && creditos && creditos.total_disponivel === 0 && (
                 <p className="text-center text-xs text-red-500 font-medium">
                   Sem anúncios disponíveis · <a href="/planos" className="underline">Ver planos</a>
                 </p>
@@ -1496,7 +1698,7 @@ export default function NovaCampanha() {
             <div className={`w-24 h-24 bg-gradient-to-br ${catAtual?.cor || 'from-primary-500 to-primary-400'} rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-2xl`}>
               <span className="text-5xl">{catAtual?.icon || '✨'}</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Criando seus anúncios...</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Criando sua campanha...</h2>
             <p className="text-primary-600 font-semibold text-lg min-h-[28px]" key={msgIdx}>{msgs[msgIdx]}</p>
             <p className="text-gray-400 text-sm mt-3">A IA está pesquisando o bairro e criando textos personalizados</p>
             <div className="mt-8 flex justify-center gap-2">
@@ -1533,6 +1735,22 @@ export default function NovaCampanha() {
           return (
             <div className="space-y-6">
 
+              {isDemoPlan && (
+                <AnimatedCard delay={0}>
+                  <div className="card p-5 border-primary-200 bg-primary-50">
+                    <h2 className="text-lg font-extrabold text-gray-900">Campanha demonstrativa concluída.</h2>
+                    <p className="text-sm text-gray-600 mt-1">Escolha um plano para continuar gerando campanhas completas.</p>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {['START', 'PRO', 'ELITE'].map(plan => (
+                        <a key={plan} href="/planos" className="rounded-xl bg-gray-950 text-white text-sm font-bold px-4 py-2.5 text-center hover:bg-gray-800 transition-colors">
+                          Assinar {plan}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </AnimatedCard>
+              )}
+
               <AnimatedCard delay={0}>
                 <div className="card p-5">
                   <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1541,7 +1759,7 @@ export default function NovaCampanha() {
                         <CheckCircle2 className="w-7 h-7 text-green-600" />
                       </div>
                       <div>
-                        <h2 className="font-extrabold text-gray-900 text-xl">Anúncios prontos! 🎉</h2>
+                        <h2 className="font-extrabold text-gray-900 text-xl">Campanha pronta! 🎉</h2>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm text-gray-500">{resultado.titulo}</p>
                           {catAtual && <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${catAtual.badge}`}>{catAtual.icon} {catAtual.nome}</span>}
@@ -1765,7 +1983,7 @@ export default function NovaCampanha() {
 
               <AnimatedCard delay={3000}>
                 <div className="card p-5 text-center">
-                  <p className="text-gray-500 text-sm mb-4">Quer criar anúncios para outro imóvel?</p>
+                  <p className="text-gray-500 text-sm mb-4">Quer criar campanha para outro imóvel?</p>
                   <button
                     onClick={() => {
                       setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
@@ -1777,7 +1995,7 @@ export default function NovaCampanha() {
                     }}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-white font-bold hover:opacity-90 transition-opacity">
                     <Plus className="w-4 h-4" />
-                    Criar anúncio para outro imóvel
+                    Criar campanha para outro imóvel
                   </button>
                 </div>
               </AnimatedCard>

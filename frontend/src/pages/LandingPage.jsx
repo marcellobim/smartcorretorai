@@ -55,7 +55,7 @@ export default function LandingPage() {
               Entrar
             </Link>
             <Link to="/cadastro" className="btn-primary text-sm px-4 py-2">
-              Teste grátis
+              Campanha grátis
             </Link>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/cadastro" className="btn-primary text-base px-8 py-3.5 shadow-xl shadow-primary-900/40">
-              Começar grátis agora
+              Gerar campanha demonstrativa
               <ArrowRight className="w-5 h-5" />
             </Link>
             <a href="#funcionalidades" className="flex items-center gap-2 text-white/80 hover:text-white font-medium transition-colors">
@@ -88,7 +88,8 @@ export default function LandingPage() {
               <ChevronRight className="w-4 h-4" />
             </a>
           </div>
-          <p className="mt-4 text-sm text-white/50">Sem cartão de crédito • 7 dias grátis</p>
+          <p className="mt-4 text-sm text-white/50">1 campanha demonstrativa gratuita</p>
+          <p className="mt-2 text-sm text-white/60">Teste o SmartCorretorAI sem cartão e gere sua primeira campanha.</p>
         </div>
 
         {/* Wave */}
@@ -157,7 +158,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-primary-600 uppercase tracking-wider mb-3">Planos e Preços</p>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Simples, sem surpresas</h2>
-            <p className="mt-4 text-gray-500">Comece grátis com 1 anúncio. Cancele quando quiser.</p>
+            <p className="mt-4 text-gray-500">Teste o SmartCorretorAI sem cartão e gere sua primeira campanha.</p>
           </div>
           <div className="flex justify-center">
             <Link to="/planos" className="btn-primary text-base px-8 py-3.5 shadow-lg shadow-primary-500/20">
