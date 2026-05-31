@@ -1,119 +1,114 @@
-import { Link } from 'react-router-dom'
-import { Check, Zap, ArrowLeft, Sparkles, Info } from 'lucide-react'
-import { useAuth } from '../lib/auth-context'
-import toast from 'react-hot-toast'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Check, Info, Sparkles, Zap } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { useAuth } from '../lib/auth-context'
+
+const PLANOS = [
+  {
+    id: 'start',
+    nome: 'START',
+    creditos: 1000,
+    precoTrimestral: '97',
+    precoMensal: '127',
+    desc: 'Para corretores que querem validar o fluxo com consistencia.',
+    destaque: false,
+    cta: 'Assinar START',
+  },
+  {
+    id: 'pro',
+    nome: 'PRO',
+    creditos: 2500,
+    precoTrimestral: '187',
+    precoMensal: '247',
+    desc: 'Para corretores ativos que publicam campanhas toda semana.',
+    destaque: true,
+    cta: 'Assinar PRO',
+  },
+  {
+    id: 'elite',
+    nome: 'ELITE',
+    creditos: 6000,
+    precoTrimestral: '497',
+    precoMensal: '597',
+    desc: 'Para alto volume, lancamentos e campanhas com mais videos.',
+    destaque: false,
+    cta: 'Assinar ELITE',
+  },
+]
+
+const RECARGAS = [
+  { id: 'recarga_500', creditos: 500, preco: '59' },
+  { id: 'recarga_1000', creditos: 1000, preco: '99' },
+  { id: 'recarga_2000', creditos: 2000, preco: '179' },
+]
 
 const RECURSOS = [
-  'Textos prontos para Instagram, WhatsApp e Facebook',
-  'Hashtags geradas automaticamente',
-  'Roteiro para vídeos e Reels',
-  'Texto para LinkedIn e YouTube',
-  'Postar no Instagram com 1 clique',
+  'Textos IA gratuitos',
+  'Banners consomem menos creditos',
+  'Videos consomem mais creditos',
+  'Escolha os formatos e use seus creditos de forma inteligente',
+  'Campanhas para Instagram, WhatsApp, Facebook, TikTok e portais',
   'Suporte por WhatsApp',
 ]
 
 const REGRAS = [
-  { icon: '🔄', texto: 'Anúncios mensais não acumulam — resetam no dia 1° de cada mês' },
-  { icon: '🔒', texto: 'Planos intransferíveis — vinculados ao e-mail do titular' },
-  { icon: '👥', texto: 'Múltiplos logins apenas no plano Imobiliária' },
-  { icon: '♾️', texto: 'Anúncios avulsos não expiram — ficam disponíveis até serem usados' },
+  { icon: 'IA', texto: 'Textos IA gratuitos em todos os planos.' },
+  { icon: 'AR', texto: 'Banners e artes usam menos creditos que videos.' },
+  { icon: 'VD', texto: 'Videos premium consomem mais creditos por exigirem mais processamento.' },
+  { icon: 'CI', texto: 'Creditos da assinatura renovam a cada ciclo.' },
+  { icon: '180', texto: 'Creditos avulsos expiram em 180 dias apos a compra.' },
 ]
 
-const allPlans = [
-  {
-    id: 'free',
-    tipo: 'plano',
-    nome: 'Teste Grátis',
-    preco: null,
-    periodo: null,
-    anuncios: 1,
-    logins: 1,
-    desc: 'Experimente sem pagar nada',
-    destaque: false,
-    cta: 'Criar conta grátis',
-    link: '/cadastro',
-  },
-  {
-    id: 'avulso5',
-    tipo: 'avulso',
-    nome: 'Avulso · 5 anúncios',
-    preco: '59',
-    precoCheio: '79',
-    periodo: null,
-    anuncios: 5,
-    desc: 'Sem mensalidade · não expiram',
-    destaque: false,
-    cta: 'Comprar',
-  },
-  {
-    id: 'avulso10',
-    tipo: 'avulso',
-    nome: 'Avulso · 10 anúncios',
-    preco: '87',
-    precoCheio: '127',
-    periodo: null,
-    anuncios: 10,
-    desc: 'Sem mensalidade · não expiram',
-    destaque: false,
-    cta: 'Comprar',
-  },
-  {
-    id: 'start',
-    tipo: 'plano',
-    nome: 'Start',
-    preco: '97',
-    precoCheio: '147',
-    periodo: '/mês',
-    anuncios: 15,
-    logins: 1,
-    desc: 'Para corretores que estão começando',
-    destaque: false,
-    cta: 'Assinar Start',
-  },
-  {
-    id: 'pro',
-    tipo: 'plano',
-    nome: 'Pro',
-    preco: '197',
-    precoCheio: '247',
-    periodo: '/mês',
-    anuncios: 35,
-    logins: 1,
-    desc: 'O favorito dos corretores ativos',
-    destaque: true,
-    cta: 'Assinar Pro',
-  },
-  {
-    id: 'imobiliaria',
-    tipo: 'plano',
-    nome: 'Imobiliária',
-    preco: '397',
-    precoCheio: '547',
-    periodo: '/mês',
-    anuncios: 80,
-    logins: null,
-    desc: 'Para imobiliárias e equipes',
-    destaque: false,
-    cta: 'Assinar Imobiliária',
-  },
-]
+const formatCredits = (value) => new Intl.NumberFormat('pt-BR').format(value)
 
 export default function Planos() {
   const { user, isAuthenticated } = useAuth()
   const [loadingPlan, setLoadingPlan] = useState(null)
 
-  const assinar = async (planId) => {
+  const iniciarCheckout = async (itemId) => {
     if (!isAuthenticated) return
-    setLoadingPlan(planId)
+    setLoadingPlan(itemId)
     toast('Checkout chega em breve. Fale com a gente pelo contato@smartcorretorai.com.br', { icon: '🚧', duration: 5000 })
     setTimeout(() => setLoadingPlan(null), 600)
+  }
+
+  const renderAction = (item, featured = false, recharge = false) => {
+    const atual = user?.plano === item.id
+
+    if (!isAuthenticated) {
+      return (
+        <Link
+          to="/cadastro"
+          className={`w-full flex items-center justify-center py-3 rounded-lg font-semibold text-sm ${
+            featured ? 'gradient-primary text-white shadow-md' : recharge ? 'bg-amber-500 text-white hover:bg-amber-600' : 'btn-secondary'
+          }`}
+        >
+          {recharge ? 'Comprar creditos' : item.cta}
+        </Link>
+      )
+    }
+
+    return (
+      <button
+        disabled={atual || loadingPlan === item.id}
+        onClick={() => iniciarCheckout(item.id)}
+        className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
+          featured
+            ? 'gradient-primary text-white shadow-md hover:opacity-90'
+            : recharge
+            ? 'bg-amber-500 text-white hover:bg-amber-600'
+            : 'btn-secondary'
+        } disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {loadingPlan === item.id ? 'Aguarde...' : atual ? 'Plano atual' : recharge ? 'Comprar creditos' : item.cta}
+      </button>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-6 py-12">
-
         <div className="flex items-center justify-between mb-10">
           <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
             <ArrowLeft className="w-4 h-4" />
@@ -128,29 +123,30 @@ export default function Planos() {
         </div>
 
         <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 mb-4">
+            <Sparkles className="w-4 h-4" />
+            Creditos de marketing
+          </div>
           <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">Escolha seu plano</h1>
-          <p className="mt-4 text-gray-500 text-lg">Comece grátis. Sem cartão de crédito. Cancele quando quiser.</p>
-          <p className="mt-2 text-sm text-primary-600 font-medium">Todos os recursos disponíveis em todos os planos ✓</p>
+          <p className="mt-4 text-gray-500 text-lg max-w-2xl mx-auto">
+            O usuario escolhe os formatos, acompanha o custo estimado e usa os creditos de forma inteligente.
+          </p>
+          <p className="mt-2 text-sm text-primary-600 font-medium">Textos IA gratuitos em todos os planos.</p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-          {allPlans.map((plan) => {
-            const atual = user?.plano === plan.id
-            const isAvulso = plan.tipo === 'avulso'
+        <div className="grid lg:grid-cols-3 gap-5 mb-12">
+          {PLANOS.map((plano) => {
+            const atual = user?.plano === plano.id
             return (
               <div
-                key={plan.id}
+                key={plano.id}
                 className={`card p-6 relative flex flex-col ${
-                  plan.destaque
-                    ? 'border-primary-400 ring-2 ring-primary-400 shadow-xl shadow-primary-100'
-                    : isAvulso
-                    ? 'border-dashed border-amber-300'
-                    : ''
+                  plano.destaque ? 'border-primary-400 ring-2 ring-primary-400 shadow-xl shadow-primary-100' : ''
                 }`}
               >
-                {plan.destaque && (
+                {plano.destaque && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 gradient-primary text-white text-xs font-bold rounded-full shadow-md whitespace-nowrap">
-                    ⭐ MAIS POPULAR
+                    MAIS ESCOLHIDO
                   </div>
                 )}
                 {atual && (
@@ -159,94 +155,71 @@ export default function Planos() {
                   </div>
                 )}
 
-                {isAvulso && (
-                  <div className="inline-flex items-center gap-1 mb-3">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Avulso</span>
-                  </div>
-                )}
-
-                <div className="mb-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{plan.desc}</p>
-                  <h2 className="mt-1 text-xl font-bold text-gray-900">{plan.nome}</h2>
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{plano.desc}</p>
+                  <h2 className="mt-2 text-2xl font-black text-gray-900">{plano.nome}</h2>
                 </div>
 
-                <div className="mb-5">
-                  {plan.preco ? (
-                    <div className="flex items-end gap-1">
-                      <span className="text-gray-400 text-sm mb-1">R$</span>
-                      <span className="text-4xl font-extrabold text-gray-900">{plan.preco}</span>
-                      {plan.periodo && <span className="text-gray-400 mb-1">{plan.periodo}</span>}
-                      {isAvulso && <span className="text-gray-400 mb-1 text-sm"> único</span>}
-                    </div>
-                  ) : (
-                    <span className="text-3xl font-extrabold text-gray-900">Grátis</span>
-                  )}
-                  {plan.precoCheio && (
-                    <p className="text-xs text-amber-700 font-semibold mt-1">
-                      {isAvulso
-                        ? `Preço de lançamento · de R$ ${plan.precoCheio} por R$ ${plan.preco}`
-                        : `Primeiros 3 meses · depois R$ ${plan.precoCheio}/mês`}
-                    </p>
-                  )}
-                  <p className="text-sm text-primary-700 font-semibold mt-2">
-                    {plan.anuncios} anúncio{plan.anuncios > 1 ? 's' : ''}
-                    {isAvulso ? ' · não expiram' : ' por mês'}
-                  </p>
-                  {!isAvulso && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {plan.logins ? `${plan.logins} login · intransferível` : 'Múltiplos usuários · login compartilhado'}
-                    </p>
-                  )}
+                <div className="mb-5 rounded-2xl bg-gray-50 border border-gray-100 p-4">
+                  <p className="text-3xl font-black text-gray-900">{formatCredits(plano.creditos)}</p>
+                  <p className="text-sm font-semibold text-primary-700">creditos por ciclo</p>
+                </div>
+
+                <div className="mb-6 space-y-1">
+                  <div className="flex items-end gap-1">
+                    <span className="text-gray-400 text-sm mb-1">R$</span>
+                    <span className="text-4xl font-extrabold text-gray-900">{plano.precoTrimestral}</span>
+                    <span className="text-gray-400 mb-1">/mes no trimestral</span>
+                  </div>
+                  <p className="text-xs text-gray-500">ou R$ {plano.precoMensal}/mes no plano mensal</p>
                 </div>
 
                 <ul className="space-y-2.5 mb-6 flex-1">
-                  {RECURSOS.map((r) => (
-                    <li key={r} className="flex items-start gap-2 text-xs text-gray-600">
-                      <Check className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isAvulso ? 'text-amber-500' : 'text-green-500'}`} />
-                      {r}
+                  {RECURSOS.map((recurso) => (
+                    <li key={recurso} className="flex items-start gap-2 text-xs text-gray-600">
+                      <Check className="w-3.5 h-3.5 shrink-0 mt-0.5 text-green-500" />
+                      {recurso}
                     </li>
                   ))}
                 </ul>
 
                 <div className="mt-auto">
-                  {plan.link ? (
-                    <a href={plan.link} className="w-full flex items-center justify-center py-3 rounded-lg font-semibold text-sm btn-secondary">
-                      {plan.cta}
-                    </a>
-                  ) : isAuthenticated ? (
-                    <button
-                      disabled={atual || loadingPlan === plan.id}
-                      onClick={() => assinar(plan.id)}
-                      className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-                        plan.destaque
-                          ? 'gradient-primary text-white shadow-md hover:opacity-90'
-                          : isAvulso
-                          ? 'bg-amber-500 text-white hover:bg-amber-600'
-                          : 'btn-secondary'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {loadingPlan === plan.id ? 'Aguarde...' : atual ? 'Plano atual' : plan.cta}
-                    </button>
-                  ) : (
-                    <Link
-                      to="/cadastro"
-                      className={`w-full flex items-center justify-center py-3 rounded-lg font-semibold text-sm ${
-                        plan.destaque
-                          ? 'gradient-primary text-white shadow-md'
-                          : isAvulso
-                          ? 'bg-amber-500 text-white hover:bg-amber-600'
-                          : 'btn-secondary'
-                      }`}
-                    >
-                      {plan.cta}
-                    </Link>
-                  )}
+                  {renderAction(plano, plano.destaque)}
                 </div>
               </div>
             )
           })}
         </div>
+
+        <section className="mb-8">
+          <div className="flex items-end justify-between gap-4 mb-5">
+            <div>
+              <p className="text-sm font-semibold text-amber-600 uppercase tracking-wider">Recargas</p>
+              <h2 className="text-2xl font-extrabold text-gray-900">Creditos avulsos</h2>
+              <p className="mt-2 text-sm text-gray-500">Use para campanhas extras. Creditos avulsos expiram em 180 dias.</p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-5">
+            {RECARGAS.map((recarga) => (
+              <div key={recarga.id} className="card p-6 border-dashed border-amber-300 flex flex-col">
+                <div className="inline-flex items-center gap-1 mb-4">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Recarga</span>
+                </div>
+                <h3 className="text-2xl font-black text-gray-900">{formatCredits(recarga.creditos)}</h3>
+                <p className="text-sm font-semibold text-primary-700 mb-5">creditos</p>
+                <div className="flex items-end gap-1 mb-6">
+                  <span className="text-gray-400 text-sm mb-1">R$</span>
+                  <span className="text-4xl font-extrabold text-gray-900">{recarga.preco}</span>
+                  <span className="text-gray-400 mb-1 text-sm">unico</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-6 flex-1">Validade de 180 dias apos a compra.</p>
+                {renderAction(recarga, false, true)}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="card p-5 bg-gray-50 border-gray-200 mb-8">
           <div className="flex items-center gap-2 mb-3">
@@ -256,7 +229,9 @@ export default function Planos() {
           <ul className="space-y-2">
             {REGRAS.map(({ icon, texto }) => (
               <li key={texto} className="flex items-start gap-2.5 text-xs text-gray-500">
-                <span className="text-base leading-none mt-0.5">{icon}</span>
+                <span className="min-w-8 rounded-full bg-white border border-gray-200 px-2 py-0.5 text-[10px] font-black text-gray-500 text-center">
+                  {icon}
+                </span>
                 {texto}
               </li>
             ))}
@@ -264,7 +239,7 @@ export default function Planos() {
         </div>
 
         <p className="text-center text-sm text-gray-400">
-          Dúvidas?{' '}
+          Duvidas?{' '}
           <a href="mailto:contato@smartcorretorai.com.br" className="text-primary-600 hover:underline">
             Fale com a gente
           </a>

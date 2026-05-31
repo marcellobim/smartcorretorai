@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import {
-  Zap, Sparkles, Image, Video, FileText, Share2, Check,
+  Zap, Sparkles, Image, Video, FileText, Share2,
   ArrowRight, Building2, Star, ChevronRight,
 } from 'lucide-react'
 
@@ -24,33 +24,6 @@ const features = [
     icon: Share2,
     title: 'Todas as Redes Sociais',
     desc: 'Instagram, Facebook, WhatsApp, TikTok, YouTube e LinkedIn — tudo no tamanho certo.',
-  },
-]
-
-const plans = [
-  {
-    name: 'Start',
-    price: '97',
-    desc: 'Para corretores que estão começando',
-    features: ['15 anúncios por mês', 'Instagram, WhatsApp e Facebook', 'Hashtags automáticas', 'Roteiro para vídeos', 'Suporte por WhatsApp'],
-    cta: 'Começar agora',
-    featured: false,
-  },
-  {
-    name: 'Pro',
-    price: '187',
-    desc: 'O favorito dos corretores ativos',
-    features: ['35 anúncios por mês', 'Todas as redes sociais', 'Hashtags automáticas', 'Roteiro para vídeos e Reels', 'Suporte prioritário'],
-    cta: 'Assinar Pro',
-    featured: true,
-  },
-  {
-    name: 'Imobiliária',
-    price: '417',
-    desc: 'Para imobiliárias e equipes',
-    features: ['80 anúncios por mês', 'Múltiplos usuários', 'Todas as redes sociais', 'Hashtags automáticas', 'Roteiro para vídeos', 'Gerente de conta dedicado'],
-    cta: 'Falar com a equipe',
-    featured: false,
   },
 ]
 
@@ -94,14 +67,16 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-6 py-24 md:py-32 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-full text-white/80 text-sm mb-8 border border-white/20">
             <Sparkles className="w-4 h-4 text-yellow-300" />
-            Powered by Claude Opus 4
+            ✨ Inteligência Artificial Multimodelo
           </div>
           <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight text-balance">
-            Marketing imobiliário completo{' '}
+            Marketing imobiliário{' '}
             <span className="text-yellow-300">em segundos</span>
           </h1>
           <p className="mt-6 text-lg md:text-xl text-white/70 max-w-2xl mx-auto text-balance">
-            Cadastre seu imóvel e receba automaticamente banners, vídeos e textos prontos para todas as redes sociais. Sem designer, sem esforço.
+            Crie campanhas imobiliárias profissionais em minutos.<br />
+            Escolha os formatos que deseja e utilize seus créditos de forma inteligente.<br />
+            Sem designer. Sem esforço.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/cadastro" className="btn-primary text-base px-8 py-3.5 shadow-xl shadow-primary-900/40">
@@ -184,51 +159,12 @@ export default function LandingPage() {
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Simples, sem surpresas</h2>
             <p className="mt-4 text-gray-500">Comece grátis com 1 anúncio. Cancele quando quiser.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`card p-8 relative ${plan.featured ? 'border-primary-400 ring-2 ring-primary-400 shadow-xl' : ''}`}
-              >
-                {plan.featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary-600 text-white text-xs font-bold rounded-full">
-                    ⭐ MAIS POPULAR
-                  </div>
-                )}
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{plan.desc}</p>
-                <h3 className="mt-1 text-xl font-bold text-gray-900">{plan.name}</h3>
-                <div className="mt-4 flex items-end gap-1">
-                  <span className="text-gray-400 text-sm mb-1">R$</span>
-                  <span className="text-4xl font-extrabold text-gray-900">{plan.price}</span>
-                  <span className="text-gray-400 mb-1">/mês</span>
-                </div>
-                <ul className="mt-6 space-y-3">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
-                      <Check className="w-4 h-4 text-green-500 shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/cadastro"
-                  className={`mt-8 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
-                    plan.featured
-                      ? 'btn-primary shadow-md shadow-primary-500/30'
-                      : 'btn-secondary'
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-          <p className="text-center mt-8 text-sm text-gray-500">
-            Não quer mensalidade?{' '}
-            <Link to="/planos" className="text-primary-600 font-semibold hover:underline">
-              Anúncios avulsos a partir de R$ 38,97 · não expiram →
+          <div className="flex justify-center">
+            <Link to="/planos" className="btn-primary text-base px-8 py-3.5 shadow-lg shadow-primary-500/20">
+              Ver planos e créditos
+              <ArrowRight className="w-5 h-5" />
             </Link>
-          </p>
+          </div>
         </div>
       </section>
 
