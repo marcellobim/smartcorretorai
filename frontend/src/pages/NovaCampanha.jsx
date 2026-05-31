@@ -121,6 +121,19 @@ const FORMAT_LABELS = {
   detailed: 'Detalhado',
 }
 
+const CREDIT_BUILDER_TABS = [
+  {
+    id: 'recommended',
+    label: '🚀 Campanhas Recomendadas',
+    description: 'O sistema escolhe os formatos ideais para o objetivo da campanha.',
+  },
+  {
+    id: 'manual',
+    label: '🎯 Monte Sua Campanha',
+    description: 'Escolha exatamente quais formatos deseja gerar e acompanhe o custo.',
+  },
+]
+
 const SMART_CAMPAIGNS = [
   {
     id: 'venda_rapida',
@@ -709,25 +722,36 @@ export default function NovaCampanha() {
   const [gerandoBanners, setGerandoBanners] = useState(false)
   const renderPollRef = useRef(null)
 
-  const toggleFormato = (groupId, itemId) => setFormatosSel(prev => {
+  const toggleFormato = (groupId, itemId) => {
+    setSelectedSmartCampaign(null)
+    setCreditBuilderMode('manual')
+    setFormatosSel(prev => {
     const s = new Set(prev[groupId]); s.has(itemId) ? s.delete(itemId) : s.add(itemId)
     return { ...prev, [groupId]: s }
-  })
-  const toggleGrupo = (groupId) => setFormatosSel(prev => {
+    })
+  }
+  const toggleGrupo = (groupId) => {
+    setSelectedSmartCampaign(null)
+    setCreditBuilderMode('manual')
+    setFormatosSel(prev => {
     const group = FORMAT_GROUPS.find(g => g.id === groupId)
     const all = group.items.map(i => i.id)
     const allSel = all.every(id => prev[groupId].has(id))
     return { ...prev, [groupId]: allSel ? new Set() : new Set(all) }
-  })
+    })
+  }
   const selecionarTudo = () => {
     const m = {}
     FORMAT_GROUPS.forEach(g => { m[g.id] = new Set(g.items.map(i => i.id)) })
+    setSelectedSmartCampaign(null)
+    setCreditBuilderMode('manual')
     setFormatosSel(m)
   }
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
+  const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
   const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
   const [demoUsed, setDemoUsed] = useState(false)
   const isDemoPlan = !isPro
@@ -753,6 +777,13 @@ export default function NovaCampanha() {
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
   const selectedTemplateIds = FORMAT_GROUPS.flatMap(group => Array.from(formatosSel[group.id] || []))
   const simulatedCreditBalance = 150
+  const selectedCatalogItems = TEMPLATE_CATALOG.filter(template => selectedTemplateIds.includes(template.templateId))
+  const estimatedCreditConsumption = selectedCatalogItems.reduce((sum, item) => sum + item.creditWeight, 0)
+  const balanceAfterGeneration = simulatedCreditBalance - estimatedCreditConsumption
+  const hasInsufficientCredits = balanceAfterGeneration < 0
+  const economySuggestion = selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
+    ? 'Remova Vídeo/Reels para economizar créditos e manter artes + textos IA.'
+    : 'Escolha apenas Banner Feed e Story para uma geração mais econômica.'
 
   const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
     if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
@@ -764,6 +795,7 @@ export default function NovaCampanha() {
     })
     setFormatosSel(next)
     setSelectedSmartCampaign(campaignId)
+    setCreditBuilderMode('recommended')
   }
 
   const selectCampaignMode = (modeId) => {
@@ -1557,6 +1589,30 @@ export default function NovaCampanha() {
                 </p>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                {CREDIT_BUILDER_TABS.map(tab => {
+                  const active = creditBuilderMode === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setCreditBuilderMode(tab.id)}
+                      className={`text-left rounded-2xl border p-4 transition-all ${
+                        active
+                          ? 'border-primary-400 bg-gray-950 text-white shadow-lg shadow-primary-950/20'
+                          : 'border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <span className="text-sm font-black">{tab.label}</span>
+                      <p className={`text-xs mt-1 leading-relaxed ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                        {tab.description}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {creditBuilderMode === 'recommended' ? (<>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {SMART_CAMPAIGNS.map(campaign => {
                   const active = selectedSmartCampaign === campaign.id
@@ -1617,6 +1673,16 @@ export default function NovaCampanha() {
                               </div>
                             ))}
                           </div>
+                          <div className={`mt-3 grid grid-cols-2 gap-2 text-[11px] ${active ? 'text-gray-200' : 'text-gray-600'}`}>
+                            <div className={`rounded-lg p-2 ${active ? 'bg-white/5' : 'bg-white border border-gray-100'}`}>
+                              <p className="font-bold">Saldo atual</p>
+                              <p>{simulatedCreditBalance} creditos</p>
+                            </div>
+                            <div className={`rounded-lg p-2 ${active ? 'bg-white/5' : 'bg-white border border-gray-100'}`}>
+                              <p className="font-bold">Apos gerar</p>
+                              <p>{simulatedCreditBalance - cardDetails.creditCost} creditos</p>
+                            </div>
+                          </div>
                         </div>
 
                         <div className={`mt-3 rounded-xl border p-3 ${active ? 'border-amber-300/30 bg-amber-300/10' : 'border-amber-100 bg-amber-50'}`}>
@@ -1657,9 +1723,36 @@ export default function NovaCampanha() {
                   Textos, PDF, segmentação e roteiros continuam incluídos. O cliente não vê templates técnicos.
                 </p>
               </div>
-            </div>
+              </>) : (
 
-            <div className="hidden">
+            <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-xs font-bold text-gray-500">Saldo atual</p>
+                  <p className="text-2xl font-black text-gray-900">{simulatedCreditBalance}</p>
+                  <p className="text-xs text-gray-500">creditos de marketing</p>
+                </div>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-xs font-bold text-gray-500">Consumo estimado</p>
+                  <p className="text-2xl font-black text-gray-900">{estimatedCreditConsumption}</p>
+                  <p className="text-xs text-gray-500">{selectedCatalogItems.length} formato(s) selecionado(s)</p>
+                </div>
+                <div className={`rounded-2xl border p-4 ${hasInsufficientCredits ? 'border-red-100 bg-red-50' : 'border-emerald-100 bg-emerald-50'}`}>
+                  <p className={`text-xs font-bold ${hasInsufficientCredits ? 'text-red-600' : 'text-emerald-700'}`}>Saldo apos gerar</p>
+                  <p className={`text-2xl font-black ${hasInsufficientCredits ? 'text-red-700' : 'text-emerald-800'}`}>{balanceAfterGeneration}</p>
+                  <p className={`text-xs ${hasInsufficientCredits ? 'text-red-600' : 'text-emerald-700'}`}>
+                    {hasInsufficientCredits ? 'saldo insuficiente' : 'creditos restantes'}
+                  </p>
+                </div>
+              </div>
+
+              {hasInsufficientCredits && (
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-4 mb-5">
+                  <p className="text-sm font-bold text-red-700">Creditos insuficientes para esta selecao.</p>
+                  <p className="text-xs text-red-600 mt-1">{economySuggestion}</p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
                 <button type="button" onClick={selecionarTudo}
@@ -1760,6 +1853,8 @@ export default function NovaCampanha() {
                   </div>
                 </div>
               </div>
+            </div>
+              )}
             </div>
 
             {isDemoPlan ? (

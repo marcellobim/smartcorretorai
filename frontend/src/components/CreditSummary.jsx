@@ -22,6 +22,9 @@ export default function CreditSummary({
   const insufficientBalance = balanceAfter < 0
   const selectedVideos = selectedItems.filter((item) => ['video', 'reels', 'story'].includes(item.type)).length
   const selectedArts = Math.max(0, selectedItems.length - selectedVideos)
+  const economySuggestion = selectedItems.some((item) => ['video', 'reels'].includes(item.type))
+    ? 'Sugestao de economia: remova videos ou reels e mantenha artes + textos IA.'
+    : 'Sugestao de economia: escolha apenas formatos essenciais, como banner feed e story.'
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -105,7 +108,17 @@ export default function CreditSummary({
       {insufficientBalance && (
         <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-3 text-sm text-red-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>Creditos insuficientes para esta geracao. Recarregue creditos ou escolha uma opcao mais economica.</span>
+          <div>
+            <p>Creditos insuficientes para esta geracao. Recarregue creditos ou escolha uma opcao mais economica.</p>
+            <p className="mt-1 text-xs">{economySuggestion}</p>
+          </div>
+        </div>
+      )}
+
+      {!insufficientBalance && selectedItems.length > 0 && (
+        <div className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 p-3 text-sm text-blue-700">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{economySuggestion}</span>
         </div>
       )}
     </section>
