@@ -5,8 +5,6 @@ export default function TermosDeUso() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-6 py-12">
-
-        {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <Link to="/" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
             <ArrowLeft className="w-4 h-4" />
@@ -25,97 +23,255 @@ export default function TermosDeUso() {
           <p className="text-sm text-gray-400 mb-8">Última atualização: maio de 2026</p>
 
           <div className="prose prose-gray max-w-none space-y-6 text-sm text-gray-600 leading-relaxed">
-
             <section>
               <h2 className="text-lg font-bold text-gray-800 mb-2">1. Aceitação dos Termos</h2>
-              <p>Ao acessar ou utilizar a plataforma SmartCorretorAI ("Plataforma"), você ("Usuário") concorda com estes Termos de Uso. Se não concordar com qualquer parte destes termos, não utilize a Plataforma.</p>
+              <p>
+                Ao criar conta, acessar a plataforma, enviar dados ou fotos, gerar campanhas, contratar planos,
+                comprar recargas de créditos ou utilizar materiais gerados, você declara que leu, compreendeu e
+                aceita integralmente estes Termos de Uso e a Política de Privacidade.
+              </p>
+              <p className="mt-2">
+                Se você não concordar com qualquer regra, não utilize a SmartCorretorAI.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">2. Descrição do Serviço</h2>
-              <p>A SmartCorretorAI é uma plataforma de inteligência artificial voltada para corretores de imóveis e imobiliárias, que gera automaticamente conteúdo de marketing imobiliário — incluindo textos para redes sociais, hashtags, roteiros para vídeos e materiais promocionais — a partir do cadastro de imóveis.</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">2. Descrição da Plataforma</h2>
+              <p>
+                A SmartCorretorAI é uma plataforma de inteligência artificial para marketing imobiliário. A partir
+                dos dados do imóvel e dos materiais enviados pelo usuário, o sistema pode gerar textos, hashtags,
+                descrições para portais, posts, roteiros, banners, stories, carrosséis, vídeos e outros materiais
+                promocionais, conforme o plano, saldo de créditos e formatos selecionados.
+              </p>
+              <p className="mt-2">
+                Recursos premium, vídeos, banners avançados, catálogo completo e campanhas avançadas podem depender
+                de plano pago, créditos disponíveis ou regras específicas da oferta vigente.
+              </p>
+              <p className="mt-2">
+                A SmartCorretorAI poderá adicionar, remover, substituir ou aperfeiçoar campanhas, formatos, templates,
+                recursos e funcionalidades ao longo do tempo. A composição dos materiais entregues poderá evoluir sem
+                obrigação de manter exatamente os mesmos formatos, campanhas, templates ou recursos existentes hoje.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">3. Elegibilidade e Cadastro</h2>
-              <p>Para utilizar a Plataforma, o Usuário deve:</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">3. Cadastro e Conta</h2>
+              <p>Para utilizar a Plataforma, o usuário deve:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Ter no mínimo 18 anos de idade;</li>
-                <li>Fornecer informações verdadeiras, precisas e completas no cadastro;</li>
-                <li>Manter seus dados de acesso em sigilo e não compartilhá-los com terceiros;</li>
-                <li>Ser responsável por todas as atividades realizadas com sua conta.</li>
+                <li>ter no mínimo 18 anos;</li>
+                <li>fornecer informações verdadeiras, completas e atualizadas;</li>
+                <li>manter seus dados de acesso em sigilo;</li>
+                <li>responder por todas as atividades realizadas em sua conta.</li>
               </ul>
-              <p className="mt-2">O Usuário é responsável pela veracidade das informações fornecidas. A SmartCorretorAI reserva-se o direito de suspender ou encerrar contas com informações falsas ou incompletas.</p>
+              <p className="mt-2">
+                A SmartCorretorAI poderá suspender ou encerrar contas usadas de forma irregular, fraudulenta ou em
+                desacordo com estes Termos.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Planos e Pagamentos</h2>
-              <p>A Plataforma oferece planos pagos mensais e pacotes avulsos de anúncios. Ao contratar um plano:</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Campanha Demonstrativa Gratuita</h2>
+              <p>
+                A oferta gratuita da SmartCorretorAI corresponde a 1 campanha demonstrativa gratuita, única e
+                limitada, destinada a apresentar o funcionamento do produto.
+              </p>
+              <p className="mt-2">No plano demonstrativo, podem ficar bloqueados:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Os anúncios mensais resetam no dia 1° de cada mês e não são acumulados;</li>
-                <li>Anúncios avulsos não expiram e ficam disponíveis até serem utilizados;</li>
-                <li>Os planos são intransferíveis e vinculados ao e-mail do titular;</li>
-                <li>Múltiplos logins estão disponíveis apenas no plano Imobiliária;</li>
-                <li>O cancelamento pode ser feito a qualquer momento, sem multa, com efeito ao final do período vigente;</li>
-                <li>Não há reembolso proporcional por cancelamento antecipado, salvo disposição legal em contrário.</li>
+                <li>vídeos premium, narrados ou cinematográficos;</li>
+                <li>banners premium;</li>
+                <li>catálogo completo;</li>
+                <li>campanhas avançadas;</li>
+                <li>downloads ou usos comerciais não liberados pela oferta demonstrativa.</li>
               </ul>
+              <p className="mt-2">
+                Após utilizar a campanha demonstrativa, novas gerações, recursos premium ou downloads podem exigir
+                contratação de plano pago ou compra de créditos, conforme as regras comerciais vigentes.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">5. Uso Adequado da Plataforma</h2>
-              <p>O Usuário concorda em utilizar a Plataforma apenas para fins lícitos e de acordo com estes Termos. É vedado:</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">5. Planos, Créditos e Recargas</h2>
+              <p>A Plataforma trabalha com créditos de marketing. Os planos comerciais atuais são:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Utilizar a Plataforma para fins fraudulentos ou enganosos;</li>
-                <li>Publicar informações falsas sobre imóveis;</li>
-                <li>Tentar acessar sistemas ou dados de outros usuários;</li>
-                <li>Realizar engenharia reversa ou copiar o código da Plataforma;</li>
-                <li>Utilizar bots, scrapers ou automações não autorizadas;</li>
-                <li>Violar direitos de propriedade intelectual de terceiros.</li>
+                <li><strong>START:</strong> 1.000 créditos por ciclo;</li>
+                <li><strong>PRO:</strong> 2.500 créditos por ciclo;</li>
+                <li><strong>ELITE:</strong> 6.000 créditos por ciclo.</li>
               </ul>
-            </section>
-
-            <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">6. Conteúdo Gerado por IA</h2>
-              <p>Os textos, hashtags e roteiros gerados pela Plataforma são produzidos por inteligência artificial com base nas informações fornecidas pelo Usuário. A SmartCorretorAI não garante que o conteúdo gerado esteja isento de erros ou seja adequado para todos os contextos. O Usuário é responsável por revisar e validar o conteúdo antes de publicá-lo, especialmente no que se refere a:</p>
+              <p className="mt-2">Também podem ser oferecidas recargas avulsas:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Conformidade com o Código de Ética do CRECI e normas da profissão;</li>
-                <li>Veracidade das informações sobre os imóveis anunciados;</li>
-                <li>Adequação às normas do CONAR e legislação de publicidade vigente;</li>
-                <li>Respeito aos direitos de imagem e privacidade de terceiros.</li>
+                <li>500 créditos — R$ 59;</li>
+                <li>1.000 créditos — R$ 99;</li>
+                <li>2.000 créditos — R$ 179.</li>
+              </ul>
+              <p className="mt-2">
+                Textos gerados por IA podem ser gratuitos. Banners normalmente consomem menos créditos, enquanto
+                vídeos e recursos premium consomem mais créditos. A quantidade debitada pode variar conforme os
+                formatos escolhidos, pacote, campanha, custo operacional e regras comerciais vigentes.
+              </p>
+              <p className="mt-2">
+                Créditos não possuem valor monetário fora da Plataforma, não são moeda, não são transferíveis entre
+                contas e não podem ser convertidos em dinheiro. Créditos consumidos na geração, renderização ou
+                liberação de materiais não são reembolsáveis, salvo obrigação legal ou decisão expressa da
+                SmartCorretorAI. Créditos avulsos expiram conforme a política vigente informada na contratação.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">6. Validade, Renovação e Cancelamento</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Créditos de assinatura renovam a cada ciclo contratado e podem não acumular para ciclos futuros.</li>
+                <li>Créditos avulsos comprados em recargas expiram em 180 dias após a compra, salvo condição diferente informada no momento da contratação.</li>
+                <li>Assinaturas são recorrentes e podem renovar automaticamente até o cancelamento.</li>
+                <li>O cancelamento pode ser feito a qualquer momento, com efeito ao final do período vigente.</li>
+                <li>Não há reembolso proporcional por cancelamento antecipado, salvo obrigação legal ou política comercial expressa.</li>
+                <li>Créditos não utilizados podem expirar conforme o tipo de crédito, ciclo contratado ou regra da oferta.</li>
+              </ul>
+              <p className="mt-2">
+                Valores, planos, benefícios e custos em créditos podem ser alterados mediante comunicação ou
+                atualização da página de planos.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">7. Uso Adequado</h2>
+              <p>O usuário concorda em utilizar a Plataforma apenas para fins lícitos. É proibido:</p>
+              <ul className="list-disc pl-5 space-y-1 mt-2">
+                <li>informar dados falsos ou enganosos sobre imóveis;</li>
+                <li>violar direitos de imagem, privacidade ou propriedade intelectual de terceiros;</li>
+                <li>usar a Plataforma para fraude, spam ou publicidade ilícita;</li>
+                <li>tentar acessar contas, dados ou sistemas de outros usuários;</li>
+                <li>copiar, revender, explorar ou fazer engenharia reversa da Plataforma sem autorização.</li>
               </ul>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">7. Propriedade Intelectual</h2>
-              <p>A Plataforma, seu código, design, marca e tecnologia são de propriedade exclusiva da SmartCorretorAI. O conteúdo gerado a partir dos dados do Usuário pertence ao Usuário, que concede à SmartCorretorAI licença limitada para processamento e melhoria do serviço.</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Conteúdo Gerado por IA</h2>
+              <p>
+                Os materiais gerados pela Plataforma são produzidos com apoio de inteligência artificial e automações
+                de mídia. A IA pode cometer erros, omitir informações ou gerar textos que precisem de revisão.
+              </p>
+              <p className="mt-2">
+                Conteúdos gerados por inteligência artificial podem conter imprecisões, interpretações incorretas,
+                omissões ou informações desatualizadas.
+              </p>
+              <p className="mt-2">
+                Antes de publicar qualquer material, o usuário deve revisar preços, condições, endereço, bairro,
+                metragem, características do imóvel, telefone, CRECI, promessas comerciais e conformidade com normas
+                do CRECI, CONAR, plataformas de mídia e legislação aplicável.
+              </p>
+              <p className="mt-2">
+                O usuário é responsável pela veracidade das informações publicadas e pelo uso final dos materiais.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Limitação de Responsabilidade</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Informações de Mercado e Ferramentas de Apoio</h2>
+              <p>
+                A Plataforma pode utilizar dados públicos, pesquisas automatizadas, inteligência artificial e outras
+                ferramentas de apoio para sugerir textos, argumentos, contexto de bairro, referências comerciais e
+                informações de mercado.
+              </p>
+              <p className="mt-2">
+                Essas informações têm caráter exclusivamente informativo. Elas não substituem PTAM, laudo técnico,
+                avaliação profissional, análise jurídica, análise documental ou orientação de especialista habilitado.
+              </p>
+              <p className="mt-2">
+                O usuário deve validar todas as informações antes de publicar, apresentar a clientes, tomar decisões
+                comerciais ou utilizar os materiais em negociações.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Uso dos Materiais pelo Usuário</h2>
+              <p>
+                Após a geração e observadas as regras do plano, pagamento, créditos e downloads liberados, o usuário
+                pode utilizar os materiais gerados em suas campanhas imobiliárias.
+              </p>
+              <p className="mt-2">
+                Materiais gerados no plano demonstrativo podem ter uso limitado e não devem ser tratados como liberação
+                irrestrita para uso comercial quando a interface ou oferta indicar bloqueio de download ou uso premium.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Uso Promocional pela SmartCorretorAI</h2>
+              <p>
+                O usuário autoriza a SmartCorretorAI a utilizar exemplos de campanhas, artes, imagens geradas, layouts,
+                textos e demais materiais produzidos pela Plataforma para fins de demonstração, portfólio, divulgação,
+                treinamento comercial e propaganda da própria plataforma.
+              </p>
+              <p className="mt-2">
+                Quando o material contiver dados pessoais identificáveis, como nome, telefone, e-mail, CRECI, endereço
+                específico, imagem pessoal, logotipo ou identidade visual do usuário, a SmartCorretorAI deverá
+                anonimizar, mascarar ou obter autorização específica antes de uso promocional público, sempre que
+                aplicável.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">12. Propriedade Intelectual</h2>
+              <p>
+                A Plataforma, marca, layout, tecnologia, código, fluxos, catálogos, templates internos e sistemas de
+                automação pertencem à SmartCorretorAI ou a seus licenciantes. O usuário não recebe licença para copiar
+                ou explorar a Plataforma fora do uso normal contratado.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">13. Ausência de Garantia de Resultado Comercial</h2>
+              <p>
+                A SmartCorretorAI não garante venda, locação, captação de clientes, leads, cliques, visualizações,
+                aprovação em plataformas externas, valorização do imóvel ou qualquer resultado financeiro ou
+                comercial. A Plataforma é uma ferramenta de criação de materiais, não uma garantia de performance.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">14. Limitação de Responsabilidade</h2>
               <p>A SmartCorretorAI não se responsabiliza por:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Resultados comerciais decorrentes do uso do conteúdo gerado;</li>
-                <li>Falhas de conexão à internet ou indisponibilidade de terceiros (redes sociais, APIs);</li>
-                <li>Uso indevido do conteúdo gerado pelo Usuário;</li>
-                <li>Danos indiretos, lucros cessantes ou perdas de oportunidade.</li>
+                <li>uso indevido dos materiais pelo usuário;</li>
+                <li>informações incorretas inseridas pelo usuário;</li>
+                <li>falhas de internet, redes sociais, provedores de IA, renderização, pagamento ou infraestrutura de terceiros;</li>
+                <li>remoção, reprovação ou bloqueio de materiais por plataformas externas;</li>
+                <li>danos indiretos, lucros cessantes ou perdas de oportunidade.</li>
               </ul>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Modificações dos Termos</h2>
-              <p>A SmartCorretorAI pode atualizar estes Termos a qualquer momento. Alterações relevantes serão comunicadas por e-mail ou notificação na Plataforma. O uso continuado após as alterações implica aceitação dos novos termos.</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">15. Privacidade e Dados</h2>
+              <p>
+                O tratamento de dados pessoais, dados de imóveis, imagens, arquivos enviados e materiais gerados é
+                descrito na <Link to="/privacidade" className="text-primary-600 hover:underline">Política de Privacidade</Link>.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Foro e Lei Aplicável</h2>
-              <p>Estes Termos são regidos pelas leis brasileiras. Fica eleito o foro da comarca de São Paulo/SP para dirimir quaisquer controvérsias decorrentes deste instrumento.</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">16. Alterações dos Termos</h2>
+              <p>
+                A SmartCorretorAI pode atualizar estes Termos a qualquer momento. Alterações relevantes poderão ser
+                comunicadas por e-mail, aviso na Plataforma ou atualização desta página. O uso continuado após a
+                alteração implica aceitação dos novos termos.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Contato</h2>
-              <p>Dúvidas sobre estes Termos podem ser enviadas para: <a href="mailto:contato@smartcorretorai.com.br" className="text-primary-600 hover:underline">contato@smartcorretorai.com.br</a></p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">17. Foro e Lei Aplicável</h2>
+              <p>
+                Estes Termos são regidos pelas leis brasileiras. Fica eleito o foro da comarca de São Paulo/SP, salvo
+                disposição legal obrigatória em sentido diverso.
+              </p>
             </section>
 
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">18. Contato</h2>
+              <p>
+                Dúvidas sobre estes Termos podem ser enviadas para:{' '}
+                <a href="mailto:contato@smartcorretorai.com.br" className="text-primary-600 hover:underline">
+                  contato@smartcorretorai.com.br
+                </a>
+              </p>
+            </section>
           </div>
         </div>
 

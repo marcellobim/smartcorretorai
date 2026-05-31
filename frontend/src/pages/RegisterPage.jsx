@@ -48,7 +48,7 @@ export default function RegisterPage() {
 
         <h1 className="text-2xl font-bold text-gray-900">Crie sua conta grátis</h1>
         <p className="mt-1 text-sm text-gray-500">
-          7 dias grátis, sem cartão de crédito. Já tem conta?{' '}
+          1 campanha demonstrativa gratuita, sem cartão de crédito. Já tem conta?{' '}
           <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">
             Entrar
           </Link>
@@ -131,10 +131,10 @@ export default function RegisterPage() {
               {...register('termos', { required: 'Aceite os termos para continuar' })}
             />
             <label htmlFor="termos" className="text-sm text-gray-600">
-              Concordo com os{' '}
-              <a href="#" className="text-primary-600 hover:underline">Termos de Uso</a>{' '}
-              e{' '}
-              <a href="#" className="text-primary-600 hover:underline">Política de Privacidade</a>
+              Ao criar minha conta, usar o sistema, gerar campanhas ou contratar planos/recargas, declaro que li e aceito os{' '}
+              <Link to="/termos" className="text-primary-600 hover:underline">Termos de Uso</Link>{' '}
+              e a{' '}
+              <Link to="/privacidade" className="text-primary-600 hover:underline">Política de Privacidade</Link>.
             </label>
           </div>
           {errors.termos && <p className="text-xs text-red-500">{errors.termos.message}</p>}
