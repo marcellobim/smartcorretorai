@@ -127,36 +127,42 @@ const SMART_CAMPAIGNS = [
     title: 'Venda Rápida',
     description: 'Campanha direta para gerar contatos em imóveis prontos.',
     benefits: ['Mais velocidade para captar leads', 'Ótima para oportunidade de preço', 'Formatos essenciais para redes sociais'],
+    smartTip: 'Publique os Stories diariamente e alterne os Banners no Feed durante a semana para aumentar o alcance.',
   },
   {
     id: 'luxo_premium',
     title: 'Luxo Premium',
     description: 'Apresentação sofisticada para imóveis de alto padrão.',
     benefits: ['Valoriza acabamento e exclusividade', 'Visual mais refinado', 'Ideal para fotos fortes e imóveis premium'],
+    smartTip: 'Use o vídeo premium para abrir a campanha e reforce os diferenciais com carrosséis ao longo da semana.',
   },
   {
     id: 'lancamento',
     title: 'Lançamento',
     description: 'Campanha para gerar expectativa, urgência e pré-venda.',
     benefits: ['Boa para planta e obra', 'Destaque para oportunidade', 'Ajuda a comunicar escassez e novidade'],
+    smartTip: 'Comece pelos Stories para criar expectativa e use o carrossel para explicar planta, lazer e condições.',
   },
   {
     id: 'mcmv',
     title: 'Minha Casa Minha Vida',
     description: 'Comunicação clara para financiamento, entrada e WhatsApp.',
     benefits: ['Linguagem acessível', 'Foco em conversa e simulação', 'Boa para primeiro imóvel'],
+    smartTip: 'Priorize chamadas simples e envie o material no WhatsApp para estimular simulações e conversas rápidas.',
   },
   {
     id: 'airbnb_temporada',
     title: 'Airbnb / Temporada',
     description: 'Campanha focada em experiência, lazer e reservas.',
     benefits: ['Valoriza ambientes e lifestyle', 'Boa para imóveis mobiliados', 'Ideal para diária e temporada'],
+    smartTip: 'Mostre primeiro a experiência do imóvel e depois use Stories para reforçar datas, localização e reservas.',
   },
   {
     id: 'comercial',
     title: 'Comercial',
     description: 'Campanha objetiva para salas, lojas, terrenos e galpões.',
     benefits: ['Foco em localização e metragem', 'Comunicação mais racional', 'Boa para decisão B2B'],
+    smartTip: 'Destaque localização, metragem e uso ideal no Feed, depois envie o material pelo WhatsApp para leads qualificados.',
   },
 ]
 
@@ -166,6 +172,88 @@ const DEMO_TEMPLATE_IDS = [
   'ad9f8382-ea38-4ef6-84cc-049f1b289345',
   '96a25196-5a64-4f65-9b3e-c9c8b0d871f2',
 ]
+
+const DELIVERABLE_LABELS = {
+  banners: ['banner', 'card', 'detailed', 'social'],
+  stories: ['story'],
+  carousels: ['carousel'],
+  videos: ['video', 'reels'],
+}
+
+const DELIVERABLE_DETAILS = {
+  banners: {
+    title: 'Banner Feed',
+    where: 'Instagram e Facebook',
+    purpose: 'divulgar o imóvel no feed e gerar interesse imediato.',
+  },
+  stories: {
+    title: 'Story',
+    where: 'Instagram Stories, Facebook Stories e Status do WhatsApp',
+    purpose: 'aumentar visualizações rápidas e gerar contatos.',
+  },
+  carousels: {
+    title: 'Carrossel',
+    where: 'Instagram e Facebook',
+    purpose: 'mostrar vários ambientes do imóvel em uma única publicação.',
+  },
+  videos: {
+    title: 'Vídeo/Reels',
+    where: 'Instagram Reels, TikTok e Facebook Reels',
+    purpose: 'aumentar alcance e criar impacto visual.',
+  },
+  textIa: {
+    title: 'Texto IA',
+    where: 'portais, Instagram, Facebook e WhatsApp',
+    purpose: 'publicar com mais qualidade sem precisar escrever do zero.',
+  },
+  whatsapp: {
+    title: 'WhatsApp',
+    where: 'grupos, clientes e leads',
+    purpose: 'compartilhar o imóvel rapidamente e iniciar conversas.',
+  },
+}
+
+const countDeliverables = (catalogItems = []) => {
+  const items = TEMPLATE_CATALOG.filter(template => catalogItems.includes(template.id))
+  const countByTypes = (types) => items.filter(item => types.includes(item.type)).length
+  return {
+    banners: countByTypes(DELIVERABLE_LABELS.banners),
+    stories: countByTypes(DELIVERABLE_LABELS.stories),
+    carousels: countByTypes(DELIVERABLE_LABELS.carousels),
+    videos: countByTypes(DELIVERABLE_LABELS.videos),
+    total: items.length,
+  }
+}
+
+const pluralize = (count, singular, plural) => `${count} ${count === 1 ? singular : plural}`
+
+const createDeliverableDetail = (key, count = null) => ({
+  key,
+  count,
+  ...DELIVERABLE_DETAILS[key],
+})
+
+const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false) => {
+  const mode = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId] || CAMPAIGN_TEMPLATES[campaignId]?.modes?.economica
+  const catalogItems = isDemoPlan && campaignId === DEMO_CAMPAIGN_ID
+    ? TEMPLATE_CATALOG.filter(template => DEMO_TEMPLATE_IDS.includes(template.templateId)).map(template => template.id)
+    : mode?.catalogItems || []
+  const counts = countDeliverables(catalogItems)
+  const deliverables = [
+    counts.banners > 0 ? createDeliverableDetail('banners', counts.banners) : null,
+    counts.stories > 0 ? createDeliverableDetail('stories', counts.stories) : null,
+    counts.carousels > 0 ? createDeliverableDetail('carousels', counts.carousels) : null,
+    counts.videos > 0 ? createDeliverableDetail('videos', counts.videos) : null,
+    createDeliverableDetail('textIa'),
+    createDeliverableDetail('whatsapp'),
+  ].filter(Boolean)
+
+  return {
+    deliverables,
+    totalPieces: counts.total,
+    creditCost: isDemoPlan && campaignId === DEMO_CAMPAIGN_ID ? 0 : (mode?.creditCost || 0),
+  }
+}
 
 const DIAS_SEMANA = [
   { id: 'seg', nome: 'Seg', label: 'Segunda' }, { id: 'ter', nome: 'Ter', label: 'Terça' },
@@ -642,6 +730,8 @@ export default function NovaCampanha() {
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
   const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
   const [demoUsed, setDemoUsed] = useState(false)
+  const isDemoPlan = !isPro
+  const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
 
   useEffect(() => {
     setIgConectado(false)
@@ -663,8 +753,6 @@ export default function NovaCampanha() {
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
   const selectedTemplateIds = FORMAT_GROUPS.flatMap(group => Array.from(formatosSel[group.id] || []))
   const simulatedCreditBalance = 150
-  const isDemoPlan = !isPro
-  const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
 
   const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
     if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
@@ -1462,9 +1550,10 @@ export default function NovaCampanha() {
 
             <div className="card p-6">
               <div className="mb-5">
+                <p className="text-xs font-bold text-primary-600 uppercase tracking-wider mb-1">Campanhas Inteligentes</p>
                 <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Escolha uma campanha inteligente. O sistema seleciona internamente os formatos recomendados.
+                  Escolha o objetivo da campanha. O sistema seleciona internamente os formatos recomendados.
                 </p>
               </div>
 
@@ -1472,11 +1561,11 @@ export default function NovaCampanha() {
                 {SMART_CAMPAIGNS.map(campaign => {
                   const active = selectedSmartCampaign === campaign.id
                   const locked = isDemoPlan && campaign.id !== DEMO_CAMPAIGN_ID
-                  const selectedCount = CAMPAIGN_TEMPLATES[campaign.id]?.modes?.[visualCreditMode]?.selectedTemplates?.length || 0
+                  const cardDetails = getCampaignCardDetails(campaign.id, visualCreditMode, isDemoPlan)
                   return (
                     <div
                       key={campaign.id}
-                      className={`rounded-2xl border overflow-hidden transition-all ${
+                      className={`rounded-2xl border overflow-hidden transition-all flex flex-col ${
                         locked
                           ? 'border-gray-200 bg-gray-100 text-gray-400 opacity-80'
                           :
@@ -1490,16 +1579,52 @@ export default function NovaCampanha() {
                       }`}>
                         <div>
                           <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-amber-200 mb-2">
-                            {locked ? '🔒 Disponível nos planos pagos' : `${selectedCount} peças recomendadas`}
+                            {locked ? '🔒 Disponível nos planos pagos' : `${cardDetails.totalPieces} peças`}
                           </span>
                           <h3 className="text-lg font-black text-white">{campaign.title}</h3>
                         </div>
                       </div>
 
-                      <div className="p-4">
+                      <div className="p-4 flex flex-col flex-1">
                         <p className={`text-sm leading-relaxed ${active ? 'text-gray-300' : 'text-gray-500'}`}>
                           {campaign.description}
                         </p>
+
+                        <div className={`mt-4 rounded-xl border p-3 ${active ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className={`text-xs font-bold ${active ? 'text-amber-200' : 'text-gray-700'}`}>Você receberá</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-black ${active ? 'bg-amber-300 text-gray-950' : 'bg-amber-100 text-amber-700'}`}>
+                              {cardDetails.creditCost} créditos
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-1.5">
+                            {cardDetails.deliverables.map(item => (
+                              <div key={item.key} className={`rounded-lg border p-2 ${active ? 'border-white/10 bg-white/5' : 'border-white bg-white'}`}>
+                                <div className="flex items-start gap-2">
+                                  <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${active ? 'text-amber-300' : 'text-emerald-500'}`} />
+                                  <div>
+                                    <p className={`text-xs font-bold ${active ? 'text-white' : 'text-gray-800'}`}>
+                                      {item.count ? `${item.count}x ` : ''}{item.title}
+                                    </p>
+                                    <p className={`text-[11px] leading-snug mt-1 ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                                      <span className="font-semibold">Onde usar:</span> {item.where}
+                                    </p>
+                                    <p className={`text-[11px] leading-snug mt-1 ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                                      <span className="font-semibold">Serve para:</span> {item.purpose}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className={`mt-3 rounded-xl border p-3 ${active ? 'border-amber-300/30 bg-amber-300/10' : 'border-amber-100 bg-amber-50'}`}>
+                          <p className={`text-xs font-black ${active ? 'text-amber-200' : 'text-amber-800'}`}>💡 Dica SmartCorretorAI</p>
+                          <p className={`text-xs leading-relaxed mt-1 ${active ? 'text-gray-200' : 'text-amber-900'}`}>
+                            {campaign.smartTip}
+                          </p>
+                        </div>
 
                         <div className="mt-4 space-y-2">
                           {campaign.benefits.map(benefit => (
@@ -1518,7 +1643,7 @@ export default function NovaCampanha() {
                             locked ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : active ? 'bg-amber-300 text-gray-950 hover:bg-amber-200' : 'bg-gray-950 text-white hover:bg-gray-800'
                           }`}
                         >
-                          {locked ? 'Plano pago' : active ? 'Campanha selecionada' : 'Selecionar'}
+                          {locked ? 'Plano pago' : active ? 'Campanha selecionada' : 'Selecionar campanha'}
                         </button>
                       </div>
                     </div>
