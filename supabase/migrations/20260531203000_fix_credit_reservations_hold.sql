@@ -75,8 +75,8 @@ BEGIN
 
   SELECT *
     INTO v_profile
-    FROM public.profiles
-   WHERE id = p_user_id
+    FROM public.profiles p
+   WHERE p.id = p_user_id
    FOR UPDATE;
 
   IF NOT FOUND THEN
@@ -132,9 +132,9 @@ BEGIN
       );
     END IF;
 
-    UPDATE public.profiles
+    UPDATE public.profiles p
        SET saldo_creditos = 0
-     WHERE id = p_user_id;
+     WHERE p.id = p_user_id;
 
     v_current_balance := 0;
   END IF;
@@ -145,9 +145,9 @@ BEGIN
 
   v_new_balance := v_current_balance - p_amount;
 
-  UPDATE public.profiles
+  UPDATE public.profiles p
      SET saldo_creditos = v_new_balance
-   WHERE id = p_user_id;
+   WHERE p.id = p_user_id;
 
   INSERT INTO public.credit_reservations (
     user_id,
@@ -262,7 +262,7 @@ BEGIN
     INTO v_balance
     FROM public.get_credit_balance(p_user_id) gb;
 
-  INSERT INTO public.credit_transactions (
+  INSERT INTO public.credit_transactions AS ct (
     user_id,
     tipo,
     creditos,
@@ -284,19 +284,19 @@ BEGIN
         'hold_confirmed', true
       )
   )
-  RETURNING id INTO v_transaction_id;
+  RETURNING ct.id INTO v_transaction_id;
 
-  UPDATE public.credit_reservations
+  UPDATE public.credit_reservations AS cr
      SET status = 'consumed',
          consumed_at = NOW(),
-         metadata = COALESCE(metadata, '{}'::jsonb)
+         metadata = COALESCE(cr.metadata, '{}'::jsonb)
            || COALESCE(p_metadata, '{}'::jsonb)
            || jsonb_build_object(
              'saldo_resultante', COALESCE(v_balance, 0),
              'transaction_id', v_transaction_id,
              'hold_confirmed', true
            )
-   WHERE id = v_reservation.id
+   WHERE cr.id = v_reservation.id
    RETURNING * INTO v_reservation;
 
   RETURN QUERY
@@ -364,8 +364,8 @@ BEGIN
   IF v_reservation.status = 'reserved' THEN
     SELECT *
       INTO v_profile
-      FROM public.profiles
-     WHERE id = p_user_id
+      FROM public.profiles p
+     WHERE p.id = p_user_id
      FOR UPDATE;
 
     IF NOT FOUND THEN
@@ -374,20 +374,20 @@ BEGIN
 
     v_refunded_balance := COALESCE(v_profile.saldo_creditos, 0) + v_reservation.amount;
 
-    UPDATE public.profiles
+    UPDATE public.profiles p
        SET saldo_creditos = v_refunded_balance
-     WHERE id = p_user_id;
+     WHERE p.id = p_user_id;
 
-    UPDATE public.credit_reservations
+    UPDATE public.credit_reservations AS cr
        SET status = 'cancelled',
            cancelled_at = NOW(),
-           reason = COALESCE(p_reason, reason),
-           metadata = COALESCE(metadata, '{}'::jsonb)
+           reason = COALESCE(p_reason, cr.reason),
+           metadata = COALESCE(cr.metadata, '{}'::jsonb)
              || jsonb_build_object(
                'hold_refunded', true,
                'saldo_apos_cancelamento', v_refunded_balance
              )
-     WHERE id = v_reservation.id
+     WHERE cr.id = v_reservation.id
      RETURNING * INTO v_reservation;
   END IF;
 
