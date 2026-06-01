@@ -67,6 +67,12 @@ const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>([
   ['ba3afcf4-01cc-48e3-919a-8bc6d2dd4ca4', 60],
 ])
 
+const DEMO_TEMPLATE_IDS = new Set<string>([
+  '7ab695ae-e12b-4322-87dc-eb085760dd01',
+  'ad9f8382-ea38-4ef6-84cc-049f1b289345',
+  '96a25196-5a64-4f65-9b3e-c9c8b0d871f2',
+])
+
 const toPositiveInteger = (value: unknown): number => {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value))
   if (typeof value === 'string' && value.trim()) {
@@ -973,7 +979,28 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       ? generation_mode.trim()
       : 'manual'
     const videoIaPremium = video_ia_premium === true
-    const isDemoCreditFlow = profileRow?.plano === 'starter' && generationMode === 'demonstrativo'
+    const isStarterPlan = !profileRow?.plano || profileRow.plano === 'starter'
+    const isDemoCreditFlow = isStarterPlan && generationMode === 'demonstrativo'
+
+    if (isStarterPlan && generationMode !== 'demonstrativo') {
+      return jsonResponse({
+        error: 'Plano demonstrativo permite apenas a campanha demonstrativa gratuita.',
+      }, 403)
+    }
+
+    if (isDemoCreditFlow) {
+      const invalidDemoTemplates = pickedIds.filter((id) => !DEMO_TEMPLATE_IDS.has(id))
+      const hasExactDemoSet =
+        pickedIds.length === DEMO_TEMPLATE_IDS.size
+        && pickedIds.every((id) => DEMO_TEMPLATE_IDS.has(id))
+
+      if (invalidDemoTemplates.length > 0 || !hasExactDemoSet) {
+        return jsonResponse({
+          error: 'Campanha demonstrativa permite apenas os formatos gratuitos fixos.',
+        }, 403)
+      }
+    }
+
     const effectiveCreditCost = isDemoCreditFlow
       ? 0
       : Math.max(frontendCreditCost, serverTemplateCreditCost)
