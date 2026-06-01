@@ -197,11 +197,17 @@ CREATE OR REPLACE FUNCTION public.consume_reserved_credits(
   p_metadata JSONB DEFAULT '{}'::jsonb
 )
 RETURNS TABLE (
-  reservation_id UUID,
-  status TEXT,
+  id UUID,
+  user_id UUID,
+  campaign_id UUID,
+  idempotency_key TEXT,
   amount BIGINT,
-  saldo_creditos BIGINT,
-  transaction_id UUID
+  status TEXT,
+  reason TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ,
+  consumed_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -235,10 +241,16 @@ BEGIN
     RETURN QUERY
     SELECT
       v_reservation.id,
-      v_reservation.status,
+      v_reservation.user_id,
+      v_reservation.campaign_id,
+      v_reservation.idempotency_key,
       v_reservation.amount,
-      COALESCE((SELECT gb.saldo_creditos FROM public.get_credit_balance(p_user_id) gb), 0),
-      NULLIF(v_reservation.metadata->>'transaction_id', '')::UUID;
+      v_reservation.status,
+      v_reservation.reason,
+      v_reservation.metadata,
+      v_reservation.created_at,
+      v_reservation.consumed_at,
+      v_reservation.cancelled_at;
     RETURN;
   END IF;
 
@@ -290,10 +302,16 @@ BEGIN
   RETURN QUERY
   SELECT
     v_reservation.id,
-    v_reservation.status,
+    v_reservation.user_id,
+    v_reservation.campaign_id,
+    v_reservation.idempotency_key,
     v_reservation.amount,
-    COALESCE(v_balance, 0),
-    v_transaction_id;
+    v_reservation.status,
+    v_reservation.reason,
+    v_reservation.metadata,
+    v_reservation.created_at,
+    v_reservation.consumed_at,
+    v_reservation.cancelled_at;
 END;
 $$;
 
@@ -303,8 +321,16 @@ CREATE OR REPLACE FUNCTION public.cancel_credit_reservation(
   p_reason TEXT DEFAULT NULL
 )
 RETURNS TABLE (
-  reservation_id UUID,
+  id UUID,
+  user_id UUID,
+  campaign_id UUID,
+  idempotency_key TEXT,
+  amount BIGINT,
   status TEXT,
+  reason TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ,
+  consumed_at TIMESTAMPTZ,
   cancelled_at TIMESTAMPTZ
 )
 LANGUAGE plpgsql
@@ -366,7 +392,18 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  SELECT v_reservation.id, v_reservation.status, v_reservation.cancelled_at;
+  SELECT
+    v_reservation.id,
+    v_reservation.user_id,
+    v_reservation.campaign_id,
+    v_reservation.idempotency_key,
+    v_reservation.amount,
+    v_reservation.status,
+    v_reservation.reason,
+    v_reservation.metadata,
+    v_reservation.created_at,
+    v_reservation.consumed_at,
+    v_reservation.cancelled_at;
 END;
 $$;
 
