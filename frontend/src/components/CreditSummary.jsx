@@ -13,13 +13,14 @@ export default function CreditSummary({
   simulatedBalance = 150,
   modeId = 'economica',
   selectedTemplateIds = [],
+  isUnlimited = false,
 }) {
   const mode = CAMPAIGN_MODES[modeId] || CAMPAIGN_MODES.economica
   const selectedItems = getSelectedCatalogItems(selectedTemplateIds)
   const selectedCost = selectedItems.reduce((sum, item) => sum + item.creditWeight, 0)
   const estimatedCost = selectedCost > 0 ? selectedCost : mode.creditCost
   const balanceAfter = simulatedBalance - estimatedCost
-  const insufficientBalance = balanceAfter < 0
+  const insufficientBalance = !isUnlimited && balanceAfter < 0
   const selectedVideos = selectedItems.filter((item) => ['video', 'reels', 'story'].includes(item.type)).length
   const selectedArts = Math.max(0, selectedItems.length - selectedVideos)
   const economySuggestion = selectedItems.some((item) => ['video', 'reels'].includes(item.type))
@@ -51,8 +52,8 @@ export default function CreditSummary({
             <WalletCards className="w-4 h-4" />
             Saldo atual
           </div>
-          <p className="text-2xl font-black text-gray-900">{currency.format(simulatedBalance)}</p>
-          <p className="text-xs text-gray-500">creditos de marketing</p>
+          <p className="text-2xl font-black text-gray-900">{isUnlimited ? 'Ilimitado' : currency.format(simulatedBalance)}</p>
+          <p className="text-xs text-gray-500">{isUnlimited ? 'créditos de teste administrativo' : 'creditos de marketing'}</p>
         </div>
 
         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
@@ -68,10 +69,10 @@ export default function CreditSummary({
             Saldo apos gerar
           </p>
           <p className={`text-2xl font-black ${insufficientBalance ? 'text-red-700' : 'text-emerald-800'}`}>
-            {currency.format(balanceAfter)}
+            {isUnlimited ? 'Ilimitado' : currency.format(balanceAfter)}
           </p>
           <p className={`text-xs ${insufficientBalance ? 'text-red-600' : 'text-emerald-700'}`}>
-            {insufficientBalance ? 'creditos insuficientes' : 'creditos restantes'}
+            {isUnlimited ? 'sem bloqueio para teste' : insufficientBalance ? 'creditos insuficientes' : 'creditos restantes'}
           </p>
         </div>
       </div>

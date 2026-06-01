@@ -53,16 +53,16 @@ const FORMAT_GROUPS = [
     grid: 'grid-cols-2 sm:grid-cols-5',
     cor: { sel: 'border-primary-400 bg-primary-50 text-primary-800', check: 'border-primary-500 bg-primary-500', btn: 'text-primary-600 hover:bg-primary-50', count: 'text-primary-600' },
     items: [
-      { id: '74097a36-5b5d-434a-8db7-4038e4c76f55', nome: 'SC_Banner_Luxo_01',     desc: 'Ideal para portais e Google Ads' },
-      { id: 'a637acac-6a7b-42f8-b7d8-e25361eff207', nome: 'SC_Banner_Popular_01',  desc: 'Ideal para portais e Facebook' },
-      { id: '7ab695ae-e12b-4322-87dc-eb085760dd01', nome: 'Real Estate Banner',    desc: 'Banner completo com features' },
-      { id: 'b0438295-5282-4a5e-b4eb-4fcd3d8d287b', nome: 'Real Estate Card',      desc: 'Card para portais' },
-      { id: 'f6054e9d-0d28-40b2-81a9-21d291a9897b', nome: 'Real Estate Detailed',  desc: 'Banner detalhado' },
-      { id: '96a25196-5a64-4f65-9b3e-c9c8b0d871f2', nome: 'Triple Slide Carousel', desc: 'Carrossel Instagram' },
-      { id: 'ad9f8382-ea38-4ef6-84cc-049f1b289345', nome: 'New Listing Story',     desc: 'Story novo lançamento' },
-      { id: '7fc36174-64a6-4dbb-bb92-bb957471577e', nome: 'Photo Montage',         desc: 'Montagem de fotos' },
-      { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Polaroid Photos',       desc: 'Estilo polaroid diferenciado' },
-      { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Animated Review',       desc: 'Review animado' },
+      { id: '662883d7-1dba-4e61-a2a2-81fd9293ab15', nome: 'Anuncio Premium 1:1',       desc: 'Arte premium para feed' },
+      { id: 'd45618d1-5f7f-4053-b317-dd2bbe322f5b', nome: 'Anuncio Premium 4:5',       desc: 'Arte vertical para redes sociais' },
+      { id: 'd791b9b8-55e2-4dff-ae5d-76b9e779c551', nome: 'Anuncio Premium 4:5',       desc: 'Arte completa com chamada e foto' },
+      { id: '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', nome: 'Card Imobiliario Premium',  desc: 'Card para portais e feed' },
+      { id: '1ae7e1f4-ada4-4b03-a032-737a025b88c6', nome: 'Detalhes do Imovel',        desc: 'Arte com dados do imovel' },
+      { id: '2ecd48d3-146c-467b-8a0d-908152101378', nome: 'Carrossel Premium',         desc: 'Carrossel para destaques' },
+      { id: '1de0a863-2376-4336-8a0a-4750c2429cf7', nome: 'Story Premium 9:16',        desc: 'Story para novidade ou oportunidade' },
+      { id: '93635efc-ef44-47d2-a8f3-38a379d69941', nome: 'Momentos do Imovel 1:1',    desc: 'Montagem de fotos' },
+      { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Momentos do Imovel 4:5',    desc: 'Galeria vertical premium' },
+      { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Avaliacao do Cliente 1:1',  desc: 'Prova social em arte quadrada' },
     ],
   },
   {
@@ -72,10 +72,10 @@ const FORMAT_GROUPS = [
     grid: 'grid-cols-2 sm:grid-cols-4',
     cor: { sel: 'border-purple-400 bg-purple-50 text-purple-800', check: 'border-purple-500 bg-purple-500', btn: 'text-purple-600 hover:bg-purple-50', count: 'text-purple-600' },
     items: [
-      { id: '13696443-a295-4019-802b-d504e9d3c2ac', nome: 'SC_Video_Cinematic_01',     desc: 'Vídeo cinematic para Reels e TikTok' },
-      { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'SC_Reels_Moderno_01',       desc: 'Reels moderno para Instagram' },
-      { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'SC_Story_Premium_01',       desc: 'Story premium com CTA' },
-      { id: 'c5338ec4-1f93-476a-a81c-ff0e7f2e91cf', nome: 'Real Estate Video Montage', desc: 'Montagem de vídeo profissional' },
+      { id: 'd280898b-7237-4c0b-a889-e85ededa9644', nome: 'Anuncio Premium 16:9',      desc: 'Criativo horizontal premium' },
+      { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'Reels Moderno 9:16',        desc: 'Reels moderno para Instagram' },
+      { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'Slides Premium 4:5',        desc: 'Sequencia premium com CTA' },
+      { id: '62d46ee6-6347-4335-af89-2b65f2794882', nome: 'Momentos do Imovel 16:9',   desc: 'Montagem de video profissional' },
     ],
   },
 ]
@@ -115,6 +115,7 @@ const TYPE_LABELS = {
 
 const FORMAT_LABELS = {
   square: '1:1',
+  portrait: '4:5',
   vertical: '9:16',
   horizontal: '16:9',
   card: 'Card',
@@ -186,9 +187,9 @@ const SMART_CAMPAIGNS = [
 
 const DEMO_CAMPAIGN_ID = 'venda_rapida'
 const DEMO_TEMPLATE_IDS = [
-  '7ab695ae-e12b-4322-87dc-eb085760dd01',
-  'ad9f8382-ea38-4ef6-84cc-049f1b289345',
-  '96a25196-5a64-4f65-9b3e-c9c8b0d871f2',
+  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
+  '1de0a863-2376-4336-8a0a-4750c2429cf7',
+  '2ecd48d3-146c-467b-8a0d-908152101378',
 ]
 
 const DELIVERABLE_LABELS = {
@@ -688,7 +689,7 @@ async function resizeFoto(file, maxPx = 1920) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  const { user: authedUser, accessToken, loading: authLoading, isPro } = useAuth()
+  const { user: authedUser, accessToken, loading: authLoading, isPro, isUnlimitedTestAdmin } = useAuth()
   const navigate = useNavigate()
   const [fase, setFase] = useState('form')
 
@@ -759,7 +760,7 @@ export default function NovaCampanha() {
   const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
   const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
   const [demoUsed, setDemoUsed] = useState(false)
-  const isDemoPlan = !isPro
+  const isDemoPlan = !isPro && !isUnlimitedTestAdmin
   const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
 
   useEffect(() => {
@@ -1902,6 +1903,7 @@ export default function NovaCampanha() {
                 simulatedBalance={simulatedCreditBalance}
                 modeId={visualCreditMode}
                 selectedTemplateIds={selectedTemplateIds}
+                isUnlimited={isUnlimitedTestAdmin}
               />
             )}
 
@@ -1922,7 +1924,7 @@ export default function NovaCampanha() {
                 Gerar campanha
               </button>
 
-              {!isDemoPlan && creditos && creditos.total_disponivel > 0 && (
+              {!isUnlimitedTestAdmin && !isDemoPlan && creditos && creditos.total_disponivel > 0 && (
                 <p className="text-center text-xs text-gray-500">
                   Você está usando <strong>1 anúncio</strong> —{' '}
                   <span className={creditos.total_disponivel <= 3 ? 'text-amber-600 font-semibold' : ''}>

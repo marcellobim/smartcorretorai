@@ -26,51 +26,51 @@ type TemplateMeta = {
 }
 
 const TEMPLATES: TemplateMeta[] = [
-  { id: '74097a36-5b5d-434a-8db7-4038e4c76f55', nome: 'SC_Banner_Luxo_01',         categoria: 'banner',   perfil: ['alto_padrao', 'lancamento'],                                  formato: 'banner-quadrado' },
-  { id: 'a637acac-6a7b-42f8-b7d8-e25361eff207', nome: 'SC_Banner_Popular_01',      categoria: 'banner',   perfil: ['popular_mcmv', 'medio_padrao'],                               formato: 'banner-quadrado' },
-  { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'SC_Reels_Moderno_01',       categoria: 'reels',    perfil: ['alto_padrao', 'medio_padrao', 'lancamento', 'em_construcao'], formato: 'vertical-9x16' },
-  { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'SC_Story_Premium_01',       categoria: 'story',    perfil: ['alto_padrao', 'lancamento'],                                  formato: 'vertical-9x16' },
-  { id: '13696443-a295-4019-802b-d504e9d3c2ac', nome: 'SC_Video_Cinematic_01',     categoria: 'video',    perfil: ['alto_padrao', 'lancamento'],                                  formato: 'horizontal-16x9' },
-  { id: '7ab695ae-e12b-4322-87dc-eb085760dd01', nome: 'Real Estate Banner',        categoria: 'banner',   perfil: ['todos'],                                                      formato: 'banner-quadrado' },
-  { id: 'b0438295-5282-4a5e-b4eb-4fcd3d8d287b', nome: 'Real Estate Card',          categoria: 'card',     perfil: ['todos'],                                                      formato: 'card-quadrado' },
-  { id: 'f6054e9d-0d28-40b2-81a9-21d291a9897b', nome: 'Real Estate Detailed',      categoria: 'detailed', perfil: ['todos'],                                                      formato: 'detalhado-quadrado' },
-  { id: 'c5338ec4-1f93-476a-a81c-ff0e7f2e91cf', nome: 'Real Estate Video Montage', categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
-  { id: '96a25196-5a64-4f65-9b3e-c9c8b0d871f2', nome: 'Triple Slide Carousel',     categoria: 'carousel', perfil: ['todos'],                                                      formato: 'carrossel-quadrado' },
-  { id: 'ad9f8382-ea38-4ef6-84cc-049f1b289345', nome: 'New Listing Story',         categoria: 'story',    perfil: ['lancamento', 'em_construcao'],                                formato: 'vertical-9x16' },
-  { id: '7fc36174-64a6-4dbb-bb92-bb957471577e', nome: 'Photo Montage',             categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-quadrado' },
-  { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Polaroid Photos',           categoria: 'card',     perfil: ['todos'],                                                      formato: 'criativo-quadrado' },
-  { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Animated Review',           categoria: 'social',   perfil: ['todos'],                                                      formato: 'vertical-9x16' },
-  { id: 'a03e7b27-0747-497c-ae84-5b048fa31915', nome: 'Searchlight Reveal',        categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-vertical' },
-  { id: 'f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', nome: 'Chat w/ Photos',            categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-vertical' },
-  { id: '57c55de1-e116-4cad-8470-54c68f023f6b', nome: 'Image Slideshow',           categoria: 'video',    perfil: ['todos'],                                                      formato: 'slideshow-horizontal' },
-  { id: 'ba3afcf4-01cc-48e3-919a-8bc6d2dd4ca4', nome: 'Video Compilation',         categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
+  { id: '662883d7-1dba-4e61-a2a2-81fd9293ab15', nome: 'Anuncio Premium 1:1',        categoria: 'banner',   perfil: ['alto_padrao', 'lancamento'],                                  formato: 'banner-quadrado' },
+  { id: 'd45618d1-5f7f-4053-b317-dd2bbe322f5b', nome: 'Anuncio Premium 4:5 tipo 2', categoria: 'banner',   perfil: ['popular_mcmv', 'medio_padrao'],                               formato: 'vertical-4x5' },
+  { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'Reels Moderno 9:16',         categoria: 'reels',    perfil: ['alto_padrao', 'medio_padrao', 'lancamento', 'em_construcao'], formato: 'vertical-9x16' },
+  { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'Slides Premium 4:5 tipo 2',  categoria: 'story',    perfil: ['alto_padrao', 'lancamento'],                                  formato: 'vertical-4x5' },
+  { id: 'd280898b-7237-4c0b-a889-e85ededa9644', nome: 'Anuncio Premium 16:9',       categoria: 'video',    perfil: ['alto_padrao', 'lancamento'],                                  formato: 'horizontal-16x9' },
+  { id: 'd791b9b8-55e2-4dff-ae5d-76b9e779c551', nome: 'Anuncio Premium 4:5',        categoria: 'banner',   perfil: ['todos'],                                                      formato: 'vertical-4x5' },
+  { id: '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', nome: 'Card Imobiliario Premium 1:1', categoria: 'card',   perfil: ['todos'],                                                      formato: 'card-quadrado' },
+  { id: '1ae7e1f4-ada4-4b03-a032-737a025b88c6', nome: 'Imovel Detalhes 1:1',        categoria: 'detailed', perfil: ['todos'],                                                      formato: 'detalhado-quadrado' },
+  { id: '62d46ee6-6347-4335-af89-2b65f2794882', nome: 'Momentos do Imovel 16:9',    categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
+  { id: '2ecd48d3-146c-467b-8a0d-908152101378', nome: 'Carrossel Premium 1:1',      categoria: 'carousel', perfil: ['todos'],                                                      formato: 'carrossel-quadrado' },
+  { id: '1de0a863-2376-4336-8a0a-4750c2429cf7', nome: 'Story Premium 9:16',         categoria: 'story',    perfil: ['lancamento', 'em_construcao'],                                formato: 'vertical-9x16' },
+  { id: '93635efc-ef44-47d2-a8f3-38a379d69941', nome: 'Momentos do Imovel 1:1',     categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-quadrado' },
+  { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Momentos do Imovel 4:5 tipo 2', categoria: 'card',  perfil: ['todos'],                                                      formato: 'vertical-4x5' },
+  { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Avaliacao do Cliente 1:1',   categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-quadrado' },
+  { id: '697a514d-4bab-4062-9c9e-3c208688c0e9', nome: 'Frase Elegante 9:16',        categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-vertical' },
+  { id: 'f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', nome: 'Chat Imobiliario 9:16',      categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-vertical' },
+  { id: 'f2f15dab-77c2-429e-9b62-f8d6694399ed', nome: 'Galeria Imobiliaria 16:9',   categoria: 'video',    perfil: ['todos'],                                                      formato: 'slideshow-horizontal' },
+  { id: 'd5171301-84e3-41d2-a6ca-ef3013f360a1', nome: 'Video Tour 16:9',            categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
 ]
 
 const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>([
-  ['74097a36-5b5d-434a-8db7-4038e4c76f55', 10],
-  ['a637acac-6a7b-42f8-b7d8-e25361eff207', 10],
+  ['662883d7-1dba-4e61-a2a2-81fd9293ab15', 10],
+  ['d45618d1-5f7f-4053-b317-dd2bbe322f5b', 10],
   ['d8310f54-5c9d-4606-ae6a-dacb8c4455ae', 60],
   ['13008c2d-9e7e-4515-a2ac-649c9ea18409', 15],
-  ['13696443-a295-4019-802b-d504e9d3c2ac', 120],
-  ['7ab695ae-e12b-4322-87dc-eb085760dd01', 10],
-  ['b0438295-5282-4a5e-b4eb-4fcd3d8d287b', 10],
-  ['f6054e9d-0d28-40b2-81a9-21d291a9897b', 10],
-  ['c5338ec4-1f93-476a-a81c-ff0e7f2e91cf', 60],
-  ['96a25196-5a64-4f65-9b3e-c9c8b0d871f2', 20],
-  ['ad9f8382-ea38-4ef6-84cc-049f1b289345', 15],
-  ['7fc36174-64a6-4dbb-bb92-bb957471577e', 60],
+  ['d280898b-7237-4c0b-a889-e85ededa9644', 120],
+  ['d791b9b8-55e2-4dff-ae5d-76b9e779c551', 10],
+  ['0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', 10],
+  ['1ae7e1f4-ada4-4b03-a032-737a025b88c6', 10],
+  ['62d46ee6-6347-4335-af89-2b65f2794882', 60],
+  ['2ecd48d3-146c-467b-8a0d-908152101378', 20],
+  ['1de0a863-2376-4336-8a0a-4750c2429cf7', 15],
+  ['93635efc-ef44-47d2-a8f3-38a379d69941', 60],
   ['3d72b111-76a7-4c7d-a594-1f75f70be2d2', 10],
   ['792ad84a-0ab8-4e6c-bda1-400fe9c040cc', 15],
-  ['a03e7b27-0747-497c-ae84-5b048fa31915', 15],
+  ['697a514d-4bab-4062-9c9e-3c208688c0e9', 15],
   ['f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', 15],
-  ['57c55de1-e116-4cad-8470-54c68f023f6b', 60],
-  ['ba3afcf4-01cc-48e3-919a-8bc6d2dd4ca4', 60],
+  ['f2f15dab-77c2-429e-9b62-f8d6694399ed', 60],
+  ['d5171301-84e3-41d2-a6ca-ef3013f360a1', 60],
 ])
 
 const DEMO_TEMPLATE_IDS = new Set<string>([
-  '7ab695ae-e12b-4322-87dc-eb085760dd01',
-  'ad9f8382-ea38-4ef6-84cc-049f1b289345',
-  '96a25196-5a64-4f65-9b3e-c9c8b0d871f2',
+  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
+  '1de0a863-2376-4336-8a0a-4750c2429cf7',
+  '2ecd48d3-146c-467b-8a0d-908152101378',
 ])
 
 const toPositiveInteger = (value: unknown): number => {
@@ -979,16 +979,17 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       ? generation_mode.trim()
       : 'manual'
     const videoIaPremium = video_ia_premium === true
+    const isUnlimitedTestAdmin = (profileRow?.email || '').toLowerCase() === 'riccieri68@gmail.com'
     const isStarterPlan = !profileRow?.plano || profileRow.plano === 'starter'
     const isDemoCreditFlow = isStarterPlan && generationMode === 'demonstrativo'
 
-    if (isStarterPlan && generationMode !== 'demonstrativo') {
+    if (!isUnlimitedTestAdmin && isStarterPlan && generationMode !== 'demonstrativo') {
       return jsonResponse({
         error: 'Plano demonstrativo permite apenas a campanha demonstrativa gratuita.',
       }, 403)
     }
 
-    if (isDemoCreditFlow) {
+    if (!isUnlimitedTestAdmin && isDemoCreditFlow) {
       const invalidDemoTemplates = pickedIds.filter((id) => !DEMO_TEMPLATE_IDS.has(id))
       const hasExactDemoSet =
         pickedIds.length === DEMO_TEMPLATE_IDS.size
@@ -1001,7 +1002,7 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       }
     }
 
-    const effectiveCreditCost = isDemoCreditFlow
+    const effectiveCreditCost = isUnlimitedTestAdmin || isDemoCreditFlow
       ? 0
       : Math.max(frontendCreditCost, serverTemplateCreditCost)
     const idempotencyKey = typeof idempotency_key === 'string' ? idempotency_key.trim() : ''

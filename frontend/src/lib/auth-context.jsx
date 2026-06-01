@@ -306,7 +306,8 @@ export function AuthProvider({ children }) {
   const user = authUser
     ? { ...authUser, ...(profile || {}), role: mergedRole, displayName, nome: displayName }
     : null
-  const isPro = !!(profile?.plano && profile.plano !== 'starter')
+  const isUnlimitedTestAdmin = (profile?.email || authUser?.email || '').toLowerCase() === 'riccieri68@gmail.com'
+  const isPro = isUnlimitedTestAdmin || !!(profile?.plano && profile.plano !== 'starter')
   const isAuthenticated = !!authUser
   const isAdmin = mergedRole === 'admin'
 
@@ -328,6 +329,7 @@ export function AuthProvider({ children }) {
     updateUser,
     isPro,
     isAdmin,
+    isUnlimitedTestAdmin,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
