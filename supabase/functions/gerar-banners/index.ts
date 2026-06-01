@@ -46,6 +46,51 @@ const TEMPLATES: TemplateMeta[] = [
   { id: 'ba3afcf4-01cc-48e3-919a-8bc6d2dd4ca4', nome: 'Video Compilation',         categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
 ]
 
+const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>([
+  ['74097a36-5b5d-434a-8db7-4038e4c76f55', 10],
+  ['a637acac-6a7b-42f8-b7d8-e25361eff207', 10],
+  ['d8310f54-5c9d-4606-ae6a-dacb8c4455ae', 60],
+  ['13008c2d-9e7e-4515-a2ac-649c9ea18409', 15],
+  ['13696443-a295-4019-802b-d504e9d3c2ac', 120],
+  ['7ab695ae-e12b-4322-87dc-eb085760dd01', 10],
+  ['b0438295-5282-4a5e-b4eb-4fcd3d8d287b', 10],
+  ['f6054e9d-0d28-40b2-81a9-21d291a9897b', 10],
+  ['c5338ec4-1f93-476a-a81c-ff0e7f2e91cf', 60],
+  ['96a25196-5a64-4f65-9b3e-c9c8b0d871f2', 20],
+  ['ad9f8382-ea38-4ef6-84cc-049f1b289345', 15],
+  ['7fc36174-64a6-4dbb-bb92-bb957471577e', 60],
+  ['3d72b111-76a7-4c7d-a594-1f75f70be2d2', 10],
+  ['792ad84a-0ab8-4e6c-bda1-400fe9c040cc', 15],
+  ['a03e7b27-0747-497c-ae84-5b048fa31915', 15],
+  ['f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', 15],
+  ['57c55de1-e116-4cad-8470-54c68f023f6b', 60],
+  ['ba3afcf4-01cc-48e3-919a-8bc6d2dd4ca4', 60],
+])
+
+const toPositiveInteger = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value))
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed))
+  }
+  return 0
+}
+
+async function cancelReservedCredits(
+  supabase: ReturnType<typeof createClient>,
+  reqId: string,
+  reservation: { userId: string; idempotencyKey: string } | null,
+  reason: string,
+) {
+  if (!reservation) return
+  const { error } = await supabase.rpc('cancel_credit_reservation', {
+    p_user_id: reservation.userId,
+    p_idempotency_key: reservation.idempotencyKey,
+    p_reason: reason,
+  })
+  if (error) console.warn(`[${reqId}] falha ao cancelar reserva de creditos:`, error.message)
+}
+
 const FILL_SYSTEM_PROMPT = `Você produz objetos "modifications" do Creatomate para uma lista de templates já selecionados. Para cada template, você recebe o NOME REAL (ou um rótulo virtual numerado, quando há slots duplicados) de cada elemento modificável e seu TIPO (text, image, video, audio).
 
 Responda APENAS com um objeto JSON válido (sem markdown), no formato:
@@ -715,6 +760,9 @@ async function fetchTemplateElements(reqId: string, templateId: string): Promise
 
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
+  let supabaseClient: ReturnType<typeof createClient> | null = null
+  let creditReservation: { userId: string; idempotencyKey: string } | null = null
+  let renderAttempted = false
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -736,6 +784,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+    supabaseClient = supabase
 
     // === Auth: validar JWT inbound e derivar user_id da identidade autenticada ===
     // NUNCA aceitar user_id do body — cliente roda com service_role e RLS bypass.
@@ -765,6 +814,10 @@ serve(async (req) => {
       corretor_avatar_url,
       marca_imovel,
       selectedTemplates,
+      credit_cost,
+      generation_mode,
+      video_ia_premium,
+      idempotency_key,
     } = payload as Record<string, unknown>
 
     // fotos_urls é a fonte de verdade, EM ORDEM (a primeira é a principal).
@@ -817,12 +870,13 @@ serve(async (req) => {
       instagram?: string
       avatar_url?: string
       logo_url?: string
+      plano?: string
     }
     let profileRow: ProfileRow | null = null
     if (profileId) {
       const { data, error: profileErr } = await supabase
         .from('profiles')
-        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url')
+        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url, plano')
         .eq('id', profileId)
         .maybeSingle()
       if (profileErr) console.warn(`[${reqId}] profile fetch erro:`, profileErr.message)
@@ -910,10 +964,81 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
     console.log(`[${reqId}] estágio 1 (user-only, sem cap): ${pickedIds.length} templates em lote`)
 
     // === ESTÁGIO 2: GET de cada template para descobrir elementos reais ===
+    const frontendCreditCost = toPositiveInteger(credit_cost)
+    const serverTemplateCreditCost = pickedIds.reduce(
+      (sum, id) => sum + (TEMPLATE_CREDIT_WEIGHTS.get(id) || 0),
+      0,
+    )
+    const generationMode = typeof generation_mode === 'string' && generation_mode.trim()
+      ? generation_mode.trim()
+      : 'manual'
+    const videoIaPremium = video_ia_premium === true
+    const isDemoCreditFlow = profileRow?.plano === 'starter' && generationMode === 'demonstrativo'
+    const effectiveCreditCost = isDemoCreditFlow
+      ? 0
+      : Math.max(frontendCreditCost, serverTemplateCreditCost)
+    const idempotencyKey = typeof idempotency_key === 'string' ? idempotency_key.trim() : ''
+    const creditMetadata = {
+      campaign_id: hasCampaignId ? campaign_id : null,
+      generation_mode: generationMode,
+      selectedTemplates: pickedIds,
+      video_ia_premium: videoIaPremium,
+      credit_cost_frontend: frontendCreditCost,
+      credit_cost_server: serverTemplateCreditCost,
+      credit_cost_effective: effectiveCreditCost,
+      req_id: reqId,
+    }
+
+    if (effectiveCreditCost > 0) {
+      if (!idempotencyKey) {
+        return jsonResponse({ error: 'idempotency_key obrigatoria para consumo de creditos.' }, 400)
+      }
+
+      const { data: reservationRows, error: reservationErr } = await supabase.rpc('reserve_credits', {
+        p_user_id: authenticatedUserId,
+        p_amount: effectiveCreditCost,
+        p_idempotency_key: idempotencyKey,
+        p_campaign_id: hasCampaignId ? campaign_id : null,
+        p_reason: 'gerar-banners',
+        p_metadata: creditMetadata,
+      })
+
+      if (reservationErr) {
+        const message = reservationErr.message || 'Falha ao reservar creditos.'
+        const status = message.toLowerCase().includes('insuficient') ? 402 : 500
+        console.warn(`[${reqId}] reserva de creditos falhou:`, message)
+        return jsonResponse({ error: status === 402 ? 'Créditos insuficientes para esta geração.' : message }, status)
+      }
+
+      const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows
+      if (reservation?.status === 'consumed') {
+        const previousRenders = Array.isArray(reservation?.metadata?.renders)
+          ? reservation.metadata.renders
+          : []
+        console.log(`[${reqId}] idempotency_key ja consumida; retornando sem novo debito`)
+        return jsonResponse({
+          success: true,
+          idempotent: true,
+          renders: previousRenders,
+          pick_source: 'user',
+          credit_cost: effectiveCreditCost,
+          credit_reservation_status: 'consumed',
+        }, 200)
+      }
+
+      if (reservation?.status === 'cancelled') {
+        return jsonResponse({ error: 'Reserva de creditos cancelada. Gere novamente para criar uma nova reserva.' }, 409)
+      }
+
+      creditReservation = { userId: authenticatedUserId, idempotencyKey }
+      console.log(`[${reqId}] creditos reservados: ${effectiveCreditCost}`)
+    }
+
     const schemas = await Promise.all(pickedIds.map((id) => fetchTemplateElements(reqId, id)))
     const schemasComElementos = schemas.filter((s) => s.elements.length > 0)
 
     if (schemasComElementos.length === 0) {
+      await cancelReservedCredits(supabase, reqId, creditReservation, 'sem_elementos_template')
       return jsonResponse({ error: 'Não foi possível obter elementos de nenhum template' }, 502)
     }
 
@@ -958,6 +1083,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
     if (!fillRes.ok) {
       const errBody = await fillRes.text()
       console.error(`[${reqId}] fill OpenAI ${fillRes.status}:`, errBody.slice(0, 300))
+      await cancelReservedCredits(supabase, reqId, creditReservation, 'openai_fill_erro')
       return jsonResponse({ error: `OpenAI (fill) ${fillRes.status}: ${errBody.slice(0, 300)}` }, 502)
     }
 
@@ -968,6 +1094,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       plano = JSON.parse(raw)
     } catch (e) {
       console.error(`[${reqId}] fill parse:`, e)
+      await cancelReservedCredits(supabase, reqId, creditReservation, 'openai_fill_json_invalido')
       return jsonResponse({ error: 'OpenAI (fill) retornou JSON inválido' }, 502)
     }
 
@@ -975,6 +1102,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       .filter((s) => s.template_id && validIds.has(s.template_id))
 
     if (aprovadas.length === 0) {
+      await cancelReservedCredits(supabase, reqId, creditReservation, 'sem_modifications_ia')
       return jsonResponse({ error: 'IA (fill) não produziu modifications para nenhum template' }, 502)
     }
 
@@ -1077,6 +1205,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
     }).filter((s) => Object.keys(s.modifications).length > 0)
 
     if (aprovadasLimpas.length === 0) {
+      await cancelReservedCredits(supabase, reqId, creditReservation, 'sem_modifications_validas')
       return jsonResponse({
         error: 'Nenhuma modification válida sobrou após validação contra elementos reais',
       }, 502)
@@ -1117,6 +1246,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
 
     // === Disparar renders no Creatomate (paralelo) ========================
     const renders: Array<Record<string, unknown>> = []
+    renderAttempted = true
 
     await Promise.all(aprovadasLimpas.map(async (sel) => {
       const meta = validIds.get(sel.template_id)!
@@ -1171,6 +1301,47 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       }
     }))
 
+    const successfulRenderCount = renders.filter((render) => typeof render.render_id === 'string').length
+    let creditConsumption: unknown = null
+
+    if (creditReservation && effectiveCreditCost > 0) {
+      if (successfulRenderCount === 0) {
+        await cancelReservedCredits(supabase, reqId, creditReservation, 'nenhum_render_criado')
+        return jsonResponse({
+          error: 'Nenhum render foi criado. A reserva de creditos foi cancelada.',
+          renders,
+          pick_source: 'user',
+          credit_cost: effectiveCreditCost,
+          credit_reservation_status: 'cancelled',
+        }, 502)
+      }
+
+      const { data: consumptionRows, error: consumptionErr } = await supabase.rpc('consume_reserved_credits', {
+        p_user_id: authenticatedUserId,
+        p_idempotency_key: idempotencyKey,
+        p_observacao: 'Consumo de creditos na geracao visual',
+        p_metadata: {
+          ...creditMetadata,
+          renders,
+          render_count: successfulRenderCount,
+        },
+      })
+
+      if (consumptionErr) {
+        console.error(`[${reqId}] falha ao consumir creditos reservados:`, consumptionErr.message)
+        return jsonResponse({
+          error: consumptionErr.message || 'Falha ao consumir creditos reservados.',
+          renders,
+          pick_source: 'user',
+          credit_cost: effectiveCreditCost,
+          credit_reservation_status: 'reserved',
+        }, 500)
+      }
+
+      creditConsumption = Array.isArray(consumptionRows) ? consumptionRows[0] : consumptionRows
+      creditReservation = null
+    }
+
     // === Persistir em campaigns.banners (jsonb) — somente se campaign_id ==
     if (hasCampaignId) {
       const { error: updErr } = await supabase
@@ -1184,14 +1355,26 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           warning: `Renders disparados, mas não foi possível salvar em campaigns.banners: ${updErr.message}`,
           renders,
           pick_source: 'user',
+          credit_cost: effectiveCreditCost,
+          credit_consumption: creditConsumption,
         }, 200)
       }
     }
 
     console.log(`[${reqId}] OK | ${renders.length} renders disparados | pick=user`)
-    return jsonResponse({ success: true, renders, pick_source: 'user' }, 200)
+    return jsonResponse({
+      success: true,
+      renders,
+      pick_source: 'user',
+      credit_cost: effectiveCreditCost,
+      credit_consumption: creditConsumption,
+      credit_reservation_status: creditConsumption ? 'consumed' : 'not_required',
+    }, 200)
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
+    if (creditReservation && !renderAttempted && supabaseClient) {
+      await cancelReservedCredits(supabaseClient, reqId, creditReservation, 'erro_antes_render')
+    }
     const msg = error instanceof Error ? error.message : String(error)
     return jsonResponse({ error: msg }, 500)
   }

@@ -36,12 +36,12 @@ export default function CreditSummary({
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900">Resumo de creditos</h2>
-              <p className="text-xs text-gray-500">Visual temporario. Nenhum credito sera debitado nesta fase.</p>
+              <p className="text-xs text-gray-500">Estimativa visual. O servidor confirma e registra o consumo na geracao.</p>
             </div>
           </div>
         </div>
         <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
-          Simulado
+          Server-side
         </span>
       </div>
 

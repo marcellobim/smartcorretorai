@@ -134,6 +134,11 @@ const CREDIT_BUILDER_TABS = [
   },
 ]
 
+const createGenerationIdempotencyKey = (userId) => {
+  const randomPart = window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
+  return `${userId || 'user'}:${Date.now()}:${randomPart}`
+}
+
 const SMART_CAMPAIGNS = [
   {
     id: 'venda_rapida',
@@ -784,6 +789,11 @@ export default function NovaCampanha() {
   const economySuggestion = selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
     ? 'Remova Vídeo/Reels para economizar créditos e manter artes + textos IA.'
     : 'Escolha apenas Banner Feed e Story para uma geração mais econômica.'
+  const generationModeForCredits = isDemoPlan
+    ? 'demonstrativo'
+    : (creditBuilderMode === 'manual' ? 'manual' : visualCreditMode)
+  const generationCreditCost = isDemoPlan ? 0 : estimatedCreditConsumption
+  const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
 
   const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
     if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
@@ -963,6 +973,19 @@ export default function NovaCampanha() {
         ...[...formatosSel.videos],
       ]
       console.log('[gerarAnuncios] selectedTemplates:', selectedTemplates)
+      const idempotencyKey = createGenerationIdempotencyKey(userId)
+      const creditPayload = {
+        credit_cost: generationCreditCost,
+        generation_mode: generationModeForCredits,
+        video_ia_premium: generationHasPremiumVideo,
+        idempotency_key: idempotencyKey,
+      }
+      console.log('[gerarAnuncios] creditPayload:', {
+        credit_cost: creditPayload.credit_cost,
+        generation_mode: creditPayload.generation_mode,
+        video_ia_premium: creditPayload.video_ia_premium,
+        has_idempotency_key: Boolean(creditPayload.idempotency_key),
+      })
 
       // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
       console.log('[gerarAnuncios] >>> DISPARANDO invoke(gerar-campanha) + invoke(gerar-banners) em paralelo')
@@ -1009,6 +1032,7 @@ export default function NovaCampanha() {
               corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
               corretor_avatar_url: corretorAvatarUrl,
               marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
+              ...creditPayload,
             },
           })
         : Promise.resolve({ data: { renders: [], skipped: true }, error: null })
@@ -1205,6 +1229,14 @@ export default function NovaCampanha() {
       return
     }
 
+    const idempotencyKey = createGenerationIdempotencyKey(authedUser?.id)
+    const creditPayload = {
+      credit_cost: generationCreditCost,
+      generation_mode: generationModeForCredits,
+      video_ia_premium: generationHasPremiumVideo,
+      idempotency_key: idempotencyKey,
+    }
+
     setGerandoBanners(true)
     setRenders(null)
 
@@ -1242,6 +1274,7 @@ export default function NovaCampanha() {
           corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
           corretor_avatar_url: corretorAvatarUrl,
           marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
+          ...creditPayload,
         },
       })
 
