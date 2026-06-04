@@ -1540,6 +1540,66 @@ export default function NovaCampanha() {
               </div>
             </div>
 
+            {wizardStep === 0 && (
+              <div className="rounded-3xl border border-primary-100 bg-gradient-to-br from-gray-950 via-primary-950 to-gray-900 p-6 sm:p-8 text-white shadow-xl shadow-primary-950/20 overflow-hidden relative">
+                <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl" />
+                <div className="absolute left-10 bottom-0 h-32 w-32 rounded-full bg-primary-400/20 blur-3xl" />
+                <div className="relative z-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-amber-200">Bem-vindo ao SmartCorretorAI</p>
+                    <h2 className="mt-3 text-2xl sm:text-3xl font-black leading-tight">
+                      Crie campanhas profissionais para seus imóveis em poucos minutos.
+                    </h2>
+                    <p className="mt-4 text-sm sm:text-base leading-relaxed text-gray-200">
+                      Escolha os produtos de marketing que deseja gerar. Depois informe os dados do imóvel, envie as fotos e o SmartCorretorAI cria tudo para você.
+                    </p>
+
+                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { step: '1', title: 'Escolha o que deseja gerar' },
+                        { step: '2', title: 'Informe os dados do imóvel' },
+                        { step: '3', title: 'Gere sua campanha pronta para divulgar' },
+                      ].map(item => (
+                        <div key={item.step} className="rounded-2xl border border-white/10 bg-white/8 p-4">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-300 text-sm font-black text-gray-950">
+                            {item.step}
+                          </span>
+                          <p className="mt-3 text-sm font-bold leading-snug text-white">{item.title}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(1)}
+                      className="mt-6 rounded-2xl bg-amber-300 px-6 py-3 text-sm font-black text-gray-950 hover:bg-amber-200 transition-colors"
+                    >
+                      Começar Agora
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {MARKETING_OBJECTIVES.slice(0, 4).map((objective, index) => (
+                      <div
+                        key={objective.id}
+                        className={`rounded-2xl overflow-hidden border border-white/10 bg-white/8 ${index === 0 ? 'col-span-2' : ''}`}
+                      >
+                        <img
+                          src={objective.previewUrl}
+                          alt={`Exemplo ${objective.publicName}`}
+                          className="h-28 w-full object-cover"
+                        />
+                        <div className="p-3">
+                          <p className="text-xs font-black text-white">{objective.publicName}</p>
+                          <p className="mt-1 text-[11px] leading-snug text-gray-300">{objective.expectedResult}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isDemoPlan && (
               <div className={`rounded-2xl border p-4 ${demoUsed ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
                 <div className="flex items-start gap-3">
