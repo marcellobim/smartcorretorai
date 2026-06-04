@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <rect width="960" height="600" fill="#f8fafc"/>
+  <rect x="120" y="120" width="220" height="330" rx="24" fill="#111827"/>
+  <rect x="380" y="90" width="220" height="390" rx="24" fill="#f59e0b"/>
+  <rect x="640" y="120" width="220" height="330" rx="24" fill="#111827"/>
+  <circle cx="455" cy="525" r="8" fill="#111827"/>
+  <circle cx="480" cy="525" r="8" fill="#f59e0b"/>
+  <circle cx="505" cy="525" r="8" fill="#111827"/>
+  <text x="120" y="70" font-family="Arial" font-size="46" font-weight="800" fill="#111827">Carrossel</text>
+</svg>

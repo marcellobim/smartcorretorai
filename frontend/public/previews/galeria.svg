@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <rect width="960" height="600" fill="#111827"/>
+  <rect x="95" y="120" width="240" height="330" rx="22" fill="#bfdbfe"/>
+  <rect x="380" y="80" width="240" height="410" rx="22" fill="#fde68a"/>
+  <rect x="665" y="140" width="240" height="300" rx="22" fill="#bbf7d0"/>
+  <text x="95" y="535" font-family="Arial" font-size="46" font-weight="800" fill="#ffffff">Galeria</text>
+  <text x="285" y="535" font-family="Arial" font-size="24" fill="#d1d5db">ambientes em destaque</text>
+</svg>

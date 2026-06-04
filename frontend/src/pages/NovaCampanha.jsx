@@ -4,9 +4,11 @@ import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X,
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import CreditSummary from '../components/CreditSummary'
+import MarketingObjectiveCatalog from '../components/MarketingObjectiveCatalog'
 import { CAMPAIGN_MODES, CAMPAIGN_MODE_ORDER } from '../data/campaignModes'
 import { CAMPAIGN_TEMPLATES } from '../data/campaignTemplates'
 import { TEMPLATE_CATALOG } from '../data/templateCatalog'
+import { MARKETING_OBJECTIVES, SMART_CAMPAIGN_OBJECTIVES, getSelectedTemplatesFromObjectiveIds } from '../data/marketingObjectives'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 
@@ -254,9 +256,11 @@ const createDeliverableDetail = (key, count = null) => ({
 
 const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false) => {
   const mode = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId] || CAMPAIGN_TEMPLATES[campaignId]?.modes?.economica
+  const suggestedObjectives = SMART_CAMPAIGN_OBJECTIVES[campaignId]?.[modeId] || SMART_CAMPAIGN_OBJECTIVES[campaignId]?.economica || []
+  const suggestedTemplates = getSelectedTemplatesFromObjectiveIds(suggestedObjectives)
   const catalogItems = isDemoPlan && campaignId === DEMO_CAMPAIGN_ID
     ? TEMPLATE_CATALOG.filter(template => DEMO_TEMPLATE_IDS.includes(template.templateId)).map(template => template.id)
-    : mode?.catalogItems || []
+    : TEMPLATE_CATALOG.filter(template => suggestedTemplates.includes(template.templateId)).map(template => template.id)
   const counts = countDeliverables(catalogItems)
   const deliverables = [
     counts.banners > 0 ? createDeliverableDetail('banners', counts.banners) : null,
@@ -270,7 +274,10 @@ const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false) => {
   return {
     deliverables,
     totalPieces: counts.total,
-    creditCost: isDemoPlan && campaignId === DEMO_CAMPAIGN_ID ? 0 : (mode?.creditCost || 0),
+    creditCost: isDemoPlan && campaignId === DEMO_CAMPAIGN_ID ? 0 : (suggestedObjectives.reduce((sum, id) => {
+      const objective = MARKETING_OBJECTIVES.find(item => item.id === id)
+      return sum + (objective?.credits || 0)
+    }, 0) || mode?.creditCost || 0),
   }
 }
 
@@ -747,11 +754,10 @@ export default function NovaCampanha() {
     })
   }
   const selecionarTudo = () => {
-    const m = {}
-    FORMAT_GROUPS.forEach(g => { m[g.id] = new Set(g.items.map(i => i.id)) })
+    const templateIds = getSelectedTemplatesFromObjectiveIds(MARKETING_OBJECTIVES.map(objective => objective.id))
     setSelectedSmartCampaign(null)
     setCreditBuilderMode('manual')
-    setFormatosSel(m)
+    setSelectedTemplateIds(templateIds)
   }
 
   const [creditos, setCreditos] = useState(null)
@@ -782,6 +788,11 @@ export default function NovaCampanha() {
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
   const selectedTemplateIds = FORMAT_GROUPS.flatMap(group => Array.from(formatosSel[group.id] || []))
+  const selectedTemplateIdSet = new Set(selectedTemplateIds)
+  const selectedMarketingObjectives = MARKETING_OBJECTIVES.filter(objective =>
+    objective.selectedTemplates.every(templateId => selectedTemplateIdSet.has(templateId))
+  )
+  const selectedObjectiveCount = selectedMarketingObjectives.length
   const simulatedCreditBalance = 150
   const selectedCatalogItems = TEMPLATE_CATALOG.filter(template => selectedTemplateIds.includes(template.templateId))
   const estimatedCreditConsumption = selectedCatalogItems.reduce((sum, item) => sum + item.creditWeight, 0)
@@ -796,15 +807,35 @@ export default function NovaCampanha() {
   const generationCreditCost = isDemoPlan ? 0 : estimatedCreditConsumption
   const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
 
-  const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
-    if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
-    const selected = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId]?.selectedTemplates || []
-    const allowed = isDemoPlan ? DEMO_TEMPLATE_IDS : selected
+  const setSelectedTemplateIds = (templateIds = []) => {
+    const selected = new Set(templateIds)
     const next = {}
     FORMAT_GROUPS.forEach(group => {
-      next[group.id] = new Set(group.items.filter(item => allowed.includes(item.id)).map(item => item.id))
+      next[group.id] = new Set(group.items.filter(item => selected.has(item.id)).map(item => item.id))
     })
     setFormatosSel(next)
+  }
+
+  const toggleMarketingObjective = (objective) => {
+    const next = new Set(selectedTemplateIds)
+    const alreadySelected = objective.selectedTemplates.every(templateId => next.has(templateId))
+
+    objective.selectedTemplates.forEach(templateId => {
+      if (alreadySelected) next.delete(templateId)
+      else next.add(templateId)
+    })
+
+    setSelectedSmartCampaign(null)
+    setCreditBuilderMode('manual')
+    setSelectedTemplateIds(Array.from(next))
+  }
+
+  const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
+    if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
+    const suggestedObjectives = SMART_CAMPAIGN_OBJECTIVES[campaignId]?.[modeId] || SMART_CAMPAIGN_OBJECTIVES[campaignId]?.economica || []
+    const selected = getSelectedTemplatesFromObjectiveIds(suggestedObjectives)
+    const allowed = isDemoPlan ? DEMO_TEMPLATE_IDS : selected
+    setSelectedTemplateIds(allowed)
     setSelectedSmartCampaign(campaignId)
     setCreditBuilderMode('recommended')
   }
@@ -1617,10 +1648,16 @@ export default function NovaCampanha() {
             <div className="card p-6">
               <div className="mb-5">
                 <p className="text-xs font-bold text-primary-600 uppercase tracking-wider mb-1">Campanhas Inteligentes</p>
-                <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
+                <h2 className="text-base font-bold text-gray-900">Campanhas Recomendadas</h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Escolha o objetivo da campanha. O sistema seleciona internamente os formatos recomendados.
+                  Escolha uma sugestão pronta ou ajuste os produtos depois. Você continua livre para modificar a campanha.
                 </p>
+                <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <p className="text-sm font-black text-amber-900">💡 Sugestões Prontas</p>
+                  <p className="text-xs leading-relaxed text-amber-800 mt-1">
+                    As campanhas abaixo são apenas recomendações automáticas. Você também pode montar sua própria campanha escolhendo produtos individuais.
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
@@ -1669,71 +1706,71 @@ export default function NovaCampanha() {
                       }`}>
                         <div>
                           <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-amber-200 mb-2">
-                            {locked ? '🔒 Disponível nos planos pagos' : `${cardDetails.totalPieces} peças`}
+                            {locked ? 'Disponível nos planos pagos' : `${cardDetails.totalPieces} peças`}
                           </span>
                           <h3 className="text-lg font-black text-white">{campaign.title}</h3>
                         </div>
                       </div>
 
                       <div className="p-4 flex flex-col flex-1">
-                        <p className={`text-sm leading-relaxed ${active ? 'text-gray-300' : 'text-gray-500'}`}>
-                          {campaign.description}
-                        </p>
-
-                        <div className={`mt-4 rounded-xl border p-3 ${active ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
-                          <div className="flex items-center justify-between gap-3">
-                            <span className={`text-xs font-bold ${active ? 'text-amber-200' : 'text-gray-700'}`}>Você receberá</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-black ${active ? 'bg-amber-300 text-gray-950' : 'bg-amber-100 text-amber-700'}`}>
-                              {cardDetails.creditCost} créditos
-                            </span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className={`text-[11px] font-black uppercase tracking-wide ${active ? 'text-amber-200' : 'text-primary-600'}`}>Objetivo</p>
+                            <p className={`text-sm leading-relaxed ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                              {campaign.description}
+                            </p>
                           </div>
-                          <div className="mt-3 space-y-1.5">
-                            {cardDetails.deliverables.map(item => (
-                              <div key={item.key} className={`rounded-lg border p-2 ${active ? 'border-white/10 bg-white/5' : 'border-white bg-white'}`}>
-                                <div className="flex items-start gap-2">
-                                  <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${active ? 'text-amber-300' : 'text-emerald-500'}`} />
-                                  <div>
-                                    <p className={`text-xs font-bold ${active ? 'text-white' : 'text-gray-800'}`}>
-                                      {item.count ? `${item.count}x ` : ''}{item.title}
-                                    </p>
-                                    <p className={`text-[11px] leading-snug mt-1 ${active ? 'text-gray-300' : 'text-gray-500'}`}>
-                                      <span className="font-semibold">Onde usar:</span> {item.where}
-                                    </p>
-                                    <p className={`text-[11px] leading-snug mt-1 ${active ? 'text-gray-300' : 'text-gray-500'}`}>
-                                      <span className="font-semibold">Serve para:</span> {item.purpose}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          <div className={`mt-3 grid grid-cols-2 gap-2 text-[11px] ${active ? 'text-gray-200' : 'text-gray-600'}`}>
-                            <div className={`rounded-lg p-2 ${active ? 'bg-white/5' : 'bg-white border border-gray-100'}`}>
-                              <p className="font-bold">Saldo atual</p>
-                              <p>{simulatedCreditBalance} creditos</p>
-                            </div>
-                            <div className={`rounded-lg p-2 ${active ? 'bg-white/5' : 'bg-white border border-gray-100'}`}>
-                              <p className="font-bold">Apos gerar</p>
-                              <p>{simulatedCreditBalance - cardDetails.creditCost} creditos</p>
-                            </div>
-                          </div>
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ${active ? 'bg-amber-300 text-gray-950' : 'bg-amber-100 text-amber-700'}`}>
+                            {cardDetails.creditCost} cr{"\u00e9"}ditos
+                          </span>
                         </div>
 
-                        <div className={`mt-3 rounded-xl border p-3 ${active ? 'border-amber-300/30 bg-amber-300/10' : 'border-amber-100 bg-amber-50'}`}>
-                          <p className={`text-xs font-black ${active ? 'text-amber-200' : 'text-amber-800'}`}>💡 Dica SmartCorretorAI</p>
-                          <p className={`text-xs leading-relaxed mt-1 ${active ? 'text-gray-200' : 'text-amber-900'}`}>
-                            {campaign.smartTip}
-                          </p>
+                        <div className={`mt-4 rounded-xl border p-3 ${active ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
+                          <p className={`text-xs font-black ${active ? 'text-amber-200' : 'text-gray-700'}`}>Produtos inclu{"\u00ed"}dos</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {cardDetails.deliverables.map(item => (
+                              <span key={item.key} className={`rounded-full px-2 py-1 text-[11px] font-bold ${active ? 'bg-white/10 text-gray-100' : 'bg-white text-gray-700 border border-gray-100'}`}>
+                                {item.count ? `${item.count}x ` : ''}{item.title}
+                              </span>
+                            ))}
+                          </div>
                         </div>
 
                         <div className="mt-4 space-y-2">
-                          {campaign.benefits.map(benefit => (
+                          {campaign.benefits.slice(0, 2).map(benefit => (
                             <div key={benefit} className="flex items-start gap-2">
                               <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-amber-300' : 'text-primary-500'}`} />
                               <span className={`text-xs ${active ? 'text-gray-200' : 'text-gray-600'}`}>{benefit}</span>
                             </div>
                           ))}
                         </div>
+
+                        <details className={`mt-4 rounded-xl border p-3 ${active ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
+                          <summary className={`cursor-pointer text-xs font-black ${active ? 'text-amber-200' : 'text-primary-700'}`}>
+                            Ver detalhes
+                          </summary>
+                          <div className="mt-3 space-y-2">
+                            {cardDetails.deliverables.map(item => (
+                              <div key={item.key} className={`rounded-lg border p-2 ${active ? 'border-white/10 bg-white/5' : 'border-white bg-white'}`}>
+                                <p className={`text-xs font-bold ${active ? 'text-white' : 'text-gray-800'}`}>
+                                  {item.count ? `${item.count}x ` : ''}{item.title}
+                                </p>
+                                <p className={`text-[11px] leading-snug mt-1 ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                                  <span className="font-semibold">Onde usar:</span> {item.where}
+                                </p>
+                                <p className={`text-[11px] leading-snug mt-1 ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                                  <span className="font-semibold">Serve para:</span> {item.purpose}
+                                </p>
+                              </div>
+                            ))}
+                            <div className={`rounded-lg p-2 ${active ? 'bg-amber-300/10' : 'bg-amber-50 border border-amber-100'}`}>
+                              <p className={`text-xs font-black ${active ? 'text-amber-200' : 'text-amber-800'}`}>Dica SmartCorretorAI</p>
+                              <p className={`text-xs leading-relaxed mt-1 ${active ? 'text-gray-200' : 'text-amber-900'}`}>
+                                {campaign.smartTip}
+                              </p>
+                            </div>
+                          </div>
+                        </details>
 
                         <button
                           type="button"
@@ -1769,7 +1806,7 @@ export default function NovaCampanha() {
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <p className="text-xs font-bold text-gray-500">Consumo estimado</p>
                   <p className="text-2xl font-black text-gray-900">{estimatedCreditConsumption}</p>
-                  <p className="text-xs text-gray-500">{selectedCatalogItems.length} formato(s) selecionado(s)</p>
+                  <p className="text-xs text-gray-500">{selectedObjectiveCount} produto(s) selecionado(s)</p>
                 </div>
                 <div className={`rounded-2xl border p-4 ${hasInsufficientCredits ? 'border-red-100 bg-red-50' : 'border-emerald-100 bg-emerald-50'}`}>
                   <p className={`text-xs font-bold ${hasInsufficientCredits ? 'text-red-600' : 'text-emerald-700'}`}>Saldo apos gerar</p>
@@ -1788,18 +1825,25 @@ export default function NovaCampanha() {
               )}
 
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-base font-bold text-gray-900">Catálogo Premium Visual</h2>
+                <h2 className="text-base font-bold text-gray-900">Cat{"\u00e1"}logo Premium Visual</h2>
                 <button type="button" onClick={selecionarTudo}
                   className="text-xs font-semibold text-primary-600 hover:text-primary-800 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition-colors">
-                  Selecionar tudo
+                  Selecionar todos os produtos
                 </button>
               </div>
               <p className="text-xs text-gray-500 mb-5">
-                Selecione as artes e videos que deseja gerar. Textos IA nao consomem creditos.
+                Escolha os produtos de marketing que deseja gerar. Os previews s{"\u00e3"}o exemplos e n{"\u00e3"}o consomem cr{"\u00e9"}ditos.
               </p>
 
+              <div className="mb-5">
+                <MarketingObjectiveCatalog
+                  selectedTemplateIds={selectedTemplateIds}
+                  onToggleObjective={toggleMarketingObjective}
+                />
+              </div>
+
               <div className="space-y-5">
-                {FORMAT_GROUPS.map(grupo => {
+                {false && FORMAT_GROUPS.map(grupo => {
                   const sel = formatosSel[grupo.id]
                   const allSel = grupo.items.every(i => sel.has(i.id))
                   return (
@@ -1889,6 +1933,38 @@ export default function NovaCampanha() {
               </div>
             </div>
               )}
+            </div>
+
+            <div className="rounded-3xl border border-primary-100 bg-gradient-to-br from-gray-950 via-primary-950 to-gray-900 p-6 text-white shadow-xl shadow-primary-950/20">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-black uppercase tracking-wider text-amber-200">Liberdade total</p>
+                  <h2 className="mt-1 text-xl font-black">🎨 Monte Sua Própria Campanha</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-200">
+                    Escolha exatamente os produtos que deseja gerar. Você pode combinar formatos livremente e pagar apenas pelos créditos utilizados.
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      'Escolha apenas o que precisa',
+                      'Controle total dos créditos',
+                      'Combine produtos livremente',
+                      'Crie campanhas exclusivas para cada imóvel',
+                    ].map(item => (
+                      <div key={item} className="flex items-start gap-2 rounded-xl bg-white/8 px-3 py-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-amber-300 mt-0.5" />
+                        <span className="text-xs font-semibold text-gray-100">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreditBuilderMode('manual')}
+                  className="shrink-0 rounded-2xl bg-amber-300 px-5 py-3 text-sm font-black text-gray-950 hover:bg-amber-200 transition-colors"
+                >
+                  Montar Minha Campanha
+                </button>
+              </div>
             </div>
 
             {isDemoPlan ? (
