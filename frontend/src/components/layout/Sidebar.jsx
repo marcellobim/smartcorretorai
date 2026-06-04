@@ -16,7 +16,7 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/nova-campanha', icon: Sparkles, label: 'Nova Campanha' },
   { to: '/meus-imoveis', icon: Building2, label: 'Meus Imóveis' },
-  { to: '/pacotes-gerados', icon: Package, label: 'Pacotes Gerados' },
+  { to: '/pacotes-gerados', icon: Package, label: 'Campanhas Geradas' },
   { to: '/configuracoes', icon: Settings, label: 'Configurações' },
 ]
 

@@ -60,7 +60,7 @@ export default function CreditSummary({
           <p className="text-gray-500 text-xs font-semibold mb-1">Custo estimado</p>
           <p className="text-2xl font-black text-gray-900">{currency.format(estimatedCost)}</p>
           <p className="text-xs text-gray-500">
-            {selectedItems.length > 0 ? `${selectedItems.length} item(ns) selecionado(s)` : `Pacote ${mode.label}`}
+            {selectedItems.length > 0 ? `${selectedItems.length} item(ns) selecionado(s)` : 'Seleção atual'}
           </p>
         </div>
 

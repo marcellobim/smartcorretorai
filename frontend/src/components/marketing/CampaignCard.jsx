@@ -74,7 +74,7 @@ export function CampaignCard({ campaign, onDelete, onDownload }) {
             disabled={campaign.status !== 'concluido'}
           >
             <Download className="w-3.5 h-3.5" />
-            Baixar Pacote
+            Baixar campanha
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(campaign)}>
             <Trash2 className="w-3.5 h-3.5 text-red-400" />

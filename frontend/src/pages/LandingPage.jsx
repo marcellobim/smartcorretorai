@@ -106,7 +106,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-primary-600 uppercase tracking-wider mb-3">Funcionalidades</p>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Tudo que você precisa para vender mais</h2>
-            <p className="mt-4 text-gray-500 max-w-xl mx-auto">Do cadastro do imóvel ao pacote de marketing completo, tudo automatizado com inteligência artificial.</p>
+            <p className="mt-4 text-gray-500 max-w-xl mx-auto">Do cadastro do imóvel à campanha de marketing completa, tudo automatizado com inteligência artificial.</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map(({ icon: Icon, title, desc }) => (
@@ -132,7 +132,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               { step: '01', icon: Building2, title: 'Cadastre o imóvel', desc: 'Adicione fotos, descrição, preço e localização do imóvel na plataforma.' },
-              { step: '02', icon: Sparkles, title: 'IA gera o pacote', desc: 'Nossa IA cria banners, vídeos e textos otimizados para cada rede social automaticamente.' },
+              { step: '02', icon: Sparkles, title: 'IA cria a campanha', desc: 'Nossa IA cria banners, vídeos e textos otimizados para cada rede social automaticamente.' },
               { step: '03', icon: Share2, title: 'Publique e venda', desc: 'Baixe todos os arquivos prontos e publique nas redes sociais em segundos.' },
             ].map(({ step, icon: Icon, title, desc }) => (
               <div key={step} className="text-center">

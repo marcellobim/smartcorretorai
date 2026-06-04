@@ -60,19 +60,19 @@ export default function PacotesGerados() {
       return
     }
 
-    const header = `✅ PACOTE — ${campaign.titulo || 'Imóvel'}\n${'═'.repeat(40)}\n\n`
+    const header = `✅ CAMPANHA — ${campaign.titulo || 'Imóvel'}\n${'═'.repeat(40)}\n\n`
     const txt = header + partes.join('\n')
 
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
-    const slug = (campaign.titulo || 'pacote')
+    const slug = (campaign.titulo || 'campanha')
       .toString()
       .replace(/\s+/g, '-')
       .toLowerCase()
       .slice(0, 50)
     const a = document.createElement('a')
     a.href = url
-    a.download = `pacote-${slug}.txt`
+    a.download = `campanha-${slug}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -82,7 +82,7 @@ export default function PacotesGerados() {
   const handleDelete = async () => {
     try {
       await remove(confirmDelete.id)
-      toast.success('Pacote excluído')
+      toast.success('Campanha excluída')
       setConfirmDelete(null)
     } catch (err) {
       toast.error(err.message)
@@ -92,8 +92,8 @@ export default function PacotesGerados() {
   return (
     <div>
       <Header
-        title="Pacotes Gerados"
-        subtitle={`${campaigns.length} pacote${campaigns.length !== 1 ? 's' : ''} de marketing`}
+        title="Campanhas Geradas"
+        subtitle={`${campaigns.length} campanha${campaigns.length !== 1 ? 's' : ''} de marketing`}
       />
 
       <div className="p-6">
@@ -103,7 +103,7 @@ export default function PacotesGerados() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar pacotes..."
+              placeholder="Buscar campanhas..."
               className="input pl-9"
             />
           </div>
@@ -135,7 +135,7 @@ export default function PacotesGerados() {
               <Package className="w-8 h-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900">
-              {search ? 'Nenhum pacote encontrado' : 'Nenhum pacote gerado ainda'}
+              {search ? 'Nenhuma campanha encontrada' : 'Nenhuma campanha gerada ainda'}
             </h3>
             <p className="text-gray-500 text-sm mt-2">
               {search ? 'Tente outro termo de busca' : 'Gere sua primeira campanha de marketing para um imóvel'}
@@ -155,9 +155,9 @@ export default function PacotesGerados() {
         )}
       </div>
 
-      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Excluir pacote" size="sm">
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Excluir campanha" size="sm">
         <p className="text-sm text-gray-600">
-          Tem certeza que deseja excluir o pacote <strong>{confirmDelete?.titulo}</strong>? Os arquivos serão removidos permanentemente.
+          Tem certeza que deseja excluir a campanha <strong>{confirmDelete?.titulo}</strong>? Os arquivos serão removidos permanentemente.
         </p>
         <div className="flex gap-3 mt-5">
           <Button variant="secondary" className="flex-1" onClick={() => setConfirmDelete(null)}>Cancelar</Button>

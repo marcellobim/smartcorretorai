@@ -32,13 +32,6 @@ const ESTADOS_BR = [
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-const DIFERENCIAIS_PRESET = [
-  'Piscina', 'Academia', 'Churrasqueira', 'Varanda / Sacada', 'Vista para o mar',
-  'Vista para a cidade', 'Playground', 'Salão de festas', 'Portaria 24h', 'Área verde',
-  'Cozinha americana', 'Closet', 'Ar-condicionado', 'Jardim privativo', 'Terraço',
-  'Home office', 'Elevador', 'Condomínio fechado', 'Próximo ao metrô',
-]
-
 const MSGS_POR_CAT = {
   alto_padrao:   ['Analisando o perfil de luxo...', 'Criando texto sofisticado...', 'Elaborando roteiro cinematográfico...', 'Refinando detalhes exclusivos...'],
   medio_padrao:  ['Analisando os pontos fortes...', 'Criando texto para Instagram...', 'Preparando mensagem de WhatsApp...', 'Quase pronto...'],
@@ -89,7 +82,7 @@ const TEXT_FORMATS_FIXOS = [
   { nome: 'TikTok',              desc: 'Roteiro cena a cena' },
   { nome: 'LinkedIn',            desc: 'Texto profissional' },
   { nome: 'YouTube',             desc: 'Título + descrição' },
-  { nome: 'PDF Catálogo',        desc: 'Ficha completa do imóvel' },
+  { nome: 'Apresentação do imóvel', desc: 'Ficha completa para divulgação' },
   { nome: 'Roteiro de Locução',  desc: 'Script para narração' },
   { nome: 'Público Google Ads',  desc: 'Segmentação + palavras-chave' },
 ]
@@ -128,12 +121,12 @@ const CREDIT_BUILDER_TABS = [
   {
     id: 'recommended',
     label: '🚀 Campanhas Recomendadas',
-    description: 'O sistema escolhe os formatos ideais para o objetivo da campanha.',
+    description: 'O sistema sugere os produtos de marketing ideais para o objetivo da campanha.',
   },
   {
     id: 'manual',
     label: '🎯 Monte Sua Campanha',
-    description: 'Escolha exatamente quais formatos deseja gerar e acompanhe o custo.',
+    description: 'Escolha exatamente quais produtos de marketing deseja gerar e acompanhe o custo.',
   },
 ]
 
@@ -738,6 +731,7 @@ export default function NovaCampanha() {
   const [finalidade, setFinalidade] = useState('Venda')
   const [quartos, setQuartos] = useState(2)
   const [banheiros, setBanheiros] = useState(1)
+  const [suites, setSuites] = useState(0)
   const [vagas, setVagas] = useState(1)
   const [area, setArea] = useState('')
   const [preco, setPreco] = useState('')
@@ -932,13 +926,6 @@ export default function NovaCampanha() {
   }
 
   const removerFoto = (idx) => setFotos(prev => prev.filter((_, i) => i !== idx))
-
-  const toggleDif = (d) => setDiferenciais(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
-
-  const adicionarDifCustom = () => {
-    const v = difCustom.trim()
-    if (v && !diferenciais.includes(v)) { setDiferenciais(prev => [...prev, v]); setDifCustom('') }
-  }
 
   const podaGerar = categoria && tipo && bairro.trim() && cidade.trim() && estado && preco
 
@@ -1600,6 +1587,32 @@ export default function NovaCampanha() {
               </div>
             )}
 
+            <div className="rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-950 via-gray-950 to-gray-900 p-6 sm:p-8 text-white shadow-xl shadow-violet-950/15 overflow-hidden relative">
+              <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-400/15 blur-3xl" />
+              <div className="relative z-10 grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+                <div>
+                  <span className="inline-flex rounded-full border border-violet-300/30 bg-violet-300/10 px-3 py-1 text-xs font-black text-violet-100">
+                    Novidade em preparação
+                  </span>
+                  <h2 className="mt-4 text-2xl sm:text-3xl font-black">🎬 Transformar Meu Vídeo</h2>
+                  <p className="mt-3 text-sm sm:text-base leading-relaxed text-gray-200">
+                    Já gravou um vídeo do imóvel?
+                    <span className="block font-bold text-white">Transforme sua gravação em uma campanha profissional.</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-violet-200">O que você poderá criar</p>
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {['Cortes inteligentes', 'Legendas', 'CTA', 'Música', 'Reels', 'TikTok', 'Stories', 'Banners derivados'].map(benefit => (
+                      <div key={benefit} className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-gray-100">
+                        {benefit}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {isDemoPlan && (
               <div className={`rounded-2xl border p-4 ${demoUsed ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
                 <div className="flex items-start gap-3">
@@ -1668,7 +1681,7 @@ export default function NovaCampanha() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">Quantidade</label>
                 <div className="flex gap-6 flex-wrap">
                   <Counter label="Quartos" value={quartos} onChange={setQuartos} />
-                  <Counter label="Banheiros" value={banheiros} onChange={setBanheiros} />
+                  <Counter label="Suítes" value={suites} onChange={setSuites} />
                   <Counter label="Vagas" value={vagas} onChange={setVagas} />
                 </div>
               </div>
@@ -1714,24 +1727,31 @@ export default function NovaCampanha() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Diferenciais e comodidades</label>
-                <div className="flex flex-wrap gap-2">
-                  {DIFERENCIAIS_PRESET.map(d => (
-                    <button key={d} type="button" onClick={() => toggleDif(d)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${diferenciais.includes(d) ? 'gradient-primary text-white border-transparent' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                      {d}
-                    </button>
-                  ))}
+                <div className="flex items-start justify-between gap-4 mb-2">
+                  <div>
+                    <label htmlFor="destaques-imovel" className="block text-sm font-bold text-gray-900">
+                      ✨ O que você deseja destacar neste imóvel?
+                    </label>
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                      Descreva livremente os diferenciais, localização, acabamento, lazer ou qualquer ponto forte. A IA irá organizar e melhorar o texto automaticamente.
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-bold text-primary-700">
+                    IA organiza
+                  </span>
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <input value={difCustom} onChange={e => setDifCustom(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), adicionarDifCustom())}
-                    placeholder="Outro diferencial... (Enter para adicionar)"
-                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
-                  <button type="button" onClick={adicionarDifCustom}
-                    className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors">
-                    +
-                  </button>
+                <textarea
+                  id="destaques-imovel"
+                  value={difCustom}
+                  onChange={e => setDifCustom(e.target.value)}
+                  maxLength={500}
+                  rows={5}
+                  placeholder="Exemplo: apartamento reformado, vista livre, varanda gourmet, próximo ao metrô, acabamento premium, lazer completo e excelente iluminação natural."
+                  className="w-full resize-y rounded-xl border border-gray-200 px-3 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                />
+                <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+                  <span>Escreva do seu jeito. A IA cuida da apresentação.</span>
+                  <span className={difCustom.length >= 450 ? 'font-bold text-amber-600' : ''}>{difCustom.length}/500</span>
                 </div>
               </div>
             </div>
@@ -1777,6 +1797,7 @@ export default function NovaCampanha() {
               )}
             </div>
 
+            {false && (
             <div className="card p-6">
               <div className="mb-4">
                 <h2 className="text-base font-bold text-gray-900">Pacotes sugeridos</h2>
@@ -1818,6 +1839,7 @@ export default function NovaCampanha() {
                 })}
               </div>
             </div>
+            )}
 
             <div className="card p-6">
               <div className="mb-5">
@@ -1829,7 +1851,7 @@ export default function NovaCampanha() {
                 <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                   <p className="text-sm font-black text-amber-900">💡 Sugestões Prontas</p>
                   <p className="text-xs leading-relaxed text-amber-800 mt-1">
-                    As campanhas abaixo são apenas recomendações automáticas. Você também pode montar sua própria campanha escolhendo produtos individuais.
+                    As campanhas abaixo são sugestões flexíveis. Você pode aceitar, modificar ou montar sua própria campanha escolhendo produtos individuais.
                   </p>
                 </div>
               </div>
@@ -2519,8 +2541,8 @@ export default function NovaCampanha() {
                   <button
                     onClick={() => {
                       setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
-                      setQuartos(2); setBanheiros(1); setVagas(1); setArea(''); setPreco('')
-                      setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setFotos([]); setTelefone('')
+                      setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
+                      setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setTelefone('')
                       setResultado(null); setCampanhaId(null); setIgPostado(false)
                       setFormatosSel(initFormatosSel()); setShowAgendamento(false)
                       setRenders(null); setGerandoBanners(false); clearInterval(renderPollRef.current)

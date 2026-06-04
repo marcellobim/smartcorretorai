@@ -13,9 +13,9 @@ const recentActivity = [
 ]
 
 const quickActions = [
-  { to: '/nova-campanha', icon: Sparkles, label: 'Nova Campanha', desc: 'Gere um pacote de marketing completo', color: 'from-primary-500 to-primary-700' },
-  { to: '/meus-imoveis', icon: Building2, label: 'Cadastrar Imóvel', desc: 'Adicione um novo imóvel ao catálogo', color: 'from-blue-500 to-blue-700' },
-  { to: '/pacotes-gerados', icon: Package, label: 'Ver Pacotes', desc: 'Acesse seus pacotes gerados', color: 'from-emerald-500 to-emerald-700' },
+  { to: '/nova-campanha', icon: Sparkles, label: 'Nova Campanha', desc: 'Crie seu marketing imobiliário completo', color: 'from-primary-500 to-primary-700' },
+  { to: '/meus-imoveis', icon: Building2, label: 'Cadastrar Imóvel', desc: 'Adicione um novo imóvel para suas campanhas', color: 'from-blue-500 to-blue-700' },
+  { to: '/pacotes-gerados', icon: Package, label: 'Ver Campanhas', desc: 'Acesse suas campanhas geradas', color: 'from-emerald-500 to-emerald-700' },
 ]
 
 export default function Dashboard() {
@@ -53,7 +53,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard title="Imóveis Cadastrados" value="12" change={8} icon={Building2} color="primary" />
           <StatsCard title="Campanhas Geradas" value="38" change={23} icon={Sparkles} color="orange" />
-          <StatsCard title="Pacotes Baixados" value="27" change={15} icon={Package} color="green" />
+          <StatsCard title="Campanhas Baixadas" value="27" change={15} icon={Package} color="green" />
           <StatsCard title="Alcance Estimado" value="14.2k" change={31} icon={TrendingUp} color="blue" />
         </div>
 
@@ -127,7 +127,7 @@ export default function Dashboard() {
             </div>
             <div className="p-5">
               <p className="text-sm text-gray-600">
-                Imóveis publicados no Instagram, Facebook e WhatsApp simultaneamente geram em média 5x mais contatos do que publicações em apenas uma rede. Gere o pacote completo e publique agora!
+                Imóveis publicados no Instagram, Facebook e WhatsApp simultaneamente geram em média 5x mais contatos do que publicações em apenas uma rede. Crie sua campanha e publique agora!
               </p>
               <Link to="/nova-campanha">
                 <Button className="mt-4 w-full">
