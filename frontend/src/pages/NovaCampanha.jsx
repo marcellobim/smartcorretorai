@@ -137,6 +137,39 @@ const CREDIT_BUILDER_TABS = [
   },
 ]
 
+const WIZARD_STEPS = [
+  {
+    id: 'welcome',
+    title: 'Conheça',
+    description: 'Veja o que o SmartCorretorAI pode criar.',
+  },
+  {
+    id: 'products',
+    title: 'Escolha',
+    description: 'Selecione campanhas ou produtos de marketing.',
+  },
+  {
+    id: 'credits',
+    title: 'Créditos',
+    description: 'Confira consumo estimado e saldo.',
+  },
+  {
+    id: 'property',
+    title: 'Imóvel',
+    description: 'Informe os dados principais.',
+  },
+  {
+    id: 'photos',
+    title: 'Fotos',
+    description: 'Envie imagens para personalizar a campanha.',
+  },
+  {
+    id: 'review',
+    title: 'Gerar',
+    description: 'Revise e gere sua campanha.',
+  },
+]
+
 const createGenerationIdempotencyKey = (userId) => {
   const randomPart = window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
   return `${userId || 'user'}:${Date.now()}:${randomPart}`
@@ -762,6 +795,7 @@ export default function NovaCampanha() {
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [wizardStep, setWizardStep] = useState(0)
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
   const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
   const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
@@ -806,6 +840,10 @@ export default function NovaCampanha() {
     : (creditBuilderMode === 'manual' ? 'manual' : visualCreditMode)
   const generationCreditCost = isDemoPlan ? 0 : estimatedCreditConsumption
   const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
+  const activeWizardStep = WIZARD_STEPS[wizardStep] || WIZARD_STEPS[0]
+  const wizardProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100
+  const goToPreviousWizardStep = () => setWizardStep(step => Math.max(0, step - 1))
+  const goToNextWizardStep = () => setWizardStep(step => Math.min(WIZARD_STEPS.length - 1, step + 1))
 
   const setSelectedTemplateIds = (templateIds = []) => {
     const selected = new Set(templateIds)
@@ -1426,6 +1464,82 @@ export default function NovaCampanha() {
         {fase === 'form' && (
           <div className="space-y-5 animate-fade-in">
 
+            <div className="card p-6 border-primary-100 bg-gradient-to-br from-white to-primary-50/40">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-primary-600">
+                      Etapa {wizardStep + 1} de {WIZARD_STEPS.length}
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-gray-900">{activeWizardStep.title}</h2>
+                    <p className="mt-1 text-sm text-gray-600">{activeWizardStep.description}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={goToPreviousWizardStep}
+                      disabled={wizardStep === 0}
+                      className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                        wizardStep === 0
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goToNextWizardStep}
+                      disabled={wizardStep === WIZARD_STEPS.length - 1}
+                      className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                        wizardStep === WIZARD_STEPS.length - 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-950 text-white hover:bg-gray-800'
+                      }`}
+                    >
+                      Próximo
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="h-2 rounded-full bg-white border border-primary-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary-500 to-amber-300 transition-all duration-300"
+                      style={{ width: `${wizardProgress}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    {WIZARD_STEPS.map((step, index) => {
+                      const active = index === wizardStep
+                      const done = index < wizardStep
+                      return (
+                        <button
+                          key={step.id}
+                          type="button"
+                          onClick={() => setWizardStep(index)}
+                          className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                            active
+                              ? 'border-primary-300 bg-gray-950 text-white shadow-md'
+                              : done
+                                ? 'border-primary-100 bg-primary-50 text-primary-800'
+                                : 'border-gray-100 bg-white text-gray-600 hover:border-gray-200'
+                          }`}
+                        >
+                          <span className="block text-[11px] font-black">Etapa {index + 1}</span>
+                          <span className="block text-xs font-bold truncate">{step.title}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Estrutura inicial do wizard: os blocos atuais continuam visíveis nesta etapa para preservar o comportamento existente.
+                </p>
+              </div>
+            </div>
+
             {isDemoPlan && (
               <div className={`rounded-2xl border p-4 ${demoUsed ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
                 <div className="flex items-start gap-3">
@@ -2020,6 +2134,33 @@ export default function NovaCampanha() {
                   Preencha: tipo do imóvel · bairro · cidade · preço
                 </p>
               )}
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={goToPreviousWizardStep}
+                  disabled={wizardStep === 0}
+                  className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-colors ${
+                    wizardStep === 0
+                      ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Voltar etapa
+                </button>
+                <button
+                  type="button"
+                  onClick={goToNextWizardStep}
+                  disabled={wizardStep === WIZARD_STEPS.length - 1}
+                  className={`flex-1 py-3 rounded-xl text-sm font-bold transition-colors ${
+                    wizardStep === WIZARD_STEPS.length - 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-950 text-white hover:bg-gray-800'
+                  }`}
+                >
+                  Próxima etapa
+                </button>
+              </div>
             </div>
           </div>
         )}
