@@ -220,6 +220,30 @@ const DEMO_TEMPLATE_IDS = [
   '2ecd48d3-146c-467b-8a0d-908152101378',
 ]
 
+const SMART_CAMPAIGN_FIXED_CREDIT_COST = 185
+const SMART_CAMPAIGN_BASE_TEMPLATE_IDS = [
+  '662883d7-1dba-4e61-a2a2-81fd9293ab15',
+  'd45618d1-5f7f-4053-b317-dd2bbe322f5b',
+  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
+  '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d',
+  '1ae7e1f4-ada4-4b03-a032-737a025b88c6',
+  '3d72b111-76a7-4c7d-a594-1f75f70be2d2',
+  '1de0a863-2376-4336-8a0a-4750c2429cf7',
+  '13008c2d-9e7e-4515-a2ac-649c9ea18409',
+  '697a514d-4bab-4062-9c9e-3c208688c0e9',
+  'd8310f54-5c9d-4606-ae6a-dacb8c4455ae',
+  '62d46ee6-6347-4335-af89-2b65f2794882',
+  '2ecd48d3-146c-467b-8a0d-908152101378',
+]
+const SMART_CAMPAIGN_BASE_DELIVERABLES = [
+  { key: 'banners', title: 'Banners', count: 6 },
+  { key: 'stories', title: 'Stories', count: 3 },
+  { key: 'videos', title: 'Reels', count: 2 },
+  { key: 'carousels', title: 'Carrossel', count: 1 },
+  { key: 'textIa', title: 'Textos completos' },
+  { key: 'whatsapp', title: 'WhatsApp' },
+]
+
 const DELIVERABLE_LABELS = {
   banners: ['banner', 'card', 'detailed', 'social'],
   stories: ['story'],
@@ -281,6 +305,14 @@ const createDeliverableDetail = (key, count = null) => ({
 })
 
 const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false) => {
+  if (!(isDemoPlan && campaignId === DEMO_CAMPAIGN_ID)) {
+    return {
+      deliverables: SMART_CAMPAIGN_BASE_DELIVERABLES,
+      totalPieces: SMART_CAMPAIGN_BASE_TEMPLATE_IDS.length,
+      creditCost: SMART_CAMPAIGN_FIXED_CREDIT_COST,
+    }
+  }
+
   const mode = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId] || CAMPAIGN_TEMPLATES[campaignId]?.modes?.economica
   const suggestedObjectives = SMART_CAMPAIGN_OBJECTIVES[campaignId]?.[modeId] || SMART_CAMPAIGN_OBJECTIVES[campaignId]?.economica || []
   const suggestedTemplates = getSelectedTemplatesFromObjectiveIds(suggestedObjectives)
@@ -692,6 +724,102 @@ function FacebookCard({ dados }) {
   )
 }
 
+function ProductHome({ user, isUnlimitedTestAdmin, onVideoStart, onCampaignStart }) {
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
+  const firstName = user?.displayName?.split(' ')[0] || user?.nome?.split(' ')[0] || 'Corretor'
+  const rawPlanName = isUnlimitedTestAdmin ? 'pro' : (user?.plano || 'demonstrativo')
+  const planName = rawPlanName.charAt(0).toUpperCase() + rawPlanName.slice(1)
+  const creditBalance = isUnlimitedTestAdmin ? 'Ilimitados' : (user?.saldo_creditos ?? 0).toLocaleString('pt-BR')
+  const products = [
+    {
+      id: 'video',
+      eyebrow: 'Vídeo inteligente',
+      icon: '🎬',
+      title: 'Transformar Meu Vídeo',
+      question: 'Já gravou um vídeo do imóvel?',
+      description: 'Transforme sua gravação em conteúdos profissionais para redes sociais.',
+      benefits: ['Cortes inteligentes', 'Legendas', 'CTA', 'Música', 'Reels', 'TikTok', 'Stories', 'Banners derivados'],
+      accent: 'from-violet-950 via-gray-950 to-gray-900',
+      button: 'bg-violet-300 text-gray-950 hover:bg-violet-200',
+      onStart: onVideoStart,
+    },
+    {
+      id: 'campaign',
+      eyebrow: 'Marketing imobiliário',
+      icon: '🚀',
+      title: 'Gerar Campanhas Profissionais',
+      question: 'Divulgue seu próximo imóvel com mais impacto.',
+      description: 'Crie campanhas completas em poucos minutos com IA, fotos e produtos de marketing.',
+      benefits: ['Campanhas Inteligentes', 'Monte sua campanha', 'Banners', 'Reels', 'Stories', 'Carrosséis', 'WhatsApp', 'Textos bônus'],
+      accent: 'from-gray-950 via-primary-950 to-gray-900',
+      button: 'bg-amber-300 text-gray-950 hover:bg-amber-200',
+      onStart: onCampaignStart,
+    },
+  ]
+
+  return (
+    <div className="min-h-full bg-gray-50">
+      <Header title="SmartCorretorAI" subtitle="Marketing imobiliário com inteligência artificial" />
+      <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col justify-center px-4 py-5 sm:px-7 sm:py-7 lg:py-8">
+        <section className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-5">
+          <div>
+            <p className="text-sm font-semibold text-primary-600">{greeting}, {firstName} 👋</p>
+            <h1 className="mt-1 text-xl font-black leading-tight text-gray-950 sm:text-2xl lg:text-3xl">Escolha como deseja divulgar seu próximo imóvel.</h1>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">Plano atual</p>
+              <p className="mt-0.5 text-sm font-black text-gray-800">Plano {planName}</p>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-amber-600">Créditos disponíveis</p>
+              <p className="mt-0.5 text-sm font-black text-amber-900">{creditBalance}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {products.map(product => (
+            <article
+              key={product.id}
+              className={`flex min-h-[370px] flex-col overflow-hidden rounded-3xl bg-gradient-to-br ${product.accent} p-5 text-white shadow-xl shadow-gray-950/15 sm:min-h-[380px] sm:p-6`}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-white/80">
+                  {product.eyebrow}
+                </span>
+                <span className="text-4xl" aria-hidden="true">{product.icon}</span>
+              </div>
+              <div className="mt-5">
+                <h2 className="text-2xl font-black leading-tight sm:text-[28px]">{product.title}</h2>
+                <p className="mt-3 text-sm font-bold text-white">{product.question}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-300">{product.description}</p>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-1.5 sm:gap-2">
+                {product.benefits.map(benefit => (
+                  <div key={benefit} className="flex min-h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-bold leading-tight text-gray-100 sm:px-3 sm:text-xs">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                    <span>{benefit}</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={product.onStart}
+                className={`mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black transition-colors ${product.button}`}
+              >
+                Começar Agora
+                <span aria-hidden="true">→</span>
+              </button>
+            </article>
+          ))}
+        </section>
+      </main>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  UTILITÁRIOS
 // ═══════════════════════════════════════════════════════════════
@@ -789,10 +917,13 @@ export default function NovaCampanha() {
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [productFlowStep, setProductFlowStep] = useState('home')
+  const [campaignFlowType, setCampaignFlowType] = useState(null)
   const [wizardStep, setWizardStep] = useState(0)
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
   const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
   const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
+  const [campaignObjective, setCampaignObjective] = useState('')
   const [demoUsed, setDemoUsed] = useState(false)
   const isDemoPlan = !isPro && !isUnlimitedTestAdmin
   const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
@@ -820,9 +951,13 @@ export default function NovaCampanha() {
   const selectedMarketingObjectives = MARKETING_OBJECTIVES.filter(objective =>
     objective.selectedTemplates.every(templateId => selectedTemplateIdSet.has(templateId))
   )
+  const campaignObjectiveId = campaignFlowType === 'smart' ? selectedSmartCampaign : campaignObjective
+  const campaignObjectiveInfo = SMART_CAMPAIGNS.find(campaign => campaign.id === campaignObjectiveId)
+  const campaignObjectiveLabel = campaignObjectiveInfo?.title || ''
   const selectedObjectiveCount = selectedMarketingObjectives.length
   const simulatedCreditBalance = 150
   const selectedCatalogItems = TEMPLATE_CATALOG.filter(template => selectedTemplateIds.includes(template.templateId))
+  const isSmartCampaignSelection = creditBuilderMode === 'recommended' && !!selectedSmartCampaign && !isDemoPlan
   const estimatedCreditConsumption = selectedCatalogItems.reduce((sum, item) => sum + item.creditWeight, 0)
   const balanceAfterGeneration = simulatedCreditBalance - estimatedCreditConsumption
   const hasInsufficientCredits = balanceAfterGeneration < 0
@@ -831,8 +966,8 @@ export default function NovaCampanha() {
     : 'Escolha apenas Banner Feed e Story para uma geração mais econômica.'
   const generationModeForCredits = isDemoPlan
     ? 'demonstrativo'
-    : (creditBuilderMode === 'manual' ? 'manual' : visualCreditMode)
-  const generationCreditCost = isDemoPlan ? 0 : estimatedCreditConsumption
+    : (isSmartCampaignSelection ? 'smart_campaign' : 'manual')
+  const generationCreditCost = isDemoPlan ? 0 : (isSmartCampaignSelection ? SMART_CAMPAIGN_FIXED_CREDIT_COST : estimatedCreditConsumption)
   const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
   const activeWizardStep = WIZARD_STEPS[wizardStep] || WIZARD_STEPS[0]
   const wizardProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100
@@ -866,9 +1001,10 @@ export default function NovaCampanha() {
     if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
     const suggestedObjectives = SMART_CAMPAIGN_OBJECTIVES[campaignId]?.[modeId] || SMART_CAMPAIGN_OBJECTIVES[campaignId]?.economica || []
     const selected = getSelectedTemplatesFromObjectiveIds(suggestedObjectives)
-    const allowed = isDemoPlan ? DEMO_TEMPLATE_IDS : selected
+    const allowed = isDemoPlan ? DEMO_TEMPLATE_IDS : SMART_CAMPAIGN_BASE_TEMPLATE_IDS
     setSelectedTemplateIds(allowed)
     setSelectedSmartCampaign(campaignId)
+    setCampaignObjective(campaignId)
     setCreditBuilderMode('recommended')
   }
 
@@ -927,10 +1063,28 @@ export default function NovaCampanha() {
 
   const removerFoto = (idx) => setFotos(prev => prev.filter((_, i) => i !== idx))
 
-  const podaGerar = categoria && tipo && bairro.trim() && cidade.trim() && estado && preco
+  const dadosImovelValidos = tipo && bairro.trim() && cidade.trim() && estado && preco
+  const podaGerar = categoria && dadosImovelValidos
+
+  const resetCampaignState = (targetStep = 'home') => {
+    setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
+    setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
+    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setTelefone('')
+    setResultado(null); setCampanhaId(null); setIgPostado(false)
+    setFormatosSel(initFormatosSel()); setShowAgendamento(false)
+    setRenders(null); setGerandoBanners(false); setProductFlowStep(targetStep); setCampaignFlowType(null); setSelectedSmartCampaign(null); setCampaignObjective('')
+    clearInterval(renderPollRef.current)
+  }
+
+  const voltarResultadoParaCusto = () => {
+    setFase('form')
+    setProductFlowStep('cost')
+  }
 
   const confirmarGeracao = () => {
-    if (!podaGerar) { toast.error('Preencha os campos obrigatórios'); return }
+    if (!dadosImovelValidos) { toast.error('Preencha os campos obrigatórios'); return }
+    if (campaignFlowType === 'manual' && !campaignObjective) { toast.error('Escolha o objetivo da campanha.'); return }
+    if (!categoria) setCategoria('medio_padrao')
     if (isDemoPlan && demoUsed) {
       toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
       return
@@ -1052,6 +1206,7 @@ export default function NovaCampanha() {
         + (estado ? ` - ${estado}` : '')
       const tituloPreliminar = `${tipo || 'Imóvel'} ${quartos ? quartos + 'q ' : ''}em ${bairro || cidade || ''}`.trim()
       const descricaoPreliminar = [
+        campaignObjectiveLabel ? `Objetivo da campanha: ${campaignObjectiveLabel}` : '',
         `${tipo || 'Imóvel'} ${categoria ? '(' + categoria + ')' : ''}`,
         `${quartos} quarto${quartos !== 1 ? 's' : ''}, ${banheiros} banheiro${banheiros !== 1 ? 's' : ''}, ${vagas} vaga${vagas !== 1 ? 's' : ''}`,
         area ? `${area}m²` : '',
@@ -1110,6 +1265,7 @@ export default function NovaCampanha() {
                 Object.entries(formatosSel).map(([gId, s]) => [gId, [...s]])
               ),
               selectedTemplates,
+              objetivo_campanha: campaignObjectiveLabel || null,
             },
             fotos_urls: fotosOrdenadas,
             foto_principal: fotoPrincipal,
@@ -1363,9 +1519,549 @@ export default function NovaCampanha() {
   // ════════════════════════════════════════════════════════════
   //  RENDER
   // ════════════════════════════════════════════════════════════
+  if (fase === 'form') {
+    const selectedCampaign = SMART_CAMPAIGNS.find(campaign => campaign.id === selectedSmartCampaign)
+    const selectedProductNames = selectedMarketingObjectives.map(item => item.publicName)
+    const simpleCost = generationCreditCost
+    const simpleBalance = isUnlimitedTestAdmin ? 'Ilimitado' : simulatedCreditBalance
+    const simpleStatus = isUnlimitedTestAdmin || simpleCost <= simulatedCreditBalance
+      ? 'Saldo suficiente para gerar.'
+      : 'Créditos insuficientes para esta geração.'
+    const goHome = () => {
+      setProductFlowStep('home')
+      setCampaignFlowType(null)
+    }
+    const goToCampaignChoice = () => {
+      setProductFlowStep('campaign-choice')
+      setCampaignFlowType(null)
+    }
+    const startSmartFlow = () => {
+      setCampaignFlowType('smart')
+      setCreditBuilderMode('recommended')
+      setProductFlowStep('smart-campaigns')
+    }
+    const startManualFlow = () => {
+      setCampaignFlowType('manual')
+      setCreditBuilderMode('manual')
+      setSelectedSmartCampaign(null)
+      setCampaignObjective('')
+      setProductFlowStep('manual-catalog')
+    }
+    const selectSmartCampaignAndContinue = (campaignId) => {
+      applySmartCampaign(campaignId)
+      setCampaignFlowType('smart')
+      setProductFlowStep('property')
+    }
+    const continueFromManual = () => {
+      if (selectedTemplateIds.length === 0) {
+        toast.error('Selecione pelo menos um produto de marketing.')
+        return
+      }
+      setCampaignFlowType('manual')
+      setProductFlowStep('property')
+    }
+    const continueFromProperty = () => {
+      if (!dadosImovelValidos) {
+        toast.error('Preencha os campos obrigatórios do imóvel.')
+        return
+      }
+      if (campaignFlowType === 'manual' && !campaignObjective) {
+        toast.error('Escolha o objetivo da campanha.')
+        return
+      }
+      if (!categoria) setCategoria('medio_padrao')
+      setProductFlowStep('photos')
+    }
+    const renderFlowHeader = (eyebrow, title, subtitle) => (
+      <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-600">{eyebrow}</p>
+          <h1 className="mt-1 text-2xl font-black text-gray-950">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+        </div>
+      </div>
+    )
+    const renderBackButton = (onClick, label = 'Voltar') => (
+      <button
+        type="button"
+        onClick={onClick}
+        className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+      >
+        {label}
+      </button>
+    )
+    const renderStepActions = (onBack, backLabel = 'Voltar') => (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        {renderBackButton(onBack, backLabel)}
+        <button
+          type="button"
+          onClick={goHome}
+          className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+        >
+          Cancelar fluxo
+        </button>
+      </div>
+    )
+    const propertyForm = (
+      <div className="card p-6 space-y-5">
+        <h2 className="text-base font-bold text-gray-900">Dados do imóvel</h2>
+
+        <div>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <label className="block text-sm font-bold text-gray-900">
+                Objetivo da campanha <span className="text-red-400">*</span>
+              </label>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                {campaignFlowType === 'smart'
+                  ? 'Objetivo definido pela campanha escolhida.'
+                  : 'Escolha o foco de marketing para adaptar textos, CTA, linguagem e estratÃ©gia.'}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
+              Marketing
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {SMART_CAMPAIGNS.map(campaign => {
+              const active = campaignObjectiveId === campaign.id
+              const disabled = campaignFlowType === 'smart'
+              return (
+                <button
+                  key={campaign.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setCampaignObjective(campaign.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    active
+                      ? 'gradient-primary text-white border-transparent shadow-sm'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  } ${disabled ? 'cursor-default opacity-80' : ''}`}
+                >
+                  {campaign.title}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo <span className="text-red-400">*</span></label>
+          <div className="flex flex-wrap gap-2">
+            {TIPOS.map(t => (
+              <button key={t} type="button" onClick={() => setTipo(t)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${tipo === t ? 'gradient-primary text-white border-transparent shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Finalidade <span className="text-red-400">*</span></label>
+          <div className="flex gap-2">
+            {['Venda', 'Aluguel', 'Temporada'].map(f => (
+              <button key={f} type="button" onClick={() => setFinalidade(f)}
+                className={`px-5 py-2 rounded-xl text-sm font-semibold border transition-all ${finalidade === f ? 'gradient-primary text-white border-transparent shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Quantidade</label>
+          <div className="flex gap-6 flex-wrap">
+            <Counter label="Quartos" value={quartos} onChange={setQuartos} />
+            <Counter label="Suítes" value={suites} onChange={setSuites} />
+            <Counter label="Vagas" value={vagas} onChange={setVagas} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Estado <span className="text-red-400">*</span></label>
+            <select value={estado} onChange={e => setEstado(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white">
+              <option value="">UF</option>
+              {ESTADOS_BR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Cidade <span className="text-red-400">*</span></label>
+            <select value={cidade} onChange={e => setCidade(e.target.value)}
+              disabled={!estado || carregandoCidades}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white disabled:bg-gray-50 disabled:text-gray-400">
+              <option value="">
+                {!estado ? 'Selecione o estado primeiro' : carregandoCidades ? 'Carregando cidades...' : 'Selecione a cidade'}
+              </option>
+              {cidades.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Bairro <span className="text-red-400">*</span></label>
+            <input value={bairro} onChange={e => setBairro(e.target.value)} placeholder="Ex: Moema, Jardins, Copacabana"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Preço (R$) <span className="text-red-400">*</span></label>
+            <input value={preco} onChange={e => setPreco(e.target.value)} type="number" placeholder="Ex: 1200000"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Área (m²) <span className="text-gray-400 font-normal">opcional</span></label>
+            <input value={area} onChange={e => setArea(e.target.value)} type="number" placeholder="Ex: 110"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <label htmlFor="destaques-imovel-novo" className="block text-sm font-bold text-gray-900">
+                ✨ O que você deseja destacar neste imóvel?
+              </label>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                Descreva livremente os diferenciais, localização, acabamento, lazer ou qualquer ponto forte. A IA irá organizar e melhorar o texto automaticamente.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-bold text-primary-700">
+              IA organiza
+            </span>
+          </div>
+          <textarea
+            id="destaques-imovel-novo"
+            value={difCustom}
+            onChange={e => setDifCustom(e.target.value)}
+            maxLength={500}
+            rows={5}
+            placeholder="Exemplo: apartamento reformado, vista livre, varanda gourmet, próximo ao metrô, acabamento premium, lazer completo e excelente iluminação natural."
+            className="w-full resize-y rounded-xl border border-gray-200 px-3 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+          />
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+            <span>Escreva do seu jeito. A IA cuida da apresentação.</span>
+            <span className={difCustom.length >= 450 ? 'font-bold text-amber-600' : ''}>{difCustom.length}/500</span>
+          </div>
+        </div>
+      </div>
+    )
+    const photoUpload = (
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-base font-bold text-gray-900">Fotos do imóvel</h2>
+          <span className="text-xs text-gray-400 font-medium">{fotos.length}/10 fotos</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          A IA analisa as fotos e descreve os ambientes automaticamente nos textos.
+        </p>
+
+        {fotos.length > 0 && (
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mb-3">
+            {fotos.map((f, i) => (
+              <div key={i} className="relative aspect-square rounded-xl overflow-hidden group">
+                <img src={f.preview} alt="" className="w-full h-full object-cover" />
+                {i === 0 && (
+                  <span className="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-600 text-white shadow">
+                    Principal
+                  </span>
+                )}
+                <button onClick={() => removerFoto(i)}
+                  className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {fotos.length < 10 && (
+          <div onClick={() => fileRef.current.click()} onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); handleFotos(e.dataTransfer.files) }}
+            className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-all">
+            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={e => handleFotos(e.target.files)} />
+            <Camera className="w-7 h-7 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-600">Clique ou arraste as fotos aqui</p>
+            <p className="text-xs text-gray-400 mt-1">JPG, PNG · até 10 fotos · a primeira é a principal</p>
+          </div>
+        )}
+      </div>
+    )
+    const analysisItems = [
+      'Tipo e padrão do imóvel identificados',
+      'Localização considerada na estratégia',
+      'Diferenciais organizados para a campanha',
+      'Fotos serão usadas para personalizar os materiais',
+      'Estratégia sugerida conforme objetivo escolhido',
+    ]
+    const strategyLabel = campaignFlowType === 'smart'
+      ? selectedCampaign?.title || 'Campanha Inteligente'
+      : campaignObjectiveLabel
+        ? `${campaignObjectiveLabel} com ${selectedProductNames.length ? selectedProductNames.join(', ') : 'produtos selecionados'}`
+        : selectedProductNames.length ? selectedProductNames.join(', ') : 'Produtos selecionados'
+
+    return (
+      <>
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-primary-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Confirmar geração</h3>
+                <p className="text-xs text-gray-500">Sua campanha completa será gerada em um clique.</p>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Custo desta geração</span>
+                <span className="font-black text-gray-900">{simpleCost} créditos</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Saldo disponível</span>
+                <span className="font-black text-gray-900">{simpleBalance}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={gerarAnuncios}
+                className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Gerar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {productFlowStep === 'home' && (
+      <ProductHome
+        user={authedUser}
+        isUnlimitedTestAdmin={isUnlimitedTestAdmin}
+        onVideoStart={() => toast('Transformar Meu Vídeo estará disponível em breve.', { icon: '🎬' })}
+        onCampaignStart={goToCampaignChoice}
+      />
+      )}
+
+      {productFlowStep !== 'home' && (
+        <div className="min-h-full bg-gray-50">
+          <Header title="Gerar Campanhas Profissionais" subtitle="Escolha, informe os dados e gere tudo em um clique" />
+          <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
+            {productFlowStep === 'campaign-choice' && (<>
+              {renderFlowHeader('Gerar Campanhas Profissionais', 'Como você quer começar?', 'Escolha uma sugestão pronta ou monte sua própria combinação de produtos de marketing.')}
+              {renderStepActions(goHome)}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <button type="button" onClick={startSmartFlow}
+                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-primary-300 hover:shadow-lg">
+                  <span className="text-4xl">🚀</span>
+                  <h2 className="mt-5 text-2xl font-black text-gray-950">Campanhas Inteligentes</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha uma sugestão pronta para divulgar seu imóvel com mais velocidade.</p>
+                  <span className="mt-6 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white">Escolher sugestão</span>
+                </button>
+                <button type="button" onClick={startManualFlow}
+                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-primary-300 hover:shadow-lg">
+                  <span className="text-4xl">🎨</span>
+                  <h2 className="mt-5 text-2xl font-black text-gray-950">Monte Sua Campanha</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha exatamente quais produtos de marketing deseja gerar.</p>
+                  <span className="mt-6 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white">Montar campanha</span>
+                </button>
+              </div>
+            </>)}
+
+            {productFlowStep === 'smart-campaigns' && (<>
+              {renderFlowHeader('Campanhas Inteligentes', 'Escolha uma sugestão pronta', 'Cada card mostra o objetivo, resultado esperado e custo estimado.')}
+              {renderStepActions(goToCampaignChoice)}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {SMART_CAMPAIGNS.map(campaign => {
+                  const locked = isDemoPlan && campaign.id !== DEMO_CAMPAIGN_ID
+                  const cardDetails = getCampaignCardDetails(campaign.id, visualCreditMode, isDemoPlan)
+                  return (
+                    <article key={campaign.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${locked ? 'opacity-60' : ''}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-black text-gray-950">{campaign.title}</h3>
+                          <p className="mt-1 text-xs font-black uppercase tracking-wide text-primary-600">Ideal para</p>
+                        </div>
+                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600">
+                          {cardDetails.creditCost} créditos
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-gray-500">{campaign.description}</p>
+                      <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                        <p className="text-xs font-black text-gray-800">Receba:</p>
+                        <div className="mt-2 space-y-1">
+                          {cardDetails.deliverables.map(item => (
+                            <p key={item.key} className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-500" />
+                              <span>{item.count ? `${item.count} ` : ''}{item.title}</span>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs font-black text-gray-700">Resultado esperado</p>
+                      <p className="mt-1 text-xs leading-relaxed text-gray-500">{campaign.benefits[0]}</p>
+                      <details className="mt-4 rounded-xl bg-gray-50 p-3">
+                        <summary className="cursor-pointer text-xs font-black text-primary-700">Ver detalhes</summary>
+                        <div className="mt-3 space-y-2 text-xs text-gray-600">
+                          {campaign.benefits.map(benefit => (
+                            <p key={benefit} className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-500" />{benefit}</p>
+                          ))}
+                          <p className="rounded-lg bg-amber-50 p-2 text-amber-900">{campaign.smartTip}</p>
+                        </div>
+                      </details>
+                      <button type="button" disabled={locked} onClick={() => selectSmartCampaignAndContinue(campaign.id)}
+                        className="mt-4 w-full rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-black text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">
+                        {locked ? 'Disponível nos planos pagos' : 'Selecionar Campanha'}
+                      </button>
+                    </article>
+                  )
+                })}
+              </div>
+            </>)}
+
+            {productFlowStep === 'manual-catalog' && (<>
+              {renderFlowHeader('Monte Sua Campanha', 'Escolha seus produtos de marketing', 'Selecione livremente o que deseja gerar para este imóvel.')}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {renderBackButton(goToCampaignChoice)}
+                  <button
+                    type="button"
+                    onClick={goHome}
+                    className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                  >
+                    Cancelar fluxo
+                  </button>
+                </div>
+                <button type="button" onClick={continueFromManual}
+                  className="rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white hover:bg-gray-800">
+                  Continuar
+                </button>
+              </div>
+              <MarketingObjectiveCatalog selectedTemplateIds={selectedTemplateIds} onToggleObjective={toggleMarketingObjective} />
+            </>)}
+
+            {productFlowStep === 'property' && (<>
+              {renderFlowHeader('Dados do imóvel', 'Informe o imóvel', 'Esses dados ajudam a IA a criar uma campanha mais útil e persuasiva.')}
+              {renderStepActions(campaignFlowType === 'smart' ? () => setProductFlowStep('smart-campaigns') : () => setProductFlowStep('manual-catalog'))}
+              {propertyForm}
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={continueFromProperty}
+                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800">
+                  Continuar para fotos
+                </button>
+              </div>
+            </>)}
+
+            {productFlowStep === 'photos' && (<>
+              {renderFlowHeader('Fotos do imóvel', 'Envie as fotos', 'As imagens ajudam a personalizar os materiais da campanha.')}
+              {renderStepActions(() => setProductFlowStep('property'))}
+              {photoUpload}
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setProductFlowStep('analysis')}
+                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800">
+                  Continuar para análise
+                </button>
+              </div>
+            </>)}
+
+            {productFlowStep === 'analysis' && (<>
+              {renderFlowHeader('Análise Inteligente do Imóvel', '🤖 SmartCorretorAI analisou seu imóvel', 'Esta leitura é visual e local nesta etapa, sem nova chamada de backend.')}
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {analysisItems.map(item => (
+                    <div key={item} className="flex items-start gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-700">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Estratégia escolhida</p>
+                  <p className="mt-1 text-sm font-bold text-gray-900">{strategyLabel}</p>
+                  <p className="mt-3 text-xs leading-relaxed text-gray-600">
+                    Recomendamos destacar localização, padrão do imóvel, diferenciais informados, fotos principais e chamada para contato.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {renderBackButton(() => setProductFlowStep('photos'), 'Voltar e editar')}
+                  <button
+                    type="button"
+                    onClick={goHome}
+                    className="rounded-xl px-4 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                  >
+                    Cancelar fluxo
+                  </button>
+                </div>
+                <button type="button" onClick={() => setProductFlowStep('cost')}
+                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800">
+                  Continuar para gerar
+                </button>
+              </div>
+            </>)}
+
+            {productFlowStep === 'cost' && (<>
+              {renderFlowHeader('Custo desta geração', 'Revise e gere em um clique', 'O servidor continua validando o consumo real de créditos.')}
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">Custo desta geração</p>
+                    <p className="mt-2 text-3xl font-black text-gray-950">{simpleCost}</p>
+                    <p className="text-xs text-gray-500">créditos</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">Saldo disponível</p>
+                    <p className="mt-2 text-3xl font-black text-gray-950">{simpleBalance}</p>
+                    <p className="text-xs text-gray-500">créditos</p>
+                  </div>
+                  <div className={`rounded-2xl p-4 ${simpleStatus.includes('suficiente') ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">Status</p>
+                    <p className={`mt-2 text-sm font-black ${simpleStatus.includes('suficiente') ? 'text-emerald-700' : 'text-red-700'}`}>{simpleStatus}</p>
+                    {!simpleStatus.includes('suficiente') && (
+                      <a href="/planos" className="mt-3 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-xs font-black text-white">Comprar créditos</a>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {renderBackButton(() => setProductFlowStep('analysis'))}
+                  <button
+                    type="button"
+                    onClick={goHome}
+                    className="rounded-xl px-4 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                  >
+                    Cancelar fluxo
+                  </button>
+                </div>
+                <button type="button" onClick={confirmarGeracao}
+                  className="rounded-xl gradient-primary px-6 py-3 text-sm font-black text-white hover:opacity-90">
+                  Gerar Campanha
+                </button>
+              </div>
+            </>)}
+          </main>
+        </div>
+      )}
+      </>
+    )
+  }
+
   return (
     <div>
-      <Header title="Criar campanha" subtitle="Preencha os dados básicos e a IA gera tudo" />
+      <Header
+        title={fase === 'resultado' ? 'Campanha pronta' : 'Criar campanha'}
+        subtitle={fase === 'resultado' ? 'Seus materiais foram gerados com base nos dados e fotos enviados.' : 'Preencha os dados básicos e a IA gera tudo'}
+      />
       <div className="p-6 max-w-3xl mx-auto">
 
         {showConfirm && creditos && (
@@ -2266,6 +2962,10 @@ export default function NovaCampanha() {
         {fase === 'resultado' && resultado && (() => {
           const tg = resultado.textos_gerados || {}
           const grad = catAtual?.cor || 'from-primary-500 to-primary-400'
+          const visualPieces = Array.isArray(renders) ? renders : []
+          const visualPiecesReady = visualPieces.filter(r => r.status === 'succeeded').length
+          const visualPiecesFailed = visualPieces.filter(r => r.status === 'failed' || !!r.erro).length
+          const visualPiecesProcessing = Math.max(visualPieces.length - visualPiecesReady - visualPiecesFailed, 0)
 
           const textosEdge = [
             { key: 'titulo_campanha',         icon: '🏷️', titulo: 'Título da Campanha' },
@@ -2320,10 +3020,41 @@ export default function NovaCampanha() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                  <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <button
+                      type="button"
+                      onClick={voltarResultadoParaCusto}
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetCampaignState('campaign-choice')}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-gray-800"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Criar nova campanha
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetCampaignState('home')}
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                    >
+                      Voltar para Home
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/pacotes-gerados')}
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                    >
+                      Ver campanhas geradas
+                    </button>
                     <button onClick={baixarTudo}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                       <Download className="w-4 h-4" />
-                      Baixar tudo em .txt
+                      Baixar tudo
                     </button>
                   </div>
                 </div>
@@ -2449,50 +3180,33 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              <AnimatedCard delay={2400}>
-                <div className="card p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center text-white shrink-0">
-                      <span className="text-lg">🎨</span>
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-sm">Banners e Vídeos profissionais</h3>
-                      <p className="text-xs text-gray-500">Gerados automaticamente com suas fotos e dados</p>
-                    </div>
-                  </div>
-                  <button onClick={gerarBanners}
-                    disabled={gerandoBanners || !!(renders && renders.length > 0)}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed">
-                    {gerandoBanners
-                      ? <><span className="animate-spin">⏳</span> Disparando renders...</>
-                      : renders && renders.length > 0
-                        ? <><CheckCircle2 className="w-4 h-4" /> Renders disparados</>
-                        : <><span>✨</span> Gerar banners e vídeos</>}
-                  </button>
-                </div>
-              </AnimatedCard>
-
               {renders && renders.length > 0 && (
                 <AnimatedCard delay={2700}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">🖼️</span>
-                        <h3 className="font-bold text-gray-900 text-lg">Banners e Vídeos</h3>
+                        <h3 className="font-bold text-gray-900 text-lg">Peças visuais geradas</h3>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {renders.filter(r => r.status === 'succeeded').length}/{renders.length} prontos
-                      </span>
+                      <div className="flex flex-wrap items-center justify-end gap-2 text-[11px] font-bold">
+                        <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">{visualPieces.length} solicitadas</span>
+                        <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">{visualPiecesReady} prontas</span>
+                        {visualPiecesProcessing > 0 && <span className="rounded-full bg-yellow-100 px-2 py-1 text-yellow-700">{visualPiecesProcessing} processando</span>}
+                        {visualPiecesFailed > 0 && <span className="rounded-full bg-red-100 px-2 py-1 text-red-700">{visualPiecesFailed} falharam</span>}
+                      </div>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {renders.map((r, i) => {
                         const ok = r.status === 'succeeded'
                         const falhou = r.status === 'failed' || !!r.erro
                         const ehVideo = r.url && /\.(mp4|webm|mov)$/i.test(r.url)
+                        const nomePeca = r.template_nome && !/template|creatomate|uuid/i.test(r.template_nome)
+                          ? r.template_nome
+                          : 'Peça visual'
                         return (
                           <div key={r.render_id || `r-${i}`} className="border border-gray-200 rounded-xl overflow-hidden flex flex-col bg-white">
                             <div className="p-3 pb-2 flex items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-gray-700 truncate">{r.template_nome || 'Template'}</p>
+                              <p className="text-xs font-semibold text-gray-700 truncate">{nomePeca}</p>
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
                                 ok ? 'bg-green-100 text-green-700'
                                   : falhou ? 'bg-red-100 text-red-700'
@@ -2505,9 +3219,9 @@ export default function NovaCampanha() {
                               {ok && ehVideo ? (
                                 <video src={r.url} controls className="w-full h-full object-contain bg-black" />
                               ) : ok && r.url ? (
-                                <img src={r.snapshot_url || r.url} alt={r.template_nome} className="w-full h-full object-contain" />
+                                <img src={r.snapshot_url || r.url} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain pointer-events-none select-none" />
                               ) : r.snapshot_url ? (
-                                <img src={r.snapshot_url} alt={r.template_nome} className="w-full h-full object-contain opacity-70" />
+                                <img src={r.snapshot_url} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain opacity-70 pointer-events-none select-none" />
                               ) : (
                                 <div className="text-xs text-gray-500 px-3 py-6 text-center">
                                   {falhou ? (r.erro || 'falhou') : 'Renderizando...'}
@@ -2516,11 +3230,17 @@ export default function NovaCampanha() {
                             </div>
                             <div className="p-3 pt-2">
                               {ok && r.url ? (
-                                <a href={r.url} download target="_blank" rel="noopener noreferrer"
-                                  className="block text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
-                                  <Download className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                                  Download
-                                </a>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <a href={r.url} target="_blank" rel="noopener noreferrer"
+                                    className="block text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                                    Visualizar
+                                  </a>
+                                  <a href={r.url} download target="_blank" rel="noopener noreferrer"
+                                    className="block text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                                    <Download className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                                    Baixar
+                                  </a>
+                                </div>
                               ) : (
                                 <div className="text-[11px] text-gray-400 text-center py-2">
                                   {falhou ? 'arquivo indisponível' : 'aguardando…'}
@@ -2539,14 +3259,7 @@ export default function NovaCampanha() {
                 <div className="card p-5 text-center">
                   <p className="text-gray-500 text-sm mb-4">Quer criar campanha para outro imóvel?</p>
                   <button
-                    onClick={() => {
-                      setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
-                      setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
-                      setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setTelefone('')
-                      setResultado(null); setCampanhaId(null); setIgPostado(false)
-                      setFormatosSel(initFormatosSel()); setShowAgendamento(false)
-                      setRenders(null); setGerandoBanners(false); clearInterval(renderPollRef.current)
-                    }}
+                    onClick={() => resetCampaignState('campaign-choice')}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-white font-bold hover:opacity-90 transition-opacity">
                     <Plus className="w-4 h-4" />
                     Criar campanha para outro imóvel

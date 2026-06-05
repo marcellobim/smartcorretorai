@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  Building2,
   Sparkles,
   Package,
   Settings,
   Crown,
+  CreditCard,
   LogOut,
   Zap,
   Shield,
@@ -15,8 +15,8 @@ import { useAuth } from '../../lib/auth-context'
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/nova-campanha', icon: Sparkles, label: 'Nova Campanha' },
-  { to: '/meus-imoveis', icon: Building2, label: 'Meus Imóveis' },
   { to: '/pacotes-gerados', icon: Package, label: 'Campanhas Geradas' },
+  { to: '/planos', icon: CreditCard, label: 'Banco de Créditos' },
   { to: '/configuracoes', icon: Settings, label: 'Configurações' },
 ]
 

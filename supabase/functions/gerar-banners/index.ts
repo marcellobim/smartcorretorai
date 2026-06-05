@@ -67,6 +67,22 @@ const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>([
   ['d5171301-84e3-41d2-a6ca-ef3013f360a1', 60],
 ])
 
+const SMART_CAMPAIGN_FIXED_CREDIT_COST = 185
+const SMART_CAMPAIGN_BASE_TEMPLATE_IDS = new Set<string>([
+  '662883d7-1dba-4e61-a2a2-81fd9293ab15',
+  'd45618d1-5f7f-4053-b317-dd2bbe322f5b',
+  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
+  '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d',
+  '1ae7e1f4-ada4-4b03-a032-737a025b88c6',
+  '3d72b111-76a7-4c7d-a594-1f75f70be2d2',
+  '1de0a863-2376-4336-8a0a-4750c2429cf7',
+  '13008c2d-9e7e-4515-a2ac-649c9ea18409',
+  '697a514d-4bab-4062-9c9e-3c208688c0e9',
+  'd8310f54-5c9d-4606-ae6a-dacb8c4455ae',
+  '62d46ee6-6347-4335-af89-2b65f2794882',
+  '2ecd48d3-146c-467b-8a0d-908152101378',
+])
+
 const DEMO_TEMPLATE_IDS = new Set<string>([
   'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
   '1de0a863-2376-4336-8a0a-4750c2429cf7',
@@ -982,6 +998,7 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
     const isUnlimitedTestAdmin = (profileRow?.email || '').toLowerCase() === 'riccieri68@gmail.com'
     const isStarterPlan = !profileRow?.plano || profileRow.plano === 'starter'
     const isDemoCreditFlow = isStarterPlan && generationMode === 'demonstrativo'
+    const isSmartCampaignCreditFlow = generationMode === 'smart_campaign'
 
     if (!isUnlimitedTestAdmin && isStarterPlan && generationMode !== 'demonstrativo') {
       return jsonResponse({
@@ -1002,9 +1019,23 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       }
     }
 
+    if (!isUnlimitedTestAdmin && !isDemoCreditFlow && isSmartCampaignCreditFlow) {
+      const hasExactSmartCampaignSet =
+        pickedIds.length === SMART_CAMPAIGN_BASE_TEMPLATE_IDS.size
+        && pickedIds.every((id) => SMART_CAMPAIGN_BASE_TEMPLATE_IDS.has(id))
+
+      if (!hasExactSmartCampaignSet) {
+        return jsonResponse({
+          error: 'Campanha Inteligente exige a seleção-base oficial de produtos.',
+        }, 400)
+      }
+    }
+
     const effectiveCreditCost = isUnlimitedTestAdmin || isDemoCreditFlow
       ? 0
-      : Math.max(frontendCreditCost, serverTemplateCreditCost)
+      : isSmartCampaignCreditFlow
+        ? SMART_CAMPAIGN_FIXED_CREDIT_COST
+        : Math.max(frontendCreditCost, serverTemplateCreditCost)
     const idempotencyKey = typeof idempotency_key === 'string' ? idempotency_key.trim() : ''
     const creditMetadata = {
       campaign_id: hasCampaignId ? campaign_id : null,
