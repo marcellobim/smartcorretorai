@@ -5,6 +5,8 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import Dashboard from './pages/Dashboard'
+import Hero from './pages/Hero'
+import TransformarVideo from './pages/TransformarVideo'
 import NovaCompanha from './pages/NovaCampanha'
 import MeusImoveis from './pages/MeusImoveis'
 import PacotesGerados from './pages/PacotesGerados'
@@ -57,6 +59,8 @@ export default function App() {
         element={<PrivateRoute><AppLayout /></PrivateRoute>}
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/hero" element={<Hero />} />
+        <Route path="/transformar-video" element={<TransformarVideo />} />
         <Route path="/nova-campanha" element={<NovaCompanha />} />
         <Route path="/meus-imoveis" element={<MeusImoveis />} />
         <Route path="/pacotes-gerados" element={<PacotesGerados />} />

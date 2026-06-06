@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
@@ -724,102 +724,6 @@ function FacebookCard({ dados }) {
   )
 }
 
-function ProductHome({ user, isUnlimitedTestAdmin, onVideoStart, onCampaignStart }) {
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
-  const firstName = user?.displayName?.split(' ')[0] || user?.nome?.split(' ')[0] || 'Corretor'
-  const rawPlanName = isUnlimitedTestAdmin ? 'pro' : (user?.plano || 'demonstrativo')
-  const planName = rawPlanName.charAt(0).toUpperCase() + rawPlanName.slice(1)
-  const creditBalance = isUnlimitedTestAdmin ? 'Ilimitados' : (user?.saldo_creditos ?? 0).toLocaleString('pt-BR')
-  const products = [
-    {
-      id: 'video',
-      eyebrow: 'Vídeo inteligente',
-      icon: '🎬',
-      title: 'Transformar Meu Vídeo',
-      question: 'Já gravou um vídeo do imóvel?',
-      description: 'Transforme sua gravação em conteúdos profissionais para redes sociais.',
-      benefits: ['Cortes inteligentes', 'Legendas', 'CTA', 'Música', 'Reels', 'TikTok', 'Stories', 'Banners derivados'],
-      accent: 'from-violet-950 via-gray-950 to-gray-900',
-      button: 'bg-violet-300 text-gray-950 hover:bg-violet-200',
-      onStart: onVideoStart,
-    },
-    {
-      id: 'campaign',
-      eyebrow: 'Marketing imobiliário',
-      icon: '🚀',
-      title: 'Gerar Campanhas Profissionais',
-      question: 'Divulgue seu próximo imóvel com mais impacto.',
-      description: 'Crie campanhas completas em poucos minutos com IA, fotos e produtos de marketing.',
-      benefits: ['Campanhas Inteligentes', 'Monte sua campanha', 'Banners', 'Reels', 'Stories', 'Carrosséis', 'WhatsApp', 'Textos bônus'],
-      accent: 'from-gray-950 via-primary-950 to-gray-900',
-      button: 'bg-amber-300 text-gray-950 hover:bg-amber-200',
-      onStart: onCampaignStart,
-    },
-  ]
-
-  return (
-    <div className="min-h-full bg-gray-50">
-      <Header title="SmartCorretorAI" subtitle="Marketing imobiliário com inteligência artificial" />
-      <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col justify-center px-4 py-5 sm:px-7 sm:py-7 lg:py-8">
-        <section className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-5">
-          <div>
-            <p className="text-sm font-semibold text-primary-600">{greeting}, {firstName} 👋</p>
-            <h1 className="mt-1 text-xl font-black leading-tight text-gray-950 sm:text-2xl lg:text-3xl">Escolha como deseja divulgar seu próximo imóvel.</h1>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">Plano atual</p>
-              <p className="mt-0.5 text-sm font-black text-gray-800">Plano {planName}</p>
-            </div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-wide text-amber-600">Créditos disponíveis</p>
-              <p className="mt-0.5 text-sm font-black text-amber-900">{creditBalance}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {products.map(product => (
-            <article
-              key={product.id}
-              className={`flex min-h-[370px] flex-col overflow-hidden rounded-3xl bg-gradient-to-br ${product.accent} p-5 text-white shadow-xl shadow-gray-950/15 sm:min-h-[380px] sm:p-6`}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-white/80">
-                  {product.eyebrow}
-                </span>
-                <span className="text-4xl" aria-hidden="true">{product.icon}</span>
-              </div>
-              <div className="mt-5">
-                <h2 className="text-2xl font-black leading-tight sm:text-[28px]">{product.title}</h2>
-                <p className="mt-3 text-sm font-bold text-white">{product.question}</p>
-                <p className="mt-1 text-sm leading-relaxed text-gray-300">{product.description}</p>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-1.5 sm:gap-2">
-                {product.benefits.map(benefit => (
-                  <div key={benefit} className="flex min-h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-bold leading-tight text-gray-100 sm:px-3 sm:text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
-                    <span>{benefit}</span>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={product.onStart}
-                className={`mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black transition-colors ${product.button}`}
-              >
-                Começar Agora
-                <span aria-hidden="true">→</span>
-              </button>
-            </article>
-          ))}
-        </section>
-      </main>
-    </div>
-  )
-}
-
 // ═══════════════════════════════════════════════════════════════
 //  UTILITÁRIOS
 // ═══════════════════════════════════════════════════════════════
@@ -852,6 +756,9 @@ async function resizeFoto(file, maxPx = 1920) {
 export default function NovaCampanha() {
   const { user: authedUser, accessToken, loading: authLoading, isPro, isUnlimitedTestAdmin } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const produtoParam = new URLSearchParams(location.search).get('produto') || location.state?.produto || ''
+  const isProductEntry = ['hero', 'transformar_video'].includes(produtoParam)
   const [fase, setFase] = useState('form')
 
   const [categoria, setCategoria] = useState(null)
@@ -917,7 +824,7 @@ export default function NovaCampanha() {
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [productFlowStep, setProductFlowStep] = useState('home')
+  const [productFlowStep, setProductFlowStep] = useState(isProductEntry ? 'property' : 'campaign-choice')
   const [campaignFlowType, setCampaignFlowType] = useState(null)
   const [wizardStep, setWizardStep] = useState(0)
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
@@ -1066,7 +973,7 @@ export default function NovaCampanha() {
   const dadosImovelValidos = tipo && bairro.trim() && cidade.trim() && estado && preco
   const podaGerar = categoria && dadosImovelValidos
 
-  const resetCampaignState = (targetStep = 'home') => {
+  const resetCampaignState = (targetStep = 'campaign-choice') => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setTelefone('')
@@ -1528,8 +1435,23 @@ export default function NovaCampanha() {
       ? 'Saldo suficiente para gerar.'
       : 'Créditos insuficientes para esta geração.'
     const goHome = () => {
-      setProductFlowStep('home')
       setCampaignFlowType(null)
+      navigate('/dashboard')
+    }
+    const goBackFromProperty = () => {
+      if (produtoParam === 'hero') {
+        navigate('/hero')
+        return
+      }
+      if (produtoParam === 'transformar_video') {
+        navigate('/transformar-video')
+        return
+      }
+      if (campaignFlowType === 'smart') {
+        setProductFlowStep('smart-campaigns')
+        return
+      }
+      setProductFlowStep('manual-catalog')
     }
     const goToCampaignChoice = () => {
       setProductFlowStep('campaign-choice')
@@ -1842,17 +1764,7 @@ export default function NovaCampanha() {
         </div>
       )}
 
-      {productFlowStep === 'home' && (
-      <ProductHome
-        user={authedUser}
-        isUnlimitedTestAdmin={isUnlimitedTestAdmin}
-        onVideoStart={() => toast('Transformar Meu Vídeo estará disponível em breve.', { icon: '🎬' })}
-        onCampaignStart={goToCampaignChoice}
-      />
-      )}
-
-      {productFlowStep !== 'home' && (
-        <div className="min-h-full bg-gray-50">
+      <div className="min-h-full bg-gray-50">
           <Header title="Gerar Campanhas Profissionais" subtitle="Escolha, informe os dados e gere tudo em um clique" />
           <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
             {productFlowStep === 'campaign-choice' && (<>
@@ -1950,7 +1862,7 @@ export default function NovaCampanha() {
 
             {productFlowStep === 'property' && (<>
               {renderFlowHeader('Dados do imóvel', 'Informe o imóvel', 'Esses dados ajudam a IA a criar uma campanha mais útil e persuasiva.')}
-              {renderStepActions(campaignFlowType === 'smart' ? () => setProductFlowStep('smart-campaigns') : () => setProductFlowStep('manual-catalog'))}
+              {renderStepActions(goBackFromProperty)}
               {propertyForm}
               <div className="mt-5 flex justify-end">
                 <button type="button" onClick={continueFromProperty}
@@ -2051,7 +1963,6 @@ export default function NovaCampanha() {
             </>)}
           </main>
         </div>
-      )}
       </>
     )
   }
@@ -2282,32 +2193,6 @@ export default function NovaCampanha() {
                 </div>
               </div>
             )}
-
-            <div className="rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-950 via-gray-950 to-gray-900 p-6 sm:p-8 text-white shadow-xl shadow-violet-950/15 overflow-hidden relative">
-              <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-400/15 blur-3xl" />
-              <div className="relative z-10 grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-                <div>
-                  <span className="inline-flex rounded-full border border-violet-300/30 bg-violet-300/10 px-3 py-1 text-xs font-black text-violet-100">
-                    Novidade em preparação
-                  </span>
-                  <h2 className="mt-4 text-2xl sm:text-3xl font-black">🎬 Transformar Meu Vídeo</h2>
-                  <p className="mt-3 text-sm sm:text-base leading-relaxed text-gray-200">
-                    Já gravou um vídeo do imóvel?
-                    <span className="block font-bold text-white">Transforme sua gravação em uma campanha profissional.</span>
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-violet-200">O que você poderá criar</p>
-                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {['Cortes inteligentes', 'Legendas', 'CTA', 'Música', 'Reels', 'TikTok', 'Stories', 'Banners derivados'].map(benefit => (
-                      <div key={benefit} className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-gray-100">
-                        {benefit}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {isDemoPlan && (
               <div className={`rounded-2xl border p-4 ${demoUsed ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
@@ -3039,7 +2924,7 @@ export default function NovaCampanha() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => resetCampaignState('home')}
+                      onClick={() => resetCampaignState('campaign-choice')}
                       className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                     >
                       Voltar para Home
