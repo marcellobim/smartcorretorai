@@ -51,10 +51,12 @@ export function useCampaigns() {
 
   const remove = async (id) => {
     try {
+      if (!user?.id) throw new Error('SessÃ£o expirada â€” faÃ§a login novamente')
       const { error } = await supabase
         .from('campaigns')
         .delete()
         .eq('id', id)
+        .eq('user_id', user.id)
 
       if (error) throw error
       setCampaigns((prev) => prev.filter((c) => c.id !== id))

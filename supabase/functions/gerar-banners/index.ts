@@ -1407,6 +1407,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
         .from('campaigns')
         .update({ banners: renders })
         .eq('id', campaign_id)
+        .eq('user_id', authenticatedUserId)
 
       if (updErr) {
         console.error(`[${reqId}] falha ao salvar banners:`, updErr)

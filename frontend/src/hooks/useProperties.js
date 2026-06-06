@@ -51,10 +51,12 @@ export function useProperties() {
 
   const update = async (id, payload) => {
     try {
+      if (!user?.id) throw new Error('SessÃ£o expirada â€” faÃ§a login novamente')
       const { data, error } = await supabase
         .from('properties')
         .update(payload)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single()
 
@@ -70,10 +72,12 @@ export function useProperties() {
 
   const remove = async (id) => {
     try {
+      if (!user?.id) throw new Error('SessÃ£o expirada â€” faÃ§a login novamente')
       const { error } = await supabase
         .from('properties')
         .delete()
         .eq('id', id)
+        .eq('user_id', user.id)
 
       if (error) throw error
       setProperties((prev) => prev.filter((p) => p.id !== id))

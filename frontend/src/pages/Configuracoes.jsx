@@ -244,14 +244,19 @@ export default function Configuracoes() {
 
   const uploadProfileImage = async (file, slot) => {
     if (!file || !(file instanceof File)) return null
+    if (!user?.id) throw new Error('SessÃ£o expirada â€” faÃ§a login novamente')
     const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
     const path = `${user.id}/profile/${slot}-${Date.now()}.${ext}`
     const { error: upErr } = await supabase.storage
       .from('smartcorretor-assets')
       .upload(path, file, { contentType: file.type, upsert: true })
     if (upErr) throw new Error(`Falha ao subir ${slot}: ${upErr.message}`)
-    const { data: pub } = supabase.storage.from('smartcorretor-assets').getPublicUrl(path)
-    return pub.publicUrl
+    if (!path.startsWith(`${user.id}/`)) throw new Error('Caminho de upload invÃ¡lido')
+    const { data: signed, error: signedErr } = await supabase.storage
+      .from('smartcorretor-assets')
+      .createSignedUrl(path, 60 * 60 * 24)
+    if (signedErr) throw new Error(`Falha ao assinar ${slot}: ${signedErr.message}`)
+    return signed.signedUrl
   }
 
   const onSavePerfil = async (data) => {

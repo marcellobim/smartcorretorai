@@ -1070,10 +1070,18 @@ export default function NovaCampanha() {
               console.error(`[upload] foto ${i + 1} tentativa ${tentativa} falhou:`, upErr.message)
               continue
             }
-            const { data: pub } = supabase.storage
+            if (!path.startsWith(`${userId}/`)) {
+              console.error(`[upload] foto ${i + 1} caminho invalido`)
+              continue
+            }
+            const { data: signed, error: signedErr } = await supabase.storage
               .from('smartcorretor-assets')
-              .getPublicUrl(path)
-            url = pub.publicUrl
+              .createSignedUrl(path, 60 * 60 * 24)
+            if (signedErr) {
+              console.error(`[upload] foto ${i + 1} assinatura falhou:`, signedErr.message)
+              continue
+            }
+            url = signed.signedUrl
             console.log('[upload] OK foto', i + 1, tentativa > 1 ? `(tentativa ${tentativa})` : '')
             break
           } catch (uploadErr) {
@@ -1281,51 +1289,10 @@ export default function NovaCampanha() {
     toast('Publicação no Instagram chega em breve.', { icon: '🚧' })
   }
 
-  // Chave Creatomate para polling direto de status no browser.
-  // Conforme instruído. Idealmente moveríamos para uma Edge Function proxy.
-  const CREATOMATE_API_KEY = '0283795cc6344e2989c19f28f2080624b6ed357a3aa123df81b11dd3d26aea542c4eae9ed5963b58a8db867e02e45bc4'
-
   const iniciarPollingRenders = (iniciais) => {
     clearInterval(renderPollRef.current)
-    let current = [...iniciais]
-
-    const finalizado = (r) => !r.render_id || r.status === 'succeeded' || r.status === 'failed'
-
-    if (current.every(finalizado)) return
-
-    renderPollRef.current = setInterval(async () => {
-      try {
-        const atualizados = await Promise.all(current.map(async (r) => {
-          if (finalizado(r)) return r
-          try {
-            const res = await fetch(`https://api.creatomate.com/v1/renders/${r.render_id}`, {
-              headers: { Authorization: `Bearer ${CREATOMATE_API_KEY}` },
-            })
-            if (!res.ok) return r
-            const body = await res.json()
-            return {
-              ...r,
-              status: body.status || r.status,
-              url: body.url || r.url || null,
-              snapshot_url: body.snapshot_url || r.snapshot_url || null,
-            }
-          } catch (err) {
-            console.error('[polling] erro em render', r.render_id, err)
-            return r
-          }
-        }))
-        current = atualizados
-        setRenders(atualizados)
-        if (atualizados.every(finalizado)) {
-          clearInterval(renderPollRef.current)
-          renderPollRef.current = null
-          const sucesso = atualizados.filter(r => r.status === 'succeeded').length
-          if (sucesso > 0) toast.success(`${sucesso} arquivo${sucesso > 1 ? 's' : ''} pronto${sucesso > 1 ? 's' : ''} para download`)
-        }
-      } catch (err) {
-        console.error('[polling renders] erro geral:', err)
-      }
-    }, 5000)
+    renderPollRef.current = null
+    setRenders(iniciais)
   }
 
   const gerarBanners = async () => {

@@ -50,7 +50,6 @@ serve(async (req) => {
       SUPABASE_URL: !!SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: !!SERVICE_ROLE_KEY,
       OPENAI_API_KEY: !!OPENAI_API_KEY,
-      OPENAI_API_KEY_length: OPENAI_API_KEY?.length ?? 0,
     })
 
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -69,36 +68,26 @@ serve(async (req) => {
       dados,
       fotos_urls,
       redes_sociais,
-      user_id: payloadUserId,
     } = payload as Record<string, unknown>
 
-    // === Auth opcional (mantida intacta) =============================
-    let userId: string | null = null
-    const authHeader = req.headers.get('Authorization') || ''
+    // JWT obrigatorio: a identidade nunca vem do payload.
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization') || ''
+    if (!authHeader.startsWith('Bearer ')) {
+      return jsonResponse({ error: 'Authorization header ausente ou invalido' }, 401)
+    }
     const token = authHeader.replace('Bearer ', '').trim()
-
-    if (token) {
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-      if (user && !authError) {
-        userId = user.id
-      } else {
-        console.warn(`[${reqId}] token inválido, fallback para payload.user_id:`, authError?.message)
-      }
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (!user || authError) {
+      console.warn(`[${reqId}] token invalido:`, authError?.message)
+      return jsonResponse({ error: 'Nao autorizado' }, 401)
     }
-
-    if (!userId && typeof payloadUserId === 'string' && payloadUserId.length > 0) {
-      userId = payloadUserId
-    }
-
-    if (!userId) {
-      return jsonResponse({ error: 'Não autorizado: forneça token válido ou user_id no payload' }, 401)
-    }
+    const userId = user.id
 
     if (!tipo) {
       return jsonResponse({ error: 'Payload inválido: `tipo` é obrigatório' }, 400)
     }
 
-    console.log(`[${reqId}] userId=${userId} tipo=${tipo} categoria=${categoria}`)
+    console.log(`[${reqId}] gerar-campanha autenticada | tipo=${tipo} categoria=${categoria}`)
 
     // === Chamada DIRETA à OpenAI (fetch nativo, single shot, 45s) ====
     const dadosObj = (dados as Record<string, unknown> | null) || {}
@@ -146,10 +135,7 @@ serve(async (req) => {
     if (!openaiRes.ok) {
       const errBody = await openaiRes.text()
       console.error(`[${reqId}] OpenAI ${openaiRes.status}:`, errBody.slice(0, 300))
-      return jsonResponse(
-        { error: `OpenAI retornou ${openaiRes.status}: ${errBody.slice(0, 300)}` },
-        502,
-      )
+      return jsonResponse({ error: `OpenAI retornou ${openaiRes.status}` }, 502)
     }
 
     const openaiData = await openaiRes.json()
@@ -167,7 +153,7 @@ serve(async (req) => {
     }
 
     const titulo = (textos_gerados.titulo_campanha as string) || `Imóvel ${tipo}`
-    console.log(`[${reqId}] OpenAI OK | titulo="${titulo}"`)
+    console.log(`[${reqId}] OpenAI OK`)
 
     // === Insert APENAS em colunas garantidas pelo schema base ========
     // Schema base (001_initial_schema.sql) garante: user_id, titulo, status,
@@ -193,7 +179,7 @@ serve(async (req) => {
       .single()
 
     if (dbError) {
-      console.error(`[${reqId}] insert error`, JSON.stringify(dbError))
+      console.error(`[${reqId}] insert error`, dbError.code, dbError.message)
       // Devolve os textos mesmo com falha de DB para o frontend não perder o trabalho da OpenAI
       return jsonResponse({
         error: `Erro ao salvar campanha: ${dbError.message}`,
@@ -203,7 +189,7 @@ serve(async (req) => {
       }, 500)
     }
 
-    console.log(`[${reqId}] OK id=${campanha?.id}`)
+    console.log(`[${reqId}] OK`)
     return jsonResponse({ success: true, campanha, textos: textos_gerados }, 200)
 
   } catch (error) {
