@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#f8fafc"/>
+  <rect x="54" y="58" width="632" height="404" rx="28" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <rect x="86" y="90" width="270" height="300" rx="22" fill="#bbf7d0"/>
+  <path d="M86 390l72-76 76 56 44-34 78 66v18H86z" fill="#16a34a" opacity=".55"/>
+  <text x="396" y="130" font-family="Arial" font-size="30" font-weight="800" fill="#111827">Detalhes do imovel</text>
+  <rect x="396" y="166" width="240" height="46" rx="16" fill="#f3f4f6"/>
+  <rect x="396" y="230" width="240" height="46" rx="16" fill="#f3f4f6"/>
+  <rect x="396" y="294" width="240" height="46" rx="16" fill="#f3f4f6"/>
+  <rect x="396" y="358" width="172" height="46" rx="16" fill="#7c3aed"/>
+  <text x="420" y="196" font-family="Arial" font-size="18" font-weight="700" fill="#374151">Suites e vagas</text>
+  <text x="420" y="260" font-family="Arial" font-size="18" font-weight="700" fill="#374151">Area e lazer</text>
+  <text x="420" y="324" font-family="Arial" font-size="18" font-weight="700" fill="#374151">Localizacao</text>
+  <text x="420" y="388" font-family="Arial" font-size="18" font-weight="700" fill="#fff">Consultar</text>
+</svg>

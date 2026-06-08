@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#f8fafc"/>
+  <rect x="110" y="78" width="500" height="360" rx="30" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <circle cx="202" cy="168" r="54" fill="#dbeafe"/>
+  <text x="284" y="146" font-family="Arial" font-size="31" font-weight="800" fill="#111827">Avaliacao</text>
+  <text x="284" y="184" font-family="Arial" font-size="31" font-weight="800" fill="#111827">de Cliente</text>
+  <text x="170" y="286" font-family="Arial" font-size="42" font-weight="800" fill="#f59e0b">★★★★★</text>
+  <rect x="170" y="322" width="366" height="14" rx="7" fill="#9ca3af"/>
+  <rect x="170" y="350" width="298" height="14" rx="7" fill="#d1d5db"/>
+  <rect x="170" y="388" width="132" height="32" rx="16" fill="#7c3aed"/>
+</svg>

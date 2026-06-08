@@ -16,6 +16,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const CREATOMATE_API_KEY = Deno.env.get('CREATOMATE_API_KEY') ?? ''
+const MAX_VISUAL_PIECES_PER_GENERATION = 5
 
 type TemplateMeta = {
   id: string
@@ -26,45 +27,139 @@ type TemplateMeta = {
 }
 
 const TEMPLATES: TemplateMeta[] = [
-  { id: '662883d7-1dba-4e61-a2a2-81fd9293ab15', nome: 'Anuncio Premium 1:1',        categoria: 'banner',   perfil: ['alto_padrao', 'lancamento'],                                  formato: 'banner-quadrado' },
-  { id: 'd45618d1-5f7f-4053-b317-dd2bbe322f5b', nome: 'Anuncio Premium 4:5 tipo 2', categoria: 'banner',   perfil: ['popular_mcmv', 'medio_padrao'],                               formato: 'vertical-4x5' },
-  { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'Reels Moderno 9:16',         categoria: 'reels',    perfil: ['alto_padrao', 'medio_padrao', 'lancamento', 'em_construcao'], formato: 'vertical-9x16' },
-  { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'Slides Premium 4:5 tipo 2',  categoria: 'story',    perfil: ['alto_padrao', 'lancamento'],                                  formato: 'vertical-4x5' },
-  { id: 'd280898b-7237-4c0b-a889-e85ededa9644', nome: 'Anuncio Premium 16:9',       categoria: 'video',    perfil: ['alto_padrao', 'lancamento'],                                  formato: 'horizontal-16x9' },
-  { id: 'd791b9b8-55e2-4dff-ae5d-76b9e779c551', nome: 'Anuncio Premium 4:5',        categoria: 'banner',   perfil: ['todos'],                                                      formato: 'vertical-4x5' },
-  { id: '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', nome: 'Card Imobiliario Premium 1:1', categoria: 'card',   perfil: ['todos'],                                                      formato: 'card-quadrado' },
-  { id: '1ae7e1f4-ada4-4b03-a032-737a025b88c6', nome: 'Imovel Detalhes 1:1',        categoria: 'detailed', perfil: ['todos'],                                                      formato: 'detalhado-quadrado' },
-  { id: '62d46ee6-6347-4335-af89-2b65f2794882', nome: 'Momentos do Imovel 16:9',    categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
-  { id: '2ecd48d3-146c-467b-8a0d-908152101378', nome: 'Carrossel Premium 1:1',      categoria: 'carousel', perfil: ['todos'],                                                      formato: 'carrossel-quadrado' },
-  { id: '1de0a863-2376-4336-8a0a-4750c2429cf7', nome: 'Story Premium 9:16',         categoria: 'story',    perfil: ['lancamento', 'em_construcao'],                                formato: 'vertical-9x16' },
-  { id: '93635efc-ef44-47d2-a8f3-38a379d69941', nome: 'Momentos do Imovel 1:1',     categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-quadrado' },
-  { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Momentos do Imovel 4:5 tipo 2', categoria: 'card',  perfil: ['todos'],                                                      formato: 'vertical-4x5' },
-  { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Avaliacao do Cliente 1:1',   categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-quadrado' },
-  { id: '697a514d-4bab-4062-9c9e-3c208688c0e9', nome: 'Frase Elegante 9:16',        categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-vertical' },
-  { id: 'f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', nome: 'Chat Imobiliario 9:16',      categoria: 'social',   perfil: ['todos'],                                                      formato: 'criativo-vertical' },
-  { id: 'f2f15dab-77c2-429e-9b62-f8d6694399ed', nome: 'Galeria Imobiliaria 16:9',   categoria: 'video',    perfil: ['todos'],                                                      formato: 'slideshow-horizontal' },
-  { id: 'd5171301-84e3-41d2-a6ca-ef3013f360a1', nome: 'Video Tour 16:9',            categoria: 'video',    perfil: ['todos'],                                                      formato: 'video-horizontal' },
+  { id: '662883d7-1dba-4e61-a2a2-81fd9293ab15', nome: 'Anuncio Premium 1x1', categoria: 'banner', perfil: ['todos'], formato: 'square' },
+  { id: 'd791b9b8-55e2-4dff-ae5d-76b9e779c551', nome: 'Anuncio Premium 4x5', categoria: 'banner', perfil: ['todos'], formato: 'portrait' },
+  { id: 'd45618d1-5f7f-4053-b317-dd2bbe322f5b', nome: 'Anuncio Premium 4x5 Tipo 2', categoria: 'banner', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '116761e5-4cda-4c83-b450-7beaaa4ef5e1', nome: 'Anuncio Premium 9x16', categoria: 'banner', perfil: ['todos'], formato: 'vertical' },
+  { id: 'd280898b-7237-4c0b-a889-e85ededa9644', nome: 'Anuncio Premium 16x9', categoria: 'banner', perfil: ['todos'], formato: 'horizontal' },
+  { id: 'e8314ba2-cd0f-44e3-afd1-de41083c0846', nome: 'Story Premium 1x1', categoria: 'story', perfil: ['todos'], formato: 'square' },
+  { id: '5461c940-4309-4c3f-bba1-d90e83e62a9a', nome: 'Story Premium 4x5', categoria: 'story', perfil: ['todos'], formato: 'portrait' },
+  { id: 'e15d93e5-dbb0-45c9-b475-2d9e2d6a1d0c', nome: 'Story Premium 4x5 Tipo 2', categoria: 'story', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '1de0a863-2376-4336-8a0a-4750c2429cf7', nome: 'Story Premium 9x16', categoria: 'story', perfil: ['todos'], formato: 'vertical' },
+  { id: 'c9cf1d8c-4f01-4f65-baf8-ca20c56ad76e', nome: 'Story Premium 16x9', categoria: 'story', perfil: ['todos'], formato: 'horizontal' },
+  { id: '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', nome: 'Card Imobiliario Premium 1x1', categoria: 'card', perfil: ['todos'], formato: 'square' },
+  { id: 'f7df2c44-ea60-4c42-b862-2d335029acad', nome: 'Card Imobiliario Premium 4x5', categoria: 'card', perfil: ['todos'], formato: 'portrait' },
+  { id: '2b4e6dff-ee96-42f0-97e1-7956bef9dfa9', nome: 'Card Imobiliario Premium 4x5 Tipo 2', categoria: 'card', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '755d1a44-acb9-4593-96b4-f1741b1651af', nome: 'Card Imobiliario Premium 9x16', categoria: 'card', perfil: ['todos'], formato: 'vertical' },
+  { id: '656ff3e1-325a-419c-9914-dfde82f911b6', nome: 'Card Imobiliario Premium 16x9', categoria: 'card', perfil: ['todos'], formato: 'horizontal' },
+  { id: '1ae7e1f4-ada4-4b03-a032-737a025b88c6', nome: 'Imovel Detalhes 1x1', categoria: 'detailed', perfil: ['todos'], formato: 'square' },
+  { id: '4dd468f4-a439-4a31-b6f3-29be17a1d51d', nome: 'Imovel Detalhes 4x5', categoria: 'detailed', perfil: ['todos'], formato: 'portrait' },
+  { id: '4ba4698c-3b6e-4548-b73d-814d71bc7f66', nome: 'Imovel Detalhes 4x5 Tipo 2', categoria: 'detailed', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '451b3422-f222-414e-b105-44b896f8277e', nome: 'Imovel Detalhes 9x16', categoria: 'detailed', perfil: ['todos'], formato: 'vertical' },
+  { id: '71aa0276-bc5f-4245-bb37-62a78fa7cf64', nome: 'Imovel Detalhes 16x9', categoria: 'detailed', perfil: ['todos'], formato: 'horizontal' },
+  { id: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc', nome: 'Avaliacao do Cliente 1x1', categoria: 'social', perfil: ['todos'], formato: 'square' },
+  { id: 'a83a2008-8a6a-4a40-8b6f-d87190a1d306', nome: 'Avaliacao do Cliente 4x5', categoria: 'social', perfil: ['todos'], formato: 'portrait' },
+  { id: 'cfded0ba-1eb9-4396-ab63-b259cb817a1e', nome: 'Avaliacao do Cliente 4x5 Tipo 2', categoria: 'social', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '52a1e65f-ca92-4c6c-af7e-9f0100c886cb', nome: 'Avaliacao do Cliente 9x16', categoria: 'social', perfil: ['todos'], formato: 'vertical' },
+  { id: 'ff23c370-89eb-4883-8b5b-c21176f8e746', nome: 'Avaliacao do Cliente 16x9', categoria: 'social', perfil: ['todos'], formato: 'horizontal' },
+  { id: '329b6afb-c749-4bda-a319-38ad42639034', nome: 'Chat Imobiliario 1x1', categoria: 'social', perfil: ['todos'], formato: 'square' },
+  { id: '1db7b057-81e0-4db3-af4e-98a7c987cdfa', nome: 'Chat Imobiliario 4x5', categoria: 'social', perfil: ['todos'], formato: 'portrait' },
+  { id: '71ae86ec-d08e-4f32-9d61-d7ddcb829f9e', nome: 'Chat Imobiliario 4x5 Tipo 2', categoria: 'social', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: 'f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', nome: 'Chat Imobiliario 9x16', categoria: 'social', perfil: ['todos'], formato: 'vertical' },
+  { id: 'bee2745c-7887-45e0-a82b-f44191fc0f0f', nome: 'Chat Imobiliario 16x9', categoria: 'social', perfil: ['todos'], formato: 'horizontal' },
+  { id: '93635efc-ef44-47d2-a8f3-38a379d69941', nome: 'Momentos do Imovel 1x1', categoria: 'video', perfil: ['todos'], formato: 'square' },
+  { id: 'f0a463cc-261f-4b51-ab7e-77fcea67476e', nome: 'Momentos do Imovel 4x5', categoria: 'video', perfil: ['todos'], formato: 'portrait' },
+  { id: '3d72b111-76a7-4c7d-a594-1f75f70be2d2', nome: 'Momentos do Imovel 4x5 Tipo 2', categoria: 'video', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '286a1949-9b0c-4bf2-b7b3-b0e84503f671', nome: 'Momentos do Imovel 9x16', categoria: 'video', perfil: ['todos'], formato: 'vertical' },
+  { id: '62d46ee6-6347-4335-af89-2b65f2794882', nome: 'Momentos do Imovel 16x9', categoria: 'video', perfil: ['todos'], formato: 'horizontal' },
+  { id: '8aab78ac-60cd-4e83-9f4c-51259c4751c6', nome: 'Frase Elegante 1x1', categoria: 'social', perfil: ['todos'], formato: 'square' },
+  { id: '164eef00-abf4-429a-9334-c9e4c1319998', nome: 'Frase Elegante 4x5', categoria: 'social', perfil: ['todos'], formato: 'portrait' },
+  { id: '9a9c663c-0348-462b-a470-c40a86092a81', nome: 'Frase Elegante 4x5 Tipo 2', categoria: 'social', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '697a514d-4bab-4062-9c9e-3c208688c0e9', nome: 'Frase Elegante 9x16', categoria: 'social', perfil: ['todos'], formato: 'vertical' },
+  { id: 'e74922ee-5882-4917-9051-9ae2e4021767', nome: 'Frase Elegante 16x9', categoria: 'social', perfil: ['todos'], formato: 'horizontal' },
+  { id: '9962f7dc-6cca-491f-bffe-3184a2314f21', nome: 'Reels Moderno 1x1', categoria: 'reels', perfil: ['todos'], formato: 'square' },
+  { id: '7f7f420d-da91-48c6-b701-0f0fb540b1aa', nome: 'Reels Moderno 4x5', categoria: 'reels', perfil: ['todos'], formato: 'portrait' },
+  { id: 'dfdcea18-0f3d-4c84-baa9-463c182644b7', nome: 'Reels Moderno 4x5 Tipo 2', categoria: 'reels', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: 'd8310f54-5c9d-4606-ae6a-dacb8c4455ae', nome: 'Reels Moderno 9x16', categoria: 'reels', perfil: ['todos'], formato: 'vertical' },
+  { id: 'a8a1eebe-b357-4d35-a1fa-2d06887484aa', nome: 'Reels Moderno 16x9', categoria: 'reels', perfil: ['todos'], formato: 'horizontal' },
+  { id: '7a12a73e-ace7-4ab4-9739-95741b82232a', nome: 'Galeria Imobiliaria 1x1', categoria: 'video', perfil: ['todos'], formato: 'square' },
+  { id: '8e399960-3ade-453a-b868-e7059f30c6a9', nome: 'Galeria Imobiliaria 4x5', categoria: 'video', perfil: ['todos'], formato: 'portrait' },
+  { id: '660ca820-3d7d-4d9f-8c45-3d6da832588b', nome: 'Galeria Imobiliaria 4x5 Tipo 2', categoria: 'video', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: '856a9b35-ac8c-45bb-8709-bb2dfa2618b7', nome: 'Galeria Imobiliaria 9x16', categoria: 'video', perfil: ['todos'], formato: 'vertical' },
+  { id: 'f2f15dab-77c2-429e-9b62-f8d6694399ed', nome: 'Galeria Imobiliaria 16x9', categoria: 'video', perfil: ['todos'], formato: 'horizontal' },
+  { id: '9c7e271b-a9c2-475a-b742-8f949e788abf', nome: 'Slides Premium 1x1', categoria: 'story', perfil: ['todos'], formato: 'square' },
+  { id: '4a7830c5-ff23-446b-8664-2bc8fe86b2c0', nome: 'Slides Premium 4x5', categoria: 'story', perfil: ['todos'], formato: 'portrait' },
+  { id: '13008c2d-9e7e-4515-a2ac-649c9ea18409', nome: 'Slides Premium 4x5 Tipo 2', categoria: 'story', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: 'eb6ae228-a08f-4747-a761-e4d47f716019', nome: 'Slides Premium 9x16', categoria: 'story', perfil: ['todos'], formato: 'vertical' },
+  { id: '2d79f2a0-1143-422c-bdef-7d02c5bb72e9', nome: 'Slides Premium 16x9', categoria: 'story', perfil: ['todos'], formato: 'horizontal' },
+  { id: '9ebd1bda-e650-4d88-b8aa-ff555a419082', nome: 'Video Tour 1x1', categoria: 'video', perfil: ['todos'], formato: 'square' },
+  { id: '89071652-69ab-4edc-897b-9e7985c95f59', nome: 'Video Tour 4x5', categoria: 'video', perfil: ['todos'], formato: 'portrait' },
+  { id: '9c831fd6-5412-4afe-9e29-dd8c4984e55c', nome: 'Video Tour 4x5 Tipo 2', categoria: 'video', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: 'cd6c0ed3-1dde-4fc0-a604-d728e5cbb73b', nome: 'Video Tour 9x16', categoria: 'video', perfil: ['todos'], formato: 'vertical' },
+  { id: 'd5171301-84e3-41d2-a6ca-ef3013f360a1', nome: 'Video Tour 16x9', categoria: 'video', perfil: ['todos'], formato: 'horizontal' },
+  { id: '2ecd48d3-146c-467b-8a0d-908152101378', nome: 'Triple Slide Carousel 1x1', categoria: 'carousel', perfil: ['todos'], formato: 'square' },
+  { id: '16682dcd-eb89-404c-94dc-bb9f01317bf4', nome: 'Triple Slide Carousel 4x5', categoria: 'carousel', perfil: ['todos'], formato: 'portrait' },
+  { id: '5635ee72-d0da-4906-9a84-6e0b5f587196', nome: 'Triple Slide Carousel 4x5 Tipo 2', categoria: 'carousel', perfil: ['todos'], formato: 'portraitAlt' },
+  { id: 'fa82c49d-39af-46e8-bc31-3649fff10cae', nome: 'Triple Slide Carousel 9x16', categoria: 'carousel', perfil: ['todos'], formato: 'vertical' },
+  { id: '21c3ff4b-f632-405f-8ebf-369c1f7d4b10', nome: 'Triple Slide Carousel 16x9', categoria: 'carousel', perfil: ['todos'], formato: 'horizontal' },
 ]
 
 const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>([
   ['662883d7-1dba-4e61-a2a2-81fd9293ab15', 10],
-  ['d45618d1-5f7f-4053-b317-dd2bbe322f5b', 10],
-  ['d8310f54-5c9d-4606-ae6a-dacb8c4455ae', 60],
-  ['13008c2d-9e7e-4515-a2ac-649c9ea18409', 15],
-  ['d280898b-7237-4c0b-a889-e85ededa9644', 120],
   ['d791b9b8-55e2-4dff-ae5d-76b9e779c551', 10],
-  ['0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', 10],
-  ['1ae7e1f4-ada4-4b03-a032-737a025b88c6', 10],
-  ['62d46ee6-6347-4335-af89-2b65f2794882', 60],
-  ['2ecd48d3-146c-467b-8a0d-908152101378', 20],
+  ['d45618d1-5f7f-4053-b317-dd2bbe322f5b', 10],
+  ['116761e5-4cda-4c83-b450-7beaaa4ef5e1', 15],
+  ['d280898b-7237-4c0b-a889-e85ededa9644', 120],
+  ['e8314ba2-cd0f-44e3-afd1-de41083c0846', 15],
+  ['5461c940-4309-4c3f-bba1-d90e83e62a9a', 15],
+  ['e15d93e5-dbb0-45c9-b475-2d9e2d6a1d0c', 15],
   ['1de0a863-2376-4336-8a0a-4750c2429cf7', 15],
-  ['93635efc-ef44-47d2-a8f3-38a379d69941', 60],
-  ['3d72b111-76a7-4c7d-a594-1f75f70be2d2', 10],
+  ['c9cf1d8c-4f01-4f65-baf8-ca20c56ad76e', 15],
+  ['0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', 10],
+  ['f7df2c44-ea60-4c42-b862-2d335029acad', 10],
+  ['2b4e6dff-ee96-42f0-97e1-7956bef9dfa9', 10],
+  ['755d1a44-acb9-4593-96b4-f1741b1651af', 10],
+  ['656ff3e1-325a-419c-9914-dfde82f911b6', 10],
+  ['1ae7e1f4-ada4-4b03-a032-737a025b88c6', 10],
+  ['4dd468f4-a439-4a31-b6f3-29be17a1d51d', 10],
+  ['4ba4698c-3b6e-4548-b73d-814d71bc7f66', 10],
+  ['451b3422-f222-414e-b105-44b896f8277e', 10],
+  ['71aa0276-bc5f-4245-bb37-62a78fa7cf64', 10],
   ['792ad84a-0ab8-4e6c-bda1-400fe9c040cc', 15],
-  ['697a514d-4bab-4062-9c9e-3c208688c0e9', 15],
+  ['a83a2008-8a6a-4a40-8b6f-d87190a1d306', 15],
+  ['cfded0ba-1eb9-4396-ab63-b259cb817a1e', 15],
+  ['52a1e65f-ca92-4c6c-af7e-9f0100c886cb', 15],
+  ['ff23c370-89eb-4883-8b5b-c21176f8e746', 15],
+  ['329b6afb-c749-4bda-a319-38ad42639034', 15],
+  ['1db7b057-81e0-4db3-af4e-98a7c987cdfa', 15],
+  ['71ae86ec-d08e-4f32-9d61-d7ddcb829f9e', 15],
   ['f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', 15],
+  ['bee2745c-7887-45e0-a82b-f44191fc0f0f', 15],
+  ['93635efc-ef44-47d2-a8f3-38a379d69941', 60],
+  ['f0a463cc-261f-4b51-ab7e-77fcea67476e', 60],
+  ['3d72b111-76a7-4c7d-a594-1f75f70be2d2', 60],
+  ['286a1949-9b0c-4bf2-b7b3-b0e84503f671', 60],
+  ['62d46ee6-6347-4335-af89-2b65f2794882', 60],
+  ['8aab78ac-60cd-4e83-9f4c-51259c4751c6', 15],
+  ['164eef00-abf4-429a-9334-c9e4c1319998', 15],
+  ['9a9c663c-0348-462b-a470-c40a86092a81', 15],
+  ['697a514d-4bab-4062-9c9e-3c208688c0e9', 15],
+  ['e74922ee-5882-4917-9051-9ae2e4021767', 15],
+  ['9962f7dc-6cca-491f-bffe-3184a2314f21', 60],
+  ['7f7f420d-da91-48c6-b701-0f0fb540b1aa', 60],
+  ['dfdcea18-0f3d-4c84-baa9-463c182644b7', 60],
+  ['d8310f54-5c9d-4606-ae6a-dacb8c4455ae', 60],
+  ['a8a1eebe-b357-4d35-a1fa-2d06887484aa', 60],
+  ['7a12a73e-ace7-4ab4-9739-95741b82232a', 60],
+  ['8e399960-3ade-453a-b868-e7059f30c6a9', 60],
+  ['660ca820-3d7d-4d9f-8c45-3d6da832588b', 60],
+  ['856a9b35-ac8c-45bb-8709-bb2dfa2618b7', 60],
   ['f2f15dab-77c2-429e-9b62-f8d6694399ed', 60],
+  ['9c7e271b-a9c2-475a-b742-8f949e788abf', 15],
+  ['4a7830c5-ff23-446b-8664-2bc8fe86b2c0', 15],
+  ['13008c2d-9e7e-4515-a2ac-649c9ea18409', 15],
+  ['eb6ae228-a08f-4747-a761-e4d47f716019', 15],
+  ['2d79f2a0-1143-422c-bdef-7d02c5bb72e9', 15],
+  ['9ebd1bda-e650-4d88-b8aa-ff555a419082', 60],
+  ['89071652-69ab-4edc-897b-9e7985c95f59', 60],
+  ['9c831fd6-5412-4afe-9e29-dd8c4984e55c', 60],
+  ['cd6c0ed3-1dde-4fc0-a604-d728e5cbb73b', 60],
   ['d5171301-84e3-41d2-a6ca-ef3013f360a1', 60],
+  ['2ecd48d3-146c-467b-8a0d-908152101378', 20],
+  ['16682dcd-eb89-404c-94dc-bb9f01317bf4', 20],
+  ['5635ee72-d0da-4906-9a84-6e0b5f587196', 20],
+  ['fa82c49d-39af-46e8-bc31-3649fff10cae', 20],
+  ['21c3ff4b-f632-405f-8ebf-369c1f7d4b10', 20],
 ])
 
 const SMART_CAMPAIGN_FIXED_CREDIT_COST = 185
@@ -98,19 +193,144 @@ const toPositiveInteger = (value: unknown): number => {
   return 0
 }
 
-async function cancelReservedCredits(
+const normalizePriceLabel = (value: unknown): string => {
+  const normalized = String(value ?? '').trim()
+  return normalized || 'Consulte'
+}
+
+const formatPriceBRL = (value: unknown): string => {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    }).format(value)
+  }
+  const raw = String(value ?? '').trim()
+  if (!raw) return 'Consulte'
+  const numeric = Number(raw.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'))
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    }).format(numeric)
+  }
+  return raw
+}
+
+const toPositiveCount = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value))
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed))
+  }
+  return 0
+}
+
+const formatCountLabel = (count: number, singular: string, plural = `${singular}s`): string => {
+  if (count <= 0) return ''
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+const CANONICAL_TEMPLATE_FIELDS = [
+  'property_tag',
+  'sale_badge',
+  'property_location_type',
+  'property_features',
+  'property_price',
+  'cta_text',
+  'broker_whatsapp',
+  'broker_email',
+  'property_image_01',
+  'property_image_02',
+  'property_image_03',
+  'property_image_04',
+] as const
+
+type CanonicalTemplateField = typeof CANONICAL_TEMPLATE_FIELDS[number]
+type CanonicalTemplateData = Record<CanonicalTemplateField, string>
+
+const CANONICAL_IMAGE_FIELDS = new Set<CanonicalTemplateField>([
+  'property_image_01',
+  'property_image_02',
+  'property_image_03',
+  'property_image_04',
+])
+
+const CANONICAL_FIELD_SET = new Set<string>(CANONICAL_TEMPLATE_FIELDS)
+
+const getCanonicalFieldName = (label: string): CanonicalTemplateField | null => (
+  CANONICAL_FIELD_SET.has(label) ? label as CanonicalTemplateField : null
+)
+
+const maskContactValue = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.includes('@')) {
+    const [user, domain] = trimmed.split('@')
+    return `${user.slice(0, 2)}***@${domain || '***'}`
+  }
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length <= 4) return '***'
+  return `***${digits.slice(-4)}`
+}
+
+const publicCanonicalLog = (templateData: CanonicalTemplateData): Record<string, string> => ({
+  ...templateData,
+  broker_whatsapp: maskContactValue(templateData.broker_whatsapp),
+  broker_email: maskContactValue(templateData.broker_email),
+  property_image_01: templateData.property_image_01 ? 'presente' : '',
+  property_image_02: templateData.property_image_02 ? 'presente' : '',
+  property_image_03: templateData.property_image_03 ? 'presente' : '',
+  property_image_04: templateData.property_image_04 ? 'presente' : '',
+})
+
+type PieceCreditReservation = {
+  templateId: string
+  pieceId: string
+  modelId?: string | null
+  useId?: string | null
+  useLabel?: string | null
+  index: number
+  amount: number
+  idempotencyKey: string
+  status: string
+}
+
+type SelectedTemplatePiece = {
+  piece_id: string
+  template_id: string
+  model_id?: string | null
+  model_name?: string | null
+  use_id?: string | null
+  use_label?: string | null
+  template_nome?: string | null
+  credit_cost?: number
+  label?: string | null
+  index: number
+}
+
+async function cancelPieceReservations(
   supabase: ReturnType<typeof createClient>,
   reqId: string,
-  reservation: { userId: string; idempotencyKey: string } | null,
+  userId: string,
+  reservations: PieceCreditReservation[],
   reason: string,
 ) {
-  if (!reservation) return
-  const { error } = await supabase.rpc('cancel_credit_reservation', {
-    p_user_id: reservation.userId,
-    p_idempotency_key: reservation.idempotencyKey,
-    p_reason: reason,
-  })
-  if (error) console.warn(`[${reqId}] falha ao cancelar reserva de creditos:`, error.message)
+  await Promise.all(reservations.map(async (reservation) => {
+    if (reservation.amount <= 0 || reservation.status !== 'reserved') return
+    const { error } = await supabase.rpc('cancel_credit_reservation', {
+      p_user_id: userId,
+      p_idempotency_key: reservation.idempotencyKey,
+      p_reason: reason,
+    })
+    if (error) {
+      console.warn(`[${reqId}] falha ao cancelar reserva da peça ${reservation.templateId}:`, error.message)
+      return
+    }
+    reservation.status = 'cancelled'
+  }))
 }
 
 const FILL_SYSTEM_PROMPT = `Você produz objetos "modifications" do Creatomate para uma lista de templates já selecionados. Para cada template, você recebe o NOME REAL (ou um rótulo virtual numerado, quando há slots duplicados) de cada elemento modificável e seu TIPO (text, image, video, audio).
@@ -179,6 +399,7 @@ TOM E DEMAIS REGRAS:
 
 type SanitizeContext = {
   preco?: string
+  suites_label?: string
   endereco?: string
   bairro?: string
   cidade?: string
@@ -621,6 +842,11 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
   //    Aplicado ANTES das demais etapas para que o restante do pipeline
   //    veja já o texto em PT-BR / com o dado real do imóvel.
   s = applyFixedEnglishPhrases(s, ctx, enderecoFinal)
+  if (ctx.suites_label) {
+    s = s
+      .replace(/\b\d+\s*banheiros?\b/gi, ctx.suites_label)
+      .replace(/\bbanheiros?\b/gi, ctx.suites_label)
+  }
 
   // 1. Substituir cidades em inglês (com ou sem código de estado US: "New York, NY")
   for (const c of ENGLISH_CITIES) {
@@ -706,6 +932,14 @@ function isCtaElement(elementName: string): boolean {
   return /cta|button|action/i.test(elementName)
 }
 
+function isPriceElement(elementName: string): boolean {
+  return /\b(price|preco|preço|valor|value|amount)\b/i.test(elementName)
+}
+
+function isBathroomElement(elementName: string): boolean {
+  return /\b(bath|baths|bathroom|bathrooms|banheiro|banheiros)\b/i.test(elementName)
+}
+
 function snapCta(value: string): string {
   const lower = value.trim().toLowerCase()
   if (!lower) return 'Saiba Mais'
@@ -726,6 +960,140 @@ function isPropertyPhotoSlot(name: string): boolean {
 }
 
 type ElementInfo = { name: string; type: string; id?: string; virtualLabel?: string; defaultValue?: string }
+
+function findCanonicalElement(
+  elementos: Map<string, ElementInfo>,
+  field: CanonicalTemplateField
+): { label: string; elem: ElementInfo } | null {
+  const direct = elementos.get(field)
+  if (direct) return { label: field, elem: direct }
+  for (const [label, elem] of elementos.entries()) {
+    if (elem.name === field || elem.virtualLabel === field) return { label, elem }
+  }
+  return null
+}
+
+function buildCanonicalModifications(
+  elementos: Map<string, ElementInfo>,
+  templateData: CanonicalTemplateData
+): {
+  modifications: Record<string, unknown>
+  sentFields: string[]
+  missingFields: string[]
+} {
+  const modifications: Record<string, unknown> = {}
+  const sentFields: string[] = []
+  const missingFields: string[] = []
+
+  for (const field of CANONICAL_TEMPLATE_FIELDS) {
+    const match = findCanonicalElement(elementos, field)
+    if (!match) {
+      missingFields.push(field)
+      continue
+    }
+
+    const { elem } = match
+    const isImageField = CANONICAL_IMAGE_FIELDS.has(field)
+    const expectedProp = isImageField ? 'source' : 'text'
+    if (isImageField && !['image', 'video', 'audio'].includes(elem.type)) {
+      missingFields.push(field)
+      continue
+    }
+    if (!isImageField && elem.type !== 'text') {
+      missingFields.push(field)
+      continue
+    }
+
+    const rawValue = templateData[field]
+    if (!rawValue && isImageField) {
+      missingFields.push(field)
+      continue
+    }
+
+    const keyBase = elem.id || elem.name
+    modifications[`${keyBase}.${expectedProp}`] =
+      field === 'cta_text' ? snapCta(rawValue || 'Saiba Mais') : rawValue
+    sentFields.push(field)
+  }
+
+  return { modifications, sentFields, missingFields }
+}
+
+function normalizeSearchText(...values: unknown[]): string {
+  return values
+    .map((value) => String(value ?? '').toLowerCase())
+    .join(' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unknown>, titulo: unknown, descricao: unknown): string {
+  const search = normalizeSearchText(categoria, dadosImovel.categoria, dadosImovel.padrao, titulo, descricao)
+  if (/lancamento|lançamento/.test(search)) return 'Lançamento'
+  if (/alto\s*padrao|alto\s*padr[aã]o|luxo|premium/.test(search)) return 'Alto Padrão'
+  if (/minha\s*casa|minha\s*casa\s*minha\s*vida|mcmv/.test(search)) return 'Minha Casa Minha Vida'
+  if (/oportunidade|promocao|promoção|abaixo/.test(search)) return 'Oportunidade'
+  if (/construcao|construção|obra/.test(search)) return 'Em construção'
+  return 'Pronto para Morar'
+}
+
+function resolveSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
+  const search = normalizeSearchText(finalidade, titulo, descricao)
+  if (/locacao|locação|aluguel|alugar|rent/.test(search)) return 'Para Locação'
+  return 'À Venda'
+}
+
+function resolveBairro(dadosImovel: Record<string, unknown>, endereco: unknown): string {
+  const bairro = String(dadosImovel.bairro ?? '').trim()
+  if (bairro) return bairro
+  if (typeof endereco === 'string' && endereco.trim()) {
+    return endereco.split(',')[0]?.trim() || ''
+  }
+  return ''
+}
+
+function buildCanonicalTemplateData(input: {
+  categoria: string
+  dadosImovel: Record<string, unknown>
+  titulo: unknown
+  descricao: unknown
+  preco: unknown
+  finalidade: unknown
+  tipoImovel: unknown
+  endereco: unknown
+  fotosArr: string[]
+  quartosLabel: string
+  suitesLabel: string
+  vagasLabel: string
+  areaLabel: string
+  corretorWhatsApp: string
+  corretorTelefone: string
+  corretorEmail: string
+}): CanonicalTemplateData {
+  const bairro = resolveBairro(input.dadosImovel, input.endereco)
+  const tipo = String(input.tipoImovel || input.dadosImovel.tipo || '').trim()
+  const propertyLocationType = [bairro, tipo].filter(Boolean).join(', ') || tipo || bairro
+  const propertyFeatures =
+    [input.quartosLabel, input.suitesLabel, input.vagasLabel].filter(Boolean).join(' • ')
+    || input.areaLabel
+    || ''
+  const contact = input.corretorWhatsApp || input.corretorTelefone
+
+  return {
+    property_tag: resolvePropertyTag(input.categoria, input.dadosImovel, input.titulo, input.descricao),
+    sale_badge: resolveSaleBadge(input.finalidade, input.titulo, input.descricao),
+    property_location_type: propertyLocationType,
+    property_features: propertyFeatures,
+    property_price: formatPriceBRL(input.preco),
+    cta_text: contact ? 'Agende sua visita' : 'Solicite informações',
+    broker_whatsapp: contact,
+    broker_email: input.corretorEmail,
+    property_image_01: input.fotosArr[0] || '',
+    property_image_02: input.fotosArr[1] || '',
+    property_image_03: input.fotosArr[2] || '',
+    property_image_04: input.fotosArr[3] || '',
+  }
+}
 
 function extractElements(node: unknown, out: ElementInfo[] = []): ElementInfo[] {
   if (!node || typeof node !== 'object') return out
@@ -783,8 +1151,8 @@ async function fetchTemplateElements(reqId: string, templateId: string): Promise
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
   let supabaseClient: ReturnType<typeof createClient> | null = null
-  let creditReservation: { userId: string; idempotencyKey: string } | null = null
-  let renderAttempted = false
+  const pieceCreditReservations: PieceCreditReservation[] = []
+  let cleanupUserId = ''
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -821,6 +1189,7 @@ serve(async (req) => {
       return jsonResponse({ error: 'Token invalido ou expirado' }, 401)
     }
     const authenticatedUserId = authUser.id
+    cleanupUserId = authenticatedUserId
 
     const payload = await req.json().catch(() => ({}))
     const {
@@ -830,17 +1199,27 @@ serve(async (req) => {
       titulo,
       descricao,
       preco,
+      suites,
+      quartos,
+      vagas,
+      area,
       endereco,
       tipo_imovel,
+      finalidade,
       corretor_nome,
       corretor_avatar_url,
       marca_imovel,
-      selectedTemplates,
       credit_cost,
       generation_mode,
       video_ia_premium,
       idempotency_key,
     } = payload as Record<string, unknown>
+    const selectedTemplatesPayload =
+      (payload as Record<string, unknown>).selectedTemplates
+      ?? (payload as Record<string, unknown>).selected_templates
+      ?? (payload as Record<string, unknown>).templates
+      ?? (payload as Record<string, unknown>).pieces
+      ?? []
 
     // fotos_urls é a fonte de verdade, EM ORDEM (a primeira é a principal).
     // Se vier foto_principal explícita e ela não estiver na lista, prependa.
@@ -855,11 +1234,74 @@ serve(async (req) => {
 
     // Templates escolhidos pelo usuário (frontend manda em selectedTemplates).
     // Fonte única de verdade: backend NUNCA escolhe sozinho.
-    const selectedArrRaw = Array.isArray(selectedTemplates)
-      ? (selectedTemplates as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0)
+    console.log(`[${reqId}] BODY RECEBIDO`, {
+      keys: Object.keys(payload as Record<string, unknown>),
+      selectedTemplates: selectedTemplatesPayload,
+    })
+    console.log(`[${reqId}] selectedTemplates`, selectedTemplatesPayload)
+
+    const selectedTemplatesArray = Array.isArray(selectedTemplatesPayload)
+      ? selectedTemplatesPayload
+      : typeof selectedTemplatesPayload === 'string'
+        ? (() => {
+            try {
+              const parsed = JSON.parse(selectedTemplatesPayload)
+              return Array.isArray(parsed) ? parsed : []
+            } catch {
+              return []
+            }
+          })()
+        : []
+
+    const selectedPiecesRaw: SelectedTemplatePiece[] = selectedTemplatesArray.length > 0
+      ? (selectedTemplatesArray as unknown[]).map((item, index) => {
+          if (typeof item === 'string' && item.trim()) {
+            const templateId = item.trim()
+            return {
+              piece_id: `template:${templateId}:index:${index}`,
+              template_id: templateId,
+              index,
+            }
+          }
+          if (item && typeof item === 'object') {
+            const record = item as Record<string, unknown>
+            const templateId = typeof record.template_id === 'string'
+              ? record.template_id.trim()
+              : typeof record.templateId === 'string'
+                ? record.templateId.trim()
+                : ''
+            if (!templateId) return null
+            const pieceId = typeof record.piece_id === 'string' && record.piece_id.trim()
+              ? record.piece_id.trim()
+              : typeof record.pieceId === 'string' && record.pieceId.trim()
+                ? record.pieceId.trim()
+                : `template:${templateId}:index:${index}`
+            return {
+              piece_id: `${pieceId}:index:${index}`,
+              template_id: templateId,
+              model_id: typeof record.model_id === 'string'
+                ? record.model_id
+                : typeof record.modelo_id === 'string'
+                  ? record.modelo_id
+                  : null,
+              model_name: typeof record.model_name === 'string' ? record.model_name : null,
+              use_id: typeof record.use_id === 'string'
+                ? record.use_id
+                : typeof record.uso_id === 'string'
+                  ? record.uso_id
+                  : null,
+              use_label: typeof record.use_label === 'string' ? record.use_label : null,
+              template_nome: typeof record.template_nome === 'string' ? record.template_nome : null,
+              credit_cost: toPositiveInteger(record.credit_cost),
+              label: typeof record.label === 'string' ? record.label : null,
+              index,
+            }
+          }
+          return null
+        }).filter((item): item is SelectedTemplatePiece => Boolean(item?.template_id))
       : []
 
-    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${authenticatedUserId} | fotos=${fotosArr.length} | selectedTemplates=${selectedArrRaw.length}`)
+    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${authenticatedUserId} | fotos=${fotosArr.length} | selectedPieces=${selectedPiecesRaw.length}`)
 
     // Buscar dados da campanha (opcional — se foi passado um campaign_id, enriquecemos)
     let campaignRow: { titulo?: string; dados_imovel?: Record<string, unknown>; textos_gerados?: Record<string, unknown>; user_id?: string } | null = null
@@ -907,6 +1349,15 @@ serve(async (req) => {
 
     const dadosImovel = (campaignRow?.dados_imovel as Record<string, unknown>) || {}
     const categoria = String(dadosImovel.categoria || tipo_imovel || 'medio_padrao')
+    const precoFinal = formatPriceBRL(preco ?? dadosImovel.preco)
+    const suitesCount = toPositiveCount(suites ?? dadosImovel.suites)
+    const suitesLabel = formatCountLabel(suitesCount, 'Suíte')
+    const quartosLabel = formatCountLabel(toPositiveCount(quartos ?? dadosImovel.quartos), 'Dormitório')
+    const vagasLabel = formatCountLabel(toPositiveCount(vagas ?? dadosImovel.vagas), 'Vaga')
+    const areaLabel = String(area ?? dadosImovel.area ?? '').trim()
+      ? `${String(area ?? dadosImovel.area).trim()}m²`
+      : ''
+    const specsComerciais = [quartosLabel, suitesLabel, vagasLabel, areaLabel].filter(Boolean).join(', ')
 
     // Merge: profile do banco tem prioridade sobre payload (fonte de verdade)
     const corretorNomeFinal  = profileRow?.nome        || (typeof corretor_nome === 'string' ? corretor_nome : '') || ''
@@ -930,15 +1381,38 @@ serve(async (req) => {
         ? profileRow.avatar_url
         : (avatarFromPayload && avatarFromPayload !== 'REMOVER_ELEMENTO' ? avatarFromPayload : '')
 
+    const templateData = buildCanonicalTemplateData({
+      categoria,
+      dadosImovel,
+      titulo: titulo || campaignRow?.titulo || '',
+      descricao,
+      preco: preco ?? dadosImovel.preco,
+      finalidade: finalidade ?? dadosImovel.finalidade,
+      tipoImovel: tipo_imovel || dadosImovel.tipo,
+      endereco,
+      fotosArr,
+      quartosLabel,
+      suitesLabel,
+      vagasLabel,
+      areaLabel,
+      corretorWhatsApp,
+      corretorTelefone,
+      corretorEmail,
+    })
+
     // Bloco compartilhado com os dois prompts
     const dadosImovelBloco = `DADOS DO IMÓVEL:
 - Título: ${titulo || campaignRow?.titulo || 'Imóvel'}
 - Categoria/Perfil: ${categoria}
 - Tipo de imóvel: ${tipo_imovel || dadosImovel.tipo || 'não informado'}
 - Descrição: ${descricao || ''}
-- Preço: ${preco || dadosImovel.preco || ''}
+- Preço: ${precoFinal}
+- Especificações principais: ${specsComerciais || 'não informado'}
 - Endereço: ${endereco || `${dadosImovel.bairro || ''}${dadosImovel.cidade ? ', ' + dadosImovel.cidade : ''}${dadosImovel.estado ? ' - ' + dadosImovel.estado : ''}`}
 - Fotos do imóvel (${fotosArr.length}): ${JSON.stringify(fotosArr)}
+
+TEMPLATE_DATA_CANONICO (prioridade para nomes exatos de elementos):
+${Object.entries(templateData).map(([key, value]) => `- ${key}: ${value || 'REMOVER_ELEMENTO'}`).join('\n')}
 
 DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telefones fictícios em inglês):
 - Nome: ${corretorNomeFinal || '(não informado)'}
@@ -956,39 +1430,43 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
     // ESTRITAMENTE os IDs marcados pelo corretor (frontend → selectedTemplates).
     // SEM fallback de IA, SEM cap. Lista vazia => 400.
     const validIds = new Map(TEMPLATES.map((t) => [t.id, t]))
-    let pickedIds: string[] = []
 
     // SEM fallback de IA. SEM cap. A lista marcada pelo corretor é a fonte
     // única de verdade. Se o frontend não enviar selectedTemplates (ou
     // enviar lista vazia / só IDs inválidos), retornamos erro — NUNCA o
     // backend escolhe sozinho.
-    if (selectedArrRaw.length === 0) {
+    if (selectedPiecesRaw.length === 0) {
       return jsonResponse({
         error: 'selectedTemplates é obrigatório. O backend não escolhe templates autonomamente: envie a lista completa marcada pelo corretor.',
       }, 400)
     }
 
-    const filtrados = selectedArrRaw.filter((id) => validIds.has(id))
-    const invalidos = selectedArrRaw.filter((id) => !validIds.has(id))
+    const pickedPieces = selectedPiecesRaw.filter((piece) => validIds.has(piece.template_id))
+    const invalidos = selectedPiecesRaw.filter((piece) => !validIds.has(piece.template_id))
     if (invalidos.length > 0) {
-      console.warn(`[${reqId}] selectedTemplates contém IDs inválidos (ignorados):`, invalidos)
+      console.warn(`[${reqId}] selectedTemplates contem IDs invalidos (ignorados):`, invalidos.map(piece => piece.template_id))
     }
-    // Lote completo: 1, 10, 15 ou todos os 18+ templates passam direto.
-    // Apenas deduplica IDs repetidos; NENHUM teto (nem 6, nem 7, nem outro)
-    // é aplicado aqui ou em qualquer ponto subsequente do pipeline.
-    pickedIds = Array.from(new Set(filtrados))
-    if (pickedIds.length === 0) {
+    if (pickedPieces.length === 0) {
       return jsonResponse({
         error: 'Nenhum template válido em selectedTemplates',
-        invalid_ids: invalidos,
+        invalid_ids: invalidos.map(piece => piece.template_id),
       }, 400)
     }
-    console.log(`[${reqId}] estágio 1 (user-only, sem cap): ${pickedIds.length} templates em lote`)
+    if (pickedPieces.length > MAX_VISUAL_PIECES_PER_GENERATION) {
+      return jsonResponse({
+        error: `Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`,
+        max_pieces: MAX_VISUAL_PIECES_PER_GENERATION,
+        received_pieces: pickedPieces.length,
+      }, 413)
+    }
+    const pickedIds = pickedPieces.map(piece => piece.template_id)
+    const uniquePickedIds = Array.from(new Set(pickedIds))
+    console.log(`[${reqId}] estagio 1 (user-only, sem cap): ${pickedPieces.length} pecas em lote | ${uniquePickedIds.length} templates tecnicos`)
 
     // === ESTÁGIO 2: GET de cada template para descobrir elementos reais ===
     const frontendCreditCost = toPositiveInteger(credit_cost)
-    const serverTemplateCreditCost = pickedIds.reduce(
-      (sum, id) => sum + (TEMPLATE_CREDIT_WEIGHTS.get(id) || 0),
+    const serverTemplateCreditCost = pickedPieces.reduce(
+      (sum, piece) => sum + (piece.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0),
       0,
     )
     const generationMode = typeof generation_mode === 'string' && generation_mode.trim()
@@ -1041,6 +1519,15 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       campaign_id: hasCampaignId ? campaign_id : null,
       generation_mode: generationMode,
       selectedTemplates: pickedIds,
+      selectedPieces: pickedPieces.map(piece => ({
+        piece_id: piece.piece_id,
+        template_id: piece.template_id,
+        model_id: piece.model_id || null,
+        use_id: piece.use_id || null,
+        use_label: piece.use_label || null,
+        credit_cost: piece.credit_cost || null,
+        label: piece.label || null,
+      })),
       video_ia_premium: videoIaPremium,
       credit_cost_frontend: frontendCreditCost,
       credit_cost_server: serverTemplateCreditCost,
@@ -1048,57 +1535,46 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       req_id: reqId,
     }
 
-    if (effectiveCreditCost > 0) {
-      if (!idempotencyKey) {
-        return jsonResponse({ error: 'idempotency_key obrigatoria para consumo de creditos.' }, 400)
-      }
-
-      const { data: reservationRows, error: reservationErr } = await supabase.rpc('reserve_credits', {
-        p_user_id: authenticatedUserId,
-        p_amount: effectiveCreditCost,
-        p_idempotency_key: idempotencyKey,
-        p_campaign_id: hasCampaignId ? campaign_id : null,
-        p_reason: 'gerar-banners',
-        p_metadata: creditMetadata,
-      })
-
-      if (reservationErr) {
-        const message = reservationErr.message || 'Falha ao reservar creditos.'
-        const status = message.toLowerCase().includes('insuficient') ? 402 : 500
-        console.warn(`[${reqId}] reserva de creditos falhou:`, message)
-        return jsonResponse({ error: status === 402 ? 'Créditos insuficientes para esta geração.' : message }, status)
-      }
-
-      const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows
-      if (reservation?.status === 'consumed') {
-        const previousRenders = Array.isArray(reservation?.metadata?.renders)
-          ? reservation.metadata.renders
-          : []
-        console.log(`[${reqId}] idempotency_key ja consumida; retornando sem novo debito`)
-        return jsonResponse({
-          success: true,
-          idempotent: true,
-          renders: previousRenders,
-          pick_source: 'user',
-          credit_cost: effectiveCreditCost,
-          credit_reservation_status: 'consumed',
-        }, 200)
-      }
-
-      if (reservation?.status === 'cancelled') {
-        return jsonResponse({ error: 'Reserva de creditos cancelada. Gere novamente para criar uma nova reserva.' }, 409)
-      }
-
-      creditReservation = { userId: authenticatedUserId, idempotencyKey }
-      console.log(`[${reqId}] creditos reservados: ${effectiveCreditCost}`)
+    if (effectiveCreditCost > 0 && !idempotencyKey) {
+      return jsonResponse({ error: 'idempotency_key obrigatoria para consumo de creditos.' }, 400)
     }
 
-    const schemas = await Promise.all(pickedIds.map((id) => fetchTemplateElements(reqId, id)))
-    const schemasComElementos = schemas.filter((s) => s.elements.length > 0)
+    const makeFailedPieceRender = (piece: SelectedTemplatePiece, index: number, erro: string) => {
+      const meta = validIds.get(piece.template_id)
+      const amount = TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0
+      return {
+        piece_id: piece.piece_id,
+        piece_index: index,
+        model_id: piece.model_id || null,
+        model_name: piece.model_name || null,
+        use_id: piece.use_id || null,
+        use_label: piece.use_label || null,
+        label: piece.label || [piece.model_name, piece.use_label].filter(Boolean).join(' — ') || null,
+        template_id: piece.template_id,
+        template_nome: piece.template_nome || meta?.nome || '',
+        categoria: meta?.categoria || null,
+        formato: meta?.formato || null,
+        status: 'failed',
+        erro,
+        credit_amount: effectiveCreditCost > 0 ? (piece.credit_cost || amount) : 0,
+        credit_idempotency_key: null,
+        credit_status: effectiveCreditCost > 0 && amount > 0 ? 'cancelled' : 'not_required',
+      }
+    }
+    const failedBeforeRender: Array<Record<string, unknown>> = []
 
+    const schemas = await Promise.all(uniquePickedIds.map((id) => fetchTemplateElements(reqId, id)))
+    const schemasComElementos = schemas.filter((s) => s.elements.length > 0)
     if (schemasComElementos.length === 0) {
-      await cancelReservedCredits(supabase, reqId, creditReservation, 'sem_elementos_template')
-      return jsonResponse({ error: 'Não foi possível obter elementos de nenhum template' }, 502)
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(piece, index, 'Nao foi possivel obter elementos reais do template.'))
+      return jsonResponse({
+        success: true,
+        warning: 'Nenhuma peca visual foi criada. As pecas foram marcadas como falha.',
+        renders,
+        pick_source: 'user',
+        credit_cost: effectiveCreditCost,
+        credit_reservation_status: 'cancelled',
+      }, 200)
     }
 
     console.log(`[${reqId}] estágio 2: ${schemasComElementos.length} templates com elementos reais`)
@@ -1121,6 +1597,18 @@ ${elementosBloco}
 
 Para cada template, gere um objeto "modifications" usando APENAS os nomes de elementos listados acima.`
 
+    const fillTemplateDebug = schemasComElementos.map((s) => ({
+      template_id: s.id,
+      template_nome: s.name || validIds.get(s.id)?.nome || '',
+      elementos: s.elements.length,
+    }))
+    console.log(`[${reqId}] fill debug templates:`, fillTemplateDebug)
+    console.log(`[${reqId}] fill debug prompt_chars:`, {
+      system: FILL_SYSTEM_PROMPT.length,
+      user: fillUserPrompt.length,
+      total: FILL_SYSTEM_PROMPT.length + fillUserPrompt.length,
+    })
+
     const fillRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -1134,7 +1622,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           { role: 'user', content: fillUserPrompt },
         ],
         response_format: { type: 'json_object' },
-        max_tokens: 3500,
+        max_tokens: 7000,
       }),
       signal: AbortSignal.timeout(60000),
     })
@@ -1142,27 +1630,128 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
     if (!fillRes.ok) {
       const errBody = await fillRes.text()
       console.error(`[${reqId}] fill OpenAI ${fillRes.status}:`, errBody.slice(0, 300))
-      await cancelReservedCredits(supabase, reqId, creditReservation, 'openai_fill_erro')
-      return jsonResponse({ error: `OpenAI (fill) ${fillRes.status}: ${errBody.slice(0, 300)}` }, 502)
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(piece, index, `OpenAI fill ${fillRes.status}: ${errBody.slice(0, 180)}`))
+      return jsonResponse({
+        success: true,
+        warning: 'As pecas visuais falharam antes da criacao do render.',
+        renders,
+        pick_source: 'user',
+        credit_cost: effectiveCreditCost,
+        credit_reservation_status: 'cancelled',
+      }, 200)
     }
 
     let plano: { selecoes?: Array<{ template_id: string; modifications?: Record<string, unknown> }> }
+    let fillRaw = ''
     try {
       const fillData = await fillRes.json()
-      const raw = fillData?.choices?.[0]?.message?.content
-      plano = JSON.parse(raw)
+      const choice = fillData?.choices?.[0]
+      fillRaw = typeof choice?.message?.content === 'string' ? choice.message.content : ''
+      console.log(`[${reqId}] fill debug response:`, {
+        finish_reason: choice?.finish_reason,
+        raw_chars: fillRaw.length,
+        raw_start: fillRaw.slice(0, 500),
+        raw_end: fillRaw.slice(-500),
+      })
+      plano = JSON.parse(fillRaw)
     } catch (e) {
-      console.error(`[${reqId}] fill parse:`, e)
-      await cancelReservedCredits(supabase, reqId, creditReservation, 'openai_fill_json_invalido')
-      return jsonResponse({ error: 'OpenAI (fill) retornou JSON inválido' }, 502)
+      console.error(`[${reqId}] fill parse:`, {
+        erro: e instanceof Error ? e.message : String(e),
+        templates: fillTemplateDebug,
+        raw_chars: fillRaw.length,
+        raw_start: fillRaw.slice(0, 1000),
+        raw_end: fillRaw.slice(-1000),
+      })
+      const fallbackSelecoes: Array<{ template_id: string; modifications?: Record<string, unknown> }> = []
+      for (let index = 0; index < pickedPieces.length; index++) {
+        const piece = pickedPieces[index]
+        const schema = schemasComElementos.find((item) => item.id === piece.template_id)
+        if (!schema) {
+          failedBeforeRender.push(makeFailedPieceRender(piece, index, 'Template sem elementos reais para fill individual.'))
+          continue
+        }
+        try {
+          const meta = validIds.get(schema.id)
+          const lista = schema.elements
+            .map((el) => `  - "${el.virtualLabel || el.name}" (${el.type})${el.defaultValue ? ` [default: ${JSON.stringify(el.defaultValue.slice(0, 80))}]` : ''}`)
+            .join('\n')
+          const singlePrompt = `${dadosImovelBloco}
+
+TEMPLATE SELECIONADO COM ELEMENTOS REAIS:
+TEMPLATE id="${schema.id}" nome="${schema.name || meta?.nome || ''}" formato="${meta?.formato || ''}"
+Elementos reais:
+${lista}
+
+Gere um objeto "modifications" usando APENAS os nomes de elementos listados acima.`
+          const singleRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                { role: 'system', content: FILL_SYSTEM_PROMPT },
+                { role: 'user', content: singlePrompt },
+              ],
+              response_format: { type: 'json_object' },
+              max_tokens: 2500,
+            }),
+            signal: AbortSignal.timeout(45000),
+          })
+          if (!singleRes.ok) {
+            const body = await singleRes.text()
+            failedBeforeRender.push(makeFailedPieceRender(piece, index, `OpenAI fill individual ${singleRes.status}: ${body.slice(0, 180)}`))
+            continue
+          }
+          const singleData = await singleRes.json()
+          const raw = typeof singleData?.choices?.[0]?.message?.content === 'string'
+            ? singleData.choices[0].message.content
+            : ''
+          const parsed = JSON.parse(raw)
+          const selection = Array.isArray(parsed?.selecoes)
+            ? parsed.selecoes.find((item: { template_id?: string }) => item?.template_id === piece.template_id)
+            : null
+          if (!selection?.modifications || typeof selection.modifications !== 'object') {
+            failedBeforeRender.push(makeFailedPieceRender(piece, index, 'OpenAI fill individual nao retornou modifications para esta peca.'))
+            continue
+          }
+          fallbackSelecoes.push({ template_id: piece.template_id, modifications: selection.modifications })
+        } catch (fallbackError) {
+          failedBeforeRender.push(makeFailedPieceRender(
+            piece,
+            index,
+            fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          ))
+        }
+      }
+      if (fallbackSelecoes.length === 0) {
+        return jsonResponse({
+          success: true,
+          warning: 'As pecas visuais falharam antes da criacao do render.',
+          renders: failedBeforeRender,
+          pick_source: 'user',
+          credit_cost: effectiveCreditCost,
+          credit_reservation_status: 'cancelled',
+        }, 200)
+      }
+      plano = { selecoes: fallbackSelecoes }
     }
 
     const aprovadas = (Array.isArray(plano.selecoes) ? plano.selecoes : [])
       .filter((s) => s.template_id && validIds.has(s.template_id))
 
     if (aprovadas.length === 0) {
-      await cancelReservedCredits(supabase, reqId, creditReservation, 'sem_modifications_ia')
-      return jsonResponse({ error: 'IA (fill) não produziu modifications para nenhum template' }, 502)
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(piece, index, 'IA (fill) nao produziu modifications para nenhum template.'))
+      return jsonResponse({
+        success: true,
+        warning: 'As pecas visuais falharam antes da criacao do render.',
+        renders,
+        pick_source: 'user',
+        credit_cost: effectiveCreditCost,
+        credit_reservation_status: 'cancelled',
+      }, 200)
     }
 
     // Validar/filtrar as modifications para conter SOMENTE chaves de elementos reais.
@@ -1175,9 +1764,24 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       elementosPorTemplate.set(s.id, m)
     }
 
+    const canonicalByTemplate = new Map<string, ReturnType<typeof buildCanonicalModifications>>()
+    for (const s of schemasComElementos) {
+      const elementos = elementosPorTemplate.get(s.id)
+      if (!elementos) continue
+      const canonical = buildCanonicalModifications(elementos, templateData)
+      canonicalByTemplate.set(s.id, canonical)
+      console.log(`[${reqId}] contrato canonico`, {
+        template_id: s.id,
+        canonical_fields: publicCanonicalLog(templateData),
+        sent_fields: canonical.sentFields,
+        missing_or_incompatible_fields: canonical.missingFields,
+      })
+    }
+
     // Contexto compartilhado para o sanitizer (PT-BR + dados reais do imóvel + do corretor)
     const sanitizeCtx: SanitizeContext = {
-      preco: preco != null ? String(preco) : (dadosImovel.preco != null ? String(dadosImovel.preco) : ''),
+      preco: precoFinal,
+      suites_label: suitesLabel,
       endereco: typeof endereco === 'string' && endereco.trim()
         ? endereco
         : [dadosImovel.bairro, dadosImovel.cidade, dadosImovel.estado].filter(Boolean).join(', '),
@@ -1199,7 +1803,9 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
 
     const aprovadasLimpas = aprovadas.map((sel) => {
       const elementos = elementosPorTemplate.get(sel.template_id)
-      const mods: Record<string, unknown> = {}
+      const canonical = canonicalByTemplate.get(sel.template_id)
+      const mods: Record<string, unknown> = canonical ? { ...canonical.modifications } : {}
+      const fallbackFields = new Set<string>()
       if (elementos && sel.modifications && typeof sel.modifications === 'object') {
         for (const [k, v] of Object.entries(sel.modifications)) {
           // Chave da IA: "<rótulo>.text|source|track", onde <rótulo> é o virtualLabel
@@ -1210,11 +1816,13 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           if (dot < 0) continue
           const label = k.slice(0, dot)
           const prop = k.slice(dot + 1)
+          if (getCanonicalFieldName(label)) continue
           const elem = elementos.get(label)
           if (!elem) continue
 
           const keyBase = elem.id || elem.name
           const finalKey = `${keyBase}.${prop}`
+          fallbackFields.add(label)
 
           // .track: booleano, válido para qualquer tipo de elemento.
           // Usado pela IA para "desativar" elementos quando o dado real não
@@ -1229,6 +1837,14 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           // .text só em elementos type=text; .source em image/video/audio.
           const expectedProp = elem.type === 'text' ? 'text' : 'source'
           if (prop !== expectedProp) continue
+          if (prop === 'text' && isPriceElement(elem.name)) {
+            mods[finalKey] = sanitizeCtx.preco || 'Consulte'
+            continue
+          }
+          if (prop === 'text' && suitesLabel && isBathroomElement(elem.name)) {
+            mods[finalKey] = suitesLabel
+            continue
+          }
           if (typeof v !== 'string') continue
 
           // String vazia EXPLÍCITA: passa direto. É a outra metade da
@@ -1260,14 +1876,37 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           }
         }
       }
+      console.log(`[${reqId}] campos enviados ao Creatomate`, {
+        template_id: sel.template_id,
+        canonical_fields_sent: canonical?.sentFields || [],
+        fallback_fields: Array.from(fallbackFields),
+        modification_keys: Object.keys(mods),
+      })
       return { template_id: sel.template_id, modifications: mods }
     }).filter((s) => Object.keys(s.modifications).length > 0)
 
-    if (aprovadasLimpas.length === 0) {
-      await cancelReservedCredits(supabase, reqId, creditReservation, 'sem_modifications_validas')
+    const modificationsByTemplate = new Map(aprovadasLimpas.map((sel) => [sel.template_id, sel.modifications]))
+    const pecasAprovadas = pickedPieces.map((piece, index) => {
+      const modifications = modificationsByTemplate.get(piece.template_id)
+      if (!modifications || Object.keys(modifications).length === 0) {
+        failedBeforeRender.push(makeFailedPieceRender(piece, index, 'Nenhuma modification valida sobrou para esta peca.'))
+        return null
+      }
+      return {
+        ...piece,
+        modifications: { ...modifications },
+      }
+    }).filter((piece): piece is SelectedTemplatePiece & { modifications: Record<string, unknown> } => Boolean(piece))
+
+    if (pecasAprovadas.length === 0) {
       return jsonResponse({
-        error: 'Nenhuma modification válida sobrou após validação contra elementos reais',
-      }, 502)
+        success: true,
+        warning: 'Nenhuma peca visual foi criada. As pecas foram marcadas como falha.',
+        renders: failedBeforeRender,
+        pick_source: 'user',
+        credit_cost: effectiveCreditCost,
+        credit_reservation_status: 'cancelled',
+      }, 200)
     }
 
     // === Rede de segurança: garante que TODOS os slots de imagem do imóvel
@@ -1279,7 +1918,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
     if (fotosArr.length > 0) {
       const elementosArrPorTemplate = new Map<string, ElementInfo[]>()
       for (const s of schemasComElementos) elementosArrPorTemplate.set(s.id, s.elements)
-      for (const sel of aprovadasLimpas) {
+      for (const sel of pecasAprovadas) {
         const els = elementosArrPorTemplate.get(sel.template_id) || []
         const propertySlots = els.filter(
           (e) => (e.type === 'image' || e.type === 'video') && isPropertyPhotoSlot(e.name)
@@ -1301,14 +1940,85 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       }
     }
 
-    console.log(`[${reqId}] estágio 3: ${aprovadasLimpas.length} templates prontos para render`)
+    console.log(`[${reqId}] estagio 3: ${pecasAprovadas.length} pecas prontas para render | ${failedBeforeRender.length} falhas antes do render`)
+
+    if (effectiveCreditCost > 0) {
+      for (let index = 0; index < pecasAprovadas.length; index++) {
+        const sel = pecasAprovadas[index]
+        const amount = sel.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(sel.template_id) || 0
+        if (amount <= 0) continue
+
+        const pieceKey = `${idempotencyKey}:piece:${sel.piece_id}:index:${index}`
+        const pieceMetadata = {
+          ...creditMetadata,
+          piece_id: sel.piece_id,
+          model_id: sel.model_id || null,
+          model_name: sel.model_name || null,
+          use_id: sel.use_id || null,
+          use_label: sel.use_label || null,
+          template_id: sel.template_id,
+          template_index: index,
+          credit_amount: amount,
+          piece_idempotency_key: pieceKey,
+          credit_scope: 'visual_piece',
+        }
+
+        const { data: reservationRows, error: reservationErr } = await supabase.rpc('reserve_credits', {
+          p_user_id: authenticatedUserId,
+          p_amount: amount,
+          p_idempotency_key: pieceKey,
+          p_campaign_id: hasCampaignId ? campaign_id : null,
+          p_reason: 'gerar-banners-piece',
+          p_metadata: pieceMetadata,
+        })
+
+        if (reservationErr) {
+          const message = reservationErr.message || 'Falha ao reservar creditos.'
+          const status = message.toLowerCase().includes('insuficient') ? 402 : 500
+          console.warn(`[${reqId}] reserva de creditos da peça falhou:`, message)
+          await cancelPieceReservations(supabase, reqId, authenticatedUserId, pieceCreditReservations, 'falha_reserva_peca')
+          return jsonResponse({ error: status === 402 ? 'Créditos insuficientes para esta geração.' : message }, status)
+        }
+
+        const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows
+        if (reservation?.status === 'cancelled') {
+          await cancelPieceReservations(supabase, reqId, authenticatedUserId, pieceCreditReservations, 'reserva_peca_cancelada')
+          return jsonResponse({ error: 'Reserva de creditos cancelada. Gere novamente para criar uma nova reserva.' }, 409)
+        }
+
+        pieceCreditReservations.push({
+          templateId: sel.template_id,
+          pieceId: sel.piece_id,
+          modelId: sel.model_id || null,
+          useId: sel.use_id || null,
+          useLabel: sel.use_label || null,
+          index,
+          amount,
+          idempotencyKey: pieceKey,
+          status: String(reservation?.status || 'reserved'),
+        })
+      }
+
+      console.log(`[${reqId}] creditos reservados por peça: ${pieceCreditReservations.length} reservas`)
+    }
+
+    const getPieceCredit = (templateId: string, index: number) => {
+      const reservation = pieceCreditReservations.find(item => item.templateId === templateId && item.index === index)
+      const matchingPiece = pecasAprovadas[index]
+      const amount = matchingPiece?.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(templateId) || 0
+      return {
+        credit_amount: reservation?.amount ?? (effectiveCreditCost > 0 ? amount : 0),
+        credit_idempotency_key: reservation?.idempotencyKey || null,
+        credit_status: reservation?.status || (amount > 0 && effectiveCreditCost > 0 ? 'not_reserved' : 'not_required'),
+      }
+    }
 
     // === Disparar renders no Creatomate (paralelo) ========================
-    const renders: Array<Record<string, unknown>> = []
-    renderAttempted = true
+    const renders: Array<Record<string, unknown>> = [...failedBeforeRender]
 
-    await Promise.all(aprovadasLimpas.map(async (sel) => {
+    await Promise.all(pecasAprovadas.map(async (sel, index) => {
       const meta = validIds.get(sel.template_id)!
+      const pieceCredit = getPieceCredit(sel.template_id, index)
       try {
         const createRes = await fetch('https://api.creatomate.com/v1/renders', {
           method: 'POST',
@@ -1326,19 +2036,87 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
         if (!createRes.ok) {
           const errBody = await createRes.text()
           console.error(`[${reqId}] Creatomate render ${createRes.status} em ${meta.nome}:`, errBody.slice(0, 200))
+          const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+          if (reservation?.status === 'reserved') {
+            await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_failed')
+          }
           renders.push({
+            piece_id: sel.piece_id,
+            piece_index: index,
+            model_id: sel.model_id || null,
+            model_name: sel.model_name || null,
+            use_id: sel.use_id || null,
+            use_label: sel.use_label || null,
+            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
             template_id: sel.template_id,
             template_nome: meta.nome,
             categoria: meta.categoria,
             erro: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
+            ...pieceCredit,
+            credit_status: reservation?.status || pieceCredit.credit_status,
           })
           return
         }
 
         const body = await createRes.json()
         const items = Array.isArray(body) ? body : [body]
-        for (const item of items) {
+        if (items.length === 0) {
+          const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+          if (reservation?.status === 'reserved') {
+            await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_empty_response')
+          }
           renders.push({
+            piece_id: sel.piece_id,
+            piece_index: index,
+            model_id: sel.model_id || null,
+            model_name: sel.model_name || null,
+            use_id: sel.use_id || null,
+            use_label: sel.use_label || null,
+            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+            template_id: sel.template_id,
+            template_nome: meta.nome,
+            categoria: meta.categoria,
+            formato: meta.formato,
+            status: 'failed',
+            erro: 'Creatomate retornou resposta vazia para esta peca.',
+            ...pieceCredit,
+            credit_status: reservation?.status || pieceCredit.credit_status,
+          })
+          return
+        }
+        for (const item of items) {
+          if (!item?.id) {
+            const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+            if (reservation?.status === 'reserved') {
+              await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_missing_render_id')
+            }
+            renders.push({
+              piece_id: sel.piece_id,
+              piece_index: index,
+              model_id: sel.model_id || null,
+              model_name: sel.model_name || null,
+              use_id: sel.use_id || null,
+              use_label: sel.use_label || null,
+              label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+              template_id: sel.template_id,
+              template_nome: meta.nome,
+              categoria: meta.categoria,
+              formato: meta.formato,
+              status: 'failed',
+              erro: 'Creatomate nao retornou render_id para esta peca.',
+              ...pieceCredit,
+              credit_status: reservation?.status || pieceCredit.credit_status,
+            })
+            continue
+          }
+          renders.push({
+            piece_id: sel.piece_id,
+            piece_index: index,
+            model_id: sel.model_id || null,
+            model_name: sel.model_name || null,
+            use_id: sel.use_id || null,
+            use_label: sel.use_label || null,
+            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
             render_id: item.id,
             template_id: sel.template_id,
             template_nome: meta.nome,
@@ -1347,58 +2125,44 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
             status: item.status || 'planned',
             url: item.url || null,
             snapshot_url: item.snapshot_url || null,
+            ...pieceCredit,
           })
         }
       } catch (err) {
         console.error(`[${reqId}] erro ao chamar Creatomate para ${meta.nome}:`, err)
+        const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+        if (reservation?.status === 'reserved') {
+          await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_error')
+        }
         renders.push({
+          piece_id: sel.piece_id,
+          piece_index: index,
+          model_id: sel.model_id || null,
+          model_name: sel.model_name || null,
+          use_id: sel.use_id || null,
+          use_label: sel.use_label || null,
+          label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
           template_id: sel.template_id,
           template_nome: meta.nome,
           categoria: meta.categoria,
           erro: err instanceof Error ? err.message : String(err),
+          ...pieceCredit,
+          credit_status: reservation?.status || pieceCredit.credit_status,
         })
       }
     }))
 
     const successfulRenderCount = renders.filter((render) => typeof render.render_id === 'string').length
-    let creditConsumption: unknown = null
-
-    if (creditReservation && effectiveCreditCost > 0) {
-      if (successfulRenderCount === 0) {
-        await cancelReservedCredits(supabase, reqId, creditReservation, 'nenhum_render_criado')
-        return jsonResponse({
-          error: 'Nenhum render foi criado. A reserva de creditos foi cancelada.',
-          renders,
-          pick_source: 'user',
-          credit_cost: effectiveCreditCost,
-          credit_reservation_status: 'cancelled',
-        }, 502)
-      }
-
-      const { data: consumptionRows, error: consumptionErr } = await supabase.rpc('consume_reserved_credits', {
-        p_user_id: authenticatedUserId,
-        p_idempotency_key: idempotencyKey,
-        p_observacao: 'Consumo de creditos na geracao visual',
-        p_metadata: {
-          ...creditMetadata,
-          renders,
-          render_count: successfulRenderCount,
-        },
-      })
-
-      if (consumptionErr) {
-        console.error(`[${reqId}] falha ao consumir creditos reservados:`, consumptionErr.message)
-        return jsonResponse({
-          error: consumptionErr.message || 'Falha ao consumir creditos reservados.',
-          renders,
-          pick_source: 'user',
-          credit_cost: effectiveCreditCost,
-          credit_reservation_status: 'reserved',
-        }, 500)
-      }
-
-      creditConsumption = Array.isArray(consumptionRows) ? consumptionRows[0] : consumptionRows
-      creditReservation = null
+    if (effectiveCreditCost > 0 && successfulRenderCount === 0) {
+      await cancelPieceReservations(supabase, reqId, authenticatedUserId, pieceCreditReservations, 'nenhum_render_criado')
+      return jsonResponse({
+        success: true,
+        warning: 'Nenhum render foi criado. As reservas de creditos foram canceladas.',
+        renders,
+        pick_source: 'user',
+        credit_cost: effectiveCreditCost,
+        credit_reservation_status: 'cancelled',
+      }, 200)
     }
 
     // === Persistir em campaigns.banners (jsonb) — somente se campaign_id ==
@@ -1416,7 +2180,7 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
           renders,
           pick_source: 'user',
           credit_cost: effectiveCreditCost,
-          credit_consumption: creditConsumption,
+          credit_reservation_status: effectiveCreditCost > 0 ? 'reserved_per_piece' : 'not_required',
         }, 200)
       }
     }
@@ -1427,13 +2191,12 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       renders,
       pick_source: 'user',
       credit_cost: effectiveCreditCost,
-      credit_consumption: creditConsumption,
-      credit_reservation_status: creditConsumption ? 'consumed' : 'not_required',
+      credit_reservation_status: effectiveCreditCost > 0 ? 'reserved_per_piece' : 'not_required',
     }, 200)
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
-    if (creditReservation && !renderAttempted && supabaseClient) {
-      await cancelReservedCredits(supabaseClient, reqId, creditReservation, 'erro_antes_render')
+    if (pieceCreditReservations.length > 0 && supabaseClient && cleanupUserId) {
+      await cancelPieceReservations(supabaseClient, reqId, cleanupUserId, pieceCreditReservations, 'erro_inesperado')
     }
     const msg = error instanceof Error ? error.message : String(error)
     return jsonResponse({ error: msg }, 500)

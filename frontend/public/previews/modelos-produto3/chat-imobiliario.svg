@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#ecfeff"/>
+  <rect x="242" y="30" width="236" height="460" rx="34" fill="#ffffff" stroke="#bae6fd" stroke-width="2"/>
+  <rect x="268" y="82" width="162" height="48" rx="24" fill="#e0f2fe"/>
+  <rect x="312" y="154" width="142" height="48" rx="24" fill="#7c3aed"/>
+  <rect x="268" y="226" width="176" height="90" rx="24" fill="#e0f2fe"/>
+  <rect x="312" y="344" width="124" height="48" rx="24" fill="#22c55e"/>
+  <text x="286" y="112" font-family="Arial" font-size="16" font-weight="700" fill="#0369a1">Ainda disponivel?</text>
+  <text x="334" y="184" font-family="Arial" font-size="16" font-weight="700" fill="#fff">Sim!</text>
+  <text x="286" y="266" font-family="Arial" font-size="15" font-weight="700" fill="#0369a1">Posso enviar</text>
+  <text x="286" y="286" font-family="Arial" font-size="15" font-weight="700" fill="#0369a1">mais detalhes?</text>
+  <text x="336" y="374" font-family="Arial" font-size="16" font-weight="700" fill="#fff">Chamar</text>
+</svg>

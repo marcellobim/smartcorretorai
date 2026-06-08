@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#111827"/>
+  <rect x="64" y="82" width="210" height="270" rx="22" fill="#fff" transform="rotate(-7 64 82)"/>
+  <rect x="96" y="118" width="146" height="150" rx="16" fill="#fde68a" transform="rotate(-7 96 118)"/>
+  <rect x="264" y="58" width="210" height="270" rx="22" fill="#fff"/>
+  <rect x="294" y="92" width="150" height="156" rx="16" fill="#bfdbfe"/>
+  <rect x="456" y="106" width="210" height="270" rx="22" fill="#fff" transform="rotate(6 456 106)"/>
+  <rect x="486" y="142" width="150" height="156" rx="16" fill="#bbf7d0" transform="rotate(6 486 142)"/>
+  <text x="204" y="430" font-family="Arial" font-size="38" font-weight="800" fill="#fff">Momentos do Imovel</text>
+  <rect x="278" y="452" width="164" height="12" rx="6" fill="#7c3aed"/>
+</svg>

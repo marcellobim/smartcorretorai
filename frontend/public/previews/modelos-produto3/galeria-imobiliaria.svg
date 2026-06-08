@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#f8fafc"/>
+  <rect x="58" y="78" width="604" height="340" rx="28" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <rect x="88" y="108" width="282" height="220" rx="22" fill="#bfdbfe"/>
+  <rect x="392" y="108" width="220" height="98" rx="18" fill="#bbf7d0"/>
+  <rect x="392" y="228" width="220" height="100" rx="18" fill="#fde68a"/>
+  <text x="88" y="374" font-family="Arial" font-size="34" font-weight="800" fill="#111827">Galeria Imobiliaria</text>
+  <rect x="88" y="396" width="210" height="12" rx="6" fill="#7c3aed"/>
+</svg>
