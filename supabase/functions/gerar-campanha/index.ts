@@ -15,15 +15,16 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-const SYSTEM_PROMPT = `Você é um especialista em marketing imobiliário brasileiro. Gere conteúdo persuasivo e específico em português para o imóvel descrito pelo usuário.
+const SYSTEM_PROMPT = `Você é um especialista em marketing imobiliário brasileiro. Gere conteúdo persuasivo, específico e em português para o imóvel descrito pelo usuário.
 
-Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON), no formato EXATO abaixo, preenchendo TODOS os 6 campos com conteúdo real e específico para o imóvel informado:
+Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON), no formato EXATO abaixo, preenchendo TODOS os 7 campos com conteúdo real e específico para o imóvel informado:
 
 {
   "titulo_campanha": "Título curto e memorável do imóvel",
-  "descricao_portal": "Texto técnico e detalhado para portais (ZAP/VivaReal) com [Inserir CRECI].",
-  "post_instagram": "Texto persuasivo com emojis, gatilhos de exclusividade e 5 a 10 hashtags estratégicas.",
-  "script_video_reels": "Roteiro de 30-60s: [0-5s Gancho], [5-20s Tour pelo Imóvel], [20-30s CTA].",
+  "descricao_portal": "Texto técnico e detalhado para portais (ZAP/VivaReal) com [Inserir CRECI]. Não inclua hashtags.",
+  "post_instagram": "Texto persuasivo para Instagram com gatilhos comerciais e CTA. Não inclua hashtags no corpo do texto.",
+  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
+  "script_video_reels": "Roteiro de 30-60s: [0-5s Gancho], [5-20s Tour pelo Imóvel], [20-30s CTA]. Não inclua hashtags.",
   "carrossel_passo_a_passo": [
     "Slide 1 (Capa): Título com gatilho de curiosidade.",
     "Slide 2: Benefício principal do imóvel.",
@@ -31,8 +32,14 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON
     "Slide 4: Localização e região.",
     "Slide 5 (CTA): Chamada para ação."
   ],
-  "mensagem_whatsapp": "Texto curto e amigável para WhatsApp."
-}`
+  "mensagem_whatsapp": "Texto curto e amigável para WhatsApp. Não inclua hashtags."
+}
+
+REGRAS PARA HASHTAGS:
+- Gere de 12 a 20 hashtags relevantes, prontas para copiar.
+- Considere tipo do imóvel, cidade, bairro, categoria/perfil da campanha, finalidade e diferenciais informados.
+- Evite hashtags genéricas demais.
+- Não misture hashtags em descricao_portal, mensagem_whatsapp, script_video_reels ou post_instagram.`
 
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
@@ -152,6 +159,11 @@ serve(async (req) => {
       return jsonResponse({ error: 'Resposta da OpenAI não é JSON válido' }, 502)
     }
 
+    if (!Array.isArray(textos_gerados.hashtags)) {
+      const postInstagram = String(textos_gerados.post_instagram || '')
+      const extracted = postInstagram.match(/#[\p{L}\p{N}_]+/gu) || []
+      textos_gerados.hashtags = extracted.slice(0, 20)
+    }
     const titulo = (textos_gerados.titulo_campanha as string) || `Imóvel ${tipo}`
     console.log(`[${reqId}] OpenAI OK`)
 

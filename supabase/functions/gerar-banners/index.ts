@@ -94,73 +94,34 @@ const TEMPLATES: TemplateMeta[] = [
   { id: '21c3ff4b-f632-405f-8ebf-369c1f7d4b10', nome: 'Triple Slide Carousel 16x9', categoria: 'carousel', perfil: ['todos'], formato: 'horizontal' },
 ]
 
-const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>([
-  ['662883d7-1dba-4e61-a2a2-81fd9293ab15', 10],
-  ['d791b9b8-55e2-4dff-ae5d-76b9e779c551', 10],
-  ['d45618d1-5f7f-4053-b317-dd2bbe322f5b', 10],
-  ['116761e5-4cda-4c83-b450-7beaaa4ef5e1', 15],
-  ['d280898b-7237-4c0b-a889-e85ededa9644', 120],
-  ['e8314ba2-cd0f-44e3-afd1-de41083c0846', 15],
-  ['5461c940-4309-4c3f-bba1-d90e83e62a9a', 15],
-  ['e15d93e5-dbb0-45c9-b475-2d9e2d6a1d0c', 15],
-  ['1de0a863-2376-4336-8a0a-4750c2429cf7', 15],
-  ['c9cf1d8c-4f01-4f65-baf8-ca20c56ad76e', 15],
-  ['0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d', 10],
-  ['f7df2c44-ea60-4c42-b862-2d335029acad', 10],
-  ['2b4e6dff-ee96-42f0-97e1-7956bef9dfa9', 10],
-  ['755d1a44-acb9-4593-96b4-f1741b1651af', 10],
-  ['656ff3e1-325a-419c-9914-dfde82f911b6', 10],
-  ['1ae7e1f4-ada4-4b03-a032-737a025b88c6', 10],
-  ['4dd468f4-a439-4a31-b6f3-29be17a1d51d', 10],
-  ['4ba4698c-3b6e-4548-b73d-814d71bc7f66', 10],
-  ['451b3422-f222-414e-b105-44b896f8277e', 10],
-  ['71aa0276-bc5f-4245-bb37-62a78fa7cf64', 10],
-  ['792ad84a-0ab8-4e6c-bda1-400fe9c040cc', 15],
-  ['a83a2008-8a6a-4a40-8b6f-d87190a1d306', 15],
-  ['cfded0ba-1eb9-4396-ab63-b259cb817a1e', 15],
-  ['52a1e65f-ca92-4c6c-af7e-9f0100c886cb', 15],
-  ['ff23c370-89eb-4883-8b5b-c21176f8e746', 15],
-  ['329b6afb-c749-4bda-a319-38ad42639034', 15],
-  ['1db7b057-81e0-4db3-af4e-98a7c987cdfa', 15],
-  ['71ae86ec-d08e-4f32-9d61-d7ddcb829f9e', 15],
-  ['f4b5c0e9-80fe-408a-b139-f7db7dfbbc89', 15],
-  ['bee2745c-7887-45e0-a82b-f44191fc0f0f', 15],
-  ['93635efc-ef44-47d2-a8f3-38a379d69941', 60],
-  ['f0a463cc-261f-4b51-ab7e-77fcea67476e', 60],
-  ['3d72b111-76a7-4c7d-a594-1f75f70be2d2', 60],
-  ['286a1949-9b0c-4bf2-b7b3-b0e84503f671', 60],
-  ['62d46ee6-6347-4335-af89-2b65f2794882', 60],
-  ['8aab78ac-60cd-4e83-9f4c-51259c4751c6', 15],
-  ['164eef00-abf4-429a-9334-c9e4c1319998', 15],
-  ['9a9c663c-0348-462b-a470-c40a86092a81', 15],
-  ['697a514d-4bab-4062-9c9e-3c208688c0e9', 15],
-  ['e74922ee-5882-4917-9051-9ae2e4021767', 15],
-  ['9962f7dc-6cca-491f-bffe-3184a2314f21', 60],
-  ['7f7f420d-da91-48c6-b701-0f0fb540b1aa', 60],
-  ['dfdcea18-0f3d-4c84-baa9-463c182644b7', 60],
-  ['d8310f54-5c9d-4606-ae6a-dacb8c4455ae', 60],
-  ['a8a1eebe-b357-4d35-a1fa-2d06887484aa', 60],
-  ['7a12a73e-ace7-4ab4-9739-95741b82232a', 60],
-  ['8e399960-3ade-453a-b868-e7059f30c6a9', 60],
-  ['660ca820-3d7d-4d9f-8c45-3d6da832588b', 60],
-  ['856a9b35-ac8c-45bb-8709-bb2dfa2618b7', 60],
-  ['f2f15dab-77c2-429e-9b62-f8d6694399ed', 60],
-  ['9c7e271b-a9c2-475a-b742-8f949e788abf', 15],
-  ['4a7830c5-ff23-446b-8664-2bc8fe86b2c0', 15],
-  ['13008c2d-9e7e-4515-a2ac-649c9ea18409', 15],
-  ['eb6ae228-a08f-4747-a761-e4d47f716019', 15],
-  ['2d79f2a0-1143-422c-bdef-7d02c5bb72e9', 15],
-  ['9ebd1bda-e650-4d88-b8aa-ff555a419082', 60],
-  ['89071652-69ab-4edc-897b-9e7985c95f59', 60],
-  ['9c831fd6-5412-4afe-9e29-dd8c4984e55c', 60],
-  ['cd6c0ed3-1dde-4fc0-a604-d728e5cbb73b', 60],
-  ['d5171301-84e3-41d2-a6ca-ef3013f360a1', 60],
-  ['2ecd48d3-146c-467b-8a0d-908152101378', 20],
-  ['16682dcd-eb89-404c-94dc-bb9f01317bf4', 20],
-  ['5635ee72-d0da-4906-9a84-6e0b5f587196', 20],
-  ['fa82c49d-39af-46e8-bc31-3649fff10cae', 20],
-  ['21c3ff4b-f632-405f-8ebf-369c1f7d4b10', 20],
+const TEMPLATE_MODEL_CREDIT_WEIGHTS = new Map<string, number>([
+  ['Anuncio Premium', 20],
+  ['Story Premium', 15],
+  ['Card Imobiliario Premium', 10],
+  ['Imovel Detalhes', 10],
+  ['Avaliacao do Cliente', 10],
+  ['Chat Imobiliario', 10],
+  ['Momentos do Imovel', 60],
+  ['Frase Elegante', 15],
+  ['Reels Moderno', 60],
+  ['Galeria Imobiliaria', 60],
+  ['Slides Premium', 15],
+  ['Video Tour', 60],
+  ['Triple Slide Carousel', 30],
 ])
+
+const getTemplateModelName = (templateName: string): string => (
+  templateName
+    .replace(/\s+(1x1|4x5(?:\s+Tipo\s+2)?|9x16|16x9)$/i, '')
+    .trim()
+)
+
+const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>(
+  TEMPLATES.map((template) => [
+    template.id,
+    TEMPLATE_MODEL_CREDIT_WEIGHTS.get(getTemplateModelName(template.nome)) || 0,
+  ])
+)
 
 const SMART_CAMPAIGN_FIXED_CREDIT_COST = 185
 const SMART_CAMPAIGN_BASE_TEMPLATE_IDS = new Set<string>([

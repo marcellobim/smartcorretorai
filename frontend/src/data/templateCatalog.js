@@ -17,6 +17,22 @@ export const TEMPLATE_FORMATS = {
   horizontal: '16:9',
 }
 
+
+export const TEMPLATE_MODEL_CREDIT_WEIGHTS = {
+  anuncio_premium: 20,
+  story_premium: 15,
+  card_imobiliario_premium: 10,
+  imovel_detalhes: 10,
+  avaliacao_do_cliente: 10,
+  chat_imobiliario: 10,
+  momentos_do_imovel: 60,
+  frase_elegante: 15,
+  reels_moderno: 60,
+  galeria_imobiliaria: 60,
+  slides_premium: 15,
+  video_tour: 60,
+  triple_slide_carousel: 30,
+}
 export const TEMPLATE_CATALOG = [
   {
     "id": "sc_banner_luxo_01",
@@ -28,7 +44,7 @@ export const TEMPLATE_CATALOG = [
     "type": "banner",
     "format": "square",
     "formatLabel": "1x1",
-    "creditWeight": 10,
+    "creditWeight": 20,
     "tags": [
       "venda_rapida",
       "luxo_premium",
@@ -45,7 +61,7 @@ export const TEMPLATE_CATALOG = [
     "type": "banner",
     "format": "portrait",
     "formatLabel": "4x5",
-    "creditWeight": 10,
+    "creditWeight": 20,
     "tags": [
       "venda_rapida",
       "luxo_premium",
@@ -62,7 +78,7 @@ export const TEMPLATE_CATALOG = [
     "type": "banner",
     "format": "portraitAlt",
     "formatLabel": "4x5 Tipo 2",
-    "creditWeight": 10,
+    "creditWeight": 20,
     "tags": [
       "venda_rapida",
       "luxo_premium",
@@ -79,7 +95,7 @@ export const TEMPLATE_CATALOG = [
     "type": "banner",
     "format": "vertical",
     "formatLabel": "9x16",
-    "creditWeight": 15,
+    "creditWeight": 20,
     "tags": [
       "venda_rapida",
       "luxo_premium",
@@ -96,7 +112,7 @@ export const TEMPLATE_CATALOG = [
     "type": "banner",
     "format": "horizontal",
     "formatLabel": "16x9",
-    "creditWeight": 120,
+    "creditWeight": 20,
     "tags": [
       "venda_rapida",
       "luxo_premium",
@@ -353,7 +369,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "square",
     "formatLabel": "1x1",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "captacao_imovel",
       "mcmv"
@@ -369,7 +385,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "portrait",
     "formatLabel": "4x5",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "captacao_imovel",
       "mcmv"
@@ -385,7 +401,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "portraitAlt",
     "formatLabel": "4x5 Tipo 2",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "captacao_imovel",
       "mcmv"
@@ -401,7 +417,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "vertical",
     "formatLabel": "9x16",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "captacao_imovel",
       "mcmv"
@@ -417,7 +433,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "horizontal",
     "formatLabel": "16x9",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "captacao_imovel",
       "mcmv"
@@ -433,7 +449,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "square",
     "formatLabel": "1x1",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "venda_rapida",
       "mcmv",
@@ -450,7 +466,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "portrait",
     "formatLabel": "4x5",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "venda_rapida",
       "mcmv",
@@ -467,7 +483,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "portraitAlt",
     "formatLabel": "4x5 Tipo 2",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "venda_rapida",
       "mcmv",
@@ -484,7 +500,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "vertical",
     "formatLabel": "9x16",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "venda_rapida",
       "mcmv",
@@ -501,7 +517,7 @@ export const TEMPLATE_CATALOG = [
     "type": "social",
     "format": "horizontal",
     "formatLabel": "16x9",
-    "creditWeight": 15,
+    "creditWeight": 10,
     "tags": [
       "venda_rapida",
       "mcmv",
@@ -1008,7 +1024,7 @@ export const TEMPLATE_CATALOG = [
     "type": "carousel",
     "format": "square",
     "formatLabel": "1x1",
-    "creditWeight": 20,
+    "creditWeight": 30,
     "tags": [
       "venda_rapida",
       "lancamento",
@@ -1025,7 +1041,7 @@ export const TEMPLATE_CATALOG = [
     "type": "carousel",
     "format": "portrait",
     "formatLabel": "4x5",
-    "creditWeight": 20,
+    "creditWeight": 30,
     "tags": [
       "venda_rapida",
       "lancamento",
@@ -1042,7 +1058,7 @@ export const TEMPLATE_CATALOG = [
     "type": "carousel",
     "format": "portraitAlt",
     "formatLabel": "4x5 Tipo 2",
-    "creditWeight": 20,
+    "creditWeight": 30,
     "tags": [
       "venda_rapida",
       "lancamento",
@@ -1059,7 +1075,7 @@ export const TEMPLATE_CATALOG = [
     "type": "carousel",
     "format": "vertical",
     "formatLabel": "9x16",
-    "creditWeight": 20,
+    "creditWeight": 30,
     "tags": [
       "venda_rapida",
       "lancamento",
@@ -1076,7 +1092,7 @@ export const TEMPLATE_CATALOG = [
     "type": "carousel",
     "format": "horizontal",
     "formatLabel": "16x9",
-    "creditWeight": 20,
+    "creditWeight": 30,
     "tags": [
       "venda_rapida",
       "lancamento",
@@ -1084,6 +1100,126 @@ export const TEMPLATE_CATALOG = [
     ]
   }
 ]
+
+export const TEMPLATE_MODEL_PREVIEWS = {
+  anuncio_premium: {
+    previewUrl: '/previews/modelos-produto3/anuncio-premium.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '662883d7-1dba-4e61-a2a2-81fd9293ab15',
+    posterUrl: '/previews/modelos-produto3/anuncio-premium.svg',
+    previewAlt: 'Preview do modelo Anuncio Premium',
+  },
+  story_premium: {
+    previewUrl: '/previews/modelos-produto3/story-premium.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: 'e8314ba2-cd0f-44e3-afd1-de41083c0846',
+    posterUrl: '/previews/modelos-produto3/story-premium.svg',
+    previewAlt: 'Preview do modelo Story Premium',
+  },
+  card_imobiliario_premium: {
+    previewUrl: '/previews/modelos-produto3/card-imobiliario-premium.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d',
+    posterUrl: '/previews/modelos-produto3/card-imobiliario-premium.svg',
+    previewAlt: 'Preview do modelo Card Imobiliario Premium',
+  },
+  imovel_detalhes: {
+    previewUrl: '/previews/modelos-produto3/imovel-detalhes.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '1ae7e1f4-ada4-4b03-a032-737a025b88c6',
+    posterUrl: '/previews/modelos-produto3/imovel-detalhes.svg',
+    previewAlt: 'Preview do modelo Imovel Detalhes',
+  },
+  avaliacao_do_cliente: {
+    previewUrl: '/previews/modelos-produto3/avaliacao-do-cliente.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '792ad84a-0ab8-4e6c-bda1-400fe9c040cc',
+    posterUrl: '/previews/modelos-produto3/avaliacao-do-cliente.svg',
+    previewAlt: 'Preview do modelo Avaliacao do Cliente',
+  },
+  chat_imobiliario: {
+    previewUrl: '/previews/modelos-produto3/chat-imobiliario.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '329b6afb-c749-4bda-a319-38ad42639034',
+    posterUrl: '/previews/modelos-produto3/chat-imobiliario.svg',
+    previewAlt: 'Preview do modelo Chat Imobiliario',
+  },
+  momentos_do_imovel: {
+    previewUrl: '/previews/modelos-produto3/momentos-do-imovel.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '93635efc-ef44-47d2-a8f3-38a379d69941',
+    posterUrl: '/previews/modelos-produto3/momentos-do-imovel.svg',
+    previewAlt: 'Preview do modelo Momentos do Imovel',
+  },
+  frase_elegante: {
+    previewUrl: '/previews/modelos-produto3/frase-elegante.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '8aab78ac-60cd-4e83-9f4c-51259c4751c6',
+    posterUrl: '/previews/modelos-produto3/frase-elegante.svg',
+    previewAlt: 'Preview do modelo Frase Elegante',
+  },
+  reels_moderno: {
+    previewUrl: '/previews/modelos-produto3/reels-moderno.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '9962f7dc-6cca-491f-bffe-3184a2314f21',
+    posterUrl: '/previews/modelos-produto3/reels-moderno.svg',
+    previewAlt: 'Preview do modelo Reels Moderno',
+  },
+  galeria_imobiliaria: {
+    previewUrl: '/previews/modelos-produto3/galeria-imobiliaria.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '7a12a73e-ace7-4ab4-9739-95741b82232a',
+    posterUrl: '/previews/modelos-produto3/galeria-imobiliaria.svg',
+    previewAlt: 'Preview do modelo Galeria Imobiliaria',
+  },
+  slides_premium: {
+    previewUrl: '/previews/modelos-produto3/slides-premium.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '9c7e271b-a9c2-475a-b742-8f949e788abf',
+    posterUrl: '/previews/modelos-produto3/slides-premium.svg',
+    previewAlt: 'Preview do modelo Slides Premium',
+  },
+  video_tour: {
+    previewUrl: '/previews/modelos-produto3/video-tour.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '9ebd1bda-e650-4d88-b8aa-ff555a419082',
+    posterUrl: '/previews/modelos-produto3/video-tour.svg',
+    previewAlt: 'Preview do modelo Video Tour',
+  },
+  triple_slide_carousel: {
+    previewUrl: '/previews/modelos-produto3/carrossel-premium.mp4',
+    previewType: 'video/mp4',
+    previewLabel: 'Ver',
+    previewFormat: 'square',
+    previewTemplateId: '2ecd48d3-146c-467b-8a0d-908152101378',
+    posterUrl: '/previews/modelos-produto3/carrossel-premium.svg',
+    previewAlt: 'Preview do modelo Triple Slide Carousel',
+  },
+}
 
 export const TEMPLATE_BY_ID = Object.fromEntries(
   TEMPLATE_CATALOG.map((template) => [template.id, template])

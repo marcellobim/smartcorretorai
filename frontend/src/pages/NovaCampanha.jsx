@@ -3,28 +3,27 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
-import CreditSummary from '../components/CreditSummary'
 import MarketingObjectiveCatalog from '../components/MarketingObjectiveCatalog'
 import { CAMPAIGN_MODES, CAMPAIGN_MODE_ORDER } from '../data/campaignModes'
 import { CAMPAIGN_TEMPLATES } from '../data/campaignTemplates'
-import { TEMPLATE_CATALOG } from '../data/templateCatalog'
+import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEWS } from '../data/templateCatalog'
 import { MARKETING_OBJECTIVES, SMART_CAMPAIGN_OBJECTIVES, getSelectedTemplatesFromObjectiveIds } from '../data/marketingObjectives'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  DADOS ESTÃTICOS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
+//  DADOS ESTÁTICOS
+// ═══════════════════════════════════════════════════════════════
 
 const CATEGORIAS = [
-  { id: 'alto_padrao',    nome: 'Alto PadrÃ£o',   icon: 'ðŸ’Ž', cor: 'from-amber-500 to-yellow-400',   ring: 'ring-amber-400',   badge: 'bg-amber-100 text-amber-800',   desc: 'Luxo e exclusividade' },
-  { id: 'medio_padrao',   nome: 'MÃ©dio PadrÃ£o',  icon: 'ðŸ ', cor: 'from-blue-500 to-blue-400',      ring: 'ring-blue-400',    badge: 'bg-blue-100 text-blue-800',     desc: 'Custo-benefÃ­cio' },
-  { id: 'popular_mcmv',   nome: 'Popular/MCMV',  icon: 'ðŸ¤', cor: 'from-green-500 to-emerald-400',  ring: 'ring-green-400',   badge: 'bg-green-100 text-green-800',   desc: 'Casa prÃ³pria' },
-  { id: 'lancamento',     nome: 'LanÃ§amento',    icon: 'ðŸš€', cor: 'from-purple-500 to-violet-400',  ring: 'ring-purple-400',  badge: 'bg-purple-100 text-purple-800', desc: 'Na planta' },
-  { id: 'em_construcao',  nome: 'Em ConstruÃ§Ã£o', icon: 'ðŸ—ï¸', cor: 'from-orange-500 to-amber-400',  ring: 'ring-orange-400',  badge: 'bg-orange-100 text-orange-800', desc: 'Em obra' },
+  { id: 'alto_padrao',    nome: 'Alto Padrão',   icon: '💎', cor: 'from-amber-500 to-yellow-400',   ring: 'ring-amber-400',   badge: 'bg-amber-100 text-amber-800',   desc: 'Luxo e exclusividade' },
+  { id: 'medio_padrao',   nome: 'Médio Padrão',  icon: '🏠', cor: 'from-blue-500 to-blue-400',      ring: 'ring-blue-400',    badge: 'bg-blue-100 text-blue-800',     desc: 'Custo-benefício' },
+  { id: 'popular_mcmv',   nome: 'Popular/MCMV',  icon: '🤝', cor: 'from-green-500 to-emerald-400',  ring: 'ring-green-400',   badge: 'bg-green-100 text-green-800',   desc: 'Casa própria' },
+  { id: 'lancamento',     nome: 'Lançamento',    icon: '🚀', cor: 'from-purple-500 to-violet-400',  ring: 'ring-purple-400',  badge: 'bg-purple-100 text-purple-800', desc: 'Na planta' },
+  { id: 'em_construcao',  nome: 'Em Construção', icon: '🏗️', cor: 'from-orange-500 to-amber-400',  ring: 'ring-orange-400',  badge: 'bg-orange-100 text-orange-800', desc: 'Em obra' },
 ]
 
-const TIPOS = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Outro']
+const TIPOS = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -36,84 +35,84 @@ const PRODUCT_CONTEXTS = {
   hero: {
     label: 'Hero IA',
     sourcePath: '/hero',
-    headerTitle: 'Cadastro padrÃ£o do imÃ³vel',
-    headerSubtitle: 'O contexto do Hero IA serÃ¡ preservado neste fluxo.',
+    headerTitle: 'Cadastro padrão do imóvel',
+    headerSubtitle: 'O contexto do Hero IA será preservado neste fluxo.',
     propertyEyebrow: 'Hero IA',
-    propertyTitle: 'Cadastro padrÃ£o do imÃ³vel',
-    propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. Nenhum cadastro paralelo serÃ¡ criado.',
+    propertyTitle: 'Cadastro padrão do imóvel',
+    propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. Nenhum cadastro paralelo será criado.',
     uploadEyebrow: 'Upload do Hero IA',
-    uploadTitle: 'Envie as fotos do imÃ³vel',
-    photosSubtitle: 'As fotos serÃ£o usadas como base visual do Hero IA.',
-    uploadHelp: 'Fotos obrigatÃ³rias para gerar materiais Hero IA. VÃ­deo Ã© opcional nesta etapa.',
+    uploadTitle: 'Envie as fotos do imóvel',
+    photosSubtitle: 'As fotos serão usadas como base visual do Hero IA.',
+    uploadHelp: 'Fotos obrigatórias para gerar materiais Hero IA. Vídeo é opcional nesta etapa.',
     photoRequired: true,
     videoRequired: false,
     allowOptionalPhotos: true,
     allowVideo: true,
-    reviewTitle: 'RevisÃ£o do Hero IA',
-    reviewSubtitle: 'Confira o imÃ³vel e as fotos antes da etapa de geraÃ§Ã£o do Hero IA.',
+    reviewTitle: 'Revisão do Hero IA',
+    reviewSubtitle: 'Confira o imóvel e as fotos antes da etapa de geração do Hero IA.',
     costTitle: 'Hero IA preparado',
-    costSubtitle: 'O cadastro Ãºnico foi preservado. A geraÃ§Ã£o real do Hero IA serÃ¡ conectada na prÃ³xima fase.',
-    nextLabel: 'GeraÃ§Ã£o do Hero IA em preparaÃ§Ã£o',
+    costSubtitle: 'O cadastro único foi preservado. A geração real do Hero IA será conectada na próxima fase.',
+    nextLabel: 'Geração do Hero IA em preparação',
   },
   transformar_video: {
-    label: 'Transformar Meu VÃ­deo',
+    label: 'Transformar Meu Vídeo',
     sourcePath: '/transformar-video',
-    headerTitle: 'Cadastro padrÃ£o do imÃ³vel',
-    headerSubtitle: 'O contexto do Transformar Meu VÃ­deo serÃ¡ preservado neste fluxo.',
-    propertyEyebrow: 'Transformar Meu VÃ­deo',
-    propertyTitle: 'Cadastro padrÃ£o do imÃ³vel',
-    propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. O vÃ­deo serÃ¡ obrigatÃ³rio apenas neste produto.',
-    uploadEyebrow: 'Upload do Transformar Meu VÃ­deo',
-    uploadTitle: 'Envie seu vÃ­deo',
-    photosSubtitle: 'Fotos podem apoiar o material. O envio de vÃ­deo serÃ¡ obrigatÃ³rio para este produto na etapa final.',
-    uploadHelp: 'VÃ­deo obrigatÃ³rio para Transformar Meu VÃ­deo. Fotos sÃ£o opcionais como apoio visual.',
+    headerTitle: 'Cadastro padrão do imóvel',
+    headerSubtitle: 'O contexto do Transformar Meu Vídeo será preservado neste fluxo.',
+    propertyEyebrow: 'Transformar Meu Vídeo',
+    propertyTitle: 'Cadastro padrão do imóvel',
+    propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. O vídeo será obrigatório apenas neste produto.',
+    uploadEyebrow: 'Upload do Transformar Meu Vídeo',
+    uploadTitle: 'Envie seu vídeo',
+    photosSubtitle: 'Fotos podem apoiar o material. O envio de vídeo será obrigatório para este produto na etapa final.',
+    uploadHelp: 'Vídeo obrigatório para Transformar Meu Vídeo. Fotos são opcionais como apoio visual.',
     photoRequired: false,
     videoRequired: true,
     allowOptionalPhotos: true,
     allowVideo: true,
-    reviewTitle: 'RevisÃ£o do Transformar Meu VÃ­deo',
-    reviewSubtitle: 'Confira o imÃ³vel e os arquivos antes da etapa de transformaÃ§Ã£o do vÃ­deo.',
-    costTitle: 'Transformar Meu VÃ­deo preparado',
-    costSubtitle: 'O cadastro Ãºnico foi preservado. A geraÃ§Ã£o real de vÃ­deo serÃ¡ conectada na prÃ³xima fase.',
-    nextLabel: 'GeraÃ§Ã£o do vÃ­deo em preparaÃ§Ã£o',
+    reviewTitle: 'Revisão do Transformar Meu Vídeo',
+    reviewSubtitle: 'Confira o imóvel e os arquivos antes da etapa de transformação do vídeo.',
+    costTitle: 'Transformar Meu Vídeo preparado',
+    costSubtitle: 'O cadastro único foi preservado. A geração real de vídeo será conectada na próxima fase.',
+    nextLabel: 'Geração do vídeo em preparação',
   },
   campanha_completa: {
     label: 'Gerar Campanha',
     headerTitle: 'Gerar Campanhas Profissionais',
     headerSubtitle: 'Escolha, informe os dados e gere tudo em um clique',
-    propertyEyebrow: 'Dados do imÃ³vel',
-    propertyTitle: 'Informe o imÃ³vel',
-    propertySubtitle: 'Esses dados ajudam a IA a criar uma campanha mais Ãºtil e persuasiva.',
-    uploadEyebrow: 'Fotos do imÃ³vel',
+    propertyEyebrow: 'Dados do imóvel',
+    propertyTitle: 'Informe o imóvel',
+    propertySubtitle: 'Esses dados ajudam a IA a criar uma campanha mais útil e persuasiva.',
+    uploadEyebrow: 'Fotos do imóvel',
     uploadTitle: 'Envie as fotos',
     photosSubtitle: 'As imagens ajudam a personalizar os materiais da campanha.',
-    uploadHelp: 'Fotos obrigatÃ³rias para a Campanha Completa.',
+    uploadHelp: 'Fotos obrigatórias para a Campanha Completa.',
     photoRequired: true,
     videoRequired: false,
     allowOptionalPhotos: true,
     allowVideo: false,
-    reviewTitle: 'AnÃ¡lise Inteligente do ImÃ³vel',
-    reviewSubtitle: 'Esta leitura Ã© visual e local nesta etapa, sem nova chamada de backend.',
+    reviewTitle: 'Análise Inteligente do Imóvel',
+    reviewSubtitle: 'Esta leitura é visual e local nesta etapa, sem nova chamada de backend.',
     costTitle: 'Revise e gere em um clique',
-    costSubtitle: 'O servidor continua validando o consumo real de crÃ©ditos.',
+    costSubtitle: 'O servidor continua validando o consumo real de créditos.',
   },
 }
 
 const SUBPRODUCT_LABELS = {
   hero_completo: 'Hero Completo',
-  pecas_individuais: 'PeÃ§as Individuais',
-  video_rapido: 'VÃ­deo RÃ¡pido',
-  video_premium_cinematografico: 'VÃ­deo Premium/CinematogrÃ¡fico',
+  pecas_individuais: 'Peças Individuais',
+  video_rapido: 'Vídeo Rápido',
+  video_premium_cinematografico: 'Vídeo Premium/Cinematográfico',
   campanha_por_objetivo: 'Campanha por Objetivo',
   monte_sua_campanha: 'Monte Sua Campanha',
 }
 
 const MSGS_POR_CAT = {
-  alto_padrao:   ['Analisando o perfil de luxo...', 'Criando texto sofisticado...', 'Elaborando roteiro cinematogrÃ¡fico...', 'Refinando detalhes exclusivos...'],
+  alto_padrao:   ['Analisando o perfil de luxo...', 'Criando texto sofisticado...', 'Elaborando roteiro cinematográfico...', 'Refinando detalhes exclusivos...'],
   medio_padrao:  ['Analisando os pontos fortes...', 'Criando texto para Instagram...', 'Preparando mensagem de WhatsApp...', 'Quase pronto...'],
-  popular_mcmv:  ['Pensando no sonho da casa prÃ³pria...', 'Criando texto acolhedor...', 'Destacando FGTS e financiamento...', 'Finalizando...'],
-  lancamento:    ['Analisando o potencial do lanÃ§amento...', 'Criando texto de urgÃªncia...', 'Elaborando estratÃ©gia de prÃ©-venda...', 'Quase lÃ¡...'],
-  em_construcao: ['Analisando o progresso da obra...', 'Criando conteÃºdo transparente...', 'Mostrando valorizaÃ§Ã£o...', 'Finalizando...'],
+  popular_mcmv:  ['Pensando no sonho da casa própria...', 'Criando texto acolhedor...', 'Destacando FGTS e financiamento...', 'Finalizando...'],
+  lancamento:    ['Analisando o potencial do lançamento...', 'Criando texto de urgência...', 'Elaborando estratégia de pré-venda...', 'Quase lá...'],
+  em_construcao: ['Analisando o progresso da obra...', 'Criando conteúdo transparente...', 'Mostrando valorização...', 'Finalizando...'],
 }
 
 const TEXT_FORMATS_FIXOS = [
@@ -122,10 +121,10 @@ const TEXT_FORMATS_FIXOS = [
   { nome: 'Facebook',            desc: 'Texto do post' },
   { nome: 'TikTok',              desc: 'Roteiro cena a cena' },
   { nome: 'LinkedIn',            desc: 'Texto profissional' },
-  { nome: 'YouTube',             desc: 'TÃ­tulo + descriÃ§Ã£o' },
-  { nome: 'ApresentaÃ§Ã£o do imÃ³vel', desc: 'Ficha completa para divulgaÃ§Ã£o' },
-  { nome: 'Roteiro de LocuÃ§Ã£o',  desc: 'Script para narraÃ§Ã£o' },
-  { nome: 'PÃºblico Google Ads',  desc: 'SegmentaÃ§Ã£o + palavras-chave' },
+  { nome: 'YouTube',             desc: 'Título + descrição' },
+  { nome: 'Apresentação do imóvel', desc: 'Ficha completa para divulgação' },
+  { nome: 'Roteiro de Locução',  desc: 'Script para narração' },
+  { nome: 'Público Google Ads',  desc: 'Segmentação + palavras-chave' },
 ]
 
 const TEMPLATE_CATALOG_BY_TEMPLATE_ID = Object.fromEntries(
@@ -158,32 +157,32 @@ const FORMAT_LABELS = {
 
 const SUGGESTED_CHANNEL_LABELS = {
   banner: 'Instagram Feed, Facebook e portais',
-  story: 'Stories, Status e comunicaÃ§Ãµes rÃ¡pidas',
+  story: 'Stories, Status e comunicações rápidas',
   reels: 'Instagram Reels, TikTok e Shorts',
-  video: 'YouTube, WhatsApp, sites e apresentaÃ§Ãµes',
+  video: 'YouTube, WhatsApp, sites e apresentações',
   card: 'Portais, feed e envio direto',
-  detailed: 'Portais e materiais de comparaÃ§Ã£o',
+  detailed: 'Portais e materiais de comparação',
   carousel: 'Instagram e Facebook',
   social: 'WhatsApp, feed e prova social',
 }
 
 const CAMPAIGN_USE_OPTIONS = {
-  feed: { id: 'feed', icon: 'ðŸ“±', label: 'Feed / Redes Sociais' },
-  vertical: { id: 'vertical', icon: 'ðŸŽ¬', label: 'Stories / Reels / TikTok / Status' },
-  horizontal: { id: 'horizontal', icon: 'ðŸŒ', label: 'Google Ads / Landing Page / VÃ­deo' },
-  whatsapp: { id: 'whatsapp', icon: 'ðŸ’¬', label: 'WhatsApp / Envio Direto' },
-  portais: { id: 'portais', icon: 'ðŸ ', label: 'Portais ImobiliÃ¡rios' },
+  feed: { id: 'feed', icon: '📱', label: 'Feed / Redes Sociais' },
+  vertical: { id: 'vertical', icon: '🎬', label: 'Stories / Reels / TikTok / Status' },
+  horizontal: { id: 'horizontal', icon: '🌐', label: 'Google Ads / Landing Page / Vídeo' },
+  whatsapp: { id: 'whatsapp', icon: '💬', label: 'WhatsApp / Envio Direto' },
+  portais: { id: 'portais', icon: '🏠', label: 'Portais Imobiliários' },
 }
 
 const MAX_VISUAL_PIECES_PER_GENERATION = 5
 
-const CAMPAIGN_MODEL_LIBRARY = [
+const CAMPAIGN_MODEL_LIBRARY_BASE = [
   {
     id: 'anuncio_premium',
     icon: '\u{1F3C6}',
     name: 'Anuncio Premium',
     previewUrl: '/previews/modelos-produto3/anuncio-premium.svg',
-    description: 'Arte de impacto para apresentar o imovel com forca comercial.',
+    description: 'Impacto visual para venda.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: 'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
@@ -198,7 +197,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Story Premium',
     previewUrl: '/previews/modelos-produto3/story-premium.svg',
-    description: 'Modelo direto para gerar atencao em publicacoes rapidas.',
+    description: 'Divulgação rápida para redes.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '5461c940-4309-4c3f-bba1-d90e83e62a9a',
@@ -213,7 +212,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Card Imobiliario Premium',
     previewUrl: '/previews/modelos-produto3/card-imobiliario-premium.svg',
-    description: 'Card objetivo para mostrar dados importantes com clareza.',
+    description: 'Dados do imóvel em destaque.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: 'f7df2c44-ea60-4c42-b862-2d335029acad',
@@ -228,7 +227,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Imovel Detalhes',
     previewUrl: '/previews/modelos-produto3/imovel-detalhes.svg',
-    description: 'Modelo informativo para destacar dados e diferenciais do imovel.',
+    description: 'Informações claras do imóvel.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '4dd468f4-a439-4a31-b6f3-29be17a1d51d',
@@ -243,7 +242,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Avaliacao do Cliente',
     previewUrl: '/previews/modelos-produto3/avaliacao-do-cliente.svg',
-    description: 'Prova social para reforcar confianca e autoridade.',
+    description: 'Prova social para gerar confiança.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: 'a83a2008-8a6a-4a40-8b6f-d87190a1d306',
@@ -258,7 +257,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Chat Imobiliario',
     previewUrl: '/previews/modelos-produto3/chat-imobiliario.svg',
-    description: 'Peca com linguagem de conversa para estimular contato do lead.',
+    description: 'Conversa pronta para contato.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '1db7b057-81e0-4db3-af4e-98a7c987cdfa',
@@ -273,7 +272,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Momentos do Imovel',
     previewUrl: '/previews/modelos-produto3/momentos-do-imovel.svg',
-    description: 'Modelo visual para valorizar ambientes e criar sensacao de visita.',
+    description: 'Ambientes com sensação de visita.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: 'f0a463cc-261f-4b51-ab7e-77fcea67476e',
@@ -288,7 +287,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Frase Elegante',
     previewUrl: '/previews/modelos-produto3/frase-elegante.svg',
-    description: 'Criativo para destacar uma oportunidade com linguagem sofisticada.',
+    description: 'Chamada elegante e sofisticada.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '164eef00-abf4-429a-9334-c9e4c1319998',
@@ -303,7 +302,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Reels Moderno',
     previewUrl: '/previews/modelos-produto3/reels-moderno.svg',
-    description: 'Video curto para aumentar alcance e destacar o imovel com movimento.',
+    description: 'Vídeo curto para redes.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '7f7f420d-da91-48c6-b701-0f0fb540b1aa',
@@ -318,7 +317,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Galeria Imobiliaria',
     previewUrl: '/previews/modelos-produto3/galeria-imobiliaria.svg',
-    description: 'Sequencia para apresentar fotos e ambientes do imovel.',
+    description: 'Sequência para fotos e ambientes.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '8e399960-3ade-453a-b868-e7059f30c6a9',
@@ -333,7 +332,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Slides Premium',
     previewUrl: '/previews/modelos-produto3/slides-premium.svg',
-    description: 'Sequencia visual para destacar fotos, detalhes e chamada comercial.',
+    description: 'Slides para apresentar detalhes.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '4a7830c5-ff23-446b-8664-2bc8fe86b2c0',
@@ -348,7 +347,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Video Tour',
     previewUrl: '/previews/modelos-produto3/video-tour.svg',
-    description: 'Apresentacao em video para valorizar ambientes e aumentar percepcao de valor.',
+    description: 'Apresentação em vídeo.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '89071652-69ab-4edc-897b-9e7985c95f59',
@@ -363,7 +362,7 @@ const CAMPAIGN_MODEL_LIBRARY = [
     icon: '\u{1F3C6}',
     name: 'Triple Slide Carousel',
     previewUrl: '/previews/modelos-produto3/carrossel-premium.svg',
-    description: 'Carrossel premium para apresentar diferenciais e criar uma narrativa visual.',
+    description: 'Narrativa visual em carrossel.',
     compatibleUses: ['feed', 'vertical', 'horizontal', 'whatsapp', 'portais'],
     useTemplates: {
       feed: '16682dcd-eb89-404c-94dc-bb9f01317bf4',
@@ -374,6 +373,20 @@ const CAMPAIGN_MODEL_LIBRARY = [
     },
   }
 ]
+
+const CAMPAIGN_MODEL_LIBRARY = CAMPAIGN_MODEL_LIBRARY_BASE.map(model => {
+  const preview = TEMPLATE_MODEL_PREVIEWS[model.id] || {}
+  return {
+    ...model,
+    posterUrl: preview.posterUrl || model.previewUrl || null,
+    previewUrl: preview.previewUrl || model.previewUrl || null,
+    previewType: preview.previewType || 'image/svg+xml',
+    previewFormat: preview.previewFormat || null,
+    previewTemplateId: preview.previewTemplateId || null,
+    previewLabel: preview.previewLabel || 'Ver',
+    previewAlt: preview.previewAlt || `Preview do modelo ${model.name}`,
+  }
+})
 
 const CAMPAIGN_MODEL_BY_ID = Object.fromEntries(
   CAMPAIGN_MODEL_LIBRARY.map(model => [model.id, model])
@@ -436,13 +449,7 @@ const getModelUsesFromTemplateIds = (templateIds = []) => {
   return next
 }
 
-const formatCreditRange = (templates = []) => {
-  const credits = templates.map(template => template.creditWeight).filter(value => Number.isFinite(value))
-  if (!credits.length) return '0 crÃ©ditos'
-  const min = Math.min(...credits)
-  const max = Math.max(...credits)
-  return min === max ? `${min} crÃ©ditos por peÃ§a` : `${min}-${max} crÃ©ditos por peÃ§a`
-}
+const getModelCreditWeight = (modelId) => TEMPLATE_MODEL_CREDIT_WEIGHTS[modelId] || 0
 
 const RENDER_READY_STATUSES = new Set(['succeeded', 'completed'])
 const RENDER_ERROR_STATUSES = new Set(['failed', 'error', 'canceled', 'timeout'])
@@ -512,12 +519,12 @@ const getSuggestedHashtags = (...values) => {
 const CREDIT_BUILDER_TABS = [
   {
     id: 'recommended',
-    label: 'ðŸš€ Campanhas Recomendadas',
+    label: 'Campanhas Recomendadas',
     description: 'O sistema sugere os produtos de marketing ideais para o objetivo da campanha.',
   },
   {
     id: 'manual',
-    label: 'ðŸŽ¯ Monte Sua Campanha',
+    label: 'Monte Sua Campanha',
     description: 'Escolha exatamente quais produtos de marketing deseja gerar e acompanhe o custo.',
   },
 ]
@@ -525,7 +532,7 @@ const CREDIT_BUILDER_TABS = [
 const WIZARD_STEPS = [
   {
     id: 'welcome',
-    title: 'ConheÃ§a',
+    title: 'Conheça',
     description: 'Veja o que o SmartCorretorAI pode criar.',
   },
   {
@@ -535,12 +542,12 @@ const WIZARD_STEPS = [
   },
   {
     id: 'credits',
-    title: 'CrÃ©ditos',
+    title: 'Créditos',
     description: 'Confira consumo estimado e saldo.',
   },
   {
     id: 'property',
-    title: 'ImÃ³vel',
+    title: 'Imóvel',
     description: 'Informe os dados principais.',
   },
   {
@@ -563,46 +570,54 @@ const createGenerationIdempotencyKey = (userId) => {
 const SMART_CAMPAIGNS = [
   {
     id: 'venda_rapida',
-    title: 'Venda RÃ¡pida',
-    description: 'Campanha direta para gerar contatos em imÃ³veis prontos.',
-    benefits: ['Mais velocidade para captar leads', 'Ã“tima para oportunidade de preÃ§o', 'Formatos essenciais para redes sociais'],
+    title: 'Venda Rápida',
+    description: 'Campanha direta para gerar contatos em imóveis prontos.',
+    benefits: ['Mais velocidade para captar leads', 'Ótima para oportunidade de preço', 'Formatos essenciais para redes sociais'],
     smartTip: 'Publique os Stories diariamente e alterne os Banners no Feed durante a semana para aumentar o alcance.',
   },
   {
     id: 'luxo_premium',
     title: 'Luxo Premium',
-    description: 'ApresentaÃ§Ã£o sofisticada para imÃ³veis de alto padrÃ£o.',
-    benefits: ['Valoriza acabamento e exclusividade', 'Visual mais refinado', 'Ideal para fotos fortes e imÃ³veis premium'],
-    smartTip: 'Use o vÃ­deo premium para abrir a campanha e reforce os diferenciais com carrossÃ©is ao longo da semana.',
+    description: 'Apresentação sofisticada para imóveis de alto padrão.',
+    benefits: ['Valoriza acabamento e exclusividade', 'Visual mais refinado', 'Ideal para fotos fortes e imóveis premium'],
+    smartTip: 'Use o vídeo premium para abrir a campanha e reforce os diferenciais com carrosséis ao longo da semana.',
   },
   {
     id: 'lancamento',
-    title: 'LanÃ§amento',
-    description: 'Campanha para gerar expectativa, urgÃªncia e prÃ©-venda.',
+    title: 'Lançamento',
+    description: 'Campanha para gerar expectativa, urgência e pré-venda.',
     benefits: ['Boa para planta e obra', 'Destaque para oportunidade', 'Ajuda a comunicar escassez e novidade'],
-    smartTip: 'Comece pelos Stories para criar expectativa e use o carrossel para explicar planta, lazer e condiÃ§Ãµes.',
+    smartTip: 'Comece pelos Stories para criar expectativa e use o carrossel para explicar planta, lazer e condições.',
   },
   {
     id: 'mcmv',
     title: 'Minha Casa Minha Vida',
-    description: 'ComunicaÃ§Ã£o clara para financiamento, entrada e WhatsApp.',
-    benefits: ['Linguagem acessÃ­vel', 'Foco em conversa e simulaÃ§Ã£o', 'Boa para primeiro imÃ³vel'],
-    smartTip: 'Priorize chamadas simples e envie o material no WhatsApp para estimular simulaÃ§Ãµes e conversas rÃ¡pidas.',
+    description: 'Comunicação clara para financiamento, entrada e WhatsApp.',
+    benefits: ['Linguagem acessível', 'Foco em conversa e simulação', 'Boa para primeiro imóvel'],
+    smartTip: 'Priorize chamadas simples e envie o material no WhatsApp para estimular simulações e conversas rápidas.',
   },
   {
     id: 'airbnb_temporada',
     title: 'Airbnb / Temporada',
-    description: 'Campanha focada em experiÃªncia, lazer e reservas.',
-    benefits: ['Valoriza ambientes e lifestyle', 'Boa para imÃ³veis mobiliados', 'Ideal para diÃ¡ria e temporada'],
-    smartTip: 'Mostre primeiro a experiÃªncia do imÃ³vel e depois use Stories para reforÃ§ar datas, localizaÃ§Ã£o e reservas.',
+    description: 'Campanha focada em experiência, lazer e reservas.',
+    benefits: ['Valoriza ambientes e lifestyle', 'Boa para imóveis mobiliados', 'Ideal para diária e temporada'],
+    smartTip: 'Mostre primeiro a experiência do imóvel e depois use Stories para reforçar datas, localização e reservas.',
+  },
+  {
+    id: 'captacao_imovel',
+    hidden: true,
+    title: 'Comercial / Captação',
+    description: 'Campanha para captar proprietários e abrir conversas qualificadas.',
+    benefits: ['Boa para prospecção ativa', 'Foco em conversa e autoridade', 'Ajuda a gerar novas oportunidades'],
+    smartTip: 'Use materiais diretos para iniciar conversas e reforce autoridade com prova social.',
   },
   {
     id: 'comercial',
     hidden: true,
     title: 'Comercial',
-    description: 'Campanha objetiva para salas, lojas, terrenos e galpÃµes.',
-    benefits: ['Foco em localizaÃ§Ã£o e metragem', 'ComunicaÃ§Ã£o mais racional', 'Boa para decisÃ£o B2B'],
-    smartTip: 'Destaque localizaÃ§Ã£o, metragem e uso ideal no Feed, depois envie o material pelo WhatsApp para leads qualificados.',
+    description: 'Campanha objetiva para salas, lojas, terrenos e galpões.',
+    benefits: ['Foco em localização e metragem', 'Comunicação mais racional', 'Boa para decisão B2B'],
+    smartTip: 'Destaque localização, metragem e uso ideal no Feed, depois envie o material pelo WhatsApp para leads qualificados.',
   },
 ]
 
@@ -743,6 +758,219 @@ const getSmartCampaignPreset = (campaignId, modeId = 'economica') => (
   || []
 )
 
+const getSmartCampaignUseIds = (campaignId, modeId = 'economica') => (
+  Array.from(new Set(getSmartCampaignPreset(campaignId, modeId).map(item => item.useId).filter(Boolean)))
+)
+
+const OFFICIAL_SUGGESTED_PROFILE_IDS = [
+  'venda_rapida',
+  'luxo_premium',
+  'lancamento',
+  'mcmv',
+  'airbnb_temporada',
+]
+
+const OFFICIAL_SUGGESTED_CAMPAIGNS = [
+  {
+    id: 'venda_rapida_essencial',
+    profileId: 'venda_rapida',
+    title: 'Venda Rápida Essencial',
+    badge: 'Mais usada',
+    description: 'Pacote direto para gerar interesse rápido em canais essenciais.',
+    modelIds: ['anuncio_premium', 'story_premium', 'chat_imobiliario', 'imovel_detalhes'],
+    channelIds: ['feed', 'vertical', 'whatsapp', 'portais'],
+  },
+  {
+    id: 'venda_rapida_completa',
+    profileId: 'venda_rapida',
+    title: 'Venda Rápida Completa',
+    badge: 'Mais completa',
+    description: 'Combina impacto visual, conversa e apresentação completa do imóvel.',
+    modelIds: ['anuncio_premium', 'story_premium', 'galeria_imobiliaria', 'chat_imobiliario', 'video_tour'],
+    channelIds: ['feed', 'vertical', 'whatsapp', 'horizontal', 'portais'],
+  },
+  {
+    id: 'oferta_direta_whatsapp',
+    profileId: 'venda_rapida',
+    title: 'Oferta Direta WhatsApp',
+    badge: 'Rápida para WhatsApp',
+    description: 'Campanha objetiva para iniciar conversas e acelerar contatos.',
+    modelIds: ['chat_imobiliario', 'story_premium', 'anuncio_premium', 'imovel_detalhes'],
+    channelIds: ['whatsapp', 'vertical', 'feed'],
+  },
+  {
+    id: 'portais_e_redes',
+    profileId: 'venda_rapida',
+    title: 'Portais e Redes',
+    badge: 'Boa para portais',
+    description: 'Materiais claros para portais, redes sociais e anúncios.',
+    modelIds: ['anuncio_premium', 'imovel_detalhes', 'card_imobiliario_premium', 'galeria_imobiliaria'],
+    channelIds: ['portais', 'feed', 'horizontal'],
+  },
+  {
+    id: 'luxo_impacto_visual',
+    profileId: 'luxo_premium',
+    title: 'Luxo Impacto Visual',
+    badge: 'Mais usada',
+    description: 'Apresentação visual forte para imóveis de alto padrão.',
+    modelIds: ['anuncio_premium', 'frase_elegante', 'galeria_imobiliaria', 'video_tour', 'momentos_do_imovel'],
+    channelIds: ['feed', 'vertical', 'horizontal', 'portais'],
+  },
+  {
+    id: 'luxo_lifestyle_completo',
+    profileId: 'luxo_premium',
+    title: 'Luxo Lifestyle Completo',
+    badge: 'Mais completa',
+    description: 'Biblioteca premium para valorizar estilo de vida e diferenciais.',
+    modelIds: ['galeria_imobiliaria', 'momentos_do_imovel', 'reels_moderno', 'slides_premium', 'anuncio_premium'],
+    channelIds: ['feed', 'vertical', 'horizontal', 'portais'],
+  },
+  {
+    id: 'luxo_stories_reels',
+    profileId: 'luxo_premium',
+    title: 'Luxo para Stories/Reels',
+    badge: 'Ideal para redes',
+    description: 'Peças verticais para presença sofisticada nas redes.',
+    modelIds: ['reels_moderno', 'story_premium', 'momentos_do_imovel', 'frase_elegante'],
+    channelIds: ['vertical', 'feed'],
+  },
+  {
+    id: 'alto_padrao_portais',
+    profileId: 'luxo_premium',
+    title: 'Alto Padrão Portais',
+    badge: 'Boa para portais',
+    description: 'Materiais completos para apresentar detalhes e valor percebido.',
+    modelIds: ['imovel_detalhes', 'galeria_imobiliaria', 'anuncio_premium', 'video_tour'],
+    channelIds: ['portais', 'horizontal', 'feed'],
+  },
+  {
+    id: 'lancamento_pre_venda',
+    profileId: 'lancamento',
+    title: 'Lançamento Pré-venda',
+    badge: 'Mais usada',
+    description: 'Campanha para expectativa, apresentação e captação inicial.',
+    modelIds: ['slides_premium', 'anuncio_premium', 'reels_moderno', 'story_premium'],
+    channelIds: ['feed', 'vertical', 'whatsapp', 'horizontal'],
+  },
+  {
+    id: 'lancamento_completo',
+    profileId: 'lancamento',
+    title: 'Lançamento Completo',
+    badge: 'Mais completa',
+    description: 'Conjunto completo para explicar o lançamento com riqueza visual.',
+    modelIds: ['slides_premium', 'triple_slide_carousel', 'galeria_imobiliaria', 'reels_moderno', 'anuncio_premium'],
+    channelIds: ['feed', 'vertical', 'horizontal', 'portais'],
+  },
+  {
+    id: 'lancamento_para_leads',
+    profileId: 'lancamento',
+    title: 'Lançamento para Leads',
+    badge: 'Ideal para anúncios',
+    description: 'Foco em anúncios, atendimento e geração de contatos.',
+    modelIds: ['chat_imobiliario', 'story_premium', 'anuncio_premium', 'slides_premium'],
+    channelIds: ['horizontal', 'whatsapp', 'feed'],
+  },
+  {
+    id: 'lancamento_redes_sociais',
+    profileId: 'lancamento',
+    title: 'Lançamento Redes Sociais',
+    badge: 'Ideal para redes',
+    description: 'Modelos sociais para divulgar novidades e criar desejo.',
+    modelIds: ['story_premium', 'reels_moderno', 'triple_slide_carousel', 'slides_premium'],
+    channelIds: ['vertical', 'feed'],
+  },
+  {
+    id: 'mcmv_direto_ao_ponto',
+    profileId: 'mcmv',
+    title: 'MCMV Direto ao Ponto',
+    badge: 'Mais usada',
+    description: 'Comunicação clara para financiamento, conversa e decisão.',
+    modelIds: ['card_imobiliario_premium', 'story_premium', 'chat_imobiliario', 'imovel_detalhes'],
+    channelIds: ['feed', 'vertical', 'whatsapp', 'portais'],
+  },
+  {
+    id: 'mcmv_completo',
+    profileId: 'mcmv',
+    title: 'MCMV Completo',
+    badge: 'Mais completa',
+    description: 'Pacote completo para redes, WhatsApp, anúncios e portais.',
+    modelIds: ['card_imobiliario_premium', 'story_premium', 'chat_imobiliario', 'imovel_detalhes', 'anuncio_premium'],
+    channelIds: ['feed', 'vertical', 'whatsapp', 'horizontal', 'portais'],
+  },
+  {
+    id: 'mcmv_whatsapp',
+    profileId: 'mcmv',
+    title: 'MCMV WhatsApp',
+    badge: 'Rápida para WhatsApp',
+    description: 'Materiais simples para estimular simulações e conversa.',
+    modelIds: ['chat_imobiliario', 'story_premium', 'card_imobiliario_premium', 'anuncio_premium'],
+    channelIds: ['whatsapp', 'vertical', 'feed'],
+  },
+  {
+    id: 'mcmv_portais',
+    profileId: 'mcmv',
+    title: 'MCMV Portais',
+    badge: 'Boa para portais',
+    description: 'Apresentação objetiva para portais, redes e anúncios.',
+    modelIds: ['imovel_detalhes', 'card_imobiliario_premium', 'anuncio_premium', 'galeria_imobiliaria'],
+    channelIds: ['portais', 'feed', 'horizontal'],
+  },
+  {
+    id: 'temporada_ocupacao_rapida',
+    profileId: 'airbnb_temporada',
+    title: 'Temporada Ocupação Rápida',
+    badge: 'Mais usada',
+    description: 'Campanha visual para gerar reservas e conversas rapidamente.',
+    modelIds: ['momentos_do_imovel', 'galeria_imobiliaria', 'story_premium', 'chat_imobiliario'],
+    channelIds: ['feed', 'vertical', 'whatsapp'],
+  },
+  {
+    id: 'airbnb_experiencia',
+    profileId: 'airbnb_temporada',
+    title: 'Airbnb Experiência',
+    badge: 'Mais completa',
+    description: 'Valoriza experiência, ambientes e diferenciais da estadia.',
+    modelIds: ['momentos_do_imovel', 'galeria_imobiliaria', 'reels_moderno', 'story_premium', 'video_tour'],
+    channelIds: ['feed', 'vertical', 'horizontal'],
+  },
+  {
+    id: 'temporada_stories_reels',
+    profileId: 'airbnb_temporada',
+    title: 'Temporada Stories/Reels',
+    badge: 'Ideal para redes',
+    description: 'Peças sociais para mostrar atmosfera, lazer e desejo.',
+    modelIds: ['reels_moderno', 'story_premium', 'momentos_do_imovel', 'galeria_imobiliaria'],
+    channelIds: ['vertical', 'feed'],
+  },
+  {
+    id: 'temporada_whatsapp',
+    profileId: 'airbnb_temporada',
+    title: 'Temporada WhatsApp',
+    badge: 'Rápida para WhatsApp',
+    description: 'Materiais prontos para enviar e converter interessados.',
+    modelIds: ['chat_imobiliario', 'galeria_imobiliaria', 'story_premium', 'momentos_do_imovel'],
+    channelIds: ['whatsapp', 'feed', 'vertical'],
+  },
+]
+
+const getOfficialSuggestedCampaign = (campaignId) => (
+  OFFICIAL_SUGGESTED_CAMPAIGNS.find(campaign => campaign.id === campaignId)
+)
+
+const getOfficialSuggestedCampaignModels = (campaign) => (
+  (campaign?.modelIds || []).map(modelId => CAMPAIGN_MODEL_BY_ID[modelId]).filter(Boolean)
+)
+
+const getOfficialSuggestedModelUses = (campaign, useId) => {
+  const selectedUseId = campaign?.channelIds?.includes(useId) ? useId : campaign?.channelIds?.[0]
+  if (!selectedUseId) return {}
+  const modelUses = {}
+  getOfficialSuggestedCampaignModels(campaign).forEach(model => {
+    if (model.useTemplates?.[selectedUseId]) modelUses[model.id] = [selectedUseId]
+  })
+  return modelUses
+}
+
 const getModelUsesFromPreset = (preset = []) => {
   const next = {}
   preset.forEach(({ modelId, useId }) => {
@@ -795,20 +1023,20 @@ const DELIVERABLE_DETAILS = {
   banners: {
     title: 'Banner Feed',
     where: 'Instagram e Facebook',
-    purpose: 'divulgar o imÃ³vel no feed e gerar interesse imediato.',
+    purpose: 'divulgar o imóvel no feed e gerar interesse imediato.',
   },
   stories: {
     title: 'Story',
     where: 'Instagram Stories, Facebook Stories e Status do WhatsApp',
-    purpose: 'aumentar visualizaÃ§Ãµes rÃ¡pidas e gerar contatos.',
+    purpose: 'aumentar visualizações rápidas e gerar contatos.',
   },
   carousels: {
     title: 'Carrossel',
     where: 'Instagram e Facebook',
-    purpose: 'mostrar vÃ¡rios ambientes do imÃ³vel em uma Ãºnica publicaÃ§Ã£o.',
+    purpose: 'mostrar vários ambientes do imóvel em uma única publicação.',
   },
   videos: {
-    title: 'VÃ­deo/Reels',
+    title: 'Vídeo/Reels',
     where: 'Instagram Reels, TikTok e Facebook Reels',
     purpose: 'aumentar alcance e criar impacto visual.',
   },
@@ -820,7 +1048,7 @@ const DELIVERABLE_DETAILS = {
   whatsapp: {
     title: 'WhatsApp',
     where: 'grupos, clientes e leads',
-    purpose: 'compartilhar o imÃ³vel rapidamente e iniciar conversas.',
+    purpose: 'compartilhar o imóvel rapidamente e iniciar conversas.',
   },
 }
 
@@ -844,7 +1072,33 @@ const createDeliverableDetail = (key, count = null) => ({
   ...DELIVERABLE_DETAILS[key],
 })
 
-const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false) => {
+const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false, channelId = null) => {
+  const officialCampaign = getOfficialSuggestedCampaign(campaignId)
+  if (officialCampaign) {
+    const modelUses = getOfficialSuggestedModelUses(officialCampaign, channelId || officialCampaign.channelIds[0])
+    const suggestedTemplates = getTemplateIdsFromModelUses(modelUses)
+    const catalogItems = TEMPLATE_CATALOG
+      .filter(template => suggestedTemplates.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId))
+      .map(template => template.id)
+    const counts = countDeliverables(catalogItems)
+    const deliverables = [
+      counts.banners > 0 ? createDeliverableDetail('banners', counts.banners) : null,
+      counts.stories > 0 ? createDeliverableDetail('stories', counts.stories) : null,
+      counts.carousels > 0 ? createDeliverableDetail('carousels', counts.carousels) : null,
+      counts.videos > 0 ? createDeliverableDetail('videos', counts.videos) : null,
+      createDeliverableDetail('textIa'),
+      createDeliverableDetail('whatsapp'),
+    ].filter(Boolean)
+
+    return {
+      deliverables,
+      totalPieces: counts.total,
+      creditCost: TEMPLATE_CATALOG
+        .filter(template => suggestedTemplates.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId))
+        .reduce((sum, template) => sum + (template.creditWeight || 0), 0),
+    }
+  }
+
   const mode = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId] || CAMPAIGN_TEMPLATES[campaignId]?.modes?.economica
   const preset = getSmartCampaignPreset(campaignId, modeId)
   const modelUses = getModelUsesFromPreset(preset)
@@ -874,15 +1128,15 @@ const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false) => {
 }
 
 const DIAS_SEMANA = [
-  { id: 'seg', nome: 'Seg', label: 'Segunda' }, { id: 'ter', nome: 'Ter', label: 'TerÃ§a' },
+  { id: 'seg', nome: 'Seg', label: 'Segunda' }, { id: 'ter', nome: 'Ter', label: 'Terça' },
   { id: 'qua', nome: 'Qua', label: 'Quarta' },  { id: 'qui', nome: 'Qui', label: 'Quinta' },
-  { id: 'sex', nome: 'Sex', label: 'Sexta' },   { id: 'sab', nome: 'SÃ¡b', label: 'SÃ¡bado' },
+  { id: 'sex', nome: 'Sex', label: 'Sexta' },   { id: 'sab', nome: 'Sáb', label: 'Sábado' },
   { id: 'dom', nome: 'Dom', label: 'Domingo' },
 ]
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  SUB-COMPONENTES â€” FORMULÃRIO
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
+//  SUB-COMPONENTES — FORMULÁRIO
+// ═══════════════════════════════════════════════════════════════
 
 function Counter({ label, value, onChange, max = 9 }) {
   return (
@@ -890,7 +1144,7 @@ function Counter({ label, value, onChange, max = 9 }) {
       <span className="text-xs text-gray-500 font-medium">{label}</span>
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => onChange(Math.max(0, value - 1))}
-          className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center hover:bg-gray-100 transition-colors text-sm font-bold">âˆ’</button>
+          className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center hover:bg-gray-100 transition-colors text-sm font-bold">−</button>
         <span className="w-6 text-center text-base font-bold text-gray-900">{value}</span>
         <button type="button" onClick={() => onChange(Math.min(max, value + 1))}
           className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center hover:bg-gray-100 transition-colors text-sm font-bold">+</button>
@@ -899,18 +1153,18 @@ function Counter({ label, value, onChange, max = 9 }) {
   )
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  SUB-COMPONENTE â€” POPUP DE AGENDAMENTO
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
+//  SUB-COMPONENTE — POPUP DE AGENDAMENTO
+// ═══════════════════════════════════════════════════════════════
 
 const PECAS_AGENDA = [
-  { id: 'ig_feed',    nome: 'Instagram Feed',    icon: 'ðŸ“¸' },
-  { id: 'ig_stories', nome: 'Instagram Stories', icon: 'ðŸ“±' },
-  { id: 'fb_feed',    nome: 'Facebook Feed',      icon: 'ðŸ‘' },
-  { id: 'whatsapp',   nome: 'Mensagem WhatsApp',  icon: 'ðŸ’¬' },
-  { id: 'tiktok',     nome: 'TikTok / Reels',    icon: 'ðŸŽµ' },
-  { id: 'linkedin',   nome: 'LinkedIn',           icon: 'ðŸ’¼' },
-  { id: 'portal_zap', nome: 'ZAP ImÃ³veis',        icon: 'ðŸ ' },
+  { id: 'ig_feed',    nome: 'Instagram Feed',    icon: '📸' },
+  { id: 'ig_stories', nome: 'Instagram Stories', icon: '📱' },
+  { id: 'fb_feed',    nome: 'Facebook Feed',      icon: '👍' },
+  { id: 'whatsapp',   nome: 'Mensagem WhatsApp',  icon: '💬' },
+  { id: 'tiktok',     nome: 'TikTok / Reels',    icon: '🎵' },
+  { id: 'linkedin',   nome: 'LinkedIn',           icon: '💼' },
+  { id: 'portal_zap', nome: 'ZAP Imóveis',        icon: '🏠' },
 ]
 
 function AgendamentoPopup({ titulo, onClose }) {
@@ -933,8 +1187,8 @@ function AgendamentoPopup({ titulo, onClose }) {
 
   const copiarTexto = async () => {
     if (!cronograma) return
-    const txt = cronograma.map(c => `${c.dia} Ã s ${c.horario} â€” ${c.peca.icon} ${c.peca.nome}`).join('\n')
-    await navigator.clipboard.writeText(`ðŸ“… CRONOGRAMA â€” ${titulo}\n\n${txt}`)
+    const txt = cronograma.map(c => `${c.dia} às ${c.horario} — ${c.peca.icon} ${c.peca.nome}`).join('\n')
+    await navigator.clipboard.writeText(`📅 CRONOGRAMA — ${titulo}\n\n${txt}`)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2000)
   }
@@ -959,7 +1213,7 @@ function AgendamentoPopup({ titulo, onClose }) {
       dt.setHours(h, m, 0, 0)
       const dtEnd = new Date(dt); dtEnd.setMinutes(dt.getMinutes() + 30)
       const fmt = d => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-      ics += `BEGIN:VEVENT\r\nDTSTART:${fmt(dt)}\r\nDTEND:${fmt(dtEnd)}\r\nSUMMARY:${peca.icon} ${peca.nome} â€” ${titulo}\r\nDESCRIPTION:Publicar conteÃºdo gerado pelo SmartCorretorAI\r\nEND:VEVENT\r\n`
+      ics += `BEGIN:VEVENT\r\nDTSTART:${fmt(dt)}\r\nDTEND:${fmt(dtEnd)}\r\nSUMMARY:${peca.icon} ${peca.nome} — ${titulo}\r\nDESCRIPTION:Publicar conteúdo gerado pelo SmartCorretorAI\r\nEND:VEVENT\r\n`
     })
     ics += 'END:VCALENDAR'
 
@@ -973,9 +1227,9 @@ function AgendamentoPopup({ titulo, onClose }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="font-bold text-gray-900 text-lg">Agendar distribuiÃ§Ã£o ðŸ“…</h3>
+            <h3 className="font-bold text-gray-900 text-lg">Agendar distribuição 📅</h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              Quer que eu distribua essas peÃ§as ao longo da semana?
+              Quer que eu distribua essas peças ao longo da semana?
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
@@ -998,7 +1252,7 @@ function AgendamentoPopup({ titulo, onClose }) {
             </div>
 
             <div className="mb-5">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">HorÃ¡rio de publicaÃ§Ã£o</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Horário de publicação</label>
               <div className="flex gap-2 flex-wrap">
                 {['08:00', '10:00', '12:00', '18:00', '19:00', '20:00'].map(h => (
                   <button key={h} type="button" onClick={() => setHorario(h)}
@@ -1016,7 +1270,7 @@ function AgendamentoPopup({ titulo, onClose }) {
             <div className="flex gap-3">
               <button onClick={onClose}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-                Agora nÃ£o
+                Agora não
               </button>
               <button onClick={gerar} disabled={diasSel.size === 0}
                 className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
@@ -1064,9 +1318,9 @@ function AgendamentoPopup({ titulo, onClose }) {
   )
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  SUB-COMPONENTES â€” RESULTADO VISUAL
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
+//  SUB-COMPONENTES — RESULTADO VISUAL
+// ═══════════════════════════════════════════════════════════════
 
 function AnimatedCard({ delay = 0, children }) {
   const [show, setShow] = useState(false)
@@ -1142,7 +1396,7 @@ function TikTokPlayer({ roteiro }) {
         </p>
       </div>
       <div className="absolute right-2.5 bottom-28 flex flex-col gap-3.5 items-center">
-        {[['â¤ï¸', '2,3k'], ['ðŸ’¬', '84'], ['â†—ï¸', '412']].map(([icon, count]) => (
+        {[['❤️', '2,3k'], ['💬', '84'], ['↗️', '412']].map(([icon, count]) => (
           <div key={icon} className="flex flex-col items-center gap-0.5">
             <span className="text-xl leading-none">{icon}</span>
             <span className="text-white/70 text-xs">{count}</span>
@@ -1150,11 +1404,11 @@ function TikTokPlayer({ roteiro }) {
         ))}
       </div>
       <div className="absolute bottom-5 left-3 right-12 flex items-center justify-center gap-2.5">
-        <button onClick={() => goTo(idx - 1)} className="w-7 h-7 bg-white/15 rounded-full text-white text-xs flex items-center justify-center hover:bg-white/25">â®</button>
+        <button onClick={() => goTo(idx - 1)} className="w-7 h-7 bg-white/15 rounded-full text-white text-xs flex items-center justify-center hover:bg-white/25">⏮</button>
         <button onClick={() => setPlaying(p => !p)} className="w-9 h-9 bg-white/25 rounded-full text-white text-sm flex items-center justify-center hover:bg-white/35">
-          {playing ? 'â¸' : 'â–¶'}
+          {playing ? '⏸' : '▶'}
         </button>
-        <button onClick={() => goTo(idx + 1)} className="w-7 h-7 bg-white/15 rounded-full text-white text-xs flex items-center justify-center hover:bg-white/25">â­</button>
+        <button onClick={() => goTo(idx + 1)} className="w-7 h-7 bg-white/15 rounded-full text-white text-xs flex items-center justify-center hover:bg-white/25">⏭</button>
       </div>
       <div className="absolute top-8 right-3 text-white/50 text-xs">{idx + 1}/{cenas.length}</div>
     </div>
@@ -1165,23 +1419,23 @@ function InstagramFeedCard({ dados, gradiente }) {
   return (
     <div className="max-w-xs mx-auto rounded-2xl overflow-hidden shadow-xl border border-gray-100">
       <div className="flex items-center gap-3 px-4 py-3 bg-white">
-        <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradiente} flex items-center justify-center text-lg`}>ðŸ </div>
+        <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradiente} flex items-center justify-center text-lg`}>🏠</div>
         <div className="flex-1"><p className="text-sm font-semibold text-gray-900">seu.perfil</p><p className="text-xs text-gray-400">Patrocinado</p></div>
-        <span className="text-gray-400 text-lg font-bold">Â·Â·Â·</span>
+        <span className="text-gray-400 text-lg font-bold">···</span>
       </div>
       <div className={`aspect-square bg-gradient-to-br ${gradiente} flex flex-col items-center justify-center p-6 text-white text-center`}>
-        <span className="text-7xl mb-3">ðŸ </span>
-        <p className="text-base font-bold uppercase tracking-wide">ImÃ³vel Ã  Venda</p>
-        <p className="text-xs text-white/70 mt-1">Deslize para mais â†’</p>
+        <span className="text-7xl mb-3">🏠</span>
+        <p className="text-base font-bold uppercase tracking-wide">Imóvel à Venda</p>
+        <p className="text-xs text-white/70 mt-1">Deslize para mais →</p>
       </div>
       <div className="px-4 py-2.5 bg-white flex justify-between">
-        <div className="flex gap-3 text-2xl">â¤ï¸ ðŸ’¬ ðŸ“¤</div>
-        <span className="text-2xl">ðŸ”–</span>
+        <div className="flex gap-3 text-2xl">❤️ 💬 📤</div>
+        <span className="text-2xl">🔖</span>
       </div>
       <div className="px-4 pb-4 bg-white">
         <p className="text-xs font-semibold text-gray-900 mb-1">seu.perfil</p>
         <p className="text-xs text-gray-800 leading-relaxed">{removeHashtagsFromText(dados.legenda)}</p>
-        {dados.cta && <p className="text-xs font-semibold text-primary-600 mt-2">ðŸ‘‰ {dados.cta}</p>}
+        {dados.cta && <p className="text-xs font-semibold text-primary-600 mt-2">👉 {dados.cta}</p>}
       </div>
     </div>
   )
@@ -1195,7 +1449,7 @@ function StoriesCard({ dados, gradiente }) {
           {[1,2,3].map(i => <div key={i} className={`h-0.5 flex-1 rounded-full ${i===1?'bg-white':'bg-white/35'}`} />)}
         </div>
         <div className="absolute top-7 left-3 flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-white/30 flex items-center justify-center text-xs">ðŸ </div>
+          <div className="w-7 h-7 rounded-full bg-white/30 flex items-center justify-center text-xs">🏠</div>
           <span className="text-white text-xs font-bold">seu.perfil</span>
         </div>
         <div className="absolute inset-x-4 top-[35%] text-center">
@@ -1205,7 +1459,7 @@ function StoriesCard({ dados, gradiente }) {
         </div>
         <div className="absolute bottom-8 left-3 right-3">
           <div className="bg-white/20 backdrop-blur-sm border border-white/40 rounded-full py-2 text-center">
-            <span className="text-white text-xs font-bold">â†‘ {dados.cta || 'Ver mais'}</span>
+            <span className="text-white text-xs font-bold">↑ {dados.cta || 'Ver mais'}</span>
           </div>
         </div>
       </div>
@@ -1217,20 +1471,20 @@ function WhatsAppCard({ dados }) {
   return (
     <div className="rounded-2xl overflow-hidden shadow-xl max-w-xs mx-auto">
       <div className="bg-green-600 px-4 py-3 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">ðŸ </div>
-        <div><p className="text-white text-sm font-bold">Corretor</p><p className="text-green-200 text-xs">online agora â—</p></div>
+        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🏠</div>
+        <div><p className="text-white text-sm font-bold">Corretor</p><p className="text-green-200 text-xs">online agora ●</p></div>
       </div>
       <div className="bg-[#e5ddd5] p-4 flex justify-end">
         <div className="bg-[#dcf8c6] rounded-tl-2xl rounded-tr-none rounded-br-2xl rounded-bl-2xl max-w-[90%] px-4 py-3 shadow-sm">
           <p className="text-gray-800 text-xs leading-relaxed whitespace-pre-wrap">{removeHashtagsFromText(dados.mensagem)}</p>
           <div className="flex justify-end items-center gap-1 mt-1.5">
             <span className="text-gray-400 text-xs">18:42</span>
-            <span className="text-blue-400 text-sm">âœ“âœ“</span>
+            <span className="text-blue-400 text-sm">✓✓</span>
           </div>
         </div>
       </div>
       <div className="bg-[#e5ddd5] pb-4 flex justify-center">
-        <div className="bg-white rounded-full px-5 py-2 text-xs text-gray-500 shadow-sm">ðŸ“Ž  Enviar mensagem</div>
+        <div className="bg-white rounded-full px-5 py-2 text-xs text-gray-500 shadow-sm">📎  Enviar mensagem</div>
       </div>
     </div>
   )
@@ -1240,26 +1494,26 @@ function FacebookCard({ dados }) {
   return (
     <div className="rounded-2xl overflow-hidden shadow-xl max-w-xs mx-auto bg-white border border-gray-200">
       <div className="px-4 py-3 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-xl">ðŸ </div>
+        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-xl">🏠</div>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-900">Seu Perfil ImÃ³veis</p>
-          <p className="text-xs text-gray-400">Agora Â· ðŸŒ</p>
+          <p className="text-sm font-semibold text-gray-900">Seu Perfil Imóveis</p>
+          <p className="text-xs text-gray-400">Agora · 🌐</p>
         </div>
-        <span className="text-gray-400 font-bold">Â·Â·Â·</span>
+        <span className="text-gray-400 font-bold">···</span>
       </div>
       <div className="px-4 pb-3">
         <p className="text-xs text-gray-800 leading-relaxed">{removeHashtagsFromText(dados.texto)}</p>
-        {dados.cta && <p className="text-xs text-blue-600 font-semibold mt-2">ðŸ‘‰ {dados.cta}</p>}
+        {dados.cta && <p className="text-xs text-blue-600 font-semibold mt-2">👉 {dados.cta}</p>}
       </div>
       <div className="bg-gradient-to-br from-blue-500 to-blue-700 h-28 flex items-center justify-center">
-        <span className="text-white text-5xl">ðŸ </span>
+        <span className="text-white text-5xl">🏠</span>
       </div>
       <div className="px-4 py-2 flex justify-between items-center text-xs text-gray-400">
-        <div>ðŸ‘â¤ï¸ðŸ˜ <span className="ml-1">1,2 mil</span></div>
-        <div className="flex gap-3"><span>84 comentÃ¡rios</span><span>320 compart.</span></div>
+        <div>👍❤️😍 <span className="ml-1">1,2 mil</span></div>
+        <div className="flex gap-3"><span>84 comentários</span><span>320 compart.</span></div>
       </div>
       <div className="border-t border-gray-100 px-4 py-2 flex justify-around">
-        {['ðŸ‘ Curtir', 'ðŸ’¬ Comentar', 'â†—ï¸ Compartilhar'].map(a => (
+        {['👍 Curtir', '💬 Comentar', '↗️ Compartilhar'].map(a => (
           <button key={a} className="text-xs text-gray-600 font-medium">{a}</button>
         ))}
       </div>
@@ -1267,14 +1521,14 @@ function FacebookCard({ dados }) {
   )
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  UTILITÃRIOS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
+//  UTILITÁRIOS
+// ═══════════════════════════════════════════════════════════════
 
 // Redimensiona e comprime a foto no browser (canvas) antes do upload.
-// - Lado maior cap em 1920px (preserva proporÃ§Ã£o; imagens menores passam direto).
-// - JPEG qualidade 0.80 â€” equilÃ­brio entre nitidez e peso.
-// O corretor nÃ£o precisa pensar em tamanho/peso: sempre normalizamos aqui.
+// - Lado maior cap em 1920px (preserva proporção; imagens menores passam direto).
+// - JPEG qualidade 0.80 — equilíbrio entre nitidez e peso.
+// O corretor não precisa pensar em tamanho/peso: sempre normalizamos aqui.
 async function resizeFoto(file, maxPx = 1920) {
   return new Promise(resolve => {
     const img = new Image()
@@ -1292,9 +1546,9 @@ async function resizeFoto(file, maxPx = 1920) {
   })
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
   const { user: authedUser, accessToken, loading: authLoading, isPro, isUnlimitedTestAdmin } = useAuth()
@@ -1326,8 +1580,6 @@ export default function NovaCampanha() {
   const [difCustom, setDifCustom] = useState('')
   const [fotos, setFotos] = useState([])
   const [videoArquivo, setVideoArquivo] = useState(null)
-  const [telefone, setTelefone] = useState('')
-
   const [msgIdx, setMsgIdx] = useState(0)
   const [resultado, setResultado] = useState(null)
   const [campanhaId, setCampanhaId] = useState(null)
@@ -1345,6 +1597,28 @@ export default function NovaCampanha() {
   const [renders, setRenders] = useState(null)
   const [gerandoBanners, setGerandoBanners] = useState(false)
   const renderPollRef = useRef(null)
+  const [activePreviewModel, setActivePreviewModel] = useState(null)
+  const [previewVideoFailed, setPreviewVideoFailed] = useState(false)
+
+  const closePreviewModal = useCallback(() => {
+    setActivePreviewModel(null)
+    setPreviewVideoFailed(false)
+  }, [])
+
+  const openPreviewModal = useCallback((model, event) => {
+    event?.stopPropagation?.()
+    setPreviewVideoFailed(false)
+    setActivePreviewModel(model)
+  }, [])
+
+  useEffect(() => {
+    if (!activePreviewModel) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closePreviewModal()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activePreviewModel, closePreviewModal])
 
   const selecionarTudo = () => {
     setSelectedSmartCampaign(null)
@@ -1364,6 +1638,8 @@ export default function NovaCampanha() {
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
   const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
   const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
+  const [selectedSuggestedProfile, setSelectedSuggestedProfile] = useState(null)
+  const [selectedSuggestedChannel, setSelectedSuggestedChannel] = useState(null)
   const [activeCampaignModelId, setActiveCampaignModelId] = useState(null)
   const [selectedModelUses, setSelectedModelUses] = useState({})
   const [campaignObjective, setCampaignObjective] = useState('')
@@ -1396,7 +1672,8 @@ export default function NovaCampanha() {
     objective.selectedTemplates.every(templateId => selectedTemplateIdSet.has(templateId))
   )
   const campaignObjectiveId = campaignFlowType === 'smart' ? selectedSmartCampaign : campaignObjective
-  const campaignObjectiveInfo = SMART_CAMPAIGNS.find(campaign => campaign.id === campaignObjectiveId)
+  const selectedOfficialCampaign = getOfficialSuggestedCampaign(selectedSmartCampaign)
+  const campaignObjectiveInfo = selectedOfficialCampaign || SMART_CAMPAIGNS.find(campaign => campaign.id === campaignObjectiveId)
   const campaignObjectiveLabel = campaignObjectiveInfo?.title || ''
   const selectedObjectiveCount = selectedMarketingObjectives.length
   const simulatedCreditBalance = 150
@@ -1432,7 +1709,7 @@ export default function NovaCampanha() {
       const selectedUses = useIds
         .map(useId => CAMPAIGN_USE_OPTIONS[useId])
         .filter(Boolean)
-      return selectedUses.length > 0 ? { ...model, selectedUses } : null
+      return selectedUses.length > 0 ? { ...model, selectedUses, creditWeight: getModelCreditWeight(model.id) } : null
     })
     .filter(Boolean)
   const selectedModelCount = selectedModelSummaries.length
@@ -1442,8 +1719,8 @@ export default function NovaCampanha() {
   const balanceAfterGeneration = simulatedCreditBalance - estimatedCreditConsumption
   const hasInsufficientCredits = balanceAfterGeneration < 0
   const economySuggestion = selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
-    ? 'Remova VÃ­deo/Reels para economizar crÃ©ditos e manter artes + textos IA.'
-    : 'Escolha apenas Banner Feed e Story para uma geraÃ§Ã£o mais econÃ´mica.'
+    ? 'Remova Vídeo/Reels para economizar créditos e manter artes + textos IA.'
+    : 'Escolha apenas Banner Feed e Story para uma geração mais econômica.'
   const generationModeForCredits = isDemoPlan ? 'demonstrativo' : 'manual'
   const generationCreditCost = isDemoPlan ? 0 : (isSmartCampaignSelection ? SMART_CAMPAIGN_FIXED_CREDIT_COST : estimatedCreditConsumption)
   const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
@@ -1503,17 +1780,29 @@ export default function NovaCampanha() {
     if (next[modelId].length === 0) delete next[modelId]
 
     if (!alreadySelected && getCampaignPiecesFromModelUses(next).length > MAX_VISUAL_PIECES_PER_GENERATION) {
-      toast.error(`Para garantir a geraÃ§Ã£o correta, selecione atÃ© ${MAX_VISUAL_PIECES_PER_GENERATION} peÃ§as por vez neste momento.`)
+      toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
       return
     }
 
     setSelectedSmartCampaign(null)
     setCreditBuilderMode('manual')
-    setCampaignObjective('monte_sua_campanha')
     applySelectedModelUses(next)
   }
 
   const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
+    const officialCampaign = getOfficialSuggestedCampaign(campaignId)
+    if (officialCampaign) {
+      const officialModelUses = getOfficialSuggestedModelUses(officialCampaign, selectedSuggestedChannel)
+      const selected = getTemplateIdsFromModelUses(officialModelUses)
+      const allowed = selected.filter(templateId => ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(templateId))
+      setSelectedModelUses(officialModelUses)
+      setSelectedTemplateIds(allowed)
+      setSelectedSmartCampaign(campaignId)
+      setCampaignObjective(officialCampaign.profileId)
+      setCreditBuilderMode('recommended')
+      return
+    }
+
     if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
     const preset = getSmartCampaignPreset(campaignId, modeId)
     const presetModelUses = getModelUsesFromPreset(preset)
@@ -1561,7 +1850,7 @@ export default function NovaCampanha() {
       })
       .catch(err => {
         if (abortado) return
-        console.error('[IBGE] falha ao carregar municÃ­pios:', err)
+        console.error('[IBGE] falha ao carregar municípios:', err)
         setCidades([])
       })
       .finally(() => {
@@ -1583,7 +1872,7 @@ export default function NovaCampanha() {
   const handleVideo = (files) => {
     const file = Array.from(files || []).find(item => item.type?.startsWith('video/'))
     if (!file) {
-      toast.error('Envie um arquivo de vÃ­deo vÃ¡lido.')
+      toast.error('Envie um arquivo de vídeo válido.')
       return
     }
     setVideoArquivo({
@@ -1597,12 +1886,17 @@ export default function NovaCampanha() {
 
   const precoParaPayload = normalizePrecoPayload(preco)
   const dadosImovelValidos = tipo && bairro.trim() && cidade.trim() && estado
+  const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
+  const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
+  const quartosParaPayload = isLandProperty ? 0 : quartos
+  const suitesParaPayload = isLandProperty ? 0 : suites
+  const vagasParaPayload = isLandProperty ? 0 : vagas
   const podaGerar = categoria && dadosImovelValidos
 
   const resetCampaignState = (targetStep = 'campaign-choice') => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
-    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null); setTelefone('')
+    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
     setRenders(null); setGerandoBanners(false); setProductFlowStep(targetStep); setCampaignFlowType(null); setSelectedSmartCampaign(null); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective('')
@@ -1616,18 +1910,18 @@ export default function NovaCampanha() {
 
   const confirmarGeracao = () => {
     if (isProductEntry) {
-      toast('A geraÃ§Ã£o real deste produto serÃ¡ conectada na prÃ³xima fase.')
+      toast('A geração real deste produto será conectada na próxima fase.')
       return
     }
-    if (!dadosImovelValidos) { toast.error('Preencha os campos obrigatÃ³rios'); return }
+    if (!dadosImovelValidos) { toast.error('Preencha os campos obrigatórios'); return }
     if (campaignFlowType === 'manual' && !campaignObjective) { toast.error('Escolha o objetivo da campanha.'); return }
     if (!categoria) setCategoria('medio_padrao')
     if (isDemoPlan && demoUsed) {
-      toast.error('Sua campanha demonstrativa jÃ¡ foi utilizada. Escolha um plano para continuar.')
+      toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
       return
     }
     if (isDemoPlan && selectedSmartCampaign && selectedSmartCampaign !== DEMO_CAMPAIGN_ID) {
-      toast.error('No plano demonstrativo, somente Venda RÃ¡pida estÃ¡ disponÃ­vel.')
+      toast.error('No plano demonstrativo, somente Venda Rápida está disponível.')
       return
     }
     if (isDemoPlan && !selectedSmartCampaign) {
@@ -1636,11 +1930,11 @@ export default function NovaCampanha() {
     setShowConfirm(true)
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  GERAÃ‡ÃƒO â€” CORRIGIDA
-  //  Upload de fotos nÃ£o trava mais o processo.
-  //  Se falhar, continua sem fotos e avisa o usuÃ¡rio.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ══════════════════════════════════════════════════════════
+  //  GERAÇÃO — CORRIGIDA
+  //  Upload de fotos não trava mais o processo.
+  //  Se falhar, continua sem fotos e avisa o usuário.
+  // ══════════════════════════════════════════════════════════
   const gerarAnuncios = async () => {
     setShowConfirm(false)
     setFase('gerando')
@@ -1654,35 +1948,35 @@ export default function NovaCampanha() {
         ...(difCustom.trim() ? [difCustom.trim()] : []),
       ]
 
-      // AutenticaÃ§Ã£o â€” APENAS via AuthContext. Zero chamadas a
+      // Autenticação — APENAS via AuthContext. Zero chamadas a
       // supabase.auth.getSession()/refreshSession() (eles davam timeout).
-      // O JWT vem do contexto e Ã© repassado EXPLICITAMENTE no header
-      // Authorization de cada invoke â€” assim o supabase-js nÃ£o tenta
-      // recuperar sessÃ£o sozinho.
+      // O JWT vem do contexto e é repassado EXPLICITAMENTE no header
+      // Authorization de cada invoke — assim o supabase-js não tenta
+      // recuperar sessão sozinho.
       if (authLoading) {
-        toast.error('Aguarde â€” carregando sessÃ£o...')
+        toast.error('Aguarde — carregando sessão...')
         setFase('form')
         return
       }
       const userId = authedUser?.id
       const token = accessToken
       if (!userId || !token) {
-        toast.error('Sua sessÃ£o expirou. FaÃ§a login novamente.')
+        toast.error('Sua sessão expirou. Faça login novamente.')
         setFase('form')
         navigate('/login', { replace: true })
         return
       }
-      console.log('[gerarAnuncios] sessÃ£o OK via contexto', { userId, hasToken: true })
+      console.log('[gerarAnuncios] sessão OK via contexto', { userId, hasToken: true })
 
       if (selectedTemplatePayload.length > MAX_VISUAL_PIECES_PER_GENERATION) {
-        toast.error(`Para garantir a geraÃ§Ã£o correta, selecione atÃ© ${MAX_VISUAL_PIECES_PER_GENERATION} peÃ§as por vez neste momento.`)
+        toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
         setFase('form')
         return
       }
 
-      // â”€â”€ Upload das fotos: sequencial, timeout 120s por tentativa, retry 1x â”€â”€
-      // Cada foto tem atÃ© 2 tentativas; se ambas falharem/expirarem, segue sem ela.
-      // invoke da Edge Function Ã© OBRIGATÃ“RIO â€” uploads nÃ£o podem bloquear o fluxo.
+      // ── Upload das fotos: sequencial, timeout 120s por tentativa, retry 1x ──
+      // Cada foto tem até 2 tentativas; se ambas falharem/expirarem, segue sem ela.
+      // invoke da Edge Function é OBRIGATÓRIO — uploads não podem bloquear o fluxo.
       const uploadComTimeout = (path, blob, contentType, ms = 180000) =>
         Promise.race([
           supabase.storage
@@ -1728,8 +2022,8 @@ export default function NovaCampanha() {
       }
       console.log('[gerarAnuncios] fim do upload loop. fotos_urls:', fotos_urls.length)
 
-      // â”€â”€ Templates escolhidos pelo usuÃ¡rio (somente os marcados) â”€â”€
-      // Bloqueia qualquer geraÃ§Ã£o automÃ¡tica de templates nÃ£o escolhidos.
+      // ── Templates escolhidos pelo usuário (somente os marcados) ──
+      // Bloqueia qualquer geração automática de templates não escolhidos.
       const selectedTemplates = selectedTemplatePayload
       console.log('[gerarAnuncios] selectedTemplates:', selectedTemplates)
       const idempotencyKey = createGenerationIdempotencyKey(userId)
@@ -1746,35 +2040,35 @@ export default function NovaCampanha() {
         has_idempotency_key: Boolean(creditPayload.idempotency_key),
       })
 
-      // â”€â”€ Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) â”€â”€
+      // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
       console.log('[gerarAnuncios] >>> DISPARANDO invoke(gerar-campanha) + invoke(gerar-banners) em paralelo')
 
-      // Inputs derivados do formulÃ¡rio para o gerar-banners (nÃ£o dependem do AI ainda)
+      // Inputs derivados do formulário para o gerar-banners (não dependem do AI ainda)
       const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
-      const tituloPreliminar = `${tipo || 'ImÃ³vel'} ${quartos ? quartos + 'q ' : ''}em ${bairro || cidade || ''}`.trim()
+      const tituloPreliminar = `${tipo || 'Imóvel'} ${quartosParaPayload ? quartosParaPayload + 'q ' : ''}em ${bairro || cidade || ''}`.trim()
       const descricaoPreliminar = [
         campaignObjectiveLabel ? `Objetivo da campanha: ${campaignObjectiveLabel}` : '',
-        `${tipo || 'ImÃ³vel'} ${categoria ? '(' + categoria + ')' : ''}`,
-        `${quartos} quarto${quartos !== 1 ? 's' : ''}, ${banheiros} banheiro${banheiros !== 1 ? 's' : ''}, ${vagas} vaga${vagas !== 1 ? 's' : ''}`,
-        area ? `${area}mÂ²` : '',
+        `${tipo || 'Imóvel'} ${categoria ? '(' + categoria + ')' : ''}`,
+        isLandProperty ? '' : `${quartosParaPayload} quarto${quartosParaPayload !== 1 ? 's' : ''}, ${banheiros} banheiro${banheiros !== 1 ? 's' : ''}, ${vagasParaPayload} vaga${vagasParaPayload !== 1 ? 's' : ''}`,
+        area ? `${area}m²` : '',
         enderecoCompleto,
         todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
       ].filter(Boolean).join('. ')
 
-      // Foto do corretor: se o perfil nÃ£o tem avatar cadastrado, forÃ§a REMOVER_ELEMENTO
-      // (assim o template nÃ£o renderiza a mulher fictÃ­cia padrÃ£o).
-      const tituloComercial = `${tipo || 'ImÃ³vel'} ${finalidade === 'Venda' ? 'Ã  Venda' : finalidade ? `para ${finalidade}` : 'em destaque'}`.trim()
-      const headlineComercial = campaignObjectiveLabel || tituloComercial || `${tipo || 'ImÃ³vel'} em destaque`
+      // Foto do corretor: se o perfil não tem avatar cadastrado, força REMOVER_ELEMENTO
+      // (assim o template não renderiza a mulher fictícia padrão).
+      const tituloComercial = `${tipo || 'Imóvel'} ${finalidade === 'Venda' ? 'à Venda' : finalidade ? `para ${finalidade}` : 'em destaque'}`.trim()
+      const headlineComercial = campaignObjectiveLabel || tituloComercial || `${tipo || 'Imóvel'} em destaque`
       const especificacoesPrincipais = [
-        formatQuantityLabel(quartos, 'DormitÃ³rio'),
-        suites > 0 ? formatQuantityLabel(suites, 'SuÃ­te') : '',
-        formatQuantityLabel(vagas, 'Vaga'),
-        area ? `${area}mÂ²` : '',
+        formatQuantityLabel(quartosParaPayload, 'Dormitório'),
+        suitesParaPayload > 0 ? formatQuantityLabel(suitesParaPayload, 'Suíte') : '',
+        formatQuantityLabel(vagasParaPayload, 'Vaga'),
+        area ? `${area}m²` : '',
       ].filter(Boolean).join(', ')
       const descricaoComercial = [
         headlineComercial,
-        `${tipo || 'ImÃ³vel'} em ${bairro || cidade || 'destaque'}`,
+        `${tipo || 'Imóvel'} em ${bairro || cidade || 'destaque'}`,
         especificacoesPrincipais,
         enderecoCompleto,
         todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
@@ -1783,19 +2077,19 @@ export default function NovaCampanha() {
       const avatarPerfil = authedUser?.avatar_url || authedUser?.foto_url || authedUser?.photo_url || ''
       const corretorAvatarUrl = avatarPerfil ? avatarPerfil : 'REMOVER_ELEMENTO'
 
-      // fotos_urls vai EM ORDEM â€” a primeira Ã© a principal do imÃ³vel, demais sÃ£o secundÃ¡rias.
+      // fotos_urls vai EM ORDEM — a primeira é a principal do imóvel, demais são secundárias.
       const fotosOrdenadas = fotos_urls.slice(0, 10)
       const fotoPrincipal = fotosOrdenadas[0] || null
 
       setGerandoBanners(true)
       setRenders(null)
 
-      // SÃ³ dispara gerar-banners se o usuÃ¡rio escolheu pelo menos 1 template.
+      // Só dispara gerar-banners se o usuário escolheu pelo menos 1 template.
       const bannersInvoke = selectedTemplates.length > 0
         ? supabase.functions.invoke('gerar-banners', {
             headers: { Authorization: `Bearer ${token}` },
             body: {
-              // campaign_id Ã© opcional agora; vamos linkar depois
+              // campaign_id é opcional agora; vamos linkar depois
               user_id: userId,
               selectedTemplates,
               selected_templates: selectedTemplates,
@@ -1805,9 +2099,9 @@ export default function NovaCampanha() {
               titulo: tituloComercial,
               descricao: descricaoComercial,
               preco: precoParaPayload,
-              suites,
-              quartos,
-              vagas,
+              suites: suitesParaPayload,
+              quartos: quartosParaPayload,
+              vagas: vagasParaPayload,
               area: area || null,
               endereco: enderecoCompleto,
               tipo_imovel: tipo,
@@ -1827,10 +2121,10 @@ export default function NovaCampanha() {
             categoria,
             tipo,
             dados: {
-              finalidade, quartos, banheiros, suites, vagas,
+              finalidade, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
               area: area || null, preco: precoParaPayload, bairro, cidade, estado,
               diferenciais: todosDisferenciais,
-              telefone_contato: telefone,
+              telefone_contato: profileWhatsapp,
               formatos_selecionados: selectedModelUses,
               selectedTemplates,
               selected_templates: selectedTemplates,
@@ -1847,7 +2141,7 @@ export default function NovaCampanha() {
 
       console.log('[gerarAnuncios] resultados paralelos:', { campaignResult, bannersResult })
 
-      // â”€â”€ Processar resultado da CAMPANHA (textos) â”€â”€
+      // ── Processar resultado da CAMPANHA (textos) ──
       if (campaignResult.status === 'rejected') {
         const err = campaignResult.reason
         try {
@@ -1869,7 +2163,7 @@ export default function NovaCampanha() {
       if (!data) throw new Error('Resposta vazia da Edge Function (gerar-campanha)')
 
       const camp = data.campanha
-      if (!camp) throw new Error('Dados da campanha nÃ£o retornados: ' + JSON.stringify(data))
+      if (!camp) throw new Error('Dados da campanha não retornados: ' + JSON.stringify(data))
 
       setResultado(camp)
       setCampanhaId(camp.id)
@@ -1880,7 +2174,7 @@ export default function NovaCampanha() {
       }
       setFase('resultado')
 
-      // â”€â”€ Processar resultado dos BANNERS (renders) â”€â”€
+      // ── Processar resultado dos BANNERS (renders) ──
       if (bannersResult.status === 'fulfilled') {
         const { data: bData, error: bError } = bannersResult.value
         if (bError) {
@@ -1891,10 +2185,10 @@ export default function NovaCampanha() {
         } else if (bData?.renders?.length) {
           const rs = bData.renders
           setRenders(rs)
-          if (bData.warning) toast(bData.warning, { icon: 'âš ï¸' })
-          toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produÃ§Ã£o' : 'material em produÃ§Ã£o'}. Processando...`)
+          if (bData.warning) toast(bData.warning, { icon: '⚠️' })
+          toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produção' : 'material em produção'}. Processando...`)
           iniciarPollingRenders(rs, camp.id)
-          // Linkar renders Ã  campanha recÃ©m-criada (gerar-banners rodou sem campaign_id)
+          // Linkar renders à campanha recém-criada (gerar-banners rodou sem campaign_id)
           supabase
             .from('campaigns')
             .update({ banners: rs })
@@ -1932,11 +2226,41 @@ export default function NovaCampanha() {
 
   const baixarTudo = () => {
     if (!resultado?.textos_gerados) return
-    const REDES = { instagram_feed: ['ðŸ“¸ INSTAGRAM FEED', 'legenda'], instagram_stories: ['ðŸ“± STORIES', 'texto_principal'], whatsapp: ['ðŸ’¬ WHATSAPP', 'mensagem'], facebook: ['ðŸ‘ FACEBOOK', 'texto'], tiktok: ['ðŸŽµ TIKTOK / REELS', 'roteiro'], youtube: ['â–¶ï¸ YOUTUBE', 'descricao'], linkedin: ['ðŸ’¼ LINKEDIN', 'texto'] }
-    let txt = `âœ… ANÃšNCIOS â€” ${resultado.titulo}\n${catAtual ? `ðŸ“‚ ${catAtual.nome}\n` : ''}${'â”€'.repeat(50)}\n\n`
+    const REDES = {
+      titulo_campanha: ['TÍTULO DA CAMPANHA', null],
+      descricao_portal: ['DESCRIÇÃO PARA PORTAL', null],
+      post_instagram: ['POST INSTAGRAM', null],
+      hashtags: ['HASHTAGS', null],
+      script_video_reels: ['SCRIPT VÍDEO / REELS', null],
+      carrossel_passo_a_passo: ['CARROSSEL PASSO A PASSO', null],
+      mensagem_whatsapp: ['MENSAGEM WHATSAPP', null],
+      instagram_feed: ['📸 INSTAGRAM FEED', 'legenda'],
+      instagram_stories: ['📱 STORIES', 'texto_principal'],
+      whatsapp: ['💬 WHATSAPP', 'mensagem'],
+      facebook: ['👍 FACEBOOK', 'texto'],
+      tiktok: ['🎵 TIKTOK / REELS', 'roteiro'],
+      youtube: ['▶️ YOUTUBE', 'descricao'],
+      linkedin: ['💼 LINKEDIN', 'texto'],
+    }
+    const formatDownloadValue = (key, dados, campo) => {
+      const value = campo && dados && typeof dados === 'object'
+        ? dados[campo] || Object.values(dados)[0] || ''
+        : dados
+      if (Array.isArray(value)) {
+        return key === 'hashtags'
+          ? value.join(' ')
+          : value.map(item => (typeof item === 'string' ? item : JSON.stringify(item))).join('\n')
+      }
+      if (typeof value === 'string') return key === 'hashtags' ? value : removeHashtagsFromText(value)
+      if (value == null) return ''
+      return JSON.stringify(value, null, 2)
+    }
+    let txt = `✅ ANÚNCIOS — ${resultado.titulo}\n${catAtual ? `📂 ${catAtual.nome}\n` : ''}${'─'.repeat(50)}\n\n`
     Object.entries(resultado.textos_gerados).forEach(([rede, dados]) => {
       const [label, campo] = REDES[rede] || ['', 'texto']
-      txt += `${label}\n${'â”€'.repeat(30)}\n${removeHashtagsFromText(dados[campo] || Object.values(dados)[0] || '')}\n`
+      const content = formatDownloadValue(rede, dados, campo)
+      if (!content) return
+      txt += `${label || rede}\n${'─'.repeat(30)}\n${content}\n`
       txt += '\n\n'
     })
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' })), download: `anuncios-${resultado.titulo?.replace(/\s+/g, '-').toLowerCase() || 'imovel'}.txt` })
@@ -1944,7 +2268,7 @@ export default function NovaCampanha() {
   }
 
   const postarNoInstagram = async () => {
-    toast('PublicaÃ§Ã£o no Instagram chega em breve.', { icon: 'ðŸš§' })
+    toast('Publicação no Instagram chega em breve.', { icon: '🚧' })
   }
 
   const logFailedRender = (render, source = 'unknown') => {
@@ -2078,24 +2402,24 @@ export default function NovaCampanha() {
   }
 
   const gerarBanners = async () => {
-    if (!campanhaId) return toast.error('Campanha nÃ£o encontrada â€” gere os textos primeiro')
+    if (!campanhaId) return toast.error('Campanha não encontrada — gere os textos primeiro')
     if (gerandoBanners) return
 
     // Token direto do AuthContext (sem getSession/refreshSession).
     const token = accessToken
     if (!token) {
-      toast.error('Sua sessÃ£o expirou. FaÃ§a login novamente.')
+      toast.error('Sua sessão expirou. Faça login novamente.')
       navigate('/login', { replace: true })
       return
     }
 
     const selectedTemplates = selectedTemplatePayload
     if (selectedTemplates.length === 0) {
-      toast.error('Selecione ao menos um banner ou vÃ­deo no formulÃ¡rio')
+      toast.error('Selecione ao menos um banner ou vídeo no formulário')
       return
     }
     if (selectedTemplates.length > MAX_VISUAL_PIECES_PER_GENERATION) {
-      toast.error(`Para garantir a geraÃ§Ã£o correta, selecione atÃ© ${MAX_VISUAL_PIECES_PER_GENERATION} peÃ§as por vez neste momento.`)
+      toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
       return
     }
 
@@ -2125,7 +2449,7 @@ export default function NovaCampanha() {
         || resultado?.textos_gerados?.mensagem_whatsapp
         || ''
 
-      // Sem avatar do corretor â†’ remove o slot pra evitar a mulher fictÃ­cia padrÃ£o.
+      // Sem avatar do corretor → remove o slot pra evitar a mulher fictícia padrão.
       const avatarPerfil = authedUser?.avatar_url || authedUser?.foto_url || authedUser?.photo_url || ''
       const corretorAvatarUrl = avatarPerfil ? avatarPerfil : 'REMOVER_ELEMENTO'
 
@@ -2141,9 +2465,9 @@ export default function NovaCampanha() {
           titulo: resultado?.titulo || resultado?.textos_gerados?.titulo_campanha || '',
           descricao: descricaoCurta,
           preco: precoParaPayload,
-          suites,
-          quartos,
-          vagas,
+          suites: suitesParaPayload,
+          quartos: quartosParaPayload,
+          vagas: vagasParaPayload,
           area: area || null,
           endereco: enderecoCompleto,
           tipo_imovel: tipo,
@@ -2164,11 +2488,11 @@ export default function NovaCampanha() {
       }
 
       const rs = Array.isArray(data?.renders) ? data.renders : []
-      if (rs.length === 0) throw new Error('Nenhuma peÃ§a visual foi enviada para processamento')
+      if (rs.length === 0) throw new Error('Nenhuma peça visual foi enviada para processamento')
 
       setRenders(rs)
-      if (data?.warning) toast(data.warning, { icon: 'âš ï¸' })
-      toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produÃ§Ã£o' : 'material em produÃ§Ã£o'}. Processando...`)
+      if (data?.warning) toast(data.warning, { icon: '⚠️' })
+      toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produção' : 'material em produção'}. Processando...`)
 
       iniciarPollingRenders(rs, campanhaId)
     } catch (err) {
@@ -2179,17 +2503,30 @@ export default function NovaCampanha() {
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════
   //  RENDER
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════
   if (fase === 'form') {
-    const selectedCampaign = SMART_CAMPAIGNS.find(campaign => campaign.id === selectedSmartCampaign)
+    const selectedCampaign = getOfficialSuggestedCampaign(selectedSmartCampaign) || SMART_CAMPAIGNS.find(campaign => campaign.id === selectedSmartCampaign)
     const selectedProductNames = selectedMarketingObjectives.map(item => item.publicName)
+    const suggestedCampaignProfiles = SMART_CAMPAIGNS.filter(campaign => (
+      !campaign.hidden && OFFICIAL_SUGGESTED_PROFILE_IDS.includes(campaign.id)
+    ))
+    const suggestedCampaignChannels = Object.values(CAMPAIGN_USE_OPTIONS)
+    const canShowSuggestedCampaigns = Boolean(selectedSuggestedProfile && selectedSuggestedChannel)
+    const filteredSuggestedCampaigns = canShowSuggestedCampaigns
+      ? OFFICIAL_SUGGESTED_CAMPAIGNS.filter(campaign => (
+        campaign.profileId === selectedSuggestedProfile
+        && campaign.channelIds.includes(selectedSuggestedChannel)
+      ))
+      : []
+    const recommendedSuggestedCampaigns = filteredSuggestedCampaigns.slice(0, 2)
+    const otherSuggestedCampaigns = filteredSuggestedCampaigns.slice(2)
     const simpleCost = generationCreditCost
     const simpleBalance = isUnlimitedTestAdmin ? 'Ilimitado' : simulatedCreditBalance
     const simpleStatus = isUnlimitedTestAdmin || simpleCost <= simulatedCreditBalance
       ? 'Saldo suficiente para gerar.'
-      : 'CrÃ©ditos insuficientes para esta geraÃ§Ã£o.'
+      : 'Créditos insuficientes para esta geração.'
     const goHome = () => {
       setCampaignFlowType(null)
       navigate('/dashboard')
@@ -2233,16 +2570,88 @@ export default function NovaCampanha() {
         return
       }
       if (selectedTemplatePayload.length > MAX_VISUAL_PIECES_PER_GENERATION) {
-        toast.error(`Para garantir a geraÃ§Ã£o correta, selecione atÃ© ${MAX_VISUAL_PIECES_PER_GENERATION} peÃ§as por vez neste momento.`)
+        toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
         return
       }
       setCampaignFlowType('manual')
-      setCampaignObjective('monte_sua_campanha')
       setProductFlowStep('property')
+    }
+    const renderSuggestedCampaignCard = (campaign) => {
+      const cardDetails = getCampaignCardDetails(campaign.id, visualCreditMode, isDemoPlan, selectedSuggestedChannel)
+      const includedModels = getOfficialSuggestedCampaignModels(campaign)
+      const selectedChannel = CAMPAIGN_USE_OPTIONS[selectedSuggestedChannel]
+      const channelLabels = campaign.channelIds
+        .map(channelId => CAMPAIGN_USE_OPTIONS[channelId]?.label)
+        .filter(Boolean)
+      const locked = isDemoPlan && campaign.profileId !== DEMO_CAMPAIGN_ID
+
+      return (
+        <article key={campaign.id} className={`rounded-2xl border border-gray-200 bg-white p-4 shadow-sm ${locked ? 'opacity-60' : ''}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-800">
+                {campaign.badge}
+              </span>
+              <h3 className="mt-3 text-lg font-black text-gray-950">{campaign.title}</h3>
+            </div>
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600">
+              {cardDetails.creditCost} créditos
+            </span>
+          </div>
+
+          <p className="mt-2 text-sm leading-relaxed text-gray-500">{campaign.description}</p>
+
+          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-black text-gray-800">Canais compatíveis</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">{channelLabels.join(' · ')}</p>
+            {selectedChannel && (
+              <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-black text-gray-700">
+                <span aria-hidden="true">{selectedChannel.icon}</span>
+                Selecionado: {selectedChannel.label}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-gray-100 bg-white p-3">
+            <p className="text-xs font-black text-gray-800">Modelos incluídos</p>
+            <div className="mt-2 space-y-2">
+              {includedModels.map(model => (
+                <div key={`${campaign.id}-${model.id}`} className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2">
+                  <span className="text-xs font-bold text-gray-700">{model.name}</span>
+                  <button
+                    type="button"
+                    onClick={(event) => openPreviewModal(model, event)}
+                    className="rounded-full border border-gray-300 bg-white px-3 py-1 text-[11px] font-black text-gray-800 shadow-sm hover:border-amber-300 hover:bg-amber-50"
+                  >
+                    Ver
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-black text-gray-800">Receba:</p>
+            <div className="mt-2 space-y-1">
+              {cardDetails.deliverables.map(item => (
+                <p key={item.key} className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                  <span>{item.count ? `${item.count} ` : ''}{item.title}</span>
+                </p>
+              ))}
+            </div>
+          </div>
+
+          <button type="button" disabled={locked} onClick={() => selectSmartCampaignAndContinue(campaign.id)}
+            className="mt-4 w-full rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-black text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">
+            {locked ? 'Disponível nos planos pagos' : 'Escolher campanha'}
+          </button>
+        </article>
+      )
     }
     const continueFromProperty = () => {
       if (!dadosImovelValidos) {
-        toast.error('Preencha os campos obrigatÃ³rios do imÃ³vel.')
+        toast.error('Preencha os campos obrigatórios do imóvel.')
         return
       }
       if (!isProductEntry && campaignFlowType === 'manual' && !campaignObjective) {
@@ -2254,11 +2663,11 @@ export default function NovaCampanha() {
     }
     const continueFromUploads = () => {
       if (productContext.photoRequired && fotos.length === 0) {
-        toast.error(isProductEntry ? 'Envie ao menos uma foto para continuar.' : 'Envie ao menos uma foto do imÃ³vel.')
+        toast.error(isProductEntry ? 'Envie ao menos uma foto para continuar.' : 'Envie ao menos uma foto do imóvel.')
         return
       }
       if (productContext.videoRequired && !videoArquivo) {
-        toast.error('Envie o vÃ­deo do imÃ³vel/corretor para continuar.')
+        toast.error('Envie o vídeo do imóvel/corretor para continuar.')
         return
       }
       setProductFlowStep('analysis')
@@ -2279,7 +2688,7 @@ export default function NovaCampanha() {
           <div>
             <p className="text-sm font-black text-primary-900">Produto selecionado: {productContext.label}</p>
             <p className="mt-1 text-sm leading-relaxed text-gray-600">
-              Este fluxo reutiliza o cadastro Ãºnico do imÃ³vel. A geraÃ§Ã£o real deste produto ainda nÃ£o serÃ¡ iniciada aqui.
+              Este fluxo reutiliza o cadastro único do imóvel. A geração real deste produto ainda não será iniciada aqui.
             </p>
           </div>
         </div>
@@ -2308,7 +2717,22 @@ export default function NovaCampanha() {
     )
     const propertyForm = (
       <div className="card p-6 space-y-5">
-        <h2 className="text-base font-bold text-gray-900">Dados do imÃ³vel</h2>
+        <h2 className="text-base font-bold text-gray-900">Dados do imóvel</h2>
+
+        {campaignFlowType === 'smart' && selectedOfficialCampaign && (
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-800">Campanha sugerida escolhida</p>
+            <h3 className="mt-1 text-base font-black text-gray-950">{selectedOfficialCampaign.title}</h3>
+            <div className="mt-3 grid gap-2 text-xs font-semibold text-gray-700 sm:grid-cols-2">
+              <p><span className="font-black text-gray-900">Perfil:</span> {SMART_CAMPAIGNS.find(campaign => campaign.id === selectedOfficialCampaign.profileId)?.title}</p>
+              <p><span className="font-black text-gray-900">Canal escolhido:</span> {CAMPAIGN_USE_OPTIONS[selectedSuggestedChannel]?.label || 'Canal compatível'}</p>
+              <p className="sm:col-span-2">
+                <span className="font-black text-gray-900">Modelos incluídos:</span>{' '}
+                {getOfficialSuggestedCampaignModels(selectedOfficialCampaign).map(model => model.name).join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="flex items-start justify-between gap-3 mb-2">
@@ -2319,7 +2743,7 @@ export default function NovaCampanha() {
               <p className="mt-1 text-xs leading-relaxed text-gray-500">
                 {campaignFlowType === 'smart'
                   ? 'Objetivo definido pela campanha escolhida.'
-                  : 'Escolha o foco de marketing para adaptar textos, CTA, linguagem e estratÃƒÂ©gia.'}
+                  : 'Escolha o foco de marketing para adaptar textos, CTA, linguagem e estratégia.'}
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
@@ -2328,7 +2752,9 @@ export default function NovaCampanha() {
           </div>
           <div className="flex flex-wrap gap-2">
             {SMART_CAMPAIGNS.filter(campaign => !campaign.hidden).map(campaign => {
-              const active = campaignObjectiveId === campaign.id
+              const active = campaignFlowType === 'smart'
+                ? selectedOfficialCampaign?.profileId === campaign.id
+                : campaignObjectiveId === campaign.id
               const disabled = campaignFlowType === 'smart'
               return (
                 <button
@@ -2373,14 +2799,16 @@ export default function NovaCampanha() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">Quantidade</label>
-          <div className="flex gap-6 flex-wrap">
-            <Counter label="Quartos" value={quartos} onChange={setQuartos} />
-            <Counter label="SuÃ­tes" value={suites} onChange={setSuites} />
-            <Counter label="Vagas" value={vagas} onChange={setVagas} />
+        {!isLandProperty && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Quantidade</label>
+            <div className="flex gap-6 flex-wrap">
+              <Counter label="Quartos" value={quartos} onChange={setQuartos} />
+              <Counter label="Suítes" value={suites} onChange={setSuites} />
+              <Counter label="Vagas" value={vagas} onChange={setVagas} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
@@ -2411,12 +2839,12 @@ export default function NovaCampanha() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">PreÃ§o (R$) <span className="text-gray-400 font-normal">opcional</span></label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Preço (R$) <span className="text-gray-400 font-normal">opcional</span></label>
             <input value={preco} onChange={e => setPreco(e.target.value)} type="number" placeholder="Ex: 1200000 ou deixe em branco"
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Ãrea (mÂ²) <span className="text-gray-400 font-normal">opcional</span></label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Área (m²) <span className="text-gray-400 font-normal">opcional</span></label>
             <input value={area} onChange={e => setArea(e.target.value)} type="number" placeholder="Ex: 110"
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
           </div>
@@ -2426,10 +2854,10 @@ export default function NovaCampanha() {
           <div className="flex items-start justify-between gap-4 mb-2">
             <div>
               <label htmlFor="destaques-imovel-novo" className="block text-sm font-bold text-gray-900">
-                âœ¨ O que vocÃª deseja destacar neste imÃ³vel?
+                ✨ O que você deseja destacar neste imóvel?
               </label>
               <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                Descreva livremente os diferenciais, localizaÃ§Ã£o, acabamento, lazer ou qualquer ponto forte. A IA irÃ¡ organizar e melhorar o texto automaticamente.
+                Descreva livremente os diferenciais, localização, acabamento, lazer ou qualquer ponto forte. A IA irá organizar e melhorar o texto automaticamente.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-bold text-primary-700">
@@ -2442,11 +2870,11 @@ export default function NovaCampanha() {
             onChange={e => setDifCustom(e.target.value)}
             maxLength={500}
             rows={5}
-            placeholder="Exemplo: apartamento reformado, vista livre, varanda gourmet, prÃ³ximo ao metrÃ´, acabamento premium, lazer completo e excelente iluminaÃ§Ã£o natural."
+            placeholder="Exemplo: apartamento reformado, vista livre, varanda gourmet, próximo ao metrô, acabamento premium, lazer completo e excelente iluminação natural."
             className="w-full resize-y rounded-xl border border-gray-200 px-3 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
           />
           <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-400">
-            <span>Escreva do seu jeito. A IA cuida da apresentaÃ§Ã£o.</span>
+            <span>Escreva do seu jeito. A IA cuida da apresentação.</span>
             <span className={difCustom.length >= 450 ? 'font-bold text-amber-600' : ''}>{difCustom.length}/500</span>
           </div>
         </div>
@@ -2460,7 +2888,7 @@ export default function NovaCampanha() {
       <div className="card p-6 space-y-5">
         <div>
           <div className="flex items-center justify-between gap-3 mb-2">
-            <h2 className="text-base font-bold text-gray-900">Arquivos do imÃ³vel</h2>
+            <h2 className="text-base font-bold text-gray-900">Arquivos do imóvel</h2>
             <span className="text-xs text-gray-400 font-medium">{fotos.length}/10 fotos</span>
           </div>
           <p className="text-xs text-gray-500">{productContext.uploadHelp}</p>
@@ -2470,15 +2898,15 @@ export default function NovaCampanha() {
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black text-gray-900">VÃ­deo do imÃ³vel/corretor</h3>
+                <h3 className="text-sm font-black text-gray-900">Vídeo do imóvel/corretor</h3>
                 <p className="mt-1 text-xs text-gray-500">
-                  {productContext.videoRequired ? 'ObrigatÃ³rio para Transformar Meu VÃ­deo.' : 'Opcional neste produto.'}
+                  {productContext.videoRequired ? 'Obrigatório para Transformar Meu Vídeo.' : 'Opcional neste produto.'}
                 </p>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
                 productContext.videoRequired ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
               }`}>
-                {productContext.videoRequired ? 'ObrigatÃ³rio' : 'Opcional'}
+                {productContext.videoRequired ? 'Obrigatório' : 'Opcional'}
               </span>
             </div>
 
@@ -2495,7 +2923,7 @@ export default function NovaCampanha() {
                 </div>
                 <button type="button" onClick={removerVideo}
                   className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-white">
-                  Remover vÃ­deo
+                  Remover vídeo
                 </button>
               </div>
             ) : (
@@ -2505,8 +2933,8 @@ export default function NovaCampanha() {
                 <input ref={videoRef} type="file" accept="video/*" className="hidden"
                   onChange={e => handleVideo(e.target.files)} />
                 <Video className="mx-auto mb-2 h-7 w-7 text-gray-400" />
-                <p className="text-sm font-medium text-gray-600">Clique ou arraste o vÃ­deo aqui</p>
-                <p className="mt-1 text-xs text-gray-400">MP4, MOV ou arquivo de vÃ­deo compatÃ­vel</p>
+                <p className="text-sm font-medium text-gray-600">Clique ou arraste o vídeo aqui</p>
+                <p className="mt-1 text-xs text-gray-400">MP4, MOV ou arquivo de vídeo compatível</p>
               </div>
             )}
           </div>
@@ -2516,17 +2944,17 @@ export default function NovaCampanha() {
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black text-gray-900">Fotos do imÃ³vel</h3>
+                <h3 className="text-sm font-black text-gray-900">Fotos do imóvel</h3>
                 <p className="mt-1 text-xs text-gray-500">
                   {productContext.photoRequired
-                    ? 'ObrigatÃ³rias para este produto.'
+                    ? 'Obrigatórias para este produto.'
                     : 'Opcionais como apoio visual.'}
                 </p>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
                 productContext.photoRequired ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
               }`}>
-                {productContext.photoRequired ? 'ObrigatÃ³rias' : 'Opcionais'}
+                {productContext.photoRequired ? 'Obrigatórias' : 'Opcionais'}
               </span>
             </div>
 
@@ -2557,7 +2985,7 @@ export default function NovaCampanha() {
                   onChange={e => handleFotos(e.target.files)} />
                 <Camera className="w-7 h-7 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-gray-600">Clique ou arraste as fotos aqui</p>
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG Â· atÃ© 10 fotos Â· a primeira Ã© a principal</p>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG · até 10 fotos · a primeira é a principal</p>
               </div>
             )}
           </div>
@@ -2565,11 +2993,11 @@ export default function NovaCampanha() {
       </div>
     )
     const analysisItems = [
-      'Tipo e padrÃ£o do imÃ³vel identificados',
-      'LocalizaÃ§Ã£o considerada na estratÃ©gia',
+      'Tipo e padrão do imóvel identificados',
+      'Localização considerada na estratégia',
       'Diferenciais organizados para a campanha',
-      'Fotos serÃ£o usadas para personalizar os materiais',
-      'EstratÃ©gia sugerida conforme objetivo escolhido',
+      'Fotos serão usadas para personalizar os materiais',
+      'Estratégia sugerida conforme objetivo escolhido',
     ]
     const strategyLabel = campaignFlowType === 'smart'
       ? selectedCampaign?.title || 'Campanha Inteligente'
@@ -2579,6 +3007,64 @@ export default function NovaCampanha() {
 
     return (
       <>
+      {activePreviewModel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 px-4 py-6 backdrop-blur-sm"
+          onClick={closePreviewModal}
+        >
+          <div
+            className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-600">Preview do modelo</p>
+                <h3 className="mt-1 text-lg font-black text-gray-950">{activePreviewModel.name}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closePreviewModal}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                aria-label="Fechar preview"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="bg-gray-950 p-4">
+              {activePreviewModel.previewType === 'video/mp4' && activePreviewModel.previewUrl && !previewVideoFailed ? (
+                <video
+                  key={activePreviewModel.previewUrl}
+                  src={activePreviewModel.previewUrl}
+                  poster={activePreviewModel.posterUrl || undefined}
+                  controls
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  onError={() => setPreviewVideoFailed(true)}
+                  className="mx-auto aspect-square max-h-[70vh] w-full max-w-[70vh] rounded-2xl bg-black object-contain"
+                />
+              ) : activePreviewModel.posterUrl ? (
+                <div className="mx-auto max-w-2xl">
+                  <img
+                    src={activePreviewModel.posterUrl}
+                    alt={activePreviewModel.previewAlt}
+                    className="mx-auto aspect-square max-h-[70vh] w-full max-w-[70vh] rounded-2xl bg-white object-contain"
+                  />
+                  <p className="mt-3 text-center text-xs font-semibold text-gray-300">
+                    Preview em vídeo em preparação.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-12 text-center text-sm font-semibold text-gray-200">
+                  Preview em vídeo em preparação.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -2587,17 +3073,17 @@ export default function NovaCampanha() {
                 <Sparkles className="w-5 h-5 text-primary-600" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 text-base">Confirmar geraÃ§Ã£o</h3>
-                <p className="text-xs text-gray-500">Sua campanha completa serÃ¡ gerada em um clique.</p>
+                <h3 className="font-bold text-gray-900 text-base">Confirmar geração</h3>
+                <p className="text-xs text-gray-500">Sua campanha completa será gerada em um clique.</p>
               </div>
             </div>
             <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="text-gray-600">Custo desta geraÃ§Ã£o</span>
-                <span className="font-black text-gray-900">{simpleCost} crÃ©ditos</span>
+                <span className="text-gray-600">Custo desta geração</span>
+                <span className="font-black text-gray-900">{simpleCost} créditos</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-gray-600">Saldo disponÃ­vel</span>
+                <span className="text-gray-600">Saldo disponível</span>
                 <span className="font-black text-gray-900">{simpleBalance}</span>
               </div>
             </div>
@@ -2620,19 +3106,35 @@ export default function NovaCampanha() {
           <Header title={productContext.headerTitle} subtitle={productContext.headerSubtitle} />
           <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
             {productFlowStep === 'campaign-choice' && (<>
-              {renderFlowHeader('Gerar Campanha', 'Escolha o subproduto da campanha', 'Use uma campanha por objetivo ou monte sua prÃ³pria combinaÃ§Ã£o de produtos de marketing.')}
+              {renderFlowHeader('Gerar Campanha', 'Escolha o subproduto da campanha', 'Use uma campanha por objetivo ou monte sua própria combinação de produtos de marketing.')}
               {renderStepActions(goHome)}
+              <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <ol className="grid gap-2 text-xs font-bold text-gray-600 sm:grid-cols-5">
+                  {['Escolha o caminho', 'Confira os materiais', 'Preencha o imóvel', 'Gere a campanha', 'Receba e divulgue'].map((step, index) => (
+                    <li key={step} className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
+                        {index + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <button type="button" onClick={startSmartFlow}
-                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-primary-300 hover:shadow-lg">
-                  <span className="text-4xl">ðŸš€</span>
+                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-amber-300 hover:shadow-lg">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-sm font-black text-amber-800">
+                    01
+                  </div>
                   <h2 className="mt-5 text-2xl font-black text-gray-950">Campanha por Objetivo</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha uma sugestÃ£o pronta conforme o objetivo de divulgaÃ§Ã£o do imÃ³vel.</p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha uma sugestão pronta conforme o objetivo de divulgação do imóvel.</p>
                   <span className="mt-6 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white">Escolher objetivo</span>
                 </button>
                 <button type="button" onClick={startManualFlow}
-                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-primary-300 hover:shadow-lg">
-                  <span className="text-4xl">ðŸŽ¨</span>
+                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-amber-300 hover:shadow-lg">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-sm font-black text-amber-800">
+                    02
+                  </div>
                   <h2 className="mt-5 text-2xl font-black text-gray-950">Monte Sua Campanha</h2>
                   <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha exatamente quais produtos de marketing deseja gerar.</p>
                   <span className="mt-6 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white">Montar campanha</span>
@@ -2641,54 +3143,111 @@ export default function NovaCampanha() {
             </>)}
 
             {productFlowStep === 'smart-campaigns' && (<>
-              {renderFlowHeader('Campanha por Objetivo', 'Escolha uma sugestÃ£o pronta', 'Cada card mostra o objetivo, resultado esperado e custo estimado.')}
+              {renderFlowHeader('Campanha por Objetivo', 'Escolha uma sugestão pronta', 'Cada card mostra o objetivo, os modelos incluídos e os canais recomendados.')}
               {renderStepActions(goToCampaignChoice)}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {SMART_CAMPAIGNS.filter(campaign => !campaign.hidden).map(campaign => {
-                  const locked = isDemoPlan && campaign.id !== DEMO_CAMPAIGN_ID
-                  const cardDetails = getCampaignCardDetails(campaign.id, visualCreditMode, isDemoPlan)
-                  return (
-                    <article key={campaign.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${locked ? 'opacity-60' : ''}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-black text-gray-950">{campaign.title}</h3>
-                          <p className="mt-1 text-xs font-black uppercase tracking-wide text-primary-600">Ideal para</p>
-                        </div>
-                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600">
-                          {cardDetails.creditCost} crÃ©ditos
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm leading-relaxed text-gray-500">{campaign.description}</p>
-                      <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                        <p className="text-xs font-black text-gray-800">Receba:</p>
-                        <div className="mt-2 space-y-1">
-                          {cardDetails.deliverables.map(item => (
-                            <p key={item.key} className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-500" />
-                              <span>{item.count ? `${item.count} ` : ''}{item.title}</span>
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="mt-3 text-xs font-black text-gray-700">Resultado esperado</p>
-                      <p className="mt-1 text-xs leading-relaxed text-gray-500">{campaign.benefits[0]}</p>
-                      <details className="mt-4 rounded-xl bg-gray-50 p-3">
-                        <summary className="cursor-pointer text-xs font-black text-primary-700">Ver detalhes</summary>
-                        <div className="mt-3 space-y-2 text-xs text-gray-600">
-                          {campaign.benefits.map(benefit => (
-                            <p key={benefit} className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-500" />{benefit}</p>
-                          ))}
-                          <p className="rounded-lg bg-amber-50 p-2 text-amber-900">{campaign.smartTip}</p>
-                        </div>
-                      </details>
-                      <button type="button" disabled={locked} onClick={() => selectSmartCampaignAndContinue(campaign.id)}
-                        className="mt-4 w-full rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-black text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">
-                        {locked ? 'DisponÃ­vel nos planos pagos' : 'Selecionar Campanha'}
-                      </button>
-                    </article>
-                  )
-                })}
+              <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <ol className="grid gap-2 text-xs font-bold text-gray-600 sm:grid-cols-5">
+                  {[
+                    'Escolha o perfil',
+                    'Escolha onde divulgar',
+                    'Escolha a campanha',
+                    'Preencha o imóvel',
+                    'Gere e receba',
+                  ].map((step, index) => (
+                    <li key={step} className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
+                        {index + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
               </div>
+              <div className="mb-4 space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-gray-500">Perfil da divulgação</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {suggestedCampaignProfiles.map(campaign => {
+                      const active = selectedSuggestedProfile === campaign.id
+                      return (
+                        <button
+                          key={campaign.id}
+                          type="button"
+                          onClick={() => setSelectedSuggestedProfile(campaign.id)}
+                          className={`rounded-full border px-3 py-2 text-xs font-black transition-colors ${
+                            active
+                              ? 'border-gray-950 bg-gray-950 text-white'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-amber-300 hover:bg-amber-50'
+                          }`}
+                        >
+                          {campaign.title}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-gray-500">Onde pretende divulgar</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {suggestedCampaignChannels.map(use => {
+                      const active = selectedSuggestedChannel === use.id
+                      return (
+                        <button
+                          key={use.id}
+                          type="button"
+                          onClick={() => setSelectedSuggestedChannel(use.id)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black transition-colors ${
+                            active
+                              ? 'border-gray-950 bg-gray-950 text-white'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-amber-300 hover:bg-amber-50'
+                          }`}
+                        >
+                          <span aria-hidden="true">{use.icon}</span>
+                          <span>{use.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-xs leading-relaxed text-gray-500">
+                  As campanhas sugeridas aparecem depois que você define o perfil e o canal. Cada campanha mostra os modelos oficiais incluídos e permite visualizar o preview antes de escolher.
+                </p>
+              </div>
+              {recommendedSuggestedCampaigns.length > 0 && (
+                <section className="space-y-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-amber-700">Recomendadas para você</p>
+                    <h3 className="mt-1 text-base font-black text-gray-950">Melhores opções para esta combinação</h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {recommendedSuggestedCampaigns.map(renderSuggestedCampaignCard)}
+                  </div>
+                </section>
+              )}
+
+              {otherSuggestedCampaigns.length > 0 && (
+                <section className="mt-5 space-y-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">Outras opções compatíveis</p>
+                    <h3 className="mt-1 text-base font-black text-gray-950">Campanhas que também atendem ao canal escolhido</h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {otherSuggestedCampaigns.map(renderSuggestedCampaignCard)}
+                  </div>
+                </section>
+              )}
+              {!canShowSuggestedCampaigns && (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm font-semibold text-gray-500">
+                  Escolha primeiro o perfil da divulgação e onde pretende divulgar.
+                </div>
+              )}
+              {canShowSuggestedCampaigns && filteredSuggestedCampaigns.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm font-semibold text-gray-500">
+                  Nenhuma campanha sugerida disponível para esta combinação no momento.
+                </div>
+              )}
             </>)}
 
             {productFlowStep === 'manual-catalog' && (<>
@@ -2705,27 +3264,42 @@ export default function NovaCampanha() {
                   </button>
                 </div>
               </div>
+              <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <ol className="grid gap-2 text-xs font-bold text-gray-600 sm:grid-cols-5">
+                  {[
+                    'Escolha os modelos',
+                    'Marque os usos desejados',
+                    'Preencha os dados do imóvel',
+                    'Gere seus materiais',
+                    'Receba e divulgue seus produtos',
+                  ].map((step, index) => (
+                    <li key={step} className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
+                        {index + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <p className="text-xs font-black uppercase tracking-wide text-primary-600">Biblioteca de modelos</p>
-                      <h2 className="mt-1 text-lg font-black text-gray-950">Modelos principais disponÃ­veis</h2>
+                      <h2 className="mt-1 text-lg font-black text-gray-950">Modelos principais disponíveis</h2>
                       <p className="mt-1 text-sm text-gray-500">
-                        Use os Ã­cones para escolher onde cada modelo serÃ¡ usado. O sistema cuida dos formatos internamente.
+                        Use os ícones para escolher onde cada modelo será usado. O sistema cuida dos formatos internamente.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-700">
                         {selectedModelCount} modelo{selectedModelCount === 1 ? '' : 's'} selecionado{selectedModelCount === 1 ? '' : 's'}
                       </span>
-                      <span className="rounded-full bg-primary-50 px-3 py-1.5 text-xs font-black text-primary-700">
-                        Total: {estimatedCreditConsumption} crÃ©ditos
-                      </span>
                       {selectedCatalogItems.length > 0 && (
                         <button type="button" onClick={() => applySelectedModelUses({})}
                           className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-black text-gray-600 hover:bg-gray-50">
-                          Limpar seleÃ§Ã£o
+                          Limpar seleção
                         </button>
                       )}
                     </div>
@@ -2749,17 +3323,8 @@ export default function NovaCampanha() {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {CAMPAIGN_MODEL_LIBRARY.map(model => {
-                      const modelTemplates = model.compatibleUses
-                        .map(useId => TEMPLATE_CATALOG_BY_TEMPLATE_ID[model.useTemplates?.[useId]])
-                        .filter(Boolean)
-                      const creditValues = modelTemplates
-                        .map(template => template.creditWeight || 0)
-                        .filter(value => value > 0)
-                      const minCredit = creditValues.length ? Math.min(...creditValues) : 0
-                      const maxCredit = creditValues.length ? Math.max(...creditValues) : 0
-                      const creditLabel = minCredit === maxCredit
-                        ? `${minCredit} crÃ©ditos por peÃ§a`
-                        : `${minCredit}-${maxCredit} crÃ©ditos por peÃ§a`
+                      const modelCredit = getModelCreditWeight(model.id)
+                      const creditLabel = `${modelCredit} créditos por peça`
                       const useIds = selectedModelUses[model.id] || []
                       const selected = useIds.length > 0
                       return (
@@ -2772,9 +3337,9 @@ export default function NovaCampanha() {
                           <div className="text-left">
                             <div className="mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
                               <img
-                                src={model.previewUrl}
-                                alt={`Preview do modelo ${model.name}`}
-                                className="aspect-[4/3] w-full object-cover"
+                                src={model.posterUrl || model.previewUrl}
+                                alt={model.previewAlt}
+                                className="aspect-square w-full object-cover"
                                 loading="lazy"
                               />
                             </div>
@@ -2782,19 +3347,25 @@ export default function NovaCampanha() {
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <h3 className="text-sm font-black text-gray-950">{model.name}</h3>
-                                <p className="mt-1 text-xs leading-relaxed text-gray-500">{model.description}</p>
+                                <p className="mt-1 overflow-hidden text-xs leading-relaxed text-gray-500 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{model.description}</p>
                               </div>
-                              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
-                                selected ? 'border-primary-500 bg-primary-500' : 'border-gray-300 bg-white'
-                              }`}>
-                                {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
+                              <div className="flex shrink-0 items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(event) => openPreviewModal(model, event)}
+                                  className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-black text-gray-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 hover:text-gray-950"
+                                >
+                                  {model.previewLabel || 'Ver'}
+                                </button>
+                                <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                                  selected ? 'border-primary-500 bg-primary-500' : 'border-gray-300 bg-white'
+                                }`}>
+                                  {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
+                                </div>
                               </div>
                             </div>
 
                             <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black">
-                              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
-                                {model.compatibleUses.length} usos compatÃ­veis
-                              </span>
                               <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
                                 {creditLabel}
                               </span>
@@ -2802,7 +3373,7 @@ export default function NovaCampanha() {
                           </div>
 
                           <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-3">
-                            <p className="text-xs font-black uppercase tracking-wide text-gray-500">Onde deseja usar?</p>
+                            <p className="text-xs font-black uppercase tracking-wide text-gray-500">Marque onde deseja usar</p>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {model.compatibleUses.map(useId => {
                                 const use = CAMPAIGN_USE_OPTIONS[useId]
@@ -2812,7 +3383,7 @@ export default function NovaCampanha() {
                                   <button
                                     key={`${model.id}-${useId}-${model.useTemplates?.[useId]}`}
                                     type="button"
-                                    title={blockedByLimit ? `Limite de ${MAX_VISUAL_PIECES_PER_GENERATION} peÃ§as atingido` : use.label}
+                                    title={blockedByLimit ? `Limite de ${MAX_VISUAL_PIECES_PER_GENERATION} peças atingido` : use.label}
                                     aria-label={`${checked ? 'Remover' : 'Selecionar'} ${use.label} para ${model.name}`}
                                     onClick={() => toggleCampaignModelUse(model.id, useId)}
                                     className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border text-xl shadow-sm transition-all ${
@@ -2862,7 +3433,7 @@ export default function NovaCampanha() {
                       </div>
                     ) : (
                       <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-500">
-                        Escolha pelo menos um modelo e marque onde deseja usÃ¡-lo.
+                        Escolha pelo menos um modelo e marque onde deseja usá-lo.
                       </p>
                     )}
 
@@ -2872,23 +3443,27 @@ export default function NovaCampanha() {
                         <span className="text-sm font-black text-primary-900">{selectedModelCount}</span>
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-primary-900">Usos escolhidos</span>
+                        <span className="text-sm font-bold text-primary-900">Peças selecionadas</span>
                         <span className="text-sm font-black text-primary-900">{selectedUseCount}</span>
                       </div>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-primary-900">PeÃ§as serÃ£o geradas</span>
-                        <span className="text-sm font-black text-primary-900">{selectedCatalogItems.length}</span>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-primary-100 pt-3">
-                        <span className="text-xs font-semibold text-gray-600">CrÃ©ditos</span>
-                        <span className="text-xl font-black text-gray-950">{estimatedCreditConsumption}</span>
+                      <div className="mt-3 border-t border-primary-100 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-bold text-primary-900">Total</span>
+                          <span className="text-sm font-black text-primary-900">{estimatedCreditConsumption} créditos</span>
+                        </div>
                       </div>
                     </div>
+
+                    {selectedCatalogItems.length >= MAX_VISUAL_PIECES_PER_GENERATION - 1 && (
+                      <p className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-900">
+                        Você pode gerar até {MAX_VISUAL_PIECES_PER_GENERATION} peças por vez. Depois de receber os resultados, poderá gerar mais materiais para este mesmo imóvel.
+                      </p>
+                    )}
 
                     {selectedCatalogItems.length > 0 && (
                       <button type="button" onClick={() => applySelectedModelUses({})}
                         className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-black text-gray-600 hover:bg-gray-50">
-                        Limpar seleÃ§Ã£o
+                        Limpar seleção
                       </button>
                     )}
 
@@ -2905,128 +3480,105 @@ export default function NovaCampanha() {
               </div>
             </>)}
 
-            <div className="rounded-3xl border border-primary-100 bg-gradient-to-br from-gray-950 via-primary-950 to-gray-900 p-6 text-white shadow-xl shadow-primary-950/20">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-black uppercase tracking-wider text-amber-200">Liberdade total</p>
-                  <h2 className="mt-1 text-xl font-black">ðŸŽ¨ Monte Sua PrÃ³pria Campanha</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-200">
-                    Escolha exatamente os produtos que deseja gerar. VocÃª pode combinar formatos livremente e pagar apenas pelos crÃ©ditos utilizados.
-                  </p>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {[
-                      'Escolha apenas o que precisa',
-                      'Controle total dos crÃ©ditos',
-                      'Combine produtos livremente',
-                      'Crie campanhas exclusivas para cada imÃ³vel',
-                    ].map(item => (
-                      <div key={item} className="flex items-start gap-2 rounded-xl bg-white/8 px-3 py-2">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-amber-300 mt-0.5" />
-                        <span className="text-xs font-semibold text-gray-100">{item}</span>
+            {productFlowStep === 'property' && (<>
+              {renderFlowHeader(productContext.propertyEyebrow, productContext.propertyTitle, productContext.propertySubtitle)}
+              {renderStepActions(goBackFromProperty)}
+              {renderProductContextNotice()}
+              {propertyForm}
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={continueFromProperty}
+                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800"
+                >
+                  Continuar
+                </button>
+              </div>
+            </>)}
+
+            {productFlowStep === 'photos' && (<>
+              {renderFlowHeader(productContext.uploadEyebrow, productContext.uploadTitle, productContext.photosSubtitle)}
+              {renderStepActions(() => setProductFlowStep('property'))}
+              {photoUpload}
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={continueFromUploads}
+                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800"
+                >
+                  Continuar
+                </button>
+              </div>
+            </>)}
+
+            {productFlowStep === 'analysis' && (<>
+              {renderFlowHeader(productContext.reviewTitle, 'Confirmar materiais da campanha', productContext.reviewSubtitle)}
+              {renderStepActions(() => setProductFlowStep('photos'))}
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-700">Resumo antes de gerar</p>
+                  <h2 className="mt-1 text-xl font-black text-gray-950">{strategyLabel}</h2>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {analysisItems.map(item => (
+                      <div key={item} className="flex items-start gap-2 rounded-2xl bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span>{item}</span>
                       </div>
                     ))}
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCreditBuilderMode('manual')}
-                  className="shrink-0 rounded-2xl bg-amber-300 px-5 py-3 text-sm font-black text-gray-950 hover:bg-amber-200 transition-colors"
-                >
-                  Montar Minha Campanha
-                </button>
+                  {!profileWhatsapp && (
+                    <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
+                      WhatsApp não encontrado no perfil. Complete seu perfil para incluir seu contato automaticamente nos materiais.
+                    </div>
+                  )}
+                </section>
+
+                <aside className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm lg:self-start">
+                  <p className="text-xs font-black uppercase tracking-wide text-gray-500">Confirmação</p>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-gray-600">Peças incluídas</span>
+                      <span className="font-black text-gray-950">{selectedCatalogItems.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-gray-600">Créditos estimados</span>
+                      <span className="font-black text-gray-950">{simpleCost}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+                      <span className="font-semibold text-gray-600">Saldo após gerar</span>
+                      <span className="font-black text-gray-950">{isUnlimitedTestAdmin ? 'Ilimitado' : balanceAfterGeneration}</span>
+                    </div>
+                  </div>
+                  {isDemoPlan && demoUsed && (
+                    <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+                      Sua campanha demonstrativa já foi utilizada.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={confirmarGeracao}
+                    disabled={!podaGerar || (isDemoPlan && demoUsed)}
+                    className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-black transition-colors ${
+                      podaGerar && !(isDemoPlan && demoUsed)
+                        ? 'bg-gray-950 text-white hover:bg-gray-800'
+                        : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Gerar campanha
+                  </button>
+                </aside>
               </div>
-            </div>
-
-            {isDemoPlan ? (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-                <h2 className="text-base font-bold text-amber-950">Plano demonstrativo</h2>
-                <p className="text-sm text-amber-800 mt-1">
-                  Sem crÃ©ditos nesta etapa: sua demonstraÃ§Ã£o libera uma campanha Ãºnica com formatos fixos.
-                </p>
-              </div>
-            ) : (
-              <CreditSummary
-                simulatedBalance={simulatedCreditBalance}
-                modeId={visualCreditMode}
-                selectedTemplateIds={selectedTemplateIds}
-                isUnlimited={isUnlimitedTestAdmin}
-              />
-            )}
-
-            <div className="card p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Seu WhatsApp <span className="text-gray-400 font-normal">(opcional â€” aparece nos textos)</span>
-                </label>
-                <input value={telefone} onChange={e => setTelefone(e.target.value)} type="tel" placeholder="(11) 99999-9999"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
-              </div>
-
-              <button onClick={confirmarGeracao} disabled={!podaGerar || (isDemoPlan && demoUsed)}
-                className={`w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-3 transition-all ${
-                  podaGerar && !(isDemoPlan && demoUsed) ? 'gradient-primary text-white shadow-lg shadow-primary-500/30 hover:opacity-90' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}>
-                <Sparkles className="w-5 h-5" />
-                Gerar campanha
-              </button>
-
-              {!isUnlimitedTestAdmin && !isDemoPlan && creditos && creditos.total_disponivel > 0 && (
-                <p className="text-center text-xs text-gray-500">
-                  VocÃª estÃ¡ usando <strong>1 anÃºncio</strong> â€”{' '}
-                  <span className={creditos.total_disponivel <= 3 ? 'text-amber-600 font-semibold' : ''}>
-                    {creditos.total_disponivel - 1} anÃºncio{creditos.total_disponivel - 1 !== 1 ? 's' : ''} restante{creditos.total_disponivel - 1 !== 1 ? 's' : ''} apÃ³s esta geraÃ§Ã£o
-                  </span>
-                </p>
-              )}
-
-              {!isDemoPlan && creditos && creditos.total_disponivel === 0 && (
-                <p className="text-center text-xs text-red-500 font-medium">
-                  Sem anÃºncios disponÃ­veis Â· <a href="/planos" className="underline">Ver planos</a>
-                </p>
-              )}
-
-              {!podaGerar && (
-                <p className="text-center text-xs text-amber-600 font-medium">
-                  Preencha: tipo do imÃ³vel Â· bairro Â· cidade
-                </p>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={goToPreviousWizardStep}
-                  disabled={wizardStep === 0}
-                  className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-colors ${
-                    wizardStep === 0
-                      ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Voltar etapa
-                </button>
-                <button
-                  type="button"
-                  onClick={goToNextWizardStep}
-                  disabled={wizardStep === WIZARD_STEPS.length - 1}
-                  className={`flex-1 py-3 rounded-xl text-sm font-bold transition-colors ${
-                    wizardStep === WIZARD_STEPS.length - 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-gray-950 text-white hover:bg-gray-800'
-                  }`}
-                >
-                  PrÃ³xima etapa
-                </button>
-              </div>
-            </div>
+            </>)}
 
         {fase === 'gerando' && (
           <div className="card p-14 text-center animate-fade-in">
             <div className={`w-24 h-24 bg-gradient-to-br ${catAtual?.cor || 'from-primary-500 to-primary-400'} rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-2xl`}>
-              <span className="text-5xl">{catAtual?.icon || 'âœ¨'}</span>
+              <span className="text-5xl">{catAtual?.icon || '✨'}</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Criando sua campanha...</h2>
             <p className="text-primary-600 font-semibold text-lg min-h-[28px]" key={msgIdx}>{msgs[msgIdx]}</p>
-            <p className="text-gray-400 text-sm mt-3">A IA estÃ¡ pesquisando o bairro e criando textos personalizados</p>
+            <p className="text-gray-400 text-sm mt-3">A IA está pesquisando o bairro e criando textos personalizados</p>
             <div className="mt-8 flex justify-center gap-2">
               {[0,1,2,3].map(i => (
                 <div key={i} className="w-2.5 h-2.5 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.18}s` }} />
@@ -3061,22 +3613,27 @@ export default function NovaCampanha() {
             .reduce((sum, render) => sum + getCreditAmount(render), 0)
 
           const textosEdge = [
-            { key: 'titulo_campanha',         icon: 'ðŸ·ï¸', titulo: 'TÃ­tulo da Campanha' },
-            { key: 'descricao_portal',        icon: 'ðŸ ', titulo: 'DescriÃ§Ã£o para Portal' },
-            { key: 'post_instagram',          icon: 'ðŸ“¸', titulo: 'Post Instagram' },
-            { key: 'script_video_reels',      icon: 'ðŸŽ¬', titulo: 'Script VÃ­deo / Reels' },
-            { key: 'carrossel_passo_a_passo', icon: 'ðŸŽ ', titulo: 'Carrossel Passo a Passo' },
-            { key: 'mensagem_whatsapp',       icon: 'ðŸ’¬', titulo: 'Mensagem WhatsApp' },
+            { key: 'titulo_campanha',         icon: '🏷️', titulo: 'Título da Campanha' },
+            { key: 'descricao_portal',        icon: '🏠', titulo: 'Descrição para Portal' },
+            { key: 'post_instagram',          icon: '📸', titulo: 'Post Instagram' },
+            { key: 'hashtags',                icon: '#', titulo: 'Hashtags' },
+            { key: 'script_video_reels',      icon: '🎬', titulo: 'Script Vídeo / Reels' },
+            { key: 'carrossel_passo_a_passo', icon: '🎠', titulo: 'Carrossel Passo a Passo' },
+            { key: 'mensagem_whatsapp',       icon: '💬', titulo: 'Mensagem WhatsApp' },
           ]
           const getTextoEdge = (k) => {
             const v = resultado[k] ?? tg[k]
             if (v == null) return ''
             if (Array.isArray(v)) {
-              return v
-                .map((item) => `ðŸ“ ${typeof item === 'string' ? item : JSON.stringify(item)}`)
-                .join('\n')
+              return k === 'hashtags'
+                ? v.join(' ')
+                : v
+                  .map((item) => `📍 ${typeof item === 'string' ? item : JSON.stringify(item)}`)
+                  .join('\n')
             }
-            return typeof v === 'string' ? removeHashtagsFromText(v) : JSON.stringify(v, null, 2)
+            return typeof v === 'string'
+              ? (k === 'hashtags' ? v : removeHashtagsFromText(v))
+              : JSON.stringify(v, null, 2)
           }
 
           return (
@@ -3085,7 +3642,7 @@ export default function NovaCampanha() {
               {isDemoPlan && (
                 <AnimatedCard delay={0}>
                   <div className="card p-5 border-primary-200 bg-primary-50">
-                    <h2 className="text-lg font-extrabold text-gray-900">Campanha demonstrativa concluÃ­da.</h2>
+                    <h2 className="text-lg font-extrabold text-gray-900">Campanha demonstrativa concluída.</h2>
                     <p className="text-sm text-gray-600 mt-1">Escolha um plano para continuar gerando campanhas completas.</p>
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {['START', 'PRO', 'ELITE'].map(plan => (
@@ -3106,7 +3663,7 @@ export default function NovaCampanha() {
                         <CheckCircle2 className="w-7 h-7 text-green-600" />
                       </div>
                       <div>
-                        <h2 className="font-extrabold text-gray-900 text-xl">Campanha pronta! ðŸŽ‰</h2>
+                        <h2 className="font-extrabold text-gray-900 text-xl">Campanha pronta! 🎉</h2>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm text-gray-500">{resultado.titulo}</p>
                           {catAtual && <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${catAtual.badge}`}>{catAtual.icon} {catAtual.nome}</span>}
@@ -3182,9 +3739,9 @@ export default function NovaCampanha() {
                 <AnimatedCard delay={300}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2"><span className="text-2xl">ðŸ“¸</span><h3 className="font-bold text-gray-900 text-lg">Instagram Feed</h3></div>
+                      <div className="flex items-center gap-2"><span className="text-2xl">📸</span><h3 className="font-bold text-gray-900 text-lg">Instagram Feed</h3></div>
                       <div className="flex gap-2 flex-wrap">
-                        <button onClick={() => copiar(removeHashtagsFromText([tg.instagram_feed.legenda, tg.instagram_feed.cta ? `ðŸ‘‰ ${tg.instagram_feed.cta}` : ''].filter(Boolean).join('\n\n')), 'ig_feed')}
+                        <button onClick={() => copiar(removeHashtagsFromText([tg.instagram_feed.legenda, tg.instagram_feed.cta ? `👉 ${tg.instagram_feed.cta}` : ''].filter(Boolean).join('\n\n')), 'ig_feed')}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                           {copiadoId === 'ig_feed' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
                         </button>
@@ -3209,7 +3766,7 @@ export default function NovaCampanha() {
                 <AnimatedCard delay={600}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2"><span className="text-2xl">ðŸ“±</span><h3 className="font-bold text-gray-900 text-lg">Instagram Stories</h3></div>
+                      <div className="flex items-center gap-2"><span className="text-2xl">📱</span><h3 className="font-bold text-gray-900 text-lg">Instagram Stories</h3></div>
                       <button onClick={() => copiar(removeHashtagsFromText([tg.instagram_stories.texto_principal, tg.instagram_stories.cta].filter(Boolean).join('\n\n')), 'stories')}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                         {copiadoId === 'stories' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
@@ -3230,7 +3787,7 @@ export default function NovaCampanha() {
                 <AnimatedCard delay={900}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2"><span className="text-2xl">ðŸ’¬</span><h3 className="font-bold text-gray-900 text-lg">WhatsApp</h3></div>
+                      <div className="flex items-center gap-2"><span className="text-2xl">💬</span><h3 className="font-bold text-gray-900 text-lg">WhatsApp</h3></div>
                       <div className="flex gap-2">
                         <button onClick={() => copiar(removeHashtagsFromText(tg.whatsapp.mensagem), 'wa')}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
@@ -3251,9 +3808,9 @@ export default function NovaCampanha() {
                 <AnimatedCard delay={1200}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2"><span className="text-2xl">ðŸ‘</span><h3 className="font-bold text-gray-900 text-lg">Facebook</h3></div>
+                      <div className="flex items-center gap-2"><span className="text-2xl">👍</span><h3 className="font-bold text-gray-900 text-lg">Facebook</h3></div>
                       <div className="flex gap-2">
-                        <button onClick={() => copiar(removeHashtagsFromText([tg.facebook.texto, tg.facebook.cta ? `ðŸ‘‰ ${tg.facebook.cta}` : ''].filter(Boolean).join('\n\n')), 'fb')}
+                        <button onClick={() => copiar(removeHashtagsFromText([tg.facebook.texto, tg.facebook.cta ? `👉 ${tg.facebook.cta}` : ''].filter(Boolean).join('\n\n')), 'fb')}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                           {copiadoId === 'fb' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
                         </button>
@@ -3278,7 +3835,7 @@ export default function NovaCampanha() {
                 <AnimatedCard delay={1500}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-                      <div className="flex items-center gap-2"><span className="text-2xl">ðŸŽµ</span><h3 className="font-bold text-gray-900 text-lg">TikTok / Reels</h3><span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">â–¶ AutomÃ¡tico</span></div>
+                      <div className="flex items-center gap-2"><span className="text-2xl">🎵</span><h3 className="font-bold text-gray-900 text-lg">TikTok / Reels</h3><span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">▶ Automático</span></div>
                       <button onClick={() => copiar(removeHashtagsFromText(tg.tiktok.roteiro || ''), 'tiktok')}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                         {copiadoId === 'tiktok' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar roteiro</>}
@@ -3300,8 +3857,8 @@ export default function NovaCampanha() {
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl">ðŸ–¼ï¸</span>
-                        <h3 className="font-bold text-gray-900 text-lg">PeÃ§as visuais geradas</h3>
+                        <span className="text-2xl">🖼️</span>
+                        <h3 className="font-bold text-gray-900 text-lg">Peças visuais geradas</h3>
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2 text-[11px] font-bold">
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">{visualPieces.length} solicitadas</span>
@@ -3311,27 +3868,27 @@ export default function NovaCampanha() {
                       </div>
                     </div>
                     <div className="mb-4 rounded-2xl border border-primary-100 bg-primary-50 p-4">
-                      <p className="text-sm font-black text-primary-900">Resumo da geraÃ§Ã£o</p>
+                      <p className="text-sm font-black text-primary-900">Resumo da geração</p>
                       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div className="rounded-xl bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">PeÃ§as prontas</p>
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças prontas</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualPiecesReady}</p>
                         </div>
                         <div className="rounded-xl bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">PeÃ§as com falha</p>
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças com falha</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualPiecesFailed}</p>
                         </div>
                         <div className="rounded-xl bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">CrÃ©ditos consumidos</p>
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos consumidos</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsConsumed}</p>
                         </div>
                         <div className="rounded-xl bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">CrÃ©ditos devolvidos</p>
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos devolvidos</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsRefunded}</p>
                         </div>
                       </div>
                       <p className="mt-3 text-xs font-bold text-primary-800">
-                        VocÃª sÃ³ paga pelas peÃ§as geradas com sucesso.
+                        Você só paga pelas peças geradas com sucesso.
                       </p>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
@@ -3342,7 +3899,7 @@ export default function NovaCampanha() {
                         const ehVideo = r.url && /\.(mp4|webm|mov)$/i.test(r.url)
                         const nomePeca = r.template_nome && !/template|creatomate|uuid/i.test(r.template_nome)
                           ? r.template_nome
-                          : 'PeÃ§a visual'
+                          : 'Peça visual'
                         return (
                           <div key={r.piece_id || r.render_id || `${r.model_id || r.template_id || 'render'}-${r.use_id || 'uso'}-${r.template_id || i}-${i}`} className="border border-gray-200 rounded-xl overflow-hidden flex flex-col bg-white">
                             <div className="p-3 pb-2 flex items-center justify-between gap-2">
@@ -3383,7 +3940,7 @@ export default function NovaCampanha() {
                                 </div>
                               ) : (
                                 <div className="text-[11px] text-gray-400 text-center py-2">
-                                  {falhou ? 'arquivo indisponÃ­vel' : 'aguardandoâ€¦'}
+                                  {falhou ? 'arquivo indisponível' : 'aguardando…'}
                                 </div>
                               )}
                             </div>
@@ -3397,12 +3954,12 @@ export default function NovaCampanha() {
 
               <AnimatedCard delay={3000}>
                 <div className="card p-5 text-center">
-                  <p className="text-gray-500 text-sm mb-4">Quer criar campanha para outro imÃ³vel?</p>
+                  <p className="text-gray-500 text-sm mb-4">Quer criar campanha para outro imóvel?</p>
                   <button
                     onClick={() => resetCampaignState('campaign-choice')}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-white font-bold hover:opacity-90 transition-opacity">
                     <Plus className="w-4 h-4" />
-                    Criar campanha para outro imÃ³vel
+                    Criar campanha para outro imóvel
                   </button>
                 </div>
               </AnimatedCard>
