@@ -21,7 +21,7 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON
 
 {
   "titulo_campanha": "Título curto e memorável do imóvel",
-  "descricao_portal": "Texto técnico e detalhado para portais (ZAP/VivaReal) com [Inserir CRECI]. Não inclua hashtags.",
+  "descricao_portal": "Texto técnico e detalhado para portais (ZAP/VivaReal). Se o CRECI real não for informado, não mencione CRECI e não use placeholders. Não inclua hashtags.",
   "post_instagram": "Texto persuasivo para Instagram com gatilhos comerciais e CTA. Não inclua hashtags no corpo do texto.",
   "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
   "script_video_reels": "Roteiro de 30-60s: [0-5s Gancho], [5-20s Tour pelo Imóvel], [20-30s CTA]. Não inclua hashtags.",
@@ -39,7 +39,8 @@ REGRAS PARA HASHTAGS:
 - Gere de 12 a 20 hashtags relevantes, prontas para copiar.
 - Considere tipo do imóvel, cidade, bairro, categoria/perfil da campanha, finalidade e diferenciais informados.
 - Evite hashtags genéricas demais.
-- Não misture hashtags em descricao_portal, mensagem_whatsapp, script_video_reels ou post_instagram.`
+- Não misture hashtags em descricao_portal, mensagem_whatsapp, script_video_reels ou post_instagram.
+- Nunca invente CRECI, telefone, e-mail ou dados do corretor. Se não forem informados, omita.`
 
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)

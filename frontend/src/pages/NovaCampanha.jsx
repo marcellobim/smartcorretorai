@@ -455,6 +455,7 @@ const RENDER_READY_STATUSES = new Set(['succeeded', 'completed'])
 const RENDER_ERROR_STATUSES = new Set(['failed', 'error', 'canceled', 'timeout'])
 const RENDER_FINAL_STATUSES = new Set([...RENDER_READY_STATUSES, ...RENDER_ERROR_STATUSES])
 const RENDER_STATUS_LABELS = {
+  pending: 'Processando',
   planned: 'Em fila',
   processing: 'Processando',
   succeeded: 'Pronto',
@@ -467,14 +468,116 @@ const RENDER_STATUS_LABELS = {
 
 const normalizeRenderStatus = (status) => String(status || 'planned').toLowerCase()
 const getRenderStatusLabel = (status) => RENDER_STATUS_LABELS[normalizeRenderStatus(status)] || 'Processando'
+const MISSING_RENDER_ERROR = 'Não foi possível iniciar esta peça. Tente novamente.'
+const BANNER_BATCH_ERROR = 'Materiais visuais não foram iniciados agora. Tente gerar novamente em alguns instantes.'
+const hasRenderProcessingEvidence = (render) => Boolean(
+  render?.render_id
+  || render?.render_job_id
+  || render?.job_id
+  || render?.url
+  || render?.snapshot_url
+  || render?.erro
+  || render?.error_message
+  || RENDER_READY_STATUSES.has(normalizeRenderStatus(render?.status))
+  || RENDER_ERROR_STATUSES.has(normalizeRenderStatus(render?.status))
+  || ['processing', 'pending'].includes(normalizeRenderStatus(render?.status))
+)
+const normalizeRequestedVisualPieces = (pieces = []) => (
+  (Array.isArray(pieces) ? pieces : []).map((piece, index) => {
+    const templateId = piece.template_id || piece.templateId || null
+    const modelId = piece.model_id || piece.modelo_id || piece.modelId || null
+    const modelName = piece.model_name || piece.modelName || null
+    const useId = piece.use_id || piece.uso_id || piece.useId || null
+    const useLabel = piece.use_label || piece.useLabel || null
+    const creditWeight = piece.credit_cost || piece.creditWeight || piece.credit_amount || 0
+    const requestKey = piece.requestKey || piece.piece_id || `requested:${templateId || index}:${useId || 'uso'}:${index}`
+    return {
+      requestKey,
+      piece_id: piece.piece_id || requestKey,
+      template_id: templateId,
+      templateId,
+      template_nome: piece.template_nome || piece.label || modelName || 'Peça visual',
+      model_id: modelId,
+      modelId,
+      model_name: modelName,
+      modelName,
+      use_id: useId,
+      useId,
+      use_label: useLabel,
+      useLabel,
+      credit_amount: creditWeight,
+      credit_cost: creditWeight,
+      creditWeight,
+      status: 'pending',
+      requested: true,
+      missing_from_response: true,
+    }
+  })
+)
+const mergeRequestedVisualPieces = (requestedPieces = [], returnedRenders = [], options = {}) => {
+  const requested = normalizeRequestedVisualPieces(requestedPieces)
+  const returned = Array.isArray(returnedRenders) ? returnedRenders : []
+  const used = new Set()
+  const missingStatus = options.missingStatus || 'pending'
+  const missingErrorMessage = options.missingErrorMessage || ''
+
+  const findMatch = (piece) => {
+    const byPieceId = returned.find((render, index) => !used.has(index) && render?.piece_id && render.piece_id === piece.piece_id)
+    if (byPieceId) return byPieceId
+    return returned.find((render, index) => !used.has(index) && render?.template_id && render.template_id === piece.template_id)
+  }
+
+  const merged = requested.map(piece => {
+    const match = findMatch(piece)
+    if (!match) {
+      return {
+        ...piece,
+        status: missingStatus,
+        erro: missingStatus === 'failed' ? missingErrorMessage : piece.erro,
+        error_message: missingStatus === 'failed' ? missingErrorMessage : piece.error_message,
+      }
+    }
+    used.add(returned.indexOf(match))
+    const lacksProcessingEvidence = options.requireProcessingEvidence && !hasRenderProcessingEvidence(match)
+    return {
+      ...piece,
+      ...match,
+      requestKey: match.requestKey || piece.requestKey,
+      piece_id: match.piece_id || piece.piece_id,
+      template_id: match.template_id || piece.template_id,
+      templateId: match.template_id || piece.template_id,
+      template_nome: match.template_nome || piece.template_nome,
+      model_id: match.model_id || piece.model_id,
+      modelId: match.model_id || piece.model_id,
+      model_name: match.model_name || piece.model_name,
+      modelName: match.model_name || piece.model_name,
+      use_id: match.use_id || piece.use_id,
+      useId: match.use_id || piece.use_id,
+      use_label: match.use_label || piece.use_label,
+      useLabel: match.use_label || piece.use_label,
+      credit_amount: match.credit_amount ?? piece.credit_amount,
+      credit_cost: match.credit_cost ?? piece.credit_cost,
+      creditWeight: match.credit_cost ?? piece.credit_cost,
+      requested: true,
+      missing_from_response: false,
+      status: lacksProcessingEvidence ? 'failed' : (match.status || 'planned'),
+      erro: lacksProcessingEvidence ? MISSING_RENDER_ERROR : match.erro,
+      error_message: lacksProcessingEvidence ? MISSING_RENDER_ERROR : match.error_message,
+    }
+  })
+
+  returned.forEach((render, index) => {
+    if (!used.has(index)) merged.push(render)
+  })
+
+  return merged
+}
 const getRenderDebugPayload = (render) => ({
   render_id: render?.render_id || null,
   template_id: render?.template_id || null,
   status: render?.status || null,
   erro: render?.erro || null,
   error_message: render?.error_message || null,
-  url: render?.url || null,
-  snapshot_url: render?.snapshot_url || null,
 })
 const readFunctionErrorBody = async (error) => {
   try {
@@ -1595,7 +1698,9 @@ export default function NovaCampanha() {
   const [showAgendamento, setShowAgendamento] = useState(false)
 
   const [renders, setRenders] = useState(null)
+  const [requestedVisualPieces, setRequestedVisualPieces] = useState([])
   const [gerandoBanners, setGerandoBanners] = useState(false)
+  const [generationNotice, setGenerationNotice] = useState('')
   const renderPollRef = useRef(null)
   const [activePreviewModel, setActivePreviewModel] = useState(null)
   const [previewVideoFailed, setPreviewVideoFailed] = useState(false)
@@ -1689,6 +1794,7 @@ export default function NovaCampanha() {
       }))
     : TEMPLATE_CATALOG.filter(template => selectedTemplateIds.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId))
   const selectedTemplatePayload = selectedCatalogItems.map((item, index) => ({
+    requestKey: `${item.modelId || item.templateId}:${item.useId || 'uso'}:${item.templateId}:index:${index}`,
     piece_id: item.pieceId || `template:${item.templateId}:index:${index}`,
     template_id: item.templateId,
     model_id: item.modelId || null,
@@ -1899,7 +2005,7 @@ export default function NovaCampanha() {
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
-    setRenders(null); setGerandoBanners(false); setProductFlowStep(targetStep); setCampaignFlowType(null); setSelectedSmartCampaign(null); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective('')
+    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setCampaignFlowType(null); setSelectedSmartCampaign(null); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective('')
     clearInterval(renderPollRef.current)
   }
 
@@ -1939,10 +2045,9 @@ export default function NovaCampanha() {
     setShowConfirm(false)
     setFase('gerando')
     setMsgIdx(0)
+    setGenerationNotice('')
 
     try {
-      console.log('[gerarAnuncios] iniciado | authedUser.id =', authedUser?.id)
-
       const todosDisferenciais = [
         ...diferenciais,
         ...(difCustom.trim() ? [difCustom.trim()] : []),
@@ -1966,8 +2071,6 @@ export default function NovaCampanha() {
         navigate('/login', { replace: true })
         return
       }
-      console.log('[gerarAnuncios] sessão OK via contexto', { userId, hasToken: true })
-
       if (selectedTemplatePayload.length > MAX_VISUAL_PIECES_PER_GENERATION) {
         toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
         setFase('form')
@@ -1986,7 +2089,6 @@ export default function NovaCampanha() {
         ])
 
       const fotos_urls = []
-      console.log('[gerarAnuncios] iniciando upload de', fotos.length, 'fotos')
       for (let i = 0; i < fotos.length; i++) {
         const f = fotos[i]
         const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
@@ -2012,20 +2114,17 @@ export default function NovaCampanha() {
               continue
             }
             url = signed.signedUrl
-            console.log('[upload] OK foto', i + 1, tentativa > 1 ? `(tentativa ${tentativa})` : '')
             break
           } catch (uploadErr) {
-            console.error(`[upload] foto ${i + 1} tentativa ${tentativa} erro/timeout:`, uploadErr)
+            console.error(`[upload] foto ${i + 1} tentativa ${tentativa} erro/timeout:`, uploadErr?.message || 'erro desconhecido')
           }
         }
         if (url) fotos_urls.push(url)
       }
-      console.log('[gerarAnuncios] fim do upload loop. fotos_urls:', fotos_urls.length)
 
       // ── Templates escolhidos pelo usuário (somente os marcados) ──
       // Bloqueia qualquer geração automática de templates não escolhidos.
       const selectedTemplates = selectedTemplatePayload
-      console.log('[gerarAnuncios] selectedTemplates:', selectedTemplates)
       const idempotencyKey = createGenerationIdempotencyKey(userId)
       const creditPayload = {
         credit_cost: generationCreditCost,
@@ -2033,16 +2132,7 @@ export default function NovaCampanha() {
         video_ia_premium: generationHasPremiumVideo,
         idempotency_key: idempotencyKey,
       }
-      console.log('[gerarAnuncios] creditPayload:', {
-        credit_cost: creditPayload.credit_cost,
-        generation_mode: creditPayload.generation_mode,
-        video_ia_premium: creditPayload.video_ia_premium,
-        has_idempotency_key: Boolean(creditPayload.idempotency_key),
-      })
-
       // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
-      console.log('[gerarAnuncios] >>> DISPARANDO invoke(gerar-campanha) + invoke(gerar-banners) em paralelo')
-
       // Inputs derivados do formulário para o gerar-banners (não dependem do AI ainda)
       const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
@@ -2083,6 +2173,7 @@ export default function NovaCampanha() {
 
       setGerandoBanners(true)
       setRenders(null)
+      setRequestedVisualPieces(selectedTemplates)
 
       // Só dispara gerar-banners se o usuário escolheu pelo menos 1 template.
       const bannersInvoke = selectedTemplates.length > 0
@@ -2139,35 +2230,59 @@ export default function NovaCampanha() {
         bannersInvoke,
       ])
 
-      console.log('[gerarAnuncios] resultados paralelos:', { campaignResult, bannersResult })
-
       // ── Processar resultado da CAMPANHA (textos) ──
+      let campaignData = null
+      let partialCampaignWarning = ''
       if (campaignResult.status === 'rejected') {
-        const err = campaignResult.reason
-        try {
-          const errBody = await err?.context?.json?.()
-          throw new Error(errBody?.error || err?.message || 'Erro ao gerar campanha')
-        } catch {
-          throw err
+        const errBody = await readFunctionErrorBody(campaignResult.reason)
+        console.error('[gerar-campanha] rejeitado:', campaignResult.reason?.message || 'erro desconhecido')
+        if (errBody?.textos) {
+          campaignData = { textos: errBody.textos, error: errBody.error }
+          partialCampaignWarning = errBody.error || 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
+        } else {
+          throw new Error(errBody?.error || campaignResult.reason?.message || 'Erro ao gerar campanha')
+        }
+      } else {
+        const { data, error } = campaignResult.value
+        if (error) {
+          const errBody = await readFunctionErrorBody(error)
+          console.error('[gerar-campanha] erro:', error?.message || 'erro desconhecido')
+          if (errBody?.textos) {
+            campaignData = { textos: errBody.textos, error: errBody.error }
+            partialCampaignWarning = errBody.error || 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
+          } else {
+            throw new Error(errBody?.error || error.message || 'Erro desconhecido')
+          }
+        } else {
+          campaignData = data
         }
       }
-      const { data, error } = campaignResult.value
-      if (error) {
-        try {
-          const errBody = await error.context?.json?.()
-          throw new Error(errBody?.error || error.message || 'Erro desconhecido')
-        } catch {
-          throw error
-        }
-      }
-      if (!data) throw new Error('Resposta vazia da Edge Function (gerar-campanha)')
+      if (!campaignData) throw new Error('Resposta vazia da Edge Function (gerar-campanha)')
 
-      const camp = data.campanha
-      if (!camp) throw new Error('Dados da campanha não retornados: ' + JSON.stringify(data))
+      const campaignRow = campaignData.campanha || null
+      const generatedTexts = campaignRow?.textos_gerados || campaignData.textos || campaignData.textos_gerados || null
+      if (!generatedTexts || typeof generatedTexts !== 'object') {
+        throw new Error('Textos da campanha não retornados em formato exibível.')
+      }
+
+      const camp = {
+        ...(campaignRow || {}),
+        id: campaignRow?.id || null,
+        titulo: campaignRow?.titulo || generatedTexts.titulo_campanha || tituloComercial || 'Campanha gerada',
+        textos_gerados: generatedTexts,
+        dados_imovel: campaignRow?.dados_imovel || {
+          tipo,
+          categoria,
+          fotos_urls: fotosOrdenadas,
+        },
+      }
 
       setResultado(camp)
-      setCampanhaId(camp.id)
+      setCampanhaId(camp.id || null)
       setIgPostado(false)
+      if (partialCampaignWarning) {
+        setGenerationNotice(`${partialCampaignWarning} Os textos IA foram preservados abaixo.`)
+      }
       if (isDemoPlan && demoStorageKey) {
         localStorage.setItem(demoStorageKey, 'true')
         setDemoUsed(true)
@@ -2179,30 +2294,51 @@ export default function NovaCampanha() {
         const { data: bData, error: bError } = bannersResult.value
         if (bError) {
           const edgeErrorBody = await readFunctionErrorBody(bError)
-          console.error('[gerar-banners] erro:', bError)
-          console.error('[gerar-banners] resposta:', edgeErrorBody)
+          console.error('[gerar-banners] erro:', bError?.message || 'erro desconhecido')
+          setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
+            missingStatus: 'failed',
+            missingErrorMessage: BANNER_BATCH_ERROR,
+          }))
+          setGenerationNotice('Textos IA gerados. Materiais visuais não foram iniciados agora; tente gerar novamente em alguns instantes.')
           toast.error(edgeErrorBody?.error || 'Falha ao gerar banners (textos OK)')
         } else if (bData?.renders?.length) {
           const rs = bData.renders
-          setRenders(rs)
+          const normalizedRenders = mergeRequestedVisualPieces(selectedTemplates, rs, {
+            missingStatus: 'failed',
+            missingErrorMessage: MISSING_RENDER_ERROR,
+            requireProcessingEvidence: true,
+          })
+          setRenders(normalizedRenders)
+          setGenerationNotice('Textos IA gerados. Materiais visuais em preparação.')
           if (bData.warning) toast(bData.warning, { icon: '⚠️' })
           toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produção' : 'material em produção'}. Processando...`)
-          iniciarPollingRenders(rs, camp.id)
+          iniciarPollingRenders(rs, camp.id || null, selectedTemplates)
           // Linkar renders à campanha recém-criada (gerar-banners rodou sem campaign_id)
-          supabase
-            .from('campaigns')
-            .update({ banners: rs })
-            .eq('id', camp.id)
-            .then(({ error: updErr }) => {
-              if (updErr) console.warn('[link banners] falhou:', updErr.message)
-            })
+          if (camp.id) {
+            supabase
+              .from('campaigns')
+              .update({ banners: rs })
+              .eq('id', camp.id)
+              .then(({ error: updErr }) => {
+                if (updErr) console.warn('[link banners] falhou:', updErr.message)
+              })
+          }
         } else {
-          console.warn('[gerar-banners] sem renders no retorno', bData)
+          console.warn('[gerar-banners] sem renders no retorno')
+          setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
+            missingStatus: 'failed',
+            missingErrorMessage: MISSING_RENDER_ERROR,
+          }))
+          setGenerationNotice('Textos IA gerados. Nenhum material visual foi retornado ainda.')
         }
       } else {
         const edgeErrorBody = await readFunctionErrorBody(bannersResult.reason)
-        console.error('[gerar-banners] rejeitado:', bannersResult.reason)
-        console.error('[gerar-banners] resposta:', edgeErrorBody)
+        console.error('[gerar-banners] rejeitado:', bannersResult.reason?.message || 'erro desconhecido')
+        setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
+          missingStatus: 'failed',
+          missingErrorMessage: BANNER_BATCH_ERROR,
+        }))
+        setGenerationNotice('Textos IA gerados. Materiais visuais não foram iniciados agora; tente gerar novamente em alguns instantes.')
         toast.error(edgeErrorBody?.error || 'Falha ao gerar banners (textos OK)')
       }
 
@@ -2210,7 +2346,7 @@ export default function NovaCampanha() {
       setTimeout(() => setShowAgendamento(true), 1800)
 
     } catch (err) {
-      console.error('[gerarAnuncios] erro:', err)
+      console.error('[gerarAnuncios] erro:', err?.message || 'erro desconhecido')
       toast.error(err.message || 'Erro ao gerar campanha')
       setGerandoBanners(false)
       setFase('form')
@@ -2292,10 +2428,14 @@ export default function NovaCampanha() {
     })
   }
 
-  const iniciarPollingRenders = (iniciais, campaignIdForPolling = campanhaId) => {
+  const iniciarPollingRenders = (iniciais, campaignIdForPolling = campanhaId, requestedPieces = requestedVisualPieces) => {
     clearInterval(renderPollRef.current)
     renderPollRef.current = null
-    setRenders(iniciais)
+    setRenders(mergeRequestedVisualPieces(requestedPieces, iniciais, {
+      missingStatus: 'failed',
+      missingErrorMessage: MISSING_RENDER_ERROR,
+      requireProcessingEvidence: true,
+    }))
     ;(Array.isArray(iniciais) ? iniciais : []).forEach(render => logFailedRender(render, 'gerar-banners'))
 
     const renderIds = (Array.isArray(iniciais) ? iniciais : [])
@@ -2315,11 +2455,17 @@ export default function NovaCampanha() {
 
     const mergeRenderUpdates = (updates = [], timedOut = false) => {
       setRenders(current => {
-        const currentList = Array.isArray(current) ? current : []
+        const currentList = mergeRequestedVisualPieces(requestedPieces, current, {
+          missingStatus: 'failed',
+          missingErrorMessage: MISSING_RENDER_ERROR,
+          requireProcessingEvidence: true,
+        })
         const updatesById = new Map(updates.map(item => [item.render_id, item]))
+        const updatesByTemplateId = new Map(updates.map(item => [item.template_id, item]))
         return currentList.map(item => {
-          if (!item?.render_id) return item
-          const update = updatesById.get(item.render_id)
+          const update = item?.render_id
+            ? updatesById.get(item.render_id)
+            : updatesByTemplateId.get(item?.template_id)
           const merged = update ? { ...item, ...update } : item
           const status = normalizeRenderStatus(merged.status)
           if (timedOut && !RENDER_FINAL_STATUSES.has(status)) {
@@ -2355,7 +2501,7 @@ export default function NovaCampanha() {
             },
           })
           if (error) {
-            console.warn('[renders] timeout get-render-status erro:', error)
+            console.warn('[renders] timeout get-render-status erro:', error?.message || 'erro desconhecido')
             mergeRenderUpdates([], true)
           } else {
             const updates = Array.isArray(data?.renders) ? data.renders : []
@@ -2376,7 +2522,7 @@ export default function NovaCampanha() {
         })
 
         if (error) {
-          console.warn('[renders] get-render-status erro:', error)
+          console.warn('[renders] get-render-status erro:', error?.message || 'erro desconhecido')
           return
         }
 
@@ -2391,7 +2537,7 @@ export default function NovaCampanha() {
         })
         if (allDone) stopPolling()
       } catch (error) {
-        console.warn('[renders] polling falhou:', error)
+        console.warn('[renders] polling falhou:', error?.message || 'erro desconhecido')
       } finally {
         inFlight = false
       }
@@ -2433,6 +2579,7 @@ export default function NovaCampanha() {
 
     setGerandoBanners(true)
     setRenders(null)
+    setRequestedVisualPieces(selectedTemplates)
 
     try {
       const fotosBrutas = resultado?.dados_imovel?.fotos_urls
@@ -2488,15 +2635,35 @@ export default function NovaCampanha() {
       }
 
       const rs = Array.isArray(data?.renders) ? data.renders : []
-      if (rs.length === 0) throw new Error('Nenhuma peça visual foi enviada para processamento')
+      if (rs.length === 0) {
+        setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
+          missingStatus: 'failed',
+          missingErrorMessage: MISSING_RENDER_ERROR,
+        }))
+        setGenerationNotice('Nenhum material visual foi retornado. As peças solicitadas foram marcadas como falha.')
+        throw new Error('Nenhuma peça visual foi enviada para processamento')
+      }
 
-      setRenders(rs)
+      const normalizedRenders = mergeRequestedVisualPieces(selectedTemplates, rs, {
+        missingStatus: 'failed',
+        missingErrorMessage: MISSING_RENDER_ERROR,
+        requireProcessingEvidence: true,
+      })
+      setRenders(normalizedRenders)
+      setGenerationNotice('Materiais visuais em preparação.')
       if (data?.warning) toast(data.warning, { icon: '⚠️' })
       toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produção' : 'material em produção'}. Processando...`)
 
-      iniciarPollingRenders(rs, campanhaId)
+      iniciarPollingRenders(rs, campanhaId, selectedTemplates)
     } catch (err) {
-      console.error('[gerarBanners] erro:', err)
+      console.error('[gerarBanners] erro:', err?.message || 'erro desconhecido')
+      setRenders(current => (Array.isArray(current) && current.length > 0
+        ? current
+        : mergeRequestedVisualPieces(selectedTemplates, [], {
+          missingStatus: 'failed',
+          missingErrorMessage: BANNER_BATCH_ERROR,
+        })))
+      setGenerationNotice('Materiais visuais não foram iniciados agora. As peças solicitadas aparecem como pendentes para nova tentativa.')
       toast.error(err.message || 'Falha ao gerar banners')
     } finally {
       setGerandoBanners(false)
@@ -2506,7 +2673,7 @@ export default function NovaCampanha() {
   // ════════════════════════════════════════════════════════════
   //  RENDER
   // ════════════════════════════════════════════════════════════
-  if (fase === 'form') {
+  if (['form', 'gerando', 'resultado'].includes(fase)) {
     const selectedCampaign = getOfficialSuggestedCampaign(selectedSmartCampaign) || SMART_CAMPAIGNS.find(campaign => campaign.id === selectedSmartCampaign)
     const selectedProductNames = selectedMarketingObjectives.map(item => item.publicName)
     const suggestedCampaignProfiles = SMART_CAMPAIGNS.filter(campaign => (
@@ -3105,7 +3272,7 @@ export default function NovaCampanha() {
       <div className="min-h-full bg-gray-50">
           <Header title={productContext.headerTitle} subtitle={productContext.headerSubtitle} />
           <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
-            {productFlowStep === 'campaign-choice' && (<>
+            {fase === 'form' && productFlowStep === 'campaign-choice' && (<>
               {renderFlowHeader('Gerar Campanha', 'Escolha o subproduto da campanha', 'Use uma campanha por objetivo ou monte sua própria combinação de produtos de marketing.')}
               {renderStepActions(goHome)}
               <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -3142,7 +3309,7 @@ export default function NovaCampanha() {
               </div>
             </>)}
 
-            {productFlowStep === 'smart-campaigns' && (<>
+            {fase === 'form' && productFlowStep === 'smart-campaigns' && (<>
               {renderFlowHeader('Campanha por Objetivo', 'Escolha uma sugestão pronta', 'Cada card mostra o objetivo, os modelos incluídos e os canais recomendados.')}
               {renderStepActions(goToCampaignChoice)}
               <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -3250,7 +3417,7 @@ export default function NovaCampanha() {
               )}
             </>)}
 
-            {productFlowStep === 'manual-catalog' && (<>
+            {fase === 'form' && productFlowStep === 'manual-catalog' && (<>
               {renderFlowHeader('Monte Sua Campanha', 'Escolha os modelos da sua campanha', 'Veja a biblioteca principal e marque onde deseja usar cada modelo.')}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
@@ -3480,7 +3647,7 @@ export default function NovaCampanha() {
               </div>
             </>)}
 
-            {productFlowStep === 'property' && (<>
+            {fase === 'form' && productFlowStep === 'property' && (<>
               {renderFlowHeader(productContext.propertyEyebrow, productContext.propertyTitle, productContext.propertySubtitle)}
               {renderStepActions(goBackFromProperty)}
               {renderProductContextNotice()}
@@ -3496,7 +3663,7 @@ export default function NovaCampanha() {
               </div>
             </>)}
 
-            {productFlowStep === 'photos' && (<>
+            {fase === 'form' && productFlowStep === 'photos' && (<>
               {renderFlowHeader(productContext.uploadEyebrow, productContext.uploadTitle, productContext.photosSubtitle)}
               {renderStepActions(() => setProductFlowStep('property'))}
               {photoUpload}
@@ -3511,7 +3678,7 @@ export default function NovaCampanha() {
               </div>
             </>)}
 
-            {productFlowStep === 'analysis' && (<>
+            {fase === 'form' && productFlowStep === 'analysis' && (<>
               {renderFlowHeader(productContext.reviewTitle, 'Confirmar materiais da campanha', productContext.reviewSubtitle)}
               {renderStepActions(() => setProductFlowStep('photos'))}
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -3590,26 +3757,34 @@ export default function NovaCampanha() {
         {fase === 'resultado' && resultado && (() => {
           const tg = resultado.textos_gerados || {}
           const grad = catAtual?.cor || 'from-primary-500 to-primary-400'
-          const visualPieces = Array.isArray(renders) ? renders : []
+          const returnedVisualPieces = Array.isArray(renders) ? renders : []
+          const visualPieces = requestedVisualPieces.length
+            ? mergeRequestedVisualPieces(requestedVisualPieces, returnedVisualPieces, {
+                missingStatus: 'failed',
+                missingErrorMessage: MISSING_RENDER_ERROR,
+                requireProcessingEvidence: true,
+              })
+            : returnedVisualPieces
           const visualPiecesReady = visualPieces.filter(r => RENDER_READY_STATUSES.has(normalizeRenderStatus(r.status))).length
           const visualPiecesFailed = visualPieces.filter(r => RENDER_ERROR_STATUSES.has(normalizeRenderStatus(r.status)) || !!r.erro).length
-          const visualPiecesProcessing = Math.max(visualPieces.length - visualPiecesReady - visualPiecesFailed, 0)
+          const visualPiecesPending = visualPieces.filter(r => {
+            const status = normalizeRenderStatus(r.status)
+            const failed = RENDER_ERROR_STATUSES.has(status) || !!r.erro
+            return !failed && (status === 'pending' || r.missing_from_response)
+          }).length
+          const visualPiecesProcessing = Math.max(visualPieces.length - visualPiecesReady - visualPiecesFailed - visualPiecesPending, 0)
           const getCreditAmount = (render) => {
             const value = Number(render?.credit_amount || 0)
             return Number.isFinite(value) ? Math.max(0, value) : 0
           }
+          const hasConfirmedCreditAccounting = visualPieces.some(r => (
+            (r.credit_status === 'consumed' || r.credit_status === 'cancelled') && getCreditAmount(r) > 0
+          ))
           const visualCreditsConsumed = visualPieces
-            .filter(r => (
-              r.credit_status === 'consumed'
-              || (RENDER_READY_STATUSES.has(normalizeRenderStatus(r.status)) && r.credit_status !== 'cancelled')
-            ))
+            .filter(r => r.credit_status === 'consumed')
             .reduce((sum, render) => sum + getCreditAmount(render), 0)
           const visualCreditsRefunded = visualPieces
-            .filter(r => (
-              r.credit_status === 'cancelled'
-              || RENDER_ERROR_STATUSES.has(normalizeRenderStatus(r.status))
-              || !!r.erro
-            ))
+            .filter(r => r.credit_status === 'cancelled')
             .reduce((sum, render) => sum + getCreditAmount(render), 0)
 
           const textosEdge = [
@@ -3709,6 +3884,14 @@ export default function NovaCampanha() {
                   </div>
                 </div>
               </AnimatedCard>
+
+              {generationNotice && (
+                <AnimatedCard delay={80}>
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-relaxed text-amber-900">
+                    {generationNotice}
+                  </div>
+                </AnimatedCard>
+              )}
 
               {textosEdge.map((item, idx) => {
                 const conteudo = getTextoEdge(item.key)
@@ -3852,7 +4035,7 @@ export default function NovaCampanha() {
                 </AnimatedCard>
               )}
 
-              {renders && renders.length > 0 && (
+              {visualPieces.length > 0 && (
                 <AnimatedCard delay={2700}>
                   <div className="card p-5">
                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -3864,35 +4047,48 @@ export default function NovaCampanha() {
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">{visualPieces.length} solicitadas</span>
                         <span className="rounded-full bg-green-100 px-2 py-1 text-green-700">{visualPiecesReady} prontas</span>
                         {visualPiecesProcessing > 0 && <span className="rounded-full bg-yellow-100 px-2 py-1 text-yellow-700">{visualPiecesProcessing} processando</span>}
+                        {visualPiecesPending > 0 && <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">{visualPiecesPending} pendentes</span>}
                         {visualPiecesFailed > 0 && <span className="rounded-full bg-red-100 px-2 py-1 text-red-700">{visualPiecesFailed} falharam</span>}
                       </div>
                     </div>
                     <div className="mb-4 rounded-2xl border border-primary-100 bg-primary-50 p-4">
                       <p className="text-sm font-black text-primary-900">Resumo da geração</p>
-                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className={`mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 ${hasConfirmedCreditAccounting ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
+                        <div className="rounded-xl bg-white p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças solicitadas</p>
+                          <p className="mt-1 text-xl font-black text-gray-950">{visualPieces.length}</p>
+                        </div>
                         <div className="rounded-xl bg-white p-3">
                           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças prontas</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualPiecesReady}</p>
                         </div>
                         <div className="rounded-xl bg-white p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Em processamento</p>
+                          <p className="mt-1 text-xl font-black text-gray-950">{visualPiecesPending + visualPiecesProcessing}</p>
+                        </div>
+                        <div className="rounded-xl bg-white p-3">
                           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças com falha</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualPiecesFailed}</p>
                         </div>
-                        <div className="rounded-xl bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos consumidos</p>
-                          <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsConsumed}</p>
-                        </div>
-                        <div className="rounded-xl bg-white p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos devolvidos</p>
-                          <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsRefunded}</p>
-                        </div>
+                        {hasConfirmedCreditAccounting && (
+                          <>
+                            <div className="rounded-xl bg-white p-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos consumidos</p>
+                              <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsConsumed}</p>
+                            </div>
+                            <div className="rounded-xl bg-white p-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos devolvidos</p>
+                              <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsRefunded}</p>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <p className="mt-3 text-xs font-bold text-primary-800">
                         Você só paga pelas peças geradas com sucesso.
                       </p>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {renders.map((r, i) => {
+                      {visualPieces.map((r, i) => {
                         const status = normalizeRenderStatus(r.status)
                         const ok = RENDER_READY_STATUSES.has(status)
                         const falhou = RENDER_ERROR_STATUSES.has(status) || !!r.erro
@@ -3940,7 +4136,7 @@ export default function NovaCampanha() {
                                 </div>
                               ) : (
                                 <div className="text-[11px] text-gray-400 text-center py-2">
-                                  {falhou ? 'arquivo indisponível' : 'aguardando…'}
+                                  {falhou ? 'arquivo indisponível' : normalizeRenderStatus(r.status) === 'pending' ? 'aguardando retorno' : 'aguardando…'}
                                 </div>
                               )}
                             </div>
@@ -3967,6 +4163,36 @@ export default function NovaCampanha() {
             </div>
           )
         })()}
+
+        {fase === 'resultado' && !resultado && (
+          <div className="card p-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div>
+                <h2 className="text-lg font-black text-gray-950">Não foi possível mostrar o resultado agora.</h2>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                  A geração foi iniciada, mas o retorno da campanha não chegou em um formato exibível. Seus dados foram preservados para tentar novamente.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFase('form')}
+                    className="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-black text-white hover:bg-gray-800"
+                  >
+                    Voltar e tentar novamente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resetCampaignState('campaign-choice')}
+                    className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    Criar nova campanha
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
           </main>
         </div>
       </>
