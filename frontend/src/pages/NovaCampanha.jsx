@@ -176,6 +176,20 @@ const CAMPAIGN_USE_OPTIONS = {
 
 const MAX_VISUAL_PIECES_PER_GENERATION = 5
 const ENABLE_SUGGESTED_CAMPAIGNS = false
+const MVP_ACTIVE_MODEL_IDS = new Set([
+  'anuncio_premium',
+  'story_premium',
+  'card_imobiliario_premium',
+  'imovel_detalhes',
+  'avaliacao_do_cliente',
+  'chat_imobiliario',
+  'momentos_do_imovel',
+  'reels_moderno',
+  'galeria_imobiliaria',
+  'slides_premium',
+  'video_tour',
+  'triple_slide_carousel',
+])
 
 const CAMPAIGN_MODEL_LIBRARY_BASE = [
   {
@@ -375,7 +389,9 @@ const CAMPAIGN_MODEL_LIBRARY_BASE = [
   }
 ]
 
-const CAMPAIGN_MODEL_LIBRARY = CAMPAIGN_MODEL_LIBRARY_BASE.map(model => {
+const CAMPAIGN_MODEL_LIBRARY = CAMPAIGN_MODEL_LIBRARY_BASE.filter(model => (
+  MVP_ACTIVE_MODEL_IDS.has(model.id)
+)).map(model => {
   const preview = TEMPLATE_MODEL_PREVIEWS[model.id] || {}
   return {
     ...model,
