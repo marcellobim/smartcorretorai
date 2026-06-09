@@ -36,11 +36,125 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON
 }
 
 REGRAS PARA HASHTAGS:
-- Gere de 12 a 20 hashtags relevantes, prontas para copiar.
-- Considere tipo do imóvel, cidade, bairro, categoria/perfil da campanha, finalidade e diferenciais informados.
-- Evite hashtags genéricas demais.
+- Gere de 12 a 15 hashtags relevantes, prontas para copiar.
+- Prefira hashtags sem acentos e sem cedilha: use #ImoveisSP, #SaoPauloImoveis, #ApartamentoAVenda.
+- Não use palavras estranhas, traduções ruins ou termos inexistentes como #AparelhoImobiliario.
+- Não use Premium, Luxo, AltoPadrao ou similares se a categoria/perfil não for luxo, alto padrão ou premium.
+- Considere tipo do imóvel, finalidade, cidade, bairro, mercado imobiliário e diferenciais informados.
+- Evite hashtags genéricas demais e não invente condições como financiamento, metrô ou vista se não estiverem nos dados.
 - Não misture hashtags em descricao_portal, mensagem_whatsapp, script_video_reels ou post_instagram.
-- Nunca invente CRECI, telefone, e-mail ou dados do corretor. Se não forem informados, omita.`
+- Nunca invente CRECI, telefone, e-mail ou dados do corretor. Se não forem informados, omita.
+
+REGRAS PARA MENSAGEM WHATSAPP:
+- Escreva como mensagem pronta do corretor para enviar ao lead.
+- Nunca escreva como se fosse o cliente perguntando.
+- Não use "Estou interessado", "Tenho interesse" ou variações em primeira pessoa do lead.
+- Exemplo de tom: "Olá, tudo bem? Tenho um apartamento à venda na Lapa com 120m², 2 quartos e 1 vaga. Posso te enviar mais detalhes ou agendar uma visita?"
+
+REGRAS DE VERACIDADE:
+- Não invente metrô, escola, shopping, transporte público, lazer, cultura, vista, financiamento, condomínio, segurança ou qualquer diferencial não informado.
+- Só cite diferenciais, condições e facilidades que estejam claramente nos dados ou nos diferenciais informados.
+- Médio Padrão: linguagem clara, comercial e direta.
+- Alto Padrão/Luxo: linguagem mais sofisticada.
+- Minha Casa Minha Vida: foco em oportunidade, entrada, financiamento ou subsídio apenas se informado.
+- Temporada: foco em experiência e ocupação apenas quando fizer sentido pelos dados informados.`
+
+function stripDiacritics(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function toHashtag(value: string) {
+  const clean = stripDiacritics(value)
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')
+  return clean ? `#${clean}` : ''
+}
+
+function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo: unknown, categoria: unknown) {
+  const categoriaTexto = String(categoria || '').toLowerCase()
+  const isLuxury = /luxo|alto\s*padrao|alto\s*padr[aã]o|premium/.test(categoriaTexto)
+  const cidade = String(dados.cidade || '').trim()
+  const bairro = String(dados.bairro || '').trim()
+  const tipoImovel = String(tipo || dados.tipo || 'Imovel').trim()
+  const finalidade = String(dados.finalidade || dados.negocio || 'venda').trim().toLowerCase()
+  const isRental = /loca|aluguel|alugar|temporada/.test(finalidade)
+  const diferenciaisTexto = [
+    dados.diferenciais,
+    dados.descricao,
+    dados.observacoes,
+  ].flat().filter(Boolean).join(' ').toLowerCase()
+
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(/\s+/)
+      : []
+
+  const blocked = [
+    /aparelho/i,
+    /premium|luxo|altopadrao|alto_padrao|alto-padrao/i,
+  ]
+  const normalized: string[] = []
+  for (const item of raw) {
+    const tag = toHashtag(String(item).replace(/^#/, ''))
+    if (!tag) continue
+    if (blocked[0].test(tag)) continue
+    if (!isLuxury && blocked[1].test(tag)) continue
+    if (/financiamento|subsidio|entrada/i.test(tag) && !/financiamento|subs[ií]dio|entrada/.test(diferenciaisTexto)) continue
+    if (!normalized.includes(tag)) normalized.push(tag)
+  }
+
+  const fallback = [
+    toHashtag(`${tipoImovel} ${isRental ? 'para alugar' : 'a venda'}`),
+    cidade ? toHashtag(`${tipoImovel} ${cidade}`) : '',
+    cidade ? toHashtag(`Imoveis ${cidade}`) : '',
+    bairro && cidade ? toHashtag(`${bairro} ${cidade}`) : '',
+    bairro ? toHashtag(`Imoveis na ${bairro}`) : '',
+    toHashtag(`${isRental ? 'Aluguel de' : 'Venda de'} ${tipoImovel}`),
+    '#MercadoImobiliario',
+    '#CorretorDeImoveis',
+    isRental ? '#ImovelParaAlugar' : '#ImovelAVenda',
+    bairro ? toHashtag(`Morar na ${bairro}`) : '',
+    cidade ? toHashtag(`${cidade} Imoveis`) : '',
+    /financiamento|subs[ií]dio|entrada/.test(diferenciaisTexto) ? '#FinanciamentoImobiliario' : '',
+  ].filter(Boolean)
+
+  for (const tag of fallback) {
+    if (normalized.length >= 15) break
+    if (!normalized.includes(tag)) normalized.push(tag)
+  }
+
+  const genericRelevant = [
+    '#Imoveis',
+    '#Imobiliaria',
+    '#NegociosImobiliarios',
+    '#AnuncioImobiliario',
+    '#DivulgacaoImobiliaria',
+    '#OportunidadeImobiliaria',
+  ]
+  for (const tag of genericRelevant) {
+    if (normalized.length >= 12) break
+    if (!normalized.includes(tag)) normalized.push(tag)
+  }
+
+  return normalized.slice(0, 15)
+}
+
+function buildWhatsappFallback(dados: Record<string, unknown>, tipo: unknown) {
+  const tipoImovel = String(tipo || dados.tipo || 'imóvel').toLowerCase()
+  const finalidade = String(dados.finalidade || dados.negocio || 'venda').toLowerCase()
+  const acao = /loca|aluguel|alugar|temporada/.test(finalidade) ? 'para alugar' : 'à venda'
+  const bairro = String(dados.bairro || '').trim()
+  const area = dados.area ? `${dados.area}m²` : ''
+  const quartos = dados.quartos ? `${dados.quartos} quarto${Number(dados.quartos) === 1 ? '' : 's'}` : ''
+  const vagas = dados.vagas ? `${dados.vagas} vaga${Number(dados.vagas) === 1 ? '' : 's'}` : ''
+  const detalhes = [bairro ? `na ${bairro}` : '', area ? `com ${area}` : '', quartos, vagas].filter(Boolean).join(', ')
+  return `Olá, tudo bem? Tenho um ${tipoImovel} ${acao}${detalhes ? ` ${detalhes}` : ''}. Posso te enviar mais detalhes ou agendar uma visita?`
+}
 
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
@@ -164,6 +278,11 @@ serve(async (req) => {
       const postInstagram = String(textos_gerados.post_instagram || '')
       const extracted = postInstagram.match(/#[\p{L}\p{N}_]+/gu) || []
       textos_gerados.hashtags = extracted.slice(0, 20)
+    }
+    textos_gerados.hashtags = normalizeHashtags(textos_gerados.hashtags, dadosObj, tipo, categoria)
+    const whatsappText = String(textos_gerados.mensagem_whatsapp || '')
+    if (/\b(estou|tenho)\s+(interessad[oa]|interesse)\b/i.test(whatsappText)) {
+      textos_gerados.mensagem_whatsapp = buildWhatsappFallback(dadosObj, tipo)
     }
     const titulo = (textos_gerados.titulo_campanha as string) || `Imóvel ${tipo}`
     console.log(`[${reqId}] OpenAI OK`)

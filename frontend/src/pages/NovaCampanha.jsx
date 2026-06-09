@@ -576,7 +576,13 @@ const mergeRequestedVisualPieces = (requestedPieces = [], returnedRenders = [], 
 const getRenderDebugPayload = (render) => ({
   render_id: render?.render_id || null,
   template_id: render?.template_id || null,
+  model_id: render?.model_id || render?.modelId || null,
+  model_name: render?.model_name || render?.modelName || null,
+  use_id: render?.use_id || render?.useId || null,
+  use_label: render?.use_label || render?.useLabel || null,
   status: render?.status || null,
+  error_stage: render?.error_stage || null,
+  error_code: render?.error_code || null,
   erro: render?.erro || null,
   error_message: render?.error_message || null,
 })

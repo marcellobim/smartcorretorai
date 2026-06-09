@@ -224,6 +224,30 @@ const getCanonicalFieldName = (label: string): CanonicalTemplateField | null => 
   CANONICAL_FIELD_SET.has(label) ? label as CanonicalTemplateField : null
 )
 
+const normalizeElementLabel = (value: string): string => (
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+)
+
+const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
+  property_tag: ['tag', 'badge', 'highlight', 'property_badge', 'property_highlight'],
+  sale_badge: ['sale_tag', 'sale_label', 'listing_type', 'offer_type', 'transaction_type'],
+  property_location_type: ['property_location', 'location', 'address', 'bairro', 'neighborhood', 'city_type'],
+  property_features: ['features', 'property_specs', 'property_details', 'specs', 'dorms_suites_vagas'],
+  property_price: ['price', 'preco', 'valor', 'property_value', 'property_amount'],
+  cta_text: ['cta', 'cta_button', 'call_to_action', 'button_text', 'action_text'],
+  broker_whatsapp: ['agent_phone', 'broker_phone', 'phone', 'telephone', 'telefone', 'whatsapp', 'contact_phone'],
+  broker_email: ['agent_email', 'broker_mail', 'agent_mail', 'email', 'contact_email'],
+  property_image_01: ['property_image', 'property_image_1', 'property_photo', 'property_photo_1', 'image_01', 'image_1', 'photo_01', 'photo_1', 'picture', 'image', 'photo'],
+  property_image_02: ['property_image_2', 'property_image_02', 'property_photo_2', 'property_photo_02', 'image_02', 'image_2', 'photo_02', 'photo_2', 'picture_2', 'image_2', 'photo_2'],
+  property_image_03: ['property_image_3', 'property_image_03', 'property_photo_3', 'property_photo_03', 'image_03', 'image_3', 'photo_03', 'photo_3', 'picture_3', 'image_3', 'photo_3'],
+  property_image_04: ['property_image_4', 'property_image_04', 'property_photo_4', 'property_photo_04', 'image_04', 'image_4', 'photo_04', 'photo_4', 'picture_4', 'image_4', 'photo_4'],
+}
+
 const maskContactValue = (value: string): string => {
   const trimmed = value.trim()
   if (!trimmed) return ''
@@ -919,8 +943,15 @@ function findCanonicalElement(
 ): { label: string; elem: ElementInfo } | null {
   const direct = elementos.get(field)
   if (direct) return { label: field, elem: direct }
+  const aliases = new Set((CANONICAL_FIELD_ALIASES[field] || []).map(normalizeElementLabel))
   for (const [label, elem] of elementos.entries()) {
     if (elem.name === field || elem.virtualLabel === field) return { label, elem }
+    const normalizedLabel = normalizeElementLabel(label)
+    const normalizedName = normalizeElementLabel(elem.name)
+    const normalizedVirtual = normalizeElementLabel(elem.virtualLabel || '')
+    if (aliases.has(normalizedLabel) || aliases.has(normalizedName) || aliases.has(normalizedVirtual)) {
+      return { label, elem }
+    }
   }
   return null
 }
@@ -1548,6 +1579,33 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
 
     console.log(`[${reqId}] estágio 2: ${schemasComElementos.length} templates com elementos reais`)
 
+    const elementosPorTemplate = new Map<string, Map<string, ElementInfo>>()
+    for (const s of schemasComElementos) {
+      const m = new Map<string, ElementInfo>()
+      for (const e of s.elements) m.set(e.virtualLabel || e.name, e)
+      elementosPorTemplate.set(s.id, m)
+    }
+
+    const canonicalByTemplate = new Map<string, ReturnType<typeof buildCanonicalModifications>>()
+    for (const s of schemasComElementos) {
+      const elementos = elementosPorTemplate.get(s.id)
+      if (!elementos) continue
+      const canonical = buildCanonicalModifications(elementos, templateData)
+      canonicalByTemplate.set(s.id, canonical)
+      console.log(`[${reqId}] contrato canonico`, {
+        template_id: s.id,
+        canonical_fields: publicCanonicalLog(templateData),
+        sent_fields: canonical.sentFields,
+        missing_or_incompatible_fields: canonical.missingFields,
+      })
+    }
+
+    const buildCanonicalSelection = (piece: SelectedTemplatePiece) => {
+      const canonical = canonicalByTemplate.get(piece.template_id)
+      if (!canonical || Object.keys(canonical.modifications).length === 0) return null
+      return { template_id: piece.template_id, modifications: canonical.modifications }
+    }
+
     // === ESTÁGIO 3: IA produz modifications usando elementos REAIS ========
     const elementosBloco = schemasComElementos.map((s) => {
       const meta = validIds.get(s.id)
@@ -1578,7 +1636,8 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       total: FILL_SYSTEM_PROMPT.length + fillUserPrompt.length,
     })
 
-    let fillRes: Response
+    let plano: { selecoes?: Array<{ template_id: string; modifications?: Record<string, unknown> }> } = {}
+    let fillRes: Response | null = null
     try {
       fillRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -1600,47 +1659,23 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`[${reqId}] fill OpenAI indisponível:`, message)
-      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(
-        piece,
-        index,
-        'Não foi possível preparar esta peça visual no momento.',
-        'openai_fill',
-        'openai_fill_failed',
-      ))
-      return jsonResponse({
-        success: true,
-        warning: 'As peças visuais falharam antes da criação do render.',
-        renders,
-        pick_source: 'user',
-        credit_cost: effectiveCreditCost,
-        credit_reservation_status: 'cancelled',
-        requested_count: pickedPieces.length,
-        success_count: 0,
-        failed_count: renders.length,
-      }, 200)
+      plano = {
+        selecoes: pickedPieces
+          .map(buildCanonicalSelection)
+          .filter((selection): selection is { template_id: string; modifications: Record<string, unknown> } => Boolean(selection)),
+      }
     }
 
-    if (!fillRes.ok) {
+    if (fillRes && !fillRes.ok) {
       const errBody = await fillRes.text()
       console.error(`[${reqId}] fill OpenAI ${fillRes.status}:`, errBody.slice(0, 300))
-      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(
-        piece,
-        index,
-        `OpenAI fill ${fillRes.status}: ${errBody.slice(0, 180)}`,
-        'openai_fill',
-        fillRes.status === 429 ? 'rate_limited' : 'openai_fill_failed',
-      ))
-      return jsonResponse({
-        success: true,
-        warning: 'As pecas visuais falharam antes da criacao do render.',
-        renders,
-        pick_source: 'user',
-        credit_cost: effectiveCreditCost,
-        credit_reservation_status: 'cancelled',
-      }, 200)
+      plano = {
+        selecoes: pickedPieces
+          .map(buildCanonicalSelection)
+          .filter((selection): selection is { template_id: string; modifications: Record<string, unknown> } => Boolean(selection)),
+      }
     }
 
-    let plano: { selecoes?: Array<{ template_id: string; modifications?: Record<string, unknown> }> }
     let fillRaw = ''
     const gerarFillIndividual = async (piece: SelectedTemplatePiece, index: number) => {
       const schema = schemasComElementos.find((item) => item.id === piece.template_id)
@@ -1725,38 +1760,31 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         return null
       }
     }
-    try {
-      const fillData = await fillRes.json()
-      const choice = fillData?.choices?.[0]
-      fillRaw = typeof choice?.message?.content === 'string' ? choice.message.content : ''
-      console.log(`[${reqId}] fill debug response:`, {
-        finish_reason: choice?.finish_reason,
-        raw_chars: fillRaw.length,
-      })
-      plano = JSON.parse(fillRaw)
-    } catch (e) {
-      console.error(`[${reqId}] fill parse:`, {
-        erro: e instanceof Error ? e.message : String(e),
-        templates: fillTemplateDebug,
-        raw_chars: fillRaw.length,
-      })
-      const fallbackSelecoes: Array<{ template_id: string; modifications?: Record<string, unknown> }> = []
-      for (let index = 0; index < pickedPieces.length; index++) {
-        const piece = pickedPieces[index]
-        const fallbackSelection = await gerarFillIndividual(piece, index)
-        if (fallbackSelection) fallbackSelecoes.push(fallbackSelection)
+    if (fillRes?.ok) {
+      try {
+        const fillData = await fillRes.json()
+        const choice = fillData?.choices?.[0]
+        fillRaw = typeof choice?.message?.content === 'string' ? choice.message.content : ''
+        console.log(`[${reqId}] fill debug response:`, {
+          finish_reason: choice?.finish_reason,
+          raw_chars: fillRaw.length,
+        })
+        plano = JSON.parse(fillRaw)
+      } catch (e) {
+        console.error(`[${reqId}] fill parse:`, {
+          erro: e instanceof Error ? e.message : String(e),
+          templates: fillTemplateDebug,
+          raw_chars: fillRaw.length,
+        })
+        const fallbackSelecoes: Array<{ template_id: string; modifications?: Record<string, unknown> }> = []
+        for (let index = 0; index < pickedPieces.length; index++) {
+          const piece = pickedPieces[index]
+          const fallbackSelection = await gerarFillIndividual(piece, index)
+          const canonicalSelection = fallbackSelection || buildCanonicalSelection(piece)
+          if (canonicalSelection) fallbackSelecoes.push(canonicalSelection)
+        }
+        plano = { selecoes: fallbackSelecoes }
       }
-      if (fallbackSelecoes.length === 0) {
-        return jsonResponse({
-          success: true,
-          warning: 'As pecas visuais falharam antes da criacao do render.',
-          renders: failedBeforeRender,
-          pick_source: 'user',
-          credit_cost: effectiveCreditCost,
-          credit_reservation_status: 'cancelled',
-        }, 200)
-      }
-      plano = { selecoes: fallbackSelecoes }
     }
 
     const selecoesAtuais = Array.isArray(plano.selecoes) ? plano.selecoes : []
@@ -1779,9 +1807,10 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         const index = pickedPieces.findIndex((piece) => piece.template_id === templateId)
         if (index < 0) continue
         const fallbackSelection = await gerarFillIndividual(pickedPieces[index], index)
-        if (fallbackSelection) {
-          selecoesAtuais.push(fallbackSelection)
-          templateIdsComFill.add(fallbackSelection.template_id)
+        const canonicalSelection = fallbackSelection || buildCanonicalSelection(pickedPieces[index])
+        if (canonicalSelection) {
+          selecoesAtuais.push(canonicalSelection)
+          templateIdsComFill.add(canonicalSelection.template_id)
         }
       }
       plano = { selecoes: selecoesAtuais }
@@ -1811,27 +1840,6 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     // Validar/filtrar as modifications para conter SOMENTE chaves de elementos reais.
     // Indexamos por virtualLabel (o rótulo que a IA viu), não por name - assim slots
     // duplicados (Photo, Photo-2, ...) são endereçáveis individualmente.
-    const elementosPorTemplate = new Map<string, Map<string, ElementInfo>>()
-    for (const s of schemasComElementos) {
-      const m = new Map<string, ElementInfo>()
-      for (const e of s.elements) m.set(e.virtualLabel || e.name, e)
-      elementosPorTemplate.set(s.id, m)
-    }
-
-    const canonicalByTemplate = new Map<string, ReturnType<typeof buildCanonicalModifications>>()
-    for (const s of schemasComElementos) {
-      const elementos = elementosPorTemplate.get(s.id)
-      if (!elementos) continue
-      const canonical = buildCanonicalModifications(elementos, templateData)
-      canonicalByTemplate.set(s.id, canonical)
-      console.log(`[${reqId}] contrato canonico`, {
-        template_id: s.id,
-        canonical_fields: publicCanonicalLog(templateData),
-        sent_fields: canonical.sentFields,
-        missing_or_incompatible_fields: canonical.missingFields,
-      })
-    }
-
     // Contexto compartilhado para o sanitizer (PT-BR + dados reais do imóvel + do corretor)
     const sanitizeCtx: SanitizeContext = {
       preco: precoFinal,
