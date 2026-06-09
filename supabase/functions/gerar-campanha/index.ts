@@ -78,16 +78,16 @@ serve(async (req) => {
       redes_sociais,
     } = payload as Record<string, unknown>
 
-    // JWT obrigatorio: a identidade nunca vem do payload.
+    // JWT obrigatório: a identidade nunca vem do payload.
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization') || ''
     if (!authHeader.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Authorization header ausente ou invalido' }, 401)
+      return jsonResponse({ error: 'Authorization header ausente ou inválido' }, 401)
     }
     const token = authHeader.replace('Bearer ', '').trim()
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (!user || authError) {
-      console.warn(`[${reqId}] token invalido:`, authError?.message)
-      return jsonResponse({ error: 'Nao autorizado' }, 401)
+      console.warn(`[${reqId}] token inválido:`, authError?.message)
+      return jsonResponse({ error: 'Não autorizado' }, 401)
     }
     const userId = user.id
 

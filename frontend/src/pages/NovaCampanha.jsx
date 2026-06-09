@@ -77,23 +77,23 @@ const PRODUCT_CONTEXTS = {
     nextLabel: 'Geração do vídeo em preparação',
   },
   campanha_completa: {
-    label: 'Gerar Campanha',
-    headerTitle: 'Gerar Campanhas Profissionais',
-    headerSubtitle: 'Escolha, informe os dados e gere tudo em um clique',
+    label: 'Gerador de Banners',
+    headerTitle: 'Gerador de Banners Imobiliários',
+    headerSubtitle: 'Escolha os modelos, informe o imóvel e gere peças prontas para divulgar.',
     propertyEyebrow: 'Dados do imóvel',
     propertyTitle: 'Informe o imóvel',
-    propertySubtitle: 'Esses dados ajudam a IA a criar uma campanha mais útil e persuasiva.',
+    propertySubtitle: 'Esses dados ajudam a personalizar os banners e textos do imóvel.',
     uploadEyebrow: 'Fotos do imóvel',
     uploadTitle: 'Envie as fotos',
-    photosSubtitle: 'As imagens ajudam a personalizar os materiais da campanha.',
-    uploadHelp: 'Fotos obrigatórias para a Campanha Completa.',
+    photosSubtitle: 'As imagens serão usadas para personalizar os banners.',
+    uploadHelp: 'Fotos obrigatórias para gerar banners.',
     photoRequired: true,
     videoRequired: false,
     allowOptionalPhotos: true,
     allowVideo: false,
-    reviewTitle: 'Análise Inteligente do Imóvel',
+    reviewTitle: 'Revisão dos Banners',
     reviewSubtitle: 'Esta leitura é visual e local nesta etapa, sem nova chamada de backend.',
-    costTitle: 'Revise e gere em um clique',
+    costTitle: 'Revise e gere seus banners',
     costSubtitle: 'O servidor continua validando o consumo real de créditos.',
   },
 }
@@ -175,6 +175,7 @@ const CAMPAIGN_USE_OPTIONS = {
 }
 
 const MAX_VISUAL_PIECES_PER_GENERATION = 5
+const ENABLE_SUGGESTED_CAMPAIGNS = false
 
 const CAMPAIGN_MODEL_LIBRARY_BASE = [
   {
@@ -1663,6 +1664,9 @@ export default function NovaCampanha() {
   const subprodutoParam = new URLSearchParams(location.search).get('subproduto') || location.state?.subproduto || ''
   const subprodutoLabel = SUBPRODUCT_LABELS[subprodutoParam] || ''
   const isProductEntry = ['hero', 'transformar_video'].includes(produtoParam)
+  const defaultCampaignStep = isProductEntry ? 'property' : 'manual-catalog'
+  const defaultCampaignFlowType = isProductEntry ? null : 'manual'
+  const defaultCampaignObjective = isProductEntry ? '' : 'venda_rapida'
   const [fase, setFase] = useState('form')
 
   const [categoria, setCategoria] = useState(null)
@@ -1737,8 +1741,8 @@ export default function NovaCampanha() {
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [productFlowStep, setProductFlowStep] = useState(isProductEntry ? 'property' : 'campaign-choice')
-  const [campaignFlowType, setCampaignFlowType] = useState(null)
+  const [productFlowStep, setProductFlowStep] = useState(defaultCampaignStep)
+  const [campaignFlowType, setCampaignFlowType] = useState(defaultCampaignFlowType)
   const [wizardStep, setWizardStep] = useState(0)
   const [visualCreditMode, setVisualCreditMode] = useState('economica')
   const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
@@ -1747,7 +1751,7 @@ export default function NovaCampanha() {
   const [selectedSuggestedChannel, setSelectedSuggestedChannel] = useState(null)
   const [activeCampaignModelId, setActiveCampaignModelId] = useState(null)
   const [selectedModelUses, setSelectedModelUses] = useState({})
-  const [campaignObjective, setCampaignObjective] = useState('')
+  const [campaignObjective, setCampaignObjective] = useState(defaultCampaignObjective)
   const [demoUsed, setDemoUsed] = useState(false)
   const isDemoPlan = !isPro && !isUnlimitedTestAdmin
   const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
@@ -1767,6 +1771,14 @@ export default function NovaCampanha() {
     if (!demoStorageKey) return
     setDemoUsed(localStorage.getItem(demoStorageKey) === 'true')
   }, [demoStorageKey])
+
+  useEffect(() => {
+    if (ENABLE_SUGGESTED_CAMPAIGNS || isProductEntry) return
+    if (productFlowStep === 'campaign-choice' || productFlowStep === 'smart-campaigns') {
+      setCampaignFlowType('manual')
+      setProductFlowStep('manual-catalog')
+    }
+  }, [isProductEntry, productFlowStep])
 
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
@@ -1999,13 +2011,13 @@ export default function NovaCampanha() {
   const vagasParaPayload = isLandProperty ? 0 : vagas
   const podaGerar = categoria && dadosImovelValidos
 
-  const resetCampaignState = (targetStep = 'campaign-choice') => {
+  const resetCampaignState = (targetStep = defaultCampaignStep) => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
-    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setCampaignFlowType(null); setSelectedSmartCampaign(null); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective('')
+    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setCampaignFlowType(defaultCampaignFlowType); setSelectedSmartCampaign(null); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
     clearInterval(renderPollRef.current)
   }
 
@@ -2020,7 +2032,6 @@ export default function NovaCampanha() {
       return
     }
     if (!dadosImovelValidos) { toast.error('Preencha os campos obrigatórios'); return }
-    if (campaignFlowType === 'manual' && !campaignObjective) { toast.error('Escolha o objetivo da campanha.'); return }
     if (!categoria) setCategoria('medio_padrao')
     if (isDemoPlan && demoUsed) {
       toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
@@ -2703,17 +2714,23 @@ export default function NovaCampanha() {
         navigate(productContext.sourcePath)
         return
       }
-      if (campaignFlowType === 'smart') {
+      if (ENABLE_SUGGESTED_CAMPAIGNS && campaignFlowType === 'smart') {
         setProductFlowStep('smart-campaigns')
         return
       }
       setProductFlowStep('manual-catalog')
     }
     const goToCampaignChoice = () => {
+      if (!ENABLE_SUGGESTED_CAMPAIGNS) {
+        setProductFlowStep('manual-catalog')
+        setCampaignFlowType('manual')
+        return
+      }
       setProductFlowStep('campaign-choice')
       setCampaignFlowType(null)
     }
     const startSmartFlow = () => {
+      if (!ENABLE_SUGGESTED_CAMPAIGNS) return
       setCampaignFlowType('smart')
       setCreditBuilderMode('recommended')
       setProductFlowStep('smart-campaigns')
@@ -2723,7 +2740,7 @@ export default function NovaCampanha() {
       setCreditBuilderMode('manual')
       setSelectedSmartCampaign(null)
       setActiveCampaignModelId(null)
-      setCampaignObjective('')
+      setCampaignObjective(defaultCampaignObjective)
       setProductFlowStep('manual-catalog')
     }
     const selectSmartCampaignAndContinue = (campaignId) => {
@@ -2741,6 +2758,7 @@ export default function NovaCampanha() {
         return
       }
       setCampaignFlowType('manual')
+      if (!campaignObjective) setCampaignObjective(defaultCampaignObjective)
       setProductFlowStep('property')
     }
     const renderSuggestedCampaignCard = (campaign) => {
@@ -2819,10 +2837,6 @@ export default function NovaCampanha() {
     const continueFromProperty = () => {
       if (!dadosImovelValidos) {
         toast.error('Preencha os campos obrigatórios do imóvel.')
-        return
-      }
-      if (!isProductEntry && campaignFlowType === 'manual' && !campaignObjective) {
-        toast.error('Escolha o objetivo da campanha.')
         return
       }
       if (!categoria) setCategoria('medio_padrao')
@@ -2905,12 +2919,12 @@ export default function NovaCampanha() {
           <div className="flex items-start justify-between gap-3 mb-2">
             <div>
               <label className="block text-sm font-bold text-gray-900">
-                Objetivo da campanha <span className="text-red-400">*</span>
+                Foco dos textos
               </label>
               <p className="mt-1 text-xs leading-relaxed text-gray-500">
                 {campaignFlowType === 'smart'
                   ? 'Objetivo definido pela campanha escolhida.'
-                  : 'Escolha o foco de marketing para adaptar textos, CTA, linguagem e estratégia.'}
+                  : 'Escolha um foco para adaptar textos, CTA e linguagem dos banners.'}
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
@@ -3162,9 +3176,9 @@ export default function NovaCampanha() {
     const analysisItems = [
       'Tipo e padrão do imóvel identificados',
       'Localização considerada na estratégia',
-      'Diferenciais organizados para a campanha',
-      'Fotos serão usadas para personalizar os materiais',
-      'Estratégia sugerida conforme objetivo escolhido',
+      'Diferenciais organizados para os textos',
+      'Fotos serão usadas para personalizar os banners',
+      'Peças selecionadas prontas para geração',
     ]
     const strategyLabel = campaignFlowType === 'smart'
       ? selectedCampaign?.title || 'Campanha Inteligente'
@@ -3272,7 +3286,7 @@ export default function NovaCampanha() {
       <div className="min-h-full bg-gray-50">
           <Header title={productContext.headerTitle} subtitle={productContext.headerSubtitle} />
           <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
-            {fase === 'form' && productFlowStep === 'campaign-choice' && (<>
+            {ENABLE_SUGGESTED_CAMPAIGNS && fase === 'form' && productFlowStep === 'campaign-choice' && (<>
               {renderFlowHeader('Gerar Campanha', 'Escolha o subproduto da campanha', 'Use uma campanha por objetivo ou monte sua própria combinação de produtos de marketing.')}
               {renderStepActions(goHome)}
               <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -3309,7 +3323,7 @@ export default function NovaCampanha() {
               </div>
             </>)}
 
-            {fase === 'form' && productFlowStep === 'smart-campaigns' && (<>
+            {ENABLE_SUGGESTED_CAMPAIGNS && fase === 'form' && productFlowStep === 'smart-campaigns' && (<>
               {renderFlowHeader('Campanha por Objetivo', 'Escolha uma sugestão pronta', 'Cada card mostra o objetivo, os modelos incluídos e os canais recomendados.')}
               {renderStepActions(goToCampaignChoice)}
               <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -3418,10 +3432,10 @@ export default function NovaCampanha() {
             </>)}
 
             {fase === 'form' && productFlowStep === 'manual-catalog' && (<>
-              {renderFlowHeader('Monte Sua Campanha', 'Escolha os modelos da sua campanha', 'Veja a biblioteca principal e marque onde deseja usar cada modelo.')}
+              {renderFlowHeader('Banners Rápidos', 'Gerador de Banners Imobiliários', 'Escolha os modelos, informe o imóvel e gere peças prontas para divulgar.')}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
-                  {renderBackButton(goToCampaignChoice)}
+                  {renderBackButton(goHome, 'Voltar ao Dashboard')}
                   <button
                     type="button"
                     onClick={goHome}
@@ -3437,8 +3451,8 @@ export default function NovaCampanha() {
                     'Escolha os modelos',
                     'Marque os usos desejados',
                     'Preencha os dados do imóvel',
-                    'Gere seus materiais',
-                    'Receba e divulgue seus produtos',
+                    'Gere os banners',
+                    'Visualize e baixe',
                   ].map((step, index) => (
                     <li key={step} className="flex items-center gap-2">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
@@ -3579,7 +3593,7 @@ export default function NovaCampanha() {
                 </section>
                 <aside className="lg:sticky lg:top-6 lg:self-start">
                   <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-xs font-black uppercase tracking-wide text-primary-600">Resumo da campanha</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-primary-600">Resumo dos banners</p>
                     <h3 className="mt-1 text-lg font-black text-gray-950">Selecionados</h3>
 
                     {selectedModelSummaries.length > 0 ? (
@@ -3640,7 +3654,7 @@ export default function NovaCampanha() {
                           ? 'bg-gray-950 text-white hover:bg-gray-800'
                           : 'cursor-not-allowed bg-gray-100 text-gray-400'
                       }`}>
-                      Continuar
+                      Criar banners
                     </button>
                   </div>
                 </aside>
@@ -3679,7 +3693,7 @@ export default function NovaCampanha() {
             </>)}
 
             {fase === 'form' && productFlowStep === 'analysis' && (<>
-              {renderFlowHeader(productContext.reviewTitle, 'Confirmar materiais da campanha', productContext.reviewSubtitle)}
+              {renderFlowHeader(productContext.reviewTitle, 'Confirmar banners selecionados', productContext.reviewSubtitle)}
               {renderStepActions(() => setProductFlowStep('photos'))}
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -3856,15 +3870,15 @@ export default function NovaCampanha() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => resetCampaignState('campaign-choice')}
+                      onClick={() => resetCampaignState()}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-gray-800"
                     >
                       <Plus className="w-4 h-4" />
-                      Criar nova campanha
+                      Criar novos banners
                     </button>
                     <button
                       type="button"
-                      onClick={() => resetCampaignState('campaign-choice')}
+                      onClick={() => resetCampaignState()}
                       className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                     >
                       Voltar para Home
@@ -4150,12 +4164,12 @@ export default function NovaCampanha() {
 
               <AnimatedCard delay={3000}>
                 <div className="card p-5 text-center">
-                  <p className="text-gray-500 text-sm mb-4">Quer criar campanha para outro imóvel?</p>
+                  <p className="text-gray-500 text-sm mb-4">Quer criar banners para outro imóvel?</p>
                   <button
-                    onClick={() => resetCampaignState('campaign-choice')}
+                    onClick={() => resetCampaignState()}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-primary text-white font-bold hover:opacity-90 transition-opacity">
                     <Plus className="w-4 h-4" />
-                    Criar campanha para outro imóvel
+                    Criar banners para outro imóvel
                   </button>
                 </div>
               </AnimatedCard>
@@ -4183,10 +4197,10 @@ export default function NovaCampanha() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => resetCampaignState('campaign-choice')}
+                    onClick={() => resetCampaignState()}
                     className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                   >
-                    Criar nova campanha
+                    Criar novos banners
                   </button>
                 </div>
               </div>
