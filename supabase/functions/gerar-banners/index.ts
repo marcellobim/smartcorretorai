@@ -287,76 +287,76 @@ async function cancelPieceReservations(
       p_reason: reason,
     })
     if (error) {
-      console.warn(`[${reqId}] falha ao cancelar reserva da peça ${reservation.templateId}:`, error.message)
+      console.warn(`[${reqId}] falha ao cancelar reserva da peÃ§a ${reservation.templateId}:`, error.message)
       return
     }
     reservation.status = 'cancelled'
   }))
 }
 
-const FILL_SYSTEM_PROMPT = `Você produz objetos "modifications" do Creatomate para uma lista de templates já selecionados. Para cada template, você recebe o NOME REAL (ou um rótulo virtual numerado, quando há slots duplicados) de cada elemento modificável e seu TIPO (text, image, video, audio).
+const FILL_SYSTEM_PROMPT = `VocÃª produz objetos "modifications" do Creatomate para uma lista de templates jÃ¡ selecionados. Para cada template, vocÃª recebe o NOME REAL (ou um rÃ³tulo virtual numerado, quando hÃ¡ slots duplicados) de cada elemento modificÃ¡vel e seu TIPO (text, image, video, audio).
 
-Responda APENAS com um objeto JSON válido (sem markdown), no formato:
+Responda APENAS com um objeto JSON vÃ¡lido (sem markdown), no formato:
 {
   "selecoes": [
     {
       "template_id": "uuid",
       "modifications": {
-        "<rótulo do elemento>.text": "texto",
-        "<rótulo do elemento>.source": "https://url-da-imagem-ou-video"
+        "<rÃ³tulo do elemento>.text": "texto",
+        "<rÃ³tulo do elemento>.source": "https://url-da-imagem-ou-video"
       }
     }
   ]
 }
 
 REGRAS GERAIS:
-- Use SOMENTE chaves no formato "<rótulo>.text" (para elementos type=text) ou "<rótulo>.source" (para image/video/audio).
-- O <rótulo> deve ser EXATAMENTE um dos listados em "elementos reais". Não invente nomes.
-- Quando o template tem MÚLTIPLOS slots com o mesmo nome (carrosséis, montagens, slideshows), a lista os apresenta com sufixos numerados — ex.: "Photo" para o primeiro, "Photo-2" para o segundo, "Photo-3" para o terceiro. Cada sufixo é um SLOT DISTINTO e DEVE ser preenchido individualmente.
+- Use SOMENTE chaves no formato "<rÃ³tulo>.text" (para elementos type=text) ou "<rÃ³tulo>.source" (para image/video/audio).
+- O <rÃ³tulo> deve ser EXATAMENTE um dos listados em "elementos reais". NÃ£o invente nomes.
+- Quando o template tem MÃšLTIPLOS slots com o mesmo nome (carrossÃ©is, montagens, slideshows), a lista os apresenta com sufixos numerados â€” ex.: "Photo" para o primeiro, "Photo-2" para o segundo, "Photo-3" para o terceiro. Cada sufixo Ã© um SLOT DISTINTO e DEVE ser preenchido individualmente.
 
-DISTRIBUIÇÃO DE FOTOS DO IMÓVEL (regra crítica):
-- A PRIMEIRA URL em fotos_urls é a FOTO PRINCIPAL e DEVE ocupar o PRIMEIRO slot de imagem do imóvel do template (o primeiro slot listado cujo rótulo NÃO seja de logo nem de avatar).
-- As URLs seguintes em fotos_urls são fotos secundárias e devem preencher, EM ORDEM, todos os demais slots de imagem do imóvel ("Photo-2", "Photo-3", "Image-2", etc.).
-- TODOS os slots de imagem do imóvel disponíveis devem ser preenchidos com .source. Se houver mais slots que fotos, repita a última foto disponível para os slots restantes. NUNCA deixe um slot de imagem do imóvel sem .source.
-- Para elementos do tipo video que representem cenas do imóvel: use uma foto como source se não houver vídeos; o Creatomate aceita imagens em slots de vídeo na maioria dos casos.
+DISTRIBUIÃ‡ÃƒO DE FOTOS DO IMÃ“VEL (regra crÃ­tica):
+- A PRIMEIRA URL em fotos_urls Ã© a FOTO PRINCIPAL e DEVE ocupar o PRIMEIRO slot de imagem do imÃ³vel do template (o primeiro slot listado cujo rÃ³tulo NÃƒO seja de logo nem de avatar).
+- As URLs seguintes em fotos_urls sÃ£o fotos secundÃ¡rias e devem preencher, EM ORDEM, todos os demais slots de imagem do imÃ³vel ("Photo-2", "Photo-3", "Image-2", etc.).
+- TODOS os slots de imagem do imÃ³vel disponÃ­veis devem ser preenchidos com .source. Se houver mais slots que fotos, repita a Ãºltima foto disponÃ­vel para os slots restantes. NUNCA deixe um slot de imagem do imÃ³vel sem .source.
+- Para elementos do tipo video que representem cenas do imÃ³vel: use uma foto como source se nÃ£o houver vÃ­deos; o Creatomate aceita imagens em slots de vÃ­deo na maioria dos casos.
 
-CLASSIFICAÇÃO DE SLOTS DE IMAGEM:
-- LOGO (rótulo contém "logo" ou "brand"): use a URL do logo da imobiliária se disponível; senão, valor "" + .track: false.
-- AVATAR/AGENT (rótulo contém "avatar", "agent", "broker", "realtor", "person", "headshot", "profile"): use a URL da foto do corretor se disponível; senão, valor "" + .track: false.
-- Demais slots de imagem/vídeo: pertencem ao IMÓVEL e seguem a regra de distribuição acima.
+CLASSIFICAÃ‡ÃƒO DE SLOTS DE IMAGEM:
+- LOGO (rÃ³tulo contÃ©m "logo" ou "brand"): use a URL do logo da imobiliÃ¡ria se disponÃ­vel; senÃ£o, valor "" + .track: false.
+- AVATAR/AGENT (rÃ³tulo contÃ©m "avatar", "agent", "broker", "realtor", "person", "headshot", "profile"): use a URL da foto do corretor se disponÃ­vel; senÃ£o, valor "" + .track: false.
+- Demais slots de imagem/vÃ­deo: pertencem ao IMÃ“VEL e seguem a regra de distribuiÃ§Ã£o acima.
 
 TEXTOS:
-- Combine título, preço, endereço, descrição curta, marca, nome do corretor conforme o significado do rótulo e seu valor padrão. Se o rótulo contém "price"/"valor", coloque o preço. Se contém "address"/"location", o endereço. Se contém "title"/"headline"/"head", o título. Se contém "agent"/"broker"/"realtor", o nome do corretor. Se contém "brand"/"company"/"agency" (text), a Imobiliária/Marca. Se contém "phone"/"tel"/"whatsapp", o WhatsApp/Telefone. Se contém "email"/"mail", o email. Se contém "creci", "CRECI <número>". Se contém "site"/"url"/"website", o site. Se contém "instagram"/"insta"/"social", o @ do Instagram. NUNCA use dados fictícios em inglês como "John Doe", "(123) 555-1234", "info@example.com", "mybrand.com", "New York, NY".
+- Combine tÃ­tulo, preÃ§o, endereÃ§o, descriÃ§Ã£o curta, marca, nome do corretor conforme o significado do rÃ³tulo e seu valor padrÃ£o. Se o rÃ³tulo contÃ©m "price"/"valor", coloque o preÃ§o. Se contÃ©m "address"/"location", o endereÃ§o. Se contÃ©m "title"/"headline"/"head", o tÃ­tulo. Se contÃ©m "agent"/"broker"/"realtor", o nome do corretor. Se contÃ©m "brand"/"company"/"agency" (text), a ImobiliÃ¡ria/Marca. Se contÃ©m "phone"/"tel"/"whatsapp", o WhatsApp/Telefone. Se contÃ©m "email"/"mail", o email. Se contÃ©m "creci", "CRECI <nÃºmero>". Se contÃ©m "site"/"url"/"website", o site. Se contÃ©m "instagram"/"insta"/"social", o @ do Instagram. NUNCA use dados fictÃ­cios em inglÃªs como "John Doe", "(123) 555-1234", "info@example.com", "mybrand.com", "New York, NY".
 
-TRADUÇÃO OBRIGATÓRIA DE FRASES FIXAS EM INGLÊS (regra GLOBAL, sem exceções):
-- Templates stock do Creatomate possuem caixas de texto travadas com frases em inglês americano. NUNCA preserve o valor original em inglês — substitua por equivalente em português adequado ao contexto do imóvel brasileiro, ou deixe a string vazia (''+ track:false) quando não houver equivalente útil. Mapeamento obrigatório:
-  • "NEW ON SALE" → "Novo à Venda" (ou, conforme o perfil: "Lançamento", "Oportunidade")
-  • "NEW YORK, NY" → endereço real do imóvel (bairro, cidade, estado)
-  • "NEW YORK" → cidade do imóvel
-  • "NY" (estado isolado) → estado do imóvel (UF brasileiro) ou ''
-  • "Please join us for an Open House" → "Agende sua visita" (ou '' se não houver contexto)
-  • "Open House" → "Visitação"
-  • "FOR SALE" / "FOR RENT" → "À Venda" / "Para Alugar"
-  • "JUST LISTED" → "Recém-Anunciado"
-  • "CONTACT US" / "CALL TODAY" → respeite a regra de CTA (apenas "Saiba Mais" / "Me Ligue" / "Descrição abaixo")
-- Qualquer outro texto fixo em inglês americano (endereços tipo "123 Main St", ZIP codes, "MLS#", "BR/BA", etc.) deve ser traduzido para o contexto brasileiro ou retornar string vazia.
+TRADUÃ‡ÃƒO OBRIGATÃ“RIA DE FRASES FIXAS EM INGLÃŠS (regra GLOBAL, sem exceÃ§Ãµes):
+- Templates stock do Creatomate possuem caixas de texto travadas com frases em inglÃªs americano. NUNCA preserve o valor original em inglÃªs â€” substitua por equivalente em portuguÃªs adequado ao contexto do imÃ³vel brasileiro, ou deixe a string vazia (''+ track:false) quando nÃ£o houver equivalente Ãºtil. Mapeamento obrigatÃ³rio:
+  â€¢ "NEW ON SALE" â†’ "Novo Ã  Venda" (ou, conforme o perfil: "LanÃ§amento", "Oportunidade")
+  â€¢ "NEW YORK, NY" â†’ endereÃ§o real do imÃ³vel (bairro, cidade, estado)
+  â€¢ "NEW YORK" â†’ cidade do imÃ³vel
+  â€¢ "NY" (estado isolado) â†’ estado do imÃ³vel (UF brasileiro) ou ''
+  â€¢ "Please join us for an Open House" â†’ "Agende sua visita" (ou '' se nÃ£o houver contexto)
+  â€¢ "Open House" â†’ "VisitaÃ§Ã£o"
+  â€¢ "FOR SALE" / "FOR RENT" â†’ "Ã€ Venda" / "Para Alugar"
+  â€¢ "JUST LISTED" â†’ "RecÃ©m-Anunciado"
+  â€¢ "CONTACT US" / "CALL TODAY" â†’ respeite a regra de CTA (apenas "Saiba Mais" / "Me Ligue" / "DescriÃ§Ã£o abaixo")
+- Qualquer outro texto fixo em inglÃªs americano (endereÃ§os tipo "123 Main St", ZIP codes, "MLS#", "BR/BA", etc.) deve ser traduzido para o contexto brasileiro ou retornar string vazia.
 
-CTA (regra ESTRITA, sem exceções):
-- Para QUALQUER elemento de texto cujo rótulo contenha "cta", "button" ou "action", o valor DEVE ser EXATAMENTE uma destas três variações profissionais, escolhida conforme a intenção do criativo:
-  • "Saiba Mais" — curiosidade / direcionar para mais detalhes (banners, cards de portal, posts informativos).
-  • "Me Ligue" — incentivar contato telefônico direto (Stories, Reels com áudio, banners com telefone visível).
-  • "Descrição abaixo" — feeds/posts onde a legenda complementa o criativo (Instagram Feed, Facebook Feed).
-- É PROIBIDO usar qualquer outra variação ("Compre Agora", "Veja Mais", "Confira", "Clique Aqui", "Saiba+", "Agende uma Visita", "Entre em Contato", "Fale Conosco", etc.). APENAS as três acima são aceitas.
+CTA (regra ESTRITA, sem exceÃ§Ãµes):
+- Para QUALQUER elemento de texto cujo rÃ³tulo contenha "cta", "button" ou "action", o valor DEVE ser EXATAMENTE uma destas trÃªs variaÃ§Ãµes profissionais, escolhida conforme a intenÃ§Ã£o do criativo:
+  â€¢ "Saiba Mais" â€” curiosidade / direcionar para mais detalhes (banners, cards de portal, posts informativos).
+  â€¢ "Me Ligue" â€” incentivar contato telefÃ´nico direto (Stories, Reels com Ã¡udio, banners com telefone visÃ­vel).
+  â€¢ "DescriÃ§Ã£o abaixo" â€” feeds/posts onde a legenda complementa o criativo (Instagram Feed, Facebook Feed).
+- Ã‰ PROIBIDO usar qualquer outra variaÃ§Ã£o ("Compre Agora", "Veja Mais", "Confira", "Clique Aqui", "Saiba+", "Agende uma Visita", "Entre em Contato", "Fale Conosco", etc.). APENAS as trÃªs acima sÃ£o aceitas.
 
 TOM E DEMAIS REGRAS:
-- Tom: alto_padrao = sofisticado e exclusivo; popular_mcmv/medio_padrao = acolhedor e acessível; lancamento = urgência e novidade; em_construcao = transparência e valorização.
-- Não invente dados. Se uma informação não foi fornecida, omita a chave correspondente.
-- Quando um campo tiver valor REMOVER_ELEMENTO, defina o valor do elemento como string vazia '' e adicione a propriedade 'track': false se disponível. NUNCA use placeholders fictícios.
-- Mantenha textos curtos para caber no template (Headline ≤ 40 chars, Subhead ≤ 60 chars, Description ≤ 120 chars, CTA ≤ 20 chars).`
+- Tom: alto_padrao = sofisticado e exclusivo; popular_mcmv/medio_padrao = acolhedor e acessÃ­vel; lancamento = urgÃªncia e novidade; em_construcao = transparÃªncia e valorizaÃ§Ã£o.
+- NÃ£o invente dados. Se uma informaÃ§Ã£o nÃ£o foi fornecida, omita a chave correspondente.
+- Quando um campo tiver valor REMOVER_ELEMENTO, defina o valor do elemento como string vazia '' e adicione a propriedade 'track': false se disponÃ­vel. NUNCA use placeholders fictÃ­cios.
+- Mantenha textos curtos para caber no template (Headline â‰¤ 40 chars, Subhead â‰¤ 60 chars, Description â‰¤ 120 chars, CTA â‰¤ 20 chars).`
 
-// ═══════════════════════════════════════════════════════════════
-// SANITIZER — garante PT-BR e remove placeholders fictícios
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SANITIZER â€” garante PT-BR e remove placeholders fictÃ­cios
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 type SanitizeContext = {
   preco?: string
@@ -432,18 +432,18 @@ const PORTUGUESE_STOPWORDS = new Set([
   'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas',
   'por', 'pelo', 'pela', 'para', 'com', 'sem', 'sob', 'sobre',
   'que', 'qual', 'quais',
-  'é', 'são', 'foi', 'foram', 'ser', 'estar', 'está', 'estão',
-  'tem', 'têm', 'ter', 'há',
-  'casa', 'apartamento', 'imóvel', 'imovel', 'imóveis',
-  'venda', 'aluguel', 'preço', 'preco',
-  'belo', 'bonito', 'moderno', 'luxo', 'família', 'familia',
+  'Ã©', 'sÃ£o', 'foi', 'foram', 'ser', 'estar', 'estÃ¡', 'estÃ£o',
+  'tem', 'tÃªm', 'ter', 'hÃ¡',
+  'casa', 'apartamento', 'imÃ³vel', 'imovel', 'imÃ³veis',
+  'venda', 'aluguel', 'preÃ§o', 'preco',
+  'belo', 'bonito', 'moderno', 'luxo', 'famÃ­lia', 'familia',
   'quarto', 'quartos', 'banheiro', 'banheiros', 'sala', 'cozinha',
   'sua', 'seu', 'nosso', 'nossa',
 ])
 
 function detectLanguage(s: string): 'pt' | 'en' | 'unknown' {
-  // Acento ou cedilha → quase certamente PT
-  if (/[áàâãéêíóôõúüç]/i.test(s)) return 'pt'
+  // Acento ou cedilha â†’ quase certamente PT
+  if (/[Ã¡Ã Ã¢Ã£Ã©ÃªÃ­Ã³Ã´ÃµÃºÃ¼Ã§]/i.test(s)) return 'pt'
   const tokens = s.toLowerCase().split(/[\s,.;:!?()'"\-/]+/).filter((t) => t.length > 0)
   if (tokens.length < 2) return 'unknown'
   let pt = 0
@@ -458,72 +458,72 @@ function detectLanguage(s: string): 'pt' | 'en' | 'unknown' {
   return 'unknown'
 }
 
-// ═══════════════════════════════════════════════════════════════
-// DICIONÁRIO INGLÊS → PT-BR — primeira camada de tradução.
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// DICIONÃRIO INGLÃŠS â†’ PT-BR â€” primeira camada de traduÃ§Ã£o.
 //
-// Templates Creatomate (stock) vêm com textos americanos travados:
+// Templates Creatomate (stock) vÃªm com textos americanos travados:
 // "FOR SALE", "NEW LISTING", "Open House", "Beautiful Modern Home",
-// rótulos de specs como "Bedrooms"/"Square Feet", placeholders tipo
-// "MY BRAND" / "New York, NY". Esta camada faz substituição literal
+// rÃ³tulos de specs como "Bedrooms"/"Square Feet", placeholders tipo
+// "MY BRAND" / "New York, NY". Esta camada faz substituiÃ§Ã£o literal
 // case-insensitive ANTES do sanitizeTemplateText, garantindo que
-// frases conhecidas virem PT-BR (ou vazio, quando são placeholders
-// fictícios sem equivalente útil).
+// frases conhecidas virem PT-BR (ou vazio, quando sÃ£o placeholders
+// fictÃ­cios sem equivalente Ãºtil).
 //
 // Como funciona:
-// - Cada entrada é compilada em regex `\bTERMO\b` com flag /gi.
-// - Espaços viram `\s+` para tolerar espaços múltiplos / quebras.
-// - Lista é ordenada por tamanho descendente — "Real Estate Agent"
+// - Cada entrada Ã© compilada em regex `\bTERMO\b` com flag /gi.
+// - EspaÃ§os viram `\s+` para tolerar espaÃ§os mÃºltiplos / quebras.
+// - Lista Ã© ordenada por tamanho descendente â€” "Real Estate Agent"
 //   roda antes de "Agent" pra evitar "Real Estate Corretor".
 // - Valor '' significa REMOVER o placeholder (deixa string vazia
-//   para a próxima etapa decidir; sanitize/CTA tratam o vazio).
-// ═══════════════════════════════════════════════════════════════
+//   para a prÃ³xima etapa decidir; sanitize/CTA tratam o vazio).
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const EN_PT_DICTIONARY: Record<string, string> = {
-  // ── Headlines compostas (devem rodar antes dos termos curtos) ─
-  'See full listing in description': 'Veja o anúncio completo na descrição',
-  'Home For Sale': 'Imóvel à Venda',
-  'House For Sale': 'Casa à Venda',
+  // â”€â”€ Headlines compostas (devem rodar antes dos termos curtos) â”€
+  'See full listing in description': 'Veja o anÃºncio completo na descriÃ§Ã£o',
+  'Home For Sale': 'ImÃ³vel Ã  Venda',
+  'House For Sale': 'Casa Ã  Venda',
   'House For Rent': 'Casa para Alugar',
-  'Home For Rent': 'Imóvel para Alugar',
+  'Home For Rent': 'ImÃ³vel para Alugar',
   'Price Starts At': 'A partir de',
   'Starts At': 'A partir de',
   'Great Features': 'Diferenciais',
   'Key Features': 'Diferenciais',
-  'Built in': 'Construído em',
+  'Built in': 'ConstruÃ­do em',
 
-  // ── Status / labels do anúncio ──────────────────────────────
-  'For Sale': 'À Venda',
+  // â”€â”€ Status / labels do anÃºncio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'For Sale': 'Ã€ Venda',
   'For Rent': 'Para Alugar',
   'For Lease': 'Para Alugar',
-  'On Sale': 'À Venda',
-  'New Listing': 'Novo Imóvel',
-  'Just Listed': 'Recém-Anunciado',
-  'New on Sale': 'Novo à Venda',
-  'New On Sale': 'Novo à Venda',
+  'On Sale': 'Ã€ Venda',
+  'New Listing': 'Novo ImÃ³vel',
+  'Just Listed': 'RecÃ©m-Anunciado',
+  'New on Sale': 'Novo Ã  Venda',
+  'New On Sale': 'Novo Ã  Venda',
   'Coming Soon': 'Em Breve',
-  'Now Available': 'Disponível Agora',
-  'Available Now': 'Disponível Agora',
-  'Price Reduced': 'Preço Reduzido',
-  'Reduced Price': 'Preço Reduzido',
+  'Now Available': 'DisponÃ­vel Agora',
+  'Available Now': 'DisponÃ­vel Agora',
+  'Price Reduced': 'PreÃ§o Reduzido',
+  'Reduced Price': 'PreÃ§o Reduzido',
   'Sold': 'Vendido',
   'Rented': 'Alugado',
   'Pending': 'Reservado',
-  'Featured Listing': 'Imóvel em Destaque',
-  'Featured Property': 'Imóvel em Destaque',
+  'Featured Listing': 'ImÃ³vel em Destaque',
+  'Featured Property': 'ImÃ³vel em Destaque',
   'Featured': 'Destaque',
-  'Exclusive Listing': 'Imóvel Exclusivo',
+  'Exclusive Listing': 'ImÃ³vel Exclusivo',
   'Exclusive': 'Exclusivo',
   'Luxury': 'Luxo',
-  'Available': 'Disponível',
+  'Available': 'DisponÃ­vel',
 
-  // ── Eventos / convite ───────────────────────────────────────
+  // â”€â”€ Eventos / convite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'Please join us for an Open House': 'Agende sua Visita',
   'Join us for an Open House': 'Agende sua Visita',
   'Open House': 'Visita Aberta',
   'House Tour': 'Tour pela Casa',
   'Virtual Tour': 'Tour Virtual',
 
-  // ── CTAs e ações ────────────────────────────────────────────
+  // â”€â”€ CTAs e aÃ§Ãµes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'Schedule a Visit': 'Agende uma Visita',
   'Schedule a Tour': 'Agende um Tour',
   'Schedule a Showing': 'Agende uma Visita',
@@ -535,7 +535,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Reach Out': 'Entre em Contato',
   'Call Now': 'Ligue Agora',
   'Call Today': 'Ligue Hoje',
-  'Call Us': 'Ligue para Nós',
+  'Call Us': 'Ligue para NÃ³s',
   'View Details': 'Ver Detalhes',
   'See Details': 'Ver Detalhes',
   'See More': 'Ver Mais',
@@ -550,15 +550,15 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Buy Now': 'Compre Agora',
   'Rent Now': 'Alugue Agora',
   'Reserve Now': 'Reserve Agora',
-  'Browse Listings': 'Veja os Imóveis',
-  'See All Listings': 'Veja Todos os Imóveis',
+  'Browse Listings': 'Veja os ImÃ³veis',
+  'See All Listings': 'Veja Todos os ImÃ³veis',
 
-  // ── Especificações do imóvel ────────────────────────────────
-  'Square Feet': 'm²',
-  'Square Meters': 'm²',
-  'Sq Ft': 'm²',
-  'Sqft': 'm²',
-  'Sq M': 'm²',
+  // â”€â”€ EspecificaÃ§Ãµes do imÃ³vel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'Square Feet': 'mÂ²',
+  'Square Meters': 'mÂ²',
+  'Sq Ft': 'mÂ²',
+  'Sqft': 'mÂ²',
+  'Sq M': 'mÂ²',
   'Bedrooms': 'Quartos',
   'Bedroom': 'Quarto',
   'Bathrooms': 'Banheiros',
@@ -571,7 +571,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Half Bath': 'Lavabo',
   'Living Room': 'Sala de Estar',
   'Dining Room': 'Sala de Jantar',
-  'Family Room': 'Sala de Família',
+  'Family Room': 'Sala de FamÃ­lia',
   'Kitchen': 'Cozinha',
   'Garage': 'Garagem',
   'Garage Spaces': 'Vagas de Garagem',
@@ -585,27 +585,27 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Backyard': 'Quintal',
   'Garden': 'Jardim',
   'Balcony': 'Sacada',
-  'Terrace': 'Terraço',
-  'Patio': 'Pátio',
+  'Terrace': 'TerraÃ§o',
+  'Patio': 'PÃ¡tio',
   'Fireplace': 'Lareira',
 
-  // ── Labels de campo ─────────────────────────────────────────
-  'Asking Price': 'Preço Pedido',
-  'Listing Price': 'Preço Anunciado',
+  // â”€â”€ Labels de campo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'Asking Price': 'PreÃ§o Pedido',
+  'Listing Price': 'PreÃ§o Anunciado',
   'Monthly Rent': 'Aluguel Mensal',
-  'Price': 'Preço',
-  'Address': 'Endereço',
-  'Location': 'Localização',
+  'Price': 'PreÃ§o',
+  'Address': 'EndereÃ§o',
+  'Location': 'LocalizaÃ§Ã£o',
   'Neighborhood': 'Bairro',
-  'Description': 'Descrição',
+  'Description': 'DescriÃ§Ã£o',
   'Details': 'Detalhes',
-  'Features': 'Características',
+  'Features': 'CaracterÃ­sticas',
   'Amenities': 'Comodidades',
   'Highlights': 'Destaques',
-  'Property Type': 'Tipo de Imóvel',
-  'Property': 'Imóvel',
+  'Property Type': 'Tipo de ImÃ³vel',
+  'Property': 'ImÃ³vel',
 
-  // ── Tipos de imóvel ─────────────────────────────────────────
+  // â”€â”€ Tipos de imÃ³vel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'Single Family Home': 'Casa',
   'Single Family': 'Casa',
   'Studio Apartment': 'Studio',
@@ -613,23 +613,23 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Apartment': 'Apartamento',
   'Condo': 'Apartamento',
 
-  // ── Pessoas / papéis ────────────────────────────────────────
-  'Real Estate Agent': 'Corretor de Imóveis',
-  'Real Estate Agency': 'Imobiliária',
-  'Real Estate Broker': 'Corretor de Imóveis',
-  'Real Estate': 'Imóveis',
-  'Listing Agent': 'Corretor Responsável',
-  'Brokerage': 'Imobiliária',
-  'Agency': 'Imobiliária',
+  // â”€â”€ Pessoas / papÃ©is â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'Real Estate Agent': 'Corretor de ImÃ³veis',
+  'Real Estate Agency': 'ImobiliÃ¡ria',
+  'Real Estate Broker': 'Corretor de ImÃ³veis',
+  'Real Estate': 'ImÃ³veis',
+  'Listing Agent': 'Corretor ResponsÃ¡vel',
+  'Brokerage': 'ImobiliÃ¡ria',
+  'Agency': 'ImobiliÃ¡ria',
   'Realtor': 'Corretor',
   'Broker': 'Corretor',
   'Agent': 'Corretor',
   'Seller': 'Vendedor',
   'Buyer': 'Comprador',
-  'Owner': 'Proprietário',
+  'Owner': 'ProprietÃ¡rio',
   'Tenant': 'Inquilino',
 
-  // ── Boas-vindas / emocional ─────────────────────────────────
+  // â”€â”€ Boas-vindas / emocional â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'Welcome Home': 'Bem-vindo ao Seu Lar',
   'Welcome to': 'Bem-vindo ao',
   'Your Dream Home': 'O Lar dos Seus Sonhos',
@@ -637,10 +637,10 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Find Your Home': 'Encontre Seu Lar',
   'Your New Home': 'Sua Nova Casa',
   'New Home': 'Nova Casa',
-  'Make It Yours': 'Faça Dele o Seu',
+  'Make It Yours': 'FaÃ§a Dele o Seu',
 
-  // ── Adjetivos comuns ────────────────────────────────────────
-  'Newly Renovated': 'Recém-Reformado',
+  // â”€â”€ Adjetivos comuns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  'Newly Renovated': 'RecÃ©m-Reformado',
   'Move-In Ready': 'Pronto para Morar',
   'Move In Ready': 'Pronto para Morar',
   'Beautiful': 'Belo',
@@ -655,7 +655,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Sunny': 'Ensolarado',
   'Renovated': 'Reformado',
 
-  // ── Contato ─────────────────────────────────────────────────
+  // â”€â”€ Contato â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   'Phone Number': 'Telefone',
   'Email Address': 'Email',
   'Phone': 'Telefone',
@@ -666,7 +666,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Visit Us': 'Visite-nos',
   'Find Us On': 'Encontre-nos no',
 
-  // ── Placeholders que viram vazio (sem equivalente PT-BR útil) ─
+  // â”€â”€ Placeholders que viram vazio (sem equivalente PT-BR Ãºtil) â”€
   'New York, NY': '',
   'New York': '',
   'Los Angeles, CA': '',
@@ -701,8 +701,8 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Click Here': '',
 }
 
-// Pré-compila lista ordenada por tamanho desc (mais longa primeiro).
-// Espaços do termo viram \s+ para tolerar espaços múltiplos / quebras.
+// PrÃ©-compila lista ordenada por tamanho desc (mais longa primeiro).
+// EspaÃ§os do termo viram \s+ para tolerar espaÃ§os mÃºltiplos / quebras.
 const EN_PT_RULES: Array<{ pattern: RegExp; replacement: string }> = (() => {
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return Object.entries(EN_PT_DICTIONARY)
@@ -716,16 +716,16 @@ const EN_PT_RULES: Array<{ pattern: RegExp; replacement: string }> = (() => {
 })()
 
 // Preserva o caso do termo casado:
-// - "HOME FOR SALE" (ALL CAPS)  → "IMÓVEL À VENDA"
-// - "Home For Sale" (Title Case) → "Imóvel à Venda"
-// - "home for sale" (lower)      → "Imóvel à Venda" (canonical do dicionário)
-// Exceção: unidades de medida com convenção própria ("m²") não viram caixa alta.
+// - "HOME FOR SALE" (ALL CAPS)  â†’ "IMÃ“VEL Ã€ VENDA"
+// - "Home For Sale" (Title Case) â†’ "ImÃ³vel Ã  Venda"
+// - "home for sale" (lower)      â†’ "ImÃ³vel Ã  Venda" (canonical do dicionÃ¡rio)
+// ExceÃ§Ã£o: unidades de medida com convenÃ§Ã£o prÃ³pria ("mÂ²") nÃ£o viram caixa alta.
 function applyCase(matched: string, replacement: string): string {
   if (!replacement) return replacement
-  if (replacement === 'm²') return replacement
+  if (replacement === 'mÂ²') return replacement
   const isAllCaps = matched.length > 0
     && matched === matched.toUpperCase()
-    && /[A-Za-zÀ-ÿ]/.test(matched)
+    && /[A-Za-zÃ€-Ã¿]/.test(matched)
   return isAllCaps ? replacement.toLocaleUpperCase('pt-BR') : replacement
 }
 
@@ -738,12 +738,12 @@ function translateFixedEnglish(text: string): string {
   return out
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Frases fixas em inglês — segunda camada (context-aware).
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Frases fixas em inglÃªs â€” segunda camada (context-aware).
 // Defensa em profundidade: roda dentro do sanitizeTemplateText
-// depois do dicionário EN→PT. Mantém regras de longo prazo que
-// dependem de contexto do imóvel (não pertencem ao dicionário).
-// ═══════════════════════════════════════════════════════════════
+// depois do dicionÃ¡rio ENâ†’PT. MantÃ©m regras de longo prazo que
+// dependem de contexto do imÃ³vel (nÃ£o pertencem ao dicionÃ¡rio).
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 type FixedPhraseRule = {
   pattern: RegExp
@@ -751,31 +751,31 @@ type FixedPhraseRule = {
 }
 
 const FIXED_ENGLISH_PHRASES: FixedPhraseRule[] = [
-  // Endereço composto americano → endereço real do imóvel
+  // EndereÃ§o composto americano â†’ endereÃ§o real do imÃ³vel
   {
     pattern: /\bNEW\s+YORK\s*,\s*NY\b/gi,
     resolve: (_ctx, enderecoFinal) => enderecoFinal,
   },
-  // Convite para visitação
+  // Convite para visitaÃ§Ã£o
   {
     pattern: /\bplease\s+join\s+us\s+for\s+(?:an?\s+)?open\s+house\b/gi,
     resolve: () => 'Agende sua visita',
   },
   // Selo "novidade"
-  { pattern: /\bNEW\s+ON\s+SALE\b/gi, resolve: () => 'Novo à Venda' },
-  { pattern: /\bJUST\s+LISTED\b/gi,    resolve: () => 'Recém-Anunciado' },
+  { pattern: /\bNEW\s+ON\s+SALE\b/gi, resolve: () => 'Novo Ã  Venda' },
+  { pattern: /\bJUST\s+LISTED\b/gi,    resolve: () => 'RecÃ©m-Anunciado' },
   // Finalidade
-  { pattern: /\bFOR\s+SALE\b/gi, resolve: () => 'À Venda' },
+  { pattern: /\bFOR\s+SALE\b/gi, resolve: () => 'Ã€ Venda' },
   { pattern: /\bFOR\s+RENT\b/gi, resolve: () => 'Para Alugar' },
   // Eventos
-  { pattern: /\bOpen\s+House\b/gi, resolve: () => 'Visitação' },
+  { pattern: /\bOpen\s+House\b/gi, resolve: () => 'VisitaÃ§Ã£o' },
   // Cidade isolada
   {
     pattern: /\bNEW\s+YORK\b/gi,
     resolve: (ctx) => ctx.cidade || '',
   },
-  // Estado abreviado isolado (também coberto por US_STATE_CODE_RE,
-  // mas explicitar garante substituição em qualquer comprimento de texto)
+  // Estado abreviado isolado (tambÃ©m coberto por US_STATE_CODE_RE,
+  // mas explicitar garante substituiÃ§Ã£o em qualquer comprimento de texto)
   {
     pattern: /\bNY\b/g,
     resolve: (ctx) => ctx.estado || '',
@@ -799,9 +799,9 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
     || [ctx.bairro, ctx.cidade, ctx.estado].filter(Boolean).join(', ')
   ).trim()
 
-  // 0. Frases fixas em inglês (NEW ON SALE, NEW YORK NY, Open House, ...).
+  // 0. Frases fixas em inglÃªs (NEW ON SALE, NEW YORK NY, Open House, ...).
   //    Aplicado ANTES das demais etapas para que o restante do pipeline
-  //    veja já o texto em PT-BR / com o dado real do imóvel.
+  //    veja jÃ¡ o texto em PT-BR / com o dado real do imÃ³vel.
   s = applyFixedEnglishPhrases(s, ctx, enderecoFinal)
   if (ctx.suites_label) {
     s = s
@@ -809,7 +809,7 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
       .replace(/\bbanheiros?\b/gi, ctx.suites_label)
   }
 
-  // 1. Substituir cidades em inglês (com ou sem código de estado US: "New York, NY")
+  // 1. Substituir cidades em inglÃªs (com ou sem cÃ³digo de estado US: "New York, NY")
   for (const c of ENGLISH_CITIES) {
     const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(`\\b${escaped}(?:\\s*,?\\s*[A-Z]{2})?\\b`, 'gi')
@@ -817,7 +817,7 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
       s = s.replace(re, enderecoFinal)
     }
   }
-  // Estado US isolado ("CA", "NY") em texto curto → endereço real
+  // Estado US isolado ("CA", "NY") em texto curto â†’ endereÃ§o real
   if (US_STATE_CODE_RE.test(s) && s.length <= 30 && !PORTUGUESE_STOPWORDS.has(s.toLowerCase())) {
     s = s.replace(US_STATE_CODE_RE, enderecoFinal ? ctx.estado || '' : '')
   }
@@ -832,7 +832,7 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
     return m
   })
 
-  // 3. Domínios placeholder (mybrand.com, example.com, etc.)
+  // 3. DomÃ­nios placeholder (mybrand.com, example.com, etc.)
   for (const d of PLACEHOLDER_DOMAINS) {
     const escaped = d.replace(/\./g, '\\.')
     const re = new RegExp(`(?:https?://)?(?:www\\.)?${escaped}(?:/\\S*)?`, 'gi')
@@ -841,16 +841,16 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
     }
   }
 
-  // 4. Telefones fake estilo americano: "(123) 555-1234", "+1 555-...", padrão "555-xxxx"
+  // 4. Telefones fake estilo americano: "(123) 555-1234", "+1 555-...", padrÃ£o "555-xxxx"
   const phoneReal = ctx.telefone_contato || ''
   // Telefone com bloco "555" claramente placeholder
   s = s.replace(/\+?1?[\s.()-]*\d{3}[\s.()-]*555[\s.()-]*\d{4}/g, phoneReal)
-  // String inteira sendo um número US-style (10 dígitos, com opcional "+1")
+  // String inteira sendo um nÃºmero US-style (10 dÃ­gitos, com opcional "+1")
   if (/^\+?1[\s.()-]*\(?\d{3}\)?[\s.()-]*\d{3}[\s.()-]*\d{4}$/.test(s)) {
     s = phoneReal
   }
 
-  // 5. Limpar resíduos (vírgulas duplas, hifens órfãos, espaços extras)
+  // 5. Limpar resÃ­duos (vÃ­rgulas duplas, hifens Ã³rfÃ£os, espaÃ§os extras)
   s = s
     .replace(/\s+/g, ' ')
     .replace(/,\s*,/g, ',')
@@ -860,8 +860,8 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
 
   if (!s) return ''
 
-  // 6. Se o que sobrou estiver em inglês, tentar substituição semântica pelo dado real;
-  //    se não houver, retornar string vazia.
+  // 6. Se o que sobrou estiver em inglÃªs, tentar substituiÃ§Ã£o semÃ¢ntica pelo dado real;
+  //    se nÃ£o houver, retornar string vazia.
   const lang = detectLanguage(s)
   if (lang === 'en') {
     const lower = s.toLowerCase()
@@ -881,20 +881,20 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
   return s
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CTAs aprovados — apenas estas três variações profissionais podem
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// CTAs aprovados â€” apenas estas trÃªs variaÃ§Ãµes profissionais podem
 // aparecer em slots de CTA. Qualquer outra coisa que a IA retornar
-// é mapeada (snapCta) para uma destas três opções.
-// ═══════════════════════════════════════════════════════════════
+// Ã© mapeada (snapCta) para uma destas trÃªs opÃ§Ãµes.
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-const APPROVED_CTAS = ['Saiba Mais', 'Me Ligue', 'Descrição abaixo'] as const
+const APPROVED_CTAS = ['Saiba Mais', 'Me Ligue', 'DescriÃ§Ã£o abaixo'] as const
 
 function isCtaElement(elementName: string): boolean {
   return /cta|button|action/i.test(elementName)
 }
 
 function isPriceElement(elementName: string): boolean {
-  return /\b(price|preco|preço|valor|value|amount)\b/i.test(elementName)
+  return /\b(price|preco|preÃ§o|valor|value|amount)\b/i.test(elementName)
 }
 
 function isBathroomElement(elementName: string): boolean {
@@ -908,11 +908,11 @@ function snapCta(value: string): string {
     if (lower === cta.toLowerCase()) return cta
   }
   if (/(ligu|liga|call|telefon|phone|whats|fal[ea])/.test(lower)) return 'Me Ligue'
-  if (/(descri[çc][aã]o|abaixo|below|swipe|deslize|arraste|bio|legenda)/.test(lower)) return 'Descrição abaixo'
+  if (/(descri[Ã§c][aÃ£]o|abaixo|below|swipe|deslize|arraste|bio|legenda)/.test(lower)) return 'DescriÃ§Ã£o abaixo'
   return 'Saiba Mais'
 }
 
-// Slot de imagem do IMÓVEL = qualquer image/video que não seja logo nem avatar.
+// Slot de imagem do IMÃ“VEL = qualquer image/video que nÃ£o seja logo nem avatar.
 function isPropertyPhotoSlot(name: string): boolean {
   const lower = name.toLowerCase()
   if (/logo|brand/.test(lower)) return false
@@ -990,18 +990,18 @@ function normalizeSearchText(...values: unknown[]): string {
 
 function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unknown>, titulo: unknown, descricao: unknown): string {
   const search = normalizeSearchText(categoria, dadosImovel.categoria, dadosImovel.padrao, titulo, descricao)
-  if (/lancamento|lançamento/.test(search)) return 'Lançamento'
-  if (/alto\s*padrao|alto\s*padr[aã]o|luxo|premium/.test(search)) return 'Alto Padrão'
+  if (/lancamento|lanÃ§amento/.test(search)) return 'LanÃ§amento'
+  if (/alto\s*padrao|alto\s*padr[aÃ£]o|luxo|premium/.test(search)) return 'Alto PadrÃ£o'
   if (/minha\s*casa|minha\s*casa\s*minha\s*vida|mcmv/.test(search)) return 'Minha Casa Minha Vida'
-  if (/oportunidade|promocao|promoção|abaixo/.test(search)) return 'Oportunidade'
-  if (/construcao|construção|obra/.test(search)) return 'Em construção'
+  if (/oportunidade|promocao|promoÃ§Ã£o|abaixo/.test(search)) return 'Oportunidade'
+  if (/construcao|construÃ§Ã£o|obra/.test(search)) return 'Em construÃ§Ã£o'
   return 'Pronto para Morar'
 }
 
 function resolveSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
   const search = normalizeSearchText(finalidade, titulo, descricao)
-  if (/locacao|locação|aluguel|alugar|rent/.test(search)) return 'Para Locação'
-  return 'À Venda'
+  if (/locacao|locaÃ§Ã£o|aluguel|alugar|rent/.test(search)) return 'Para LocaÃ§Ã£o'
+  return 'Ã€ Venda'
 }
 
 function resolveBairro(dadosImovel: Record<string, unknown>, endereco: unknown): string {
@@ -1035,7 +1035,7 @@ function buildCanonicalTemplateData(input: {
   const tipo = String(input.tipoImovel || input.dadosImovel.tipo || '').trim()
   const propertyLocationType = [bairro, tipo].filter(Boolean).join(', ') || tipo || bairro
   const propertyFeatures =
-    [input.quartosLabel, input.suitesLabel, input.vagasLabel].filter(Boolean).join(' • ')
+    [input.quartosLabel, input.suitesLabel, input.vagasLabel].filter(Boolean).join(' â€¢ ')
     || input.areaLabel
     || ''
   const contact = input.corretorWhatsApp || input.corretorTelefone
@@ -1046,7 +1046,7 @@ function buildCanonicalTemplateData(input: {
     property_location_type: propertyLocationType,
     property_features: propertyFeatures,
     property_price: formatPriceBRL(input.preco),
-    cta_text: contact ? 'Agende sua visita' : 'Solicite informações',
+    cta_text: contact ? 'Agende sua visita' : 'Solicite informaÃ§Ãµes',
     broker_whatsapp: contact,
     broker_email: input.corretorEmail,
     property_image_01: input.fotosArr[0] || '',
@@ -1090,10 +1090,10 @@ async function fetchTemplateElements(reqId: string, templateId: string): Promise
     }
     const body = await res.json()
     const elements = extractElements(body?.source)
-    // Sufixa rótulos virtuais para nomes duplicados (Photo, Photo-2, Photo-3, ...)
-    // em vez de descartá-los. Slots de mesmo nome são comuns em templates de
-    // carrossel/montagem e precisam ser endereçados individualmente. A chave
-    // final enviada ao Creatomate usa o ID do elemento (não o virtualLabel)
+    // Sufixa rÃ³tulos virtuais para nomes duplicados (Photo, Photo-2, Photo-3, ...)
+    // em vez de descartÃ¡-los. Slots de mesmo nome sÃ£o comuns em templates de
+    // carrossel/montagem e precisam ser endereÃ§ados individualmente. A chave
+    // final enviada ao Creatomate usa o ID do elemento (nÃ£o o virtualLabel)
     // para evitar ambiguidade quando os nomes colidem.
     const counts = new Map<string, number>()
     for (const e of elements) {
@@ -1124,21 +1124,19 @@ serve(async (req) => {
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 
-    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-      return jsonResponse({ error: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes' }, 500)
-    }
-    if (!OPENAI_API_KEY) {
-      return jsonResponse({ error: 'OPENAI_API_KEY não configurada' }, 500)
-    }
-    if (!CREATOMATE_API_KEY) {
-      return jsonResponse({ error: 'CREATOMATE_API_KEY não configurada' }, 500)
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY || !CREATOMATE_API_KEY) {
+      return jsonResponse({
+        success: false,
+        error: 'Configuração de renderização indisponível.',
+        renders: [],
+      }, 200)
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
     supabaseClient = supabase
 
     // === Auth: validar JWT inbound e derivar user_id da identidade autenticada ===
-    // NUNCA aceitar user_id do body — cliente roda com service_role e RLS bypass.
+    // NUNCA aceitar user_id do body â€” cliente roda com service_role e RLS bypass.
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization')
     if (!authHeader || !/^Bearer\s+/i.test(authHeader)) {
       return jsonResponse({ error: 'Authorization header ausente ou invalido' }, 401)
@@ -1152,7 +1150,10 @@ serve(async (req) => {
     const authenticatedUserId = authUser.id
     cleanupUserId = authenticatedUserId
 
-    const payload = await req.json().catch(() => ({}))
+    const rawPayload = await req.json().catch(() => ({}))
+    const payload = rawPayload && typeof rawPayload === 'object'
+      ? rawPayload as Record<string, unknown>
+      : {}
     const {
       campaign_id,
       fotos_urls = [],
@@ -1176,14 +1177,14 @@ serve(async (req) => {
       idempotency_key,
     } = payload as Record<string, unknown>
     const selectedTemplatesPayload =
-      (payload as Record<string, unknown>).selectedTemplates
-      ?? (payload as Record<string, unknown>).selected_templates
-      ?? (payload as Record<string, unknown>).templates
-      ?? (payload as Record<string, unknown>).pieces
+      payload.selectedTemplates
+      ?? payload.selected_templates
+      ?? payload.templates
+      ?? payload.pieces
       ?? []
 
-    // fotos_urls é a fonte de verdade, EM ORDEM (a primeira é a principal).
-    // Se vier foto_principal explícita e ela não estiver na lista, prependa.
+    // fotos_urls Ã© a fonte de verdade, EM ORDEM (a primeira Ã© a principal).
+    // Se vier foto_principal explÃ­cita e ela nÃ£o estiver na lista, prependa.
     const fotosRaw = Array.isArray(fotos_urls) ? (fotos_urls as string[]).filter(Boolean) : []
     const fotosArr = (() => {
       const principal = typeof foto_principal === 'string' && foto_principal.length > 0 ? foto_principal : ''
@@ -1195,11 +1196,11 @@ serve(async (req) => {
 
     // Templates escolhidos pelo usuário (frontend manda em selectedTemplates).
     // Fonte única de verdade: backend NUNCA escolhe sozinho.
-    console.log(`[${reqId}] BODY RECEBIDO`, {
-      keys: Object.keys(payload as Record<string, unknown>),
-      selectedTemplates: selectedTemplatesPayload,
+    console.log(`[${reqId}] gerar-banners body`, {
+      keys: Object.keys(payload),
+      selected_templates_type: Array.isArray(selectedTemplatesPayload) ? 'array' : typeof selectedTemplatesPayload,
+      selected_templates_count: Array.isArray(selectedTemplatesPayload) ? selectedTemplatesPayload.length : 0,
     })
-    console.log(`[${reqId}] selectedTemplates`, selectedTemplatesPayload)
 
     const selectedTemplatesArray = Array.isArray(selectedTemplatesPayload)
       ? selectedTemplatesPayload
@@ -1262,9 +1263,9 @@ serve(async (req) => {
         }).filter((item): item is SelectedTemplatePiece => Boolean(item?.template_id))
       : []
 
-    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? campaign_id : '(sem id)'} | user=${authenticatedUserId} | fotos=${fotosArr.length} | selectedPieces=${selectedPiecesRaw.length}`)
+    console.log(`[${reqId}] gerar-banners | campaign=${hasCampaignId ? 'informada' : '(sem id)'} | fotos=${fotosArr.length} | selectedPieces=${selectedPiecesRaw.length}`)
 
-    // Buscar dados da campanha (opcional — se foi passado um campaign_id, enriquecemos)
+    // Buscar dados da campanha (opcional â€” se foi passado um campaign_id, enriquecemos)
     let campaignRow: { titulo?: string; dados_imovel?: Record<string, unknown>; textos_gerados?: Record<string, unknown>; user_id?: string } | null = null
     if (hasCampaignId) {
       const { data } = await supabase
@@ -1281,7 +1282,7 @@ serve(async (req) => {
       }
     }
 
-    // user_id agora SEMPRE vem do JWT — body.user_id e campaignRow.user_id sao ignorados como fontes
+    // user_id agora SEMPRE vem do JWT â€” body.user_id e campaignRow.user_id sao ignorados como fontes
     const profileId: string = authenticatedUserId
 
     type ProfileRow = {
@@ -1312,11 +1313,11 @@ serve(async (req) => {
     const categoria = String(dadosImovel.categoria || tipo_imovel || 'medio_padrao')
     const precoFinal = formatPriceBRL(preco ?? dadosImovel.preco)
     const suitesCount = toPositiveCount(suites ?? dadosImovel.suites)
-    const suitesLabel = formatCountLabel(suitesCount, 'Suíte')
-    const quartosLabel = formatCountLabel(toPositiveCount(quartos ?? dadosImovel.quartos), 'Dormitório')
+    const suitesLabel = formatCountLabel(suitesCount, 'SuÃ­te')
+    const quartosLabel = formatCountLabel(toPositiveCount(quartos ?? dadosImovel.quartos), 'DormitÃ³rio')
     const vagasLabel = formatCountLabel(toPositiveCount(vagas ?? dadosImovel.vagas), 'Vaga')
     const areaLabel = String(area ?? dadosImovel.area ?? '').trim()
-      ? `${String(area ?? dadosImovel.area).trim()}m²`
+      ? `${String(area ?? dadosImovel.area).trim()}mÂ²`
       : ''
     const specsComerciais = [quartosLabel, suitesLabel, vagasLabel, areaLabel].filter(Boolean).join(', ')
 
@@ -1332,10 +1333,10 @@ serve(async (req) => {
     const logoUrl            = profileRow?.logo_url    || ''
 
     // Avatar do corretor:
-    // - Se o profile do banco tem avatar_url, é a fonte de verdade.
-    // - Se o profile NÃO tem, mas o payload mandou 'REMOVER_ELEMENTO' explícito,
-    //   honra isso (frontend já validou que não há foto cadastrada).
-    // - Caso contrário, segue REMOVER_ELEMENTO padrão (string vazia abaixo vira REMOVER_ELEMENTO no prompt).
+    // - Se o profile do banco tem avatar_url, Ã© a fonte de verdade.
+    // - Se o profile NÃƒO tem, mas o payload mandou 'REMOVER_ELEMENTO' explÃ­cito,
+    //   honra isso (frontend jÃ¡ validou que nÃ£o hÃ¡ foto cadastrada).
+    // - Caso contrÃ¡rio, segue REMOVER_ELEMENTO padrÃ£o (string vazia abaixo vira REMOVER_ELEMENTO no prompt).
     const avatarFromPayload = typeof corretor_avatar_url === 'string' ? corretor_avatar_url : ''
     const avatarUrl =
       profileRow?.avatar_url
@@ -1362,43 +1363,43 @@ serve(async (req) => {
     })
 
     // Bloco compartilhado com os dois prompts
-    const dadosImovelBloco = `DADOS DO IMÓVEL:
-- Título: ${titulo || campaignRow?.titulo || 'Imóvel'}
+    const dadosImovelBloco = `DADOS DO IMÃ“VEL:
+- TÃ­tulo: ${titulo || campaignRow?.titulo || 'ImÃ³vel'}
 - Categoria/Perfil: ${categoria}
-- Tipo de imóvel: ${tipo_imovel || dadosImovel.tipo || 'não informado'}
-- Descrição: ${descricao || ''}
-- Preço: ${precoFinal}
-- Especificações principais: ${specsComerciais || 'não informado'}
-- Endereço: ${endereco || `${dadosImovel.bairro || ''}${dadosImovel.cidade ? ', ' + dadosImovel.cidade : ''}${dadosImovel.estado ? ' - ' + dadosImovel.estado : ''}`}
-- Fotos do imóvel (${fotosArr.length}): ${JSON.stringify(fotosArr)}
+- Tipo de imÃ³vel: ${tipo_imovel || dadosImovel.tipo || 'nÃ£o informado'}
+- DescriÃ§Ã£o: ${descricao || ''}
+- PreÃ§o: ${precoFinal}
+- EspecificaÃ§Ãµes principais: ${specsComerciais || 'nÃ£o informado'}
+- EndereÃ§o: ${endereco || `${dadosImovel.bairro || ''}${dadosImovel.cidade ? ', ' + dadosImovel.cidade : ''}${dadosImovel.estado ? ' - ' + dadosImovel.estado : ''}`}
+- Fotos do imÃ³vel (${fotosArr.length}): ${JSON.stringify(fotosArr)}
 
 TEMPLATE_DATA_CANONICO (prioridade para nomes exatos de elementos):
 ${Object.entries(templateData).map(([key, value]) => `- ${key}: ${value || 'REMOVER_ELEMENTO'}`).join('\n')}
 
-DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telefones fictícios em inglês):
-- Nome: ${corretorNomeFinal || '(não informado)'}
+DADOS DO CORRETOR (use exatamente esses; NÃƒO invente nem use nomes/emails/telefones fictÃ­cios em inglÃªs):
+- Nome: ${corretorNomeFinal || '(nÃ£o informado)'}
 - CRECI: ${corretorCRECI || 'REMOVER_ELEMENTO'}
-- Telefone: ${corretorTelefone || '(não informado)'}
+- Telefone: ${corretorTelefone || '(nÃ£o informado)'}
 - WhatsApp: ${corretorWhatsApp || 'REMOVER_ELEMENTO'}
 - Email: ${corretorEmail || 'REMOVER_ELEMENTO'}
-- Imobiliária/Marca: ${marcaFinal || 'REMOVER_ELEMENTO'}
+- ImobiliÃ¡ria/Marca: ${marcaFinal || 'REMOVER_ELEMENTO'}
 - Site: ${siteFinal || 'REMOVER_ELEMENTO'}
 - Instagram: ${instagramFinal || 'REMOVER_ELEMENTO'}
 - Foto do corretor: ${avatarUrl || 'REMOVER_ELEMENTO'}
-- Logo da imobiliária: ${logoUrl || 'REMOVER_ELEMENTO'}`
+- Logo da imobiliÃ¡ria: ${logoUrl || 'REMOVER_ELEMENTO'}`
 
-    // === ESTÁGIO 1: seleção de templates ==================================
-    // ESTRITAMENTE os IDs marcados pelo corretor (frontend → selectedTemplates).
+    // === ESTÃGIO 1: seleÃ§Ã£o de templates ==================================
+    // ESTRITAMENTE os IDs marcados pelo corretor (frontend â†’ selectedTemplates).
     // SEM fallback de IA, SEM cap. Lista vazia => 400.
     const validIds = new Map(TEMPLATES.map((t) => [t.id, t]))
 
-    // SEM fallback de IA. SEM cap. A lista marcada pelo corretor é a fonte
-    // única de verdade. Se o frontend não enviar selectedTemplates (ou
-    // enviar lista vazia / só IDs inválidos), retornamos erro — NUNCA o
+    // SEM fallback de IA. SEM cap. A lista marcada pelo corretor Ã© a fonte
+    // Ãºnica de verdade. Se o frontend nÃ£o enviar selectedTemplates (ou
+    // enviar lista vazia / sÃ³ IDs invÃ¡lidos), retornamos erro â€” NUNCA o
     // backend escolhe sozinho.
     if (selectedPiecesRaw.length === 0) {
       return jsonResponse({
-        error: 'selectedTemplates é obrigatório. O backend não escolhe templates autonomamente: envie a lista completa marcada pelo corretor.',
+        error: 'selectedTemplates Ã© obrigatÃ³rio. O backend nÃ£o escolhe templates autonomamente: envie a lista completa marcada pelo corretor.',
       }, 400)
     }
 
@@ -1409,13 +1410,13 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
     }
     if (pickedPieces.length === 0) {
       return jsonResponse({
-        error: 'Nenhum template válido em selectedTemplates',
+        error: 'Nenhum template vÃ¡lido em selectedTemplates',
         invalid_ids: invalidos.map(piece => piece.template_id),
       }, 400)
     }
     if (pickedPieces.length > MAX_VISUAL_PIECES_PER_GENERATION) {
       return jsonResponse({
-        error: `Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`,
+        error: `Para garantir a geraÃ§Ã£o correta, selecione atÃ© ${MAX_VISUAL_PIECES_PER_GENERATION} peÃ§as por vez neste momento.`,
         max_pieces: MAX_VISUAL_PIECES_PER_GENERATION,
         received_pieces: pickedPieces.length,
       }, 413)
@@ -1424,7 +1425,7 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
     const uniquePickedIds = Array.from(new Set(pickedIds))
     console.log(`[${reqId}] estagio 1 (user-only, sem cap): ${pickedPieces.length} pecas em lote | ${uniquePickedIds.length} templates tecnicos`)
 
-    // === ESTÁGIO 2: GET de cada template para descobrir elementos reais ===
+    // === ESTÃGIO 2: GET de cada template para descobrir elementos reais ===
     const frontendCreditCost = toPositiveInteger(credit_cost)
     const serverTemplateCreditCost = pickedPieces.reduce(
       (sum, piece) => sum + (piece.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0),
@@ -1465,7 +1466,7 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
 
       if (!hasExactSmartCampaignSet) {
         return jsonResponse({
-          error: 'Campanha Inteligente exige a seleção-base oficial de produtos.',
+          error: 'Campanha Inteligente exige a seleÃ§Ã£o-base oficial de produtos.',
         }, 400)
       }
     }
@@ -1510,7 +1511,7 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
         model_name: piece.model_name || null,
         use_id: piece.use_id || null,
         use_label: piece.use_label || null,
-        label: piece.label || [piece.model_name, piece.use_label].filter(Boolean).join(' — ') || null,
+        label: piece.label || [piece.model_name, piece.use_label].filter(Boolean).join(' â€” ') || null,
         template_id: piece.template_id,
         template_nome: piece.template_nome || meta?.nome || '',
         categoria: meta?.categoria || null,
@@ -1538,9 +1539,9 @@ DADOS DO CORRETOR (use exatamente esses; NÃO invente nem use nomes/emails/telef
       }, 200)
     }
 
-    console.log(`[${reqId}] estágio 2: ${schemasComElementos.length} templates com elementos reais`)
+    console.log(`[${reqId}] estÃ¡gio 2: ${schemasComElementos.length} templates com elementos reais`)
 
-    // === ESTÁGIO 3: IA produz modifications usando elementos REAIS ========
+    // === ESTÃGIO 3: IA produz modifications usando elementos REAIS ========
     const elementosBloco = schemasComElementos.map((s) => {
       const meta = validIds.get(s.id)
       const lista = s.elements
@@ -1570,23 +1571,45 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
       total: FILL_SYSTEM_PROMPT.length + fillUserPrompt.length,
     })
 
-    const fillRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: FILL_SYSTEM_PROMPT },
-          { role: 'user', content: fillUserPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 7000,
-      }),
-      signal: AbortSignal.timeout(60000),
-    })
+    let fillRes: Response
+    try {
+      fillRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: FILL_SYSTEM_PROMPT },
+            { role: 'user', content: fillUserPrompt },
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 7000,
+        }),
+        signal: AbortSignal.timeout(60000),
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[${reqId}] fill OpenAI indisponível:`, message)
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(
+        piece,
+        index,
+        'Não foi possível preparar esta peça visual no momento.',
+      ))
+      return jsonResponse({
+        success: true,
+        warning: 'As peças visuais falharam antes da criação do render.',
+        renders,
+        pick_source: 'user',
+        credit_cost: effectiveCreditCost,
+        credit_reservation_status: 'cancelled',
+        requested_count: pickedPieces.length,
+        success_count: 0,
+        failed_count: renders.length,
+      }, 200)
+    }
 
     if (!fillRes.ok) {
       const errBody = await fillRes.text()
@@ -1716,8 +1739,8 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     }
 
     // Validar/filtrar as modifications para conter SOMENTE chaves de elementos reais.
-    // Indexamos por virtualLabel (o rótulo que a IA viu), não por name — assim slots
-    // duplicados (Photo, Photo-2, ...) são endereçáveis individualmente.
+    // Indexamos por virtualLabel (o rÃ³tulo que a IA viu), nÃ£o por name â€” assim slots
+    // duplicados (Photo, Photo-2, ...) sÃ£o endereÃ§Ã¡veis individualmente.
     const elementosPorTemplate = new Map<string, Map<string, ElementInfo>>()
     for (const s of schemasComElementos) {
       const m = new Map<string, ElementInfo>()
@@ -1739,7 +1762,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       })
     }
 
-    // Contexto compartilhado para o sanitizer (PT-BR + dados reais do imóvel + do corretor)
+    // Contexto compartilhado para o sanitizer (PT-BR + dados reais do imÃ³vel + do corretor)
     const sanitizeCtx: SanitizeContext = {
       preco: precoFinal,
       suites_label: suitesLabel,
@@ -1769,9 +1792,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       const fallbackFields = new Set<string>()
       if (elementos && sel.modifications && typeof sel.modifications === 'object') {
         for (const [k, v] of Object.entries(sel.modifications)) {
-          // Chave da IA: "<rótulo>.text|source|track", onde <rótulo> é o virtualLabel
+          // Chave da IA: "<rÃ³tulo>.text|source|track", onde <rÃ³tulo> Ã© o virtualLabel
           // que a IA viu (ex.: "Photo", "Photo-2"). A chave final enviada ao Creatomate
-          // usa o ID do elemento quando disponível, evitando ambiguidade entre slots
+          // usa o ID do elemento quando disponÃ­vel, evitando ambiguidade entre slots
           // de mesmo nome.
           const dot = k.lastIndexOf('.')
           if (dot < 0) continue
@@ -1785,9 +1808,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           const finalKey = `${keyBase}.${prop}`
           fallbackFields.add(label)
 
-          // .track: booleano, válido para qualquer tipo de elemento.
-          // Usado pela IA para "desativar" elementos quando o dado real não
-          // existe (instrução REMOVER_ELEMENTO no prompt).
+          // .track: booleano, vÃ¡lido para qualquer tipo de elemento.
+          // Usado pela IA para "desativar" elementos quando o dado real nÃ£o
+          // existe (instruÃ§Ã£o REMOVER_ELEMENTO no prompt).
           if (prop === 'track') {
             if (typeof v === 'boolean') {
               mods[finalKey] = v
@@ -1795,7 +1818,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             continue
           }
 
-          // .text só em elementos type=text; .source em image/video/audio.
+          // .text sÃ³ em elementos type=text; .source em image/video/audio.
           const expectedProp = elem.type === 'text' ? 'text' : 'source'
           if (prop !== expectedProp) continue
           if (prop === 'text' && isPriceElement(elem.name)) {
@@ -1808,28 +1831,28 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           }
           if (typeof v !== 'string') continue
 
-          // String vazia EXPLÍCITA: passa direto. É a outra metade da
-          // remoção — apaga o texto/source default do template. Costuma
+          // String vazia EXPLÃCITA: passa direto. Ã‰ a outra metade da
+          // remoÃ§Ã£o â€” apaga o texto/source default do template. Costuma
           // vir junto com .track: false.
           if (v === '') {
             mods[finalKey] = ''
             continue
           }
 
-          // Apenas whitespace: descarta (não é remoção intencional, é lixo).
+          // Apenas whitespace: descarta (nÃ£o Ã© remoÃ§Ã£o intencional, Ã© lixo).
           if (!v.trim()) continue
 
           if (prop === 'text') {
-            // CAMADA 1 — dicionário EN→PT: substitui frases fixas conhecidas
+            // CAMADA 1 â€” dicionÃ¡rio ENâ†’PT: substitui frases fixas conhecidas
             // ("For Sale", "Bedrooms", "MY BRAND", etc.) antes de qualquer
             // outra etapa. Garante que placeholders americanos virem PT-BR
-            // (ou vazio) mesmo se a IA não tenha traduzido.
+            // (ou vazio) mesmo se a IA nÃ£o tenha traduzido.
             const traduzido = translateFixedEnglish(v)
-            // CAMADA 2 — sanitizer (cidades em inglês, placeholders de email,
-            // domínios fictícios, números US-style, detecção de idioma).
+            // CAMADA 2 â€” sanitizer (cidades em inglÃªs, placeholders de email,
+            // domÃ­nios fictÃ­cios, nÃºmeros US-style, detecÃ§Ã£o de idioma).
             const limpo = sanitizeTemplateText(traduzido, sanitizeCtx)
             if (!limpo) continue
-            // CTA: força estritamente uma das variações profissionais aprovadas,
+            // CTA: forÃ§a estritamente uma das variaÃ§Ãµes profissionais aprovadas,
             // independente do que a IA tenha gerado.
             mods[finalKey] = isCtaElement(elem.name) ? snapCta(limpo) : limpo
           } else {
@@ -1870,12 +1893,12 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       }, 200)
     }
 
-    // === Rede de segurança: garante que TODOS os slots de imagem do imóvel
+    // === Rede de seguranÃ§a: garante que TODOS os slots de imagem do imÃ³vel
     // de cada template estejam preenchidos. A primeira foto (foto principal)
     // ocupa o primeiro slot; as demais ocupam, em ordem, os slots seguintes;
-    // se houver mais slots que fotos, a última foto se repete. Slots já
-    // preenchidos pela IA com uma URL http(s) válida são preservados. Slots
-    // marcados com .track: false pela IA são respeitados (não preenche).
+    // se houver mais slots que fotos, a Ãºltima foto se repete. Slots jÃ¡
+    // preenchidos pela IA com uma URL http(s) vÃ¡lida sÃ£o preservados. Slots
+    // marcados com .track: false pela IA sÃ£o respeitados (nÃ£o preenche).
     if (fotosArr.length > 0) {
       const elementosArrPorTemplate = new Map<string, ElementInfo[]>()
       for (const s of schemasComElementos) elementosArrPorTemplate.set(s.id, s.elements)
@@ -1902,6 +1925,8 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     }
 
     console.log(`[${reqId}] estagio 3: ${pecasAprovadas.length} pecas prontas para render | ${failedBeforeRender.length} falhas antes do render`)
+
+    const blockedPieceIds = new Set<string>()
 
     if (effectiveCreditCost > 0) {
       for (let index = 0; index < pecasAprovadas.length; index++) {
@@ -1935,16 +1960,29 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
 
         if (reservationErr) {
           const message = reservationErr.message || 'Falha ao reservar creditos.'
-          const status = message.toLowerCase().includes('insuficient') ? 402 : 500
           console.warn(`[${reqId}] reserva de creditos da peça falhou:`, message)
-          await cancelPieceReservations(supabase, reqId, authenticatedUserId, pieceCreditReservations, 'falha_reserva_peca')
-          return jsonResponse({ error: status === 402 ? 'Créditos insuficientes para esta geração.' : message }, status)
+          blockedPieceIds.add(sel.piece_id)
+          failedBeforeRender.push({
+            ...makeFailedPieceRender(
+              sel,
+              index,
+              message.toLowerCase().includes('insuficient')
+                ? 'Créditos insuficientes para esta peça.'
+                : 'Não foi possível reservar créditos para esta peça.',
+            ),
+            credit_status: 'cancelled',
+          })
+          continue
         }
 
         const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows
         if (reservation?.status === 'cancelled') {
-          await cancelPieceReservations(supabase, reqId, authenticatedUserId, pieceCreditReservations, 'reserva_peca_cancelada')
-          return jsonResponse({ error: 'Reserva de creditos cancelada. Gere novamente para criar uma nova reserva.' }, 409)
+          blockedPieceIds.add(sel.piece_id)
+          failedBeforeRender.push({
+            ...makeFailedPieceRender(sel, index, 'Reserva de créditos cancelada para esta peça.'),
+            credit_status: 'cancelled',
+          })
+          continue
         }
 
         pieceCreditReservations.push({
@@ -1960,13 +1998,12 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         })
       }
 
-      console.log(`[${reqId}] creditos reservados por peça: ${pieceCreditReservations.length} reservas`)
+      console.log(`[${reqId}] creditos reservados por peÃ§a: ${pieceCreditReservations.length} reservas`)
     }
 
-    const getPieceCredit = (templateId: string, index: number) => {
-      const reservation = pieceCreditReservations.find(item => item.templateId === templateId && item.index === index)
-      const matchingPiece = pecasAprovadas[index]
-      const amount = matchingPiece?.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(templateId) || 0
+    const getPieceCredit = (piece: SelectedTemplatePiece) => {
+      const reservation = pieceCreditReservations.find(item => item.pieceId === piece.piece_id)
+      const amount = piece.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0
       return {
         credit_amount: reservation?.amount ?? (effectiveCreditCost > 0 ? amount : 0),
         credit_idempotency_key: reservation?.idempotencyKey || null,
@@ -1977,9 +2014,11 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     // === Disparar renders no Creatomate (paralelo) ========================
     const renders: Array<Record<string, unknown>> = [...failedBeforeRender]
 
-    await Promise.all(pecasAprovadas.map(async (sel, index) => {
+    const pecasParaRender = pecasAprovadas.filter((sel) => !blockedPieceIds.has(sel.piece_id))
+
+    await Promise.all(pecasParaRender.map(async (sel, index) => {
       const meta = validIds.get(sel.template_id)!
-      const pieceCredit = getPieceCredit(sel.template_id, index)
+      const pieceCredit = getPieceCredit(sel)
       try {
         const createRes = await fetch('https://api.creatomate.com/v1/renders', {
           method: 'POST',
@@ -1997,7 +2036,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         if (!createRes.ok) {
           const errBody = await createRes.text()
           console.error(`[${reqId}] Creatomate render ${createRes.status} em ${meta.nome}:`, errBody.slice(0, 200))
-          const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+          const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
           if (reservation?.status === 'reserved') {
             await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_failed')
           }
@@ -2008,10 +2047,12 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             model_name: sel.model_name || null,
             use_id: sel.use_id || null,
             use_label: sel.use_label || null,
-            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' â€” ') || null,
             template_id: sel.template_id,
             template_nome: meta.nome,
             categoria: meta.categoria,
+            formato: meta.formato,
+            status: 'failed',
             erro: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
             ...pieceCredit,
             credit_status: reservation?.status || pieceCredit.credit_status,
@@ -2022,7 +2063,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         const body = await createRes.json()
         const items = Array.isArray(body) ? body : [body]
         if (items.length === 0) {
-          const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+          const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
           if (reservation?.status === 'reserved') {
             await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_empty_response')
           }
@@ -2033,7 +2074,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             model_name: sel.model_name || null,
             use_id: sel.use_id || null,
             use_label: sel.use_label || null,
-            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' â€” ') || null,
             template_id: sel.template_id,
             template_nome: meta.nome,
             categoria: meta.categoria,
@@ -2047,7 +2088,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         }
         for (const item of items) {
           if (!item?.id) {
-            const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+            const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
             if (reservation?.status === 'reserved') {
               await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_missing_render_id')
             }
@@ -2058,7 +2099,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
               model_name: sel.model_name || null,
               use_id: sel.use_id || null,
               use_label: sel.use_label || null,
-              label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+              label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' â€” ') || null,
               template_id: sel.template_id,
               template_nome: meta.nome,
               categoria: meta.categoria,
@@ -2077,7 +2118,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             model_name: sel.model_name || null,
             use_id: sel.use_id || null,
             use_label: sel.use_label || null,
-            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+            label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' â€” ') || null,
             render_id: item.id,
             template_id: sel.template_id,
             template_nome: meta.nome,
@@ -2091,7 +2132,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         }
       } catch (err) {
         console.error(`[${reqId}] erro ao chamar Creatomate para ${meta.nome}:`, err)
-        const reservation = pieceCreditReservations.find(item => item.templateId === sel.template_id && item.index === index)
+        const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
         if (reservation?.status === 'reserved') {
           await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_error')
         }
@@ -2102,10 +2143,12 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           model_name: sel.model_name || null,
           use_id: sel.use_id || null,
           use_label: sel.use_label || null,
-          label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' — ') || null,
+          label: sel.label || [sel.model_name, sel.use_label].filter(Boolean).join(' â€” ') || null,
           template_id: sel.template_id,
           template_nome: meta.nome,
           categoria: meta.categoria,
+          formato: meta.formato,
+          status: 'failed',
           erro: err instanceof Error ? err.message : String(err),
           ...pieceCredit,
           credit_status: reservation?.status || pieceCredit.credit_status,
@@ -2126,7 +2169,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       }, 200)
     }
 
-    // === Persistir em campaigns.banners (jsonb) — somente se campaign_id ==
+    // === Persistir em campaigns.banners (jsonb) â€” somente se campaign_id ==
     if (hasCampaignId) {
       const { error: updErr } = await supabase
         .from('campaigns')
@@ -2137,7 +2180,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       if (updErr) {
         console.error(`[${reqId}] falha ao salvar banners:`, updErr)
         return jsonResponse({
-          warning: `Renders disparados, mas não foi possível salvar em campaigns.banners: ${updErr.message}`,
+          warning: `Renders disparados, mas nÃ£o foi possÃ­vel salvar em campaigns.banners: ${updErr.message}`,
           renders,
           pick_source: 'user',
           credit_cost: effectiveCreditCost,
@@ -2153,13 +2196,19 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       pick_source: 'user',
       credit_cost: effectiveCreditCost,
       credit_reservation_status: effectiveCreditCost > 0 ? 'reserved_per_piece' : 'not_required',
+      requested_count: pickedPieces.length,
+      success_count: renders.filter((render) => typeof render.render_id === 'string').length,
+      failed_count: renders.filter((render) => String(render.status || '').toLowerCase() === 'failed').length,
     }, 200)
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
     if (pieceCreditReservations.length > 0 && supabaseClient && cleanupUserId) {
       await cancelPieceReservations(supabaseClient, reqId, cleanupUserId, pieceCreditReservations, 'erro_inesperado')
     }
-    const msg = error instanceof Error ? error.message : String(error)
-    return jsonResponse({ error: msg }, 500)
+    return jsonResponse({
+      success: false,
+      error: 'Não foi possível processar os materiais visuais agora.',
+      renders: [],
+    }, 200)
   }
 })

@@ -3800,6 +3800,14 @@ export default function NovaCampanha() {
           const visualCreditsRefunded = visualPieces
             .filter(r => r.credit_status === 'cancelled')
             .reduce((sum, render) => sum + getCreditAmount(render), 0)
+          const allVisualPiecesFailed = visualPieces.length > 0
+            && visualPiecesReady === 0
+            && visualPiecesProcessing === 0
+            && visualPiecesPending === 0
+            && visualPiecesFailed > 0
+          const resultTitle = allVisualPiecesFailed
+            ? 'Textos prontos. Materiais visuais com problema.'
+            : 'Campanha pronta!'
 
           const textosEdge = [
             { key: 'titulo_campanha',         icon: '🏷️', titulo: 'Título da Campanha' },
@@ -3852,7 +3860,7 @@ export default function NovaCampanha() {
                         <CheckCircle2 className="w-7 h-7 text-green-600" />
                       </div>
                       <div>
-                        <h2 className="font-extrabold text-gray-900 text-xl">Campanha pronta! 🎉</h2>
+                        <h2 className="font-extrabold text-gray-900 text-xl">{resultTitle}</h2>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm text-gray-500">{resultado.titulo}</p>
                           {catAtual && <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${catAtual.badge}`}>{catAtual.icon} {catAtual.nome}</span>}
