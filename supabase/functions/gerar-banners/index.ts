@@ -1493,7 +1493,13 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
       return jsonResponse({ error: 'idempotency_key obrigatoria para consumo de creditos.' }, 400)
     }
 
-    const makeFailedPieceRender = (piece: SelectedTemplatePiece, index: number, erro: string) => {
+    const makeFailedPieceRender = (
+      piece: SelectedTemplatePiece,
+      index: number,
+      erro: string,
+      errorStage = 'unknown',
+      errorCode = 'unknown_error',
+    ) => {
       const meta = validIds.get(piece.template_id)
       const amount = TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0
       return {
@@ -1510,6 +1516,9 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
         formato: meta?.formato || null,
         status: 'failed',
         erro,
+        error_stage: errorStage,
+        error_code: errorCode,
+        error_message: erro,
         credit_amount: effectiveCreditCost > 0 ? (piece.credit_cost || amount) : 0,
         credit_idempotency_key: null,
         credit_status: effectiveCreditCost > 0 && amount > 0 ? 'cancelled' : 'not_required',
@@ -1520,7 +1529,13 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
     const schemas = await Promise.all(uniquePickedIds.map((id) => fetchTemplateElements(reqId, id, CREATOMATE_API_KEY)))
     const schemasComElementos = schemas.filter((s) => s.elements.length > 0)
     if (schemasComElementos.length === 0) {
-      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(piece, index, 'Nao foi possivel obter elementos reais do template.'))
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(
+        piece,
+        index,
+        'Nao foi possivel obter elementos reais do template.',
+        'creatomate_elements',
+        'creatomate_elements_failed',
+      ))
       return jsonResponse({
         success: true,
         warning: 'Nenhuma peca visual foi criada. As pecas foram marcadas como falha.',
@@ -1589,6 +1604,8 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
         piece,
         index,
         'Não foi possível preparar esta peça visual no momento.',
+        'openai_fill',
+        'openai_fill_failed',
       ))
       return jsonResponse({
         success: true,
@@ -1606,7 +1623,13 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
     if (!fillRes.ok) {
       const errBody = await fillRes.text()
       console.error(`[${reqId}] fill OpenAI ${fillRes.status}:`, errBody.slice(0, 300))
-      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(piece, index, `OpenAI fill ${fillRes.status}: ${errBody.slice(0, 180)}`))
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(
+        piece,
+        index,
+        `OpenAI fill ${fillRes.status}: ${errBody.slice(0, 180)}`,
+        'openai_fill',
+        fillRes.status === 429 ? 'rate_limited' : 'openai_fill_failed',
+      ))
       return jsonResponse({
         success: true,
         warning: 'As pecas visuais falharam antes da criacao do render.',
@@ -1619,39 +1642,24 @@ Para cada template, gere um objeto "modifications" usando APENAS os nomes de ele
 
     let plano: { selecoes?: Array<{ template_id: string; modifications?: Record<string, unknown> }> }
     let fillRaw = ''
-    try {
-      const fillData = await fillRes.json()
-      const choice = fillData?.choices?.[0]
-      fillRaw = typeof choice?.message?.content === 'string' ? choice.message.content : ''
-      console.log(`[${reqId}] fill debug response:`, {
-        finish_reason: choice?.finish_reason,
-        raw_chars: fillRaw.length,
-        raw_start: fillRaw.slice(0, 500),
-        raw_end: fillRaw.slice(-500),
-      })
-      plano = JSON.parse(fillRaw)
-    } catch (e) {
-      console.error(`[${reqId}] fill parse:`, {
-        erro: e instanceof Error ? e.message : String(e),
-        templates: fillTemplateDebug,
-        raw_chars: fillRaw.length,
-        raw_start: fillRaw.slice(0, 1000),
-        raw_end: fillRaw.slice(-1000),
-      })
-      const fallbackSelecoes: Array<{ template_id: string; modifications?: Record<string, unknown> }> = []
-      for (let index = 0; index < pickedPieces.length; index++) {
-        const piece = pickedPieces[index]
-        const schema = schemasComElementos.find((item) => item.id === piece.template_id)
-        if (!schema) {
-          failedBeforeRender.push(makeFailedPieceRender(piece, index, 'Template sem elementos reais para fill individual.'))
-          continue
-        }
-        try {
-          const meta = validIds.get(schema.id)
-          const lista = schema.elements
-            .map((el) => `  - "${el.virtualLabel || el.name}" (${el.type})${el.defaultValue ? ` [default: ${JSON.stringify(el.defaultValue.slice(0, 80))}]` : ''}`)
-            .join('\n')
-          const singlePrompt = `${dadosImovelBloco}
+    const gerarFillIndividual = async (piece: SelectedTemplatePiece, index: number) => {
+      const schema = schemasComElementos.find((item) => item.id === piece.template_id)
+      if (!schema) {
+        failedBeforeRender.push(makeFailedPieceRender(
+          piece,
+          index,
+          'Template sem elementos reais para fill individual.',
+          'creatomate_elements',
+          'creatomate_elements_failed',
+        ))
+        return null
+      }
+      try {
+        const meta = validIds.get(schema.id)
+        const lista = schema.elements
+          .map((el) => `  - "${el.virtualLabel || el.name}" (${el.type})${el.defaultValue ? ` [default: ${JSON.stringify(el.defaultValue.slice(0, 80))}]` : ''}`)
+          .join('\n')
+        const singlePrompt = `${dadosImovelBloco}
 
 TEMPLATE SELECIONADO COM ELEMENTOS REAIS:
 TEMPLATE id="${schema.id}" nome="${schema.name || meta?.nome || ''}" formato="${meta?.formato || ''}"
@@ -1659,48 +1667,84 @@ Elementos reais:
 ${lista}
 
 Gere um objeto "modifications" usando APENAS os nomes de elementos listados acima.`
-          const singleRes = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: FILL_SYSTEM_PROMPT },
-                { role: 'user', content: singlePrompt },
-              ],
-              response_format: { type: 'json_object' },
-              max_tokens: 2500,
-            }),
-            signal: AbortSignal.timeout(45000),
-          })
-          if (!singleRes.ok) {
-            const body = await singleRes.text()
-            failedBeforeRender.push(makeFailedPieceRender(piece, index, `OpenAI fill individual ${singleRes.status}: ${body.slice(0, 180)}`))
-            continue
-          }
-          const singleData = await singleRes.json()
-          const raw = typeof singleData?.choices?.[0]?.message?.content === 'string'
-            ? singleData.choices[0].message.content
-            : ''
-          const parsed = JSON.parse(raw)
-          const selection = Array.isArray(parsed?.selecoes)
-            ? parsed.selecoes.find((item: { template_id?: string }) => item?.template_id === piece.template_id)
-            : null
-          if (!selection?.modifications || typeof selection.modifications !== 'object') {
-            failedBeforeRender.push(makeFailedPieceRender(piece, index, 'OpenAI fill individual nao retornou modifications para esta peca.'))
-            continue
-          }
-          fallbackSelecoes.push({ template_id: piece.template_id, modifications: selection.modifications })
-        } catch (fallbackError) {
+        const singleRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: FILL_SYSTEM_PROMPT },
+              { role: 'user', content: singlePrompt },
+            ],
+            response_format: { type: 'json_object' },
+            max_tokens: 2500,
+          }),
+          signal: AbortSignal.timeout(45000),
+        })
+        if (!singleRes.ok) {
+          const body = await singleRes.text()
           failedBeforeRender.push(makeFailedPieceRender(
             piece,
             index,
-            fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+            `OpenAI fill individual ${singleRes.status}: ${body.slice(0, 180)}`,
+            'openai_fill',
+            singleRes.status === 429 ? 'rate_limited' : 'openai_fill_failed',
           ))
+          return null
         }
+        const singleData = await singleRes.json()
+        const raw = typeof singleData?.choices?.[0]?.message?.content === 'string'
+          ? singleData.choices[0].message.content
+          : ''
+        const parsed = JSON.parse(raw)
+        const selection = Array.isArray(parsed?.selecoes)
+          ? parsed.selecoes.find((item: { template_id?: string }) => item?.template_id === piece.template_id)
+          : null
+        if (!selection?.modifications || typeof selection.modifications !== 'object') {
+          failedBeforeRender.push(makeFailedPieceRender(
+            piece,
+            index,
+            'OpenAI fill individual nao retornou modifications para esta peca.',
+            'openai_fill',
+            'openai_fill_failed',
+          ))
+          return null
+        }
+        return { template_id: piece.template_id, modifications: selection.modifications }
+      } catch (fallbackError) {
+        failedBeforeRender.push(makeFailedPieceRender(
+          piece,
+          index,
+          fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          'openai_fill',
+          'openai_fill_failed',
+        ))
+        return null
+      }
+    }
+    try {
+      const fillData = await fillRes.json()
+      const choice = fillData?.choices?.[0]
+      fillRaw = typeof choice?.message?.content === 'string' ? choice.message.content : ''
+      console.log(`[${reqId}] fill debug response:`, {
+        finish_reason: choice?.finish_reason,
+        raw_chars: fillRaw.length,
+      })
+      plano = JSON.parse(fillRaw)
+    } catch (e) {
+      console.error(`[${reqId}] fill parse:`, {
+        erro: e instanceof Error ? e.message : String(e),
+        templates: fillTemplateDebug,
+        raw_chars: fillRaw.length,
+      })
+      const fallbackSelecoes: Array<{ template_id: string; modifications?: Record<string, unknown> }> = []
+      for (let index = 0; index < pickedPieces.length; index++) {
+        const piece = pickedPieces[index]
+        const fallbackSelection = await gerarFillIndividual(piece, index)
+        if (fallbackSelection) fallbackSelecoes.push(fallbackSelection)
       }
       if (fallbackSelecoes.length === 0) {
         return jsonResponse({
@@ -1715,11 +1759,45 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       plano = { selecoes: fallbackSelecoes }
     }
 
+    const selecoesAtuais = Array.isArray(plano.selecoes) ? plano.selecoes : []
+    const templateIdsComFill = new Set(
+      selecoesAtuais
+        .filter((selection) => selection?.template_id && selection.modifications && typeof selection.modifications === 'object')
+        .map((selection) => selection.template_id),
+    )
+    const missingTemplateIds = uniquePickedIds.filter((id) => {
+      const hasElements = schemasComElementos.some((schema) => schema.id === id)
+      return hasElements && !templateIdsComFill.has(id)
+    })
+    if (missingTemplateIds.length > 0) {
+      console.warn(`[${reqId}] fill em lote retornou parcial; completando individualmente`, {
+        requested_templates: uniquePickedIds.length,
+        returned_templates: templateIdsComFill.size,
+        missing_templates: missingTemplateIds.length,
+      })
+      for (const templateId of missingTemplateIds) {
+        const index = pickedPieces.findIndex((piece) => piece.template_id === templateId)
+        if (index < 0) continue
+        const fallbackSelection = await gerarFillIndividual(pickedPieces[index], index)
+        if (fallbackSelection) {
+          selecoesAtuais.push(fallbackSelection)
+          templateIdsComFill.add(fallbackSelection.template_id)
+        }
+      }
+      plano = { selecoes: selecoesAtuais }
+    }
+
     const aprovadas = (Array.isArray(plano.selecoes) ? plano.selecoes : [])
       .filter((s) => s.template_id && validIds.has(s.template_id))
 
     if (aprovadas.length === 0) {
-      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(piece, index, 'IA (fill) nao produziu modifications para nenhum template.'))
+      const renders = pickedPieces.map((piece, index) => makeFailedPieceRender(
+        piece,
+        index,
+        'IA (fill) nao produziu modifications para nenhum template.',
+        'openai_fill',
+        'openai_fill_failed',
+      ))
       return jsonResponse({
         success: true,
         warning: 'As pecas visuais falharam antes da criacao do render.',
@@ -1865,7 +1943,13 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     const pecasAprovadas = pickedPieces.map((piece, index) => {
       const modifications = modificationsByTemplate.get(piece.template_id)
       if (!modifications || Object.keys(modifications).length === 0) {
-        failedBeforeRender.push(makeFailedPieceRender(piece, index, 'Nenhuma modification valida sobrou para esta peca.'))
+        failedBeforeRender.push(makeFailedPieceRender(
+          piece,
+          index,
+          'Nenhuma modification valida sobrou para esta peca.',
+          'modifications_build',
+          'modifications_build_failed',
+        ))
         return null
       }
       return {
@@ -1961,6 +2045,10 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
               message.toLowerCase().includes('insuficient')
                 ? 'Créditos insuficientes para esta peça.'
                 : 'Não foi possível reservar créditos para esta peça.',
+              'credit_reservation',
+              message.toLowerCase().includes('insuficient')
+                ? 'insufficient_credits'
+                : 'credit_reservation_failed',
             ),
             credit_status: 'cancelled',
           })
@@ -1971,7 +2059,13 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         if (reservation?.status === 'cancelled') {
           blockedPieceIds.add(sel.piece_id)
           failedBeforeRender.push({
-            ...makeFailedPieceRender(sel, index, 'Reserva de créditos cancelada para esta peça.'),
+            ...makeFailedPieceRender(
+              sel,
+              index,
+              'Reserva de créditos cancelada para esta peça.',
+              'credit_reservation',
+              'credit_reservation_failed',
+            ),
             credit_status: 'cancelled',
           })
           continue
@@ -2046,6 +2140,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             formato: meta.formato,
             status: 'failed',
             erro: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
+            error_stage: 'creatomate_render',
+            error_code: createRes.status === 429 ? 'rate_limited' : 'creatomate_render_failed',
+            error_message: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
             ...pieceCredit,
             credit_status: reservation?.status || pieceCredit.credit_status,
           })
@@ -2073,6 +2170,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             formato: meta.formato,
             status: 'failed',
             erro: 'Creatomate retornou resposta vazia para esta peca.',
+            error_stage: 'creatomate_render',
+            error_code: 'creatomate_render_failed',
+            error_message: 'Creatomate retornou resposta vazia para esta peca.',
             ...pieceCredit,
             credit_status: reservation?.status || pieceCredit.credit_status,
           })
@@ -2098,6 +2198,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
               formato: meta.formato,
               status: 'failed',
               erro: 'Creatomate nao retornou render_id para esta peca.',
+              error_stage: 'creatomate_render',
+              error_code: 'creatomate_render_failed',
+              error_message: 'Creatomate nao retornou render_id para esta peca.',
               ...pieceCredit,
               credit_status: reservation?.status || pieceCredit.credit_status,
             })
@@ -2142,6 +2245,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           formato: meta.formato,
           status: 'failed',
           erro: err instanceof Error ? err.message : String(err),
+          error_stage: 'creatomate_render',
+          error_code: err instanceof Error && err.name === 'TimeoutError' ? 'timeout' : 'creatomate_render_failed',
+          error_message: err instanceof Error ? err.message : String(err),
           ...pieceCredit,
           credit_status: reservation?.status || pieceCredit.credit_status,
         })
