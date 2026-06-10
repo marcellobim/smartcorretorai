@@ -194,10 +194,16 @@ const formatCountLabel = (count: number, singular: string, plural = `${singular}
 }
 
 const CANONICAL_TEMPLATE_FIELDS = [
+  'headline_main',
   'property_tag',
   'sale_badge',
   'property_location_type',
   'property_features',
+  'features_title',
+  'feature_01',
+  'feature_02',
+  'feature_03',
+  'property_description',
   'property_price',
   'cta_text',
   'broker_whatsapp',
@@ -234,10 +240,16 @@ const normalizeElementLabel = (value: string): string => (
 )
 
 const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
+  headline_main: ['headline', 'main_headline', 'title', 'titulo', 'property_title'],
   property_tag: ['tag', 'badge', 'highlight', 'property_badge', 'property_highlight'],
   sale_badge: ['sale_tag', 'sale_label', 'listing_type', 'offer_type', 'transaction_type'],
   property_location_type: ['property_location', 'location', 'address', 'bairro', 'neighborhood', 'city_type'],
   property_features: ['features', 'property_specs', 'property_details', 'specs', 'dorms_suites_vagas'],
+  features_title: ['feature_title', 'features_heading', 'diferenciais_title', 'titulo_diferenciais'],
+  feature_01: ['feature_1', 'feature_one', 'diferencial_01', 'diferencial_1'],
+  feature_02: ['feature_2', 'feature_two', 'diferencial_02', 'diferencial_2'],
+  feature_03: ['feature_3', 'feature_three', 'diferencial_03', 'diferencial_3'],
+  property_description: ['description', 'descricao', 'property_text', 'property_copy', 'body_text'],
   property_price: ['price', 'preco', 'valor', 'property_value', 'property_amount'],
   cta_text: ['cta', 'cta_button', 'call_to_action', 'button_text', 'action_text'],
   broker_whatsapp: ['agent_phone', 'broker_phone', 'phone', 'telephone', 'telefone', 'whatsapp', 'contact_phone'],
@@ -1105,17 +1117,26 @@ function buildCanonicalTemplateData(input: {
   const bairro = resolveBairro(input.dadosImovel, input.endereco)
   const tipo = String(input.tipoImovel || input.dadosImovel.tipo || '').trim()
   const propertyLocationType = [bairro, tipo].filter(Boolean).join(', ') || tipo || bairro
+  const headlineMain = normalizeSpaces(input.titulo) || [tipo, propertyLocationType].filter(Boolean).join(' em ') || 'Imóvel em destaque'
+  const propertyDescription = normalizeSpaces(input.descricao).slice(0, 140)
+  const featureItems = [input.quartosLabel, input.suitesLabel, input.vagasLabel, input.areaLabel].filter(Boolean)
   const propertyFeatures =
-    [input.quartosLabel, input.suitesLabel, input.vagasLabel].filter(Boolean).join(' • ')
+    featureItems.slice(0, 3).join(' • ')
     || input.areaLabel
     || ''
   const contact = input.corretorWhatsApp || input.corretorTelefone
 
   return {
+    headline_main: headlineMain,
     property_tag: resolvePropertyTag(input.categoria, input.dadosImovel, input.titulo, input.descricao),
     sale_badge: resolveSaleBadge(input.finalidade, input.titulo, input.descricao),
     property_location_type: propertyLocationType,
     property_features: propertyFeatures,
+    features_title: featureItems.length > 0 ? 'Diferenciais' : '',
+    feature_01: featureItems[0] || '',
+    feature_02: featureItems[1] || '',
+    feature_03: featureItems[2] || '',
+    property_description: propertyDescription,
     property_price: formatPriceBRL(input.preco),
     cta_text: contact ? 'Agende sua visita' : 'Solicite informações',
     broker_whatsapp: contact,
@@ -1922,6 +1943,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       const elementos = elementosPorTemplate.get(sel.template_id)
       const canonical = canonicalByTemplate.get(sel.template_id)
       const mods: Record<string, unknown> = canonical ? { ...canonical.modifications } : {}
+      const canonicalModificationKeys = new Set(Object.keys(mods))
       const fallbackFields = new Set<string>()
       if (elementos && sel.modifications && typeof sel.modifications === 'object') {
         for (const [k, v] of Object.entries(sel.modifications)) {
@@ -1939,6 +1961,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
 
           const keyBase = elem.id || elem.name
           const finalKey = `${keyBase}.${prop}`
+          if (canonicalModificationKeys.has(finalKey)) continue
           fallbackFields.add(label)
 
           // .track: booleano, válido para qualquer tipo de elemento.
