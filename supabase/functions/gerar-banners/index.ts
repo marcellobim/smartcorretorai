@@ -1010,6 +1010,55 @@ function normalizeSearchText(...values: unknown[]): string {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+function normalizeSpaces(value: unknown): string {
+  return String(value ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function capitalizePtWord(word: string): string {
+  if (!word) return ''
+  return word.charAt(0).toLocaleUpperCase('pt-BR') + word.slice(1).toLocaleLowerCase('pt-BR')
+}
+
+function normalizeBairro(value: unknown): string {
+  const connectors = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+  return normalizeSpaces(value)
+    .split(' ')
+    .filter(Boolean)
+    .map((word, index) => {
+      const lower = word.toLocaleLowerCase('pt-BR')
+      return index > 0 && connectors.has(lower) ? lower : capitalizePtWord(lower)
+    })
+    .join(' ')
+}
+
+function normalizeShortFreeText(value: unknown, maxLength = 120): string {
+  const cleaned = normalizeSpaces(value).slice(0, maxLength)
+  return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
+}
+
+function normalizeMasterPropertyInput(dados: Record<string, unknown>): Record<string, unknown> {
+  const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
+    ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
+    : []
+  const destaquePersonalizado = normalizeShortFreeText(dados.destaque_personalizado, 120)
+  const diferenciais = Array.isArray(dados.diferenciais)
+    ? dados.diferenciais.map((item) => normalizeShortFreeText(item, 120)).filter(Boolean)
+    : []
+  const mergedDestaques = Array.from(new Set([
+    ...destaquesSelecionados,
+    ...(destaquePersonalizado ? [destaquePersonalizado] : []),
+    ...diferenciais,
+  ])).slice(0, 8)
+
+  return {
+    ...dados,
+    bairro: normalizeBairro(dados.bairro),
+    destaques_selecionados: destaquesSelecionados,
+    destaque_personalizado: destaquePersonalizado || null,
+    diferenciais: mergedDestaques,
+  }
+}
+
 function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unknown>, titulo: unknown, descricao: unknown): string {
   const search = normalizeSearchText(categoria, dadosImovel.categoria, dadosImovel.padrao, titulo, descricao)
   if (/lancamento|lançamento/.test(search)) return 'Lançamento'
@@ -1027,10 +1076,10 @@ function resolveSaleBadge(finalidade: unknown, titulo: unknown, descricao: unkno
 }
 
 function resolveBairro(dadosImovel: Record<string, unknown>, endereco: unknown): string {
-  const bairro = String(dadosImovel.bairro ?? '').trim()
+  const bairro = normalizeBairro(dadosImovel.bairro)
   if (bairro) return bairro
   if (typeof endereco === 'string' && endereco.trim()) {
-    return endereco.split(',')[0]?.trim() || ''
+    return normalizeBairro(endereco.split(',')[0]) || ''
   }
   return ''
 }
@@ -1332,7 +1381,13 @@ serve(async (req) => {
       profileRow = (data as ProfileRow) || null
     }
 
-    const dadosImovel = (campaignRow?.dados_imovel as Record<string, unknown>) || {}
+    const payloadDadosImovel = payload.dados_imovel && typeof payload.dados_imovel === 'object'
+      ? payload.dados_imovel as Record<string, unknown>
+      : {}
+    const dadosImovel = normalizeMasterPropertyInput({
+      ...payloadDadosImovel,
+      ...((campaignRow?.dados_imovel as Record<string, unknown>) || {}),
+    })
     const categoria = String(dadosImovel.categoria || tipo_imovel || 'medio_padrao')
     const precoFinal = formatPriceBRL(preco ?? dadosImovel.preco)
     const suitesCount = toPositiveCount(suites ?? dadosImovel.suites)

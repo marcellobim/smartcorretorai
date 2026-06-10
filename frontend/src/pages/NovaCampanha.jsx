@@ -31,6 +31,97 @@ const ESTADOS_BR = [
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
+const MAX_DESTAQUES_MESTRE = 20
+const MAX_DESTAQUES_PRODUTO_3 = 8
+
+const DESTAQUE_CATEGORIES = [
+  {
+    title: 'Localização e conveniência',
+    items: [
+      'Próximo ao metrô',
+      'Próximo ao trem',
+      'Próximo ao shopping',
+      'Próximo a escolas',
+      'Próximo a universidades',
+      'Próximo a hospitais',
+      'Próximo a mercados',
+      'Fácil acesso às principais vias',
+      'Bairro valorizado',
+      'Região em crescimento',
+      'Vista livre',
+    ],
+  },
+  {
+    title: 'Condomínio e lazer',
+    items: [
+      'Lazer completo',
+      'Piscina',
+      'Academia',
+      'Salão de festas',
+      'Espaço gourmet',
+      'Churrasqueira',
+      'Coworking',
+      'Pet place',
+      'Playground',
+      'Brinquedoteca',
+      'Quadra esportiva',
+      'Quadra de tênis ou beach tennis',
+      'Bicicletário',
+      'Portaria 24h',
+      'Segurança 24h',
+      'Lounge',
+      'Mini mercado',
+      'Lavanderia',
+      'Piscina aquecida ou climatizada',
+      'Conveniência',
+      'Áreas verdes',
+      'Rooftop',
+      'Espaço delivery',
+      'Locker para encomendas',
+      'Espaço wellness',
+      'Spa ou sauna',
+    ],
+  },
+  {
+    title: 'Serviços e facilidades',
+    items: [
+      'Serviços tipo hotelaria',
+      'Manobrista',
+      'Ponto de carregamento para carros elétricos',
+      'Depósito privativo por unidade',
+      'Vagas demarcadas',
+    ],
+  },
+  {
+    title: 'Características do imóvel',
+    items: [
+      'Varanda',
+      'Varanda gourmet',
+      'Suíte',
+      'Closet',
+      'Planta inteligente',
+      'Ambientes integrados',
+      'Cozinha americana',
+      'Acabamento premium',
+      'Iluminação natural',
+      'Vista panorâmica',
+    ],
+  },
+  {
+    title: 'Condição comercial simples',
+    items: [
+      'Aceita financiamento',
+      'Usa FGTS',
+      'Entrada facilitada',
+      'Subsídio do governo',
+      'Documentação em ordem',
+      'Últimas unidades',
+      'Condições especiais',
+      'Alto potencial de valorização',
+    ],
+  },
+]
+
 const PRODUCT_CONTEXTS = {
   hero: {
     label: 'Hero IA',
@@ -617,6 +708,26 @@ const readFunctionErrorBody = async (error) => {
 const normalizePrecoPayload = (value) => {
   const normalized = String(value ?? '').trim()
   return normalized || 'Consulte'
+}
+const normalizeSpaces = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
+const capitalizePtWord = (word) => {
+  if (!word) return ''
+  return word.charAt(0).toLocaleUpperCase('pt-BR') + word.slice(1).toLocaleLowerCase('pt-BR')
+}
+const normalizeBairro = (value) => {
+  const connectors = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+  return normalizeSpaces(value)
+    .split(' ')
+    .filter(Boolean)
+    .map((word, index) => {
+      const lower = word.toLocaleLowerCase('pt-BR')
+      return index > 0 && connectors.has(lower) ? lower : capitalizePtWord(lower)
+    })
+    .join(' ')
+}
+const normalizeShortFreeText = (value, maxLength = 120) => {
+  const cleaned = normalizeSpaces(value).slice(0, maxLength)
+  return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
 }
 const formatQuantityLabel = (value, singular, plural = `${singular}s`) => {
   const count = Number(value) || 0
@@ -2025,13 +2136,76 @@ export default function NovaCampanha() {
   const removerVideo = () => setVideoArquivo(null)
 
   const precoParaPayload = normalizePrecoPayload(preco)
-  const dadosImovelValidos = tipo && bairro.trim() && cidade.trim() && estado
+  const bairroNormalizado = normalizeBairro(bairro)
+  const destaquePersonalizado = normalizeShortFreeText(difCustom, 120)
+  const destaquesSelecionados = diferenciais.map(item => normalizeShortFreeText(item, 80)).filter(Boolean)
+  const todosDestaques = [
+    ...destaquesSelecionados,
+    ...(destaquePersonalizado ? [destaquePersonalizado] : []),
+  ]
+  const destaquesProduto3 = todosDestaques.slice(0, MAX_DESTAQUES_PRODUTO_3)
+  const dadosImovelValidos = tipo && bairroNormalizado && cidade.trim() && estado
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
   const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
   const quartosParaPayload = isLandProperty ? 0 : quartos
   const suitesParaPayload = isLandProperty ? 0 : suites
   const vagasParaPayload = isLandProperty ? 0 : vagas
   const podaGerar = categoria && dadosImovelValidos
+
+  const toggleDestaque = (item) => {
+    setDiferenciais(current => {
+      if (current.includes(item)) return current.filter(value => value !== item)
+      if (current.length >= MAX_DESTAQUES_MESTRE) {
+        toast.error(`Selecione até ${MAX_DESTAQUES_MESTRE} destaques no cadastro mestre.`)
+        return current
+      }
+      return [...current, item]
+    })
+  }
+
+  const buildMasterPropertyV1 = (fotosUrls = []) => ({
+    schema_version: 'master_property_v1',
+    retention_days: 15,
+    reusable_until_strategy: 'created_at_plus_15_days',
+    produto_origem: produtoParam || 'campanha_completa',
+    subproduto_origem: subprodutoParam || null,
+    finalidade,
+    tipo,
+    estado,
+    cidade,
+    bairro: bairroNormalizado,
+    situacao: categoria === 'lancamento'
+      ? 'lançamento'
+      : categoria === 'em_construcao'
+        ? 'em construção'
+        : 'pronto',
+    padrao: categoria === 'popular_mcmv'
+      ? 'popular'
+      : categoria === 'alto_padrao'
+        ? 'alto padrão'
+        : 'médio',
+    preco: precoParaPayload,
+    area: area || null,
+    dormitorios: quartosParaPayload,
+    quartos: quartosParaPayload,
+    suites: suitesParaPayload,
+    vagas: vagasParaPayload,
+    fotos_imovel: fotosUrls,
+    destaques_selecionados: destaquesSelecionados,
+    destaque_personalizado: destaquePersonalizado || null,
+    destaques: todosDestaques,
+    destaques_produto_3: destaquesProduto3,
+    corretor_publico: {
+      whatsapp: profileWhatsapp || null,
+    },
+    requisitos_por_produto: {
+      banners_rapidos: { exige: ['dados_basicos', 'fotos', 'destaques'], faltantes: [] },
+      hero_ia: { exige: ['dados_basicos', 'foto_principal', 'estilo_visual'], faltantes: ['estilo_visual'] },
+      transformar_video: { exige: ['dados_basicos', 'video'], faltantes: ['video'] },
+      campanha_ia: { exige: ['dados_basicos', 'fotos', 'objetivo'], faltantes: [] },
+      landing_page: { exige: ['dados_basicos', 'lead_config_automatica'], faltantes: [] },
+    },
+  })
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
@@ -2081,10 +2255,7 @@ export default function NovaCampanha() {
     setGenerationNotice('')
 
     try {
-      const todosDisferenciais = [
-        ...diferenciais,
-        ...(difCustom.trim() ? [difCustom.trim()] : []),
-      ]
+      const todosDisferenciais = destaquesProduto3
 
       // Autenticação — APENAS via AuthContext. Zero chamadas a
       // supabase.auth.getSession()/refreshSession() (eles davam timeout).
@@ -2167,9 +2338,9 @@ export default function NovaCampanha() {
       }
       // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
       // Inputs derivados do formulário para o gerar-banners (não dependem do AI ainda)
-      const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
+      const enderecoCompleto = [bairroNormalizado, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
-      const tituloPreliminar = `${tipo || 'Imóvel'} ${quartosParaPayload ? quartosParaPayload + 'q ' : ''}em ${bairro || cidade || ''}`.trim()
+      const tituloPreliminar = `${tipo || 'Imóvel'} ${quartosParaPayload ? quartosParaPayload + 'q ' : ''}em ${bairroNormalizado || cidade || ''}`.trim()
       const descricaoPreliminar = [
         campaignObjectiveLabel ? `Objetivo da campanha: ${campaignObjectiveLabel}` : '',
         `${tipo || 'Imóvel'} ${categoria ? '(' + categoria + ')' : ''}`,
@@ -2191,7 +2362,7 @@ export default function NovaCampanha() {
       ].filter(Boolean).join(', ')
       const descricaoComercial = [
         headlineComercial,
-        `${tipo || 'Imóvel'} em ${bairro || cidade || 'destaque'}`,
+        `${tipo || 'Imóvel'} em ${bairroNormalizado || cidade || 'destaque'}`,
         especificacoesPrincipais,
         enderecoCompleto,
         todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
@@ -2203,6 +2374,7 @@ export default function NovaCampanha() {
       // fotos_urls vai EM ORDEM — a primeira é a principal do imóvel, demais são secundárias.
       const fotosOrdenadas = fotos_urls.slice(0, 10)
       const fotoPrincipal = fotosOrdenadas[0] || null
+      const masterPropertyV1 = buildMasterPropertyV1(fotosOrdenadas)
 
       setGerandoBanners(true)
       setRenders(null)
@@ -2229,6 +2401,7 @@ export default function NovaCampanha() {
               area: area || null,
               endereco: enderecoCompleto,
               tipo_imovel: tipo,
+              dados_imovel: masterPropertyV1,
               corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
               corretor_avatar_url: corretorAvatarUrl,
               marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
@@ -2246,8 +2419,11 @@ export default function NovaCampanha() {
             tipo,
             dados: {
               finalidade, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
-              area: area || null, preco: precoParaPayload, bairro, cidade, estado,
+              area: area || null, preco: precoParaPayload, bairro: bairroNormalizado, cidade, estado,
               diferenciais: todosDisferenciais,
+              destaques_selecionados: destaquesSelecionados,
+              destaque_personalizado: destaquePersonalizado || null,
+              master_property_v1: masterPropertyV1,
               telefone_contato: profileWhatsapp,
               formatos_selecionados: selectedModelUses,
               selectedTemplates,
@@ -2304,6 +2480,7 @@ export default function NovaCampanha() {
         titulo: campaignRow?.titulo || generatedTexts.titulo_campanha || tituloComercial || 'Campanha gerada',
         textos_gerados: generatedTexts,
         dados_imovel: campaignRow?.dados_imovel || {
+          ...masterPropertyV1,
           tipo,
           categoria,
           fotos_urls: fotosOrdenadas,
@@ -2621,8 +2798,9 @@ export default function NovaCampanha() {
       const fotosOrdenadas = (Array.isArray(fotosBrutas) ? fotosBrutas : []).slice(0, 10)
       const fotoPrincipal = fotosOrdenadas[0] || null
 
-      const enderecoCompleto = [bairro, cidade].filter(Boolean).join(', ')
+      const enderecoCompleto = [bairroNormalizado, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
+      const masterPropertyV1 = buildMasterPropertyV1(fotosOrdenadas)
 
       const descricaoCurta = resultado?.textos_gerados?.descricao_portal
         || resultado?.textos_gerados?.post_instagram
@@ -2651,6 +2829,7 @@ export default function NovaCampanha() {
           area: area || null,
           endereco: enderecoCompleto,
           tipo_imovel: tipo,
+          dados_imovel: masterPropertyV1,
           corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
           corretor_avatar_url: corretorAvatarUrl,
           marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
@@ -3035,7 +3214,7 @@ export default function NovaCampanha() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Bairro <span className="text-red-400">*</span></label>
-            <input value={bairro} onChange={e => setBairro(e.target.value)} placeholder="Ex: Moema, Jardins, Copacabana"
+            <input value={bairro} onChange={e => setBairro(e.target.value)} onBlur={() => setBairro(normalizeBairro(bairro))} placeholder="Ex: Moema, Jardins, Copacabana"
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
           </div>
         </div>
@@ -3054,31 +3233,69 @@ export default function NovaCampanha() {
         </div>
 
         <div>
-          <div className="flex items-start justify-between gap-4 mb-2">
+          <div className="flex items-start justify-between gap-4 mb-3">
             <div>
-              <label htmlFor="destaques-imovel-novo" className="block text-sm font-bold text-gray-900">
-                ✨ O que você deseja destacar neste imóvel?
+              <label className="block text-sm font-bold text-gray-900">
+                Destaques do imóvel
               </label>
               <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                Descreva livremente os diferenciais, localização, acabamento, lazer ou qualquer ponto forte. A IA irá organizar e melhorar o texto automaticamente.
+                Selecione os principais diferenciais do imóvel. Para banners, usaremos apenas os mais relevantes.
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-bold text-primary-700">
-              IA organiza
+            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
+              {diferenciais.length}/{MAX_DESTAQUES_MESTRE}
             </span>
           </div>
-          <textarea
-            id="destaques-imovel-novo"
-            value={difCustom}
-            onChange={e => setDifCustom(e.target.value)}
-            maxLength={500}
-            rows={5}
-            placeholder="Exemplo: apartamento reformado, vista livre, varanda gourmet, próximo ao metrô, acabamento premium, lazer completo e excelente iluminação natural."
-            className="w-full resize-y rounded-xl border border-gray-200 px-3 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-          />
-          <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-400">
-            <span>Escreva do seu jeito. A IA cuida da apresentação.</span>
-            <span className={difCustom.length >= 450 ? 'font-bold text-amber-600' : ''}>{difCustom.length}/500</span>
+
+          <div className="space-y-3">
+            {DESTAQUE_CATEGORIES.map(category => (
+              <div key={category.title} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                <p className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">{category.title}</p>
+                <div className="flex flex-wrap gap-2">
+                  {category.items.map(item => {
+                    const active = diferenciais.includes(item)
+                    const disabled = !active && diferenciais.length >= MAX_DESTAQUES_MESTRE
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => toggleDestaque(item)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                          active
+                            ? 'border-gray-900 bg-gray-900 text-white shadow-sm'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                        } ${disabled ? 'cursor-not-allowed opacity-45' : ''}`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="destaque-personalizado" className="block text-sm font-bold text-gray-900">
+              Destaque personalizado
+            </label>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">
+              Opcional — até 120 caracteres.
+            </p>
+            <input
+              id="destaque-personalizado"
+              value={difCustom}
+              onChange={e => setDifCustom(e.target.value.slice(0, 120))}
+              onBlur={() => setDifCustom(normalizeShortFreeText(difCustom, 120))}
+              maxLength={120}
+              placeholder="Ex: sol da manhã, prédio recém-entregue, rua tranquila"
+              className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+            />
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+              <span>Não substitui os destaques selecionados.</span>
+              <span className={difCustom.length >= 110 ? 'font-bold text-amber-600' : ''}>{difCustom.length}/120</span>
+            </div>
           </div>
         </div>
       </div>

@@ -156,6 +156,55 @@ function buildWhatsappFallback(dados: Record<string, unknown>, tipo: unknown) {
   return `Olá, tudo bem? Tenho um ${tipoImovel} ${acao}${detalhes ? ` ${detalhes}` : ''}. Posso te enviar mais detalhes ou agendar uma visita?`
 }
 
+function normalizeSpaces(value: unknown) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function capitalizePtWord(word: string) {
+  if (!word) return ''
+  return word.charAt(0).toLocaleUpperCase('pt-BR') + word.slice(1).toLocaleLowerCase('pt-BR')
+}
+
+function normalizeBairro(value: unknown) {
+  const connectors = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+  return normalizeSpaces(value)
+    .split(' ')
+    .filter(Boolean)
+    .map((word, index) => {
+      const lower = word.toLocaleLowerCase('pt-BR')
+      return index > 0 && connectors.has(lower) ? lower : capitalizePtWord(lower)
+    })
+    .join(' ')
+}
+
+function normalizeShortFreeText(value: unknown, maxLength = 120) {
+  const cleaned = normalizeSpaces(value).slice(0, maxLength)
+  return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
+}
+
+function normalizeMasterPropertyInput(dados: Record<string, unknown>) {
+  const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
+    ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
+    : []
+  const destaquePersonalizado = normalizeShortFreeText(dados.destaque_personalizado, 120)
+  const diferenciais = Array.isArray(dados.diferenciais)
+    ? dados.diferenciais.map((item) => normalizeShortFreeText(item, 120)).filter(Boolean)
+    : []
+  const mergedDestaques = Array.from(new Set([
+    ...destaquesSelecionados,
+    ...(destaquePersonalizado ? [destaquePersonalizado] : []),
+    ...diferenciais,
+  ])).slice(0, 8)
+
+  return {
+    ...dados,
+    bairro: normalizeBairro(dados.bairro),
+    destaques_selecionados: destaquesSelecionados,
+    destaque_personalizado: destaquePersonalizado || null,
+    diferenciais: mergedDestaques,
+  }
+}
+
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
 
@@ -212,7 +261,7 @@ serve(async (req) => {
     console.log(`[${reqId}] gerar-campanha autenticada | tipo=${tipo} categoria=${categoria}`)
 
     // === Chamada DIRETA à OpenAI (fetch nativo, single shot, 45s) ====
-    const dadosObj = (dados as Record<string, unknown> | null) || {}
+    const dadosObj = normalizeMasterPropertyInput((dados as Record<string, unknown> | null) || {})
     const diferenciaisRaw = Array.isArray(dadosObj.diferenciais)
       ? (dadosObj.diferenciais as unknown[])
       : []
@@ -302,7 +351,7 @@ serve(async (req) => {
           tipo,
           categoria,
           fotos_urls: (fotos_urls as string[]) || [],
-          ...(dados as object || {}),
+          ...dadosObj,
         },
         redes_sociais: (redes_sociais as string[]) || [],
         textos_gerados,
