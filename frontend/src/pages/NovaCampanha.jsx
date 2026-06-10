@@ -495,6 +495,8 @@ const CAMPAIGN_MODEL_LIBRARY = CAMPAIGN_MODEL_LIBRARY_BASE.filter(model => (
     previewStatus: preview.previewStatus || (preview.previewAssetUrl || preview.previewUrl ? 'ready' : 'missing'),
     previewFormat: preview.previewFormat || null,
     previewTemplateId: preview.previewTemplateId || null,
+    previewTitle: preview.previewTitle || model.name,
+    previewDescription: preview.previewDescription || model.description,
     previewLabel: preview.previewLabel || 'Ver',
     previewAlt: preview.previewAlt || `Preview do modelo ${model.name}`,
   }
@@ -3440,7 +3442,10 @@ export default function NovaCampanha() {
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-amber-600">Preview do modelo</p>
-                <h3 className="mt-1 text-lg font-black text-gray-950">{activePreviewModel.name}</h3>
+                <h3 className="mt-1 text-lg font-black text-gray-950">{activePreviewModel.previewTitle || activePreviewModel.name}</h3>
+                {activePreviewModel.previewDescription && (
+                  <p className="mt-1 text-sm font-semibold text-gray-500">{activePreviewModel.previewDescription}</p>
+                )}
               </div>
               <button
                 type="button"
@@ -3461,7 +3466,7 @@ export default function NovaCampanha() {
                     className="mx-auto aspect-video max-h-[70vh] w-full rounded-2xl bg-white object-contain"
                   />
                 </div>
-              ) : activePreviewModel.previewType === 'video/mp4' && activePreviewModel.previewUrl && !previewVideoFailed ? (
+              ) : (activePreviewModel.previewType === 'video' || activePreviewModel.previewType === 'video/mp4') && activePreviewModel.previewStatus === 'ready' && activePreviewModel.previewUrl && !previewVideoFailed ? (
                 <video
                   key={activePreviewModel.previewUrl}
                   src={activePreviewModel.previewUrl}
