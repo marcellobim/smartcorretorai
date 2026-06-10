@@ -1103,9 +1103,9 @@ export const TEMPLATE_CATALOG = [
 
 export const TEMPLATE_MODEL_PREVIEWS = {
   anuncio_premium: {
-    previewAssetUrl: '/previews/produto3/anuncio-premium-preview-16x9.webp',
+    previewAssetUrl: '/previews/produto3/anuncio-premium-preview-16x9.jpg',
     previewType: 'image',
-    previewStatus: 'missing',
+    previewStatus: 'ready',
     previewLabel: 'Ver',
     previewFormat: 'horizontal',
     previewTemplateId: '662883d7-1dba-4e61-a2a2-81fd9293ab15',
