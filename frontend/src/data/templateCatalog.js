@@ -1103,10 +1103,11 @@ export const TEMPLATE_CATALOG = [
 
 export const TEMPLATE_MODEL_PREVIEWS = {
   anuncio_premium: {
-    previewUrl: '/previews/modelos-produto3/anuncio-premium.mp4',
-    previewType: 'video/mp4',
+    previewAssetUrl: '/previews/produto3/anuncio-premium-preview-16x9.webp',
+    previewType: 'image',
+    previewStatus: 'missing',
     previewLabel: 'Ver',
-    previewFormat: 'square',
+    previewFormat: 'horizontal',
     previewTemplateId: '662883d7-1dba-4e61-a2a2-81fd9293ab15',
     posterUrl: '/previews/modelos-produto3/anuncio-premium.svg',
     previewAlt: 'Preview do modelo Anuncio Premium',

@@ -377,7 +377,7 @@ Traducao obrigatória de frases fixas em inglês (regra global, sem exceções):
   - "NY" (estado isolado) -> estado do imóvel (UF brasileiro) ou ''
   - "Please join us for an Open House" -> "Agende sua visita" (ou '' se não houver contexto)
   - "Open House" -> "Visitação"
-  - "FOR SALE" / "FOR RENT" -> "À Venda" / "Para Alugar"
+  - "FOR SALE" / "FOR RENT" -> "À Venda"
   - "JUST LISTED" -> "Recém-Anunciado"
   - "CONTACT US" / "CALL TODAY" -> respeite a regra de CTA (apenas "Saiba Mais" / "Me Ligue" / "Descrição abaixo")
 - Qualquer outro texto fixo em inglês americano (endereços tipo "123 Main St", ZIP codes, "MLS#", "BR/BA", etc.) deve ser traduzido para o contexto brasileiro ou retornar string vazia.
@@ -520,8 +520,8 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'See full listing in description': 'Veja o anúncio completo na descrição',
   'Home For Sale': 'Imóvel à Venda',
   'House For Sale': 'Casa à Venda',
-  'House For Rent': 'Casa para Alugar',
-  'Home For Rent': 'Imóvel para Alugar',
+  'House For Rent': 'Casa à Venda',
+  'Home For Rent': 'Imóvel à Venda',
   'Price Starts At': 'A partir de',
   'Starts At': 'A partir de',
   'Great Features': 'Diferenciais',
@@ -530,8 +530,8 @@ const EN_PT_DICTIONARY: Record<string, string> = {
 
   // Status / labels do anúncio
   'For Sale': 'À Venda',
-  'For Rent': 'Para Alugar',
-  'For Lease': 'Para Alugar',
+  'For Rent': 'À Venda',
+  'For Lease': 'À Venda',
   'On Sale': 'À Venda',
   'New Listing': 'Novo Imóvel',
   'Just Listed': 'Recém-Anunciado',
@@ -543,7 +543,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Price Reduced': 'Preço Reduzido',
   'Reduced Price': 'Preço Reduzido',
   'Sold': 'Vendido',
-  'Rented': 'Alugado',
+  'Rented': 'À Venda',
   'Pending': 'Reservado',
   'Featured Listing': 'Imóvel em Destaque',
   'Featured Property': 'Imóvel em Destaque',
@@ -585,7 +585,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Apply Now': 'Inscreva-se',
   'Get Started': 'Comece Agora',
   'Buy Now': 'Compre Agora',
-  'Rent Now': 'Alugue Agora',
+  'Rent Now': 'Saiba Mais',
   'Reserve Now': 'Reserve Agora',
   'Browse Listings': 'Veja os Imóveis',
   'See All Listings': 'Veja Todos os Imóveis',
@@ -629,7 +629,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   // Labels de campo
   'Asking Price': 'Preço Pedido',
   'Listing Price': 'Preço Anunciado',
-  'Monthly Rent': 'Aluguel Mensal',
+  'Monthly Rent': 'Valor',
   'Price': 'Preço',
   'Address': 'Endereço',
   'Location': 'Localização',
@@ -801,7 +801,7 @@ const FIXED_ENGLISH_PHRASES: FixedPhraseRule[] = [
   { pattern: /\bJUST\s+LISTED\b/gi,    resolve: () => 'Recém-Anunciado' },
   // Finalidade
   { pattern: /\bFOR\s+SALE\b/gi, resolve: () => 'À Venda' },
-  { pattern: /\bFOR\s+RENT\b/gi, resolve: () => 'Para Alugar' },
+  { pattern: /\bFOR\s+RENT\b/gi, resolve: () => 'À Venda' },
   // Eventos
   { pattern: /\bOpen\s+House\b/gi, resolve: () => 'Visitação' },
   // Cidade isolada
@@ -1028,6 +1028,12 @@ function stripCampaignLabelsFromVisualText(value: string): string {
     .replace(/\bAirbnb\s*\/\s*Temporada\b/gi, '')
     .replace(/\bComercial\b/gi, '')
     .replace(/\bLançamento\b/gi, '')
+    .replace(/\bPara\s+Locação\b/gi, '')
+    .replace(/\bLocação\b/gi, '')
+    .replace(/\bPara\s+Aluguel\b/gi, '')
+    .replace(/\bAluguel\b/gi, '')
+    .replace(/\bTemporada\b/gi, '')
+    .replace(/\bAirbnb\b/gi, '')
     .replace(/^[\s.:-]+|[\s.:-]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
@@ -1118,6 +1124,8 @@ function normalizeMasterPropertyInput(dados: Record<string, unknown>): Record<st
 
   return {
     ...dados,
+    finalidade: 'venda',
+    negocio: 'venda',
     bairro: normalizeBairro(dados.bairro),
     destaques_selecionados: destaquesSelecionados,
     destaque_personalizado: destaquePersonalizado || null,
@@ -1136,14 +1144,10 @@ function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unkno
 }
 
 function resolveSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
-  const search = normalizeSearchText(finalidade, titulo, descricao)
-  if (/locacao|locação|aluguel|alugar|rent/.test(search)) return 'Para Locação'
   return 'À Venda'
 }
 
 function resolveAnuncioPremiumSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
-  const search = normalizeSearchText(finalidade, titulo, descricao)
-  if (/locacao|locação|aluguel|alugar|rent|temporada/.test(search)) return 'Locação'
   return 'À Venda'
 }
 

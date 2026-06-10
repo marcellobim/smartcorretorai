@@ -31,6 +31,9 @@ const ESTADOS_BR = [
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
+const MVP_FINALIDADE = 'venda'
+const MVP_FINALIDADE_LABEL = 'Venda'
+
 const MAX_DESTAQUES_MESTRE = 20
 const MAX_DESTAQUES_PRODUTO_3 = 8
 
@@ -487,8 +490,9 @@ const CAMPAIGN_MODEL_LIBRARY = CAMPAIGN_MODEL_LIBRARY_BASE.filter(model => (
   return {
     ...model,
     posterUrl: preview.posterUrl || model.previewUrl || null,
-    previewUrl: preview.previewUrl || model.previewUrl || null,
+    previewUrl: preview.previewAssetUrl || preview.previewUrl || model.previewUrl || null,
     previewType: preview.previewType || 'image/svg+xml',
+    previewStatus: preview.previewStatus || (preview.previewAssetUrl || preview.previewUrl ? 'ready' : 'missing'),
     previewFormat: preview.previewFormat || null,
     previewTemplateId: preview.previewTemplateId || null,
     previewLabel: preview.previewLabel || 'Ver',
@@ -835,6 +839,7 @@ const SMART_CAMPAIGNS = [
   },
   {
     id: 'airbnb_temporada',
+    hidden: true,
     title: 'Airbnb / Temporada',
     description: 'Campanha focada em experiência, lazer e reservas.',
     benefits: ['Valoriza ambientes e lifestyle', 'Boa para imóveis mobiliados', 'Ideal para diária e temporada'],
@@ -1004,7 +1009,6 @@ const OFFICIAL_SUGGESTED_PROFILE_IDS = [
   'luxo_premium',
   'lancamento',
   'mcmv',
-  'airbnb_temporada',
 ]
 
 const OFFICIAL_SUGGESTED_CAMPAIGNS = [
@@ -1804,7 +1808,7 @@ export default function NovaCampanha() {
 
   const [categoria, setCategoria] = useState(null)
   const [tipo, setTipo] = useState('')
-  const [finalidade, setFinalidade] = useState('Venda')
+  const [finalidade, setFinalidade] = useState(MVP_FINALIDADE)
   const [quartos, setQuartos] = useState(2)
   const [banheiros, setBanheiros] = useState(1)
   const [suites, setSuites] = useState(0)
@@ -2169,7 +2173,7 @@ export default function NovaCampanha() {
     reusable_until_strategy: 'created_at_plus_15_days',
     produto_origem: produtoParam || 'campanha_completa',
     subproduto_origem: subprodutoParam || null,
-    finalidade,
+    finalidade: MVP_FINALIDADE,
     tipo,
     estado,
     cidade,
@@ -2208,7 +2212,7 @@ export default function NovaCampanha() {
   })
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
-    setFase('form'); setCategoria(null); setTipo(''); setFinalidade('Venda')
+    setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE)
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
@@ -2352,8 +2356,8 @@ export default function NovaCampanha() {
 
       // Foto do corretor: se o perfil não tem avatar cadastrado, força REMOVER_ELEMENTO
       // (assim o template não renderiza a mulher fictícia padrão).
-      const tituloComercial = `${tipo || 'Imóvel'} ${finalidade === 'Venda' ? 'à Venda' : finalidade ? `para ${finalidade}` : 'em destaque'}`.trim()
-      const headlineComercial = campaignObjectiveLabel || tituloComercial || `${tipo || 'Imóvel'} em destaque`
+      const tituloComercial = `${tipo || 'Imóvel'} à Venda`.trim()
+      const headlineComercial = tituloComercial || `${tipo || 'Imóvel'} em destaque`
       const especificacoesPrincipais = [
         formatQuantityLabel(quartosParaPayload, 'Dormitório'),
         suitesParaPayload > 0 ? formatQuantityLabel(suitesParaPayload, 'Suíte') : '',
@@ -2395,6 +2399,7 @@ export default function NovaCampanha() {
               titulo: tituloComercial,
               descricao: descricaoComercial,
               preco: precoParaPayload,
+              finalidade: MVP_FINALIDADE,
               suites: suitesParaPayload,
               quartos: quartosParaPayload,
               vagas: vagasParaPayload,
@@ -2418,7 +2423,7 @@ export default function NovaCampanha() {
             categoria,
             tipo,
             dados: {
-              finalidade, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
+              finalidade: MVP_FINALIDADE, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
               area: area || null, preco: precoParaPayload, bairro: bairroNormalizado, cidade, estado,
               diferenciais: todosDisferenciais,
               destaques_selecionados: destaquesSelecionados,
@@ -2429,7 +2434,7 @@ export default function NovaCampanha() {
               selectedTemplates,
               selected_templates: selectedTemplates,
               pieces: selectedTemplates,
-              objetivo_campanha: campaignObjectiveLabel || null,
+              objetivo_campanha: null,
             },
             fotos_urls: fotosOrdenadas,
             foto_principal: fotoPrincipal,
@@ -2823,6 +2828,7 @@ export default function NovaCampanha() {
           titulo: resultado?.titulo || resultado?.textos_gerados?.titulo_campanha || '',
           descricao: descricaoCurta,
           preco: precoParaPayload,
+          finalidade: MVP_FINALIDADE,
           suites: suitesParaPayload,
           quartos: quartosParaPayload,
           vagas: vagasParaPayload,
@@ -3170,14 +3176,9 @@ export default function NovaCampanha() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Finalidade <span className="text-red-400">*</span></label>
-          <div className="flex gap-2">
-            {['Venda', 'Aluguel', 'Temporada'].map(f => (
-              <button key={f} type="button" onClick={() => setFinalidade(f)}
-                className={`px-5 py-2 rounded-xl text-sm font-semibold border transition-all ${finalidade === f ? 'gradient-primary text-white border-transparent shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                {f}
-              </button>
-            ))}
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Finalidade</label>
+          <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-800">
+            {MVP_FINALIDADE_LABEL}
           </div>
         </div>
 
@@ -3452,7 +3453,15 @@ export default function NovaCampanha() {
             </div>
 
             <div className="bg-gray-950 p-4">
-              {activePreviewModel.previewType === 'video/mp4' && activePreviewModel.previewUrl && !previewVideoFailed ? (
+              {activePreviewModel.previewType === 'image' && activePreviewModel.previewStatus === 'ready' && activePreviewModel.previewUrl ? (
+                <div className="mx-auto max-w-2xl">
+                  <img
+                    src={activePreviewModel.previewUrl}
+                    alt={activePreviewModel.previewAlt}
+                    className="mx-auto aspect-video max-h-[70vh] w-full rounded-2xl bg-white object-contain"
+                  />
+                </div>
+              ) : activePreviewModel.previewType === 'video/mp4' && activePreviewModel.previewUrl && !previewVideoFailed ? (
                 <video
                   key={activePreviewModel.previewUrl}
                   src={activePreviewModel.previewUrl}
@@ -3473,12 +3482,12 @@ export default function NovaCampanha() {
                     className="mx-auto aspect-square max-h-[70vh] w-full max-w-[70vh] rounded-2xl bg-white object-contain"
                   />
                   <p className="mt-3 text-center text-xs font-semibold text-gray-300">
-                    Preview em vídeo em preparação.
+                    Preview em preparação. Este modelo já está disponível para geração.
                   </p>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-12 text-center text-sm font-semibold text-gray-200">
-                  Preview em vídeo em preparação.
+                  Preview em preparação. Este modelo já está disponível para geração.
                 </div>
               )}
             </div>

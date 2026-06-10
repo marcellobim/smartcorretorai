@@ -5,8 +5,6 @@ import { Button } from '../ui/Button'
 
 const finalidadeVariant = {
   Venda: 'success',
-  Locação: 'primary',
-  Temporada: 'warning',
 }
 
 export function PropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) {
@@ -26,8 +24,8 @@ export function PropertyCard({ property, onEdit, onDelete, onGenerateCampaign })
           </div>
         )}
         <div className="absolute top-3 left-3">
-          <Badge variant={finalidadeVariant[property.finalidade] || 'default'}>
-            {property.finalidade}
+          <Badge variant={finalidadeVariant.Venda}>
+            Venda
           </Badge>
         </div>
       </div>
@@ -41,7 +39,6 @@ export function PropertyCard({ property, onEdit, onDelete, onGenerateCampaign })
 
         <p className="text-xl font-bold text-primary-600 mt-3">
           {formatCurrency(property.preco)}
-          {property.finalidade !== 'Venda' && <span className="text-sm font-normal text-gray-400">/mês</span>}
         </p>
 
         <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">

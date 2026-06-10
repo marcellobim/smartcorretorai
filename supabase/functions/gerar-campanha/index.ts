@@ -40,7 +40,7 @@ REGRAS PARA HASHTAGS:
 - Prefira hashtags sem acentos e sem cedilha: use #ImoveisSP, #SaoPauloImoveis, #ApartamentoAVenda.
 - Não use palavras estranhas, traduções ruins ou termos inexistentes como #AparelhoImobiliario.
 - Não use Premium, Luxo, AltoPadrao ou similares se a categoria/perfil não for luxo, alto padrão ou premium.
-- Considere tipo do imóvel, finalidade, cidade, bairro, mercado imobiliário e diferenciais informados.
+- Considere tipo do imóvel, finalidade de venda, cidade, bairro, mercado imobiliário e diferenciais informados.
 - Evite hashtags genéricas demais e não invente condições como financiamento, metrô ou vista se não estiverem nos dados.
 - Não misture hashtags em descricao_portal, mensagem_whatsapp, script_video_reels ou post_instagram.
 - Nunca invente CRECI, telefone, e-mail ou dados do corretor. Se não forem informados, omita.
@@ -57,7 +57,7 @@ REGRAS DE VERACIDADE:
 - Médio Padrão: linguagem clara, comercial e direta.
 - Alto Padrão/Luxo: linguagem mais sofisticada.
 - Minha Casa Minha Vida: foco em oportunidade, entrada, financiamento ou subsídio apenas se informado.
-- Temporada: foco em experiência e ocupação apenas quando fizer sentido pelos dados informados.`
+- MVP atual: sempre trate o imóvel como imóvel à venda. Não gere textos de aluguel, locação, temporada ou Airbnb.`
 
 function stripDiacritics(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -80,8 +80,6 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
   const cidade = String(dados.cidade || '').trim()
   const bairro = String(dados.bairro || '').trim()
   const tipoImovel = String(tipo || dados.tipo || 'Imovel').trim()
-  const finalidade = String(dados.finalidade || dados.negocio || 'venda').trim().toLowerCase()
-  const isRental = /loca|aluguel|alugar|temporada/.test(finalidade)
   const diferenciaisTexto = [
     dados.diferenciais,
     dados.descricao,
@@ -109,15 +107,15 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
   }
 
   const fallback = [
-    toHashtag(`${tipoImovel} ${isRental ? 'para alugar' : 'a venda'}`),
+    toHashtag(`${tipoImovel} a venda`),
     cidade ? toHashtag(`${tipoImovel} ${cidade}`) : '',
     cidade ? toHashtag(`Imoveis ${cidade}`) : '',
     bairro && cidade ? toHashtag(`${bairro} ${cidade}`) : '',
     bairro ? toHashtag(`Imoveis na ${bairro}`) : '',
-    toHashtag(`${isRental ? 'Aluguel de' : 'Venda de'} ${tipoImovel}`),
+    toHashtag(`Venda de ${tipoImovel}`),
     '#MercadoImobiliario',
     '#CorretorDeImoveis',
-    isRental ? '#ImovelParaAlugar' : '#ImovelAVenda',
+    '#ImovelAVenda',
     bairro ? toHashtag(`Morar na ${bairro}`) : '',
     cidade ? toHashtag(`${cidade} Imoveis`) : '',
     /financiamento|subs[ií]dio|entrada/.test(diferenciaisTexto) ? '#FinanciamentoImobiliario' : '',
@@ -146,8 +144,7 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
 
 function buildWhatsappFallback(dados: Record<string, unknown>, tipo: unknown) {
   const tipoImovel = String(tipo || dados.tipo || 'imóvel').toLowerCase()
-  const finalidade = String(dados.finalidade || dados.negocio || 'venda').toLowerCase()
-  const acao = /loca|aluguel|alugar|temporada/.test(finalidade) ? 'para alugar' : 'à venda'
+  const acao = 'à venda'
   const bairro = String(dados.bairro || '').trim()
   const area = dados.area ? `${dados.area}m²` : ''
   const quartos = dados.quartos ? `${dados.quartos} quarto${Number(dados.quartos) === 1 ? '' : 's'}` : ''
@@ -198,6 +195,8 @@ function normalizeMasterPropertyInput(dados: Record<string, unknown>) {
 
   return {
     ...dados,
+    finalidade: 'venda',
+    negocio: 'venda',
     bairro: normalizeBairro(dados.bairro),
     destaques_selecionados: destaquesSelecionados,
     destaque_personalizado: destaquePersonalizado || null,

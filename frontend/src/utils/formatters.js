@@ -52,7 +52,7 @@ export const TIPOS_IMOVEL = [
   'Galpão',
 ]
 
-export const FINALIDADES = ['Venda', 'Locação', 'Temporada']
+export const FINALIDADES = ['Venda']
 
 export const REDES_SOCIAIS = [
   { id: 'instagram_feed', label: 'Instagram Feed', icon: '📸', formato: '1080x1080' },
