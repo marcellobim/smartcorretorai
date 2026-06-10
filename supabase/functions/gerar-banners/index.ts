@@ -122,6 +122,10 @@ const TEMPLATE_CREDIT_WEIGHTS = new Map<string, number>(
   ])
 )
 
+const isAnuncioPremiumTemplate = (templateId: string): boolean => (
+  TEMPLATES.find((template) => template.id === templateId)?.nome.startsWith('Anuncio Premium') || false
+)
+
 const SMART_CAMPAIGN_FIXED_CREDIT_COST = 185
 const SMART_CAMPAIGN_BASE_TEMPLATE_IDS = new Set<string>([
   '662883d7-1dba-4e61-a2a2-81fd9293ab15',
@@ -204,6 +208,7 @@ const CANONICAL_TEMPLATE_FIELDS = [
   'feature_02',
   'feature_03',
   'property_description',
+  'price_label',
   'property_price',
   'cta_text',
   'broker_whatsapp',
@@ -250,6 +255,7 @@ const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
   feature_02: ['feature_2', 'feature_two', 'diferencial_02', 'diferencial_2'],
   feature_03: ['feature_3', 'feature_three', 'diferencial_03', 'diferencial_3'],
   property_description: ['description', 'descricao', 'property_text', 'property_copy', 'body_text'],
+  price_label: ['price_title', 'preco_label', 'valor_label', 'label_preco'],
   property_price: ['price', 'preco', 'valor', 'property_value', 'property_amount'],
   cta_text: ['cta', 'cta_button', 'call_to_action', 'button_text', 'action_text'],
   broker_whatsapp: ['agent_phone', 'broker_phone', 'phone', 'telephone', 'telefone', 'whatsapp', 'contact_phone'],
@@ -1014,6 +1020,54 @@ function buildCanonicalModifications(
   return { modifications, sentFields, missingFields }
 }
 
+function stripCampaignLabelsFromVisualText(value: string): string {
+  return value
+    .replace(/\bVenda\s+Rápida\b/gi, '')
+    .replace(/\bLuxo\s+Premium\b/gi, '')
+    .replace(/\bMinha\s+Casa\s+Minha\s+Vida\b/gi, '')
+    .replace(/\bAirbnb\s*\/\s*Temporada\b/gi, '')
+    .replace(/\bComercial\b/gi, '')
+    .replace(/\bLançamento\b/gi, '')
+    .replace(/^[\s.:-]+|[\s.:-]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+function setCanonicalTextModification(
+  elementos: Map<string, ElementInfo> | undefined,
+  mods: Record<string, unknown>,
+  field: CanonicalTemplateField,
+  value: string
+) {
+  if (!elementos) return
+  const match = findCanonicalElement(elementos, field)
+  if (!match || match.elem.type !== 'text') return
+  const keyBase = match.elem.id || match.elem.name
+  mods[`${keyBase}.text`] = value
+}
+
+function applyAnuncioPremiumVisualRules(
+  elementos: Map<string, ElementInfo> | undefined,
+  mods: Record<string, unknown>,
+  templateData: CanonicalTemplateData,
+  saleBadge: string
+) {
+  for (const [key, value] of Object.entries(mods)) {
+    if (!key.endsWith('.text') || typeof value !== 'string') continue
+    mods[key] = stripCampaignLabelsFromVisualText(value)
+  }
+
+  setCanonicalTextModification(elementos, mods, 'headline_main', 'Oportunidade')
+  setCanonicalTextModification(elementos, mods, 'sale_badge', saleBadge)
+  setCanonicalTextModification(elementos, mods, 'property_description', 'Saiba mais')
+  setCanonicalTextModification(elementos, mods, 'price_label', 'Valor')
+  setCanonicalTextModification(elementos, mods, 'property_price', normalizeAnuncioPremiumPrice(templateData.property_price))
+  setCanonicalTextModification(elementos, mods, 'features_title', 'Diferenciais')
+  setCanonicalTextModification(elementos, mods, 'feature_01', templateData.feature_01)
+  setCanonicalTextModification(elementos, mods, 'feature_02', templateData.feature_02)
+  setCanonicalTextModification(elementos, mods, 'feature_03', templateData.feature_03)
+}
+
 function normalizeSearchText(...values: unknown[]): string {
   return values
     .map((value) => String(value ?? '').toLowerCase())
@@ -1087,6 +1141,20 @@ function resolveSaleBadge(finalidade: unknown, titulo: unknown, descricao: unkno
   return 'À Venda'
 }
 
+function resolveAnuncioPremiumSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
+  const search = normalizeSearchText(finalidade, titulo, descricao)
+  if (/locacao|locação|aluguel|alugar|rent|temporada/.test(search)) return 'Locação'
+  return 'À Venda'
+}
+
+function normalizeAnuncioPremiumPrice(value: string): string {
+  const normalized = normalizeSpaces(value)
+  if (!normalized || /^consulte$/i.test(normalized) || /^consulte\s+o\s+valor$/i.test(normalized)) {
+    return 'Consulte o valor'
+  }
+  return normalized
+}
+
 function resolveBairro(dadosImovel: Record<string, unknown>, endereco: unknown): string {
   const bairro = normalizeBairro(dadosImovel.bairro)
   if (bairro) return bairro
@@ -1119,7 +1187,11 @@ function buildCanonicalTemplateData(input: {
   const propertyLocationType = [bairro, tipo].filter(Boolean).join(', ') || tipo || bairro
   const headlineMain = normalizeSpaces(input.titulo) || [tipo, propertyLocationType].filter(Boolean).join(' em ') || 'Imóvel em destaque'
   const propertyDescription = normalizeSpaces(input.descricao).slice(0, 140)
-  const featureItems = [input.quartosLabel, input.suitesLabel, input.vagasLabel, input.areaLabel].filter(Boolean)
+  const featureItems = Array.from(new Set(
+    [input.quartosLabel, input.suitesLabel, input.vagasLabel, input.areaLabel]
+      .map((item) => normalizeSpaces(item))
+      .filter(Boolean)
+  ))
   const propertyFeatures =
     featureItems.slice(0, 3).join(' • ')
     || input.areaLabel
@@ -1137,6 +1209,7 @@ function buildCanonicalTemplateData(input: {
     feature_02: featureItems[1] || '',
     feature_03: featureItems[2] || '',
     property_description: propertyDescription,
+    price_label: 'Valor',
     property_price: formatPriceBRL(input.preco),
     cta_text: contact ? 'Agende sua visita' : 'Solicite informações',
     broker_whatsapp: contact,
@@ -2015,6 +2088,14 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             mods[finalKey] = v
           }
         }
+      }
+      if (isAnuncioPremiumTemplate(sel.template_id)) {
+        applyAnuncioPremiumVisualRules(
+          elementos,
+          mods,
+          templateData,
+          resolveAnuncioPremiumSaleBadge(finalidade ?? dadosImovel.finalidade, titulo, descricao)
+        )
       }
       console.log(`[${reqId}] campos enviados ao Creatomate`, {
         template_id: sel.template_id,
