@@ -36,6 +36,9 @@ const MVP_FINALIDADE_LABEL = 'Venda'
 
 const MAX_DESTAQUES_MESTRE = 20
 const MAX_DESTAQUES_PRODUTO_3 = 8
+const MIN_FOTOS_PRODUTO_3 = 3
+const MAX_FOTOS_PRODUTO_3 = 5
+const MAX_FOTOS_OUTROS_PRODUTOS = 10
 
 const DESTAQUE_CATEGORIES = [
   {
@@ -180,7 +183,7 @@ const PRODUCT_CONTEXTS = {
     uploadEyebrow: 'Fotos do imóvel',
     uploadTitle: 'Envie as fotos',
     photosSubtitle: 'As imagens serão usadas para personalizar os banners.',
-    uploadHelp: 'Fotos obrigatórias para gerar banners.',
+    uploadHelp: 'Envie de 3 a 5 fotos do imóvel para gerar banners mais leves e estáveis.',
     photoRequired: true,
     videoRequired: false,
     allowOptionalPhotos: true,
@@ -487,10 +490,12 @@ const CAMPAIGN_MODEL_LIBRARY = CAMPAIGN_MODEL_LIBRARY_BASE.filter(model => (
   MVP_ACTIVE_MODEL_IDS.has(model.id)
 )).map(model => {
   const preview = TEMPLATE_MODEL_PREVIEWS[model.id] || {}
+  const previewSource = preview.previewAssetUrl || preview.previewUrl || model.previewUrl || null
   return {
     ...model,
-    posterUrl: preview.posterUrl || model.previewUrl || null,
-    previewUrl: preview.previewAssetUrl || preview.previewUrl || model.previewUrl || null,
+    posterUrl: preview.posterUrl || null,
+    previewAssetUrl: previewSource,
+    previewUrl: previewSource,
     previewType: preview.previewType || 'image/svg+xml',
     previewStatus: preview.previewStatus || (preview.previewAssetUrl || preview.previewUrl ? 'ready' : 'missing'),
     previewFormat: preview.previewFormat || null,
@@ -511,6 +516,73 @@ const CAMPAIGN_MODEL_BY_TEMPLATE_ID = Object.fromEntries(
     Object.values(model.useTemplates || {}).map(templateId => [templateId, model])
   ))
 )
+
+function PreviewMedia({ model, variant = 'card', controls = false }) {
+  const [failed, setFailed] = useState(false)
+  const source = model.previewAssetUrl || model.previewUrl
+  const ready = model.previewStatus === 'ready' && source && !failed
+  const previewType = model.previewType || ''
+  const isImage = previewType === 'image' || previewType.startsWith('image/')
+  const isVideo = previewType === 'video' || previewType.startsWith('video/')
+  const isModal = variant === 'modal'
+  const wrapperClassName = isModal
+    ? 'mx-auto w-full max-w-[70vh]'
+    : 'mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm'
+  const mediaClassName = isModal
+    ? 'mx-auto aspect-square max-h-[70vh] w-full rounded-2xl bg-black object-contain'
+    : 'aspect-square w-full object-cover'
+  const fallbackClassName = isModal
+    ? 'flex aspect-square w-full flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 text-center text-sm font-semibold text-gray-200'
+    : 'flex aspect-square w-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 text-center'
+
+  return (
+    <div
+      className={wrapperClassName}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {ready && isImage ? (
+        <img
+          src={source}
+          alt={model.previewAlt}
+          className={mediaClassName}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : ready && isVideo ? (
+        <video
+          key={source}
+          src={source}
+          poster={model.posterUrl || undefined}
+          className={mediaClassName}
+          controls={controls}
+          muted
+          loop
+          playsInline
+          autoPlay={!controls}
+          preload="metadata"
+          aria-label={model.previewAlt}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className={fallbackClassName}>
+          {!isModal && (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-amber-800">
+              Preview
+            </span>
+          )}
+          {!isModal && <p className="mt-3 text-sm font-black text-gray-900">{model.name}</p>}
+          <p className={`mt-1 text-xs font-semibold ${isModal ? 'text-gray-200' : 'text-gray-500'}`}>
+            Preview em preparação. Este modelo já está disponível para geração.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CampaignModelPreview({ model }) {
+  return <PreviewMedia model={model} variant="card" />
+}
 
 const normalizeModelUses = (modelUses = {}) => {
   const normalized = {}
@@ -1846,16 +1918,13 @@ export default function NovaCampanha() {
   const [generationNotice, setGenerationNotice] = useState('')
   const renderPollRef = useRef(null)
   const [activePreviewModel, setActivePreviewModel] = useState(null)
-  const [previewVideoFailed, setPreviewVideoFailed] = useState(false)
 
   const closePreviewModal = useCallback(() => {
     setActivePreviewModel(null)
-    setPreviewVideoFailed(false)
   }, [])
 
   const openPreviewModal = useCallback((model, event) => {
     event?.stopPropagation?.()
-    setPreviewVideoFailed(false)
     setActivePreviewModel(model)
   }, [])
 
@@ -1981,6 +2050,8 @@ export default function NovaCampanha() {
   const generationModeForCredits = isDemoPlan ? 'demonstrativo' : 'manual'
   const generationCreditCost = isDemoPlan ? 0 : (isSmartCampaignSelection ? SMART_CAMPAIGN_FIXED_CREDIT_COST : estimatedCreditConsumption)
   const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
+  const minFotosImovel = isProductEntry ? (productContext.photoRequired ? 1 : 0) : MIN_FOTOS_PRODUTO_3
+  const maxFotosImovel = isProductEntry ? MAX_FOTOS_OUTROS_PRODUTOS : MAX_FOTOS_PRODUTO_3
   const activeWizardStep = WIZARD_STEPS[wizardStep] || WIZARD_STEPS[0]
   const wizardProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100
   const goToPreviousWizardStep = () => setWizardStep(step => Math.max(0, step - 1))
@@ -2117,12 +2188,21 @@ export default function NovaCampanha() {
   }, [estado])
 
   const handleFotos = async (files) => {
-    const novos = Array.from(files).slice(0, 10 - fotos.length)
+    const disponiveis = Math.max(maxFotosImovel - fotos.length, 0)
+    if (disponiveis <= 0) {
+      toast.error(`Você pode enviar até ${maxFotosImovel} fotos do imóvel.`)
+      return
+    }
+    const recebidas = Array.from(files || [])
+    const novos = recebidas.slice(0, disponiveis)
+    if (recebidas.length > disponiveis) {
+      toast.error(`Para este produto, use no máximo ${maxFotosImovel} fotos do imóvel.`)
+    }
     const processadas = await Promise.all(novos.map(async f => ({
       preview: URL.createObjectURL(f),
       ...(await resizeFoto(f)),
     })))
-    setFotos(prev => [...prev, ...processadas].slice(0, 10))
+    setFotos(prev => [...prev, ...processadas].slice(0, maxFotosImovel))
   }
 
   const removerFoto = (idx) => setFotos(prev => prev.filter((_, i) => i !== idx))
@@ -2234,6 +2314,11 @@ export default function NovaCampanha() {
       return
     }
     if (!dadosImovelValidos) { toast.error('Preencha os campos obrigatórios'); return }
+    if (!isProductEntry && fotos.length < MIN_FOTOS_PRODUTO_3) {
+      toast.error(`Envie de ${MIN_FOTOS_PRODUTO_3} a ${MAX_FOTOS_PRODUTO_3} fotos do imóvel antes de gerar.`)
+      setProductFlowStep('photos')
+      return
+    }
     if (!categoria) setCategoria('medio_padrao')
     if (isDemoPlan && demoUsed) {
       toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
@@ -2286,6 +2371,12 @@ export default function NovaCampanha() {
         setFase('form')
         return
       }
+      if (!isProductEntry && fotos.length < MIN_FOTOS_PRODUTO_3) {
+        toast.error(`Envie de ${MIN_FOTOS_PRODUTO_3} a ${MAX_FOTOS_PRODUTO_3} fotos do imóvel para gerar os banners.`)
+        setFase('form')
+        setProductFlowStep('photos')
+        return
+      }
 
       // ── Upload das fotos: sequencial, timeout 120s por tentativa, retry 1x ──
       // Cada foto tem até 2 tentativas; se ambas falharem/expirarem, segue sem ela.
@@ -2299,8 +2390,9 @@ export default function NovaCampanha() {
         ])
 
       const fotos_urls = []
-      for (let i = 0; i < fotos.length; i++) {
-        const f = fotos[i]
+      const fotosParaUpload = fotos.slice(0, maxFotosImovel)
+      for (let i = 0; i < fotosParaUpload.length; i++) {
+        const f = fotosParaUpload[i]
         const bin = Uint8Array.from(atob(f.dados), (c) => c.charCodeAt(0))
         const blob = new Blob([bin], { type: f.tipo })
         const path = `${userId}/campaigns/${Date.now()}_${i}.jpg`
@@ -2378,7 +2470,7 @@ export default function NovaCampanha() {
       const corretorAvatarUrl = avatarPerfil ? avatarPerfil : 'REMOVER_ELEMENTO'
 
       // fotos_urls vai EM ORDEM — a primeira é a principal do imóvel, demais são secundárias.
-      const fotosOrdenadas = fotos_urls.slice(0, 10)
+      const fotosOrdenadas = fotos_urls.slice(0, maxFotosImovel)
       const fotoPrincipal = fotosOrdenadas[0] || null
       const masterPropertyV1 = buildMasterPropertyV1(fotosOrdenadas)
 
@@ -2802,7 +2894,7 @@ export default function NovaCampanha() {
       const fotosBrutas = resultado?.dados_imovel?.fotos_urls
         || resultado?.fotos_urls
         || []
-      const fotosOrdenadas = (Array.isArray(fotosBrutas) ? fotosBrutas : []).slice(0, 10)
+      const fotosOrdenadas = (Array.isArray(fotosBrutas) ? fotosBrutas : []).slice(0, maxFotosImovel)
       const fotoPrincipal = fotosOrdenadas[0] || null
 
       const enderecoCompleto = [bairroNormalizado, cidade].filter(Boolean).join(', ')
@@ -3052,8 +3144,10 @@ export default function NovaCampanha() {
       setProductFlowStep('photos')
     }
     const continueFromUploads = () => {
-      if (productContext.photoRequired && fotos.length === 0) {
-        toast.error(isProductEntry ? 'Envie ao menos uma foto para continuar.' : 'Envie ao menos uma foto do imóvel.')
+      if (productContext.photoRequired && fotos.length < minFotosImovel) {
+        toast.error(isProductEntry
+          ? 'Envie ao menos uma foto para continuar.'
+          : `Envie de ${MIN_FOTOS_PRODUTO_3} a ${MAX_FOTOS_PRODUTO_3} fotos do imóvel para continuar.`)
         return
       }
       if (productContext.videoRequired && !videoArquivo) {
@@ -3312,9 +3406,14 @@ export default function NovaCampanha() {
         <div>
           <div className="flex items-center justify-between gap-3 mb-2">
             <h2 className="text-base font-bold text-gray-900">Arquivos do imóvel</h2>
-            <span className="text-xs text-gray-400 font-medium">{fotos.length}/10 fotos</span>
+            <span className="text-xs text-gray-400 font-medium">{fotos.length}/{maxFotosImovel} fotos</span>
           </div>
           <p className="text-xs text-gray-500">{productContext.uploadHelp}</p>
+          {!isProductEntry && (
+            <p className="mt-1 text-xs font-semibold text-gray-600">
+              Envie de {MIN_FOTOS_PRODUTO_3} a {MAX_FOTOS_PRODUTO_3} fotos do imóvel. A primeira será usada como principal.
+            </p>
+          )}
         </div>
 
         {productContext.allowVideo && (
@@ -3400,7 +3499,7 @@ export default function NovaCampanha() {
               </div>
             )}
 
-            {fotos.length < 10 && (
+            {fotos.length < maxFotosImovel && (
               <div onClick={() => fileRef.current.click()} onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); handleFotos(e.dataTransfer.files) }}
                 className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-all">
@@ -3408,7 +3507,9 @@ export default function NovaCampanha() {
                   onChange={e => handleFotos(e.target.files)} />
                 <Camera className="w-7 h-7 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-gray-600">Clique ou arraste as fotos aqui</p>
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG · até 10 fotos · a primeira é a principal</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  JPG, PNG · {isProductEntry ? `até ${maxFotosImovel} fotos` : `${MIN_FOTOS_PRODUTO_3} a ${MAX_FOTOS_PRODUTO_3} fotos`} · a primeira é a principal
+                </p>
               </div>
             )}
           </div>
@@ -3458,43 +3559,7 @@ export default function NovaCampanha() {
             </div>
 
             <div className="bg-gray-950 p-4">
-              {activePreviewModel.previewType === 'image' && activePreviewModel.previewStatus === 'ready' && activePreviewModel.previewUrl ? (
-                <div className="mx-auto max-w-2xl">
-                  <img
-                    src={activePreviewModel.previewUrl}
-                    alt={activePreviewModel.previewAlt}
-                    className="mx-auto aspect-video max-h-[70vh] w-full rounded-2xl bg-white object-contain"
-                  />
-                </div>
-              ) : (activePreviewModel.previewType === 'video' || activePreviewModel.previewType === 'video/mp4') && activePreviewModel.previewStatus === 'ready' && activePreviewModel.previewUrl && !previewVideoFailed ? (
-                <video
-                  key={activePreviewModel.previewUrl}
-                  src={activePreviewModel.previewUrl}
-                  poster={activePreviewModel.posterUrl || undefined}
-                  controls
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  onError={() => setPreviewVideoFailed(true)}
-                  className="mx-auto aspect-square max-h-[70vh] w-full max-w-[70vh] rounded-2xl bg-black object-contain"
-                />
-              ) : activePreviewModel.posterUrl ? (
-                <div className="mx-auto max-w-2xl">
-                  <img
-                    src={activePreviewModel.posterUrl}
-                    alt={activePreviewModel.previewAlt}
-                    className="mx-auto aspect-square max-h-[70vh] w-full max-w-[70vh] rounded-2xl bg-white object-contain"
-                  />
-                  <p className="mt-3 text-center text-xs font-semibold text-gray-300">
-                    Preview em preparação. Este modelo já está disponível para geração.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-12 text-center text-sm font-semibold text-gray-200">
-                  Preview em preparação. Este modelo já está disponível para geração.
-                </div>
-              )}
+              <PreviewMedia model={activePreviewModel} variant="modal" controls />
             </div>
           </div>
         </div>
@@ -3769,14 +3834,7 @@ export default function NovaCampanha() {
                               : 'border-gray-200 bg-white hover:border-primary-200 hover:shadow-sm'
                           }`}>
                           <div className="text-left">
-                            <div className="mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
-                              <img
-                                src={model.posterUrl || model.previewUrl}
-                                alt={model.previewAlt}
-                                className="aspect-square w-full object-cover"
-                                loading="lazy"
-                              />
-                            </div>
+                            <CampaignModelPreview model={model} />
 
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
