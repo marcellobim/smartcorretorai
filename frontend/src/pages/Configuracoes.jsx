@@ -1,7 +1,22 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { User, Lock, Bell, CreditCard, Share2, CheckCircle2, AlertCircle, Loader2, Upload, X } from 'lucide-react'
+import {
+  AlertCircle,
+  BadgeCheck,
+  Bell,
+  Briefcase,
+  CheckCircle2,
+  CreditCard,
+  Image,
+  Lock,
+  Palette,
+  Share2,
+  ShieldCheck,
+  Upload,
+  User,
+  X,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import { Input, Select } from '../components/ui/Input'
@@ -9,205 +24,186 @@ import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 
-// ── Uploader de imagem de perfil (avatar ou logo) ─────────────────────────────
-function ImageUploader({ label, value, onChange, shape = 'circle', placeholderIcon = '👤', optional = false }) {
+const ESTADOS_BR = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
+
+const VISUAL_STYLES = [
+  'Profissional e direto',
+  'Premium e sofisticado',
+  'Moderno e vibrante',
+  'Minimalista',
+  'Popular e acolhedor',
+]
+
+const tabs = [
+  { id: 'perfil', label: 'Perfil e Marca', icon: User },
+  { id: 'senha', label: 'Conta e Senha', icon: Lock },
+  { id: 'redes', label: 'Redes Sociais', icon: Share2 },
+  { id: 'notificacoes', label: 'Notificações', icon: Bell },
+  { id: 'assinatura', label: 'Assinatura', icon: CreditCard },
+]
+
+function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(value || null)
-  const [uploading, setUploading] = useState(false)
 
-  useEffect(() => { setPreview(value || null) }, [value])
+  useEffect(() => {
+    setPreview(value || null)
+  }, [value])
 
   const handleFile = (file) => {
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Apenas imagens (jpg/png/webp)'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Imagem maior que 5MB'); return }
-    setUploading(true)
-    const objUrl = URL.createObjectURL(file)
-    setPreview(objUrl)
+    if (!file.type.startsWith('image/')) {
+      toast.error('Envie uma imagem em JPG, PNG ou WebP.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Envie uma imagem com até 5MB.')
+      return
+    }
+    setPreview(URL.createObjectURL(file))
     onChange(file)
-    // Libera o blob após o upload externo terminar (controlado pelo pai)
-    setTimeout(() => setUploading(false), 400)
   }
 
-  const limpar = (e) => {
-    e.stopPropagation()
+  const clear = (event) => {
+    event.stopPropagation()
     setPreview(null)
     onChange(null)
     if (inputRef.current) inputRef.current.value = ''
   }
 
-  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-xl'
+  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-2xl'
 
   return (
-    <div className="flex items-center gap-4">
-      <button type="button" onClick={() => inputRef.current?.click()}
-        className={`${shapeClass} w-20 h-20 border-2 border-dashed border-gray-300 hover:border-primary-400 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden relative shrink-0`}>
-        {preview ? (
-          <>
-            <img src={preview} alt={label} className="w-full h-full object-cover" />
-            <button type="button" onClick={limpar}
-              className="absolute top-0 right-0 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600">
-              <X className="w-3 h-3" />
-            </button>
-          </>
-        ) : (
-          <span className="text-2xl text-gray-400">{uploading ? '...' : placeholderIcon}</span>
-        )}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800">{label}</p>
-        {optional && <p className="text-xs text-gray-400">(opcional)</p>}
-        <p className="text-xs text-gray-500">PNG/JPG/WebP até 5MB</p>
-        <button type="button" onClick={() => inputRef.current?.click()}
-          className="mt-1 text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1">
-          <Upload className="w-3 h-3" /> {preview ? 'Trocar' : 'Enviar'}
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className={`${shapeClass} relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 transition hover:border-amber-300 hover:bg-amber-50/40`}
+        >
+          {preview ? (
+            <>
+              <img src={preview} alt={label} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={clear}
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-950/75 text-white"
+                aria-label={`Remover ${label}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <Image className="h-7 w-7" />
+          )}
         </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-gray-950">{label}</p>
+          {hint && <p className="mt-1 text-xs leading-relaxed text-gray-500">{hint}</p>}
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-amber-700 hover:text-amber-800"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {preview ? 'Trocar imagem' : 'Enviar imagem'}
+          </button>
+        </div>
       </div>
-      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp"
-        className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(event) => handleFile(event.target.files?.[0])}
+      />
     </div>
   )
 }
 
-const tabs = [
-  { id: 'perfil',      label: 'Perfil',          icon: User },
-  { id: 'senha',       label: 'Senha',            icon: Lock },
-  { id: 'redes',       label: 'Redes Sociais',    icon: Share2 },
-  { id: 'notificacoes',label: 'Notificações',     icon: Bell },
-  { id: 'assinatura',  label: 'Assinatura',       icon: CreditCard },
-]
-
-// ── Instagram Status Card ────────────────────────────────────────────────────
-function InstagramCard() {
-  const [status] = useState({ conectado: false, username: null })
-  const [conectando, setConectando] = useState(false)
-  const [desconectando] = useState(false)
-
-  const conectar = async () => {
-    setConectando(true)
-    toast('Conexão com Instagram chega em breve.', { icon: '🚧' })
-    setTimeout(() => setConectando(false), 600)
-  }
-
-  const desconectar = async () => {
-    toast('Em breve.', { icon: '🚧' })
-  }
-
+function StatusBadge({ complete }) {
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-4 p-5 bg-gradient-to-r from-pink-50 to-purple-50 border-b border-gray-100">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-2xl shadow-sm">
-          📸
-        </div>
-        <div className="flex-1">
-          <h3 className="font-bold text-gray-900">Instagram</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Conecte sua conta Comercial ou Criador para postar automaticamente
-          </p>
-        </div>
-        {status.conectado && (
-          <span className="flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Conectado
-          </span>
-        )}
-      </div>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${
+      complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+    }`}>
+      {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+      {complete ? 'Completo' : 'Incompleto'}
+    </span>
+  )
+}
 
-      {/* Body */}
-      <div className="p-5">
-        {status.conectado ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
-                {status.username?.charAt(0).toUpperCase() || 'IG'}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">@{status.username}</p>
-                {status.expira_em && (
-                  <p className="text-xs text-gray-400">
-                    Token válido até {new Date(status.expira_em).toLocaleDateString('pt-BR')}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2 p-3 bg-green-50 rounded-xl text-xs text-green-700">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Sua conta está conectada. Após gerar anúncios, você pode postar diretamente no Instagram com um clique.</span>
-            </div>
-
-            <button
-              onClick={desconectar}
-              disabled={desconectando}
-              className="text-sm text-red-500 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
-            >
-              {desconectando ? 'Desconectando...' : 'Desconectar Instagram'}
-            </button>
+function SectionCard({ icon: Icon, eyebrow, title, description, complete, children }) {
+  return (
+    <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-amber-300">
+            <Icon className="h-5 w-5" />
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl text-xs text-amber-700">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                Para postar automaticamente, sua conta do Instagram precisa ser do tipo <strong>Comercial</strong> ou <strong>Criador</strong> e estar vinculada a uma <strong>Página do Facebook</strong>.
-              </span>
-            </div>
-
-            <div className="space-y-2 text-xs text-gray-500">
-              <p className="font-semibold text-gray-700">Como funciona:</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>Clique em "Conectar Instagram" abaixo</li>
-                <li>Você será direcionado ao Facebook para autorizar o app</li>
-                <li>Após autorizar, volte aqui — a conta estará conectada</li>
-                <li>Nos seus anúncios gerados, aparecerá o botão "Postar no Instagram"</li>
-              </ol>
-            </div>
-
-            <button
-              onClick={conectar}
-              disabled={conectando}
-              className="w-full py-3 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {conectando ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Redirecionando...</>
-              ) : (
-                <>📸 Conectar Instagram</>
-              )}
-            </button>
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-amber-700">{eyebrow}</p>
+            <h2 className="mt-1 text-lg font-black text-gray-950">{title}</h2>
+            {description && <p className="mt-1 text-sm leading-relaxed text-gray-500">{description}</p>}
           </div>
-        )}
+        </div>
+        {typeof complete === 'boolean' && <StatusBadge complete={complete} />}
       </div>
+      {children}
+    </section>
+  )
+}
+
+function FieldNotice({ children }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-xs font-semibold leading-relaxed text-gray-600">
+      {children}
     </div>
   )
 }
 
-// ── Componente principal ─────────────────────────────────────────────────────
 export default function Configuracoes() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'perfil')
-  const { user, updateUser } = useAuth()
+  const { user, session, updateUser } = useAuth()
+  const [avatarFile, setAvatarFile] = useState(undefined)
+  const [logoFile, setLogoFile] = useState(undefined)
+  const [visualPreferences, setVisualPreferences] = useState({
+    primaryColor: '#111827',
+    secondaryColor: '#D4AF37',
+    visualStyle: VISUAL_STYLES[0],
+  })
 
-  // Lida com retorno do OAuth do Instagram
-  useEffect(() => {
-    const igStatus = searchParams.get('instagram')
-    const motivo = searchParams.get('motivo')
-
-    if (igStatus === 'conectado') {
-      toast.success('Instagram conectado com sucesso! 🎉')
-      setActiveTab('redes')
-      setSearchParams({})
-    } else if (igStatus === 'erro') {
-      toast.error(motivo ? decodeURIComponent(motivo) : 'Erro ao conectar Instagram. Tente novamente.')
-      setActiveTab('redes')
-      setSearchParams({})
-    }
-  }, []) // eslint-disable-line
-
-  const { register: regPerfil, handleSubmit: handlePerfil, reset: resetPerfil, formState: { isSubmitting: savingPerfil } } = useForm({
+  const {
+    register: regPerfil,
+    handleSubmit: handlePerfil,
+    reset: resetPerfil,
+    watch,
+    formState: { isSubmitting: savingPerfil },
+  } = useForm({
     defaultValues: {
+      nome: '',
+      email: '',
+      creci: '',
+      estado: '',
+      telefone: '',
+      whatsapp: '',
+      imobiliaria: '',
+      site: '',
+      instagram: '',
+    },
+  })
+
+  const { register: regSenha, handleSubmit: handleSenha, reset: resetSenha, formState: { isSubmitting: savingSenha } } = useForm()
+
+  useEffect(() => {
+    if (!user?.id) return
+    resetPerfil({
       nome: user?.nome || '',
-      email: user?.email || '',
+      email: user?.email || session?.user?.email || '',
       creci: user?.creci || '',
       estado: user?.estado || '',
       telefone: user?.telefone || '',
@@ -215,47 +211,58 @@ export default function Configuracoes() {
       imobiliaria: user?.imobiliaria || '',
       site: user?.site || '',
       instagram: user?.instagram || '',
-    },
-  })
+    })
+    setAvatarFile(undefined)
+    setLogoFile(undefined)
+  }, [user?.id, user?.nome, user?.email, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.site, user?.instagram, user?.estado, session?.user?.email, resetPerfil])
 
-  // Resetar form quando o profile chegar (caso o user inicial estivesse vazio)
   useEffect(() => {
-    if (user?.id) {
-      resetPerfil({
-        nome: user?.nome || '',
-        email: user?.email || '',
-        creci: user?.creci || '',
-        estado: user?.estado || '',
-        telefone: user?.telefone || '',
-        whatsapp: user?.whatsapp || '',
-        imobiliaria: user?.imobiliaria || '',
-        site: user?.site || '',
-        instagram: user?.instagram || '',
-      })
-      setAvatarFile(null)
-      setLogoFile(null)
+    const igStatus = searchParams.get('instagram')
+    const motivo = searchParams.get('motivo')
+
+    if (igStatus === 'conectado') {
+      toast.success('Instagram conectado com sucesso.')
+      setActiveTab('redes')
+      setSearchParams({})
+    } else if (igStatus === 'erro') {
+      toast.error(motivo ? decodeURIComponent(motivo) : 'Erro ao conectar Instagram. Tente novamente.')
+      setActiveTab('redes')
+      setSearchParams({})
     }
-  }, [user?.id, user?.nome, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.site, user?.instagram, user?.estado, resetPerfil])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [avatarFile, setAvatarFile] = useState(null)
-  const [logoFile, setLogoFile] = useState(null)
+  const watched = watch()
+  const accountEmail = session?.user?.email || user?.email || ''
+  const profileComplete = useMemo(() => Boolean(
+    watched.nome
+    && watched.creci
+    && watched.whatsapp
+    && watched.email
+    && (avatarFile instanceof File || avatarFile === undefined ? user?.avatar_url || avatarFile instanceof File : false)
+  ), [watched.nome, watched.creci, watched.whatsapp, watched.email, avatarFile, user?.avatar_url])
 
-  const { register: regSenha, handleSubmit: handleSenha, reset: resetSenha, formState: { isSubmitting: savingSenha } } = useForm()
+  const brandComplete = useMemo(() => Boolean(
+    watched.imobiliaria
+    && (logoFile instanceof File || logoFile === undefined ? user?.logo_url || logoFile instanceof File : false)
+  ), [watched.imobiliaria, logoFile, user?.logo_url])
 
   const uploadProfileImage = async (file, slot) => {
     if (!file || !(file instanceof File)) return null
-    if (!user?.id) throw new Error('SessÃ£o expirada â€” faÃ§a login novamente')
+    if (!user?.id) throw new Error('Sessão expirada. Faça login novamente.')
     const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
     const path = `${user.id}/profile/${slot}-${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('smartcorretor-assets')
       .upload(path, file, { contentType: file.type, upsert: true })
-    if (upErr) throw new Error(`Falha ao subir ${slot}: ${upErr.message}`)
-    if (!path.startsWith(`${user.id}/`)) throw new Error('Caminho de upload invÃ¡lido')
-    const { data: signed, error: signedErr } = await supabase.storage
+
+    if (uploadError) throw new Error(`Falha ao enviar ${slot}: ${uploadError.message}`)
+    if (!path.startsWith(`${user.id}/`)) throw new Error('Caminho de upload inválido.')
+
+    const { data: signed, error: signedError } = await supabase.storage
       .from('smartcorretor-assets')
       .createSignedUrl(path, 60 * 60 * 24)
-    if (signedErr) throw new Error(`Falha ao assinar ${slot}: ${signedErr.message}`)
+
+    if (signedError) throw new Error(`Falha ao preparar ${slot}: ${signedError.message}`)
     return signed.signedUrl
   }
 
@@ -264,24 +271,17 @@ export default function Configuracoes() {
       let avatar_url = user?.avatar_url || null
       let logo_url = user?.logo_url || null
 
-      // Avatar: file novo (upload), null (limpar), undefined (não mexido)
-      if (avatarFile instanceof File) {
-        avatar_url = await uploadProfileImage(avatarFile, 'avatar')
-      } else if (avatarFile === null && user?.avatar_url) {
-        // Usuário limpou explicitamente
-        avatar_url = null
-      }
+      if (avatarFile instanceof File) avatar_url = await uploadProfileImage(avatarFile, 'avatar')
+      else if (avatarFile === null) avatar_url = null
 
-      if (logoFile instanceof File) {
-        logo_url = await uploadProfileImage(logoFile, 'logo')
-      } else if (logoFile === null && user?.logo_url) {
-        logo_url = null
-      }
+      if (logoFile instanceof File) logo_url = await uploadProfileImage(logoFile, 'logo')
+      else if (logoFile === null) logo_url = null
 
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
           nome: data.nome,
+          email: data.email,
           creci: data.creci,
           estado: data.estado,
           telefone: data.telefone,
@@ -295,190 +295,242 @@ export default function Configuracoes() {
         .eq('id', user.id)
         .select()
         .single()
+
       if (error) throw error
       updateUser(updated)
       setAvatarFile(undefined)
       setLogoFile(undefined)
-      toast.success('Perfil atualizado!')
-    } catch (err) { toast.error(err.message || 'Erro ao salvar perfil') }
+      toast.success('Perfil Comercial e Marca atualizados.')
+    } catch (err) {
+      toast.error(err.message || 'Erro ao salvar perfil.')
+    }
   }
 
   const onSaveSenha = async (data) => {
-    if (data.nova_senha !== data.confirmar_senha) { toast.error('As senhas não conferem'); return }
+    if (data.nova_senha !== data.confirmar_senha) {
+      toast.error('As senhas não conferem.')
+      return
+    }
     try {
       const { error } = await supabase.auth.updateUser({ password: data.nova_senha })
       if (error) throw error
-      toast.success('Senha alterada!')
+      toast.success('Senha alterada.')
       resetSenha()
-    } catch (err) { toast.error(err.message || 'Erro ao alterar senha') }
+    } catch (err) {
+      toast.error(err.message || 'Erro ao alterar senha.')
+    }
   }
 
   return (
     <div>
-      <Header title="Configurações" />
-      <div className="p-6">
-        <div className="flex gap-6 max-w-4xl">
+      <Header title="Configurações" subtitle="Separe conta, perfil comercial e marca para reutilizar sua identidade nos produtos." />
 
-          {/* Sidebar */}
-          <nav className="w-48 shrink-0 space-y-1">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-7 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <nav className="space-y-1 lg:sticky lg:top-6 lg:self-start">
             {tabs.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => setActiveTab(id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
-                  activeTab === id ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'
-                }`}>
-                <Icon className="w-4 h-4 shrink-0" />
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                className={`flex w-full items-center gap-2.5 rounded-2xl px-3 py-3 text-left text-sm font-black transition ${
+                  activeTab === id ? 'bg-gray-950 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
                 {label}
               </button>
             ))}
           </nav>
 
-          <div className="flex-1">
-
-            {/* ── Perfil ── */}
+          <div className="min-w-0">
             {activeTab === 'perfil' && (
-              <div className="card p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-1">Perfil do Corretor</h2>
-                <p className="text-sm text-gray-500 mb-6">
-                  Esses dados são usados pela IA para preencher os banners e vídeos gerados.
-                </p>
-                <form onSubmit={handlePerfil(onSavePerfil)} className="space-y-5">
+              <form onSubmit={handlePerfil(onSavePerfil)} className="space-y-6">
+                <SectionCard
+                  icon={ShieldCheck}
+                  eyebrow="Conta"
+                  title="Login e autenticação"
+                  description="A conta identifica quem acessa a plataforma. Ela não é a marca e não substitui o perfil comercial."
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Input label="E-mail de login" value={accountEmail} disabled readOnly />
+                    <Input label="ID da conta" value={user?.id || ''} disabled readOnly />
+                  </div>
+                  <FieldNotice>
+                    Alterações de autenticação ficam na aba Conta e Senha. Nenhum produto deve depender de dados inventados: se o Perfil Comercial estiver incompleto, os materiais devem usar apenas os campos preenchidos.
+                  </FieldNotice>
+                </SectionCard>
 
-                  {/* Imagens */}
-                  <div className="grid sm:grid-cols-2 gap-5 p-4 bg-gray-50 rounded-xl">
+                <SectionCard
+                  icon={Briefcase}
+                  eyebrow="Perfil Comercial"
+                  title="Como você aparece nos materiais"
+                  description="Dados profissionais usados em banners, imagens, campanhas, vídeos e landings quando fizer sentido."
+                  complete={profileComplete}
+                >
+                  <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <ImageUploader
-                      label="Foto de perfil"
-                      optional
+                      label="Foto profissional"
+                      hint="Foto opcional, usada apenas quando o layout comportar assinatura visual."
                       value={avatarFile === null ? null : (avatarFile instanceof File ? null : user?.avatar_url)}
                       onChange={setAvatarFile}
                       shape="circle"
-                      placeholderIcon="👤"
                     />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Input label="Nome profissional" placeholder="Seu nome de divulgação" {...regPerfil('nome')} />
+                      <Input label="CRECI" placeholder="Ex: 12345-F" {...regPerfil('creci')} />
+                      <Input label="WhatsApp comercial" type="tel" placeholder="(11) 99999-9999" {...regPerfil('whatsapp')} />
+                      <Input label="E-mail comercial" type="email" placeholder="contato@seudominio.com.br" {...regPerfil('email')} />
+                      <Input label="Telefone alternativo" type="tel" placeholder="(11) 3333-4444" {...regPerfil('telefone')} />
+                      <Select label="Estado profissional" {...regPerfil('estado')}>
+                        <option value="">Selecione</option>
+                        {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                      </Select>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  icon={Palette}
+                  eyebrow="Marca"
+                  title="Identidade visual"
+                  description="A marca é separada do usuário. Ela define como a comunicação visual deve se comportar."
+                  complete={brandComplete}
+                >
+                  <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <ImageUploader
-                      label="Logo da imobiliária"
-                      optional
+                      label="Logo"
+                      hint="Use a marca da imobiliária ou sua marca pessoal, quando existir."
                       value={logoFile === null ? null : (logoFile instanceof File ? null : user?.logo_url)}
                       onChange={setLogoFile}
                       shape="square"
-                      placeholderIcon="🏢"
                     />
+                    <div className="space-y-4">
+                      <Input label="Nome da marca" placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block">
+                          <span className="label">Cor principal</span>
+                          <input
+                            type="color"
+                            value={visualPreferences.primaryColor}
+                            onChange={(event) => setVisualPreferences((current) => ({ ...current, primaryColor: event.target.value }))}
+                            className="h-11 w-full rounded-xl border border-gray-200 bg-white p-1"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="label">Cor secundária</span>
+                          <input
+                            type="color"
+                            value={visualPreferences.secondaryColor}
+                            onChange={(event) => setVisualPreferences((current) => ({ ...current, secondaryColor: event.target.value }))}
+                            className="h-11 w-full rounded-xl border border-gray-200 bg-white p-1"
+                          />
+                        </label>
+                      </div>
+                      <Select
+                        label="Estilo visual"
+                        value={visualPreferences.visualStyle}
+                        onChange={(event) => setVisualPreferences((current) => ({ ...current, visualStyle: event.target.value }))}
+                      >
+                        {VISUAL_STYLES.map((style) => <option key={style} value={style}>{style}</option>)}
+                      </Select>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Input label="Site" placeholder="https://seusite.com.br" {...regPerfil('site')} />
+                        <Input label="Instagram" placeholder="@sua_marca" {...regPerfil('instagram')} />
+                      </div>
+                      <FieldNotice>
+                        Cor principal, cor secundária e estilo visual ficam preparados na interface para reutilização futura. Nesta etapa, a persistência remota usa somente os campos já existentes do perfil, sem migration.
+                      </FieldNotice>
+                    </div>
                   </div>
+                </SectionCard>
 
-                  {/* Identidade */}
-                  <Input label="Nome completo" placeholder="Seu nome como aparece nos anúncios" {...regPerfil('nome')} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input label="CRECI" placeholder="Ex: 12345-F" {...regPerfil('creci')} />
-                    <Select label="Estado" {...regPerfil('estado')}>
-                      <option value="">Selecione</option>
-                      {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf => (
-                        <option key={uf} value={uf}>{uf}</option>
-                      ))}
-                    </Select>
+                <SectionCard
+                  icon={BadgeCheck}
+                  eyebrow="Integração futura"
+                  title="Reutilização da identidade"
+                  description="Esses dados foram organizados para alimentar os próximos produtos sem misturar login, pessoa e marca."
+                >
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {['Hero IA', 'Campanha IA Premium', 'Landing IA', 'Biblioteca Profissional'].map((item) => (
+                      <div key={item} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-sm font-black text-gray-950">{item}</p>
+                        <p className="mt-1 text-xs font-semibold text-gray-500">Preparado para reutilizar perfil e marca.</p>
+                      </div>
+                    ))}
                   </div>
+                </SectionCard>
 
-                  {/* Contato */}
-                  <Input label="E-mail" type="email" placeholder="seu@email.com" readOnly disabled {...regPerfil('email')} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input label="Telefone" type="tel" placeholder="(11) 3333-4444" {...regPerfil('telefone')} />
-                    <Input label="WhatsApp" type="tel" placeholder="(11) 99999-9999" {...regPerfil('whatsapp')} />
-                  </div>
-
-                  {/* Marca */}
-                  <Input label="Nome da imobiliária (opcional)" placeholder="Ex: ABC Imóveis" {...regPerfil('imobiliaria')} />
-                  <Input label="Site (opcional)" placeholder="https://seusite.com.br" {...regPerfil('site')} />
-                  <Input label="Instagram (opcional)" placeholder="@seuinsta" {...regPerfil('instagram')} />
-
-                  <Button type="submit" loading={savingPerfil}>Salvar alterações</Button>
-                </form>
-              </div>
+                <div className="flex justify-end">
+                  <Button type="submit" loading={savingPerfil}>Salvar Perfil Comercial e Marca</Button>
+                </div>
+              </form>
             )}
 
-            {/* ── Senha ── */}
             {activeTab === 'senha' && (
-              <div className="card p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Alterar senha</h2>
-                <form onSubmit={handleSenha(onSaveSenha)} className="space-y-4">
+              <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-black text-gray-950">Conta e senha</h2>
+                <p className="mt-1 text-sm text-gray-500">Aqui ficam apenas dados de acesso. Não misture login com marca.</p>
+                <form onSubmit={handleSenha(onSaveSenha)} className="mt-6 max-w-xl space-y-4">
                   <Input label="Senha atual" type="password" placeholder="••••••••" {...regSenha('senha_atual', { required: 'Obrigatório' })} />
                   <Input label="Nova senha" type="password" placeholder="Mínimo 8 caracteres" {...regSenha('nova_senha', { required: 'Obrigatório', minLength: { value: 8, message: 'Mínimo 8 caracteres' } })} />
                   <Input label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" {...regSenha('confirmar_senha', { required: 'Obrigatório' })} />
                   <Button type="submit" loading={savingSenha}>Alterar senha</Button>
                 </form>
-              </div>
+              </section>
             )}
 
-            {/* ── Redes Sociais ── */}
             {activeTab === 'redes' && (
-              <div className="space-y-5">
-                <div className="card p-6">
-                  <h2 className="text-base font-semibold text-gray-900 mb-1">Redes Sociais</h2>
-                  <p className="text-sm text-gray-500 mb-5">
-                    Conecte suas redes sociais para publicar anúncios automaticamente com um clique.
-                  </p>
-                  <InstagramCard />
-                </div>
-
-                <div className="card p-5 border-dashed border-gray-200">
-                  <div className="flex items-center gap-3 text-gray-400">
-                    <span className="text-2xl">👍</span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Facebook</p>
-                      <p className="text-xs text-gray-400">Em breve</p>
+              <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-black text-gray-950">Redes sociais</h2>
+                <p className="mt-1 text-sm text-gray-500">Conexões automáticas serão ativadas em uma fase futura.</p>
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  {['Instagram', 'Facebook', 'TikTok'].map((item) => (
+                    <div key={item} className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5">
+                      <p className="text-sm font-black text-gray-700">{item}</p>
+                      <p className="mt-1 text-xs font-semibold text-gray-400">Em preparação</p>
                     </div>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="card p-5 border-dashed border-gray-200">
-                  <div className="flex items-center gap-3 text-gray-400">
-                    <span className="text-2xl">🎵</span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">TikTok</p>
-                      <p className="text-xs text-gray-400">Em breve</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </section>
             )}
 
-            {/* ── Notificações ── */}
             {activeTab === 'notificacoes' && (
-              <div className="card p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Preferências de notificação</h2>
-                <div className="space-y-4">
+              <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-black text-gray-950">Notificações</h2>
+                <p className="mt-1 text-sm text-gray-500">Preferências simples para acompanhar seus materiais.</p>
+                <div className="mt-5 space-y-4">
                   {[
-                    { id: 'campanha_concluida', label: 'Anúncio concluído', desc: 'Quando seus anúncios forem gerados pela IA' },
-                    { id: 'dicas_semanais', label: 'Dicas semanais', desc: 'Receba dicas de marketing imobiliário toda semana' },
-                    { id: 'novidades', label: 'Novidades da plataforma', desc: 'Novos recursos e atualizações' },
-                  ].map(notif => (
-                    <label key={notif.id} className="flex items-start gap-3 cursor-pointer">
+                    { id: 'campanha_concluida', label: 'Material concluído', desc: 'Avisar quando uma geração terminar.' },
+                    { id: 'dicas_semanais', label: 'Dicas semanais', desc: 'Receber sugestões práticas de marketing imobiliário.' },
+                    { id: 'novidades', label: 'Novidades da plataforma', desc: 'Atualizações importantes de produtos.' },
+                  ].map((notif) => (
+                    <label key={notif.id} className="flex cursor-pointer items-start gap-3">
                       <input type="checkbox" defaultChecked className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{notif.label}</p>
-                        <p className="text-xs text-gray-500">{notif.desc}</p>
-                      </div>
+                      <span>
+                        <span className="block text-sm font-black text-gray-900">{notif.label}</span>
+                        <span className="block text-xs text-gray-500">{notif.desc}</span>
+                      </span>
                     </label>
                   ))}
                 </div>
                 <Button className="mt-5">Salvar preferências</Button>
-              </div>
+              </section>
             )}
 
-            {/* ── Assinatura ── */}
             {activeTab === 'assinatura' && (
-              <div className="card p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Assinatura</h2>
-                <div className="p-4 bg-primary-50 border border-primary-200 rounded-xl mb-5">
-                  <p className="text-sm font-semibold text-primary-700">Plano atual: {user?.plano || 'Teste Grátis'}</p>
-                  <p className="text-xs text-primary-500 mt-1">Próxima cobrança em 01/06/2026</p>
+              <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-black text-gray-950">Assinatura</h2>
+                <p className="mt-1 text-sm text-gray-500">Área de plano preservada. Pagamentos não foram alterados nesta fase.</p>
+                <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4">
+                  <p className="text-sm font-black text-primary-800">Plano atual: {user?.plano || 'Starter'}</p>
+                  <p className="mt-1 text-xs font-semibold text-primary-600">Gerenciamento financeiro permanece no fluxo existente.</p>
                 </div>
-                <div className="space-y-3">
-                  <Button variant="secondary" className="w-full">Alterar plano</Button>
-                  <Button variant="ghost" className="w-full text-red-500 hover:bg-red-50">Cancelar assinatura</Button>
-                </div>
-              </div>
+              </section>
             )}
-
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
