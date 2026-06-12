@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bed,
   Camera,
@@ -39,11 +39,12 @@ const FINALIDADE_MVP = 'Venda'
 
 const EMPTY_FORM = {
   titulo: '',
+  perfil_imovel: '',
   tipo: '',
   preco: '',
   area: '',
   quartos: 2,
-  banheiros: 1,
+  suites: 1,
   vagas: 1,
   bairro: '',
   cidade: '',
@@ -61,6 +62,19 @@ const TIPOS_MESTRE = [
   'Studio / Loft',
   'Sobrado',
   'Terreno / Lote',
+  'Comercial',
+]
+
+const PERFIS_IMOVEL = [
+  'Minha Casa Minha Vida',
+  'Médio padrão',
+  'Alto padrão',
+  'Luxo',
+  'Lançamento',
+  'Pré-lançamento',
+  'Terreno / Lote',
+  'Comercial',
+  'Locação',
 ]
 
 const ESTADOS_BR = [
@@ -152,6 +166,18 @@ const HIGHLIGHT_GROUPS = [
 
 const normalizeText = (value = '') => String(value).trim().replace(/\s+/g, ' ')
 
+const capitalizeWord = (word = '') => {
+  const lower = word.toLocaleLowerCase('pt-BR')
+  if (['da', 'de', 'do', 'das', 'dos', 'e'].includes(lower)) return lower
+  return lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1)
+}
+
+const normalizeNeighborhood = (value = '') => normalizeText(value)
+  .split(' ')
+  .filter(Boolean)
+  .map(capitalizeWord)
+  .join(' ')
+
 const parseNumber = (value) => {
   if (value === '' || value === null || value === undefined) return null
   const parsed = Number(value)
@@ -187,7 +213,7 @@ const getMasterFromProperty = (property) => splitDescription(property?.descricao
 const getMasterStatus = (property) => {
   const master = getMasterFromProperty(property)
   if (!master) return 'incompleto'
-  const hasCore = Boolean(property?.tipo && property?.bairro && property?.cidade && property?.estado)
+  const hasCore = Boolean(master?.perfil_imovel && property?.tipo && property?.bairro && property?.cidade && property?.estado)
   const hasPhotos = Array.isArray(property?.fotos) && property.fotos.length >= MIN_MASTER_PHOTOS
   return hasCore && hasPhotos ? 'completo' : 'incompleto'
 }
@@ -197,12 +223,13 @@ const toFormState = (property) => {
   const { publicDescription, master } = splitDescription(property.descricao)
   return {
     titulo: property.titulo || '',
+    perfil_imovel: master?.perfil_imovel || '',
     tipo: property.tipo || '',
-    preco: property.preco || '',
-    area: property.area || '',
-    quartos: property.quartos ?? 0,
-    banheiros: property.banheiros ?? 0,
-    vagas: property.vagas ?? 0,
+    preco: property.preco || master?.preco || '',
+    area: property.area || master?.area || '',
+    quartos: property.quartos ?? master?.dormitorios ?? 0,
+    suites: property.suites ?? master?.suites ?? master?.banheiros ?? property.banheiros ?? 0,
+    vagas: property.vagas ?? master?.vagas ?? 0,
     bairro: property.bairro || '',
     cidade: property.cidade || '',
     estado: property.estado || '',
@@ -226,6 +253,8 @@ export default function MeusImoveis() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [form, setForm] = useState(() => toFormState(null))
   const [saving, setSaving] = useState(false)
+  const [cidades, setCidades] = useState([])
+  const [loadingCities, setLoadingCities] = useState(false)
   const navigate = useNavigate()
 
   const filtered = useMemo(() => {
@@ -241,6 +270,46 @@ export default function MeusImoveis() {
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  useEffect(() => {
+    if (!form.estado) {
+      setCidades([])
+      return
+    }
+
+    let cancelled = false
+    setLoadingCities(true)
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${form.estado}/municipios`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (cancelled) return
+        const cityNames = Array.isArray(data)
+          ? data.map((city) => city.nome).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+          : []
+        setCidades(cityNames)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCidades(form.cidade ? [form.cidade] : [])
+          toast.error('Não foi possível carregar as cidades deste estado.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCities(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [form.estado])
+
+  const handleEstadoChange = (estado) => {
+    setForm((current) => ({
+      ...current,
+      estado,
+      cidade: current.estado === estado ? current.cidade : '',
+    }))
   }
 
   const openCreate = () => {
@@ -336,8 +405,8 @@ export default function MeusImoveis() {
   }
 
   const validateForm = () => {
-    if (!form.tipo || !form.bairro || !form.cidade || !form.estado) {
-      toast.error('Preencha tipo, bairro, cidade e estado.')
+    if (!form.perfil_imovel || !form.tipo || !form.estado || !form.cidade || !normalizeNeighborhood(form.bairro)) {
+      toast.error('Preencha perfil, tipo, estado, cidade e bairro.')
       return false
     }
     if (form.fotos.length < MIN_MASTER_PHOTOS) {
@@ -361,21 +430,23 @@ export default function MeusImoveis() {
 
       const videoUrl = form.video ? await uploadAsset(form.video, 'video', 0) : null
       const titulo = normalizeText(form.titulo)
-        || `${form.tipo} em ${normalizeText(form.bairro) || 'bairro informado'}`
+        || `${form.tipo} em ${normalizeNeighborhood(form.bairro) || 'bairro informado'}`
+      const normalizedNeighborhood = normalizeNeighborhood(form.bairro)
 
       const masterProperty = {
         schema_version: 'master_property_v1',
         retention_days: RETENTION_DAYS,
         reusable_until: getRetentionDate(),
+        perfil_imovel: form.perfil_imovel,
         finalidade: 'venda',
         tipo: normalizeText(form.tipo),
-        bairro: normalizeText(form.bairro),
+        bairro: normalizedNeighborhood,
         cidade: normalizeText(form.cidade),
         estado: form.estado,
         preco: parseNumber(form.preco),
         area: parseNumber(form.area),
         dormitorios: Number(form.quartos) || 0,
-        banheiros: Number(form.banheiros) || 0,
+        suites: Number(form.suites) || 0,
         vagas: Number(form.vagas) || 0,
         fotos_imovel: fotosUrls,
         foto_principal: fotosUrls[0] || null,
@@ -398,11 +469,10 @@ export default function MeusImoveis() {
         tipo: normalizeText(form.tipo),
         finalidade: FINALIDADE_MVP,
         preco: parseNumber(form.preco) || 0,
-        area: parseNumber(form.area),
         quartos: Number(form.quartos) || 0,
-        banheiros: Number(form.banheiros) || 0,
+        banheiros: Number(form.suites) || 0,
         vagas: Number(form.vagas) || 0,
-        bairro: normalizeText(form.bairro),
+        bairro: normalizedNeighborhood,
         cidade: normalizeText(form.cidade),
         estado: form.estado,
         descricao: buildStoredDescription(form.descricao, masterProperty),
@@ -533,6 +603,33 @@ export default function MeusImoveis() {
             </div>
           </div>
 
+          <section className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-700">Perfil do imóvel</p>
+            <h3 className="mt-1 text-base font-black text-gray-950">Qual o perfil deste imóvel?</h3>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">
+              Essa informação orienta Hero IA, Campanha IA, Landing IA e o Smart Prompt Engine.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {PERFIS_IMOVEL.map((perfil) => {
+                const active = form.perfil_imovel === perfil
+                return (
+                  <button
+                    key={perfil}
+                    type="button"
+                    onClick={() => updateField('perfil_imovel', perfil)}
+                    className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                      active
+                        ? 'border-gray-950 bg-gray-950 text-white'
+                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    {perfil}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Input
               label="Título interno"
@@ -578,34 +675,41 @@ export default function MeusImoveis() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <Input label="Quartos" type="number" value={form.quartos} onChange={(event) => updateField('quartos', event.target.value)} />
-            <Input label="Banheiros" type="number" value={form.banheiros} onChange={(event) => updateField('banheiros', event.target.value)} />
+            <Input label="Suítes" type="number" value={form.suites} onChange={(event) => updateField('suites', event.target.value)} />
             <Input label="Vagas" type="number" value={form.vagas} onChange={(event) => updateField('vagas', event.target.value)} />
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
+            <Select
+              label="Estado"
+              value={form.estado}
+              onChange={(event) => handleEstadoChange(event.target.value)}
+              required
+            >
+              <option value="">Selecione o estado</option>
+              {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+            </Select>
+            <Select
+              label="Cidade"
+              value={form.cidade}
+              onChange={(event) => updateField('cidade', event.target.value)}
+              disabled={!form.estado || loadingCities}
+              required
+            >
+              <option value="">
+                {!form.estado ? 'Selecione o estado primeiro' : loadingCities ? 'Carregando cidades...' : 'Selecione a cidade'}
+              </option>
+              {form.cidade && !cidades.includes(form.cidade) && <option value={form.cidade}>{form.cidade}</option>}
+              {cidades.map((cidade) => <option key={cidade} value={cidade}>{cidade}</option>)}
+            </Select>
             <Input
               label="Bairro"
               placeholder="Moema"
               value={form.bairro}
               onChange={(event) => updateField('bairro', event.target.value)}
+              onBlur={() => updateField('bairro', normalizeNeighborhood(form.bairro))}
               required
             />
-            <Input
-              label="Cidade"
-              placeholder="São Paulo"
-              value={form.cidade}
-              onChange={(event) => updateField('cidade', event.target.value)}
-              required
-            />
-            <Select
-              label="UF"
-              value={form.estado}
-              onChange={(event) => updateField('estado', event.target.value)}
-              required
-            >
-              <option value="">UF</option>
-              {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-            </Select>
           </div>
 
           <Textarea
@@ -700,7 +804,7 @@ function MasterPropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) 
         )}
         <div className="absolute left-3 top-3 flex gap-2">
           <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-black text-gray-800 shadow-sm">
-            Venda
+            {master?.perfil_imovel || 'Venda'}
           </span>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-black shadow-sm ${
             status === 'completo' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
@@ -721,7 +825,7 @@ function MasterPropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) 
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-gray-500">
           {property.quartos > 0 && <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5" />{property.quartos}</span>}
-          {property.banheiros > 0 && <span className="flex items-center gap-1"><Home className="h-3.5 w-3.5" />{property.banheiros}</span>}
+          {(property.suites || property.banheiros) > 0 && <span className="flex items-center gap-1"><Home className="h-3.5 w-3.5" />{property.suites || property.banheiros} suíte{(property.suites || property.banheiros) === 1 ? '' : 's'}</span>}
           {property.vagas > 0 && <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" />{property.vagas}</span>}
           {property.area && <span className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5" />{formatArea(property.area)}</span>}
         </div>
