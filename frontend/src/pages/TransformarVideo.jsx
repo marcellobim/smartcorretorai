@@ -124,7 +124,7 @@ function ChoiceStep({ selectedOption, onArchive }) {
         label="Usar Imóvel Arquivado"
         onClick={onArchive}
       >
-        Em breve você poderá selecionar um imóvel arquivado por até 15 dias.
+        Em breve você poderá selecionar um imóvel arquivado por até 7 dias.
       </ChoiceCard>
     </div>
   )

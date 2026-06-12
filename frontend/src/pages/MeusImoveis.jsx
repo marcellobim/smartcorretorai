@@ -31,7 +31,7 @@ import { formatArea, formatCurrency } from '../utils/formatters'
 import { useNavigate } from 'react-router-dom'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
-const RETENTION_DAYS = 15
+const RETENTION_DAYS = 7
 const MIN_MASTER_PHOTOS = 3
 const MAX_MASTER_PHOTOS = 5
 const MAX_MASTER_HIGHLIGHTS = 20
@@ -448,10 +448,10 @@ export default function MeusImoveis() {
                 Cadastro Mestre do imóvel
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-gray-500">
-                Dados, fotos, vídeo opcional e destaques ficam organizados por 15 dias para alimentar banners, imagens, vídeos, campanhas e landing pages.
+                Dados, fotos, vídeo opcional e destaques ficam organizados por 7 dias para alimentar banners, imagens, vídeos, campanhas e landing pages.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {['Dados do imóvel', 'Upload 3-5 fotos', 'Vídeo opcional', 'Destaques', 'Retenção 15 dias', 'Reutilização'].map((item) => (
+                {['Dados do imóvel', 'Upload 3-5 fotos', 'Vídeo opcional', 'Destaques', 'Retenção 7 dias', 'Reutilização'].map((item) => (
                   <span key={item} className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700">
                     {item}
                   </span>
@@ -527,7 +527,7 @@ export default function MeusImoveis() {
               <div>
                 <p className="text-sm font-black text-amber-950">Retenção e reutilização</p>
                 <p className="mt-1 text-xs leading-relaxed text-amber-900">
-                  Este cadastro fica preparado para reaproveitamento por 15 dias. Banners usam só os dados necessários, e produtos futuros poderão reutilizar o restante.
+                  Este cadastro fica preparado para reaproveitamento por 7 dias. Banners usam só os dados necessários, e produtos futuros poderão reutilizar o restante.
                 </p>
               </div>
             </div>
@@ -685,7 +685,7 @@ function MasterPropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) 
   const retention = master?.reusable_until ? new Date(master.reusable_until) : null
   const retentionLabel = retention && !Number.isNaN(retention.getTime())
     ? retention.toLocaleDateString('pt-BR')
-    : '15 dias após salvar'
+    : '7 dias após salvar'
 
   return (
     <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
