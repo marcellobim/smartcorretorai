@@ -28,8 +28,8 @@ const mainActions = [
     icon: Home,
     title: 'Tenho um imóvel para divulgar',
     description: 'Comece pelo cadastro do imóvel e receba materiais prontos para apresentar.',
-    to: '/nova-campanha',
-    label: 'Começar',
+    to: '/meus-imoveis',
+    label: 'Cadastrar imóvel',
     tone: 'dark',
     ready: true,
   },
@@ -185,7 +185,7 @@ export default function Dashboard() {
               ) : (
                 <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-sm font-bold text-white">Comece cadastrando seu primeiro imóvel.</p>
-                  <Link to="/nova-campanha" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-amber-300 hover:text-amber-200">
+                  <Link to="/meus-imoveis" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-amber-300 hover:text-amber-200">
                     Cadastrar agora
                     <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -220,7 +220,7 @@ export default function Dashboard() {
                   icon={Building2}
                   title="Nenhum imóvel recente"
                   description="Comece cadastrando seu primeiro imóvel."
-                  to="/nova-campanha"
+                  to="/meus-imoveis"
                   label="Cadastrar imóvel"
                 />
               )}
