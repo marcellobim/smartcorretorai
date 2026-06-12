@@ -13,11 +13,49 @@ Princípios obrigatórios:
 - Conta não é a mesma coisa que marca.
 - O usuário é leigo e não deve entender tecnologia, formatos, APIs, modelos ou templates.
 - A interface deve mostrar resultados, não tecnologia.
+- A interface deve comunicar capacidades, não fornecedores.
 - Segurança deve existir desde a concepção.
 - Dados devem ser reutilizados sempre que possível.
 - O corretor deve fazer o menor esforço possível.
 - A Biblioteca Profissional continua sendo produto estratégico.
 - A IA deve guiar o usuário, reduzir dúvidas e sugerir próximos passos.
+
+## Nomenclatura de Interface
+
+O SmartCorretorAI 3.0 não deve expor nomes de fornecedores em interfaces públicas ou administrativas padrão.
+
+Não exibir:
+
+- OpenAI;
+- Supabase;
+- Stripe;
+- Vercel;
+- GPT Image;
+- fornecedores de vídeo;
+- fornecedores de storage.
+
+Status e áreas visíveis ao usuário devem usar nomes orientados a capacidade:
+
+- Criação com IA;
+- Imagens Premium;
+- Biblioteca Profissional;
+- Landing IA;
+- Transformação de Vídeo;
+- Pagamentos;
+- Uploads.
+
+No Dashboard Administrativo, a interface principal também deve evitar nomes de fornecedores. Usar agrupamentos neutros:
+
+- IA Principal;
+- Infraestrutura;
+- Pagamentos;
+- Storage.
+
+API Keys, secrets, tokens e fornecedores nunca devem aparecer em telas, logs públicos, frontend, console do navegador ou ferramentas visíveis no F12.
+
+Regra de UX:
+
+> O usuário deve entender o que consegue criar, não qual fornecedor está por trás da criação.
 
 ## 1. Landing Pública
 

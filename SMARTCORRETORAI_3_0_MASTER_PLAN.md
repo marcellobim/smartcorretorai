@@ -462,6 +462,41 @@ Toda funcionalidade futura deve nascer protegida contra estes cenários.
 - OpenAI, Stripe, Creatomate e Service Role ficam apenas no backend.
 - Nunca logar secrets.
 
+### Nomenclatura Pública e Administrativa
+
+Interfaces públicas, telas de produto e painéis administrativos padrão não devem expor nomes de fornecedores.
+
+Não exibir em telas padrão:
+
+- OpenAI;
+- Supabase;
+- Stripe;
+- Vercel;
+- GPT Image;
+- fornecedores de vídeo;
+- fornecedores de storage.
+
+Status externos devem usar nomes de produto ou capacidade:
+
+- Criação com IA;
+- Imagens Premium;
+- Biblioteca Profissional;
+- Landing IA;
+- Transformação de Vídeo;
+- Pagamentos;
+- Uploads.
+
+Mesmo no Dashboard Administrativo, a interface principal deve evitar nomes de fornecedores. Quando houver necessidade de status operacional interno, usar agrupamentos neutros:
+
+- IA Principal;
+- Infraestrutura;
+- Pagamentos;
+- Storage.
+
+API Keys, secrets, tokens e fornecedores nunca devem aparecer em telas, logs públicos, frontend, console do navegador ou ferramentas visíveis no F12.
+
+Nomes de fornecedores só podem existir em documentação técnica interna, variáveis de ambiente seguras, código backend necessário e configurações protegidas. A experiência do usuário deve comunicar capacidade, não fornecedor.
+
 ### Proteção de Dados
 
 - Não armazenar dados sensíveis em `localStorage`.

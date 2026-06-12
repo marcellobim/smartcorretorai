@@ -3,11 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
-import MarketingObjectiveCatalog from '../components/MarketingObjectiveCatalog'
-import { CAMPAIGN_MODES, CAMPAIGN_MODE_ORDER } from '../data/campaignModes'
-import { CAMPAIGN_TEMPLATES } from '../data/campaignTemplates'
 import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEWS } from '../data/templateCatalog'
-import { MARKETING_OBJECTIVES, SMART_CAMPAIGN_OBJECTIVES, getSelectedTemplatesFromObjectiveIds } from '../data/marketingObjectives'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 
@@ -191,7 +187,7 @@ const PRODUCT_CONTEXTS = {
     reviewTitle: 'Revisão dos Banners',
     reviewSubtitle: 'Esta leitura é visual e local nesta etapa, sem nova chamada de backend.',
     costTitle: 'Revise e gere seus banners',
-    costSubtitle: 'O servidor continua validando o consumo real de créditos.',
+    costSubtitle: 'A geração será validada com segurança no servidor.',
   },
 }
 
@@ -200,8 +196,8 @@ const SUBPRODUCT_LABELS = {
   pecas_individuais: 'Peças Individuais',
   video_rapido: 'Vídeo Rápido',
   video_premium_cinematografico: 'Vídeo Premium/Cinematográfico',
-  campanha_por_objetivo: 'Campanha por Objetivo',
-  monte_sua_campanha: 'Monte Sua Campanha',
+  campanha_por_objetivo: 'Banners Rápidos',
+  monte_sua_campanha: 'Gerador de Banners',
 }
 
 const MSGS_POR_CAT = {
@@ -229,8 +225,6 @@ const TEMPLATE_CATALOG_BY_TEMPLATE_ID = Object.fromEntries(
 )
 
 const ACTIVE_CAMPAIGN_TEMPLATE_IDS = new Set(TEMPLATE_CATALOG.map(template => template.templateId))
-const HIDDEN_MARKETING_OBJECTIVE_IDS = new Set(['tiktok', 'galeria'])
-const VISIBLE_MARKETING_OBJECTIVES = MARKETING_OBJECTIVES.filter(objective => !HIDDEN_MARKETING_OBJECTIVE_IDS.has(objective.id))
 
 const TYPE_LABELS = {
   banner: 'Arte',
@@ -243,26 +237,6 @@ const TYPE_LABELS = {
   social: 'Arte',
 }
 
-const FORMAT_LABELS = {
-  square: '1:1',
-  portrait: '4:5',
-  vertical: '9:16',
-  horizontal: '16:9',
-  card: 'Card',
-  detailed: 'Detalhado',
-}
-
-const SUGGESTED_CHANNEL_LABELS = {
-  banner: 'Instagram Feed, Facebook e portais',
-  story: 'Stories, Status e comunicações rápidas',
-  reels: 'Instagram Reels, TikTok e Shorts',
-  video: 'YouTube, WhatsApp, sites e apresentações',
-  card: 'Portais, feed e envio direto',
-  detailed: 'Portais e materiais de comparação',
-  carousel: 'Instagram e Facebook',
-  social: 'WhatsApp, feed e prova social',
-}
-
 const CAMPAIGN_USE_OPTIONS = {
   feed: { id: 'feed', icon: '📱', label: 'Feed / Redes Sociais' },
   vertical: { id: 'vertical', icon: '🎬', label: 'Stories / Reels / TikTok / Status' },
@@ -272,7 +246,6 @@ const CAMPAIGN_USE_OPTIONS = {
 }
 
 const MAX_VISUAL_PIECES_PER_GENERATION = 5
-const ENABLE_SUGGESTED_CAMPAIGNS = false
 const MVP_ACTIVE_MODEL_IDS = new Set([
   'anuncio_premium',
   'story_premium',
@@ -831,52 +804,6 @@ const getSuggestedHashtags = (...values) => {
   return Array.from(new Set(found.map(tag => tag.trim()).filter(Boolean)))
 }
 
-const CREDIT_BUILDER_TABS = [
-  {
-    id: 'recommended',
-    label: 'Campanhas Recomendadas',
-    description: 'O sistema sugere os produtos de marketing ideais para o objetivo da campanha.',
-  },
-  {
-    id: 'manual',
-    label: 'Monte Sua Campanha',
-    description: 'Escolha exatamente quais produtos de marketing deseja gerar e acompanhe o custo.',
-  },
-]
-
-const WIZARD_STEPS = [
-  {
-    id: 'welcome',
-    title: 'Conheça',
-    description: 'Veja o que o SmartCorretorAI pode criar.',
-  },
-  {
-    id: 'products',
-    title: 'Escolha',
-    description: 'Selecione campanhas ou produtos de marketing.',
-  },
-  {
-    id: 'credits',
-    title: 'Créditos',
-    description: 'Confira consumo estimado e saldo.',
-  },
-  {
-    id: 'property',
-    title: 'Imóvel',
-    description: 'Informe os dados principais.',
-  },
-  {
-    id: 'photos',
-    title: 'Fotos',
-    description: 'Envie imagens para personalizar a campanha.',
-  },
-  {
-    id: 'review',
-    title: 'Gerar',
-    description: 'Revise e gere sua campanha.',
-  },
-]
-
 const createGenerationIdempotencyKey = (userId) => {
   const randomPart = window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
   return `${userId || 'user'}:${Date.now()}:${randomPart}`
@@ -936,511 +863,6 @@ const SMART_CAMPAIGNS = [
     smartTip: 'Destaque localização, metragem e uso ideal no Feed, depois envie o material pelo WhatsApp para leads qualificados.',
   },
 ]
-
-const SMART_CAMPAIGN_MODEL_PRESETS = {
-  venda_rapida: {
-    economica: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'card_imobiliario_premium', useId: 'portais' },
-    ],
-    premium_ia: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'imovel_detalhes', useId: 'portais' },
-    ],
-    completa: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'card_imobiliario_premium', useId: 'portais' },
-      { modelId: 'momentos_do_imovel', useId: 'horizontal' },
-    ],
-  },
-  luxo_premium: {
-    economica: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'video_tour', useId: 'horizontal' },
-      { modelId: 'avaliacao_do_cliente', useId: 'feed' },
-    ],
-    premium_ia: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'video_tour', useId: 'horizontal' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-    ],
-    completa: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'video_tour', useId: 'horizontal' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'avaliacao_do_cliente', useId: 'feed' },
-    ],
-  },
-  lancamento: {
-    economica: [
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-    ],
-    premium_ia: [
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'anuncio_premium', useId: 'horizontal' },
-    ],
-    completa: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'slides_premium', useId: 'feed' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-    ],
-  },
-  mcmv: {
-    economica: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'card_imobiliario_premium', useId: 'portais' },
-    ],
-    premium_ia: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'slides_premium', useId: 'feed' },
-    ],
-    completa: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'card_imobiliario_premium', useId: 'portais' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-    ],
-  },
-  airbnb_temporada: {
-    economica: [
-      { modelId: 'video_tour', useId: 'horizontal' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-    ],
-    premium_ia: [
-      { modelId: 'video_tour', useId: 'horizontal' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'momentos_do_imovel', useId: 'feed' },
-    ],
-    completa: [
-      { modelId: 'video_tour', useId: 'horizontal' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'momentos_do_imovel', useId: 'horizontal' },
-    ],
-  },
-  captacao_imovel: {
-    economica: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'avaliacao_do_cliente', useId: 'feed' },
-    ],
-    premium_ia: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-    ],
-    completa: [
-      { modelId: 'anuncio_premium', useId: 'feed' },
-      { modelId: 'story_premium', useId: 'vertical' },
-      { modelId: 'reels_moderno', useId: 'vertical' },
-      { modelId: 'chat_imobiliario', useId: 'whatsapp' },
-      { modelId: 'triple_slide_carousel', useId: 'feed' },
-      { modelId: 'avaliacao_do_cliente', useId: 'feed' },
-    ],
-  },
-}
-
-const getSmartCampaignPreset = (campaignId, modeId = 'economica') => (
-  SMART_CAMPAIGN_MODEL_PRESETS[campaignId]?.[modeId]
-  || SMART_CAMPAIGN_MODEL_PRESETS[campaignId]?.economica
-  || []
-)
-
-const getSmartCampaignUseIds = (campaignId, modeId = 'economica') => (
-  Array.from(new Set(getSmartCampaignPreset(campaignId, modeId).map(item => item.useId).filter(Boolean)))
-)
-
-const OFFICIAL_SUGGESTED_PROFILE_IDS = [
-  'venda_rapida',
-  'luxo_premium',
-  'lancamento',
-  'mcmv',
-]
-
-const OFFICIAL_SUGGESTED_CAMPAIGNS = [
-  {
-    id: 'venda_rapida_essencial',
-    profileId: 'venda_rapida',
-    title: 'Venda Rápida Essencial',
-    badge: 'Mais usada',
-    description: 'Pacote direto para gerar interesse rápido em canais essenciais.',
-    modelIds: ['anuncio_premium', 'story_premium', 'chat_imobiliario', 'imovel_detalhes'],
-    channelIds: ['feed', 'vertical', 'whatsapp', 'portais'],
-  },
-  {
-    id: 'venda_rapida_completa',
-    profileId: 'venda_rapida',
-    title: 'Venda Rápida Completa',
-    badge: 'Mais completa',
-    description: 'Combina impacto visual, conversa e apresentação completa do imóvel.',
-    modelIds: ['anuncio_premium', 'story_premium', 'galeria_imobiliaria', 'chat_imobiliario', 'video_tour'],
-    channelIds: ['feed', 'vertical', 'whatsapp', 'horizontal', 'portais'],
-  },
-  {
-    id: 'oferta_direta_whatsapp',
-    profileId: 'venda_rapida',
-    title: 'Oferta Direta WhatsApp',
-    badge: 'Rápida para WhatsApp',
-    description: 'Campanha objetiva para iniciar conversas e acelerar contatos.',
-    modelIds: ['chat_imobiliario', 'story_premium', 'anuncio_premium', 'imovel_detalhes'],
-    channelIds: ['whatsapp', 'vertical', 'feed'],
-  },
-  {
-    id: 'portais_e_redes',
-    profileId: 'venda_rapida',
-    title: 'Portais e Redes',
-    badge: 'Boa para portais',
-    description: 'Materiais claros para portais, redes sociais e anúncios.',
-    modelIds: ['anuncio_premium', 'imovel_detalhes', 'card_imobiliario_premium', 'galeria_imobiliaria'],
-    channelIds: ['portais', 'feed', 'horizontal'],
-  },
-  {
-    id: 'luxo_impacto_visual',
-    profileId: 'luxo_premium',
-    title: 'Luxo Impacto Visual',
-    badge: 'Mais usada',
-    description: 'Apresentação visual forte para imóveis de alto padrão.',
-    modelIds: ['anuncio_premium', 'frase_elegante', 'galeria_imobiliaria', 'video_tour', 'momentos_do_imovel'],
-    channelIds: ['feed', 'vertical', 'horizontal', 'portais'],
-  },
-  {
-    id: 'luxo_lifestyle_completo',
-    profileId: 'luxo_premium',
-    title: 'Luxo Lifestyle Completo',
-    badge: 'Mais completa',
-    description: 'Biblioteca premium para valorizar estilo de vida e diferenciais.',
-    modelIds: ['galeria_imobiliaria', 'momentos_do_imovel', 'reels_moderno', 'slides_premium', 'anuncio_premium'],
-    channelIds: ['feed', 'vertical', 'horizontal', 'portais'],
-  },
-  {
-    id: 'luxo_stories_reels',
-    profileId: 'luxo_premium',
-    title: 'Luxo para Stories/Reels',
-    badge: 'Ideal para redes',
-    description: 'Peças verticais para presença sofisticada nas redes.',
-    modelIds: ['reels_moderno', 'story_premium', 'momentos_do_imovel', 'frase_elegante'],
-    channelIds: ['vertical', 'feed'],
-  },
-  {
-    id: 'alto_padrao_portais',
-    profileId: 'luxo_premium',
-    title: 'Alto Padrão Portais',
-    badge: 'Boa para portais',
-    description: 'Materiais completos para apresentar detalhes e valor percebido.',
-    modelIds: ['imovel_detalhes', 'galeria_imobiliaria', 'anuncio_premium', 'video_tour'],
-    channelIds: ['portais', 'horizontal', 'feed'],
-  },
-  {
-    id: 'lancamento_pre_venda',
-    profileId: 'lancamento',
-    title: 'Lançamento Pré-venda',
-    badge: 'Mais usada',
-    description: 'Campanha para expectativa, apresentação e captação inicial.',
-    modelIds: ['slides_premium', 'anuncio_premium', 'reels_moderno', 'story_premium'],
-    channelIds: ['feed', 'vertical', 'whatsapp', 'horizontal'],
-  },
-  {
-    id: 'lancamento_completo',
-    profileId: 'lancamento',
-    title: 'Lançamento Completo',
-    badge: 'Mais completa',
-    description: 'Conjunto completo para explicar o lançamento com riqueza visual.',
-    modelIds: ['slides_premium', 'triple_slide_carousel', 'galeria_imobiliaria', 'reels_moderno', 'anuncio_premium'],
-    channelIds: ['feed', 'vertical', 'horizontal', 'portais'],
-  },
-  {
-    id: 'lancamento_para_leads',
-    profileId: 'lancamento',
-    title: 'Lançamento para Leads',
-    badge: 'Ideal para anúncios',
-    description: 'Foco em anúncios, atendimento e geração de contatos.',
-    modelIds: ['chat_imobiliario', 'story_premium', 'anuncio_premium', 'slides_premium'],
-    channelIds: ['horizontal', 'whatsapp', 'feed'],
-  },
-  {
-    id: 'lancamento_redes_sociais',
-    profileId: 'lancamento',
-    title: 'Lançamento Redes Sociais',
-    badge: 'Ideal para redes',
-    description: 'Modelos sociais para divulgar novidades e criar desejo.',
-    modelIds: ['story_premium', 'reels_moderno', 'triple_slide_carousel', 'slides_premium'],
-    channelIds: ['vertical', 'feed'],
-  },
-  {
-    id: 'mcmv_direto_ao_ponto',
-    profileId: 'mcmv',
-    title: 'MCMV Direto ao Ponto',
-    badge: 'Mais usada',
-    description: 'Comunicação clara para financiamento, conversa e decisão.',
-    modelIds: ['card_imobiliario_premium', 'story_premium', 'chat_imobiliario', 'imovel_detalhes'],
-    channelIds: ['feed', 'vertical', 'whatsapp', 'portais'],
-  },
-  {
-    id: 'mcmv_completo',
-    profileId: 'mcmv',
-    title: 'MCMV Completo',
-    badge: 'Mais completa',
-    description: 'Pacote completo para redes, WhatsApp, anúncios e portais.',
-    modelIds: ['card_imobiliario_premium', 'story_premium', 'chat_imobiliario', 'imovel_detalhes', 'anuncio_premium'],
-    channelIds: ['feed', 'vertical', 'whatsapp', 'horizontal', 'portais'],
-  },
-  {
-    id: 'mcmv_whatsapp',
-    profileId: 'mcmv',
-    title: 'MCMV WhatsApp',
-    badge: 'Rápida para WhatsApp',
-    description: 'Materiais simples para estimular simulações e conversa.',
-    modelIds: ['chat_imobiliario', 'story_premium', 'card_imobiliario_premium', 'anuncio_premium'],
-    channelIds: ['whatsapp', 'vertical', 'feed'],
-  },
-  {
-    id: 'mcmv_portais',
-    profileId: 'mcmv',
-    title: 'MCMV Portais',
-    badge: 'Boa para portais',
-    description: 'Apresentação objetiva para portais, redes e anúncios.',
-    modelIds: ['imovel_detalhes', 'card_imobiliario_premium', 'anuncio_premium', 'galeria_imobiliaria'],
-    channelIds: ['portais', 'feed', 'horizontal'],
-  },
-  {
-    id: 'temporada_ocupacao_rapida',
-    profileId: 'airbnb_temporada',
-    title: 'Temporada Ocupação Rápida',
-    badge: 'Mais usada',
-    description: 'Campanha visual para gerar reservas e conversas rapidamente.',
-    modelIds: ['momentos_do_imovel', 'galeria_imobiliaria', 'story_premium', 'chat_imobiliario'],
-    channelIds: ['feed', 'vertical', 'whatsapp'],
-  },
-  {
-    id: 'airbnb_experiencia',
-    profileId: 'airbnb_temporada',
-    title: 'Airbnb Experiência',
-    badge: 'Mais completa',
-    description: 'Valoriza experiência, ambientes e diferenciais da estadia.',
-    modelIds: ['momentos_do_imovel', 'galeria_imobiliaria', 'reels_moderno', 'story_premium', 'video_tour'],
-    channelIds: ['feed', 'vertical', 'horizontal'],
-  },
-  {
-    id: 'temporada_stories_reels',
-    profileId: 'airbnb_temporada',
-    title: 'Temporada Stories/Reels',
-    badge: 'Ideal para redes',
-    description: 'Peças sociais para mostrar atmosfera, lazer e desejo.',
-    modelIds: ['reels_moderno', 'story_premium', 'momentos_do_imovel', 'galeria_imobiliaria'],
-    channelIds: ['vertical', 'feed'],
-  },
-  {
-    id: 'temporada_whatsapp',
-    profileId: 'airbnb_temporada',
-    title: 'Temporada WhatsApp',
-    badge: 'Rápida para WhatsApp',
-    description: 'Materiais prontos para enviar e converter interessados.',
-    modelIds: ['chat_imobiliario', 'galeria_imobiliaria', 'story_premium', 'momentos_do_imovel'],
-    channelIds: ['whatsapp', 'feed', 'vertical'],
-  },
-]
-
-const getOfficialSuggestedCampaign = (campaignId) => (
-  OFFICIAL_SUGGESTED_CAMPAIGNS.find(campaign => campaign.id === campaignId)
-)
-
-const getOfficialSuggestedCampaignModels = (campaign) => (
-  (campaign?.modelIds || []).map(modelId => CAMPAIGN_MODEL_BY_ID[modelId]).filter(Boolean)
-)
-
-const getOfficialSuggestedModelUses = (campaign, useId) => {
-  const selectedUseId = campaign?.channelIds?.includes(useId) ? useId : campaign?.channelIds?.[0]
-  if (!selectedUseId) return {}
-  const modelUses = {}
-  getOfficialSuggestedCampaignModels(campaign).forEach(model => {
-    if (model.useTemplates?.[selectedUseId]) modelUses[model.id] = [selectedUseId]
-  })
-  return modelUses
-}
-
-const getModelUsesFromPreset = (preset = []) => {
-  const next = {}
-  preset.forEach(({ modelId, useId }) => {
-    const model = CAMPAIGN_MODEL_BY_ID[modelId]
-    if (!model || !model.compatibleUses.includes(useId)) return
-    next[modelId] = [useId]
-  })
-  return next
-}
-
-const DEMO_CAMPAIGN_ID = 'venda_rapida'
-const DEMO_TEMPLATE_IDS = [
-  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
-  '1de0a863-2376-4336-8a0a-4750c2429cf7',
-  '2ecd48d3-146c-467b-8a0d-908152101378',
-]
-
-const SMART_CAMPAIGN_FIXED_CREDIT_COST = 185
-const SMART_CAMPAIGN_BASE_TEMPLATE_IDS = [
-  '662883d7-1dba-4e61-a2a2-81fd9293ab15',
-  'd45618d1-5f7f-4053-b317-dd2bbe322f5b',
-  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
-  '0e8a9ffd-36e3-493a-bf3b-9d83f3b6699d',
-  '1ae7e1f4-ada4-4b03-a032-737a025b88c6',
-  '3d72b111-76a7-4c7d-a594-1f75f70be2d2',
-  '1de0a863-2376-4336-8a0a-4750c2429cf7',
-  '13008c2d-9e7e-4515-a2ac-649c9ea18409',
-  '697a514d-4bab-4062-9c9e-3c208688c0e9',
-  'd8310f54-5c9d-4606-ae6a-dacb8c4455ae',
-  '62d46ee6-6347-4335-af89-2b65f2794882',
-  '2ecd48d3-146c-467b-8a0d-908152101378',
-]
-const SMART_CAMPAIGN_BASE_DELIVERABLES = [
-  { key: 'banners', title: 'Banners', count: 6 },
-  { key: 'stories', title: 'Stories', count: 3 },
-  { key: 'videos', title: 'Reels', count: 2 },
-  { key: 'carousels', title: 'Carrossel', count: 1 },
-  { key: 'textIa', title: 'Textos completos' },
-  { key: 'whatsapp', title: 'WhatsApp' },
-]
-
-const DELIVERABLE_LABELS = {
-  banners: ['banner', 'card', 'detailed', 'social'],
-  stories: ['story'],
-  carousels: ['carousel'],
-  videos: ['video', 'reels'],
-}
-
-const DELIVERABLE_DETAILS = {
-  banners: {
-    title: 'Banner Feed',
-    where: 'Instagram e Facebook',
-    purpose: 'divulgar o imóvel no feed e gerar interesse imediato.',
-  },
-  stories: {
-    title: 'Story',
-    where: 'Instagram Stories, Facebook Stories e Status do WhatsApp',
-    purpose: 'aumentar visualizações rápidas e gerar contatos.',
-  },
-  carousels: {
-    title: 'Carrossel',
-    where: 'Instagram e Facebook',
-    purpose: 'mostrar vários ambientes do imóvel em uma única publicação.',
-  },
-  videos: {
-    title: 'Vídeo/Reels',
-    where: 'Instagram Reels, TikTok e Facebook Reels',
-    purpose: 'aumentar alcance e criar impacto visual.',
-  },
-  textIa: {
-    title: 'Texto IA',
-    where: 'portais, Instagram, Facebook e WhatsApp',
-    purpose: 'publicar com mais qualidade sem precisar escrever do zero.',
-  },
-  whatsapp: {
-    title: 'WhatsApp',
-    where: 'grupos, clientes e leads',
-    purpose: 'compartilhar o imóvel rapidamente e iniciar conversas.',
-  },
-}
-
-const countDeliverables = (catalogItems = []) => {
-  const items = TEMPLATE_CATALOG.filter(template => catalogItems.includes(template.id))
-  const countByTypes = (types) => items.filter(item => types.includes(item.type)).length
-  return {
-    banners: countByTypes(DELIVERABLE_LABELS.banners),
-    stories: countByTypes(DELIVERABLE_LABELS.stories),
-    carousels: countByTypes(DELIVERABLE_LABELS.carousels),
-    videos: countByTypes(DELIVERABLE_LABELS.videos),
-    total: items.length,
-  }
-}
-
-const pluralize = (count, singular, plural) => `${count} ${count === 1 ? singular : plural}`
-
-const createDeliverableDetail = (key, count = null) => ({
-  key,
-  count,
-  ...DELIVERABLE_DETAILS[key],
-})
-
-const getCampaignCardDetails = (campaignId, modeId, isDemoPlan = false, channelId = null) => {
-  const officialCampaign = getOfficialSuggestedCampaign(campaignId)
-  if (officialCampaign) {
-    const modelUses = getOfficialSuggestedModelUses(officialCampaign, channelId || officialCampaign.channelIds[0])
-    const suggestedTemplates = getTemplateIdsFromModelUses(modelUses)
-    const catalogItems = TEMPLATE_CATALOG
-      .filter(template => suggestedTemplates.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId))
-      .map(template => template.id)
-    const counts = countDeliverables(catalogItems)
-    const deliverables = [
-      counts.banners > 0 ? createDeliverableDetail('banners', counts.banners) : null,
-      counts.stories > 0 ? createDeliverableDetail('stories', counts.stories) : null,
-      counts.carousels > 0 ? createDeliverableDetail('carousels', counts.carousels) : null,
-      counts.videos > 0 ? createDeliverableDetail('videos', counts.videos) : null,
-      createDeliverableDetail('textIa'),
-      createDeliverableDetail('whatsapp'),
-    ].filter(Boolean)
-
-    return {
-      deliverables,
-      totalPieces: counts.total,
-      creditCost: TEMPLATE_CATALOG
-        .filter(template => suggestedTemplates.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId))
-        .reduce((sum, template) => sum + (template.creditWeight || 0), 0),
-    }
-  }
-
-  const mode = CAMPAIGN_TEMPLATES[campaignId]?.modes?.[modeId] || CAMPAIGN_TEMPLATES[campaignId]?.modes?.economica
-  const preset = getSmartCampaignPreset(campaignId, modeId)
-  const modelUses = getModelUsesFromPreset(preset)
-  const suggestedTemplates = getTemplateIdsFromModelUses(modelUses)
-  const catalogItems = isDemoPlan && campaignId === DEMO_CAMPAIGN_ID
-    ? TEMPLATE_CATALOG.filter(template => DEMO_TEMPLATE_IDS.includes(template.templateId)).map(template => template.id)
-    : TEMPLATE_CATALOG.filter(template => suggestedTemplates.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId)).map(template => template.id)
-  const counts = countDeliverables(catalogItems)
-  const deliverables = [
-    counts.banners > 0 ? createDeliverableDetail('banners', counts.banners) : null,
-    counts.stories > 0 ? createDeliverableDetail('stories', counts.stories) : null,
-    counts.carousels > 0 ? createDeliverableDetail('carousels', counts.carousels) : null,
-    counts.videos > 0 ? createDeliverableDetail('videos', counts.videos) : null,
-    createDeliverableDetail('textIa'),
-    createDeliverableDetail('whatsapp'),
-  ].filter(Boolean)
-
-  return {
-    deliverables,
-    totalPieces: counts.total,
-    creditCost: isDemoPlan && campaignId === DEMO_CAMPAIGN_ID
-      ? 0
-      : (TEMPLATE_CATALOG
-        .filter(template => suggestedTemplates.includes(template.templateId) && ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(template.templateId))
-        .reduce((sum, template) => sum + (template.creditWeight || 0), 0) || mode?.creditCost || 0),
-  }
-}
 
 const DIAS_SEMANA = [
   { id: 'seg', nome: 'Seg', label: 'Segunda' }, { id: 'ter', nome: 'Ter', label: 'Terça' },
@@ -1938,8 +1360,6 @@ export default function NovaCampanha() {
   }, [activePreviewModel, closePreviewModal])
 
   const selecionarTudo = () => {
-    setSelectedSmartCampaign(null)
-    setCreditBuilderMode('manual')
     const nextModelUses = Object.fromEntries(
       CAMPAIGN_MODEL_LIBRARY.map(model => [model.id, [model.compatibleUses[0]]])
     )
@@ -1950,13 +1370,6 @@ export default function NovaCampanha() {
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [productFlowStep, setProductFlowStep] = useState(defaultCampaignStep)
-  const [campaignFlowType, setCampaignFlowType] = useState(defaultCampaignFlowType)
-  const [wizardStep, setWizardStep] = useState(0)
-  const [visualCreditMode, setVisualCreditMode] = useState('economica')
-  const [creditBuilderMode, setCreditBuilderMode] = useState('recommended')
-  const [selectedSmartCampaign, setSelectedSmartCampaign] = useState(null)
-  const [selectedSuggestedProfile, setSelectedSuggestedProfile] = useState(null)
-  const [selectedSuggestedChannel, setSelectedSuggestedChannel] = useState(null)
   const [activeCampaignModelId, setActiveCampaignModelId] = useState(null)
   const [selectedModelUses, setSelectedModelUses] = useState({})
   const [campaignObjective, setCampaignObjective] = useState(defaultCampaignObjective)
@@ -1980,28 +1393,13 @@ export default function NovaCampanha() {
     setDemoUsed(localStorage.getItem(demoStorageKey) === 'true')
   }, [demoStorageKey])
 
-  useEffect(() => {
-    if (ENABLE_SUGGESTED_CAMPAIGNS || isProductEntry) return
-    if (productFlowStep === 'campaign-choice' || productFlowStep === 'smart-campaigns') {
-      setCampaignFlowType('manual')
-      setProductFlowStep('manual-catalog')
-    }
-  }, [isProductEntry, productFlowStep])
-
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
   const selectedCampaignPieces = getCampaignPiecesFromModelUses(selectedModelUses)
   const selectedTemplateIds = selectedCampaignPieces.map(piece => piece.template_id)
   const selectedTemplateIdSet = new Set(selectedTemplateIds)
-  const selectedMarketingObjectives = VISIBLE_MARKETING_OBJECTIVES.filter(objective =>
-    objective.selectedTemplates.every(templateId => selectedTemplateIdSet.has(templateId))
-  )
-  const campaignObjectiveId = campaignFlowType === 'smart' ? selectedSmartCampaign : campaignObjective
-  const selectedOfficialCampaign = getOfficialSuggestedCampaign(selectedSmartCampaign)
-  const campaignObjectiveInfo = selectedOfficialCampaign || SMART_CAMPAIGNS.find(campaign => campaign.id === campaignObjectiveId)
+  const campaignObjectiveInfo = SMART_CAMPAIGNS.find(campaign => campaign.id === campaignObjective)
   const campaignObjectiveLabel = campaignObjectiveInfo?.title || ''
-  const selectedObjectiveCount = selectedMarketingObjectives.length
-  const simulatedCreditBalance = 150
   const selectedCatalogItems = selectedCampaignPieces.length > 0
     ? selectedCampaignPieces.map((piece, index) => ({
         ...piece.template,
@@ -2040,22 +1438,12 @@ export default function NovaCampanha() {
     .filter(Boolean)
   const selectedModelCount = selectedModelSummaries.length
   const selectedUseCount = selectedModelSummaries.reduce((sum, model) => sum + model.selectedUses.length, 0)
-  const isSmartCampaignSelection = false
   const estimatedCreditConsumption = selectedCatalogItems.reduce((sum, item) => sum + item.creditWeight, 0)
-  const balanceAfterGeneration = simulatedCreditBalance - estimatedCreditConsumption
-  const hasInsufficientCredits = balanceAfterGeneration < 0
-  const economySuggestion = selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
-    ? 'Remova Vídeo/Reels para economizar créditos e manter artes + textos IA.'
-    : 'Escolha apenas Banner Feed e Story para uma geração mais econômica.'
   const generationModeForCredits = isDemoPlan ? 'demonstrativo' : 'manual'
-  const generationCreditCost = isDemoPlan ? 0 : (isSmartCampaignSelection ? SMART_CAMPAIGN_FIXED_CREDIT_COST : estimatedCreditConsumption)
+  const generationCreditCost = isDemoPlan ? 0 : estimatedCreditConsumption
   const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
   const minFotosImovel = isProductEntry ? (productContext.photoRequired ? 1 : 0) : MIN_FOTOS_PRODUTO_3
   const maxFotosImovel = isProductEntry ? MAX_FOTOS_OUTROS_PRODUTOS : MAX_FOTOS_PRODUTO_3
-  const activeWizardStep = WIZARD_STEPS[wizardStep] || WIZARD_STEPS[0]
-  const wizardProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100
-  const goToPreviousWizardStep = () => setWizardStep(step => Math.max(0, step - 1))
-  const goToNextWizardStep = () => setWizardStep(step => Math.min(WIZARD_STEPS.length - 1, step + 1))
 
   const setSelectedTemplateIds = (templateIds = []) => {
     setSelectedModelUses(getModelUsesFromTemplateIds(templateIds))
@@ -2067,27 +1455,10 @@ export default function NovaCampanha() {
     setSelectedTemplateIds(getTemplateIdsFromModelUses(normalized))
   }
 
-  const toggleMarketingObjective = (objective) => {
-    const next = new Set(selectedTemplateIds)
-    const alreadySelected = objective.selectedTemplates.every(templateId => next.has(templateId))
-
-    objective.selectedTemplates.forEach(templateId => {
-      if (alreadySelected) next.delete(templateId)
-      else next.add(templateId)
-    })
-
-    setSelectedSmartCampaign(null)
-    setCreditBuilderMode('manual')
-    setSelectedTemplateIds(Array.from(next))
-    setSelectedModelUses(getModelUsesFromTemplateIds(Array.from(next)))
-  }
-
   const toggleTemplateCatalogItem = (templateId) => {
     const next = new Set(selectedTemplateIds)
     if (next.has(templateId)) next.delete(templateId)
     else next.add(templateId)
-    setSelectedSmartCampaign(null)
-    setCreditBuilderMode('manual')
     setSelectedTemplateIds(Array.from(next))
     setSelectedModelUses(getModelUsesFromTemplateIds(Array.from(next)))
   }
@@ -2112,42 +1483,7 @@ export default function NovaCampanha() {
       return
     }
 
-    setSelectedSmartCampaign(null)
-    setCreditBuilderMode('manual')
     applySelectedModelUses(next)
-  }
-
-  const applySmartCampaign = (campaignId, modeId = visualCreditMode) => {
-    const officialCampaign = getOfficialSuggestedCampaign(campaignId)
-    if (officialCampaign) {
-      const officialModelUses = getOfficialSuggestedModelUses(officialCampaign, selectedSuggestedChannel)
-      const selected = getTemplateIdsFromModelUses(officialModelUses)
-      const allowed = selected.filter(templateId => ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(templateId))
-      setSelectedModelUses(officialModelUses)
-      setSelectedTemplateIds(allowed)
-      setSelectedSmartCampaign(campaignId)
-      setCampaignObjective(officialCampaign.profileId)
-      setCreditBuilderMode('recommended')
-      return
-    }
-
-    if (isDemoPlan && campaignId !== DEMO_CAMPAIGN_ID) return
-    const preset = getSmartCampaignPreset(campaignId, modeId)
-    const presetModelUses = getModelUsesFromPreset(preset)
-    const selected = getTemplateIdsFromModelUses(presetModelUses)
-    const allowed = isDemoPlan ? DEMO_TEMPLATE_IDS : selected.filter(templateId => ACTIVE_CAMPAIGN_TEMPLATE_IDS.has(templateId))
-    setSelectedModelUses(isDemoPlan ? getModelUsesFromTemplateIds(DEMO_TEMPLATE_IDS) : presetModelUses)
-    setSelectedTemplateIds(allowed)
-    setSelectedSmartCampaign(campaignId)
-    setCampaignObjective(campaignId)
-    setCreditBuilderMode('recommended')
-  }
-
-  const selectCampaignMode = (modeId) => {
-    setVisualCreditMode(modeId)
-    if (selectedSmartCampaign) {
-      applySmartCampaign(selectedSmartCampaign, modeId)
-    }
   }
 
   useEffect(() => {
@@ -2299,13 +1635,13 @@ export default function NovaCampanha() {
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
-    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setCampaignFlowType(defaultCampaignFlowType); setSelectedSmartCampaign(null); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
+    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
     clearInterval(renderPollRef.current)
   }
 
   const voltarResultadoParaCusto = () => {
     setFase('form')
-    setProductFlowStep('cost')
+    setProductFlowStep('manual-catalog')
   }
 
   const confirmarGeracao = () => {
@@ -2323,13 +1659,6 @@ export default function NovaCampanha() {
     if (isDemoPlan && demoUsed) {
       toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
       return
-    }
-    if (isDemoPlan && selectedSmartCampaign && selectedSmartCampaign !== DEMO_CAMPAIGN_ID) {
-      toast.error('No plano demonstrativo, somente Venda Rápida está disponível.')
-      return
-    }
-    if (isDemoPlan && !selectedSmartCampaign) {
-      applySmartCampaign(DEMO_CAMPAIGN_ID)
     }
     setShowConfirm(true)
   }
@@ -2986,28 +2315,7 @@ export default function NovaCampanha() {
   //  RENDER
   // ════════════════════════════════════════════════════════════
   if (['form', 'gerando', 'resultado'].includes(fase)) {
-    const selectedCampaign = getOfficialSuggestedCampaign(selectedSmartCampaign) || SMART_CAMPAIGNS.find(campaign => campaign.id === selectedSmartCampaign)
-    const selectedProductNames = selectedMarketingObjectives.map(item => item.publicName)
-    const suggestedCampaignProfiles = SMART_CAMPAIGNS.filter(campaign => (
-      !campaign.hidden && OFFICIAL_SUGGESTED_PROFILE_IDS.includes(campaign.id)
-    ))
-    const suggestedCampaignChannels = Object.values(CAMPAIGN_USE_OPTIONS)
-    const canShowSuggestedCampaigns = Boolean(selectedSuggestedProfile && selectedSuggestedChannel)
-    const filteredSuggestedCampaigns = canShowSuggestedCampaigns
-      ? OFFICIAL_SUGGESTED_CAMPAIGNS.filter(campaign => (
-        campaign.profileId === selectedSuggestedProfile
-        && campaign.channelIds.includes(selectedSuggestedChannel)
-      ))
-      : []
-    const recommendedSuggestedCampaigns = filteredSuggestedCampaigns.slice(0, 2)
-    const otherSuggestedCampaigns = filteredSuggestedCampaigns.slice(2)
-    const simpleCost = generationCreditCost
-    const simpleBalance = isUnlimitedTestAdmin ? 'Ilimitado' : simulatedCreditBalance
-    const simpleStatus = isUnlimitedTestAdmin || simpleCost <= simulatedCreditBalance
-      ? 'Saldo suficiente para gerar.'
-      : 'Créditos insuficientes para esta geração.'
     const goHome = () => {
-      setCampaignFlowType(null)
       navigate('/dashboard')
     }
     const goBackFromProperty = () => {
@@ -3015,39 +2323,12 @@ export default function NovaCampanha() {
         navigate(productContext.sourcePath)
         return
       }
-      if (ENABLE_SUGGESTED_CAMPAIGNS && campaignFlowType === 'smart') {
-        setProductFlowStep('smart-campaigns')
-        return
-      }
       setProductFlowStep('manual-catalog')
     }
-    const goToCampaignChoice = () => {
-      if (!ENABLE_SUGGESTED_CAMPAIGNS) {
-        setProductFlowStep('manual-catalog')
-        setCampaignFlowType('manual')
-        return
-      }
-      setProductFlowStep('campaign-choice')
-      setCampaignFlowType(null)
-    }
-    const startSmartFlow = () => {
-      if (!ENABLE_SUGGESTED_CAMPAIGNS) return
-      setCampaignFlowType('smart')
-      setCreditBuilderMode('recommended')
-      setProductFlowStep('smart-campaigns')
-    }
     const startManualFlow = () => {
-      setCampaignFlowType('manual')
-      setCreditBuilderMode('manual')
-      setSelectedSmartCampaign(null)
       setActiveCampaignModelId(null)
       setCampaignObjective(defaultCampaignObjective)
       setProductFlowStep('manual-catalog')
-    }
-    const selectSmartCampaignAndContinue = (campaignId) => {
-      applySmartCampaign(campaignId)
-      setCampaignFlowType('smart')
-      setProductFlowStep('property')
     }
     const continueFromManual = () => {
       if (selectedTemplateIds.length === 0) {
@@ -3058,82 +2339,8 @@ export default function NovaCampanha() {
         toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
         return
       }
-      setCampaignFlowType('manual')
       if (!campaignObjective) setCampaignObjective(defaultCampaignObjective)
       setProductFlowStep('property')
-    }
-    const renderSuggestedCampaignCard = (campaign) => {
-      const cardDetails = getCampaignCardDetails(campaign.id, visualCreditMode, isDemoPlan, selectedSuggestedChannel)
-      const includedModels = getOfficialSuggestedCampaignModels(campaign)
-      const selectedChannel = CAMPAIGN_USE_OPTIONS[selectedSuggestedChannel]
-      const channelLabels = campaign.channelIds
-        .map(channelId => CAMPAIGN_USE_OPTIONS[channelId]?.label)
-        .filter(Boolean)
-      const locked = isDemoPlan && campaign.profileId !== DEMO_CAMPAIGN_ID
-
-      return (
-        <article key={campaign.id} className={`rounded-2xl border border-gray-200 bg-white p-4 shadow-sm ${locked ? 'opacity-60' : ''}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-800">
-                {campaign.badge}
-              </span>
-              <h3 className="mt-3 text-lg font-black text-gray-950">{campaign.title}</h3>
-            </div>
-            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600">
-              {cardDetails.creditCost} créditos
-            </span>
-          </div>
-
-          <p className="mt-2 text-sm leading-relaxed text-gray-500">{campaign.description}</p>
-
-          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs font-black text-gray-800">Canais compatíveis</p>
-            <p className="mt-1 text-xs leading-relaxed text-gray-500">{channelLabels.join(' · ')}</p>
-            {selectedChannel && (
-              <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-black text-gray-700">
-                <span aria-hidden="true">{selectedChannel.icon}</span>
-                Selecionado: {selectedChannel.label}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 rounded-xl border border-gray-100 bg-white p-3">
-            <p className="text-xs font-black text-gray-800">Modelos incluídos</p>
-            <div className="mt-2 space-y-2">
-              {includedModels.map(model => (
-                <div key={`${campaign.id}-${model.id}`} className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2">
-                  <span className="text-xs font-bold text-gray-700">{model.name}</span>
-                  <button
-                    type="button"
-                    onClick={(event) => openPreviewModal(model, event)}
-                    className="rounded-full border border-gray-300 bg-white px-3 py-1 text-[11px] font-black text-gray-800 shadow-sm hover:border-amber-300 hover:bg-amber-50"
-                  >
-                    Ver
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs font-black text-gray-800">Receba:</p>
-            <div className="mt-2 space-y-1">
-              {cardDetails.deliverables.map(item => (
-                <p key={item.key} className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-                  <span>{item.count ? `${item.count} ` : ''}{item.title}</span>
-                </p>
-              ))}
-            </div>
-          </div>
-
-          <button type="button" disabled={locked} onClick={() => selectSmartCampaignAndContinue(campaign.id)}
-            className="mt-4 w-full rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-black text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">
-            {locked ? 'Disponível nos planos pagos' : 'Escolher campanha'}
-          </button>
-        </article>
-      )
     }
     const continueFromProperty = () => {
       if (!dadosImovelValidos) {
@@ -3203,21 +2410,6 @@ export default function NovaCampanha() {
       <div className="card p-6 space-y-5">
         <h2 className="text-base font-bold text-gray-900">Dados do imóvel</h2>
 
-        {campaignFlowType === 'smart' && selectedOfficialCampaign && (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-amber-800">Campanha sugerida escolhida</p>
-            <h3 className="mt-1 text-base font-black text-gray-950">{selectedOfficialCampaign.title}</h3>
-            <div className="mt-3 grid gap-2 text-xs font-semibold text-gray-700 sm:grid-cols-2">
-              <p><span className="font-black text-gray-900">Perfil:</span> {SMART_CAMPAIGNS.find(campaign => campaign.id === selectedOfficialCampaign.profileId)?.title}</p>
-              <p><span className="font-black text-gray-900">Canal escolhido:</span> {CAMPAIGN_USE_OPTIONS[selectedSuggestedChannel]?.label || 'Canal compatível'}</p>
-              <p className="sm:col-span-2">
-                <span className="font-black text-gray-900">Modelos incluídos:</span>{' '}
-                {getOfficialSuggestedCampaignModels(selectedOfficialCampaign).map(model => model.name).join(', ')}
-              </p>
-            </div>
-          </div>
-        )}
-
         <div>
           <div className="flex items-start justify-between gap-3 mb-2">
             <div>
@@ -3225,9 +2417,7 @@ export default function NovaCampanha() {
                 Foco dos textos
               </label>
               <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                {campaignFlowType === 'smart'
-                  ? 'Objetivo definido pela campanha escolhida.'
-                  : 'Escolha um foco para adaptar textos, CTA e linguagem dos banners.'}
+                Escolha um foco para adaptar textos, CTA e linguagem dos banners.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
@@ -3236,21 +2426,17 @@ export default function NovaCampanha() {
           </div>
           <div className="flex flex-wrap gap-2">
             {SMART_CAMPAIGNS.filter(campaign => !campaign.hidden).map(campaign => {
-              const active = campaignFlowType === 'smart'
-                ? selectedOfficialCampaign?.profileId === campaign.id
-                : campaignObjectiveId === campaign.id
-              const disabled = campaignFlowType === 'smart'
+              const active = campaignObjective === campaign.id
               return (
                 <button
                   key={campaign.id}
                   type="button"
-                  disabled={disabled}
                   onClick={() => setCampaignObjective(campaign.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                     active
                       ? 'gradient-primary text-white border-transparent shadow-sm'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  } ${disabled ? 'cursor-default opacity-80' : ''}`}
+                  }`}
                 >
                   {campaign.title}
                 </button>
@@ -3523,11 +2709,7 @@ export default function NovaCampanha() {
       'Fotos serão usadas para personalizar os banners',
       'Peças selecionadas prontas para geração',
     ]
-    const strategyLabel = campaignFlowType === 'smart'
-      ? selectedCampaign?.title || 'Campanha Inteligente'
-      : campaignObjectiveLabel
-        ? `${campaignObjectiveLabel} com ${selectedProductNames.length ? selectedProductNames.join(', ') : 'produtos selecionados'}`
-        : selectedProductNames.length ? selectedProductNames.join(', ') : 'Produtos selecionados'
+    const strategyLabel = campaignObjectiveLabel || 'Banners selecionados'
 
     return (
       <>
@@ -3578,13 +2760,12 @@ export default function NovaCampanha() {
             </div>
             <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="text-gray-600">Custo desta geração</span>
-                <span className="font-black text-gray-900">{simpleCost} créditos</span>
+                <span className="text-gray-600">Peças selecionadas</span>
+                <span className="font-black text-gray-900">{selectedCatalogItems.length}</span>
               </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-600">Saldo disponível</span>
-                <span className="font-black text-gray-900">{simpleBalance}</span>
-              </div>
+              <p className="text-xs leading-relaxed text-gray-500">
+                A geração será validada com segurança no servidor.
+              </p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirm(false)}
@@ -3604,151 +2785,6 @@ export default function NovaCampanha() {
       <div className="min-h-full bg-gray-50">
           <Header title={productContext.headerTitle} subtitle={productContext.headerSubtitle} />
           <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
-            {ENABLE_SUGGESTED_CAMPAIGNS && fase === 'form' && productFlowStep === 'campaign-choice' && (<>
-              {renderFlowHeader('Gerar Campanha', 'Escolha o subproduto da campanha', 'Use uma campanha por objetivo ou monte sua própria combinação de produtos de marketing.')}
-              {renderStepActions(goHome)}
-              <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <ol className="grid gap-2 text-xs font-bold text-gray-600 sm:grid-cols-5">
-                  {['Escolha o caminho', 'Confira os materiais', 'Preencha o imóvel', 'Gere a campanha', 'Receba e divulgue'].map((step, index) => (
-                    <li key={step} className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
-                        {index + 1}
-                      </span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <button type="button" onClick={startSmartFlow}
-                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-amber-300 hover:shadow-lg">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-sm font-black text-amber-800">
-                    01
-                  </div>
-                  <h2 className="mt-5 text-2xl font-black text-gray-950">Campanha por Objetivo</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha uma sugestão pronta conforme o objetivo de divulgação do imóvel.</p>
-                  <span className="mt-6 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white">Escolher objetivo</span>
-                </button>
-                <button type="button" onClick={startManualFlow}
-                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-amber-300 hover:shadow-lg">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-sm font-black text-amber-800">
-                    02
-                  </div>
-                  <h2 className="mt-5 text-2xl font-black text-gray-950">Monte Sua Campanha</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-500">Escolha exatamente quais produtos de marketing deseja gerar.</p>
-                  <span className="mt-6 inline-flex rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white">Montar campanha</span>
-                </button>
-              </div>
-            </>)}
-
-            {ENABLE_SUGGESTED_CAMPAIGNS && fase === 'form' && productFlowStep === 'smart-campaigns' && (<>
-              {renderFlowHeader('Campanha por Objetivo', 'Escolha uma sugestão pronta', 'Cada card mostra o objetivo, os modelos incluídos e os canais recomendados.')}
-              {renderStepActions(goToCampaignChoice)}
-              <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <ol className="grid gap-2 text-xs font-bold text-gray-600 sm:grid-cols-5">
-                  {[
-                    'Escolha o perfil',
-                    'Escolha onde divulgar',
-                    'Escolha a campanha',
-                    'Preencha o imóvel',
-                    'Gere e receba',
-                  ].map((step, index) => (
-                    <li key={step} className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
-                        {index + 1}
-                      </span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-              <div className="mb-4 space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-gray-500">Perfil da divulgação</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {suggestedCampaignProfiles.map(campaign => {
-                      const active = selectedSuggestedProfile === campaign.id
-                      return (
-                        <button
-                          key={campaign.id}
-                          type="button"
-                          onClick={() => setSelectedSuggestedProfile(campaign.id)}
-                          className={`rounded-full border px-3 py-2 text-xs font-black transition-colors ${
-                            active
-                              ? 'border-gray-950 bg-gray-950 text-white'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-amber-300 hover:bg-amber-50'
-                          }`}
-                        >
-                          {campaign.title}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-gray-500">Onde pretende divulgar</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {suggestedCampaignChannels.map(use => {
-                      const active = selectedSuggestedChannel === use.id
-                      return (
-                        <button
-                          key={use.id}
-                          type="button"
-                          onClick={() => setSelectedSuggestedChannel(use.id)}
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black transition-colors ${
-                            active
-                              ? 'border-gray-950 bg-gray-950 text-white'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-amber-300 hover:bg-amber-50'
-                          }`}
-                        >
-                          <span aria-hidden="true">{use.icon}</span>
-                          <span>{use.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <p className="text-xs leading-relaxed text-gray-500">
-                  As campanhas sugeridas aparecem depois que você define o perfil e o canal. Cada campanha mostra os modelos oficiais incluídos e permite visualizar o preview antes de escolher.
-                </p>
-              </div>
-              {recommendedSuggestedCampaigns.length > 0 && (
-                <section className="space-y-3">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-amber-700">Recomendadas para você</p>
-                    <h3 className="mt-1 text-base font-black text-gray-950">Melhores opções para esta combinação</h3>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {recommendedSuggestedCampaigns.map(renderSuggestedCampaignCard)}
-                  </div>
-                </section>
-              )}
-
-              {otherSuggestedCampaigns.length > 0 && (
-                <section className="mt-5 space-y-3">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">Outras opções compatíveis</p>
-                    <h3 className="mt-1 text-base font-black text-gray-950">Campanhas que também atendem ao canal escolhido</h3>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {otherSuggestedCampaigns.map(renderSuggestedCampaignCard)}
-                  </div>
-                </section>
-              )}
-              {!canShowSuggestedCampaigns && (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm font-semibold text-gray-500">
-                  Escolha primeiro o perfil da divulgação e onde pretende divulgar.
-                </div>
-              )}
-              {canShowSuggestedCampaigns && filteredSuggestedCampaigns.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm font-semibold text-gray-500">
-                  Nenhuma campanha sugerida disponível para esta combinação no momento.
-                </div>
-              )}
-            </>)}
-
             {fase === 'form' && productFlowStep === 'manual-catalog' && (<>
               {renderFlowHeader('Banners Rápidos', 'Gerador de Banners Imobiliários', 'Escolha os modelos, informe o imóvel e gere peças prontas para divulgar.')}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -3822,8 +2858,6 @@ export default function NovaCampanha() {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {CAMPAIGN_MODEL_LIBRARY.map(model => {
-                      const modelCredit = getModelCreditWeight(model.id)
-                      const creditLabel = `${modelCredit} créditos por peça`
                       const useIds = selectedModelUses[model.id] || []
                       const selected = useIds.length > 0
                       return (
@@ -3855,12 +2889,6 @@ export default function NovaCampanha() {
                                   {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
                                 </div>
                               </div>
-                            </div>
-
-                            <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black">
-                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
-                                {creditLabel}
-                              </span>
                             </div>
                           </div>
 
@@ -3941,7 +2969,7 @@ export default function NovaCampanha() {
                       <div className="mt-3 border-t border-primary-100 pt-3">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sm font-bold text-primary-900">Total</span>
-                          <span className="text-sm font-black text-primary-900">{estimatedCreditConsumption} créditos</span>
+                          <span className="text-sm font-black text-primary-900">{selectedUseCount} peças</span>
                         </div>
                       </div>
                     </div>
@@ -4032,14 +3060,9 @@ export default function NovaCampanha() {
                       <span className="font-semibold text-gray-600">Peças incluídas</span>
                       <span className="font-black text-gray-950">{selectedCatalogItems.length}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-gray-600">Créditos estimados</span>
-                      <span className="font-black text-gray-950">{simpleCost}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
-                      <span className="font-semibold text-gray-600">Saldo após gerar</span>
-                      <span className="font-black text-gray-950">{isUnlimitedTestAdmin ? 'Ilimitado' : balanceAfterGeneration}</span>
-                    </div>
+                    <p className="rounded-2xl bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
+                      A seleção será validada com segurança no servidor antes da geração.
+                    </p>
                   </div>
                   {isDemoPlan && demoUsed && (
                     <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">
@@ -4386,7 +3409,7 @@ export default function NovaCampanha() {
                     </div>
                     <div className="mb-4 rounded-2xl border border-primary-100 bg-primary-50 p-4">
                       <p className="text-sm font-black text-primary-900">Resumo da geração</p>
-                      <div className={`mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 ${hasConfirmedCreditAccounting ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
+                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div className="rounded-xl bg-white p-3">
                           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças solicitadas</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualPieces.length}</p>
@@ -4403,22 +3426,7 @@ export default function NovaCampanha() {
                           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Peças com falha</p>
                           <p className="mt-1 text-xl font-black text-gray-950">{visualPiecesFailed}</p>
                         </div>
-                        {hasConfirmedCreditAccounting && (
-                          <>
-                            <div className="rounded-xl bg-white p-3">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos consumidos</p>
-                              <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsConsumed}</p>
-                            </div>
-                            <div className="rounded-xl bg-white p-3">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Créditos devolvidos</p>
-                              <p className="mt-1 text-xl font-black text-gray-950">{visualCreditsRefunded}</p>
-                            </div>
-                          </>
-                        )}
                       </div>
-                      <p className="mt-3 text-xs font-bold text-primary-800">
-                        Você só paga pelas peças geradas com sucesso.
-                      </p>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {visualPieces.map((r, i) => {
