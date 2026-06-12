@@ -9,54 +9,78 @@ const PLANOS = [
     id: 'start',
     nome: 'START',
     preco: '97',
-    tokens: 1000,
-    description: 'Ideal para começar a criar materiais profissionais.',
+    description: 'Acesso completo à plataforma.',
+    capacityLabel: 'Capacidade inicial de criação',
+    capacityDetail: 'Smart Tokens inclusos',
     featured: false,
     cta: 'Assinar Start',
     bullets: [
       'Acesso completo à plataforma',
       'Ideal para começar a criar materiais profissionais',
       'Capacidade inicial de criação',
-      'Smart Tokens mensais inclusos',
     ],
   },
   {
     id: 'pro',
     nome: 'PRO',
     preco: '187',
-    tokens: 2500,
-    description: 'Mais capacidade para criar com frequência.',
+    description: 'Mais recomendado.',
+    capacityLabel: 'Mais liberdade para criar com frequência',
+    capacityDetail: 'Smart Tokens inclusos',
     featured: true,
-    badge: 'Mais escolhido',
+    badge: 'Mais recomendado',
     cta: 'Assinar Pro',
     bullets: [
       'Acesso completo à plataforma',
-      'Mais capacidade para criar com frequência',
       'Mais liberdade para campanhas recorrentes',
-      'Smart Tokens mensais inclusos',
+      'Ideal para corretores ativos',
     ],
   },
   {
     id: 'elite',
     nome: 'ELITE',
     preco: '497',
-    tokens: 6000,
-    description: 'Maior capacidade para alto volume e equipes.',
+    description: 'Maior capacidade para profissionais e equipes.',
+    capacityLabel: 'Volume ampliado de criação',
+    capacityDetail: 'Smart Tokens inclusos',
     featured: false,
     cta: 'Assinar Elite',
     bullets: [
       'Acesso completo à plataforma',
-      'Maior capacidade para alto volume e equipes',
+      'Maior capacidade para profissionais e equipes',
       'Mais fôlego para campanhas, imagens, vídeos e landings',
-      'Smart Tokens mensais inclusos',
     ],
   },
 ]
 
 const RECARGAS = [
-  { id: 'recarga_500', tokens: 500, preco: '59' },
-  { id: 'recarga_1000', tokens: 1000, preco: '99' },
-  { id: 'recarga_2000', tokens: 2000, preco: '179' },
+  {
+    id: 'recarga_500',
+    nome: 'Essencial',
+    tokens: 500,
+    preco: '59',
+    description: 'Capacidade extra para continuar criando no ciclo atual.',
+  },
+  {
+    id: 'recarga_1000',
+    nome: 'Intermediária',
+    tokens: 1000,
+    preco: '99',
+    description: 'Mais fôlego para uma sequência maior de materiais.',
+  },
+  {
+    id: 'recarga_2000',
+    nome: 'Intensiva',
+    tokens: 2000,
+    preco: '179',
+    description: 'Capacidade reforçada para alto volume de criação.',
+  },
+]
+
+const CICLOS = [
+  { id: 'mensal', label: 'Mensal', status: 'ativo' },
+  { id: 'trimestral', label: 'Trimestral', status: 'em breve' },
+  { id: 'anual', label: 'Anual', status: 'em breve' },
 ]
 
 const RULES = [
@@ -157,6 +181,33 @@ export default function Planos() {
           </div>
         </section>
 
+        <section className="mt-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <p className="max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
+              Todos os planos incluem acesso completo à plataforma. A diferença está apenas na capacidade de criação disponível em cada ciclo.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[380px]">
+              {CICLOS.map((ciclo) => (
+                <div
+                  key={ciclo.id}
+                  className={`rounded-2xl border px-4 py-3 text-center ${
+                    ciclo.status === 'ativo'
+                      ? 'border-gray-950 bg-gray-950 text-white'
+                      : 'border-gray-200 bg-gray-50 text-gray-500'
+                  }`}
+                >
+                  <p className="text-sm font-black">{ciclo.label}</p>
+                  <p className={`mt-1 text-[11px] font-black uppercase tracking-wide ${
+                    ciclo.status === 'ativo' ? 'text-amber-300' : 'text-gray-400'
+                  }`}>
+                    {ciclo.status}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="mt-8 grid gap-5 lg:grid-cols-3">
           {PLANOS.map((plano) => {
             const atual = user?.plano === plano.id
@@ -190,12 +241,15 @@ export default function Planos() {
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-gray-400">Capacidade incluída</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-gray-400">Capacidade do ciclo</p>
                     <p className="mt-1 text-sm font-black text-gray-950">
-                      Smart Tokens mensais inclusos
+                      {plano.capacityLabel}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-gray-500">
-                      {formatTokens(plano.tokens)} Smart Tokens por ciclo
+                      {plano.capacityDetail}
+                    </p>
+                    <p className="mt-3 text-xs font-black text-gray-500">
+                      Ver detalhes da capacidade
                     </p>
                   </div>
 
@@ -240,14 +294,17 @@ export default function Planos() {
                   </span>
                 </div>
                 <h3 className="mt-5 text-xl font-black text-gray-950">
-                  {formatTokens(recarga.tokens)} Smart Tokens
+                  {recarga.nome}
                 </h3>
+                <p className="mt-2 text-xs font-semibold text-gray-500">
+                  {formatTokens(recarga.tokens)} Smart Tokens extras
+                </p>
                 <div className="mt-3 flex items-end gap-1">
                   <span className="mb-1 text-sm font-bold text-gray-400">R$</span>
                   <span className="text-4xl font-black text-gray-950">{recarga.preco}</span>
                 </div>
                 <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
-                  Capacidade extra adicionada ao seu ciclo.
+                  {recarga.description}
                 </p>
                 <div className="mt-5">
                   {renderAction(recarga, false, true)}
