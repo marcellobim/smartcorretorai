@@ -36,10 +36,12 @@ const mainActions = [
   {
     id: 'criar-com-ia',
     icon: Wand2,
-    title: 'Criar com IA',
-    description: 'Descreva o que precisa e deixe a IA montar o caminho ideal.',
-    label: 'Em preparação',
-    ready: false,
+    title: 'Criar imagem premium',
+    description: 'A IA guia você passo a passo para criar um Hero IA para o imóvel.',
+    to: '/hero',
+    label: 'Criar Hero IA',
+    tone: 'dark',
+    ready: true,
   },
   {
     id: 'transformar-video',
