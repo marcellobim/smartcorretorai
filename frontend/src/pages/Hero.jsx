@@ -57,6 +57,16 @@ const AUDIENCES = [
   { id: 'locacao', label: 'Locação' },
 ]
 
+const PROPERTY_STATES = [
+  'Pronto para morar',
+  'Em obras',
+  'Reformado',
+  'Novo',
+  'Usado',
+  'Lançamento',
+  'Pré-lançamento',
+]
+
 const SUBCATEGORIES = {
   primeiro_imovel: ['FGTS', 'Subsídio', 'Entrada facilitada'],
   familia: ['Conforto', 'Lazer', 'Segurança'],
@@ -123,6 +133,11 @@ const getHighlights = (property) => {
   return []
 }
 
+const getPropertyState = (property) => {
+  const master = parseMasterProperty(property?.descricao)
+  return master?.estado_imovel || property?.estado_imovel || ''
+}
+
 const getPropertyTitle = (property) => {
   if (!property) return 'Imóvel'
   return property.titulo || [property.tipo, property.bairro].filter(Boolean).join(' em ') || 'Imóvel cadastrado'
@@ -160,6 +175,7 @@ export default function Hero() {
   const { properties, loading } = useProperties()
   const [selectedPropertyId, setSelectedPropertyId] = useState('')
   const [imageModeId, setImageModeId] = useState('')
+  const [propertyState, setPropertyState] = useState('')
   const [audienceId, setAudienceId] = useState('')
   const [subcategory, setSubcategory] = useState('')
   const [selectedHighlights, setSelectedHighlights] = useState([])
@@ -176,6 +192,7 @@ export default function Hero() {
   )
   const photos = getPhotoList(selectedProperty)
   const propertyHighlights = getHighlights(selectedProperty)
+  const savedPropertyState = getPropertyState(selectedProperty)
   const profileStatus = getProfileStatus(user)
   const brandStatus = getBrandStatus(user)
 
@@ -185,7 +202,8 @@ export default function Hero() {
   const chosenDeliverables = DELIVERABLES.filter((item) => deliverables[item.id])
 
   const canShowImageMode = Boolean(selectedProperty)
-  const canShowAudience = Boolean(imageModeId)
+  const canShowPropertyState = Boolean(imageModeId)
+  const canShowAudience = Boolean(propertyState)
   const canShowSubcategory = Boolean(audienceId)
   const canShowHighlights = Boolean(subcategory)
   const canShowDeliverables = highlightsConfirmed
@@ -195,6 +213,7 @@ export default function Hero() {
     selectedProperty
     && photos.length >= MIN_HERO_PHOTOS
     && imageModeId
+    && propertyState
     && audienceId
     && subcategory
     && highlightsConfirmed
@@ -204,6 +223,7 @@ export default function Hero() {
 
   useEffect(() => {
     setImageModeId('')
+    setPropertyState(getPropertyState(selectedProperty))
     setAudienceId('')
     setSubcategory('')
     setSelectedHighlights([])
@@ -371,8 +391,45 @@ export default function Hero() {
                 </UserReply>
               )}
 
+              {canShowPropertyState && (
+                <AssistantStep number={3} message="Qual é o estado atual do imóvel?">
+                  {savedPropertyState && (
+                    <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                      Cadastro Mestre sugeriu: {savedPropertyState}. Confirme ou escolha outra opção.
+                    </div>
+                  )}
+                  <ChipGrid>
+                    {PROPERTY_STATES.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={propertyState === item}
+                        onClick={() => {
+                          setPropertyState(item)
+                          setAudienceId('')
+                          setSubcategory('')
+                          setSelectedHighlights([])
+                          setHighlightsConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
+                          setResultVisible(false)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {propertyState && (
+                <UserReply>
+                  <strong>{propertyState}</strong>
+                  <span>Estado do imóvel confirmado para orientar o futuro prompt.</span>
+                </UserReply>
+              )}
+
               {canShowAudience && (
-                <AssistantStep number={3} message="Quem você deseja atingir?">
+                <AssistantStep number={4} message="Quem você deseja atingir?">
                   <ChipGrid>
                     {AUDIENCES.map((item) => (
                       <ChipButton
@@ -398,7 +455,7 @@ export default function Hero() {
               )}
 
               {canShowSubcategory && (
-                <AssistantStep number={4} message={`Qual foco faz mais sentido para ${audience?.label}?`}>
+                <AssistantStep number={5} message={`Qual foco faz mais sentido para ${audience?.label}?`}>
                   <ChipGrid>
                     {subcategories.map((item) => (
                       <ChipButton
@@ -424,7 +481,7 @@ export default function Hero() {
               )}
 
               {canShowHighlights && (
-                <AssistantStep number={5} message="O que deseja destacar?">
+                <AssistantStep number={6} message="O que deseja destacar?">
                   {propertyHighlights.length > 0 ? (
                     <>
                       <ChipGrid>
@@ -463,7 +520,7 @@ export default function Hero() {
               )}
 
               {canShowDeliverables && (
-                <AssistantStep number={6} message="O que deseja receber junto?">
+                <AssistantStep number={7} message="O que deseja receber junto?">
                   <div className="grid gap-3 sm:grid-cols-2">
                     {DELIVERABLES.map((item) => (
                       <button
@@ -499,7 +556,7 @@ export default function Hero() {
               )}
 
               {canShowAdditionalInfo && (
-                <AssistantStep number={7} message="Deseja acrescentar algo?">
+                <AssistantStep number={8} message="Deseja acrescentar algo?">
                   <label className="block">
                     <span className="text-sm font-black text-gray-950">Existe algum detalhe importante que não perguntamos?</span>
                     <textarea
@@ -531,10 +588,11 @@ export default function Hero() {
               )}
 
               {canShowChecklist && (
-                <AssistantStep number={8} message="Confira o checklist final antes de gerar.">
+                <AssistantStep number={9} message="Confira o checklist final antes de gerar.">
                   <Checklist
                     property={selectedProperty}
                     imageMode={imageMode}
+                    propertyState={propertyState}
                     audience={audience}
                     subcategory={subcategory}
                     highlights={selectedHighlights}
@@ -637,10 +695,11 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, audience, subcategory, highlights, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
+function Checklist({ property, imageMode, propertyState, audience, subcategory, highlights, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
   const rows = [
     ['Imóvel', getPropertyTitle(property)],
     ['Tipo de imagem', imageMode?.label || 'Não informado'],
+    ['Estado do imóvel', propertyState || 'Não informado'],
     ['Público', audience?.label || 'Não informado'],
     ['Subcategoria', subcategory || 'Não informada'],
     ['Destaques', highlights.length > 0 ? highlights.join(', ') : 'Sem destaque adicional'],

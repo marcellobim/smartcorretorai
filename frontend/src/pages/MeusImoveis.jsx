@@ -40,6 +40,7 @@ const FINALIDADE_MVP = 'Venda'
 const EMPTY_FORM = {
   titulo: '',
   perfil_imovel: '',
+  estado_imovel: '',
   tipo: '',
   preco: '',
   area: '',
@@ -75,6 +76,16 @@ const PERFIS_IMOVEL = [
   'Terreno / Lote',
   'Comercial',
   'Locação',
+]
+
+const ESTADOS_IMOVEL = [
+  'Pronto para morar',
+  'Em obras',
+  'Reformado',
+  'Novo',
+  'Usado',
+  'Lançamento',
+  'Pré-lançamento',
 ]
 
 const ESTADOS_BR = [
@@ -213,7 +224,7 @@ const getMasterFromProperty = (property) => splitDescription(property?.descricao
 const getMasterStatus = (property) => {
   const master = getMasterFromProperty(property)
   if (!master) return 'incompleto'
-  const hasCore = Boolean(master?.perfil_imovel && property?.tipo && property?.bairro && property?.cidade && property?.estado)
+  const hasCore = Boolean(master?.perfil_imovel && master?.estado_imovel && property?.tipo && property?.bairro && property?.cidade && property?.estado)
   const hasPhotos = Array.isArray(property?.fotos) && property.fotos.length >= MIN_MASTER_PHOTOS
   return hasCore && hasPhotos ? 'completo' : 'incompleto'
 }
@@ -224,6 +235,7 @@ const toFormState = (property) => {
   return {
     titulo: property.titulo || '',
     perfil_imovel: master?.perfil_imovel || '',
+    estado_imovel: master?.estado_imovel || '',
     tipo: property.tipo || '',
     preco: property.preco || master?.preco || '',
     area: property.area || master?.area || '',
@@ -405,8 +417,8 @@ export default function MeusImoveis() {
   }
 
   const validateForm = () => {
-    if (!form.perfil_imovel || !form.tipo || !form.estado || !form.cidade || !normalizeNeighborhood(form.bairro)) {
-      toast.error('Preencha perfil, tipo, estado, cidade e bairro.')
+    if (!form.perfil_imovel || !form.estado_imovel || !form.tipo || !form.estado || !form.cidade || !normalizeNeighborhood(form.bairro)) {
+      toast.error('Preencha perfil, estado do imóvel, tipo, estado, cidade e bairro.')
       return false
     }
     if (form.fotos.length < MIN_MASTER_PHOTOS) {
@@ -438,6 +450,7 @@ export default function MeusImoveis() {
         retention_days: RETENTION_DAYS,
         reusable_until: getRetentionDate(),
         perfil_imovel: form.perfil_imovel,
+        estado_imovel: form.estado_imovel,
         finalidade: 'venda',
         tipo: normalizeText(form.tipo),
         bairro: normalizedNeighborhood,
@@ -630,6 +643,33 @@ export default function MeusImoveis() {
             </div>
           </section>
 
+          <section className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-700">Estado do imóvel</p>
+            <h3 className="mt-1 text-base font-black text-gray-950">Qual é o estado atual do imóvel?</h3>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">
+              Essa informação ajuda a orientar os próximos produtos da plataforma.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {ESTADOS_IMOVEL.map((estadoImovel) => {
+                const active = form.estado_imovel === estadoImovel
+                return (
+                  <button
+                    key={estadoImovel}
+                    type="button"
+                    onClick={() => updateField('estado_imovel', estadoImovel)}
+                    className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                      active
+                        ? 'border-gray-950 bg-gray-950 text-white'
+                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    {estadoImovel}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Input
               label="Título interno"
@@ -674,7 +714,7 @@ export default function MeusImoveis() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Input label="Quartos" type="number" value={form.quartos} onChange={(event) => updateField('quartos', event.target.value)} />
+            <Input label="Dormitórios" type="number" value={form.quartos} onChange={(event) => updateField('quartos', event.target.value)} />
             <Input label="Suítes" type="number" value={form.suites} onChange={(event) => updateField('suites', event.target.value)} />
             <Input label="Vagas" type="number" value={form.vagas} onChange={(event) => updateField('vagas', event.target.value)} />
           </div>
@@ -820,11 +860,16 @@ function MasterPropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) 
           <MapPin className="h-3.5 w-3.5 shrink-0" />
           {property.bairro}, {property.cidade} - {property.estado}
         </p>
+        {master?.estado_imovel && (
+          <p className="mt-2 inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-700">
+            {master.estado_imovel}
+          </p>
+        )}
 
         <p className="mt-3 text-xl font-black text-primary-600">{formatCurrency(property.preco || 0)}</p>
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-gray-500">
-          {property.quartos > 0 && <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5" />{property.quartos}</span>}
+          {property.quartos > 0 && <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5" />{property.quartos} dormitório{property.quartos === 1 ? '' : 's'}</span>}
           {(property.suites || property.banheiros) > 0 && <span className="flex items-center gap-1"><Home className="h-3.5 w-3.5" />{property.suites || property.banheiros} suíte{(property.suites || property.banheiros) === 1 ? '' : 's'}</span>}
           {property.vagas > 0 && <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" />{property.vagas}</span>}
           {property.area && <span className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5" />{formatArea(property.area)}</span>}

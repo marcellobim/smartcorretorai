@@ -58,6 +58,7 @@ const hydrateProperty = (property) => {
   return {
     ...property,
     perfil_imovel: property.perfil_imovel ?? master.perfil_imovel ?? '',
+    estado_imovel: property.estado_imovel ?? master.estado_imovel ?? '',
     area: property.area ?? master.area ?? '',
     quartos: property.quartos ?? master.dormitorios ?? 0,
     suites: property.suites ?? master.suites ?? master.banheiros ?? 0,
