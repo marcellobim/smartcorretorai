@@ -84,6 +84,51 @@ const VALUE_CONDITION_OPTIONS = [
   { id: 'measurements_variations', label: 'Informar medidas, plantas ou variações', needsDetails: true },
 ]
 
+const DESTINATION_OPTIONS = [
+  {
+    id: 'feed_instagram',
+    label: 'Feed Instagram',
+    formatGroup: 'square_feed',
+    compatibleIds: ['facebook', 'whatsapp'],
+  },
+  {
+    id: 'story_reels',
+    label: 'Story/Reels',
+    formatGroup: 'vertical',
+    compatibleIds: [],
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    formatGroup: 'square_feed',
+    compatibleIds: ['feed_instagram', 'facebook'],
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    formatGroup: 'square_feed',
+    compatibleIds: ['feed_instagram', 'whatsapp'],
+  },
+  {
+    id: 'landing_page',
+    label: 'Landing Page',
+    formatGroup: 'landscape',
+    compatibleIds: ['google_ads'],
+  },
+  {
+    id: 'portal_imobiliario',
+    label: 'Portal Imobiliário',
+    formatGroup: 'portal',
+    compatibleIds: [],
+  },
+  {
+    id: 'google_ads',
+    label: 'Google Ads',
+    formatGroup: 'landscape',
+    compatibleIds: ['landing_page'],
+  },
+]
+
 const SUBCATEGORIES = {
   primeiro_imovel: ['FGTS', 'Subsídio', 'Entrada facilitada'],
   familia: ['Conforto', 'Lazer', 'Segurança'],
@@ -204,6 +249,9 @@ export default function Hero() {
   const [valueConditionId, setValueConditionId] = useState('')
   const [valueConditionDetails, setValueConditionDetails] = useState('')
   const [valueConditionConfirmed, setValueConditionConfirmed] = useState(false)
+  const [primaryDestinationId, setPrimaryDestinationId] = useState('')
+  const [compatibleDestinationIds, setCompatibleDestinationIds] = useState([])
+  const [destinationConfirmed, setDestinationConfirmed] = useState(false)
   const [deliverables, setDeliverables] = useState(buildInitialDeliverables)
   const [deliverablesConfirmed, setDeliverablesConfirmed] = useState(false)
   const [additionalInfo, setAdditionalInfo] = useState('')
@@ -233,6 +281,14 @@ export default function Hero() {
     valueCondition?.label,
     valueConditionDetails.trim(),
   ].filter(Boolean).join(' - ')
+  const primaryDestination = DESTINATION_OPTIONS.find((item) => item.id === primaryDestinationId)
+  const allCompatibleDestinations = primaryDestination
+    ? DESTINATION_OPTIONS.filter((item) => primaryDestination.compatibleIds.includes(item.id))
+    : []
+  const compatibleDestinations = allCompatibleDestinations.filter((item) => compatibleDestinationIds.includes(item.id))
+  const compatibleDestinationSummary = compatibleDestinations.length > 0
+    ? compatibleDestinations.map((item) => item.label).join(', ')
+    : 'Nenhum uso adicional compatível nesta versão'
   const chosenDeliverables = DELIVERABLES.filter((item) => deliverables[item.id])
 
   const canShowImageMode = Boolean(selectedProperty)
@@ -242,7 +298,8 @@ export default function Hero() {
   const canShowHighlights = Boolean(subcategory)
   const canShowCta = highlightsConfirmed
   const canShowValueConditions = ctaConfirmed
-  const canShowDeliverables = valueConditionConfirmed
+  const canShowDestination = valueConditionConfirmed
+  const canShowDeliverables = destinationConfirmed
   const canShowAdditionalInfo = deliverablesConfirmed
   const canShowChecklist = additionalConfirmed
   const canGenerate = Boolean(
@@ -256,6 +313,8 @@ export default function Hero() {
     && highlightsConfirmed
     && ctaConfirmed
     && valueConditionConfirmed
+    && primaryDestinationId
+    && destinationConfirmed
     && deliverablesConfirmed
     && additionalConfirmed,
   )
@@ -274,6 +333,9 @@ export default function Hero() {
     setValueConditionId('')
     setValueConditionDetails('')
     setValueConditionConfirmed(false)
+    setPrimaryDestinationId('')
+    setCompatibleDestinationIds([])
+    setDestinationConfirmed(false)
     setDeliverables(buildInitialDeliverables())
     setDeliverablesConfirmed(false)
     setAdditionalInfo('')
@@ -291,6 +353,9 @@ export default function Hero() {
     setValueConditionId('')
     setValueConditionDetails('')
     setValueConditionConfirmed(false)
+    setPrimaryDestinationId('')
+    setCompatibleDestinationIds([])
+    setDestinationConfirmed(false)
     setDeliverablesConfirmed(false)
     setAdditionalConfirmed(false)
     setResultVisible(false)
@@ -310,6 +375,9 @@ export default function Hero() {
     setHighlightsConfirmed(false)
     setCtaConfirmed(false)
     setValueConditionConfirmed(false)
+    setPrimaryDestinationId('')
+    setCompatibleDestinationIds([])
+    setDestinationConfirmed(false)
     setDeliverablesConfirmed(false)
     setAdditionalConfirmed(false)
     setSelectedHighlights((current) => (
@@ -481,6 +549,9 @@ export default function Hero() {
                           setValueConditionId('')
                           setValueConditionDetails('')
                           setValueConditionConfirmed(false)
+                          setPrimaryDestinationId('')
+                          setCompatibleDestinationIds([])
+                          setDestinationConfirmed(false)
                           setDeliverablesConfirmed(false)
                           setAdditionalConfirmed(false)
                           setResultVisible(false)
@@ -637,6 +708,9 @@ export default function Hero() {
                         setValueConditionId('')
                         setValueConditionDetails('')
                         setValueConditionConfirmed(false)
+                        setPrimaryDestinationId('')
+                        setCompatibleDestinationIds([])
+                        setDestinationConfirmed(false)
                         setDeliverablesConfirmed(false)
                         setAdditionalConfirmed(false)
                         setResultVisible(false)
@@ -673,6 +747,9 @@ export default function Hero() {
                           setValueConditionId(item.id)
                           if (!item.needsDetails) setValueConditionDetails('')
                           setValueConditionConfirmed(false)
+                          setPrimaryDestinationId('')
+                          setCompatibleDestinationIds([])
+                          setDestinationConfirmed(false)
                           setDeliverablesConfirmed(false)
                           setAdditionalConfirmed(false)
                           setResultVisible(false)
@@ -688,6 +765,9 @@ export default function Hero() {
                         onChange={(event) => {
                           setValueConditionDetails(event.target.value.slice(0, 280))
                           setValueConditionConfirmed(false)
+                          setPrimaryDestinationId('')
+                          setCompatibleDestinationIds([])
+                          setDestinationConfirmed(false)
                           setDeliverablesConfirmed(false)
                           setAdditionalConfirmed(false)
                           setResultVisible(false)
@@ -713,8 +793,83 @@ export default function Hero() {
                 </UserReply>
               )}
 
+              {canShowDestination && (
+                <AssistantStep number={9} message="Onde você pretende usar esta imagem?">
+                  <p className="mb-4 text-sm font-semibold leading-relaxed text-gray-500">
+                    Escolha o destino principal. Ele define o formato principal da futura geração.
+                  </p>
+                  <OptionGrid>
+                    {DESTINATION_OPTIONS.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={primaryDestinationId === item.id}
+                        title={item.label}
+                        description={
+                          item.compatibleIds.length > 0
+                            ? `Também compatível com ${DESTINATION_OPTIONS.filter((dest) => item.compatibleIds.includes(dest.id)).map((dest) => dest.label).join(', ')}.`
+                            : 'Este destino pede uma versão própria otimizada.'
+                        }
+                        onClick={() => {
+                          setPrimaryDestinationId(item.id)
+                          setCompatibleDestinationIds(item.compatibleIds)
+                          setDestinationConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
+                          setResultVisible(false)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                  {primaryDestination && (
+                    <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-gray-400">Destinos compatíveis</p>
+                      {allCompatibleDestinations.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {allCompatibleDestinations.map((item) => (
+                            <ChipButton
+                              key={item.id}
+                              active={compatibleDestinationIds.includes(item.id)}
+                              onClick={() => {
+                                setCompatibleDestinationIds((current) => (
+                                  current.includes(item.id)
+                                    ? current.filter((id) => id !== item.id)
+                                    : [...current, item.id]
+                                ))
+                                setDestinationConfirmed(false)
+                                setDeliverablesConfirmed(false)
+                                setAdditionalConfirmed(false)
+                                setResultVisible(false)
+                              }}
+                            >
+                              {item.label}
+                            </ChipButton>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm font-bold text-gray-700">{compatibleDestinationSummary}</p>
+                      )}
+                      <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-500">
+                        Formatos diferentes serão tratados futuramente como novas versões otimizadas.
+                      </p>
+                    </div>
+                  )}
+                  <div className="mt-4 flex justify-end">
+                    <Button type="button" onClick={() => setDestinationConfirmed(true)} disabled={!primaryDestinationId} variant="secondary">
+                      Confirmar destino
+                    </Button>
+                  </div>
+                </AssistantStep>
+              )}
+
+              {destinationConfirmed && (
+                <UserReply>
+                  <strong>{primaryDestination?.label}</strong>
+                  <span>{compatibleDestinations.length > 0 ? `Também poderá ser usado em: ${compatibleDestinationSummary}.` : 'Sem uso adicional compatível nesta versão.'}</span>
+                </UserReply>
+              )}
+
               {canShowDeliverables && (
-                <AssistantStep number={9} message="O que deseja receber junto?">
+                <AssistantStep number={10} message="O que deseja receber junto?">
                   <div className="grid gap-3 sm:grid-cols-2">
                     {DELIVERABLES.map((item) => (
                       <button
@@ -750,7 +905,7 @@ export default function Hero() {
               )}
 
               {canShowAdditionalInfo && (
-                <AssistantStep number={10} message="Deseja acrescentar algo?">
+                <AssistantStep number={11} message="Deseja acrescentar algo?">
                   <label className="block">
                     <span className="text-sm font-black text-gray-950">Existe algum detalhe importante que não perguntamos?</span>
                     <textarea
@@ -782,7 +937,7 @@ export default function Hero() {
               )}
 
               {canShowChecklist && (
-                <AssistantStep number={11} message="Confira o checklist final antes de gerar.">
+                <AssistantStep number={12} message="Confira o checklist final antes de gerar.">
                   <Checklist
                     property={selectedProperty}
                     imageMode={imageMode}
@@ -792,6 +947,8 @@ export default function Hero() {
                     highlights={selectedHighlights}
                     cta={selectedCta}
                     valueConditionSummary={valueConditionSummary}
+                    primaryDestination={primaryDestination}
+                    compatibleDestinations={compatibleDestinations}
                     additionalInfo={additionalInfo}
                     deliverables={chosenDeliverables}
                     photos={photos}
@@ -809,7 +966,11 @@ export default function Hero() {
                 profileStatus={profileStatus}
                 brandStatus={brandStatus}
               />
-              <ResultPanel visible={resultVisible} />
+              <ResultPanel
+                visible={resultVisible}
+                primaryDestination={primaryDestination}
+                compatibleDestinations={compatibleDestinations}
+              />
             </aside>
           </div>
         )}
@@ -891,10 +1052,13 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, propertyState, audiences, subcategory, highlights, cta, valueConditionSummary, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
+function Checklist({ property, imageMode, propertyState, audiences, subcategory, highlights, cta, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
   const audienceSummary = Array.isArray(audiences) && audiences.length > 0
     ? audiences.map((item) => item.label).join(', ')
     : 'Não informado'
+  const compatibleDestinationSummary = Array.isArray(compatibleDestinations) && compatibleDestinations.length > 0
+    ? compatibleDestinations.map((item) => item.label).join(', ')
+    : 'Nenhum uso adicional compatível nesta versão'
   const rows = [
     ['Imóvel', getPropertyTitle(property)],
     ['Tipo de imagem', imageMode?.label || 'Não informado'],
@@ -904,6 +1068,8 @@ function Checklist({ property, imageMode, propertyState, audiences, subcategory,
     ['Destaques', highlights.length > 0 ? highlights.join(', ') : 'Sem destaque adicional'],
     ['CTA', cta || 'Não informado'],
     ['Valores e condições', valueConditionSummary || 'Não informado'],
+    ['Destino principal', primaryDestination?.label || 'Não informado'],
+    ['Destinos compatíveis / usos adicionais', compatibleDestinationSummary],
     ['Informações adicionais', additionalInfo.trim() || 'Nenhuma'],
     ['Pacote escolhido', deliverables.map((item) => item.label).join(', ')],
   ]
@@ -998,7 +1164,11 @@ function ReadinessCard({ selectedProperty, photoCount, profileStatus, brandStatu
   )
 }
 
-function ResultPanel({ visible }) {
+function ResultPanel({ visible, primaryDestination, compatibleDestinations }) {
+  const compatibleDestinationSummary = Array.isArray(compatibleDestinations) && compatibleDestinations.length > 0
+    ? compatibleDestinations.map((item) => item.label).join(', ')
+    : ''
+
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-wide text-amber-700">Resultado</p>
@@ -1016,6 +1186,18 @@ function ResultPanel({ visible }) {
               ? 'A estrutura está pronta para Hero Principal, textos e próximas ações quando o backend real for conectado.'
               : 'Nenhuma imagem real será simulada e nenhum Smart Token será consumido nesta etapa.'}
           </p>
+          {visible && primaryDestination && (
+            <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-left shadow-sm">
+              <p className="text-xs font-black text-gray-950">
+                Seu Hero Principal será preparado para: {primaryDestination.label}
+              </p>
+              {compatibleDestinationSummary && (
+                <p className="mt-1 text-xs font-semibold text-gray-500">
+                  Também poderá ser usado em: {compatibleDestinationSummary}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
