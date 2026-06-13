@@ -67,6 +67,23 @@ const PROPERTY_STATES = [
   'Pré-lançamento',
 ]
 
+const CTA_OPTIONS = [
+  'Agende sua visita',
+  'Fale com o corretor',
+  'Quero mais informações',
+  'Ver disponibilidade',
+  'Receber atendimento',
+  'Reservar interesse',
+  'Conhecer condições',
+]
+
+const VALUE_CONDITION_OPTIONS = [
+  { id: 'hide_values', label: 'Não mostrar valores' },
+  { id: 'show_registered_price', label: 'Mostrar valor do cadastro' },
+  { id: 'commercial_terms', label: 'Mostrar condições comerciais', needsDetails: true },
+  { id: 'measurements_variations', label: 'Informar medidas, plantas ou variações', needsDetails: true },
+]
+
 const SUBCATEGORIES = {
   primeiro_imovel: ['FGTS', 'Subsídio', 'Entrada facilitada'],
   familia: ['Conforto', 'Lazer', 'Segurança'],
@@ -176,10 +193,17 @@ export default function Hero() {
   const [selectedPropertyId, setSelectedPropertyId] = useState('')
   const [imageModeId, setImageModeId] = useState('')
   const [propertyState, setPropertyState] = useState('')
+  const [propertyStateConfirmed, setPropertyStateConfirmed] = useState(false)
   const [audienceId, setAudienceId] = useState('')
   const [subcategory, setSubcategory] = useState('')
   const [selectedHighlights, setSelectedHighlights] = useState([])
   const [highlightsConfirmed, setHighlightsConfirmed] = useState(false)
+  const [ctaChoice, setCtaChoice] = useState('')
+  const [customCta, setCustomCta] = useState('')
+  const [ctaConfirmed, setCtaConfirmed] = useState(false)
+  const [valueConditionId, setValueConditionId] = useState('')
+  const [valueConditionDetails, setValueConditionDetails] = useState('')
+  const [valueConditionConfirmed, setValueConditionConfirmed] = useState(false)
   const [deliverables, setDeliverables] = useState(buildInitialDeliverables)
   const [deliverablesConfirmed, setDeliverablesConfirmed] = useState(false)
   const [additionalInfo, setAdditionalInfo] = useState('')
@@ -199,14 +223,22 @@ export default function Hero() {
   const imageMode = IMAGE_MODES.find((item) => item.id === imageModeId)
   const audience = AUDIENCES.find((item) => item.id === audienceId)
   const subcategories = SUBCATEGORIES[audienceId] || []
+  const selectedCta = customCta.trim() || ctaChoice
+  const valueCondition = VALUE_CONDITION_OPTIONS.find((item) => item.id === valueConditionId)
+  const valueConditionSummary = [
+    valueCondition?.label,
+    valueConditionDetails.trim(),
+  ].filter(Boolean).join(' - ')
   const chosenDeliverables = DELIVERABLES.filter((item) => deliverables[item.id])
 
   const canShowImageMode = Boolean(selectedProperty)
   const canShowPropertyState = Boolean(imageModeId)
-  const canShowAudience = Boolean(propertyState)
+  const canShowAudience = Boolean(imageModeId && propertyStateConfirmed)
   const canShowSubcategory = Boolean(audienceId)
   const canShowHighlights = Boolean(subcategory)
-  const canShowDeliverables = highlightsConfirmed
+  const canShowCta = highlightsConfirmed
+  const canShowValueConditions = ctaConfirmed
+  const canShowDeliverables = valueConditionConfirmed
   const canShowAdditionalInfo = deliverablesConfirmed
   const canShowChecklist = additionalConfirmed
   const canGenerate = Boolean(
@@ -214,9 +246,12 @@ export default function Hero() {
     && photos.length >= MIN_HERO_PHOTOS
     && imageModeId
     && propertyState
+    && propertyStateConfirmed
     && audienceId
     && subcategory
     && highlightsConfirmed
+    && ctaConfirmed
+    && valueConditionConfirmed
     && deliverablesConfirmed
     && additionalConfirmed,
   )
@@ -224,10 +259,17 @@ export default function Hero() {
   useEffect(() => {
     setImageModeId('')
     setPropertyState(getPropertyState(selectedProperty))
+    setPropertyStateConfirmed(false)
     setAudienceId('')
     setSubcategory('')
     setSelectedHighlights([])
     setHighlightsConfirmed(false)
+    setCtaChoice('')
+    setCustomCta('')
+    setCtaConfirmed(false)
+    setValueConditionId('')
+    setValueConditionDetails('')
+    setValueConditionConfirmed(false)
     setDeliverables(buildInitialDeliverables())
     setDeliverablesConfirmed(false)
     setAdditionalInfo('')
@@ -239,6 +281,12 @@ export default function Hero() {
     setSubcategory('')
     setSelectedHighlights([])
     setHighlightsConfirmed(false)
+    setCtaChoice('')
+    setCustomCta('')
+    setCtaConfirmed(false)
+    setValueConditionId('')
+    setValueConditionDetails('')
+    setValueConditionConfirmed(false)
     setDeliverablesConfirmed(false)
     setAdditionalConfirmed(false)
     setResultVisible(false)
@@ -247,6 +295,10 @@ export default function Hero() {
   const toggleHighlight = (highlight) => {
     setResultVisible(false)
     setHighlightsConfirmed(false)
+    setCtaConfirmed(false)
+    setValueConditionConfirmed(false)
+    setDeliverablesConfirmed(false)
+    setAdditionalConfirmed(false)
     setSelectedHighlights((current) => (
       current.includes(highlight)
         ? current.filter((item) => item !== highlight)
@@ -405,10 +457,17 @@ export default function Hero() {
                         active={propertyState === item}
                         onClick={() => {
                           setPropertyState(item)
+                          setPropertyStateConfirmed(true)
                           setAudienceId('')
                           setSubcategory('')
                           setSelectedHighlights([])
                           setHighlightsConfirmed(false)
+                          setCtaChoice('')
+                          setCustomCta('')
+                          setCtaConfirmed(false)
+                          setValueConditionId('')
+                          setValueConditionDetails('')
+                          setValueConditionConfirmed(false)
                           setDeliverablesConfirmed(false)
                           setAdditionalConfirmed(false)
                           setResultVisible(false)
@@ -421,7 +480,7 @@ export default function Hero() {
                 </AssistantStep>
               )}
 
-              {propertyState && (
+              {canShowPropertyState && propertyStateConfirmed && (
                 <UserReply>
                   <strong>{propertyState}</strong>
                   <span>Estado do imóvel confirmado para orientar o futuro prompt.</span>
@@ -463,6 +522,16 @@ export default function Hero() {
                         active={subcategory === item}
                         onClick={() => {
                           setSubcategory(item)
+                          setSelectedHighlights([])
+                          setHighlightsConfirmed(false)
+                          setCtaChoice('')
+                          setCustomCta('')
+                          setCtaConfirmed(false)
+                          setValueConditionId('')
+                          setValueConditionDetails('')
+                          setValueConditionConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
                           setResultVisible(false)
                         }}
                       >
@@ -500,6 +569,9 @@ export default function Hero() {
                           Confirmar destaques
                         </Button>
                       </div>
+                      <p className="mt-3 text-xs font-semibold text-gray-500">
+                        Você pode selecionar mais de uma opção. Elas orientam o briefing e não precisam aparecer literalmente na imagem.
+                      </p>
                     </>
                   ) : (
                     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
@@ -519,8 +591,117 @@ export default function Hero() {
                 </UserReply>
               )}
 
+              {canShowCta && (
+                <AssistantStep number={7} message="Qual chamada deseja usar?">
+                  <ChipGrid>
+                    {CTA_OPTIONS.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={ctaChoice === item && !customCta.trim()}
+                        onClick={() => {
+                          setCtaChoice(item)
+                          setCustomCta('')
+                          setCtaConfirmed(false)
+                          setValueConditionId('')
+                          setValueConditionDetails('')
+                          setValueConditionConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
+                          setResultVisible(false)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                  <label className="mt-4 block">
+                    <span className="text-sm font-black text-gray-950">Outro CTA</span>
+                    <input
+                      value={customCta}
+                      onChange={(event) => {
+                        setCustomCta(event.target.value.slice(0, 80))
+                        setCtaConfirmed(false)
+                        setValueConditionId('')
+                        setValueConditionDetails('')
+                        setValueConditionConfirmed(false)
+                        setDeliverablesConfirmed(false)
+                        setAdditionalConfirmed(false)
+                        setResultVisible(false)
+                      }}
+                      placeholder="Ex: Quero conhecer este imóvel"
+                      className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    />
+                  </label>
+                  <div className="mt-4 flex justify-end">
+                    <Button type="button" onClick={() => setCtaConfirmed(true)} disabled={!selectedCta} variant="secondary">
+                      Confirmar CTA
+                    </Button>
+                  </div>
+                </AssistantStep>
+              )}
+
+              {ctaConfirmed && (
+                <UserReply>
+                  <strong>{selectedCta}</strong>
+                  <span>Chamada escolhida para orientar a peça e os textos do pacote.</span>
+                </UserReply>
+              )}
+
+              {canShowValueConditions && (
+                <AssistantStep number={8} message="Deseja divulgar valores ou condições?">
+                  <OptionGrid>
+                    {VALUE_CONDITION_OPTIONS.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={valueConditionId === item.id}
+                        title={item.label}
+                        description={item.needsDetails ? 'Use o campo abaixo para orientar o futuro prompt.' : 'O briefing seguirá com essa regra.'}
+                        onClick={() => {
+                          setValueConditionId(item.id)
+                          if (!item.needsDetails) setValueConditionDetails('')
+                          setValueConditionConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
+                          setResultVisible(false)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                  {valueCondition?.needsDetails && (
+                    <label className="mt-4 block">
+                      <span className="text-sm font-black text-gray-950">Detalhes opcionais</span>
+                      <textarea
+                        value={valueConditionDetails}
+                        onChange={(event) => {
+                          setValueConditionDetails(event.target.value.slice(0, 280))
+                          setValueConditionConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
+                          setResultVisible(false)
+                        }}
+                        rows={3}
+                        placeholder="Ex: unidades de 27m² a 35m², entrada a partir de R$ 500, fluxo direto com a construtora..."
+                        className="mt-2 w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      />
+                    </label>
+                  )}
+                  <div className="mt-4 flex justify-end">
+                    <Button type="button" onClick={() => setValueConditionConfirmed(true)} disabled={!valueConditionId} variant="secondary">
+                      Confirmar valores e condições
+                    </Button>
+                  </div>
+                </AssistantStep>
+              )}
+
+              {valueConditionConfirmed && (
+                <UserReply>
+                  <strong>{valueCondition?.label || 'Valores e condições definidos'}</strong>
+                  <span>{valueConditionDetails.trim() || 'Sem observação adicional sobre valores ou condições.'}</span>
+                </UserReply>
+              )}
+
               {canShowDeliverables && (
-                <AssistantStep number={7} message="O que deseja receber junto?">
+                <AssistantStep number={9} message="O que deseja receber junto?">
                   <div className="grid gap-3 sm:grid-cols-2">
                     {DELIVERABLES.map((item) => (
                       <button
@@ -556,7 +737,7 @@ export default function Hero() {
               )}
 
               {canShowAdditionalInfo && (
-                <AssistantStep number={8} message="Deseja acrescentar algo?">
+                <AssistantStep number={10} message="Deseja acrescentar algo?">
                   <label className="block">
                     <span className="text-sm font-black text-gray-950">Existe algum detalhe importante que não perguntamos?</span>
                     <textarea
@@ -588,7 +769,7 @@ export default function Hero() {
               )}
 
               {canShowChecklist && (
-                <AssistantStep number={9} message="Confira o checklist final antes de gerar.">
+                <AssistantStep number={11} message="Confira o checklist final antes de gerar.">
                   <Checklist
                     property={selectedProperty}
                     imageMode={imageMode}
@@ -596,6 +777,8 @@ export default function Hero() {
                     audience={audience}
                     subcategory={subcategory}
                     highlights={selectedHighlights}
+                    cta={selectedCta}
+                    valueConditionSummary={valueConditionSummary}
                     additionalInfo={additionalInfo}
                     deliverables={chosenDeliverables}
                     photos={photos}
@@ -695,14 +878,16 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, propertyState, audience, subcategory, highlights, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
+function Checklist({ property, imageMode, propertyState, audience, subcategory, highlights, cta, valueConditionSummary, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
   const rows = [
     ['Imóvel', getPropertyTitle(property)],
     ['Tipo de imagem', imageMode?.label || 'Não informado'],
-    ['Estado do imóvel', propertyState || 'Não informado'],
     ['Público', audience?.label || 'Não informado'],
     ['Subcategoria', subcategory || 'Não informada'],
+    ['Estado do imóvel', propertyState || 'Não informado'],
     ['Destaques', highlights.length > 0 ? highlights.join(', ') : 'Sem destaque adicional'],
+    ['CTA', cta || 'Não informado'],
+    ['Valores e condições', valueConditionSummary || 'Não informado'],
     ['Informações adicionais', additionalInfo.trim() || 'Nenhuma'],
     ['Pacote escolhido', deliverables.map((item) => item.label).join(', ')],
   ]
