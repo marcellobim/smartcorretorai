@@ -263,6 +263,7 @@ export default function MeusImoveis() {
   const [showModal, setShowModal] = useState(false)
   const [editingProperty, setEditingProperty] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [actionProperty, setActionProperty] = useState(null)
   const [form, setForm] = useState(() => toFormState(null))
   const [saving, setSaving] = useState(false)
   const [cidades, setCidades] = useState([])
@@ -514,8 +515,14 @@ export default function MeusImoveis() {
     }
   }
 
-  const handleGenerateCampaign = (property) => {
+  const handleOpenBanners = (property) => {
+    setActionProperty(null)
     navigate('/nova-campanha', { state: { property } })
+  }
+
+  const handleOpenHero = (property) => {
+    setActionProperty(null)
+    navigate('/hero', { state: { propertyId: property.id } })
   }
 
   return (
@@ -567,10 +574,6 @@ export default function MeusImoveis() {
                 className="input pl-9"
               />
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              Novo Cadastro Mestre
-            </Button>
           </div>
 
           {loading ? (
@@ -580,7 +583,7 @@ export default function MeusImoveis() {
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <EmptyMasterState search={search} onCreate={openCreate} />
+            <EmptyMasterState search={search} />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((property) => (
@@ -589,7 +592,7 @@ export default function MeusImoveis() {
                   property={property}
                   onEdit={openEdit}
                   onDelete={setConfirmDelete}
-                  onGenerateCampaign={handleGenerateCampaign}
+                  onOpenActions={setActionProperty}
                 />
               ))}
             </div>
@@ -784,6 +787,26 @@ export default function MeusImoveis() {
           <Button variant="danger" className="flex-1" onClick={handleDelete}>Excluir</Button>
         </div>
       </Modal>
+
+      <Modal open={!!actionProperty} onClose={() => setActionProperty(null)} title="O que deseja fazer agora?" size="md">
+        {actionProperty && (
+          <div className="space-y-3">
+            <ActionOption
+              title="Criar Hero IA"
+              description="Preparar uma imagem premium guiada pelo Smart Prompt Engine."
+              onClick={() => handleOpenHero(actionProperty)}
+            />
+            <ActionOption title="Criar Campanha IA" description="Em breve." disabled />
+            <ActionOption title="Criar Landing IA" description="Em breve." disabled />
+            <ActionOption title="Transformar meu vídeo" description="Em breve." disabled />
+            <ActionOption
+              title="Criar banners rápidos"
+              description="Gerar peças com os templates estabilizados do Produto 3."
+              onClick={() => handleOpenBanners(actionProperty)}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
@@ -797,7 +820,34 @@ function Metric({ label, value }) {
   )
 }
 
-function EmptyMasterState({ search, onCreate }) {
+function ActionOption({ title, description, onClick, disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`w-full rounded-2xl border p-4 text-left transition ${
+        disabled
+          ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+          : 'border-gray-200 bg-white text-gray-800 hover:border-amber-300 hover:bg-amber-50'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-black">{title}</p>
+          <p className="mt-1 text-xs font-semibold">{description}</p>
+        </div>
+        {disabled ? (
+          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-gray-400">Em breve</span>
+        ) : (
+          <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
+        )}
+      </div>
+    </button>
+  )
+}
+
+function EmptyMasterState({ search }) {
   return (
     <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-16 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-400 shadow-sm">
@@ -811,17 +861,11 @@ function EmptyMasterState({ search, onCreate }) {
           ? 'Tente buscar por outro bairro, cidade ou título.'
           : 'O Cadastro Mestre concentra dados, fotos e destaques para todos os produtos do SmartCorretorAI.'}
       </p>
-      {!search && (
-        <Button className="mt-5" onClick={onCreate}>
-          <Plus className="h-4 w-4" />
-          Criar Cadastro Mestre
-        </Button>
-      )}
     </div>
   )
 }
 
-function MasterPropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) {
+function MasterPropertyCard({ property, onEdit, onDelete, onOpenActions }) {
   const master = getMasterFromProperty(property)
   const status = getMasterStatus(property)
   const photo = property.fotos?.[0]
@@ -892,9 +936,9 @@ function MasterPropertyCard({ property, onEdit, onDelete, onGenerateCampaign }) 
         </div>
 
         <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
-          <Button variant="primary" size="sm" className="flex-1" onClick={() => onGenerateCampaign(property)}>
+          <Button variant="primary" size="sm" className="flex-1" onClick={() => onOpenActions(property)}>
             <Sparkles className="h-3.5 w-3.5" />
-            Gerar banners
+            Criar material
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onEdit(property)} aria-label="Editar Cadastro Mestre">
             <Edit2 className="h-3.5 w-3.5" />

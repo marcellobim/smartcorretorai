@@ -194,7 +194,7 @@ export default function Hero() {
   const [imageModeId, setImageModeId] = useState('')
   const [propertyState, setPropertyState] = useState('')
   const [propertyStateConfirmed, setPropertyStateConfirmed] = useState(false)
-  const [audienceId, setAudienceId] = useState('')
+  const [audienceIds, setAudienceIds] = useState([])
   const [subcategory, setSubcategory] = useState('')
   const [selectedHighlights, setSelectedHighlights] = useState([])
   const [highlightsConfirmed, setHighlightsConfirmed] = useState(false)
@@ -221,8 +221,12 @@ export default function Hero() {
   const brandStatus = getBrandStatus(user)
 
   const imageMode = IMAGE_MODES.find((item) => item.id === imageModeId)
-  const audience = AUDIENCES.find((item) => item.id === audienceId)
-  const subcategories = SUBCATEGORIES[audienceId] || []
+  const audiences = AUDIENCES.filter((item) => audienceIds.includes(item.id))
+  const audienceLabels = audiences.map((item) => item.label)
+  const audienceKey = audienceIds.join('|')
+  const subcategories = Array.from(new Set(
+    audienceIds.flatMap((id) => SUBCATEGORIES[id] || []),
+  ))
   const selectedCta = customCta.trim() || ctaChoice
   const valueCondition = VALUE_CONDITION_OPTIONS.find((item) => item.id === valueConditionId)
   const valueConditionSummary = [
@@ -234,7 +238,7 @@ export default function Hero() {
   const canShowImageMode = Boolean(selectedProperty)
   const canShowPropertyState = Boolean(imageModeId)
   const canShowAudience = Boolean(imageModeId && propertyStateConfirmed)
-  const canShowSubcategory = Boolean(audienceId)
+  const canShowSubcategory = audienceIds.length > 0
   const canShowHighlights = Boolean(subcategory)
   const canShowCta = highlightsConfirmed
   const canShowValueConditions = ctaConfirmed
@@ -247,7 +251,7 @@ export default function Hero() {
     && imageModeId
     && propertyState
     && propertyStateConfirmed
-    && audienceId
+    && audienceIds.length > 0
     && subcategory
     && highlightsConfirmed
     && ctaConfirmed
@@ -260,7 +264,7 @@ export default function Hero() {
     setImageModeId('')
     setPropertyState(getPropertyState(selectedProperty))
     setPropertyStateConfirmed(false)
-    setAudienceId('')
+    setAudienceIds([])
     setSubcategory('')
     setSelectedHighlights([])
     setHighlightsConfirmed(false)
@@ -290,7 +294,16 @@ export default function Hero() {
     setDeliverablesConfirmed(false)
     setAdditionalConfirmed(false)
     setResultVisible(false)
-  }, [audienceId])
+  }, [audienceKey])
+
+  const toggleAudience = (audienceId) => {
+    setAudienceIds((current) => (
+      current.includes(audienceId)
+        ? current.filter((item) => item !== audienceId)
+        : [...current, audienceId]
+    ))
+    setResultVisible(false)
+  }
 
   const toggleHighlight = (highlight) => {
     setResultVisible(false)
@@ -458,7 +471,7 @@ export default function Hero() {
                         onClick={() => {
                           setPropertyState(item)
                           setPropertyStateConfirmed(true)
-                          setAudienceId('')
+                          setAudienceIds([])
                           setSubcategory('')
                           setSelectedHighlights([])
                           setHighlightsConfirmed(false)
@@ -489,15 +502,15 @@ export default function Hero() {
 
               {canShowAudience && (
                 <AssistantStep number={4} message="Quem você deseja atingir?">
+                  <p className="mb-4 text-sm font-semibold leading-relaxed text-gray-500">
+                    Você pode escolher mais de uma opção. Isso ajuda a IA a entender melhor o público e o objetivo da peça.
+                  </p>
                   <ChipGrid>
                     {AUDIENCES.map((item) => (
                       <ChipButton
                         key={item.id}
-                        active={audienceId === item.id}
-                        onClick={() => {
-                          setAudienceId(item.id)
-                          setResultVisible(false)
-                        }}
+                        active={audienceIds.includes(item.id)}
+                        onClick={() => toggleAudience(item.id)}
                       >
                         {item.label}
                       </ChipButton>
@@ -506,15 +519,15 @@ export default function Hero() {
                 </AssistantStep>
               )}
 
-              {audience && (
+              {audienceIds.length > 0 && (
                 <UserReply>
-                  <strong>{audience.label}</strong>
-                  <span>Público-alvo escolhido para orientar tom visual e argumentos.</span>
+                  <strong>{audienceLabels.join(', ')}</strong>
+                  <span>Públicos escolhidos para orientar tom visual, objetivo e argumentos.</span>
                 </UserReply>
               )}
 
               {canShowSubcategory && (
-                <AssistantStep number={5} message={`Qual foco faz mais sentido para ${audience?.label}?`}>
+                <AssistantStep number={5} message="Qual foco faz mais sentido para esta peça?">
                   <ChipGrid>
                     {subcategories.map((item) => (
                       <ChipButton
@@ -774,7 +787,7 @@ export default function Hero() {
                     property={selectedProperty}
                     imageMode={imageMode}
                     propertyState={propertyState}
-                    audience={audience}
+                    audiences={audiences}
                     subcategory={subcategory}
                     highlights={selectedHighlights}
                     cta={selectedCta}
@@ -878,11 +891,14 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, propertyState, audience, subcategory, highlights, cta, valueConditionSummary, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
+function Checklist({ property, imageMode, propertyState, audiences, subcategory, highlights, cta, valueConditionSummary, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
+  const audienceSummary = Array.isArray(audiences) && audiences.length > 0
+    ? audiences.map((item) => item.label).join(', ')
+    : 'Não informado'
   const rows = [
     ['Imóvel', getPropertyTitle(property)],
     ['Tipo de imagem', imageMode?.label || 'Não informado'],
-    ['Público', audience?.label || 'Não informado'],
+    ['Públicos selecionados', audienceSummary],
     ['Subcategoria', subcategory || 'Não informada'],
     ['Estado do imóvel', propertyState || 'Não informado'],
     ['Destaques', highlights.length > 0 ? highlights.join(', ') : 'Sem destaque adicional'],
