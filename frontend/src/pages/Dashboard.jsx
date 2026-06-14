@@ -392,7 +392,7 @@ function CreationPreview({ campaign }) {
 function SmartTokensCard({ snapshot }) {
   const remainingLabel = snapshot.total > 0
     ? `${snapshot.remaining.toLocaleString('pt-BR')} disponíveis`
-    : 'Saldo será exibido aqui'
+    : 'Resumo da conta'
 
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">

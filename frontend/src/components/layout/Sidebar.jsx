@@ -84,7 +84,7 @@ function SmartTokensPanel({ user }) {
       </div>
 
       <p className="mt-4 text-lg font-black">
-        {snapshot.hasBalance ? `${snapshot.remaining.toLocaleString('pt-BR')} tokens` : 'Saldo será exibido aqui'}
+        {snapshot.hasBalance ? `${snapshot.remaining.toLocaleString('pt-BR')} tokens` : 'Informações do plano'}
       </p>
 
       <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">

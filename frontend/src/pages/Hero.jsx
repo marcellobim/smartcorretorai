@@ -22,6 +22,7 @@ import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { useProperties } from '../hooks/useProperties'
 import { formatArea, formatCurrency } from '../utils/formatters'
+import { supabase } from '../lib/supabase'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 const MIN_HERO_PHOTOS = 3
@@ -29,18 +30,18 @@ const MIN_HERO_PHOTOS = 3
 const IMAGE_MODES = [
   {
     id: 'main_photo',
-    label: 'Usar foto principal',
-    description: 'Parte da melhor imagem do imóvel para criar uma peça de impacto.',
+    label: 'Melhorar foto principal',
+    description: 'Aprimora a foto principal com acabamento premium, sem trocar o imóvel.',
   },
   {
     id: 'reference_photos',
-    label: 'Usar fotos como referência',
-    description: 'Considera o conjunto de fotos para orientar estilo, ambiente e diferenciais.',
+    label: 'Usar todas as fotos do imóvel',
+    description: 'Monta uma peça com as fotos reais, sem criar outro imóvel.',
   },
   {
     id: 'new_image',
-    label: 'Criar imagem nova com IA',
-    description: 'Cria uma composição nova a partir dos dados do imóvel e do objetivo comercial.',
+    label: 'Diretor Criativo IA',
+    description: 'Cria uma campanha visual a partir do briefing, conceito e objetivo comercial.',
   },
 ]
 
@@ -142,6 +143,21 @@ const SUBCATEGORIES = {
   locacao: ['Praticidade', 'Localização', 'Agilidade'],
 }
 
+const CREATIVE_CONCEPTS = [
+  'Casa própria',
+  'Investimento',
+  'Alto padrão',
+  'Lifestyle',
+  'Mobilidade',
+  'Bairro',
+  'Lazer',
+  'Família',
+  'Segurança',
+  'Valorização',
+  'Lançamento',
+  'Exclusividade',
+]
+
 const DELIVERABLES = [
   { id: 'hero_image', label: 'Hero IA', locked: true },
   { id: 'instagram_text', label: 'Texto Instagram' },
@@ -240,7 +256,10 @@ export default function Hero() {
   const [propertyState, setPropertyState] = useState('')
   const [propertyStateConfirmed, setPropertyStateConfirmed] = useState(false)
   const [audienceIds, setAudienceIds] = useState([])
-  const [subcategory, setSubcategory] = useState('')
+  const [selectedSubcategories, setSelectedSubcategories] = useState([])
+  const [subcategoriesConfirmed, setSubcategoriesConfirmed] = useState(false)
+  const [creativeConcepts, setCreativeConcepts] = useState([])
+  const [creativeConceptsConfirmed, setCreativeConceptsConfirmed] = useState(false)
   const [selectedHighlights, setSelectedHighlights] = useState([])
   const [highlightsConfirmed, setHighlightsConfirmed] = useState(false)
   const [ctaChoice, setCtaChoice] = useState('')
@@ -257,6 +276,9 @@ export default function Hero() {
   const [additionalInfo, setAdditionalInfo] = useState('')
   const [additionalConfirmed, setAdditionalConfirmed] = useState(false)
   const [resultVisible, setResultVisible] = useState(false)
+  const [generationLoading, setGenerationLoading] = useState(false)
+  const [generationError, setGenerationError] = useState('')
+  const [generationResult, setGenerationResult] = useState(null)
 
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === selectedPropertyId) || null,
@@ -275,6 +297,7 @@ export default function Hero() {
   const subcategories = Array.from(new Set(
     audienceIds.flatMap((id) => SUBCATEGORIES[id] || []),
   ))
+  const subcategory = selectedSubcategories.join(', ')
   const selectedCta = customCta.trim() || ctaChoice
   const valueCondition = VALUE_CONDITION_OPTIONS.find((item) => item.id === valueConditionId)
   const valueConditionSummary = [
@@ -294,8 +317,9 @@ export default function Hero() {
   const canShowImageMode = Boolean(selectedProperty)
   const canShowPropertyState = Boolean(imageModeId)
   const canShowAudience = Boolean(imageModeId && propertyStateConfirmed)
-  const canShowSubcategory = audienceIds.length > 0
-  const canShowHighlights = Boolean(subcategory)
+  const canShowConcepts = imageModeId === 'new_image' && audienceIds.length > 0
+  const canShowSubcategory = audienceIds.length > 0 && (imageModeId !== 'new_image' || creativeConceptsConfirmed)
+  const canShowHighlights = subcategoriesConfirmed
   const canShowCta = highlightsConfirmed
   const canShowValueConditions = ctaConfirmed
   const canShowDestination = valueConditionConfirmed
@@ -309,7 +333,8 @@ export default function Hero() {
     && propertyState
     && propertyStateConfirmed
     && audienceIds.length > 0
-    && subcategory
+    && selectedSubcategories.length > 0
+    && (imageModeId !== 'new_image' || creativeConceptsConfirmed)
     && highlightsConfirmed
     && ctaConfirmed
     && valueConditionConfirmed
@@ -318,13 +343,17 @@ export default function Hero() {
     && deliverablesConfirmed
     && additionalConfirmed,
   )
+  const hasCompletedHero = Boolean(generationResult?.imageUrl)
 
   useEffect(() => {
     setImageModeId('')
     setPropertyState(getPropertyState(selectedProperty))
     setPropertyStateConfirmed(false)
     setAudienceIds([])
-    setSubcategory('')
+    setSelectedSubcategories([])
+    setSubcategoriesConfirmed(false)
+    setCreativeConcepts([])
+    setCreativeConceptsConfirmed(false)
     setSelectedHighlights([])
     setHighlightsConfirmed(false)
     setCtaChoice('')
@@ -341,10 +370,15 @@ export default function Hero() {
     setAdditionalInfo('')
     setAdditionalConfirmed(false)
     setResultVisible(false)
+    setGenerationError('')
+    setGenerationResult(null)
   }, [selectedPropertyId])
 
   useEffect(() => {
-    setSubcategory('')
+    setSelectedSubcategories([])
+    setSubcategoriesConfirmed(false)
+    setCreativeConcepts([])
+    setCreativeConceptsConfirmed(false)
     setSelectedHighlights([])
     setHighlightsConfirmed(false)
     setCtaChoice('')
@@ -359,6 +393,8 @@ export default function Hero() {
     setDeliverablesConfirmed(false)
     setAdditionalConfirmed(false)
     setResultVisible(false)
+    setGenerationError('')
+    setGenerationResult(null)
   }, [audienceKey])
 
   const toggleAudience = (audienceId) => {
@@ -368,6 +404,8 @@ export default function Hero() {
         : [...current, audienceId]
     ))
     setResultVisible(false)
+    setGenerationError('')
+    setGenerationResult(null)
   }
 
   const toggleHighlight = (highlight) => {
@@ -380,6 +418,8 @@ export default function Hero() {
     setDestinationConfirmed(false)
     setDeliverablesConfirmed(false)
     setAdditionalConfirmed(false)
+    setGenerationError('')
+    setGenerationResult(null)
     setSelectedHighlights((current) => (
       current.includes(highlight)
         ? current.filter((item) => item !== highlight)
@@ -390,6 +430,8 @@ export default function Hero() {
   const toggleDeliverable = (deliverable) => {
     if (deliverable.locked) return
     setResultVisible(false)
+    setGenerationError('')
+    setGenerationResult(null)
     setDeliverablesConfirmed(false)
     setDeliverables((current) => ({
       ...current,
@@ -397,9 +439,84 @@ export default function Hero() {
     }))
   }
 
-  const handleGenerate = () => {
-    if (!canGenerate) return
-    setResultVisible(true)
+  const handleGenerate = async () => {
+    if (!canGenerate || generationLoading) return
+
+    setGenerationLoading(true)
+    setGenerationError('')
+    setGenerationResult(null)
+
+    const payload = {
+      property_id: selectedProperty.id,
+      image_mode: imageModeId,
+      image_mode_label: imageMode?.label || '',
+      property_state: propertyState,
+      audience_ids: audienceIds,
+      audiences: audiences.map((item) => ({ id: item.id, label: item.label })),
+      subcategory,
+      subcategories: selectedSubcategories,
+      creative_concepts: creativeConcepts,
+      highlights: selectedHighlights,
+      deliverables,
+      deliverable_items: chosenDeliverables.map((item) => ({ id: item.id, label: item.label })),
+      cta: selectedCta,
+      value_condition: {
+        mode: valueConditionId,
+        label: valueCondition?.label || '',
+        details: valueConditionDetails.trim(),
+      },
+      primary_destination: primaryDestination
+        ? {
+            id: primaryDestination.id,
+            label: primaryDestination.label,
+            format_group: primaryDestination.formatGroup,
+          }
+        : null,
+      compatible_destinations: compatibleDestinations.map((item) => ({
+        id: item.id,
+        label: item.label,
+        format_group: item.formatGroup,
+      })),
+      additional_info: additionalInfo.trim(),
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('gerar-hero-ia', { body: payload })
+
+      if (error) {
+        throw new Error(error.message || 'Não foi possível preparar o Hero IA.')
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.message || data?.error || 'Não foi possível preparar o Hero IA.')
+      }
+
+      setGenerationResult({
+        ...data,
+        imageUrl: data.image_url || '',
+        texts: data.texts || {},
+        propertyTitle: getPropertyTitle(selectedProperty),
+        imageModeLabel: imageMode?.label || '',
+        audiences: audienceLabels,
+        subcategory,
+        subcategories: selectedSubcategories,
+        creativeConcepts,
+        propertyState,
+        highlights: selectedHighlights,
+        cta: selectedCta,
+        valueCondition: valueConditionSummary || 'Não informado',
+        primaryDestination: primaryDestination?.label || '',
+        compatibleDestinations: compatibleDestinations.map((item) => item.label),
+        deliverables: chosenDeliverables.map((item) => item.label),
+        additionalInfo: additionalInfo.trim(),
+      })
+      setResultVisible(true)
+    } catch (error) {
+      setResultVisible(false)
+      setGenerationError(error instanceof Error ? error.message : 'Não foi possível preparar o Hero IA.')
+    } finally {
+      setGenerationLoading(false)
+    }
   }
 
   return (
@@ -426,14 +543,14 @@ export default function Hero() {
                 Hero IA
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-relaxed text-gray-300">
-                Um assistente guiado monta o briefing visual do seu imóvel. Nesta etapa, nenhuma imagem real é gerada e nenhum Smart Token é consumido.
+                Um assistente guiado monta o briefing visual e gera uma imagem principal premium para divulgar seu imóvel.
               </p>
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur">
               <p className="text-xs font-black uppercase tracking-wide text-gray-300">Fluxo seguro</p>
               <p className="mt-2 text-sm leading-relaxed text-gray-200">
-                Você escolhe as respostas. O sistema prepara o checklist para a futura geração server-side.
+                Você responde passo a passo. O sistema transforma o briefing em uma entrega visual pronta para uso.
               </p>
             </div>
           </div>
@@ -443,6 +560,15 @@ export default function Hero() {
           <LoadingState />
         ) : properties.length === 0 ? (
           <EmptyPropertyState />
+        ) : hasCompletedHero ? (
+          <HeroWowResult
+            generationResult={generationResult}
+            onGenerateAnother={() => {
+              setResultVisible(false)
+              setGenerationResult(null)
+              setGenerationError('')
+            }}
+          />
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_370px]">
             <div className="space-y-5">
@@ -509,6 +635,25 @@ export default function Hero() {
                         description={item.description}
                         onClick={() => {
                           setImageModeId(item.id)
+                          setPropertyStateConfirmed(false)
+                          setAudienceIds([])
+                          setSelectedSubcategories([])
+                          setSubcategoriesConfirmed(false)
+                          setCreativeConcepts([])
+                          setCreativeConceptsConfirmed(false)
+                          setSelectedHighlights([])
+                          setHighlightsConfirmed(false)
+                          setCtaChoice('')
+                          setCustomCta('')
+                          setCtaConfirmed(false)
+                          setValueConditionId('')
+                          setValueConditionDetails('')
+                          setValueConditionConfirmed(false)
+                          setPrimaryDestinationId('')
+                          setCompatibleDestinationIds([])
+                          setDestinationConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
                           setResultVisible(false)
                         }}
                       />
@@ -540,7 +685,10 @@ export default function Hero() {
                           setPropertyState(item)
                           setPropertyStateConfirmed(true)
                           setAudienceIds([])
-                          setSubcategory('')
+                          setSelectedSubcategories([])
+                          setSubcategoriesConfirmed(false)
+                          setCreativeConcepts([])
+                          setCreativeConceptsConfirmed(false)
                           setSelectedHighlights([])
                           setHighlightsConfirmed(false)
                           setCtaChoice('')
@@ -567,7 +715,7 @@ export default function Hero() {
               {canShowPropertyState && propertyStateConfirmed && (
                 <UserReply>
                   <strong>{propertyState}</strong>
-                  <span>Estado do imóvel confirmado para orientar o futuro prompt.</span>
+                  <span>Estado do imóvel confirmado para orientar a criação visual.</span>
                 </UserReply>
               )}
 
@@ -597,15 +745,25 @@ export default function Hero() {
                 </UserReply>
               )}
 
-              {canShowSubcategory && (
-                <AssistantStep number={5} message="Qual foco faz mais sentido para esta peça?">
+              {canShowConcepts && (
+                <AssistantStep number={5} message="Que conceito deseja explorar?">
+                  <p className="mb-4 text-sm font-semibold leading-relaxed text-gray-500">
+                    Escolha uma ou mais direções criativas para o Diretor Criativo IA.
+                  </p>
                   <ChipGrid>
-                    {subcategories.map((item) => (
+                    {CREATIVE_CONCEPTS.map((item) => (
                       <ChipButton
                         key={item}
-                        active={subcategory === item}
+                        active={creativeConcepts.includes(item)}
                         onClick={() => {
-                          setSubcategory(item)
+                          setCreativeConcepts((current) => (
+                            current.includes(item)
+                              ? current.filter((concept) => concept !== item)
+                              : [...current, item]
+                          ))
+                          setCreativeConceptsConfirmed(false)
+                          setSelectedSubcategories([])
+                          setSubcategoriesConfirmed(false)
                           setSelectedHighlights([])
                           setHighlightsConfirmed(false)
                           setCtaChoice('')
@@ -623,18 +781,69 @@ export default function Hero() {
                       </ChipButton>
                     ))}
                   </ChipGrid>
+                  <div className="mt-4 flex justify-end">
+                    <Button type="button" onClick={() => setCreativeConceptsConfirmed(true)} disabled={creativeConcepts.length === 0} variant="secondary">
+                      Confirmar conceitos
+                    </Button>
+                  </div>
                 </AssistantStep>
               )}
 
-              {subcategory && (
+              {creativeConceptsConfirmed && creativeConcepts.length > 0 && (
+                <UserReply>
+                  <strong>{creativeConcepts.join(', ')}</strong>
+                  <span>Conceitos escolhidos para orientar a campanha visual.</span>
+                </UserReply>
+              )}
+
+              {canShowSubcategory && (
+                <AssistantStep number={imageModeId === 'new_image' ? 6 : 5} message="Quais focos fazem mais sentido para esta peça?">
+                  <ChipGrid>
+                    {subcategories.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={selectedSubcategories.includes(item)}
+                        onClick={() => {
+                          setSelectedSubcategories((current) => (
+                            current.includes(item)
+                              ? current.filter((focus) => focus !== item)
+                              : [...current, item]
+                          ))
+                          setSubcategoriesConfirmed(false)
+                          setSelectedHighlights([])
+                          setHighlightsConfirmed(false)
+                          setCtaChoice('')
+                          setCustomCta('')
+                          setCtaConfirmed(false)
+                          setValueConditionId('')
+                          setValueConditionDetails('')
+                          setValueConditionConfirmed(false)
+                          setDeliverablesConfirmed(false)
+                          setAdditionalConfirmed(false)
+                          setResultVisible(false)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                  <div className="mt-4 flex justify-end">
+                    <Button type="button" onClick={() => setSubcategoriesConfirmed(true)} disabled={selectedSubcategories.length === 0} variant="secondary">
+                      Confirmar focos
+                    </Button>
+                  </div>
+                </AssistantStep>
+              )}
+
+              {subcategoriesConfirmed && subcategory && (
                 <UserReply>
                   <strong>{subcategory}</strong>
-                  <span>Subcategoria selecionada.</span>
+                  <span>Focos selecionados.</span>
                 </UserReply>
               )}
 
               {canShowHighlights && (
-                <AssistantStep number={6} message="O que deseja destacar?">
+                <AssistantStep number={imageModeId === 'new_image' ? 7 : 6} message="O que deseja destacar?">
                   {propertyHighlights.length > 0 ? (
                     <>
                       <ChipGrid>
@@ -676,7 +885,7 @@ export default function Hero() {
               )}
 
               {canShowCta && (
-                <AssistantStep number={7} message="Qual chamada deseja usar?">
+                <AssistantStep number={imageModeId === 'new_image' ? 8 : 7} message="Qual chamada deseja usar?">
                   <ChipGrid>
                     {CTA_OPTIONS.map((item) => (
                       <ChipButton
@@ -735,14 +944,14 @@ export default function Hero() {
               )}
 
               {canShowValueConditions && (
-                <AssistantStep number={8} message="Deseja divulgar valores ou condições?">
+                <AssistantStep number={imageModeId === 'new_image' ? 9 : 8} message="Deseja divulgar valores ou condições?">
                   <OptionGrid>
                     {VALUE_CONDITION_OPTIONS.map((item) => (
                       <ChoiceButton
                         key={item.id}
                         active={valueConditionId === item.id}
                         title={item.label}
-                        description={item.needsDetails ? 'Use o campo abaixo para orientar o futuro prompt.' : 'O briefing seguirá com essa regra.'}
+                        description={item.needsDetails ? 'Use o campo abaixo para orientar a criação.' : 'O briefing seguirá com essa regra.'}
                         onClick={() => {
                           setValueConditionId(item.id)
                           if (!item.needsDetails) setValueConditionDetails('')
@@ -794,9 +1003,9 @@ export default function Hero() {
               )}
 
               {canShowDestination && (
-                <AssistantStep number={9} message="Onde você pretende usar esta imagem?">
+                <AssistantStep number={imageModeId === 'new_image' ? 10 : 9} message="Onde você pretende usar esta imagem?">
                   <p className="mb-4 text-sm font-semibold leading-relaxed text-gray-500">
-                    Escolha o destino principal. Ele define o formato principal da futura geração.
+                    Escolha o destino principal. Ele define o formato principal da imagem.
                   </p>
                   <OptionGrid>
                     {DESTINATION_OPTIONS.map((item) => (
@@ -849,7 +1058,7 @@ export default function Hero() {
                         <p className="mt-1 text-sm font-bold text-gray-700">{compatibleDestinationSummary}</p>
                       )}
                       <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-500">
-                        Formatos diferentes serão tratados futuramente como novas versões otimizadas.
+                        Formatos diferentes poderão virar novas versões otimizadas depois.
                       </p>
                     </div>
                   )}
@@ -869,7 +1078,7 @@ export default function Hero() {
               )}
 
               {canShowDeliverables && (
-                <AssistantStep number={10} message="O que deseja receber junto?">
+                <AssistantStep number={imageModeId === 'new_image' ? 11 : 10} message="O que deseja receber junto?">
                   <div className="grid gap-3 sm:grid-cols-2">
                     {DELIVERABLES.map((item) => (
                       <button
@@ -905,7 +1114,7 @@ export default function Hero() {
               )}
 
               {canShowAdditionalInfo && (
-                <AssistantStep number={11} message="Deseja acrescentar algo?">
+                <AssistantStep number={imageModeId === 'new_image' ? 12 : 11} message="Deseja acrescentar algo?">
                   <label className="block">
                     <span className="text-sm font-black text-gray-950">Existe algum detalhe importante que não perguntamos?</span>
                     <textarea
@@ -937,12 +1146,13 @@ export default function Hero() {
               )}
 
               {canShowChecklist && (
-                <AssistantStep number={12} message="Confira o checklist final antes de gerar.">
+                <AssistantStep number={imageModeId === 'new_image' ? 13 : 12} message="Confira o checklist final antes de gerar.">
                   <Checklist
                     property={selectedProperty}
                     imageMode={imageMode}
                     propertyState={propertyState}
                     audiences={audiences}
+                    creativeConcepts={creativeConcepts}
                     subcategory={subcategory}
                     highlights={selectedHighlights}
                     cta={selectedCta}
@@ -953,6 +1163,8 @@ export default function Hero() {
                     deliverables={chosenDeliverables}
                     photos={photos}
                     canGenerate={canGenerate}
+                    generationLoading={generationLoading}
+                    generationError={generationError}
                     onGenerate={handleGenerate}
                   />
                 </AssistantStep>
@@ -970,11 +1182,206 @@ export default function Hero() {
                 visible={resultVisible}
                 primaryDestination={primaryDestination}
                 compatibleDestinations={compatibleDestinations}
+                generationResult={generationResult}
               />
             </aside>
           </div>
         )}
       </main>
+    </div>
+  )
+}
+
+function HeroWowResult({ generationResult, onGenerateAnother }) {
+  const compatibleDestinations = Array.isArray(generationResult.compatibleDestinations)
+    ? generationResult.compatibleDestinations
+    : []
+  const deliverables = Array.isArray(generationResult.deliverables)
+    ? generationResult.deliverables
+    : []
+  const generatedTexts = generationResult.texts && typeof generationResult.texts === 'object'
+    ? generationResult.texts
+    : {}
+  const briefingItems = [
+    ['Imóvel', generationResult.propertyTitle],
+    ['Público-alvo', Array.isArray(generationResult.audiences) ? generationResult.audiences.join(', ') : 'Não informado'],
+    ...(Array.isArray(generationResult.creativeConcepts) && generationResult.creativeConcepts.length > 0
+      ? [['Conceitos', generationResult.creativeConcepts.join(', ')]]
+      : []),
+    ['Focos', generationResult.subcategory || 'Não informado'],
+    ['CTA', generationResult.cta || 'Não informado'],
+    ['Destino principal', generationResult.primaryDestination || 'Não informado'],
+    ['Destinos compatíveis', compatibleDestinations.length > 0 ? compatibleDestinations.join(', ') : 'Nenhum uso adicional nesta versão'],
+  ]
+
+  const textBlocks = [
+    { key: 'instagram', title: 'Texto Instagram', content: generatedTexts.instagram },
+    { key: 'whatsapp', title: 'WhatsApp', content: generatedTexts.whatsapp },
+    { key: 'cta', title: 'CTA', content: generatedTexts.cta },
+    { key: 'portal', title: 'Descrição Portal', content: generatedTexts.portal },
+    { key: 'hashtags', title: 'Hashtags', content: generatedTexts.hashtags },
+  ]
+  const textFileContent = textBlocks
+    .map((item) => `${item.title}\r\n${item.content || 'Texto não retornado.'}`)
+    .join('\r\n\r\n')
+
+  const handleDownloadTexts = () => {
+    const blob = new Blob([textFileContent], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'hero-ia-textos.txt'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <section className="mt-6 space-y-6">
+      <div className="overflow-hidden rounded-[2rem] bg-gray-950 text-white shadow-2xl shadow-gray-950/20">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+          <div className="bg-gray-950">
+            <div className="aspect-square lg:aspect-[5/4]">
+              <img
+                src={generationResult.imageUrl}
+                alt="Hero IA criado"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100">
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              Entrega concluída
+            </div>
+            <h2 className="mt-5 text-3xl font-black tracking-tight sm:text-5xl">
+              Hero IA criado com sucesso
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-gray-300">
+              Sua imagem principal está pronta para publicação.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <a
+                href={generationResult.imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-gray-950 transition hover:bg-gray-100"
+              >
+                <Image className="h-4 w-4" />
+                Visualizar
+              </a>
+              <a
+                href={generationResult.imageUrl}
+                download="hero-ia-smartcorretorai.jpg"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </a>
+              <button
+                type="button"
+                onClick={handleDownloadTexts}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10 sm:col-span-2"
+              >
+                <Download className="h-4 w-4" />
+                Baixar textos
+              </button>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/10 bg-white/10 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-100">Pacote selecionado</p>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-200">
+                {deliverables.length > 0 ? deliverables.join(', ') : 'Hero IA'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-wide text-amber-700">Briefing usado</p>
+          <h3 className="mt-1 text-xl font-black text-gray-950">Resumo do resultado</h3>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            {briefingItems.map(([label, value]) => (
+              <div key={label} className="rounded-2xl bg-gray-50 p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-gray-400">{label}</p>
+                <p className="mt-1 text-sm font-black leading-relaxed text-gray-950">{value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-wide text-amber-700">Textos do pacote</p>
+          <h3 className="mt-1 text-xl font-black text-gray-950">Textos prontos para copiar ou baixar</h3>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {textBlocks.map((item) => (
+              <TextDeliveryBlock key={item.key} title={item.title} content={item.content} />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-wide text-amber-700">Próximas ações</p>
+        <h3 className="mt-1 text-xl font-black text-gray-950">O que deseja fazer agora?</h3>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {['Criar Story', 'Criar Campanha IA', 'Criar Landing IA', 'Criar Vídeo IA'].map((action) => (
+            <button
+              key={action}
+              type="button"
+              disabled
+              className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm font-black text-gray-400"
+            >
+              {action}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onGenerateAnother}
+            className="rounded-2xl bg-gray-950 px-4 py-4 text-sm font-black text-white transition hover:bg-gray-800"
+          >
+            Gerar outro Hero
+          </button>
+        </div>
+      </section>
+    </section>
+  )
+}
+
+function TextDeliveryBlock({ title, content }) {
+  const [copied, setCopied] = useState(false)
+  const displayContent = String(content || '').trim() || 'Texto não retornado. Gere novamente para atualizar este bloco.'
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(displayContent)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      // Clipboard can be unavailable in restricted browser contexts.
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-black text-gray-950">{title}</p>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-black text-gray-700 transition hover:border-gray-300"
+        >
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+      </div>
+      <p className="mt-3 min-h-16 whitespace-pre-line rounded-2xl bg-white p-3 text-sm font-semibold leading-relaxed text-gray-700">
+        {displayContent}
+      </p>
     </div>
   )
 }
@@ -1052,10 +1459,13 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, propertyState, audiences, subcategory, highlights, cta, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, photos, canGenerate, onGenerate }) {
+function Checklist({ property, imageMode, propertyState, audiences, creativeConcepts, subcategory, highlights, cta, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, photos, canGenerate, generationLoading, generationError, onGenerate }) {
   const audienceSummary = Array.isArray(audiences) && audiences.length > 0
     ? audiences.map((item) => item.label).join(', ')
     : 'Não informado'
+  const creativeConceptSummary = Array.isArray(creativeConcepts) && creativeConcepts.length > 0
+    ? creativeConcepts.join(', ')
+    : ''
   const compatibleDestinationSummary = Array.isArray(compatibleDestinations) && compatibleDestinations.length > 0
     ? compatibleDestinations.map((item) => item.label).join(', ')
     : 'Nenhum uso adicional compatível nesta versão'
@@ -1063,7 +1473,8 @@ function Checklist({ property, imageMode, propertyState, audiences, subcategory,
     ['Imóvel', getPropertyTitle(property)],
     ['Tipo de imagem', imageMode?.label || 'Não informado'],
     ['Públicos selecionados', audienceSummary],
-    ['Subcategoria', subcategory || 'Não informada'],
+    ...(creativeConceptSummary ? [['Conceitos criativos', creativeConceptSummary]] : []),
+    ['Focos', subcategory || 'Não informado'],
     ['Estado do imóvel', propertyState || 'Não informado'],
     ['Destaques', highlights.length > 0 ? highlights.join(', ') : 'Sem destaque adicional'],
     ['CTA', cta || 'Não informado'],
@@ -1091,16 +1502,22 @@ function Checklist({ property, imageMode, propertyState, audiences, subcategory,
         </div>
       )}
 
+      {generationError && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          {generationError}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-black text-gray-950">Pronto para preparar a experiência?</p>
           <p className="mt-1 text-xs font-semibold text-gray-500">
-            Esta etapa mostra o placeholder e não consome Smart Tokens.
+            Esta etapa gera 1 imagem principal e ainda não consome Smart Tokens.
           </p>
         </div>
-        <Button type="button" onClick={onGenerate} disabled={!canGenerate} className="justify-center">
+        <Button type="button" onClick={onGenerate} disabled={!canGenerate} loading={generationLoading} className="justify-center">
           <Wand2 className="h-4 w-4" />
-          Sim, gerar agora
+          {generationLoading ? 'Gerando Hero IA...' : 'Sim, gerar agora'}
         </Button>
       </div>
     </div>
@@ -1117,7 +1534,7 @@ function ReadinessCard({ selectedProperty, photoCount, profileStatus, brandStatu
     {
       label: 'Fotos do imóvel',
       ok: photoCount >= MIN_HERO_PHOTOS,
-      hint: `${photoCount}/${MIN_HERO_PHOTOS} mínimas para a futura geração.`,
+      hint: `${photoCount}/${MIN_HERO_PHOTOS} mínimas para criar o Hero IA.`,
     },
     {
       label: 'Perfil Comercial',
@@ -1164,36 +1581,47 @@ function ReadinessCard({ selectedProperty, photoCount, profileStatus, brandStatu
   )
 }
 
-function ResultPanel({ visible, primaryDestination, compatibleDestinations }) {
+function ResultPanel({ visible, primaryDestination, compatibleDestinations, generationResult }) {
+  const isPrepared = visible && generationResult
   const compatibleDestinationSummary = Array.isArray(compatibleDestinations) && compatibleDestinations.length > 0
     ? compatibleDestinations.map((item) => item.label).join(', ')
+    : ''
+  const preparedCompatibleSummary = Array.isArray(generationResult?.compatibleDestinations) && generationResult.compatibleDestinations.length > 0
+    ? generationResult.compatibleDestinations.join(', ')
     : ''
 
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-wide text-amber-700">Resultado</p>
-      <h2 className="mt-1 text-lg font-black text-gray-950">Hero IA em preparação</h2>
+      <h2 className="mt-1 text-lg font-black text-gray-950">{generationResult?.imageUrl ? 'Hero IA gerado' : isPrepared ? 'Hero IA preparado' : 'Hero IA em preparação'}</h2>
       <div className="mt-4 overflow-hidden rounded-3xl border border-gray-200 bg-gray-100">
-        <div className="flex aspect-[4/3] flex-col items-center justify-center p-6 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-400 shadow-sm">
+        <div className="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden p-6 text-center">
+          {generationResult?.imageUrl && (
+            <img
+              src={generationResult.imageUrl}
+              alt="Hero IA gerado"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
+          <div className={`${generationResult?.imageUrl ? 'hidden' : 'flex'} h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-400 shadow-sm`}>
             <Sparkles className="h-7 w-7" />
           </div>
-          <p className="mt-4 text-sm font-black text-gray-950">
-            {visible ? 'Hero IA em preparação' : 'O resultado aparecerá aqui'}
+          <p className={`${generationResult?.imageUrl ? 'hidden' : 'block'} mt-4 text-sm font-black text-gray-950`}>
+            {isPrepared ? 'Briefing salvo com sucesso' : visible ? 'Hero IA em preparação' : 'O resultado aparecerá aqui'}
           </p>
-          <p className="mt-2 max-w-xs text-xs font-semibold leading-relaxed text-gray-500">
+          <p className={`${generationResult?.imageUrl ? 'hidden' : 'block'} mt-2 max-w-xs text-xs font-semibold leading-relaxed text-gray-500`}>
             {visible
-              ? 'A estrutura está pronta para Hero Principal, textos e próximas ações quando o backend real for conectado.'
+              ? generationResult?.message || 'Sua imagem principal está pronta.'
               : 'Nenhuma imagem real será simulada e nenhum Smart Token será consumido nesta etapa.'}
           </p>
           {visible && primaryDestination && (
-            <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-left shadow-sm">
+            <div className="relative z-10 mt-4 rounded-2xl bg-white/95 px-4 py-3 text-left shadow-sm">
               <p className="text-xs font-black text-gray-950">
-                Seu Hero Principal será preparado para: {primaryDestination.label}
+                Seu Hero Principal será preparado para: {generationResult?.primaryDestination || primaryDestination.label}
               </p>
-              {compatibleDestinationSummary && (
+              {(preparedCompatibleSummary || compatibleDestinationSummary) && (
                 <p className="mt-1 text-xs font-semibold text-gray-500">
-                  Também poderá ser usado em: {compatibleDestinationSummary}
+                  Também poderá ser usado em: {preparedCompatibleSummary || compatibleDestinationSummary}
                 </p>
               )}
             </div>
@@ -1201,8 +1629,34 @@ function ResultPanel({ visible, primaryDestination, compatibleDestinations }) {
         </div>
       </div>
 
+      {isPrepared && (
+        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+          <p className="text-sm font-black text-emerald-950">Resumo inteligente do briefing</p>
+          <div className="mt-3 space-y-2 text-xs font-semibold leading-relaxed text-emerald-900">
+            <p><strong>Imóvel:</strong> {generationResult.propertyTitle}</p>
+            <p><strong>Tipo de imagem:</strong> {generationResult.imageModeLabel}</p>
+            <p><strong>Públicos:</strong> {generationResult.audiences.join(', ')}</p>
+            {Array.isArray(generationResult.creativeConcepts) && generationResult.creativeConcepts.length > 0 && (
+              <p><strong>Conceitos:</strong> {generationResult.creativeConcepts.join(', ')}</p>
+            )}
+            <p><strong>Focos:</strong> {generationResult.subcategory}</p>
+            <p><strong>Estado do imóvel:</strong> {generationResult.propertyState}</p>
+            <p><strong>Destaques:</strong> {generationResult.highlights.length > 0 ? generationResult.highlights.join(', ') : 'Sem destaque adicional'}</p>
+            <p><strong>CTA:</strong> {generationResult.cta}</p>
+            <p><strong>Valores e condições:</strong> {generationResult.valueCondition}</p>
+            <p><strong>Pacote:</strong> {generationResult.deliverables.join(', ')}</p>
+            {generationResult.additionalInfo && (
+              <p><strong>Detalhes adicionais:</strong> {generationResult.additionalInfo}</p>
+            )}
+          </div>
+          <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-black text-gray-700">
+            Imagem principal pronta para publicação.
+          </p>
+        </div>
+      )}
+
       <div className="mt-4 space-y-3">
-        <ResultBlock title="Hero Principal" active={visible} />
+        <ResultBlock title="Hero Principal" active={isPrepared} />
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <p className="text-sm font-black text-gray-950">3 Direções Criativas</p>
           <div className="mt-3 space-y-2">
@@ -1246,7 +1700,7 @@ function ResultBlock({ title, active }) {
     <div className={`rounded-2xl border p-4 ${active ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50'}`}>
       <p className="text-sm font-black text-gray-950">{title}</p>
       <p className="mt-1 text-xs font-semibold text-gray-500">
-        {active ? 'Preparado para futura geração real.' : 'Aguardando checklist.'}
+        {active ? 'Imagem principal pronta.' : 'Aguardando checklist.'}
       </p>
     </div>
   )
