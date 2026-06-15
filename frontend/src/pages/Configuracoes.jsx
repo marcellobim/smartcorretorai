@@ -83,7 +83,7 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className={`${shapeClass} relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 transition hover:border-amber-300 hover:bg-amber-50/40`}
+          className={`${shapeClass} relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-2 border-dashed border-blue-100 bg-slate-50 text-slate-400 transition hover:border-primary-300 hover:bg-primary-50`}
         >
           {preview ? (
             <>
@@ -91,7 +91,7 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
               <button
                 type="button"
                 onClick={clear}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-950/75 text-white"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-900/75 text-white"
                 aria-label={`Remover ${label}`}
               >
                 <X className="h-3.5 w-3.5" />
@@ -107,7 +107,7 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-amber-700 hover:text-amber-800"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-primary-700 hover:text-primary-800"
           >
             <Upload className="h-3.5 w-3.5" />
             {preview ? 'Trocar imagem' : 'Enviar imagem'}
@@ -141,11 +141,11 @@ function SectionCard({ icon: Icon, eyebrow, title, description, complete, childr
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-amber-300">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100">
             <Icon className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-amber-700">{eyebrow}</p>
+            <p className="text-xs font-black uppercase tracking-wide text-primary-700">{eyebrow}</p>
             <h2 className="mt-1 text-lg font-black text-gray-950">{title}</h2>
             {description && <p className="mt-1 text-sm leading-relaxed text-gray-500">{description}</p>}
           </div>
@@ -172,8 +172,8 @@ export default function Configuracoes() {
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
   const [visualPreferences, setVisualPreferences] = useState({
-    primaryColor: '#111827',
-    secondaryColor: '#D4AF37',
+    primaryColor: '#0F2742',
+    secondaryColor: '#0E7490',
     visualStyle: VISUAL_STYLES[0],
   })
 
@@ -334,7 +334,7 @@ export default function Configuracoes() {
                 type="button"
                 onClick={() => setActiveTab(id)}
                 className={`flex w-full items-center gap-2.5 rounded-2xl px-3 py-3 text-left text-sm font-black transition ${
-                  activeTab === id ? 'bg-gray-950 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950'
+                  activeTab === id ? 'bg-primary-800 text-white shadow-sm' : 'text-slate-600 hover:bg-primary-50 hover:text-primary-800'
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />

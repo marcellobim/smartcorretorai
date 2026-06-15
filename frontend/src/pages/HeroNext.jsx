@@ -184,7 +184,7 @@ const RENT_DIFFERENTIAL_GROUPS = [
     options: [
       'Mobiliado',
       'Aceita pet',
-      'Pronto para entrar',
+      'Pronto para morar',
       'Condomínio seguro',
       'Boa iluminação',
       'Disponibilidade imediata',
@@ -260,11 +260,12 @@ const RENT_CHAT_FLOW = [
 ]
 
 const TEXT_BLOCKS = [
-  ['instagram', 'Texto Instagram'],
-  ['whatsapp', 'WhatsApp'],
-  ['cta', 'CTA'],
-  ['portal', 'Descrição Portal'],
-  ['hashtags', 'Hashtags'],
+  { key: 'instagram', title: '📲 Texto para Instagram', filename: 'texto-instagram.txt' },
+  { key: 'whatsapp', title: '💬 Mensagem para WhatsApp', filename: 'mensagem-whatsapp.txt' },
+  { key: 'facebook', title: '📘 Texto para Facebook', filename: 'texto-facebook.txt' },
+  { key: 'portal', title: '🏠 Descrição para portal', filename: 'descricao-portal.txt' },
+  { key: 'cta', title: '⚡ Chamada curta', filename: 'chamada-curta.txt' },
+  { key: 'hashtags', title: '#️⃣ Hashtags', filename: 'hashtags.txt' },
 ]
 
 const PROCESSING_STEPS = [
@@ -274,6 +275,8 @@ const PROCESSING_STEPS = [
   'Preparando sua campanha...',
 ]
 
+const MAX_HERO_NEXT_IMAGES = 4
+
 const DESTINATIONS = [
   { id: 'instagram_feed', label: 'Feed Instagram', format_group: 'square_feed' },
   { id: 'story_reels', label: 'Story/Reels', format_group: 'vertical' },
@@ -282,6 +285,33 @@ const DESTINATIONS = [
   { id: 'google_ads', label: 'Google Ads', format_group: 'landscape' },
   { id: 'landing_page', label: 'Landing Page', format_group: 'landscape' },
   { id: 'portal_imobiliario', label: 'Portal Imobiliário', format_group: 'landscape' },
+]
+
+const CREATIVE_IDEAS = [
+  {
+    number: 1,
+    title: 'Direta/Comercial',
+    description: 'Foco em dados, valor, condições e CTA.',
+    publicTitle: 'Criação essencial',
+    publicDescription: 'Uma peça por formato, seguindo a estratégia da campanha.',
+    visualAngle: 'direct_commercial',
+  },
+  {
+    number: 2,
+    title: 'Lifestyle/Emocional',
+    description: 'Foco em bairro, desejo, rotina, conforto e qualidade de vida.',
+    publicTitle: 'Duas alternativas visuais',
+    publicDescription: 'Receba duas versões diferentes para comparar.',
+    visualAngle: 'lifestyle_emotional',
+  },
+  {
+    number: 3,
+    title: 'Oportunidade/Conversão',
+    description: 'Foco em urgência, facilidade, diferenciais e ação rápida.',
+    publicTitle: 'Três propostas completas',
+    publicDescription: 'Mais variedade de estilo, composição e chamada.',
+    visualAngle: 'opportunity_conversion',
+  },
 ]
 
 const normalizeList = (value) => {
@@ -386,7 +416,7 @@ const formatAnswer = (answer) => {
 const buildValueCondition = (goal, saleValues, rentValues) => {
   if (goal === 'rent') {
     const guaranteeLabel = rentValues.guarantee && rentValues.guarantee !== 'nao_informar'
-      ? getRentalGuaranteeLabel(rentValues.guarantee)
+       ? getRentalGuaranteeLabel(rentValues.guarantee)
       : ''
     const details = [
       rentValues.rentMode === 'show' && normalizeValueText(rentValues.rentPrice) ? `Aluguel: ${normalizeValueText(rentValues.rentPrice)}` : '',
@@ -446,11 +476,134 @@ const buildValueCondition = (goal, saleValues, rentValues) => {
   }
 }
 
-const buildHumanPrompt = (goal, answers, destinations, valueCondition) => {
+const getFormatInstruction = (destination) => {
+  const label = destination?.label || 'o destino escolhido'
+  const id = destination?.id || ''
+  const formatGroup = destination?.format_group || ''
+
+  if (id === 'story_reels' || formatGroup === 'vertical') {
+    return `Formato principal da peça: ${label}.\nCrie UMA única peça vertical final para ${label}, com leitura rápida, poucos textos e CTA forte.`
+  }
+
+  if (id === 'whatsapp') {
+    return `Formato principal da peça: ${label}.\nCrie UMA única peça direta para envio em WhatsApp, com leitura rápida e CTA claro.`
+  }
+
+  return `Formato principal da peça: ${label}.\nCrie UMA única peça publicitária final para ${label}.`
+}
+
+const uploadedImagesInstructionText = (imageCount) => {
+  if (imageCount > 1) {
+    return 'Use todas as imagens anexadas como contexto do imóvel. A primeira imagem é a referência principal da campanha, mas as imagens de apoio também devem influenciar a composição. Varie a imagem de destaque quando fizer sentido para o formato.'
+  }
+
+  if (imageCount === 1) {
+    return 'Há apenas uma imagem anexada: ela pode ser reutilizada, mas varie recorte, composição, hierarquia, posição do CTA, quantidade de texto e tratamento visual.'
+  }
+
+  return 'Não há imagens anexadas: explore uma intenção visual própria para este formato com base na Estratégia da Campanha, bairro, benefícios e características informadas, sem inventar dados reais específicos.'
+}
+
+const getFormatVisualStrategy = (destination, imageCount = 0) => {
+  const id = destination?.id || ''
+  const label = destination?.label || 'o destino escolhido'
+  const hasMultipleImages = imageCount > 1
+  const baseImageStrategy = hasMultipleImages
+     ? 'Use o conjunto de imagens anexadas como contexto e varie a imagem de destaque conforme o formato.'
+    : imageCount === 1
+       ? 'Use a imagem anexada como base visual, variando recorte, hierarquia, CTA e composição.'
+      : 'Sem imagens anexadas: crie uma composição coerente com a campanha, sem inventar dados reais específicos.'
+
+  const strategies = {
+    instagram_feed: {
+      visualAngle: 'balanced_social_feed',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Usar a melhor imagem do imóvel como hero e até 2 imagens secundárias como apoio visual se o layout comportar.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça completa e equilibrada para Feed Instagram, com leitura social forte, dados principais, diferenciais e CTA.',
+      supportImageLimit: hasMultipleImages ? 2 : 0,
+    },
+    story_reels: {
+      visualAngle: 'emotional_vertical',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Escolher uma imagem de maior impacto vertical ou emocional como destaque, sem repetir automaticamente a primeira; usar no máximo 1 apoio se não poluir.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça vertical para Story/Reels, leitura rápida, menos texto, CTA grande e composição diferente das peças horizontais ou quadradas.',
+      supportImageLimit: hasMultipleImages ? 1 : 0,
+    },
+    whatsapp: {
+      visualAngle: 'direct_contact',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Usar a imagem mais clara e confiável para contato rápido, com até 2 apoios pequenos se ajudarem na decisão.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça direta para WhatsApp, poucos blocos, foco em contato rápido, leitura simples e CTA muito claro.',
+      supportImageLimit: hasMultipleImages ? 2 : 0,
+    },
+    facebook: {
+      visualAngle: 'informative_social',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Usar imagem principal com imagens secundárias como apoio visual para uma peça mais informativa.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça para Facebook, mais informativa, equilibrando imagem, dados, valores, diferenciais e CTA.',
+      supportImageLimit: hasMultipleImages ? 2 : 0,
+    },
+    google_ads: {
+      visualAngle: 'conversion_clean',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Escolher a imagem mais limpa e com menos ruído; usar apoios somente se não prejudicarem leitura e conversão.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça objetiva para Google Ads, pouco texto, foco em clique/conversão e CTA forte.',
+      supportImageLimit: hasMultipleImages ? 1 : 0,
+    },
+    landing_page: {
+      visualAngle: 'wide_hero_promise',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Usar imagem ampla ou mais impactante como hero horizontal; apoios podem entrar apenas se não prejudicarem a promessa principal.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça horizontal para Landing Page, imagem hero ampla, promessa principal forte e CTA claro.',
+      supportImageLimit: hasMultipleImages ? 2 : 0,
+    },
+    portal_imobiliario: {
+      visualAngle: 'objective_listing',
+      imageUsageStrategy: hasMultipleImages
+         ? 'Usar a imagem real mais clara do imóvel e apoiar com fotos que comprovem ambiente, metragem percebida ou diferenciais.'
+        : baseImageStrategy,
+      compositionInstruction: 'Peça para Portal Imobiliário, objetiva e confiável, com imagem clara do imóvel e dados essenciais.',
+      supportImageLimit: hasMultipleImages ? 2 : 0,
+    },
+  }
+
+  return {
+    formatId: id,
+    formatLabel: label,
+    visualAngle: 'single_campaign_piece',
+    imageUsageStrategy: baseImageStrategy,
+    compositionInstruction: `Crie uma única peça final para ${label}, com composição própria deste formato.`,
+    supportImageLimit: hasMultipleImages ? 2 : 0,
+    ...(strategies[id] || {}),
+  }
+}
+
+const getCreativeIdea = (number = 1) => CREATIVE_IDEAS.find((idea) => idea.number === Number(number)) || CREATIVE_IDEAS[0]
+
+const formatCreativeIdeaCount = (count) => `${count} ${count === 1 ? 'ideia' : 'ideias'}`
+const formatCreationOptionCount = (count) => `${count} ${count === 1 ? 'opção' : 'opções'}`
+const getCreationOptionLabel = (number = 1, compact = false) => {
+  const option = getCreativeIdea(number)
+  if (compact) return `Opção ${option.number}`
+  if (option.number === 1) return 'Opção 1 — Criação essencial'
+  if (option.number === 2) return 'Opção 2 — Alternativa visual'
+  return 'Opção 3 — Proposta destaque'
+}
+
+const getTotalPieceCount = (destinations, ideaCount) => Math.max(0, destinations.length) * Math.max(1, Number(ideaCount) || 1)
+
+const createCampaignBatchId = () => `hero-next-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeIdeaCount = 1) => {
   const isRent = goal === 'rent'
   const selectedDestinations = Array.isArray(destinations) ? destinations : []
   const primaryDestination = selectedDestinations[0] || null
-  const futureDestinations = selectedDestinations.slice(1)
   const location = [answers.neighborhood, answers.city].filter(Boolean).join(', ')
   const featureDetails = [
     formatCountLabel(answers.bedrooms, 'dormitório', 'dormitórios'),
@@ -465,12 +618,12 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition) => {
     '',
     `Objetivo: ${isRent ? 'locação de imóvel' : 'venda de imóvel'}.`,
     `Família da campanha: ${profile}.`,
-    `Formato principal da peça: ${primaryDestination?.label || 'não definido'}.`,
-    futureDestinations.length ? `Formatos desejados para adaptação futura: ${futureDestinations.map((item) => item.label).join(', ')}.` : '',
+    `Quantidade de opções de criação: ${formatCreationOptionCount(creativeIdeaCount)}.`,
+    getFormatInstruction(primaryDestination),
     '',
     `${answers.propertyType || 'Imóvel'}${!isRent && answers.profile ? ` ${answers.profile}` : ''}${!isRent && answers.stage ? ` em ${answers.stage.toLowerCase()}` : ''}${location ? ` em ${location}` : ''}.`,
     featureDetails ? `O imóvel possui ${featureDetails}.` : '',
-    ...(valueCondition?.promptLines || []),
+    ...(valueCondition.promptLines || []),
     differentials.length ? `Diferenciais reais:\n${differentials.join(', ')}.` : '',
     '',
     'Promessa principal:',
@@ -495,6 +648,56 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition) => {
   return lines.filter(Boolean).join('\n')
 }
 
+const buildFormatSpecificPrompt = (basePrompt, destination, imageCount = 0, creativeIdea = getCreativeIdea(1), ideaCount = 1) => {
+  const strategy = getFormatVisualStrategy(destination, imageCount)
+
+  return [
+  String(basePrompt || '')
+    .replace(/^Formatos desejados para adaptação futura:.*$/gmi, '')
+    .replace(/^Formato principal da peça:.*$/gmi, '')
+    .replace(/^Crie UMA única peça.*$/gmi, '')
+    .trim(),
+  '',
+  'REGRA DO FORMATO DESTA GERAÇÃO:',
+  getFormatInstruction(destination),
+  '',
+  'IDEIA CRIATIVA DESTA GERACAO:',
+  `Esta é a Ideia ${creativeIdea.number} de ${ideaCount} da campanha.`,
+  `Direção criativa: ${creativeIdea.title}.`,
+  creativeIdea.description,
+  ideaCount > 1 ? 'Esta ideia deve ser diferente das outras ideias criativas, mantendo os dados reais, cidade, bairro, CTA, valor e condições informadas.' : 'Esta é a única ideia criativa da campanha; preserve a mesma promessa e linguagem nos formatos selecionados.',
+  '',
+  'ESTRATEGIA VISUAL DESTE FORMATO:',
+  `Angulo visual: ${strategy.visualAngle}.`,
+  strategy.compositionInstruction,
+  strategy.imageUsageStrategy,
+  uploadedImagesInstructionText(imageCount),
+  'Mantenha a mesma campanha, dados e CTA, mas crie uma composição própria para este formato.',
+  'Não copie diretamente layout, recorte, hierarquia ou imagem principal de outros formatos selecionados.',
+  'Esta geração deve criar apenas uma peça para este formato específico.',
+  'Não criar campanha em vários formatos.',
+  'Não criar mosaico, mockup, prancha de apresentação ou múltiplas versões dentro da mesma imagem.',
+  ].filter(Boolean).join('\n')
+}
+
+const formatFileSlug = (label) => normalizeComparable(label)
+  .replace(/\s+/g, '-')
+  .replace(/\//g, '-')
+  .replace(/-+/g, '-')
+  || 'campanha'
+
+const downloadPlainTextFile = (filename, content) => {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+const formatPieceCount = (count) => `${count} ${count === 1 ? 'peça' : 'peças'}`
+
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader()
   reader.onload = () => resolve(String(reader.result || ''))
@@ -506,12 +709,52 @@ const wait = (ms) => new Promise((resolve) => {
   window.setTimeout(resolve, ms)
 })
 
-function TextBlock({ title, content }) {
+function TextBlock({ title, content, filename }) {
+  const [copied, setCopied] = useState(false)
+
+  if (!content) return null
+
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(content)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = content
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1600)
+  }
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4">
-      <p className="text-sm font-black text-gray-950">{title}</p>
+    <div className="rounded-[1.5rem] border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-black text-gray-950">{title}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={copyText}
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-black text-gray-700 hover:bg-gray-50"
+          >
+            {copied ? 'Copiado!' : 'Copiar'}
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadPlainTextFile(filename, content)}
+            className="rounded-full bg-primary-800 px-3 py-1.5 text-xs font-black text-white hover:bg-primary-700"
+          >
+            Baixar .txt
+          </button>
+        </div>
+      </div>
       <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-relaxed text-gray-600">
-        {content || 'Texto não retornado.'}
+        {content}
       </p>
     </div>
   )
@@ -520,7 +763,7 @@ function TextBlock({ title, content }) {
 function AssistantBubble({ children }) {
   return (
     <div className="flex gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-950 text-white">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-800 text-white">
         <Sparkles className="h-4 w-4" />
       </div>
       <div className="max-w-2xl rounded-3xl rounded-tl-md bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200">
@@ -533,7 +776,7 @@ function AssistantBubble({ children }) {
 function UserBubble({ children }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-2xl rounded-3xl rounded-tr-md bg-gray-950 px-5 py-4 text-white shadow-sm">
+      <div className="max-w-2xl rounded-3xl rounded-tr-md bg-primary-800 px-5 py-4 text-white shadow-sm">
         <p className="text-sm font-bold leading-relaxed">{children}</p>
       </div>
     </div>
@@ -561,11 +804,13 @@ export default function HeroNext() {
   const [promptTouched, setPromptTouched] = useState(false)
   const [humanPrompt, setHumanPrompt] = useState('')
   const [destinationIds, setDestinationIds] = useState([])
+  const [creativeIdeaCount, setCreativeIdeaCount] = useState(1)
   const [imageChoice, setImageChoice] = useState('')
   const [uploadedImages, setUploadedImages] = useState([])
   const [generationLoading, setGenerationLoading] = useState(false)
   const [generationError, setGenerationError] = useState('')
   const [generationResult, setGenerationResult] = useState(null)
+  const [generationJobs, setGenerationJobs] = useState([])
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
 
   const chatFlow = goal === 'rent' ? RENT_CHAT_FLOW : SALE_CHAT_FLOW
@@ -574,7 +819,7 @@ export default function HeroNext() {
     .map((id) => DESTINATIONS.find((item) => item.id === id))
     .filter(Boolean)
   const selectedDestination = selectedDestinations[0] || null
-  const compatibleDestinations = selectedDestinations.slice(1)
+  const totalPieceCount = getTotalPieceCount(selectedDestinations, creativeIdeaCount)
   const valueCondition = useMemo(() => buildValueCondition(goal, {
     mode: saleValueMode,
     price: salePrice,
@@ -601,11 +846,11 @@ export default function HeroNext() {
     && (condoMode !== 'show' || Boolean(normalizeValueText(condoFee)))
     && (iptuMode !== 'show' || Boolean(normalizeValueText(iptuValue)))
   )
-  const suggestedPrompt = useMemo(() => buildHumanPrompt(goal, answers, selectedDestinations, valueCondition), [goal, answers, selectedDestinations, valueCondition])
+  const suggestedPrompt = useMemo(() => buildHumanPrompt(goal, answers, selectedDestination ? [selectedDestination] : [], valueCondition, creativeIdeaCount), [goal, answers, selectedDestination, valueCondition, creativeIdeaCount])
   const effectivePrompt = promptTouched ? humanPrompt : suggestedPrompt
   const canGenerate = Boolean(
     effectivePrompt.trim()
-    && selectedDestination
+    && selectedDestinations.length > 0
     && imageChoice
     && (!imageChoice.startsWith('yes') || uploadedImages.length > 0)
     && !generationLoading,
@@ -631,9 +876,11 @@ export default function HeroNext() {
     setPromptTouched(false)
     setHumanPrompt('')
     setDestinationIds([])
+    setCreativeIdeaCount(1)
     setImageChoice('')
     setUploadedImages([])
     setGenerationResult(null)
+    setGenerationJobs([])
     setGenerationError('')
     setPhase('chat')
   }
@@ -690,9 +937,10 @@ export default function HeroNext() {
   const toggleDestination = (id) => {
     setDestinationIds((current) => (
       current.includes(id)
-        ? current.filter((item) => item !== id)
+         ? current.filter((item) => item !== id)
         : [...current, id]
     ))
+    setCreativeIdeaCount((current) => Math.max(1, Math.min(3, current)))
     setPromptTouched(false)
     setHumanPrompt('')
     setGenerationError('')
@@ -701,7 +949,7 @@ export default function HeroNext() {
   const toggleSaleCondition = (condition) => {
     setSaleConditions((current) => (
       current.includes(condition)
-        ? current.filter((item) => item !== condition)
+         ? current.filter((item) => item !== condition)
         : [...current, condition]
     ))
     setPromptTouched(false)
@@ -726,7 +974,7 @@ export default function HeroNext() {
   }
 
   const handleFiles = async (files) => {
-    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith('image/')).slice(0, 8)
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith('image/')).slice(0, MAX_HERO_NEXT_IMAGES)
     if (imageFiles.length === 0) return
 
     try {
@@ -757,7 +1005,7 @@ export default function HeroNext() {
       })
 
       if (error) throw new Error(error.message || 'Não foi possível consultar a campanha.')
-      if (!data?.success && data?.status !== 'failed') throw new Error(data?.message || data?.error || 'Não foi possível consultar a campanha.')
+      if (!data.success && data.status !== 'failed') throw new Error(data.message || data.error || 'Não foi possível consultar a campanha.')
 
       if (data.status === 'completed') {
         setGenerationResult({
@@ -777,77 +1025,245 @@ export default function HeroNext() {
     throw new Error('A campanha ainda está em criação. Tente consultar novamente em alguns instantes.')
   }
 
+  const updateGenerationJob = (jobId, patch) => {
+    setGenerationJobs((current) => current.map((job) => (
+      job.jobId === jobId || job.formatId === jobId ? { ...job, ...patch } : job
+    )))
+  }
+
+  const pollGenerationJob = async (generationId, destination, creativeIdea = getCreativeIdea(1)) => {
+    const formatId = destination.id
+    const jobId = `idea-${creativeIdea.number}-${formatId}`
+
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      setProcessingMessage(PROCESSING_STEPS[attempt % PROCESSING_STEPS.length])
+      await wait(4000)
+
+      const { data, error } = await supabase.functions.invoke('gerar-hero-ia', {
+        body: {
+          action: 'status',
+          generation_id: generationId,
+        },
+      })
+
+      if (error) throw new Error(error.message || `Não foi possível consultar ${destination.label}.`)
+
+      if (data.status === 'completed') {
+        const completedJob = {
+          formatId,
+          jobId,
+          formatLabel: destination.label,
+          ideaNumber: creativeIdea.number,
+          creativeDirection: creativeIdea.title,
+          generationId,
+          status: 'completed',
+          imageUrl: data.image_url || '',
+          texts: data.texts || {},
+          error: null,
+          visualAngle: getFormatVisualStrategy(destination, uploadedImages.length).visualAngle,
+          imageUsageStrategy: getFormatVisualStrategy(destination, uploadedImages.length).imageUsageStrategy,
+        }
+        updateGenerationJob(jobId, completedJob)
+        return completedJob
+      }
+
+      if (data.status === 'failed' || data.success === false) {
+        throw new Error(data.message || data.error || `Não foi possível concluir ${destination.label}.`)
+      }
+
+      updateGenerationJob(jobId, { status: 'processing' })
+    }
+
+    throw new Error(`${destination.label} ainda está em criação. Tente novamente em alguns instantes.`)
+  }
+
+  const startGenerationJob = async (destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs) => {
+    const formatId = destination.id
+    const jobId = `idea-${creativeIdea.number}-${formatId}`
+    const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
+    const promptForFormat = promptTouched
+       ? buildFormatSpecificPrompt(effectivePrompt, destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
+      : buildFormatSpecificPrompt(buildHumanPrompt(goal, answers, [destination], valueCondition, creativeIdeaCount), destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
+
+    updateGenerationJob(jobId, {
+      status: 'starting',
+      error: null,
+      visualAngle: formatStrategy.visualAngle,
+      imageUsageStrategy: formatStrategy.imageUsageStrategy,
+    })
+
+    console.info('[HeroNext] generation job', {
+      campaign_batch_id: campaignBatchId,
+      format_id: formatId,
+      idea_number: creativeIdea.number,
+      creative_direction: creativeIdea.title,
+      visual_angle: formatStrategy.visualAngle,
+      image_usage_strategy: formatStrategy.imageUsageStrategy,
+      received_image_count: uploadedImages.length,
+      sent_image_count: Math.min(uploadedImages.length, MAX_HERO_NEXT_IMAGES),
+      primary_image: uploadedImages.length > 0 ? 'image_1' : null,
+      support_images: uploadedImages.slice(1).map((_, index) => `image_${index + 2}`),
+    })
+
+    const { data, error } = await supabase.functions.invoke('gerar-hero-ia', {
+      body: {
+        human_prompt: promptForFormat.trim(),
+        image_mode: uploadedImages.length > 0 ? 'reference_photos' : 'new_image',
+        image_mode_label: uploadedImages.length > 0 ? 'Imagens reais anexadas' : 'Campanha sem imagens anexadas',
+        inline_images: uploadedImages.map((item) => ({
+          name: item.name,
+          content_type: item.contentType,
+          data: item.data,
+        })),
+        hero_next_experimental: true,
+        campaign_objective: goal === 'rent' ? 'locacao' : 'venda',
+        property_type: answers.propertyType || '',
+        property_profile: answers.profile || (goal === 'rent' ? 'Locação' : ''),
+        property_stage: answers.stage || '',
+        city: answers.city || '',
+        district: answers.neighborhood || '',
+        bedrooms: answers.bedrooms || '',
+        suites: answers.suites || '',
+        parking: answers.parking || '',
+        area: answers.area || '',
+        rent_price: rentMode === 'show' ? normalizeValueText(rentPrice) : '',
+        condo_fee: condoMode === 'show' ? normalizeValueText(condoFee) : '',
+        iptu: iptuMode === 'show' ? normalizeValueText(iptuValue) : '',
+        guarantee_id: rentGuarantee,
+        guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '',
+        guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
+        highlights: normalizeList(answers.differentials),
+        cta: answers.cta || 'Fale com o corretor',
+        deliverables: {
+          hero_image: true,
+          instagram_text: true,
+          hashtags: true,
+          cta: true,
+          whatsapp: true,
+          portal_description: true,
+        },
+        value_condition: valueCondition,
+        primary_destination: destination,
+        compatible_destinations: [],
+        campaign_batch_id: campaignBatchId,
+        format_generation: {
+          index: formatIndex,
+          total: totalFormats,
+          job_index: jobIndex,
+          total_jobs: totalJobs,
+          format_id: formatId,
+          format_label: destination.label,
+        },
+        creative_idea: {
+          number: creativeIdea.number,
+          title: creativeIdea.title,
+          description: creativeIdea.description,
+          visual_angle: creativeIdea.visualAngle,
+        },
+        format_strategy: formatStrategy,
+        additional_info: '',
+      },
+    })
+
+    if (error) throw new Error(error.message || `Não foi possível iniciar ${destination.label}.`)
+    if (!data.success) throw new Error(data.message || data.error || `Não foi possível iniciar ${destination.label}.`)
+
+    const generationId = data.generation_id || data.hero_generation_id
+    updateGenerationJob(jobId, {
+      generationId,
+      status: data.status === 'processing' ? 'processing' : 'completed',
+      texts: data.texts || {},
+      imageUrl: data.image_url || null,
+      visualAngle: formatStrategy.visualAngle,
+      imageUsageStrategy: formatStrategy.imageUsageStrategy,
+    })
+
+    if (data.status === 'processing') {
+      return pollGenerationJob(generationId, destination, creativeIdea)
+    }
+
+    return {
+      formatId,
+      jobId,
+      formatLabel: destination.label,
+      ideaNumber: creativeIdea.number,
+      creativeDirection: creativeIdea.title,
+      generationId,
+      status: 'completed',
+      imageUrl: data.image_url || '',
+      texts: data.texts || {},
+      error: null,
+      visualAngle: formatStrategy.visualAngle,
+      imageUsageStrategy: formatStrategy.imageUsageStrategy,
+    }
+  }
+
   const handleGenerate = async () => {
     if (!canGenerate) return
 
     setGenerationLoading(true)
     setGenerationError('')
     setGenerationResult(null)
+    const campaignBatchId = createCampaignBatchId()
+    const selectedIdeas = CREATIVE_IDEAS.slice(0, creativeIdeaCount)
+    const jobRequests = selectedIdeas.flatMap((creativeIdea) => (
+      selectedDestinations.map((destination, destinationIndex) => ({
+        destination,
+        creativeIdea,
+        formatIndex: destinationIndex + 1,
+        totalFormats: selectedDestinations.length,
+      }))
+    ))
+    const initialJobs = jobRequests.map(({ destination, creativeIdea }) => {
+      const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
+      return {
+        jobId: `idea-${creativeIdea.number}-${destination.id}`,
+        formatId: destination.id,
+        formatLabel: destination.label,
+        ideaNumber: creativeIdea.number,
+        creativeDirection: creativeIdea.title,
+        generationId: null,
+        status: 'queued',
+        imageUrl: null,
+        texts: {},
+        error: null,
+        visualAngle: formatStrategy.visualAngle,
+        imageUsageStrategy: formatStrategy.imageUsageStrategy,
+      }
+    })
+    setGenerationJobs(initialJobs)
+    setPhase('processing')
 
     try {
-      const { data, error } = await supabase.functions.invoke('gerar-hero-ia', {
-        body: {
-          human_prompt: effectivePrompt.trim(),
-          image_mode: uploadedImages.length > 0 ? 'reference_photos' : 'new_image',
-          image_mode_label: uploadedImages.length > 0 ? 'Imagens reais anexadas' : 'Campanha sem imagens anexadas',
-          inline_images: uploadedImages.map((item) => ({
-            name: item.name,
-            content_type: item.contentType,
-            data: item.data,
-          })),
-          hero_next_experimental: true,
-          campaign_objective: goal === 'rent' ? 'locacao' : 'venda',
-          property_type: answers.propertyType || '',
-          property_profile: answers.profile || (goal === 'rent' ? 'Locação' : ''),
-          property_stage: answers.stage || '',
-          city: answers.city || '',
-          district: answers.neighborhood || '',
-          bedrooms: answers.bedrooms || '',
-          suites: answers.suites || '',
-          parking: answers.parking || '',
-          area: answers.area || '',
-          rent_price: rentMode === 'show' ? normalizeValueText(rentPrice) : '',
-          condo_fee: condoMode === 'show' ? normalizeValueText(condoFee) : '',
-          iptu: iptuMode === 'show' ? normalizeValueText(iptuValue) : '',
-          guarantee_id: rentGuarantee,
-          guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '',
-          guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
-          highlights: normalizeList(answers.differentials),
-          cta: answers.cta || 'Fale com o corretor',
-          deliverables: {
-            hero_image: true,
-            instagram_text: true,
-            hashtags: true,
-            cta: true,
-            whatsapp: true,
-            portal_description: true,
-          },
-          value_condition: valueCondition,
-          primary_destination: selectedDestination,
-          compatible_destinations: compatibleDestinations,
-          additional_info: '',
-        },
-      })
+      setProcessingMessage('Criando sua campanha...')
+      const settledJobs = await Promise.all(jobRequests.map(async ({ destination, creativeIdea, formatIndex, totalFormats }, index) => {
+        try {
+          return await startGenerationJob(destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, index + 1, jobRequests.length)
+        } catch (error) {
+          const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
+          const jobId = `idea-${creativeIdea.number}-${destination.id}`
+          const failedJob = {
+            jobId,
+            formatId: destination.id,
+            formatLabel: destination.label,
+            ideaNumber: creativeIdea.number,
+            creativeDirection: creativeIdea.title,
+            generationId: null,
+            status: 'failed',
+            imageUrl: null,
+            texts: {},
+            error: error instanceof Error ? error.message : `Não foi possível gerar ${destination.label}.`,
+          }
+          updateGenerationJob(jobId, failedJob)
+          return failedJob
+        }
+      }))
 
-      if (error) throw new Error(error.message || 'Não foi possível gerar a campanha.')
-      if (!data?.success) throw new Error(data?.message || data?.error || 'Não foi possível gerar a campanha.')
-
-      if (data.status === 'processing') {
-        setProcessingMessage('Criando sua campanha...')
-        setGenerationResult({
-          ...data,
-          texts: data.texts || {},
-        })
-        setPhase('processing')
-        setGenerationLoading(false)
-        await pollGeneration(data.generation_id || data.hero_generation_id)
-        return
-      }
-
+      const firstCompleted = settledJobs.find((job) => job.status === 'completed')
       setGenerationResult({
-        ...data,
-        imageUrl: data.image_url || '',
-        texts: data.texts || {},
+        jobs: settledJobs,
+        imageUrl: firstCompleted.imageUrl || '',
+        texts: firstCompleted.texts || {},
       })
       setPhase('result')
     } catch (error) {
@@ -858,17 +1274,27 @@ export default function HeroNext() {
   }
 
   const downloadTexts = () => {
-    const texts = generationResult?.texts || {}
-    const content = TEXT_BLOCKS
-      .map(([key, title]) => `${title}\n${texts[key] || 'Texto não retornado.'}`)
+    const texts = generationResult.texts || {}
+    const availableBlocks = TEXT_BLOCKS.filter((block) => texts[block.key])
+    const content = [
+      'TEXTOS DA CAMPANHA — SMARTCORRETORAI',
+      '',
+      ...availableBlocks.map((block) => `[${block.title.replace(/^[^\p{L}#]+/u, '').trim()}]\n${texts[block.key]}`),
+    ]
       .join('\n\n---\n\n')
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'campanha-ia-textos.txt'
-    link.click()
-    URL.revokeObjectURL(url)
+    downloadPlainTextFile('campanha-ia-textos.txt', content)
+  }
+
+  const downloadAllImages = () => {
+    const completedJobs = (generationResult.jobs || []).filter((job) => job.status === 'completed' && job.imageUrl)
+    completedJobs.forEach((job, index) => {
+      window.setTimeout(() => {
+        const link = document.createElement('a')
+        link.href = job.imageUrl
+        link.download = `campanha-opcao-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.jpg`
+        link.click()
+      }, index * 250)
+    })
   }
 
   const renderQuestionControls = () => {
@@ -884,7 +1310,7 @@ export default function HeroNext() {
               if (event.key === 'Enter') commitAnswer(currentQuestion.id, textDraft)
             }}
             placeholder={currentQuestion.placeholder}
-            className="min-h-12 flex-1 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+            className="min-h-12 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
           />
           <Button type="button" onClick={() => commitAnswer(currentQuestion.id, textDraft)} disabled={!textDraft.trim()}>
             <Send className="h-4 w-4" />
@@ -911,7 +1337,7 @@ export default function HeroNext() {
             {groups.map((group) => (
               <div key={group.title || 'opcoes'}>
                 {group.title && (
-                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-amber-700">{group.title}</p>
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-primary-700">{group.title}</p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   {group.options.map((option) => {
@@ -924,12 +1350,12 @@ export default function HeroNext() {
                         onClick={() => {
                           setMultiDraft((current) => (
                             current.includes(normalizedOption)
-                              ? current.filter((item) => item !== normalizedOption)
+                               ? current.filter((item) => item !== normalizedOption)
                               : [...current, normalizedOption]
                           ))
                         }}
                         className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                          active ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                          active ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                         }`}
                       >
                         {normalizedOption}
@@ -945,7 +1371,7 @@ export default function HeroNext() {
             onChange={(event) => setCustomDifferential(event.target.value)}
             placeholder="Outro diferencial importante"
             maxLength={60}
-            className="min-h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+            className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
           />
           <Button type="button" onClick={() => commitAnswer(currentQuestion.id, selectedWithCustom)} disabled={selectedWithCustom.length === 0}>
             Confirmar diferenciais
@@ -962,7 +1388,7 @@ export default function HeroNext() {
             type="button"
             onClick={() => commitAnswer(currentQuestion.id, option)}
             className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-              answers[currentQuestion.id] === option ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-950 hover:bg-gray-950 hover:text-white'
+              answers[currentQuestion.id] === option ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-900'
             }`}
           >
             {option}
@@ -973,8 +1399,8 @@ export default function HeroNext() {
   }
 
   return (
-    <div>
-      <Header title="Campanha IA" subtitle="Fluxo limpo para validar Chat Guiado, Prompt Humano e imagens opcionais." />
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <Header title="Campanha IA" subtitle="Crie uma campanha imobiliária guiada, com estratégia, imagens opcionais e peças por formato." />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
         <Link
@@ -982,14 +1408,14 @@ export default function HeroNext() {
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
         >
           <ArrowLeft className="h-4 w-4" />
-          Voltar à Home
+          Voltar para Home
         </Link>
 
         {phase === 'intro' && (
-          <section className="mt-6 overflow-hidden rounded-[2rem] bg-gray-950 p-7 text-white shadow-xl shadow-gray-950/10 sm:p-10">
+          <section className="mt-6 overflow-hidden rounded-[2rem] bg-[#0F2742] p-7 text-white shadow-xl shadow-[#0F2742]/10 sm:p-10">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100">
-                <Sparkles className="h-4 w-4 text-amber-300" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-100">
+                <Sparkles className="h-4 w-4 text-cyan-200" />
                 Hero IA Next
               </div>
               <h1 className="mt-6 text-4xl font-black tracking-tight sm:text-6xl">
@@ -1007,7 +1433,7 @@ export default function HeroNext() {
 
         {phase === 'goal' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <AssistantBubble>O que deseja divulgar?</AssistantBubble>
+            <AssistantBubble>O que deseja divulgar</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {GOALS.map((item) => (
                 <button
@@ -1016,7 +1442,7 @@ export default function HeroNext() {
                   onClick={() => resetForGoal(item.id)}
                   className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:border-gray-950 hover:shadow-md"
                 >
-                  <Building2 className="h-7 w-7 text-amber-600" />
+                  <Building2 className="h-7 w-7 text-primary-600" />
                   <p className="mt-4 text-xl font-black text-gray-950">{item.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
                     A conversa será adaptada para esse objetivo.
@@ -1065,7 +1491,7 @@ export default function HeroNext() {
 
         {phase === 'values' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <AssistantBubble>{goal === 'rent' ? 'Quais valores deseja divulgar?' : 'Deseja divulgar valor ou condições?'}</AssistantBubble>
+            <AssistantBubble>{goal === 'rent' ? 'Quais valores deseja divulgar' : 'Deseja divulgar valor ou condições'}</AssistantBubble>
 
             {goal === 'sale' && (
               <>
@@ -1089,7 +1515,7 @@ export default function HeroNext() {
                         setGenerationError('')
                       }}
                       className={`rounded-3xl border p-5 text-left transition ${
-                        saleValueMode === item.id ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                        saleValueMode === item.id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                       }`}
                     >
                       <p className="text-lg font-black">{item.title}</p>
@@ -1114,7 +1540,7 @@ export default function HeroNext() {
                         setHumanPrompt('')
                       }}
                       placeholder="Ex: R$ 384.000, A partir de R$ 384.000 ou Sob consulta"
-                      className="mt-3 min-h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                      className="mt-3 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                     />
                   </div>
                 )}
@@ -1133,7 +1559,7 @@ export default function HeroNext() {
                             type="button"
                             onClick={() => toggleSaleCondition(condition)}
                             className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                              active ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                              active ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                             }`}
                           >
                             {condition}
@@ -1165,7 +1591,7 @@ export default function HeroNext() {
                           setHumanPrompt('')
                         }}
                         className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                          rentMode === id ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                          rentMode === id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                         }`}
                       >
                         {label}
@@ -1181,7 +1607,7 @@ export default function HeroNext() {
                         setHumanPrompt('')
                       }}
                       placeholder="Valor do aluguel. Ex: R$ 3.500"
-                      className="mt-3 min-h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                      className="mt-3 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                     />
                   )}
                 </div>
@@ -1228,7 +1654,7 @@ export default function HeroNext() {
                             setHumanPrompt('')
                           }}
                           className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                            section.mode === id ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                            section.mode === id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                           }`}
                         >
                           {label}
@@ -1244,7 +1670,7 @@ export default function HeroNext() {
                           setHumanPrompt('')
                         }}
                         placeholder={section.placeholder}
-                        className="mt-3 min-h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                        className="mt-3 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                       />
                     )}
                   </div>
@@ -1263,7 +1689,7 @@ export default function HeroNext() {
                           setHumanPrompt('')
                         }}
                         className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                          rentGuarantee === id ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                          rentGuarantee === id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                         }`}
                       >
                         {label}
@@ -1295,16 +1721,16 @@ export default function HeroNext() {
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
               <AssistantBubble>
-                Com base na conversa, montei o Prompt Humano da campanha. Você pode ajustar antes de gerar.
+                Com base na conversa, montei a Estratégia da Campanha. Você pode ajustar antes de gerar.
               </AssistantBubble>
               <textarea
                 value={effectivePrompt}
                 onChange={(event) => handlePromptChange(event.target.value)}
                 rows={18}
-                className="mt-5 w-full resize-none rounded-3xl border border-gray-200 px-5 py-4 text-sm font-semibold leading-relaxed text-gray-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                className="mt-5 w-full resize-none rounded-3xl border border-blue-100 px-5 py-4 text-sm font-semibold leading-relaxed text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
               />
               <div className="mt-5 flex flex-wrap justify-end gap-3">
-                <Button type="button" variant="secondary" onClick={() => setPhase('destination')}>
+                <Button type="button" variant="secondary" onClick={() => setPhase('ideas')}>
                   Voltar
                 </Button>
                 <Button type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()}>
@@ -1313,7 +1739,7 @@ export default function HeroNext() {
               </div>
             </div>
             <aside className="rounded-[2rem] border border-gray-200 bg-gray-50 p-5">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Resumo da conversa</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resumo da conversa</p>
               <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
                 <p><strong>Objetivo:</strong> {goal === 'rent' ? 'Locação' : 'Venda de imóvel'}</p>
                 {chatFlow.map((question, index) => answers[question.id] ? (
@@ -1337,13 +1763,14 @@ export default function HeroNext() {
                   <div className="rounded-2xl border border-gray-200 bg-white p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
-                        <strong>Formatos</strong><br />
-                        Principal: {selectedDestination?.label}
-                        {compatibleDestinations.length ? ` | Futuro: ${compatibleDestinations.map((item) => item.label).join(', ')}` : ''}
+                        <strong>Formatos e opções</strong><br />
+                        {selectedDestinations.map((item) => item.label).join(', ')}
+                        <br />
+                        {formatCreationOptionCount(creativeIdeaCount)} - Total: {formatPieceCount(totalPieceCount)} IA
                       </p>
                       <button
                         type="button"
-                        onClick={() => setPhase('destination')}
+                        onClick={() => setPhase('ideas')}
                         className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600 hover:bg-gray-200"
                       >
                         Editar
@@ -1374,9 +1801,9 @@ export default function HeroNext() {
 
         {phase === 'destination' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <AssistantBubble>Onde você pretende usar esta campanha?</AssistantBubble>
+            <AssistantBubble>Quais formatos deseja gerar para esta campanha</AssistantBubble>
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
-              Você pode escolher mais de um formato. O primeiro selecionado será o formato principal da geração; os demais ficam como formatos desejados para adaptação futura.
+              Cada formato selecionado gera uma peça IA própria, otimizada para aquele canal.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {DESTINATIONS.map((item) => (
@@ -1385,16 +1812,16 @@ export default function HeroNext() {
                   type="button"
                   onClick={() => toggleDestination(item.id)}
                   className={`rounded-3xl border p-5 text-left transition ${
-                    destinationIds.includes(item.id) ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                    destinationIds.includes(item.id) ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-lg font-black">{item.label}</p>
-                    {destinationIds[0] === item.id && (
-                      <span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-gray-950">
-                        Principal
-                      </span>
-                    )}
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                      destinationIds.includes(item.id) ? 'bg-cyan-100 text-primary-900' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      1 geração
+                    </span>
                   </div>
                   <p className={`mt-2 text-sm font-semibold ${destinationIds.includes(item.id) ? 'text-gray-300' : 'text-gray-500'}`}>
                     {item.format_group === 'vertical' ? 'Formato vertical principal.' : item.format_group === 'landscape' ? 'Formato horizontal principal.' : 'Formato quadrado principal.'}
@@ -1404,17 +1831,62 @@ export default function HeroNext() {
             </div>
             {selectedDestinations.length > 0 && (
               <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-600">
-                <p><strong>Formato principal:</strong> {selectedDestination?.label}</p>
-                <p className="mt-1">
-                  <strong>Adaptações futuras:</strong> {compatibleDestinations.length ? compatibleDestinations.map((item) => item.label).join(', ') : 'nenhuma selecionada'}
-                </p>
+                <p><strong>Formatos selecionados:</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
+                <p className="mt-1"><strong>Próximo passo:</strong> escolher quantas opções de criação deseja receber.</p>
+                <p className="mt-1"><strong>Ideias:</strong> você escolherá entre 1 e 3 no próximo passo.</p>
               </div>
             )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' ? 'values' : 'chat')}>
                 Voltar
               </Button>
-              <Button type="button" onClick={() => setPhase('prompt')} disabled={!selectedDestination}>
+              <Button type="button" onClick={() => setPhase('ideas')} disabled={!selectedDestination}>
+                Continuar
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {phase === 'ideas' && (
+          <section className="mt-6 rounded-[2rem] border border-slate-200 bg-[#EEF6FF] p-5 sm:p-8">
+            <AssistantBubble>Quantas opções de criação você quer receber?</AssistantBubble>
+            <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+              Você pode receber uma ou mais versões da mesma campanha para comparar antes de escolher.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {CREATIVE_IDEAS.map((idea) => (
+                <button
+                  key={idea.number}
+                  type="button"
+                  onClick={() => {
+                    setCreativeIdeaCount(idea.number)
+                    setPromptTouched(false)
+                    setHumanPrompt('')
+                    setGenerationError('')
+                  }}
+                  className={`rounded-3xl border p-5 text-left transition ${
+                    creativeIdeaCount === idea.number ? 'border-[#0E7490] bg-[#0E7490] text-white shadow-lg shadow-cyan-900/10' : 'border-slate-200 bg-white text-slate-700 hover:border-[#0E7490]'
+                  }`}
+                >
+                  <p className="text-lg font-black">{formatCreationOptionCount(idea.number)}</p>
+                  <p className={`mt-2 text-sm font-black ${creativeIdeaCount === idea.number ? 'text-cyan-50' : 'text-slate-900'}`}>{idea.publicTitle}</p>
+                  <p className={`mt-2 text-sm font-semibold leading-relaxed ${creativeIdeaCount === idea.number ? 'text-cyan-50/90' : 'text-slate-500'}`}>
+                    {idea.publicDescription}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-600">
+              <p><strong>Formatos selecionados:</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
+              <p className="mt-1"><strong>Opções de criação:</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
+              <p className="mt-1"><strong>Total previsto:</strong> {formatPieceCount(totalPieceCount)} IA</p>
+              <p className="mt-1"><strong>Consumo previsto:</strong> {totalPieceCount} geração(ões)</p>
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={() => setPhase('destination')}>
+                Voltar
+              </Button>
+              <Button type="button" onClick={() => setPhase('prompt')}>
                 Continuar
               </Button>
             </div>
@@ -1423,16 +1895,16 @@ export default function HeroNext() {
 
         {phase === 'images' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <AssistantBubble>Você possui imagens reais deste imóvel?</AssistantBubble>
+            <AssistantBubble>Você possui imagens reais deste imóvel</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setImageChoice('yes')}
                 className={`rounded-3xl border p-6 text-left transition ${
-                  imageChoice === 'yes' ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                  imageChoice === 'yes' ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                 }`}
               >
-                <Upload className="h-7 w-7 text-amber-500" />
+                <Upload className="h-7 w-7 text-primary-600" />
                 <p className="mt-4 text-lg font-black">Sim, vou enviar agora</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'yes' ? 'text-gray-300' : 'text-gray-500'}`}>
                   Uma imagem já é suficiente para este teste.
@@ -1445,13 +1917,13 @@ export default function HeroNext() {
                   setUploadedImages([])
                 }}
                 className={`rounded-3xl border p-6 text-left transition ${
-                  imageChoice === 'no' ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                  imageChoice === 'no' ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                 }`}
               >
-                <Image className="h-7 w-7 text-amber-500" />
+                <Image className="h-7 w-7 text-primary-600" />
                 <p className="mt-4 text-lg font-black">Não, gerar campanha sem imagens</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'no' ? 'text-gray-300' : 'text-gray-500'}`}>
-                  A campanha será criada apenas com o Prompt Humano.
+                  A campanha será criada apenas com a Estratégia da Campanha.
                 </p>
               </button>
             </div>
@@ -1461,7 +1933,7 @@ export default function HeroNext() {
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl bg-gray-50 px-6 py-10 text-center transition hover:bg-gray-100">
                   <Upload className="h-8 w-8 text-gray-500" />
                   <span className="mt-3 text-sm font-black text-gray-950">Enviar imagens do imóvel</span>
-                  <span className="mt-1 text-xs font-semibold text-gray-500">JPG, PNG ou WebP. Sem mínimo obrigatório.</span>
+                  <span className="mt-1 text-xs font-semibold text-gray-500">JPG, PNG ou WebP. Até 4 imagens. A primeira será a principal.</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -1472,9 +1944,16 @@ export default function HeroNext() {
                 </label>
                 {uploadedImages.length > 0 && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {uploadedImages.map((item) => (
+                    {uploadedImages.map((item, index) => (
                       <div key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                        <img src={item.data} alt={item.name} className="aspect-square w-full object-cover" />
+                        <div className="relative">
+                          <img src={item.data} alt={item.name} className="aspect-square w-full object-cover" />
+                          <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+                            index === 0 ? 'bg-cyan-100 text-primary-900' : 'bg-white/90 text-gray-700'
+                          }`}>
+                            {index === 0 ? 'Principal' : 'Apoio'}
+                          </span>
+                        </div>
                         <p className="truncate px-3 py-2 text-xs font-bold text-gray-600">{item.name}</p>
                       </div>
                     ))}
@@ -1495,7 +1974,9 @@ export default function HeroNext() {
               </Button>
               <Button type="button" onClick={handleGenerate} disabled={!canGenerate} loading={generationLoading}>
                 <Wand2 className="h-4 w-4" />
-                {generationLoading ? 'Gerando campanha...' : 'Gerar campanha'}
+                {generationLoading
+                   ? `Gerando ${formatPieceCount(totalPieceCount)}...`
+                  : `Gerar ${formatPieceCount(totalPieceCount || 1)} da campanha`}
               </Button>
             </div>
           </section>
@@ -1503,7 +1984,7 @@ export default function HeroNext() {
 
         {phase === 'processing' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-6 text-center shadow-sm sm:p-10">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-950 text-white">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-800 text-white">
               <Wand2 className="h-7 w-7 animate-pulse" />
             </div>
             <h1 className="mt-5 text-3xl font-black text-gray-950">Criando sua campanha...</h1>
@@ -1511,7 +1992,37 @@ export default function HeroNext() {
               {processingMessage}
             </p>
             <div className="mx-auto mt-6 h-2 max-w-md overflow-hidden rounded-full bg-gray-200">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-amber-400" />
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-cyan-400" />
+            </div>
+            <div className="mx-auto mt-6 grid max-w-3xl gap-3 text-left sm:grid-cols-2 lg:grid-cols-3">
+              {generationJobs.map((job) => (
+                <div key={job.jobId || job.formatId} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-black text-gray-950">
+                    {job.formatLabel}
+                  </p>
+                  {job.creativeDirection && (
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{getCreationOptionLabel(job.ideaNumber)}</p>
+                  )}
+                  <p className={`mt-2 text-xs font-black uppercase tracking-wide ${
+                    job.status === 'completed'
+                       ? 'text-emerald-700'
+                      : job.status === 'failed'
+                         ? 'text-red-700'
+                        : 'text-primary-700'
+                  }`}>
+                    {job.status === 'completed'
+                       ? 'Concluída'
+                      : job.status === 'failed'
+                         ? 'Falhou'
+                        : job.status === 'starting'
+                           ? 'Iniciando'
+                          : 'Processando'}
+                  </p>
+                  {job.error && (
+                    <p className="mt-2 text-xs font-semibold leading-relaxed text-red-600">{job.error}</p>
+                  )}
+                </div>
+              ))}
             </div>
             {generationError && (
               <p className="mx-auto mt-5 max-w-xl rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
@@ -1523,13 +2034,13 @@ export default function HeroNext() {
 
         {phase === 'result' && generationResult && (
           <section className="mt-6 space-y-6">
-            <div className="rounded-[2rem] bg-gray-950 p-6 text-white shadow-xl shadow-gray-950/10 sm:p-8">
+            <div className="rounded-[2rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 text-white shadow-xl shadow-primary-900/10 sm:p-8">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-amber-200">Campanha IA</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Campanha IA</p>
                   <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Campanha criada com sucesso</h1>
                   <p className="mt-3 text-sm font-semibold text-gray-300">
-                    Sua peça principal e os textos da campanha estão prontos para revisão.
+                    Suas peças foram geradas nos formatos selecionados.
                   </p>
                 </div>
                 <Button type="button" onClick={() => {
@@ -1547,7 +2058,9 @@ export default function HeroNext() {
                   setIptuValue('')
                   setRentGuarantee('')
                   setDestinationIds([])
+                  setCreativeIdeaCount(1)
                   setGenerationResult(null)
+                  setGenerationJobs([])
                 }}>
                   Gerar outra campanha
                 </Button>
@@ -1555,41 +2068,116 @@ export default function HeroNext() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-              <div className="rounded-[2rem] border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-                <div className="overflow-hidden rounded-[1.5rem] bg-gray-100">
-                  {generationResult.imageUrl ? (
-                    <img src={generationResult.imageUrl} alt="Campanha IA gerada" className="max-h-[760px] w-full object-contain" />
-                  ) : (
-                    <div className="flex min-h-96 items-center justify-center text-center">
-                      <p className="text-sm font-bold text-gray-500">Imagem não retornada.</p>
-                    </div>
-                  )}
-                </div>
-                {generationResult.imageUrl && (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <a
-                      href={generationResult.imageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-800 hover:bg-gray-50"
-                    >
-                      Visualizar
-                    </a>
-                    <a
-                      href={generationResult.imageUrl}
-                      download="campanha-ia.jpg"
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gray-950 px-4 py-3 text-sm font-black text-white hover:bg-gray-800"
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-gray-950">Peças geradas</p>
+                    <p className="text-xs font-semibold text-gray-500">
+                      {(generationResult.jobs || []).filter((job) => job.status === 'completed').length} concluída(s) de {(generationResult.jobs || []).length}
+                    </p>
+                  </div>
+                  {(generationResult.jobs || []).some((job) => job.status === 'completed' && job.imageUrl) && (
+                    <button
+                      type="button"
+                      onClick={downloadAllImages}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700"
                     >
                       <Download className="h-4 w-4" />
-                      Download
-                    </a>
+                      Baixar todas
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {(generationResult.jobs || []).map((job) => (
+                    <div key={job.jobId || job.formatId} className="rounded-[2rem] border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-black text-gray-950">{job.formatLabel}</p>
+                          {job.ideaNumber && (
+                            <p className="text-xs font-semibold text-slate-500">{getCreationOptionLabel(job.ideaNumber)}</p>
+                          )}
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${
+                          job.status === 'completed'
+                             ? 'bg-emerald-50 text-emerald-700'
+                            : job.status === 'failed'
+                               ? 'bg-red-50 text-red-700'
+                              : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {job.status === 'completed' ? 'Concluída' : job.status === 'failed' ? 'Falhou' : 'Processando'}
+                        </span>
+                      </div>
+                      <div className="overflow-hidden rounded-[1.5rem] bg-gray-100">
+                        {job.imageUrl ? (
+                          <img src={job.imageUrl} alt={`Campanha IA ${job.formatLabel}`} className="max-h-[620px] w-full object-contain" />
+                       ) : (
+                          <div className="flex min-h-72 items-center justify-center p-6 text-center">
+                            <p className="text-sm font-bold text-gray-500">
+                              {job.status === 'failed' ? job.error || 'Não foi possível gerar este formato.' : 'Imagem em preparação.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      {job.imageUrl && (
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <a
+                            href={job.imageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-800 hover:bg-gray-50"
+                          >
+                            Visualizar
+                          </a>
+                          <a
+                            href={job.imageUrl}
+                            download={`campanha-opcao-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.jpg`}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700"
+                          >
+                            <Download className="h-4 w-4" />
+                            Baixar
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xl font-black text-gray-950">Textos da campanha</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-500">
+                        Use os textos prontos para publicar, enviar ou adaptar nos seus canais.
+                      </p>
+                    </div>
+                    {TEXT_BLOCKS.some((block) => generationResult.texts?.[block.key]) && (
+                      <button
+                        type="button"
+                        onClick={downloadTexts}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700"
+                      >
+                        <Download className="h-4 w-4" />
+                        Baixar todos os textos
+                      </button>
+                    )}
                   </div>
-                )}
+                  <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                    {TEXT_BLOCKS.map((block) => (
+                      <TextBlock
+                        key={block.key}
+                        title={block.title}
+                        filename={block.filename}
+                        content={generationResult.texts?.[block.key]}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <aside className="space-y-5">
                 <div className="rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-xs font-black uppercase tracking-wide text-amber-700">Resumo</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resumo</p>
                   <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
                     <p><strong>Objetivo:</strong> {goal === 'rent' ? 'Locação' : 'Venda de imóvel'}</p>
                     <p><strong>Tipo:</strong> {answers.propertyType}</p>
@@ -1597,27 +2185,10 @@ export default function HeroNext() {
                     <p><strong>Diferenciais:</strong> {formatAnswer(answers.differentials) || 'Não informado'}</p>
                     <p><strong>Valores/condições:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>
                     <p><strong>CTA:</strong> {answers.cta}</p>
-                    <p><strong>Destino principal:</strong> {selectedDestination?.label || 'Não informado'}</p>
-                    <p><strong>Adaptações futuras:</strong> {compatibleDestinations.length ? compatibleDestinations.map((item) => item.label).join(', ') : 'Nenhuma'}</p>
+                    <p><strong>Formatos:</strong> {selectedDestinations.map((item) => item.label).join(', ') || 'Não informado'}</p>
+                    <p><strong>Opções de criação:</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
+                    <p><strong>Total:</strong> {formatPieceCount(generationResult.jobs.length || totalPieceCount || 0)} IA</p>
                     <p><strong>Imagens reais:</strong> {uploadedImages.length > 0 ? `${uploadedImages.length} anexada(s)` : 'Não utilizadas'}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-[2rem] border border-gray-200 bg-gray-50 p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-gray-950">Textos da campanha</p>
-                    <button
-                      type="button"
-                      onClick={downloadTexts}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-black text-gray-700 hover:bg-gray-100"
-                    >
-                      Baixar textos
-                    </button>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {TEXT_BLOCKS.map(([key, title]) => (
-                      <TextBlock key={key} title={title} content={generationResult.texts?.[key]} />
-                    ))}
                   </div>
                 </div>
               </aside>

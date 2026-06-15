@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   ChevronRight,
   FileText,
-  Home,
   Image,
   Layers3,
   MessageSquareText,
@@ -19,26 +18,26 @@ import {
 
 const visualExamples = [
   {
-    title: 'Anúncio de impacto',
-    label: 'Venda rápida',
+    title: 'Campanha de venda',
+    label: 'IA criando campanha',
     type: 'image',
     src: '/previews/produto3/anuncio-premium-preview-1x1.jpg',
   },
   {
-    title: 'Story pronto para publicar',
-    label: 'Redes sociais',
+    title: 'Peça para redes sociais',
+    label: 'Formato guiado',
     type: 'video',
     src: '/previews/produto3/story-premium-preview-1x1.mp4',
   },
   {
-    title: 'Apresentação visual',
-    label: 'Imóvel usado',
+    title: 'Argumento visual do imóvel',
+    label: 'Estratégia da campanha',
     type: 'video',
     src: '/previews/produto3/imovel-detalhes-preview-1x1.mp4',
   },
   {
-    title: 'Tour com movimento',
-    label: 'Alto padrão',
+    title: 'Campanha com movimento',
+    label: 'Visual de impacto',
     type: 'video',
     src: '/previews/produto3/video-tour-preview-1x1.mp4',
   },
@@ -47,18 +46,18 @@ const visualExamples = [
 const creationPaths = [
   {
     icon: Sparkles,
-    title: 'Imagem premium',
-    desc: 'Crie uma imagem forte para destacar o imóvel logo no primeiro olhar.',
+    title: 'Campanha IA',
+    desc: 'Responda um briefing guiado e receba peças com estratégia, imagem e textos.',
   },
   {
     icon: MessageSquareText,
-    title: 'Criar com IA',
-    desc: 'Descreva o que precisa e receba textos, ideias e materiais guiados.',
+    title: 'Chat guiado',
+    desc: 'A IA conduz as perguntas certas e transforma suas respostas em campanha.',
   },
   {
     icon: Layers3,
-    title: 'Campanha completa',
-    desc: 'Receba um conjunto de peças para divulgar o mesmo imóvel em vários canais.',
+    title: 'Peças por canal',
+    desc: 'Gere variações para feed, story, WhatsApp, portal e outros formatos.',
   },
   {
     icon: Video,
@@ -139,32 +138,32 @@ const plans = [
 
 const steps = [
   {
-    icon: Home,
-    title: 'Cadastre o imóvel uma vez',
-    desc: 'Fotos, dados, diferenciais e informações comerciais ficam organizados em um cadastro reutilizável.',
+    icon: MessageSquareText,
+    title: 'Responda um briefing guiado',
+    desc: 'A IA pergunta o essencial sobre o imóvel, público, objetivo, valores, fotos e canal de uso.',
   },
   {
     icon: Wand2,
-    title: 'Escolha o que deseja criar',
-    desc: 'Você começa pelo resultado: divulgar, vender, apresentar, encantar ou captar interessados.',
+    title: 'A IA monta a estratégia',
+    desc: 'O sistema transforma suas respostas em direção visual, headline, CTA e textos da campanha.',
   },
   {
     icon: BadgeCheck,
-    title: 'Receba materiais prontos',
-    desc: 'A plataforma transforma o cadastro em peças, textos e páginas para divulgar com mais confiança.',
+    title: 'Receba peças prontas para uso',
+    desc: 'Você recebe imagens e textos organizados por canal, prontos para publicar, enviar ou adaptar.',
   },
 ]
 
 const stats = [
-  ['1 cadastro', 'para várias entregas'],
-  ['12 modelos', 'ativos em Banners Rápidos'],
-  ['3 a 5 fotos', 'para gerar materiais leves'],
+  ['Briefing guiado', 'sem formulário complicado'],
+  ['Peças por canal', 'feed, story, WhatsApp e mais'],
+  ['Textos prontos', 'legendas, CTA e mensagens'],
 ]
 
 function PreviewCard({ item, className = '' }) {
   return (
-    <article className={`overflow-hidden rounded-2xl border border-white/10 bg-white/10 shadow-2xl backdrop-blur ${className}`}>
-      <div className="aspect-square bg-gray-950">
+    <article className={`overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl shadow-primary-900/5 ${className}`}>
+      <div className="aspect-square bg-slate-100">
         {item.type === 'video' ? (
           <video
             src={item.src}
@@ -179,9 +178,9 @@ function PreviewCard({ item, className = '' }) {
           <img src={item.src} alt={item.title} className="h-full w-full object-cover" />
         )}
       </div>
-      <div className="border-t border-white/10 p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-amber-200">{item.label}</p>
-        <h3 className="mt-1 text-sm font-black text-white">{item.title}</h3>
+      <div className="border-t border-blue-50 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-primary-600">{item.label}</p>
+        <h3 className="mt-1 text-sm font-black text-slate-950">{item.title}</h3>
       </div>
     </article>
   )
@@ -189,26 +188,26 @@ function PreviewCard({ item, className = '' }) {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#f7f8fb] text-gray-950">
-      <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/90 backdrop-blur-xl">
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <nav className="sticky top-0 z-50 border-b border-blue-100 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-950 text-amber-300">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-800 text-cyan-100">
               <Zap className="h-5 w-5" />
             </div>
             <span className="text-sm font-black tracking-tight text-gray-950 sm:text-base">SmartCorretorAI</span>
           </Link>
-          <div className="hidden items-center gap-7 text-sm font-bold text-gray-600 lg:flex">
-            <a href="#como-funciona" className="hover:text-gray-950">Como funciona</a>
-            <a href="#exemplos" className="hover:text-gray-950">Exemplos</a>
-            <a href="#criar" className="hover:text-gray-950">O que criar</a>
-            <a href="#planos" className="hover:text-gray-950">Planos</a>
+          <div className="hidden items-center gap-7 text-sm font-bold text-slate-600 lg:flex">
+            <a href="#como-funciona" className="hover:text-primary-800">Como funciona</a>
+            <a href="#exemplos" className="hover:text-primary-800">Exemplos</a>
+            <a href="#criar" className="hover:text-primary-800">O que criar</a>
+            <a href="#planos" className="hover:text-primary-800">Planos</a>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link to="/login" className="rounded-xl px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 hover:text-gray-950">
+            <Link to="/login" className="rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-primary-50 hover:text-primary-800">
               Entrar
             </Link>
-            <Link to="/cadastro" className="rounded-xl bg-gray-950 px-4 py-2 text-sm font-black text-white hover:bg-gray-800">
+            <Link to="/cadastro" className="rounded-xl bg-primary-800 px-4 py-2 text-sm font-black text-white hover:bg-primary-700">
               Começar
             </Link>
           </div>
@@ -216,47 +215,47 @@ export default function LandingPage() {
       </nav>
 
       <main>
-        <section className="relative isolate overflow-hidden bg-gray-950">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(245,158,11,0.22),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.12),transparent_30%)]" />
+        <section className="relative isolate overflow-hidden bg-gradient-to-br from-slate-50 via-white to-primary-50">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(14,116,144,0.12),transparent_30%),radial-gradient(circle_at_82%_0%,rgba(224,242,254,0.8),transparent_28%)]" />
           <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:items-center lg:py-24">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100">
-                <Sparkles className="h-4 w-4 text-amber-300" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-wide text-primary-700 shadow-sm">
+                <Sparkles className="h-4 w-4 text-primary-600" />
                 Plataforma de marketing imobiliário com IA
               </div>
-              <h1 className="mt-7 max-w-3xl text-4xl font-black leading-tight tracking-tight text-white sm:text-6xl">
+              <h1 className="mt-7 max-w-3xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-6xl">
                 O que você deseja criar hoje?
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-300">
-                Cadastre o imóvel uma vez e transforme fotos, dados e diferenciais em campanhas, imagens, vídeos e páginas prontas para divulgar.
+              <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
+                Responda um briefing guiado e deixe a IA transformar fotos, dados e contexto do imóvel em campanhas prontas para publicar.
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {['Divulgar um imóvel', 'Criar campanha completa', 'Gerar imagem premium', 'Transformar fotos em vídeo'].map(item => (
+                {['Divulgar um imóvel', 'Criar campanha com IA', 'Gerar peça por canal', 'Receber textos prontos'].map(item => (
                   <Link
                     key={item}
                     to="/cadastro"
-                    className="group flex items-center justify-between rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left text-sm font-black text-white backdrop-blur transition hover:border-amber-300/50 hover:bg-amber-300/10"
+                    className="group flex items-center justify-between rounded-2xl border border-blue-100 bg-white px-4 py-3 text-left text-sm font-black text-primary-900 shadow-sm transition hover:border-primary-200 hover:bg-primary-50"
                   >
                     <span>{item}</span>
-                    <ChevronRight className="h-4 w-4 text-amber-300 transition group-hover:translate-x-0.5" />
+                    <ChevronRight className="h-4 w-4 text-primary-600 transition group-hover:translate-x-0.5" />
                   </Link>
                 ))}
               </div>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-6 py-3.5 text-sm font-black text-gray-950 shadow-xl shadow-amber-950/20 hover:bg-amber-300">
+                <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-6 py-3.5 text-sm font-black text-white shadow-xl shadow-primary-900/10 hover:bg-primary-700">
                   Criar minha primeira campanha
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <a href="#exemplos" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 text-sm font-black text-white hover:bg-white/10">
+                <a href="#exemplos" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-white px-6 py-3.5 text-sm font-black text-primary-800 hover:bg-primary-50">
                   Ver exemplos
                   <PlayCircle className="h-4 w-4" />
                 </a>
               </div>
               <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
                 {stats.map(([value, label]) => (
-                  <div key={value} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <p className="text-sm font-black text-white">{value}</p>
-                    <p className="mt-1 text-xs font-semibold leading-snug text-gray-400">{label}</p>
+                  <div key={value} className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm">
+                    <p className="text-sm font-black text-slate-950">{value}</p>
+                    <p className="mt-1 text-xs font-semibold leading-snug text-slate-500">{label}</p>
                   </div>
                 ))}
               </div>
@@ -266,11 +265,11 @@ export default function LandingPage() {
               <PreviewCard item={visualExamples[0]} className="absolute left-0 top-5 w-[54%]" />
               <PreviewCard item={visualExamples[1]} className="absolute right-0 top-0 w-[48%]" />
               <PreviewCard item={visualExamples[2]} className="absolute bottom-8 left-10 w-[46%]" />
-              <div className="absolute bottom-0 right-0 w-[50%] rounded-3xl border border-white/10 bg-white p-4 shadow-2xl">
-                <p className="text-xs font-black uppercase tracking-wide text-gray-500">Fluxo guiado</p>
-                <h3 className="mt-2 text-lg font-black text-gray-950">Do imóvel ao material pronto</h3>
+              <div className="absolute bottom-0 right-0 w-[50%] rounded-3xl border border-blue-100 bg-white p-4 shadow-2xl">
+                <p className="text-xs font-black uppercase tracking-wide text-primary-600">Fluxo guiado</p>
+                <h3 className="mt-2 text-lg font-black text-slate-950">Do briefing à campanha pronta</h3>
                 <div className="mt-4 space-y-3">
-                  {['Cadastro Mestre', 'Recomendação da IA', 'Materiais para divulgar'].map(item => (
+                  {['Chat guiado', 'Estratégia da campanha', 'Peças para publicar'].map(item => (
                     <p key={item} className="flex items-center gap-2 text-sm font-bold text-gray-700">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                       {item}
@@ -282,10 +281,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="como-funciona" className="py-20">
+        <section id="como-funciona" className="bg-white py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Como funciona</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Como funciona</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">
                 Menos esforço para o corretor. Mais consistência no marketing.
               </h2>
@@ -294,7 +293,7 @@ export default function LandingPage() {
               {steps.map(({ icon: Icon, title, desc }, index) => (
                 <article key={title} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-950 text-amber-300">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
                       <Icon className="h-6 w-6" />
                     </div>
                     <span className="text-sm font-black text-gray-300">0{index + 1}</span>
@@ -307,17 +306,17 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="exemplos" className="bg-gray-950 py-20">
+        <section id="exemplos" className="bg-slate-50 py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-amber-300">Exemplos visuais</p>
-                <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-tight text-white sm:text-4xl">
-                  Veja antes de criar. Escolha com confiança.
+                <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplos visuais</p>
+                <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                  Campanhas criadas para vender a ideia do imóvel.
                 </h2>
               </div>
-              <p className="max-w-md text-sm leading-relaxed text-gray-400">
-                A biblioteca profissional mostra materiais reais para o corretor entender o resultado, sem precisar escolher medidas ou termos técnicos.
+              <p className="max-w-md text-sm leading-relaxed text-slate-500">
+                Os exemplos mostram como a IA organiza imagem, promessa, CTA e canal de uso. Não é só visual pronto: é direção de campanha.
               </p>
             </div>
             <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -328,10 +327,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="criar" className="py-20">
+        <section id="criar" className="bg-white py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">O que você pode criar</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">O que você pode criar</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">
                 Uma central de criação para o marketing do imóvel
               </h2>
@@ -342,7 +341,7 @@ export default function LandingPage() {
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {creationPaths.map(({ icon: Icon, title, desc }) => (
                 <article key={title} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
                     <Icon className="h-6 w-6" />
                   </div>
                   <h3 className="mt-5 text-lg font-black text-gray-950">{title}</h3>
@@ -353,23 +352,23 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-white py-20">
+        <section className="bg-slate-50 py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <div className="rounded-[2rem] border border-gray-200 bg-gray-950 p-6 shadow-2xl sm:p-8 lg:p-10">
+            <div className="rounded-[2rem] border border-blue-100 bg-white p-6 shadow-xl shadow-primary-900/5 sm:p-8 lg:p-10">
               <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-center">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-amber-300">Cadastro Mestre</p>
-                  <h2 className="mt-3 text-3xl font-black tracking-tight text-white">
-                    Um imóvel cadastrado. Vários materiais possíveis.
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Briefing guiado</p>
+                  <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+                    A IA entende o imóvel antes de criar.
                   </h2>
-                  <p className="mt-4 text-sm leading-relaxed text-gray-400">
-                    Fotos, dados, diferenciais e perfil comercial alimentam a criação. Você não precisa preencher tudo de novo a cada produto.
+                  <p className="mt-4 text-sm leading-relaxed text-slate-500">
+                    Em vez de pedir que o corretor escolha um modelo visual, o SmartCorretorAI conduz perguntas simples e monta a estratégia da campanha.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {['Fotos do imóvel', 'Diferenciais', 'Localização', 'Preço e características', 'Perfil comercial', 'Objetivo de campanha'].map(item => (
-                    <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white">
-                      <ShieldCheck className="h-5 w-5 text-amber-300" />
+                  {['Chat guiado', 'Fotos e contexto', 'Estratégia da campanha', 'CTA por canal', 'Textos prontos', 'Peças por formato'].map(item => (
+                    <div key={item} className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-primary-50 p-4 text-sm font-bold text-primary-900">
+                      <ShieldCheck className="h-5 w-5 text-primary-700" />
                       {item}
                     </div>
                   ))}
@@ -379,10 +378,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="py-20">
+        <section className="bg-white py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Perfis de campanha</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Perfis de campanha</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">
                 Linguagem certa para cada imóvel
               </h2>
@@ -392,7 +391,7 @@ export default function LandingPage() {
                 <article key={profile.title} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
                   <h3 className="text-lg font-black text-gray-950">{profile.title}</h3>
                   <p className="mt-3 text-sm leading-relaxed text-gray-500">{profile.desc}</p>
-                  <div className="mt-5 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
+                  <div className="mt-5 inline-flex rounded-full border border-blue-100 bg-primary-50 px-3 py-1 text-xs font-black text-primary-800">
                     Chamada: {profile.cta}
                   </div>
                 </article>
@@ -401,10 +400,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="planos" className="bg-white py-20">
+        <section id="planos" className="bg-slate-50 py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Planos</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Planos</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">
                 Comece pequeno. Cresça quando precisar.
               </h2>
@@ -417,11 +416,11 @@ export default function LandingPage() {
                 <article
                   key={plan.name}
                   className={`relative rounded-3xl border bg-white p-6 shadow-sm ${
-                    plan.featured ? 'border-amber-300 ring-2 ring-amber-100' : 'border-gray-200'
+                    plan.featured ? 'border-primary-300 ring-2 ring-primary-100' : 'border-blue-100'
                   }`}
                 >
                   {plan.featured && (
-                    <div className="absolute -top-3 left-6 rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-gray-950">
+                    <div className="absolute -top-3 left-6 rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-primary-900">
                       Mais escolhido
                     </div>
                   )}
@@ -443,8 +442,8 @@ export default function LandingPage() {
                     to="/planos"
                     className={`mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black ${
                       plan.featured
-                        ? 'bg-gray-950 text-white hover:bg-gray-800'
-                        : 'border border-gray-200 text-gray-800 hover:bg-gray-50'
+                        ? 'bg-primary-800 text-white hover:bg-primary-700'
+                        : 'border border-blue-100 text-primary-800 hover:bg-primary-50'
                     }`}
                   >
                     Ver detalhes
@@ -456,21 +455,21 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-gray-950 py-20">
+        <section className="bg-white py-20">
           <div className="mx-auto max-w-4xl px-5 text-center sm:px-8">
-            <p className="text-xs font-black uppercase tracking-wide text-amber-300">Próximo passo</p>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-5xl">
+            <p className="text-xs font-black uppercase tracking-wide text-primary-700">Próximo passo</p>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
               Seu próximo imóvel pode sair com uma campanha pronta hoje.
             </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-gray-400">
-              Crie sua conta, cadastre o imóvel e deixe a IA guiar a primeira entrega.
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-500">
+              Crie sua conta, responda o briefing guiado e deixe a IA preparar a primeira entrega.
             </p>
             <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-7 py-4 text-sm font-black text-gray-950 hover:bg-amber-300">
+              <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-7 py-4 text-sm font-black text-white hover:bg-primary-700">
                 Começar agora
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-7 py-4 text-sm font-black text-white hover:bg-white/10">
+              <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-100 px-7 py-4 text-sm font-black text-primary-800 hover:bg-primary-50">
                 Já tenho conta
               </Link>
             </div>
@@ -481,7 +480,7 @@ export default function LandingPage() {
       <footer className="border-t border-gray-200 bg-white py-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 text-sm font-semibold text-gray-500 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-950 text-amber-300">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-800 text-cyan-100">
               <Zap className="h-4 w-4" />
             </div>
             <span className="font-black text-gray-950">SmartCorretorAI</span>

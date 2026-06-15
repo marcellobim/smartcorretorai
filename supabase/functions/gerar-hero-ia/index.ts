@@ -13,6 +13,7 @@ const corsHeaders = {
 const IMAGE_MODES = new Set(['main_photo', 'reference_photos', 'new_image'])
 const HERO_IMAGE_BUCKET = 'smartcorretor-assets'
 const HERO_PROMPT_VERSION = 'hero_image_prompt_v1'
+const HERO_NEXT_MAX_INLINE_IMAGES = 4
 const DELIVERY_KEYS = new Set([
   'hero_image',
   'instagram_text',
@@ -80,9 +81,9 @@ function normalizePhotoUrls(value: unknown, maxItems = 8) {
 
   for (const item of value) {
     const candidate = typeof item === 'string'
-      ? item
+       ? item
       : item && typeof item === 'object'
-        ? (item as JsonRecord).url || (item as JsonRecord).publicUrl || (item as JsonRecord).signedUrl || (item as JsonRecord).path
+         ? (item as JsonRecord).url || (item as JsonRecord).publicUrl || (item as JsonRecord).signedUrl || (item as JsonRecord).path
         : ''
     const url = normalizeText(candidate, 2000)
     if (/^https?:\/\//i.test(url) && !urls.includes(url)) urls.push(url)
@@ -125,7 +126,7 @@ function getImageExtension(contentType: string) {
 function inlineImageToFile(image: InlineImageInput, index: number) {
   const safeExtension = getImageExtension(image.contentType)
   const safeName = image.name.includes('.')
-    ? image.name.replace(/[^a-z0-9._-]/gi, '-')
+     ? image.name.replace(/[^a-z0-9._-]/gi, '-')
     : `referencia-${index + 1}.${safeExtension}`
   const bytes = base64ToUint8Array(getInlineImageBase64(image.data))
   return new File([bytes], safeName, { type: image.contentType })
@@ -133,7 +134,7 @@ function inlineImageToFile(image: InlineImageInput, index: number) {
 
 function sanitizePromptBriefingForStorage(briefing: JsonRecord) {
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const inlineImages = normalizeInlineImages(choices.inline_images, 8)
 
@@ -170,6 +171,40 @@ function normalizeLabeledItems(value: unknown, maxItems = 12) {
 function normalizeLabeledItem(value: unknown) {
   const [item] = normalizeLabeledItems([value], 1)
   return item || null
+}
+
+function normalizeFormatStrategy(value: unknown) {
+  const source = value && typeof value === 'object' ? value as JsonRecord : {}
+  return {
+    formatId: normalizeId(source.formatId || source.format_id),
+    formatLabel: normalizeText(source.formatLabel || source.format_label, 120),
+    visualAngle: normalizeText(source.visualAngle || source.visual_angle, 120),
+    imageUsageStrategy: normalizeText(source.imageUsageStrategy || source.image_usage_strategy, 500),
+    compositionInstruction: normalizeText(source.compositionInstruction || source.composition_instruction, 500),
+    supportImageLimit: Number.isFinite(Number(source.supportImageLimit || source.support_image_limit))
+       ? Math.max(0, Math.min(4, Number(source.supportImageLimit || source.support_image_limit)))
+      : 0,
+  }
+}
+
+function normalizeFormatGeneration(value: unknown) {
+  const source = value && typeof value === 'object' ? value as JsonRecord : {}
+  return {
+    index: Number.isFinite(Number(source.index)) ? Math.max(1, Number(source.index)) : 1,
+    total: Number.isFinite(Number(source.total)) ? Math.max(1, Number(source.total)) : 1,
+    formatId: normalizeId(source.formatId || source.format_id),
+    formatLabel: normalizeText(source.formatLabel || source.format_label, 120),
+  }
+}
+
+function normalizeCreativeIdea(value: unknown) {
+  const source = value && typeof value === 'object' ? value as JsonRecord : {}
+  return {
+    number: Number.isFinite(Number(source.number)) ? Math.max(1, Math.min(3, Number(source.number))) : 1,
+    title: normalizeText(source.title, 120),
+    description: normalizeText(source.description, 500),
+    visualAngle: normalizeText(source.visualAngle || source.visual_angle, 120),
+  }
 }
 
 function parseMasterProperty(description: unknown) {
@@ -215,10 +250,10 @@ function buildLocation(property: JsonRecord) {
 
 function getImageSize(briefing: JsonRecord) {
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const destination = choices.primary_destination && typeof choices.primary_destination === 'object'
-    ? choices.primary_destination as JsonRecord
+     ? choices.primary_destination as JsonRecord
     : {}
   const formatGroup = normalizeId(destination.format_group)
   if (formatGroup === 'vertical') return '1024x1536'
@@ -228,10 +263,10 @@ function getImageSize(briefing: JsonRecord) {
 
 function getExperimentalImageSize(briefing: JsonRecord) {
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const destination = choices.primary_destination && typeof choices.primary_destination === 'object'
-    ? choices.primary_destination as JsonRecord
+     ? choices.primary_destination as JsonRecord
     : {}
   const id = normalizeId(destination.id)
   const label = normalizeText(destination.label, 120).toLowerCase()
@@ -401,19 +436,28 @@ function buildHeroVisualStrategy(input: {
 
 function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecord) {
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const property = briefing.property && typeof briefing.property === 'object'
-    ? briefing.property as JsonRecord
+     ? briefing.property as JsonRecord
     : {}
   const destination = choices.primary_destination && typeof choices.primary_destination === 'object'
-    ? choices.primary_destination as JsonRecord
+     ? choices.primary_destination as JsonRecord
     : {}
   const destinationLabel = normalizeText(destination.label, 120) || 'o destino escolhido'
+  const campaignBatchId = normalizeText(choices.campaign_batch_id, 160)
+  const formatGeneration = normalizeFormatGeneration(choices.format_generation)
+  const creativeIdea = normalizeCreativeIdea(choices.creative_idea)
+  const formatStrategy = normalizeFormatStrategy(choices.format_strategy)
   const profile = normalizeText(choices.property_profile || property.master_profile, 120)
   const objective = normalizeText(choices.campaign_objective || property.purpose, 80)
   const stage = normalizeText(choices.property_stage || property.master_property_state, 120)
   const highlights = normalizeTextArray(choices.highlights || property.master_highlights, 8, 120)
+  const inlineImages = normalizeInlineImages(choices.inline_images, HERO_NEXT_MAX_INLINE_IMAGES)
+  const destinationId = normalizeId(destination.id)
+  const formatGroup = normalizeId(destination.format_group)
+  const comparableObjective = normalizeComparableText(objective)
+  const comparableStage = normalizeComparableText(stage)
   const strategy = buildHeroVisualStrategy({
     objective,
     profile,
@@ -427,6 +471,29 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
     cta: choices.cta,
     destination: destinationLabel,
   })
+  const supportImageRule = (() => {
+    if (inlineImages.length === 0) {
+      return 'Sem imagens anexadas: criar a peça com base no Prompt Humano, sem inventar dados específicos do imóvel.'
+    }
+
+    if (inlineImages.length <= 1) {
+      return 'Há apenas uma imagem anexada: usar essa imagem como visual principal da peça.'
+    }
+
+    if (destinationId.includes('story') || destinationId.includes('reels') || formatGroup === 'vertical') {
+      return 'Para Story/Reels: usar a primeira imagem em destaque e, se não poluir, usar no máximo 1 ou 2 imagens secundárias como apoios discretos.'
+    }
+
+    if (destinationId.includes('whatsapp')) {
+      return 'Para WhatsApp: usar a primeira imagem em destaque e no máximo 2 imagens de apoio, mantendo leitura rápida.'
+    }
+
+    if (destinationId.includes('google') || destinationId.includes('ads')) {
+      return 'Para Google Ads: priorizar a imagem principal; usar apoios somente se não prejudicar clareza, contraste e leitura.'
+    }
+
+    return 'Para Feed Instagram, Facebook, Landing Page ou Portal Imobiliário: pode usar a imagem principal com 2 a 4 miniaturas/cards de apoio, se o layout comportar.'
+  })()
 
   return [
     humanPrompt,
@@ -442,6 +509,50 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
     `Tom comercial: ${strategy.tone}`,
     `Evitar: ${strategy.avoid}`,
     'A estética da peça deve seguir o perfil comercial do imóvel. Não aplicar visual de luxo em imóvel Minha Casa Minha Vida, médio padrão ou locação.',
+    '',
+    'ESTRATEGIA DO FORMATO DESTA GERACAO:',
+    campaignBatchId ? `Campanha compartilhada: ${campaignBatchId}.` : '',
+    `Esta e a peca ${formatGeneration.index} de ${formatGeneration.total} desta mesma campanha.`,
+    `Esta e a Ideia ${creativeIdea.number} da campanha.`,
+    creativeIdea.title ? `Direcao criativa da ideia: ${creativeIdea.title}.` : '',
+    creativeIdea.description ? `Objetivo da ideia: ${creativeIdea.description}` : '',
+    creativeIdea.visualAngle ? `Angulo criativo da ideia: ${creativeIdea.visualAngle}.` : '',
+    creativeIdea.number > 1 ? 'Esta ideia deve ser visualmente diferente das ideias anteriores, sem inventar dados e sem perder a identidade da campanha.' : 'Se houver outras pecas desta mesma ideia em outros formatos, preserve a mesma promessa principal, linguagem e identidade visual.',
+    formatStrategy.visualAngle ? `Angulo visual do formato: ${formatStrategy.visualAngle}.` : '',
+    formatStrategy.compositionInstruction ? `Composicao do formato: ${formatStrategy.compositionInstruction}` : '',
+    formatStrategy.imageUsageStrategy ? `Uso de imagens neste formato: ${formatStrategy.imageUsageStrategy}` : '',
+    formatStrategy.supportImageLimit > 0 ? `Limite recomendado de imagens de apoio neste formato: ${formatStrategy.supportImageLimit}.` : '',
+    'Mantenha a mesma campanha, dados, CTA e coerencia visual, mas crie uma composicao propria para este formato.',
+    'Nao copie diretamente layout, recorte, hierarquia ou imagem principal de outros formatos selecionados.',
+    '',
+    'USO DAS IMAGENS ANEXADAS:',
+    inlineImages.length > 0 ? `Quantidade de imagens anexadas: ${inlineImages.length}.` : 'Nenhuma imagem anexada.',
+    inlineImages.length > 0 ? 'Use a primeira imagem anexada como imagem principal da peça.' : '',
+    inlineImages.length > 1 ? 'Use as demais imagens anexadas como apoio visual, em miniaturas/cards menores ou blocos secundários.' : '',
+    inlineImages.length > 1 ? 'Não ignore as imagens secundárias quando houver espaço no formato.' : '',
+    inlineImages.length > 0 ? 'Regra atualizada: use o conjunto de imagens anexadas para entender o imovel e escolher a melhor enfase visual para este formato.' : '',
+    inlineImages.length > 0 ? 'A primeira imagem e a referencia principal da campanha, mas nao deve ser repetida automaticamente como destaque em todos os formatos.' : '',
+    inlineImages.length > 1 ? 'As imagens de apoio tambem devem influenciar a composicao; quando o formato permitir, use miniaturas, cards ou blocos secundarios sem transformar a arte em mosaico.' : '',
+    supportImageRule,
+    inlineImages.length > 1 ? 'Regra final: escolha a imagem de destaque mais adequada ao formato atual; nao use sempre a primeira imagem por padrao.' : '',
+    comparableObjective.includes('locacao') ? 'Para locação: as fotos reais são importantes para gerar confiança. Use a imagem principal em destaque e as demais como provas visuais do imóvel.' : '',
+    comparableStage.includes('usado') ? 'Para imóvel usado: usar fotos reais como prova do imóvel. Não inventar ambientes diferentes.' : '',
+    'Não repita a mesma imagem sem necessidade.',
+    '',
+    'REGRAS DE COPYWRITING EM PORTUGUÊS DO BRASIL:',
+    'Antes de definir qualquer headline, revise a frase para naturalidade, clareza comercial e ausência de duplo sentido.',
+    'Evite frases ambíguas ou artificiais como "Pronto para entrar em [bairro]", "Pronto para entrar na [bairro]", "Entre em [bairro]" ou "Entrar na [cidade/bairro]".',
+    'Se usar "pronto", conecte com morar: "Pronto para morar", "Pronto para você morar", "Apartamento pronto para morar" ou "Pronto para morar em [bairro], [cidade]".',
+    'Não use "Pronto para entrar", "Pronto para entrar em [bairro]" ou "Pronto para entrar na [bairro]".',
+    'Para locação, prefira headlines claras como "Pronto para morar", "Disponível para locação", "Apartamento pronto em [bairro]", "More em [bairro], [cidade]", "Seu próximo endereço em [bairro]", "Locação em [bairro] com conforto e praticidade", "Alugue em [bairro] com praticidade" ou "Apartamento para locação em [bairro]".',
+    'Para venda, prefira headlines como "Seu novo apartamento em [bairro]", "More bem em [bairro]", "Casa própria em [bairro]", "Apartamento à venda em [bairro]", "Conforto e localização em [bairro]", "Seu novo endereço em [bairro]" ou "Uma nova fase começa em [bairro]".',
+    'Use bairro e cidade de forma natural: "em Aparecida, Santos", "no Gonzaga, Santos", "em Moema, São Paulo" ou "na Vila Mariana, São Paulo".',
+    'Não invente bairro, cidade, valor, metragem, dormitórios, garantia, condição comercial, disponibilidade, condomínio ou construtora.',
+    '',
+    'REGRA DE CTA POR CANAL:',
+    buildChannelCtaGuidance(destinationLabel),
+    'Escolha um CTA visual adequado ao canal. Não assuma que o texto dentro da imagem será clicável. Quando o canal for post orgânico, oriente a ação para legenda, descrição, direct ou WhatsApp.',
+    'Nos textos da campanha, combine com o CTA visual escolhido para a imagem.',
     '',
     `Crie UMA única peça publicitária final para ${destinationLabel}.`,
     'A saída deve ser uma única arte final pronta para publicação.',
@@ -481,10 +592,10 @@ function buildImageUsageInstruction(imageMode: string, photoCount: number) {
 
 function buildFinalPrompt(briefing: JsonRecord) {
   const property = briefing.property && typeof briefing.property === 'object'
-    ? briefing.property as JsonRecord
+     ? briefing.property as JsonRecord
     : {}
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const audiences = Array.isArray(choices.audiences)
     ? choices.audiences
@@ -492,10 +603,10 @@ function buildFinalPrompt(briefing: JsonRecord) {
       .filter(Boolean)
     : []
   const destination = choices.primary_destination && typeof choices.primary_destination === 'object'
-    ? choices.primary_destination as JsonRecord
+     ? choices.primary_destination as JsonRecord
     : {}
   const valueCondition = choices.value_condition && typeof choices.value_condition === 'object'
-    ? choices.value_condition as JsonRecord
+     ? choices.value_condition as JsonRecord
     : {}
   const humanPrompt = normalizeLongText(choices.human_prompt, 5000)
 
@@ -515,13 +626,13 @@ function buildFinalPrompt(briefing: JsonRecord) {
   ].filter(Boolean).join(' | ')
 
   const headline = creativeConcepts.includes('Investimento')
-    ? 'Oportunidade para investir'
+     ? 'Oportunidade para investir'
     : creativeConcepts.includes('Exclusividade')
-      ? 'Um imovel exclusivo'
+       ? 'Um imovel exclusivo'
       : creativeConcepts.includes('Família')
-        ? 'O lugar da sua familia'
+         ? 'O lugar da sua familia'
         : creativeConcepts.includes('Lifestyle')
-          ? 'Viva melhor todos os dias'
+           ? 'Viva melhor todos os dias'
           : 'Seu novo imovel espera por voce'
   const cta = normalizeText(choices.cta, 120) || 'Fale com o corretor'
 
@@ -532,6 +643,7 @@ function buildFinalPrompt(briefing: JsonRecord) {
       `Destino/formato: ${normalizeText(destination.label, 120) || 'Feed Instagram'}.`,
       `Destino principal: ${normalizeText(destination.label, 120) || 'Feed Instagram'}.`,
       `CTA principal: ${cta}.`,
+      `Regra de CTA por canal: ${buildChannelCtaGuidance(normalizeText(destination.label, 120) || 'Feed Instagram')}`,
       'Criar uma peca publicitaria imobiliaria premium.',
       'Usar somente informacoes fornecidas no prompt e nas imagens de referencia.',
       'Nao inventar imovel, fachada, planta, lazer, localizacao, condicoes ou dados.',
@@ -556,6 +668,7 @@ function buildFinalPrompt(briefing: JsonRecord) {
     `Destaques informados: ${highlights.join(', ') || 'sem destaques adicionais'}.`,
     `Headline sugerida para a peca: ${headline}.`,
     `CTA principal da campanha: ${cta}.`,
+    `Regra de CTA por canal: ${buildChannelCtaGuidance(normalizeText(destination.label, 120) || 'Feed Instagram')}`,
     'O CTA deve ser um elemento visual principal da campanha, com hierarquia clara e area de respiro.',
     `Valores e condicoes: ${normalizeText(valueCondition.label, 120) || 'nao destacar valores'} ${normalizeText(valueCondition.details, 280)}`.trim(),
     `Destino principal: ${normalizeText(destination.label, 120) || 'Feed Instagram'}.`,
@@ -566,10 +679,10 @@ function buildFinalPrompt(briefing: JsonRecord) {
 
 function buildTextBriefing(briefing: JsonRecord) {
   const property = briefing.property && typeof briefing.property === 'object'
-    ? briefing.property as JsonRecord
+     ? briefing.property as JsonRecord
     : {}
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const audiences = Array.isArray(choices.audiences)
     ? choices.audiences
@@ -577,10 +690,10 @@ function buildTextBriefing(briefing: JsonRecord) {
       .filter(Boolean)
     : []
   const destination = choices.primary_destination && typeof choices.primary_destination === 'object'
-    ? choices.primary_destination as JsonRecord
+     ? choices.primary_destination as JsonRecord
     : {}
   const valueCondition = choices.value_condition && typeof choices.value_condition === 'object'
-    ? choices.value_condition as JsonRecord
+     ? choices.value_condition as JsonRecord
     : {}
   const highlights = normalizeTextArray(choices.highlights, 8, 120)
   const subcategories = normalizeTextArray(choices.subcategories, 8, 120)
@@ -611,11 +724,45 @@ function buildTextBriefing(briefing: JsonRecord) {
   }
 }
 
+function buildChannelCtaGuidance(destinationLabel: string) {
+  const label = normalizeComparableText(destinationLabel)
+
+  if (label.includes('instagram') || label.includes('feed')) {
+    return 'Instagram Feed: a imagem nao e clicavel. Prefira CTA visual como "Veja os detalhes na legenda", "Chame no direct", "Fale comigo" ou "Confira as informacoes abaixo". O texto Instagram deve trazer os detalhes logo abaixo.'
+  }
+
+  if (label.includes('story') || label.includes('reels')) {
+    return 'Story/Reels: prefira CTA visual como "Toque para saber mais", "Chame no direct", "Fale comigo" ou "Veja mais". Use "Arraste/Toque no link" somente se o briefing indicar link ou sticker.'
+  }
+
+  if (label.includes('whatsapp')) {
+    return 'WhatsApp: prefira CTA visual como "Responda esta mensagem", "Fale comigo", "Peca mais informacoes", "Agende uma visita" ou "Quer saber mais?".'
+  }
+
+  if (label.includes('facebook')) {
+    return 'Facebook: se parecer post organico, prefira "Veja os detalhes na legenda", "Fale comigo" ou "Envie uma mensagem". Se parecer anuncio, pode usar "Clique em Saiba mais", "Solicite informacoes" ou "Fale com um corretor".'
+  }
+
+  if (label.includes('google') || label.includes('ads')) {
+    return 'Google Ads: use CTA curto e objetivo como "Saiba mais", "Solicite informacoes", "Conheca o imovel" ou "Fale agora".'
+  }
+
+  if (label.includes('portal')) {
+    return 'Portal imobiliario: prefira "Veja os detalhes", "Solicite contato", "Agende sua visita" ou "Fale com o anunciante".'
+  }
+
+  if (label.includes('landing')) {
+    return 'Landing Page: prefira "Quero saber mais", "Agendar visita", "Solicitar informacoes" ou "Ver condicoes".'
+  }
+
+  return 'Escolha um CTA visual adequado ao canal. Nao assuma que o texto dentro da imagem sera clicavel; quando o canal for organico, oriente a acao para legenda, descricao, direct ou WhatsApp.'
+}
+
 function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string, boolean>, briefing: JsonRecord) {
   const textBriefing = buildTextBriefing(briefing)
   const cta = normalizeText(value.cta, 120) || normalizeText(textBriefing.cta_escolhido, 120) || 'Agende sua visita'
   const hashtagsRaw = Array.isArray(value.hashtags)
-    ? value.hashtags.join(' ')
+     ? value.hashtags.join(' ')
     : normalizeText(value.hashtags, 500)
   const hashtags = hashtagsRaw
     .split(/\s+/)
@@ -627,6 +774,7 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
   const texts: Record<string, string> = {
     instagram: normalizeText(value.instagram, 1600),
     whatsapp: normalizeText(value.whatsapp, 900),
+    facebook: normalizeText(value.facebook, 1300),
     cta,
     portal: normalizeText(value.portal, 1400),
     hashtags,
@@ -636,7 +784,10 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
     texts.instagram = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao especial'} com uma apresentacao visual pensada para destacar o que realmente importa. ${cta}.`
   }
   if (!texts.whatsapp) {
-    texts.whatsapp = `Ola, tudo bem? Tenho uma oportunidade que pode fazer sentido para voce: ${textBriefing.tipo || 'imovel'} em ${textBriefing.localizacao || 'uma excelente localizacao'}. Posso te enviar mais detalhes?`
+    texts.whatsapp = `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${textBriefing.tipo || 'imovel'} em ${textBriefing.localizacao || 'uma excelente localizacao'}. Posso te enviar mais detalhes`
+  }
+  if (!texts.facebook) {
+    texts.facebook = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'uma localizacao especial'}, com informacoes claras para quem busca uma boa oportunidade. ${cta}.`
   }
   if (!texts.portal) {
     texts.portal = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao privilegiada'}, com diferenciais selecionados para uma divulgacao clara e profissional.`
@@ -656,7 +807,8 @@ function buildFallbackHeroTexts(briefing: JsonRecord) {
 
   return {
     instagram: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com campanha visual criada para destacar os diferenciais informados. ${cta}.`,
-    whatsapp: `Ola, tudo bem? Tenho uma oportunidade que pode fazer sentido para voce: ${tipo}${localizacao ? ` em ${localizacao}` : ''}. Posso te enviar mais detalhes?`,
+    whatsapp: `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${tipo}${localizacao ? ` em ${localizacao}` : ''}. Posso te enviar mais detalhes`,
+    facebook: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com apresentacao clara, visual forte e convite para contato. ${cta}.`,
     cta,
     portal: `${tipo}${localizacao ? ` em ${localizacao}` : ''}, divulgado com foco nos diferenciais reais informados na campanha.`,
     hashtags: '#Imoveis #MercadoImobiliario #CorretorDeImoveis #ImovelAVenda #MorarBem',
@@ -671,6 +823,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
 
   const textBriefing = buildTextBriefing(briefing)
   const humanPrompt = typeof textBriefing.prompt_humano === 'string' ? textBriefing.prompt_humano : ''
+  const ctaGuidance = buildChannelCtaGuidance(textBriefing.destino_principal)
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -687,9 +840,15 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
             'Escreva em portugues do Brasil, com linguagem comercial, clara e correta.',
             'Nao invente informacoes nao fornecidas. Nao invente CRECI, telefone, email, metro, escola, shopping, vista, lazer, financiamento ou condominio.',
             'Hashtags devem ser sem acentos, sem termos estranhos e coerentes com o briefing.',
-            'Sempre gere Instagram, WhatsApp, CTA, portal e hashtags, mesmo que o pacote visual tenha sido ajustado.',
+            'Sempre gere Instagram, WhatsApp, Facebook, CTA, portal e hashtags, mesmo que o pacote visual tenha sido ajustado.',
             'O CTA escolhido deve ser o eixo principal da campanha e aparecer de forma forte nos textos.',
-            'Retorne somente JSON valido com as chaves: instagram, whatsapp, cta, portal, hashtags.',
+            'Use emojis com bom gosto em Instagram e WhatsApp, sem exagero. Portal deve ter pouco ou nenhum emoji.',
+            'Texto Instagram: abertura forte, dados principais, beneficios, CTA e emojis moderados.',
+            'WhatsApp: direto, conversacional e escrito como mensagem do corretor para o lead.',
+            'Facebook: mais informativo, com contexto e convite para contato.',
+            'Portal: descritivo, claro, sem exagero e quase sem emojis.',
+            'Chamada curta/CTA: frase curta para card ou anuncio.',
+            'Retorne somente JSON valido com as chaves: instagram, whatsapp, facebook, cta, portal, hashtags.',
           ].join(' '),
         },
         {
@@ -700,7 +859,9 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
               '',
               humanPrompt,
               '',
-              'Retorne JSON valido com: instagram, whatsapp, cta, portal, hashtags.',
+              `Regra de CTA por canal: ${ctaGuidance}`,
+              'Se a imagem orientar a pessoa para legenda, descricao, direct ou WhatsApp, os textos devem sustentar essa acao com detalhes e convite coerente.',
+              'Retorne JSON valido com: instagram, whatsapp, facebook, cta, portal, hashtags.',
               'Nao invente informacoes nao fornecidas.',
               `Apoio tecnico: ${JSON.stringify({
                 destino_principal: textBriefing.destino_principal,
@@ -713,22 +874,25 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
               itens_solicitados: {
                 instagram: true,
                 whatsapp: true,
+                facebook: true,
                 cta: true,
                 portal: true,
                 hashtags: true,
               },
               regras: {
-                instagram: 'Legenda pronta para Instagram com 1 a 2 paragrafos curtos.',
+                cta_por_canal: ctaGuidance,
+                instagram: 'Legenda pronta para Instagram com abertura forte, dados, beneficios, CTA e emojis moderados.',
                 whatsapp: 'Mensagem do corretor para enviar ao lead, nunca como se fosse o cliente falando.',
+                facebook: 'Texto mais informativo para Facebook, com contexto, dados reais e convite para contato.',
                 cta: 'Chamada curta, direta e comercial. O CTA deve ser o elemento principal da campanha.',
-                portal: 'Descricao objetiva para portal imobiliario, sem exagero e sem inventar diferenciais.',
+                portal: 'Descricao objetiva para portal imobiliario, com pouca ou nenhuma emoji, sem exagero e sem inventar diferenciais.',
                 hashtags: 'String com 12 a 15 hashtags sem acentos, separadas por espaco.',
               },
             }),
         },
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 1400,
+      max_tokens: 1900,
       stream: false,
     }),
     signal: AbortSignal.timeout(45000),
@@ -741,7 +905,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
   }
 
   const data = await response.json()
-  const rawContent = data?.choices?.[0]?.message?.content
+  const rawContent = data.choices?.[0]?.message?.content
   if (!rawContent) {
     throw new Error('A geracao de textos retornou vazia.')
   }
@@ -788,9 +952,9 @@ async function fetchReferenceImage(url: string, index: number) {
   }
 
   const extension = contentType.includes('png')
-    ? 'png'
+     ? 'png'
     : contentType.includes('webp')
-      ? 'webp'
+       ? 'webp'
       : 'jpg'
 
   const blob = new Blob([await response.arrayBuffer()], { type: contentType })
@@ -829,8 +993,8 @@ async function generateHeroImageFromPrompt(prompt: string, size: string) {
   }
 
   const data = await response.json()
-  const item = data?.data?.[0]
-  if (item?.b64_json) {
+  const item = data.data?.[0]
+  if (item.b64_json) {
     return {
       bytes: base64ToUint8Array(item.b64_json),
       contentType: 'image/jpeg',
@@ -838,7 +1002,7 @@ async function generateHeroImageFromPrompt(prompt: string, size: string) {
     }
   }
 
-  if (item?.url) {
+  if (item.url) {
     const imageResponse = await fetch(item.url, { signal: AbortSignal.timeout(45000) })
     if (!imageResponse.ok) {
       throw new Error('Nao foi possivel baixar a imagem gerada.')
@@ -892,8 +1056,8 @@ async function generateHeroImageFromFiles(prompt: string, size: string, files: F
   }
 
   const data = await response.json()
-  const item = data?.data?.[0]
-  if (item?.b64_json) {
+  const item = data.data?.[0]
+  if (item.b64_json) {
     return {
       bytes: base64ToUint8Array(item.b64_json),
       contentType: 'image/jpeg',
@@ -901,7 +1065,7 @@ async function generateHeroImageFromFiles(prompt: string, size: string, files: F
     }
   }
 
-  if (item?.url) {
+  if (item.url) {
     const imageResponse = await fetch(item.url, { signal: AbortSignal.timeout(45000) })
     if (!imageResponse.ok) {
       throw new Error('Nao foi possivel baixar a imagem gerada.')
@@ -930,7 +1094,7 @@ async function generateHeroImageFromMultimodalContext(prompt: string, size: stri
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const model = Deno.env.get('HERO_MULTIMODAL_MODEL') || Deno.env.get('HERO_IMAGE_CONTEXT_MODEL') || 'gpt-5'
   const endpoint = 'responses:image_generation'
-  const experimentalImages = inlineImages.slice(0, 1)
+  const experimentalImages = inlineImages.slice(0, HERO_NEXT_MAX_INLINE_IMAGES)
   const startedAt = Date.now()
 
   if (!apiKey) {
@@ -955,12 +1119,15 @@ async function generateHeroImageFromMultimodalContext(prompt: string, size: stri
   console.log('[gerar-hero-ia] hero_next_experimental request', {
     endpoint,
     model,
+    received_image_count: inlineImages.length,
     image_count: experimentalImages.length,
+    primary_image: experimentalImages[0].name || null,
     size,
     final_prompt: prompt,
     payload: {
       model,
       input_content: ['input_text', ...experimentalImages.map(() => 'input_image')],
+      primary_image: experimentalImages[0].name || null,
       image_count: experimentalImages.length,
       tool: {
         type: 'image_generation',
@@ -1036,10 +1203,10 @@ async function generateHeroImageFromMultimodalContext(prompt: string, size: stri
   }
 
   const data = await response.json()
-  const imageOutput = Array.isArray(data?.output)
-    ? data.output.find((item: JsonRecord) => item?.type === 'image_generation_call' && typeof item?.result === 'string') as JsonRecord | undefined
+  const imageOutput = Array.isArray(data.output)
+     ? data.output.find((item: JsonRecord) => item.type === 'image_generation_call' && typeof item.result === 'string') as JsonRecord | undefined
     : undefined
-  const imageBase64 = typeof imageOutput?.result === 'string' ? imageOutput.result : ''
+  const imageBase64 = typeof imageOutput.result === 'string' ? imageOutput.result : ''
 
   if (!imageBase64) {
     throw new Error('A geracao multimodal nao retornou imagem.')
@@ -1053,7 +1220,7 @@ async function generateHeroImageFromMultimodalContext(prompt: string, size: stri
 }
 
 function buildHeroNextMultimodalContent(prompt: string, inlineImages: InlineImageInput[]) {
-  const experimentalImages = inlineImages.slice(0, 1)
+  const experimentalImages = inlineImages.slice(0, HERO_NEXT_MAX_INLINE_IMAGES)
   return [
     {
       type: 'input_text',
@@ -1066,11 +1233,18 @@ function buildHeroNextMultimodalContent(prompt: string, inlineImages: InlineImag
   ]
 }
 
-async function createHeroNextBackgroundResponse(prompt: string, size: string, inlineImages: InlineImageInput[], destinationLabel = '') {
+async function createHeroNextBackgroundResponse(
+  prompt: string,
+  size: string,
+  inlineImages: InlineImageInput[],
+  destinationLabel = '',
+  formatStrategy: ReturnType<typeof normalizeFormatStrategy> = normalizeFormatStrategy({}),
+  creativeIdea: ReturnType<typeof normalizeCreativeIdea> = normalizeCreativeIdea({}),
+) {
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const model = Deno.env.get('HERO_MULTIMODAL_MODEL') || Deno.env.get('HERO_IMAGE_CONTEXT_MODEL') || 'gpt-5'
   const endpoint = 'responses:image_generation:background'
-  const experimentalImages = inlineImages.slice(0, 1)
+  const experimentalImages = inlineImages.slice(0, HERO_NEXT_MAX_INLINE_IMAGES)
   const startedAt = Date.now()
 
   if (!apiKey) {
@@ -1082,7 +1256,14 @@ async function createHeroNextBackgroundResponse(prompt: string, size: string, in
   console.log('[gerar-hero-ia] hero_next_background request', {
     endpoint,
     model,
+    received_image_count: inlineImages.length,
     image_count: experimentalImages.length,
+    primary_image: experimentalImages[0].name || null,
+    support_images: experimentalImages.slice(1).map((_, index) => `image_${index + 2}`),
+    idea_number: creativeIdea.number,
+    creative_direction: creativeIdea.title || null,
+    visual_angle: formatStrategy.visualAngle || null,
+    image_usage_strategy: formatStrategy.imageUsageStrategy || null,
     size,
     destination: destinationLabel,
     final_prompt: prompt,
@@ -1090,6 +1271,7 @@ async function createHeroNextBackgroundResponse(prompt: string, size: string, in
       model,
       background: true,
       input_content: ['input_text', ...experimentalImages.map(() => 'input_image')],
+      primary_image: experimentalImages[0].name || null,
       image_count: experimentalImages.length,
       tool: {
         type: 'image_generation',
@@ -1146,8 +1328,8 @@ async function createHeroNextBackgroundResponse(prompt: string, size: string, in
   }
 
   const data = await response.json()
-  const responseId = normalizeText(data?.id, 160)
-  const responseStatus = normalizeText(data?.status, 80)
+  const responseId = normalizeText(data.id, 160)
+  const responseStatus = normalizeText(data.status, 80)
 
   if (!responseId) {
     throw new Error('A criacao em background nao retornou identificador.')
@@ -1202,15 +1384,15 @@ function extractImageGenerationBase64(responseData: JsonRecord) {
     && typeof (item as JsonRecord).result === 'string'
   )) as JsonRecord | undefined
 
-  return typeof imageOutput?.result === 'string' ? imageOutput.result : ''
+  return typeof imageOutput.result === 'string' ? imageOutput.result : ''
 }
 
 async function generateHeroImage(prompt: string, size: string, briefing: JsonRecord) {
   const property = briefing.property && typeof briefing.property === 'object'
-    ? briefing.property as JsonRecord
+     ? briefing.property as JsonRecord
     : {}
   const choices = briefing.choices && typeof briefing.choices === 'object'
-    ? briefing.choices as JsonRecord
+     ? briefing.choices as JsonRecord
     : {}
   const imageMode = normalizeId(choices.image_mode, IMAGE_MODES)
   const inlineImages = normalizeInlineImages(choices.inline_images, 8)
@@ -1292,13 +1474,17 @@ function buildPromptBriefing(property: JsonRecord, masterProperty: JsonRecord, p
       value_condition: normalizeValueCondition(payload.value_condition),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,
+      campaign_batch_id: normalizeText(payload.campaign_batch_id, 160),
+      format_generation: normalizeFormatGeneration(payload.format_generation),
+      creative_idea: normalizeCreativeIdea(payload.creative_idea),
+      format_strategy: normalizeFormatStrategy(payload.format_strategy),
       additional_info: normalizeText(payload.additional_info, 400),
     },
   }
 }
 
 function buildStandalonePromptBriefing(payload: JsonRecord) {
-  const inlineImages = normalizeInlineImages(payload.inline_images, 8)
+  const inlineImages = normalizeInlineImages(payload.inline_images, HERO_NEXT_MAX_INLINE_IMAGES)
   const primaryDestination = normalizeLabeledItem(payload.primary_destination)
   const compatibleDestinations = normalizeLabeledItems(payload.compatible_destinations, 6)
   const campaignObjective = normalizeId(payload.campaign_objective) === 'locacao' ? 'locacao' : 'venda'
@@ -1346,6 +1532,10 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       value_condition: normalizeValueCondition(payload.value_condition),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,
+      campaign_batch_id: normalizeText(payload.campaign_batch_id, 160),
+      format_generation: normalizeFormatGeneration(payload.format_generation),
+      creative_idea: normalizeCreativeIdea(payload.creative_idea),
+      format_strategy: normalizeFormatStrategy(payload.format_strategy),
       additional_info: normalizeText(payload.additional_info, 400),
       campaign_objective: campaignObjective,
     },
@@ -1400,8 +1590,8 @@ async function handleHeroNextStatus(
       .from(HERO_IMAGE_BUCKET)
       .createSignedUrl(generation.image_storage_path, 60 * 60)
 
-    if (signedError || !signedImage?.signedUrl) {
-      console.warn('[gerar-hero-ia] completed hero next signed url failed:', signedError?.message)
+    if (signedError || !signedImage.signedUrl) {
+      console.warn('[gerar-hero-ia] completed hero next signed url failed:', signedError.message)
       return jsonResponse({ error: 'A visualizacao segura falhou.' }, 500)
     }
 
@@ -1464,7 +1654,7 @@ async function handleHeroNextStatus(
   }
 
   if (['failed', 'cancelled', 'canceled', 'expired', 'error'].includes(remoteStatus)) {
-    const errorMessage = normalizeText((responseData.error as JsonRecord | undefined)?.message, 300) || 'A geracao nao foi concluida.'
+    const errorMessage = normalizeText((responseData.error as JsonRecord | undefined).message, 300) || 'A geracao nao foi concluida.'
     await supabase
       .from('hero_generations')
       .update({
@@ -1528,7 +1718,7 @@ async function handleHeroNextStatus(
   }
 
   const promptBriefing = generation.prompt_briefing && typeof generation.prompt_briefing === 'object'
-    ? generation.prompt_briefing as JsonRecord
+     ? generation.prompt_briefing as JsonRecord
     : {}
   const texts = buildFallbackHeroTexts(promptBriefing)
 
@@ -1542,7 +1732,7 @@ async function handleHeroNextStatus(
         hero_image: {
           status: 'completed',
           prompt_version: HERO_PROMPT_VERSION,
-          size: normalizeText((promptBriefing.choices as JsonRecord | undefined)?.primary_destination, 120),
+          size: normalizeText((promptBriefing.choices as JsonRecord | undefined).primary_destination, 120),
           content_type: 'image/jpeg',
           storage_path: storagePath,
           response_id: responseId,
@@ -1564,8 +1754,8 @@ async function handleHeroNextStatus(
     .from(HERO_IMAGE_BUCKET)
     .createSignedUrl(storagePath, 60 * 60)
 
-  if (signedError || !signedImage?.signedUrl) {
-    console.warn('[gerar-hero-ia] hero next background signed url failed:', signedError?.message)
+  if (signedError || !signedImage.signedUrl) {
+    console.warn('[gerar-hero-ia] hero next background signed url failed:', signedError.message)
     return jsonResponse({ error: 'Campanha gerada, mas a visualizacao segura falhou.' }, 500)
   }
 
@@ -1611,7 +1801,7 @@ serve(async (req) => {
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
-      console.warn(`[${reqId}] invalid jwt:`, authError?.message)
+      console.warn(`[${reqId}] invalid jwt:`, authError.message)
       return jsonResponse({ error: 'Nao autorizado' }, 401)
     }
 
@@ -1632,7 +1822,7 @@ serve(async (req) => {
       const useHeroNextExperimental = payload.hero_next_experimental === true
       const finalPrompt = useHeroNextExperimental ? buildHeroNextSinglePiecePrompt(humanPrompt, promptBriefing as JsonRecord) : buildFinalPrompt(promptBriefing as JsonRecord)
       const imageSize = useHeroNextExperimental
-        ? getExperimentalImageSize(promptBriefing as JsonRecord)
+         ? getExperimentalImageSize(promptBriefing as JsonRecord)
         : getImageSize(promptBriefing as JsonRecord)
       const storedPromptBriefing = sanitizePromptBriefingForStorage({
         ...(promptBriefing as JsonRecord),
@@ -1643,10 +1833,12 @@ serve(async (req) => {
 
       if (useHeroNextExperimental) {
         const inlineImages = normalizeInlineImages((promptBriefing as JsonRecord).choices && typeof (promptBriefing as JsonRecord).choices === 'object'
-          ? ((promptBriefing as JsonRecord).choices as JsonRecord).inline_images
-          : [], 8)
-        const primaryDestination = (storedPromptBriefing.choices as JsonRecord | undefined)?.primary_destination as JsonRecord | undefined
-        const destinationLabel = normalizeText(primaryDestination?.label, 120)
+           ? ((promptBriefing as JsonRecord).choices as JsonRecord).inline_images
+          : [], HERO_NEXT_MAX_INLINE_IMAGES)
+        const primaryDestination = (storedPromptBriefing.choices as JsonRecord | undefined).primary_destination as JsonRecord | undefined
+        const destinationLabel = normalizeText(primaryDestination.label, 120)
+        const formatStrategy = normalizeFormatStrategy((storedPromptBriefing.choices as JsonRecord | undefined).format_strategy)
+        const creativeIdea = normalizeCreativeIdea((storedPromptBriefing.choices as JsonRecord | undefined).creative_idea)
 
         const { data: generation, error: insertError } = await supabase
           .from('hero_generations')
@@ -1669,12 +1861,12 @@ serve(async (req) => {
           .single()
 
         if (insertError || !generation) {
-          console.warn(`[${reqId}] hero next generation insert failed:`, insertError?.message)
+          console.warn(`[${reqId}] hero next generation insert failed:`, insertError.message)
           return jsonResponse({ error: 'Falha ao preparar campanha.' }, 500)
         }
 
         try {
-          const background = await createHeroNextBackgroundResponse(finalPrompt, imageSize, inlineImages, destinationLabel)
+          const background = await createHeroNextBackgroundResponse(finalPrompt, imageSize, inlineImages, destinationLabel, formatStrategy, creativeIdea)
           const { error: updateError } = await supabase
             .from('hero_generations')
             .update({
@@ -1757,8 +1949,8 @@ serve(async (req) => {
         .from(HERO_IMAGE_BUCKET)
         .createSignedUrl(storagePath, 60 * 60)
 
-      if (signedError || !signedImage?.signedUrl) {
-        console.warn(`[${reqId}] hero next signed url failed:`, signedError?.message)
+      if (signedError || !signedImage.signedUrl) {
+        console.warn(`[${reqId}] hero next signed url failed:`, signedError.message)
         return jsonResponse({ error: 'Campanha gerada, mas a visualizacao segura falhou.' }, 500)
       }
 
@@ -1824,7 +2016,7 @@ serve(async (req) => {
       .single()
 
     if (insertError || !generation) {
-      console.warn(`[${reqId}] hero generation insert failed:`, insertError?.message)
+      console.warn(`[${reqId}] hero generation insert failed:`, insertError.message)
       return jsonResponse({ error: 'Falha ao preparar Hero IA' }, 500)
     }
 
@@ -1889,7 +2081,7 @@ serve(async (req) => {
       .single()
 
     if (updateError || !updatedGeneration) {
-      console.warn(`[${reqId}] hero generation update failed:`, updateError?.message)
+      console.warn(`[${reqId}] hero generation update failed:`, updateError.message)
       return jsonResponse({ error: 'Falha ao finalizar Hero IA.' }, 500)
     }
 
@@ -1897,8 +2089,8 @@ serve(async (req) => {
       .from(HERO_IMAGE_BUCKET)
       .createSignedUrl(storagePath, 60 * 60)
 
-    if (signedError || !signedImage?.signedUrl) {
-      console.warn(`[${reqId}] hero image signed url failed:`, signedError?.message)
+    if (signedError || !signedImage.signedUrl) {
+      console.warn(`[${reqId}] hero image signed url failed:`, signedError.message)
       return jsonResponse({ error: 'Hero IA gerado, mas a visualizacao segura falhou.' }, 500)
     }
 

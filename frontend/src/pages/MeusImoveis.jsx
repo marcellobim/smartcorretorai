@@ -533,7 +533,7 @@ export default function MeusImoveis() {
         <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Núcleo reutilizável</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Núcleo reutilizável</p>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-gray-950 sm:text-3xl">
                 Cadastro Mestre do imóvel
               </h1>
@@ -549,8 +549,8 @@ export default function MeusImoveis() {
               </div>
             </div>
 
-            <div className="rounded-3xl bg-gray-950 p-5 text-white">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-300">Status da base</p>
+            <div className="rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-5 text-white">
+              <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Status da base</p>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Metric label="Imóveis" value={properties.length} />
                 <Metric label="Completos" value={completeCount} />
@@ -607,12 +607,12 @@ export default function MeusImoveis() {
         size="xl"
       >
         <form onSubmit={handleSubmit} className="max-h-[calc(100vh-10rem)] space-y-6 overflow-y-auto pr-1">
-          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+          <div className="rounded-2xl border border-blue-100 bg-primary-50 p-4">
             <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary-700" />
               <div>
-                <p className="text-sm font-black text-amber-950">Retenção e reutilização</p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-900">
+                <p className="text-sm font-black text-primary-900">Retenção e reutilização</p>
+                <p className="mt-1 text-xs leading-relaxed text-primary-800">
                   Este cadastro fica preparado para reaproveitamento por 7 dias. Banners usam só os dados necessários, e produtos futuros poderão reutilizar o restante.
                 </p>
               </div>
@@ -620,7 +620,7 @@ export default function MeusImoveis() {
           </div>
 
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-amber-700">Perfil do imóvel</p>
+            <p className="text-xs font-black uppercase tracking-wide text-primary-700">Perfil do imóvel</p>
             <h3 className="mt-1 text-base font-black text-gray-950">Qual o perfil deste imóvel?</h3>
             <p className="mt-1 text-xs leading-relaxed text-gray-500">
               Essa informação orienta Hero IA, Campanha IA, Landing IA e o Smart Prompt Engine.
@@ -635,8 +635,8 @@ export default function MeusImoveis() {
                     onClick={() => updateField('perfil_imovel', perfil)}
                     className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                       active
-                        ? 'border-gray-950 bg-gray-950 text-white'
-                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400'
+                        ? 'border-primary-800 bg-primary-800 text-white'
+                        : 'border-blue-100 bg-slate-50 text-slate-700 hover:border-primary-300 hover:bg-primary-50'
                     }`}
                   >
                     {perfil}
@@ -647,7 +647,7 @@ export default function MeusImoveis() {
           </section>
 
           <section className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-amber-700">Estado do imóvel</p>
+            <p className="text-xs font-black uppercase tracking-wide text-primary-700">Estado do imóvel</p>
             <h3 className="mt-1 text-base font-black text-gray-950">Qual é o estado atual do imóvel?</h3>
             <p className="mt-1 text-xs leading-relaxed text-gray-500">
               Essa informação ajuda a orientar os próximos produtos da plataforma.
@@ -662,8 +662,8 @@ export default function MeusImoveis() {
                     onClick={() => updateField('estado_imovel', estadoImovel)}
                     className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                       active
-                        ? 'border-gray-950 bg-gray-950 text-white'
-                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400'
+                        ? 'border-primary-800 bg-primary-800 text-white'
+                        : 'border-blue-100 bg-slate-50 text-slate-700 hover:border-primary-300 hover:bg-primary-50'
                     }`}
                   >
                     {estadoImovel}
@@ -829,7 +829,7 @@ function ActionOption({ title, description, onClick, disabled = false }) {
       className={`w-full rounded-2xl border p-4 text-left transition ${
         disabled
           ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-          : 'border-gray-200 bg-white text-gray-800 hover:border-amber-300 hover:bg-amber-50'
+          : 'border-blue-100 bg-white text-slate-800 hover:border-primary-300 hover:bg-primary-50'
       }`}
     >
       <div className="flex items-center justify-between gap-4">
@@ -840,7 +840,7 @@ function ActionOption({ title, description, onClick, disabled = false }) {
         {disabled ? (
           <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-gray-400">Em breve</span>
         ) : (
-          <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
+          <Sparkles className="h-4 w-4 shrink-0 text-primary-600" />
         )}
       </div>
     </button>
@@ -973,14 +973,14 @@ function PhotoUploader({ photos, onAdd, onRemove }) {
             <div key={`${photo.preview}-${index}`} className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100">
               <img src={photo.preview} alt="" className="h-full w-full object-cover" />
               {index === 0 && (
-                <span className="absolute bottom-1 left-1 rounded bg-gray-950 px-1.5 py-0.5 text-[10px] font-black text-white">
+                <span className="absolute bottom-1 left-1 rounded bg-primary-900 px-1.5 py-0.5 text-[10px] font-black text-white">
                   Principal
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => onRemove(index)}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-950/70 text-white opacity-0 transition group-hover:opacity-100"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-900/70 text-white opacity-0 transition group-hover:opacity-100"
                 aria-label="Remover foto"
               >
                 <X className="h-3.5 w-3.5" />
@@ -991,7 +991,7 @@ function PhotoUploader({ photos, onAdd, onRemove }) {
       )}
 
       {photos.length < MAX_MASTER_PHOTOS && (
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center transition hover:border-amber-300 hover:bg-amber-50/40">
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-100 bg-slate-50 px-4 py-8 text-center transition hover:border-primary-300 hover:bg-primary-50">
           <Camera className="h-8 w-8 text-gray-400" />
           <span className="mt-2 text-sm font-black text-gray-700">Clique ou arraste as fotos aqui</span>
           <span className="mt-1 text-xs text-gray-400">JPG ou PNG, até {MAX_MASTER_PHOTOS} fotos</span>
@@ -1018,7 +1018,7 @@ function VideoUploader({ video, onAdd, onRemove }) {
       {video ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-950 text-amber-300">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-cyan-100">
               <Video className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -1031,7 +1031,7 @@ function VideoUploader({ video, onAdd, onRemove }) {
           </button>
         </div>
       ) : (
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-7 text-center transition hover:border-amber-300 hover:bg-amber-50/40">
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-100 bg-slate-50 px-4 py-7 text-center transition hover:border-primary-300 hover:bg-primary-50">
           <Upload className="h-7 w-7 text-gray-400" />
           <span className="mt-2 text-sm font-black text-gray-700">Adicionar vídeo opcional</span>
           <span className="mt-1 text-xs text-gray-400">MP4, MOV ou arquivo compatível</span>
@@ -1073,10 +1073,10 @@ function HighlightsPicker({ selected, onToggle }) {
                     onClick={() => onToggle(item)}
                     className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
                       active
-                        ? 'border-gray-950 bg-gray-950 text-white'
+                        ? 'border-primary-800 bg-primary-800 text-white'
                         : disabled
                           ? 'cursor-not-allowed border-gray-200 bg-white text-gray-300'
-                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                          : 'border-blue-100 bg-white text-slate-600 hover:border-primary-300 hover:bg-primary-50'
                     }`}
                   >
                     {active && <CheckCircle2 className="mr-1 inline h-3 w-3" />}

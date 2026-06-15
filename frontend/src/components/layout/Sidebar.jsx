@@ -57,8 +57,8 @@ function SidebarLink({ item }) {
         const active = item.match ? activeByTab : isActive
         return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-150 ${
           active
-            ? 'bg-gray-950 text-white shadow-sm'
-            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
+            ? 'bg-primary-800 text-white shadow-sm'
+            : 'text-slate-600 hover:bg-primary-50 hover:text-primary-800'
         }`
       }}
     >
@@ -72,13 +72,13 @@ function SmartTokensPanel({ user }) {
   const snapshot = getTokenSnapshot(user)
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-950 p-4 text-white shadow-sm">
+    <div className="rounded-2xl border border-primary-700/30 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-4 text-white shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-amber-300">Smart Tokens</p>
+          <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Smart Tokens</p>
           <p className="mt-1 text-sm font-black">Saldo disponível</p>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-amber-300">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-cyan-100">
           <Zap className="h-4.5 w-4.5" />
         </div>
       </div>
@@ -89,7 +89,7 @@ function SmartTokensPanel({ user }) {
 
       <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">
         <div
-          className="h-full rounded-full bg-amber-300"
+          className="h-full rounded-full bg-cyan-300"
           style={{ width: `${snapshot.hasBalance ? snapshot.percent : 18}%` }}
         />
       </div>
@@ -108,7 +108,7 @@ function SmartTokensPanel({ user }) {
         </NavLink>
         <NavLink
           to="/planos"
-          className="rounded-xl bg-amber-300 px-3 py-2 text-center text-xs font-black text-gray-950 hover:bg-amber-200"
+          className="rounded-xl bg-cyan-100 px-3 py-2 text-center text-xs font-black text-primary-900 hover:bg-white"
         >
           Adicionar tokens
         </NavLink>
@@ -129,8 +129,8 @@ export default function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-gray-200 bg-white">
       <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-950 shadow-md">
-          <Zap className="h-5 w-5 text-amber-300" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-800 shadow-md">
+          <Zap className="h-5 w-5 text-cyan-100" />
         </div>
         <div>
           <p className="text-sm font-bold text-gray-900">SmartCorretorAI</p>
@@ -148,7 +148,7 @@ export default function Sidebar() {
             to="/admin"
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-150 ${
-                isActive ? 'bg-gray-950 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
+                isActive ? 'bg-primary-800 text-white shadow-sm' : 'text-slate-600 hover:bg-primary-50 hover:text-primary-800'
               }`
             }
           >

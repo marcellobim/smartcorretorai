@@ -539,7 +539,7 @@ function PreviewMedia({ model, variant = 'card', controls = false }) {
       ) : (
         <div className={fallbackClassName}>
           {!isModal && (
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-amber-800">
+            <span className="rounded-full border border-blue-100 bg-primary-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-primary-800">
               Preview
             </span>
           )}
@@ -2724,7 +2724,7 @@ export default function NovaCampanha() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-amber-600">Preview do modelo</p>
+                <p className="text-xs font-black uppercase tracking-wide text-primary-600">Preview do modelo</p>
                 <h3 className="mt-1 text-lg font-black text-gray-950">{activePreviewModel.previewTitle || activePreviewModel.name}</h3>
                 {activePreviewModel.previewDescription && (
                   <p className="mt-1 text-sm font-semibold text-gray-500">{activePreviewModel.previewDescription}</p>
@@ -2809,7 +2809,7 @@ export default function NovaCampanha() {
                     'Visualize e baixe',
                   ].map((step, index) => (
                     <li key={step} className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-[11px] font-black text-amber-800">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-primary-50 text-[11px] font-black text-primary-800">
                         {index + 1}
                       </span>
                       <span>{step}</span>
@@ -2879,7 +2879,7 @@ export default function NovaCampanha() {
                                 <button
                                   type="button"
                                   onClick={(event) => openPreviewModal(model, event)}
-                                  className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-black text-gray-800 shadow-sm hover:border-amber-300 hover:bg-amber-50 hover:text-gray-950"
+                                  className="rounded-full border border-blue-100 bg-white px-3 py-1 text-xs font-black text-primary-800 shadow-sm hover:border-primary-300 hover:bg-primary-50"
                                 >
                                   {model.previewLabel || 'Ver'}
                                 </button>
@@ -2975,7 +2975,7 @@ export default function NovaCampanha() {
                     </div>
 
                     {selectedCatalogItems.length >= MAX_VISUAL_PIECES_PER_GENERATION - 1 && (
-                      <p className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-900">
+                      <p className="mt-3 rounded-xl border border-blue-100 bg-primary-50 p-3 text-xs font-semibold leading-relaxed text-primary-900">
                         Você pode gerar até {MAX_VISUAL_PIECES_PER_GENERATION} peças por vez. Depois de receber os resultados, poderá gerar mais materiais para este mesmo imóvel.
                       </p>
                     )}
@@ -2990,7 +2990,7 @@ export default function NovaCampanha() {
                     <button type="button" onClick={continueFromManual} disabled={selectedCatalogItems.length === 0}
                       className={`mt-3 w-full rounded-xl px-4 py-3 text-sm font-black transition-colors ${
                         selectedCatalogItems.length > 0
-                          ? 'bg-gray-950 text-white hover:bg-gray-800'
+                          ? 'bg-primary-800 text-white hover:bg-primary-700'
                           : 'cursor-not-allowed bg-gray-100 text-gray-400'
                       }`}>
                       Criar banners
@@ -3009,7 +3009,7 @@ export default function NovaCampanha() {
                 <button
                   type="button"
                   onClick={continueFromProperty}
-                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800"
+                  className="rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700"
                 >
                   Continuar
                 </button>
@@ -3024,7 +3024,7 @@ export default function NovaCampanha() {
                 <button
                   type="button"
                   onClick={continueFromUploads}
-                  className="rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white hover:bg-gray-800"
+                  className="rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700"
                 >
                   Continuar
                 </button>
@@ -3036,7 +3036,7 @@ export default function NovaCampanha() {
               {renderStepActions(() => setProductFlowStep('photos'))}
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-xs font-black uppercase tracking-wide text-amber-700">Resumo antes de gerar</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resumo antes de gerar</p>
                   <h2 className="mt-1 text-xl font-black text-gray-950">{strategyLabel}</h2>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {analysisItems.map(item => (
@@ -3047,7 +3047,7 @@ export default function NovaCampanha() {
                     ))}
                   </div>
                   {!profileWhatsapp && (
-                    <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
+                    <div className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-4 text-sm text-primary-900">
                       WhatsApp não encontrado no perfil. Complete seu perfil para incluir seu contato automaticamente nos materiais.
                     </div>
                   )}
@@ -3065,7 +3065,7 @@ export default function NovaCampanha() {
                     </p>
                   </div>
                   {isDemoPlan && demoUsed && (
-                    <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+                    <p className="mt-4 rounded-xl bg-primary-50 p-3 text-xs font-semibold text-primary-800">
                       Sua campanha demonstrativa já foi utilizada.
                     </p>
                   )}
@@ -3075,7 +3075,7 @@ export default function NovaCampanha() {
                     disabled={!podaGerar || (isDemoPlan && demoUsed)}
                     className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-black transition-colors ${
                       podaGerar && !(isDemoPlan && demoUsed)
-                        ? 'bg-gray-950 text-white hover:bg-gray-800'
+                        ? 'bg-primary-800 text-white hover:bg-primary-700'
                         : 'cursor-not-allowed bg-gray-100 text-gray-400'
                     }`}
                   >
@@ -3177,7 +3177,7 @@ export default function NovaCampanha() {
                     <p className="text-sm text-gray-600 mt-1">Escolha um plano para continuar gerando campanhas completas.</p>
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {['START', 'PRO', 'ELITE'].map(plan => (
-                        <a key={plan} href="/planos" className="rounded-xl bg-gray-950 text-white text-sm font-bold px-4 py-2.5 text-center hover:bg-gray-800 transition-colors">
+                        <a key={plan} href="/planos" className="rounded-xl bg-primary-800 text-white text-sm font-bold px-4 py-2.5 text-center hover:bg-primary-700 transition-colors">
                           Assinar {plan}
                         </a>
                       ))}
@@ -3213,7 +3213,7 @@ export default function NovaCampanha() {
                     <button
                       type="button"
                       onClick={() => resetCampaignState()}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-gray-800"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700"
                     >
                       <Plus className="w-4 h-4" />
                       Criar novos banners
@@ -3243,7 +3243,7 @@ export default function NovaCampanha() {
 
               {generationNotice && (
                 <AnimatedCard delay={80}>
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-relaxed text-amber-900">
+                  <div className="rounded-2xl border border-blue-100 bg-primary-50 p-4 text-sm font-semibold leading-relaxed text-primary-900">
                     {generationNotice}
                   </div>
                 </AnimatedCard>
@@ -3518,7 +3518,7 @@ export default function NovaCampanha() {
                   <button
                     type="button"
                     onClick={() => setFase('form')}
-                    className="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-black text-white hover:bg-gray-800"
+                    className="rounded-xl bg-primary-800 px-4 py-2.5 text-sm font-black text-white hover:bg-primary-700"
                   >
                     Voltar e tentar novamente
                   </button>

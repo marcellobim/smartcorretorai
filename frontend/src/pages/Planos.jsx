@@ -121,10 +121,10 @@ export default function Planos() {
 
     const className = `inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-black transition ${
       featured
-        ? 'bg-gray-950 text-white hover:bg-gray-800'
+        ? 'bg-primary-800 text-white hover:bg-primary-700'
         : recharge
-          ? 'bg-amber-300 text-gray-950 hover:bg-amber-200'
-          : 'border border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
+          ? 'bg-primary-600 text-white hover:bg-primary-500'
+          : 'border border-blue-100 bg-white text-primary-800 hover:bg-primary-50'
     } disabled:cursor-not-allowed disabled:opacity-50`
 
     if (!isAuthenticated) {
@@ -159,17 +159,17 @@ export default function Planos() {
             Voltar
           </Link>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-950 text-amber-300">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-800 text-cyan-100">
               <Zap className="h-4 w-4" />
             </div>
             <span className="font-black text-gray-950">SmartCorretorAI</span>
           </div>
         </div>
 
-        <section className="overflow-hidden rounded-3xl bg-gray-950 p-7 text-white shadow-xl shadow-gray-950/10 sm:p-10">
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-7 text-white shadow-xl shadow-primary-900/10 sm:p-10">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100">
-              <Sparkles className="h-4 w-4 text-amber-300" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100/20 bg-cyan-100/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-50">
+              <Sparkles className="h-4 w-4 text-cyan-100" />
               Planos / Smart Tokens
             </div>
             <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-5xl">
@@ -192,13 +192,13 @@ export default function Planos() {
                   key={ciclo.id}
                   className={`rounded-2xl border px-4 py-3 text-center ${
                     ciclo.status === 'ativo'
-                      ? 'border-gray-950 bg-gray-950 text-white'
+                      ? 'border-primary-800 bg-primary-800 text-white'
                       : 'border-gray-200 bg-gray-50 text-gray-500'
                   }`}
                 >
                   <p className="text-sm font-black">{ciclo.label}</p>
                   <p className={`mt-1 text-[11px] font-black uppercase tracking-wide ${
-                    ciclo.status === 'ativo' ? 'text-amber-300' : 'text-gray-400'
+                    ciclo.status === 'ativo' ? 'text-cyan-100' : 'text-gray-400'
                   }`}>
                     {ciclo.status}
                   </p>
@@ -215,11 +215,11 @@ export default function Planos() {
               <article
                 key={plano.id}
                 className={`relative flex rounded-3xl border bg-white p-6 shadow-sm ${
-                  plano.featured ? 'border-gray-950 shadow-xl shadow-gray-950/10 ring-2 ring-gray-950' : 'border-gray-200'
+                  plano.featured ? 'border-primary-700 shadow-xl shadow-primary-900/10 ring-2 ring-primary-700' : 'border-gray-200'
                 }`}
               >
                 {plano.featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-300 px-4 py-1 text-xs font-black uppercase text-gray-950 shadow-sm">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-cyan-100 px-4 py-1 text-xs font-black uppercase text-primary-900 shadow-sm">
                     {plano.badge}
                   </div>
                 )}
@@ -231,7 +231,7 @@ export default function Planos() {
 
                 <div className="flex w-full flex-col">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-amber-700">{plano.description}</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-primary-700">{plano.description}</p>
                     <h2 className="mt-2 text-3xl font-black text-gray-950">{plano.nome}</h2>
                     <div className="mt-5 flex items-end gap-1">
                       <span className="mb-1 text-sm font-bold text-gray-400">R$</span>
@@ -274,7 +274,7 @@ export default function Planos() {
         <section className="mt-10 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Adicionar Smart Tokens</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Adicionar Smart Tokens</p>
               <h2 className="mt-1 text-2xl font-black text-gray-950">Continue criando quando precisar</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">
                 Use recargas para continuar criando quando precisar de mais capacidade antes da renovação do plano.
@@ -284,12 +284,12 @@ export default function Planos() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {RECARGAS.map((recarga) => (
-              <article key={recarga.id} className="rounded-3xl border border-amber-200 bg-amber-50/50 p-5">
+              <article key={recarga.id} className="rounded-3xl border border-blue-100 bg-primary-50 p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-700 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary-700 shadow-sm">
                     <Coins className="h-5 w-5" />
                   </div>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-primary-800">
                     Recarga
                   </span>
                 </div>
@@ -328,8 +328,8 @@ export default function Planos() {
             </ul>
           </div>
 
-          <div className="rounded-3xl border border-gray-200 bg-gray-950 p-6 text-white shadow-sm">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-amber-300">
+          <div className="rounded-3xl border border-primary-700 bg-gradient-to-br from-primary-900 to-primary-700 p-6 text-white shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-cyan-100">
               <Mail className="h-5 w-5" />
             </div>
             <h2 className="mt-5 text-xl font-black">Suporte</h2>
@@ -338,7 +338,7 @@ export default function Planos() {
             </p>
             <a
               href="mailto:suporte@smartcorretorai.com"
-              className="mt-5 inline-flex rounded-2xl bg-amber-300 px-4 py-3 text-sm font-black text-gray-950 hover:bg-amber-200"
+              className="mt-5 inline-flex rounded-2xl bg-cyan-100 px-4 py-3 text-sm font-black text-primary-900 hover:bg-white"
             >
               suporte@smartcorretorai.com
             </a>

@@ -15,7 +15,6 @@ import {
   UserCircle2,
   Video,
   Wand2,
-  Zap,
 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { useAuth } from '../lib/auth-context'
@@ -30,7 +29,7 @@ const mainActions = [
     description: 'Comece pelo cadastro do imóvel e receba materiais prontos para apresentar.',
     to: '/meus-imoveis',
     label: 'Cadastrar imóvel',
-    tone: 'dark',
+    tone: 'featured',
     ready: true,
   },
   {
@@ -40,7 +39,7 @@ const mainActions = [
     description: 'A IA guia você passo a passo para criar um Hero IA para o imóvel.',
     to: '/hero',
     label: 'Criar Hero IA',
-    tone: 'dark',
+    tone: 'featured',
     ready: true,
   },
   {
@@ -58,7 +57,7 @@ const mainActions = [
     description: 'Use a Biblioteca Profissional para gerar banners rápidos e estáveis.',
     to: '/nova-campanha',
     label: 'Criar banners',
-    tone: 'amber',
+    tone: 'soft',
     ready: true,
   },
   {
@@ -95,32 +94,6 @@ const getMainPhoto = (property) => (
   || null
 )
 
-const getTokenSnapshot = (user) => {
-  const total =
-    Number(user?.smart_tokens_total)
-    || Number(user?.tokens_total)
-    || Number(user?.limite_mensal)
-    || Number(user?.total_disponivel)
-    || 0
-  const remaining =
-    Number(user?.smart_tokens_saldo)
-    || Number(user?.tokens_saldo)
-    || Number(user?.restantes_mes)
-    || Number(user?.total_disponivel)
-    || 0
-  const safeTotal = Math.max(total, remaining, 0)
-  const used = Math.max(safeTotal - remaining, 0)
-  const percent = safeTotal > 0 ? Math.min(100, Math.round((used / safeTotal) * 100)) : 0
-  const renewal = user?.proxima_renovacao || user?.renovacao_tokens || user?.billing_cycle_anchor || null
-
-  return {
-    total: safeTotal,
-    remaining,
-    percent,
-    renewalLabel: renewal ? formatDate(renewal) : 'Próximo ciclo',
-  }
-}
-
 const getProfileStatus = (user) => {
   const required = [
     user?.nome || user?.displayName,
@@ -153,7 +126,6 @@ export default function Dashboard() {
   const lastProperty = recentProperties[0] || null
   const lastCampaign = recentCampaigns[0] || null
   const lastMaterial = recentCampaigns.find(campaign => campaign.preview_url || campaign.status === 'concluido') || lastCampaign
-  const tokenSnapshot = getTokenSnapshot(user)
   const profileStatus = getProfileStatus(user)
 
   return (
@@ -161,23 +133,23 @@ export default function Dashboard() {
       <Header title="Home" subtitle="Sua central de criação imobiliária" />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
-        <section className="overflow-hidden rounded-3xl bg-gray-950 p-6 text-white shadow-xl shadow-gray-950/10 sm:p-8">
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 text-white shadow-xl shadow-primary-900/10 sm:p-8">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100">
-                <Sparkles className="h-4 w-4 text-amber-300" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-100/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-50">
+                <Sparkles className="h-4 w-4 text-cyan-200" />
                 Olá, {firstName}
               </div>
               <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">
                 Como posso ajudar você hoje?
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-relaxed text-gray-300">
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-blue-100">
                 Escolha uma opção abaixo. A IA guia você passo a passo.
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-wide text-gray-300">Continue de onde parou</p>
+            <div className="rounded-3xl border border-white/15 bg-white/12 p-5 backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-wide text-blue-100">Continue de onde parou</p>
               {lastProperty || lastCampaign || lastMaterial ? (
                 <div className="mt-4 space-y-3">
                   <ResumeLine label="Último imóvel" value={lastProperty ? `${lastProperty.bairro || 'Bairro'} · ${lastProperty.cidade || 'Cidade'}` : 'Nenhum imóvel recente'} />
@@ -187,7 +159,7 @@ export default function Dashboard() {
               ) : (
                 <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-sm font-bold text-white">Comece cadastrando seu primeiro imóvel.</p>
-                  <Link to="/meus-imoveis" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-amber-300 hover:text-amber-200">
+                  <Link to="/meus-imoveis" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-cyan-100 hover:text-white">
                     Cadastrar agora
                     <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -253,7 +225,6 @@ export default function Dashboard() {
           </div>
 
           <aside className="space-y-6">
-            <SmartTokensCard snapshot={tokenSnapshot} />
             <ProfileCard status={profileStatus} />
           </aside>
         </section>
@@ -276,15 +247,15 @@ function ActionCard({ action }) {
   const content = (
     <article className={`flex h-full min-h-[210px] flex-col rounded-3xl border p-5 shadow-sm transition ${
       action.ready
-        ? action.tone === 'amber'
-          ? 'border-amber-200 bg-amber-50 hover:-translate-y-0.5 hover:shadow-lg'
-          : 'border-gray-900 bg-gray-950 text-white hover:-translate-y-0.5 hover:shadow-lg'
+        ? action.tone === 'soft'
+          ? 'border-cyan-100 bg-primary-50 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-lg'
+          : 'border-blue-100 bg-white hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/70 hover:shadow-lg'
         : 'border-gray-200 bg-white'
     }`}>
       <div className="flex items-start justify-between gap-3">
         <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
           action.ready
-            ? action.tone === 'amber' ? 'bg-white text-amber-700' : 'bg-white/10 text-amber-300'
+            ? action.tone === 'soft' ? 'bg-white text-primary-700' : 'bg-primary-50 text-primary-700'
             : 'bg-gray-100 text-gray-500'
         }`}>
           <Icon className="h-5 w-5" />
@@ -297,17 +268,17 @@ function ActionCard({ action }) {
       </div>
 
       <div className="mt-5 flex-1">
-        <h2 className={`text-base font-black leading-tight ${action.ready && action.tone === 'dark' ? 'text-white' : 'text-gray-950'}`}>
+        <h2 className="text-base font-black leading-tight text-slate-950">
           {action.title}
         </h2>
-        <p className={`mt-2 text-sm leading-relaxed ${action.ready && action.tone === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">
           {action.description}
         </p>
       </div>
 
       <div className={`mt-5 inline-flex items-center gap-2 text-sm font-black ${
         action.ready
-          ? action.tone === 'dark' ? 'text-amber-300' : 'text-gray-950'
+          ? 'text-primary-700'
           : 'text-gray-400'
       }`}>
         {action.label}
@@ -318,7 +289,7 @@ function ActionCard({ action }) {
 
   if (!action.ready || !action.to) return content
   return (
-    <Link to={action.to} className="block rounded-3xl focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2">
+    <Link to={action.to} className="block rounded-3xl focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2">
       {content}
     </Link>
   )
@@ -382,41 +353,10 @@ function CreationPreview({ campaign }) {
         </span>
       </div>
       <div className="mt-4 flex items-center gap-2 text-xs font-bold text-gray-500">
-        <PlayCircle className="h-4 w-4 text-amber-600" />
+        <PlayCircle className="h-4 w-4 text-primary-600" />
         Campanha, banners e materiais gerados
       </div>
     </article>
-  )
-}
-
-function SmartTokensCard({ snapshot }) {
-  const remainingLabel = snapshot.total > 0
-    ? `${snapshot.remaining.toLocaleString('pt-BR')} disponíveis`
-    : 'Resumo da conta'
-
-  return (
-    <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-amber-700">Smart Tokens</p>
-          <h2 className="mt-1 text-lg font-black text-gray-950">Saldo da conta</h2>
-        </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-          <Zap className="h-5 w-5" />
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <p className="text-2xl font-black text-gray-950">{remainingLabel}</p>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-gray-100">
-          <div className="h-full rounded-full bg-amber-400" style={{ width: `${snapshot.percent}%` }} />
-        </div>
-        <div className="mt-3 flex items-center justify-between text-xs font-bold text-gray-500">
-          <span>{snapshot.percent}% usado</span>
-          <span>Renovação: {snapshot.renewalLabel}</span>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -424,7 +364,7 @@ function ProfileCard({ status }) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-950 text-amber-300">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100">
           <UserCircle2 className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -458,7 +398,7 @@ function EmptyState({ icon: Icon, title, description, to, label }) {
       </div>
       <h3 className="mt-4 text-sm font-black text-gray-950">{title}</h3>
       <p className="mx-auto mt-1 max-w-sm text-sm leading-relaxed text-gray-500">{description}</p>
-      <Link to={to} className="mt-4 inline-flex items-center gap-2 text-sm font-black text-amber-700 hover:text-amber-800">
+      <Link to={to} className="mt-4 inline-flex items-center gap-2 text-sm font-black text-primary-700 hover:text-primary-800">
         {label}
         <ArrowRight className="h-4 w-4" />
       </Link>
