@@ -30,18 +30,21 @@ const MIN_HERO_PHOTOS = 3
 const IMAGE_MODES = [
   {
     id: 'main_photo',
+    icon: '📸',
     label: 'Melhorar foto principal',
-    description: 'Aprimora a foto principal com acabamento premium, sem trocar o imóvel.',
+    description: 'Utilizar a foto principal do imóvel como base para a campanha.',
   },
   {
     id: 'reference_photos',
-    label: 'Usar todas as fotos do imóvel',
-    description: 'Monta uma peça com as fotos reais, sem criar outro imóvel.',
+    icon: '🖼',
+    label: 'Utilizar todas as fotos do imóvel',
+    description: 'Utilizar as imagens cadastradas para montar uma campanha completa.',
   },
   {
     id: 'new_image',
-    label: 'Diretor Criativo IA',
-    description: 'Cria uma campanha visual a partir do briefing, conceito e objetivo comercial.',
+    icon: '✨',
+    label: 'Explorar conceitos da região',
+    description: 'Criar uma campanha mais criativa usando contexto da região e do imóvel.',
   },
 ]
 
@@ -79,51 +82,98 @@ const CTA_OPTIONS = [
 ]
 
 const VALUE_CONDITION_OPTIONS = [
-  { id: 'hide_values', label: 'Não mostrar valores' },
-  { id: 'show_registered_price', label: 'Mostrar valor do cadastro' },
-  { id: 'commercial_terms', label: 'Mostrar condições comerciais', needsDetails: true },
-  { id: 'measurements_variations', label: 'Informar medidas, plantas ou variações', needsDetails: true },
+  { id: 'show_registered_price', icon: '💰', label: 'Mostrar valor' },
+  { id: 'commercial_terms', icon: '📋', label: 'Mostrar apenas condições' },
+  { id: 'hide_values', icon: '🚫', label: 'Não mostrar valores' },
 ]
+
+const SALE_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Terreno/Lote', 'Comercial']
+
+const SALE_PROFILES = ['Minha Casa Minha Vida', 'Médio padrão', 'Alto padrão', 'Luxo']
+
+const SALE_STAGES = [
+  'Pré-lançamento',
+  'Lançamento',
+  'Em obras',
+  'Pronto para morar',
+  'Reformado',
+  'Novo',
+  'Usado',
+]
+
+const SALE_HIGHLIGHTS = [
+  'Próximo ao metrô',
+  'Lazer completo',
+  'Varanda gourmet',
+  'Vista livre',
+  'Shopping próximo',
+  'Segurança',
+  'Piscina',
+  'Academia',
+  'Coworking',
+  'Pet place',
+  'Comércio próximo',
+  'Gastronomia',
+  'Parque próximo',
+  'Mobilidade',
+]
+
+const SALE_CONDITIONS = [
+  'Aceita financiamento',
+  'FGTS',
+  'Subsídio',
+  'Entrada facilitada',
+  'Condições especiais',
+]
+
+const SALE_CTA_OPTIONS = ['Agende sua visita', 'Saiba mais', 'Fale comigo']
 
 const DESTINATION_OPTIONS = [
   {
     id: 'feed_instagram',
+    icon: '📱',
     label: 'Feed Instagram',
     formatGroup: 'square_feed',
     compatibleIds: ['facebook', 'whatsapp'],
   },
   {
     id: 'story_reels',
+    icon: '🎥',
     label: 'Story/Reels',
     formatGroup: 'vertical',
     compatibleIds: [],
   },
   {
     id: 'whatsapp',
+    icon: '💬',
     label: 'WhatsApp',
     formatGroup: 'square_feed',
     compatibleIds: ['feed_instagram', 'facebook'],
   },
   {
     id: 'facebook',
+    icon: '📘',
     label: 'Facebook',
     formatGroup: 'square_feed',
     compatibleIds: ['feed_instagram', 'whatsapp'],
   },
   {
     id: 'landing_page',
+    icon: '🌐',
     label: 'Landing Page',
     formatGroup: 'landscape',
     compatibleIds: ['google_ads'],
   },
   {
     id: 'portal_imobiliario',
+    icon: '🏢',
     label: 'Portal Imobiliário',
     formatGroup: 'portal',
     compatibleIds: [],
   },
   {
     id: 'google_ads',
+    icon: '📢',
     label: 'Google Ads',
     formatGroup: 'landscape',
     compatibleIds: ['landing_page'],
@@ -144,19 +194,18 @@ const SUBCATEGORIES = {
 }
 
 const CREATIVE_CONCEPTS = [
-  'Casa própria',
-  'Investimento',
-  'Alto padrão',
-  'Lifestyle',
-  'Mobilidade',
-  'Bairro',
-  'Lazer',
   'Família',
-  'Segurança',
-  'Valorização',
-  'Lançamento',
+  'Lifestyle',
+  'Investimento',
   'Exclusividade',
 ]
+
+const CREATIVE_CONCEPT_ICONS = {
+  Família: '👨‍👩‍👧‍👦',
+  Lifestyle: '🌴',
+  Investimento: '📈',
+  Exclusividade: '💎',
+}
 
 const DELIVERABLES = [
   { id: 'hero_image', label: 'Hero IA', locked: true },
@@ -216,6 +265,24 @@ const getPropertyState = (property) => {
   return master?.estado_imovel || property?.estado_imovel || ''
 }
 
+const normalizePlaceName = (value = '') => {
+  const cleaned = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const lower = cleaned.toLowerCase()
+  const known = {
+    'sao paulo': 'São Paulo',
+    'são paulo': 'São Paulo',
+  }
+  if (known[lower]) return known[lower]
+  return lower
+    .split(' ')
+    .map((word) => {
+      if (['de', 'da', 'do', 'das', 'dos', 'e'].includes(word)) return word
+      return word.charAt(0).toUpperCase() + word.slice(1)
+    })
+    .join(' ')
+}
+
 const getPropertyTitle = (property) => {
   if (!property) return 'Imóvel'
   return property.titulo || [property.tipo, property.bairro].filter(Boolean).join(' em ') || 'Imóvel cadastrado'
@@ -248,6 +315,62 @@ const buildInitialDeliverables = () => DELIVERABLES.reduce((acc, item) => {
   return acc
 }, {})
 
+const getMasterProfile = (property) => {
+  const master = parseMasterProperty(property?.descricao)
+  return master?.perfil_imovel || ''
+}
+
+const buildHumanPrompt = ({
+  propertyType,
+  profile,
+  stage,
+  city,
+  neighborhood,
+  bedrooms,
+  suites,
+  parkingSpaces,
+  area,
+  highlights,
+  otherHighlight,
+  valueCondition,
+  value,
+  conditions,
+  cta,
+  destination,
+  imageMode,
+  concepts,
+}) => {
+  const location = [neighborhood, city].filter(Boolean).join(', ')
+  const featureParts = [
+    bedrooms ? `${bedrooms} dormitório${String(bedrooms) === '1' ? '' : 's'}` : '',
+    suites ? `${suites} suíte${String(suites) === '1' ? '' : 's'}` : '',
+    parkingSpaces ? `${parkingSpaces} vaga${String(parkingSpaces) === '1' ? '' : 's'}` : '',
+    area ? `${area}m²` : '',
+  ].filter(Boolean)
+  const allHighlights = [...highlights, otherHighlight].filter(Boolean)
+  const commercialParts = [
+    valueCondition?.id === 'show_registered_price' && value ? `Valor: ${value}.` : '',
+    valueCondition?.id === 'commercial_terms' && conditions.length > 0 ? `Condições comerciais: ${conditions.join(', ')}.` : '',
+    valueCondition?.id === 'hide_values' ? 'Não mostrar valores na campanha.' : '',
+  ].filter(Boolean)
+
+  return [
+    `Crie uma campanha imobiliária premium para ${destination?.label || 'Instagram'}.`,
+    '',
+    `${propertyType || 'Imóvel'} de ${profile || 'perfil residencial'}${location ? ` localizado em ${location}` : ''}.`,
+    stage ? `Imóvel ${stage.toLowerCase()}${featureParts.length > 0 ? `, com ${featureParts.join(', ')}` : ''}.` : featureParts.length > 0 ? `Características principais: ${featureParts.join(', ')}.` : '',
+    allHighlights.length > 0 ? `Possui ${allHighlights.join(', ')}.` : '',
+    concepts.length > 0 ? `A campanha deve explorar os conceitos de ${concepts.join(', ')}.` : '',
+    imageMode ? `Uso das imagens: ${imageMode.description}` : '',
+    ...commercialParts,
+    `CTA: ${cta || 'Agende sua visita'}.`,
+    '',
+    'A campanha deve destacar primeiro o valor comercial e emocional do imóvel, depois os diferenciais reais informados.',
+    'Criar uma peça visual moderna, elegante e forte para venda imobiliária.',
+    'Não inventar imóvel, fachada, planta, lazer, localização, condições ou dados não informados.',
+  ].filter((line) => line !== '').join('\n')
+}
+
 export default function Hero() {
   const { user } = useAuth()
   const { properties, loading } = useProperties()
@@ -279,6 +402,17 @@ export default function Hero() {
   const [generationLoading, setGenerationLoading] = useState(false)
   const [generationError, setGenerationError] = useState('')
   const [generationResult, setGenerationResult] = useState(null)
+  const [campaignPropertyType, setCampaignPropertyType] = useState('')
+  const [campaignProfile, setCampaignProfile] = useState('')
+  const [campaignCity, setCampaignCity] = useState('')
+  const [campaignNeighborhood, setCampaignNeighborhood] = useState('')
+  const [campaignBedrooms, setCampaignBedrooms] = useState('')
+  const [campaignSuites, setCampaignSuites] = useState('')
+  const [campaignParkingSpaces, setCampaignParkingSpaces] = useState('')
+  const [campaignArea, setCampaignArea] = useState('')
+  const [campaignValue, setCampaignValue] = useState('')
+  const [campaignOtherHighlight, setCampaignOtherHighlight] = useState('')
+  const [campaignConditions, setCampaignConditions] = useState([])
 
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === selectedPropertyId) || null,
@@ -291,61 +425,102 @@ export default function Hero() {
   const brandStatus = getBrandStatus(user)
 
   const imageMode = IMAGE_MODES.find((item) => item.id === imageModeId)
-  const audiences = AUDIENCES.filter((item) => audienceIds.includes(item.id))
-  const audienceLabels = audiences.map((item) => item.label)
+  const audiences = []
+  const audienceLabels = []
   const audienceKey = audienceIds.join('|')
   const subcategories = Array.from(new Set(
     audienceIds.flatMap((id) => SUBCATEGORIES[id] || []),
   ))
   const subcategory = selectedSubcategories.join(', ')
-  const selectedCta = customCta.trim() || ctaChoice
+  const selectedCta = ctaChoice || 'Agende sua visita'
   const valueCondition = VALUE_CONDITION_OPTIONS.find((item) => item.id === valueConditionId)
-  const valueConditionSummary = [
-    valueCondition?.label,
-    valueConditionDetails.trim(),
-  ].filter(Boolean).join(' - ')
+  const valueConditionSummary = valueConditionId === 'show_registered_price'
+    ? [valueCondition?.label, campaignValue].filter(Boolean).join(' - ')
+    : valueConditionId === 'commercial_terms'
+      ? [valueCondition?.label, campaignConditions.join(', ')].filter(Boolean).join(' - ')
+      : valueCondition?.label || ''
   const primaryDestination = DESTINATION_OPTIONS.find((item) => item.id === primaryDestinationId)
   const allCompatibleDestinations = primaryDestination
     ? DESTINATION_OPTIONS.filter((item) => primaryDestination.compatibleIds.includes(item.id))
     : []
-  const compatibleDestinations = allCompatibleDestinations.filter((item) => compatibleDestinationIds.includes(item.id))
+  const compatibleDestinations = allCompatibleDestinations
   const compatibleDestinationSummary = compatibleDestinations.length > 0
     ? compatibleDestinations.map((item) => item.label).join(', ')
     : 'Nenhum uso adicional compatível nesta versão'
   const chosenDeliverables = DELIVERABLES.filter((item) => deliverables[item.id])
 
-  const canShowImageMode = Boolean(selectedProperty)
-  const canShowPropertyState = Boolean(imageModeId)
-  const canShowAudience = Boolean(imageModeId && propertyStateConfirmed)
-  const canShowConcepts = imageModeId === 'new_image' && audienceIds.length > 0
-  const canShowSubcategory = audienceIds.length > 0 && (imageModeId !== 'new_image' || creativeConceptsConfirmed)
-  const canShowHighlights = subcategoriesConfirmed
-  const canShowCta = highlightsConfirmed
-  const canShowValueConditions = ctaConfirmed
-  const canShowDestination = valueConditionConfirmed
-  const canShowDeliverables = destinationConfirmed
-  const canShowAdditionalInfo = deliverablesConfirmed
-  const canShowChecklist = additionalConfirmed
+  const canShowImageMode = false
+  const canShowPropertyState = false
+  const canShowAudience = false
+  const canShowConcepts = false
+  const canShowSubcategory = false
+  const canShowHighlights = false
+  const canShowCta = false
+  const canShowValueConditions = false
+  const canShowDestination = false
+  const canShowDeliverables = false
+  const canShowAdditionalInfo = false
+  const canShowSimplifiedValueConditions = false
+  const canShowSimplifiedDestination = false
+  const canShowChecklist = Boolean(primaryDestinationId)
+  const requiresHeroPhotos = imageModeId !== 'new_image'
+  const humanPrompt = useMemo(() => buildHumanPrompt({
+    propertyType: campaignPropertyType,
+    profile: campaignProfile,
+    stage: propertyState,
+    city: campaignCity,
+    neighborhood: campaignNeighborhood,
+    bedrooms: campaignBedrooms,
+    suites: campaignSuites,
+    parkingSpaces: campaignParkingSpaces,
+    area: campaignArea,
+    highlights: selectedHighlights,
+    otherHighlight: campaignOtherHighlight,
+    valueCondition,
+    value: campaignValue,
+    conditions: campaignConditions,
+    cta: selectedCta,
+    destination: primaryDestination,
+    imageMode,
+    concepts: creativeConcepts,
+  }), [
+    campaignPropertyType,
+    campaignProfile,
+    propertyState,
+    campaignCity,
+    campaignNeighborhood,
+    campaignBedrooms,
+    campaignSuites,
+    campaignParkingSpaces,
+    campaignArea,
+    selectedHighlights,
+    campaignOtherHighlight,
+    valueCondition,
+    campaignValue,
+    campaignConditions,
+    selectedCta,
+    primaryDestination,
+    imageMode,
+    creativeConcepts,
+  ])
   const canGenerate = Boolean(
     selectedProperty
-    && photos.length >= MIN_HERO_PHOTOS
-    && imageModeId
+    && (!requiresHeroPhotos || photos.length >= MIN_HERO_PHOTOS)
+    && campaignPropertyType
+    && campaignProfile
     && propertyState
-    && propertyStateConfirmed
-    && audienceIds.length > 0
-    && selectedSubcategories.length > 0
-    && (imageModeId !== 'new_image' || creativeConceptsConfirmed)
-    && highlightsConfirmed
-    && ctaConfirmed
-    && valueConditionConfirmed
+    && campaignCity
+    && campaignNeighborhood
+    && imageModeId
+    && (imageModeId !== 'new_image' || creativeConcepts.length > 0)
+    && valueConditionId
+    && selectedCta
     && primaryDestinationId
-    && destinationConfirmed
-    && deliverablesConfirmed
-    && additionalConfirmed,
   )
   const hasCompletedHero = Boolean(generationResult?.imageUrl)
 
   useEffect(() => {
+    const master = parseMasterProperty(selectedProperty?.descricao)
     setImageModeId('')
     setPropertyState(getPropertyState(selectedProperty))
     setPropertyStateConfirmed(false)
@@ -372,6 +547,17 @@ export default function Hero() {
     setResultVisible(false)
     setGenerationError('')
     setGenerationResult(null)
+    setCampaignPropertyType(selectedProperty?.tipo || '')
+    setCampaignProfile(getMasterProfile(selectedProperty))
+    setCampaignCity(normalizePlaceName(selectedProperty?.cidade || ''))
+    setCampaignNeighborhood(normalizePlaceName(selectedProperty?.bairro || ''))
+    setCampaignBedrooms(selectedProperty?.quartos ? String(selectedProperty.quartos) : '')
+    setCampaignSuites(master?.suites ? String(master.suites) : '')
+    setCampaignParkingSpaces(selectedProperty?.vagas ? String(selectedProperty.vagas) : '')
+    setCampaignArea(selectedProperty?.area_m2 ? String(selectedProperty.area_m2) : '')
+    setCampaignValue(selectedProperty?.preco ? formatCurrency(Number(selectedProperty.preco)) : '')
+    setCampaignOtherHighlight('')
+    setCampaignConditions([])
   }, [selectedPropertyId])
 
   useEffect(() => {
@@ -448,22 +634,33 @@ export default function Hero() {
 
     const payload = {
       property_id: selectedProperty.id,
+      human_prompt: humanPrompt,
       image_mode: imageModeId,
       image_mode_label: imageMode?.label || '',
-      property_state: propertyState,
-      audience_ids: audienceIds,
-      audiences: audiences.map((item) => ({ id: item.id, label: item.label })),
-      subcategory,
-      subcategories: selectedSubcategories,
+      property_state: propertyState || savedPropertyState,
+      audience_ids: [],
+      audiences: [],
+      subcategory: creativeConcepts.join(', '),
+      subcategories: creativeConcepts,
       creative_concepts: creativeConcepts,
-      highlights: selectedHighlights,
+      highlights: [...selectedHighlights, campaignOtherHighlight].filter(Boolean).slice(0, 8),
       deliverables,
       deliverable_items: chosenDeliverables.map((item) => ({ id: item.id, label: item.label })),
       cta: selectedCta,
       value_condition: {
         mode: valueConditionId,
         label: valueCondition?.label || '',
-        details: valueConditionDetails.trim(),
+        details: campaignConditions.join(', '),
+      },
+      campaign_property_type: campaignPropertyType,
+      campaign_profile: campaignProfile,
+      campaign_city: campaignCity,
+      campaign_neighborhood: campaignNeighborhood,
+      campaign_features: {
+        bedrooms: campaignBedrooms,
+        suites: campaignSuites,
+        parking_spaces: campaignParkingSpaces,
+        area: campaignArea,
       },
       primary_destination: primaryDestination
         ? {
@@ -477,7 +674,7 @@ export default function Hero() {
         label: item.label,
         format_group: item.formatGroup,
       })),
-      additional_info: additionalInfo.trim(),
+      additional_info: '',
     }
 
     try {
@@ -498,17 +695,18 @@ export default function Hero() {
         propertyTitle: getPropertyTitle(selectedProperty),
         imageModeLabel: imageMode?.label || '',
         audiences: audienceLabels,
-        subcategory,
-        subcategories: selectedSubcategories,
+        subcategory: creativeConcepts.join(', '),
+        subcategories: creativeConcepts,
         creativeConcepts,
-        propertyState,
-        highlights: selectedHighlights,
+        propertyState: propertyState || savedPropertyState,
+        highlights: [...selectedHighlights, campaignOtherHighlight].filter(Boolean).slice(0, 8),
         cta: selectedCta,
         valueCondition: valueConditionSummary || 'Não informado',
         primaryDestination: primaryDestination?.label || '',
         compatibleDestinations: compatibleDestinations.map((item) => item.label),
         deliverables: chosenDeliverables.map((item) => item.label),
-        additionalInfo: additionalInfo.trim(),
+        additionalInfo: '',
+        humanPrompt,
       })
       setResultVisible(true)
     } catch (error) {
@@ -572,7 +770,7 @@ export default function Hero() {
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_370px]">
             <div className="space-y-5">
-              <AssistantStep number={1} message="Ótimo. Qual imóvel deseja utilizar?">
+              <AssistantStep number="Imóvel" message="Ótimo. Qual imóvel deseja utilizar?">
                 <div className="grid gap-3 md:grid-cols-2">
                   {properties.map((property) => {
                     const propertyPhotos = getPhotoList(property)
@@ -624,14 +822,300 @@ export default function Hero() {
                 </UserReply>
               )}
 
-              {canShowImageMode && (
-                <AssistantStep number={2} message="Como deseja criar sua imagem?">
+              {selectedProperty && (
+                <AssistantStep number={1} message="Que tipo de imóvel deseja anunciar?">
+                  <ChipGrid>
+                    {SALE_PROPERTY_TYPES.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={campaignPropertyType === item}
+                        onClick={() => {
+                          setCampaignPropertyType(item)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {campaignPropertyType && (
+                <AssistantStep number={2} message="Qual o perfil do imóvel?">
+                  <ChipGrid>
+                    {SALE_PROFILES.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={campaignProfile === item}
+                        onClick={() => {
+                          setCampaignProfile(item)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {campaignProfile && (
+                <AssistantStep number={3} message="Qual o estágio do imóvel?">
+                  <ChipGrid>
+                    {SALE_STAGES.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={propertyState === item}
+                        onClick={() => {
+                          setPropertyState(item)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {propertyState && (
+                <AssistantStep number={4} message="Onde está localizado?">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-sm font-black text-gray-950">Cidade</span>
+                      <input
+                        value={campaignCity}
+                        onChange={(event) => setCampaignCity(event.target.value)}
+                        onBlur={() => setCampaignCity((value) => normalizePlaceName(value))}
+                        placeholder="Ex: São Paulo"
+                        className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-black text-gray-950">Bairro</span>
+                      <input
+                        value={campaignNeighborhood}
+                        onChange={(event) => setCampaignNeighborhood(event.target.value)}
+                        onBlur={() => setCampaignNeighborhood((value) => normalizePlaceName(value))}
+                        placeholder="Ex: Moema"
+                        className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      />
+                    </label>
+                  </div>
+                </AssistantStep>
+              )}
+
+              {campaignCity && campaignNeighborhood && (
+                <AssistantStep number={5} message="Quais são as características principais?">
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    {[
+                      ['Dormitórios', campaignBedrooms, setCampaignBedrooms],
+                      ['Suítes', campaignSuites, setCampaignSuites],
+                      ['Vagas', campaignParkingSpaces, setCampaignParkingSpaces],
+                      ['Área em m²', campaignArea, setCampaignArea],
+                    ].map(([label, value, setter]) => (
+                      <label key={label} className="block">
+                        <span className="text-sm font-black text-gray-950">{label}</span>
+                        <input
+                          value={value}
+                          onChange={(event) => setter(event.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                          inputMode="numeric"
+                          className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </AssistantStep>
+              )}
+
+              {campaignCity && campaignNeighborhood && (
+                <AssistantStep number={6} message="O que deseja destacar?">
+                  <ChipGrid>
+                    {SALE_HIGHLIGHTS.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={selectedHighlights.includes(item)}
+                        onClick={() => toggleHighlight(item)}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                  <label className="mt-4 block">
+                    <span className="text-sm font-black text-gray-950">Outro diferencial</span>
+                    <input
+                      value={campaignOtherHighlight}
+                      onChange={(event) => setCampaignOtherHighlight(event.target.value.slice(0, 70))}
+                      placeholder="Ex: acabamento sofisticado"
+                      className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    />
+                  </label>
+                </AssistantStep>
+              )}
+
+              {campaignCity && campaignNeighborhood && (
+                <AssistantStep number={7} message="Quais condições comerciais deseja usar?">
+                  <OptionGrid>
+                    {VALUE_CONDITION_OPTIONS.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={valueConditionId === item.id}
+                        title={`${item.icon} ${item.label}`}
+                        description={item.id === 'show_registered_price' ? 'Usa o valor informado abaixo.' : item.id === 'commercial_terms' ? 'Mostra apenas condições, sem preço.' : 'A campanha não destaca preço.'}
+                        onClick={() => {
+                          setValueConditionId(item.id)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                  {valueConditionId === 'show_registered_price' && (
+                    <label className="mt-4 block">
+                      <span className="text-sm font-black text-gray-950">Valor</span>
+                      <input
+                        value={campaignValue}
+                        onChange={(event) => setCampaignValue(event.target.value.slice(0, 40))}
+                        placeholder="Ex: R$ 1.790.000"
+                        className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      />
+                    </label>
+                  )}
+                  {valueConditionId === 'commercial_terms' && (
+                    <div className="mt-4">
+                      <ChipGrid>
+                        {SALE_CONDITIONS.map((item) => (
+                          <ChipButton
+                            key={item}
+                            active={campaignConditions.includes(item)}
+                            onClick={() => {
+                              setCampaignConditions((current) => (
+                                current.includes(item)
+                                  ? current.filter((condition) => condition !== item)
+                                  : [...current, item]
+                              ))
+                            }}
+                          >
+                            {item}
+                          </ChipButton>
+                        ))}
+                      </ChipGrid>
+                    </div>
+                  )}
+                </AssistantStep>
+              )}
+
+              {valueConditionId && (
+                <AssistantStep number={8} message="Qual CTA deseja usar?">
+                  <ChipGrid>
+                    {SALE_CTA_OPTIONS.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={selectedCta === item}
+                        onClick={() => {
+                          setCtaChoice(item)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {selectedCta && valueConditionId && (
+                <AssistantStep number={9} message="Como deseja usar as fotos?">
                   <OptionGrid>
                     {IMAGE_MODES.map((item) => (
                       <ChoiceButton
                         key={item.id}
                         active={imageModeId === item.id}
-                        title={item.label}
+                        title={`${item.icon} ${item.label}`}
+                        description={item.description}
+                        onClick={() => {
+                          setImageModeId(item.id)
+                          setCreativeConcepts([])
+                          setPrimaryDestinationId('')
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                </AssistantStep>
+              )}
+
+              {imageModeId === 'new_image' && (
+                <AssistantStep number="9.1" message="Quais conceitos deseja explorar?">
+                  <ChipGrid>
+                    {CREATIVE_CONCEPTS.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={creativeConcepts.includes(item)}
+                        onClick={() => {
+                          setCreativeConcepts((current) => (
+                            current.includes(item)
+                              ? current.filter((concept) => concept !== item)
+                              : [...current, item]
+                          ))
+                          setPrimaryDestinationId('')
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {CREATIVE_CONCEPT_ICONS[item]} {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {imageModeId && (imageModeId !== 'new_image' || creativeConcepts.length > 0) && (
+                <AssistantStep number={10} message="Onde você pretende usar esta peça?">
+                  <OptionGrid>
+                    {DESTINATION_OPTIONS.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={primaryDestinationId === item.id}
+                        title={`${item.icon} ${item.label}`}
+                        description={
+                          item.compatibleIds.length > 0
+                            ? `Também pode funcionar em ${DESTINATION_OPTIONS.filter((dest) => item.compatibleIds.includes(dest.id)).map((dest) => dest.label).join(', ')}.`
+                            : 'Este destino pede uma peça própria.'
+                        }
+                        onClick={() => {
+                          setPrimaryDestinationId(item.id)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                </AssistantStep>
+              )}
+
+              {canShowImageMode && (
+                <AssistantStep number={1} message="Como deseja criar a campanha?">
+                  <OptionGrid>
+                    {IMAGE_MODES.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={imageModeId === item.id}
+                        title={`${item.icon} ${item.label}`}
                         description={item.description}
                         onClick={() => {
                           setImageModeId(item.id)
@@ -662,10 +1146,102 @@ export default function Hero() {
                 </AssistantStep>
               )}
 
-              {imageMode && (
+              {false && imageMode && (
                 <UserReply>
                   <strong>{imageMode.label}</strong>
                   <span>{imageMode.description}</span>
+                </UserReply>
+              )}
+
+              {false && imageModeId === 'new_image' && (
+                <AssistantStep number="1.1" message="Quais conceitos deseja explorar?">
+                  <p className="mb-4 text-sm font-semibold leading-relaxed text-gray-500">
+                    Escolha uma ou mais direções para esta campanha. Elas não entram no Cadastro Mestre e podem mudar a cada geração.
+                  </p>
+                  <ChipGrid>
+                    {CREATIVE_CONCEPTS.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={creativeConcepts.includes(item)}
+                        onClick={() => {
+                          setCreativeConcepts((current) => (
+                            current.includes(item)
+                              ? current.filter((concept) => concept !== item)
+                              : [...current, item]
+                          ))
+                          setValueConditionId('')
+                          setPrimaryDestinationId('')
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {CREATIVE_CONCEPT_ICONS[item]} {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                </AssistantStep>
+              )}
+
+              {canShowSimplifiedValueConditions && (
+                <AssistantStep number={2} message="Deseja divulgar valores e condições?">
+                  <OptionGrid>
+                    {VALUE_CONDITION_OPTIONS.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={valueConditionId === item.id}
+                        title={`${item.icon} ${item.label}`}
+                        description="O Cadastro Mestre continua sendo a base da campanha."
+                        onClick={() => {
+                          setValueConditionId(item.id)
+                          setValueConditionDetails('')
+                          setPrimaryDestinationId('')
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                </AssistantStep>
+              )}
+
+              {false && valueConditionId && (
+                <UserReply>
+                  <strong>{valueCondition?.label}</strong>
+                  <span>Regra de valores definida para esta geração.</span>
+                </UserReply>
+              )}
+
+              {canShowSimplifiedDestination && (
+                <AssistantStep number={3} message="Onde você pretende utilizar esta peça?">
+                  <OptionGrid>
+                    {DESTINATION_OPTIONS.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        active={primaryDestinationId === item.id}
+                        title={`${item.icon} ${item.label}`}
+                        description={
+                          item.compatibleIds.length > 0
+                            ? `Também pode funcionar em ${DESTINATION_OPTIONS.filter((dest) => item.compatibleIds.includes(dest.id)).map((dest) => dest.label).join(', ')}.`
+                            : 'Este destino pede uma peça própria.'
+                        }
+                        onClick={() => {
+                          setPrimaryDestinationId(item.id)
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      />
+                    ))}
+                  </OptionGrid>
+                </AssistantStep>
+              )}
+
+              {false && primaryDestination && (
+                <UserReply>
+                  <strong>{primaryDestination.label}</strong>
+                  <span>{compatibleDestinations.length > 0 ? `Também poderá ser usado em: ${compatibleDestinationSummary}.` : 'Destino principal definido para esta campanha.'}</span>
                 </UserReply>
               )}
 
@@ -1146,7 +1722,7 @@ export default function Hero() {
               )}
 
               {canShowChecklist && (
-                <AssistantStep number={imageModeId === 'new_image' ? 13 : 12} message="Confira o checklist final antes de gerar.">
+                <AssistantStep number="Resumo" message="Confira a campanha antes de gerar.">
                   <Checklist
                     property={selectedProperty}
                     imageMode={imageMode}
@@ -1161,7 +1737,9 @@ export default function Hero() {
                     compatibleDestinations={compatibleDestinations}
                     additionalInfo={additionalInfo}
                     deliverables={chosenDeliverables}
+                    humanPrompt={humanPrompt}
                     photos={photos}
+                    requiresPhotos={requiresHeroPhotos}
                     canGenerate={canGenerate}
                     generationLoading={generationLoading}
                     generationError={generationError}
@@ -1175,6 +1753,7 @@ export default function Hero() {
               <ReadinessCard
                 selectedProperty={selectedProperty}
                 photoCount={photos.length}
+                requiresPhotos={requiresHeroPhotos}
                 profileStatus={profileStatus}
                 brandStatus={brandStatus}
               />
@@ -1459,30 +2038,20 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, propertyState, audiences, creativeConcepts, subcategory, highlights, cta, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, photos, canGenerate, generationLoading, generationError, onGenerate }) {
-  const audienceSummary = Array.isArray(audiences) && audiences.length > 0
-    ? audiences.map((item) => item.label).join(', ')
-    : 'Não informado'
+function Checklist({ property, imageMode, propertyState, audiences, creativeConcepts, subcategory, highlights, cta, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, humanPrompt, photos, requiresPhotos, canGenerate, generationLoading, generationError, onGenerate }) {
   const creativeConceptSummary = Array.isArray(creativeConcepts) && creativeConcepts.length > 0
     ? creativeConcepts.join(', ')
-    : ''
+    : 'Não se aplica'
   const compatibleDestinationSummary = Array.isArray(compatibleDestinations) && compatibleDestinations.length > 0
     ? compatibleDestinations.map((item) => item.label).join(', ')
     : 'Nenhum uso adicional compatível nesta versão'
   const rows = [
     ['Imóvel', getPropertyTitle(property)],
-    ['Tipo de imagem', imageMode?.label || 'Não informado'],
-    ['Públicos selecionados', audienceSummary],
-    ...(creativeConceptSummary ? [['Conceitos criativos', creativeConceptSummary]] : []),
-    ['Focos', subcategory || 'Não informado'],
-    ['Estado do imóvel', propertyState || 'Não informado'],
-    ['Destaques', highlights.length > 0 ? highlights.join(', ') : 'Sem destaque adicional'],
-    ['CTA', cta || 'Não informado'],
-    ['Valores e condições', valueConditionSummary || 'Não informado'],
-    ['Destino principal', primaryDestination?.label || 'Não informado'],
-    ['Destinos compatíveis / usos adicionais', compatibleDestinationSummary],
-    ['Informações adicionais', additionalInfo.trim() || 'Nenhuma'],
-    ['Pacote escolhido', deliverables.map((item) => item.label).join(', ')],
+    ['Modo de criação', imageMode?.label || 'Não informado'],
+    ['Conceitos selecionados', creativeConceptSummary],
+    ['Regra de valores', valueConditionSummary || 'Não informado'],
+    ['Destino da campanha', primaryDestination?.label || 'Não informado'],
+    ['Usos compatíveis', compatibleDestinationSummary],
   ]
 
   return (
@@ -1496,9 +2065,22 @@ function Checklist({ property, imageMode, propertyState, audiences, creativeConc
         ))}
       </div>
 
-      {photos.length < MIN_HERO_PHOTOS && (
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-amber-700">Prompt Humano</p>
+        <p className="mt-3 whitespace-pre-line rounded-2xl bg-white p-4 text-sm font-semibold leading-relaxed text-gray-800">
+          {humanPrompt}
+        </p>
+      </div>
+
+      {requiresPhotos && photos.length < MIN_HERO_PHOTOS && (
         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
           Este imóvel tem {photos.length} foto{photos.length === 1 ? '' : 's'}. Adicione pelo menos {MIN_HERO_PHOTOS} fotos no Cadastro Mestre antes da geração real.
+        </div>
+      )}
+
+      {!requiresPhotos && photos.length === 0 && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+          Geração livre ativada: este teste usará apenas o Prompt Humano, sem foto de referência.
         </div>
       )}
 
@@ -1510,21 +2092,21 @@ function Checklist({ property, imageMode, propertyState, audiences, creativeConc
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-black text-gray-950">Pronto para preparar a experiência?</p>
+          <p className="text-sm font-black text-gray-950">Pronto para gerar sua campanha?</p>
           <p className="mt-1 text-xs font-semibold text-gray-500">
-            Esta etapa gera 1 imagem principal e ainda não consome Smart Tokens.
+            O Cadastro Mestre será usado como briefing principal.
           </p>
         </div>
         <Button type="button" onClick={onGenerate} disabled={!canGenerate} loading={generationLoading} className="justify-center">
           <Wand2 className="h-4 w-4" />
-          {generationLoading ? 'Gerando Hero IA...' : 'Sim, gerar agora'}
+          {generationLoading ? 'Gerando campanha...' : 'Gerar campanha'}
         </Button>
       </div>
     </div>
   )
 }
 
-function ReadinessCard({ selectedProperty, photoCount, profileStatus, brandStatus }) {
+function ReadinessCard({ selectedProperty, photoCount, requiresPhotos, profileStatus, brandStatus }) {
   const items = [
     {
       label: 'Imóvel selecionado',
@@ -1533,8 +2115,12 @@ function ReadinessCard({ selectedProperty, photoCount, profileStatus, brandStatu
     },
     {
       label: 'Fotos do imóvel',
-      ok: photoCount >= MIN_HERO_PHOTOS,
-      hint: `${photoCount}/${MIN_HERO_PHOTOS} mínimas para criar o Hero IA.`,
+      ok: !requiresPhotos || photoCount >= MIN_HERO_PHOTOS,
+      hint: requiresPhotos
+        ? `${photoCount}/${MIN_HERO_PHOTOS} mínimas para criar o Hero IA.`
+        : photoCount > 0
+          ? `${photoCount} foto${photoCount === 1 ? '' : 's'} disponível${photoCount === 1 ? '' : 'is'}, mas este modo pode gerar sem referência.`
+          : 'Geração livre por Prompt Humano não exige foto neste teste.',
     },
     {
       label: 'Perfil Comercial',
