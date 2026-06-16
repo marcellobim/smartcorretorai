@@ -45,10 +45,12 @@ const mainActions = [
   {
     id: 'transformar-video',
     icon: Video,
-    title: 'Transformar meu vídeo',
-    description: 'Transforme gravações em materiais mais claros para divulgar.',
-    label: 'Em preparação',
-    ready: false,
+    title: 'Vídeos Virais',
+    description: 'Envie fotos do imóvel e siga um fluxo guiado para preparar um vídeo vertical profissional.',
+    to: '/transformar-video',
+    label: 'Criar vídeo',
+    tone: 'soft',
+    ready: true,
   },
   {
     id: 'banners-rapidos',
