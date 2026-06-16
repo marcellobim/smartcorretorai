@@ -60,6 +60,16 @@ const creationPaths = [
     desc: 'Gere variações para feed, story, WhatsApp, portal e outros formatos.',
   },
   {
+    icon: BadgeCheck,
+    title: 'Captação de Imóveis',
+    desc: 'Crie campanhas para atrair proprietários interessados em vender, alugar ou administrar seus imóveis.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Captação de Corretores',
+    desc: 'Prepare campanhas para atrair profissionais e fortalecer sua equipe comercial.',
+  },
+  {
     icon: Video,
     title: 'Transformação em vídeo',
     desc: 'Use fotos e vídeos para criar apresentações mais envolventes.',
