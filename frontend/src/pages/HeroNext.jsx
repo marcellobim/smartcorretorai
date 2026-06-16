@@ -276,6 +276,8 @@ const PROCESSING_STEPS = [
 ]
 
 const MAX_HERO_NEXT_IMAGES = 4
+const MAX_HERO_NEXT_PIECES = 6
+const HERO_NEXT_PIECE_LIMIT_MESSAGE = 'Para manter a qualidade da campanha, escolha até 6 peças por geração. Você poderá expandir a campanha depois.'
 
 const DESTINATIONS = [
   { id: 'instagram_feed', label: 'Feed Instagram', format_group: 'square_feed' },
@@ -596,7 +598,10 @@ const getCreationOptionLabel = (number = 1, compact = false) => {
   return 'Opção 3 — Proposta destaque'
 }
 
-const getTotalPieceCount = (destinations, ideaCount) => Math.max(0, destinations.length) * Math.max(1, Number(ideaCount) || 1)
+const getTotalPieceCount = (destinations, ideaCount) => {
+  const destinationCount = Array.isArray(destinations) ? destinations.length : Math.max(0, Number(destinations) || 0)
+  return destinationCount * Math.max(1, Number(ideaCount) || 1)
+}
 
 const createCampaignBatchId = () => `hero-next-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -809,6 +814,7 @@ export default function HeroNext() {
   const [uploadedImages, setUploadedImages] = useState([])
   const [generationLoading, setGenerationLoading] = useState(false)
   const [generationError, setGenerationError] = useState('')
+  const [pieceLimitNotice, setPieceLimitNotice] = useState('')
   const [generationResult, setGenerationResult] = useState(null)
   const [generationJobs, setGenerationJobs] = useState([])
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
@@ -820,6 +826,7 @@ export default function HeroNext() {
     .filter(Boolean)
   const selectedDestination = selectedDestinations[0] || null
   const totalPieceCount = getTotalPieceCount(selectedDestinations, creativeIdeaCount)
+  const pieceLimitExceeded = totalPieceCount > MAX_HERO_NEXT_PIECES
   const valueCondition = useMemo(() => buildValueCondition(goal, {
     mode: saleValueMode,
     price: salePrice,
@@ -853,6 +860,7 @@ export default function HeroNext() {
     && selectedDestinations.length > 0
     && imageChoice
     && (!imageChoice.startsWith('yes') || uploadedImages.length > 0)
+    && !pieceLimitExceeded
     && !generationLoading,
   )
 
@@ -935,11 +943,21 @@ export default function HeroNext() {
   }
 
   const toggleDestination = (id) => {
-    setDestinationIds((current) => (
-      current.includes(id)
-         ? current.filter((item) => item !== id)
-        : [...current, id]
-    ))
+    setDestinationIds((current) => {
+      if (current.includes(id)) {
+        setPieceLimitNotice('')
+        return current.filter((item) => item !== id)
+      }
+
+      const next = [...current, id]
+      if (getTotalPieceCount(next.length, creativeIdeaCount) > MAX_HERO_NEXT_PIECES) {
+        setPieceLimitNotice(HERO_NEXT_PIECE_LIMIT_MESSAGE)
+        return current
+      }
+
+      setPieceLimitNotice('')
+      return next
+    })
     setCreativeIdeaCount((current) => Math.max(1, Math.min(3, current)))
     setPromptTouched(false)
     setHumanPrompt('')
@@ -970,6 +988,19 @@ export default function HeroNext() {
     setPromptTouched(true)
     setHumanPrompt(value)
     setGenerationResult(null)
+    setGenerationError('')
+  }
+
+  const selectCreativeIdeaCount = (count) => {
+    if (getTotalPieceCount(selectedDestinations.length, count) > MAX_HERO_NEXT_PIECES) {
+      setPieceLimitNotice(HERO_NEXT_PIECE_LIMIT_MESSAGE)
+      return
+    }
+
+    setPieceLimitNotice('')
+    setCreativeIdeaCount(count)
+    setPromptTouched(false)
+    setHumanPrompt('')
     setGenerationError('')
   }
 
@@ -1199,6 +1230,10 @@ export default function HeroNext() {
   }
 
   const handleGenerate = async () => {
+    if (pieceLimitExceeded) {
+      setGenerationError(HERO_NEXT_PIECE_LIMIT_MESSAGE)
+      return
+    }
     if (!canGenerate) return
 
     setGenerationLoading(true)
@@ -1805,6 +1840,9 @@ export default function HeroNext() {
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
               Cada formato selecionado gera uma peça IA própria, otimizada para aquele canal.
             </p>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-primary-700">
+              Limite: até {MAX_HERO_NEXT_PIECES} peças por geração.
+            </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {DESTINATIONS.map((item) => (
                 <button
@@ -1833,14 +1871,19 @@ export default function HeroNext() {
               <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-600">
                 <p><strong>Formatos selecionados:</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
                 <p className="mt-1"><strong>Próximo passo:</strong> escolher quantas opções de criação deseja receber.</p>
-                <p className="mt-1"><strong>Ideias:</strong> você escolherá entre 1 e 3 no próximo passo.</p>
+                <p className="mt-1"><strong>Total atual:</strong> {formatPieceCount(totalPieceCount)} IA</p>
               </div>
+            )}
+            {(pieceLimitNotice || pieceLimitExceeded) && (
+              <p className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
+                {HERO_NEXT_PIECE_LIMIT_MESSAGE}
+              </p>
             )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' ? 'values' : 'chat')}>
                 Voltar
               </Button>
-              <Button type="button" onClick={() => setPhase('ideas')} disabled={!selectedDestination}>
+              <Button type="button" onClick={() => setPhase('ideas')} disabled={!selectedDestination || pieceLimitExceeded}>
                 Continuar
               </Button>
             </div>
@@ -1855,17 +1898,21 @@ export default function HeroNext() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {CREATIVE_IDEAS.map((idea) => (
+                (() => {
+                  const optionTotal = getTotalPieceCount(selectedDestinations.length, idea.number)
+                  const optionBlocked = optionTotal > MAX_HERO_NEXT_PIECES
+                  return (
                 <button
                   key={idea.number}
                   type="button"
-                  onClick={() => {
-                    setCreativeIdeaCount(idea.number)
-                    setPromptTouched(false)
-                    setHumanPrompt('')
-                    setGenerationError('')
-                  }}
+                  onClick={() => selectCreativeIdeaCount(idea.number)}
+                  disabled={optionBlocked}
                   className={`rounded-3xl border p-5 text-left transition ${
-                    creativeIdeaCount === idea.number ? 'border-[#0E7490] bg-[#0E7490] text-white shadow-lg shadow-cyan-900/10' : 'border-slate-200 bg-white text-slate-700 hover:border-[#0E7490]'
+                    creativeIdeaCount === idea.number
+                      ? 'border-[#0E7490] bg-[#0E7490] text-white shadow-lg shadow-cyan-900/10'
+                      : optionBlocked
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-[#0E7490]'
                   }`}
                 >
                   <p className="text-lg font-black">{formatCreationOptionCount(idea.number)}</p>
@@ -1873,7 +1920,12 @@ export default function HeroNext() {
                   <p className={`mt-2 text-sm font-semibold leading-relaxed ${creativeIdeaCount === idea.number ? 'text-cyan-50/90' : 'text-slate-500'}`}>
                     {idea.publicDescription}
                   </p>
+                  <p className={`mt-3 text-xs font-black ${creativeIdeaCount === idea.number ? 'text-cyan-50/90' : optionBlocked ? 'text-slate-400' : 'text-primary-700'}`}>
+                    Total: {formatPieceCount(optionTotal)}
+                  </p>
                 </button>
+                  )
+                })()
               ))}
             </div>
             <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-600">
@@ -1882,11 +1934,16 @@ export default function HeroNext() {
               <p className="mt-1"><strong>Total previsto:</strong> {formatPieceCount(totalPieceCount)} IA</p>
               <p className="mt-1"><strong>Consumo previsto:</strong> {totalPieceCount} geração(ões)</p>
             </div>
+            {(pieceLimitNotice || pieceLimitExceeded) && (
+              <p className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
+                {HERO_NEXT_PIECE_LIMIT_MESSAGE}
+              </p>
+            )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => setPhase('destination')}>
                 Voltar
               </Button>
-              <Button type="button" onClick={() => setPhase('prompt')}>
+              <Button type="button" onClick={() => setPhase('prompt')} disabled={pieceLimitExceeded}>
                 Continuar
               </Button>
             </div>
@@ -1965,6 +2022,11 @@ export default function HeroNext() {
             {generationError && (
               <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
                 {generationError}
+              </p>
+            )}
+            {pieceLimitExceeded && (
+              <p className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
+                {HERO_NEXT_PIECE_LIMIT_MESSAGE}
               </p>
             )}
 
