@@ -16,6 +16,7 @@ import { Button } from '../components/ui/Button'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 3
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 const IMAGE_SLOTS = [
   {
@@ -37,24 +38,18 @@ const OBJECTIVE_OPTIONS = [
   { id: 'rent', label: 'Locacao de imovel', oferta: 'PARA LOCACAO' },
 ]
 
-const PROPERTY_TYPES = ['APARTAMENTO', 'CASA', 'COBERTURA', 'TERRENO', 'COMERCIAL', 'LANCAMENTO']
+const SALE_PROPERTY_TYPES = ['APARTAMENTO', 'CASA', 'TERRENO', 'SALA COMERCIAL', 'LAJE COMERCIAL']
+const RENT_PROPERTY_TYPES = ['APARTAMENTO', 'CASA', 'SALA COMERCIAL', 'LAJE COMERCIAL']
 
-const SALE_PROFILES = [
-  'MCMV',
-  'MEDIO PADRAO',
-  'ALTO PADRAO',
-  'LUXO',
-  'LANCAMENTO',
-  'PRONTO PARA MORAR',
-]
+const SALE_RESIDENTIAL_STAGES = ['PRE-LANCAMENTO', 'LANCAMENTO', 'PRONTO PARA MORAR']
+const SALE_COMMERCIAL_STAGES = ['PRE-LANCAMENTO', 'LANCAMENTO', 'PRONTO']
 
-const RENT_PROFILES = [
-  'RESIDENCIAL',
-  'COMERCIAL',
-  'TEMPORADA',
-  'ALTO PADRAO',
-  'PRONTO PARA MORAR',
-]
+const SALE_APARTMENT_PROFILES = ['ECONOMICA / MCMV', 'MEDIO PADRAO', 'ALTO PADRAO']
+const SALE_DEFAULT_PROFILES = ['MEDIO PADRAO', 'ALTO PADRAO']
+const SALE_COMMERCIAL_PROFILES = ['COMERCIAL', 'ALTO PADRAO']
+
+const RENT_RESIDENTIAL_PROFILES = ['RESIDENCIAL', 'ALTO PADRAO', 'PRONTO PARA MORAR']
+const RENT_COMMERCIAL_PROFILES = ['COMERCIAL', 'ALTO PADRAO']
 
 const CITIES = [
   'SAO PAULO',
@@ -67,72 +62,138 @@ const CITIES = [
   'OUTRO',
 ]
 
-const DISTRICTS = [
-  'MOEMA',
-  'VILA DAS MERCES',
-  'JARDINS',
-  'LAPA',
-  'TATUAPE',
-  'BROOKLIN',
-  'PINHEIROS',
-  'CENTRO',
-  'OUTRO',
-]
-
 const BEDROOM_OPTIONS = ['1 DORMITORIO', '2 DORMITORIOS', '3 DORMITORIOS', '4 DORMITORIOS']
 const SUITE_OPTIONS = ['SEM SUITE', '1 SUITE', '2 SUITES', '3 SUITES', '4 SUITES']
 const PARKING_OPTIONS = ['SEM VAGA', '1 VAGA', '2 VAGAS', '3 VAGAS', '4 VAGAS']
+const AREA_OPTIONS = ['ATE 50 M2', '50 A 100 M2', '100 A 200 M2', 'ACIMA DE 200 M2']
+const COMMERCIAL_ROOM_OPTIONS = ['1 SALA/CONJUNTO', '2 SALAS/CONJUNTOS', '3 SALAS/CONJUNTOS', 'ANDAR INTEIRO']
+const BATHROOM_OPTIONS = ['1 BANHEIRO', '2 BANHEIROS', '3 BANHEIROS', '4 BANHEIROS OU MAIS']
 
-const DIFFERENTIAL_OPTIONS = [
+const SALE_DIFFERENTIAL_OPTIONS = [
+  'VARANDA GOURMET',
   'LAZER COMPLETO',
-  'VARANDA',
-  'PISCINA',
-  'CHURRASQUEIRA',
-  'ACADEMIA',
-  'PORTARIA 24H',
-  'PROXIMO AO METRO',
+  'CONDOMINIO COMPLETO',
   'VISTA LIVRE',
-  'DECORADO',
-  'SUBSIDIOS DISPONIVEIS',
-  'ENTRADA FACILITADA',
-  'PRONTO PARA MORAR',
+  'PROXIMO AO METRO/TRANSPORTE',
+  'PROXIMO A COMERCIO E SERVICOS',
+  'PORTARIA 24H',
+  'SEGURANCA',
+  'AREA VERDE',
+  'ACEITA FINANCIAMENTO',
 ]
 
-const DEFAULT_CTA_OPTIONS = [
+const SALE_COMMERCIAL_DIFFERENTIAL_OPTIONS = [
+  'LOCALIZACAO ESTRATEGICA',
+  'PROXIMO AO METRO/TRANSPORTE',
+  'PROXIMO A COMERCIO E SERVICOS',
+  'FACIL ACESSO',
+  'PREDIO CORPORATIVO',
+  'RECEPCAO',
+  'SEGURANCA/PORTARIA',
+  'ESTACIONAMENTO',
+  'INTERNET DE ULTIMA GERACAO',
+  'INFRAESTRUTURA PARA EMPRESAS',
+  'SALA DE REUNIAO',
+  'AR-CONDICIONADO',
+  'PISO ELEVADO',
+  'GERADOR',
+]
+
+const RENT_DIFFERENTIAL_OPTIONS = [
+  'DISPONIBILIDADE IMEDIATA',
+  'MOBILIADO',
+  'SEMIMOBILIADO',
+  'ACEITA PET',
+  'CONDOMINIO COMPLETO',
+  'LAZER NO CONDOMINIO',
+  'VARANDA',
+  'VAGA DE GARAGEM',
+  'PORTARIA 24H',
+  'PROXIMO AO METRO/TRANSPORTE',
+  'PROXIMO A COMERCIO E SERVICOS',
+]
+
+const RENT_COMMERCIAL_DIFFERENTIAL_OPTIONS = [
+  'DISPONIBILIDADE IMEDIATA',
+  'LOCALIZACAO ESTRATEGICA',
+  'PROXIMO AO METRO/TRANSPORTE',
+  'FACIL ACESSO',
+  'PREDIO CORPORATIVO',
+  'RECEPCAO',
+  'SEGURANCA/PORTARIA',
+  'ESTACIONAMENTO',
+  'INTERNET DE ULTIMA GERACAO',
+  'INFRAESTRUTURA PARA EMPRESAS',
+  'SALA DE REUNIAO',
+  'AR-CONDICIONADO',
+]
+
+const RENT_CONDITION_OPTIONS = [
+  'ACEITA SEGURO-FIANCA',
+  'ACEITA DEPOSITO',
+  'ACEITA FIADOR',
+  'GARANTIA FACILITADA',
+  'CONTRATO FLEXIVEL',
+]
+
+const SALE_CTA_OPTIONS = [
   'AGENDE SUA VISITA',
   'FALE COM UM CORRETOR',
   'SAIBA MAIS',
-  'SIMULE AGORA',
   'CONHECA O IMOVEL',
-  'GARANTA SUA UNIDADE',
 ]
 
-const MCMV_CTA_OPTIONS = [
-  'SAIA DO ALUGUEL',
+const SALE_LAUNCH_CTA_OPTIONS = [
+  'GARANTA SUA UNIDADE',
   'SIMULE AGORA',
-  'SUBSIDIOS DISPONIVEIS',
+  'SAIBA MAIS',
+  'FALE COM UM CORRETOR',
+]
+
+const RENT_CTA_OPTIONS = [
   'AGENDE SUA VISITA',
+  'FALE COM UM CORRETOR',
+  'QUERO CONHECER',
+  'VER DISPONIBILIDADE',
+  'SAIBA MAIS',
 ]
 
 const initialAnswers = {
   objective: '',
   oferta: '',
   propertyType: '',
+  stage: '',
   profile: '',
   city: '',
   cityOther: '',
   district: '',
-  districtOther: '',
   bedrooms: '',
   suites: '',
   parking: '',
+  area: '',
+  commercialRooms: '',
+  bathrooms: '',
   differentials: [],
+  rentConditions: [],
   cta: '',
 }
 
-function getFileExtension(file) {
-  if (file.type.includes('png')) return 'png'
-  if (file.type.includes('webp')) return 'webp'
+function getUploadContentType(file) {
+  const rawType = String(file?.type || '').toLowerCase()
+  const extension = String(file?.name || '').split('.').pop()?.toLowerCase()
+
+  if (rawType === 'image/jpg') return 'image/jpeg'
+  if (SUPPORTED_IMAGE_TYPES.has(rawType)) return rawType
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg'
+  if (extension === 'png') return 'image/png'
+  if (extension === 'webp') return 'image/webp'
+
+  return ''
+}
+
+function getFileExtensionFromContentType(contentType) {
+  if (contentType === 'image/png') return 'png'
+  if (contentType === 'image/webp') return 'webp'
   return 'jpg'
 }
 
@@ -147,23 +208,120 @@ function normalizeFreeText(value) {
     .slice(0, 60)
 }
 
-function getLocationValue(value, other) {
-  return value === 'OUTRO' ? normalizeFreeText(other) : value
+function getLocationValue(value, other = '') {
+  return value === 'OUTRO' ? normalizeFreeText(other) : normalizeFreeText(value)
+}
+
+function isCommercialType(type) {
+  return type === 'SALA COMERCIAL' || type === 'LAJE COMERCIAL'
+}
+
+function isLandType(type) {
+  return type === 'TERRENO'
+}
+
+function getPropertyTypeOptions(objective) {
+  return objective === 'rent' ? RENT_PROPERTY_TYPES : SALE_PROPERTY_TYPES
+}
+
+function getProfileOptions(answers) {
+  if (answers.objective === 'rent') {
+    return isCommercialType(answers.propertyType) ? RENT_COMMERCIAL_PROFILES : RENT_RESIDENTIAL_PROFILES
+  }
+  if (answers.propertyType === 'APARTAMENTO') return SALE_APARTMENT_PROFILES
+  if (isCommercialType(answers.propertyType)) return SALE_COMMERCIAL_PROFILES
+  return SALE_DEFAULT_PROFILES
+}
+
+function getStageOptions(answers) {
+  return isCommercialType(answers.propertyType) ? SALE_COMMERCIAL_STAGES : SALE_RESIDENTIAL_STAGES
+}
+
+function getDifferentialOptions(answers) {
+  if (answers.objective === 'rent') {
+    return isCommercialType(answers.propertyType)
+      ? RENT_COMMERCIAL_DIFFERENTIAL_OPTIONS
+      : RENT_DIFFERENTIAL_OPTIONS
+  }
+
+  return isCommercialType(answers.propertyType)
+    ? SALE_COMMERCIAL_DIFFERENTIAL_OPTIONS
+    : SALE_DIFFERENTIAL_OPTIONS
+}
+
+function getCtaOptions(answers) {
+  if (answers.objective === 'rent') return RENT_CTA_OPTIONS
+  if (answers.stage === 'PRE-LANCAMENTO' || answers.stage === 'LANCAMENTO') return SALE_LAUNCH_CTA_OPTIONS
+  return SALE_CTA_OPTIONS
 }
 
 function getConfiguration(answers) {
+  if (isLandType(answers.propertyType)) {
+    return [answers.area].filter(Boolean).join(', ')
+  }
+
+  if (isCommercialType(answers.propertyType)) {
+    return [answers.commercialRooms, answers.bathrooms, answers.parking, answers.area].filter(Boolean).join(', ')
+  }
+
   return [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
 }
 
 function getFinalFeatureText(answers) {
-  return [
+  const items = [
+    answers.objective === 'rent' ? 'LOCACAO' : 'VENDA',
+    answers.propertyType,
+    answers.stage,
+    answers.profile,
+    answers.city,
+    answers.district,
     getConfiguration(answers),
     ...answers.differentials,
-  ].filter(Boolean).join(', ')
+    ...answers.rentConditions,
+  ].filter(Boolean)
+  return [...new Set(items)].join(', ')
 }
 
 function getObjectiveLabel(objectiveId) {
   return OBJECTIVE_OPTIONS.find((item) => item.id === objectiveId)?.label || ''
+}
+
+async function invokeStudioFunction(name, body) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: anonKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  const responseText = await response.text()
+  let responseBody = null
+  try {
+    responseBody = responseText ? JSON.parse(responseText) : null
+  } catch {
+    responseBody = responseText
+  }
+
+  console.info('studio_hero_function_response', {
+    functionName: name,
+    status: response.status,
+    ok: response.ok,
+    body: responseBody,
+  })
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: responseBody,
+  }
 }
 
 export default function StudioHero() {
@@ -176,17 +334,34 @@ export default function StudioHero() {
   const [message, setMessage] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
 
-  const profileOptions = answers.objective === 'rent' ? RENT_PROFILES : SALE_PROFILES
-  const ctaOptions = answers.profile === 'MCMV' ? MCMV_CTA_OPTIONS : DEFAULT_CTA_OPTIONS
+  const isSale = answers.objective === 'sale'
+  const isRent = answers.objective === 'rent'
+  const propertyTypeOptions = getPropertyTypeOptions(answers.objective)
+  const profileOptions = getProfileOptions(answers)
+  const stageOptions = getStageOptions(answers)
+  const differentialOptions = getDifferentialOptions(answers)
+  const ctaOptions = getCtaOptions(answers)
   const cityValue = getLocationValue(answers.city, answers.cityOther)
-  const districtValue = getLocationValue(answers.district, answers.districtOther)
+  const districtValue = normalizeFreeText(answers.district)
   const configuration = getConfiguration(answers)
-  const finalFeatures = getFinalFeatureText(answers)
+  const finalFeatures = getFinalFeatureText({
+    ...answers,
+    city: cityValue,
+    district: districtValue,
+  })
   const isGenerating = ['uploading', 'generating'].includes(status)
+  const locationStep = isSale ? 5 : 4
+  const configurationStep = locationStep + 1
+  const differentialsStep = configurationStep + 1
+  const rentConditionsStep = isRent ? differentialsStep + 1 : null
+  const ctaStep = isRent ? differentialsStep + 2 : differentialsStep + 1
+  const uploadStep = ctaStep + 1
+  const reviewStep = uploadStep + 1
 
   const canGenerate = Boolean(
     answers.objective &&
     answers.propertyType &&
+    (!isSale || answers.stage) &&
     answers.profile &&
     cityValue &&
     districtValue &&
@@ -198,22 +373,70 @@ export default function StudioHero() {
   )
 
   const updateObjective = (option) => {
+    resetGenerationState()
     setAnswers((current) => ({
       ...current,
       objective: option.id,
       oferta: option.oferta,
+      propertyType: '',
+      stage: '',
       profile: '',
+      city: '',
+      cityOther: '',
+      district: '',
+      bedrooms: '',
+      suites: '',
+      parking: '',
+      area: '',
+      commercialRooms: '',
+      bathrooms: '',
+      differentials: [],
+      rentConditions: [],
       cta: '',
     }))
     setStep(2)
   }
 
+  const updatePropertyType = (propertyType) => {
+    resetGenerationState()
+    setAnswers((current) => ({
+      ...current,
+      propertyType,
+      stage: '',
+      profile: '',
+      bedrooms: '',
+      suites: '',
+      parking: '',
+      area: '',
+      commercialRooms: '',
+      bathrooms: '',
+      differentials: [],
+      rentConditions: [],
+      cta: '',
+    }))
+    setStep(3)
+  }
+
+  const updateProfile = (profile) => {
+    resetGenerationState()
+    setAnswers((current) => ({
+      ...current,
+      profile,
+      differentials: [],
+      rentConditions: [],
+      cta: '',
+    }))
+    setStep(isSale ? 4 : locationStep)
+  }
+
   const updateAnswer = (field, value, nextStep = step + 1) => {
+    resetGenerationState()
     setAnswers((current) => ({ ...current, [field]: value }))
     if (nextStep) setStep(nextStep)
   }
 
   const toggleDifferential = (item) => {
+    resetGenerationState()
     setAnswers((current) => {
       const selected = current.differentials.includes(item)
       if (selected) {
@@ -230,18 +453,51 @@ export default function StudioHero() {
     })
   }
 
+  const toggleRentCondition = (item) => {
+    resetGenerationState()
+    setAnswers((current) => {
+      const selected = current.rentConditions.includes(item)
+      return {
+        ...current,
+        rentConditions: selected
+          ? current.rentConditions.filter((value) => value !== item)
+          : [...current.rentConditions, item],
+      }
+    })
+  }
+
   const uploadImage = async (slot, file, jobDraftId) => {
-    const extension = getFileExtension(file)
+    const contentType = getUploadContentType(file)
+
+    if (!contentType) {
+      throw new Error(`${slot.label}: envie uma imagem JPG, PNG ou WebP.`)
+    }
+
+    const extension = getFileExtensionFromContentType(contentType)
     const path = `${user.id}/${jobDraftId}/${slot.fileName}.${extension}`
     const { error } = await supabase.storage
       .from(BUCKET)
       .upload(path, file, {
         cacheControl: '3600',
-        contentType: file.type || 'image/jpeg',
+        contentType,
         upsert: true,
       })
 
-    if (error) throw new Error(`Falha no upload de ${slot.label}.`)
+    if (error) {
+      console.error('studio_hero_upload_error', {
+        bucket: BUCKET,
+        path,
+        slot: slot.key,
+        contentType,
+        fileType: file.type || '',
+        fileName: file.name || '',
+        fileSize: file.size || 0,
+        message: error.message,
+        error,
+      })
+      throw new Error(`Falha no upload de ${slot.label}. Verifique se a imagem e JPG, PNG ou WebP e tente novamente.`)
+    }
+
     return path
   }
 
@@ -254,15 +510,21 @@ export default function StudioHero() {
 
   useEffect(() => () => clearPolling(), [])
 
+  function resetGenerationState() {
+    clearPolling()
+    setStatus('idle')
+    setMessage('')
+    setVideoUrl('')
+  }
+
   const pollVideoStatus = async (nextJobId) => {
     if (!nextJobId) return
 
     try {
-      const { data, error } = await supabase.functions.invoke('get-video-job-status', {
-        body: { jobId: nextJobId },
-      })
+      const result = await invokeStudioFunction('get-video-job-status', { jobId: nextJobId })
+      const data = result.body
 
-      if (error) throw new Error(error.message || 'Falha ao consultar video.')
+      if (!result.ok) throw new Error(data?.error || 'Falha ao consultar video.')
       if (!data?.ok) throw new Error(data?.error || 'Video ainda nao disponivel.')
 
       if (data.status === 'completed') {
@@ -285,6 +547,11 @@ export default function StudioHero() {
       pollTimerRef.current = setTimeout(() => pollVideoStatus(nextJobId), 9000)
     } catch (error) {
       clearPolling()
+      console.error('studio_hero_status_error', {
+        jobId: nextJobId,
+        message: error instanceof Error ? error.message : String(error),
+        error,
+      })
       setStatus('failed')
       setMessage(error instanceof Error ? error.message : 'Nao foi possivel consultar o video agora.')
     }
@@ -308,20 +575,21 @@ export default function StudioHero() {
       setStatus('generating')
       setMessage('Criando seu video. Isso pode levar alguns instantes.')
 
-      const { data, error } = await supabase.functions.invoke('criar-video-ia', {
-        body: {
-          style: answers.profile || 'ALTO PADRAO',
-          bairro: districtValue,
-          caracteristica: finalFeatures,
-          oferta: answers.oferta,
-          cta: answers.cta,
-          jobId: draftId,
-          inputImage1Path,
-          inputImage2Path,
-        },
+      const result = await invokeStudioFunction('criar-video-ia', {
+        style: answers.profile || 'ALTO PADRAO',
+        bairro: districtValue,
+        caracteristica: finalFeatures,
+        oferta: answers.oferta,
+        cta: answers.cta,
+        jobId: draftId,
+        inputImage1Path,
+        inputImage2Path,
       })
+      const data = result.body
 
-      if (error) throw new Error(error.message || 'Falha ao iniciar video.')
+      if (!result.ok) {
+        throw new Error(data?.error || 'Falha ao iniciar video.')
+      }
       if (!data?.ok && !data?.success) throw new Error(data?.error || 'Video ainda nao disponivel neste ambiente.')
 
       const nextJobId = data.jobId || data.job_id || draftId
@@ -330,6 +598,10 @@ export default function StudioHero() {
       setMessage(data.message || 'Video em criacao. Atualizando automaticamente.')
       pollTimerRef.current = setTimeout(() => pollVideoStatus(nextJobId), 9000)
     } catch (error) {
+      console.error('studio_hero_generate_error', {
+        message: error instanceof Error ? error.message : String(error),
+        error,
+      })
       setStatus('failed')
       setMessage(error instanceof Error ? error.message : 'Nao foi possivel gerar o video agora.')
     }
@@ -353,30 +625,50 @@ export default function StudioHero() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-100">
                 <Film className="h-4 w-4" />
-                Studio Hero
+                Studio Hero IA
               </div>
               <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                Video guiado para campanhas imobiliarias
+                Olá! 👋
               </h1>
-              <p className="mt-4 max-w-2xl text-base font-medium text-slate-200">
-                Preencha os dados principais do video. A IA usa essas informacoes para montar o briefing seguro. Nenhum fornecedor, detalhe tecnico ou custo interno aparece para o cliente.
+              <p className="mt-4 max-w-2xl text-xl font-black text-white">
+                Sou sua assistente de criação de vídeos.
+              </p>
+              <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
+                Juntos vamos transformar imagens estáticas em um vídeo com movimento, som e efeitos para destacar seu imóvel e chamar mais atenção nas redes sociais.
+              </p>
+              <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-slate-200">
+                Você não precisa escrever prompts nem entender de IA.
+              </p>
+              <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-slate-200">
+                Eu vou te guiar em cada etapa.
+              </p>
+              <p className="mt-5 max-w-2xl text-lg font-black text-white">
+                Vamos começar?
               </p>
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-1 h-5 w-5 text-cyan-200" />
-                <div>
-                  <p className="font-black">Fluxo em conversa</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-200">
-                    Responda uma pergunta por vez. Suas escolhas ficam visiveis antes da geracao.
-                  </p>
-                </div>
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 text-cyan-200" />
+                <p className="font-black">O que a IA vai fazer?</p>
               </div>
+              <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-slate-100">
+                {[
+                  'Transformar imagens em vídeo',
+                  'Adicionar movimento cinematográfico',
+                  'Criar atmosfera e ritmo visual',
+                  'Gerar uma nova versão exclusiva para divulgação',
+                ].map((item) => (
+                  <li key={item} className="flex gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
-        <section className="space-y-5">
+        <section className="space-y-5 pb-12">
           <AssistantStep number={1} message="O que deseja divulgar?">
             <OptionGrid>
               {OBJECTIVE_OPTIONS.map((option) => (
@@ -401,11 +693,11 @@ export default function StudioHero() {
           {answers.objective && (
             <AssistantStep number={2} message="Que tipo de imovel vamos divulgar?">
               <ChipGrid>
-                {PROPERTY_TYPES.map((option) => (
+                {propertyTypeOptions.map((option) => (
                   <ChipButton
                     key={option}
                     active={answers.propertyType === option}
-                    onClick={() => updateAnswer('propertyType', option, 3)}
+                    onClick={() => updatePropertyType(option)}
                   >
                     {option}
                   </ChipButton>
@@ -428,14 +720,7 @@ export default function StudioHero() {
                   <ChipButton
                     key={option}
                     active={answers.profile === option}
-                    onClick={() => {
-                      setAnswers((current) => ({
-                        ...current,
-                        profile: option,
-                        cta: current.profile === 'MCMV' || option === 'MCMV' ? '' : current.cta,
-                      }))
-                      setStep(4)
-                    }}
+                    onClick={() => updateProfile(option)}
                   >
                     {option}
                   </ChipButton>
@@ -451,8 +736,39 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.profile && (
-            <AssistantStep number={4} message="Onde fica o imovel?">
+          {isSale && answers.profile && (
+            <AssistantStep number={4} message="Qual e o estagio da obra?">
+              <ChipGrid>
+                {stageOptions.map((option) => (
+                  <ChipButton
+                    key={option}
+                    active={answers.stage === option}
+                    onClick={() => {
+                      resetGenerationState()
+                      setAnswers((current) => ({
+                        ...current,
+                        stage: option,
+                        cta: '',
+                      }))
+                      setStep(locationStep)
+                    }}
+                  >
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isSale && answers.stage && (
+            <UserReply onEdit={() => setStep(4)}>
+              <strong>{answers.stage}</strong>
+              <span>Estagio considerado na estrategia do video.</span>
+            </UserReply>
+          )}
+
+          {answers.profile && (!isSale || answers.stage) && (
+            <AssistantStep number={locationStep} message="Onde fica o imovel?">
               <div className="space-y-5">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
@@ -461,7 +777,10 @@ export default function StudioHero() {
                       <ChipButton
                         key={option}
                         active={answers.city === option}
-                        onClick={() => setAnswers((current) => ({ ...current, city: option }))}
+                        onClick={() => {
+                          resetGenerationState()
+                          setAnswers((current) => ({ ...current, city: option }))
+                        }}
                       >
                         {option}
                       </ChipButton>
@@ -470,7 +789,10 @@ export default function StudioHero() {
                   {answers.city === 'OUTRO' && (
                     <input
                       value={answers.cityOther}
-                      onChange={(event) => setAnswers((current) => ({ ...current, cityOther: normalizeFreeText(event.target.value) }))}
+                      onChange={(event) => {
+                        resetGenerationState()
+                        setAnswers((current) => ({ ...current, cityOther: normalizeFreeText(event.target.value) }))
+                      }}
                       placeholder="DIGITE A CIDADE"
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
                     />
@@ -478,28 +800,18 @@ export default function StudioHero() {
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-slate-500">Bairro</p>
-                  <ChipGrid className="mt-3">
-                    {DISTRICTS.map((option) => (
-                      <ChipButton
-                        key={option}
-                        active={answers.district === option}
-                        onClick={() => setAnswers((current) => ({ ...current, district: option }))}
-                      >
-                        {option}
-                      </ChipButton>
-                    ))}
-                  </ChipGrid>
-                  {answers.district === 'OUTRO' && (
-                    <input
-                      value={answers.districtOther}
-                      onChange={(event) => setAnswers((current) => ({ ...current, districtOther: normalizeFreeText(event.target.value) }))}
-                      placeholder="DIGITE O BAIRRO"
-                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
-                    />
-                  )}
+                  <input
+                    value={answers.district}
+                    onChange={(event) => {
+                      resetGenerationState()
+                      setAnswers((current) => ({ ...current, district: normalizeFreeText(event.target.value) }))
+                    }}
+                    placeholder="DIGITE O BAIRRO"
+                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                  />
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" disabled={!cityValue || !districtValue} onClick={() => setStep(5)}>
+                  <Button type="button" disabled={!cityValue || !districtValue} onClick={() => setStep(configurationStep)}>
                     Confirmar localizacao
                   </Button>
                 </div>
@@ -507,25 +819,38 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {cityValue && districtValue && step >= 5 && (
-            <UserReply onEdit={() => setStep(4)}>
+          {cityValue && districtValue && step >= configurationStep && (
+            <UserReply onEdit={() => setStep(locationStep)}>
               <strong>{districtValue}</strong>
               <span>{cityValue}</span>
             </UserReply>
           )}
 
-          {cityValue && districtValue && step >= 5 && (
-            <AssistantStep number={5} message="Qual e a configuracao do imovel?">
+          {cityValue && districtValue && step >= configurationStep && (
+            <AssistantStep number={configurationStep} message="Qual e a configuracao do imovel?">
               <div className="space-y-5">
-                <OptionGroup title="Dormitorios" options={BEDROOM_OPTIONS} value={answers.bedrooms} onSelect={(value) => setAnswers((current) => ({ ...current, bedrooms: value }))} />
-                <OptionGroup title="Suites" options={SUITE_OPTIONS} value={answers.suites} onSelect={(value) => setAnswers((current) => ({ ...current, suites: value }))} />
-                <OptionGroup title="Vagas" options={PARKING_OPTIONS} value={answers.parking} onSelect={(value) => setAnswers((current) => ({ ...current, parking: value }))} />
+                {isLandType(answers.propertyType) ? (
+                  <OptionGroup title="Area do terreno" options={AREA_OPTIONS} value={answers.area} onSelect={(value) => updateAnswer('area', value, null)} />
+                ) : isCommercialType(answers.propertyType) ? (
+                  <>
+                    <OptionGroup title="Salas ou conjuntos" options={COMMERCIAL_ROOM_OPTIONS} value={answers.commercialRooms} onSelect={(value) => updateAnswer('commercialRooms', value, null)} />
+                    <OptionGroup title="Banheiros" options={BATHROOM_OPTIONS} value={answers.bathrooms} onSelect={(value) => updateAnswer('bathrooms', value, null)} />
+                    <OptionGroup title="Vagas" options={PARKING_OPTIONS} value={answers.parking} onSelect={(value) => updateAnswer('parking', value, null)} />
+                    <OptionGroup title="Metragem" options={AREA_OPTIONS} value={answers.area} onSelect={(value) => updateAnswer('area', value, null)} />
+                  </>
+                ) : (
+                  <>
+                    <OptionGroup title="Dormitorios" options={BEDROOM_OPTIONS} value={answers.bedrooms} onSelect={(value) => updateAnswer('bedrooms', value, null)} />
+                    <OptionGroup title="Suites" options={SUITE_OPTIONS} value={answers.suites} onSelect={(value) => updateAnswer('suites', value, null)} />
+                    <OptionGroup title="Vagas" options={PARKING_OPTIONS} value={answers.parking} onSelect={(value) => updateAnswer('parking', value, null)} />
+                  </>
+                )}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-500">Configuracao montada</p>
-                  <p className="mt-1 text-sm font-black text-slate-900">{configuration || 'Selecione dormitorios, suites e vagas.'}</p>
+                  <p className="mt-1 text-sm font-black text-slate-900">{configuration || 'Selecione os dados principais desta configuracao.'}</p>
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" disabled={!configuration} onClick={() => setStep(6)}>
+                  <Button type="button" disabled={!configuration} onClick={() => setStep(differentialsStep)}>
                     Confirmar configuracao
                   </Button>
                 </div>
@@ -533,19 +858,19 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {configuration && step >= 6 && (
-            <UserReply onEdit={() => setStep(5)}>
+          {configuration && step >= differentialsStep && (
+            <UserReply onEdit={() => setStep(configurationStep)}>
               <strong>{configuration}</strong>
               <span>Configuracao principal do imovel.</span>
             </UserReply>
           )}
 
-          {configuration && step >= 6 && (
-            <AssistantStep number={6} message="Quais diferenciais quer destacar?">
+          {configuration && step >= differentialsStep && (
+            <AssistantStep number={differentialsStep} message="Quais diferenciais quer destacar?">
               <div className="space-y-4">
                 <p className="text-sm font-black text-slate-600">Escolha ate {MAX_DIFFERENTIALS} diferenciais.</p>
                 <ChipGrid>
-                  {DIFFERENTIAL_OPTIONS.map((option) => {
+                  {differentialOptions.map((option) => {
                     const selected = answers.differentials.includes(option)
                     const disabled = !selected && answers.differentials.length >= MAX_DIFFERENTIALS
                     return (
@@ -564,7 +889,11 @@ export default function StudioHero() {
                   <span className="text-sm font-bold text-slate-500">
                     {answers.differentials.length}/{MAX_DIFFERENTIALS} selecionados
                   </span>
-                  <Button type="button" disabled={answers.differentials.length === 0} onClick={() => setStep(7)}>
+                  <Button
+                    type="button"
+                    disabled={answers.differentials.length === 0}
+                    onClick={() => setStep(isRent ? rentConditionsStep : ctaStep)}
+                  >
                     Confirmar diferenciais
                   </Button>
                 </div>
@@ -572,21 +901,52 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {answers.differentials.length > 0 && step >= 7 && (
-            <UserReply onEdit={() => setStep(6)}>
+          {answers.differentials.length > 0 && step >= (isRent ? rentConditionsStep : ctaStep) && (
+            <UserReply onEdit={() => setStep(differentialsStep)}>
               <strong>{answers.differentials.join(', ')}</strong>
-              <span>Diferenciais que vao orientar o briefing do video.</span>
+              <span>Diferenciais que vao orientar o video.</span>
             </UserReply>
           )}
 
-          {answers.differentials.length > 0 && step >= 7 && (
-            <AssistantStep number={7} message="Qual chamada final deseja usar?">
+          {isRent && answers.differentials.length > 0 && step >= rentConditionsStep && (
+            <AssistantStep number={rentConditionsStep} message="Quais condicoes comerciais deseja destacar?">
+              <div className="space-y-4">
+                <p className="text-sm font-black text-slate-600">Opcional. Voce pode continuar sem escolher.</p>
+                <ChipGrid>
+                  {RENT_CONDITION_OPTIONS.map((option) => (
+                    <ChipButton
+                      key={option}
+                      active={answers.rentConditions.includes(option)}
+                      onClick={() => toggleRentCondition(option)}
+                    >
+                      {option}
+                    </ChipButton>
+                  ))}
+                </ChipGrid>
+                <div className="flex justify-end">
+                  <Button type="button" onClick={() => setStep(ctaStep)}>
+                    Continuar
+                  </Button>
+                </div>
+              </div>
+            </AssistantStep>
+          )}
+
+          {isRent && step >= ctaStep && (
+            <UserReply onEdit={() => setStep(rentConditionsStep)}>
+              <strong>{answers.rentConditions.length > 0 ? answers.rentConditions.join(', ') : 'Sem condicao comercial destacada'}</strong>
+              <span>Condicoes opcionais para o video.</span>
+            </UserReply>
+          )}
+
+          {answers.differentials.length > 0 && step >= ctaStep && (
+            <AssistantStep number={ctaStep} message="Qual chamada final deseja usar?">
               <ChipGrid>
                 {ctaOptions.map((option) => (
                   <ChipButton
                     key={option}
                     active={answers.cta === option}
-                    onClick={() => updateAnswer('cta', option, 8)}
+                    onClick={() => updateAnswer('cta', option, uploadStep)}
                   >
                     {option}
                   </ChipButton>
@@ -596,14 +956,14 @@ export default function StudioHero() {
           )}
 
           {answers.cta && (
-            <UserReply onEdit={() => setStep(7)}>
+            <UserReply onEdit={() => setStep(ctaStep)}>
               <strong>{answers.cta}</strong>
               <span>CTA final do video.</span>
             </UserReply>
           )}
 
           {answers.cta && (
-            <AssistantStep number={8} message="Agora envie as imagens que vao dar vida ao video.">
+            <AssistantStep number={uploadStep} message="Agora envie as imagens que vao dar vida ao video.">
               <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {IMAGE_SLOTS.map((slot) => (
@@ -611,12 +971,15 @@ export default function StudioHero() {
                       key={slot.key}
                       slot={slot}
                       file={files[slot.key]}
-                      onChange={(file) => setFiles((current) => ({ ...current, [slot.key]: file }))}
+                      onChange={(file) => {
+                        resetGenerationState()
+                        setFiles((current) => ({ ...current, [slot.key]: file }))
+                      }}
                     />
                   ))}
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" disabled={!files.image1 || !files.image2} onClick={() => setStep(9)}>
+                  <Button type="button" disabled={!files.image1 || !files.image2} onClick={() => setStep(reviewStep)}>
                     Revisar campanha
                   </Button>
                 </div>
@@ -624,16 +987,16 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {files.image1 && files.image2 && step >= 9 && (
-            <UserReply onEdit={() => setStep(8)}>
+          {files.image1 && files.image2 && step >= reviewStep && (
+            <UserReply onEdit={() => setStep(uploadStep)}>
               <strong>Imagens selecionadas</strong>
               <span>{files.image1.name}</span>
               <span>{files.image2.name}</span>
             </UserReply>
           )}
 
-          {canGenerate && step >= 9 && (
-            <AssistantStep number="Revisao" message="Confira o briefing antes de gerar.">
+          {canGenerate && step >= reviewStep && (
+            <AssistantStep number="Revisao" message="Confira as escolhas antes de gerar.">
               <StudioChecklist
                 answers={answers}
                 cityValue={cityValue}
@@ -683,7 +1046,7 @@ function AssistantStep({ number, message, children }) {
             <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-primary-800">
               Etapa {number}
             </span>
-            <span className="text-xs font-bold text-slate-400">Assistente Studio Hero</span>
+            <span className="text-xs font-bold text-slate-400">Assistente de video</span>
           </div>
           <h2 className="mt-2 text-xl font-black text-slate-950">{message}</h2>
           <div className="mt-5">{children}</div>
@@ -791,7 +1154,7 @@ function FilePicker({ slot, file, onChange }) {
           <ImagePlus className="h-5 w-5" />
         </div>
       </div>
-      <div className="flex min-h-32 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+      <div className="flex h-40 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
         {file ? (
           <img
             src={URL.createObjectURL(file)}
@@ -805,24 +1168,34 @@ function FilePicker({ slot, file, onChange }) {
           </div>
         )}
       </div>
-      {file && <p className="truncate text-xs font-bold text-slate-500">{file.name}</p>}
+      <p className="min-h-4 truncate text-xs font-bold text-slate-500">{file?.name || ' '}</p>
     </label>
   )
 }
 
 function StudioChecklist({ answers, cityValue, districtValue, configuration, files, canGenerate, isGenerating, status, message, videoUrl, onEdit, onGenerate }) {
+  const isSale = answers.objective === 'sale'
+  const isRent = answers.objective === 'rent'
+  const locationStep = isSale ? 5 : 4
+  const configurationStep = locationStep + 1
+  const differentialsStep = configurationStep + 1
+  const rentConditionsStep = isRent ? differentialsStep + 1 : null
+  const ctaStep = isRent ? differentialsStep + 2 : differentialsStep + 1
+  const uploadStep = ctaStep + 1
   const rows = [
     ['Objetivo', getObjectiveLabel(answers.objective), 1],
     ['Tipo', answers.propertyType, 2],
     ['Perfil', answers.profile, 3],
-    ['Cidade', cityValue, 4],
-    ['Bairro', districtValue, 4],
-    ['Configuracao', configuration, 5],
-    ['Diferenciais', answers.differentials.join(', '), 6],
-    ['CTA', answers.cta, 7],
-    ['Imagem 1', files.image1?.name, 8],
-    ['Imagem 2', files.image2?.name, 8],
-  ]
+    ...(isSale ? [['Estagio da obra', answers.stage, 4]] : []),
+    ['Cidade', cityValue, locationStep],
+    ['Bairro', districtValue, locationStep],
+    ['Configuracao', configuration, configurationStep],
+    ['Diferenciais', answers.differentials.join(', '), differentialsStep],
+    ...(isRent ? [['Condicoes comerciais', answers.rentConditions.join(', ') || 'Nao destacar', rentConditionsStep]] : []),
+    ['CTA', answers.cta, ctaStep],
+    ['Imagem 1', files.image1?.name, uploadStep],
+    ['Imagem 2', files.image2?.name, uploadStep],
+  ].filter((row) => row[2])
 
   return (
     <div className="space-y-4">
@@ -853,7 +1226,10 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             {videoUrl ? 'Video criado com sucesso.' : 'Pronto para gerar seu video?'}
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-500">
-            {message || 'A campanha sera criada com o briefing acima.'}
+            {message || 'A campanha sera criada com as escolhas acima.'}
+          </p>
+          <p className="mt-2 max-w-xl text-xs font-semibold leading-5 text-slate-500">
+            Cada vídeo é criado de forma única pela IA. Mesmo utilizando as mesmas imagens e informações, novas gerações podem apresentar cenas, movimentos e resultados diferentes.
           </p>
         </div>
         <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="justify-center">

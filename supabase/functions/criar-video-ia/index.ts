@@ -243,6 +243,7 @@ serve(async (req) => {
 
     const promptFinal = buildPromptFinal({ bairro, caracteristica, oferta, cta })
     const model = Deno.env.get('VEO_MODEL_ID') || DEFAULT_MODEL
+    const veoEnabled = Deno.env.get('VEO_ENABLE_VERTEX_CALLS') === 'true'
 
     const { data: job, error: insertError } = await supabase
       .from('video_jobs')
@@ -264,6 +265,27 @@ serve(async (req) => {
     if (insertError || !job?.id) {
       console.warn(`[${reqId}] video_jobs insert falhou:`, insertError?.message)
       return jsonResponse({ success: false, error: 'Nao foi possivel iniciar o video.' }, 500)
+    }
+
+    if (!veoEnabled) {
+      await supabase
+        .from('video_jobs')
+        .update({
+          status: 'failed',
+          error_message: 'veo_disabled',
+          tokens_reserved: 0,
+        })
+        .eq('id', job.id)
+        .eq('user_id', user.id)
+
+      console.warn(`[${reqId}] Studio Hero em modo teste: Veo desligado.`)
+      return jsonResponse({
+        success: false,
+        job_id: job.id,
+        jobId: job.id,
+        status: 'disabled',
+        error: 'A geracao real de video ainda esta desligada neste ambiente.',
+      }, 503)
     }
 
     const tokenCost = getTokenCost()
