@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Hero from './pages/Hero'
 import HeroNext from './pages/HeroNext'
 import TransformarVideo from './pages/TransformarVideo'
+import StudioHero from './pages/StudioHero'
 import NovaCompanha from './pages/NovaCampanha'
 import MeusImoveis from './pages/MeusImoveis'
 import PacotesGerados from './pages/PacotesGerados'
@@ -18,20 +19,31 @@ import Privacidade from './pages/Privacidade'
 import AdminDashboard from './pages/AdminDashboard'
 
 function PrivateRoute({ children }) {
-  const { user } = useAuthStore()
+  const { user, loading } = useAuthStore()
+  if (loading) return <RouteLoader />
   return user ? children : <Navigate to="/login" replace />
 }
 
 function AdminRoute({ children }) {
-  const { user } = useAuthStore()
+  const { user, loading } = useAuthStore()
+  if (loading) return <RouteLoader />
   if (!user) return <Navigate to="/login" replace />
   if (user.role !== 'admin') return <Navigate to="/dashboard" replace />
   return children
 }
 
 function PublicRoute({ children }) {
-  const { user } = useAuthStore()
+  const { user, loading } = useAuthStore()
+  if (loading) return <RouteLoader />
   return !user ? children : <Navigate to="/dashboard" replace />
+}
+
+function RouteLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-800" />
+    </div>
+  )
 }
 
 export default function App() {
@@ -62,6 +74,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/hero" element={<HeroNext />} />
         <Route path="/hero-legacy" element={<Hero />} />
+        <Route path="/studio-hero" element={<StudioHero />} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
         <Route path="/nova-campanha" element={<NovaCompanha />} />
         <Route path="/meus-imoveis" element={<MeusImoveis />} />

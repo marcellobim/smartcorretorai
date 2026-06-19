@@ -47,7 +47,7 @@ const mainActions = [
     icon: Video,
     title: 'Vídeos Virais',
     description: 'Envie fotos do imóvel e siga um fluxo guiado para preparar um vídeo vertical profissional.',
-    to: '/transformar-video',
+    to: '/studio-hero',
     label: 'Criar vídeo',
     tone: 'soft',
     ready: true,

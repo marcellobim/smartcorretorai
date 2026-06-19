@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.gerar-hero-ia]
 verify_jwt = false
+
+[functions.criar-video-ia]
+verify_jwt = false
+
+[functions.get-video-job-status]
+verify_jwt = false
