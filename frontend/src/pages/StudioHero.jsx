@@ -17,6 +17,7 @@ import { Button } from '../components/ui/Button'
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 3
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const STUDIO_HERO_DEMO_VIDEO_URL = '/previews/studio-hero/moema-demo.mp4'
 
 const IMAGE_SLOTS = [
   {
@@ -664,6 +665,36 @@ export default function StudioHero() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Regra futura: Produtos 1, 2 e 4 devem exibir exemplo real antes da primeira pergunta. */}
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplo real</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">
+                Veja o que a IA pode criar
+              </h2>
+              <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-600">
+                Exemplo de vídeo criado a partir da nossa conversa e das imagens do imóvel.
+              </p>
+              <p className="mt-3 max-w-xl text-xs font-semibold leading-5 text-slate-500">
+                Cada vídeo criado pela IA é único. Novas gerações podem produzir resultados diferentes, mesmo utilizando as mesmas imagens e informações.
+              </p>
+            </div>
+            <div className="mx-auto w-full max-w-2xl rounded-[1.75rem] border border-slate-200 bg-slate-950 p-2 shadow-2xl shadow-slate-200/80">
+              <div className="overflow-hidden rounded-[1.35rem] bg-slate-950">
+                <video
+                  src={STUDIO_HERO_DEMO_VIDEO_URL}
+                  controls
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="aspect-video w-full bg-slate-950 object-contain"
+                />
+              </div>
             </div>
           </div>
         </section>
