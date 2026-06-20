@@ -5,6 +5,7 @@ import {
   Building2,
   CheckCircle2,
   Clock3,
+  Coins,
   FileText,
   Home,
   Image,
@@ -23,52 +24,44 @@ import { useCampaigns } from '../hooks/useCampaigns'
 
 const mainActions = [
   {
-    id: 'divulgar-imovel',
-    icon: Home,
-    title: 'Tenho um imóvel para divulgar',
-    description: 'Comece pelo cadastro do imóvel e receba materiais prontos para apresentar.',
-    to: '/meus-imoveis',
-    label: 'Cadastrar imóvel',
-    tone: 'featured',
-    ready: true,
-  },
-  {
-    id: 'criar-com-ia',
+    id: 'hero-ia',
     icon: Wand2,
-    title: 'Criar imagem premium',
-    description: 'A IA guia você passo a passo para criar um Hero IA para o imóvel.',
+    title: 'Hero IA',
+    description: 'Crie uma imagem publicitária forte para divulgar o imóvel com mais impacto.',
     to: '/hero',
     label: 'Criar Hero IA',
     tone: 'featured',
     ready: true,
   },
   {
-    id: 'transformar-video',
+    id: 'studio-hero',
     icon: Video,
-    title: 'Vídeo cinematográfico do imóvel',
-    description: 'Transforme fotos do imóvel em uma peça profissional para chamar atenção nas redes sociais.',
+    title: 'Studio Hero',
+    description: 'Transforme fotos em um vídeo cinematográfico do imóvel para redes sociais.',
     to: '/studio-hero',
-    label: 'Criar vídeo profissional',
-    tone: 'soft',
+    label: 'Criar vídeo',
+    tone: 'featured',
     ready: true,
   },
   {
     id: 'banners-rapidos',
     icon: Image,
-    title: 'Criar campanha rapidamente',
-    description: 'Use a Biblioteca Profissional para gerar banners rápidos e estáveis.',
+    title: 'Banners Rápidos',
+    description: 'Use a Biblioteca Profissional para criar materiais prontos e consistentes.',
     to: '/nova-campanha',
     label: 'Criar banners',
     tone: 'soft',
     ready: true,
   },
   {
-    id: 'landing-page',
-    icon: FileText,
-    title: 'Criar landing page',
-    description: 'Prepare uma página do imóvel para apresentar tudo em um só lugar.',
-    label: 'Em breve',
-    ready: false,
+    id: 'smart-tokens',
+    icon: Coins,
+    title: 'Adicionar Smart Tokens',
+    description: 'Aumente sua capacidade de criação e use em todos os produtos da plataforma.',
+    to: '/planos',
+    label: 'Adicionar Smart Tokens',
+    tone: 'soft',
+    ready: true,
   },
 ]
 
@@ -132,7 +125,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <Header title="Home" subtitle="Sua central de criação imobiliária" />
+      <Header title="Home" subtitle="Sua central premium de criação imobiliária" />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
         <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 text-white shadow-xl shadow-primary-900/10 sm:p-8">
@@ -143,10 +136,10 @@ export default function Dashboard() {
                 Olá, {firstName}
               </div>
               <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">
-                Como posso ajudar você hoje?
+                O que vamos criar para o seu imóvel hoje?
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-relaxed text-blue-100">
-                Escolha uma opção abaixo. A IA guia você passo a passo.
+                Escolha uma criação abaixo. A IA guia você do briefing ao material pronto, sem termos técnicos.
               </p>
             </div>
 

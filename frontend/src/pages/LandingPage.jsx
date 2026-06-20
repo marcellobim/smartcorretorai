@@ -46,43 +46,18 @@ const visualExamples = [
 const creationPaths = [
   {
     icon: Sparkles,
-    title: 'Campanha IA',
-    desc: 'Responda um briefing guiado e receba peças com estratégia, imagem e textos.',
-  },
-  {
-    icon: MessageSquareText,
-    title: 'Chat guiado',
-    desc: 'A IA conduz as perguntas certas e transforma suas respostas em campanha.',
-  },
-  {
-    icon: Layers3,
-    title: 'Peças por canal',
-    desc: 'Gere variações para feed, story, WhatsApp, portal e outros formatos.',
-  },
-  {
-    icon: BadgeCheck,
-    title: 'Captação de Imóveis',
-    desc: 'Crie campanhas para atrair proprietários interessados em vender, alugar ou administrar seus imóveis.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Captação de Corretores',
-    desc: 'Prepare campanhas para atrair profissionais e fortalecer sua equipe comercial.',
+    title: 'Hero IA',
+    desc: 'Crie uma peça visual de impacto para destacar o imóvel e abrir a conversa com o cliente.',
   },
   {
     icon: Video,
-    title: 'Transformação em vídeo',
-    desc: 'Use fotos e vídeos para criar apresentações mais envolventes.',
-  },
-  {
-    icon: FileText,
-    title: 'Landing do imóvel',
-    desc: 'Prepare uma página de divulgação para apresentar o imóvel com clareza.',
+    title: 'Studio Hero',
+    desc: 'Transforme fotos em um vídeo cinematográfico para redes sociais e atendimento.',
   },
   {
     icon: Image,
-    title: 'Banners rápidos',
-    desc: 'Escolha modelos profissionais e gere materiais prontos para divulgar.',
+    title: 'Banners Rápidos',
+    desc: 'Use modelos profissionais para criar materiais consistentes quando precisar de agilidade.',
   },
 ]
 
@@ -116,33 +91,6 @@ const campaignProfiles = [
     title: 'Lançamento',
     desc: 'Construção de desejo, chamada para pré-venda e captação de leads.',
     cta: 'Entrar na lista',
-  },
-]
-
-const plans = [
-  {
-    name: 'Start',
-    audience: 'Para começar com materiais profissionais.',
-    price: 'R$ 97',
-    cadence: 'a partir de',
-    featured: false,
-    benefits: ['Biblioteca profissional', 'Textos inclusos', 'Ideal para validação'],
-  },
-  {
-    name: 'Pro',
-    audience: 'Para corretores que divulgam toda semana.',
-    price: 'R$ 187',
-    cadence: 'a partir de',
-    featured: true,
-    benefits: ['Mais volume de criação', 'Vídeos e banners', 'Melhor custo por campanha'],
-  },
-  {
-    name: 'Elite',
-    audience: 'Para alto volume, lançamentos e equipes.',
-    price: 'R$ 497',
-    cadence: 'a partir de',
-    featured: false,
-    benefits: ['Campanhas recorrentes', 'Materiais premium', 'Volume para operação'],
   },
 ]
 
@@ -211,14 +159,14 @@ export default function LandingPage() {
             <a href="#como-funciona" className="hover:text-primary-800">Como funciona</a>
             <a href="#exemplos" className="hover:text-primary-800">Exemplos</a>
             <a href="#criar" className="hover:text-primary-800">O que criar</a>
-            <a href="#planos" className="hover:text-primary-800">Planos</a>
+            <Link to="/planos" className="hover:text-primary-800">Smart Tokens</Link>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link to="/login" className="rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-primary-50 hover:text-primary-800">
               Entrar
             </Link>
             <Link to="/cadastro" className="rounded-xl bg-primary-800 px-4 py-2 text-sm font-black text-white hover:bg-primary-700">
-              Começar
+              Testar grátis
             </Link>
           </div>
         </div>
@@ -231,16 +179,16 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-wide text-primary-700 shadow-sm">
                 <Sparkles className="h-4 w-4 text-primary-600" />
-                Plataforma de marketing imobiliário com IA
+                Marketing imobiliário com IA
               </div>
               <h1 className="mt-7 max-w-3xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-6xl">
-                O que você deseja criar hoje?
+                Crie campanhas imobiliárias com aparência profissional
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
-                Responda um briefing guiado e deixe a IA transformar fotos, dados e contexto do imóvel em campanhas prontas para publicar.
+                Comece com Hero IA, Studio Hero ou Banners Rápidos. A plataforma guia você e transforma dados, fotos e contexto do imóvel em materiais prontos para divulgar.
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {['Divulgar um imóvel', 'Criar campanha com IA', 'Gerar peça por canal', 'Receber textos prontos'].map(item => (
+                {['Criar Hero IA', 'Criar vídeo do imóvel', 'Gerar banners rápidos', 'Receber textos prontos'].map(item => (
                   <Link
                     key={item}
                     to="/cadastro"
@@ -253,7 +201,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-6 py-3.5 text-sm font-black text-white shadow-xl shadow-primary-900/10 hover:bg-primary-700">
-                  Criar minha primeira campanha
+                  Testar grátis
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <a href="#exemplos" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-white px-6 py-3.5 text-sm font-black text-primary-800 hover:bg-primary-50">
@@ -410,57 +358,30 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="planos" className="bg-slate-50 py-20">
+        <section className="bg-slate-50 py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Planos</p>
-              <h2 className="mt-3 text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">
-                Comece pequeno. Cresça quando precisar.
-              </h2>
-              <p className="mt-4 text-sm leading-relaxed text-gray-500">
-                Escolha um plano conforme seu ritmo de divulgação. Sem linguagem complicada.
-              </p>
-            </div>
-            <div className="mt-12 grid gap-5 lg:grid-cols-3">
-              {plans.map(plan => (
-                <article
-                  key={plan.name}
-                  className={`relative rounded-3xl border bg-white p-6 shadow-sm ${
-                    plan.featured ? 'border-primary-300 ring-2 ring-primary-100' : 'border-blue-100'
-                  }`}
-                >
-                  {plan.featured && (
-                    <div className="absolute -top-3 left-6 rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-primary-900">
-                      Mais escolhido
-                    </div>
-                  )}
-                  <p className="text-xs font-black uppercase tracking-wide text-gray-400">{plan.audience}</p>
-                  <h3 className="mt-3 text-2xl font-black text-gray-950">{plan.name}</h3>
-                  <div className="mt-5">
-                    <p className="text-xs font-bold text-gray-500">{plan.cadence}</p>
-                    <p className="mt-1 text-4xl font-black tracking-tight text-gray-950">{plan.price}</p>
-                  </div>
-                  <ul className="mt-6 space-y-3">
-                    {plan.benefits.map(benefit => (
-                      <li key={benefit} className="flex items-start gap-2 text-sm font-semibold text-gray-600">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                        {benefit}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    to="/planos"
-                    className={`mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black ${
-                      plan.featured
-                        ? 'bg-primary-800 text-white hover:bg-primary-700'
-                        : 'border border-blue-100 text-primary-800 hover:bg-primary-50'
-                    }`}
-                  >
-                    Ver detalhes
+            <div className="overflow-hidden rounded-[2rem] border border-blue-100 bg-white shadow-xl shadow-primary-900/5">
+              <div className="grid gap-8 p-7 sm:p-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-center">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Smart Tokens</p>
+                  <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                    Crie no seu ritmo, sem escolher produto avulso.
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500">
+                    Hero IA, Studio Hero e Banners Rápidos usam a mesma carteira de Smart Tokens. Você entra, vê exemplos, testa a plataforma e adiciona capacidade quando quiser continuar criando.
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-primary-100 bg-primary-50 p-5">
+                  <p className="text-sm font-black text-slate-950">Teste grátis com desejo real</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                    Veja exemplos, conheça os fluxos e experimente recursos leves. Vídeos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.
+                  </p>
+                  <Link to="/planos" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">
+                    Ver Smart Tokens
                     <ArrowRight className="h-4 w-4" />
                   </Link>
-                </article>
-              ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -476,7 +397,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
               <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-7 py-4 text-sm font-black text-white hover:bg-primary-700">
-                Começar agora
+                Testar grátis
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-100 px-7 py-4 text-sm font-black text-primary-800 hover:bg-primary-50">
