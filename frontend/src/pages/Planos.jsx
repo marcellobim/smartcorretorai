@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, Coins, Mail, Sparkles, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth-context'
+import { SMART_TOKEN_RECHARGE_CONFIG, estimateSmartTokensFromAmount } from '../data/creditCosts'
 
 const PLANOS = [
   {
@@ -98,6 +99,8 @@ const formatTokens = (value) => new Intl.NumberFormat('pt-BR').format(value)
 export default function Planos() {
   const { user, isAuthenticated } = useAuth()
   const [loadingItem, setLoadingItem] = useState(null)
+  const [rechargeAmount, setRechargeAmount] = useState(SMART_TOKEN_RECHARGE_CONFIG.quickAmounts[1])
+  const estimatedRechargeTokens = estimateSmartTokensFromAmount(rechargeAmount)
 
   const iniciarCheckout = async (itemId) => {
     if (!isAuthenticated) return
@@ -116,7 +119,7 @@ export default function Planos() {
       : atual
         ? 'Plano atual'
         : recharge
-          ? 'Adicionar tokens'
+          ? 'Adicionar Smart Tokens'
           : item.cta
 
     const className = `inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-black transition ${
@@ -130,7 +133,7 @@ export default function Planos() {
     if (!isAuthenticated) {
       return (
         <Link to="/cadastro" className={className}>
-          {recharge ? 'Adicionar tokens' : item.cta}
+          {recharge ? 'Adicionar Smart Tokens' : item.cta}
         </Link>
       )
     }
@@ -282,35 +285,75 @@ export default function Planos() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {RECARGAS.map((recarga) => (
-              <article key={recarga.id} className="rounded-3xl border border-blue-100 bg-primary-50 p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary-700 shadow-sm">
-                    <Coins className="h-5 w-5" />
-                  </div>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-primary-800">
-                    Recarga
-                  </span>
+          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="rounded-3xl border border-blue-100 bg-primary-50 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary-700 shadow-sm">
+                  <Coins className="h-5 w-5" />
                 </div>
-                <h3 className="mt-5 text-xl font-black text-gray-950">
-                  {recarga.nome}
-                </h3>
-                <p className="mt-2 text-xs font-semibold text-gray-500">
-                  {formatTokens(recarga.tokens)} Smart Tokens extras
-                </p>
-                <div className="mt-3 flex items-end gap-1">
-                  <span className="mb-1 text-sm font-bold text-gray-400">R$</span>
-                  <span className="text-4xl font-black text-gray-950">{recarga.preco}</span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-primary-800">
+                  Recarga livre
+                </span>
+              </div>
+
+              <h3 className="mt-5 text-xl font-black text-gray-950">
+                Escolha quanto deseja adicionar
+              </h3>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
+                Use em Hero IA, Studio Hero, Landing IA, Banners e Textos.
+              </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {SMART_TOKEN_RECHARGE_CONFIG.quickAmounts.map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    onClick={() => setRechargeAmount(amount)}
+                    className={`rounded-2xl border px-3 py-3 text-sm font-black transition ${
+                      Number(rechargeAmount) === amount
+                        ? 'border-primary-700 bg-primary-700 text-white'
+                        : 'border-white bg-white text-primary-800 hover:border-primary-200'
+                    }`}
+                  >
+                    R$ {amount}
+                  </button>
+                ))}
+              </div>
+
+              <label className="mt-5 block">
+                <span className="text-xs font-black uppercase tracking-wide text-gray-500">Outro valor</span>
+                <div className="mt-2 flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 focus-within:border-primary-500">
+                  <span className="text-sm font-black text-gray-400">R$</span>
+                  <input
+                    type="number"
+                    min={SMART_TOKEN_RECHARGE_CONFIG.minAmount}
+                    step="10"
+                    value={rechargeAmount}
+                    onChange={(event) => setRechargeAmount(event.target.value)}
+                    className="ml-2 w-full bg-transparent text-lg font-black text-gray-950 outline-none"
+                    placeholder="Digite o valor"
+                  />
                 </div>
-                <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
-                  {recarga.description}
-                </p>
-                <div className="mt-5">
-                  {renderAction(recarga, false, true)}
-                </div>
-              </article>
-            ))}
+              </label>
+
+              <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-gray-600">
+                Estimativa de liberação: <span className="font-black text-primary-800">{formatTokens(estimatedRechargeTokens)} Smart Tokens</span>
+              </p>
+            </div>
+
+            <aside className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Capacidade extra</p>
+              <h3 className="mt-2 text-xl font-black text-gray-950">Recarga para qualquer conta</h3>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
+                Assinantes e usuários em teste podem adicionar Smart Tokens quando quiserem continuar criando.
+              </p>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
+                Recursos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.
+              </p>
+              <div className="mt-5">
+                {renderAction({ id: `recarga_${rechargeAmount}`, cta: 'Adicionar Smart Tokens' }, false, true)}
+              </div>
+            </aside>
           </div>
         </section>
 

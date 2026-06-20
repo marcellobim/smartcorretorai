@@ -110,7 +110,7 @@ function SmartTokensPanel({ user }) {
           to="/planos"
           className="rounded-xl bg-cyan-100 px-3 py-2 text-center text-xs font-black text-primary-900 hover:bg-white"
         >
-          Adicionar tokens
+          Adicionar Smart Tokens
         </NavLink>
       </div>
     </div>

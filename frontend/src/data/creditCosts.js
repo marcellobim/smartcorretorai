@@ -65,6 +65,18 @@ export const CREDIT_RECHARGES = {
   },
 }
 
+export const SMART_TOKEN_RECHARGE_CONFIG = {
+  quickAmounts: [30, 50, 100, 250, 500],
+  tokensPerReal: 10,
+  minAmount: 30,
+}
+
+export const estimateSmartTokensFromAmount = (amount) => {
+  const numericAmount = Number(amount)
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return 0
+  return Math.floor(numericAmount * SMART_TOKEN_RECHARGE_CONFIG.tokensPerReal)
+}
+
 export const CREDIT_POLICIES = {
   multiplier: 10,
   targetMarginRange: {

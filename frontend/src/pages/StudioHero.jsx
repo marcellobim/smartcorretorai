@@ -16,8 +16,9 @@ import { Button } from '../components/ui/Button'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 3
-const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
 const STUDIO_HERO_DEMO_VIDEO_URL = '/previews/studio-hero/moema-demo.mp4'
+const PREMIUM_PLAN_IDS = new Set(['start', 'starter', 'pro', 'elite'])
 
 const IMAGE_SLOTS = [
   {
@@ -179,6 +180,26 @@ const initialAnswers = {
   cta: '',
 }
 
+const getStudioHeroAccess = (user) => {
+  const plan = String(user?.plano || user?.plan || user?.subscription_plan || '').toLowerCase()
+  const isSubscriber = PREMIUM_PLAN_IDS.has(plan)
+  const tokenBalance = Number(
+    user?.smart_tokens_saldo
+    ?? user?.tokens_saldo
+    ?? user?.saldo_creditos
+    ?? user?.creditos_avulsos
+    ?? user?.total_disponivel
+    ?? 0
+  )
+  const hasTokens = Number.isFinite(tokenBalance) && tokenBalance > 0
+
+  return {
+    isSubscriber,
+    hasTokens,
+    canGenerate: isSubscriber || hasTokens,
+  }
+}
+
 function getUploadContentType(file) {
   const rawType = String(file?.type || '').toLowerCase()
   const extension = String(file?.name || '').split('.').pop()?.toLowerCase()
@@ -187,15 +208,23 @@ function getUploadContentType(file) {
   if (SUPPORTED_IMAGE_TYPES.has(rawType)) return rawType
   if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg'
   if (extension === 'png') return 'image/png'
-  if (extension === 'webp') return 'image/webp'
 
   return ''
 }
 
 function getFileExtensionFromContentType(contentType) {
   if (contentType === 'image/png') return 'png'
-  if (contentType === 'image/webp') return 'webp'
   return 'jpg'
+}
+
+function getImageErrorTarget(value) {
+  const text = String(value || '').toLowerCase()
+
+  if (text.includes('imagem 1') || text.includes('input-1')) return 'image1'
+  if (text.includes('imagem 2') || text.includes('input-2')) return 'image2'
+  if (text.includes('imagem') || text.includes('jpg') || text.includes('png')) return 'all'
+
+  return ''
 }
 
 function normalizeFreeText(value) {
@@ -328,6 +357,7 @@ async function invokeStudioFunction(name, body) {
 export default function StudioHero() {
   const { user } = useAuth()
   const pollTimerRef = useRef(null)
+  const uploadSectionRef = useRef(null)
   const [step, setStep] = useState(1)
   const [answers, setAnswers] = useState(initialAnswers)
   const [files, setFiles] = useState({ image1: null, image2: null })
@@ -358,8 +388,10 @@ export default function StudioHero() {
   const ctaStep = isRent ? differentialsStep + 2 : differentialsStep + 1
   const uploadStep = ctaStep + 1
   const reviewStep = uploadStep + 1
+  const imageErrorTarget = getImageErrorTarget(message)
+  const studioHeroAccess = getStudioHeroAccess(user)
 
-  const canGenerate = Boolean(
+  const canGenerateBriefing = Boolean(
     answers.objective &&
     answers.propertyType &&
     (!isSale || answers.stage) &&
@@ -372,6 +404,7 @@ export default function StudioHero() {
     files.image1 &&
     files.image2
   )
+  const canGenerate = canGenerateBriefing && studioHeroAccess.canGenerate
 
   const updateObjective = (option) => {
     resetGenerationState()
@@ -471,7 +504,13 @@ export default function StudioHero() {
     const contentType = getUploadContentType(file)
 
     if (!contentType) {
-      throw new Error(`${slot.label}: envie uma imagem JPG, PNG ou WebP.`)
+      console.warn('studio_hero_invalid_image_type', {
+        slot: slot.key,
+        fileType: file?.type || '',
+        fileName: file?.name || '',
+        fileSize: file?.size || 0,
+      })
+      throw new Error(`${slot.label}: Para este teste, envie imagens JPG ou PNG.`)
     }
 
     const extension = getFileExtensionFromContentType(contentType)
@@ -496,7 +535,7 @@ export default function StudioHero() {
         message: error.message,
         error,
       })
-      throw new Error(`Falha no upload de ${slot.label}. Verifique se a imagem e JPG, PNG ou WebP e tente novamente.`)
+      throw new Error(`Falha no upload de ${slot.label}. Para este teste, envie imagens JPG ou PNG.`)
     }
 
     return path
@@ -517,6 +556,35 @@ export default function StudioHero() {
     setMessage('')
     setVideoUrl('')
   }
+
+  const focusUploadArea = (block = 'nearest') => {
+    window.setTimeout(() => {
+      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block })
+    }, 0)
+  }
+
+  const goToUploadStep = () => {
+    setStep(uploadStep)
+    focusUploadArea('center')
+  }
+
+  const handleImageChange = (slotKey, file) => {
+    resetGenerationState()
+    const nextFiles = { ...files, [slotKey]: file }
+    setFiles(nextFiles)
+
+    if (nextFiles.image1 && nextFiles.image2) {
+      setStep(reviewStep)
+      focusUploadArea('nearest')
+    }
+  }
+
+  useEffect(() => {
+    if (status === 'failed' && imageErrorTarget) {
+      setStep(uploadStep)
+      focusUploadArea('center')
+    }
+  }, [status, imageErrorTarget])
 
   const pollVideoStatus = async (nextJobId) => {
     if (!nextJobId) return
@@ -559,7 +627,12 @@ export default function StudioHero() {
   }
 
   const handleGenerate = async () => {
-    if (!user?.id || !canGenerate) return
+    if (!user?.id || !canGenerateBriefing) return
+    if (!studioHeroAccess.canGenerate) {
+      setStatus('failed')
+      setMessage('Disponível para assinantes ou usuários com Smart Tokens suficientes. O Studio Hero é um recurso premium. Veja exemplos e ative quando quiser.')
+      return
+    }
 
     clearPolling()
     setStatus('uploading')
@@ -995,54 +1068,52 @@ export default function StudioHero() {
 
           {answers.cta && (
             <AssistantStep number={uploadStep} message="Agora envie as imagens que vao dar vida ao video.">
-              <div className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {IMAGE_SLOTS.map((slot) => (
-                    <FilePicker
-                      key={slot.key}
-                      slot={slot}
-                      file={files[slot.key]}
-                      onChange={(file) => {
-                        resetGenerationState()
-                        setFiles((current) => ({ ...current, [slot.key]: file }))
-                      }}
-                    />
-                  ))}
+              <div ref={uploadSectionRef} className="grid gap-5 scroll-mt-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                    {IMAGE_SLOTS.map((slot) => (
+                      <FilePicker
+                        key={slot.key}
+                        slot={slot}
+                        file={files[slot.key]}
+                        error={imageErrorTarget === slot.key || imageErrorTarget === 'all'}
+                        onChange={(file) => handleImageChange(slot.key, file)}
+                      />
+                    ))}
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
+                    Use imagens JPG ou PNG. A primeira imagem abre o video; a segunda ajuda a criar a cena final.
+                  </div>
                 </div>
-                <div className="flex justify-end">
-                  <Button type="button" disabled={!files.image1 || !files.image2} onClick={() => setStep(reviewStep)}>
-                    Revisar campanha
-                  </Button>
+
+                <div className="xl:sticky xl:top-6 xl:self-start">
+                  <UploadActionPanel
+                    answers={answers}
+                    cityValue={cityValue}
+                    districtValue={districtValue}
+                    configuration={configuration}
+                    files={files}
+                    studioHeroAccess={studioHeroAccess}
+                    canGenerate={canGenerate}
+                    isGenerating={isGenerating}
+                    status={status}
+                    message={message}
+                    videoUrl={videoUrl}
+                    onEdit={setStep}
+                    onEditImages={goToUploadStep}
+                    onGenerate={handleGenerate}
+                  />
                 </div>
               </div>
             </AssistantStep>
           )}
 
           {files.image1 && files.image2 && step >= reviewStep && (
-            <UserReply onEdit={() => setStep(uploadStep)}>
+            <UserReply onEdit={goToUploadStep}>
               <strong>Imagens selecionadas</strong>
               <span>{files.image1.name}</span>
               <span>{files.image2.name}</span>
             </UserReply>
-          )}
-
-          {canGenerate && step >= reviewStep && (
-            <AssistantStep number="Revisao" message="Confira as escolhas antes de gerar.">
-              <StudioChecklist
-                answers={answers}
-                cityValue={cityValue}
-                districtValue={districtValue}
-                configuration={configuration}
-                files={files}
-                canGenerate={canGenerate}
-                isGenerating={isGenerating}
-                status={status}
-                message={message}
-                videoUrl={videoUrl}
-                onEdit={setStep}
-                onGenerate={handleGenerate}
-              />
-            </AssistantStep>
           )}
 
           {(status !== 'idle' || videoUrl) && (
@@ -1167,12 +1238,18 @@ function OptionGroup({ title, options, value, onSelect }) {
   )
 }
 
-function FilePicker({ slot, file, onChange }) {
+function FilePicker({ slot, file, error = false, onChange }) {
   return (
-    <label className="group flex cursor-pointer flex-col gap-4 rounded-3xl border border-dashed border-primary-200 bg-white p-5 shadow-sm transition hover:border-primary-400 hover:bg-primary-50/40">
+    <label
+      className={`group flex cursor-pointer flex-col gap-4 rounded-3xl border border-dashed p-5 shadow-sm transition ${
+        error
+          ? 'border-red-300 bg-red-50 hover:border-red-400'
+          : 'border-primary-200 bg-white hover:border-primary-400 hover:bg-primary-50/40'
+      }`}
+    >
       <input
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png"
         className="sr-only"
         onChange={(event) => onChange(event.target.files?.[0] || null)}
       />
@@ -1185,12 +1262,12 @@ function FilePicker({ slot, file, onChange }) {
           <ImagePlus className="h-5 w-5" />
         </div>
       </div>
-      <div className="flex h-40 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+      <div className="flex h-56 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 xl:h-64">
         {file ? (
           <img
             src={URL.createObjectURL(file)}
             alt={`${slot.label} selecionada`}
-            className="h-40 w-full object-cover"
+            className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex flex-col items-center gap-2 text-slate-400">
@@ -1199,12 +1276,132 @@ function FilePicker({ slot, file, onChange }) {
           </div>
         )}
       </div>
-      <p className="min-h-4 truncate text-xs font-bold text-slate-500">{file?.name || ' '}</p>
+      <div className="space-y-1">
+        <p className="min-h-4 truncate text-xs font-bold text-slate-500">{file?.name || ' '}</p>
+        {file && (
+          <p className="text-xs font-black uppercase tracking-wide text-primary-700">
+            Clique no card para trocar a imagem
+          </p>
+        )}
+        {error && (
+          <p className="text-xs font-black text-red-600">
+            Revise esta imagem. Para este teste, use JPG ou PNG.
+          </p>
+        )}
+      </div>
     </label>
   )
 }
 
-function StudioChecklist({ answers, cityValue, districtValue, configuration, files, canGenerate, isGenerating, status, message, videoUrl, onEdit, onGenerate }) {
+function UploadActionPanel({
+  answers,
+  cityValue,
+  districtValue,
+  configuration,
+  files,
+  studioHeroAccess,
+  canGenerate,
+  isGenerating,
+  status,
+  message,
+  videoUrl,
+  onEdit,
+  onEditImages,
+  onGenerate,
+}) {
+  const hasImage1 = Boolean(files.image1)
+  const hasImage2 = Boolean(files.image2)
+  const ready = hasImage1 && hasImage2
+
+  if (!ready) {
+    return (
+      <div className="rounded-3xl border border-cyan-100 bg-cyan-50/80 p-5 shadow-sm">
+        <p className="text-sm font-black text-primary-950">Envie as duas imagens</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-primary-800">
+          Assim que as imagens forem selecionadas, a revisao e o botao Gerar video aparecem aqui ao lado.
+        </p>
+        <div className="mt-4 space-y-2 text-sm font-bold text-primary-900">
+          <div className={`rounded-2xl border px-4 py-3 ${hasImage1 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-white/70 bg-white/80'}`}>
+            Imagem 1 {hasImage1 ? 'selecionada' : 'pendente'}
+          </div>
+          <div className={`rounded-2xl border px-4 py-3 ${hasImage2 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-white/70 bg-white/80'}`}>
+            Imagem 2 {hasImage2 ? 'selecionada' : 'pendente'}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
+      <StudioChecklist
+        answers={answers}
+        cityValue={cityValue}
+        districtValue={districtValue}
+        configuration={configuration}
+        files={files}
+        studioHeroAccess={studioHeroAccess}
+        canGenerate={canGenerate}
+        isGenerating={isGenerating}
+        status={status}
+        message={message}
+        videoUrl={videoUrl}
+        onEdit={onEdit}
+        onEditImages={onEditImages}
+        onGenerate={onGenerate}
+      />
+    </div>
+  )
+}
+
+function ActionCard({ canGenerate, studioHeroAccess, isGenerating, status, message, onReview, onGenerate }) {
+  const hasError = status === 'failed' && message
+
+  return (
+    <div
+      className={`rounded-3xl border p-4 shadow-sm ${
+        hasError ? 'border-red-100 bg-red-50' : 'border-primary-100 bg-primary-50/70'
+      }`}
+    >
+      {hasError && (
+        <p className="mb-3 text-sm font-semibold text-red-700">{message}</p>
+      )}
+      {!studioHeroAccess?.canGenerate && (
+        <div className="mb-3 rounded-2xl border border-cyan-100 bg-white px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
+          Disponível para assinantes ou usuários com Smart Tokens suficientes. O Studio Hero é um recurso premium. Veja o exemplo e ative quando quiser.
+        </div>
+      )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-950">Pronto para gerar seu video?</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            As imagens estao selecionadas. Voce pode gerar agora ou revisar todos os dados antes de continuar.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button type="button" variant="secondary" onClick={onReview} disabled={isGenerating}>
+            Revisar dados
+          </Button>
+          <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="justify-center">
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Gerando video
+              </>
+            ) : (
+              <>
+                <PlayCircle className="h-4 w-4" />
+                Gerar video
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, videoUrl, onEdit, onEditImages, onGenerate }) {
   const isSale = answers.objective === 'sale'
   const isRent = answers.objective === 'rent'
   const locationStep = isSale ? 5 : 4
@@ -1213,6 +1410,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const rentConditionsStep = isRent ? differentialsStep + 1 : null
   const ctaStep = isRent ? differentialsStep + 2 : differentialsStep + 1
   const uploadStep = ctaStep + 1
+  const imageErrorTarget = getImageErrorTarget(message)
   const rows = [
     ['Objetivo', getObjectiveLabel(answers.objective), 1],
     ['Tipo', answers.propertyType, 2],
@@ -1235,7 +1433,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
           <button
             key={label}
             type="button"
-            onClick={() => onEdit(editStep)}
+            onClick={() => (label.startsWith('Imagem') ? onEditImages() : onEdit(editStep))}
             className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-primary-300 hover:bg-primary-50/60"
           >
             <p className="text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
@@ -1246,8 +1444,19 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       </div>
 
       {status === 'failed' && message && (
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
-          {message}
+        <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
+          <span>{message}</span>
+          {imageErrorTarget && (
+            <Button type="button" variant="secondary" onClick={onEditImages}>
+              Voltar para imagens
+            </Button>
+          )}
+        </div>
+      )}
+
+      {!studioHeroAccess?.canGenerate && (
+        <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
+          Disponível para assinantes ou usuários com Smart Tokens suficientes. O Studio Hero é um recurso premium. Veja exemplos e ative quando quiser.
         </div>
       )}
 
