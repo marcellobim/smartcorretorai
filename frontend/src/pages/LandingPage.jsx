@@ -88,18 +88,18 @@ const campaignProfiles = [
 const steps = [
   {
     icon: MessageSquareText,
-    title: 'Conte o que quer divulgar',
-    desc: 'Escolha o objetivo, envie as fotos e responda perguntas simples sobre o imóvel.',
+    title: 'Converse com a IA',
+    desc: 'Diga o que deseja divulgar. A IA entende seu objetivo e ajuda a criar a melhor campanha.',
   },
   {
     icon: Wand2,
-    title: 'A IA prepara o material',
-    desc: 'A plataforma organiza imagem, vídeo, anúncios e textos com aparência profissional.',
+    title: 'A IA organiza tudo',
+    desc: 'Imagens, vídeos, anúncios e materiais de divulgação ganham uma apresentação profissional.',
   },
   {
     icon: BadgeCheck,
-    title: 'Publique com confiança',
-    desc: 'Use os materiais nas redes sociais, no WhatsApp e nos atendimentos do dia a dia.',
+    title: 'Divulgue e venda mais',
+    desc: 'Use nas redes sociais, WhatsApp e onde seus clientes estão.',
   },
 ]
 
@@ -181,6 +181,24 @@ export default function LandingPage() {
               <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-500">
                 Crie campanhas profissionais sem depender de designers, agências ou cursos complicados. A IA faz o trabalho pesado para você.
               </p>
+              <p className="mt-4 inline-flex rounded-2xl border border-cyan-100 bg-white px-4 py-3 text-sm font-black leading-relaxed text-primary-900 shadow-sm">
+                Use suas imagens ou apenas uma ideia. A IA cuida do resto.
+              </p>
+              <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-white bg-white p-2 shadow-xl shadow-primary-900/10 lg:hidden">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-slate-950">
+                  <img
+                    src="/previews/produto3/anuncio-premium-preview-1x1.jpg"
+                    alt="Exemplo de divulgação imobiliária profissional"
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-white/94 p-3 shadow-lg">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-primary-700">Resultado pronto</p>
+                    <p className="mt-1 text-sm font-black leading-tight text-slate-950">
+                      De foto comum para material de divulgação.
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
                 {[
                   '✨ Criar imagem principal que chama atenção',
@@ -227,17 +245,21 @@ export default function LandingPage() {
                       alt="Exemplo de campanha imobiliária profissional"
                       className="h-full w-full object-cover"
                     />
-                    <div className="absolute inset-x-4 top-4 flex items-center justify-between">
+                    <div className="absolute inset-x-4 top-4 flex items-center justify-between gap-2">
                       <span className="rounded-full bg-white/92 px-3 py-1 text-xs font-black text-slate-950">
-                        Vídeo do imóvel
+                        antes
                       </span>
                       <span className="rounded-full bg-primary-900/80 px-3 py-1 text-xs font-black text-white">
-                        pronto para divulgar
+                        resultado pronto
                       </span>
                     </div>
-                    <div className="absolute inset-x-4 bottom-4 rounded-3xl bg-white/92 p-4 shadow-xl">
-                      <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resultado em minutos</p>
-                      <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">Seu imóvel com cara de campanha profissional.</h3>
+                    <div className="absolute left-4 top-16 max-w-[72%] rounded-3xl bg-primary-950/86 p-4 text-white shadow-xl backdrop-blur">
+                      <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Depois</p>
+                      <p className="mt-1 text-lg font-black leading-tight">Mais presença. Mais confiança. Mais atenção.</p>
+                    </div>
+                    <div className="absolute inset-x-4 bottom-4 rounded-3xl bg-white/94 p-4 shadow-xl">
+                      <p className="text-xs font-black uppercase tracking-wide text-primary-700">Campanha pronta</p>
+                      <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">Seu imóvel deixa de ser só foto e vira divulgação profissional.</h3>
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black text-primary-900">
                         <span className="rounded-2xl bg-primary-50 px-3 py-2">Imagem</span>
                         <span className="rounded-2xl bg-primary-50 px-3 py-2">Vídeo</span>
@@ -255,9 +277,9 @@ export default function LandingPage() {
         <section id="como-funciona" className="bg-white py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Como funciona</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Descubra em poucos minutos</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">
-                Menos esforço para o corretor. Mais consistência no marketing.
+                Você não precisa aprender tecnologia. Só precisa mostrar o imóvel melhor.
               </h2>
             </div>
             <div className="mt-12 grid gap-5 md:grid-cols-3">
@@ -379,26 +401,22 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-slate-50 py-20">
+        <section className="bg-slate-50 py-14">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <div className="overflow-hidden rounded-[2rem] border border-blue-100 bg-white shadow-xl shadow-primary-900/5">
-              <div className="grid gap-8 p-7 sm:p-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-center">
+            <div className="overflow-hidden rounded-[2rem] border border-blue-100 bg-white shadow-sm">
+              <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Smart Tokens</p>
-                  <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                    Crie no seu ritmo, sem escolher produto avulso.
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Planos e capacidade</p>
+                  <h2 className="mt-3 max-w-2xl text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                    Comece grátis. Evolua quando fizer sentido.
                   </h2>
                   <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500">
-                    Hero IA, Studio Hero e Banners Rápidos usam a mesma carteira de Smart Tokens. Adicione Smart Tokens quando precisar ou assine um dos nossos planos para receber capacidade todos os meses.
+                    Adicione Smart Tokens quando precisar ou assine um dos nossos planos para receber capacidade todos os meses.
                   </p>
                 </div>
-                <div className="rounded-3xl border border-primary-100 bg-primary-50 p-5">
-                  <p className="text-sm font-black text-slate-950">Teste grátis com desejo real</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                    Veja exemplos, conheça os fluxos e experimente recursos leves. Vídeos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.
-                  </p>
-                  <Link to="/planos" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">
-                    Ver Smart Tokens
+                <div>
+                  <Link to="/planos" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">
+                    Conheça nossos planos
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
@@ -411,10 +429,10 @@ export default function LandingPage() {
           <div className="mx-auto max-w-4xl px-5 text-center sm:px-8">
             <p className="text-xs font-black uppercase tracking-wide text-primary-700">Próximo passo</p>
             <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
-              Seu próximo imóvel pode sair com uma campanha pronta hoje.
+              Teste grátis e veja o que seu próximo imóvel pode virar.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-500">
-              Crie sua conta, escolha o que deseja divulgar e veja como a plataforma prepara materiais profissionais para o seu imóvel.
+              Conheça algumas soluções, experimente a criação e descubra uma forma mais simples de divulgar seus imóveis.
             </p>
             <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
               <Link to="/cadastro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-7 py-4 text-sm font-black text-white hover:bg-primary-700">
