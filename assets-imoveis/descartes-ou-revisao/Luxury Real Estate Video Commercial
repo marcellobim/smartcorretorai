@@ -1,0 +1,89 @@
+{
+  "runSettings": {
+    "model": "models/veo-3.1-fast-generate-preview",
+    "assetCount": 1,
+    "aspectRatio": "16:9",
+    "assetDuration": "8s",
+    "outputResolution": "720p"
+  },
+  "veoPrompt": {
+    "prompt": "\nCreate an ultra realistic residential real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nCreate all scenes from scratch.\n\nModern Brazilian residential development.\n\nFocus on first-time home buyers.\n\nFocus on affordability, opportunity and family achievement.\n\nCreate a realistic Minha Casa Minha Vida atmosphere.\n\nShow a modern residential condominium.\n\nShow pleasant common areas.\n\nShow families enjoying the dream of home ownership.\n\nShow a welcoming environment.\n\nWarm lighting.\n\nOptimistic atmosphere.\n\nModern architecture.\n\nAffordable housing with quality design.\n\nCreate emotional connection.\n\nSTORYBOARD\n\nOpening scene:\n\nA modern residential condominium appears.\n\nReveal:\n\n\"SEU PRIMEIRO IMOVEL\"\n\nMiddle scene:\n\nShow pleasant residential lifestyle.\n\nGreen areas.\n\nPlayground.\n\nLeisure areas.\n\nSafe environment.\n\nReveal:\n\n\"CONDICOES FACILITADAS\"\n\nThen reveal:\n\n\"SUBSIDIOS DISPONIVEIS\"\n\nFinal scene:\n\nCreate the strongest emotional moment.\n\nShow the feeling of achieving the dream of home ownership.\n\nReveal:\n\n\"SAIA DO ALUGUEL\"\n\nThen reveal:\n\n\"AGENDE SUA VISITA\"\n\nWarm cinematic soundtrack.\n\nPositive atmosphere.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\nThe result should feel like a professional Minha Casa Minha Vida commercial designed for Instagram Reels, TikTok and YouTube Shorts.\n\n\n\n",
+    "veoTurns": [{
+      "generatedVideos": [{
+        "driveVideo": {
+          "id": "1WDXFslGdKR1XERaJBCqTXZ5hwssfBLW_"
+        },
+        "aspectRatio": "16:9"
+      }],
+      "prompt": "Create an ultra realistic luxury real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nUse the first uploaded image as the opening scene.\n\nUse the second uploaded image as the final scene.\n\nPreserve the uploaded property and maintain realism.\n\nDo not invent amenities, pools, penthouses, luxury features or architectural elements that do not exist in the uploaded images.\n\nLuxury real estate marketing style.\n\nGolden hour lighting.\n\nElegant cinematic sound design.\n\nSubtle bells.\n\nLuxury atmosphere.\n\nPremium whooshes.\n\nSoft cinematic impacts.\n\nNo people.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\nOPENING SCENE\n\nUse the first property image.\n\nCreate a luxury cinematic reveal.\n\nSlow camera movement.\n\nDepth.\n\nLight rays.\n\nPremium floating particles.\n\nCreate curiosity and aspiration.\n\nReveal:\n\n\"MOEMA\"\n\nMaintain elegant cinematic motion.\n\nThen reveal:\n\n\"4 SUITES\"\n\nKeep both messages readable.\n\nTRANSITION\n\nCreate a smooth cinematic transition to the second property image.\n\nMaintain luxury atmosphere.\n\nIncrease emotional impact.\n\nMAIN OFFER\n\nUse the second image.\n\nReveal:\n\n\"A VENDA\"\n\nLarge elegant typography.\n\nKeep the property clearly visible behind the text.\n\nMaintain this moment longer than previous text reveals.\n\nFINAL CTA\n\nNear the very end of the video reveal:\n\n\"AGENDE SUA VISITA\"\n\nKeep both texts visible:\n\n\"A VENDA\"\n\nand\n\n\"AGENDE SUA VISITA\"\n\nDo not remove the text.\n\nDo not fade the text.\n\nDo not create additional scenes.\n\nDo not transition away.\n\nDo not create a final empty shot.\n\nEnd the video immediately after the call to action appears.\n\nThe last frame visible before the video ends must show:\n\n\"A VENDA\"\n\n\"AGENDE SUA VISITA\"\n\nand the property visible in the background.\n\nCreate a premium luxury real estate trailer designed to stop scrolling on Instagram Reels, TikTok and YouTube Shorts.\n",
+      "driveImage": {
+        "id": "1rpVCqIDWaxLPmVJA-TWp32qRi4nwdL1o"
+      },
+      "lastFrameDriveImage": {
+        "id": "1NNQ3nBQhaAc1b7xEwWFnBVU9FWuTGYjM"
+      }
+    }, {
+      "generatedVideos": [{
+        "driveVideo": {
+          "id": "1XCjBDDxR5Ugr0dlDYH5rvmWjx6quddDt"
+        },
+        "aspectRatio": "16:9"
+      }],
+      "prompt": "Create an ultra realistic luxury real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nUse the first uploaded image as Scene 1.\n\nUse the second uploaded image as Scene 2.\n\nPreserve the uploaded property and maintain realism.\n\nDo not invent amenities, pools, penthouses, luxury features or architectural elements that do not exist in the uploaded images.\n\nLuxury real estate marketing style.\n\nGolden hour lighting.\n\nElegant cinematic sound design.\n\nSubtle bells.\n\nLuxury atmosphere.\n\nPremium floating particles.\n\nSoft cinematic impacts.\n\nNo people.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\n\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n\nSCENE 1\n\nUse ONLY the first uploaded image.\n\nDo not show the second image.\n\nCreate a luxury cinematic reveal.\n\nSlow camera movement.\n\nDepth.\n\nLight rays.\n\nPremium floating particles.\n\nCreate aspiration and exclusivity.\n\nReveal ONLY:\n\n\"MOEMA\"\n\nThen reveal ONLY:\n\n\"4 SUITES\"\n\nDo not reveal any sales message.\n\nDo not reveal any call to action.\n\nKeep the focus on the property and the neighborhood lifestyle.\n\n\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n\nSCENE 2\n\nTransition to the second uploaded image.\n\nUse ONLY the second uploaded image.\n\nDo not show MOEMA.\n\nDo not show 4 SUITES.\n\nCreate the strongest visual moment of the video.\n\nReveal:\n\n\"A VENDA\"\n\nLarge elegant typography.\n\nAllow this message to dominate the scene.\n\nNear the end of the video reveal:\n\n\"AGENDE SUA VISITA\"\n\nKeep both messages visible together.\n\n\"A VENDA\"\n\nand\n\n\"AGENDE SUA VISITA\"\n\nEnd the video shortly after the call to action appears.\n\nDo not create any additional scenes.\n\nDo not transition to another shot.\n\nThe video must finish on Scene 2.\n\n\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n\nThe final result should feel like a luxury real estate trailer designed to stop scrolling on Instagram Reels, TikTok and YouTube Shorts.\n\n",
+      "driveImage": {
+        "id": "1ZIlGCgTyMME9ccNOHwfhbFYgpsPXlnxS"
+      },
+      "lastFrameDriveImage": {
+        "id": "1kXZlqjFWU8W6bKHPi8BQGqiGhMAi5joI"
+      }
+    }, {
+      "generatedVideos": [{
+        "driveVideo": {
+          "id": "1ZCrlzMSTmQjbA4-pNS26t5hckS327wUm"
+        },
+        "aspectRatio": "16:9"
+      }],
+      "prompt": "Create an ultra realistic luxury real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nUse the first uploaded image as the opening scene.\n\nUse the second uploaded image as the final scene.\n\nPreserve the uploaded property and maintain realism.\n\nDo not invent amenities, pools, penthouses, luxury features or architectural elements that do not exist in the uploaded images.\n\nLuxury real estate marketing style.\n\nGolden hour lighting.\n\nElegant cinematic sound design.\n\nSubtle bells.\n\nLuxury atmosphere.\n\nPremium floating particles.\n\nSoft cinematic impacts.\n\nNo people.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\nOPENING SCENE\n\nUse the first property image.\n\nCreate a luxury cinematic reveal.\n\nSlow camera movement.\n\nDepth.\n\nLight rays.\n\nPremium floating particles.\n\nCreate curiosity and aspiration.\n\nReveal:\n\n\"MOEMA\"\n\nMaintain elegant cinematic motion.\n\nThen reveal:\n\n\"4 SUITES\"\n\nKeep the property as the main focus.\n\nTRANSITION\n\nCreate a smooth cinematic transition to the second property image.\n\nMaintain luxury atmosphere.\n\nIncrease emotional impact.\n\nMAIN OFFER\n\nUse the second image.\n\nReveal:\n\n\"A VENDA\"\n\nLarge elegant typography.\n\nKeep the property visible behind the text.\n\nAllow this message to dominate the scene.\n\nFINAL CTA\n\nNear the end of the video reveal:\n\n\"AGENDE SUA VISITA\"\n\nThis should be the final message shown.\n\nKeep both messages visible:\n\n\"A VENDA\"\n\nand\n\n\"AGENDE SUA VISITA\"\n\nCreate a premium hero shot.\n\nEnd the video shortly after the call to action appears.\n\nDo not create additional scenes.\n\nThe result should feel like a luxury real estate trailer designed to stop scrolling on Instagram Reels, TikTok and YouTube Shorts.\n\n\n",
+      "driveImage": {
+        "id": "1UbTnW7nMe6-LOtM5uDhJGuOVB05nYwab"
+      },
+      "lastFrameDriveImage": {
+        "id": "1VV1aHEeIP6BqtrFYUnrWw9_Y5cC-6ito"
+      }
+    }, {
+      "generatedVideos": [{
+        "driveVideo": {
+          "id": "1R0UhH7UoHdwa1THO4pfHvKdlfAh1JXrA"
+        },
+        "aspectRatio": "16:9"
+      }],
+      "prompt": "Create an ultra realistic luxury real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nUse the first uploaded image as the opening scene.\n\nUse the second uploaded image as the final scene.\n\nPreserve the uploaded property and maintain realism.\n\nDo not invent amenities, pools, penthouses, luxury features or architectural elements that do not exist in the uploaded images.\n\nLuxury real estate marketing style.\n\nGolden hour lighting.\n\nElegant cinematic sound design.\n\nSubtle bells.\n\nLuxury atmosphere.\n\nNo people.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\nSCENE 1 – OPENING\n\nBegin with the first property image.\n\nCreate a cinematic luxury reveal.\n\nSlow camera movement.\n\nDepth.\n\nLight rays.\n\nSubtle floating particles.\n\nCreate curiosity and anticipation.\n\nReveal:\n\n\"MOEMA\"\n\nSCENE 2 – DEVELOPING\n\nMaintain the first image or create a smooth transition within it.\n\nEnhance the luxury atmosphere.\n\nReveal:\n\n\"4 SUITES\"\n\nSCENE 3 – TRANSITION\n\nCreate a smooth cinematic transition to the second property image.\n\nStronger reveal.\n\nLuxury atmosphere.\n\nReveal:\n\n\"A VENDA\"\n\nSCENE 4 – FINAL CTA\n\nKeep the second image visible.\n\nReveal:\n\n\"AGENDE SUA VISITA\"\n\nHold the final frame.\n\nDo not create any additional scenes.\n\nDo not transition away from the final frame.\n\nThe video must end on the final call to action.\n\nThe final frame should remain visible until the video ends.\n\nCreate a premium luxury real estate trailer designed to stop scrolling on Instagram Reels, TikTok and YouTube Shorts.\n\n\n",
+      "driveImage": {
+        "id": "1DgEE6ugvQn0j3Nx3SDdLywCKS_KFnyOm"
+      },
+      "lastFrameDriveImage": {
+        "id": "15NDqUnbiMFX9B2gkStrzio_nkJaFlXXt"
+      }
+    }, {
+      "generatedVideos": [{
+        "driveVideo": {
+          "id": "1Bw7zNJknqJpM_Qa4FT8iV6ECAZCEToqU"
+        },
+        "aspectRatio": "16:9"
+      }],
+      "prompt": "Create an ultra realistic residential real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nUse the first uploaded image as the opening scene.\n\nUse the second uploaded image as the final scene.\n\nPreserve the uploaded property and maintain realism.\n\nDo not invent luxury features, penthouses, pools, rooftop terraces or amenities that do not exist in the uploaded images.\n\nCreate an aspirational but realistic atmosphere.\n\nModern residential marketing style.\n\nWarm lighting.\n\nFamily-oriented feeling.\n\nOptimistic atmosphere.\n\nSoft cinematic sound design.\n\nPositive emotional tone.\n\nNo people.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\nSCENE 1 – OPENING\n\nBegin with the first property image.\n\nCreate a welcoming cinematic reveal.\n\nSmooth camera movement.\n\nNatural lighting.\n\nCreate the feeling of a great opportunity for home ownership.\n\nReveal:\n\n\"VILA DAS MERCES\"\n\nThen reveal:\n\n\"2 DORMITORIOS\"\n\nKeep the property as the main focus.\n\nSCENE 2 – DEVELOPING\n\nMaintain the first image or create a smooth transition within it.\n\nReveal:\n\n\"1 SUITE\"\n\nThen reveal:\n\n\"1 VAGA\"\n\nCreate a feeling of value and opportunity.\n\nSCENE 3 – TRANSITION\n\nCreate a smooth cinematic transition to the second property image.\n\nIncrease emotional impact.\n\nCreate the feeling of achieving the dream of home ownership.\n\nReveal:\n\n\"SUBSIDIOS DISPONIVEIS\"\n\nSCENE 4 – FINAL CTA\n\nKeep the second image visible.\n\nReveal:\n\n\"SAIA DO ALUGUEL\"\n\nThen reveal:\n\n\"AGENDE SUA VISITA\"\n\nHold the final frame.\n\nDo not create additional scenes.\n\nDo not transition away from the final frame.\n\nThe video must end on the final call to action.\n\nCreate a residential real estate trailer designed to stop scrolling on Instagram Reels, TikTok and YouTube Shorts.\n\nFocus on affordability, opportunity, first home ownership and government housing benefits rather than luxury.\n\n\n\n",
+      "driveImage": {
+        "id": "10yl4jgpgiC6_ByTimsrmXoClquAcn5ra"
+      },
+      "lastFrameDriveImage": {
+        "id": "1tGefbjBd0LtTRLHuV44QJyWVI2MS5GSX"
+      }
+    }, {
+      "generatedVideos": [{
+        "pending": true,
+        "aspectRatio": "16:9"
+      }],
+      "prompt": "\nCreate an ultra realistic residential real estate commercial.\n\nVertical format 9:16.\n\nDuration 8 seconds.\n\nCreate all scenes from scratch.\n\nModern Brazilian residential development.\n\nFocus on first-time home buyers.\n\nFocus on affordability, opportunity and family achievement.\n\nCreate a realistic Minha Casa Minha Vida atmosphere.\n\nShow a modern residential condominium.\n\nShow pleasant common areas.\n\nShow families enjoying the dream of home ownership.\n\nShow a welcoming environment.\n\nWarm lighting.\n\nOptimistic atmosphere.\n\nModern architecture.\n\nAffordable housing with quality design.\n\nCreate emotional connection.\n\nSTORYBOARD\n\nOpening scene:\n\nA modern residential condominium appears.\n\nReveal:\n\n\"SEU PRIMEIRO IMOVEL\"\n\nMiddle scene:\n\nShow pleasant residential lifestyle.\n\nGreen areas.\n\nPlayground.\n\nLeisure areas.\n\nSafe environment.\n\nReveal:\n\n\"CONDICOES FACILITADAS\"\n\nThen reveal:\n\n\"SUBSIDIOS DISPONIVEIS\"\n\nFinal scene:\n\nCreate the strongest emotional moment.\n\nShow the feeling of achieving the dream of home ownership.\n\nReveal:\n\n\"SAIA DO ALUGUEL\"\n\nThen reveal:\n\n\"AGENDE SUA VISITA\"\n\nWarm cinematic soundtrack.\n\nPositive atmosphere.\n\nNo logos.\n\nNo watermark.\n\nNo interface elements.\n\nThe result should feel like a professional Minha Casa Minha Vida commercial designed for Instagram Reels, TikTok and YouTube Shorts.\n\n\n\n"
+    }]
+  }
+}

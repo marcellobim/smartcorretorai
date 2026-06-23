@@ -1,0 +1,47 @@
+{
+  "profile": "alto-padrao",
+  "headline": "Apartamento alto padrao pronto para morar",
+  "cta": "Agende sua visita",
+  "slides": [
+    {
+      "image": "Screenshot_20260622_062941_Chrome.jpg",
+      "type": "pool",
+      "caption": "LAZER COM VISTA"
+    },
+    {
+      "image": "Screenshot_20260622_062959_Chrome.jpg",
+      "type": "gourmet",
+      "caption": "VARANDA GOURMET"
+    },
+    {
+      "image": "Screenshot_20260622_063020_Chrome.jpg",
+      "type": "living",
+      "caption": "LIVING INTEGRADO"
+    },
+    {
+      "image": "Screenshot_20260622_063115_Chrome.jpg",
+      "type": "kitchen",
+      "caption": "COZINHA PLANEJADA"
+    },
+    {
+      "image": "Screenshot_20260622_063130_Chrome.jpg",
+      "type": "suite",
+      "caption": "SUITE MASTER"
+    },
+    {
+      "image": "Screenshot_20260622_063126_Chrome.jpg",
+      "type": "bedroom",
+      "caption": "CONFORTO PRIVATIVO"
+    },
+    {
+      "image": "Screenshot_20260622_063303_Chrome.jpg",
+      "type": "balcony",
+      "caption": "VISTA URBANA"
+    },
+    {
+      "image": "Screenshot_20260622_063108_Chrome.jpg",
+      "type": "bathroom",
+      "caption": "ACABAMENTO PREMIUM"
+    }
+  ]
+}

@@ -7,12 +7,32 @@ type StartVeoInput = {
   resolution: string
   userId: string
   jobId: string
+  bucket: string
+  supabase: StorageDownloadClient
 }
 
 type CheckVeoResult =
   | { status: 'processing' }
   | { status: 'completed'; videoBytes: Uint8Array; contentType: string; videoUri?: string }
   | { status: 'failed'; errorMessage: string }
+
+type StorageDownloadClient = {
+  storage: {
+    from(bucket: string): {
+      download(path: string): Promise<{
+        data: Blob | null
+        error: { message?: string } | null
+      }>
+    }
+  }
+}
+
+type PreparedVeoImage = {
+  mimeType: string
+  bytesBase64Encoded: string
+  byteLength: number
+  base64Length: number
+}
 
 const textEncoder = new TextEncoder()
 
@@ -29,6 +49,56 @@ function base64ToBytes(value: string) {
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
   return bytes
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    for (const byte of chunk) binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
+}
+
+function normalizeImageMimeType(path: string, detectedType: string) {
+  const mimeType = detectedType.toLowerCase().trim()
+  if (mimeType === 'image/jpeg' || mimeType === 'image/png') return mimeType
+  if (mimeType === 'image/jpg') return 'image/jpeg'
+
+  const extension = path.split('.').pop()?.toLowerCase() || ''
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg'
+  if (extension === 'png') return 'image/png'
+
+  if (mimeType === 'image/webp' || extension === 'webp') {
+    throw new Error('veo_unsupported_image_mime:image/webp')
+  }
+
+  throw new Error(`veo_unsupported_image_mime:${mimeType || extension || 'unknown'}`)
+}
+
+async function prepareVeoImage(
+  supabase: StorageDownloadClient,
+  bucket: string,
+  path: string,
+): Promise<PreparedVeoImage> {
+  const { data, error } = await supabase.storage.from(bucket).download(path)
+  if (error || !data) {
+    throw new Error(`veo_image_download_failed:${error?.message || 'empty_file'}`)
+  }
+
+  const bytes = new Uint8Array(await data.arrayBuffer())
+  if (!bytes.byteLength) throw new Error('veo_image_download_empty')
+
+  const mimeType = normalizeImageMimeType(path, data.type || '')
+  const bytesBase64Encoded = bytesToBase64(bytes)
+
+  return {
+    mimeType,
+    bytesBase64Encoded,
+    byteLength: bytes.byteLength,
+    base64Length: bytesBase64Encoded.length,
+  }
 }
 
 async function importPrivateKey(pem: string) {
@@ -52,7 +122,7 @@ async function importPrivateKey(pem: string) {
 function getVertexEnvironment() {
   const projectId = Deno.env.get('GOOGLE_CLOUD_PROJECT_ID') || ''
   const location = Deno.env.get('GOOGLE_CLOUD_LOCATION') || 'us-central1'
-  const modelId = Deno.env.get('VEO_MODEL_ID') || 'veo-3.1-fast'
+  const modelId = Deno.env.get('VEO_MODEL_ID') || 'veo-3.1-fast-generate-001'
   const serviceAccountJson =
     Deno.env.get('VERTEX_SERVICE_ACCOUNT_JSON') ||
     Deno.env.get('GOOGLE_APPLICATION_CREDENTIALS_JSON') ||
@@ -141,9 +211,57 @@ async function fetchVideoUri(uri: string, accessToken: string) {
 
 export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJobId: string }> {
   const { projectId, location, modelId, serviceAccountJson } = getVertexEnvironment()
+  const [openingImage, finalImage] = await Promise.all([
+    prepareVeoImage(input.supabase, input.bucket, input.image1Path),
+    prepareVeoImage(input.supabase, input.bucket, input.image2Path),
+  ])
+
   const accessToken = await getAccessToken(serviceAccountJson)
   const endpoint =
     `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${modelId}:predictLongRunning`
+  const requestBody = {
+    instances: [
+      {
+        prompt: input.prompt,
+        image: {
+          mimeType: openingImage.mimeType,
+          bytesBase64Encoded: openingImage.bytesBase64Encoded,
+        },
+        lastFrame: {
+          mimeType: finalImage.mimeType,
+          bytesBase64Encoded: finalImage.bytesBase64Encoded,
+        },
+      },
+    ],
+    parameters: {
+      aspectRatio: input.aspectRatio,
+      durationSeconds: input.durationSeconds,
+      resolution: input.resolution,
+      sampleCount: 1,
+      task: 'imageToVideo',
+      resizeMode: 'pad',
+      generateAudio: true,
+      enhancePrompt: true,
+    },
+  }
+
+  console.info('[veoClient] estrutura do payload preparada', {
+    endpoint: 'predictLongRunning',
+    task: requestBody.parameters.task,
+    modelId,
+    imageCount: 2,
+    openingImage: {
+      mimeType: openingImage.mimeType,
+      byteLength: openingImage.byteLength,
+      base64Length: openingImage.base64Length,
+    },
+    finalImage: {
+      mimeType: finalImage.mimeType,
+      byteLength: finalImage.byteLength,
+      base64Length: finalImage.base64Length,
+    },
+    parameters: requestBody.parameters,
+  })
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -151,23 +269,7 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      instances: [
-        {
-          prompt: input.prompt,
-          // TODO: substituir os storage paths por fileData/base64 conforme o
-          // contrato definitivo de imagem-para-video no Vertex/Veo habilitado.
-          image1StoragePath: input.image1Path,
-          image2StoragePath: input.image2Path,
-        },
-      ],
-      parameters: {
-        aspectRatio: input.aspectRatio,
-        durationSeconds: input.durationSeconds,
-        resolution: input.resolution,
-        sampleCount: 1,
-      },
-    }),
+    body: JSON.stringify(requestBody),
   })
 
   if (!response.ok) {

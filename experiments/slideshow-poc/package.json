@@ -1,0 +1,17 @@
+{
+  "name": "smartcorretorai-slideshow-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "POC local para gerar slideshow vertical MP4 sem Creatomate.",
+  "main": "render-slideshow.js",
+  "scripts": {
+    "render": "node render-slideshow.js",
+    "render:v2": "node render-slideshow-v2.js",
+    "render:v3": "node render-slideshow-v3.js",
+    "render:v31:alto": "node render-studio-hero-v31-alto-padrao.js",
+    "render:v31": "node render-slideshow-v31.js"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0"
+  }
+}

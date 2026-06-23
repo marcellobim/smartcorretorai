@@ -9,8 +9,9 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
-const DEFAULT_MODEL = 'veo-3.1-fast'
+const DEFAULT_MODEL = 'veo-3.1-fast-generate-001'
 const DEFAULT_TOKEN_COST = 500
+const VIDEO_BUCKET = 'studio-videos'
 
 type JsonRecord = Record<string, unknown>
 
@@ -315,6 +316,8 @@ serve(async (req) => {
         resolution: '720p',
         userId: user.id,
         jobId: job.id,
+        bucket: VIDEO_BUCKET,
+        supabase,
       })
 
       await supabase

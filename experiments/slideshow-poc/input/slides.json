@@ -1,0 +1,30 @@
+{
+  "headline": "Imóvel em destaque",
+  "slides": [
+    {
+      "image": "396a9459-9744-4268-93eb-c436a4509a35.jpg",
+      "caption": "Ambientes que valorizam a apresentação do imóvel"
+    },
+    {
+      "image": "6ee1d9a1-8250-46bc-b87e-b839e854cecb-18112025175355.webp",
+      "caption": "Detalhes pensados para destacar cada espaço"
+    },
+    {
+      "image": "9daa0b1c-557a-4864-94b1-6c74c4d1e18c-18112025173828.webp",
+      "caption": "Fotos reais para transmitir confiança"
+    },
+    {
+      "image": "e1.webp",
+      "caption": "Um imóvel apresentado com clareza e movimento"
+    },
+    {
+      "image": "santos2.webp",
+      "caption": "Diferenciais em evidência para atrair interessados"
+    },
+    {
+      "image": "santosap.webp",
+      "caption": "Pronto para uma divulgação mais profissional"
+    }
+  ],
+  "cta": "Agende sua visita"
+}

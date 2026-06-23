@@ -1,0 +1,36 @@
+{
+  "headline": "Alto padrao",
+  "slides": [
+    {
+      "image": "Screenshot_20260622_062941_Chrome.jpg",
+      "environment": "amenity",
+      "scene": "living"
+    },
+    {
+      "image": "Screenshot_20260622_062959_Chrome.jpg",
+      "environment": "balcony",
+      "scene": "living"
+    },
+    {
+      "image": "Screenshot_20260622_063020_Chrome.jpg",
+      "environment": "living",
+      "scene": "suite"
+    },
+    {
+      "image": "Screenshot_20260622_063115_Chrome.jpg",
+      "environment": "kitchen",
+      "scene": "amenity"
+    },
+    {
+      "image": "Screenshot_20260622_063130_Chrome.jpg",
+      "environment": "suite",
+      "scene": "location"
+    },
+    {
+      "image": "Screenshot_20260622_063303_Chrome.jpg",
+      "environment": "location",
+      "scene": "detail"
+    }
+  ],
+  "cta": "AGENDE SUA VISITA"
+}
