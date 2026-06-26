@@ -12,6 +12,10 @@ const corsHeaders = {
 const VIDEO_BUCKET = 'studio-videos'
 
 type JsonRecord = Record<string, unknown>
+type ProfileRow = {
+  email?: string | null
+  role?: string | null
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -22,7 +26,13 @@ function jsonResponse(body: unknown, status = 200) {
 
 function isUuid(value: unknown) {
   return typeof value === 'string'
-    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value)
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+}
+
+function isAdminBypassUser(profile: ProfileRow | null, user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
+  const role = String(profile?.role || user.user_metadata?.role || '').toLowerCase()
+  const email = String(profile?.email || user.email || '').toLowerCase()
+  return role === 'admin' || email === 'riccieri68@gmail.com'
 }
 
 async function cancelCredits(supabase: ReturnType<typeof createClient>, userId: string, idempotencyKey: string, reason: string) {
@@ -88,8 +98,23 @@ serve(async (req) => {
       return jsonResponse({ ok: false, error: 'Sessao invalida.' }, 401)
     }
 
-    const body = await req.json().catch(() => ({})) as JsonRecord
-    const jobId = String(body.jobId || body.job_id || '')
+    const { data: profileRow, error: profileError } = await supabase
+      .from('profiles')
+      .select('email, role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileError) {
+      console.warn(`[${reqId}] perfil nao carregado para bypass admin:`, profileError.message)
+    }
+
+    const isAdminBypass = isAdminBypassUser((profileRow as ProfileRow | null) || null, user)
+
+    const body = await req.json().catch(() => ({})) as JsonRecord | string
+    const rawJobId = typeof body === 'string'
+      ? body
+      : body?.jobId ?? body?.job_id
+    const jobId = String(rawJobId || '').trim()
     if (!isUuid(jobId)) {
       return jsonResponse({ ok: false, error: 'Job invalido.' }, 400)
     }
@@ -131,7 +156,7 @@ serve(async (req) => {
         ok: true,
         status: 'generating',
         jobId: job.id,
-        message: 'Video em criacao.',
+        message: 'Preparando seu video.',
       })
     }
 
@@ -141,7 +166,7 @@ serve(async (req) => {
         ok: true,
         status: 'generating',
         jobId: job.id,
-        message: 'Video em criacao.',
+        message: 'Gerando seu video.',
       })
     }
 
@@ -173,7 +198,11 @@ serve(async (req) => {
       })
     if (uploadError) throw new Error(`video_upload_failed:${uploadError.message}`)
 
-    await consumeCredits(supabase, user.id, String(job.credit_idempotency_key || ''))
+    if (isAdminBypass) {
+      await cancelCredits(supabase, user.id, String(job.credit_idempotency_key || ''), 'studio_hero_admin_bypass')
+    } else {
+      await consumeCredits(supabase, user.id, String(job.credit_idempotency_key || ''))
+    }
 
     await supabase
       .from('video_jobs')

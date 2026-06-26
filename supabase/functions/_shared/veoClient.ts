@@ -34,14 +34,8 @@ type PreparedVeoImage = {
   base64Length: number
 }
 
-const textEncoder = new TextEncoder()
-
-function base64UrlEncode(bytes: ArrayBuffer | Uint8Array) {
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-  let binary = ''
-  for (const byte of view) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const DEFAULT_VEO_MODEL = 'veo-3.1-lite-generate-preview'
 
 function base64ToBytes(value: string) {
   const clean = value.includes(',') ? value.split(',').pop() || '' : value
@@ -101,81 +95,33 @@ async function prepareVeoImage(
   }
 }
 
-async function importPrivateKey(pem: string) {
-  const clean = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-    .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '')
-  const binary = atob(clean)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+function getVeoEnvironment(options: { requireEnabled?: boolean } = {}) {
+  const apiKey = Deno.env.get('GEMINI_API_KEY') || ''
+  const modelId = Deno.env.get('VEO_MODEL_ID') || DEFAULT_VEO_MODEL
 
-  return crypto.subtle.importKey(
-    'pkcs8',
-    bytes,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-}
-
-function getVertexEnvironment() {
-  const projectId = Deno.env.get('GOOGLE_CLOUD_PROJECT_ID') || ''
-  const location = Deno.env.get('GOOGLE_CLOUD_LOCATION') || 'us-central1'
-  const modelId = Deno.env.get('VEO_MODEL_ID') || 'veo-3.1-fast-generate-001'
-  const serviceAccountJson =
-    Deno.env.get('VERTEX_SERVICE_ACCOUNT_JSON') ||
-    Deno.env.get('GOOGLE_APPLICATION_CREDENTIALS_JSON') ||
-    ''
-
-  if (Deno.env.get('VEO_ENABLE_VERTEX_CALLS') !== 'true') {
-    throw new Error('veo_not_configured')
+  if (options.requireEnabled !== false && Deno.env.get('VEO_ENABLED') !== 'true') {
+    throw new Error('veo_disabled')
   }
-  if (!projectId || !serviceAccountJson) {
+  if (!apiKey) {
     throw new Error('veo_missing_environment')
   }
 
-  return { projectId, location, modelId, serviceAccountJson }
+  return { apiKey, modelId }
 }
 
-async function getAccessToken(serviceAccountJson: string) {
-  const serviceAccount = JSON.parse(serviceAccountJson)
-  const clientEmail = String(serviceAccount.client_email || '')
-  const privateKey = String(serviceAccount.private_key || '').replace(/\\n/g, '\n')
-  if (!clientEmail || !privateKey) throw new Error('service_account_invalid')
+function withApiKey(url: string, apiKey: string) {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}key=${encodeURIComponent(apiKey)}`
+}
 
-  const now = Math.floor(Date.now() / 1000)
-  const header = { alg: 'RS256', typ: 'JWT' }
-  const claim = {
-    iss: clientEmail,
-    scope: 'https://www.googleapis.com/auth/cloud-platform',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  }
-  const unsigned = `${base64UrlEncode(textEncoder.encode(JSON.stringify(header)))}.${base64UrlEncode(textEncoder.encode(JSON.stringify(claim)))}`
-  const key = await importPrivateKey(privateKey)
-  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, textEncoder.encode(unsigned))
-  const assertion = `${unsigned}.${base64UrlEncode(signature)}`
+function buildModelUrl(modelId: string, method: 'predictLongRunning' | 'fetchPredictOperation', apiKey: string) {
+  return withApiKey(`${GEMINI_API_BASE}/models/${modelId}:${method}`, apiKey)
+}
 
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }),
-  })
-
-  if (!response.ok) {
-    const body = await response.text()
-    throw new Error(`token_exchange_failed:${response.status}:${body.slice(0, 160)}`)
-  }
-
-  const data = await response.json()
-  const token = typeof data.access_token === 'string' ? data.access_token : ''
-  if (!token) throw new Error('token_exchange_empty')
-  return token
+function buildOperationUrl(operationName: string, apiKey: string) {
+  const clean = operationName.replace(/^\/+/, '')
+  if (/^https?:\/\//i.test(clean)) return withApiKey(clean, apiKey)
+  return withApiKey(`${GEMINI_API_BASE}/${clean}`, apiKey)
 }
 
 function findStringByKey(value: unknown, keys: Set<string>): string {
@@ -198,9 +144,13 @@ function findStringByKey(value: unknown, keys: Set<string>): string {
   return ''
 }
 
-async function fetchVideoUri(uri: string, accessToken: string) {
-  const response = await fetch(uri, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+async function fetchVideoUri(uri: string, apiKey: string) {
+  if (uri.startsWith('gs://')) {
+    throw new Error('video_uri_requires_signed_download')
+  }
+
+  const response = await fetch(withApiKey(uri, apiKey), {
+    headers: { 'x-goog-api-key': apiKey },
   })
   if (!response.ok) {
     const body = await response.text()
@@ -210,15 +160,13 @@ async function fetchVideoUri(uri: string, accessToken: string) {
 }
 
 export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJobId: string }> {
-  const { projectId, location, modelId, serviceAccountJson } = getVertexEnvironment()
+  const { apiKey, modelId } = getVeoEnvironment()
   const [openingImage, finalImage] = await Promise.all([
     prepareVeoImage(input.supabase, input.bucket, input.image1Path),
     prepareVeoImage(input.supabase, input.bucket, input.image2Path),
   ])
 
-  const accessToken = await getAccessToken(serviceAccountJson)
-  const endpoint =
-    `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${modelId}:predictLongRunning`
+  const endpoint = buildModelUrl(modelId, 'predictLongRunning', apiKey)
   const requestBody = {
     instances: [
       {
@@ -238,16 +186,11 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
       durationSeconds: input.durationSeconds,
       resolution: input.resolution,
       sampleCount: 1,
-      task: 'imageToVideo',
-      resizeMode: 'pad',
-      generateAudio: true,
-      enhancePrompt: true,
     },
   }
 
-  console.info('[veoClient] estrutura do payload preparada', {
+  console.info('[studioHeroVideo] payload preparado', {
     endpoint: 'predictLongRunning',
-    task: requestBody.parameters.task,
     modelId,
     imageCount: 2,
     openingImage: {
@@ -266,7 +209,6 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody),
@@ -284,15 +226,10 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
 }
 
 export async function checkVeoVideoStatus(providerJobId: string): Promise<CheckVeoResult> {
-  const { location, serviceAccountJson } = getVertexEnvironment()
-  const accessToken = await getAccessToken(serviceAccountJson)
-  const endpoint = /^https?:\/\//i.test(providerJobId)
-    ? providerJobId
-    : `https://${location}-aiplatform.googleapis.com/v1/${providerJobId.replace(/^\/+/, '')}`
+  const { apiKey } = getVeoEnvironment({ requireEnabled: false })
+  const endpoint = buildOperationUrl(providerJobId, apiKey)
 
-  const response = await fetch(endpoint, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+  const response = await fetch(endpoint)
 
   if (!response.ok) {
     const body = await response.text()
@@ -300,7 +237,7 @@ export async function checkVeoVideoStatus(providerJobId: string): Promise<CheckV
   }
 
   const data = await response.json()
-  if (data.done === false || data.metadata?.state === 'PROCESSING') {
+  if (data.done === false || (!data.done && !data.response && !data.error) || data.metadata?.state === 'PROCESSING') {
     return { status: 'processing' }
   }
   if (data.error) {
@@ -329,7 +266,7 @@ export async function checkVeoVideoStatus(providerJobId: string): Promise<CheckV
     'uri',
   ]))
   if (videoUri) {
-    const videoBytes = await fetchVideoUri(videoUri, accessToken)
+    const videoBytes = await fetchVideoUri(videoUri, apiKey)
     return { status: 'completed', videoBytes, contentType: 'video/mp4', videoUri }
   }
 
