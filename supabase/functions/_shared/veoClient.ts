@@ -186,6 +186,7 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
       durationSeconds: input.durationSeconds,
       resolution: input.resolution,
       sampleCount: 1,
+      resizeMode: 'crop',
     },
   }
 
@@ -193,6 +194,9 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
     endpoint: 'predictLongRunning',
     modelId,
     imageCount: 2,
+    promptLength: input.prompt.length,
+    hasOpeningImage: true,
+    hasLastFrame: true,
     openingImage: {
       mimeType: openingImage.mimeType,
       byteLength: openingImage.byteLength,

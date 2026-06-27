@@ -150,6 +150,26 @@ serve(async (req) => {
       })
     }
 
+    const existingOutputPath = String(job.output_video_path || '')
+    if (existingOutputPath) {
+      await supabase
+        .from('video_jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', job.id)
+        .eq('user_id', user.id)
+
+      const signedVideoUrl = await createSignedVideoUrl(supabase, existingOutputPath)
+      return jsonResponse({
+        ok: true,
+        status: 'completed',
+        jobId: job.id,
+        signedVideoUrl,
+      })
+    }
+
     const providerJobId = String(job.provider_job_id || '')
     if (!providerJobId) {
       return jsonResponse({

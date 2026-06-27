@@ -25,7 +25,6 @@ const STUDIO_HERO_DEMO_VIDEO_URL = '/previews/studio-hero/moema-demo.mp4'
 const PREMIUM_PLAN_IDS = new Set(['start', 'starter', 'pro', 'elite'])
 const IS_DEV = import.meta.env.DEV
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const DEV_RECOVERY_JOB_ID = 'e22ea1f2-2130-4030-be74-0591c2b11bd7'
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
 const TYPEWRITER_FINAL_CURSOR_MS = 400
@@ -586,10 +585,6 @@ function formatStudioHeroFinalCta(finalCta) {
   return finalCta.label || 'SAIBA MAIS'
 }
 
-function getLocationValue(value, other = '') {
-  return value === 'OUTRO' ? normalizeFreeText(other) : normalizeFreeText(value)
-}
-
 function isCommercialType(type) {
   return COMMERCIAL_PROPERTY_TYPES.includes(type)
 }
@@ -815,7 +810,6 @@ export default function StudioHero() {
   const uploadStep = isFreeAiMode ? ctaStep + 5 : imageCountStep + 1
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroAccess = getStudioHeroAccess(user)
-  const showDevRecovery = false
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
   const progressPercent = Math.min(100, Math.max(8, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
   const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode)
@@ -1197,14 +1191,6 @@ export default function StudioHero() {
       setStatus('failed')
       setMessage('Nao foi possivel preparar o comercial neste momento.')
     }
-  }
-
-  const handleRecoverDevVideo = async () => {
-    clearPolling()
-    setVideoUrl('')
-    setStatus('generating')
-    setMessage('Consultando comercial em andamento...')
-    await pollVideoStatus(DEV_RECOVERY_JOB_ID, { mode: 'recovery' })
   }
 
   const handleGenerate = async () => {
@@ -2207,28 +2193,6 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {showDevRecovery && (
-            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-amber-700">Recuperacao DEV</p>
-                  <p className="mt-1 text-sm font-bold text-amber-950">
-                    Consultar o video em andamento sem criar nova geracao.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleRecoverDevVideo}
-                  disabled={isGenerating}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                  Recuperar video em andamento
-                </button>
-              </div>
-            </section>
-          )}
-
           <div className="flex justify-end">
             <button
               type="button"
@@ -2548,53 +2512,6 @@ function TypewriterText({ text, active }) {
       {visibleText}
       {showCursor && <span className="ml-1 inline-block h-5 w-1.5 translate-y-0.5 animate-pulse rounded-sm bg-cyan-700" />}
     </>
-  )
-}
-
-function ActionCard({ canGenerate, studioHeroAccess, isGenerating, status, message, onReview, onGenerate }) {
-  const hasError = status === 'failed' && message
-
-  return (
-    <div
-      className={`rounded-3xl border p-4 shadow-sm ${
-        hasError ? 'border-red-100 bg-red-50' : 'border-primary-100 bg-primary-50/70'
-      }`}
-    >
-      {hasError && (
-        <p className="mb-3 text-sm font-semibold text-red-700">{message}</p>
-      )}
-      {!studioHeroAccess?.canGenerate && (
-        <div className="mb-3 rounded-2xl border border-cyan-100 bg-white px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
-          Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja o exemplo e ative quando quiser.
-        </div>
-      )}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-black text-slate-950">Pronto para gerar seu video?</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-            As imagens estao selecionadas. Voce pode gerar agora ou revisar as escolhas antes de continuar.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button type="button" variant="secondary" onClick={onReview} disabled={isGenerating}>
-            Revisar dados
-          </Button>
-          <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="justify-center">
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Criando comercial
-              </>
-            ) : (
-              <>
-                <PlayCircle className="h-4 w-4" />
-                Criar comercial
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
   )
 }
 
