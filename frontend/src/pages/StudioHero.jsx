@@ -18,6 +18,8 @@ import { Button } from '../components/ui/Button'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
+const MAX_CAPTURE_DIFFERENTIALS = 3
+const MAX_BROKER_BENEFITS = 3
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
 const STUDIO_HERO_DEMO_VIDEO_URL = '/previews/studio-hero/moema-demo.mp4'
 const PREMIUM_PLAN_IDS = new Set(['start', 'starter', 'pro', 'elite'])
@@ -76,11 +78,11 @@ const STUDIO_CREATION_MODES = [
     id: 'free_ai',
     title: 'Comercial IA Livre',
     description: 'Crie um comercial do zero apenas conversando com a IA, sem enviar imagens.',
-    status: 'Em breve',
+    status: 'Ativo agora',
     Icon: MessageSquareText,
-    active: false,
+    active: true,
     accent: 'violet',
-    cta: 'Em breve',
+    cta: 'Criar comercial livre',
   },
   {
     id: 'smart_carousel',
@@ -101,6 +103,65 @@ const STUDIO_CREATION_MODES = [
     active: false,
     accent: 'amber',
     cta: 'Em breve',
+  },
+]
+
+const STUDIO_MODE_EXAMPLES = [
+  {
+    id: 'cinematic',
+    title: 'Comercial Cinematografico',
+    label: 'Exemplo com imagens',
+    accent: 'cyan',
+    summary: [
+      ['Objetivo', 'Vender um imovel'],
+      ['Tipo', 'Apartamento'],
+      ['Perfil', 'Alto Padrao'],
+      ['Localizacao', 'Moema-SP'],
+      ['Destaque', 'Sofisticacao'],
+      ['Encerramento', 'Saiba mais'],
+    ],
+  },
+  {
+    id: 'free_ai',
+    title: 'Comercial IA Livre',
+    label: 'Exemplo sem imagens',
+    accent: 'violet',
+    summary: [
+      ['Objetivo', 'Vender um imovel'],
+      ['Tipo', 'Apartamento'],
+      ['Perfil', 'Alto Padrao'],
+      ['Estilo visual', 'Elegante'],
+      ['Atmosfera', 'Golden Hour'],
+      ['Ritmo', 'Impactante'],
+    ],
+  },
+  {
+    id: 'smart_carousel',
+    title: 'Carrossel Inteligente',
+    label: 'Espaco reservado',
+    accent: 'green',
+    summary: [
+      ['Objetivo', 'Divulgar um imovel'],
+      ['Formato', 'Apresentacao dinamica'],
+      ['Base', 'Varias imagens'],
+      ['Entrega', 'Video curto'],
+      ['Textos', 'Prontos para publicar'],
+      ['Status', 'Preparado para motor futuro'],
+    ],
+  },
+  {
+    id: 'improve_video',
+    title: 'Melhorar meu Video',
+    label: 'Espaco reservado',
+    accent: 'amber',
+    summary: [
+      ['Objetivo', 'Aprimorar video enviado'],
+      ['Base', 'Video do corretor'],
+      ['Acabamento', 'Legendas e musica'],
+      ['Entrega', 'Video final'],
+      ['Textos', 'Prontos para divulgar'],
+      ['Status', 'Preparado para motor futuro'],
+    ],
   },
 ]
 
@@ -142,8 +203,34 @@ const ASSISTANT_HINTS = {
 }
 
 const OBJECTIVE_OPTIONS = [
-  { id: 'sale', label: 'Venda de imovel', oferta: 'A VENDA' },
-  { id: 'rent', label: 'Locacao de imovel', oferta: 'PARA LOCACAO' },
+  {
+    id: 'sale',
+    label: 'Comercial para vender um imovel',
+    summaryLabel: 'Venda',
+    oferta: 'A VENDA',
+    description: 'Criar um comercial para atrair compradores.',
+  },
+  {
+    id: 'rent',
+    label: 'Comercial para alugar um imovel',
+    summaryLabel: 'Locacao',
+    oferta: 'PARA LOCACAO',
+    description: 'Criar um comercial para encontrar locatarios.',
+  },
+  {
+    id: 'property_capture',
+    label: 'Comercial para captar imoveis',
+    summaryLabel: 'Captacao de Imoveis',
+    oferta: 'CAPTACAO DE IMOVEIS',
+    description: 'Atrair proprietarios que querem vender ou alugar.',
+  },
+  {
+    id: 'broker_capture',
+    label: 'Comercial para captar corretores',
+    summaryLabel: 'Captacao de Corretores',
+    oferta: 'CAPTACAO DE CORRETORES',
+    description: 'Atrair corretores e profissionais para sua equipe.',
+  },
 ]
 
 const RESIDENTIAL_PROPERTY_TYPES = ['APARTAMENTO', 'CASA']
@@ -157,6 +244,24 @@ const RESIDENTIAL_PROFILES = ['ECONOMICO', 'ALTO PADRAO', 'LUXO']
 const HOUSE_LOCATION_OPTIONS = ['CONDOMINIO FECHADO', 'BAIRRO ABERTO']
 
 const UF_OPTIONS = ['SP', 'RJ', 'MG', 'PR', 'SC', 'RS', 'BA', 'PE', 'CE', 'GO', 'DF', 'ES', 'MT', 'MS']
+const OTHER_CITY_OPTION = 'OUTRA_CIDADE'
+
+const CITY_OPTIONS_BY_UF = {
+  SP: ['São Paulo', 'Campinas', 'Santos', 'São Bernardo do Campo', 'Santo André', 'Osasco', 'Barueri', 'Guarulhos', 'Ribeirão Preto', 'Sorocaba'],
+  RJ: ['Rio de Janeiro', 'Niterói', 'Petrópolis', 'Nova Iguaçu', 'Duque de Caxias'],
+  MG: ['Belo Horizonte', 'Nova Lima', 'Contagem', 'Uberlândia', 'Juiz de Fora'],
+  PR: ['Curitiba', 'Londrina', 'Maringa'],
+  SC: ['Florianópolis', 'Balneário Camboriú', 'Joinville', 'Itajaí'],
+  RS: ['Porto Alegre', 'Gramado', 'Caxias do Sul'],
+  DF: ['Brasília'],
+  GO: ['Goiânia'],
+  BA: ['Salvador'],
+  PE: ['Recife'],
+  CE: ['Fortaleza'],
+  ES: ['Vitória', 'Vila Velha'],
+  MT: ['Cuiabá'],
+  MS: ['Campo Grande'],
+}
 
 const IMAGE_COUNT_OPTIONS = [2, 3, 4, 6, 8]
 
@@ -211,6 +316,42 @@ const RENT_COMMERCIAL_DIFFERENTIAL_OPTIONS = [
   'VISIBILIDADE',
 ]
 
+const PROPERTY_CAPTURE_TYPES = ['APARTAMENTO', 'CASA', 'COMERCIAL', 'TODOS']
+const BROKER_CAPTURE_PROFILES = ['CORRETORES', 'CAPTADORES DE IMOVEIS', 'PERITOS AVALIADORES', 'GERENTES COMERCIAIS', 'DIRETORES COMERCIAIS']
+const FREE_AI_VISUAL_STYLE_OPTIONS = ['MODERNO', 'ELEGANTE', 'LUXUOSO', 'MINIMALISTA']
+const FREE_AI_ATMOSPHERE_OPTIONS = ['DIA', 'GOLDEN HOUR', 'ENTARDECER', 'NOITE']
+const FREE_AI_PACE_OPTIONS = ['CALMO', 'EQUILIBRADO', 'DINAMICO', 'IMPACTANTE']
+const FREE_AI_FREEDOM_OPTIONS = ['MAIS REALISTA', 'EQUILIBRADO', 'MAIS CRIATIVO']
+
+const PROPERTY_CAPTURE_DIFFERENTIAL_OPTIONS = [
+  'AVALIACAO DE MERCADO',
+  'DIVULGACAO PROFISSIONAL',
+  'CARTEIRA DE CLIENTES',
+  'ATENDIMENTO CONSULTIVO',
+  'VENDA COM ESTRATEGIA',
+]
+
+const BROKER_CAPTURE_DIFFERENTIAL_OPTIONS = [
+  'LEADS QUALIFICADOS',
+  'TREINAMENTO',
+  'AMBIENTE COLABORATIVO',
+  'COMISSOES ATRATIVAS',
+  'CRESCIMENTO PROFISSIONAL',
+  'MARCA FORTE',
+]
+
+const BROKER_BENEFIT_OPTIONS = [
+  'LEADS FORNECIDOS',
+  'MARKETING DIGITAL',
+  'TREINAMENTO',
+  'PLANO DE CARREIRA',
+  'ESTRUTURA MODERNA',
+  'TECNOLOGIA',
+  'AMBIENTE COLABORATIVO',
+  'FLEXIBILIDADE',
+  'OUTRO',
+]
+
 const SALE_CTA_OPTIONS = [
   'SAIBA MAIS',
   'AGENDE SUA VISITA',
@@ -227,6 +368,14 @@ const RENT_CTA_OPTIONS = [
   'INFORMACOES NA BIO',
 ]
 
+const CAPTURE_CTA_OPTIONS = [
+  'ENTRE EM CONTATO',
+  'FALE COMIGO',
+  'SAIBA MAIS',
+  'QUERO CONVERSAR',
+  'CHAME NO WHATSAPP',
+]
+
 const GENERATION_MESSAGES = [
   { Icon: Film, text: 'Estamos preparando a direcao criativa do seu comercial.' },
   { Icon: ImagePlus, text: 'A ordem das imagens ajuda a construir a narrativa.' },
@@ -235,6 +384,8 @@ const GENERATION_MESSAGES = [
   { Icon: ShieldCheck, text: 'A entrega final fica pronta para revisar, baixar e divulgar.' },
   { Icon: CheckCircle2, text: 'Estamos organizando video, chamada e materiais de apoio.' },
 ]
+
+const DELIVERY_PACKAGE_ITEMS = ['Instagram', 'WhatsApp', 'Facebook', 'Portal', 'LinkedIn quando aplicavel', 'Hashtags', 'CTA']
 const initialAnswers = {
   objective: '',
   oferta: '',
@@ -244,6 +395,7 @@ const initialAnswers = {
   city: '',
   cityOther: '',
   district: '',
+  captureHasDistrict: '',
   bedrooms: '',
   suites: '',
   parking: '',
@@ -256,6 +408,15 @@ const initialAnswers = {
   houseLocationType: '',
   uf: '',
   imageCount: 2,
+  brokerHasBenefits: '',
+  brokerCommission: '',
+  brokerBenefits: [],
+  brokerBenefitOther: '',
+  creativeMode: 'cinematic',
+  visualStyle: '',
+  atmosphere: '',
+  pace: '',
+  creativeFreedom: '',
 }
 
 const getStudioHeroAccess = (user) => {
@@ -320,6 +481,48 @@ function normalizeFreeText(value) {
     .slice(0, 60)
 }
 
+function formatDisplayText(value) {
+  const minorWords = new Set(['da', 'de', 'do', 'das', 'dos', 'e'])
+  return String(value || '')
+    .replace(/[^a-zA-ZÀ-ÿ0-9\s/-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trimStart()
+    .slice(0, 60)
+    .split(' ')
+    .map((word, index) => {
+      const lower = word.toLowerCase()
+      if (index > 0 && minorWords.has(lower)) return lower
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
+}
+
+function getCityOptions(uf) {
+  return [...(CITY_OPTIONS_BY_UF[uf] || []), OTHER_CITY_OPTION]
+}
+
+function getDisplayCityValue(answers) {
+  if (answers.city === OTHER_CITY_OPTION) return formatDisplayText(answers.cityOther)
+  return answers.city || ''
+}
+
+function getDisplayLocation({ district, city, uf, isCapture }) {
+  const displayDistrict = formatDisplayText(district)
+  const displayCity = formatDisplayText(city)
+  const cityUf = [displayCity, uf].filter(Boolean).join('/')
+  if (isCapture && !displayDistrict) return cityUf
+  return [displayDistrict, cityUf].filter(Boolean).join(' — ')
+}
+
+function getNormalizedLocation({ district, city, uf, isCapture }) {
+  const normalizedCity = normalizeFreeText(city)
+  const normalizedUf = normalizeFreeText(uf)
+  const normalizedDistrict = normalizeFreeText(district)
+  const cityUf = [normalizedCity, normalizedUf].filter(Boolean).join('-')
+  if (isCapture && !normalizedDistrict) return cityUf
+  return [normalizedDistrict, cityUf].filter(Boolean).join('-')
+}
+
 function normalizeImpactText(value, fallback, maxWords = 1) {
   const words = normalizeFreeText(value)
     .split(/\s+/)
@@ -357,7 +560,9 @@ function getShortCtaPreview(cta) {
   return normalizeImpactText(clean, 'SAIBA MAIS', 2)
 }
 
-function getCreativeProgressMessage(step, uploadStep) {
+function getCreativeProgressMessage(step, uploadStep, isFreeAiMode = false) {
+  if (isFreeAiMode && step >= uploadStep) return 'Estamos quase la. Falta revisar a direcao criativa.'
+  if (isFreeAiMode && step >= uploadStep - 3) return 'Agora estamos definindo estilo, atmosfera e ritmo.'
   if (step >= uploadStep) return 'Agora suas imagens entram como base visual do comercial.'
   if (step >= uploadStep - 1) return 'Estamos quase terminando. Falta escolher as imagens.'
   if (step >= 4) return 'O estilo do comercial ja esta ganhando forma.'
@@ -393,7 +598,17 @@ function isResidentialType(type) {
   return RESIDENTIAL_PROPERTY_TYPES.includes(type)
 }
 
+function isPropertyCampaignObjective(objective) {
+  return objective === 'sale' || objective === 'rent'
+}
+
+function isCaptureObjective(objective) {
+  return objective === 'property_capture' || objective === 'broker_capture'
+}
+
 function getPropertyTypeOptions(objective) {
+  if (objective === 'property_capture') return PROPERTY_CAPTURE_TYPES
+  if (objective === 'broker_capture') return BROKER_CAPTURE_PROFILES
   return objective === 'rent' ? RENT_PROPERTY_TYPES : SALE_PROPERTY_TYPES
 }
 
@@ -406,6 +621,9 @@ function getStageOptions(answers) {
 }
 
 function getDifferentialOptions(answers) {
+  if (answers.objective === 'property_capture') return PROPERTY_CAPTURE_DIFFERENTIAL_OPTIONS
+  if (answers.objective === 'broker_capture') return BROKER_CAPTURE_DIFFERENTIAL_OPTIONS
+
   if (answers.objective === 'rent') {
     return isCommercialType(answers.propertyType)
       ? RENT_COMMERCIAL_DIFFERENTIAL_OPTIONS
@@ -423,6 +641,7 @@ function getDifferentialOptions(answers) {
 }
 
 function getCtaOptions(answers) {
+  if (isCaptureObjective(answers.objective)) return CAPTURE_CTA_OPTIONS
   if (answers.objective === 'rent') return RENT_CTA_OPTIONS
   return SALE_CTA_OPTIONS
 }
@@ -436,8 +655,9 @@ function getConfiguration(answers) {
 }
 
 function getFinalFeatureText(answers) {
+  const objectiveLabel = getObjectiveSummaryLabel(answers.objective)
   const items = [
-    answers.objective === 'rent' ? 'LOCACAO' : 'VENDA',
+    objectiveLabel,
     answers.propertyType,
     answers.stage,
     answers.profile,
@@ -446,12 +666,19 @@ function getFinalFeatureText(answers) {
     answers.district,
     ...answers.differentials,
     ...answers.rentConditions,
+    answers.brokerCommission ? `COMISSAO ${answers.brokerCommission}` : '',
+    ...answers.brokerBenefits,
+    answers.brokerBenefitOther,
   ].filter(Boolean)
   return [...new Set(items)].join(', ')
 }
 
 function getObjectiveLabel(objectiveId) {
   return OBJECTIVE_OPTIONS.find((item) => item.id === objectiveId)?.label || ''
+}
+
+function getObjectiveSummaryLabel(objectiveId) {
+  return OBJECTIVE_OPTIONS.find((item) => item.id === objectiveId)?.summaryLabel || ''
 }
 
 function buildDeliveryTexts({ answers, districtValue, cityValue }) {
@@ -544,14 +771,21 @@ export default function StudioHero() {
 
   const isSale = answers.objective === 'sale'
   const isRent = answers.objective === 'rent'
+  const isFreeAiMode = studioMode === 'free_ai'
+  const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
+  const isPropertyCapture = answers.objective === 'property_capture'
+  const isBrokerCapture = answers.objective === 'broker_capture'
+  const isCapture = isCaptureObjective(answers.objective)
   const propertyTypeOptions = getPropertyTypeOptions(answers.objective)
   const profileOptions = getProfileOptions(answers)
   const stageOptions = getStageOptions(answers)
   const differentialOptions = getDifferentialOptions(answers)
   const ctaOptions = getCtaOptions(answers)
-  const cityValue = getLocationValue(answers.uf || answers.city, answers.cityOther)
-  const districtValue = normalizeFreeText(answers.district)
-  const normalizedLocation = [districtValue, cityValue].filter(Boolean).join('-')
+  const cityOptions = getCityOptions(answers.uf)
+  const cityValue = getDisplayCityValue(answers)
+  const districtValue = formatDisplayText(answers.district)
+  const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
+  const normalizedLocation = getNormalizedLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const configuration = getConfiguration(answers)
   const finalFeatures = getFinalFeatureText({
     ...answers,
@@ -559,51 +793,76 @@ export default function StudioHero() {
     district: districtValue,
   })
   const isGenerating = ['uploading', 'generating'].includes(status)
-  const hasProfileStep = isResidentialType(answers.propertyType)
-  const hasHouseLocationStep = answers.propertyType === 'CASA'
-  const hasStageStep = isSale && isResidentialType(answers.propertyType)
+  const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
+  const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
+  const hasStageStep = isPropertyCampaign && isSale && isResidentialType(answers.propertyType)
   const profileStep = 3
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
-  const locationStep = stageStep + (hasStageStep ? 1 : 0)
-  const differentialsStep = locationStep + 1
-  const ctaStep = differentialsStep + 1
-  const imageCountStep = ctaStep + 1
-  const uploadStep = imageCountStep + 1
+  const locationStep = isCapture ? 2 : stageStep + (hasStageStep ? 1 : 0)
+  const captureTypeStep = isCapture ? 3 : null
+  const differentialsStep = isCapture ? 4 : locationStep + 1
+  const benefitQuestionStep = isBrokerCapture ? differentialsStep + 1 : null
+  const benefitDetailsStep = isBrokerCapture && answers.brokerHasBenefits === 'yes' ? benefitQuestionStep + 1 : null
+  const ctaStep = isBrokerCapture
+    ? benefitQuestionStep + (answers.brokerHasBenefits === 'yes' ? 2 : 1)
+    : differentialsStep + 1
+  const visualStyleStep = isFreeAiMode ? ctaStep + 1 : null
+  const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
+  const paceStep = isFreeAiMode ? ctaStep + 3 : null
+  const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
+  const imageCountStep = isFreeAiMode ? null : ctaStep + 1
+  const uploadStep = isFreeAiMode ? ctaStep + 5 : imageCountStep + 1
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroAccess = getStudioHeroAccess(user)
   const showDevRecovery = false
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
   const progressPercent = Math.min(100, Math.max(8, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
-  const progressMessage = getCreativeProgressMessage(step, uploadStep)
+  const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode)
   const stepSummaries = {
-    1: answers.objective ? getObjectiveLabel(answers.objective) : '',
-    2: answers.propertyType,
+    1: answers.objective ? getObjectiveSummaryLabel(answers.objective) : '',
+    2: isPropertyCampaign ? answers.propertyType : displayLocation,
     [profileStep]: hasProfileStep ? answers.profile : '',
     [houseLocationStep]: hasHouseLocationStep ? answers.houseLocationType : '',
     [stageStep]: hasStageStep ? answers.stage : '',
-    [locationStep]: normalizedLocation,
+    [locationStep]: displayLocation,
+    [captureTypeStep]: isCapture ? answers.propertyType : '',
     [differentialsStep]: answers.differentials.join(', '),
+    [benefitQuestionStep]: isBrokerCapture ? (answers.brokerHasBenefits === 'yes' ? 'Sim' : answers.brokerHasBenefits === 'no' ? 'Nao' : '') : '',
+    [benefitDetailsStep]: isBrokerCapture && answers.brokerHasBenefits === 'yes'
+      ? [
+        answers.brokerCommission ? `${answers.brokerCommission}%` : '',
+        ...answers.brokerBenefits.filter((item) => item !== 'OUTRO'),
+        answers.brokerBenefitOther,
+      ].filter(Boolean).join(', ')
+      : '',
     [ctaStep]: answers.cta,
-    [imageCountStep]: answers.imageCount === 2 ? `${answers.imageCount} imagens` : '',
-    [uploadStep]: files.image1 && files.image2 ? '2 imagens selecionadas' : '',
+    [visualStyleStep]: isFreeAiMode ? answers.visualStyle : '',
+    [atmosphereStep]: isFreeAiMode ? answers.atmosphere : '',
+    [paceStep]: isFreeAiMode ? answers.pace : '',
+    [creativeFreedomStep]: isFreeAiMode ? answers.creativeFreedom : '',
+    [imageCountStep]: !isFreeAiMode && answers.imageCount === 2 ? `${answers.imageCount} imagens` : '',
+    [uploadStep]: isFreeAiMode ? 'Criacao livre com IA' : files.image1 && files.image2 ? '2 imagens selecionadas' : '',
   }
 
   const canGenerateBriefing = Boolean(
     answers.objective &&
-    answers.propertyType &&
+    (!isPropertyCampaign || answers.propertyType) &&
+    (!isCapture || answers.propertyType) &&
     (!hasProfileStep || answers.profile) &&
     (!hasHouseLocationStep || answers.houseLocationType) &&
     (!hasStageStep || answers.stage) &&
+    answers.uf &&
     cityValue &&
-    districtValue &&
+    (!isCapture || answers.captureHasDistrict) &&
+    (isCapture ? (answers.captureHasDistrict === 'no' || districtValue) : districtValue) &&
     answers.differentials.length > 0 &&
+    (!isBrokerCapture || answers.brokerHasBenefits) &&
     answers.cta &&
-    answers.imageCount === 2 &&
-    files.image1 &&
-    files.image2
+    (!isFreeAiMode || (answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)) &&
+    (isFreeAiMode || (answers.imageCount === 2 && files.image1 && files.image2))
   )
-  const canGenerate = canGenerateBriefing && studioHeroAccess.canGenerate
+  const canGenerate = canGenerateBriefing && (isFreeAiMode || studioHeroAccess.canGenerate)
 
   const updateObjective = (option) => {
     resetGenerationState()
@@ -618,6 +877,7 @@ export default function StudioHero() {
       cityOther: '',
       uf: '',
       district: '',
+      captureHasDistrict: '',
       bedrooms: '',
       suites: '',
       parking: '',
@@ -629,6 +889,15 @@ export default function StudioHero() {
       cta: '',
       houseLocationType: '',
       imageCount: 2,
+      brokerHasBenefits: '',
+      brokerCommission: '',
+      brokerBenefits: [],
+      brokerBenefitOther: '',
+      creativeMode: studioMode === 'free_ai' ? 'free_ai' : 'cinematic',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
     }))
     setStep(2)
   }
@@ -651,7 +920,19 @@ export default function StudioHero() {
       cta: '',
       houseLocationType: '',
       imageCount: 2,
+      brokerHasBenefits: '',
+      brokerCommission: '',
+      brokerBenefits: [],
+      brokerBenefitOther: '',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
     }))
+    if (isCapture) {
+      setStep(differentialsStep)
+      return
+    }
     setStep(isResidentialType(propertyType) ? profileStep : locationStep)
   }
 
@@ -665,6 +946,15 @@ export default function StudioHero() {
       cta: '',
       houseLocationType: '',
       imageCount: 2,
+      captureHasDistrict: '',
+      brokerHasBenefits: '',
+      brokerCommission: '',
+      brokerBenefits: [],
+      brokerBenefitOther: '',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
     }))
     setStep(answers.propertyType === 'CASA' ? houseLocationStep : (hasStageStep ? stageStep : locationStep))
   }
@@ -677,12 +967,65 @@ export default function StudioHero() {
 
   const toggleDifferential = (item) => {
     resetGenerationState()
+    const maxSelections = isCapture ? MAX_CAPTURE_DIFFERENTIALS : MAX_DIFFERENTIALS
     setAnswers((current) => ({
       ...current,
-      differentials: current.differentials.includes(item) ? [] : [item],
+      differentials: current.differentials.includes(item)
+        ? current.differentials.filter((selected) => selected !== item)
+        : current.differentials.length >= maxSelections
+          ? current.differentials
+          : [...current.differentials, item],
+      cta: '',
+      brokerHasBenefits: '',
+      brokerCommission: '',
+      brokerBenefits: [],
+      brokerBenefitOther: '',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
+      imageCount: 2,
+    }))
+  }
+
+  const updateBrokerHasBenefits = (value) => {
+    resetGenerationState()
+    setAnswers((current) => ({
+      ...current,
+      brokerHasBenefits: value,
+      brokerCommission: value === 'yes' ? current.brokerCommission : '',
+      brokerBenefits: value === 'yes' ? current.brokerBenefits : [],
+      brokerBenefitOther: value === 'yes' ? current.brokerBenefitOther : '',
       cta: '',
       imageCount: 2,
     }))
+    setStep(benefitQuestionStep + 1)
+  }
+
+  const updateBrokerCommission = (value) => {
+    resetGenerationState()
+    const clean = String(value || '').replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 5)
+    setAnswers((current) => ({ ...current, brokerCommission: clean, cta: '', imageCount: 2 }))
+  }
+
+  const toggleBrokerBenefit = (item) => {
+    resetGenerationState()
+    setAnswers((current) => {
+      const exists = current.brokerBenefits.includes(item)
+      const nextBenefits = exists
+        ? current.brokerBenefits.filter((selected) => selected !== item)
+        : current.brokerBenefits.length >= MAX_BROKER_BENEFITS
+          ? current.brokerBenefits
+          : [...current.brokerBenefits, item]
+
+      return {
+        ...current,
+        brokerBenefits: nextBenefits,
+        brokerBenefitOther: nextBenefits.includes('OUTRO') ? current.brokerBenefitOther : '',
+        cta: '',
+        imageCount: 2,
+      }
+    })
   }
 
   const updateCtaLabel = (cta) => {
@@ -690,8 +1033,18 @@ export default function StudioHero() {
     setAnswers((current) => ({
       ...current,
       cta,
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
     }))
-    setStep(imageCountStep)
+    setStep(isFreeAiMode ? visualStyleStep : imageCountStep)
+  }
+
+  const updateFreeAiAnswer = (field, value, nextStep) => {
+    resetGenerationState()
+    setAnswers((current) => ({ ...current, [field]: value, creativeMode: 'free_ai' }))
+    setStep(nextStep)
   }
 
   const uploadImage = async (slot, file, jobDraftId) => {
@@ -856,9 +1209,17 @@ export default function StudioHero() {
 
   const handleGenerate = async () => {
     if (!user?.id || !canGenerateBriefing) return
-    if (!studioHeroAccess.canGenerate) {
+    if (!isFreeAiMode && !studioHeroAccess.canGenerate) {
       setStatus('failed')
       setMessage('Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja o exemplo e ative quando quiser.')
+      return
+    }
+
+    if (isFreeAiMode) {
+      clearPolling()
+      setVideoUrl('')
+      setStatus('idle')
+      setMessage('Este modo esta quase pronto para geracao. A experiencia ja foi preparada e sera liberada na proxima atualizacao.')
       return
     }
 
@@ -914,9 +1275,12 @@ export default function StudioHero() {
     }
   }
 
-  const resetFlow = () => {
+  const resetFlow = (nextMode = studioMode) => {
     clearPolling()
-    setAnswers(initialAnswers)
+    setAnswers({
+      ...initialAnswers,
+      creativeMode: nextMode === 'free_ai' ? 'free_ai' : 'cinematic',
+    })
     setFiles({ image1: null, image2: null })
     setStatus('idle')
     setMessage('')
@@ -931,7 +1295,7 @@ export default function StudioHero() {
     }
     setModeNotice('')
     setStudioMode(mode.id)
-    resetFlow()
+    resetFlow(mode.id)
   }
 
   if (!studioMode) {
@@ -1014,33 +1378,74 @@ export default function StudioHero() {
               )
             })}
           </section>
+
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-6">
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplos dos modos</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Mesmo Studio Hero, entregas diferentes</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                Todos os modos seguem a mesma conversa, o mesmo resumo e o mesmo pacote de materiais. O que muda e apenas a etapa final de criacao.
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-4">
+              {STUDIO_MODE_EXAMPLES.map((example) => {
+                const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
+                return (
+                  <div key={example.id} className={`overflow-hidden rounded-3xl border p-4 ${accent.card}`}>
+                    <div className="mx-auto max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
+                      <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#0e7490_100%)]">
+                        <div className={`absolute inset-0 bg-gradient-to-b ${accent.glow}`} />
+                        <div className="relative px-4 text-center text-white">
+                          <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
+                          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{example.label}</p>
+                          <p className="mt-2 text-base font-black leading-tight">{example.title}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {example.summary.map(([label, value]) => (
+                        <div key={`${example.id}-${label}`} className="rounded-2xl border border-white/70 bg-white/90 px-3 py-2">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                          <p className="mt-0.5 text-xs font-black text-slate-950">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_38%,#f8fafc_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+    <main className={`min-h-screen px-4 py-8 text-slate-900 sm:px-6 lg:px-8 ${isFreeAiMode ? 'bg-[linear-gradient(180deg,#faf5ff_0%,#f8fafc_46%,#eef7fb_100%)]' : 'bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_38%,#f8fafc_100%)]'}`}>
       <div className="mx-auto max-w-7xl space-y-8">
-        <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#082f49_0%,#0f172a_48%,#0e7490_100%)] text-white shadow-2xl shadow-cyan-950/20">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(103,232,249,0.24),transparent_30%),radial-gradient(circle_at_84%_28%,rgba(56,189,248,0.16),transparent_34%)]" />
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/70 to-transparent" />
+        <section className={`relative overflow-hidden rounded-[2rem] text-white shadow-2xl ${isFreeAiMode ? 'bg-[linear-gradient(135deg,#4c1d95_0%,#111827_54%,#7c3aed_100%)] shadow-violet-950/20' : 'bg-[linear-gradient(135deg,#082f49_0%,#0f172a_48%,#0e7490_100%)] shadow-cyan-950/20'}`}>
+          <div className={`absolute inset-0 ${isFreeAiMode ? 'bg-[radial-gradient(circle_at_20%_0%,rgba(216,180,254,0.28),transparent_30%),radial-gradient(circle_at_85%_22%,rgba(167,139,250,0.22),transparent_34%)]' : 'bg-[radial-gradient(circle_at_20%_0%,rgba(103,232,249,0.24),transparent_30%),radial-gradient(circle_at_84%_28%,rgba(56,189,248,0.16),transparent_34%)]'}`} />
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${isFreeAiMode ? 'via-violet-200/70' : 'via-cyan-200/70'} to-transparent`} />
           <div className="relative grid gap-8 p-8 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-100">
-                <Film className="h-4 w-4" />
-                Comercial Cinematografico
+              <div className={`inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-100' : 'text-cyan-100'}`}>
+                {isFreeAiMode ? <MessageSquareText className="h-4 w-4" /> : <Film className="h-4 w-4" />}
+                {isFreeAiMode ? 'Comercial IA Livre' : 'Comercial Cinematografico'}
               </div>
               <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
                 Vamos criar seu comercial.
               </h1>
               <p className="mt-4 max-w-2xl text-xl font-black text-white">
-                O Studio Hero vai construir a direcao criativa a partir das suas escolhas e imagens.
+                {isFreeAiMode
+                  ? 'O Studio Hero vai construir a direcao criativa a partir da conversa, sem pedir imagens.'
+                  : 'O Studio Hero vai construir a direcao criativa a partir das suas escolhas e imagens.'}
               </p>
               <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
-                Um fluxo curto para transformar suas escolhas e imagens em uma peca de divulgacao mais cinematografica.
+                {isFreeAiMode
+                  ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
+                  : 'Um fluxo curto para transformar suas escolhas e imagens em uma peca de divulgacao mais cinematografica.'}
               </p>
-              <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-cyan-50">
+              <p className={`mt-3 max-w-2xl text-base font-medium leading-7 ${isFreeAiMode ? 'text-violet-50' : 'text-cyan-50'}`}>
                 Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.
               </p>
               <button
@@ -1078,7 +1483,7 @@ export default function StudioHero() {
 
         {/* Regra futura: Produtos 1, 2 e 4 devem exibir exemplo real antes da primeira pergunta. */}
         <section className="overflow-hidden rounded-[2rem] border border-cyan-100 bg-white p-5 shadow-xl shadow-cyan-100/50 sm:p-6">
-          <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplo real</p>
               <h2 className="mt-2 text-2xl font-black text-slate-950">
@@ -1091,15 +1496,16 @@ export default function StudioHero() {
                 Cada comercial e unico. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.
               </p>
             </div>
-            <div className="mx-auto w-full max-w-3xl rounded-[1.75rem] border border-slate-200 bg-slate-950 p-2 shadow-2xl shadow-cyan-950/20">
-              <div className="overflow-hidden rounded-[1.35rem] bg-slate-950">
+            <div className="mx-auto w-full max-w-[360px] rounded-[2.4rem] border border-cyan-100 bg-slate-950 p-3 shadow-2xl shadow-cyan-950/25 ring-1 ring-cyan-100/70">
+              <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-white/20" />
+              <div className="overflow-hidden rounded-[1.8rem] bg-slate-950">
                 <video
                   src={STUDIO_HERO_DEMO_VIDEO_URL}
                   controls
                   muted
                   playsInline
                   preload="metadata"
-                  className="aspect-video w-full bg-slate-950 object-contain"
+                  className="aspect-[9/16] w-full bg-slate-950 object-cover"
                 />
               </div>
             </div>
@@ -1128,14 +1534,14 @@ export default function StudioHero() {
             </div>
           </div>
 
-          <AssistantStep number={1} currentStep={step} summary={stepSummaries[1]} onEdit={() => setStep(1)} message="O que deseja divulgar?">
+          <AssistantStep number={1} currentStep={step} summary={stepSummaries[1]} onEdit={() => setStep(1)} message="O que voce deseja criar?">
             <OptionGrid>
               {OBJECTIVE_OPTIONS.map((option) => (
                 <ChoiceButton
                   key={option.id}
                   active={answers.objective === option.id}
                   title={option.label}
-                  description={option.id === 'sale' ? 'Comercial para venda do imovel.' : 'Comercial para divulgar locacao.'}
+                  description={option.description}
                   onClick={() => updateObjective(option)}
                 />
               ))}
@@ -1149,7 +1555,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.objective && (
+          {answers.objective && isPropertyCampaign && (
             <AssistantStep number={2} currentStep={step} summary={stepSummaries[2]} onEdit={() => setStep(2)} message="Que tipo de imovel vamos divulgar?">
               <ChipGrid>
                 {propertyTypeOptions.map((option) => (
@@ -1258,8 +1664,14 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.propertyType && (!hasProfileStep || answers.profile) && (!hasHouseLocationStep || answers.houseLocationType) && (!hasStageStep || answers.stage) && (
-            <AssistantStep number={locationStep} currentStep={step} summary={stepSummaries[locationStep]} onEdit={() => setStep(locationStep)} message="Qual e a UF e o bairro do imovel?">
+          {answers.objective && (isCapture || (answers.propertyType && (!hasProfileStep || answers.profile) && (!hasHouseLocationStep || answers.houseLocationType) && (!hasStageStep || answers.stage))) && (
+            <AssistantStep
+              number={locationStep}
+              currentStep={step}
+              summary={stepSummaries[locationStep]}
+              onEdit={() => setStep(locationStep)}
+              message={isCapture ? 'Em qual cidade deseja atuar?' : 'Qual e a UF, cidade e bairro do imovel?'}
+            >
               <div className="space-y-5">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-slate-500">UF</p>
@@ -1270,7 +1682,16 @@ export default function StudioHero() {
                         active={answers.uf === option}
                         onClick={() => {
                           resetGenerationState()
-                          setAnswers((current) => ({ ...current, uf: option, city: option }))
+                          setAnswers((current) => ({
+                            ...current,
+                            uf: option,
+                            city: '',
+                            cityOther: '',
+                            district: '',
+                            captureHasDistrict: '',
+                            cta: '',
+                            imageCount: 2,
+                          }))
                         }}
                       >
                         {option}
@@ -1278,24 +1699,128 @@ export default function StudioHero() {
                     ))}
                   </ChipGrid>
                 </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Bairro</p>
-                  <input
-                    value={answers.district}
-                    onChange={(event) => {
-                      resetGenerationState()
-                      setAnswers((current) => ({ ...current, district: normalizeFreeText(event.target.value) }))
-                    }}
-                    placeholder="DIGITE O BAIRRO"
-                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
-                  />
-                </div>
+
+                {answers.uf && (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
+                    <ChipGrid className="mt-3">
+                      {cityOptions.map((option) => (
+                        <ChipButton
+                          key={option}
+                          active={answers.city === option}
+                          onClick={() => {
+                            resetGenerationState()
+                            setAnswers((current) => ({
+                              ...current,
+                              city: option,
+                              cityOther: '',
+                              district: '',
+                              captureHasDistrict: '',
+                              cta: '',
+                              imageCount: 2,
+                            }))
+                          }}
+                        >
+                          {option === OTHER_CITY_OPTION ? 'Outra cidade' : option}
+                        </ChipButton>
+                      ))}
+                    </ChipGrid>
+                  </div>
+                )}
+
+                {answers.city === OTHER_CITY_OPTION && (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Nome da cidade</p>
+                    <input
+                      value={answers.cityOther}
+                      onChange={(event) => {
+                        resetGenerationState()
+                        setAnswers((current) => ({ ...current, cityOther: formatDisplayText(event.target.value), district: '', captureHasDistrict: '', cta: '', imageCount: 2 }))
+                      }}
+                      placeholder="Digite a cidade"
+                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                    />
+                  </div>
+                )}
+
+                {cityValue && isCapture && (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Deseja focar em algum bairro ou regiao?</p>
+                    <ChipGrid className="mt-3">
+                      <ChipButton
+                        active={answers.captureHasDistrict === 'no'}
+                        onClick={() => {
+                          resetGenerationState()
+                          setAnswers((current) => ({ ...current, captureHasDistrict: 'no', district: '', cta: '', imageCount: 2 }))
+                        }}
+                      >
+                        Nao
+                      </ChipButton>
+                      <ChipButton
+                        active={answers.captureHasDistrict === 'yes'}
+                        onClick={() => {
+                          resetGenerationState()
+                          setAnswers((current) => ({ ...current, captureHasDistrict: 'yes', cta: '', imageCount: 2 }))
+                        }}
+                      >
+                        Sim
+                      </ChipButton>
+                    </ChipGrid>
+                  </div>
+                )}
+
+                {cityValue && (!isCapture || answers.captureHasDistrict === 'yes') && (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">{isCapture ? 'Bairro ou regiao' : 'Bairro'}</p>
+                    <input
+                      value={answers.district}
+                      onChange={(event) => {
+                        resetGenerationState()
+                        setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 2 }))
+                      }}
+                      placeholder={isCapture ? 'Ex.: Moema, Zona Sul, Centro, Toda a cidade' : 'Digite o bairro'}
+                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                    />
+                  </div>
+                )}
+
                 <div className="flex justify-end">
-                  <Button type="button" disabled={!cityValue || !districtValue} onClick={() => setStep(differentialsStep)}>
-                    Confirmar direcao
+                  <Button
+                    type="button"
+                    disabled={!answers.uf || !cityValue || (isCapture ? (!answers.captureHasDistrict || (answers.captureHasDistrict === 'yes' && !districtValue)) : !districtValue)}
+                    onClick={() => setStep(isCapture ? captureTypeStep : differentialsStep)}
+                  >
+                    Confirmar localizacao
                   </Button>
                 </div>
               </div>
+            </AssistantStep>
+          )}
+
+          {isCapture && cityValue && answers.captureHasDistrict && step >= captureTypeStep && (
+            <AssistantStep
+              number={captureTypeStep}
+              currentStep={step}
+              summary={stepSummaries[captureTypeStep]}
+              onEdit={() => setStep(captureTypeStep)}
+              message={isPropertyCapture ? 'Que tipo de imovel deseja captar?' : 'Qual profissional deseja atrair?'}
+            >
+              {isBrokerCapture && (
+                <p className="mb-4 text-sm font-bold text-slate-500">
+                  Vamos criar uma mensagem focada no profissional certo.
+                </p>
+              )}
+              <ChipGrid>
+                {propertyTypeOptions.map((option) => (
+                  <ChipButton
+                    key={option}
+                    active={answers.propertyType === option}
+                    onClick={() => updatePropertyType(option)}
+                  >
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
             </AssistantStep>
           )}
 
@@ -1306,14 +1831,21 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {cityValue && districtValue && step >= differentialsStep && (
-            <AssistantStep number={differentialsStep} currentStep={step} summary={stepSummaries[differentialsStep]} onEdit={() => setStep(differentialsStep)} message="O que voce deseja destacar neste comercial?">
+          {(isCapture ? (cityValue && answers.captureHasDistrict) : (cityValue && districtValue)) && (!isCapture || answers.propertyType) && step >= differentialsStep && (
+            <AssistantStep
+              number={differentialsStep}
+              currentStep={step}
+              summary={stepSummaries[differentialsStep]}
+              onEdit={() => setStep(differentialsStep)}
+              message={isCapture ? 'Quais diferenciais voce gostaria de destacar neste comercial?' : 'O que voce deseja destacar neste comercial?'}
+            >
               <div className="space-y-4">
                 <p className="text-sm font-black text-slate-600">Escolha o ponto que deve ganhar mais forca no video.</p>
                 <ChipGrid>
                   {differentialOptions.map((option) => {
                     const selected = answers.differentials.includes(option)
-                    const disabled = !selected && answers.differentials.length >= MAX_DIFFERENTIALS
+                    const maxSelections = isCapture ? MAX_CAPTURE_DIFFERENTIALS : MAX_DIFFERENTIALS
+                    const disabled = !selected && answers.differentials.length >= maxSelections
                     return (
                       <ChipButton
                         key={option}
@@ -1328,7 +1860,7 @@ export default function StudioHero() {
                 </ChipGrid>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-slate-500">
-                    {answers.differentials.length}/{MAX_DIFFERENTIALS} selecionado
+                    {answers.differentials.length}/{isCapture ? MAX_CAPTURE_DIFFERENTIALS : MAX_DIFFERENTIALS} selecionado
                   </span>
                   <Button
                     type="button"
@@ -1342,6 +1874,95 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
+          {isBrokerCapture && answers.differentials.length > 0 && step >= benefitQuestionStep && (
+            <AssistantStep
+              number={benefitQuestionStep}
+              currentStep={step}
+              summary={stepSummaries[benefitQuestionStep]}
+              onEdit={() => setStep(benefitQuestionStep)}
+              message="Existe algum beneficio que voce gostaria de destacar para atrair novos corretores?"
+            >
+              <ChipGrid>
+                <ChipButton active={answers.brokerHasBenefits === 'no'} onClick={() => updateBrokerHasBenefits('no')}>
+                  Nao
+                </ChipButton>
+                <ChipButton active={answers.brokerHasBenefits === 'yes'} onClick={() => updateBrokerHasBenefits('yes')}>
+                  Sim
+                </ChipButton>
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isBrokerCapture && answers.brokerHasBenefits === 'yes' && step >= benefitDetailsStep && (
+            <AssistantStep
+              number={benefitDetailsStep}
+              currentStep={step}
+              summary={stepSummaries[benefitDetailsStep]}
+              onEdit={() => setStep(benefitDetailsStep)}
+              message="Quais beneficios vale a pena mostrar?"
+            >
+              <div className="space-y-5">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Percentual de comissao</p>
+                  <div className="mt-3 flex max-w-xs items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-primary-500">
+                    <input
+                      value={answers.brokerCommission}
+                      onChange={(event) => updateBrokerCommission(event.target.value)}
+                      placeholder="3"
+                      inputMode="decimal"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
+                    />
+                    <span className="ml-2 text-sm font-black text-slate-500">%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Outros beneficios</p>
+                  <ChipGrid className="mt-3">
+                    {BROKER_BENEFIT_OPTIONS.map((option) => {
+                      const selected = answers.brokerBenefits.includes(option)
+                      const disabled = !selected && answers.brokerBenefits.length >= MAX_BROKER_BENEFITS
+                      return (
+                        <ChipButton
+                          key={option}
+                          active={selected}
+                          disabled={disabled}
+                          onClick={() => toggleBrokerBenefit(option)}
+                        >
+                          {option}
+                        </ChipButton>
+                      )
+                    })}
+                  </ChipGrid>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    {answers.brokerBenefits.length}/{MAX_BROKER_BENEFITS} selecionados
+                  </p>
+                </div>
+
+                {answers.brokerBenefits.includes('OUTRO') && (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Qual outro beneficio?</p>
+                    <input
+                      value={answers.brokerBenefitOther}
+                      onChange={(event) => {
+                        resetGenerationState()
+                        setAnswers((current) => ({ ...current, brokerBenefitOther: normalizeFreeText(event.target.value), cta: '', imageCount: 2 }))
+                      }}
+                      placeholder="DIGITE O BENEFICIO"
+                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                    />
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <Button type="button" onClick={() => setStep(ctaStep)}>
+                    Continuar
+                  </Button>
+                </div>
+              </div>
+            </AssistantStep>
+          )}
+
           {false && answers.differentials.length > 0 && step >= ctaStep && (
             <UserReply onEdit={() => setStep(differentialsStep)}>
               <strong>{answers.differentials.join(', ')}</strong>
@@ -1349,8 +1970,14 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.differentials.length > 0 && step >= ctaStep && (
-            <AssistantStep number={ctaStep} currentStep={step} summary={stepSummaries[ctaStep]} onEdit={() => setStep(ctaStep)} message="Qual chamada final deseja usar?">
+          {answers.differentials.length > 0 && (!isBrokerCapture || answers.brokerHasBenefits) && step >= ctaStep && (
+            <AssistantStep
+              number={ctaStep}
+              currentStep={step}
+              summary={stepSummaries[ctaStep]}
+              onEdit={() => setStep(ctaStep)}
+              message={isCapture ? 'Como deseja encerrar este comercial?' : 'Qual chamada final deseja usar?'}
+            >
               <ChipGrid>
                 {ctaOptions.map((option) => (
                   <ChipButton
@@ -1372,7 +1999,131 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.cta && step >= imageCountStep && (
+          {isFreeAiMode && answers.cta && step >= visualStyleStep && (
+            <AssistantStep
+              number={visualStyleStep}
+              currentStep={step}
+              summary={stepSummaries[visualStyleStep]}
+              onEdit={() => setStep(visualStyleStep)}
+              message="Qual estilo visual voce imagina para este comercial?"
+            >
+              <ChipGrid>
+                {FREE_AI_VISUAL_STYLE_OPTIONS.map((option) => (
+                  <ChipButton
+                    key={option}
+                    active={answers.visualStyle === option}
+                    onClick={() => updateFreeAiAnswer('visualStyle', option, atmosphereStep)}
+                  >
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isFreeAiMode && answers.visualStyle && step >= atmosphereStep && (
+            <AssistantStep
+              number={atmosphereStep}
+              currentStep={step}
+              summary={stepSummaries[atmosphereStep]}
+              onEdit={() => setStep(atmosphereStep)}
+              message="Qual atmosfera combina melhor com este comercial?"
+            >
+              <ChipGrid>
+                {FREE_AI_ATMOSPHERE_OPTIONS.map((option) => (
+                  <ChipButton
+                    key={option}
+                    active={answers.atmosphere === option}
+                    onClick={() => updateFreeAiAnswer('atmosphere', option, paceStep)}
+                  >
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isFreeAiMode && answers.atmosphere && step >= paceStep && (
+            <AssistantStep
+              number={paceStep}
+              currentStep={step}
+              summary={stepSummaries[paceStep]}
+              onEdit={() => setStep(paceStep)}
+              message="Como voce imagina o ritmo deste comercial?"
+            >
+              <ChipGrid>
+                {FREE_AI_PACE_OPTIONS.map((option) => (
+                  <ChipButton
+                    key={option}
+                    active={answers.pace === option}
+                    onClick={() => updateFreeAiAnswer('pace', option, creativeFreedomStep)}
+                  >
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isFreeAiMode && answers.pace && step >= creativeFreedomStep && (
+            <AssistantStep
+              number={creativeFreedomStep}
+              currentStep={step}
+              summary={stepSummaries[creativeFreedomStep]}
+              onEdit={() => setStep(creativeFreedomStep)}
+              message="Qual nivel de liberdade criativa deseja permitir?"
+            >
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-slate-500">
+                  Isso ajuda a definir quanto o comercial pode explorar cenas criadas pela IA.
+                </p>
+                <ChipGrid>
+                  {FREE_AI_FREEDOM_OPTIONS.map((option) => (
+                    <ChipButton
+                      key={option}
+                      active={answers.creativeFreedom === option}
+                      onClick={() => updateFreeAiAnswer('creativeFreedom', option, uploadStep)}
+                    >
+                      {option}
+                    </ChipButton>
+                  ))}
+                </ChipGrid>
+              </div>
+            </AssistantStep>
+          )}
+
+          {isFreeAiMode && answers.creativeFreedom && step >= uploadStep && (
+            <AssistantStep
+              number={uploadStep}
+              currentStep={step}
+              summary={stepSummaries[uploadStep]}
+              onEdit={() => setStep(uploadStep)}
+              message="Perfeito. O comercial livre ja esta preparado para a proxima etapa."
+            >
+              <div className="rounded-3xl border border-violet-100 bg-white p-4 shadow-sm">
+                <StudioChecklist
+                  answers={answers}
+                  cityValue={cityValue}
+                  districtValue={districtValue}
+                  configuration={configuration}
+                  files={files}
+                  studioHeroAccess={studioHeroAccess}
+                  canGenerate={canGenerate}
+                  isGenerating={isGenerating}
+                  status={status}
+                  message={message}
+                  generationMessage={generationMessage}
+                  videoUrl={videoUrl}
+                  onEdit={setStep}
+                  onEditImages={goToUploadStep}
+                  onGenerate={handleGenerate}
+                  mode="free_ai"
+                />
+              </div>
+            </AssistantStep>
+          )}
+
+          {!isFreeAiMode && answers.cta && step >= imageCountStep && (
             <AssistantStep number={imageCountStep} currentStep={step} summary={stepSummaries[imageCountStep]} onEdit={() => setStep(imageCountStep)} message="Quantas imagens deseja usar?">
               <div className="space-y-4">
                 <ChipGrid>
@@ -1413,7 +2164,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.cta && answers.imageCount === 2 && step >= uploadStep && (
+          {!isFreeAiMode && answers.cta && answers.imageCount === 2 && step >= uploadStep && (
             <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Agora chegou uma das partes mais importantes. Escolha as imagens que melhor representam o imovel.">
               <div ref={uploadSectionRef} className="grid gap-5 scroll-mt-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.75fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)]">
                 <div className="space-y-4">
@@ -1495,6 +2246,8 @@ export default function StudioHero() {
 }
 
 function AssistantStep({ number, currentStep, summary, onEdit, message, children }) {
+  if (number > currentStep) return null
+
   const answered = Boolean(summary) && number < currentStep
   const active = number === currentStep || !answered
 
@@ -1793,7 +2546,7 @@ function TypewriterText({ text, active }) {
   return (
     <>
       {visibleText}
-      {showCursor && <span className="ml-1 animate-pulse font-black text-cyan-700">▋</span>}
+      {showCursor && <span className="ml-1 inline-block h-5 w-1.5 translate-y-0.5 animate-pulse rounded-sm bg-cyan-700" />}
     </>
   )
 }
@@ -1845,39 +2598,71 @@ function ActionCard({ canGenerate, studioHeroAccess, isGenerating, status, messa
   )
 }
 
-function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, onEdit, onEditImages, onGenerate }) {
+function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, onEdit, onEditImages, onGenerate, mode = 'cinematic' }) {
   const isSale = answers.objective === 'sale'
-  const hasProfileStep = isResidentialType(answers.propertyType)
-  const hasHouseLocationStep = answers.propertyType === 'CASA'
-  const hasStageStep = isSale && isResidentialType(answers.propertyType)
+  const isFreeAiMode = mode === 'free_ai'
+  const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
+  const isCapture = isCaptureObjective(answers.objective)
+  const isPropertyCapture = answers.objective === 'property_capture'
+  const isBrokerCapture = answers.objective === 'broker_capture'
+  const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
+  const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
+  const hasStageStep = isPropertyCampaign && isSale && isResidentialType(answers.propertyType)
   const profileStep = 3
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
-  const locationStep = stageStep + (hasStageStep ? 1 : 0)
-  const differentialsStep = locationStep + 1
-  const ctaStep = differentialsStep + 1
-  const imageCountStep = ctaStep + 1
-  const uploadStep = imageCountStep + 1
+  const locationStep = isCapture ? 2 : stageStep + (hasStageStep ? 1 : 0)
+  const captureTypeStep = isCapture ? 3 : null
+  const differentialsStep = isCapture ? 4 : locationStep + 1
+  const benefitQuestionStep = isBrokerCapture ? differentialsStep + 1 : null
+  const benefitDetailsStep = isBrokerCapture && answers.brokerHasBenefits === 'yes' ? benefitQuestionStep + 1 : null
+  const ctaStep = isBrokerCapture
+    ? benefitQuestionStep + (answers.brokerHasBenefits === 'yes' ? 2 : 1)
+    : differentialsStep + 1
+  const visualStyleStep = isFreeAiMode ? ctaStep + 1 : null
+  const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
+  const paceStep = isFreeAiMode ? ctaStep + 3 : null
+  const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
+  const imageCountStep = isFreeAiMode ? null : ctaStep + 1
+  const uploadStep = isFreeAiMode ? ctaStep + 5 : imageCountStep + 1
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroFinalCta = buildStudioHeroFinalCta(answers)
-  const normalizedLocation = [normalizeFreeText(districtValue), cityValue].filter(Boolean).join('-')
+  const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const visibleTextPreview = [
-    ['Localizacao', normalizedLocation],
+    ['Localizacao', displayLocation],
     ['Palavra comercial', getCommercialImpactWord(answers)],
     ['Encerramento', answers.cta],
   ]
   const rows = [
-    ['Tipo', 'Comercial Cinematografico', 1],
-    [isCommercialType(answers.propertyType) ? 'Tipo comercial' : 'Imovel', answers.propertyType, 2],
+    ['Objetivo', getObjectiveSummaryLabel(answers.objective), 1],
+    ...(isPropertyCampaign ? [[isCommercialType(answers.propertyType) ? 'Tipo comercial' : 'Imovel', answers.propertyType, 2]] : []),
+    ...(isPropertyCapture ? [['Tipo desejado', answers.propertyType, captureTypeStep]] : []),
+    ...(isBrokerCapture ? [['Profissional', answers.propertyType, captureTypeStep]] : []),
     ...(hasProfileStep ? [['Perfil', answers.profile, profileStep]] : []),
     ...(hasHouseLocationStep ? [['Localizacao da casa', answers.houseLocationType, houseLocationStep]] : []),
     ...(hasStageStep ? [['Estagio', answers.stage, stageStep]] : []),
-    ['Localizacao', normalizedLocation, locationStep],
-    ['Destaque', answers.differentials.join(', '), differentialsStep],
+    [isCapture ? 'Area de atuacao' : 'Localizacao', displayLocation, locationStep],
+    [isCapture ? 'Diferencial' : 'Destaque', answers.differentials.join(', '), differentialsStep],
+    ...(isBrokerCapture ? [['Beneficios', answers.brokerHasBenefits === 'yes' ? 'Sim' : answers.brokerHasBenefits === 'no' ? 'Nao' : '', benefitQuestionStep]] : []),
+    ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && answers.brokerCommission ? [['Comissao', `${answers.brokerCommission}%`, benefitDetailsStep]] : []),
+    ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && (answers.brokerBenefits.length > 0 || answers.brokerBenefitOther)
+      ? [['Beneficios destacados', [
+        ...answers.brokerBenefits.filter((item) => item !== 'OUTRO'),
+        answers.brokerBenefitOther,
+      ].filter(Boolean).join(', '), benefitDetailsStep]]
+      : []),
     ['Encerramento', answers.cta, ctaStep],
-    ['Imagens', `${answers.imageCount} imagens`, imageCountStep],
-    ['Imagem 1', files.image1?.name, uploadStep],
-    ['Imagem 2', files.image2?.name, uploadStep],
+    ...(isFreeAiMode ? [
+      ['Modo', 'Criacao livre com IA', uploadStep],
+      ['Estilo visual', answers.visualStyle, visualStyleStep],
+      ['Atmosfera', answers.atmosphere, atmosphereStep],
+      ['Ritmo', answers.pace, paceStep],
+      ['Liberdade criativa', answers.creativeFreedom, creativeFreedomStep],
+    ] : [
+      ['Imagens', `${answers.imageCount} imagens`, imageCountStep],
+      ['Imagem 1', files.image1?.name, uploadStep],
+      ['Imagem 2', files.image2?.name, uploadStep],
+    ]),
   ].filter((row) => row[2])
 
   return (
@@ -1888,10 +2673,12 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             {videoUrl ? 'Comercial criado com sucesso.' : 'Seu comercial sera criado com:'}
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-500">
-            {message || 'Revise suas escolhas e clique em Criar comercial quando estiver pronto.'}
+            {message || `Revise suas escolhas e clique em ${isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'} quando estiver pronto.`}
           </p>
           <p className="mt-2 max-w-xl text-xs font-semibold leading-5 text-slate-500">
-            Cada comercial e criado de forma unica. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.
+            {isFreeAiMode
+              ? 'Este modo usa a conversa para imaginar o comercial sem depender de imagens enviadas.'
+              : 'Cada comercial e criado de forma unica. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.'}
           </p>
         </div>
         <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="justify-center">
@@ -1903,7 +2690,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
           ) : (
             <>
               <PlayCircle className="h-4 w-4" />
-              Criar comercial
+              {isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'}
             </>
           )}
         </Button>
@@ -1942,11 +2729,22 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
         </p>
       </div>
 
-      {!studioHeroAccess?.canGenerate && (
+      {!isFreeAiMode && !studioHeroAccess?.canGenerate && (
         <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
           Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja exemplos e ative quando quiser.
         </div>
       )}
+
+      <div className={`rounded-2xl border p-4 ${isFreeAiMode ? 'border-violet-100 bg-violet-50/70' : 'border-cyan-100 bg-cyan-50/70'}`}>
+        <p className={`text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-800' : 'text-cyan-800'}`}>Pacote de entrega</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {DELIVERY_PACKAGE_ITEMS.map((item) => (
+            <span key={item} className="rounded-full border border-white/80 bg-white px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm">
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <div className="grid gap-2">
         {rows.map(([label, value, editStep]) => (
