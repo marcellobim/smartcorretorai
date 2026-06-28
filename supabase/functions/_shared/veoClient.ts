@@ -186,7 +186,6 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
       durationSeconds: input.durationSeconds,
       resolution: input.resolution,
       sampleCount: 1,
-      resizeMode: 'crop',
     },
   }
 
@@ -207,7 +206,12 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
       byteLength: finalImage.byteLength,
       base64Length: finalImage.base64Length,
     },
-    parameters: requestBody.parameters,
+    parameters: {
+      aspectRatio: input.aspectRatio,
+      durationSeconds: input.durationSeconds,
+      resolution: input.resolution,
+      sampleCount: 1,
+    },
   })
 
   const response = await fetch(endpoint, {

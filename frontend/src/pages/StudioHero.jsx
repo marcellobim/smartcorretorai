@@ -50,15 +50,9 @@ function extractJobIdFromResponse(data, fallbackJobId = '') {
 const IMAGE_SLOTS = [
   {
     key: 'image1',
-    label: 'Imagem 1',
-    helper: 'Primeira imagem da narrativa. Escolha uma foto forte do imovel.',
+    label: 'Foto do imovel',
+    helper: 'Envie a melhor foto do imovel.',
     fileName: 'input-1',
-  },
-  {
-    key: 'image2',
-    label: 'Imagem 2',
-    helper: 'Imagem final da narrativa. A ordem influencia o impacto do comercial.',
-    fileName: 'input-2',
   },
 ]
 
@@ -262,8 +256,6 @@ const CITY_OPTIONS_BY_UF = {
   MS: ['Campo Grande'],
 }
 
-const IMAGE_COUNT_OPTIONS = [2, 3, 4, 6, 8]
-
 const BEDROOM_OPTIONS = ['1 DORMITORIO', '2 DORMITORIOS', '3 DORMITORIOS', '4 DORMITORIOS']
 const SUITE_OPTIONS = ['SEM SUITE', '1 SUITE', '2 SUITES', '3 SUITES', '4 SUITES']
 const PARKING_OPTIONS = ['SEM VAGA', '1 VAGA', '2 VAGAS', '3 VAGAS', '4 VAGAS']
@@ -406,7 +398,7 @@ const initialAnswers = {
   cta: '',
   houseLocationType: '',
   uf: '',
-  imageCount: 2,
+  imageCount: 1,
   brokerHasBenefits: '',
   brokerCommission: '',
   brokerBenefits: [],
@@ -806,8 +798,8 @@ export default function StudioHero() {
   const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
   const paceStep = isFreeAiMode ? ctaStep + 3 : null
   const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
-  const imageCountStep = isFreeAiMode ? null : ctaStep + 1
-  const uploadStep = isFreeAiMode ? ctaStep + 5 : imageCountStep + 1
+  const imageCountStep = null
+  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + 1
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroAccess = getStudioHeroAccess(user)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
@@ -835,8 +827,7 @@ export default function StudioHero() {
     [atmosphereStep]: isFreeAiMode ? answers.atmosphere : '',
     [paceStep]: isFreeAiMode ? answers.pace : '',
     [creativeFreedomStep]: isFreeAiMode ? answers.creativeFreedom : '',
-    [imageCountStep]: !isFreeAiMode && answers.imageCount === 2 ? `${answers.imageCount} imagens` : '',
-    [uploadStep]: isFreeAiMode ? 'Criacao livre com IA' : files.image1 && files.image2 ? '2 imagens selecionadas' : '',
+    [uploadStep]: isFreeAiMode ? 'Criacao livre com IA' : files.image1 ? '1 foto selecionada' : '',
   }
 
   const canGenerateBriefing = Boolean(
@@ -854,7 +845,7 @@ export default function StudioHero() {
     (!isBrokerCapture || answers.brokerHasBenefits) &&
     answers.cta &&
     (!isFreeAiMode || (answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)) &&
-    (isFreeAiMode || (answers.imageCount === 2 && files.image1 && files.image2))
+    (isFreeAiMode || Boolean(files.image1))
   )
   const canGenerate = canGenerateBriefing && (isFreeAiMode || studioHeroAccess.canGenerate)
 
@@ -882,7 +873,7 @@ export default function StudioHero() {
       rentConditions: [],
       cta: '',
       houseLocationType: '',
-      imageCount: 2,
+      imageCount: 1,
       brokerHasBenefits: '',
       brokerCommission: '',
       brokerBenefits: [],
@@ -913,7 +904,7 @@ export default function StudioHero() {
       rentConditions: [],
       cta: '',
       houseLocationType: '',
-      imageCount: 2,
+      imageCount: 1,
       brokerHasBenefits: '',
       brokerCommission: '',
       brokerBenefits: [],
@@ -939,7 +930,7 @@ export default function StudioHero() {
       rentConditions: [],
       cta: '',
       houseLocationType: '',
-      imageCount: 2,
+      imageCount: 1,
       captureHasDistrict: '',
       brokerHasBenefits: '',
       brokerCommission: '',
@@ -978,7 +969,7 @@ export default function StudioHero() {
       atmosphere: '',
       pace: '',
       creativeFreedom: '',
-      imageCount: 2,
+      imageCount: 1,
     }))
   }
 
@@ -991,7 +982,7 @@ export default function StudioHero() {
       brokerBenefits: value === 'yes' ? current.brokerBenefits : [],
       brokerBenefitOther: value === 'yes' ? current.brokerBenefitOther : '',
       cta: '',
-      imageCount: 2,
+      imageCount: 1,
     }))
     setStep(benefitQuestionStep + 1)
   }
@@ -999,7 +990,7 @@ export default function StudioHero() {
   const updateBrokerCommission = (value) => {
     resetGenerationState()
     const clean = String(value || '').replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 5)
-    setAnswers((current) => ({ ...current, brokerCommission: clean, cta: '', imageCount: 2 }))
+    setAnswers((current) => ({ ...current, brokerCommission: clean, cta: '', imageCount: 1 }))
   }
 
   const toggleBrokerBenefit = (item) => {
@@ -1017,7 +1008,7 @@ export default function StudioHero() {
         brokerBenefits: nextBenefits,
         brokerBenefitOther: nextBenefits.includes('OUTRO') ? current.brokerBenefitOther : '',
         cta: '',
-        imageCount: 2,
+        imageCount: 1,
       }
     })
   }
@@ -1032,7 +1023,7 @@ export default function StudioHero() {
       pace: '',
       creativeFreedom: '',
     }))
-    setStep(isFreeAiMode ? visualStyleStep : imageCountStep)
+    setStep(isFreeAiMode ? visualStyleStep : uploadStep)
   }
 
   const updateFreeAiAnswer = (field, value, nextStep) => {
@@ -1108,31 +1099,27 @@ export default function StudioHero() {
     setVideoUrl('')
   }
 
-  const focusUploadArea = (block = 'nearest') => {
-    window.setTimeout(() => {
-      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block })
-    }, 0)
-  }
-
   const goToUploadStep = () => {
     setStep(uploadStep)
-    focusUploadArea('center')
   }
 
   const handleImageChange = (slotKey, file) => {
+    const scrollX = window.scrollX
+    const scrollY = window.scrollY
     resetGenerationState()
-    const nextFiles = { ...files, [slotKey]: file }
-    setFiles(nextFiles)
+    setFiles((current) => ({ ...current, [slotKey]: file }))
 
-    if (nextFiles.image1 && nextFiles.image2) {
-      setStep(uploadStep)
-    }
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: 'auto' })
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ left: scrollX, top: scrollY, behavior: 'auto' })
+      })
+    })
   }
 
   useEffect(() => {
     if (status === 'failed' && imageErrorTarget) {
       setStep(uploadStep)
-      focusUploadArea('center')
     }
   }, [status, imageErrorTarget])
 
@@ -1216,10 +1203,7 @@ export default function StudioHero() {
 
     try {
       const draftId = crypto.randomUUID()
-      const [inputImage1Path, inputImage2Path] = await Promise.all([
-        uploadImage(IMAGE_SLOTS[0], files.image1, draftId),
-        uploadImage(IMAGE_SLOTS[1], files.image2, draftId),
-      ])
+      const inputImage1Path = await uploadImage(IMAGE_SLOTS[0], files.image1, draftId)
 
       setStatus('generating')
       setMessage('Criando seu comercial...')
@@ -1230,9 +1214,26 @@ export default function StudioHero() {
         caracteristica: finalFeatures,
         oferta: answers.oferta,
         cta: answers.cta,
+        briefing: {
+          objective: answers.objective,
+          objectiveLabel: getObjectiveSummaryLabel(answers.objective),
+          propertyType: answers.propertyType,
+          profile: answers.profile,
+          stage: answers.stage,
+          houseLocationType: answers.houseLocationType,
+          uf: answers.uf,
+          city: cityValue,
+          district: districtValue,
+          location: displayLocation,
+          normalizedLocation,
+          differentials: answers.differentials,
+          offer: answers.oferta,
+          cta: answers.cta,
+          finalFeatures,
+          creativeMode: answers.creativeMode,
+        },
         jobId: draftId,
         inputImage1Path,
-        inputImage2Path,
       })
       const data = result.body
 
@@ -1676,7 +1677,7 @@ export default function StudioHero() {
                             district: '',
                             captureHasDistrict: '',
                             cta: '',
-                            imageCount: 2,
+                            imageCount: 1,
                           }))
                         }}
                       >
@@ -1703,7 +1704,7 @@ export default function StudioHero() {
                               district: '',
                               captureHasDistrict: '',
                               cta: '',
-                              imageCount: 2,
+                              imageCount: 1,
                             }))
                           }}
                         >
@@ -1721,7 +1722,7 @@ export default function StudioHero() {
                       value={answers.cityOther}
                       onChange={(event) => {
                         resetGenerationState()
-                        setAnswers((current) => ({ ...current, cityOther: formatDisplayText(event.target.value), district: '', captureHasDistrict: '', cta: '', imageCount: 2 }))
+                        setAnswers((current) => ({ ...current, cityOther: formatDisplayText(event.target.value), district: '', captureHasDistrict: '', cta: '', imageCount: 1 }))
                       }}
                       placeholder="Digite a cidade"
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
@@ -1737,7 +1738,7 @@ export default function StudioHero() {
                         active={answers.captureHasDistrict === 'no'}
                         onClick={() => {
                           resetGenerationState()
-                          setAnswers((current) => ({ ...current, captureHasDistrict: 'no', district: '', cta: '', imageCount: 2 }))
+                          setAnswers((current) => ({ ...current, captureHasDistrict: 'no', district: '', cta: '', imageCount: 1 }))
                         }}
                       >
                         Nao
@@ -1746,7 +1747,7 @@ export default function StudioHero() {
                         active={answers.captureHasDistrict === 'yes'}
                         onClick={() => {
                           resetGenerationState()
-                          setAnswers((current) => ({ ...current, captureHasDistrict: 'yes', cta: '', imageCount: 2 }))
+                          setAnswers((current) => ({ ...current, captureHasDistrict: 'yes', cta: '', imageCount: 1 }))
                         }}
                       >
                         Sim
@@ -1762,7 +1763,7 @@ export default function StudioHero() {
                       value={answers.district}
                       onChange={(event) => {
                         resetGenerationState()
-                        setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 2 }))
+                        setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 1 }))
                       }}
                       placeholder={isCapture ? 'Ex.: Moema, Zona Sul, Centro, Toda a cidade' : 'Digite o bairro'}
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
@@ -1932,7 +1933,7 @@ export default function StudioHero() {
                       value={answers.brokerBenefitOther}
                       onChange={(event) => {
                         resetGenerationState()
-                        setAnswers((current) => ({ ...current, brokerBenefitOther: normalizeFreeText(event.target.value), cta: '', imageCount: 2 }))
+                        setAnswers((current) => ({ ...current, brokerBenefitOther: normalizeFreeText(event.target.value), cta: '', imageCount: 1 }))
                       }}
                       placeholder="DIGITE O BENEFICIO"
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
@@ -2109,86 +2110,53 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {!isFreeAiMode && answers.cta && step >= imageCountStep && (
-            <AssistantStep number={imageCountStep} currentStep={step} summary={stepSummaries[imageCountStep]} onEdit={() => setStep(imageCountStep)} message="Quantas imagens deseja usar?">
-              <div className="space-y-4">
-                <ChipGrid>
-                  {IMAGE_COUNT_OPTIONS.map((count) => (
-                    <ChipButton
-                      key={count}
-                      active={answers.imageCount === count}
-                      onClick={() => {
-                        resetGenerationState()
-                        setAnswers((current) => ({ ...current, imageCount: count }))
-                      }}
-                    >
-                      {count} imagens
-                    </ChipButton>
-                  ))}
-                </ChipGrid>
-                <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-sm font-semibold leading-6 text-primary-900">
-                  Mais imagens podem consumir mais Smart Tokens.
-                </div>
-                {answers.imageCount !== 2 && (
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
-                    Neste primeiro modo, a geracao cinematografica esta liberada com 2 imagens. As opcoes com mais imagens serao ativadas em breve.
-                  </div>
-                )}
-                <div className="flex justify-end">
-                  <Button type="button" disabled={answers.imageCount !== 2} onClick={() => setStep(uploadStep)}>
-                    Continuar com 2 imagens
-                  </Button>
-                </div>
-              </div>
-            </AssistantStep>
-          )}
-
-          {false && answers.cta && answers.imageCount === 2 && step >= uploadStep && (
-            <UserReply onEdit={() => setStep(imageCountStep)}>
-              <strong>{formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers))}</strong>
-              <span>{answers.imageCount} imagens selecionadas para este modo.</span>
-            </UserReply>
-          )}
-
-          {!isFreeAiMode && answers.cta && answers.imageCount === 2 && step >= uploadStep && (
-            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Agora chegou uma das partes mais importantes. Escolha as imagens que melhor representam o imovel.">
-              <div ref={uploadSectionRef} className="grid gap-5 scroll-mt-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.75fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)]">
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {IMAGE_SLOTS.map((slot) => (
-                      <FilePicker
-                        key={slot.key}
-                        slot={slot}
-                        file={files[slot.key]}
-                        error={imageErrorTarget === slot.key || imageErrorTarget === 'all'}
-                        onChange={(file) => handleImageChange(slot.key, file)}
-                      />
-                    ))}
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
-                    Escolha as imagens que melhor representam o imovel. A ordem das imagens influencia a narrativa do comercial. Quanto melhores forem as imagens, maior tende a ser o impacto visual do resultado.
-                  </div>
-                </div>
-
-                <div className="lg:sticky lg:top-4 lg:self-start">
-                  <UploadActionPanel
+          {!isFreeAiMode && answers.cta && step >= uploadStep && (
+            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Agora chegou uma das partes mais importantes. Envie a melhor foto do imovel.">
+              <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
+                {isGenerating && !videoUrl ? (
+                  <LoadingCard />
+                ) : videoUrl ? (
+                  <ResultPanel
+                    videoUrl={videoUrl}
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
-                    configuration={configuration}
-                    files={files}
-                    studioHeroAccess={studioHeroAccess}
-                    canGenerate={canGenerate}
-                    isGenerating={isGenerating}
-                    status={status}
-                    message={message}
-                    generationMessage={generationMessage}
-                    videoUrl={videoUrl}
-                    onEdit={setStep}
-                    onEditImages={goToUploadStep}
-                    onGenerate={handleGenerate}
+                    onReset={resetFlow}
                   />
-                </div>
+                ) : status === 'failed' && message ? (
+                  <ErrorCard message={message} imageErrorTarget={imageErrorTarget} onEditImages={goToUploadStep} />
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {IMAGE_SLOTS.map((slot) => (
+                          <FilePicker
+                            key={slot.key}
+                            slot={slot}
+                            file={files[slot.key]}
+                            error={imageErrorTarget === slot.key || imageErrorTarget === 'all'}
+                            onChange={(file) => handleImageChange(slot.key, file)}
+                          />
+                        ))}
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
+                        Escolha as imagens que melhor representam o imovel. A ordem das imagens influencia a narrativa do comercial. Quanto melhores forem as imagens, maior tende a ser o impacto visual do resultado.
+                      </div>
+                    </div>
+
+                    <UploadReadyPanel
+                      answers={answers}
+                      cityValue={cityValue}
+                      districtValue={districtValue}
+                      files={files}
+                      studioHeroAccess={studioHeroAccess}
+                      canGenerate={canGenerate}
+                      isGenerating={isGenerating}
+                      onGenerate={handleGenerate}
+                      onEdit={setStep}
+                    />
+                  </>
+                )}
               </div>
             </AssistantStep>
           )}
@@ -2353,7 +2321,10 @@ function FilePicker({ slot, file, error = false, onChange }) {
         type="file"
         accept="image/jpeg,image/png"
         className="sr-only"
-        onChange={(event) => onChange(event.target.files?.[0] || null)}
+        onChange={(event) => {
+          event.currentTarget.blur()
+          onChange(event.target.files?.[0] || null)
+        }}
       />
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -2395,79 +2366,89 @@ function FilePicker({ slot, file, error = false, onChange }) {
   )
 }
 
-function UploadActionPanel({
+function UploadReadyPanel({
   answers,
   cityValue,
   districtValue,
-  configuration,
   files,
   studioHeroAccess,
   canGenerate,
   isGenerating,
-  status,
-  message,
-  generationMessage,
-  videoUrl,
-  onEdit,
-  onEditImages,
   onGenerate,
 }) {
-  const hasImage1 = Boolean(files.image1)
-  const hasImage2 = Boolean(files.image2)
-  const ready = hasImage1 && hasImage2
-
-  if (!ready) {
-    return (
-      <div className="rounded-3xl border border-cyan-100 bg-cyan-50/80 p-5 shadow-sm">
-        <p className="text-sm font-black text-primary-950">Envie as duas imagens</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-primary-800">
-          Assim que as imagens forem selecionadas, o resumo e o botao Criar comercial aparecem aqui ao lado.
-        </p>
-        <div className="mt-4 space-y-2 text-sm font-bold text-primary-900">
-          <div className={`rounded-2xl border px-4 py-3 ${hasImage1 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-white/70 bg-white/80'}`}>
-            Imagem 1 {hasImage1 ? 'selecionada' : 'pendente'}
-          </div>
-          <div className={`rounded-2xl border px-4 py-3 ${hasImage2 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-white/70 bg-white/80'}`}>
-            Imagem 2 {hasImage2 ? 'selecionada' : 'pendente'}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const ready = Boolean(files.image1)
+  const displayLocation = getDisplayLocation({
+    district: districtValue,
+    city: cityValue,
+    uf: answers.uf,
+    isCapture: isCaptureObjective(answers.objective),
+  })
+  const summaryItems = [
+    ['Localizacao', displayLocation],
+    ['Palavra comercial', getCommercialImpactWord(answers)],
+    ['Encerramento', answers.cta],
+  ]
 
   return (
-    <div className="space-y-4">
-      {(status !== 'idle' || videoUrl) && (
-        <ResultPanel
-          status={status}
-          message={message}
-          generationMessage={generationMessage}
-          videoUrl={videoUrl}
-          answers={answers}
-          cityValue={cityValue}
-          districtValue={districtValue}
-          compact
-        />
-      )}
-      <div className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
-        <StudioChecklist
-          answers={answers}
-          cityValue={cityValue}
-          districtValue={districtValue}
-          configuration={configuration}
-          files={files}
-          studioHeroAccess={studioHeroAccess}
-          canGenerate={canGenerate}
-          isGenerating={isGenerating}
-          status={status}
-          message={message}
-          generationMessage={generationMessage}
-          videoUrl={videoUrl}
-          onEdit={onEdit}
-          onEditImages={onEditImages}
-          onGenerate={onGenerate}
-        />
+    <div className="rounded-3xl border border-cyan-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-950">
+            {ready ? 'Tudo pronto para criar.' : 'Envie a melhor foto do imovel.'}
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            {ready
+              ? 'Revise as imagens e crie o comercial quando estiver tudo certo.'
+              : 'A etapa continua aqui. Depois da foto, o botao Criar comercial aparece logo abaixo.'}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {IMAGE_SLOTS.map((slot) => {
+            const selected = Boolean(files[slot.key])
+            return (
+              <span
+                key={slot.key}
+                className={`rounded-full border px-3 py-1.5 text-xs font-black ${selected ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+              >
+                {slot.label}: {selected ? 'OK' : 'pendente'}
+              </span>
+            )
+          })}
+        </div>
       </div>
+
+      {ready && (
+        <>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {summaryItems.map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || 'Pendente'}</p>
+              </div>
+            ))}
+          </div>
+
+          {!studioHeroAccess?.canGenerate && (
+            <div className="mt-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
+              Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja exemplos e ative quando quiser.
+            </div>
+          )}
+
+          <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Criando comercial
+              </>
+            ) : (
+              <>
+                <PlayCircle className="h-4 w-4" />
+                Criar comercial
+              </>
+            )}
+          </Button>
+        </>
+      )}
     </div>
   )
 }
@@ -2540,10 +2521,9 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
   const paceStep = isFreeAiMode ? ctaStep + 3 : null
   const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
-  const imageCountStep = isFreeAiMode ? null : ctaStep + 1
-  const uploadStep = isFreeAiMode ? ctaStep + 5 : imageCountStep + 1
+  const imageCountStep = null
+  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + 1
   const imageErrorTarget = getImageErrorTarget(message)
-  const studioHeroFinalCta = buildStudioHeroFinalCta(answers)
   const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const visibleTextPreview = [
     ['Localizacao', displayLocation],
@@ -2576,9 +2556,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       ['Ritmo', answers.pace, paceStep],
       ['Liberdade criativa', answers.creativeFreedom, creativeFreedomStep],
     ] : [
-      ['Imagens', `${answers.imageCount} imagens`, imageCountStep],
-      ['Imagem 1', files.image1?.name, uploadStep],
-      ['Imagem 2', files.image2?.name, uploadStep],
+      ['Foto do imovel', files.image1?.name, uploadStep],
     ]),
   ].filter((row) => row[2])
 
@@ -2590,7 +2568,11 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             {videoUrl ? 'Comercial criado com sucesso.' : 'Seu comercial sera criado com:'}
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-500">
-            {message || `Revise suas escolhas e clique em ${isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'} quando estiver pronto.`}
+            {videoUrl
+              ? 'Voce recebeu video, download e textos prontos para divulgar.'
+              : isFreeAiMode
+                ? 'Tudo pronto. Revise suas escolhas e crie o comercial livre quando estiver tudo certo.'
+                : 'Tudo pronto. Revise suas imagens e crie o comercial quando estiver tudo certo.'}
           </p>
           <p className="mt-2 max-w-xl text-xs font-semibold leading-5 text-slate-500">
             {isFreeAiMode
@@ -2598,19 +2580,6 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
               : 'Cada comercial e criado de forma unica. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.'}
           </p>
         </div>
-        <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="justify-center">
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Criando comercial
-            </>
-          ) : (
-            <>
-              <PlayCircle className="h-4 w-4" />
-              {isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'}
-            </>
-          )}
-        </Button>
       </div>
 
       {status === 'failed' && message && (
@@ -2624,27 +2593,22 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
         </div>
       )}
 
-      <div className="rounded-2xl border border-primary-100 bg-primary-50/70 p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-primary-800">Textos conceituais do comercial</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          {visibleTextPreview.map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-white/70 bg-white px-3 py-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-              <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
-            </div>
-          ))}
+      {!videoUrl && (
+        <div className="rounded-2xl border border-primary-100 bg-primary-50/70 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-primary-800">Textos conceituais do comercial</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {visibleTextPreview.map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-white/70 bg-white px-3 py-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-semibold leading-5 text-primary-900">
+            O encerramento final e controlado pelo SmartCorretorAI para manter consistencia de campanha.
+          </p>
         </div>
-        <p className="mt-3 text-xs font-semibold leading-5 text-primary-900">
-          O encerramento final e controlado pelo SmartCorretorAI para manter consistencia de campanha.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Encerramento escolhido</p>
-        <p className="mt-2 text-sm font-black leading-6 text-emerald-950">
-          {formatStudioHeroFinalCta(studioHeroFinalCta)}
-        </p>
-      </div>
+      )}
 
       {!isFreeAiMode && !studioHeroAccess?.canGenerate && (
         <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
@@ -2687,26 +2651,78 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
           </button>
         ))}
       </div>
+
+      {!videoUrl && (
+        <div className="rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_100%)] p-4 shadow-sm">
+          <p className="text-sm font-black text-slate-950">
+            Tudo pronto.
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            Revise o resumo e as imagens selecionadas. Quando estiver tudo certo, crie seu comercial.
+          </p>
+          <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Criando comercial
+              </>
+            ) : (
+              <>
+                <PlayCircle className="h-4 w-4" />
+                {isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
 
-function ResultPanel({ status, message, generationMessage, videoUrl, answers, cityValue, districtValue, compact = false }) {
+function LoadingCard() {
+  return (
+    <div className="rounded-3xl border border-cyan-100 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </span>
+        <div>
+          <p className="text-sm font-black text-slate-950">Estamos criando seu comercial</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+            Isso pode levar alguns instantes. O video aparecera aqui quando estiver pronto.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ErrorCard({ message, imageErrorTarget, onEditImages }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
+      <span>{message}</span>
+      {imageErrorTarget && (
+        <Button type="button" variant="secondary" onClick={onEditImages}>
+          Voltar para imagens
+        </Button>
+      )}
+    </div>
+  )
+}
+
+function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = false, onReset }) {
   const completed = Boolean(videoUrl)
   const deliveryTexts = completed ? buildDeliveryTexts({ answers, districtValue, cityValue }) : []
-  const GenerationIcon = generationMessage?.Icon || Film
-  const studioHeroFinalCta = buildStudioHeroFinalCta(answers || {})
-  const finalCtaText = formatStudioHeroFinalCta(studioHeroFinalCta)
+  if (!completed) return null
+
   return (
     <section className={`rounded-3xl border border-cyan-100 bg-white shadow-xl shadow-cyan-100/40 ${compact ? 'p-4' : 'p-5'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-cyan-700">Resultado</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">
-            {completed ? 'Seu comercial esta pronto' : 'Preparando seu comercial'}
-          </h2>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Seu comercial esta pronto</h2>
           <p className="mt-2 text-sm font-semibold text-slate-500">
-            {completed ? 'Voce recebeu video, download e textos prontos para divulgar.' : (message || 'O video aparecera aqui quando estiver pronto.')}
+            Voce recebeu video, download e textos prontos para divulgar.
           </p>
         </div>
         {completed ? (
@@ -2715,49 +2731,13 @@ function ResultPanel({ status, message, generationMessage, videoUrl, answers, ci
           <Film className="h-6 w-6 shrink-0 text-slate-300" />
         )}
       </div>
-      {!completed && (status === 'generating' || status === 'uploading') && generationMessage && (
-        <div className="mt-4 rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_100%)] p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-cyan-700 shadow-sm ring-1 ring-cyan-100">
-              <GenerationIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-black text-primary-950">{generationMessage.text}</p>
-              <p className="mt-1 text-xs font-semibold text-cyan-800">Criando atmosfera, ritmo e narrativa visual.</p>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className={`${compact ? 'mt-4' : 'mt-5'} overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-2xl shadow-slate-200/70`}>
-        <div className={`mx-auto flex aspect-[9/16] w-full max-w-[560px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-slate-100 ${compact ? 'max-h-[72vh]' : 'max-h-[820px]'}`}>
-          {videoUrl ? (
+      {completed && (
+        <div className={`${compact ? 'mt-4' : 'mt-5'} overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-2xl shadow-slate-200/70`}>
+          <div className={`mx-auto flex aspect-[9/16] w-full max-w-[560px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-slate-100 ${compact ? 'max-h-[72vh]' : 'max-h-[820px]'}`}>
             <div className="relative h-full w-full">
               <video id="studio-hero-result-video" src={videoUrl} controls className="h-full w-full object-contain" />
-              <div className="pointer-events-none absolute inset-x-6 bottom-8 rounded-2xl bg-slate-950/80 px-4 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-2xl">
-                {finalCtaText}
-              </div>
             </div>
-          ) : (
-            <div className="px-6 text-center">
-              {status === 'generating' || status === 'uploading' ? (
-                <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary-700" />
-              ) : (
-                <Film className="mx-auto h-10 w-10 text-slate-300" />
-              )}
-              <p className="mt-3 text-sm font-bold text-slate-500">
-                {status === 'failed' ? 'Nao foi possivel criar o comercial agora.' : 'Aguardando resultado.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-      {completed && (
-        <div className="mt-4 rounded-3xl border border-cyan-100 bg-cyan-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-cyan-800">CTA final do comercial</p>
-          <p className="mt-2 text-sm font-black leading-6 text-primary-950">{finalCtaText}</p>
-          <p className="mt-2 text-xs font-semibold leading-5 text-primary-800">
-            Preparado para a camada final gravada no MP4 em uma proxima etapa de overlay.
-          </p>
+          </div>
         </div>
       )}
       {completed && (
@@ -2780,7 +2760,7 @@ function ResultPanel({ status, message, generationMessage, videoUrl, answers, ci
           </a>
           <button
             type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            onClick={onReset}
             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50"
           >
             <RotateCcw className="h-4 w-4" />
