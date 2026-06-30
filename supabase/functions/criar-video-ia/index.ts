@@ -104,12 +104,616 @@ Property facts: ${facts}
 Professional luxury atmosphere.`
 }
 
+function cleanMatrixField(value: unknown, fallback: string, maxLength = 72) {
+  const clean = cleanStaticText(normalizeText(value, Math.max(maxLength * 2, 160)))
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+
+  return clean || fallback
+}
+
+function cleanMatrixDisplayText(value: unknown, fallback: string, maxLength = 72) {
+  const clean = normalizeText(value, Math.max(maxLength * 2, 160))
+    .replace(/[{}]/g, '')
+    .replace(/[^\p{L}0-9\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+    .slice(0, maxLength)
+
+  return clean || fallback
+}
+
+type StudioHeroMatrixId =
+  | 'SELL_MCMV_V1'
+  | 'SELL_PRONTOS_V1'
+  | 'SELL_ALTO_PADRAO_V1'
+  | 'RENT_MCMV_V1'
+  | 'RENT_PRONTOS_V1'
+  | 'RENT_ALTO_PADRAO_V1'
+  | 'CAPTURE_PROPERTY_V1'
+  | 'CAPTURE_AGENT_V1'
+  | 'FREE_AI_V1'
+
+type StudioHeroMatrixDefinition = {
+  marketingStyle: string
+  commercialObjective: string
+  targetAudience: string
+  emotionalTone: string
+  visualMood: string
+  allowedHighlights: string[]
+  allowedCtas: string[]
+  propertyCategory?: string
+}
+
+const STUDIO_HERO_MATRIX_TEMPLATE = `Create a premium cinematic real estate commercial.
+Vertical format 9:16.
+Duration: 8 seconds.
+
+Use only the two uploaded images as the visual foundation of the commercial.
+
+The first uploaded image is the opening scene.
+The opening scene must immediately create a memorable cinematic WOW moment that naturally stops scrolling while preserving the realism of the uploaded property.
+
+The second uploaded image is the final reveal.
+
+Preserve the architectural identity of the uploaded property.
+Do not transform the property into another building.
+Do not replace the environments with different rooms.
+Do not create a different property.
+
+You may enhance realism through cinematic movement, lighting, atmosphere and transitions while preserving the identity of the uploaded property.
+
+The commercial should feel emotionally engaging and visually premium.
+The visual impact must continuously increase until the final scene.
+The second uploaded image must become the strongest and most memorable moment of the commercial.
+
+---
+
+INTERNAL CREATIVE DIRECTION
+Do not display this information as on-screen text.
+
+Marketing Style:
+{{MARKETING_STYLE}}
+
+Commercial Objective:
+{{COMMERCIAL_OBJECTIVE}}
+
+Property Category:
+{{PROPERTY_CATEGORY}}
+
+Target Audience:
+{{TARGET_AUDIENCE}}
+
+Emotional Tone:
+{{EMOTIONAL_TONE}}
+
+Visual Mood:
+{{VISUAL_MOOD}}
+
+Camera Style:
+{{CAMERA_STYLE}}
+
+Visual Effects:
+{{VISUAL_EFFECTS}}
+
+Decoration Direction:
+{{DECORATION_DIRECTION}}
+
+---
+
+AUDIO / VOICEOVER
+Use natural cinematic real estate audio.
+If voiceover is generated, it must sound like a short Brazilian Portuguese real estate commercial.
+Do not narrate raw structured data.
+Do not read internal creative direction.
+Do not read the prompt.
+Do not mention technical terms.
+Do not invent prices, addresses, phone numbers or property details.
+Keep the narration short, elegant and commercial.
+
+---
+
+ON-SCREEN TEXT
+
+Show only this opening hook.
+
+Opening hook:
+{{TEXT_1}}
+
+The opening hook must appear only once during the first seconds of the commercial and disappear naturally. Do not display any other on-screen text.
+
+---
+
+TEXT RULES
+
+Exactly one text overlay must exist during the entire commercial.
+
+Opening overlay:
+{{TEXT_1}}
+
+The opening overlay must appear only during the opening scene.
+
+After the opening scene, do not display any more text.
+
+Never repeat the opening overlay.
+
+Never create duplicate typography.
+
+Never create secondary titles.
+
+Never create subtitle versions.
+
+Never create button-style duplicates.
+
+Never create callout boxes.
+
+Never create lower-third graphics.
+
+Never create alternative versions of the same text.
+
+Never create decorative copies of the same text.
+
+Never display any text other than the opening overlay above.
+
+Use the opening hook as a cinematic visual element, similar to a premium FOR SALE title.
+
+You may use natural cinematic particles, light, fire, petals or elegant visual effects around the opening hook.
+
+Keep the opening overlay short, elegant and highly legible.
+
+---
+
+ENDING
+
+The second uploaded image must receive the richest camera movement, lighting and cinematic atmosphere.
+End with a strong premium commercial feeling that encourages the viewer to learn more.`
+
+const AUTHORIZED_MATRIX_PLACEHOLDERS = new Set([
+  'MARKETING_STYLE',
+  'COMMERCIAL_OBJECTIVE',
+  'PROPERTY_CATEGORY',
+  'TARGET_AUDIENCE',
+  'EMOTIONAL_TONE',
+  'VISUAL_MOOD',
+  'CAMERA_STYLE',
+  'VISUAL_EFFECTS',
+  'DECORATION_DIRECTION',
+  'TEXT_1',
+  'TEXT_2',
+  'TEXT_3',
+])
+
+const MATRIX_CAMERA_STYLE = `Dynamic
+Elegant
+Commercial`
+
+const MATRIX_VISUAL_EFFECTS = `Realistic cinematic movement
+Volumetric lighting
+Natural reflections
+Soft floating particles
+Subtle lens flare
+Depth of field
+Parallax
+Premium camera movement`
+
+const STUDIO_HERO_MATRICES: Record<StudioHeroMatrixId, StudioHeroMatrixDefinition> = {
+  SELL_MCMV_V1: {
+    marketingStyle: 'POPULAR',
+    commercialObjective: 'SELL',
+    targetAudience: `First-time buyers
+Young families
+Value-conscious buyers`,
+    emotionalTone: `Optimistic
+Friendly
+Inviting`,
+    visualMood: `Bright
+Modern
+Welcoming`,
+    allowedHighlights: ['OPORTUNIDADE', 'EXCLUSIVIDADE', 'PRÉ-LANÇAMENTO', 'LANÇAMENTO', 'PRONTO PARA MORAR', 'ÚLTIMAS UNIDADES', 'LAZER COMPLETO', 'FACILIDADES'],
+    allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
+  },
+  SELL_PRONTOS_V1: {
+    marketingStyle: 'READY HOMES',
+    commercialObjective: 'SELL',
+    targetAudience: `Home buyers
+Families
+People looking for immediate occupancy`,
+    emotionalTone: `Comfortable
+Confident
+Welcoming`,
+    visualMood: `Warm
+Modern
+Comfortable`,
+    allowedHighlights: ['OPORTUNIDADE', 'EXCLUSIVIDADE', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO', 'VISTA LIVRE', 'LAZER COMPLETO'],
+    allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
+  },
+  SELL_ALTO_PADRAO_V1: {
+    marketingStyle: 'HIGH STANDARD',
+    commercialObjective: 'SELL',
+    targetAudience: `Families seeking comfort
+Professionals
+Discerning buyers`,
+    emotionalTone: `Elegant
+Sophisticated
+Exclusive`,
+    visualMood: `Premium
+Refined
+Architectural`,
+    allowedHighlights: ['EXCLUSIVIDADE', 'ALTO PADRÃO', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO', 'VISTA LIVRE', 'LAZER COMPLETO'],
+    allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
+  },
+  RENT_MCMV_V1: {
+    marketingStyle: 'POPULAR',
+    commercialObjective: 'RENT',
+    targetAudience: `Young families
+Couples
+People seeking affordability`,
+    emotionalTone: `Friendly
+Practical
+Welcoming`,
+    visualMood: `Bright
+Modern
+Comfortable`,
+    allowedHighlights: ['DISPONÍVEL', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO', 'LAZER COMPLETO'],
+    allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
+  },
+  RENT_PRONTOS_V1: {
+    marketingStyle: 'READY HOMES',
+    commercialObjective: 'RENT',
+    targetAudience: `Families
+Professionals
+People looking for immediate occupancy`,
+    emotionalTone: `Comfortable
+Modern
+Welcoming`,
+    visualMood: `Warm
+Modern
+Comfortable`,
+    allowedHighlights: ['DISPONÍVEL', 'PRONTO PARA MORAR', 'EXCLUSIVIDADE', 'LOCALIZAÇÃO'],
+    allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
+  },
+  RENT_ALTO_PADRAO_V1: {
+    marketingStyle: 'HIGH STANDARD',
+    commercialObjective: 'RENT',
+    targetAudience: `Executives
+Families
+Professionals`,
+    emotionalTone: `Elegant
+Confident
+Exclusive`,
+    visualMood: `Premium
+Refined
+Comfortable`,
+    allowedHighlights: ['EXCLUSIVIDADE', 'ALTO PADRÃO', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO'],
+    allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
+  },
+  CAPTURE_PROPERTY_V1: {
+    marketingStyle: 'PROPERTY CAPTURE',
+    commercialObjective: 'CAPTURE PROPERTY',
+    propertyCategory: 'REAL ESTATE PROPERTY',
+    targetAudience: `Property owners
+Homeowners
+Real estate investors`,
+    emotionalTone: `Professional
+Trustworthy
+Confident`,
+    visualMood: `Modern
+Professional
+Clean`,
+    allowedHighlights: ['ANUNCIE CONOSCO', 'MAIS VISIBILIDADE', 'MAIS RESULTADOS', 'VENDA MAIS RÁPIDO'],
+    allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
+  },
+  CAPTURE_AGENT_V1: {
+    marketingStyle: 'RECRUITMENT',
+    commercialObjective: 'RECRUIT AGENTS',
+    propertyCategory: 'REAL ESTATE CAREER',
+    targetAudience: `Real estate agents
+Brokers
+Real estate professionals`,
+    emotionalTone: `Motivational
+Professional
+Confident`,
+    visualMood: `Modern
+Dynamic
+Professional`,
+    allowedHighlights: ['FAÇA PARTE', 'NOVAS OPORTUNIDADES', 'CRESÇA CONOSCO', 'SUA CARREIRA'],
+    allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
+  },
+  FREE_AI_V1: {
+    marketingStyle: 'FREE CREATIVE REAL ESTATE COMMERCIAL',
+    commercialObjective: 'SELL',
+    propertyCategory: 'REAL ESTATE CONCEPT',
+    targetAudience: `Real estate audience
+Potential buyers
+People interested in the property concept`,
+    emotionalTone: `Creative
+Inviting
+Commercial`,
+    visualMood: `Cinematic
+Modern
+Visually engaging`,
+    allowedHighlights: ['OPORTUNIDADE', 'EXCLUSIVIDADE', 'LANÇAMENTO', 'PRONTO PARA MORAR', 'ALTO PADRÃO', 'SAIBA MAIS'],
+    allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
+  },
+}
+
+function getMatrixProfileKey(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const source = [
+    briefing.objective,
+    briefing.objectiveLabel,
+    briefing.propertyType,
+    briefing.profile,
+    briefing.stage,
+    briefing.offer,
+    briefing.finalFeatures,
+    ...briefing.differentials,
+  ].join(' ').toUpperCase()
+
+  if (/CAPTACAO DE CORRETORES|BROKER|CORRETOR|CAPTADORES|PERITOS|GERENTES|DIRETORES/.test(source)) return 'broker_capture'
+  if (/CAPTACAO DE IMOVEIS|CAPTURE PROPERTY|PROPRIETARIO/.test(source)) return 'property_capture'
+  if (/LOCAC|ALUG|RENT/.test(source)) return 'rent'
+  if (/COMERCIAL|SALA|LAJE|GALPAO|LOJA|OFFICE|FLOOR/.test(source)) return 'commercial'
+  if (/MCMV|ECONOM|POPULAR|SUBSID/.test(source)) return 'popular'
+  if (/LUXO|LUXURY/.test(source)) return 'luxury'
+  if (/ALTO PADRAO|HIGH STANDARD|SOFISTIC|DESIGN/.test(source)) return 'high_standard'
+  return 'middle_standard'
+}
+
+function getMatrixProfileGroup(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const source = cleanMatrixField(`${briefing.profile} ${briefing.stage}`, '', 80)
+  if (/MCMV|ECONOMICO|POPULAR/.test(source)) return 'MCMV'
+  if (/ALTO PADRAO|LUXO|LUXURY|HIGH STANDARD/.test(source)) return 'ALTO_PADRAO'
+  return 'PRONTOS'
+}
+
+function selectStudioHeroMatrix(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>): StudioHeroMatrixId {
+  if (briefing.creativeMode === 'free_ai') return 'FREE_AI_V1'
+  if (briefing.objective === 'property_capture') return 'CAPTURE_PROPERTY_V1'
+  if (briefing.objective === 'broker_capture') return 'CAPTURE_AGENT_V1'
+
+  const group = getMatrixProfileGroup(briefing)
+  if (briefing.objective === 'rent') {
+    if (group === 'MCMV') return 'RENT_MCMV_V1'
+    if (group === 'ALTO_PADRAO') return 'RENT_ALTO_PADRAO_V1'
+    return 'RENT_PRONTOS_V1'
+  }
+
+  if (group === 'MCMV') return 'SELL_MCMV_V1'
+  if (group === 'ALTO_PADRAO') return 'SELL_ALTO_PADRAO_V1'
+  return 'SELL_PRONTOS_V1'
+}
+
+function normalizePropertyCategory(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>, matrixId: StudioHeroMatrixId) {
+  const definition = STUDIO_HERO_MATRICES[matrixId]
+  if (definition.propertyCategory) return definition.propertyCategory
+
+  const rawPropertyType = cleanMatrixField(briefing.propertyType, 'PROPERTY', 40)
+  const propertyType = (() => {
+    if (/APARTAMENTO/.test(rawPropertyType)) return 'APARTMENT'
+    if (/CASA/.test(rawPropertyType) && /CONDOMINIO/.test(cleanMatrixField(briefing.houseLocationType, '', 40))) return 'CONDOMINIUM HOME'
+    if (/CASA/.test(rawPropertyType)) return 'HOUSE'
+    if (/SALA/.test(rawPropertyType)) return 'COMMERCIAL OFFICE'
+    if (/LAJE/.test(rawPropertyType)) return 'COMMERCIAL FLOOR'
+    if (/TERRENO/.test(rawPropertyType)) return 'LAND'
+    if (/LOJA/.test(rawPropertyType)) return 'COMMERCIAL STORE'
+    if (/GALPAO/.test(rawPropertyType)) return 'COMMERCIAL WAREHOUSE'
+    if (/COMERCIAL/.test(rawPropertyType)) return 'COMMERCIAL PROPERTY'
+    return rawPropertyType
+  })()
+
+  if (propertyType.startsWith('COMMERCIAL')) return propertyType
+
+  const group = getMatrixProfileGroup(briefing)
+  if (group === 'MCMV') return `POPULAR ${propertyType}`
+  if (group === 'ALTO_PADRAO') return `HIGH STANDARD ${propertyType}`
+  if (group === 'PRONTOS') return `READY ${propertyType}`
+  return propertyType
+}
+
+function getAllowedHighlights(matrixId: StudioHeroMatrixId) {
+  return STUDIO_HERO_MATRICES[matrixId].allowedHighlights
+}
+
+function getAllowedCtas(matrixId: StudioHeroMatrixId) {
+  return STUDIO_HERO_MATRICES[matrixId].allowedCtas
+}
+
+function pickAllowedMatrixValue(value: unknown, allowed: string[], fallback: string) {
+  const clean = cleanMatrixField(value, '', 48)
+  const match = allowed.find((item) => cleanMatrixField(item, '', 48) === clean)
+  return match || fallback
+}
+
+function normalizeText1(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>, fallback: string) {
+  const district = cleanMatrixDisplayText(briefing.district, '', 36)
+  const city = cleanMatrixDisplayText(briefing.city, '', 36)
+  const fallbackLocation = cleanMatrixDisplayText(fallback, '', 48)
+  if (district) return district
+  if (city) return city
+  if (fallbackLocation) return fallbackLocation.replace(/\s+(SP|RJ|MG|PR|SC|RS|BA|PE|CE|GO|DF|ES|MT|MS)$/i, '').trim()
+  return 'OPORTUNIDADE'
+}
+
+function getOpeningHookText(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const pick = (options: string[]) => {
+    const chosenValues = [
+      briefing.finalFeatures,
+      ...briefing.differentials,
+      briefing.offer,
+    ].map((value) => cleanMatrixField(value, '', 48)).filter(Boolean)
+    const match = options.find((option) => chosenValues.includes(cleanMatrixField(option, '', 48)))
+    return match || options[0]
+  }
+
+  if (briefing.objective === 'rent') {
+    return pick(['LOCAÇÃO', 'ALUGUE', 'OPORTUNIDADE'])
+  }
+
+  if (briefing.objective === 'property_capture') {
+    return pick(['OPORTUNIDADE', 'VENDA CONOSCO', 'QUER VENDER?', 'QUER ALUGAR?'])
+  }
+
+  if (briefing.objective === 'broker_capture') {
+    return pick(['FAÇA PARTE', 'NOVAS VAGAS', 'OPORTUNIDADE'])
+  }
+
+  return pick(['VENDA', 'OPORTUNIDADE', 'LANÇAMENTO', 'EXCLUSIVO'])
+}
+
+function resolveDecorationDirection(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const policy = cleanMatrixField(briefing.decorationPolicy, '', 120)
+
+  if (/PRESERVAR/.test(policy)) {
+    return 'Preserve the existing furniture, decoration and visual condition of the uploaded images. Do not add new furniture or decoration.'
+  }
+
+  if (/DECORACAO LEVE|SUGERIR/.test(policy)) {
+    return 'If the uploaded images are empty or minimally furnished, you may suggest subtle, realistic and tasteful decoration while preserving the property identity.'
+  }
+
+  if (/MELHORAR LIVREMENTE|AMBIENTACAO/.test(policy)) {
+    return 'You may enhance the visual staging with realistic, tasteful and commercially appealing decoration, while preserving the architectural identity of the property.'
+  }
+
+  return 'Preserve the existing furniture, decoration and visual condition of the uploaded images. Do not add new furniture or decoration.'
+}
+
+function renderStudioHeroMatrix(template: string, values: Record<string, string>) {
+  const placeholders = [...template.matchAll(/{{([A-Z0-9_]+)}}/g)].map((match) => match[1])
+  const unknown = placeholders.filter((name) => !AUTHORIZED_MATRIX_PLACEHOLDERS.has(name))
+  if (unknown.length) throw new Error(`matrix_unknown_placeholder:${unknown.join(',')}`)
+
+  let rendered = template
+  for (const name of AUTHORIZED_MATRIX_PLACEHOLDERS) {
+    const value = values[name]
+    if (!value || !String(value).trim()) throw new Error(`matrix_missing_placeholder:${name}`)
+    rendered = rendered.replaceAll(`{{${name}}}`, value)
+  }
+
+  const leftovers = [...rendered.matchAll(/{{([^}]+)}}/g)].map((match) => match[1])
+  if (leftovers.length) throw new Error(`matrix_unresolved_placeholder:${leftovers.join(',')}`)
+  return rendered
+}
+
+function buildStudioHeroMatrixPrompt(
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
+  metadataChat: { bairro: string; caracteristica: string; cta: string },
+) {
+  const matrixId = selectStudioHeroMatrix(briefing)
+  const matrix = STUDIO_HERO_MATRICES[matrixId]
+  const text1 = normalizeText1(briefing, metadataChat.bairro)
+  const openingHook = getOpeningHookText(briefing)
+  const text2 = pickAllowedMatrixValue(
+    briefing.differentials[0] || briefing.finalFeatures || metadataChat.caracteristica,
+    getAllowedHighlights(matrixId),
+    getAllowedHighlights(matrixId)[0] || 'OPORTUNIDADE',
+  )
+  const text3 = pickAllowedMatrixValue(metadataChat.cta || briefing.cta, getAllowedCtas(matrixId), getAllowedCtas(matrixId)[0] || 'SAIBA MAIS')
+
+  const matrixPrompt = renderStudioHeroMatrix(STUDIO_HERO_MATRIX_TEMPLATE, {
+    MARKETING_STYLE: matrix.marketingStyle,
+    COMMERCIAL_OBJECTIVE: matrix.commercialObjective,
+    PROPERTY_CATEGORY: normalizePropertyCategory(briefing, matrixId),
+    TARGET_AUDIENCE: matrix.targetAudience,
+    EMOTIONAL_TONE: matrix.emotionalTone,
+    VISUAL_MOOD: matrix.visualMood,
+    CAMERA_STYLE: MATRIX_CAMERA_STYLE,
+    VISUAL_EFFECTS: MATRIX_VISUAL_EFFECTS,
+    DECORATION_DIRECTION: resolveDecorationDirection(briefing),
+    TEXT_1: openingHook,
+    TEXT_2: text2,
+    TEXT_3: text3,
+  })
+
+  const visualPrompt = removeMatrixAudioSection(matrixPrompt)
+  const voiceoverPrompt = buildMatrixVoiceoverPrompt(matrixId, text1)
+  const prompt = buildProviderPromptWithVoiceover(visualPrompt, voiceoverPrompt)
+
+  return {
+    prompt,
+    visualPrompt,
+    voiceoverPrompt,
+    profileKey: matrixId,
+    matrixId,
+    visibleTexts: [openingHook],
+  }
+}
+
 function buildVoiceoverFactsText(values: unknown[]) {
   return values
     .map((value) => normalizeText(value, 120))
     .filter(Boolean)
     .join('. ')
     .slice(0, 900)
+}
+
+function removeMatrixAudioSection(prompt: string) {
+  return prompt
+    .replace(/\n---\n\nAUDIO \/ VOICEOVER[\s\S]*?\n---\n\nON-SCREEN TEXT/, '\n---\n\nON-SCREEN TEXT')
+    .trim()
+}
+
+function buildMatrixVoiceoverPrompt(matrixId: StudioHeroMatrixId, text1: string) {
+  const place = toVoiceoverPlace(text1 || 'este imovel')
+
+  if (matrixId === 'SELL_MCMV_V1') {
+    return `Conheça uma excelente oportunidade em ${place}. Um imóvel pensado para quem busca praticidade, conforto e um novo começo.`
+  }
+
+  if (matrixId === 'SELL_PRONTOS_V1') {
+    return `Descubra uma excelente oportunidade em ${place}. Um imóvel pronto para receber novos momentos.`
+  }
+
+  if (matrixId === 'SELL_ALTO_PADRAO_V1') {
+    return `Conheça um imóvel de alto padrão em ${place}. Elegância, conforto e uma apresentação pensada para impressionar.`
+  }
+
+  if (matrixId.startsWith('RENT_')) {
+    return `Conheça uma opção para locação em ${place}. Praticidade, conforto e uma apresentação feita para você saber mais.`
+  }
+
+  if (matrixId === 'CAPTURE_PROPERTY_V1') {
+    return 'Quer vender ou divulgar seu imóvel com mais impacto? Conte com uma apresentação profissional para valorizar cada detalhe.'
+  }
+
+  if (matrixId === 'CAPTURE_AGENT_V1') {
+    return 'Faça parte de uma estrutura preparada para gerar mais oportunidades, visibilidade e crescimento profissional.'
+  }
+
+  return 'Conheça uma apresentação imobiliária criada para gerar desejo, impacto e vontade de saber mais.'
+}
+
+function buildProviderPromptWithVoiceover(visualPrompt: string, voiceoverPrompt: string) {
+  const cleanVisualPrompt = visualPrompt.trim()
+  const cleanVoiceoverPrompt = normalizeText(voiceoverPrompt, 500)
+
+  if (!cleanVoiceoverPrompt) return cleanVisualPrompt
+
+  return `${cleanVisualPrompt}
+
+---
+
+SCREEN TEXT SAFETY
+Never display "9:16", "duration", "vertical format", "prompt", "text rules", "internal creative direction" or any technical instruction on screen.
+Never display random letters, random numbers, UI labels, interface elements or unapproved words on screen.
+The opening hook must appear only once and only during the opening scene.
+Do not create button-style duplicates, CTA badges or repeated text.
+
+---
+
+VOICEOVER ONLY
+${cleanVoiceoverPrompt}
+Do not display this narration as on-screen text.
+Do not narrate raw structured data.
+Do not read internal creative direction.
+Do not read the prompt.
+Do not mention technical terms.
+Do not invent prices, addresses, phone numbers or property details.
+Keep the narration short, elegant and commercial.
+Never narrate in English.`
 }
 
 function buildStudioHeroBriefingPrompt(_bairro: string, _cta: string, dadosImovelText: string): string {
@@ -178,6 +782,8 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const offer = getBriefingValue(briefing, 'offer', body.oferta)
   const cta = getBriefingValue(briefing, 'cta', body.cta)
   const finalFeatures = getBriefingValue(briefing, 'finalFeatures', body.caracteristica)
+  const furnishingStatus = getBriefingValue(briefing, 'furnishingStatus', '')
+  const decorationPolicy = getBriefingValue(briefing, 'decorationPolicy', '')
 
   return {
     objective,
@@ -195,7 +801,200 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     offer,
     cta,
     finalFeatures,
+    furnishingStatus,
+    decorationPolicy,
     creativeMode: getBriefingValue(briefing, 'creativeMode', 'cinematic'),
+  }
+}
+
+function cleanScreenText(value: unknown, maxLength = 48) {
+  return cleanStaticText(normalizeText(value, Math.max(maxLength * 2, 120)))
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+}
+
+function removeTrailingStateCode(value: string) {
+  return value
+    .replace(/\s+(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i, '')
+    .trim()
+}
+
+function toVoiceoverPlace(value: string) {
+  const smallWords = new Set(['DE', 'DA', 'DO', 'DAS', 'DOS', 'E', 'EM'])
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, index) => {
+      if (index > 0 && smallWords.has(word)) return word.toLowerCase()
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
+    .join(' ')
+}
+
+function dedupeScreenWords(value: string) {
+  const words = value.split(/\s+/).filter(Boolean)
+  const output: string[] = []
+  for (const word of words) {
+    if (output[output.length - 1] === word) continue
+    output.push(word)
+  }
+  return output.join(' ')
+}
+
+function buildShortAdOpeningText(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const district = cleanScreenText(briefing.district, 36)
+  const city = cleanScreenText(briefing.city, 36)
+  const location = removeTrailingStateCode(cleanScreenText(briefing.location || briefing.normalizedLocation, 48))
+  const genericDistricts = new Set(['CENTRO', 'ZONA SUL', 'ZONA NORTE', 'ZONA LESTE', 'ZONA OESTE', 'INTERIOR', 'LITORAL'])
+
+  if (district && city && district !== city && genericDistricts.has(district)) {
+    return `${district} DE ${city}`.slice(0, 48)
+  }
+  if (district) return district
+  if (location) return location
+  if (city) return city
+  return 'IMOVEL'
+}
+
+function buildShortAdClosingText(cta: string) {
+  const clean = dedupeScreenWords(cleanScreenText(cta, 48))
+  if (/SAIBA|MAIS/.test(clean)) return 'SAIBA MAIS'
+  if (/AGENDE|VISITA/.test(clean)) return 'AGENDE SUA VISITA'
+  if (/ENTRE|CONTATO|FALE|CORRETOR|ESPECIALISTA|WHATS/.test(clean)) return 'ENTRE EM CONTATO'
+  if (/SOLICITE|INFORM/.test(clean)) return 'SOLICITE INFORMACOES'
+  return clean.split(/\s+/).filter(Boolean).slice(0, 4).join(' ') || 'SAIBA MAIS'
+}
+
+function firstUsefulFeature(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>, metadataChat: { caracteristica: string }) {
+  return cleanScreenText(
+    briefing.differentials[0]
+      || briefing.finalFeatures
+      || metadataChat.caracteristica,
+    48,
+  )
+}
+
+function buildShortAdVoiceoverScript(
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
+  metadataChat: { caracteristica: string },
+  openingText: string,
+) {
+  const source = cleanScreenText([
+    briefing.objective,
+    briefing.objectiveLabel,
+    briefing.propertyType,
+    briefing.profile,
+    briefing.stage,
+    briefing.offer,
+    briefing.finalFeatures,
+    ...briefing.differentials,
+    metadataChat.caracteristica,
+  ].filter(Boolean).join(' '), 240)
+  const place = toVoiceoverPlace(openingText)
+  const propertyType = toVoiceoverPlace(cleanScreenText(briefing.propertyType, 32) || 'imovel').toLowerCase()
+  const feature = firstUsefulFeature(briefing, metadataChat)
+  const featureText = feature && !/VENDA|LOCACAO|ALUGAR|IMOVEL|APARTAMENTO|CASA/.test(feature)
+    ? toVoiceoverPlace(feature).toLowerCase()
+    : ''
+
+  if (/CAPTACAO|CAPTAR|PROPRIET/.test(source) && !/CORRETOR|PROFISSION/.test(source)) {
+    return `Mostre seu imovel com quem entende de divulgacao profissional. Uma apresentacao forte ajuda a atrair compradores certos com mais confianca.`
+  }
+
+  if (/CORRETOR|PROFISSION|CAPTADOR|GERENTE|DIRETOR|CARREIRA/.test(source)) {
+    return `Faca parte de uma equipe preparada para crescer no mercado imobiliario. Uma oportunidade para profissionais que querem mais estrutura e resultado.`
+  }
+
+  if (/LOCAC|ALUG/.test(source)) {
+    return `Encontre uma opcao pronta para facilitar sua proxima escolha em ${place}. Um ${propertyType} apresentado com clareza para quem busca praticidade.`
+  }
+
+  if (/MCMV|ECONOM|POPULAR|OPORTUNIDADE|CASA PROPRIA|SAIA DO ALUGUEL/.test(source)) {
+    const second = /LANCAMENTO|OBRAS|FUTURO/.test(source)
+      ? 'Um lancamento pensado para quem busca praticidade, localizacao e bom custo-beneficio.'
+      : 'Uma escolha pensada para quem busca praticidade e uma excelente oportunidade.'
+    return `Conheca uma excelente oportunidade em ${place}. ${second}`
+  }
+
+  if (/LUXO|ALTO PADRAO|SOFISTIC|DESIGN|EXCLUSIV|ELEGAN/.test(source)) {
+    const detail = featureText ? ` com foco em ${featureText}` : ''
+    return `Descubra um ${propertyType}${detail} em ${place}. Uma apresentacao criada para despertar desejo desde os primeiros segundos.`
+  }
+
+  if (/COMERCIAL|SALA|LAJE|LOJA|GALPAO|NEGOCIO|NEGOCIOS/.test(source)) {
+    return `Apresente seu negocio com mais presenca em ${place}. Um comercial direto para destacar potencial, localizacao e oportunidade.`
+  }
+
+  if (/LANCAMENTO|OBRAS|FUTURO/.test(source)) {
+    return `Conheca uma novidade imobiliaria em ${place}. Um lancamento criado para quem busca uma nova oportunidade com praticidade.`
+  }
+
+  return `Descubra um ${propertyType} com grande potencial em ${place}. Uma apresentacao pensada para gerar interesse e vontade de saber mais.`
+}
+
+function buildShortAdVisualDirection(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const source = cleanScreenText(`${briefing.profile} ${briefing.objectiveLabel} ${briefing.propertyType} ${briefing.stage}`, 160)
+  if (/MCMV|ECONOM|POPULAR/.test(source)) {
+    return 'Bright and optimistic real estate commercial. Natural camera movement. Warm daylight. Friendly modern atmosphere. Professional advertising style.'
+  }
+  if (/LUXO|ALTO PADRAO|SOFISTIC|DESIGN/.test(source)) {
+    return 'Premium cinematic real estate commercial. Elegant camera movement. Warm lighting. Refined atmosphere. Natural motion. Professional luxury advertising style.'
+  }
+  if (/COMERCIAL|NEGOCIO|SALA|LAJE|LOJA|GALPAO/.test(source)) {
+    return 'Modern commercial real estate advertisement. Confident camera movement. Clean lighting. Professional business atmosphere. Direct advertising rhythm.'
+  }
+  return 'Premium cinematic real estate commercial. Elegant camera movement. Warm lighting. Modern atmosphere. Natural motion. Professional advertising style.'
+}
+
+function buildShortAdScriptPrompt(
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
+  metadataChat: { cta: string; caracteristica: string },
+) {
+  const screenTextOpening = buildShortAdOpeningText(briefing)
+  const screenTextClosing = buildShortAdClosingText(metadataChat.cta)
+  const voiceoverScript = buildShortAdVoiceoverScript(briefing, metadataChat, screenTextOpening)
+  const visualDirection = buildShortAdVisualDirection(briefing)
+
+  const prompt = `VIDEO PROFILE
+Vertical 9:16 real estate commercial.
+Duration 8 seconds.
+Use the uploaded property image as the visual reference.
+Create a professional real estate advertisement, not a technical listing.
+
+VISUAL DIRECTION
+${visualDirection}
+
+VOICEOVER SCRIPT
+Brazilian Portuguese voiceover only.
+Use this script naturally:
+"${voiceoverScript}"
+
+SCREEN TEXT
+Opening: "${screenTextOpening}"
+Closing: "${screenTextClosing}"
+Do not show any other on-screen text.
+Do not repeat screen text.
+Keep words separated and readable.
+
+FORBIDDEN RULES
+Do not invent amenities.
+Do not invent architecture.
+Do not invent rooms, pools, views, furniture, people, logos or watermarks.
+Do not concatenate city or state.
+Do not show state code, UF or state name on screen.
+Do not repeat screen text.
+Do not narrate raw structured data.
+Use only provided information.
+If information is missing, stay generic and commercial.`
+
+  return {
+    prompt,
+    screenTextOpening,
+    screenTextClosing,
+    voiceoverScript,
+    visualDirection,
   }
 }
 
@@ -1043,12 +1842,16 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
   userId: string
   jobId: string
   prompt: string
+  visualPrompt?: string
+  voiceoverPrompt?: string
   model: string
   aspectRatio: string
   durationSeconds: number
   resolution: string
   sampleCount: number
   promptMode: string
+  matrixId?: string
+  visibleTexts?: string[]
   image1Path: string
   image2Path: string
 }) {
@@ -1066,65 +1869,118 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
 
   try {
     const promptPath = `${input.userId}/${input.jobId}/debug/prompt.txt`
+    const visualPromptPath = `${input.userId}/${input.jobId}/debug/visual-prompt.txt`
+    const voiceoverPromptPath = `${input.userId}/${input.jobId}/debug/voiceover-prompt.txt`
     const imageMimeType = inferSupportedImageMimeType(input.image1Path)
     const lastFrameMimeType = inferSupportedImageMimeType(input.image2Path)
     const metaPath = `${input.userId}/${input.jobId}/debug/payload-meta.json`
+    const payloadShapePath = `${input.userId}/${input.jobId}/debug/final-payload-shape.json`
+    const endpointType = 'gemini_api_predict_long_running'
+    const visualPrompt = input.visualPrompt || input.prompt
+    const voiceoverPrompt = normalizeText(input.voiceoverPrompt, 500)
+    const [text1, text2, text3] = input.visibleTexts || []
 
     console.info('[DIAGNOSTICO] Studio Hero debug paths', {
       promptPath,
+      visualPromptPath,
+      voiceoverPromptPath: voiceoverPrompt ? voiceoverPromptPath : null,
       metaPath,
+      payloadShapePath,
       promptLength: input.prompt.length,
     })
 
-    const promptUpload = await supabase.storage
-      .from(VIDEO_BUCKET)
-      .upload(promptPath, new TextEncoder().encode(input.prompt), {
-        contentType: 'text/plain',
-        upsert: true,
-      })
+    const uploadDebugText = async (path: string, content: string, contentType: string) => {
+      const result = await supabase.storage
+        .from(VIDEO_BUCKET)
+        .upload(path, new Blob([content], { type: contentType }), {
+          contentType,
+          upsert: true,
+        })
 
-    if (promptUpload.error) {
-      console.error('[DIAGNOSTICO] upload prompt error', {
-        promptPath,
-        error: promptUpload.error.message,
-      })
-    } else {
-      console.info('[DIAGNOSTICO] upload prompt success', { promptPath })
+      if (result.error) {
+        console.error('[DIAGNOSTICO] upload debug error', {
+          path,
+          error: result.error.message,
+        })
+      } else {
+        console.info('[DIAGNOSTICO] upload debug success', { path })
+      }
+
+      return result
     }
+
+    const promptUpload = await uploadDebugText(promptPath, input.prompt, 'text/plain')
+    const visualPromptUpload = await uploadDebugText(visualPromptPath, visualPrompt, 'text/plain')
+    const voiceoverPromptUpload = voiceoverPrompt
+      ? await uploadDebugText(voiceoverPromptPath, voiceoverPrompt, 'text/plain')
+      : { error: null }
 
     const metaPayload = {
       model: input.model,
+      endpointType,
       aspectRatio: input.aspectRatio,
       durationSeconds: input.durationSeconds,
       resolution: input.resolution,
       sampleCount: input.sampleCount,
+      enhancedPrompt: false,
+      audioConfig: false,
+      languageCode: null,
       hasImage: Boolean(input.image1Path),
       hasLastFrame: Boolean(input.image2Path),
+      imagePath: input.image1Path,
+      lastFramePath: input.image2Path,
       imageMimeType,
       lastFrameMimeType,
       promptLength: input.prompt.length,
+      visualPromptLength: visualPrompt.length,
+      voiceoverPromptLength: voiceoverPrompt.length,
       promptMode: input.promptMode || 'champion_library',
+      matrixId: input.matrixId || input.promptMode || 'champion_library',
+      text1: text1 || '',
+      text2: text2 || '',
+      text3: text3 || '',
     }
 
-    const metaUpload = await supabase.storage
-      .from(VIDEO_BUCKET)
-      .upload(metaPath, new TextEncoder().encode(JSON.stringify(metaPayload, null, 2)), {
-        contentType: 'application/json',
-        upsert: true,
-      })
-
-    if (metaUpload.error) {
-      console.error('[DIAGNOSTICO] upload meta error', {
-        metaPath,
-        error: metaUpload.error.message,
-      })
-    } else {
-      console.info('[DIAGNOSTICO] upload meta success', { metaPath })
+    const payloadShape = {
+      endpointType,
+      model: input.model,
+      requestBody: {
+        instances: [
+          {
+            prompt: `[omitted:${input.prompt.length} chars]`,
+            image: {
+              mimeType: imageMimeType,
+              bytesBase64Encoded: '[omitted]',
+            },
+            lastFrame: {
+              mimeType: lastFrameMimeType,
+              bytesBase64Encoded: '[omitted]',
+            },
+          },
+        ],
+        parameters: {
+          aspectRatio: input.aspectRatio,
+          durationSeconds: input.durationSeconds,
+          resolution: input.resolution,
+          sampleCount: input.sampleCount,
+        },
+      },
+      unsupportedFieldsNotSent: [
+        'audioConfig',
+        'enhancedPrompt',
+        'resizeMode',
+      ],
     }
+
+    const metaUpload = await uploadDebugText(metaPath, JSON.stringify(metaPayload, null, 2), 'application/json')
+    const payloadShapeUpload = await uploadDebugText(payloadShapePath, JSON.stringify(payloadShape, null, 2), 'application/json')
 
     console.info('[DIAGNOSTICO] Studio Hero debug concluido', {
       promptUploaded: !promptUpload.error,
+      visualPromptUploaded: !visualPromptUpload.error,
+      voiceoverPromptUploaded: !voiceoverPromptUpload.error,
       metaUploaded: !metaUpload.error,
+      payloadShapeUploaded: !payloadShapeUpload.error,
     })
   } catch (debugErr) {
     const message = debugErr instanceof Error ? debugErr.message : String(debugErr)
@@ -1605,17 +2461,24 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({})) as JsonRecord
     const style = normalizeText(body.style, 40) || 'alto_padrao'
     const inputImage1Path = normalizeStoragePath(body.inputImage1Path, user.id)
-    const inputImage2Path = inputImage1Path
+    const inputImage2Path = normalizeStoragePath(body.inputImage2Path, user.id)
     const requestedJobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
 
-    if (!inputImage1Path) {
+    if (!inputImage1Path || !inputImage2Path) {
       return jsonResponse({
         success: false,
-        error: 'Envie a melhor foto do imovel antes de gerar.',
+        error: 'Envie as 2 imagens do imovel antes de gerar.',
       }, 400)
     }
 
-    if (!isSupportedImagePath(inputImage1Path)) {
+    if (inputImage1Path === inputImage2Path) {
+      return jsonResponse({
+        success: false,
+        error: 'Envie duas imagens diferentes para abertura e cena final.',
+      }, 400)
+    }
+
+    if (!isSupportedImagePath(inputImage1Path) || !isSupportedImagePath(inputImage2Path)) {
       return jsonResponse({
         success: false,
         error: 'Para este teste, envie imagens JPG ou PNG.',
@@ -1623,7 +2486,7 @@ serve(async (req) => {
     }
 
     const expectedPrefix = `${user.id}/${requestedJobId}/`
-    if (!inputImage1Path.startsWith(expectedPrefix)) {
+    if (!inputImage1Path.startsWith(expectedPrefix) || !inputImage2Path.startsWith(expectedPrefix)) {
       return jsonResponse({
         success: false,
         error: 'Nao foi possivel validar as imagens enviadas.',
@@ -1731,18 +2594,38 @@ serve(async (req) => {
       }
       const promptMode = Deno.env.get('STUDIO_HERO_PROMPT_MODE') || ''
       let promptFinal = ''
+      let visualPromptForDebug = ''
+      let voiceoverPromptForDebug = ''
       let promptProfileKey = 'champion_library'
       let visibleTextCount = 0
+      let visibleTextsForDebug: string[] = []
 
-      if (promptMode === 'static_champion') {
+      if (promptMode === 'matrix_v1') {
+        const matrixPrompt = buildStudioHeroMatrixPrompt(briefing, metadataChat)
+        promptFinal = matrixPrompt.prompt
+        visualPromptForDebug = matrixPrompt.visualPrompt
+        voiceoverPromptForDebug = matrixPrompt.voiceoverPrompt
+        promptProfileKey = matrixPrompt.profileKey
+        visibleTextCount = matrixPrompt.visibleTexts.length
+        visibleTextsForDebug = matrixPrompt.visibleTexts
+      } else if (promptMode === 'static_champion') {
         console.log('[DIAGNOSTICO] Ativando Modo Prompt Campeao Estatico. Ignorando OpenAI e Creative Director.')
         promptFinal = buildStaticChampionPrompt(metadataChat.bairro, metadataChat.cta, metadataChat.dadosImovelText)
+        visualPromptForDebug = promptFinal
         promptProfileKey = 'static_champion'
         visibleTextCount = 2
       } else if (promptMode === 'purist_two_texts') {
         console.log('[DIAGNOSTICO] Ativando Modo Purista Dois Textos. Mantendo narracao somente no prompt.')
         promptFinal = buildStaticChampionPrompt(metadataChat.bairro, metadataChat.cta, metadataChat.dadosImovelText)
+        visualPromptForDebug = promptFinal
         promptProfileKey = 'purist_two_texts'
+        visibleTextCount = 2
+      } else if (promptMode === 'short_ad_script') {
+        const shortAdPrompt = buildShortAdScriptPrompt(briefing, metadataChat)
+        promptFinal = shortAdPrompt.prompt
+        visualPromptForDebug = promptFinal
+        voiceoverPromptForDebug = shortAdPrompt.voiceoverScript
+        promptProfileKey = 'short_ad_script'
         visibleTextCount = 2
       } else {
         const championPrompt = buildChampionStudioHeroPrompt({
@@ -1763,9 +2646,13 @@ serve(async (req) => {
           cta: metadataChat.cta,
         })
         promptFinal = championPrompt.prompt
+        visualPromptForDebug = promptFinal
         promptProfileKey = championPrompt.profileKey
         visibleTextCount = championPrompt.visibleTexts.length
+        visibleTextsForDebug = championPrompt.visibleTexts
       }
+
+      if (!visualPromptForDebug) visualPromptForDebug = promptFinal
 
       if (promptFinal.includes('{') || promptFinal.includes('}')) {
         throw new Error('prompt_placeholder_detected')
@@ -1783,12 +2670,16 @@ serve(async (req) => {
         userId: user.id,
         jobId: job.id,
         prompt: promptFinal,
+        visualPrompt: visualPromptForDebug,
+        voiceoverPrompt: voiceoverPromptForDebug,
         model,
         aspectRatio: '9:16',
         durationSeconds: 8,
         resolution: '720p',
         sampleCount: 1,
         promptMode: promptMode || 'champion_library',
+        matrixId: promptProfileKey,
+        visibleTexts: visibleTextsForDebug,
         image1Path: inputImage1Path,
         image2Path: inputImage2Path,
       })
