@@ -1273,10 +1273,25 @@ export default function StudioHero() {
       if (!result.ok) throw new Error(data?.error || 'Falha ao consultar comercial.')
       if (!data?.ok) throw new Error(data?.error || 'Comercial ainda nao disponivel.')
 
+      logStudioHero('info', 'studio_hero_poll_status', {
+        jobId: normalizedJobId,
+        status: data.status,
+        hasSignedVideoUrl: Boolean(data.signedVideoUrl || data.signedUrl || data.videoUrl),
+        hasError: Boolean(data.error),
+      })
+
       if (data.status === 'completed') {
+        const nextVideoUrl = data.signedVideoUrl || data.signedUrl || data.videoUrl || ''
+        if (!nextVideoUrl) {
+          logStudioHero('error', 'studio_hero_completed_without_video_url', {
+            jobId: normalizedJobId,
+            status: data.status,
+          })
+          throw new Error('completed_without_video_url')
+        }
         clearPolling()
         setStatus('completed')
-        setVideoUrl(data.signedVideoUrl || '')
+        setVideoUrl(nextVideoUrl)
         setMessage('Seu comercial esta pronto.')
         return
       }
@@ -2275,24 +2290,36 @@ export default function StudioHero() {
               message="Perfeito. O comercial livre ja esta preparado para a proxima etapa."
             >
               <div className="rounded-3xl border border-violet-100 bg-white p-4 shadow-sm">
-                <StudioChecklist
-                  answers={answers}
-                  cityValue={cityValue}
-                  districtValue={districtValue}
-                  configuration={configuration}
-                  files={files}
-                  studioHeroAccess={studioHeroAccess}
-                  canGenerate={canGenerate}
-                  isGenerating={isGenerating}
-                  status={status}
-                  message={message}
-                  generationMessage={generationMessage}
-                  videoUrl={videoUrl}
-                  onEdit={setStep}
-                  onEditImages={goToUploadStep}
-                  onGenerate={handleGenerate}
-                  mode="free_ai"
-                />
+                {isGenerating && !videoUrl ? (
+                  <LoadingCard generationMessage={generationMessage} />
+                ) : videoUrl ? (
+                  <ResultPanel
+                    videoUrl={videoUrl}
+                    answers={answers}
+                    cityValue={cityValue}
+                    districtValue={districtValue}
+                    onReset={resetFlow}
+                  />
+                ) : (
+                  <StudioChecklist
+                    answers={answers}
+                    cityValue={cityValue}
+                    districtValue={districtValue}
+                    configuration={configuration}
+                    files={files}
+                    studioHeroAccess={studioHeroAccess}
+                    canGenerate={canGenerate}
+                    isGenerating={isGenerating}
+                    status={status}
+                    message={message}
+                    generationMessage={generationMessage}
+                    videoUrl={videoUrl}
+                    onEdit={setStep}
+                    onEditImages={goToUploadStep}
+                    onGenerate={handleGenerate}
+                    mode="free_ai"
+                  />
+                )}
               </div>
             </AssistantStep>
           )}
