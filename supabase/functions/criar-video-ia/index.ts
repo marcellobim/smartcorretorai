@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startVeoVideo } from '../_shared/veoClient.ts'
 
@@ -12,6 +12,7 @@ const corsHeaders = {
 const DEFAULT_MODEL = 'veo-3.1-lite-generate-preview'
 const DEFAULT_TOKEN_COST = 500
 const VIDEO_BUCKET = 'studio-videos'
+const STUDIO_HERO_CTA_LIBRARY_PREFIX = 'system/studio-hero/cta'
 const PROMPT_TEST_MODE: 'controlled_narrative' | 'narrative' | 'legacy' = 'controlled_narrative'
 const DEFAULT_CREATIVE_PROMPT_MODEL = 'gpt-4o-mini'
 
@@ -26,6 +27,39 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+function formatDiagnosticError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack || null,
+      cause: error.cause instanceof Error
+        ? {
+          name: error.cause.name,
+          message: error.cause.message,
+          stack: error.cause.stack || null,
+        }
+        : error.cause ? String(error.cause) : null,
+    }
+  }
+
+  return {
+    name: 'NonError',
+    message: String(error),
+    stack: null,
+    cause: null,
+  }
+}
+
+function safeDiagnosticMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message.slice(0, 500)
+  return String(error || 'unknown_error').slice(0, 500)
+}
+
+function logStudioHeroDiagnostic(reqId: string, stage: string, context: Record<string, unknown> = {}) {
+  console.info(`[${reqId}] ${stage}`, context)
 }
 
 function normalizeText(value: unknown, maxLength = 120) {
@@ -59,8 +93,8 @@ function normalizePromptText(value: unknown, maxLength = 48) {
     .replace(/\u00c3\u00ba|\u00c3\u0161/g, 'U')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ç/g, 'c')
-    .replace(/Ç/g, 'C')
+    .replace(/Ã§/g, 'c')
+    .replace(/Ã‡/g, 'C')
     .replace(/[{}]/g, '')
     .replace(/[^A-Za-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
@@ -126,10 +160,141 @@ function cleanMatrixDisplayText(value: unknown, fallback: string, maxLength = 72
   return clean || fallback
 }
 
+type StudioHeroCtaFrame = {
+  slug: string
+  label: string
+  fileName: string
+  publicPath: string
+}
+
+const STUDIO_HERO_CTA_FRAMES: Record<string, StudioHeroCtaFrame> = {
+  sell: {
+    slug: 'saiba-mais',
+    label: 'SAIBA MAIS',
+    fileName: 'cta-saiba-mais.png',
+    publicPath: '/studio-hero/cta/cta-saiba-mais.png',
+  },
+  rent: {
+    slug: 'agende-sua-visita',
+    label: 'AGENDE SUA VISITA',
+    fileName: 'cta-agende-sua-visita.png',
+    publicPath: '/studio-hero/cta/cta-agende-sua-visita.png',
+  },
+  property_capture: {
+    slug: 'entre-em-contato-agora',
+    label: 'ENTRE EM CONTATO AGORA',
+    fileName: 'cta-entre-em-contato-agora.png',
+    publicPath: '/studio-hero/cta/cta-entre-em-contato-agora.png',
+  },
+  broker_capture: {
+    slug: 'faca-parte-do-nosso-time',
+    label: 'FACA PARTE DO NOSSO TIME',
+    fileName: 'cta-faca-parte-do-nosso-time.png',
+    publicPath: '/studio-hero/cta/cta-faca-parte-do-nosso-time.png',
+  },
+  fallback: {
+    slug: 'aguardo-seu-contato',
+    label: 'AGUARDO SEU CONTATO',
+    fileName: 'cta-aguardo-seu-contato.png',
+    publicPath: '/studio-hero/cta/cta-aguardo-seu-contato.png',
+  },
+}
+
+function resolveStudioHeroCtaFrame(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>): StudioHeroCtaFrame {
+  if (getMatrixProfileGroup(briefing) === 'LANCAMENTO') return STUDIO_HERO_CTA_FRAMES.sell
+  if (briefing.objective === 'rent') return STUDIO_HERO_CTA_FRAMES.rent
+  if (briefing.objective === 'property_capture') return STUDIO_HERO_CTA_FRAMES.property_capture
+  if (briefing.objective === 'broker_capture') return STUDIO_HERO_CTA_FRAMES.broker_capture
+  if (briefing.objective === 'sell') return STUDIO_HERO_CTA_FRAMES.sell
+  return STUDIO_HERO_CTA_FRAMES.fallback
+}
+
+async function downloadStudioHeroCtaFrameBytes(supabase: ReturnType<typeof createClient>, ctaFrame: StudioHeroCtaFrame) {
+  const libraryPath = `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}`
+  const { data, error } = await supabase.storage.from(VIDEO_BUCKET).download(libraryPath)
+
+  if (error || !data) {
+    throw new Error(`cta_frame_library_download_failed:${ctaFrame.fileName}:${error?.message || 'empty_file'}`)
+  }
+
+  const bytes = new Uint8Array(await data.arrayBuffer())
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10]
+  const isPng = pngSignature.every((byte, index) => bytes[index] === byte)
+
+  if (!isPng) throw new Error(`cta_frame_invalid_png:${ctaFrame.fileName}`)
+
+  return {
+    bytes,
+    libraryPath,
+  }
+}
+
+async function uploadStudioHeroCtaFrame(supabase: ReturnType<typeof createClient>, input: {
+  userId: string
+  jobId: string
+  ctaFrame: StudioHeroCtaFrame
+  reqId?: string
+  markDiagnosticStage?: (stage: string, context?: Record<string, unknown>) => void
+}) {
+  const path = `${input.userId}/${input.jobId}/input-2.png`
+  const ctaLibraryPath = `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${input.ctaFrame.fileName}`
+  const mark = input.markDiagnosticStage || ((stage: string, context: Record<string, unknown> = {}) => {
+    logStudioHeroDiagnostic(input.reqId || 'studioHeroVideo', stage, context)
+  })
+
+  mark('LOG 5 - abrindo arquivo CTA oficial', {
+    selectedCta: input.ctaFrame.slug,
+    ctaFileName: input.ctaFrame.fileName,
+    bucket: VIDEO_BUCKET,
+    libraryPath: ctaLibraryPath,
+    absolutePath: `ss://${VIDEO_BUCKET}/${ctaLibraryPath}`,
+  })
+
+  const { bytes, libraryPath } = await downloadStudioHeroCtaFrameBytes(supabase, input.ctaFrame)
+  mark('LOG 5 OK - arquivo CTA oficial carregado', {
+    selectedCta: input.ctaFrame.slug,
+    ctaFileName: input.ctaFrame.fileName,
+    bucket: VIDEO_BUCKET,
+    libraryPath,
+    byteLength: bytes.byteLength,
+  })
+
+  mark('LOG 6 - upload do CTA como lastFrame', {
+    selectedCta: input.ctaFrame.slug,
+    ctaFileName: input.ctaFrame.fileName,
+    bucket: VIDEO_BUCKET,
+    storagePath: path,
+    contentType: 'image/png',
+  })
+
+  const { error } = await supabase.storage
+    .from(VIDEO_BUCKET)
+    .upload(path, new Blob([bytes], { type: 'image/png' }), {
+      contentType: 'image/png',
+      upsert: true,
+    })
+
+  if (error) throw new Error(`cta_frame_upload_failed:${error.message}`)
+
+  mark('LOG 6 OK - CTA oficial enviado como lastFrame', {
+    selectedCta: input.ctaFrame.slug,
+    label: input.ctaFrame.label,
+    absolutePath: `ss://${VIDEO_BUCKET}/${libraryPath}`,
+    fileName: input.ctaFrame.fileName,
+    libraryPath,
+    path,
+    publicPath: input.ctaFrame.publicPath,
+    byteLength: bytes.byteLength,
+  })
+
+  return path
+}
+
 type StudioHeroMatrixId =
   | 'SELL_MCMV_V1'
   | 'SELL_PRONTOS_V1'
   | 'SELL_ALTO_PADRAO_V1'
+  | 'SELL_LANCAMENTO_V1'
   | 'RENT_MCMV_V1'
   | 'RENT_PRONTOS_V1'
   | 'RENT_ALTO_PADRAO_V1'
@@ -312,7 +477,7 @@ Inviting`,
     visualMood: `Bright
 Modern
 Welcoming`,
-    allowedHighlights: ['OPORTUNIDADE', 'EXCLUSIVIDADE', 'PRÉ-LANÇAMENTO', 'LANÇAMENTO', 'PRONTO PARA MORAR', 'ÚLTIMAS UNIDADES', 'LAZER COMPLETO', 'FACILIDADES'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
     allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
   },
   SELL_PRONTOS_V1: {
@@ -327,7 +492,7 @@ Welcoming`,
     visualMood: `Warm
 Modern
 Comfortable`,
-    allowedHighlights: ['OPORTUNIDADE', 'EXCLUSIVIDADE', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO', 'VISTA LIVRE', 'LAZER COMPLETO'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
     allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
   },
   SELL_ALTO_PADRAO_V1: {
@@ -342,7 +507,22 @@ Exclusive`,
     visualMood: `Premium
 Refined
 Architectural`,
-    allowedHighlights: ['EXCLUSIVIDADE', 'ALTO PADRÃO', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO', 'VISTA LIVRE', 'LAZER COMPLETO'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
+    allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
+  },
+  SELL_LANCAMENTO_V1: {
+    marketingStyle: 'launch',
+    commercialObjective: 'SELL',
+    targetAudience: `Buyers looking for new developments
+Investors
+People planning a future move`,
+    emotionalTone: `Opportunity
+Anticipation
+Future value`,
+    visualMood: `Modern
+Aspirational
+Promising`,
+    allowedHighlights: ['LANCAMENTO', 'EXCLUSIVO', 'OPORTUNIDADE'],
     allowedCtas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
   },
   RENT_MCMV_V1: {
@@ -357,7 +537,7 @@ Welcoming`,
     visualMood: `Bright
 Modern
 Comfortable`,
-    allowedHighlights: ['DISPONÍVEL', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO', 'LAZER COMPLETO'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
     allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   RENT_PRONTOS_V1: {
@@ -372,7 +552,7 @@ Welcoming`,
     visualMood: `Warm
 Modern
 Comfortable`,
-    allowedHighlights: ['DISPONÍVEL', 'PRONTO PARA MORAR', 'EXCLUSIVIDADE', 'LOCALIZAÇÃO'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
     allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   RENT_ALTO_PADRAO_V1: {
@@ -387,7 +567,7 @@ Exclusive`,
     visualMood: `Premium
 Refined
 Comfortable`,
-    allowedHighlights: ['EXCLUSIVIDADE', 'ALTO PADRÃO', 'PRONTO PARA MORAR', 'LOCALIZAÇÃO'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
     allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   CAPTURE_PROPERTY_V1: {
@@ -403,7 +583,7 @@ Confident`,
     visualMood: `Modern
 Professional
 Clean`,
-    allowedHighlights: ['ANUNCIE CONOSCO', 'MAIS VISIBILIDADE', 'MAIS RESULTADOS', 'VENDA MAIS RÁPIDO'],
+    allowedHighlights: ['EXCLUSIVO', 'QUER VENDER', 'QUER ALUGAR'],
     allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   CAPTURE_AGENT_V1: {
@@ -419,7 +599,7 @@ Confident`,
     visualMood: `Modern
 Dynamic
 Professional`,
-    allowedHighlights: ['FAÇA PARTE', 'NOVAS OPORTUNIDADES', 'CRESÇA CONOSCO', 'SUA CARREIRA'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'CONTRATAMOS'],
     allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   FREE_AI_V1: {
@@ -435,7 +615,7 @@ Commercial`,
     visualMood: `Cinematic
 Modern
 Visually engaging`,
-    allowedHighlights: ['OPORTUNIDADE', 'EXCLUSIVIDADE', 'LANÇAMENTO', 'PRONTO PARA MORAR', 'ALTO PADRÃO', 'SAIBA MAIS'],
+    allowedHighlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
     allowedCtas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
 }
@@ -465,6 +645,7 @@ function getMatrixProfileKey(briefing: ReturnType<typeof buildStructuredStudioHe
 function getMatrixProfileGroup(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
   const source = cleanMatrixField(`${briefing.profile} ${briefing.stage}`, '', 80)
   if (/MCMV|ECONOMICO|POPULAR/.test(source)) return 'MCMV'
+  if (/LANCAMENTO|PRE LANCAMENTO|OBRAS|FUTURO/.test(source)) return 'LANCAMENTO'
   if (/ALTO PADRAO|LUXO|LUXURY|HIGH STANDARD/.test(source)) return 'ALTO_PADRAO'
   return 'PRONTOS'
 }
@@ -482,6 +663,7 @@ function selectStudioHeroMatrix(briefing: ReturnType<typeof buildStructuredStudi
   }
 
   if (group === 'MCMV') return 'SELL_MCMV_V1'
+  if (group === 'LANCAMENTO') return 'SELL_LANCAMENTO_V1'
   if (group === 'ALTO_PADRAO') return 'SELL_ALTO_PADRAO_V1'
   return 'SELL_PRONTOS_V1'
 }
@@ -508,6 +690,7 @@ function normalizePropertyCategory(briefing: ReturnType<typeof buildStructuredSt
 
   const group = getMatrixProfileGroup(briefing)
   if (group === 'MCMV') return `POPULAR ${propertyType}`
+  if (group === 'LANCAMENTO') return `LAUNCH ${propertyType}`
   if (group === 'ALTO_PADRAO') return `HIGH STANDARD ${propertyType}`
   if (group === 'PRONTOS') return `READY ${propertyType}`
   return propertyType
@@ -538,6 +721,8 @@ function normalizeText1(briefing: ReturnType<typeof buildStructuredStudioHeroBri
 }
 
 function getOpeningHookText(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  const matrixId = selectStudioHeroMatrix(briefing)
+  const allowedHighlights = getAllowedHighlights(matrixId)
   const pick = (options: string[]) => {
     const chosenValues = [
       briefing.finalFeatures,
@@ -545,22 +730,10 @@ function getOpeningHookText(briefing: ReturnType<typeof buildStructuredStudioHer
       briefing.offer,
     ].map((value) => cleanMatrixField(value, '', 48)).filter(Boolean)
     const match = options.find((option) => chosenValues.includes(cleanMatrixField(option, '', 48)))
-    return match || options[0]
+    return cleanStaticText(match || options[0])
   }
 
-  if (briefing.objective === 'rent') {
-    return pick(['LOCAÇÃO', 'ALUGUE', 'OPORTUNIDADE'])
-  }
-
-  if (briefing.objective === 'property_capture') {
-    return pick(['OPORTUNIDADE', 'VENDA CONOSCO', 'QUER VENDER?', 'QUER ALUGAR?'])
-  }
-
-  if (briefing.objective === 'broker_capture') {
-    return pick(['FAÇA PARTE', 'NOVAS VAGAS', 'OPORTUNIDADE'])
-  }
-
-  return pick(['VENDA', 'OPORTUNIDADE', 'LANÇAMENTO', 'EXCLUSIVO'])
+  return pick(allowedHighlights.length ? allowedHighlights : ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'])
 }
 
 function resolveDecorationDirection(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
@@ -642,6 +815,287 @@ function buildStudioHeroMatrixPrompt(
   }
 }
 
+function compactJsonRecord<T extends Record<string, unknown>>(record: T) {
+  return Object.fromEntries(
+    Object.entries(record).filter(([, value]) => {
+      if (value === null || value === undefined) return false
+      if (typeof value === 'string') return value.trim().length > 0
+      if (Array.isArray(value)) return value.length > 0
+      if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0
+      return true
+    }),
+  )
+}
+
+function buildStudioHeroJsonPrompt(payload: {
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>
+  metadataChat: { bairro: string; caracteristica: string; oferta: string; cta: string }
+  ctaFrame: StudioHeroCtaFrame
+}) {
+  const { briefing, metadataChat, ctaFrame } = payload
+  const matrixId = selectStudioHeroMatrix(briefing)
+  const matrix = STUDIO_HERO_MATRICES[matrixId]
+  const heroWord = getOpeningHookText(briefing)
+  const isLaunchProfile = getMatrixProfileGroup(briefing) === 'LANCAMENTO'
+  const launchFactRules = isLaunchProfile
+    ? [
+      'sell the opportunity, not immediate occupancy',
+      'do not describe the unit as ready to move in',
+      'never say pronto para morar unless explicitly provided by the user',
+      'never say totalmente mobiliado unless explicitly provided by the user',
+      'never say mobiliado unless explicitly provided by the user',
+      'never say disponivel imediatamente unless explicitly provided by the user',
+      'never say entregue unless explicitly provided by the user',
+      'never say pronto unless explicitly provided by the user',
+      'never say visite hoje este apartamento pronto',
+      'use launch-oriented narration: novo empreendimento, oportunidade, valorizacao, projeto pensado para morar ou investir, condicoes e detalhes sob consulta',
+    ]
+    : []
+  const propertyContext = compactJsonRecord({
+    objective: briefing.objective,
+    objective_label: briefing.objectiveLabel,
+    property_type: briefing.propertyType,
+    profile: briefing.profile,
+    stage: briefing.stage,
+    uf: briefing.uf,
+    city: briefing.city,
+    district: briefing.district,
+    location: briefing.location,
+    normalized_location: briefing.normalizedLocation,
+    main_feature: metadataChat.caracteristica,
+    offer: metadataChat.oferta,
+    differentials: briefing.differentials,
+    final_features: briefing.finalFeatures,
+    furnishing_status: briefing.furnishingStatus,
+    decoration_policy: briefing.decorationPolicy,
+  })
+
+  const promptPayload = {
+    task: 'real_estate_cinematic_video',
+    video: {
+      duration_seconds: 8,
+      aspect_ratio: '9:16',
+      style: 'ultra_photorealistic_cinematic_real_estate_commercial',
+    },
+    input_engine: {
+      opening_frame: 'first_uploaded_image',
+      ending_frame: 'system_fixed_cta_image',
+      frame_policy: 'use_the_uploaded_property_photo_as_the_visual_basis_and_end_on_the_provided_CTA_frame',
+    },
+    marketing_engine: {
+      objective: briefing.objective || 'sell_or_rent_property',
+      objective_label: briefing.objectiveLabel || briefing.objective,
+      purpose: briefing.objective || 'sell_or_rent_property',
+      marketing_style: isLaunchProfile ? 'launch' : matrix.marketingStyle || 'real_estate_commercial',
+      launch_property_marketing: isLaunchProfile,
+      property_category: normalizePropertyCategory(briefing, matrixId),
+      target_audience: matrix.targetAudience || 'property_buyers_or_renters',
+      emotional_goal: isLaunchProfile
+        ? 'create anticipation, opportunity perception, future value and curiosity'
+        : matrix.emotionalTone || 'create desire, trust and curiosity',
+      commercial_goal: 'make_the_viewer_stop_scrolling_and_want_to_know_more',
+      launch_strategy: isLaunchProfile ? 'sell the opportunity, not immediate occupancy' : undefined,
+    },
+    property_engine: propertyContext,
+    text_engine: {
+      enabled: true,
+      hero_word_only: true,
+      hero_word: {
+        value: heroWord,
+        time_range: '0.5s-2.5s',
+        show_once: true,
+        style: 'cinematic_wow_reveal',
+        animation: [
+          'premium_material_formation',
+          'subtle_light_burst',
+          'elegant_particle_emergence',
+          'brief_hold_then_fade_out',
+        ],
+      },
+      rules: [
+        'show only one marketing word in the entire video',
+        'never repeat the hero word',
+        'never create additional on-screen text',
+        'never create CTA text',
+        'the final CTA is already present in the provided lastFrame image',
+      ],
+      forbidden: [
+        'duplicate text',
+        'extra text',
+        'A VENDA',
+        'SAIBA MAIS generated by Veo',
+        'overlapping text',
+        'misspelled text',
+        'invented text',
+      ],
+    },
+    fact_engine: {
+      rules: [
+        'use only facts explicitly provided by the user',
+        'never say furnished unless the user provided this information',
+        'never say ready to move in unless the user provided this information',
+        'never invent amenities',
+        'never invent property features',
+        'if information is missing, omit it',
+        ...launchFactRules,
+      ],
+    },
+    cta_frame_engine: {
+      enabled: true,
+      source: 'system_fixed_cta_image',
+      role: 'lastFrame',
+      selected_cta_slug: ctaFrame.slug,
+      selected_cta_public_path: ctaFrame.publicPath,
+      selected_cta_text: ctaFrame.label,
+      instruction: 'the video must naturally end on the provided CTA image',
+      rules: [
+        'do not modify the CTA text',
+        'do not rewrite the CTA',
+        'do not add extra words to the CTA',
+        'keep the final CTA frame clean and readable',
+      ],
+    },
+    audio_engine: {
+      music: 'luxury_cinematic',
+      voiceover_language: 'pt-BR',
+      voiceover_style: 'short_elegant_brazilian_portuguese_real_estate_commercial',
+      voiceover_content_policy: 'narrate_property_facts_naturally_without_reading_raw_structured_data',
+      voiceover_tone: isLaunchProfile
+        ? [
+          'novo empreendimento',
+          'oportunidade',
+          'valorizacao',
+          'projeto pensado para morar ou investir',
+          'condicoes e detalhes sob consulta',
+        ]
+        : undefined,
+      effects: [
+        'soft_bells',
+        'ambient_air',
+        'subtle_whoosh',
+      ],
+    },
+    camera_engine: {
+      opening_camera: [
+        'slow_cinematic_dolly_forward',
+        'subtle_parallax',
+        'realistic_camera_motion',
+      ],
+      transition_camera: [
+        'smooth_continuous_transition_from_property_photo_to_final_CTA_frame',
+      ],
+      ending_camera: [
+        'clean_final_brand_like_CTA_reveal',
+        'subtle_motion_until_the_last_frame',
+        'premium_final_closure',
+      ],
+      hero_shot: 'uploaded_property_photo_as_the_main_cinematic_visual',
+    },
+    motion_engine: {
+      movement_rules: [
+        'continuous_cinematic_motion',
+        'avoid_static_slideshow_feeling',
+        'preserve_realistic_depth_and_scale',
+        'use_smooth_motion_from_the_property_photo_into_the_final_CTA_frame',
+      ],
+      transition_style: 'premium_real_estate_cinematic_transition',
+      ending_motion: 'settle_naturally_on_the_fixed_CTA_frame_without_rewriting_it',
+    },
+    lighting_engine: {
+      style: [
+        'natural_golden_hour_light',
+        'soft_volumetric_light',
+        'realistic_reflections',
+        'high_dynamic_range',
+        'premium_color_grading',
+      ],
+    },
+    atmosphere_engine: [
+      'floating_dust_particles',
+      'natural_depth_of_field',
+      'premium_real_estate_atmosphere',
+    ],
+    physics_engine: {
+      must_preserve: [
+        'architecture',
+        'layout',
+        'furniture',
+        'materials',
+        'colors',
+        'windows',
+        'doors',
+        'proportions',
+        'real_property_identity',
+      ],
+      motion_physics: [
+        'realistic_camera_movement',
+        'no_geometry_warping',
+        'no_object_deformation',
+        'no_unrealistic_scale_changes',
+      ],
+    },
+    render_engine: {
+      format: 'vertical_social_commercial',
+      aspect_ratio: '9:16',
+      duration_seconds: 8,
+      resolution: '720p',
+      output_feeling: 'finished_advertising_video_for_reels_stories_and_whatsapp',
+    },
+    priority_engine: [
+      'Preserve the uploaded property photo',
+      'Use only one opening hero word as on-screen text generated by Veo',
+      'Do not create CTA text because the final CTA already exists in lastFrame',
+      'Create real cinematic camera movement from the uploaded image',
+      'Naturally end on the fixed CTA lastFrame',
+    ],
+    forbidden_engine: {
+      forbidden: [
+        'invent_rooms',
+        'invent_objects',
+        'change_architecture',
+        'change_furniture',
+        'add_people',
+        'add_animals',
+        'add_logos',
+        'add_watermarks',
+        'add_interface_elements',
+        'add_random_text',
+        'morph_geometry',
+        'deform_objects',
+        'hallucinations',
+        'duplicate_text',
+        'repeated_text',
+        'overlapping_text',
+        'stacked_text',
+        'invented_text',
+        'misspelled_text',
+        'extra_words',
+        'two_texts_visible_at_once',
+        'generated_CTA_text',
+        'altered_CTA_frame_text',
+      ],
+    },
+    ending: {
+      final_frame: 'system_fixed_cta_image',
+      priority: 'clean_readable_professional_CTA_closure',
+      instruction: 'the video must end on the provided lastFrame CTA image without rewriting or duplicating its text',
+    },
+  }
+
+  const prompt = JSON.stringify(promptPayload, null, 2)
+  return {
+    prompt,
+    profileKey: 'json_structured_prompt',
+    visibleTexts: [heroWord].filter(Boolean),
+  }
+}
+
+function resolveStudioHeroPromptMode(value: unknown) {
+  const mode = normalizeText(value, 40).toLowerCase()
+  if (!mode || mode === 'classic' || mode === 'matrix_v1') return 'classic'
+  return mode
+}
+
 function buildVoiceoverFactsText(values: unknown[]) {
   return values
     .map((value) => normalizeText(value, 120))
@@ -660,30 +1114,30 @@ function buildMatrixVoiceoverPrompt(matrixId: StudioHeroMatrixId, text1: string)
   const place = toVoiceoverPlace(text1 || 'este imovel')
 
   if (matrixId === 'SELL_MCMV_V1') {
-    return `Conheça uma excelente oportunidade em ${place}. Um imóvel pensado para quem busca praticidade, conforto e um novo começo.`
+    return `ConheÃ§a uma excelente oportunidade em ${place}. Um imÃ³vel pensado para quem busca praticidade, conforto e um novo comeÃ§o.`
   }
 
   if (matrixId === 'SELL_PRONTOS_V1') {
-    return `Descubra uma excelente oportunidade em ${place}. Um imóvel pronto para receber novos momentos.`
+    return `Descubra uma excelente oportunidade em ${place}. Um imÃ³vel pronto para receber novos momentos.`
   }
 
   if (matrixId === 'SELL_ALTO_PADRAO_V1') {
-    return `Conheça um imóvel de alto padrão em ${place}. Elegância, conforto e uma apresentação pensada para impressionar.`
+    return `ConheÃ§a um imÃ³vel de alto padrÃ£o em ${place}. ElegÃ¢ncia, conforto e uma apresentaÃ§Ã£o pensada para impressionar.`
   }
 
   if (matrixId.startsWith('RENT_')) {
-    return `Conheça uma opção para locação em ${place}. Praticidade, conforto e uma apresentação feita para você saber mais.`
+    return `ConheÃ§a uma opÃ§Ã£o para locaÃ§Ã£o em ${place}. Praticidade, conforto e uma apresentaÃ§Ã£o feita para vocÃª saber mais.`
   }
 
   if (matrixId === 'CAPTURE_PROPERTY_V1') {
-    return 'Quer vender ou divulgar seu imóvel com mais impacto? Conte com uma apresentação profissional para valorizar cada detalhe.'
+    return 'Quer vender ou divulgar seu imÃ³vel com mais impacto? Conte com uma apresentaÃ§Ã£o profissional para valorizar cada detalhe.'
   }
 
   if (matrixId === 'CAPTURE_AGENT_V1') {
-    return 'Faça parte de uma estrutura preparada para gerar mais oportunidades, visibilidade e crescimento profissional.'
+    return 'FaÃ§a parte de uma estrutura preparada para gerar mais oportunidades, visibilidade e crescimento profissional.'
   }
 
-  return 'Conheça uma apresentação imobiliária criada para gerar desejo, impacto e vontade de saber mais.'
+  return 'ConheÃ§a uma apresentaÃ§Ã£o imobiliÃ¡ria criada para gerar desejo, impacto e vontade de saber mais.'
 }
 
 function buildProviderPromptWithVoiceover(visualPrompt: string, voiceoverPrompt: string) {
@@ -2418,8 +2872,21 @@ serve(async (req) => {
   }
 
   const reqId = crypto.randomUUID().slice(0, 8)
+  let diagnosticStage = 'LOG 0 - inicializacao'
+  let diagnosticContext: Record<string, unknown> = {}
+  const markDiagnosticStage = (stage: string, context: Record<string, unknown> = {}) => {
+    diagnosticStage = stage
+    diagnosticContext = context
+    logStudioHeroDiagnostic(reqId, stage, context)
+  }
 
   try {
+    markDiagnosticStage('LOG 1 - recebeu requisicao', {
+      method: req.method,
+      pathname: new URL(req.url).pathname,
+      contentType: req.headers.get('content-type') || '',
+    })
+
     if (req.method !== 'POST') {
       return jsonResponse({ success: false, error: 'Metodo nao permitido.' }, 405)
     }
@@ -2461,24 +2928,24 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({})) as JsonRecord
     const style = normalizeText(body.style, 40) || 'alto_padrao'
     const inputImage1Path = normalizeStoragePath(body.inputImage1Path, user.id)
-    const inputImage2Path = normalizeStoragePath(body.inputImage2Path, user.id)
     const requestedJobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
+    markDiagnosticStage('LOG 1 OK - payload validado inicialmente', {
+      userId: user.id,
+      requestedJobId,
+      hasInputImage1Path: Boolean(inputImage1Path),
+      inputImage1Path,
+      bucket: VIDEO_BUCKET,
+      isAdminBypass,
+    })
 
-    if (!inputImage1Path || !inputImage2Path) {
+    if (!inputImage1Path) {
       return jsonResponse({
         success: false,
-        error: 'Envie as 2 imagens do imovel antes de gerar.',
+        error: 'Envie a imagem do imovel antes de gerar.',
       }, 400)
     }
 
-    if (inputImage1Path === inputImage2Path) {
-      return jsonResponse({
-        success: false,
-        error: 'Envie duas imagens diferentes para abertura e cena final.',
-      }, 400)
-    }
-
-    if (!isSupportedImagePath(inputImage1Path) || !isSupportedImagePath(inputImage2Path)) {
+    if (!isSupportedImagePath(inputImage1Path)) {
       return jsonResponse({
         success: false,
         error: 'Para este teste, envie imagens JPG ou PNG.',
@@ -2486,15 +2953,69 @@ serve(async (req) => {
     }
 
     const expectedPrefix = `${user.id}/${requestedJobId}/`
-    if (!inputImage1Path.startsWith(expectedPrefix) || !inputImage2Path.startsWith(expectedPrefix)) {
+    if (!inputImage1Path.startsWith(expectedPrefix)) {
       return jsonResponse({
         success: false,
-        error: 'Nao foi possivel validar as imagens enviadas.',
+        error: 'Nao foi possivel validar a imagem enviada.',
       }, 400)
     }
 
+    markDiagnosticStage('LOG 2 - carregando imagem do usuario', {
+      bucket: VIDEO_BUCKET,
+      storagePath: inputImage1Path,
+    })
+    const { data: userImageDiagnosticData, error: userImageDiagnosticError } = await supabase.storage
+      .from(VIDEO_BUCKET)
+      .download(inputImage1Path)
+
+    if (userImageDiagnosticError || !userImageDiagnosticData) {
+      throw new Error(`user_image_download_failed:${userImageDiagnosticError?.message || 'empty_file'}`)
+    }
+
+    const userImageDiagnosticBytes = new Uint8Array(await userImageDiagnosticData.arrayBuffer())
+    markDiagnosticStage('LOG 2 OK - imagem usuario carregada', {
+      bucket: VIDEO_BUCKET,
+      storagePath: inputImage1Path,
+      contentType: userImageDiagnosticData.type || '',
+      byteLength: userImageDiagnosticBytes.byteLength,
+    })
+
     const model = Deno.env.get('VEO_MODEL_ID') || DEFAULT_MODEL
     const veoEnabled = Deno.env.get('VEO_ENABLED') === 'true'
+    const briefing = buildStructuredStudioHeroBriefing(body)
+    markDiagnosticStage('LOG 3 - perfil identificado', {
+      objective: briefing.objective,
+      profile: briefing.profile,
+      propertyType: briefing.propertyType,
+      matrixProfileGroup: getMatrixProfileGroup(briefing),
+      model,
+      veoEnabled,
+    })
+
+    const ctaFrame = resolveStudioHeroCtaFrame(briefing)
+    markDiagnosticStage('LOG 4 - CTA escolhido', {
+      selectedCta: ctaFrame.slug,
+      label: ctaFrame.label,
+      fileName: ctaFrame.fileName,
+      publicPath: ctaFrame.publicPath,
+      bucket: VIDEO_BUCKET,
+      libraryPath: `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}`,
+    })
+
+    const inputImage2Path = await uploadStudioHeroCtaFrame(supabase, {
+      userId: user.id,
+      jobId: requestedJobId,
+      ctaFrame,
+      reqId,
+      markDiagnosticStage,
+    })
+    markDiagnosticStage('LOG 7 - lastFrame criado', {
+      bucket: VIDEO_BUCKET,
+      image1Path: inputImage1Path,
+      image2Path: inputImage2Path,
+      ctaFileName: ctaFrame.fileName,
+      selectedCta: ctaFrame.slug,
+    })
 
     const { data: job, error: insertError } = await supabase
       .from('video_jobs')
@@ -2514,9 +3035,24 @@ serve(async (req) => {
       .single()
 
     if (insertError || !job?.id) {
-      console.warn(`[${reqId}] video_jobs insert falhou:`, insertError?.message)
-      return jsonResponse({ success: false, error: 'Nao foi possivel iniciar o video.' }, 500)
+      markDiagnosticStage('LOG 7 ERRO - falha ao criar video_jobs', {
+        requestedJobId,
+        userId: user.id,
+        errorMessage: insertError?.message || 'empty_job',
+      })
+      return jsonResponse({
+        success: false,
+        error: `Falha em LOG 7 ao criar job: ${insertError?.message || 'empty_job'}`,
+      }, 500)
     }
+
+    markDiagnosticStage('LOG 7 OK - job criado', {
+      jobId: job.id,
+      userId: user.id,
+      inputImage1Path,
+      inputImage2Path,
+      ctaFileName: ctaFrame.fileName,
+    })
 
     if (!veoEnabled) {
       await supabase
@@ -2535,7 +3071,7 @@ serve(async (req) => {
         job_id: job.id,
         jobId: job.id,
         status: 'disabled',
-        error: 'Nao foi possivel gerar o video neste momento.',
+        error: 'Falha em LOG 7 OK - job criado: veo_disabled',
       }, 503)
     }
 
@@ -2543,6 +3079,13 @@ serve(async (req) => {
     let creditIdempotencyKey = ''
 
     try {
+      markDiagnosticStage('LOG 7.1 - preparando Smart Tokens', {
+        jobId: job.id,
+        userId: user.id,
+        tokenCost,
+        isAdminBypass,
+      })
+
       if (tokenCost > 0) {
         const reservation = await reserveCredits(supabase, user.id, job.id, tokenCost)
         creditIdempotencyKey = reservation.idempotencyKey
@@ -2570,7 +3113,13 @@ serve(async (req) => {
           .eq('user_id', user.id)
       }
 
-      const briefing = buildStructuredStudioHeroBriefing(body)
+      markDiagnosticStage('LOG 7.1 OK - Smart Tokens preparados', {
+        jobId: job.id,
+        tokenCost,
+        hasCreditReservation: Boolean(creditIdempotencyKey),
+        isAdminBypass,
+      })
+
       const metadataChat = {
         bairro: briefing.normalizedLocation || briefing.district || briefing.location || normalizeText(body.bairro, 80) || '',
         caracteristica: briefing.finalFeatures
@@ -2592,7 +3141,7 @@ serve(async (req) => {
           briefing.cta,
         ]),
       }
-      const promptMode = Deno.env.get('STUDIO_HERO_PROMPT_MODE') || ''
+      const promptMode = resolveStudioHeroPromptMode(Deno.env.get('STUDIO_HERO_PROMPT_MODE'))
       let promptFinal = ''
       let visualPromptForDebug = ''
       let voiceoverPromptForDebug = ''
@@ -2600,7 +3149,14 @@ serve(async (req) => {
       let visibleTextCount = 0
       let visibleTextsForDebug: string[] = []
 
-      if (promptMode === 'matrix_v1') {
+      if (promptMode === 'json') {
+        const jsonPrompt = buildStudioHeroJsonPrompt({ briefing, metadataChat, ctaFrame })
+        promptFinal = jsonPrompt.prompt
+        visualPromptForDebug = promptFinal
+        promptProfileKey = jsonPrompt.profileKey
+        visibleTextCount = jsonPrompt.visibleTexts.length
+        visibleTextsForDebug = jsonPrompt.visibleTexts
+      } else if (promptMode === 'classic' || promptMode === 'matrix_v1') {
         const matrixPrompt = buildStudioHeroMatrixPrompt(briefing, metadataChat)
         promptFinal = matrixPrompt.prompt
         visualPromptForDebug = matrixPrompt.visualPrompt
@@ -2654,12 +3210,30 @@ serve(async (req) => {
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
 
-      if (promptFinal.includes('{') || promptFinal.includes('}')) {
+      if (promptMode !== 'json' && (promptFinal.includes('{') || promptFinal.includes('}'))) {
         throw new Error('prompt_placeholder_detected')
       }
 
+      markDiagnosticStage('LOG 8 - montando payload Veo', {
+        jobId: job.id,
+        promptMode,
+        profileKey: promptProfileKey,
+        promptLength: promptFinal.length,
+        visibleTextCount,
+        visibleTexts: visibleTextsForDebug,
+        bucket: VIDEO_BUCKET,
+        image1Path: inputImage1Path,
+        image2Path: inputImage2Path,
+        ctaFileName: ctaFrame.fileName,
+        selectedCta: ctaFrame.slug,
+        aspectRatio: '9:16',
+        durationSeconds: 8,
+        resolution: '720p',
+        sampleCount: 1,
+      })
+
       console.info(`[${reqId}] Studio Hero prompt preparado`, {
-        promptMode: promptMode || 'champion_library',
+        promptMode,
         profileKey: promptProfileKey,
         promptLength: promptFinal.length,
         visibleTextCount,
@@ -2677,9 +3251,24 @@ serve(async (req) => {
         durationSeconds: 8,
         resolution: '720p',
         sampleCount: 1,
-        promptMode: promptMode || 'champion_library',
+        promptMode,
         matrixId: promptProfileKey,
         visibleTexts: visibleTextsForDebug,
+        image1Path: inputImage1Path,
+        image2Path: inputImage2Path,
+      })
+
+      markDiagnosticStage('LOG 8 OK - payload Veo preparado', {
+        jobId: job.id,
+        promptLength: promptFinal.length,
+        image1Path: inputImage1Path,
+        image2Path: inputImage2Path,
+      })
+
+      markDiagnosticStage('LOG 9 - enviando para Veo', {
+        jobId: job.id,
+        model,
+        bucket: VIDEO_BUCKET,
         image1Path: inputImage1Path,
         image2Path: inputImage2Path,
       })
@@ -2695,6 +3284,11 @@ serve(async (req) => {
         jobId: job.id,
         bucket: VIDEO_BUCKET,
         supabase,
+      })
+
+      markDiagnosticStage('LOG 9 OK - Veo aceitou requisicao', {
+        jobId: job.id,
+        hasProviderJobId: Boolean(veoResult.providerJobId),
       })
 
       await supabase
@@ -2715,26 +3309,48 @@ serve(async (req) => {
         message: 'Gerando seu video.',
       })
     } catch (error) {
+      const diagnosticError = formatDiagnosticError(error)
+      console.error(`[${reqId}] Studio Hero excecao detalhada`, {
+        stage: diagnosticStage,
+        context: diagnosticContext,
+        error: diagnosticError,
+        bucket: VIDEO_BUCKET,
+        ctaFileName: ctaFrame.fileName,
+        ctaSelected: ctaFrame.slug,
+        ctaLibraryPath: `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}`,
+        inputImage1Path,
+        inputImage2Path,
+        jobId: job.id,
+      })
+
       await cancelCredits(supabase, user.id, creditIdempotencyKey, 'studio_hero_failed')
       await supabase
         .from('video_jobs')
         .update({
           status: 'failed',
-          error_message: error instanceof Error ? error.message.slice(0, 500) : 'unknown_error',
+          error_message: `${diagnosticStage}: ${safeDiagnosticMessage(error)}`.slice(0, 500),
         })
         .eq('id', job.id)
         .eq('user_id', user.id)
 
-      console.warn(`[${reqId}] Studio Hero falhou:`, error instanceof Error ? error.message : String(error))
       return jsonResponse({
         success: false,
         job_id: job.id,
         status: 'failed',
-        error: 'Nao foi possivel gerar o video neste momento.',
+        error: `Falha em ${diagnosticStage}: ${safeDiagnosticMessage(error)}`,
       }, 503)
     }
   } catch (error) {
-    console.error(`[${reqId}] criar-video-ia erro inesperado:`, error instanceof Error ? error.message : String(error))
-    return jsonResponse({ success: false, error: 'Erro inesperado ao preparar o video.' }, 500)
+    const diagnosticError = formatDiagnosticError(error)
+    console.error(`[${reqId}] criar-video-ia erro inesperado detalhado`, {
+      stage: diagnosticStage,
+      context: diagnosticContext,
+      error: diagnosticError,
+      bucket: VIDEO_BUCKET,
+    })
+    return jsonResponse({
+      success: false,
+      error: `Falha em ${diagnosticStage}: ${safeDiagnosticMessage(error)}`,
+    }, 500)
   }
 })

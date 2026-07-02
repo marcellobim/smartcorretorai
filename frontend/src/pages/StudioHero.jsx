@@ -50,15 +50,9 @@ function extractJobIdFromResponse(data, fallbackJobId = '') {
 const IMAGE_SLOTS = [
   {
     key: 'image1',
-    label: 'Imagem 1',
-    helper: 'Cena de abertura do comercial.',
+    label: 'Imagem do imovel',
+    helper: 'Envie a melhor foto do imovel.',
     fileName: 'input-1',
-  },
-  {
-    key: 'image2',
-    label: 'Imagem 2',
-    helper: 'Cena final. Escolha a imagem mais forte.',
-    fileName: 'input-2',
   },
 ]
 
@@ -239,7 +233,7 @@ const RENT_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPER
 
 const SALE_STAGES = ['PRE-LANCAMENTO', 'LANCAMENTO', 'PRONTO']
 
-const RESIDENTIAL_PROFILES = ['MCMV', 'PRONTOS', 'ALTO PADRAO']
+const RESIDENTIAL_PROFILES = ['MCMV', 'PRONTOS', 'ALTO PADRAO', 'LANÇAMENTO']
 const HOUSE_LOCATION_OPTIONS = ['CONDOMINIO FECHADO', 'BAIRRO ABERTO']
 
 const UF_OPTIONS = ['SP', 'RJ', 'MG', 'PR', 'SC', 'RS', 'BA', 'PE', 'CE', 'GO', 'DF', 'ES', 'MT', 'MS']
@@ -385,42 +379,46 @@ const CAPTURE_CTA_OPTIONS = [
 
 const MATRIX_ALLOWED_OPTIONS = {
   SELL_MCMV_V1: {
-    highlights: ['VENDA', 'OPORTUNIDADE', 'LANÇAMENTO', 'EXCLUSIVO'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
     ctas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
   },
   SELL_PRONTOS_V1: {
-    highlights: ['VENDA', 'OPORTUNIDADE', 'LANÇAMENTO', 'EXCLUSIVO'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
     ctas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
   },
   SELL_ALTO_PADRAO_V1: {
-    highlights: ['VENDA', 'OPORTUNIDADE', 'LANÇAMENTO', 'EXCLUSIVO'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
+    ctas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
+  },
+  SELL_LANCAMENTO_V1: {
+    highlights: ['LANCAMENTO', 'EXCLUSIVO', 'OPORTUNIDADE'],
     ctas: ['SAIBA MAIS', 'AGENDE SUA VISITA', 'ENTRE EM CONTATO'],
   },
   RENT_MCMV_V1: {
-    highlights: ['LOCAÇÃO', 'ALUGUE', 'OPORTUNIDADE'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
     ctas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   RENT_PRONTOS_V1: {
-    highlights: ['LOCAÇÃO', 'ALUGUE', 'OPORTUNIDADE'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
     ctas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   RENT_ALTO_PADRAO_V1: {
-    highlights: ['LOCAÇÃO', 'ALUGUE', 'OPORTUNIDADE'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
     ctas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   CAPTURE_PROPERTY_V1: {
-    highlights: ['OPORTUNIDADE', 'VENDA CONOSCO', 'QUER VENDER?', 'QUER ALUGAR?'],
+    highlights: ['EXCLUSIVO', 'QUER VENDER', 'QUER ALUGAR'],
     ctas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
   CAPTURE_AGENT_V1: {
-    highlights: ['FAÇA PARTE', 'NOVAS VAGAS', 'OPORTUNIDADE'],
+    highlights: ['EXCLUSIVO', 'OPORTUNIDADE', 'CONTRATAMOS'],
     ctas: ['SAIBA MAIS', 'ENTRE EM CONTATO'],
   },
 }
 
 const GENERATION_MESSAGES = [
   { Icon: Film, text: 'Estamos preparando seu comercial cinematografico.' },
-  { Icon: ImagePlus, text: 'A IA esta analisando suas imagens.' },
+  { Icon: ImagePlus, text: 'A IA esta analisando sua imagem.' },
   { Icon: PlayCircle, text: 'Criando movimento, luz e atmosfera.' },
   { Icon: MessageSquareText, text: 'Montando uma apresentacao com aparencia profissional.' },
   { Icon: ShieldCheck, text: 'Isso pode levar cerca de 1 minuto.' },
@@ -449,7 +447,7 @@ const initialAnswers = {
   cta: '',
   houseLocationType: '',
   uf: '',
-  imageCount: 2,
+  imageCount: 1,
   furnishingStatus: '',
   decorationPolicy: '',
   brokerHasBenefits: '',
@@ -508,7 +506,6 @@ function getImageErrorTarget(value) {
   const text = String(value || '').toLowerCase()
 
   if (text.includes('imagem 1') || text.includes('input-1')) return 'image1'
-  if (text.includes('imagem 2') || text.includes('input-2')) return 'image2'
   if (text.includes('imagem') || text.includes('jpg') || text.includes('png')) return 'all'
 
   return ''
@@ -528,7 +525,7 @@ function normalizeFreeText(value) {
 function formatDisplayText(value) {
   const minorWords = new Set(['da', 'de', 'do', 'das', 'dos', 'e'])
   return String(value || '')
-    .replace(/[^a-zA-ZÀ-ÿ0-9\s/-]/g, '')
+    .replace(/[^\p{L}0-9\s/-]/gu, '')
     .replace(/\s+/g, ' ')
     .trimStart()
     .slice(0, 60)
@@ -607,8 +604,8 @@ function getShortCtaPreview(cta) {
 function getCreativeProgressMessage(step, uploadStep, isFreeAiMode = false) {
   if (isFreeAiMode && step >= uploadStep) return 'Estamos quase la. Falta revisar a direcao criativa.'
   if (isFreeAiMode && step >= uploadStep - 3) return 'Agora estamos definindo estilo, atmosfera e ritmo.'
-  if (step >= uploadStep) return 'Agora suas imagens entram como base visual do comercial.'
-  if (step >= uploadStep - 1) return 'Estamos quase terminando. Falta escolher as imagens.'
+  if (step >= uploadStep) return 'Agora sua imagem entra como base visual do comercial.'
+  if (step >= uploadStep - 1) return 'Estamos quase terminando. Falta escolher a imagem.'
   if (step >= 4) return 'O estilo do comercial ja esta ganhando forma.'
   if (step >= 2) return 'Otimo. Ja temos uma boa base para seguir.'
   return 'Vamos construir a direcao criativa em poucos passos.'
@@ -663,7 +660,9 @@ function getStudioHeroMatrixId(answers) {
   const profile = normalizeFreeText(answers.profile)
   const group = /MCMV|ECONOMICO|POPULAR/.test(profile)
     ? 'MCMV'
-    : /ALTO PADRAO|LUXO/.test(profile)
+    : /LANCAMENTO/.test(profile)
+      ? 'LANCAMENTO'
+      : /ALTO PADRAO|LUXO/.test(profile)
       ? 'ALTO_PADRAO'
       : 'PRONTOS'
 
@@ -674,6 +673,7 @@ function getStudioHeroMatrixId(answers) {
   }
 
   if (group === 'MCMV') return 'SELL_MCMV_V1'
+  if (group === 'LANCAMENTO') return 'SELL_LANCAMENTO_V1'
   if (group === 'ALTO_PADRAO') return 'SELL_ALTO_PADRAO_V1'
   return 'SELL_PRONTOS_V1'
 }
@@ -831,7 +831,7 @@ export default function StudioHero() {
   const [modeNotice, setModeNotice] = useState('')
   const [step, setStep] = useState(1)
   const [answers, setAnswers] = useState(initialAnswers)
-  const [files, setFiles] = useState({ image1: null, image2: null })
+  const [files, setFiles] = useState({ image1: null })
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
@@ -915,7 +915,7 @@ export default function StudioHero() {
     [uploadStep]: isFreeAiMode
       ? 'Criacao livre com IA'
       : IMAGE_SLOTS.every((slot) => files[slot.key])
-        ? '2 imagens selecionadas'
+        ? '1 imagem selecionada'
         : '',
   }
 
@@ -962,7 +962,7 @@ export default function StudioHero() {
       rentConditions: [],
       cta: '',
       houseLocationType: '',
-      imageCount: 2,
+      imageCount: 1,
       furnishingStatus: '',
       decorationPolicy: '',
       brokerHasBenefits: '',
@@ -995,7 +995,7 @@ export default function StudioHero() {
       rentConditions: [],
       cta: '',
       houseLocationType: '',
-      imageCount: 2,
+      imageCount: 1,
       furnishingStatus: '',
       decorationPolicy: '',
       brokerHasBenefits: '',
@@ -1019,11 +1019,11 @@ export default function StudioHero() {
     setAnswers((current) => ({
       ...current,
       profile,
-      differentials: [],
+      differentials: normalizeFreeText(profile) === 'LANCAMENTO' ? ['LANCAMENTO'] : [],
       rentConditions: [],
       cta: '',
       houseLocationType: '',
-      imageCount: 2,
+      imageCount: 1,
       furnishingStatus: '',
       decorationPolicy: '',
       captureHasDistrict: '',
@@ -1061,7 +1061,7 @@ export default function StudioHero() {
       atmosphere: '',
       pace: '',
       creativeFreedom: '',
-      imageCount: 2,
+      imageCount: 1,
       furnishingStatus: '',
       decorationPolicy: '',
     }))
@@ -1076,7 +1076,7 @@ export default function StudioHero() {
       brokerBenefits: value === 'yes' ? current.brokerBenefits : [],
       brokerBenefitOther: value === 'yes' ? current.brokerBenefitOther : '',
       cta: '',
-      imageCount: 2,
+      imageCount: 1,
       furnishingStatus: '',
       decorationPolicy: '',
     }))
@@ -1086,7 +1086,7 @@ export default function StudioHero() {
   const updateBrokerCommission = (value) => {
     resetGenerationState()
     const clean = String(value || '').replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 5)
-    setAnswers((current) => ({ ...current, brokerCommission: clean, cta: '', imageCount: 2, furnishingStatus: '', decorationPolicy: '' }))
+    setAnswers((current) => ({ ...current, brokerCommission: clean, cta: '', imageCount: 1, furnishingStatus: '', decorationPolicy: '' }))
   }
 
   const toggleBrokerBenefit = (item) => {
@@ -1104,7 +1104,7 @@ export default function StudioHero() {
         brokerBenefits: nextBenefits,
         brokerBenefitOther: nextBenefits.includes('OUTRO') ? current.brokerBenefitOther : '',
         cta: '',
-        imageCount: 2,
+        imageCount: 1,
         furnishingStatus: '',
         decorationPolicy: '',
       }
@@ -1323,7 +1323,6 @@ export default function StudioHero() {
     try {
       const draftId = crypto.randomUUID()
       const inputImage1Path = await uploadImage(IMAGE_SLOTS[0], files.image1, draftId)
-      const inputImage2Path = await uploadImage(IMAGE_SLOTS[1], files.image2, draftId)
 
       setStatus('generating')
       setMessage('Criando seu comercial...')
@@ -1356,7 +1355,6 @@ export default function StudioHero() {
         },
         jobId: draftId,
         inputImage1Path,
-        inputImage2Path,
       })
       const data = result.body
 
@@ -1391,7 +1389,7 @@ export default function StudioHero() {
       ...initialAnswers,
       creativeMode: nextMode === 'free_ai' ? 'free_ai' : 'cinematic',
     })
-    setFiles({ image1: null, image2: null })
+    setFiles({ image1: null })
     setStatus('idle')
     setMessage('')
     setVideoUrl('')
@@ -1800,7 +1798,7 @@ export default function StudioHero() {
                             district: '',
                             captureHasDistrict: '',
                             cta: '',
-                            imageCount: 2,
+                            imageCount: 1,
                           }))
                         }}
                       >
@@ -1827,7 +1825,7 @@ export default function StudioHero() {
                               district: '',
                               captureHasDistrict: '',
                               cta: '',
-                              imageCount: 2,
+                              imageCount: 1,
                             }))
                           }}
                         >
@@ -1845,7 +1843,7 @@ export default function StudioHero() {
                       value={answers.cityOther}
                       onChange={(event) => {
                         resetGenerationState()
-                        setAnswers((current) => ({ ...current, cityOther: formatDisplayText(event.target.value), district: '', captureHasDistrict: '', cta: '', imageCount: 2 }))
+                        setAnswers((current) => ({ ...current, cityOther: formatDisplayText(event.target.value), district: '', captureHasDistrict: '', cta: '', imageCount: 1 }))
                       }}
                       placeholder="Digite a cidade"
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
@@ -1861,7 +1859,7 @@ export default function StudioHero() {
                         active={answers.captureHasDistrict === 'no'}
                         onClick={() => {
                           resetGenerationState()
-                          setAnswers((current) => ({ ...current, captureHasDistrict: 'no', district: '', cta: '', imageCount: 2 }))
+                          setAnswers((current) => ({ ...current, captureHasDistrict: 'no', district: '', cta: '', imageCount: 1 }))
                         }}
                       >
                         Nao
@@ -1870,7 +1868,7 @@ export default function StudioHero() {
                         active={answers.captureHasDistrict === 'yes'}
                         onClick={() => {
                           resetGenerationState()
-                          setAnswers((current) => ({ ...current, captureHasDistrict: 'yes', cta: '', imageCount: 2 }))
+                          setAnswers((current) => ({ ...current, captureHasDistrict: 'yes', cta: '', imageCount: 1 }))
                         }}
                       >
                         Sim
@@ -1886,7 +1884,7 @@ export default function StudioHero() {
                       value={answers.district}
                       onChange={(event) => {
                         resetGenerationState()
-                        setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 2 }))
+                        setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 1 }))
                       }}
                       placeholder={isCapture ? 'Ex.: Moema, Zona Sul, Centro, Toda a cidade' : 'Digite o bairro'}
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
@@ -1955,7 +1953,7 @@ export default function StudioHero() {
                   {differentialOptions.map((option) => {
                     const selected = answers.differentials.includes(option)
                     const maxSelections = MAX_DIFFERENTIALS
-                    const disabled = !selected && answers.differentials.length >= maxSelections
+                    const disabled = maxSelections > 1 && !selected && answers.differentials.length >= maxSelections
                     return (
                       <ChipButton
                         key={option}
@@ -2056,7 +2054,7 @@ export default function StudioHero() {
                       value={answers.brokerBenefitOther}
                       onChange={(event) => {
                         resetGenerationState()
-                        setAnswers((current) => ({ ...current, brokerBenefitOther: normalizeFreeText(event.target.value), cta: '', imageCount: 2 }))
+                        setAnswers((current) => ({ ...current, brokerBenefitOther: normalizeFreeText(event.target.value), cta: '', imageCount: 1 }))
                       }}
                       placeholder="DIGITE O BENEFICIO"
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
@@ -2115,7 +2113,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[furnishingStep]}
               onEdit={() => setStep(furnishingStep)}
-              message="Essas imagens ja possuem mobiliario?"
+              message="A imagem escolhida ja possui mobiliario?"
             >
               <ChipGrid>
                 {FURNISHING_OPTIONS.map((option) => (
@@ -2137,7 +2135,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[decorationStep]}
               onEdit={() => setStep(decorationStep)}
-              message="Voce quer permitir que a IA sugira decoracao ou pequenos ajustes visuais nas imagens?"
+              message="Voce quer permitir que a IA sugira decoracao ou pequenos ajustes visuais na imagem?"
             >
               <ChipGrid>
                 {DECORATION_POLICY_OPTIONS.map((option) => (
@@ -2278,7 +2276,7 @@ export default function StudioHero() {
           )}
 
           {!isFreeAiMode && answers.decorationPolicy && step >= uploadStep && (
-            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Agora chegou uma das partes mais importantes. Envie suas 2 melhores imagens na ordem em que deseja ve-las no video.">
+            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Envie a melhor imagem do imovel. O SmartCorretorAI adiciona automaticamente o encerramento profissional do video.">
               <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
                 {isGenerating && !videoUrl ? (
                   <LoadingCard generationMessage={generationMessage} />
@@ -2296,7 +2294,7 @@ export default function StudioHero() {
                       <ErrorCard message={message} imageErrorTarget={imageErrorTarget} onEditImages={goToUploadStep} />
                     )}
                     <div className="space-y-4">
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4 md:grid-cols-1">
                         {IMAGE_SLOTS.map((slot) => (
                           <FilePicker
                             key={slot.key}
@@ -2308,7 +2306,7 @@ export default function StudioHero() {
                         ))}
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
-                        Escolha as imagens que melhor representam o imovel. A ordem das imagens influencia a narrativa do comercial. Quanto melhores forem as imagens, maior tende a ser o impacto visual do resultado.
+                        Escolha a foto que melhor representa o imovel. Ela abre o comercial; o encerramento profissional e aplicado automaticamente pelo SmartCorretorAI.
                       </div>
                     </div>
 
@@ -2563,12 +2561,12 @@ function UploadReadyPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black text-slate-950">
-            {ready ? 'Tudo pronto para criar.' : 'Envie suas 2 melhores imagens.'}
+            {ready ? 'Tudo pronto para criar.' : 'Envie a melhor imagem do imovel.'}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
             {ready
-              ? 'Revise as imagens e crie o comercial quando estiver tudo certo.'
-              : 'Imagem 1 abre o comercial. Imagem 2 sera a cena final mais forte.'}
+              ? 'Revise a imagem e crie o comercial quando estiver tudo certo.'
+              : 'A foto escolhida abre o comercial. O encerramento profissional entra automaticamente no final.'}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -2596,7 +2594,7 @@ function UploadReadyPanel({
       </div>
 
       <p className="mt-3 text-xs font-bold text-slate-500">
-        {selectedCount}/{IMAGE_SLOTS.length} imagens selecionadas.
+        {selectedCount}/{IMAGE_SLOTS.length} imagem selecionada.
       </p>
 
       {ready && (
@@ -2733,8 +2731,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
     ] : [
       ['Mobiliario', answers.furnishingStatus, furnishingStep],
       ['Ambientacao', answers.decorationPolicy, decorationStep],
-      ['Imagem 1', files.image1?.name, uploadStep],
-      ['Imagem 2', files.image2?.name, uploadStep],
+      ['Imagem do imovel', files.image1?.name, uploadStep],
     ]),
   ].filter((row) => row[2])
 
@@ -2750,7 +2747,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
               ? 'Voce recebeu video, download e textos prontos para divulgar.'
               : isFreeAiMode
                 ? 'Tudo pronto. Revise suas escolhas e crie o comercial livre quando estiver tudo certo.'
-                : 'Tudo pronto. Revise suas imagens e crie o comercial quando estiver tudo certo.'}
+                : 'Tudo pronto. Revise sua imagem e crie o comercial quando estiver tudo certo.'}
           </p>
           <p className="mt-2 max-w-xl text-xs font-semibold leading-5 text-slate-500">
             {isFreeAiMode
@@ -2836,7 +2833,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             Tudo pronto.
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-            Revise o resumo e as imagens selecionadas. Quando estiver tudo certo, crie seu comercial.
+            Revise o resumo e a imagem selecionada. Quando estiver tudo certo, crie seu comercial.
           </p>
           <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
