@@ -15,6 +15,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
+import { buildPublicationPackage } from '../../../core/copy-engine'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
@@ -759,40 +760,32 @@ function getObjectiveSummaryLabel(objectiveId) {
 }
 
 function buildDeliveryTexts({ answers, districtValue, cityValue }) {
-  const bairro = normalizeImpactText(districtValue, 'IMOVEL', 2)
-  const tipo = normalizeImpactText(answers.propertyType, 'IMOVEL', 2)
-  const diferencial = normalizeImpactText(answers.differentials[0], getCommercialImpactWord(answers), 2)
-  const cta = formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta || 'Entre em contato'
-  const isCommercial = isCommercialType(answers.propertyType)
-  const locationTag = bairro.replace(/\s+/g, '')
-  const typeTag = tipo.replace(/\s+/g, '')
-
-  return [
-    {
-      label: 'Legenda Instagram',
-      text: `${bairro} em destaque. Um comercial criado para apresentar o imovel com impacto, atmosfera e movimento. ${cta}.`,
-    },
-    {
-      label: 'Legenda Facebook',
-      text: `Veja este ${tipo.toLowerCase()} em ${bairro}. Comercial criado para valorizar o imovel e despertar interesse logo nos primeiros segundos. ${cta}.`,
-    },
-    ...(isCommercial ? [{
-      label: 'Texto LinkedIn',
-      text: `${bairro} ganha uma apresentacao comercial com foco em ${diferencial.toLowerCase()}. Ideal para gerar atencao, autoridade e novas oportunidades. ${cta}.`,
-    }] : []),
-    {
-      label: 'Texto WhatsApp',
-      text: `Oi! Preparei um comercial rapido deste imovel em ${bairro}. Ficou bem visual e ajuda a sentir melhor o espaco. ${cta}.`,
-    },
-    {
-      label: 'Descricao Portal',
-      text: `${tipo} em ${bairro}. Material em comercial curto criado para destacar o imovel com linguagem moderna, visual profissional e foco em ${diferencial.toLowerCase()}.`,
-    },
-    {
-      label: 'Hashtags',
-      text: `#SmartCorretorAI #${locationTag} #${typeTag} #MercadoImobiliario #Imoveis #VideoImobiliario`,
-    },
-  ]
+  return buildPublicationPackage({
+    objective: answers.objective,
+    objectiveLabel: getObjectiveSummaryLabel(answers.objective),
+    propertyType: answers.propertyType,
+    profile: answers.profile,
+    city: cityValue,
+    district: districtValue,
+    location: getDisplayLocation({
+      district: districtValue,
+      city: cityValue,
+      uf: answers.uf,
+      isCapture: isCaptureObjective(answers.objective),
+    }),
+    features: [
+      ...answers.differentials,
+      ...answers.rentConditions,
+      answers.brokerCommission ? `comissao ${answers.brokerCommission}%` : '',
+      ...answers.brokerBenefits,
+      answers.brokerBenefitOther,
+    ].filter(Boolean),
+    bedrooms: answers.bedrooms,
+    suites: answers.suites,
+    parking: answers.parking,
+    area: answers.area,
+    cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta || 'Entre em contato',
+  })
 }
 
 async function invokeStudioFunction(name, body) {
@@ -3083,7 +3076,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
       )}
       {completed && (
         <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-primary-700">Textos prontos para divulgar</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-700">📦 CAMPANHA PRONTA PARA PUBLICAR</p>
           <div className="mt-4 grid gap-3">
             {deliveryTexts.map((item) => (
               <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -3097,7 +3090,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
                     onClick={() => navigator.clipboard?.writeText(item.text)}
                     className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                   >
-                    Copiar
+                    📋 Copiar
                   </button>
                 </div>
               </div>
