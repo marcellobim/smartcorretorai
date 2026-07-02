@@ -830,9 +830,10 @@ function compactJsonRecord<T extends Record<string, unknown>>(record: T) {
 function buildStudioHeroJsonPrompt(payload: {
   briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>
   metadataChat: { bairro: string; caracteristica: string; oferta: string; cta: string }
-  ctaFrame: StudioHeroCtaFrame
+  ctaFrame?: StudioHeroCtaFrame | null
 }) {
   const { briefing, metadataChat, ctaFrame } = payload
+  const isFreeAi = briefing.creativeMode === 'free_ai'
   const matrixId = selectStudioHeroMatrix(briefing)
   const matrix = STUDIO_HERO_MATRICES[matrixId]
   const heroWord = getOpeningHookText(briefing)
@@ -868,6 +869,10 @@ function buildStudioHeroJsonPrompt(payload: {
     final_features: briefing.finalFeatures,
     furnishing_status: briefing.furnishingStatus,
     decoration_policy: briefing.decorationPolicy,
+    visual_style: briefing.visualStyle,
+    atmosphere: briefing.atmosphere,
+    pace: briefing.pace,
+    creative_freedom: briefing.creativeFreedom,
   })
 
   const promptPayload = {
@@ -877,11 +882,18 @@ function buildStudioHeroJsonPrompt(payload: {
       aspect_ratio: '9:16',
       style: 'ultra_photorealistic_cinematic_real_estate_commercial',
     },
-    input_engine: {
-      opening_frame: 'first_uploaded_image',
-      ending_frame: 'system_fixed_cta_image',
-      frame_policy: 'use_the_uploaded_property_photo_as_the_visual_basis_and_end_on_the_provided_CTA_frame',
-    },
+    input_engine: isFreeAi
+      ? {
+        mode: 'text_to_video',
+        opening_frame: 'generated_by_ai_from_briefing',
+        ending_frame: 'generated_by_ai_from_briefing',
+        frame_policy: 'create_the_full_commercial_from_the_structured_briefing_without_uploaded_images',
+      }
+      : {
+        opening_frame: 'first_uploaded_image',
+        ending_frame: 'system_fixed_cta_image',
+        frame_policy: 'use_the_uploaded_property_photo_as_the_visual_basis_and_end_on_the_provided_CTA_frame',
+      },
     marketing_engine: {
       objective: briefing.objective || 'sell_or_rent_property',
       objective_label: briefing.objectiveLabel || briefing.objective,
@@ -916,8 +928,12 @@ function buildStudioHeroJsonPrompt(payload: {
         'show only one marketing word in the entire video',
         'never repeat the hero word',
         'never create additional on-screen text',
-        'never create CTA text',
-        'the final CTA is already present in the provided lastFrame image',
+        ...(isFreeAi
+          ? ['do not create visual CTA text in the generated video']
+          : [
+            'never create CTA text',
+            'the final CTA is already present in the provided lastFrame image',
+          ]),
       ],
       forbidden: [
         'duplicate text',
@@ -940,21 +956,27 @@ function buildStudioHeroJsonPrompt(payload: {
         ...launchFactRules,
       ],
     },
-    cta_frame_engine: {
-      enabled: true,
-      source: 'system_fixed_cta_image',
-      role: 'lastFrame',
-      selected_cta_slug: ctaFrame.slug,
-      selected_cta_public_path: ctaFrame.publicPath,
-      selected_cta_text: ctaFrame.label,
-      instruction: 'the video must naturally end on the provided CTA image',
-      rules: [
-        'do not modify the CTA text',
-        'do not rewrite the CTA',
-        'do not add extra words to the CTA',
-        'keep the final CTA frame clean and readable',
-      ],
-    },
+    cta_frame_engine: isFreeAi
+      ? {
+        enabled: false,
+        source: 'none',
+        instruction: 'no system CTA lastFrame is provided in free AI mode',
+      }
+      : {
+        enabled: true,
+        source: 'system_fixed_cta_image',
+        role: 'lastFrame',
+        selected_cta_slug: ctaFrame?.slug || '',
+        selected_cta_public_path: ctaFrame?.publicPath || '',
+        selected_cta_text: ctaFrame?.label || '',
+        instruction: 'the video must naturally end on the provided CTA image',
+        rules: [
+          'do not modify the CTA text',
+          'do not rewrite the CTA',
+          'do not add extra words to the CTA',
+          'keep the final CTA frame clean and readable',
+        ],
+      },
     audio_engine: {
       music: 'luxury_cinematic',
       voiceover_language: 'pt-BR',
@@ -982,24 +1004,32 @@ function buildStudioHeroJsonPrompt(payload: {
         'realistic_camera_motion',
       ],
       transition_camera: [
-        'smooth_continuous_transition_from_property_photo_to_final_CTA_frame',
+        isFreeAi
+          ? 'smooth_continuous_transition_between_ai_generated_real_estate_scenes'
+          : 'smooth_continuous_transition_from_property_photo_to_final_CTA_frame',
       ],
       ending_camera: [
-        'clean_final_brand_like_CTA_reveal',
+        isFreeAi ? 'strong_cinematic_final_reveal' : 'clean_final_brand_like_CTA_reveal',
         'subtle_motion_until_the_last_frame',
         'premium_final_closure',
       ],
-      hero_shot: 'uploaded_property_photo_as_the_main_cinematic_visual',
+      hero_shot: isFreeAi
+        ? 'ai_generated_real_estate_commercial_scene_based_on_the_briefing'
+        : 'uploaded_property_photo_as_the_main_cinematic_visual',
     },
     motion_engine: {
       movement_rules: [
         'continuous_cinematic_motion',
         'avoid_static_slideshow_feeling',
         'preserve_realistic_depth_and_scale',
-        'use_smooth_motion_from_the_property_photo_into_the_final_CTA_frame',
+        isFreeAi
+          ? 'use_smooth_motion_between_generated_real_estate_scenes'
+          : 'use_smooth_motion_from_the_property_photo_into_the_final_CTA_frame',
       ],
       transition_style: 'premium_real_estate_cinematic_transition',
-      ending_motion: 'settle_naturally_on_the_fixed_CTA_frame_without_rewriting_it',
+      ending_motion: isFreeAi
+        ? 'finish_with_a_strong_cinematic_final_scene'
+        : 'settle_naturally_on_the_fixed_CTA_frame_without_rewriting_it',
     },
     lighting_engine: {
       style: [
@@ -1041,13 +1071,21 @@ function buildStudioHeroJsonPrompt(payload: {
       resolution: '720p',
       output_feeling: 'finished_advertising_video_for_reels_stories_and_whatsapp',
     },
-    priority_engine: [
-      'Preserve the uploaded property photo',
-      'Use only one opening hero word as on-screen text generated by Veo',
-      'Do not create CTA text because the final CTA already exists in lastFrame',
-      'Create real cinematic camera movement from the uploaded image',
-      'Naturally end on the fixed CTA lastFrame',
-    ],
+    priority_engine: isFreeAi
+      ? [
+        'Create the full commercial from the structured briefing',
+        'Use only one opening hero word as on-screen text generated by Veo',
+        'Do not invent facts not provided by the user',
+        'Create real cinematic camera movement',
+        'Finish with the strongest emotional real estate scene',
+      ]
+      : [
+        'Preserve the uploaded property photo',
+        'Use only one opening hero word as on-screen text generated by Veo',
+        'Do not create CTA text because the final CTA already exists in lastFrame',
+        'Create real cinematic camera movement from the uploaded image',
+        'Naturally end on the fixed CTA lastFrame',
+      ],
     forbidden_engine: {
       forbidden: [
         'invent_rooms',
@@ -1075,11 +1113,17 @@ function buildStudioHeroJsonPrompt(payload: {
         'altered_CTA_frame_text',
       ],
     },
-    ending: {
-      final_frame: 'system_fixed_cta_image',
-      priority: 'clean_readable_professional_CTA_closure',
-      instruction: 'the video must end on the provided lastFrame CTA image without rewriting or duplicating its text',
-    },
+    ending: isFreeAi
+      ? {
+        final_frame: 'ai_generated_final_scene',
+        priority: 'strong_memorable_emotional_closure',
+        instruction: 'the video must end with a polished cinematic real estate closing scene without showing extra text',
+      }
+      : {
+        final_frame: 'system_fixed_cta_image',
+        priority: 'clean_readable_professional_CTA_closure',
+        instruction: 'the video must end on the provided lastFrame CTA image without rewriting or duplicating its text',
+      },
   }
 
   const prompt = JSON.stringify(promptPayload, null, 2)
@@ -1238,6 +1282,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const finalFeatures = getBriefingValue(briefing, 'finalFeatures', body.caracteristica)
   const furnishingStatus = getBriefingValue(briefing, 'furnishingStatus', '')
   const decorationPolicy = getBriefingValue(briefing, 'decorationPolicy', '')
+  const visualStyle = getBriefingValue(briefing, 'visualStyle', '')
+  const atmosphere = getBriefingValue(briefing, 'atmosphere', '')
+  const pace = getBriefingValue(briefing, 'pace', '')
+  const creativeFreedom = getBriefingValue(briefing, 'creativeFreedom', '')
 
   return {
     objective,
@@ -1257,7 +1305,11 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     finalFeatures,
     furnishingStatus,
     decorationPolicy,
-    creativeMode: getBriefingValue(briefing, 'creativeMode', 'cinematic'),
+    visualStyle,
+    atmosphere,
+    pace,
+    creativeFreedom,
+    creativeMode: getBriefingValue(briefing, 'creativeMode', body.creativeMode ?? body.mode ?? 'cinematic'),
   }
 }
 
@@ -2306,8 +2358,8 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
   promptMode: string
   matrixId?: string
   visibleTexts?: string[]
-  image1Path: string
-  image2Path: string
+  image1Path?: string
+  image2Path?: string
 }) {
   const debugEnabled = Deno.env.get('STUDIO_HERO_DEBUG_PROMPT_TO_STORAGE') === 'true'
   console.info('[DIAGNOSTICO] Studio Hero debug status', {
@@ -2325,8 +2377,8 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
     const promptPath = `${input.userId}/${input.jobId}/debug/prompt.txt`
     const visualPromptPath = `${input.userId}/${input.jobId}/debug/visual-prompt.txt`
     const voiceoverPromptPath = `${input.userId}/${input.jobId}/debug/voiceover-prompt.txt`
-    const imageMimeType = inferSupportedImageMimeType(input.image1Path)
-    const lastFrameMimeType = inferSupportedImageMimeType(input.image2Path)
+    const imageMimeType = input.image1Path ? inferSupportedImageMimeType(input.image1Path) : null
+    const lastFrameMimeType = input.image2Path ? inferSupportedImageMimeType(input.image2Path) : null
     const metaPath = `${input.userId}/${input.jobId}/debug/payload-meta.json`
     const payloadShapePath = `${input.userId}/${input.jobId}/debug/final-payload-shape.json`
     const endpointType = 'gemini_api_predict_long_running'
@@ -2381,8 +2433,8 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
       languageCode: null,
       hasImage: Boolean(input.image1Path),
       hasLastFrame: Boolean(input.image2Path),
-      imagePath: input.image1Path,
-      lastFramePath: input.image2Path,
+      imagePath: input.image1Path || null,
+      lastFramePath: input.image2Path || null,
       imageMimeType,
       lastFrameMimeType,
       promptLength: input.prompt.length,
@@ -2395,23 +2447,27 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
       text3: text3 || '',
     }
 
+    const payloadInstance: Record<string, unknown> = {
+      prompt: `[omitted:${input.prompt.length} chars]`,
+    }
+    if (imageMimeType) {
+      payloadInstance.image = {
+        mimeType: imageMimeType,
+        bytesBase64Encoded: '[omitted]',
+      }
+    }
+    if (lastFrameMimeType) {
+      payloadInstance.lastFrame = {
+        mimeType: lastFrameMimeType,
+        bytesBase64Encoded: '[omitted]',
+      }
+    }
+
     const payloadShape = {
       endpointType,
       model: input.model,
       requestBody: {
-        instances: [
-          {
-            prompt: `[omitted:${input.prompt.length} chars]`,
-            image: {
-              mimeType: imageMimeType,
-              bytesBase64Encoded: '[omitted]',
-            },
-            lastFrame: {
-              mimeType: lastFrameMimeType,
-              bytesBase64Encoded: '[omitted]',
-            },
-          },
-        ],
+        instances: [payloadInstance],
         parameters: {
           aspectRatio: input.aspectRatio,
           durationSeconds: input.durationSeconds,
@@ -2927,25 +2983,31 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as JsonRecord
     const style = normalizeText(body.style, 40) || 'alto_padrao'
-    const inputImage1Path = normalizeStoragePath(body.inputImage1Path, user.id)
+    const briefing = buildStructuredStudioHeroBriefing(body)
+    const isFreeAiRequest = briefing.creativeMode === 'free_ai'
+      || normalizeText(body.mode, 40).toLowerCase() === 'free_ai'
+      || normalizeText(body.creativeMode, 40).toLowerCase() === 'free_ai'
+    const inputImage1Path = isFreeAiRequest ? '' : normalizeStoragePath(body.inputImage1Path, user.id)
     const requestedJobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
     markDiagnosticStage('LOG 1 OK - payload validado inicialmente', {
       userId: user.id,
       requestedJobId,
+      creativeMode: briefing.creativeMode,
+      isFreeAiRequest,
       hasInputImage1Path: Boolean(inputImage1Path),
       inputImage1Path,
       bucket: VIDEO_BUCKET,
       isAdminBypass,
     })
 
-    if (!inputImage1Path) {
+    if (!isFreeAiRequest && !inputImage1Path) {
       return jsonResponse({
         success: false,
         error: 'Envie a imagem do imovel antes de gerar.',
       }, 400)
     }
 
-    if (!isSupportedImagePath(inputImage1Path)) {
+    if (!isFreeAiRequest && !isSupportedImagePath(inputImage1Path)) {
       return jsonResponse({
         success: false,
         error: 'Para este teste, envie imagens JPG ou PNG.',
@@ -2953,69 +3015,89 @@ serve(async (req) => {
     }
 
     const expectedPrefix = `${user.id}/${requestedJobId}/`
-    if (!inputImage1Path.startsWith(expectedPrefix)) {
+    if (!isFreeAiRequest && !inputImage1Path.startsWith(expectedPrefix)) {
       return jsonResponse({
         success: false,
         error: 'Nao foi possivel validar a imagem enviada.',
       }, 400)
     }
 
-    markDiagnosticStage('LOG 2 - carregando imagem do usuario', {
-      bucket: VIDEO_BUCKET,
-      storagePath: inputImage1Path,
-    })
-    const { data: userImageDiagnosticData, error: userImageDiagnosticError } = await supabase.storage
-      .from(VIDEO_BUCKET)
-      .download(inputImage1Path)
+    if (isFreeAiRequest) {
+      markDiagnosticStage('LOG 2 OK - modo IA Livre sem upload', {
+        jobId: requestedJobId,
+        creativeMode: briefing.creativeMode,
+      })
+    } else {
+      markDiagnosticStage('LOG 2 - carregando imagem do usuario', {
+        bucket: VIDEO_BUCKET,
+        storagePath: inputImage1Path,
+      })
+      const { data: userImageDiagnosticData, error: userImageDiagnosticError } = await supabase.storage
+        .from(VIDEO_BUCKET)
+        .download(inputImage1Path)
 
-    if (userImageDiagnosticError || !userImageDiagnosticData) {
-      throw new Error(`user_image_download_failed:${userImageDiagnosticError?.message || 'empty_file'}`)
+      if (userImageDiagnosticError || !userImageDiagnosticData) {
+        throw new Error(`user_image_download_failed:${userImageDiagnosticError?.message || 'empty_file'}`)
+      }
+
+      const userImageDiagnosticBytes = new Uint8Array(await userImageDiagnosticData.arrayBuffer())
+      markDiagnosticStage('LOG 2 OK - imagem usuario carregada', {
+        bucket: VIDEO_BUCKET,
+        storagePath: inputImage1Path,
+        contentType: userImageDiagnosticData.type || '',
+        byteLength: userImageDiagnosticBytes.byteLength,
+      })
     }
-
-    const userImageDiagnosticBytes = new Uint8Array(await userImageDiagnosticData.arrayBuffer())
-    markDiagnosticStage('LOG 2 OK - imagem usuario carregada', {
-      bucket: VIDEO_BUCKET,
-      storagePath: inputImage1Path,
-      contentType: userImageDiagnosticData.type || '',
-      byteLength: userImageDiagnosticBytes.byteLength,
-    })
 
     const model = Deno.env.get('VEO_MODEL_ID') || DEFAULT_MODEL
     const veoEnabled = Deno.env.get('VEO_ENABLED') === 'true'
-    const briefing = buildStructuredStudioHeroBriefing(body)
     markDiagnosticStage('LOG 3 - perfil identificado', {
       objective: briefing.objective,
       profile: briefing.profile,
       propertyType: briefing.propertyType,
+      creativeMode: briefing.creativeMode,
+      isFreeAiRequest,
       matrixProfileGroup: getMatrixProfileGroup(briefing),
       model,
       veoEnabled,
     })
 
-    const ctaFrame = resolveStudioHeroCtaFrame(briefing)
-    markDiagnosticStage('LOG 4 - CTA escolhido', {
-      selectedCta: ctaFrame.slug,
-      label: ctaFrame.label,
-      fileName: ctaFrame.fileName,
-      publicPath: ctaFrame.publicPath,
-      bucket: VIDEO_BUCKET,
-      libraryPath: `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}`,
-    })
+    const ctaFrame = isFreeAiRequest ? null : resolveStudioHeroCtaFrame(briefing)
+    const inputImage2Path = ctaFrame
+      ? await (async () => {
+        markDiagnosticStage('LOG 4 - CTA escolhido', {
+          selectedCta: ctaFrame.slug,
+          label: ctaFrame.label,
+          fileName: ctaFrame.fileName,
+          publicPath: ctaFrame.publicPath,
+          bucket: VIDEO_BUCKET,
+          libraryPath: `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}`,
+        })
 
-    const inputImage2Path = await uploadStudioHeroCtaFrame(supabase, {
-      userId: user.id,
-      jobId: requestedJobId,
-      ctaFrame,
-      reqId,
-      markDiagnosticStage,
-    })
-    markDiagnosticStage('LOG 7 - lastFrame criado', {
-      bucket: VIDEO_BUCKET,
-      image1Path: inputImage1Path,
-      image2Path: inputImage2Path,
-      ctaFileName: ctaFrame.fileName,
-      selectedCta: ctaFrame.slug,
-    })
+        const ctaPath = await uploadStudioHeroCtaFrame(supabase, {
+          userId: user.id,
+          jobId: requestedJobId,
+          ctaFrame,
+          reqId,
+          markDiagnosticStage,
+        })
+        markDiagnosticStage('LOG 7 - lastFrame criado', {
+          bucket: VIDEO_BUCKET,
+          image1Path: inputImage1Path,
+          image2Path: ctaPath,
+          ctaFileName: ctaFrame.fileName,
+          selectedCta: ctaFrame.slug,
+        })
+        return ctaPath
+      })()
+      : ''
+
+    if (isFreeAiRequest) {
+      markDiagnosticStage('LOG 7 - IA Livre sem lastFrame', {
+        bucket: VIDEO_BUCKET,
+        jobId: requestedJobId,
+      })
+    }
 
     const { data: job, error: insertError } = await supabase
       .from('video_jobs')
@@ -3023,12 +3105,12 @@ serve(async (req) => {
         id: requestedJobId,
         user_id: user.id,
         status: 'pending',
-        mode: 'dynamic_reel',
+        mode: isFreeAiRequest ? 'free_ai' : 'dynamic_reel',
         style,
         model,
         prompt_final: null,
-        input_image_1_path: inputImage1Path,
-        input_image_2_path: inputImage2Path,
+        input_image_1_path: inputImage1Path || null,
+        input_image_2_path: inputImage2Path || null,
         tokens_reserved: 0,
       })
       .select('id')
@@ -3051,7 +3133,8 @@ serve(async (req) => {
       userId: user.id,
       inputImage1Path,
       inputImage2Path,
-      ctaFileName: ctaFrame.fileName,
+      ctaFileName: ctaFrame?.fileName || null,
+      isFreeAiRequest,
     })
 
     if (!veoEnabled) {
@@ -3224,12 +3307,13 @@ serve(async (req) => {
         bucket: VIDEO_BUCKET,
         image1Path: inputImage1Path,
         image2Path: inputImage2Path,
-        ctaFileName: ctaFrame.fileName,
-        selectedCta: ctaFrame.slug,
+        ctaFileName: ctaFrame?.fileName || null,
+        selectedCta: ctaFrame?.slug || null,
         aspectRatio: '9:16',
         durationSeconds: 8,
         resolution: '720p',
         sampleCount: 1,
+        isFreeAiRequest,
       })
 
       console.info(`[${reqId}] Studio Hero prompt preparado`, {
@@ -3237,7 +3321,8 @@ serve(async (req) => {
         profileKey: promptProfileKey,
         promptLength: promptFinal.length,
         visibleTextCount,
-        hasImage: true,
+        hasImage: Boolean(inputImage1Path),
+        isFreeAiRequest,
       })
 
       await uploadStudioHeroPromptDebug(supabase, {
@@ -3254,8 +3339,8 @@ serve(async (req) => {
         promptMode,
         matrixId: promptProfileKey,
         visibleTexts: visibleTextsForDebug,
-        image1Path: inputImage1Path,
-        image2Path: inputImage2Path,
+        image1Path: inputImage1Path || undefined,
+        image2Path: inputImage2Path || undefined,
       })
 
       markDiagnosticStage('LOG 8 OK - payload Veo preparado', {
@@ -3263,6 +3348,7 @@ serve(async (req) => {
         promptLength: promptFinal.length,
         image1Path: inputImage1Path,
         image2Path: inputImage2Path,
+        isFreeAiRequest,
       })
 
       markDiagnosticStage('LOG 9 - enviando para Veo', {
@@ -3271,12 +3357,13 @@ serve(async (req) => {
         bucket: VIDEO_BUCKET,
         image1Path: inputImage1Path,
         image2Path: inputImage2Path,
+        isFreeAiRequest,
       })
 
       const veoResult = await startVeoVideo({
         prompt: promptFinal,
-        image1Path: inputImage1Path,
-        image2Path: inputImage2Path,
+        image1Path: inputImage1Path || undefined,
+        image2Path: inputImage2Path || undefined,
         aspectRatio: '9:16',
         durationSeconds: 8,
         resolution: '720p',
@@ -3315,9 +3402,9 @@ serve(async (req) => {
         context: diagnosticContext,
         error: diagnosticError,
         bucket: VIDEO_BUCKET,
-        ctaFileName: ctaFrame.fileName,
-        ctaSelected: ctaFrame.slug,
-        ctaLibraryPath: `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}`,
+        ctaFileName: ctaFrame?.fileName || null,
+        ctaSelected: ctaFrame?.slug || null,
+        ctaLibraryPath: ctaFrame ? `${STUDIO_HERO_CTA_LIBRARY_PREFIX}/${ctaFrame.fileName}` : null,
         inputImage1Path,
         inputImage2Path,
         jobId: job.id,

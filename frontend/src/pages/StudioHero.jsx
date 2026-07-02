@@ -1312,27 +1312,31 @@ export default function StudioHero() {
       return
     }
 
-    if (isFreeAiMode) {
-      clearPolling()
-      setVideoUrl('')
-      setStatus('idle')
-      setMessage('Este modo esta quase pronto para geracao. A experiencia ja foi preparada e sera liberada na proxima atualizacao.')
-      return
-    }
-
     clearPolling()
-    setStatus('uploading')
-    setMessage('Preparando seu comercial...')
+    setStatus(isFreeAiMode ? 'generating' : 'uploading')
+    setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Preparando seu comercial...')
     setVideoUrl('')
 
     try {
       const draftId = crypto.randomUUID()
-      const inputImage1Path = await uploadImage(IMAGE_SLOTS[0], files.image1, draftId)
+      const requiresImages = !isFreeAiMode
+      logStudioHero('info', 'studio_hero_generate_start', {
+        mode: studioMode,
+        requiresImages,
+        canGenerate,
+        canGenerateBriefing,
+      })
+
+      const inputImage1Path = requiresImages
+        ? await uploadImage(IMAGE_SLOTS[0], files.image1, draftId)
+        : ''
 
       setStatus('generating')
-      setMessage('Criando seu comercial...')
+      setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Criando seu comercial...')
 
-      const result = await invokeStudioFunction('criar-video-ia', {
+      const payload = {
+        mode: isFreeAiMode ? 'free_ai' : 'cinematic',
+        creativeMode: isFreeAiMode ? 'free_ai' : 'cinematic',
         style: answers.profile || 'ALTO PADRAO',
         bairro: normalizedLocation,
         caracteristica: finalFeatures,
@@ -1357,10 +1361,23 @@ export default function StudioHero() {
           creativeMode: answers.creativeMode,
           furnishingStatus: answers.furnishingStatus,
           decorationPolicy: answers.decorationPolicy,
+          visualStyle: answers.visualStyle,
+          atmosphere: answers.atmosphere,
+          pace: answers.pace,
+          creativeFreedom: answers.creativeFreedom,
         },
         jobId: draftId,
-        inputImage1Path,
+        ...(requiresImages ? { inputImage1Path } : {}),
+      }
+
+      logStudioHero('info', 'studio_hero_generate_payload_ready', {
+        mode: payload.mode,
+        creativeMode: payload.creativeMode,
+        requiresImages,
+        hasInputImage1Path: Boolean(inputImage1Path),
       })
+
+      const result = await invokeStudioFunction('criar-video-ia', payload)
       const data = result.body
 
       if (!result.ok) {

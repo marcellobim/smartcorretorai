@@ -1,7 +1,7 @@
 type StartVeoInput = {
   prompt: string
-  image1Path: string
-  image2Path: string
+  image1Path?: string
+  image2Path?: string
   aspectRatio: string
   durationSeconds: number
   resolution: string
@@ -162,25 +162,29 @@ async function fetchVideoUri(uri: string, apiKey: string) {
 export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJobId: string }> {
   const { apiKey, modelId } = getVeoEnvironment()
   const [openingImage, finalImage] = await Promise.all([
-    prepareVeoImage(input.supabase, input.bucket, input.image1Path),
-    prepareVeoImage(input.supabase, input.bucket, input.image2Path),
+    input.image1Path ? prepareVeoImage(input.supabase, input.bucket, input.image1Path) : Promise.resolve(null),
+    input.image2Path ? prepareVeoImage(input.supabase, input.bucket, input.image2Path) : Promise.resolve(null),
   ])
 
   const endpoint = buildModelUrl(modelId, 'predictLongRunning', apiKey)
+  const instance: Record<string, unknown> = {
+    prompt: input.prompt,
+  }
+  if (openingImage) {
+    instance.image = {
+      mimeType: openingImage.mimeType,
+      bytesBase64Encoded: openingImage.bytesBase64Encoded,
+    }
+  }
+  if (finalImage) {
+    instance.lastFrame = {
+      mimeType: finalImage.mimeType,
+      bytesBase64Encoded: finalImage.bytesBase64Encoded,
+    }
+  }
+
   const requestBody = {
-    instances: [
-      {
-        prompt: input.prompt,
-        image: {
-          mimeType: openingImage.mimeType,
-          bytesBase64Encoded: openingImage.bytesBase64Encoded,
-        },
-        lastFrame: {
-          mimeType: finalImage.mimeType,
-          bytesBase64Encoded: finalImage.bytesBase64Encoded,
-        },
-      },
-    ],
+    instances: [instance],
     parameters: {
       aspectRatio: input.aspectRatio,
       durationSeconds: input.durationSeconds,
@@ -192,20 +196,20 @@ export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJob
   console.info('[studioHeroVideo] payload preparado', {
     endpoint: 'predictLongRunning',
     modelId,
-    imageCount: 2,
+    imageCount: [openingImage, finalImage].filter(Boolean).length,
     promptLength: input.prompt.length,
-    hasOpeningImage: true,
-    hasLastFrame: true,
-    openingImage: {
+    hasOpeningImage: Boolean(openingImage),
+    hasLastFrame: Boolean(finalImage),
+    openingImage: openingImage ? {
       mimeType: openingImage.mimeType,
       byteLength: openingImage.byteLength,
       base64Length: openingImage.base64Length,
-    },
-    finalImage: {
+    } : null,
+    finalImage: finalImage ? {
       mimeType: finalImage.mimeType,
       byteLength: finalImage.byteLength,
       base64Length: finalImage.base64Length,
-    },
+    } : null,
     parameters: {
       aspectRatio: input.aspectRatio,
       durationSeconds: input.durationSeconds,
