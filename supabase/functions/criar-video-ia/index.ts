@@ -914,6 +914,7 @@ function buildStudioHeroJsonPrompt(payload: {
     bedrooms: isBrokerRecruitment ? '' : briefing.bedrooms,
     suites: isBrokerRecruitment ? '' : briefing.suites,
     parking: isBrokerRecruitment ? '' : briefing.parking,
+    area: isBrokerRecruitment ? '' : briefing.area,
     broker_has_benefits: briefing.brokerHasBenefits,
     broker_commission: briefing.brokerCommission,
     broker_benefits: briefing.brokerBenefits,
@@ -958,6 +959,23 @@ function buildStudioHeroJsonPrompt(payload: {
       launch_strategy: isLaunchProfile ? 'sell the opportunity, not immediate occupancy' : undefined,
     },
     property_engine: propertyContext,
+    immutable_numeric_facts: compactJsonRecord({
+      bedrooms: isBrokerRecruitment ? '' : briefing.bedrooms,
+      suites: isBrokerRecruitment ? '' : briefing.suites,
+      parking: isBrokerRecruitment ? '' : briefing.parking,
+      area: isBrokerRecruitment ? '' : briefing.area,
+      rules: [
+        'Never alter quantities provided by the user.',
+        'Never swap bedrooms and suites.',
+        'Never swap suites and bedrooms.',
+        'Never invent parking spaces.',
+        'Never invent property area.',
+        'If narration mentions bedrooms, suites, parking or area, it must use exactly the values in immutable_numeric_facts.',
+        'If bedrooms is 2, narrate 2 dormitorios, never 2 suites.',
+        'If suites is 1, narrate 1 suite, never 2 suites.',
+        'If parking is 1, narrate 1 vaga, never 2 vagas.',
+      ],
+    }),
     recruitment_engine: isBrokerRecruitment
       ? {
         campaign_type: 'real_estate_broker_recruitment',
@@ -1013,7 +1031,13 @@ function buildStudioHeroJsonPrompt(payload: {
     fact_engine: {
       rules: [
         'use only facts explicitly provided by the user',
+        'numeric facts are immutable: bedrooms, suites, parking and area must never be changed',
+        'never alter user-provided quantities',
+        'never swap bedrooms with suites',
+        'never swap suites with bedrooms',
+        'if narration cites bedrooms, suites, parking or area, use exactly the values sent in immutable_numeric_facts',
         'never invent bedrooms, suites or parking spaces',
+        'never invent property area',
         'if bedrooms, suites or parking are empty, omit them completely',
         'never say furnished unless the user provided this information',
         'never say ready to move in unless the user provided this information',
@@ -1063,6 +1087,9 @@ function buildStudioHeroJsonPrompt(payload: {
       voiceover_language: 'pt-BR',
       voiceover_style: 'short_elegant_brazilian_portuguese_real_estate_commercial',
       voiceover_content_policy: 'narrate_property_facts_naturally_without_reading_raw_structured_data',
+      immutable_numeric_voiceover_policy: isBrokerRecruitment
+        ? undefined
+        : 'When mentioning bedrooms, suites, parking or area, speak exactly the values from immutable_numeric_facts. Never convert 2 dormitorios into 2 suites.',
       broker_recruitment_voiceover_policy: isBrokerRecruitment
         ? 'sound like a short Brazilian Portuguese real estate recruitment ad; invite brokers to join the team; never describe a property listing'
         : undefined,
@@ -1377,6 +1404,7 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const bedrooms = getBriefingValue(briefing, 'bedrooms', body.bedrooms)
   const suites = getBriefingValue(briefing, 'suites', body.suites)
   const parking = getBriefingValue(briefing, 'parking', body.parking)
+  const area = getBriefingValue(briefing, 'area', body.area)
   const brokerHasBenefits = getBriefingValue(briefing, 'brokerHasBenefits', '')
   const brokerCommission = getBriefingValue(briefing, 'brokerCommission', '')
   const brokerBenefits = normalizeTextArray(briefing.brokerBenefits, 5, 80)
@@ -1407,6 +1435,7 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     bedrooms,
     suites,
     parking,
+    area,
     brokerHasBenefits,
     brokerCommission,
     brokerBenefits,
@@ -3323,6 +3352,7 @@ serve(async (req) => {
           briefing.bedrooms,
           briefing.suites,
           briefing.parking,
+          briefing.area,
           briefing.finalFeatures,
           ...briefing.differentials,
           briefing.brokerCommission ? `comissao ${briefing.brokerCommission}` : '',
