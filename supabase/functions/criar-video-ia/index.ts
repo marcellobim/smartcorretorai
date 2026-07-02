@@ -837,8 +837,45 @@ function buildStudioHeroJsonPrompt(payload: {
   const matrixId = selectStudioHeroMatrix(briefing)
   const matrix = STUDIO_HERO_MATRICES[matrixId]
   const heroWord = getOpeningHookText(briefing)
+  const isBrokerRecruitment = isFreeAi && briefing.objective === 'broker_capture'
   const isRentObjective = briefing.objective === 'rent' || /LOCAC|ALUG/.test(`${briefing.objective} ${briefing.objectiveLabel} ${briefing.offer}`.toUpperCase())
   const isLaunchProfile = getMatrixProfileGroup(briefing) === 'LANCAMENTO'
+  const brokerRecruitmentForbidden = isBrokerRecruitment
+    ? [
+      'cobertura',
+      'apartamento a venda',
+      'casa a venda',
+      'dormitorios',
+      'suites',
+      'vagas',
+      'agende sua visita ao imovel',
+      'comprar',
+      'comprador',
+      'lancamento imobiliario',
+      'novo lar',
+      'imovel dos sonhos',
+      'specific property listing',
+      'property tour',
+      'property sale advertisement',
+    ]
+    : []
+  const brokerRecruitmentPriorities = isBrokerRecruitment
+    ? [
+      'oportunidade para corretores',
+      'faca parte do nosso time',
+      'nova fase na carreira',
+      'crescimento profissional',
+      'estrutura',
+      'suporte',
+      'equipe',
+      'mercado imobiliario',
+      'mais oportunidades',
+      'vendas',
+      'atendimento',
+      'resultados',
+      'carreira',
+    ]
+    : []
   const launchFactRules = isLaunchProfile
     ? [
       'sell the opportunity, not immediate occupancy',
@@ -874,13 +911,17 @@ function buildStudioHeroJsonPrompt(payload: {
     atmosphere: briefing.atmosphere,
     pace: briefing.pace,
     creative_freedom: briefing.creativeFreedom,
-    bedrooms: briefing.bedrooms,
-    suites: briefing.suites,
-    parking: briefing.parking,
+    bedrooms: isBrokerRecruitment ? '' : briefing.bedrooms,
+    suites: isBrokerRecruitment ? '' : briefing.suites,
+    parking: isBrokerRecruitment ? '' : briefing.parking,
+    broker_has_benefits: briefing.brokerHasBenefits,
+    broker_commission: briefing.brokerCommission,
+    broker_benefits: briefing.brokerBenefits,
+    broker_benefit_other: briefing.brokerBenefitOther,
   })
 
   const promptPayload = {
-    task: 'real_estate_cinematic_video',
+    task: isBrokerRecruitment ? 'real_estate_broker_recruitment_video' : 'real_estate_cinematic_video',
     video: {
       duration_seconds: 8,
       aspect_ratio: '9:16',
@@ -901,18 +942,38 @@ function buildStudioHeroJsonPrompt(payload: {
     marketing_engine: {
       objective: briefing.objective || 'sell_or_rent_property',
       objective_label: briefing.objectiveLabel || briefing.objective,
-      purpose: briefing.objective || 'sell_or_rent_property',
-      marketing_style: isLaunchProfile ? 'launch' : matrix.marketingStyle || 'real_estate_commercial',
-      launch_property_marketing: isLaunchProfile,
-      property_category: normalizePropertyCategory(briefing, matrixId),
-      target_audience: matrix.targetAudience || 'property_buyers_or_renters',
-      emotional_goal: isLaunchProfile
+      purpose: isBrokerRecruitment ? 'recruit_real_estate_brokers' : (briefing.objective || 'sell_or_rent_property'),
+      marketing_style: isBrokerRecruitment
+        ? 'real_estate_recruitment_campaign'
+        : isLaunchProfile ? 'launch' : matrix.marketingStyle || 'real_estate_commercial',
+      launch_property_marketing: isBrokerRecruitment ? false : isLaunchProfile,
+      property_category: isBrokerRecruitment ? 'BROKER RECRUITMENT' : normalizePropertyCategory(briefing, matrixId),
+      target_audience: isBrokerRecruitment ? 'real_estate_brokers_and_real_estate_sales_professionals' : (matrix.targetAudience || 'property_buyers_or_renters'),
+      emotional_goal: isBrokerRecruitment
+        ? 'invite real estate brokers to a new career phase with structure, support, team and results'
+        : isLaunchProfile
         ? 'create anticipation, opportunity perception, future value and curiosity'
         : matrix.emotionalTone || 'create desire, trust and curiosity',
       commercial_goal: 'make_the_viewer_stop_scrolling_and_want_to_know_more',
       launch_strategy: isLaunchProfile ? 'sell the opportunity, not immediate occupancy' : undefined,
     },
     property_engine: propertyContext,
+    recruitment_engine: isBrokerRecruitment
+      ? {
+        campaign_type: 'real_estate_broker_recruitment',
+        audience: 'corretores de imoveis e profissionais comerciais do mercado imobiliario',
+        message_goal: 'convidar profissionais para fazer parte do time ou equipe',
+        use_provided_professional_profile: briefing.propertyType,
+        use_provided_differentials: briefing.differentials,
+        use_provided_benefits: [
+          briefing.brokerCommission ? `comissao ${briefing.brokerCommission}` : '',
+          ...briefing.brokerBenefits,
+          briefing.brokerBenefitOther,
+        ].filter(Boolean),
+        narrative_intention: 'Se voce e corretor de imoveis e busca uma nova fase na carreira, esta pode ser a oportunidade para crescer com uma equipe preparada, estrutura e foco em resultados.',
+        prioritized_language: brokerRecruitmentPriorities,
+      }
+      : undefined,
     text_engine: {
       enabled: true,
       hero_word_only: true,
@@ -959,6 +1020,14 @@ function buildStudioHeroJsonPrompt(payload: {
         'never invent amenities',
         'never invent property features',
         'if information is missing, omit it',
+        ...(isBrokerRecruitment ? [
+          'this is a real estate broker recruitment campaign, not a property advertisement',
+          'the voiceover must invite real estate brokers to join a team, company or real estate operation',
+          'talk about career, support, structure, team, opportunities, sales, service, results and professional growth',
+          'do not describe any specific property',
+          'do not mention bedrooms, suites, parking spaces, apartments, houses, penthouses or property visits',
+          'do not use buyer-oriented language',
+        ] : []),
         ...(isRentObjective ? [
           'this is a rental commercial, not a sale commercial',
           'prioritize rental language: disponivel para locacao, disponivel para aluguel, ideal para quem procura, alugue, locacao',
@@ -994,6 +1063,9 @@ function buildStudioHeroJsonPrompt(payload: {
       voiceover_language: 'pt-BR',
       voiceover_style: 'short_elegant_brazilian_portuguese_real_estate_commercial',
       voiceover_content_policy: 'narrate_property_facts_naturally_without_reading_raw_structured_data',
+      broker_recruitment_voiceover_policy: isBrokerRecruitment
+        ? 'sound like a short Brazilian Portuguese real estate recruitment ad; invite brokers to join the team; never describe a property listing'
+        : undefined,
       rental_voiceover_policy: isRentObjective
         ? 'make it clear this is available for rent or lease; never use purchase-oriented narration'
         : undefined,
@@ -1126,6 +1198,7 @@ function buildStudioHeroJsonPrompt(payload: {
         'two_texts_visible_at_once',
         'generated_CTA_text',
         'altered_CTA_frame_text',
+        ...brokerRecruitmentForbidden,
       ],
     },
     ending: isFreeAi
@@ -1304,6 +1377,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const bedrooms = getBriefingValue(briefing, 'bedrooms', body.bedrooms)
   const suites = getBriefingValue(briefing, 'suites', body.suites)
   const parking = getBriefingValue(briefing, 'parking', body.parking)
+  const brokerHasBenefits = getBriefingValue(briefing, 'brokerHasBenefits', '')
+  const brokerCommission = getBriefingValue(briefing, 'brokerCommission', '')
+  const brokerBenefits = normalizeTextArray(briefing.brokerBenefits, 5, 80)
+  const brokerBenefitOther = getBriefingValue(briefing, 'brokerBenefitOther', '')
 
   return {
     objective,
@@ -1330,6 +1407,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     bedrooms,
     suites,
     parking,
+    brokerHasBenefits,
+    brokerCommission,
+    brokerBenefits,
+    brokerBenefitOther,
     creativeMode: getBriefingValue(briefing, 'creativeMode', body.creativeMode ?? body.mode ?? 'cinematic'),
   }
 }
@@ -3244,6 +3325,9 @@ serve(async (req) => {
           briefing.parking,
           briefing.finalFeatures,
           ...briefing.differentials,
+          briefing.brokerCommission ? `comissao ${briefing.brokerCommission}` : '',
+          ...briefing.brokerBenefits,
+          briefing.brokerBenefitOther,
           briefing.offer,
           briefing.cta,
         ]),
