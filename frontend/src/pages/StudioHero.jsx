@@ -259,6 +259,9 @@ const CITY_OPTIONS_BY_UF = {
 const BEDROOM_OPTIONS = ['1 DORMITORIO', '2 DORMITORIOS', '3 DORMITORIOS', '4 DORMITORIOS']
 const SUITE_OPTIONS = ['SEM SUITE', '1 SUITE', '2 SUITES', '3 SUITES', '4 SUITES']
 const PARKING_OPTIONS = ['SEM VAGA', '1 VAGA', '2 VAGAS', '3 VAGAS', '4 VAGAS']
+const FREE_AI_BEDROOM_OPTIONS = ['STUDIO', '1', '2', '3', '4', '5+']
+const FREE_AI_SUITE_OPTIONS = ['NENHUMA', '1', '2', '3', '4+']
+const FREE_AI_PARKING_OPTIONS = ['NENHUMA', '1', '2', '3', '4+']
 const AREA_OPTIONS = ['ATE 50 M2', '50 A 100 M2', '100 A 200 M2', 'ACIMA DE 200 M2']
 const COMMERCIAL_ROOM_OPTIONS = ['1 SALA/CONJUNTO', '2 SALAS/CONJUNTOS', '3 SALAS/CONJUNTOS', 'ANDAR INTEIRO']
 const BATHROOM_OPTIONS = ['1 BANHEIRO', '2 BANHEIROS', '3 BANHEIROS', '4 BANHEIROS OU MAIS']
@@ -650,6 +653,9 @@ function getPropertyTypeOptions(objective) {
 }
 
 function getProfileOptions(answers) {
+  if (answers.objective === 'rent') {
+    return isResidentialType(answers.propertyType) ? ['PRONTOS', 'ALTO PADRAO'] : []
+  }
   return isResidentialType(answers.propertyType) ? RESIDENTIAL_PROFILES : []
 }
 
@@ -732,6 +738,9 @@ function getFinalFeatureText(answers) {
     answers.houseLocationType,
     answers.city,
     answers.district,
+    answers.bedrooms,
+    answers.suites,
+    answers.parking,
     ...answers.differentials,
     ...answers.rentConditions,
     answers.brokerCommission ? `COMISSAO ${answers.brokerCommission}` : '',
@@ -864,6 +873,7 @@ export default function StudioHero() {
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
   const hasStageStep = false
+  const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign
   const profileStep = 3
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
@@ -872,9 +882,10 @@ export default function StudioHero() {
   const differentialsStep = isCapture ? 4 : locationStep + 1
   const benefitQuestionStep = isBrokerCapture ? differentialsStep + 1 : null
   const benefitDetailsStep = isBrokerCapture && answers.brokerHasBenefits === 'yes' ? benefitQuestionStep + 1 : null
+  const propertyFeaturesStep = hasFreeAiPropertyFeaturesStep ? differentialsStep + 1 : null
   const ctaStep = isBrokerCapture
     ? benefitQuestionStep + (answers.brokerHasBenefits === 'yes' ? 2 : 1)
-    : differentialsStep + 1
+    : differentialsStep + (hasFreeAiPropertyFeaturesStep ? 2 : 1)
   const furnishingStep = isFreeAiMode ? null : ctaStep + 1
   const decorationStep = isFreeAiMode ? null : ctaStep + 2
   const visualStyleStep = isFreeAiMode ? ctaStep + 1 : null
@@ -905,6 +916,9 @@ export default function StudioHero() {
         answers.brokerBenefitOther,
       ].filter(Boolean).join(', ')
       : '',
+    [propertyFeaturesStep]: hasFreeAiPropertyFeaturesStep
+      ? [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
+      : '',
     [ctaStep]: answers.cta,
     [furnishingStep]: !isFreeAiMode ? answers.furnishingStatus : '',
     [decorationStep]: !isFreeAiMode ? answers.decorationPolicy : '',
@@ -921,8 +935,9 @@ export default function StudioHero() {
 
   const hasRequiredCinematicImage = IMAGE_SLOTS.every((slot) => files[slot.key])
   const hasRequiredFreeAiBriefing = Boolean(answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)
+  const hasRequiredFreeAiPropertyFeatures = !hasFreeAiPropertyFeaturesStep || Boolean(answers.bedrooms && answers.suites && answers.parking)
   const hasRequiredModeInputs = isFreeAiMode
-    ? hasRequiredFreeAiBriefing
+    ? Boolean(hasRequiredFreeAiBriefing && hasRequiredFreeAiPropertyFeatures)
     : Boolean(answers.furnishingStatus && answers.decorationPolicy && hasRequiredCinematicImage)
 
   const canGenerateBriefing = Boolean(
@@ -1129,6 +1144,19 @@ export default function StudioHero() {
       creativeFreedom: '',
     }))
     setStep(isFreeAiMode ? visualStyleStep : furnishingStep)
+  }
+
+  const updatePropertyCharacteristic = (field, value) => {
+    resetGenerationState()
+    setAnswers((current) => ({
+      ...current,
+      [field]: value,
+      cta: '',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
+    }))
   }
 
   const updateFurnishingStatus = (value) => {
@@ -1369,6 +1397,9 @@ export default function StudioHero() {
           district: districtValue,
           location: displayLocation,
           normalizedLocation,
+          bedrooms: answers.bedrooms,
+          suites: answers.suites,
+          parking: answers.parking,
           differentials: answers.differentials,
           offer: answers.oferta,
           cta: answers.cta,
@@ -2010,7 +2041,7 @@ export default function StudioHero() {
                   <Button
                     type="button"
                     disabled={answers.differentials.length === 0}
-                    onClick={() => setStep(ctaStep)}
+                    onClick={() => setStep(propertyFeaturesStep || ctaStep)}
                   >
                     Confirmar palavra
                   </Button>
@@ -2035,6 +2066,49 @@ export default function StudioHero() {
                   Sim
                 </ChipButton>
               </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {hasFreeAiPropertyFeaturesStep && answers.differentials.length > 0 && step >= propertyFeaturesStep && (
+            <AssistantStep
+              number={propertyFeaturesStep}
+              currentStep={step}
+              summary={stepSummaries[propertyFeaturesStep]}
+              onEdit={() => setStep(propertyFeaturesStep)}
+              message="Quais caracteristicas do imovel devemos considerar?"
+            >
+              <div className="space-y-5">
+                <p className="text-sm font-bold text-slate-500">
+                  Esses dados ajudam a narrativa do comercial sem inventar informacoes.
+                </p>
+                <OptionGroup
+                  title="Dormitorios"
+                  options={FREE_AI_BEDROOM_OPTIONS}
+                  value={answers.bedrooms}
+                  onSelect={(value) => updatePropertyCharacteristic('bedrooms', value)}
+                />
+                <OptionGroup
+                  title="Suites"
+                  options={FREE_AI_SUITE_OPTIONS}
+                  value={answers.suites}
+                  onSelect={(value) => updatePropertyCharacteristic('suites', value)}
+                />
+                <OptionGroup
+                  title="Vagas"
+                  options={FREE_AI_PARKING_OPTIONS}
+                  value={answers.parking}
+                  onSelect={(value) => updatePropertyCharacteristic('parking', value)}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    disabled={!answers.bedrooms || !answers.suites || !answers.parking}
+                    onClick={() => setStep(ctaStep)}
+                  >
+                    Confirmar caracteristicas
+                  </Button>
+                </div>
+              </div>
             </AssistantStep>
           )}
 
@@ -2115,7 +2189,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.differentials.length > 0 && (!isBrokerCapture || answers.brokerHasBenefits) && step >= ctaStep && (
+          {answers.differentials.length > 0 && (!hasFreeAiPropertyFeaturesStep || (answers.bedrooms && answers.suites && answers.parking)) && (!isBrokerCapture || answers.brokerHasBenefits) && step >= ctaStep && (
             <AssistantStep
               number={ctaStep}
               currentStep={step}
@@ -2726,6 +2800,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
   const hasStageStep = false
+  const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign
   const profileStep = 3
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
@@ -2734,9 +2809,10 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const differentialsStep = isCapture ? 4 : locationStep + 1
   const benefitQuestionStep = isBrokerCapture ? differentialsStep + 1 : null
   const benefitDetailsStep = isBrokerCapture && answers.brokerHasBenefits === 'yes' ? benefitQuestionStep + 1 : null
+  const propertyFeaturesStep = hasFreeAiPropertyFeaturesStep ? differentialsStep + 1 : null
   const ctaStep = isBrokerCapture
     ? benefitQuestionStep + (answers.brokerHasBenefits === 'yes' ? 2 : 1)
-    : differentialsStep + 1
+    : differentialsStep + (hasFreeAiPropertyFeaturesStep ? 2 : 1)
   const furnishingStep = isFreeAiMode ? null : ctaStep + 1
   const decorationStep = isFreeAiMode ? null : ctaStep + 2
   const visualStyleStep = isFreeAiMode ? ctaStep + 1 : null
@@ -2770,6 +2846,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
         answers.brokerBenefitOther,
       ].filter(Boolean).join(', '), benefitDetailsStep]]
       : []),
+    ...(hasFreeAiPropertyFeaturesStep ? [['Caracteristicas', [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', '), propertyFeaturesStep]] : []),
     ['Encerramento', answers.cta, ctaStep],
     ...(isFreeAiMode ? [
       ['Modo', 'Criacao livre com IA', uploadStep],

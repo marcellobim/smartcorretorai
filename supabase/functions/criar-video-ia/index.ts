@@ -837,6 +837,7 @@ function buildStudioHeroJsonPrompt(payload: {
   const matrixId = selectStudioHeroMatrix(briefing)
   const matrix = STUDIO_HERO_MATRICES[matrixId]
   const heroWord = getOpeningHookText(briefing)
+  const isRentObjective = briefing.objective === 'rent' || /LOCAC|ALUG/.test(`${briefing.objective} ${briefing.objectiveLabel} ${briefing.offer}`.toUpperCase())
   const isLaunchProfile = getMatrixProfileGroup(briefing) === 'LANCAMENTO'
   const launchFactRules = isLaunchProfile
     ? [
@@ -873,6 +874,9 @@ function buildStudioHeroJsonPrompt(payload: {
     atmosphere: briefing.atmosphere,
     pace: briefing.pace,
     creative_freedom: briefing.creativeFreedom,
+    bedrooms: briefing.bedrooms,
+    suites: briefing.suites,
+    parking: briefing.parking,
   })
 
   const promptPayload = {
@@ -948,11 +952,19 @@ function buildStudioHeroJsonPrompt(payload: {
     fact_engine: {
       rules: [
         'use only facts explicitly provided by the user',
+        'never invent bedrooms, suites or parking spaces',
+        'if bedrooms, suites or parking are empty, omit them completely',
         'never say furnished unless the user provided this information',
         'never say ready to move in unless the user provided this information',
         'never invent amenities',
         'never invent property features',
         'if information is missing, omit it',
+        ...(isRentObjective ? [
+          'this is a rental commercial, not a sale commercial',
+          'prioritize rental language: disponivel para locacao, disponivel para aluguel, ideal para quem procura, alugue, locacao',
+          'avoid sale language: compre, invista, lancamento, casa propria, realize o sonho da compra',
+          'never imply purchase or ownership transfer',
+        ] : []),
         ...launchFactRules,
       ],
     },
@@ -982,6 +994,9 @@ function buildStudioHeroJsonPrompt(payload: {
       voiceover_language: 'pt-BR',
       voiceover_style: 'short_elegant_brazilian_portuguese_real_estate_commercial',
       voiceover_content_policy: 'narrate_property_facts_naturally_without_reading_raw_structured_data',
+      rental_voiceover_policy: isRentObjective
+        ? 'make it clear this is available for rent or lease; never use purchase-oriented narration'
+        : undefined,
       voiceover_tone: isLaunchProfile
         ? [
           'novo empreendimento',
@@ -1286,6 +1301,9 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const atmosphere = getBriefingValue(briefing, 'atmosphere', '')
   const pace = getBriefingValue(briefing, 'pace', '')
   const creativeFreedom = getBriefingValue(briefing, 'creativeFreedom', '')
+  const bedrooms = getBriefingValue(briefing, 'bedrooms', body.bedrooms)
+  const suites = getBriefingValue(briefing, 'suites', body.suites)
+  const parking = getBriefingValue(briefing, 'parking', body.parking)
 
   return {
     objective,
@@ -1309,6 +1327,9 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     atmosphere,
     pace,
     creativeFreedom,
+    bedrooms,
+    suites,
+    parking,
     creativeMode: getBriefingValue(briefing, 'creativeMode', body.creativeMode ?? body.mode ?? 'cinematic'),
   }
 }
@@ -3218,6 +3239,9 @@ serve(async (req) => {
           briefing.profile,
           briefing.stage,
           briefing.location,
+          briefing.bedrooms,
+          briefing.suites,
+          briefing.parking,
           briefing.finalFeatures,
           ...briefing.differentials,
           briefing.offer,
