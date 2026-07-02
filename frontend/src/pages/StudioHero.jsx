@@ -919,6 +919,12 @@ export default function StudioHero() {
         : '',
   }
 
+  const hasRequiredCinematicImage = IMAGE_SLOTS.every((slot) => files[slot.key])
+  const hasRequiredFreeAiBriefing = Boolean(answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)
+  const hasRequiredModeInputs = isFreeAiMode
+    ? hasRequiredFreeAiBriefing
+    : Boolean(answers.furnishingStatus && answers.decorationPolicy && hasRequiredCinematicImage)
+
   const canGenerateBriefing = Boolean(
     answers.objective &&
     (!isPropertyCampaign || answers.propertyType) &&
@@ -933,8 +939,7 @@ export default function StudioHero() {
     answers.differentials.length > 0 &&
     (!isBrokerCapture || answers.brokerHasBenefits) &&
     answers.cta &&
-    (!isFreeAiMode || (answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)) &&
-    (isFreeAiMode || (answers.furnishingStatus && answers.decorationPolicy && IMAGE_SLOTS.every((slot) => files[slot.key])))
+    hasRequiredModeInputs
   )
   const canGenerate = canGenerateBriefing && (isFreeAiMode || studioHeroAccess.canGenerate)
 
@@ -2833,7 +2838,9 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             Tudo pronto.
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-            Revise o resumo e a imagem selecionada. Quando estiver tudo certo, crie seu comercial.
+            {isFreeAiMode
+              ? 'Revise o resumo e a direcao criativa. Quando estiver tudo certo, crie seu comercial livre.'
+              : 'Revise o resumo e a imagem selecionada. Quando estiver tudo certo, crie seu comercial.'}
           </p>
           <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
