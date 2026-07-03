@@ -688,9 +688,14 @@ export default function Hero() {
         throw new Error(data?.message || data?.error || 'Não foi possível preparar o Hero IA.')
       }
 
+      const imageUrl = data.image_url || data.imageUrl || ''
+      if (!imageUrl) {
+        throw new Error(data?.message || data?.error || 'Hero IA nao retornou a imagem gerada. Tente novamente em alguns instantes.')
+      }
+
       setGenerationResult({
         ...data,
-        imageUrl: data.image_url || '',
+        imageUrl,
         texts: data.texts || {},
         propertyTitle: getPropertyTitle(selectedProperty),
         imageModeLabel: imageMode?.label || '',

@@ -1250,9 +1250,14 @@ export default function HeroNext() {
       if (!data.success && data.status !== 'failed') throw new Error(data.message || data.error || 'Não foi possível consultar a campanha.')
 
       if (data.status === 'completed') {
+        const imageUrl = data.image_url || data.imageUrl || ''
+        if (!imageUrl) {
+          throw new Error(data.message || data.error || 'Hero IA nao retornou a imagem gerada.')
+        }
+
         setGenerationResult({
           ...data,
-          imageUrl: data.image_url || '',
+          imageUrl,
           texts: data.texts || {},
         })
         setPhase('result')
@@ -1291,6 +1296,11 @@ export default function HeroNext() {
       if (error) throw new Error(error.message || `Não foi possível consultar ${destination.label}.`)
 
       if (data.status === 'completed') {
+        const imageUrl = data.image_url || data.imageUrl || ''
+        if (!imageUrl) {
+          throw new Error(data.message || data.error || `Hero IA nao retornou a imagem de ${destination.label}.`)
+        }
+
         const completedJob = {
           formatId,
           jobId,
@@ -1299,7 +1309,7 @@ export default function HeroNext() {
           creativeDirection: creativeIdea.title,
           generationId,
           status: 'completed',
-          imageUrl: data.image_url || '',
+          imageUrl,
           texts: data.texts || {},
           error: null,
           visualAngle: getFormatVisualStrategy(destination, uploadedImages.length).visualAngle,
@@ -1422,17 +1432,22 @@ export default function HeroNext() {
     if (!data.success) throw new Error(data.message || data.error || `Não foi possível iniciar ${destination.label}.`)
 
     const generationId = data.generation_id || data.hero_generation_id
+    const returnedImageUrl = data.image_url || data.imageUrl || ''
     updateGenerationJob(jobId, {
       generationId,
       status: data.status === 'processing' ? 'processing' : 'completed',
       texts: data.texts || {},
-      imageUrl: data.image_url || null,
+      imageUrl: returnedImageUrl || null,
       visualAngle: formatStrategy.visualAngle,
       imageUsageStrategy: formatStrategy.imageUsageStrategy,
     })
 
     if (data.status === 'processing') {
       return pollGenerationJob(generationId, destination, creativeIdea)
+    }
+
+    if (!returnedImageUrl) {
+      throw new Error(data.message || data.error || `Hero IA nao retornou a imagem de ${destination.label}.`)
     }
 
     return {
@@ -1443,7 +1458,7 @@ export default function HeroNext() {
       creativeDirection: creativeIdea.title,
       generationId,
       status: 'completed',
-      imageUrl: data.image_url || '',
+      imageUrl: returnedImageUrl,
       texts: data.texts || {},
       error: null,
       visualAngle: formatStrategy.visualAngle,
@@ -1516,7 +1531,11 @@ export default function HeroNext() {
         }
       }))
 
-      const firstCompleted = settledJobs.find((job) => job.status === 'completed')
+      const firstCompleted = settledJobs.find((job) => job.status === 'completed' && job.imageUrl)
+      if (!firstCompleted) {
+        const firstError = settledJobs.find((job) => job.status === 'failed')?.error
+        throw new Error(firstError || 'Nao foi possivel gerar nenhuma imagem do Hero IA.')
+      }
       setGenerationResult({
         jobs: settledJobs,
         imageUrl: firstCompleted.imageUrl || '',
