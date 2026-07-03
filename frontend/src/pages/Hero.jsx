@@ -26,6 +26,7 @@ import { supabase } from '../lib/supabase'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 const MIN_HERO_PHOTOS = 3
+const HERO_RESULT_STORAGE_KEY = 'smartcorretorai:hero-ia:last-result'
 
 const IMAGE_MODES = [
   {
@@ -80,6 +81,54 @@ const CTA_OPTIONS = [
   'Reservar interesse',
   'Conhecer condições',
 ]
+
+function readStoredHeroResult() {
+  try {
+    const raw = window.sessionStorage.getItem(HERO_RESULT_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed?.imageUrl ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredHeroResult(result) {
+  try {
+    if (result?.imageUrl) {
+      window.sessionStorage.setItem(HERO_RESULT_STORAGE_KEY, JSON.stringify(result))
+    } else {
+      window.sessionStorage.removeItem(HERO_RESULT_STORAGE_KEY)
+    }
+  } catch {
+    // Session persistence is a convenience; generation must not depend on it.
+  }
+}
+
+async function downloadImageFile(url, filename) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('download_failed')
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
+  } catch {
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.target = '_blank'
+    link.rel = 'noreferrer'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+}
 
 const VALUE_CONDITION_OPTIONS = [
   { id: 'show_registered_price', icon: '💰', label: 'Mostrar valor' },
@@ -398,10 +447,10 @@ export default function Hero() {
   const [deliverablesConfirmed, setDeliverablesConfirmed] = useState(false)
   const [additionalInfo, setAdditionalInfo] = useState('')
   const [additionalConfirmed, setAdditionalConfirmed] = useState(false)
-  const [resultVisible, setResultVisible] = useState(false)
+  const [resultVisible, setResultVisible] = useState(() => Boolean(readStoredHeroResult()))
   const [generationLoading, setGenerationLoading] = useState(false)
   const [generationError, setGenerationError] = useState('')
-  const [generationResult, setGenerationResult] = useState(null)
+  const [generationResult, setGenerationResult] = useState(() => readStoredHeroResult())
   const [campaignPropertyType, setCampaignPropertyType] = useState('')
   const [campaignProfile, setCampaignProfile] = useState('')
   const [campaignCity, setCampaignCity] = useState('')
@@ -520,6 +569,7 @@ export default function Hero() {
   const hasCompletedHero = Boolean(generationResult?.imageUrl)
 
   useEffect(() => {
+    if (!selectedPropertyId) return
     const master = parseMasterProperty(selectedProperty?.descricao)
     setImageModeId('')
     setPropertyState(getPropertyState(selectedProperty))
@@ -561,6 +611,7 @@ export default function Hero() {
   }, [selectedPropertyId])
 
   useEffect(() => {
+    if (!selectedPropertyId) return
     setSelectedSubcategories([])
     setSubcategoriesConfirmed(false)
     setCreativeConcepts([])
@@ -581,7 +632,11 @@ export default function Hero() {
     setResultVisible(false)
     setGenerationError('')
     setGenerationResult(null)
-  }, [audienceKey])
+  }, [audienceKey, selectedPropertyId])
+
+  useEffect(() => {
+    writeStoredHeroResult(generationResult)
+  }, [generationResult])
 
   const toggleAudience = (audienceId) => {
     setAudienceIds((current) => (
@@ -693,7 +748,7 @@ export default function Hero() {
         throw new Error(data?.message || data?.error || 'Hero IA nao retornou a imagem gerada. Tente novamente em alguns instantes.')
       }
 
-      setGenerationResult({
+      const nextGenerationResult = {
         ...data,
         imageUrl,
         texts: data.texts || {},
@@ -712,7 +767,8 @@ export default function Hero() {
         deliverables: chosenDeliverables.map((item) => item.label),
         additionalInfo: '',
         humanPrompt,
-      })
+      }
+      setGenerationResult(nextGenerationResult)
       setResultVisible(true)
     } catch (error) {
       setResultVisible(false)
@@ -1821,6 +1877,10 @@ function HeroWowResult({ generationResult, onGenerateAnother }) {
     URL.revokeObjectURL(url)
   }
 
+  const handleDownloadHeroImage = () => {
+    downloadImageFile(generationResult.imageUrl, 'smartcorretorai-hero-ia.png')
+  }
+
   return (
     <section className="mt-6 space-y-6">
       <div className="overflow-hidden rounded-[2rem] bg-gray-950 text-white shadow-2xl shadow-gray-950/20">
@@ -1857,14 +1917,14 @@ function HeroWowResult({ generationResult, onGenerateAnother }) {
                 <Image className="h-4 w-4" />
                 Visualizar
               </a>
-              <a
-                href={generationResult.imageUrl}
-                download="hero-ia-smartcorretorai.jpg"
+              <button
+                type="button"
+                onClick={handleDownloadHeroImage}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10"
               >
                 <Download className="h-4 w-4" />
                 Download
-              </a>
+              </button>
               <button
                 type="button"
                 onClick={handleDownloadTexts}

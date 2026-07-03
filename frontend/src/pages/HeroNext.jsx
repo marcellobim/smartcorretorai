@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -70,6 +70,57 @@ const PROPERTY_STAGE_OPTIONS = [
 const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+', 'Não informar']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+', 'Não informar']
 const PARKING_OPTIONS = ['0', '1', '2', '3+', 'Não informar']
+
+const HERO_NEXT_RESULT_STORAGE_KEY = 'smartcorretorai:hero-ia-next:last-result'
+
+function readStoredHeroNextResult() {
+  try {
+    const raw = window.sessionStorage.getItem(HERO_NEXT_RESULT_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const hasImage = Boolean(parsed?.imageUrl) || parsed?.jobs?.some((job) => job?.imageUrl)
+    return hasImage ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredHeroNextResult(result) {
+  try {
+    if (result?.imageUrl || result?.jobs?.some((job) => job?.imageUrl)) {
+      window.sessionStorage.setItem(HERO_NEXT_RESULT_STORAGE_KEY, JSON.stringify(result))
+    } else {
+      window.sessionStorage.removeItem(HERO_NEXT_RESULT_STORAGE_KEY)
+    }
+  } catch {
+    // Session persistence is a convenience; generation must not depend on it.
+  }
+}
+
+async function downloadImageFile(url, filename) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('download_failed')
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
+  } catch {
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.target = '_blank'
+    link.rel = 'noreferrer'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+}
 
 const CTA_OPTIONS = [
   'Fale comigo',
@@ -989,7 +1040,7 @@ function UserBubble({ children }) {
 }
 
 export default function HeroNext() {
-  const [phase, setPhase] = useState('intro')
+  const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
   const [goal, setGoal] = useState('')
   const [answers, setAnswers] = useState({})
   const [chatIndex, setChatIndex] = useState(0)
@@ -1016,13 +1067,18 @@ export default function HeroNext() {
   const [generationError, setGenerationError] = useState('')
   const [goalNotice, setGoalNotice] = useState('')
   const [pieceLimitNotice, setPieceLimitNotice] = useState('')
-  const [generationResult, setGenerationResult] = useState(null)
-  const [generationJobs, setGenerationJobs] = useState([])
+  const [generationResult, setGenerationResult] = useState(() => readStoredHeroNextResult())
+  const [generationJobs, setGenerationJobs] = useState(() => readStoredHeroNextResult()?.jobs || [])
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
 
   const isRentGoal = goal === 'rent'
   const isPropertyCaptureGoal = goal === 'property_capture'
   const isBrokerCaptureGoal = goal === 'broker_capture'
+
+  useEffect(() => {
+    writeStoredHeroNextResult(generationResult)
+  }, [generationResult])
+
   const chatFlow = isRentGoal
     ? RENT_CHAT_FLOW
     : isPropertyCaptureGoal
@@ -1561,16 +1617,14 @@ export default function HeroNext() {
     downloadPlainTextFile('campanha-ia-textos.txt', content)
   }
 
-  const downloadAllImages = () => {
+  const downloadAllImages = async () => {
     const completedJobs = (generationResult.jobs || []).filter((job) => job.status === 'completed' && job.imageUrl)
-    completedJobs.forEach((job, index) => {
-      window.setTimeout(() => {
-        const link = document.createElement('a')
-        link.href = job.imageUrl
-        link.download = `campanha-opcao-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.jpg`
-        link.click()
-      }, index * 250)
-    })
+    for (const job of completedJobs) {
+      await downloadImageFile(
+        job.imageUrl,
+        `smartcorretorai-hero-ia-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.png`,
+      )
+    }
   }
 
   const renderQuestionControls = () => {
@@ -2466,14 +2520,17 @@ export default function HeroNext() {
                           >
                             Visualizar
                           </a>
-                          <a
-                            href={job.imageUrl}
-                            download={`campanha-opcao-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.jpg`}
+                          <button
+                            type="button"
+                            onClick={() => downloadImageFile(
+                              job.imageUrl,
+                              `smartcorretorai-hero-ia-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.png`,
+                            )}
                             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700"
                           >
                             <Download className="h-4 w-4" />
                             Baixar
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
