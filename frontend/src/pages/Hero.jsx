@@ -130,6 +130,24 @@ async function downloadImageFile(url, filename) {
   }
 }
 
+async function getEdgeFunctionErrorMessage(error, fallback) {
+  const response = error?.context
+  if (response?.clone) {
+    try {
+      const body = await response.clone().json()
+      return body?.message || body?.error || error?.message || fallback
+    } catch {
+      try {
+        const text = await response.clone().text()
+        if (text) return text.slice(0, 400)
+      } catch {
+        // Fall back to the SDK error message below.
+      }
+    }
+  }
+  return error?.message || fallback
+}
+
 const VALUE_CONDITION_OPTIONS = [
   { id: 'show_registered_price', icon: '💰', label: 'Mostrar valor' },
   { id: 'commercial_terms', icon: '📋', label: 'Mostrar apenas condições' },
@@ -736,7 +754,7 @@ export default function Hero() {
       const { data, error } = await supabase.functions.invoke('gerar-hero-ia', { body: payload })
 
       if (error) {
-        throw new Error(error.message || 'Não foi possível preparar o Hero IA.')
+        throw new Error(await getEdgeFunctionErrorMessage(error, 'Nao foi possivel preparar o Hero IA.'))
       }
 
       if (!data?.success) {

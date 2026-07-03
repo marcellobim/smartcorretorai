@@ -1121,13 +1121,13 @@ async function generateHeroImageFromMultimodalContext(prompt: string, size: stri
     model,
     received_image_count: inlineImages.length,
     image_count: experimentalImages.length,
-    primary_image: experimentalImages[0].name || null,
+    primary_image: experimentalImages[0]?.name || null,
     size,
     final_prompt: prompt,
     payload: {
       model,
       input_content: ['input_text', ...experimentalImages.map(() => 'input_image')],
-      primary_image: experimentalImages[0].name || null,
+      primary_image: experimentalImages[0]?.name || null,
       image_count: experimentalImages.length,
       tool: {
         type: 'image_generation',
@@ -1258,7 +1258,7 @@ async function createHeroNextBackgroundResponse(
     model,
     received_image_count: inlineImages.length,
     image_count: experimentalImages.length,
-    primary_image: experimentalImages[0].name || null,
+    primary_image: experimentalImages[0]?.name || null,
     support_images: experimentalImages.slice(1).map((_, index) => `image_${index + 2}`),
     idea_number: creativeIdea.number,
     creative_direction: creativeIdea.title || null,
@@ -1271,7 +1271,7 @@ async function createHeroNextBackgroundResponse(
       model,
       background: true,
       input_content: ['input_text', ...experimentalImages.map(() => 'input_image')],
-      primary_image: experimentalImages[0].name || null,
+      primary_image: experimentalImages[0]?.name || null,
       image_count: experimentalImages.length,
       tool: {
         type: 'image_generation',

@@ -122,6 +122,24 @@ async function downloadImageFile(url, filename) {
   }
 }
 
+async function getEdgeFunctionErrorMessage(error, fallback) {
+  const response = error?.context
+  if (response?.clone) {
+    try {
+      const body = await response.clone().json()
+      return body?.message || body?.error || error?.message || fallback
+    } catch {
+      try {
+        const text = await response.clone().text()
+        if (text) return text.slice(0, 400)
+      } catch {
+        // Fall back to the SDK error message below.
+      }
+    }
+  }
+  return error?.message || fallback
+}
+
 const CTA_OPTIONS = [
   'Fale comigo',
   'Saiba mais',
@@ -1302,7 +1320,7 @@ export default function HeroNext() {
         },
       })
 
-      if (error) throw new Error(error.message || 'Não foi possível consultar a campanha.')
+      if (error) throw new Error(await getEdgeFunctionErrorMessage(error, 'Nao foi possivel consultar a campanha.'))
       if (!data.success && data.status !== 'failed') throw new Error(data.message || data.error || 'Não foi possível consultar a campanha.')
 
       if (data.status === 'completed') {
@@ -1349,7 +1367,7 @@ export default function HeroNext() {
         },
       })
 
-      if (error) throw new Error(error.message || `Não foi possível consultar ${destination.label}.`)
+      if (error) throw new Error(await getEdgeFunctionErrorMessage(error, `Nao foi possivel consultar ${destination.label}.`))
 
       if (data.status === 'completed') {
         const imageUrl = data.image_url || data.imageUrl || ''
@@ -1484,7 +1502,7 @@ export default function HeroNext() {
       },
     })
 
-    if (error) throw new Error(error.message || `Não foi possível iniciar ${destination.label}.`)
+    if (error) throw new Error(await getEdgeFunctionErrorMessage(error, `Nao foi possivel iniciar ${destination.label}.`))
     if (!data.success) throw new Error(data.message || data.error || `Não foi possível iniciar ${destination.label}.`)
 
     const generationId = data.generation_id || data.hero_generation_id
