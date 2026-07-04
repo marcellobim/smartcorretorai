@@ -103,6 +103,218 @@ function normalizePromptText(value: unknown, maxLength = 48) {
     .slice(0, maxLength)
 }
 
+const VIDEO_TEXT_TOKEN_DICTIONARY: Record<string, string> = {
+  EXCLUSIVO: 'EXCLUSIVO',
+  EXCLUIVO: 'EXCLUSIVO',
+  OPORTUNIDADE: 'OPORTUNIDADE',
+  LANCAMENTO: 'LANCAMENTO',
+  PRELANCAMENTO: 'PRE-LANCAMENTO',
+  'PRE LANCAMENTO': 'PRE-LANCAMENTO',
+  'PRE-LANCAMENTO': 'PRE-LANCAMENTO',
+  DISPONIVEL: 'DISPONIVEL',
+  SAIBAMAIS: 'SAIBA MAIS',
+  'SAIBA MAIS': 'SAIBA MAIS',
+  QUERVENDER: 'QUER VENDER',
+  'QUER VENDER': 'QUER VENDER',
+  QUERALUGAR: 'QUER ALUGAR',
+  'QUER ALUGAR': 'QUER ALUGAR',
+  CONTRATAMOS: 'CONTRATAMOS',
+  PRONTOPARAMORAR: 'PRONTO PARA MORAR',
+  'PRONTO PARA MORAR': 'PRONTO PARA MORAR',
+  EMOBRAS: 'EM OBRAS',
+  'EM OBRAS': 'EM OBRAS',
+  VENDA: 'VENDA',
+  LOCACAO: 'LOCACAO',
+}
+
+const STUDIO_HERO_FREE_AI_FINAL_CTA = 'SAIBA MAIS'
+
+const STUDIO_HERO_SPELLING_LOCK = `TEXT RENDER ENGINE - MANDATORY
+
+Every on-screen text must be rendered exactly as specified.
+Text rendering accuracy has maximum priority.
+If the model is uncertain about rendering a word correctly, it is preferable to omit that word rather than display an incorrect version.
+Incorrect spelling is considered a generation failure.
+
+SPELLING LOCK
+
+All text rendered on screen must obey these rules:
+
+Do not change letters.
+Do not remove letters.
+Do not insert letters.
+Do not replace letters.
+Do not invent spelling.
+Do not abbreviate.
+Do not stylize spelling.
+Do not translate.
+Do not paraphrase.
+Do not modify capitalization unless explicitly requested.
+Render every word exactly as provided.
+
+ASCII MODE
+
+All native on-screen video text must use ASCII characters only.
+Prefer uppercase.
+No accent marks.
+No cedilla.
+No alternate spelling.
+No invented words.
+Never invent accent marks.
+Never replace letters with accented versions.
+
+Correct examples:
+
+EXCLUSIVO
+LANCAMENTO
+DISPONIVEL
+
+Incorrect examples:
+
+EXCLUS\u00cdVO
+EXCLU\u00cdVO
+EXCLUIVO
+LAN\u00c7AMENTO
+DISPON\u00cdVEL
+
+OFFICIAL WORD DICTIONARY
+
+The following SmartCorretorAI terms must always be rendered exactly as written:
+
+EXCLUSIVO = E X C L U S I V O
+OPORTUNIDADE = O P O R T U N I D A D E
+LANCAMENTO = L A N C A M E N T O
+DISPONIVEL = D I S P O N I V E L
+SAIBA MAIS = S A I B A   M A I S
+QUER VENDER = Q U E R   V E N D E R
+QUER ALUGAR = Q U E R   A L U G A R
+CONTRATAMOS = C O N T R A T A M O S
+PRONTO PARA MORAR = P R O N T O   P A R A   M O R A R
+PRE-LANCAMENTO = P R E - L A N C A M E N T O
+EM OBRAS = E M   O B R A S
+VENDA = V E N D A
+LOCACAO = L O C A C A O
+
+Never add accent marks.
+Never write EXCLUS\u00cdVO.
+Never write EXCLU\u00cdVO.
+Never write EXCLUIVO.
+Never alter official SmartCorretorAI terms.
+
+TEXT SAFETY RULE
+
+Prefer fewer correct words over multiple risky words.
+One correctly spelled word is better than many distorted words.
+If the model is uncertain about rendering text correctly, avoid rendering that word.
+If exact rendering cannot be guaranteed, do not render the text.
+If uncertain, render no text instead of misspelled text.
+
+TEXT QUALITY PRIORITY
+
+Rendering priority:
+1. Correct spelling
+2. Correct letters
+3. Correct word
+4. Correct positioning
+5. Visual beauty
+
+Never sacrifice spelling for visual effects.
+
+FACT ENGINE FOR TEXT
+
+All user supplied text is immutable.
+Never modify city, neighborhood, phone, price, area, CTA, Hero Words, numbers or measurements.
+Never invent text.
+Never hallucinate text.
+Never generate random characters.
+
+PROMPT FINAL
+
+Treat every native on-screen text as if it were a company logo.
+Company logos cannot have spelling mistakes.
+Apply the same level of precision to every word rendered in the video.`
+
+function resolveVideoTextToken(clean: string) {
+  const compact = clean.replace(/[\s-]+/g, '')
+  return VIDEO_TEXT_TOKEN_DICTIONARY[clean] || VIDEO_TEXT_TOKEN_DICTIONARY[compact] || clean
+}
+
+function normalizeVideoTextToken(value: unknown, fallback = '', maxLength = 48) {
+  const clean = normalizeText(value, Math.max(maxLength * 2, 120))
+    .replace(/m(?:\u00c2)?\u00b2/gi, 'M2')
+    .replace(/\u00c3\u00a0|\u00c3\u0080/g, 'A')
+    .replace(/\u00c3\u00a1|\u00c3\u0081/g, 'A')
+    .replace(/\u00c3\u00a2|\u00c3\u0082/g, 'A')
+    .replace(/\u00c3\u00a3|\u00c3\u0083/g, 'A')
+    .replace(/\u00c3\u00a7|\u00c3\u2021/g, 'C')
+    .replace(/\u00c3\u00a8|\u00c3\u0088/g, 'E')
+    .replace(/\u00c3\u00a9|\u00c3\u2030/g, 'E')
+    .replace(/\u00c3\u00aa|\u00c3\u0160/g, 'E')
+    .replace(/\u00c3\u00ad|\u00c3\u008d/g, 'I')
+    .replace(/\u00c3\u00b3|\u00c3\u201c/g, 'O')
+    .replace(/\u00c3\u00b4|\u00c3\u201d/g, 'O')
+    .replace(/\u00c3\u00b5|\u00c3\u2022/g, 'O')
+    .replace(/\u00c3\u00ba|\u00c3\u0161/g, 'U')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/Ã§/g, 'c')
+    .replace(/Ã‡/g, 'C')
+    .replace(/[{}]/g, '')
+    .replace(/[/-]/g, ' ')
+    .replace(/[^A-Za-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+
+  const normalized = resolveVideoTextToken(clean)
+  if (normalized) return normalized.slice(0, maxLength)
+
+  const fallbackClean = normalizePromptText(fallback, maxLength)
+  return resolveVideoTextToken(fallbackClean).slice(0, maxLength)
+}
+
+function withStudioHeroSpellingLock(prompt: string) {
+  const cleanPrompt = prompt.trim()
+  if (!cleanPrompt || cleanPrompt.includes('SPELLING LOCK')) return cleanPrompt
+  return `${cleanPrompt}
+
+---
+
+${STUDIO_HERO_SPELLING_LOCK}`
+}
+
+function withStudioHeroFreeAiFinalCta(prompt: string) {
+  const cleanPrompt = prompt.trim()
+  if (!cleanPrompt || cleanPrompt.includes('FREE AI FINAL NATIVE CTA')) return cleanPrompt
+  return `${cleanPrompt}
+
+---
+
+FREE AI FINAL NATIVE CTA - IA LIVRE ONLY
+
+This rule applies only to Studio Hero Modo 2 - IA Livre.
+In the final scene only, render one native CTA text:
+"${STUDIO_HERO_FREE_AI_FINAL_CTA}"
+
+The final CTA must be exactly one line.
+Do not render phone numbers.
+Do not render WhatsApp.
+Do not render QR Code.
+Do not render address.
+Do not render a two-line CTA.
+Do not render long CTA text.
+Do not render any CTA other than "${STUDIO_HERO_FREE_AI_FINAL_CTA}".
+
+Use TEXT RENDER ENGINE, SPELLING LOCK, ASCII MODE, OFFICIAL WORD DICTIONARY and TEXT QUALITY PRIORITY.
+If exact rendering of "${STUDIO_HERO_FREE_AI_FINAL_CTA}" cannot be guaranteed, omit the final CTA instead of misspelling it.`
+}
+
+function normalizeVisibleTextList(values: string[]) {
+  return values
+    .map((value) => normalizeVideoTextToken(value))
+    .filter(Boolean)
+}
+
 function cleanStaticText(text: string): string {
   if (!text) return ''
   return text
@@ -118,8 +330,8 @@ function cleanStaticText(text: string): string {
 
 function buildStaticChampionPrompt(bairro: string, cta: string, dadosImovelText = ''): string {
   const bairroTratado = bairro.split('-')[0].trim()
-  const b = cleanStaticText(bairroTratado)
-  const c = cleanStaticText(cta)
+  const b = normalizeVideoTextToken(bairroTratado, 'IMOVEL', 32)
+  const c = normalizeVideoTextToken(cta, 'SAIBA MAIS', 32)
   const facts = normalizeText(dadosImovelText, 900)
 
   return `Cinematic real estate advertisement, vertical format.
@@ -620,6 +832,13 @@ Visually engaging`,
   },
 }
 
+const OFFICIAL_HERO_WORDS_BY_OBJECTIVE = {
+  sale: ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'],
+  rent: ['EXCLUSIVO', 'OPORTUNIDADE', 'DISPONIVEL'],
+  property_capture: ['EXCLUSIVO', 'QUER VENDER', 'QUER ALUGAR'],
+  broker_capture: ['CONTRATAMOS', 'OPORTUNIDADE'],
+} as const
+
 function getMatrixProfileKey(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
   const source = [
     briefing.objective,
@@ -640,6 +859,25 @@ function getMatrixProfileKey(briefing: ReturnType<typeof buildStructuredStudioHe
   if (/LUXO|LUXURY/.test(source)) return 'luxury'
   if (/ALTO PADRAO|HIGH STANDARD|SOFISTIC|DESIGN/.test(source)) return 'high_standard'
   return 'middle_standard'
+}
+
+function getOfficialHeroWordsForObjective(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
+  if (briefing.objective === 'broker_capture') return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.broker_capture]
+  if (briefing.objective === 'property_capture') return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.property_capture]
+  if (briefing.objective === 'rent') return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.rent]
+  if (briefing.objective === 'sale' || briefing.objective === 'sell') return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.sale]
+
+  const source = normalizePromptText([
+    briefing.objective,
+    briefing.objectiveLabel,
+    briefing.offer,
+  ].filter(Boolean).join(' '), 160)
+
+  if (/CAPTACAO.*CORRET|CORRETOR|PROFISSION|RECRUT/.test(source)) return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.broker_capture]
+  if (/CAPTACAO.*IMOV|PROPRIET/.test(source)) return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.property_capture]
+  if (/LOCAC|ALUG|RENT/.test(source)) return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.rent]
+  if (/VENDA|VENDER|SALE|SELL/.test(source)) return [...OFFICIAL_HERO_WORDS_BY_OBJECTIVE.sale]
+  return []
 }
 
 function getMatrixProfileGroup(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
@@ -705,9 +943,9 @@ function getAllowedCtas(matrixId: StudioHeroMatrixId) {
 }
 
 function pickAllowedMatrixValue(value: unknown, allowed: string[], fallback: string) {
-  const clean = cleanMatrixField(value, '', 48)
-  const match = allowed.find((item) => cleanMatrixField(item, '', 48) === clean)
-  return match || fallback
+  const clean = normalizeVideoTextToken(value, '', 48)
+  const match = allowed.find((item) => normalizeVideoTextToken(item, '', 48) === clean)
+  return normalizeVideoTextToken(match || fallback, fallback, 48)
 }
 
 function normalizeText1(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>, fallback: string) {
@@ -722,15 +960,16 @@ function normalizeText1(briefing: ReturnType<typeof buildStructuredStudioHeroBri
 
 function getOpeningHookText(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
   const matrixId = selectStudioHeroMatrix(briefing)
-  const allowedHighlights = getAllowedHighlights(matrixId)
+  const objectiveHeroWords = getOfficialHeroWordsForObjective(briefing)
+  const allowedHighlights = objectiveHeroWords.length ? objectiveHeroWords : getAllowedHighlights(matrixId)
   const pick = (options: string[]) => {
     const chosenValues = [
       briefing.finalFeatures,
       ...briefing.differentials,
       briefing.offer,
-    ].map((value) => cleanMatrixField(value, '', 48)).filter(Boolean)
-    const match = options.find((option) => chosenValues.includes(cleanMatrixField(option, '', 48)))
-    return cleanStaticText(match || options[0])
+    ].map((value) => normalizeVideoTextToken(value, '', 48)).filter(Boolean)
+    const match = options.find((option) => chosenValues.includes(normalizeVideoTextToken(option, '', 48)))
+    return normalizeVideoTextToken(match || options[0], options[0], 32)
   }
 
   return pick(allowedHighlights.length ? allowedHighlights : ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'])
@@ -994,7 +1233,8 @@ function buildStudioHeroJsonPrompt(payload: {
       : undefined,
     text_engine: {
       enabled: true,
-      hero_word_only: true,
+      hero_word_only: !isFreeAi,
+      allowed_native_text_count: isFreeAi ? 2 : 1,
       hero_word: {
         value: heroWord,
         time_range: '0.5s-2.5s',
@@ -1007,13 +1247,100 @@ function buildStudioHeroJsonPrompt(payload: {
           'brief_hold_then_fade_out',
         ],
       },
+      final_native_cta: isFreeAi
+        ? {
+          enabled: true,
+          value: STUDIO_HERO_FREE_AI_FINAL_CTA,
+          time_range: 'final_scene_only',
+          show_once: true,
+          max_lines: 1,
+          spelling_lock_required: true,
+          no_phone: true,
+          no_whatsapp: true,
+          no_qr_code: true,
+          no_address: true,
+          no_two_line_cta: true,
+          no_long_cta: true,
+          omission_policy: `If exact rendering of ${STUDIO_HERO_FREE_AI_FINAL_CTA} cannot be guaranteed, omit the final CTA.`,
+        }
+        : undefined,
+      text_render_engine: {
+        mandatory: true,
+        maximum_priority: 'text_rendering_accuracy',
+        exact_rendering_required: true,
+        failure_condition: 'incorrect_spelling_is_a_generation_failure',
+        omission_policy: 'if_exact_rendering_cannot_be_guaranteed_omit_the_text',
+        logo_precision_rule: 'treat_every_native_on_screen_text_as_if_it_were_a_company_logo',
+        quality_priority: [
+          'correct_spelling',
+          'correct_letters',
+          'correct_word',
+          'correct_positioning',
+          'visual_beauty',
+        ],
+      },
+      spelling_lock: {
+        section: 'SPELLING LOCK - REQUIRED ON-SCREEN TEXT',
+        render_every_word_exactly_as_provided: true,
+        ascii_only: true,
+        no_accent_marks: true,
+        no_cedilla: true,
+        no_alternate_spelling: true,
+        no_invented_words: true,
+        no_changed_letters: true,
+        no_removed_letters: true,
+        no_inserted_letters: true,
+        no_replaced_letters: true,
+        no_abbreviation: true,
+        no_stylized_spelling: true,
+        no_translation: true,
+        no_paraphrase: true,
+        mandatory_spellings: {
+          EXCLUSIVO: 'E X C L U S I V O',
+          OPORTUNIDADE: 'O P O R T U N I D A D E',
+          LANCAMENTO: 'L A N C A M E N T O',
+          DISPONIVEL: 'D I S P O N I V E L',
+          'SAIBA MAIS': 'S A I B A   M A I S',
+          'QUER VENDER': 'Q U E R   V E N D E R',
+          'QUER ALUGAR': 'Q U E R   A L U G A R',
+          CONTRATAMOS: 'C O N T R A T A M O S',
+          'PRONTO PARA MORAR': 'P R O N T O   P A R A   M O R A R',
+          'PRE-LANCAMENTO': 'P R E - L A N C A M E N T O',
+          'EM OBRAS': 'E M   O B R A S',
+          VENDA: 'V E N D A',
+          LOCACAO: 'L O C A C A O',
+        },
+        never_write: ['EXCLUS\u00cdVO', 'EXCLU\u00cdVO', 'EXCLUIVO', 'LAN\u00c7AMENTO', 'DISPON\u00cdVEL'],
+        risk_rule: 'One correctly spelled word is better than multiple incorrect words. If exact rendering cannot be guaranteed, do not render the text.',
+      },
+      immutable_user_text: {
+        enabled: true,
+        never_modify: ['city', 'neighborhood', 'phone', 'price', 'area', 'CTA', 'Hero Words', 'numbers', 'measurements'],
+        never_invent_text: true,
+        never_hallucinate_text: true,
+        never_generate_random_characters: true,
+      },
       rules: [
-        'show only one marketing word in the entire video',
         'never repeat the hero word',
-        'never create additional on-screen text',
+        'all native on-screen video text must use ASCII characters only',
+        'never add accent marks or cedilla',
+        'prefer fewer correct words over multiple risky words',
+        'render every on-screen word exactly as specified',
+        'incorrect spelling is considered a generation failure',
+        'never sacrifice spelling for visual effects',
+        'if exact rendering cannot be guaranteed, omit that text',
         ...(isFreeAi
-          ? ['do not create visual CTA text in the generated video']
+          ? [
+            `show only the opening hero word and the final native CTA ${STUDIO_HERO_FREE_AI_FINAL_CTA}`,
+            `render ${STUDIO_HERO_FREE_AI_FINAL_CTA} only in the final scene`,
+            `never show ${STUDIO_HERO_FREE_AI_FINAL_CTA} before the final scene`,
+            `never create additional on-screen text beyond the opening hero word and final native CTA ${STUDIO_HERO_FREE_AI_FINAL_CTA}`,
+            `if exact rendering of ${STUDIO_HERO_FREE_AI_FINAL_CTA} cannot be guaranteed, omit the final CTA`,
+            'do not render phone, WhatsApp, QR Code, address, two-line CTA or long CTA text',
+          ]
           : [
+            'show only one marketing word in the entire video',
+            'never create additional on-screen text',
             'never create CTA text',
             'the final CTA is already present in the provided lastFrame image',
           ]),
@@ -1022,7 +1349,17 @@ function buildStudioHeroJsonPrompt(payload: {
         'duplicate text',
         'extra text',
         'A VENDA',
-        'SAIBA MAIS generated by Veo',
+        ...(isFreeAi ? [] : ['SAIBA MAIS generated by Veo']),
+        ...(isFreeAi
+          ? [
+            'phone number as native CTA',
+            'WhatsApp as native CTA',
+            'QR Code as native CTA',
+            'address as native CTA',
+            'two-line CTA',
+            'long CTA text',
+          ]
+          : []),
         'overlapping text',
         'misspelled text',
         'invented text',
@@ -1223,8 +1560,8 @@ function buildStudioHeroJsonPrompt(payload: {
         'misspelled_text',
         'extra_words',
         'two_texts_visible_at_once',
-        'generated_CTA_text',
-        'altered_CTA_frame_text',
+        ...(isFreeAi ? [] : ['generated_CTA_text', 'altered_CTA_frame_text']),
+        ...(isFreeAi ? ['phone_CTA_text', 'whatsapp_CTA_text', 'qr_code_CTA', 'address_CTA', 'two_line_CTA', 'long_CTA_text'] : []),
         ...brokerRecruitmentForbidden,
       ],
     },
@@ -1245,7 +1582,7 @@ function buildStudioHeroJsonPrompt(payload: {
   return {
     prompt,
     profileKey: 'json_structured_prompt',
-    visibleTexts: [heroWord].filter(Boolean),
+    visibleTexts: isFreeAi ? [heroWord, STUDIO_HERO_FREE_AI_FINAL_CTA].filter(Boolean) : [heroWord].filter(Boolean),
   }
 }
 
@@ -1445,11 +1782,7 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
 }
 
 function cleanScreenText(value: unknown, maxLength = 48) {
-  return cleanStaticText(normalizeText(value, Math.max(maxLength * 2, 120)))
-    .replace(/[^A-Z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, maxLength)
+  return normalizeVideoTextToken(value, '', maxLength)
 }
 
 function removeTrailingStateCode(value: string) {
@@ -1664,10 +1997,10 @@ function getCreativeProfileDirection(briefing: ReturnType<typeof buildStructured
 
 function buildCreativePromptRequest(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>, hasImage: boolean) {
   const visibleTextCandidates = [
-    normalizePromptText(briefing.normalizedLocation || briefing.location, 40),
-    normalizePromptText(briefing.offer, 32),
-    ...briefing.differentials.map((item) => normalizePromptText(item, 32)),
-    normalizePromptText(briefing.cta, 40),
+    normalizeVideoTextToken(briefing.normalizedLocation || briefing.location, '', 40),
+    normalizeVideoTextToken(briefing.offer, '', 32),
+    ...briefing.differentials.map((item) => normalizeVideoTextToken(item, '', 32)),
+    normalizeVideoTextToken(briefing.cta, '', 40),
   ].filter(Boolean)
 
   return {
@@ -1814,7 +2147,7 @@ function uniquePromptTexts(values: unknown[], maxItems = 6, maxLength = 36) {
   const output: string[] = []
 
   for (const value of values) {
-    const clean = normalizePromptText(value, maxLength)
+    const clean = normalizeVideoTextToken(value, '', maxLength)
     if (!clean || seen.has(clean)) continue
     seen.add(clean)
     output.push(clean)
@@ -1825,7 +2158,7 @@ function uniquePromptTexts(values: unknown[], maxItems = 6, maxLength = 36) {
 }
 
 function normalizeMetricPromptText(value: unknown, label: string, maxLength = 28) {
-  const clean = normalizePromptText(value, maxLength)
+  const clean = normalizeVideoTextToken(value, '', maxLength)
   if (!clean) return ''
   if (/^\d/.test(clean) && label && !clean.includes(label)) return `${clean} ${label}`.slice(0, maxLength)
   return clean
@@ -1855,16 +2188,16 @@ function getOfferText(input: ChampionPromptInput, fallback = 'A VENDA') {
   if (/LOCAC|ALUG/.test(objective)) return 'PARA LOCACAO'
   if (/CAPTACAO.*IMOV/.test(objective)) return 'DIVULGACAO PROFISSIONAL'
   if (/CAPTACAO.*CORRET|CORRETOR|PROFISSION/.test(objective)) return 'JUNTE SE AO TIME'
-  const offer = normalizePromptText(input.oferta, 32)
+  const offer = normalizeVideoTextToken(input.oferta, '', 32)
   return offer || fallback
 }
 
 function getChampionBaseTexts(input: ChampionPromptInput) {
-  const location = normalizePromptText(input.bairro || input.cidade, 36)
-  const propertyType = normalizePromptText(input.tipoImovel || input.perfil, 28) || 'IMOVEL'
-  const profile = normalizePromptText(input.perfil, 28)
+  const location = normalizeVideoTextToken(input.bairro || input.cidade, '', 36)
+  const propertyType = normalizeVideoTextToken(input.tipoImovel || input.perfil, 'IMOVEL', 28)
+  const profile = normalizeVideoTextToken(input.perfil, '', 28)
   const offer = getOfferText(input)
-  const cta = normalizePromptText(input.cta, 32) || 'AGENDE SUA VISITA'
+  const cta = normalizeVideoTextToken(input.cta, 'AGENDE SUA VISITA', 32)
   const area = normalizeMetricPromptText(input.area, 'M2', 18)
   const suites = normalizeMetricPromptText(input.suites, 'SUITES', 20)
   const dormitorios = normalizeMetricPromptText(input.dormitorios, 'DORMITORIOS', 24)
@@ -1879,7 +2212,7 @@ function getChampionBaseTexts(input: ChampionPromptInput) {
   ], 5, 32)
 
   return {
-    location: location || normalizePromptText(input.cidade, 36) || 'LOCALIZACAO',
+    location: location || normalizeVideoTextToken(input.cidade, 'LOCALIZACAO', 36),
     propertyType,
     profile,
     offer,
@@ -2630,21 +2963,21 @@ async function uploadStudioHeroPromptDebug(supabase: ReturnType<typeof createCli
 }
 
 function normalizeOverlayText(value: unknown, fallback: string) {
-  const clean = normalizePromptText(value, 32)
+  const clean = normalizeVideoTextToken(value, '', 32)
   const words = clean
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-  return words.join(' ') || fallback
+  return normalizeVideoTextToken(words.join(' '), fallback, 32)
 }
 
 function normalizeImpactText(value: unknown, fallback: string, maxWords = 1) {
-  const clean = normalizePromptText(value, 28)
+  const clean = normalizeVideoTextToken(value, '', 28)
   const words = clean
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, maxWords)
-  return words.join(' ') || fallback
+  return normalizeVideoTextToken(words.join(' '), fallback, 28)
 }
 
 function pickCommercialImpactWord(style: string, caracteristica: string, oferta: string) {
@@ -2660,11 +2993,11 @@ function pickCommercialImpactWord(style: string, caracteristica: string, oferta:
 }
 
 function pickShortCta(cta: string) {
-  const clean = normalizePromptText(cta, 28)
-  if (/SAIBA/.test(clean)) return 'SAIBA MAIS'
-  if (/AGENDE|VISITA/.test(clean)) return 'AGENDE'
-  if (/CONTATO|FALE|CORRETOR|WHATS/.test(clean)) return 'CONTATO'
-  if (/VISITE|CONHECA/.test(clean)) return 'VISITE'
+  const clean = normalizeVideoTextToken(cta, '', 28)
+  if (/SAIBA/.test(clean)) return normalizeVideoTextToken('SAIBA MAIS')
+  if (/AGENDE|VISITA/.test(clean)) return normalizeVideoTextToken('AGENDE')
+  if (/CONTATO|FALE|CORRETOR|WHATS/.test(clean)) return normalizeVideoTextToken('CONTATO')
+  if (/VISITE|CONHECA/.test(clean)) return normalizeVideoTextToken('VISITE')
   return normalizeImpactText(clean, 'SAIBA MAIS', 2)
 }
 
@@ -2796,10 +3129,10 @@ function buildStudioHeroVeoPromptNarrativeTest({ bairro, caracteristica, oferta,
   oferta: string
   cta: string
 }) {
-  const safeBairro = normalizePromptText(bairro, 32) || 'IMOVEL'
-  const safeCaracteristica = normalizePromptText(caracteristica, 48) || 'DESTAQUE'
-  const safeOferta = normalizePromptText(oferta, 28) || 'OFERTA'
-  const safeCta = normalizePromptText(cta, 28) || 'AGENDE SUA VISITA'
+  const safeBairro = normalizeVideoTextToken(bairro, 'IMOVEL', 32)
+  const safeCaracteristica = normalizeVideoTextToken(caracteristica, 'DESTAQUE', 48)
+  const safeOferta = normalizeVideoTextToken(oferta, 'OFERTA', 28)
+  const safeCta = normalizeVideoTextToken(cta, 'AGENDE SUA VISITA', 28)
 
   const prompt = `Create one single vertical real estate video for Studio Hero Premium.
 
@@ -3430,6 +3763,20 @@ serve(async (req) => {
       }
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
+      visibleTextsForDebug = normalizeVisibleTextList(visibleTextsForDebug)
+      if (isFreeAiRequest) {
+        visibleTextsForDebug = normalizeVisibleTextList([...visibleTextsForDebug, STUDIO_HERO_FREE_AI_FINAL_CTA])
+      }
+      visibleTextCount = visibleTextsForDebug.length || visibleTextCount
+
+      if (promptMode !== 'json') {
+        promptFinal = withStudioHeroSpellingLock(promptFinal)
+        visualPromptForDebug = withStudioHeroSpellingLock(visualPromptForDebug)
+        if (isFreeAiRequest) {
+          promptFinal = withStudioHeroFreeAiFinalCta(promptFinal)
+          visualPromptForDebug = withStudioHeroFreeAiFinalCta(visualPromptForDebug)
+        }
+      }
 
       if (promptMode !== 'json' && (promptFinal.includes('{') || promptFinal.includes('}'))) {
         throw new Error('prompt_placeholder_detected')

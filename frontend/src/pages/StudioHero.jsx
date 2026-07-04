@@ -22,7 +22,6 @@ const MAX_DIFFERENTIALS = 1
 const MAX_CAPTURE_DIFFERENTIALS = 3
 const MAX_BROKER_BENEFITS = 3
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
-const STUDIO_HERO_DEMO_VIDEO_URL = '/previews/studio-hero/moema-demo.mp4'
 const PREMIUM_PLAN_IDS = new Set(['start', 'starter', 'pro', 'elite'])
 const IS_DEV = import.meta.env.DEV
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -33,6 +32,42 @@ const TYPEWRITER_FINAL_CURSOR_MS = 400
 function logStudioHero(level, event, payload) {
   if (!IS_DEV) return
   console[level](event, payload)
+}
+
+function sanitizeStudioHeroDiagnostic(value) {
+  if (value === null || value === undefined) return value
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 20).map((item) => sanitizeStudioHeroDiagnostic(item))
+  }
+
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => {
+        if (/authorization|apikey|access.?token|refresh.?token/i.test(key)) {
+          return [key, '[redacted]']
+        }
+        if (/signed.*url|videoUrl|signedUrl/i.test(key) && typeof nested === 'string') {
+          return [key, nested ? `[url:${nested.length}]` : '']
+        }
+        return [key, sanitizeStudioHeroDiagnostic(nested)]
+      })
+    )
+  }
+
+  if (typeof value === 'string' && value.length > 600) {
+    return `${value.slice(0, 600)}...[truncated:${value.length}]`
+  }
+
+  return value
 }
 
 function isUuid(value) {
@@ -103,61 +138,127 @@ const STUDIO_CREATION_MODES = [
 const STUDIO_MODE_EXAMPLES = [
   {
     id: 'cinematic',
-    title: 'Comercial Cinematografico',
-    label: 'Exemplo com imagens',
+    title: '🎬 Comercial Cinematográfico',
+    label: 'Comercial com imagem',
     accent: 'cyan',
-    summary: [
-      ['Objetivo', 'Vender um imovel'],
-      ['Tipo', 'Apartamento'],
-      ['Perfil', 'Alto Padrao'],
-      ['Localizacao', 'Moema-SP'],
-      ['Destaque', 'Sofisticacao'],
-      ['Encerramento', 'Saiba mais'],
+    send: [
+      '📷 A principal imagem do seu imóvel',
+    ],
+    receive: [
+      '🎬 Comercial cinematográfico',
+      '🎙️ Narração profissional',
+      '🎵 Trilha sonora sincronizada',
+      '✨ Efeitos cinematográficos',
+      '💡 Iluminação cinematográfica',
+      '🎥 Movimentos de câmera',
+      '📢 CTA para divulgação',
+      '📦 Campanha pronta para publicar',
     ],
   },
   {
     id: 'free_ai',
-    title: 'Comercial IA Livre',
-    label: 'Exemplo sem imagens',
+    title: '✨ Comercial IA Livre',
+    label: 'Criação por IA',
     accent: 'violet',
-    summary: [
-      ['Objetivo', 'Vender um imovel'],
-      ['Tipo', 'Apartamento'],
-      ['Perfil', 'Alto Padrao'],
-      ['Estilo visual', 'Elegante'],
-      ['Atmosfera', 'Golden Hour'],
-      ['Ritmo', 'Impactante'],
+    send: [
+      '💡 Apenas sua ideia',
+    ],
+    receive: [
+      '🎬 Comercial completo',
+      '📝 Roteiro criado pela IA',
+      '🎙️ Narração profissional',
+      '🎵 Trilha sonora',
+      '✨ Efeitos cinematográficos',
+      '🎥 Movimentos de câmera',
+      '📢 CTA para divulgação',
+      '📦 Campanha pronta para publicar',
     ],
   },
   {
     id: 'smart_carousel',
-    title: 'Carrossel Inteligente',
-    label: 'Espaco reservado',
+    title: '🖼️ Carrossel Inteligente',
+    label: 'Apresentação dinâmica',
     accent: 'green',
-    summary: [
-      ['Objetivo', 'Divulgar um imovel'],
-      ['Formato', 'Apresentacao dinamica'],
-      ['Base', 'Varias imagens'],
-      ['Entrega', 'Video curto'],
-      ['Textos', 'Prontos para publicar'],
-      ['Status', 'Preparado para motor futuro'],
+    send: [
+      '🖼️ As imagens do imóvel',
+    ],
+    receive: [
+      '🎬 Apresentação dinâmica',
+      '🔄 Movimentos inteligentes',
+      '✨ Transições profissionais',
+      '🎙️ Narração',
+      '🎵 Música',
+      '📢 CTA para divulgação',
+      '📦 Campanha pronta para publicar',
     ],
   },
   {
     id: 'improve_video',
-    title: 'Melhorar meu Video',
-    label: 'Espaco reservado',
+    title: '🎥 Finalizar meu Vídeo',
+    label: 'Acabamento final',
     accent: 'amber',
-    summary: [
-      ['Objetivo', 'Aprimorar video enviado'],
-      ['Base', 'Video do corretor'],
-      ['Acabamento', 'Legendas e musica'],
-      ['Entrega', 'Video final'],
-      ['Textos', 'Prontos para divulgar'],
-      ['Status', 'Preparado para motor futuro'],
+    send: [
+      '🎥 Seu vídeo',
+    ],
+    receive: [
+      '✨ Acabamento profissional',
+      '🎨 Identidade visual',
+      '🎵 Música',
+      '📢 CTA para divulgação',
+      '📦 Campanha pronta para publicar',
     ],
   },
 ]
+
+const STUDIO_POSSIBILITY_EXAMPLES = [
+  {
+    id: 'sale',
+    title: '🏠 Vender um imóvel',
+    description: 'Ideal para apresentar imóveis, destacar diferenciais e atrair compradores.',
+  },
+  {
+    id: 'rent',
+    title: '🔑 Alugar um imóvel',
+    description: 'Ideal para valorizar imóveis disponíveis para locação e aumentar o interesse de futuros inquilinos.',
+  },
+  {
+    id: 'capture_property',
+    title: '📈 Captar imóveis',
+    description: 'Ideal para conquistar proprietários e ampliar sua carteira com apresentações profissionais.',
+  },
+  {
+    id: 'capture_brokers',
+    title: '🤝 Captar corretores',
+    description: 'Ideal para divulgar oportunidades, fortalecer sua equipe e atrair novos profissionais.',
+  },
+]
+
+const STUDIO_GUIDE_ITEMS_BY_MODE = {
+  cinematic: [
+    'Criar direção criativa para o comercial',
+    'Usar a imagem principal do imóvel',
+    'Gerar uma peça curta para redes sociais',
+    'Entregar vídeo, CTA e textos prontos para divulgação',
+  ],
+  free_ai: [
+    'Criar direção criativa a partir da conversa',
+    'Transformar sua ideia em um comercial completo',
+    'Gerar uma peça curta para redes sociais',
+    'Entregar vídeo, CTA e textos prontos para divulgação',
+  ],
+  smart_carousel: [
+    'Organizar as imagens em sequência',
+    'Criar movimentos e transições',
+    'Montar uma apresentação dinâmica',
+    'Entregar vídeo, CTA e textos prontos para divulgação',
+  ],
+  improve_video: [
+    'Analisar o vídeo enviado',
+    'Aplicar acabamento profissional',
+    'Adicionar identidade visual e CTA',
+    'Entregar o vídeo pronto para publicar',
+  ],
+}
 
 const STUDIO_MODE_ACCENTS = {
   cyan: {
@@ -234,7 +335,7 @@ const RENT_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPER
 
 const SALE_STAGES = ['PRE-LANCAMENTO', 'LANCAMENTO', 'PRONTO']
 
-const RESIDENTIAL_PROFILES = ['MCMV', 'PRONTOS', 'ALTO PADRAO', 'LANÇAMENTO']
+const RESIDENTIAL_PROFILES = ['MCMV', 'PRONTOS', 'ALTO PADRAO', 'LANCAMENTO']
 const HOUSE_LOCATION_OPTIONS = ['CONDOMINIO FECHADO', 'BAIRRO ABERTO']
 
 const UF_OPTIONS = ['SP', 'RJ', 'MG', 'PR', 'SC', 'RS', 'BA', 'PE', 'CE', 'GO', 'DF', 'ES', 'MT', 'MS']
@@ -526,6 +627,33 @@ function normalizeFreeText(value) {
     .slice(0, 60)
 }
 
+const VIDEO_TEXT_TOKEN_DICTIONARY = {
+  EXCLUSIVO: 'EXCLUSIVO',
+  EXCLUIVO: 'EXCLUSIVO',
+  OPORTUNIDADE: 'OPORTUNIDADE',
+  LANCAMENTO: 'LANCAMENTO',
+  PRELANCAMENTO: 'PRE-LANCAMENTO',
+  'PRE LANCAMENTO': 'PRE-LANCAMENTO',
+  'PRE-LANCAMENTO': 'PRE-LANCAMENTO',
+  DISPONIVEL: 'DISPONIVEL',
+  'SAIBA MAIS': 'SAIBA MAIS',
+  QUERVENDER: 'QUER VENDER',
+  'QUER VENDER': 'QUER VENDER',
+  QUERALUGAR: 'QUER ALUGAR',
+  'QUER ALUGAR': 'QUER ALUGAR',
+  CONTRATAMOS: 'CONTRATAMOS',
+}
+
+function normalizeVideoTextToken(value, fallback = '') {
+  const clean = normalizeFreeText(String(value || ''))
+    .replace(/[^A-Z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const compact = clean.replace(/[\s-]+/g, '')
+  return VIDEO_TEXT_TOKEN_DICTIONARY[clean] || VIDEO_TEXT_TOKEN_DICTIONARY[compact] || clean || fallback
+}
+
 function formatDisplayText(value) {
   const minorWords = new Set(['da', 'de', 'do', 'das', 'dos', 'e'])
   return String(value || '')
@@ -569,11 +697,11 @@ function getNormalizedLocation({ district, city, uf, isCapture }) {
 }
 
 function normalizeImpactText(value, fallback, maxWords = 1) {
-  const words = normalizeFreeText(value)
+  const words = normalizeVideoTextToken(value)
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, maxWords)
-  return words.join(' ') || fallback
+  return normalizeVideoTextToken(words.join(' '), fallback)
 }
 
 function getCommercialImpactWord(answers) {
@@ -597,11 +725,11 @@ function getCommercialImpactWord(answers) {
 }
 
 function getShortCtaPreview(cta) {
-  const clean = normalizeFreeText(cta)
-  if (/SAIBA/.test(clean)) return 'SAIBA MAIS'
-  if (/AGENDE|VISITA/.test(clean)) return 'AGENDE'
-  if (/CONTATO|FALE|CORRETOR|WHATS/.test(clean)) return 'CONTATO'
-  if (/VISITE|CONHECA|QUERO/.test(clean)) return 'VISITE'
+  const clean = normalizeVideoTextToken(cta)
+  if (/SAIBA/.test(clean)) return normalizeVideoTextToken('SAIBA MAIS')
+  if (/AGENDE|VISITA/.test(clean)) return normalizeVideoTextToken('AGENDE')
+  if (/CONTATO|FALE|CORRETOR|WHATS/.test(clean)) return normalizeVideoTextToken('CONTATO')
+  if (/VISITE|CONHECA|QUERO/.test(clean)) return normalizeVideoTextToken('VISITE')
   return normalizeImpactText(clean, 'SAIBA MAIS', 2)
 }
 
@@ -759,11 +887,38 @@ function getObjectiveSummaryLabel(objectiveId) {
   return OBJECTIVE_OPTIONS.find((item) => item.id === objectiveId)?.summaryLabel || ''
 }
 
+const STUDIO_COPY_INTERNAL_TERMS = new Set([
+  'TODOS',
+  'TODAS',
+  'QUER ALUGAR',
+  'QUER VENDER',
+  'CONTRATAMOS',
+  'EXCLUSIVO',
+  'OUTRO',
+])
+
+function getStudioCopyPropertyType(answers) {
+  if (answers.objective === 'property_capture') return 'Imovel'
+  return answers.propertyType
+}
+
+function getStudioCopyFeatures(answers) {
+  return [
+    ...answers.differentials,
+    ...answers.rentConditions,
+    answers.brokerCommission ? `comissao ${answers.brokerCommission}%` : '',
+    ...answers.brokerBenefits,
+    answers.brokerBenefitOther,
+  ]
+    .map((item) => String(item || '').trim())
+    .filter((item) => item && !STUDIO_COPY_INTERNAL_TERMS.has(item.toUpperCase()))
+}
+
 function buildDeliveryTexts({ answers, districtValue, cityValue }) {
   return buildPublicationPackage({
     objective: answers.objective,
     objectiveLabel: getObjectiveSummaryLabel(answers.objective),
-    propertyType: answers.propertyType,
+    propertyType: getStudioCopyPropertyType(answers),
     profile: answers.profile,
     city: cityValue,
     district: districtValue,
@@ -773,13 +928,7 @@ function buildDeliveryTexts({ answers, districtValue, cityValue }) {
       uf: answers.uf,
       isCapture: isCaptureObjective(answers.objective),
     }),
-    features: [
-      ...answers.differentials,
-      ...answers.rentConditions,
-      answers.brokerCommission ? `comissao ${answers.brokerCommission}%` : '',
-      ...answers.brokerBenefits,
-      answers.brokerBenefitOther,
-    ].filter(Boolean),
+    features: getStudioCopyFeatures(answers),
     bedrooms: answers.bedrooms,
     suites: answers.suites,
     parking: answers.parking,
@@ -789,20 +938,37 @@ function buildDeliveryTexts({ answers, districtValue, cityValue }) {
 }
 
 async function invokeStudioFunction(name, body) {
-  const { data: sessionData } = await supabase.auth.getSession()
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      apikey: anonKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
+  if (sessionError) {
+    logStudioHero('error', 'studio_hero_supabase_session_error', {
+      functionName: name,
+      message: sessionError.message,
+    })
+  }
+
+  let response
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: anonKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  } catch (error) {
+    logStudioHero('error', 'studio_hero_function_fetch_error', {
+      functionName: name,
+      message: error instanceof Error ? error.message : String(error),
+      requestBody: sanitizeStudioHeroDiagnostic(body),
+    })
+    throw error
+  }
 
   const responseText = await response.text()
   let responseBody = null
@@ -815,7 +981,9 @@ async function invokeStudioFunction(name, body) {
   logStudioHero('info', 'studio_hero_function_response', {
     functionName: name,
     status: response.status,
+    statusText: response.statusText,
     ok: response.ok,
+    responseBody: sanitizeStudioHeroDiagnostic(responseBody),
   })
 
   return {
@@ -842,9 +1010,11 @@ export default function StudioHero() {
   const isSale = answers.objective === 'sale'
   const isRent = answers.objective === 'rent'
   const isFreeAiMode = studioMode === 'free_ai'
+  const guideItems = STUDIO_GUIDE_ITEMS_BY_MODE[studioMode] || STUDIO_GUIDE_ITEMS_BY_MODE.cinematic
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
   const isPropertyCapture = answers.objective === 'property_capture'
   const isBrokerCapture = answers.objective === 'broker_capture'
+  const isCommercialProperty = isCommercialType(answers.propertyType)
   const isCapture = isCaptureObjective(answers.objective)
   const propertyTypeOptions = getPropertyTypeOptions(answers.objective)
   const profileOptions = getProfileOptions(answers)
@@ -892,6 +1062,9 @@ export default function StudioHero() {
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
   const progressPercent = Math.min(100, Math.max(8, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
   const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode)
+  const propertyFeaturesSummary = isCommercialProperty
+    ? [answers.area, answers.parking].filter(Boolean).join(', ')
+    : [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
   const stepSummaries = {
     1: answers.objective ? getObjectiveSummaryLabel(answers.objective) : '',
     2: isPropertyCampaign ? answers.propertyType : displayLocation,
@@ -910,7 +1083,7 @@ export default function StudioHero() {
       ].filter(Boolean).join(', ')
       : '',
     [propertyFeaturesStep]: hasFreeAiPropertyFeaturesStep
-      ? [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
+      ? propertyFeaturesSummary
       : '',
     [ctaStep]: answers.cta,
     [furnishingStep]: !isFreeAiMode ? answers.furnishingStatus : '',
@@ -928,7 +1101,8 @@ export default function StudioHero() {
 
   const hasRequiredCinematicImage = IMAGE_SLOTS.every((slot) => files[slot.key])
   const hasRequiredFreeAiBriefing = Boolean(answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)
-  const hasRequiredFreeAiPropertyFeatures = !hasFreeAiPropertyFeaturesStep || Boolean(answers.bedrooms && answers.suites && answers.parking)
+  const hasRequiredFreeAiPropertyFeatures = !hasFreeAiPropertyFeaturesStep
+    || (isCommercialProperty ? Boolean(answers.area && answers.parking) : Boolean(answers.bedrooms && answers.suites && answers.parking))
   const hasRequiredModeInputs = isFreeAiMode
     ? Boolean(hasRequiredFreeAiBriefing && hasRequiredFreeAiPropertyFeatures)
     : Boolean(answers.furnishingStatus && answers.decorationPolicy && hasRequiredCinematicImage)
@@ -1291,15 +1465,19 @@ export default function StudioHero() {
       const result = await invokeStudioFunction('get-video-job-status', { jobId: normalizedJobId })
       const data = result.body
 
-      if (!result.ok) throw new Error(data?.error || 'Falha ao consultar comercial.')
-      if (!data?.ok) throw new Error(data?.error || 'Comercial ainda nao disponivel.')
-
       logStudioHero('info', 'studio_hero_poll_status', {
         jobId: normalizedJobId,
-        status: data.status,
-        hasSignedVideoUrl: Boolean(data.signedVideoUrl || data.signedUrl || data.videoUrl),
-        hasError: Boolean(data.error),
+        httpStatus: result.status,
+        httpOk: result.ok,
+        jobStatus: data?.status,
+        hasSignedVideoUrl: Boolean(data?.signedVideoUrl || data?.signedUrl || data?.videoUrl),
+        hasError: Boolean(data?.error || data?.errorMessage),
+        error: data?.error || data?.errorMessage || '',
+        responseBody: sanitizeStudioHeroDiagnostic(data),
       })
+
+      if (!result.ok) throw new Error(data?.error || 'Falha ao consultar comercial.')
+      if (!data?.ok) throw new Error(data?.error || 'Comercial ainda nao disponivel.')
 
       if (data.status === 'completed') {
         const nextVideoUrl = data.signedVideoUrl || data.signedUrl || data.videoUrl || ''
@@ -1318,9 +1496,19 @@ export default function StudioHero() {
       }
 
       if (data.status === 'failed') {
+        const diagnosticMessage = String(data.errorMessage || data.error || '').trim()
+        logStudioHero('error', 'studio_hero_poll_failed_job', {
+          jobId: normalizedJobId,
+          httpStatus: result.status,
+          jobStatus: data.status,
+          error: diagnosticMessage,
+          responseBody: sanitizeStudioHeroDiagnostic(data),
+        })
         clearPolling()
         setStatus('failed')
-        setMessage('Nao foi possivel criar o comercial neste momento.')
+        setMessage(IS_DEV && diagnosticMessage
+          ? `Erro tecnico da geracao: ${diagnosticMessage}`
+          : 'Nao foi possivel criar o comercial neste momento.')
         return
       }
 
@@ -1370,14 +1558,20 @@ export default function StudioHero() {
       setStatus('generating')
       setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Criando seu comercial...')
 
+      const nativeVideoText = {
+        offer: normalizeVideoTextToken(answers.oferta),
+        feature: normalizeVideoTextToken(finalFeatures),
+        cta: normalizeVideoTextToken(answers.cta),
+      }
+
       const payload = {
         mode: isFreeAiMode ? 'free_ai' : 'cinematic',
         creativeMode: isFreeAiMode ? 'free_ai' : 'cinematic',
         style: answers.profile || 'ALTO PADRAO',
         bairro: normalizedLocation,
-        caracteristica: finalFeatures,
-        oferta: answers.oferta,
-        cta: answers.cta,
+        caracteristica: nativeVideoText.feature,
+        oferta: nativeVideoText.offer,
+        cta: nativeVideoText.cta,
         briefing: {
           objective: answers.objective,
           objectiveLabel: getObjectiveSummaryLabel(answers.objective),
@@ -1398,9 +1592,9 @@ export default function StudioHero() {
           brokerCommission: answers.brokerCommission,
           brokerBenefits: answers.brokerBenefits,
           brokerBenefitOther: answers.brokerBenefitOther,
-          offer: answers.oferta,
-          cta: answers.cta,
-          finalFeatures,
+          offer: nativeVideoText.offer,
+          cta: nativeVideoText.cta,
+          finalFeatures: nativeVideoText.feature,
           creativeMode: answers.creativeMode,
           furnishingStatus: answers.furnishingStatus,
           decorationPolicy: answers.decorationPolicy,
@@ -1418,6 +1612,29 @@ export default function StudioHero() {
         creativeMode: payload.creativeMode,
         requiresImages,
         hasInputImage1Path: Boolean(inputImage1Path),
+        payload: sanitizeStudioHeroDiagnostic({
+          jobId: payload.jobId,
+          style: payload.style,
+          bairro: payload.bairro,
+          caracteristica: payload.caracteristica,
+          oferta: payload.oferta,
+          cta: payload.cta,
+          briefing: {
+            objective: payload.briefing.objective,
+            objectiveLabel: payload.briefing.objectiveLabel,
+            propertyType: payload.briefing.propertyType,
+            profile: payload.briefing.profile,
+            city: payload.briefing.city,
+            district: payload.briefing.district,
+            normalizedLocation: payload.briefing.normalizedLocation,
+            finalFeatures: payload.briefing.finalFeatures,
+            creativeMode: payload.briefing.creativeMode,
+            visualStyle: payload.briefing.visualStyle,
+            atmosphere: payload.briefing.atmosphere,
+            pace: payload.briefing.pace,
+            creativeFreedom: payload.briefing.creativeFreedom,
+          },
+        }),
       })
 
       const result = await invokeStudioFunction('criar-video-ia', payload)
@@ -1439,6 +1656,7 @@ export default function StudioHero() {
     } catch (error) {
       logStudioHero('error', 'studio_hero_generate_error', {
         message: error instanceof Error ? error.message : String(error),
+        error: sanitizeStudioHeroDiagnostic(error),
       })
       setStatus('failed')
       const friendlyMessage = error instanceof Error && /JPG|PNG|imagem|assinantes|Smart Tokens/i.test(error.message)
@@ -1522,6 +1740,57 @@ export default function StudioHero() {
             </div>
           )}
 
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-6">
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Soluções Studio Hero</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">✨ Descubra o que você pode criar</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única.
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-4">
+              {STUDIO_MODE_EXAMPLES.map((example) => {
+                const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
+                return (
+                  <div key={example.id} className={`overflow-hidden rounded-3xl border p-4 ${accent.card}`}>
+                    <div className="mx-auto max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
+                      <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#0e7490_100%)]">
+                        <div className={`absolute inset-0 bg-gradient-to-b ${accent.glow}`} />
+                        <div className="relative px-4 text-center text-white">
+                          <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
+                          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{example.label}</p>
+                          <p className="mt-2 text-base font-black leading-tight">{example.title}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
+                        <p className="text-xs font-black text-slate-950">💬 Você conversa com a IA e envia:</p>
+                        <ul className="mt-2 space-y-1.5">
+                          {example.send.map((item) => (
+                            <li key={`${example.id}-${item}`} className="text-xs font-bold leading-5 text-slate-600">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
+                        <p className="text-xs font-black text-slate-950">✨ E recebe:</p>
+                        <ul className="mt-2 space-y-1.5">
+                          {example.receive.map((item) => (
+                            <li key={`${example.id}-${item}`} className="text-xs font-bold leading-5 text-slate-600">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {STUDIO_CREATION_MODES.map((mode) => {
               const ModeIcon = mode.Icon
@@ -1550,43 +1819,6 @@ export default function StudioHero() {
                 </button>
               )
             })}
-          </section>
-
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-6">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplos dos modos</p>
-              <h2 className="mt-2 text-2xl font-black text-slate-950">Mesmo Studio Hero, entregas diferentes</h2>
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-                Todos os modos seguem a mesma conversa, o mesmo resumo e o mesmo pacote de materiais. O que muda e apenas a etapa final de criacao.
-              </p>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-4">
-              {STUDIO_MODE_EXAMPLES.map((example) => {
-                const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
-                return (
-                  <div key={example.id} className={`overflow-hidden rounded-3xl border p-4 ${accent.card}`}>
-                    <div className="mx-auto max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
-                      <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#0e7490_100%)]">
-                        <div className={`absolute inset-0 bg-gradient-to-b ${accent.glow}`} />
-                        <div className="relative px-4 text-center text-white">
-                          <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
-                          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{example.label}</p>
-                          <p className="mt-2 text-base font-black leading-tight">{example.title}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {example.summary.map(([label, value]) => (
-                        <div key={`${example.id}-${label}`} className="rounded-2xl border border-white/70 bg-white/90 px-3 py-2">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-                          <p className="mt-0.5 text-xs font-black text-slate-950">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
           </section>
         </div>
       </main>
@@ -1638,12 +1870,7 @@ export default function StudioHero() {
                 <p className="font-black">Como vamos conduzir?</p>
               </div>
               <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-slate-100">
-                {[
-                  'Criar direcao criativa para o comercial',
-                  'Usar as melhores imagens do imovel',
-                  'Gerar uma peca curta para redes sociais',
-                  'Entregar textos prontos para divulgacao',
-                ].map((item) => (
+                {guideItems.map((item) => (
                   <li key={item} className="flex gap-3">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
                     <span>{item}</span>
@@ -1654,36 +1881,7 @@ export default function StudioHero() {
           </div>
         </section>
 
-        {/* Regra futura: Produtos 1, 2 e 4 devem exibir exemplo real antes da primeira pergunta. */}
-        <section className="overflow-hidden rounded-[2rem] border border-cyan-100 bg-white p-5 shadow-xl shadow-cyan-100/50 sm:p-6">
-          <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplo real</p>
-              <h2 className="mt-2 text-2xl font-black text-slate-950">
-                Veja um exemplo real
-              </h2>
-              <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-600">
-                Exemplo de video criado a partir da nossa conversa e das imagens do imovel.
-              </p>
-              <p className="mt-3 max-w-xl text-xs font-semibold leading-5 text-slate-500">
-                Cada comercial e unico. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.
-              </p>
-            </div>
-            <div className="mx-auto w-full max-w-[360px] rounded-[2.4rem] border border-cyan-100 bg-slate-950 p-3 shadow-2xl shadow-cyan-950/25 ring-1 ring-cyan-100/70">
-              <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-white/20" />
-              <div className="overflow-hidden rounded-[1.8rem] bg-slate-950">
-                <video
-                  src={STUDIO_HERO_DEMO_VIDEO_URL}
-                  controls
-                  muted
-                  playsInline
-                  preload="metadata"
-                  className="aspect-[9/16] w-full bg-slate-950 object-cover"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
+        <StudioPossibilitiesShowcase />
 
         <section className="space-y-5 pb-12">
           <div className="rounded-3xl border border-cyan-100 bg-white/85 p-4 shadow-sm backdrop-blur">
@@ -2078,18 +2276,29 @@ export default function StudioHero() {
                 <p className="text-sm font-bold text-slate-500">
                   Esses dados ajudam a narrativa do comercial sem inventar informacoes.
                 </p>
-                <OptionGroup
-                  title="Dormitorios"
-                  options={FREE_AI_BEDROOM_OPTIONS}
-                  value={answers.bedrooms}
-                  onSelect={(value) => updatePropertyCharacteristic('bedrooms', value)}
-                />
-                <OptionGroup
-                  title="Suites"
-                  options={FREE_AI_SUITE_OPTIONS}
-                  value={answers.suites}
-                  onSelect={(value) => updatePropertyCharacteristic('suites', value)}
-                />
+                {isCommercialProperty ? (
+                  <OptionGroup
+                    title="Área útil (m²)"
+                    options={AREA_OPTIONS}
+                    value={answers.area}
+                    onSelect={(value) => updatePropertyCharacteristic('area', value)}
+                  />
+                ) : (
+                  <>
+                    <OptionGroup
+                      title="Dormitorios"
+                      options={FREE_AI_BEDROOM_OPTIONS}
+                      value={answers.bedrooms}
+                      onSelect={(value) => updatePropertyCharacteristic('bedrooms', value)}
+                    />
+                    <OptionGroup
+                      title="Suites"
+                      options={FREE_AI_SUITE_OPTIONS}
+                      value={answers.suites}
+                      onSelect={(value) => updatePropertyCharacteristic('suites', value)}
+                    />
+                  </>
+                )}
                 <OptionGroup
                   title="Vagas"
                   options={FREE_AI_PARKING_OPTIONS}
@@ -2099,7 +2308,7 @@ export default function StudioHero() {
                 <div className="flex justify-end">
                   <Button
                     type="button"
-                    disabled={!answers.bedrooms || !answers.suites || !answers.parking}
+                    disabled={!hasRequiredFreeAiPropertyFeatures}
                     onClick={() => setStep(ctaStep)}
                   >
                     Confirmar caracteristicas
@@ -2186,7 +2395,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.differentials.length > 0 && (!hasFreeAiPropertyFeaturesStep || (answers.bedrooms && answers.suites && answers.parking)) && (!isBrokerCapture || answers.brokerHasBenefits) && step >= ctaStep && (
+          {answers.differentials.length > 0 && hasRequiredFreeAiPropertyFeatures && (!isBrokerCapture || answers.brokerHasBenefits) && step >= ctaStep && (
             <AssistantStep
               number={ctaStep}
               currentStep={step}
@@ -2385,6 +2594,7 @@ export default function StudioHero() {
                     message={message}
                     generationMessage={generationMessage}
                     videoUrl={videoUrl}
+                    propertyFeaturesSummary={propertyFeaturesSummary}
                     onEdit={setStep}
                     onEditImages={goToUploadStep}
                     onGenerate={handleGenerate}
@@ -2460,6 +2670,59 @@ export default function StudioHero() {
         </section>
       </div>
     </main>
+  )
+}
+
+function StudioPossibilitiesShowcase() {
+  return (
+    <section className="overflow-hidden rounded-[2rem] border border-cyan-100 bg-white p-5 shadow-xl shadow-cyan-100/50 sm:p-6">
+      <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-700">Possibilidades Studio Hero</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">
+            ✨ Descubra o que você pode criar
+          </h2>
+          <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-600">
+            Cada conversa com a IA gera um resultado único.
+          </p>
+          <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
+            Escolha um objetivo e veja algumas das possibilidades que o Studio Hero pode criar para você.
+          </p>
+          <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
+            <p className="text-sm font-black text-cyan-950">Nenhum vídeo é igual ao outro.</p>
+            <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
+              Cada criação é gerada exclusivamente a partir da conversa realizada com a IA.
+            </p>
+            <p className="mt-4 text-sm font-black text-cyan-950">✨ Cada campanha é única.</p>
+            <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
+              A IA cria uma nova campanha a cada geração. As imagens são ilustrativas, criadas para chamar a atenção e representar o conceito da campanha, podendo ser diferentes do imóvel real.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {STUDIO_POSSIBILITY_EXAMPLES.map((example, index) => (
+            <article key={example.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+              <div className="rounded-[1.6rem] border border-slate-200 bg-slate-950 p-2 shadow-lg shadow-slate-200/70">
+                <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.15rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#0e7490_100%)]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(103,232,249,0.22),transparent_36%)]" />
+                  <div className="relative px-4 text-center text-white">
+                    <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
+                    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
+                      Espaço para vídeo
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-1 pb-1 pt-4">
+                <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplo {index + 1}</p>
+                <h3 className="mt-2 text-base font-black leading-tight text-slate-950">{example.title}</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -2787,7 +3050,7 @@ function TypewriterText({ text, active }) {
   )
 }
 
-function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, onEdit, onEditImages, onGenerate, mode = 'cinematic' }) {
+function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, propertyFeaturesSummary = '', onEdit, onEditImages, onGenerate, mode = 'cinematic' }) {
   const isSale = answers.objective === 'sale'
   const isFreeAiMode = mode === 'free_ai'
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
@@ -2843,7 +3106,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
         answers.brokerBenefitOther,
       ].filter(Boolean).join(', '), benefitDetailsStep]]
       : []),
-    ...(hasFreeAiPropertyFeaturesStep ? [['Caracteristicas', [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', '), propertyFeaturesStep]] : []),
+    ...(hasFreeAiPropertyFeaturesStep ? [['Caracteristicas', propertyFeaturesSummary, propertyFeaturesStep]] : []),
     ['Encerramento', answers.cta, ctaStep],
     ...(isFreeAiMode ? [
       ['Modo', 'Criacao livre com IA', uploadStep],

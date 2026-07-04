@@ -35,6 +35,32 @@ function isAdminBypassUser(profile: ProfileRow | null, user: { email?: string | 
   return role === 'admin' || email === 'riccieri68@gmail.com'
 }
 
+function sanitizeDebugText(value: unknown, maxLength = 500) {
+  return String(value || '')
+    .replace(/key=[A-Za-z0-9._~-]+/gi, 'key=[redacted]')
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [redacted]')
+    .replace(/AIza[0-9A-Za-z_-]+/g, '[redacted_api_key]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+}
+
+function buildFailedJobDebug(job: {
+  id?: unknown
+  status?: unknown
+  model?: unknown
+  provider_job_id?: unknown
+  error_message?: unknown
+}) {
+  return {
+    jobId: String(job.id || ''),
+    status: String(job.status || ''),
+    providerModel: sanitizeDebugText(job.model, 160),
+    providerJobId: sanitizeDebugText(job.provider_job_id, 240),
+    errorMessage: sanitizeDebugText(job.error_message, 500),
+  }
+}
+
 async function cancelCredits(supabase: ReturnType<typeof createClient>, userId: string, idempotencyKey: string, reason: string) {
   if (!idempotencyKey) return
   const { error } = await supabase.rpc('cancel_credit_reservation', {
@@ -121,7 +147,7 @@ serve(async (req) => {
 
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id, user_id, status, provider_job_id, output_video_path, credit_idempotency_key')
+      .select('id, user_id, status, provider_job_id, output_video_path, credit_idempotency_key, error_message, model')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .single()
@@ -142,11 +168,14 @@ serve(async (req) => {
     }
 
     if (job.status === 'failed') {
+      const errorMessage = sanitizeDebugText(job.error_message, 500)
       return jsonResponse({
         ok: true,
         status: 'failed',
         jobId: job.id,
         error: 'Nao foi possivel gerar o video neste momento.',
+        errorMessage,
+        debug: buildFailedJobDebug(job),
       })
     }
 
@@ -191,12 +220,13 @@ serve(async (req) => {
     }
 
     if (providerStatus.status === 'failed') {
+      const providerErrorMessage = sanitizeDebugText(providerStatus.errorMessage, 500)
       await cancelCredits(supabase, user.id, String(job.credit_idempotency_key || ''), 'studio_hero_provider_failed')
       await supabase
         .from('video_jobs')
         .update({
           status: 'failed',
-          error_message: providerStatus.errorMessage.slice(0, 500),
+          error_message: providerErrorMessage,
         })
         .eq('id', job.id)
         .eq('user_id', user.id)
@@ -206,6 +236,12 @@ serve(async (req) => {
         status: 'failed',
         jobId: job.id,
         error: 'Nao foi possivel gerar o video neste momento.',
+        errorMessage: providerErrorMessage,
+        debug: buildFailedJobDebug({
+          ...job,
+          status: 'failed',
+          error_message: providerErrorMessage,
+        }),
       })
     }
 
