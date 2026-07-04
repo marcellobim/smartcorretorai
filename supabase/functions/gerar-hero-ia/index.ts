@@ -55,6 +55,68 @@ function normalizeLongText(value: unknown, maxLength = 5000) {
     .slice(0, maxLength)
 }
 
+function normalizeContactPhone(value: unknown, maxLength = 80) {
+  return String(value ?? '').trim().slice(0, maxLength)
+}
+
+function normalizeContactPhoneForDisplay(phone: unknown) {
+  const original = String(phone ?? '').trim().replace(/\.+$/g, '')
+  if (!original) return ''
+
+  const digits = original.replace(/\D/g, '')
+  const hasBrazilPrefix = /^\s*\+55/.test(original)
+  const nationalDigits = hasBrazilPrefix && (digits.length === 12 || digits.length === 13)
+    ? digits.slice(2)
+    : digits
+
+  if (hasBrazilPrefix && nationalDigits.length === 11) {
+    return `+55 ${nationalDigits.slice(0, 2)} ${nationalDigits.slice(2, 7)}-${nationalDigits.slice(7)}`
+  }
+
+  if (hasBrazilPrefix && nationalDigits.length === 10) {
+    return `+55 ${nationalDigits.slice(0, 2)} ${nationalDigits.slice(2, 6)}-${nationalDigits.slice(6)}`
+  }
+
+  if (nationalDigits.length === 11) {
+    return `(${nationalDigits.slice(0, 2)}) ${nationalDigits.slice(2, 7)}-${nationalDigits.slice(7)}`
+  }
+
+  if (nationalDigits.length === 10) {
+    return `(${nationalDigits.slice(0, 2)}) ${nationalDigits.slice(2, 6)}-${nationalDigits.slice(6)}`
+  }
+
+  return original
+}
+
+function formatAreaForDisplay(area: unknown) {
+  const original = normalizeText(area, 80)
+  if (!original) return ''
+
+  const match = original.match(/^(\d+(?:[.,]\d+)?)\s*(?:m2|m\u00b2)?$/i)
+  if (!match) return original
+
+  return `${match[1]} m\u00b2`
+}
+
+function formatCurrencyForDisplay(value: unknown, objective?: unknown) {
+  const original = normalizeText(value, 120)
+  if (!original) return ''
+  if (/R\$/i.test(original)) return original
+
+  const numeric = original.replace(/\s/g, '')
+  if (!/^\d+([.,]\d{1,2})?$/.test(numeric)) return original
+
+  const [integerPart, decimalPart = ''] = numeric.split(/[.,]/)
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  const formattedDecimal = decimalPart ? `,${decimalPart.padEnd(2, '0').slice(0, 2)}` : ''
+  const comparableObjective = normalizeComparableText(objective)
+  const suffix = comparableObjective.includes('locacao') || comparableObjective.includes('rent') || comparableObjective.includes('aluguel')
+    ? '/m\u00eas'
+    : ''
+
+  return `R$ ${formattedInteger}${formattedDecimal}${suffix}`
+}
+
 function normalizeId(value: unknown, allowed?: Set<string>) {
   const normalized = normalizeText(value, 80)
     .toLowerCase()
@@ -230,13 +292,40 @@ function normalizeDeliverables(input: unknown) {
   return deliverables
 }
 
+function formatValueConditionDetails(details: unknown, mode: string, label: string) {
+  const text = normalizeText(details, 280)
+  if (!text) return ''
+
+  const objective = mode.includes('rent') || normalizeComparableText(label).includes('locacao') || normalizeComparableText(label).includes('aluguel')
+    ? 'locacao'
+    : 'venda'
+
+  return text
+    .split('|')
+    .map((part) => {
+      const item = part.trim()
+      const separatorIndex = item.indexOf(':')
+      if (separatorIndex < 0) return item
+
+      const key = item.slice(0, separatorIndex).trim()
+      const value = item.slice(separatorIndex + 1).trim()
+      if (!value) return item
+
+      const formatted = formatCurrencyForDisplay(value, key.toLowerCase().includes('aluguel') ? 'locacao' : objective)
+      return `${key}: ${formatted}`
+    })
+    .filter(Boolean)
+    .join(' | ')
+}
+
 function normalizeValueCondition(input: unknown) {
   const source = input && typeof input === 'object' ? input as JsonRecord : {}
   const mode = normalizeId(source.mode)
+  const label = normalizeText(source.label, 120)
   return {
     mode: mode || 'hide_values',
-    label: normalizeText(source.label, 120),
-    details: normalizeText(source.details, 280),
+    label,
+    details: formatValueConditionDetails(source.details, mode, label),
   }
 }
 
@@ -317,120 +406,120 @@ function buildHeroVisualStrategy(input: {
 
   if (combined.includes('locacao') || combined.includes('aluguel')) {
     return {
-      family: 'Locação prática',
-      promise: 'Disponibilidade clara, localização valorizada e contato rápido para visita.',
-      visualDirection: 'Peça limpa, objetiva e prática, com aparência urbana, confiável e fácil de entender.',
+      family: 'LocaÃ§Ã£o prÃ¡tica',
+      promise: 'Disponibilidade clara, localizaÃ§Ã£o valorizada e contato rÃ¡pido para visita.',
+      visualDirection: 'PeÃ§a limpa, objetiva e prÃ¡tica, com aparÃªncia urbana, confiÃ¡vel e fÃ¡cil de entender.',
       palette: 'Branco, azul, cinza claro, verde pontual e tons neutros; evitar preto/dourado dominante.',
-      hierarchy: 'Imagem principal do imóvel, localização em destaque, CTA forte e poucos dados úteis para decisão rápida.',
-      tone: 'Direto, comercial, acessível e orientado à ação.',
-      avoid: 'Não usar estética de lançamento, compra, luxo pesado, promessa de investimento ou linguagem aspiracional exagerada.',
+      hierarchy: 'Imagem principal do imÃ³vel, localizaÃ§Ã£o em destaque, CTA forte e poucos dados Ãºteis para decisÃ£o rÃ¡pida.',
+      tone: 'Direto, comercial, acessÃ­vel e orientado Ã  aÃ§Ã£o.',
+      avoid: 'NÃ£o usar estÃ©tica de lanÃ§amento, compra, luxo pesado, promessa de investimento ou linguagem aspiracional exagerada.',
     }
   }
 
   if (combined.includes('minha casa') || combined.includes('mcmv') || combined.includes('popular') || combined.includes('casa propria')) {
     return {
-      family: 'MCMV / Casa própria',
-      promise: 'Facilitar a conquista do primeiro imóvel e transmitir oportunidade real de sair do aluguel.',
-      visualDirection: 'Visual claro, acessível, moderno e otimista, com sensação de novo começo, acolhimento e conquista.',
+      family: 'MCMV / Casa prÃ³pria',
+      promise: 'Facilitar a conquista do primeiro imÃ³vel e transmitir oportunidade real de sair do aluguel.',
+      visualDirection: 'Visual claro, acessÃ­vel, moderno e otimista, com sensaÃ§Ã£o de novo comeÃ§o, acolhimento e conquista.',
       palette: 'Azul, verde, laranja, amarelo, branco e tons claros; evitar preto, dourado, luxo e alto contraste pesado.',
-      hierarchy: 'Headline emocional e simples, CTA muito visível, poucos dados e leitura imediata em celular.',
-      tone: 'Popular qualificado, humano, positivo e direto, sem linguagem de alto padrão.',
-      avoid: 'Não aplicar estética de luxo, não usar navy/dourado como base e não transformar a peça em ficha técnica fria.',
+      hierarchy: 'Headline emocional e simples, CTA muito visÃ­vel, poucos dados e leitura imediata em celular.',
+      tone: 'Popular qualificado, humano, positivo e direto, sem linguagem de alto padrÃ£o.',
+      avoid: 'NÃ£o aplicar estÃ©tica de luxo, nÃ£o usar navy/dourado como base e nÃ£o transformar a peÃ§a em ficha tÃ©cnica fria.',
     }
   }
 
   if (combined.includes('lancamento') || combined.includes('pre-lancamento') || combined.includes('pre lancamento')) {
     return {
-      family: 'Lançamento / Oportunidade',
-      promise: 'Apresentar novidade, oportunidade de entrada e sensação de momento certo.',
-      visualDirection: 'Visual fresco, contemporâneo e energético, com composição clara de oportunidade e campanha de lançamento.',
-      palette: 'Branco, azul, verde, laranja, tons claros e acentos vibrantes; luxo só se o perfil também for alto padrão.',
+      family: 'LanÃ§amento / Oportunidade',
+      promise: 'Apresentar novidade, oportunidade de entrada e sensaÃ§Ã£o de momento certo.',
+      visualDirection: 'Visual fresco, contemporÃ¢neo e energÃ©tico, com composiÃ§Ã£o clara de oportunidade e campanha de lanÃ§amento.',
+      palette: 'Branco, azul, verde, laranja, tons claros e acentos vibrantes; luxo sÃ³ se o perfil tambÃ©m for alto padrÃ£o.',
       hierarchy: 'Headline de oportunidade, selo ou chamada curta, CTA destacado e imagem principal limpa.',
-      tone: 'Confiante, convidativo e orientado a ação rápida.',
-      avoid: 'Não parecer folder institucional antigo, prancha de empreendimento ou mosaico de formatos.',
+      tone: 'Confiante, convidativo e orientado a aÃ§Ã£o rÃ¡pida.',
+      avoid: 'NÃ£o parecer folder institucional antigo, prancha de empreendimento ou mosaico de formatos.',
     }
   }
 
-  if (combined.includes('metro') || combined.includes('metrô') || combined.includes('mobilidade') || combined.includes('transporte') || combined.includes('perto de tudo')) {
+  if (combined.includes('metro') || combined.includes('metrÃ´') || combined.includes('mobilidade') || combined.includes('transporte') || combined.includes('perto de tudo')) {
     return {
-      family: 'Mobilidade / Localização',
-      promise: 'Mostrar rotina facilitada, acesso, bairro e conveniência como argumentos centrais.',
-      visualDirection: 'Visual urbano, leve e dinâmico, com sensação de cidade, praticidade e deslocamento fácil.',
+      family: 'Mobilidade / LocalizaÃ§Ã£o',
+      promise: 'Mostrar rotina facilitada, acesso, bairro e conveniÃªncia como argumentos centrais.',
+      visualDirection: 'Visual urbano, leve e dinÃ¢mico, com sensaÃ§Ã£o de cidade, praticidade e deslocamento fÃ¡cil.',
       palette: 'Branco, azul, verde, cinza claro e acentos laranja ou amarelos; evitar luxo escuro dominante.',
-      hierarchy: 'Localização e CTA primeiro, depois benefício de rotina e um dado objetivo do imóvel.',
-      tone: 'Moderno, útil, claro e voltado para o dia a dia.',
-      avoid: 'Não inventar metrô, estação, comércio, vista ou serviços se não foram informados.',
+      hierarchy: 'LocalizaÃ§Ã£o e CTA primeiro, depois benefÃ­cio de rotina e um dado objetivo do imÃ³vel.',
+      tone: 'Moderno, Ãºtil, claro e voltado para o dia a dia.',
+      avoid: 'NÃ£o inventar metrÃ´, estaÃ§Ã£o, comÃ©rcio, vista ou serviÃ§os se nÃ£o foram informados.',
     }
   }
 
   if (combined.includes('invest') || combined.includes('valoriz') || combined.includes('rentabilidade') || combined.includes('renda')) {
     return {
-      family: 'Investimento / Valorização',
-      promise: 'Comunicar potencial, escassez, valorização e racional de oportunidade sem inventar números.',
-      visualDirection: 'Visual sólido, moderno e analítico, com aparência de oportunidade imobiliária confiável.',
-      palette: 'Azul profundo moderado, branco, cinza, verde e detalhes metálicos discretos; dourado só como acento.',
-      hierarchy: 'Promessa de oportunidade, localização, CTA e benefício financeiro qualitativo sem dados inventados.',
-      tone: 'Seguro, racional, estratégico e objetivo.',
-      avoid: 'Não prometer rentabilidade, porcentagem, ROI, escassez ou valorização específica sem dado fornecido.',
+      family: 'Investimento / ValorizaÃ§Ã£o',
+      promise: 'Comunicar potencial, escassez, valorizaÃ§Ã£o e racional de oportunidade sem inventar nÃºmeros.',
+      visualDirection: 'Visual sÃ³lido, moderno e analÃ­tico, com aparÃªncia de oportunidade imobiliÃ¡ria confiÃ¡vel.',
+      palette: 'Azul profundo moderado, branco, cinza, verde e detalhes metÃ¡licos discretos; dourado sÃ³ como acento.',
+      hierarchy: 'Promessa de oportunidade, localizaÃ§Ã£o, CTA e benefÃ­cio financeiro qualitativo sem dados inventados.',
+      tone: 'Seguro, racional, estratÃ©gico e objetivo.',
+      avoid: 'NÃ£o prometer rentabilidade, porcentagem, ROI, escassez ou valorizaÃ§Ã£o especÃ­fica sem dado fornecido.',
     }
   }
 
   if (combined.includes('open house') || combined.includes('evento') || combined.includes('visita guiada')) {
     return {
       family: 'Open House / Evento',
-      promise: 'Convidar para uma visita com data, urgência leve e facilidade de participação.',
-      visualDirection: 'Visual convidativo, claro e com energia de evento, sem parecer anúncio frio de portal.',
+      promise: 'Convidar para uma visita com data, urgÃªncia leve e facilidade de participaÃ§Ã£o.',
+      visualDirection: 'Visual convidativo, claro e com energia de evento, sem parecer anÃºncio frio de portal.',
       palette: 'Branco, azul, verde, laranja e tons quentes leves.',
-      hierarchy: 'Convite e CTA primeiro, localização em seguida, dados mínimos para interesse.',
-      tone: 'Próximo, convidativo e direto.',
-      avoid: 'Não criar aparência de show, festa ou evento genérico fora do contexto imobiliário.',
+      hierarchy: 'Convite e CTA primeiro, localizaÃ§Ã£o em seguida, dados mÃ­nimos para interesse.',
+      tone: 'PrÃ³ximo, convidativo e direto.',
+      avoid: 'NÃ£o criar aparÃªncia de show, festa ou evento genÃ©rico fora do contexto imobiliÃ¡rio.',
     }
   }
 
-  if (combined.includes('institucional') || combined.includes('corretor') || combined.includes('captacao') || combined.includes('captação')) {
+  if (combined.includes('institucional') || combined.includes('corretor') || combined.includes('captacao') || combined.includes('captaÃ§Ã£o')) {
     return {
-      family: 'Institucional / Corretor / Captação',
-      promise: 'Construir autoridade e confiança sem parecer campanha de venda de um imóvel específico.',
-      visualDirection: 'Visual profissional, limpo e confiável, com foco em marca pessoal, atendimento e credibilidade.',
-      palette: 'Branco, cinza, azul, preto suave e acentos da marca; evitar ostentação.',
-      hierarchy: 'Mensagem de autoridade, CTA de contato e elemento visual imobiliário de apoio.',
+      family: 'Institucional / Corretor / CaptaÃ§Ã£o',
+      promise: 'Construir autoridade e confianÃ§a sem parecer campanha de venda de um imÃ³vel especÃ­fico.',
+      visualDirection: 'Visual profissional, limpo e confiÃ¡vel, com foco em marca pessoal, atendimento e credibilidade.',
+      palette: 'Branco, cinza, azul, preto suave e acentos da marca; evitar ostentaÃ§Ã£o.',
+      hierarchy: 'Mensagem de autoridade, CTA de contato e elemento visual imobiliÃ¡rio de apoio.',
       tone: 'Consultivo, seguro e profissional.',
-      avoid: 'Não inventar imóvel, não usar ficha técnica e não parecer propaganda de empreendimento.',
+      avoid: 'NÃ£o inventar imÃ³vel, nÃ£o usar ficha tÃ©cnica e nÃ£o parecer propaganda de empreendimento.',
     }
   }
 
   if (combined.includes('luxo')) {
     return {
       family: 'Luxo / Exclusividade',
-      promise: 'Transmitir raridade, privacidade, status e desejo para um público de alto poder aquisitivo.',
-      visualDirection: 'Visual editorial, cinematográfico e de luxo extremo, com composição refinada e pouco texto.',
+      promise: 'Transmitir raridade, privacidade, status e desejo para um pÃºblico de alto poder aquisitivo.',
+      visualDirection: 'Visual editorial, cinematogrÃ¡fico e de luxo extremo, com composiÃ§Ã£o refinada e pouco texto.',
       palette: 'Preto, off-white, champagne, dourado, tons profundos e alto contraste controlado.',
       hierarchy: 'Imagem aspiracional dominante, headline curta, CTA discreto e sofisticado.',
       tone: 'Exclusivo, sensorial, elegante e contido.',
-      avoid: 'Não usar excesso de ficha técnica, cores populares, selos chamativos ou linguagem promocional agressiva.',
+      avoid: 'NÃ£o usar excesso de ficha tÃ©cnica, cores populares, selos chamativos ou linguagem promocional agressiva.',
     }
   }
 
   if (combined.includes('alto padrao') || combined.includes('alto')) {
     return {
-      family: 'Alto padrão / Lifestyle',
-      promise: 'Vender uma experiência de morar melhor, com desejo, localização e acabamento percebido.',
-      visualDirection: 'Visual sofisticado, elegante e aspiracional, com estética de lifestyle imobiliário.',
+      family: 'Alto padrÃ£o / Lifestyle',
+      promise: 'Vender uma experiÃªncia de morar melhor, com desejo, localizaÃ§Ã£o e acabamento percebido.',
+      visualDirection: 'Visual sofisticado, elegante e aspiracional, com estÃ©tica de lifestyle imobiliÃ¡rio.',
       palette: 'Navy, champagne, preto equilibrado, off-white, cinza quente e dourado discreto.',
-      hierarchy: 'Imagem principal forte, headline aspiracional, bairro/localização e CTA elegante.',
+      hierarchy: 'Imagem principal forte, headline aspiracional, bairro/localizaÃ§Ã£o e CTA elegante.',
       tone: 'Sofisticado, seguro, aspiracional e comercial.',
-      avoid: 'Não exagerar em dourado, não criar ostentação vazia e não inventar acabamentos ou serviços.',
+      avoid: 'NÃ£o exagerar em dourado, nÃ£o criar ostentaÃ§Ã£o vazia e nÃ£o inventar acabamentos ou serviÃ§os.',
     }
   }
 
   return {
-    family: 'Médio padrão / Praticidade',
-    promise: 'Mostrar conforto, localização, rotina fácil e bom custo-benefício para decisão prática.',
-    visualDirection: 'Visual limpo, moderno, urbano e confiável, com aparência profissional sem luxo pesado.',
+    family: 'Praticidade / Morar bem',
+    promise: 'Mostrar conforto, localizaÃ§Ã£o, rotina fÃ¡cil e bom custo-benefÃ­cio para decisÃ£o prÃ¡tica.',
+    visualDirection: 'Visual limpo, moderno, urbano e confiÃ¡vel, com aparÃªncia profissional sem luxo pesado.',
     palette: 'Branco, azul, cinza claro, verde e laranja pontual; evitar preto/navy/dourado como base.',
-    hierarchy: 'Headline clara, benefício principal de rotina, CTA forte e no máximo poucos dados objetivos.',
-    tone: 'Claro, comercial, confiável e próximo.',
-    avoid: 'Não aplicar visual de luxo, não dominar com ficha técnica e não usar linguagem de exclusividade quando o perfil for médio padrão.',
+    hierarchy: 'Headline clara, benefÃ­cio principal de rotina, CTA forte e no mÃ¡ximo poucos dados objetivos.',
+    tone: 'Claro, comercial, confiÃ¡vel e prÃ³ximo.',
+    avoid: 'NÃ£o aplicar visual de luxo, nÃ£o dominar com ficha tÃ©cnica e nÃ£o transformar perfil comercial em texto obrigatÃ³rio da peÃ§a.',
   }
 }
 
@@ -452,6 +541,9 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
   const profile = normalizeText(choices.property_profile || property.master_profile, 120)
   const objective = normalizeText(choices.campaign_objective || property.purpose, 80)
   const stage = normalizeText(choices.property_stage || property.master_property_state, 120)
+  const contactPhone = normalizeContactPhone(choices.contact_phone, 80)
+  const displayPhone = normalizeContactPhoneForDisplay(choices.display_phone || contactPhone)
+  const cta = normalizeText(choices.cta, 120) || 'Fale comigo'
   const highlights = normalizeTextArray(choices.highlights || property.master_highlights, 8, 120)
   const inlineImages = normalizeInlineImages(choices.inline_images, HERO_NEXT_MAX_INLINE_IMAGES)
   const destinationId = normalizeId(destination.id)
@@ -473,42 +565,51 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
   })
   const supportImageRule = (() => {
     if (inlineImages.length === 0) {
-      return 'Sem imagens anexadas: criar a peça com base no Prompt Humano, sem inventar dados específicos do imóvel.'
+      return 'Sem imagens anexadas: criar a peÃ§a com base no Prompt Humano, sem inventar dados especÃ­ficos do imÃ³vel.'
     }
 
     if (inlineImages.length <= 1) {
-      return 'Há apenas uma imagem anexada: usar essa imagem como visual principal da peça.'
+      return 'HÃ¡ apenas uma imagem anexada: usar essa imagem como visual principal da peÃ§a.'
     }
 
     if (destinationId.includes('story') || destinationId.includes('reels') || formatGroup === 'vertical') {
-      return 'Para Story/Reels: usar a primeira imagem em destaque e, se não poluir, usar no máximo 1 ou 2 imagens secundárias como apoios discretos.'
+      return 'Para Story/Reels: usar a primeira imagem em destaque e, se nÃ£o poluir, usar no mÃ¡ximo 1 ou 2 imagens secundÃ¡rias como apoios discretos.'
     }
 
     if (destinationId.includes('whatsapp')) {
-      return 'Para WhatsApp: usar a primeira imagem em destaque e no máximo 2 imagens de apoio, mantendo leitura rápida.'
+      return 'Para WhatsApp: usar a primeira imagem em destaque e no mÃ¡ximo 2 imagens de apoio, mantendo leitura rÃ¡pida.'
     }
 
     if (destinationId.includes('google') || destinationId.includes('ads')) {
-      return 'Para Google Ads: priorizar a imagem principal; usar apoios somente se não prejudicar clareza, contraste e leitura.'
+      return 'Para Google Ads: priorizar a imagem principal; usar apoios somente se nÃ£o prejudicar clareza, contraste e leitura.'
     }
 
-    return 'Para Feed Instagram, Facebook, Landing Page ou Portal Imobiliário: pode usar a imagem principal com 2 a 4 miniaturas/cards de apoio, se o layout comportar.'
+    return 'Para Feed Instagram, Facebook, Landing Page ou Portal ImobiliÃ¡rio: pode usar a imagem principal com 2 a 4 miniaturas/cards de apoio, se o layout comportar.'
   })()
 
   return [
     humanPrompt,
     '',
-    `Formato principal da peça: ${destinationLabel}.`,
+    `Formato principal da peÃ§a: ${destinationLabel}.`,
     '',
     'STYLE DIRECTOR DA CAMPANHA:',
-    `Família da campanha: ${strategy.family}.`,
+    `FamÃ­lia da campanha: ${strategy.family}.`,
     `Promessa principal: ${strategy.promise}`,
-    `Direção visual: ${strategy.visualDirection}`,
+    `DireÃ§Ã£o visual: ${strategy.visualDirection}`,
     `Paleta sugerida: ${strategy.palette}`,
-    `Hierarquia da peça: ${strategy.hierarchy}`,
+    `Hierarquia da peÃ§a: ${strategy.hierarchy}`,
     `Tom comercial: ${strategy.tone}`,
     `Evitar: ${strategy.avoid}`,
-    'A estética da peça deve seguir o perfil comercial do imóvel. Não aplicar visual de luxo em imóvel Minha Casa Minha Vida, médio padrão ou locação.',
+    'A estÃ©tica da peÃ§a deve seguir o perfil comercial do imÃ³vel. NÃ£o aplicar visual de luxo em imÃ³vel Minha Casa Minha Vida, econÃ´mico, investimento, comercial ou locaÃ§Ã£o.',
+    'Perfil comercial orienta estilo, tom e composiÃ§Ã£o. Ele nÃ£o Ã© texto obrigatÃ³rio, mas pode aparecer como selo curto quando fizer sentido comercial explÃ­cito: Minha Casa Minha Vida, Alto padrÃ£o, Investimento ou Comercial. Usar Luxo com cuidado e evitar EconÃ´mico como texto principal. Nunca escrever "Perfil comercial".',
+    'EstÃ¡gio comercial do imÃ³vel pode ser usado naturalmente quando informado: PrÃ©-lanÃ§amento, LanÃ§amento, Em obras ou Pronto para morar.',
+    'Nunca juntar perfil e estÃ¡gio em frase automÃ¡tica feia. Priorize localizaÃ§Ã£o, tipo do imÃ³vel, estÃ¡gio, diferencial real e CTA.',
+    contactPhone
+      ? `Telefone de contato autorizado pelo usuario: ${contactPhone}. Se usar telefone, escreva exatamente esse numero junto ao CTA, sem alterar DDD, completar, encurtar ou reformatar.`
+      : 'Nenhum telefone foi autorizado. Nao escreva telefone, WhatsApp, site, Instagram ou e-mail.',
+    displayPhone ? `Telefone original como fato imutavel: ${contactPhone}. Telefone para exibicao visual: ${displayPhone}.` : '',
+    displayPhone ? `CTA completo para exibicao visual:\n${cta}\n${displayPhone}` : '',
+    displayPhone ? 'Nunca juntar CTA e telefone em frase corrida. Nunca colocar ponto final depois do telefone.' : '',
     '',
     'ESTRATEGIA DO FORMATO DESTA GERACAO:',
     campaignBatchId ? `Campanha compartilhada: ${campaignBatchId}.` : '',
@@ -527,42 +628,43 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
     '',
     'USO DAS IMAGENS ANEXADAS:',
     inlineImages.length > 0 ? `Quantidade de imagens anexadas: ${inlineImages.length}.` : 'Nenhuma imagem anexada.',
-    inlineImages.length > 0 ? 'Use a primeira imagem anexada como imagem principal da peça.' : '',
-    inlineImages.length > 1 ? 'Use as demais imagens anexadas como apoio visual, em miniaturas/cards menores ou blocos secundários.' : '',
-    inlineImages.length > 1 ? 'Não ignore as imagens secundárias quando houver espaço no formato.' : '',
+    inlineImages.length > 0 ? 'Use a primeira imagem anexada como imagem principal da peÃ§a.' : '',
+    inlineImages.length > 1 ? 'Use as demais imagens anexadas como apoio visual, em miniaturas/cards menores ou blocos secundÃ¡rios.' : '',
+    inlineImages.length > 1 ? 'NÃ£o ignore as imagens secundÃ¡rias quando houver espaÃ§o no formato.' : '',
     inlineImages.length > 0 ? 'Regra atualizada: use o conjunto de imagens anexadas para entender o imovel e escolher a melhor enfase visual para este formato.' : '',
     inlineImages.length > 0 ? 'A primeira imagem e a referencia principal da campanha, mas nao deve ser repetida automaticamente como destaque em todos os formatos.' : '',
     inlineImages.length > 1 ? 'As imagens de apoio tambem devem influenciar a composicao; quando o formato permitir, use miniaturas, cards ou blocos secundarios sem transformar a arte em mosaico.' : '',
+    inlineImages.length > 1 ? 'Use all provided reference images whenever a multi-image campaign layout is appropriate. Do not ignore uploaded images unless the final format would become visually crowded. Prefer a polished real estate collage with one main image and supporting secondary images.' : '',
     supportImageRule,
     inlineImages.length > 1 ? 'Regra final: escolha a imagem de destaque mais adequada ao formato atual; nao use sempre a primeira imagem por padrao.' : '',
-    comparableObjective.includes('locacao') ? 'Para locação: as fotos reais são importantes para gerar confiança. Use a imagem principal em destaque e as demais como provas visuais do imóvel.' : '',
-    comparableStage.includes('usado') ? 'Para imóvel usado: usar fotos reais como prova do imóvel. Não inventar ambientes diferentes.' : '',
-    'Não repita a mesma imagem sem necessidade.',
+    comparableObjective.includes('locacao') ? 'Para locaÃ§Ã£o: as fotos reais sÃ£o importantes para gerar confianÃ§a. Use a imagem principal em destaque e as demais como provas visuais do imÃ³vel.' : '',
+    comparableStage.includes('usado') ? 'Para imÃ³vel usado: usar fotos reais como prova do imÃ³vel. NÃ£o inventar ambientes diferentes.' : '',
+    'NÃ£o repita a mesma imagem sem necessidade.',
     '',
-    'REGRAS DE COPYWRITING EM PORTUGUÊS DO BRASIL:',
-    'Antes de definir qualquer headline, revise a frase para naturalidade, clareza comercial e ausência de duplo sentido.',
-    'Evite frases ambíguas ou artificiais como "Pronto para entrar em [bairro]", "Pronto para entrar na [bairro]", "Entre em [bairro]" ou "Entrar na [cidade/bairro]".',
-    'Se usar "pronto", conecte com morar: "Pronto para morar", "Pronto para você morar", "Apartamento pronto para morar" ou "Pronto para morar em [bairro], [cidade]".',
-    'Não use "Pronto para entrar", "Pronto para entrar em [bairro]" ou "Pronto para entrar na [bairro]".',
-    'Para locação, prefira headlines claras como "Pronto para morar", "Disponível para locação", "Apartamento pronto em [bairro]", "More em [bairro], [cidade]", "Seu próximo endereço em [bairro]", "Locação em [bairro] com conforto e praticidade", "Alugue em [bairro] com praticidade" ou "Apartamento para locação em [bairro]".',
-    'Para venda, prefira headlines como "Seu novo apartamento em [bairro]", "More bem em [bairro]", "Casa própria em [bairro]", "Apartamento à venda em [bairro]", "Conforto e localização em [bairro]", "Seu novo endereço em [bairro]" ou "Uma nova fase começa em [bairro]".',
-    'Use bairro e cidade de forma natural: "em Aparecida, Santos", "no Gonzaga, Santos", "em Moema, São Paulo" ou "na Vila Mariana, São Paulo".',
-    'Não invente bairro, cidade, valor, metragem, dormitórios, garantia, condição comercial, disponibilidade, condomínio ou construtora.',
+    'REGRAS DE COPYWRITING EM PORTUGUÃŠS DO BRASIL:',
+    'Antes de definir qualquer headline, revise a frase para naturalidade, clareza comercial e ausÃªncia de duplo sentido.',
+    'Evite frases ambÃ­guas ou artificiais como "Pronto para entrar em [bairro]", "Pronto para entrar na [bairro]", "Entre em [bairro]" ou "Entrar na [cidade/bairro]".',
+    'Se usar "pronto", conecte com morar: "Pronto para morar", "Pronto para vocÃª morar", "Apartamento pronto para morar" ou "Pronto para morar em [bairro], [cidade]".',
+    'NÃ£o use "Pronto para entrar", "Pronto para entrar em [bairro]" ou "Pronto para entrar na [bairro]".',
+    'Para locaÃ§Ã£o, prefira headlines claras como "Pronto para morar", "DisponÃ­vel para locaÃ§Ã£o", "Apartamento pronto em [bairro]", "More em [bairro], [cidade]", "Seu prÃ³ximo endereÃ§o em [bairro]", "LocaÃ§Ã£o em [bairro] com conforto e praticidade", "Alugue em [bairro] com praticidade" ou "Apartamento para locaÃ§Ã£o em [bairro]".',
+    'Para venda, prefira headlines como "Seu novo apartamento em [bairro]", "More bem em [bairro]", "Casa prÃ³pria em [bairro]", "Apartamento Ã  venda em [bairro]", "Conforto e localizaÃ§Ã£o em [bairro]", "Seu novo endereÃ§o em [bairro]" ou "Uma nova fase comeÃ§a em [bairro]".',
+    'Use bairro e cidade de forma natural: "em Aparecida, Santos", "no Gonzaga, Santos", "em Moema, SÃ£o Paulo" ou "na Vila Mariana, SÃ£o Paulo".',
+    'NÃ£o invente bairro, cidade, valor, metragem, dormitÃ³rios, garantia, condiÃ§Ã£o comercial, disponibilidade, condomÃ­nio ou construtora.',
     '',
     'REGRA DE CTA POR CANAL:',
     buildChannelCtaGuidance(destinationLabel),
-    'Escolha um CTA visual adequado ao canal. Não assuma que o texto dentro da imagem será clicável. Quando o canal for post orgânico, oriente a ação para legenda, descrição, direct ou WhatsApp.',
+    'Escolha um CTA visual adequado ao canal. NÃ£o assuma que o texto dentro da imagem serÃ¡ clicÃ¡vel. Quando o canal for post orgÃ¢nico, oriente a aÃ§Ã£o para legenda, descriÃ§Ã£o, direct ou WhatsApp.',
     'Nos textos da campanha, combine com o CTA visual escolhido para a imagem.',
     '',
-    `Crie UMA única peça publicitária final para ${destinationLabel}.`,
-    'A saída deve ser uma única arte final pronta para publicação.',
-    'Não crie múltiplas versões dentro da mesma imagem.',
-    'Não crie mosaico, grade de formatos, mockup de apresentação, prancha de layout ou prévia de campanha.',
-    'Não mostre feed, story e horizontal juntos.',
-    'Não repita a mesma arte em formatos diferentes dentro da imagem.',
-    'Não crie vários cards, telas ou variações dentro do mesmo canvas.',
-    'Se houver imagem anexada, use como referência ou elemento principal da campanha, sem repetir a mesma imagem várias vezes sem necessidade.',
-    'Escolha uma composição principal elegante e resolvida.',
+    `Crie UMA Ãºnica peÃ§a publicitÃ¡ria final para ${destinationLabel}.`,
+    'A saÃ­da deve ser uma Ãºnica arte final pronta para publicaÃ§Ã£o.',
+    'NÃ£o crie mÃºltiplas versÃµes dentro da mesma imagem.',
+    'NÃ£o crie mosaico, grade de formatos, mockup de apresentaÃ§Ã£o, prancha de layout ou prÃ©via de campanha.',
+    'NÃ£o mostre feed, story e horizontal juntos.',
+    'NÃ£o repita a mesma arte em formatos diferentes dentro da imagem.',
+    'NÃ£o crie vÃ¡rios cards, telas ou variaÃ§Ãµes dentro do mesmo canvas.',
+    'Se houver imagem anexada, use como referÃªncia ou elemento principal da campanha, sem repetir a mesma imagem vÃ¡rias vezes sem necessidade.',
+    'Escolha uma composiÃ§Ã£o principal elegante e resolvida.',
   ].join('\n')
 }
 
@@ -580,6 +682,7 @@ function buildImageUsageInstruction(imageMode: string, photoCount: number) {
       `Orientacao de uso das imagens: usar o conjunto de ${photoCount || 'todas as'} fotos cadastradas como referencias reais do mesmo imovel.`,
       'Monte uma campanha publicitaria com as fotos reais como base visual, sem criar nova fachada, novo apartamento, nova planta ou outro empreendimento.',
       'A composicao pode valorizar, organizar e combinar referencias, mas deve continuar parecendo o mesmo imovel do Cadastro Mestre.',
+      photoCount > 1 ? 'Use todas as imagens de referencia sempre que um layout multi-imagem for apropriado. Nao ignore fotos cadastradas salvo se o formato ficar visualmente poluido. Prefira uma composicao imobiliaria profissional com uma foto principal e apoios secundarios.' : '',
     ]
   }
 
@@ -619,7 +722,7 @@ function buildFinalPrompt(briefing: JsonRecord) {
   const details = [
     normalizeText(property.type, 80),
     location,
-    property.area ? `${property.area} m2` : '',
+    formatAreaForDisplay(property.display_area || property.area),
     property.bedrooms ? `${property.bedrooms} dormitorios` : '',
     property.suites ? `${property.suites} suites` : '',
     property.parking_spaces ? `${property.parking_spaces} vagas` : '',
@@ -629,12 +732,14 @@ function buildFinalPrompt(briefing: JsonRecord) {
      ? 'Oportunidade para investir'
     : creativeConcepts.includes('Exclusividade')
        ? 'Um imovel exclusivo'
-      : creativeConcepts.includes('Família')
+      : creativeConcepts.includes('FamÃ­lia')
          ? 'O lugar da sua familia'
         : creativeConcepts.includes('Lifestyle')
            ? 'Viva melhor todos os dias'
           : 'Seu novo imovel espera por voce'
   const cta = normalizeText(choices.cta, 120) || 'Fale com o corretor'
+  const contactPhone = normalizeContactPhone(choices.contact_phone, 80)
+  const displayPhone = normalizeContactPhoneForDisplay(choices.display_phone || contactPhone)
 
   if (humanPrompt) {
     return [
@@ -643,6 +748,9 @@ function buildFinalPrompt(briefing: JsonRecord) {
       `Destino/formato: ${normalizeText(destination.label, 120) || 'Feed Instagram'}.`,
       `Destino principal: ${normalizeText(destination.label, 120) || 'Feed Instagram'}.`,
       `CTA principal: ${cta}.`,
+      displayPhone ? `CTA completo quando houver telefone:\n${cta}\n${displayPhone}` : 'Nenhum telefone foi autorizado. Nao escreva telefone, WhatsApp, site, Instagram ou e-mail.',
+      contactPhone ? `Telefone autorizado original: ${contactPhone}. Telefone para exibicao visual: ${displayPhone}. Nao inventar, completar, trocar DDD ou alterar o numero original.` : '',
+      displayPhone ? 'Nunca juntar CTA e telefone em frase corrida. Nunca colocar ponto final depois do telefone.' : '',
       `Regra de CTA por canal: ${buildChannelCtaGuidance(normalizeText(destination.label, 120) || 'Feed Instagram')}`,
       'Criar uma peca publicitaria imobiliaria premium.',
       'Usar somente informacoes fornecidas no prompt e nas imagens de referencia.',
@@ -654,7 +762,7 @@ function buildFinalPrompt(briefing: JsonRecord) {
     'Crie UMA peca imobiliaria publicitaria premium, pronta para campanha digital brasileira.',
     'Use um unico motor publicitario: a escolha do usuario orienta apenas como as fotos devem ser usadas, nao muda a natureza da entrega.',
     'A peca deve ter impacto de campanha, composicao sofisticada, imagem forte, headline clara e CTA destacado.',
-    'Use tipografia grande, limpa, curta e legivel somente para headline e CTA. Nao use texto pequeno, torto, truncado, inventado, pseudo-texto, nomes ficticios, telefone, email, QR code ou rodape com letras ilegíveis.',
+    'Use tipografia grande, limpa, curta e legivel somente para headline e CTA. Nao use texto pequeno, torto, truncado, inventado, pseudo-texto, nomes ficticios, telefone nao autorizado, email, QR code ou rodape com letras ilegÃ­veis.',
     'Nao volte ao estilo antigo de foto com legenda simples. Deve parecer uma campanha premium finalizada.',
     'Nao invente metro, escolas, shopping, vista, lazer, financiamento, seguranca ou outros diferenciais que nao estejam no briefing.',
     'Nao invente outro imovel, outra fachada, outra planta, outro apartamento, outro empreendimento ou dados que nao vieram do Cadastro Mestre.',
@@ -662,12 +770,19 @@ function buildFinalPrompt(briefing: JsonRecord) {
     `Imovel: ${details || 'imovel residencial a venda'}.`,
     `Perfil do imovel: ${normalizeText(property.master_profile, 120) || 'nao informado'}.`,
     `Estado do imovel: ${normalizeText(choices.property_state, 120) || normalizeText(property.master_property_state, 120) || 'nao informado'}.`,
+    'Perfil comercial orienta a direcao visual e pode aparecer apenas como selo curto quando fizer sentido comercial explicito. Nao escrever "Perfil comercial" e nao juntar perfil + estagio em frase automatica. Estado/estagio comercial do imovel pode aparecer naturalmente quando fizer sentido.',
+    contactPhone
+      ? `Telefone de contato autorizado pelo usuario: ${contactPhone}. Se usar telefone, escreva exatamente esse numero junto ao CTA, sem alterar DDD, completar, encurtar ou reformatar.`
+      : 'Nenhum telefone foi autorizado. Nao escreva telefone, WhatsApp, site, Instagram ou e-mail.',
+    displayPhone ? `Telefone original como fato imutavel: ${contactPhone}. Telefone para exibicao visual: ${displayPhone}.` : '',
     `Publico-alvo: ${audiences.join(', ') || 'compradores de imoveis'}.`,
     `Conceitos selecionados: ${creativeConcepts.join(', ') || 'sem conceito adicional'}.`,
     `Focos/objetivos: ${subcategories.join(', ') || normalizeText(choices.subcategory, 120) || 'divulgacao imobiliaria'}.`,
     `Destaques informados: ${highlights.join(', ') || 'sem destaques adicionais'}.`,
     `Headline sugerida para a peca: ${headline}.`,
     `CTA principal da campanha: ${cta}.`,
+    displayPhone ? `CTA completo quando houver telefone:\n${cta}\n${displayPhone}` : '',
+    displayPhone ? 'Nunca juntar CTA e telefone em frase corrida. Nunca colocar ponto final depois do telefone.' : '',
     `Regra de CTA por canal: ${buildChannelCtaGuidance(normalizeText(destination.label, 120) || 'Feed Instagram')}`,
     'O CTA deve ser um elemento visual principal da campanha, com hierarquia clara e area de respiro.',
     `Valores e condicoes: ${normalizeText(valueCondition.label, 120) || 'nao destacar valores'} ${normalizeText(valueCondition.details, 280)}`.trim(),
@@ -702,7 +817,7 @@ function buildTextBriefing(briefing: JsonRecord) {
   return {
     tipo: normalizeText(property.type, 80),
     localizacao: buildLocation(property),
-    area: property.area ?? null,
+    area: formatAreaForDisplay(property.display_area || property.area) || (property.area ?? null),
     dormitorios: property.bedrooms ?? null,
     suites: property.suites ?? null,
     vagas: property.parking_spaces ?? null,
@@ -715,6 +830,8 @@ function buildTextBriefing(briefing: JsonRecord) {
     conceitos_criativos: creativeConcepts,
     destaques: highlights,
     cta_escolhido: normalizeText(choices.cta, 120),
+    telefone_contato: normalizeContactPhone(choices.contact_phone, 80),
+    telefone_exibicao: normalizeContactPhoneForDisplay(choices.display_phone || choices.contact_phone),
     valores_condicoes: {
       regra: normalizeText(valueCondition.label, 120),
       detalhes: normalizeText(valueCondition.details, 280),
@@ -761,6 +878,8 @@ function buildChannelCtaGuidance(destinationLabel: string) {
 function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string, boolean>, briefing: JsonRecord) {
   const textBriefing = buildTextBriefing(briefing)
   const cta = normalizeText(value.cta, 120) || normalizeText(textBriefing.cta_escolhido, 120) || 'Agende sua visita'
+  const contactPhone = normalizeContactPhoneForDisplay(textBriefing.telefone_exibicao || textBriefing.telefone_contato)
+  const contactLine = contactPhone ? ` Para mais informacoes: ${contactPhone}.` : ''
   const hashtagsRaw = Array.isArray(value.hashtags)
      ? value.hashtags.join(' ')
     : normalizeText(value.hashtags, 500)
@@ -781,16 +900,16 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
   }
 
   if (!texts.instagram) {
-    texts.instagram = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao especial'} com uma apresentacao visual pensada para destacar o que realmente importa. ${cta}.`
+    texts.instagram = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao especial'} com uma apresentacao visual pensada para destacar o que realmente importa. ${cta}.${contactLine}`
   }
   if (!texts.whatsapp) {
-    texts.whatsapp = `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${textBriefing.tipo || 'imovel'} em ${textBriefing.localizacao || 'uma excelente localizacao'}. Posso te enviar mais detalhes`
+    texts.whatsapp = `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${textBriefing.tipo || 'imovel'} em ${textBriefing.localizacao || 'uma excelente localizacao'}.${contactPhone ? ` Meu contato: ${contactPhone}.` : ''} Posso te enviar mais detalhes`
   }
   if (!texts.facebook) {
-    texts.facebook = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'uma localizacao especial'}, com informacoes claras para quem busca uma boa oportunidade. ${cta}.`
+    texts.facebook = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'uma localizacao especial'}, com informacoes claras para quem busca uma boa oportunidade. ${cta}.${contactLine}`
   }
   if (!texts.portal) {
-    texts.portal = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao privilegiada'}, com diferenciais selecionados para uma divulgacao clara e profissional.`
+    texts.portal = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao privilegiada'}, com diferenciais selecionados para uma divulgacao clara e profissional.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`
   }
   if (!texts.hashtags) {
     texts.hashtags = '#Imoveis #MercadoImobiliario #ImovelAVenda #CorretorDeImoveis #MorarBem'
@@ -804,13 +923,15 @@ function buildFallbackHeroTexts(briefing: JsonRecord) {
   const cta = normalizeText(textBriefing.cta_escolhido, 120) || 'Fale com o corretor'
   const tipo = normalizeText(textBriefing.tipo, 80) || 'Imovel'
   const localizacao = normalizeText(textBriefing.localizacao, 160)
+  const contactPhone = normalizeContactPhoneForDisplay(textBriefing.telefone_exibicao || textBriefing.telefone_contato)
+  const contactLine = contactPhone ? ` Para mais informacoes: ${contactPhone}.` : ''
 
   return {
-    instagram: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com campanha visual criada para destacar os diferenciais informados. ${cta}.`,
-    whatsapp: `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${tipo}${localizacao ? ` em ${localizacao}` : ''}. Posso te enviar mais detalhes`,
-    facebook: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com apresentacao clara, visual forte e convite para contato. ${cta}.`,
+    instagram: `${tipo}${localizacao ? ` em ${localizacao}` : ''} para quem busca uma oportunidade imobiliaria bem localizada. ${cta}.${contactLine}`,
+    whatsapp: `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${tipo}${localizacao ? ` em ${localizacao}` : ''}.${contactPhone ? ` Meu contato: ${contactPhone}.` : ''} Posso te enviar mais detalhes`,
+    facebook: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com apresentacao clara, visual forte e convite para contato. ${cta}.${contactLine}`,
     cta,
-    portal: `${tipo}${localizacao ? ` em ${localizacao}` : ''}, divulgado com foco nos diferenciais reais informados na campanha.`,
+    portal: `${tipo}${localizacao ? ` em ${localizacao}` : ''}, com apresentacao profissional e informacoes objetivas para interessados no imovel.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`,
     hashtags: '#Imoveis #MercadoImobiliario #CorretorDeImoveis #ImovelAVenda #MorarBem',
   }
 }
@@ -839,6 +960,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
             'Voce e um redator de marketing imobiliario premium do SmartCorretorAI.',
             'Escreva em portugues do Brasil, com linguagem comercial, clara e correta.',
             'Nao invente informacoes nao fornecidas. Nao invente CRECI, telefone, email, metro, escola, shopping, vista, lazer, financiamento ou condominio.',
+            'Se houver telefone de contato no briefing, use exatamente o numero informado, sem alterar DDD, completar, encurtar ou reformatar. Se nao houver telefone, nao inclua nenhum numero de contato.',
             'Hashtags devem ser sem acentos, sem termos estranhos e coerentes com o briefing.',
             'Sempre gere Instagram, WhatsApp, Facebook, CTA, portal e hashtags, mesmo que o pacote visual tenha sido ajustado.',
             'O CTA escolhido deve ser o eixo principal da campanha e aparecer de forma forte nos textos.',
@@ -866,6 +988,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
               `Apoio tecnico: ${JSON.stringify({
                 destino_principal: textBriefing.destino_principal,
                 cta_escolhido: textBriefing.cta_escolhido,
+                telefone_contato: textBriefing.telefone_contato,
                 valores_condicoes: textBriefing.valores_condicoes,
               })}`,
             ].join('\n')
@@ -1445,6 +1568,7 @@ function buildPromptBriefing(property: JsonRecord, masterProperty: JsonRecord, p
       purpose: 'venda',
       price: property.preco ?? null,
       area: property.area_m2 ?? null,
+      display_area: formatAreaForDisplay(property.area_m2),
       bedrooms: property.quartos ?? null,
       suites: masterProperty.suites ?? null,
       bathrooms: property.banheiros ?? null,
@@ -1471,6 +1595,8 @@ function buildPromptBriefing(property: JsonRecord, masterProperty: JsonRecord, p
       property_state: normalizeText(payload.property_state || masterProperty.estado_imovel, 120),
       highlights: selectedHighlights,
       cta: normalizeText(payload.cta, 120),
+      contact_phone: normalizeContactPhone(payload.contact_phone || payload.campaign_contact_phone, 80),
+      display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
       value_condition: normalizeValueCondition(payload.value_condition),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,
@@ -1500,6 +1626,7 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       purpose: campaignObjective,
       price: null,
       area: null,
+      display_area: formatAreaForDisplay(payload.display_area || payload.area),
       bedrooms: normalizeText(payload.bedrooms, 40),
       suites: normalizeText(payload.suites, 40),
       bathrooms: null,
@@ -1529,6 +1656,8 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       property_state: normalizeText(payload.property_stage, 120),
       highlights,
       cta: normalizeText(payload.cta, 120),
+      contact_phone: normalizeContactPhone(payload.contact_phone || payload.campaign_contact_phone, 80),
+      display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
       value_condition: normalizeValueCondition(payload.value_condition),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,

@@ -23,6 +23,7 @@ import { useAuth } from '../lib/auth-context'
 import { useProperties } from '../hooks/useProperties'
 import { formatArea, formatCurrency } from '../utils/formatters'
 import { supabase } from '../lib/supabase'
+import { buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 const MIN_HERO_PHOTOS = 3
@@ -63,13 +64,10 @@ const AUDIENCES = [
 ]
 
 const PROPERTY_STATES = [
-  'Pronto para morar',
-  'Em obras',
-  'Reformado',
-  'Novo',
-  'Usado',
-  'Lançamento',
   'Pré-lançamento',
+  'Lançamento',
+  'Em obras',
+  'Pronto para morar',
 ]
 
 const CTA_OPTIONS = [
@@ -156,16 +154,13 @@ const VALUE_CONDITION_OPTIONS = [
 
 const SALE_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Terreno/Lote', 'Comercial']
 
-const SALE_PROFILES = ['Minha Casa Minha Vida', 'Médio padrão', 'Alto padrão', 'Luxo']
+const SALE_PROFILES = ['Minha Casa Minha Vida', 'Econômico', 'Alto padrão', 'Luxo', 'Investimento', 'Comercial']
 
 const SALE_STAGES = [
   'Pré-lançamento',
   'Lançamento',
   'Em obras',
   'Pronto para morar',
-  'Reformado',
-  'Novo',
-  'Usado',
 ]
 
 const SALE_HIGHLIGHTS = [
@@ -194,6 +189,7 @@ const SALE_CONDITIONS = [
 ]
 
 const SALE_CTA_OPTIONS = ['Agende sua visita', 'Saiba mais', 'Fale comigo']
+const CONTACT_PHONE_OPTIONS = ['Sim, quero divulgar', 'Não, continuar sem telefone']
 
 const DESTINATION_OPTIONS = [
   {
@@ -403,34 +399,48 @@ const buildHumanPrompt = ({
   value,
   conditions,
   cta,
+  contactPhone,
   destination,
   imageMode,
   concepts,
 }) => {
   const location = [neighborhood, city].filter(Boolean).join(', ')
+  const displayArea = formatAreaForDisplay(area)
+  const displayValue = formatCurrencyForDisplay(value, 'venda')
+  const displayPhone = normalizeContactPhoneForDisplay(contactPhone)
   const featureParts = [
     bedrooms ? `${bedrooms} dormitório${String(bedrooms) === '1' ? '' : 's'}` : '',
     suites ? `${suites} suíte${String(suites) === '1' ? '' : 's'}` : '',
     parkingSpaces ? `${parkingSpaces} vaga${String(parkingSpaces) === '1' ? '' : 's'}` : '',
     area ? `${area}m²` : '',
   ].filter(Boolean)
+  if (displayArea) {
+    const rawAreaIndex = featureParts.findIndex((item) => String(item).startsWith(`${area}m`))
+    if (rawAreaIndex >= 0) featureParts[rawAreaIndex] = displayArea
+  }
   const allHighlights = [...highlights, otherHighlight].filter(Boolean)
   const commercialParts = [
-    valueCondition?.id === 'show_registered_price' && value ? `Valor: ${value}.` : '',
+    valueCondition?.id === 'show_registered_price' && displayValue ? `Valor: ${displayValue}.` : '',
     valueCondition?.id === 'commercial_terms' && conditions.length > 0 ? `Condições comerciais: ${conditions.join(', ')}.` : '',
     valueCondition?.id === 'hide_values' ? 'Não mostrar valores na campanha.' : '',
   ].filter(Boolean)
 
   return [
     `Crie uma campanha imobiliária premium para ${destination?.label || 'Instagram'}.`,
+    contactPhone ? `Telefone original como fato imutavel: ${contactPhone}. Telefone para exibicao visual: ${displayPhone}.` : '',
+    displayPhone ? `CTA completo para exibicao visual:\n${cta || 'Agende sua visita'}\n${displayPhone}` : '',
+    displayPhone ? 'Nunca juntar CTA e telefone em frase corrida. Nunca colocar ponto final depois do telefone.' : '',
     '',
-    `${propertyType || 'Imóvel'} de ${profile || 'perfil residencial'}${location ? ` localizado em ${location}` : ''}.`,
+    `${propertyType || 'Imóvel'}${location ? ` localizado em ${location}` : ''}.`,
+    profile ? `Perfil comercial para direção criativa: ${profile}. Pode aparecer como selo curto quando fizer sentido comercial explícito, especialmente Minha Casa Minha Vida, Alto padrão, Investimento ou Comercial. Usar Luxo com cuidado e evitar Econômico como texto principal. Nunca escrever "Perfil comercial".` : '',
     stage ? `Imóvel ${stage.toLowerCase()}${featureParts.length > 0 ? `, com ${featureParts.join(', ')}` : ''}.` : featureParts.length > 0 ? `Características principais: ${featureParts.join(', ')}.` : '',
     allHighlights.length > 0 ? `Possui ${allHighlights.join(', ')}.` : '',
     concepts.length > 0 ? `A campanha deve explorar os conceitos de ${concepts.join(', ')}.` : '',
     imageMode ? `Uso das imagens: ${imageMode.description}` : '',
     ...commercialParts,
-    `CTA: ${cta || 'Agende sua visita'}.`,
+    contactPhone ? `Telefone de contato informado pelo usuário: ${contactPhone}. Use exatamente este número junto ao CTA quando houver telefone. Não inventar, completar, trocar DDD ou reformatar o telefone.` : 'Nenhum telefone informado. Não exibir telefone, WhatsApp, site, Instagram ou e-mail.',
+    `CTA: ${cta || 'Agende sua visita'}${contactPhone ? `\n${contactPhone}` : ''}.`,
+    displayPhone ? `CTA completo final para exibicao visual:\n${cta || 'Agende sua visita'}\n${displayPhone}` : '',
     '',
     'A campanha deve destacar primeiro o valor comercial e emocional do imóvel, depois os diferenciais reais informados.',
     'Criar uma peça visual moderna, elegante e forte para venda imobiliária.',
@@ -480,6 +490,8 @@ export default function Hero() {
   const [campaignValue, setCampaignValue] = useState('')
   const [campaignOtherHighlight, setCampaignOtherHighlight] = useState('')
   const [campaignConditions, setCampaignConditions] = useState([])
+  const [contactPhoneChoice, setContactPhoneChoice] = useState('')
+  const [campaignContactPhone, setCampaignContactPhone] = useState('')
 
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === selectedPropertyId) || null,
@@ -547,6 +559,7 @@ export default function Hero() {
     value: campaignValue,
     conditions: campaignConditions,
     cta: selectedCta,
+    contactPhone: contactPhoneChoice === 'Sim, quero divulgar' ? campaignContactPhone.trim() : '',
     destination: primaryDestination,
     imageMode,
     concepts: creativeConcepts,
@@ -566,6 +579,8 @@ export default function Hero() {
     campaignValue,
     campaignConditions,
     selectedCta,
+    contactPhoneChoice,
+    campaignContactPhone,
     primaryDestination,
     imageMode,
     creativeConcepts,
@@ -582,6 +597,8 @@ export default function Hero() {
     && (imageModeId !== 'new_image' || creativeConcepts.length > 0)
     && valueConditionId
     && selectedCta
+    && contactPhoneChoice
+    && (contactPhoneChoice !== 'Sim, quero divulgar' || Boolean(campaignContactPhone.trim()))
     && primaryDestinationId
   )
   const hasCompletedHero = Boolean(generationResult?.imageUrl)
@@ -720,10 +737,16 @@ export default function Hero() {
       deliverables,
       deliverable_items: chosenDeliverables.map((item) => ({ id: item.id, label: item.label })),
       cta: selectedCta,
+      contact_phone: contactPhoneChoice === 'Sim, quero divulgar' ? campaignContactPhone.trim() : '',
+      display_phone: contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(campaignContactPhone) : '',
+      campaign_contact_phone: contactPhoneChoice === 'Sim, quero divulgar' ? campaignContactPhone.trim() : '',
       value_condition: {
         mode: valueConditionId,
         label: valueCondition?.label || '',
-        details: campaignConditions.join(', '),
+        details: valueConditionId === 'show_registered_price'
+          ? formatCurrencyForDisplay(campaignValue, 'venda')
+          : campaignConditions.join(', '),
+        original_details: campaignConditions.join(', '),
       },
       campaign_property_type: campaignPropertyType,
       campaign_profile: campaignProfile,
@@ -734,6 +757,7 @@ export default function Hero() {
         suites: campaignSuites,
         parking_spaces: campaignParkingSpaces,
         area: campaignArea,
+        display_area: formatAreaForDisplay(campaignArea),
       },
       primary_destination: primaryDestination
         ? {
@@ -777,8 +801,21 @@ export default function Hero() {
         subcategories: creativeConcepts,
         creativeConcepts,
         propertyState: propertyState || savedPropertyState,
+        campaignPropertyType,
+        campaignCity,
+        campaignNeighborhood,
+        campaignFeatures: {
+          bedrooms: campaignBedrooms,
+          suites: campaignSuites,
+          parking_spaces: campaignParkingSpaces,
+          area: campaignArea,
+          display_area: formatAreaForDisplay(campaignArea),
+        },
         highlights: [...selectedHighlights, campaignOtherHighlight].filter(Boolean).slice(0, 8),
         cta: selectedCta,
+        contactPhone: contactPhoneChoice === 'Sim, quero divulgar' ? campaignContactPhone.trim() : '',
+        displayPhone: contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(campaignContactPhone) : '',
+        displayPrice: valueConditionId === 'show_registered_price' ? formatCurrencyForDisplay(campaignValue, 'venda') : '',
         valueCondition: valueConditionSummary || 'Não informado',
         primaryDestination: primaryDestination?.label || '',
         compatibleDestinations: compatibleDestinations.map((item) => item.label),
@@ -786,6 +823,7 @@ export default function Hero() {
         additionalInfo: '',
         humanPrompt,
       }
+      nextGenerationResult.campaignCopy = buildHeroCampaignCopy(nextGenerationResult)
       setGenerationResult(nextGenerationResult)
       setResultVisible(true)
     } catch (error) {
@@ -923,7 +961,7 @@ export default function Hero() {
               )}
 
               {campaignPropertyType && (
-                <AssistantStep number={2} message="Qual o perfil do imóvel?">
+                <AssistantStep number={2} message="Qual é o perfil deste imóvel?">
                   <ChipGrid>
                     {SALE_PROFILES.map((item) => (
                       <ChipButton
@@ -1114,7 +1152,40 @@ export default function Hero() {
               )}
 
               {selectedCta && valueConditionId && (
-                <AssistantStep number={9} message="Como deseja usar as fotos?">
+                <AssistantStep number={9} message="Quer divulgar um telefone de contato na campanha?">
+                  <ChipGrid>
+                    {CONTACT_PHONE_OPTIONS.map((item) => (
+                      <ChipButton
+                        key={item}
+                        active={contactPhoneChoice === item}
+                        onClick={() => {
+                          setContactPhoneChoice(item)
+                          if (item !== 'Sim, quero divulgar') setCampaignContactPhone('')
+                          setResultVisible(false)
+                          setGenerationError('')
+                          setGenerationResult(null)
+                        }}
+                      >
+                        {item}
+                      </ChipButton>
+                    ))}
+                  </ChipGrid>
+                  {contactPhoneChoice === 'Sim, quero divulgar' && (
+                    <label className="mt-4 block">
+                      <span className="text-sm font-black text-gray-950">Qual telefone deseja exibir?</span>
+                      <input
+                        value={campaignContactPhone}
+                        onChange={(event) => setCampaignContactPhone(event.target.value.slice(0, 40))}
+                        placeholder="Ex: (11) 99999-9999"
+                        className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      />
+                    </label>
+                  )}
+                </AssistantStep>
+              )}
+
+              {selectedCta && valueConditionId && contactPhoneChoice && (contactPhoneChoice !== 'Sim, quero divulgar' || campaignContactPhone.trim()) && (
+                <AssistantStep number={10} message="Como deseja usar as fotos?">
                   <OptionGrid>
                     {IMAGE_MODES.map((item) => (
                       <ChoiceButton
@@ -1811,6 +1882,7 @@ export default function Hero() {
                     subcategory={subcategory}
                     highlights={selectedHighlights}
                     cta={selectedCta}
+                    contactPhone={contactPhoneChoice === 'Sim, quero divulgar' ? campaignContactPhone.trim() : ''}
                     valueConditionSummary={valueConditionSummary}
                     primaryDestination={primaryDestination}
                     compatibleDestinations={compatibleDestinations}
@@ -1857,9 +1929,9 @@ function HeroWowResult({ generationResult, onGenerateAnother }) {
   const deliverables = Array.isArray(generationResult.deliverables)
     ? generationResult.deliverables
     : []
-  const generatedTexts = generationResult.texts && typeof generationResult.texts === 'object'
-    ? generationResult.texts
-    : {}
+  const campaignCopy = Array.isArray(generationResult.campaignCopy) && generationResult.campaignCopy.length > 0
+    ? generationResult.campaignCopy
+    : buildHeroCampaignCopy(generationResult)
   const briefingItems = [
     ['Imóvel', generationResult.propertyTitle],
     ['Público-alvo', Array.isArray(generationResult.audiences) ? generationResult.audiences.join(', ') : 'Não informado'],
@@ -1872,15 +1944,8 @@ function HeroWowResult({ generationResult, onGenerateAnother }) {
     ['Destinos compatíveis', compatibleDestinations.length > 0 ? compatibleDestinations.join(', ') : 'Nenhum uso adicional nesta versão'],
   ]
 
-  const textBlocks = [
-    { key: 'instagram', title: 'Texto Instagram', content: generatedTexts.instagram },
-    { key: 'whatsapp', title: 'WhatsApp', content: generatedTexts.whatsapp },
-    { key: 'cta', title: 'CTA', content: generatedTexts.cta },
-    { key: 'portal', title: 'Descrição Portal', content: generatedTexts.portal },
-    { key: 'hashtags', title: 'Hashtags', content: generatedTexts.hashtags },
-  ]
-  const textFileContent = textBlocks
-    .map((item) => `${item.title}\r\n${item.content || 'Texto não retornado.'}`)
+  const textFileContent = campaignCopy
+    .map((item) => `${item.label}\r\n${item.text || 'Texto não retornado.'}`)
     .join('\r\n\r\n')
 
   const handleDownloadTexts = () => {
@@ -1978,11 +2043,11 @@ function HeroWowResult({ generationResult, onGenerateAnother }) {
         </section>
 
         <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-amber-700">Textos do pacote</p>
-          <h3 className="mt-1 text-xl font-black text-gray-950">Textos prontos para copiar ou baixar</h3>
+          <p className="text-xs font-black uppercase tracking-wide text-amber-700">📦 CAMPANHA PRONTA PARA PUBLICAR</p>
+          <h3 className="mt-1 text-xl font-black text-gray-950">Textos profissionais para copiar ou baixar</h3>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {textBlocks.map((item) => (
-              <TextDeliveryBlock key={item.key} title={item.title} content={item.content} />
+            {campaignCopy.map((item) => (
+              <TextDeliveryBlock key={item.label} title={item.label} content={item.text} />
             ))}
           </div>
         </section>
@@ -2121,7 +2186,7 @@ function ChipButton({ active, children, onClick }) {
   )
 }
 
-function Checklist({ property, imageMode, propertyState, audiences, creativeConcepts, subcategory, highlights, cta, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, humanPrompt, photos, requiresPhotos, canGenerate, generationLoading, generationError, onGenerate }) {
+function Checklist({ property, imageMode, propertyState, audiences, creativeConcepts, subcategory, highlights, cta, contactPhone, valueConditionSummary, primaryDestination, compatibleDestinations, additionalInfo, deliverables, humanPrompt, photos, requiresPhotos, canGenerate, generationLoading, generationError, onGenerate }) {
   const creativeConceptSummary = Array.isArray(creativeConcepts) && creativeConcepts.length > 0
     ? creativeConcepts.join(', ')
     : 'Não se aplica'
@@ -2133,6 +2198,7 @@ function Checklist({ property, imageMode, propertyState, audiences, creativeConc
     ['Modo de criação', imageMode?.label || 'Não informado'],
     ['Conceitos selecionados', creativeConceptSummary],
     ['Regra de valores', valueConditionSummary || 'Não informado'],
+    ['Telefone', contactPhone || 'Não informado'],
     ['Destino da campanha', primaryDestination?.label || 'Não informado'],
     ['Usos compatíveis', compatibleDestinationSummary],
   ]
@@ -2312,6 +2378,7 @@ function ResultPanel({ visible, primaryDestination, compatibleDestinations, gene
             <p><strong>Estado do imóvel:</strong> {generationResult.propertyState}</p>
             <p><strong>Destaques:</strong> {generationResult.highlights.length > 0 ? generationResult.highlights.join(', ') : 'Sem destaque adicional'}</p>
             <p><strong>CTA:</strong> {generationResult.cta}</p>
+            {generationResult.contactPhone && <p><strong>Telefone:</strong> {generationResult.contactPhone}</p>}
             <p><strong>Valores e condições:</strong> {generationResult.valueCondition}</p>
             <p><strong>Pacote:</strong> {generationResult.deliverables.join(', ')}</p>
             {generationResult.additionalInfo && (
@@ -2394,6 +2461,29 @@ function EmptyPropertyState() {
       </Link>
     </section>
   )
+}
+
+function buildHeroCampaignCopy(generationResult) {
+  return buildPublicationPackage({
+    objective: 'sale',
+    objectiveLabel: 'Venda de imóvel',
+    propertyType: generationResult?.campaignPropertyType || generationResult?.propertyTitle || 'Imóvel',
+    stage: generationResult?.propertyState || '',
+    city: generationResult?.campaignCity || '',
+    district: generationResult?.campaignNeighborhood || '',
+    features: generationResult?.highlights || [],
+    bedrooms: generationResult?.campaignFeatures?.bedrooms || '',
+    suites: generationResult?.campaignFeatures?.suites || '',
+    parking: generationResult?.campaignFeatures?.parking_spaces || '',
+    area: generationResult?.campaignFeatures?.area || '',
+    displayArea: generationResult?.campaignFeatures?.display_area || '',
+    value: generationResult?.displayPrice || generationResult?.valueCondition || '',
+    displayPrice: generationResult?.displayPrice || '',
+    showValue: generationResult?.valueCondition && !/nao|não|ocultar/i.test(String(generationResult.valueCondition)),
+    contactPhone: generationResult?.contactPhone || generationResult?.campaignContactPhone || '',
+    displayPhone: generationResult?.displayPhone || '',
+    cta: generationResult?.cta || 'Fale comigo',
+  })
 }
 
 function LoadingState() {
