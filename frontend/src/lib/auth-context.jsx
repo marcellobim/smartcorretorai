@@ -306,10 +306,11 @@ export function AuthProvider({ children }) {
   const user = authUser
     ? { ...authUser, ...(profile || {}), role: mergedRole, displayName, nome: displayName }
     : null
-  const isUnlimitedTestAdmin = (profile?.email || authUser?.email || '').toLowerCase() === 'riccieri68@gmail.com'
+  const accountEmail = (profile?.email || authUser?.email || '').toLowerCase()
+  const isAdmin = String(mergedRole || '').toLowerCase() === 'admin'
+  const isUnlimitedTestAdmin = isAdmin || accountEmail === 'riccieri68@gmail.com'
   const isPro = isUnlimitedTestAdmin || !!(profile?.plano && profile.plano !== 'starter')
   const isAuthenticated = !!authUser
-  const isAdmin = mergedRole === 'admin'
 
   // JWT direto do contexto — consumidores leem sem chamar supabase.auth.*
   const accessToken = session?.access_token || null

@@ -21,6 +21,22 @@ const CATEGORIAS = [
 
 const TIPOS = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
 
+const isCommercialPropertyType = (type) => {
+  const normalized = String(type || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+  return [
+    'SALA COMERCIAL',
+    'LAJE CORPORATIVA',
+    'LOJA',
+    'PONTO COMERCIAL',
+    'CONJUNTO COMERCIAL',
+    'COMERCIAL',
+    'GALPAO',
+  ].some((keyword) => normalized.includes(keyword))
+}
+
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
   'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
@@ -1288,7 +1304,7 @@ async function resizeFoto(file, maxPx = 1920) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  const { user: authedUser, accessToken, loading: authLoading, isPro, isUnlimitedTestAdmin } = useAuth()
+  const { user: authedUser, accessToken, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const produtoParamRaw = new URLSearchParams(location.search).get('produto') || location.state?.produto || ''
@@ -1373,9 +1389,6 @@ export default function NovaCampanha() {
   const [activeCampaignModelId, setActiveCampaignModelId] = useState(null)
   const [selectedModelUses, setSelectedModelUses] = useState({})
   const [campaignObjective, setCampaignObjective] = useState(defaultCampaignObjective)
-  const [demoUsed, setDemoUsed] = useState(false)
-  const isDemoPlan = !isPro && !isUnlimitedTestAdmin
-  const demoStorageKey = authedUser?.id ? `smartcorretor_demo_used_${authedUser.id}` : null
 
   useEffect(() => {
     setIgConectado(false)
@@ -1387,11 +1400,6 @@ export default function NovaCampanha() {
       total_disponivel: 5,
     })
   }, [])
-
-  useEffect(() => {
-    if (!demoStorageKey) return
-    setDemoUsed(localStorage.getItem(demoStorageKey) === 'true')
-  }, [demoStorageKey])
 
   const catAtual = CATEGORIAS.find(c => c.id === categoria)
   const msgs = MSGS_POR_CAT[categoria] || MSGS_POR_CAT.medio_padrao
@@ -1439,9 +1447,9 @@ export default function NovaCampanha() {
   const selectedModelCount = selectedModelSummaries.length
   const selectedUseCount = selectedModelSummaries.reduce((sum, model) => sum + model.selectedUses.length, 0)
   const estimatedCreditConsumption = selectedCatalogItems.reduce((sum, item) => sum + item.creditWeight, 0)
-  const generationModeForCredits = isDemoPlan ? 'demonstrativo' : 'manual'
-  const generationCreditCost = isDemoPlan ? 0 : estimatedCreditConsumption
-  const generationHasPremiumVideo = !isDemoPlan && selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
+  const generationModeForCredits = 'manual'
+  const generationCreditCost = estimatedCreditConsumption
+  const generationHasPremiumVideo = selectedCatalogItems.some(item => ['video', 'reels'].includes(item.type))
   const minFotosImovel = isProductEntry ? (productContext.photoRequired ? 1 : 0) : MIN_FOTOS_PRODUTO_3
   const maxFotosImovel = isProductEntry ? MAX_FOTOS_OUTROS_PRODUTOS : MAX_FOTOS_PRODUTO_3
 
@@ -1569,8 +1577,9 @@ export default function NovaCampanha() {
   const dadosImovelValidos = tipo && bairroNormalizado && cidade.trim() && estado
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
   const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
-  const quartosParaPayload = isLandProperty ? 0 : quartos
-  const suitesParaPayload = isLandProperty ? 0 : suites
+  const isCommercialProperty = isCommercialPropertyType(tipo)
+  const quartosParaPayload = isLandProperty || isCommercialProperty ? 0 : quartos
+  const suitesParaPayload = isLandProperty || isCommercialProperty ? 0 : suites
   const vagasParaPayload = isLandProperty ? 0 : vagas
   const podaGerar = categoria && dadosImovelValidos
 
@@ -1656,10 +1665,6 @@ export default function NovaCampanha() {
       return
     }
     if (!categoria) setCategoria('medio_padrao')
-    if (isDemoPlan && demoUsed) {
-      toast.error('Sua campanha demonstrativa já foi utilizada. Escolha um plano para continuar.')
-      return
-    }
     setShowConfirm(true)
   }
 
@@ -1920,10 +1925,6 @@ export default function NovaCampanha() {
       setIgPostado(false)
       if (partialCampaignWarning) {
         setGenerationNotice(`${partialCampaignWarning} Os textos IA foram preservados abaixo.`)
-      }
-      if (isDemoPlan && demoStorageKey) {
-        localStorage.setItem(demoStorageKey, 'true')
-        setDemoUsed(true)
       }
       setFase('resultado')
 
@@ -2449,7 +2450,16 @@ export default function NovaCampanha() {
           <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo <span className="text-red-400">*</span></label>
           <div className="flex flex-wrap gap-2">
             {TIPOS.map(t => (
-              <button key={t} type="button" onClick={() => setTipo(t)}
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setTipo(t)
+                  if (isCommercialPropertyType(t)) {
+                    setQuartos(0)
+                    setSuites(0)
+                  }
+                }}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${tipo === t ? 'gradient-primary text-white border-transparent shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
                 {t}
               </button>
@@ -2468,8 +2478,12 @@ export default function NovaCampanha() {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-3">Quantidade</label>
             <div className="flex gap-6 flex-wrap">
-              <Counter label="Quartos" value={quartos} onChange={setQuartos} />
-              <Counter label="Suítes" value={suites} onChange={setSuites} />
+              {!isCommercialProperty && (
+                <>
+                  <Counter label="Quartos" value={quartos} onChange={setQuartos} />
+                  <Counter label="Suítes" value={suites} onChange={setSuites} />
+                </>
+              )}
               <Counter label="Vagas" value={vagas} onChange={setVagas} />
             </div>
           </div>
@@ -2509,7 +2523,7 @@ export default function NovaCampanha() {
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Área (m²) <span className="text-gray-400 font-normal">opcional</span></label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">{isCommercialProperty ? 'Área útil (m²)' : 'Área (m²)'} <span className="text-gray-400 font-normal">opcional</span></label>
             <input value={area} onChange={e => setArea(e.target.value)} type="number" placeholder="Ex: 110"
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent" />
           </div>
@@ -3064,17 +3078,12 @@ export default function NovaCampanha() {
                       A seleção será validada com segurança no servidor antes da geração.
                     </p>
                   </div>
-                  {isDemoPlan && demoUsed && (
-                    <p className="mt-4 rounded-xl bg-primary-50 p-3 text-xs font-semibold text-primary-800">
-                      Sua campanha demonstrativa já foi utilizada.
-                    </p>
-                  )}
                   <button
                     type="button"
                     onClick={confirmarGeracao}
-                    disabled={!podaGerar || (isDemoPlan && demoUsed)}
+                    disabled={!podaGerar}
                     className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-black transition-colors ${
-                      podaGerar && !(isDemoPlan && demoUsed)
+                      podaGerar
                         ? 'bg-primary-800 text-white hover:bg-primary-700'
                         : 'cursor-not-allowed bg-gray-100 text-gray-400'
                     }`}
@@ -3169,22 +3178,6 @@ export default function NovaCampanha() {
 
           return (
             <div className="space-y-6">
-
-              {isDemoPlan && (
-                <AnimatedCard delay={0}>
-                  <div className="card p-5 border-primary-200 bg-primary-50">
-                    <h2 className="text-lg font-extrabold text-gray-900">Campanha demonstrativa concluída.</h2>
-                    <p className="text-sm text-gray-600 mt-1">Escolha um plano para continuar gerando campanhas completas.</p>
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {['START', 'PRO', 'ELITE'].map(plan => (
-                        <a key={plan} href="/planos" className="rounded-xl bg-primary-800 text-white text-sm font-bold px-4 py-2.5 text-center hover:bg-primary-700 transition-colors">
-                          Assinar {plan}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                </AnimatedCard>
-              )}
 
               <AnimatedCard delay={0}>
                 <div className="card p-5">

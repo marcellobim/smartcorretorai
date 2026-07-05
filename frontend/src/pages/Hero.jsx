@@ -346,6 +346,22 @@ const normalizePlaceName = (value = '') => {
     .join(' ')
 }
 
+const isCommercialPropertyType = (propertyType) => {
+  const normalized = String(propertyType || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+  return [
+    'SALA COMERCIAL',
+    'LAJE CORPORATIVA',
+    'LOJA',
+    'PONTO COMERCIAL',
+    'CONJUNTO COMERCIAL',
+    'COMERCIAL',
+    'GALPAO',
+  ].some((keyword) => normalized.includes(keyword))
+}
+
 const getPropertyTitle = (property) => {
   if (!property) return 'Imóvel'
   return property.titulo || [property.tipo, property.bairro].filter(Boolean).join(' em ') || 'Imóvel cadastrado'
@@ -408,9 +424,12 @@ const buildHumanPrompt = ({
   const displayArea = formatAreaForDisplay(area)
   const displayValue = formatCurrencyForDisplay(value, 'venda')
   const displayPhone = normalizeContactPhoneForDisplay(contactPhone)
+  const isCommercialProperty = isCommercialPropertyType(propertyType)
   const featureParts = [
-    bedrooms ? `${bedrooms} dormitório${String(bedrooms) === '1' ? '' : 's'}` : '',
-    suites ? `${suites} suíte${String(suites) === '1' ? '' : 's'}` : '',
+    ...(!isCommercialProperty ? [
+      bedrooms ? `${bedrooms} dormitório${String(bedrooms) === '1' ? '' : 's'}` : '',
+      suites ? `${suites} suíte${String(suites) === '1' ? '' : 's'}` : '',
+    ] : []),
     parkingSpaces ? `${parkingSpaces} vaga${String(parkingSpaces) === '1' ? '' : 's'}` : '',
     area ? `${area}m²` : '',
   ].filter(Boolean)
@@ -527,6 +546,7 @@ export default function Hero() {
     ? compatibleDestinations.map((item) => item.label).join(', ')
     : 'Nenhum uso adicional compatível nesta versão'
   const chosenDeliverables = DELIVERABLES.filter((item) => deliverables[item.id])
+  const isCampaignCommercialType = isCommercialPropertyType(campaignPropertyType)
 
   const canShowImageMode = false
   const canShowPropertyState = false
@@ -632,12 +652,14 @@ export default function Hero() {
     setResultVisible(false)
     setGenerationError('')
     setGenerationResult(null)
-    setCampaignPropertyType(selectedProperty?.tipo || '')
+    const nextPropertyType = selectedProperty?.tipo || ''
+    const nextIsCommercialProperty = isCommercialPropertyType(nextPropertyType)
+    setCampaignPropertyType(nextPropertyType)
     setCampaignProfile(getMasterProfile(selectedProperty))
     setCampaignCity(normalizePlaceName(selectedProperty?.cidade || ''))
     setCampaignNeighborhood(normalizePlaceName(selectedProperty?.bairro || ''))
-    setCampaignBedrooms(selectedProperty?.quartos ? String(selectedProperty.quartos) : '')
-    setCampaignSuites(master?.suites ? String(master.suites) : '')
+    setCampaignBedrooms(!nextIsCommercialProperty && selectedProperty?.quartos ? String(selectedProperty.quartos) : '')
+    setCampaignSuites(!nextIsCommercialProperty && master?.suites ? String(master.suites) : '')
     setCampaignParkingSpaces(selectedProperty?.vagas ? String(selectedProperty.vagas) : '')
     setCampaignArea(selectedProperty?.area_m2 ? String(selectedProperty.area_m2) : '')
     setCampaignValue(selectedProperty?.preco ? formatCurrency(Number(selectedProperty.preco)) : '')
@@ -948,6 +970,10 @@ export default function Hero() {
                         active={campaignPropertyType === item}
                         onClick={() => {
                           setCampaignPropertyType(item)
+                          if (isCommercialPropertyType(item)) {
+                            setCampaignBedrooms('')
+                            setCampaignSuites('')
+                          }
                           setResultVisible(false)
                           setGenerationError('')
                           setGenerationResult(null)
@@ -1032,12 +1058,18 @@ export default function Hero() {
               {campaignCity && campaignNeighborhood && (
                 <AssistantStep number={5} message="Quais são as características principais?">
                   <div className="grid gap-3 sm:grid-cols-4">
-                    {[
-                      ['Dormitórios', campaignBedrooms, setCampaignBedrooms],
-                      ['Suítes', campaignSuites, setCampaignSuites],
-                      ['Vagas', campaignParkingSpaces, setCampaignParkingSpaces],
-                      ['Área em m²', campaignArea, setCampaignArea],
-                    ].map(([label, value, setter]) => (
+                    {(isCampaignCommercialType
+                      ? [
+                        ['Área útil (m²)', campaignArea, setCampaignArea],
+                        ['Vagas', campaignParkingSpaces, setCampaignParkingSpaces],
+                      ]
+                      : [
+                        ['Dormitórios', campaignBedrooms, setCampaignBedrooms],
+                        ['Suítes', campaignSuites, setCampaignSuites],
+                        ['Vagas', campaignParkingSpaces, setCampaignParkingSpaces],
+                        ['Área em m²', campaignArea, setCampaignArea],
+                      ]
+                    ).map(([label, value, setter]) => (
                       <label key={label} className="block">
                         <span className="text-sm font-black text-gray-950">{label}</span>
                         <input

@@ -4,7 +4,25 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, prefer',
+  'Access-Control-Allow-Headers': [
+    'authorization',
+    'Authorization',
+    'x-client-info',
+    'X-Client-Info',
+    'apikey',
+    'ApiKey',
+    'content-type',
+    'Content-Type',
+    'prefer',
+    'Prefer',
+    'x-supabase-api-version',
+    'X-Supabase-Api-Version',
+    'x-supabase-authorization',
+    'X-Supabase-Authorization',
+    'accept',
+    'Accept',
+  ].join(', '),
+  'Access-Control-Expose-Headers': 'Content-Length, Content-Type',
   'Access-Control-Max-Age': '86400',
 }
 
@@ -139,12 +157,6 @@ const SMART_CAMPAIGN_BASE_TEMPLATE_IDS = new Set<string>([
   '697a514d-4bab-4062-9c9e-3c208688c0e9',
   'd8310f54-5c9d-4606-ae6a-dacb8c4455ae',
   '62d46ee6-6347-4335-af89-2b65f2794882',
-  '2ecd48d3-146c-467b-8a0d-908152101378',
-])
-
-const DEMO_TEMPLATE_IDS = new Set<string>([
-  'd791b9b8-55e2-4dff-ae5d-76b9e779c551',
-  '1de0a863-2376-4336-8a0a-4750c2429cf7',
   '2ecd48d3-146c-467b-8a0d-908152101378',
 ])
 
@@ -1467,12 +1479,13 @@ serve(async (req) => {
       avatar_url?: string
       logo_url?: string
       plano?: string
+      role?: string
     }
     let profileRow: ProfileRow | null = null
     if (profileId) {
       const { data, error: profileErr } = await supabase
         .from('profiles')
-        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url, plano')
+        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url, plano, role')
         .eq('id', profileId)
         .maybeSingle()
       if (profileErr) console.warn(`[${reqId}] profile fetch erro:`, profileErr.message)
@@ -1611,31 +1624,12 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
       ? generation_mode.trim()
       : 'manual'
     const videoIaPremium = video_ia_premium === true
-    const isUnlimitedTestAdmin = (profileRow?.email || '').toLowerCase() === 'riccieri68@gmail.com'
-    const isStarterPlan = !profileRow?.plano || profileRow.plano === 'starter'
-    const isDemoCreditFlow = isStarterPlan && generationMode === 'demonstrativo'
+    const profileEmail = (profileRow?.email || authUser.email || '').toLowerCase()
+    const profileRole = String(profileRow?.role || authUser.user_metadata?.role || '').toLowerCase()
+    const isUnlimitedTestAdmin = profileRole === 'admin' || profileEmail === 'riccieri68@gmail.com'
     const isSmartCampaignCreditFlow = generationMode === 'smart_campaign'
 
-    if (!isUnlimitedTestAdmin && isStarterPlan && generationMode !== 'demonstrativo') {
-      return jsonResponse({
-        error: 'Plano demonstrativo permite apenas a campanha demonstrativa gratuita.',
-      }, 403)
-    }
-
-    if (!isUnlimitedTestAdmin && isDemoCreditFlow) {
-      const invalidDemoTemplates = pickedIds.filter((id) => !DEMO_TEMPLATE_IDS.has(id))
-      const hasExactDemoSet =
-        pickedIds.length === DEMO_TEMPLATE_IDS.size
-        && pickedIds.every((id) => DEMO_TEMPLATE_IDS.has(id))
-
-      if (invalidDemoTemplates.length > 0 || !hasExactDemoSet) {
-        return jsonResponse({
-          error: 'Campanha demonstrativa permite apenas os formatos gratuitos fixos.',
-        }, 403)
-      }
-    }
-
-    if (!isUnlimitedTestAdmin && !isDemoCreditFlow && isSmartCampaignCreditFlow) {
+    if (!isUnlimitedTestAdmin && isSmartCampaignCreditFlow) {
       const hasExactSmartCampaignSet =
         pickedIds.length === SMART_CAMPAIGN_BASE_TEMPLATE_IDS.size
         && pickedIds.every((id) => SMART_CAMPAIGN_BASE_TEMPLATE_IDS.has(id))
@@ -1647,7 +1641,7 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
       }
     }
 
-    const effectiveCreditCost = isUnlimitedTestAdmin || isDemoCreditFlow
+    const effectiveCreditCost = isUnlimitedTestAdmin
       ? 0
       : isSmartCampaignCreditFlow
         ? SMART_CAMPAIGN_FIXED_CREDIT_COST

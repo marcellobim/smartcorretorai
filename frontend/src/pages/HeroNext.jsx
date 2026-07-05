@@ -21,7 +21,7 @@ const GOALS = [
   { id: 'sale', label: 'Venda de imóvel', description: 'Campanha para divulgar um imóvel à venda.' },
   { id: 'rent', label: 'Locação de imóvel', description: 'Campanha para anunciar um imóvel para locação.' },
   { id: 'property_capture', label: 'Captação de Imóveis', description: 'Campanha para atrair proprietários interessados em vender, alugar ou administrar imóveis.' },
-  { id: 'broker_capture', label: 'Captação de Corretores', description: 'Disponível no plano Elite.', locked: true },
+  { id: 'broker_capture', label: 'Captação de Corretores', description: 'Campanha para atrair corretores e profissionais para sua equipe.' },
 ]
 
 const GOAL_LABELS = {
@@ -33,11 +33,49 @@ const GOAL_LABELS = {
 
 const getGoalLabel = (goal) => GOAL_LABELS[goal] || 'Campanha IA'
 
+const COMMERCIAL_PROPERTY_KEYWORDS = [
+  'SALA COMERCIAL',
+  'LAJE CORPORATIVA',
+  'LOJA',
+  'PONTO COMERCIAL',
+  'CONJUNTO COMERCIAL',
+  'COMERCIAL',
+  'GALPAO',
+  'GALPÃO',
+]
+
+const isCommercialPropertyType = (propertyType) => {
+  const normalized = normalizeComparable(propertyType).toUpperCase()
+  return COMMERCIAL_PROPERTY_KEYWORDS.some((keyword) => normalized.includes(normalizeComparable(keyword).toUpperCase()))
+}
+
 const shouldShowChatQuestion = (question, currentAnswers) => {
   if (question.id === 'contactPhone') {
     return currentAnswers.contactPhoneChoice === 'Sim, quero divulgar'
   }
   return true
+}
+
+const getChatFlowForAnswers = (baseFlow, currentAnswers) => {
+  if (!isCommercialPropertyType(currentAnswers.propertyType)) return baseFlow
+
+  const areaQuestion = {
+    id: 'area',
+    question: 'Qual é a área útil do imóvel?',
+    type: 'text',
+    placeholder: 'Ex: 120 m²',
+    optionalLabel: 'Não informar área',
+  }
+
+  const filteredFlow = baseFlow.filter((question) => !['bedrooms', 'suites', 'area'].includes(question.id))
+  const parkingIndex = filteredFlow.findIndex((question) => question.id === 'parking')
+  if (parkingIndex === -1) return filteredFlow
+
+  return [
+    ...filteredFlow.slice(0, parkingIndex),
+    areaQuestion,
+    ...filteredFlow.slice(parkingIndex),
+  ]
 }
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -178,10 +216,6 @@ const RENT_GUARANTEE_OPTIONS = [
 const getRentalGuaranteeLabel = (id) => (
   RENT_GUARANTEE_OPTIONS.find((item) => item.id === id)?.label || ''
 )
-
-// Futuro: Captação de Corretores deve virar um chat separado por plano.
-// Não misturar esse objetivo com os fluxos ativos de Venda, Locação e Captação de Imóveis.
-const FUTURE_CHAT_OBJECTIVES = ['broker_capture']
 
 const DIFFERENTIAL_GROUPS = [
   {
@@ -444,6 +478,44 @@ const PROPERTY_CAPTURE_CTA_OPTIONS = [
   'Chamar no WhatsApp',
 ]
 
+const BROKER_CAPTURE_PROFILES = [
+  'Corretores de imóveis',
+  'Captadores de imóveis',
+  'Gerentes comerciais',
+  'Coordenadores de vendas',
+  'Profissionais do mercado imobiliário',
+  'Quero que a IA sugira',
+]
+
+const BROKER_CAPTURE_DIFFERENTIALS = [
+  'Leads qualificados',
+  'Carteira de imóveis',
+  'Marketing e tecnologia',
+  'Treinamento comercial',
+  'Suporte jurídico',
+  'Estrutura de atendimento',
+  'Comissões atrativas',
+  'Equipe colaborativa',
+  'Outro',
+]
+
+const BROKER_CAPTURE_MESSAGES = [
+  'Faça parte do nosso time',
+  'Oportunidade para corretores',
+  'Cresça no mercado imobiliário',
+  'Mais estrutura para vender',
+  'Recrutamento de profissionais',
+  'Quero que a IA sugira',
+]
+
+const BROKER_CAPTURE_CTA_OPTIONS = [
+  'Fale conosco',
+  'Saiba mais',
+  'Enviar currículo',
+  'Chamar no WhatsApp',
+  'Quero conversar',
+]
+
 const PROPERTY_CAPTURE_CHAT_FLOW = [
   {
     id: 'services',
@@ -521,6 +593,59 @@ const PROPERTY_CAPTURE_CHAT_FLOW = [
   },
 ]
 
+const BROKER_CAPTURE_CHAT_FLOW = [
+  {
+    id: 'professionalProfile',
+    question: 'Qual profissional deseja atrair?',
+    type: 'multi',
+    options: BROKER_CAPTURE_PROFILES,
+    confirmLabel: 'Confirmar perfil',
+    customPlaceholder: 'Outro perfil profissional',
+  },
+  { id: 'city', question: 'Em qual cidade deseja recrutar profissionais?', type: 'text', placeholder: 'Ex: São Paulo' },
+  { id: 'neighborhoods', question: 'Quais regiões ou bairros deseja atender?', type: 'text', placeholder: 'Ex: Moema, Vila Mariana e Brooklin' },
+  {
+    id: 'marketExperience',
+    question: 'Qual experiência deseja priorizar?',
+    type: 'chips',
+    options: MARKET_EXPERIENCE_OPTIONS,
+  },
+  {
+    id: 'businessDifferentials',
+    question: 'Quais diferenciais deseja destacar?',
+    type: 'multi',
+    options: BROKER_CAPTURE_DIFFERENTIALS,
+    confirmLabel: 'Confirmar diferenciais',
+    customPlaceholder: 'Outro diferencial',
+  },
+  {
+    id: 'mainMessage',
+    question: 'Qual mensagem principal deseja usar?',
+    type: 'multi',
+    options: BROKER_CAPTURE_MESSAGES,
+    confirmLabel: 'Confirmar mensagem principal',
+    customPlaceholder: 'Outra mensagem',
+  },
+  {
+    id: 'cta',
+    question: 'Qual CTA deve conduzir a campanha?',
+    type: 'chips',
+    options: BROKER_CAPTURE_CTA_OPTIONS,
+  },
+  {
+    id: 'contactPhoneChoice',
+    question: 'Quer divulgar um telefone de contato na campanha?',
+    type: 'chips',
+    options: CONTACT_PHONE_OPTIONS,
+  },
+  {
+    id: 'contactPhone',
+    question: 'Qual telefone deseja exibir?',
+    type: 'text',
+    placeholder: 'Ex: (11) 99999-9999',
+  },
+]
+
 const PROCESSING_STEPS = [
   'Analisando briefing...',
   'Gerando visual...',
@@ -575,24 +700,57 @@ const normalizeList = (value) => {
   return value.map((item) => String(item || '').trim()).filter(Boolean)
 }
 
-function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
-  const objectiveLabel = goal === 'rent'
-    ? 'Locação de imóvel'
-    : goal === 'property_capture'
-      ? 'Captação de imóveis'
-      : 'Venda de imóvel'
-  const features = goal === 'property_capture'
-    ? [
-      ...normalizeList(answers.services),
+const isCaptureGoal = (goal) => goal === 'property_capture' || goal === 'broker_capture'
+
+const getHeroNextObjectiveLabel = (goal) => {
+  if (goal === 'rent') return 'Locação de imóvel'
+  if (goal === 'property_capture') return 'Captação de imóveis'
+  if (goal === 'broker_capture') return 'Captação de Corretores'
+  return 'Venda de imóvel'
+}
+
+const getHeroNextCampaignObjective = (goal) => {
+  if (goal === 'rent') return 'locacao'
+  if (goal === 'property_capture') return 'captacao_imoveis'
+  if (goal === 'broker_capture') return 'captacao_corretores'
+  return 'venda'
+}
+
+const getHeroNextCaptureFeatures = (goal, answers) => {
+  if (goal === 'broker_capture') {
+    return [
+      ...normalizeList(answers.professionalProfile),
       ...normalizeList(answers.businessDifferentials),
       ...normalizeList(answers.mainMessage),
     ]
-    : normalizeList(answers.differentials)
+  }
+
+  if (goal === 'property_capture') {
+    return [
+      ...normalizeList(answers.services),
+      ...normalizeList(answers.propertyKinds),
+      ...normalizeList(answers.ownerAudience),
+      ...normalizeList(answers.specialties),
+      ...normalizeList(answers.businessDifferentials),
+      ...normalizeList(answers.mainMessage),
+    ]
+  }
+
+  return normalizeList(answers.differentials)
+}
+
+const getHeroNextDefaultCta = (goal) => (
+  isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale comigo'
+)
+
+function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
+  const objectiveLabel = getHeroNextObjectiveLabel(goal)
+  const features = getHeroNextCaptureFeatures(goal, answers)
 
   return buildPublicationPackage({
     objective: goal,
     objectiveLabel,
-    propertyType: answers.propertyType || normalizeList(answers.propertyKinds)[0] || 'Imóvel',
+    propertyType: answers.propertyType || normalizeList(answers.propertyKinds)[0] || normalizeList(answers.professionalProfile)[0] || 'Imóvel',
     stage: answers.stage || '',
     city: answers.city || '',
     district: answers.neighborhood || answers.neighborhoods || '',
@@ -607,7 +765,7 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
     showValue: !['hidden', 'no_values'].includes(valueCondition?.mode || ''),
     contactPhone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(answers.contactPhone || '') : '',
     displayPhone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(answers.contactPhone || '') : '',
-    cta: answers.cta || 'Fale comigo',
+    cta: answers.cta || getHeroNextDefaultCta(goal),
   })
 }
 
@@ -903,8 +1061,57 @@ const createCampaignBatchId = () => `hero-next-${Date.now()}-${Math.random().toS
 const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeIdeaCount = 1) => {
   const isRent = goal === 'rent'
   const isPropertyCapture = goal === 'property_capture'
+  const isBrokerCapture = goal === 'broker_capture'
   const selectedDestinations = Array.isArray(destinations) ? destinations : []
   const primaryDestination = selectedDestinations[0] || null
+  if (isBrokerCapture) {
+    const professionalProfiles = normalizeList(answers.professionalProfile)
+    const businessDifferentials = normalizeList(answers.businessDifferentials)
+    const mainMessages = normalizeList(answers.mainMessage)
+    const contactPhone = answers.contactPhoneChoice === 'Sim, quero divulgar' ? String(answers.contactPhone || '').trim() : ''
+    const displayPhone = normalizeContactPhoneForDisplay(contactPhone)
+    const region = [
+      answers.city ? `Cidade: ${answers.city}` : '',
+      answers.neighborhoods ? `Regiões/bairros: ${answers.neighborhoods}` : '',
+    ].filter(Boolean).join(' | ')
+
+    return [
+      `Crie uma campanha imobiliária profissional, moderna e de alto impacto visual para ${primaryDestination?.label || 'o destino escolhido'}.`,
+      '',
+      'Objetivo: captação de corretores e profissionais do mercado imobiliário.',
+      'A campanha deve atrair profissionais interessados em fazer parte de uma equipe, imobiliária ou operação comercial.',
+      `Quantidade de opções de criação: ${formatCreationOptionCount(creativeIdeaCount)}.`,
+      getFormatInstruction(primaryDestination),
+      '',
+      professionalProfiles.length ? `Profissionais desejados: ${professionalProfiles.join(', ')}.` : '',
+      region || '',
+      answers.marketExperience ? `Experiência desejada: ${answers.marketExperience}.` : '',
+      businessDifferentials.length ? `Diferenciais reais da equipe ou imobiliária: ${businessDifferentials.join(', ')}.` : '',
+      mainMessages.length ? `Mensagem principal desejada: ${mainMessages.join(', ')}.` : '',
+      '',
+      'Promessa principal:',
+      'mostrar que o profissional pode encontrar mais estrutura, parceria, oportunidades e crescimento no mercado imobiliário.',
+      '',
+      'Direção visual:',
+      'usar estética de autoridade, confiança, equipe, crescimento profissional e recrutamento imobiliário. Não parecer anúncio de imóvel à venda; parecer campanha para atrair profissionais.',
+      '',
+      contactPhone ? `Telefone de contato informado pelo usuário: ${contactPhone}. Use exatamente este número junto ao CTA quando houver telefone. Não inventar, completar, trocar DDD ou reformatar o telefone.` : 'Nenhum telefone informado. Não exibir telefone, WhatsApp, site, Instagram ou e-mail.',
+      `CTA: ${answers.cta || 'Solicitar contato'}${contactPhone ? `\n${contactPhone}` : ''}.`,
+      contactPhone ? `Telefone original como fato imutavel: ${contactPhone}. Telefone para exibicao visual: ${displayPhone}.` : '',
+      displayPhone ? `CTA completo para exibicao visual:\n${answers.cta || 'Solicitar contato'}\n${displayPhone}` : '',
+      displayPhone ? 'Nunca juntar CTA e telefone em frase corrida. Nunca colocar ponto final depois do telefone.' : '',
+      'Use exatamente este CTA. Não substitua por outro.',
+      '',
+      `Crie UMA única peça publicitária final para ${primaryDestination?.label || 'o destino escolhido'}.`,
+      'Não criar mosaico.',
+      'Não criar múltiplos formatos dentro da mesma imagem.',
+      'Não repetir a mesma arte em formatos diferentes dentro da imagem.',
+      'A saída deve ser uma única arte final pronta para publicação.',
+      'Não invente CRECI, telefone, e-mail, endereço, prêmios, números de vendas, porcentagens, salários, comissões ou garantias não informadas.',
+      'Evite texto pequeno, torto, ilegível, cortado ou com aparência de arte automática antiga.',
+    ].filter(Boolean).join('\n')
+  }
+
   if (isPropertyCapture) {
     const services = normalizeList(answers.services)
     const propertyKinds = normalizeList(answers.propertyKinds)
@@ -959,11 +1166,14 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeI
     ].filter(Boolean).join('\n')
   }
   const location = [answers.neighborhood, answers.city].filter(Boolean).join(', ')
+  const isCommercialProperty = isCommercialPropertyType(answers.propertyType)
   const featureDetails = [
-    formatCountLabel(answers.bedrooms, 'dormitório', 'dormitórios'),
-    formatCountLabel(answers.suites, 'suíte', 'suítes'),
-    formatCountLabel(answers.parking, 'vaga', 'vagas'),
+    ...(!isCommercialProperty ? [
+      formatCountLabel(answers.bedrooms, 'dormitório', 'dormitórios'),
+      formatCountLabel(answers.suites, 'suíte', 'suítes'),
+    ] : []),
     answers.area && answers.area !== 'Não informar' ? formatAreaForDisplay(answers.area) : '',
+    formatCountLabel(answers.parking, 'vaga', 'vagas'),
   ].filter(Boolean).join(', ')
   const differentials = normalizeList(answers.differentials)
   const profile = isRent ? 'Locação' : answers.profile || 'não informado'
@@ -1179,6 +1389,7 @@ export default function HeroNext() {
   const isRentGoal = goal === 'rent'
   const isPropertyCaptureGoal = goal === 'property_capture'
   const isBrokerCaptureGoal = goal === 'broker_capture'
+  const isAnyCaptureGoal = isPropertyCaptureGoal || isBrokerCaptureGoal
 
   useEffect(() => {
     writeStoredHeroNextResult(generationResult)
@@ -1188,8 +1399,10 @@ export default function HeroNext() {
     ? RENT_CHAT_FLOW
     : isPropertyCaptureGoal
       ? PROPERTY_CAPTURE_CHAT_FLOW
+      : isBrokerCaptureGoal
+        ? BROKER_CAPTURE_CHAT_FLOW
       : SALE_CHAT_FLOW
-  const chatFlow = baseChatFlow.filter((question) => shouldShowChatQuestion(question, answers))
+  const chatFlow = getChatFlowForAnswers(baseChatFlow, answers).filter((question) => shouldShowChatQuestion(question, answers))
   const currentQuestion = chatFlow[chatIndex]
   const selectedDestinations = destinationIds
     .map((id) => DESTINATIONS.find((item) => item.id === id))
@@ -1273,7 +1486,13 @@ export default function HeroNext() {
     if (questionId === 'contactPhoneChoice' && normalizedValue !== 'Sim, quero divulgar') {
       delete updatedAnswers.contactPhone
     }
-    const updatedChatFlow = baseChatFlow.filter((question) => shouldShowChatQuestion(question, updatedAnswers))
+    if (questionId === 'propertyType') {
+      delete updatedAnswers.bedrooms
+      delete updatedAnswers.suites
+      delete updatedAnswers.parking
+      delete updatedAnswers.area
+    }
+    const updatedChatFlow = getChatFlowForAnswers(baseChatFlow, updatedAnswers).filter((question) => shouldShowChatQuestion(question, updatedAnswers))
     const currentUpdatedIndex = updatedChatFlow.findIndex((question) => question.id === questionId)
     const nextMissingIndex = updatedChatFlow.findIndex((question, index) => (
       index > currentUpdatedIndex && !updatedAnswers[question.id]
@@ -1289,7 +1508,7 @@ export default function HeroNext() {
     setHumanPrompt('')
 
     if (nextMissingIndex === -1) {
-      setPhase(isPropertyCaptureGoal ? 'destination' : 'values')
+      setPhase(isAnyCaptureGoal ? 'destination' : 'values')
     } else {
       setChatIndex(nextMissingIndex)
     }
@@ -1530,7 +1749,7 @@ export default function HeroNext() {
         human_prompt: promptForFormat.trim(),
         image_mode: uploadedImages.length > 0 ? 'reference_photos' : 'new_image',
         image_mode_label: uploadedImages.length > 0
-          ? (goal === 'property_capture' ? 'Marca ou foto institucional anexada' : 'Imagens reais anexadas')
+          ? (isCaptureGoal(goal) ? 'Marca ou foto institucional anexada' : 'Imagens reais anexadas')
           : 'Campanha sem imagens anexadas',
         inline_images: uploadedImages.map((item) => ({
           name: item.name,
@@ -1538,9 +1757,9 @@ export default function HeroNext() {
           data: item.data,
         })),
         hero_next_experimental: true,
-        campaign_objective: goal === 'rent' ? 'locacao' : goal === 'property_capture' ? 'captacao_imoveis' : 'venda',
+        campaign_objective: getHeroNextCampaignObjective(goal),
         property_type: answers.propertyType || normalizeList(answers.propertyKinds).join(', '),
-        property_profile: answers.profile || (goal === 'rent' ? 'Locação' : goal === 'property_capture' ? 'Captação de Imóveis' : ''),
+        property_profile: answers.profile || (goal === 'rent' ? 'Locação' : goal === 'property_capture' ? 'Captação de Imóveis' : goal === 'broker_capture' ? 'Captação de Corretores' : ''),
         property_stage: answers.stage || '',
         city: answers.city || '',
         district: answers.neighborhood || answers.neighborhoods || '',
@@ -1558,17 +1777,8 @@ export default function HeroNext() {
         guarantee_id: rentGuarantee,
         guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '',
         guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
-        highlights: goal === 'property_capture'
-          ? [
-            ...normalizeList(answers.services),
-            ...normalizeList(answers.propertyKinds),
-            ...normalizeList(answers.ownerAudience),
-            ...normalizeList(answers.specialties),
-            ...normalizeList(answers.businessDifferentials),
-            ...normalizeList(answers.mainMessage),
-          ]
-          : normalizeList(answers.differentials),
-        cta: answers.cta || (goal === 'property_capture' ? 'Solicitar contato' : 'Fale com o corretor'),
+        highlights: getHeroNextCaptureFeatures(goal, answers),
+        cta: answers.cta || (isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale com o corretor'),
         contact_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? answers.contactPhone || '' : '',
         display_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(answers.contactPhone || '') : '',
         campaign_contact_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? answers.contactPhone || '' : '',
@@ -1894,28 +2104,15 @@ export default function HeroNext() {
                   key={item.id}
                   type="button"
                   onClick={() => {
-                    if (item.locked) {
-                      setGoalNotice(item.description || 'Disponível em breve.')
-                      return
-                    }
                     resetForGoal(item.id)
                   }}
-                  className={`rounded-3xl border bg-white p-6 text-left shadow-sm transition ${
-                    item.locked
-                      ? 'border-slate-200 opacity-80 hover:border-primary-200'
-                      : 'border-gray-200 hover:border-gray-950 hover:shadow-md'
-                  }`}
+                  className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:border-gray-950 hover:shadow-md"
                 >
                   <Building2 className="h-7 w-7 text-primary-600" />
                   <p className="mt-4 text-xl font-black text-gray-950">{item.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
                     {item.description || 'A conversa será adaptada para esse objetivo.'}
                   </p>
-                  {item.locked && (
-                    <span className="mt-4 inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-black text-primary-800">
-                      Disponível no plano Elite
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
@@ -2252,7 +2449,7 @@ export default function HeroNext() {
                     </div>
                   </div>
                 )}
-                {!isPropertyCaptureGoal && (
+                {!isAnyCaptureGoal && (
                   <div className="rounded-2xl border border-gray-200 bg-white p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
@@ -2393,7 +2590,7 @@ export default function HeroNext() {
 
         {phase === 'images' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <AssistantBubble>{isPropertyCaptureGoal ? 'Deseja anexar logo ou foto institucional?' : 'Você possui imagens reais deste imóvel?'}</AssistantBubble>
+            <AssistantBubble>{isAnyCaptureGoal ? 'Deseja anexar logo ou foto institucional?' : 'Você possui imagens reais deste imóvel?'}</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -2405,7 +2602,7 @@ export default function HeroNext() {
                 <Upload className="h-7 w-7 text-primary-600" />
                 <p className="mt-4 text-lg font-black">Sim, vou enviar agora</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'yes' ? 'text-gray-300' : 'text-gray-500'}`}>
-                  {isPropertyCaptureGoal
+                  {isAnyCaptureGoal
                     ? 'Sua marca será aplicada como referência visual. Logo e foto institucional são opcionais.'
                     : 'Uma imagem já é suficiente para este teste.'}
                 </p>
@@ -2421,7 +2618,7 @@ export default function HeroNext() {
                 }`}
               >
                 <Image className="h-7 w-7 text-primary-600" />
-                <p className="mt-4 text-lg font-black">{isPropertyCaptureGoal ? 'Não, seguir sem arquivos' : 'Não, gerar campanha sem imagens'}</p>
+                <p className="mt-4 text-lg font-black">{isAnyCaptureGoal ? 'Não, seguir sem arquivos' : 'Não, gerar campanha sem imagens'}</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'no' ? 'text-gray-300' : 'text-gray-500'}`}>
                   A campanha será criada apenas com a Estratégia da Campanha.
                 </p>
@@ -2432,9 +2629,9 @@ export default function HeroNext() {
               <div className="mt-5 rounded-3xl border border-dashed border-gray-300 bg-white p-5">
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl bg-gray-50 px-6 py-10 text-center transition hover:bg-gray-100">
                   <Upload className="h-8 w-8 text-gray-500" />
-                  <span className="mt-3 text-sm font-black text-gray-950">{isPropertyCaptureGoal ? 'Enviar logo ou foto institucional' : 'Enviar imagens do imóvel'}</span>
+                  <span className="mt-3 text-sm font-black text-gray-950">{isAnyCaptureGoal ? 'Enviar logo ou foto institucional' : 'Enviar imagens do imóvel'}</span>
                   <span className="mt-1 text-xs font-semibold text-gray-500">
-                    {isPropertyCaptureGoal
+                    {isAnyCaptureGoal
                       ? 'JPG, PNG ou WebP. Até 2 arquivos: logo e foto institucional.'
                       : 'JPG, PNG ou WebP. Até 4 imagens. A primeira será a principal.'}
                   </span>
@@ -2455,7 +2652,7 @@ export default function HeroNext() {
                           <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
                             index === 0 ? 'bg-cyan-100 text-primary-900' : 'bg-white/90 text-gray-700'
                           }`}>
-                            {isPropertyCaptureGoal ? (index === 0 ? 'Logo' : 'Institucional') : (index === 0 ? 'Principal' : 'Apoio')}
+                            {isAnyCaptureGoal ? (index === 0 ? 'Logo' : 'Institucional') : (index === 0 ? 'Principal' : 'Apoio')}
                           </span>
                         </div>
                         <p className="truncate px-3 py-2 text-xs font-bold text-gray-600">{item.name}</p>
@@ -2698,11 +2895,11 @@ export default function HeroNext() {
                   <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resumo</p>
                   <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
                     <p><strong>Objetivo:</strong> {getGoalLabel(goal)}</p>
-                    <p><strong>Tipo:</strong> {isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : answers.propertyType}</p>
+                    <p><strong>Tipo:</strong> {isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType}</p>
                     <p><strong>Local:</strong> {[answers.neighborhood || answers.neighborhoods, answers.city].filter(Boolean).join(', ')}</p>
                     {isPropertyCaptureGoal && <p><strong>Serviços:</strong> {formatAnswer(answers.services) || 'Não informado'}</p>}
-                    <p><strong>Diferenciais:</strong> {formatAnswer(isPropertyCaptureGoal ? answers.businessDifferentials : answers.differentials) || 'Não informado'}</p>
-                    {!isPropertyCaptureGoal && <p><strong>Valores/condições:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>}
+                    <p><strong>Diferenciais:</strong> {formatAnswer(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials) || 'Não informado'}</p>
+                    {!isAnyCaptureGoal && <p><strong>Valores/condições:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>}
                     <p><strong>CTA:</strong> {answers.cta}</p>
                     {answers.contactPhoneChoice === 'Sim, quero divulgar' && answers.contactPhone && (
                       <p><strong>Telefone:</strong> {answers.contactPhone}</p>
@@ -2710,7 +2907,7 @@ export default function HeroNext() {
                     <p><strong>Formatos:</strong> {selectedDestinations.map((item) => item.label).join(', ') || 'Não informado'}</p>
                     <p><strong>Opções de criação:</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
                     <p><strong>Total:</strong> {formatPieceCount(generationResult.jobs.length || totalPieceCount || 0)} IA</p>
-                    <p><strong>{isPropertyCaptureGoal ? 'Arquivos de marca' : 'Imagens reais'}:</strong> {uploadedImages.length > 0 ? `${uploadedImages.length} anexada(s)` : 'Não utilizadas'}</p>
+                    <p><strong>{isAnyCaptureGoal ? 'Arquivos de marca' : 'Imagens reais'}:</strong> {uploadedImages.length > 0 ? `${uploadedImages.length} anexada(s)` : 'Não utilizadas'}</p>
                   </div>
                 </div>
               </aside>

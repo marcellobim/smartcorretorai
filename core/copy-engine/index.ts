@@ -536,67 +536,74 @@ function propertyCopy(input: CopyEngineInput, kind: CampaignKind): CopyEngineOut
 }
 
 function propertyCaptureCopy(input: CopyEngineInput): CopyEngineOutput {
-  const place = getPlace(input)
-  const propertyType = getPropertyType(input)
-  const feature = getFeatureText(input)
+  const location = getLocationInfo(input)
   const cta = getCta(input)
   const contactPhone = getContactPhone(input)
-  const contactNote = contactPhone ? `Fale comigo para mais informacoes: ${contactPhone}` : ''
+  const contactCta = ctaLine(cta, contactPhone)
+  const place = location.city || location.district || getPlace(input)
+  const placePhrase = place && place !== 'a regi\u00e3o selecionada' ? ` em ${place}` : ''
+  const ownerQuestion = `Tem um im\u00f3vel${placePhrase} e pensa em vender ou alugar?`
+  const strategyLine = 'Com uma apresenta\u00e7\u00e3o profissional, seu im\u00f3vel ganha mais visibilidade, atrai interessados mais qualificados e aumenta as chances de uma boa negocia\u00e7\u00e3o.'
 
   return [
     {
-      label: 'Instagram Comercial',
-      text: joinSentenceParts([
-        `Tem ${propertyType.toLowerCase()} em ${place}?`,
-        `Apresente seu imovel com estrategia, alcance e atendimento profissional`,
-        feature ? `Use ${feature} como argumento de conversa com o proprietario` : '',
-        contactNote || cta,
-      ]),
+      label: 'Instagram/Facebook Comercial',
+      text: [
+        ownerQuestion,
+        strategyLine,
+        contactCta,
+      ].filter(Boolean).join('\n\n'),
     },
     {
-      label: 'Instagram Emocional',
-      text: joinSentenceParts([
-        `Seu imovel merece ser visto pelas pessoas certas`,
-        `Em ${place}, uma boa apresentacao pode abrir novas oportunidades`,
-        `Fale com quem entende do mercado`,
-      ]),
+      label: 'Instagram/Facebook Emocional',
+      text: [
+        'Seu im\u00f3vel pode chegar \u00e0s pessoas certas com uma divulga\u00e7\u00e3o mais cuidadosa.',
+        placePhrase
+          ? `Em ${place}, uma estrat\u00e9gia bem feita ajuda a valorizar o im\u00f3vel e abrir conversas com interessados reais.`
+          : 'Uma estrat\u00e9gia bem feita ajuda a valorizar o im\u00f3vel e abrir conversas com interessados reais.',
+        contactCta,
+      ].filter(Boolean).join('\n\n'),
     },
     {
-      label: 'Instagram Direto',
-      text: joinSentenceParts([
-        `Quer vender ou alugar em ${place}?`,
-        `Atendimento profissional para captar e divulgar seu imovel`,
-        contactNote || cta,
-      ]),
+      label: 'Instagram/Facebook Direta',
+      text: [
+        `Capta\u00e7\u00e3o de im\u00f3veis${placePhrase}.`,
+        'Venda ou loca\u00e7\u00e3o com divulga\u00e7\u00e3o profissional e atendimento consultivo.',
+        contactCta,
+      ].filter(Boolean).join('\n'),
     },
     {
       label: 'WhatsApp Conversa',
-      text: joinSentenceParts([
-        `Oi, se voce tem imovel em ${place}, posso te ajudar a avaliar a melhor estrategia`,
-        `A ideia e divulgar com mais clareza e atrair oportunidades reais`,
-      ]),
+      text: [
+        'Ol\u00e1! Tudo bem?',
+        '',
+        `Estou captando im\u00f3veis${placePhrase} para venda e loca\u00e7\u00e3o.`,
+        'Se voc\u00ea tem um im\u00f3vel ou conhece algu\u00e9m que deseja vender ou alugar, posso ajudar com uma divulga\u00e7\u00e3o mais estrat\u00e9gica e profissional.',
+        contactPhone ? `Contato: ${contactPhone}` : '',
+      ].filter((item, index) => index === 1 || item !== '').join('\n'),
     },
     {
       label: 'WhatsApp Carteira',
-      text: joinSentenceParts([
-        `Estou captando imoveis em ${place}`,
-        `Se souber de alguem que quer vender ou alugar, pode me indicar`,
-      ]),
+      text: [
+        `Estou captando im\u00f3veis${placePhrase} para venda e loca\u00e7\u00e3o.`,
+        'Se souber de algu\u00e9m que quer vender ou alugar, pode me indicar.',
+        contactPhone ? `Fale comigo: ${contactPhone}` : sentence(cta),
+      ].filter(Boolean).join('\n\n'),
     },
     {
       label: 'WhatsApp Curto',
-      text: joinSentenceParts([
-        `Tem imovel em ${place}?`,
-        contactPhone ? `Fale comigo: ${contactPhone}` : `Fale comigo para vender ou alugar com estrategia`,
-      ]),
+      text: [
+        ownerQuestion,
+        'Posso ajudar com avalia\u00e7\u00e3o, divulga\u00e7\u00e3o e atendimento para venda ou loca\u00e7\u00e3o.',
+        contactCta,
+      ].filter(Boolean).join('\n'),
     },
     {
       label: 'Portal',
       text: joinSentenceParts([
-        `Atendimento especializado para proprietarios que desejam vender ou alugar imoveis em ${place}`,
-        feature ? `Atendimento voltado para ${feature}` : '',
-        `Acompanhamento profissional para valorizar a apresentacao e ampliar as oportunidades de negociacao`,
-        contactPhone ? `Para mais informacoes, entre em contato pelo telefone ${contactPhone}` : '',
+        `Atendimento para propriet\u00e1rios que desejam vender ou alugar im\u00f3veis${placePhrase}`,
+        'Trabalho com avalia\u00e7\u00e3o, divulga\u00e7\u00e3o e acompanhamento para aproximar o im\u00f3vel de interessados mais qualificados',
+        portalContactLine(cta, contactPhone),
       ]),
     },
     {
@@ -607,68 +614,72 @@ function propertyCaptureCopy(input: CopyEngineInput): CopyEngineOutput {
 }
 
 function brokerCaptureCopy(input: CopyEngineInput): CopyEngineOutput {
-  const place = getPlace(input)
+  const location = getLocationInfo(input)
+  const place = location.city || location.district || getPlace(input)
   const professional = getPropertyType(input)
-  const feature = getFeatureText(input)
   const cta = getCta(input)
   const contactPhone = getContactPhone(input)
-  const contactNote = contactPhone ? `Fale comigo para mais informacoes: ${contactPhone}` : ''
+  const contactCta = ctaLine(cta, contactPhone)
+  const placePhrase = place && place !== 'a regi\u00e3o selecionada' ? ` em ${place}` : ''
 
   return [
     {
-      label: 'Instagram Comercial',
-      text: joinSentenceParts([
-        `Oportunidade para ${professional.toLowerCase()} em ${place}`,
-        feature ? `Estrutura preparada para ${feature}` : '',
-        `Faca parte de um time preparado para crescer no mercado imobiliario`,
-        contactNote || cta,
-      ]),
+      label: 'Instagram/Facebook Comercial',
+      text: [
+        `Estamos buscando ${professional.toLowerCase()}${placePhrase} para fazer parte de uma equipe com vis\u00e3o de crescimento.`,
+        'Uma oportunidade para quem quer atuar com atendimento profissional, relacionamento e resultado no mercado imobili\u00e1rio.',
+        contactCta,
+      ].filter(Boolean).join('\n\n'),
     },
     {
-      label: 'Instagram Emocional',
-      text: joinSentenceParts([
-        `Toda carreira tem um momento de virar a chave`,
-        `Se voce atua no mercado imobiliario em ${place}, esta pode ser uma nova fase`,
-        `Cresca com apoio, estrutura e foco em resultados`,
-      ]),
+      label: 'Instagram/Facebook Emocional',
+      text: [
+        'Toda carreira tem um momento de dar o pr\u00f3ximo passo.',
+        placePhrase
+          ? `Para corretores${placePhrase}, esta pode ser uma nova fase com mais troca, estrutura e oportunidades.`
+          : 'Para profissionais do mercado imobili\u00e1rio, esta pode ser uma nova fase com mais troca, estrutura e oportunidades.',
+        contactCta,
+      ].filter(Boolean).join('\n\n'),
     },
     {
-      label: 'Instagram Direto',
-      text: joinSentenceParts([
-        `${professional} em ${place}`,
-        `Estamos buscando novos profissionais`,
-        contactNote || cta,
-      ]),
+      label: 'Instagram/Facebook Direta',
+      text: [
+        `Oportunidade para ${professional.toLowerCase()}${placePhrase}.`,
+        'Equipe imobili\u00e1ria em crescimento.',
+        contactCta,
+      ].filter(Boolean).join('\n'),
     },
     {
       label: 'WhatsApp Conversa',
-      text: joinSentenceParts([
-        `Oi, estamos abrindo oportunidade para ${professional.toLowerCase()} em ${place}`,
-        feature ? `A proposta tem foco em ${feature}` : '',
-        `Quer conversar sobre isso?`,
-      ]),
+      text: [
+        'Ol\u00e1! Tudo bem?',
+        '',
+        `Estamos abrindo oportunidade para ${professional.toLowerCase()}${placePhrase}.`,
+        'A ideia \u00e9 conversar com profissionais que querem crescer no mercado imobili\u00e1rio com mais estrutura e parceria.',
+        contactPhone ? `Contato: ${contactPhone}` : '',
+      ].filter((item, index) => index === 1 || item !== '').join('\n'),
     },
     {
       label: 'WhatsApp Carteira',
-      text: joinSentenceParts([
-        `Se conhecer algum profissional do mercado imobiliario em ${place}, estou com uma oportunidade interessante`,
-        `Pode me indicar ou encaminhar meu contato`,
-      ]),
+      text: [
+        `Estamos buscando profissionais do mercado imobili\u00e1rio${placePhrase}.`,
+        'Se conhecer algu\u00e9m em busca de uma nova oportunidade, pode me indicar.',
+        contactPhone ? `Contato: ${contactPhone}` : sentence(cta),
+      ].filter(Boolean).join('\n\n'),
     },
     {
       label: 'WhatsApp Curto',
       text: joinSentenceParts([
-        `Oportunidade para ${professional.toLowerCase()} em ${place}`,
-        contactPhone ? `Contato: ${contactPhone}` : `Quer saber mais?`,
+        `Oportunidade para ${professional.toLowerCase()}${placePhrase}`,
+        contactPhone ? `Contato: ${contactPhone}` : cta,
       ]),
     },
     {
       label: 'Portal',
       text: joinSentenceParts([
-        `Oportunidade para profissionais do mercado imobiliario em ${place}`,
-        feature ? `Ambiente preparado para ${feature}` : '',
-        `Busca por pessoas comprometidas com atendimento, crescimento profissional e resultados`,
-        contactPhone ? `Para mais informacoes, entre em contato pelo telefone ${contactPhone}` : '',
+        `Oportunidade para profissionais do mercado imobili\u00e1rio${placePhrase}`,
+        'Busca por pessoas comprometidas com atendimento, relacionamento e crescimento profissional',
+        portalContactLine(cta, contactPhone),
       ]),
     },
     {
@@ -701,8 +712,24 @@ function buildHashtags(input: CopyEngineInput, kind: CampaignKind): string[] {
   const city = toHashtagToken(input.city)
   const citySuffix = getCityHashtagSuffix(input.city)
   const district = toHashtagToken(input.district)
-  const type = toHashtagToken(input.propertyType)
+  const type = ['TODOS', 'TODAS', 'ALL'].includes(normalize(input.propertyType))
+    ? ''
+    : toHashtagToken(input.propertyType)
   const locationTag = district || city
+
+  if (kind === 'property_capture') {
+    const captureTags = [
+      locationTag,
+      'CaptacaoDeImoveis',
+      'VendaDeImoveis',
+      'LocacaoDeImoveis',
+      'MercadoImobiliario',
+      'CorretorDeImoveis',
+      'SmartCorretorAI',
+    ]
+    return [...new Set(captureTags.filter(Boolean).map((tag) => `#${tag}`))].slice(0, 8)
+  }
+
   const typeObjectiveTag = type
     ? kind === 'rent'
       ? `${type}ParaLocacao`

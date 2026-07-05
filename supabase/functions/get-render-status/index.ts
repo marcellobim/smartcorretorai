@@ -17,6 +17,10 @@ const corsHeaders = {
     'Prefer',
     'x-supabase-api-version',
     'X-Supabase-Api-Version',
+    'x-supabase-authorization',
+    'X-Supabase-Authorization',
+    'accept',
+    'Accept',
   ].join(', '),
   'Access-Control-Expose-Headers': 'Content-Length, Content-Type',
   'Access-Control-Max-Age': '86400',
@@ -109,7 +113,7 @@ serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
