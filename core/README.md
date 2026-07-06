@@ -9,6 +9,7 @@ Neste momento, o core e apenas estrutural. Nenhum produto importa estes arquivos
 - `marketing-engine/`: diretrizes comerciais e posicionamento.
 - `fact-engine/`: regras de preservacao de fatos.
 - `hero-engine/`: escolhas de impacto inicial e destaque.
+- `smart-motion-engine/`: motor local inicial para videos verticais com imagens fixas, FFmpeg, movimentos, transicoes, legendas, CTA e musica opcional.
 - `copy-engine/`: futura geracao de textos compartilhada entre produtos.
 - `utils/`: utilitarios compartilhados do core.
 

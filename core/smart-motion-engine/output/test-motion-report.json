@@ -1,0 +1,83 @@
+{
+  "engine": "smart-motion-engine",
+  "version": "0.1.0",
+  "generatedAt": "2026-07-06T11:56:10.879Z",
+  "outputPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\core\\smart-motion-engine\\output\\test-motion.mp4",
+  "reportPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\core\\smart-motion-engine\\output\\test-motion-report.json",
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "codec": "libx264",
+  "sceneCount": 7,
+  "durationSeconds": 19.68,
+  "musicApplied": false,
+  "source": {
+    "reusedFromPoc": true,
+    "ffmpegPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\node_modules\\ffmpeg-static\\ffmpeg.exe"
+  },
+  "scenes": [
+    {
+      "index": 1,
+      "kind": "image",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062941_Chrome.jpg",
+      "caption": "LAZER COM VISTA",
+      "motion": "zoom_in",
+      "transition": "fade",
+      "durationSeconds": 3.4
+    },
+    {
+      "index": 2,
+      "kind": "image",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062959_Chrome.jpg",
+      "caption": "VARANDA GOURMET",
+      "motion": "pan_right",
+      "transition": "crossfade",
+      "durationSeconds": 3.4
+    },
+    {
+      "index": 3,
+      "kind": "image",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063020_Chrome.jpg",
+      "caption": "LIVING INTEGRADO",
+      "motion": "zoom_out",
+      "transition": "fadeblack",
+      "durationSeconds": 3.4
+    },
+    {
+      "index": 4,
+      "kind": "image",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063115_Chrome.jpg",
+      "caption": "COZINHA PLANEJADA",
+      "motion": "pan_left",
+      "transition": "smoothleft",
+      "durationSeconds": 3.4
+    },
+    {
+      "index": 5,
+      "kind": "image",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063130_Chrome.jpg",
+      "caption": "SUITE MASTER",
+      "motion": "pan_up",
+      "transition": "smoothup",
+      "durationSeconds": 3.4
+    },
+    {
+      "index": 6,
+      "kind": "image",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063126_Chrome.jpg",
+      "caption": "CONFORTO PRIVATIVO",
+      "motion": "subtle_rotate",
+      "transition": "fade",
+      "durationSeconds": 3.4
+    },
+    {
+      "index": 7,
+      "kind": "cta",
+      "imagePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063126_Chrome.jpg",
+      "caption": "Agende sua visita",
+      "motion": "stable",
+      "transition": "fadeblack",
+      "durationSeconds": 3
+    }
+  ]
+}

@@ -28,6 +28,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
 const TYPEWRITER_FINAL_CURSOR_MS = 400
+const STUDIO_HERO_MULTI_IMAGE_ENABLED = String(import.meta.env.VITE_STUDIO_HERO_MULTI_IMAGE_ENABLED || '').toLowerCase() === 'true'
 
 function logStudioHero(level, event, payload) {
   if (!IS_DEV) return
@@ -115,13 +116,13 @@ const STUDIO_CREATION_MODES = [
   },
   {
     id: 'smart_carousel',
-    title: 'Carrossel Inteligente',
-    description: 'Transforme imagens em uma apresentacao dinamica e profissional para divulgacao.',
-    status: 'Em breve',
+    title: 'Animacao Premium',
+    description: 'Transforme suas fotos em videos animados profissionais, com textos comerciais ou em uma versao clean.',
+    status: 'Ativo agora',
     Icon: ImagePlus,
-    active: false,
+    active: true,
     accent: 'green',
-    cta: 'Em breve',
+    cta: 'Animar imagens',
   },
   {
     id: 'improve_video',
@@ -134,6 +135,27 @@ const STUDIO_CREATION_MODES = [
     cta: 'Em breve',
   },
 ]
+
+const STUDIO_HERO_MULTI_IMAGE_MODE = {
+  id: 'multi_image_tour',
+  title: 'Tour Cinematografico IA',
+  description: 'Use varias imagens do imovel para criar um video cinematografico maior.',
+  status: 'Teste controlado',
+  Icon: Film,
+  active: true,
+  accent: 'blue',
+  cta: 'Criar tour',
+}
+
+const getStudioCreationModes = () => (
+  STUDIO_HERO_MULTI_IMAGE_ENABLED
+    ? [
+      STUDIO_CREATION_MODES[0],
+      STUDIO_HERO_MULTI_IMAGE_MODE,
+      ...STUDIO_CREATION_MODES.slice(1),
+    ]
+    : STUDIO_CREATION_MODES
+)
 
 const STUDIO_MODE_EXAMPLES = [
   {
@@ -210,6 +232,33 @@ const STUDIO_MODE_EXAMPLES = [
   },
 ]
 
+const STUDIO_HERO_MULTI_IMAGE_EXAMPLE = {
+  id: 'multi_image_tour',
+  title: 'Tour Cinematografico IA',
+  label: 'Tour com varias imagens',
+  accent: 'blue',
+  send: [
+    'As melhores fotos do imovel em ordem',
+  ],
+  receive: [
+    'Video cinematografico maior',
+    'Movimentos entre ambientes',
+    'Transicoes suaves',
+    'Final com chamada comercial opcional',
+    'Campanha pronta para revisar',
+  ],
+}
+
+const getStudioModeExamples = () => (
+  STUDIO_HERO_MULTI_IMAGE_ENABLED
+    ? [
+      STUDIO_MODE_EXAMPLES[0],
+      STUDIO_HERO_MULTI_IMAGE_EXAMPLE,
+      ...STUDIO_MODE_EXAMPLES.slice(1),
+    ]
+    : STUDIO_MODE_EXAMPLES
+)
+
 const STUDIO_POSSIBILITY_EXAMPLES = [
   {
     id: 'sale',
@@ -281,6 +330,13 @@ const STUDIO_MODE_ACCENTS = {
     status: 'bg-emerald-50 text-emerald-700',
     cta: 'text-emerald-700',
     glow: 'from-emerald-400/20 via-transparent to-transparent',
+  },
+  blue: {
+    card: 'border-sky-100 bg-white/85 shadow-sky-100/60 hover:border-sky-300 hover:shadow-sky-200/60',
+    icon: 'bg-sky-50 text-sky-700 ring-1 ring-sky-100',
+    status: 'bg-sky-50 text-sky-700',
+    cta: 'text-sky-700',
+    glow: 'from-sky-400/20 via-transparent to-transparent',
   },
   amber: {
     card: 'border-amber-100 bg-white/85 shadow-amber-100/60 hover:border-amber-300 hover:shadow-amber-200/60',
@@ -531,6 +587,64 @@ const GENERATION_MESSAGES = [
 ]
 
 const DELIVERY_PACKAGE_ITEMS = ['Instagram', 'WhatsApp', 'Facebook', 'Portal', 'LinkedIn quando aplicavel', 'Hashtags', 'CTA']
+
+const ANIMATION_TEMPLATE_VARIANTS = {
+  with_texts: {
+    id: 'with_texts',
+    label: 'Com textos',
+    title: 'Com Informacoes',
+    description: 'Inclui finalidade, status, localizacao, CTA e telefone quando informado.',
+  },
+  clean: {
+    id: 'clean',
+    label: 'Sem textos',
+    title: 'Clean / Sem Textos',
+    description: 'Valoriza apenas as imagens, com movimentos profissionais e sem textos na tela.',
+  },
+}
+
+const ANIMATION_VARIANT_OPTIONS = Object.values(ANIMATION_TEMPLATE_VARIANTS)
+const ANIMATION_PURPOSE_OPTIONS = ['A Venda', 'Locacao']
+const ANIMATION_SALE_STATUS_OPTIONS = ['Pre-lancamento', 'Lancamento', 'Em Obras', 'Pronto para Morar', 'Exclusivo', 'Oportunidade']
+const ANIMATION_RENT_STATUS_OPTIONS = ['Disponivel Ja', 'Exclusivo', 'Oportunidade']
+const ANIMATION_CTA_OPTIONS = ['Saiba Mais', 'Entre em Contato', 'Chame no WhatsApp']
+const ANIMATION_IMAGE_COUNT_OPTIONS = [1, 2, 3, 4]
+const ANIMATION_OTHER_UF_OPTION = 'OUTRO'
+const ANIMATION_UF_OPTIONS = ['SP', 'RJ', 'MG', 'PR', 'SC', 'RS', 'BA', 'PE', 'CE', 'GO', 'DF', 'ES', 'PA', 'AM', ANIMATION_OTHER_UF_OPTION]
+const ANIMATION_FEATURE_FIELDS = [
+  { key: 'bedrooms', label: 'Dormitorios', placeholder: 'Ex.: 3' },
+  { key: 'suites', label: 'Suites', placeholder: 'Ex.: 2' },
+  { key: 'parking', label: 'Vagas', placeholder: 'Ex.: 2' },
+  { key: 'area', label: 'Area util (m²)', placeholder: 'Ex.: 145' },
+]
+const ANIMATION_IMAGE_SLOTS = [1, 2, 3, 4].map((number) => ({
+  key: `image${number}`,
+  label: `Imagem ${number}`,
+  helper: number === 1 ? 'Envie a imagem principal.' : 'Envie uma imagem complementar.',
+  fileName: `animation-${number}`,
+}))
+const MULTI_IMAGE_TOUR_VARIANTS = {
+  with_texts: {
+    id: 'with_texts',
+    label: 'Com informacoes e CTA',
+    description: 'Inclui dados comerciais enviados por voce e uma chamada final.',
+  },
+  clean: {
+    id: 'clean',
+    label: 'Video limpo, sem textos',
+    description: 'Usa somente as imagens e fecha com um frame neutro.',
+  },
+}
+const MULTI_IMAGE_TOUR_VARIANT_OPTIONS = Object.values(MULTI_IMAGE_TOUR_VARIANTS)
+const MULTI_IMAGE_TOUR_IMAGE_COUNT_OPTIONS = [2, 3, 4, 5]
+const MULTI_IMAGE_TOUR_IMAGE_SLOTS = [1, 2, 3, 4, 5].map((number) => ({
+  key: `image${number}`,
+  label: `Imagem ${number}`,
+  helper: number === 1 ? 'Comece pela imagem principal.' : 'Use a ordem desejada para o tour.',
+  fileName: `multi-tour-${number}`,
+}))
+const MULTI_IMAGE_TOUR_CTA_OPTIONS = ['Saiba Mais', 'Agende Sua Visita', 'Entre em Contato']
+
 const initialAnswers = {
   objective: '',
   oferta: '',
@@ -668,6 +782,152 @@ function formatDisplayText(value) {
       return lower.charAt(0).toUpperCase() + lower.slice(1)
     })
     .join(' ')
+}
+
+function normalizeAnimationDistrict(value) {
+  const clean = String(value || '')
+    .replace(/[^\p{L}0-9\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40)
+
+  if (!clean) return ''
+
+  const minorWords = new Set(['da', 'de', 'do', 'das', 'dos'])
+  return clean
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => {
+      if (index > 0 && minorWords.has(word)) return word
+      return word.charAt(0).toUpperCase() + word.slice(1)
+    })
+    .join(' ')
+}
+
+function normalizeAnimationUf(value) {
+  return String(value || '').replace(/[^a-z]/gi, '').toUpperCase().slice(0, 2)
+}
+
+function normalizeAnimationLocation(value, ufValue = '') {
+  if (ufValue) {
+    return [normalizeAnimationDistrict(value), normalizeAnimationUf(ufValue)].filter(Boolean).join('-')
+  }
+
+  const clean = String(value || '')
+    .replace(/[^\p{L}0-9\s/-]/gu, '')
+    .replace(/\s*[-/]\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40)
+
+  if (!clean) return ''
+
+  const parts = clean.split(/[\s-]+/).filter(Boolean)
+  const maybeUf = parts.length > 1 ? parts[parts.length - 1] : ''
+  const hasUf = /^[a-z]{2}$/i.test(maybeUf)
+  const districtParts = hasUf ? parts.slice(0, -1) : parts
+  return [
+    normalizeAnimationDistrict(districtParts.join(' ')),
+    hasUf ? normalizeAnimationUf(maybeUf) : '',
+  ].filter(Boolean).join('-')
+}
+
+function cleanAnimationLocationInput(value) {
+  return String(value || '')
+    .replace(/[^\p{L}0-9\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 40)
+}
+
+function formatAnimationPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 11)
+  if (!digits) return ''
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
+function cleanAnimationNumber(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 4)
+}
+
+function buildAnimationPropertyDetails(source) {
+  const bedrooms = cleanAnimationNumber(source?.bedrooms)
+  const suites = cleanAnimationNumber(source?.suites)
+  const parking = cleanAnimationNumber(source?.parking)
+  const area = cleanAnimationNumber(source?.area)
+  return [
+    bedrooms ? `${bedrooms} dorms` : '',
+    suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : '',
+    parking ? `${parking} vaga${parking === '1' ? '' : 's'}` : '',
+    area ? `${area} m²` : '',
+  ].filter(Boolean).join(' • ')
+}
+
+function buildAnimationLocation(source) {
+  const uf = source?.uf === ANIMATION_OTHER_UF_OPTION ? source?.ufOther : source?.uf
+  return normalizeAnimationLocation(source?.location, uf)
+}
+
+function buildAnimationDescription(source) {
+  return [
+    buildAnimationLocation(source),
+    buildAnimationPropertyDetails(source),
+  ].filter(Boolean).join('\n')
+}
+
+const ANIMATION_READY_STATUSES = new Set(['succeeded', 'completed'])
+const ANIMATION_FAILED_STATUSES = new Set(['failed', 'error', 'canceled', 'cancelled', 'timeout'])
+
+function normalizeAnimationRenderStatus(status) {
+  return String(status || '').trim().toLowerCase()
+}
+
+function getAnimationVideoUrl(source) {
+  const candidates = [
+    source?.url,
+    source?.output_url,
+    source?.output,
+    source?.render?.url,
+    source?.result?.url,
+  ]
+  return candidates.find((value) => typeof value === 'string' && value.trim())?.trim() || ''
+}
+
+function isAnimationMp4Url(value) {
+  if (typeof value !== 'string' || !value.trim()) return false
+  try {
+    const url = new URL(value)
+    return /^https?:$/.test(url.protocol) && /\.mp4$/i.test(url.pathname)
+  } catch {
+    return false
+  }
+}
+
+function getSafeAnimationRenderLog(source) {
+  const url = getAnimationVideoUrl(source)
+  let urlHost = ''
+  let urlPathEnding = ''
+  try {
+    const parsed = url ? new URL(url) : null
+    urlHost = parsed?.host || ''
+    urlPathEnding = parsed?.pathname ? parsed.pathname.slice(-32) : ''
+  } catch {
+    urlHost = 'invalid-url'
+  }
+
+  return {
+    render_id: source?.render_id || source?.renderId || source?.id || null,
+    status: source?.status || null,
+    has_url: Boolean(url),
+    url_type: typeof url,
+    url_host: urlHost,
+    url_path_ending: urlPathEnding,
+    is_mp4_url: isAnimationMp4Url(url),
+    has_snapshot_url: Boolean(source?.snapshot_url),
+    keys: source && typeof source === 'object' ? Object.keys(source).slice(0, 20) : [],
+  }
 }
 
 function getCityOptions(uf) {
@@ -1010,6 +1270,10 @@ export default function StudioHero() {
   const isSale = answers.objective === 'sale'
   const isRent = answers.objective === 'rent'
   const isFreeAiMode = studioMode === 'free_ai'
+  const isAnimationPremiumMode = studioMode === 'smart_carousel'
+  const isMultiImageTourMode = studioMode === 'multi_image_tour'
+  const studioCreationModes = getStudioCreationModes()
+  const studioModeExamples = getStudioModeExamples()
   const guideItems = STUDIO_GUIDE_ITEMS_BY_MODE[studioMode] || STUDIO_GUIDE_ITEMS_BY_MODE.cinematic
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
   const isPropertyCapture = answers.objective === 'property_capture'
@@ -1749,7 +2013,7 @@ export default function StudioHero() {
               </p>
             </div>
             <div className="grid gap-4 lg:grid-cols-4">
-              {STUDIO_MODE_EXAMPLES.map((example) => {
+              {studioModeExamples.map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
                 return (
                   <div key={example.id} className={`overflow-hidden rounded-3xl border p-4 ${accent.card}`}>
@@ -1792,7 +2056,7 @@ export default function StudioHero() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {STUDIO_CREATION_MODES.map((mode) => {
+            {studioCreationModes.map((mode) => {
               const ModeIcon = mode.Icon
               const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
               return (
@@ -1822,6 +2086,30 @@ export default function StudioHero() {
           </section>
         </div>
       </main>
+    )
+  }
+
+  if (isAnimationPremiumMode) {
+    return (
+      <AnimationPremiumMode
+        user={user}
+        onBack={() => {
+          setStudioMode('')
+          setModeNotice('')
+        }}
+      />
+    )
+  }
+
+  if (isMultiImageTourMode) {
+    return (
+      <MultiImageTourMode
+        user={user}
+        onBack={() => {
+          setStudioMode('')
+          setModeNotice('')
+        }}
+      />
     )
   }
 
@@ -2670,6 +2958,1171 @@ export default function StudioHero() {
         </section>
       </div>
     </main>
+  )
+}
+
+function MultiImageTourMode({ user, onBack }) {
+  const studioHeroAccess = getStudioHeroAccess(user)
+  const [step, setStep] = useState(1)
+  const [answers, setAnswers] = useState({
+    variant: '',
+    imageCount: 0,
+    objective: '',
+    cta: '',
+  })
+  const [files, setFiles] = useState({})
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
+  const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
+
+  const isGenerating = ['uploading', 'generating'].includes(status)
+  const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
+  const variant = MULTI_IMAGE_TOUR_VARIANTS[answers.variant] || null
+  const isWithTexts = answers.variant === 'with_texts'
+  const imageCount = Number(answers.imageCount || 0)
+  const selectedSlots = MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, imageCount || 0)
+  const selectedFiles = selectedSlots.map((slot) => files[slot.key]).filter(Boolean)
+  const hasRequiredImages = imageCount >= 2 && imageCount <= 5 && selectedFiles.length === imageCount
+  const hasRequiredTexts = !isWithTexts || Boolean(answers.objective && answers.cta)
+  const canGenerate = studioHeroAccess.canGenerate && hasRequiredImages && hasRequiredTexts
+  const uploadStep = isWithTexts ? 4 : 3
+  const progressPercent = Math.min(100, Math.max(12, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
+  const stepSummaries = {
+    1: variant?.label || '',
+    2: isWithTexts ? answers.objective : (imageCount ? `${imageCount} imagens` : ''),
+    3: isWithTexts ? answers.cta : (hasRequiredImages ? `${selectedFiles.length} imagens selecionadas` : ''),
+    4: hasRequiredImages ? `${selectedFiles.length} imagens selecionadas` : '',
+  }
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setGenerationMessageIndex(0)
+      return undefined
+    }
+    const timer = window.setInterval(() => {
+      setGenerationMessageIndex((current) => (current + 1) % GENERATION_MESSAGES.length)
+    }, 3200)
+    return () => window.clearInterval(timer)
+  }, [isGenerating])
+
+  const resetGeneration = () => {
+    setStatus('idle')
+    setMessage('')
+    setVideoUrl('')
+  }
+
+  const resetFlow = () => {
+    resetGeneration()
+    setStep(1)
+    setAnswers({
+      variant: '',
+      imageCount: 0,
+      objective: '',
+      cta: '',
+    })
+    setFiles({})
+  }
+
+  const updateAnswer = (field, value, nextStep = step + 1) => {
+    resetGeneration()
+    setAnswers((current) => ({ ...current, [field]: value }))
+    if (nextStep) setStep(nextStep)
+  }
+
+  const updateFile = (slot, file) => {
+    resetGeneration()
+    setFiles((current) => ({ ...current, [slot.key]: file }))
+  }
+
+  const uploadTourImage = async (slot, file, jobDraftId) => {
+    const contentType = getUploadContentType(file)
+
+    if (!contentType) {
+      throw new Error(`${slot.label}: Para este teste, envie imagens JPG ou PNG.`)
+    }
+
+    const extension = getFileExtensionFromContentType(contentType)
+    const path = `${user.id}/${jobDraftId}/${slot.fileName}.${extension}`
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        contentType,
+        upsert: true,
+      })
+
+    if (error) {
+      throw new Error(`Falha no upload de ${slot.label}. Para este teste, envie imagens JPG ou PNG.`)
+    }
+
+    return path
+  }
+
+  const handleGenerate = async () => {
+    if (!user?.id || !canGenerate) return
+
+    setStatus('uploading')
+    setMessage('Preparando seu tour...')
+    setVideoUrl('')
+
+    try {
+      const draftId = crypto.randomUUID()
+      const imagePaths = []
+      for (const slot of selectedSlots) {
+        imagePaths.push(await uploadTourImage(slot, files[slot.key], draftId))
+      }
+
+      setStatus('generating')
+      setMessage('Criando seu tour...')
+
+      const payload = {
+        mode: 'multi_image_tour',
+        variant: answers.variant,
+        includeTexts: isWithTexts,
+        objective: normalizeFreeText(answers.objective),
+        cta: normalizeVideoTextToken(answers.cta, 'SAIBA MAIS'),
+        imagePaths,
+        jobId: draftId,
+      }
+
+      logStudioHero('info', 'studio_hero_multi_image_payload_ready', {
+        jobId: draftId,
+        variant: payload.variant,
+        imageCount: imagePaths.length,
+      })
+
+      const result = await invokeStudioFunction('criar-video-ia-multi', payload)
+      const data = result.body
+
+      if (!result.ok || (!data?.ok && !data?.success)) {
+        throw new Error(data?.error || 'Nao foi possivel iniciar o tour.')
+      }
+
+      const nextVideoUrl = data.videoUrl || data.video_url || ''
+      if (nextVideoUrl) {
+        setVideoUrl(nextVideoUrl)
+        setStatus('completed')
+        setMessage('')
+        return
+      }
+
+      setStatus('planned')
+      setMessage(data.message || 'Seu tour foi preparado para processamento.')
+    } catch (error) {
+      logStudioHero('error', 'studio_hero_multi_image_generate_error', {
+        message: error instanceof Error ? error.message : String(error),
+        error: sanitizeStudioHeroDiagnostic(error),
+      })
+      setStatus('failed')
+      setMessage(error instanceof Error && /JPG|PNG|imagem/i.test(error.message)
+        ? error.message
+        : 'Nao foi possivel preparar este tour neste ambiente. Tente novamente mais tarde.')
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_44%,#f8fafc_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#082f49_0%,#0f172a_52%,#075985_100%)] text-white shadow-2xl shadow-sky-950/20">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(125,211,252,0.22),transparent_32%),radial-gradient(circle_at_86%_24%,rgba(56,189,248,0.16),transparent_34%)]" />
+          <div className="relative grid gap-8 p-8 lg:grid-cols-[1.08fr_0.92fr] lg:p-10">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-100">
+                <Film className="h-4 w-4" />
+                Tour Cinematografico IA
+              </div>
+              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
+                Crie um tour com varias imagens.
+              </h1>
+              <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-sky-50">
+                Envie fotos em sequencia e gere uma apresentacao cinematografica maior.
+              </p>
+              <button
+                type="button"
+                onClick={onBack}
+                className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Voltar aos modos
+              </button>
+            </div>
+            <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur">
+              <p className="text-sm font-black text-white">Progresso</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15">
+                <div className="h-full rounded-full bg-sky-200 transition-all" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-6 text-sky-50">
+                Escolha o acabamento, envie as imagens em ordem e revise antes de criar.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
+          <div className="space-y-4">
+            <AssistantStep
+              number={1}
+              currentStep={step}
+              summary={stepSummaries[1]}
+              onEdit={() => setStep(1)}
+              message="Como voce quer entregar este tour?"
+            >
+              <OptionGrid>
+                {MULTI_IMAGE_TOUR_VARIANT_OPTIONS.map((option) => (
+                  <ChoiceButton
+                    key={option.id}
+                    active={answers.variant === option.id}
+                    title={option.label}
+                    description={option.description}
+                    onClick={() => updateAnswer('variant', option.id, option.id === 'with_texts' ? 2 : 2)}
+                  />
+                ))}
+              </OptionGrid>
+            </AssistantStep>
+
+            {isWithTexts && (
+              <AssistantStep
+                number={2}
+                currentStep={step}
+                summary={stepSummaries[2]}
+                onEdit={() => setStep(2)}
+                message="Qual e o objetivo principal?"
+              >
+                <OptionGrid>
+                  {[
+                    ['Vender imovel', 'Valorizar a apresentacao para venda.'],
+                    ['Alugar imovel', 'Gerar interesse para locacao.'],
+                    ['Apresentar lancamento', 'Criar desejo e curiosidade.'],
+                    ['Divulgar oportunidade', 'Destacar o imovel de forma direta.'],
+                  ].map(([title, description]) => (
+                    <ChoiceButton
+                      key={title}
+                      active={answers.objective === title}
+                      title={title}
+                      description={description}
+                      onClick={() => updateAnswer('objective', title, 3)}
+                    />
+                  ))}
+                </OptionGrid>
+              </AssistantStep>
+            )}
+
+            {isWithTexts && (
+              <AssistantStep
+                number={3}
+                currentStep={step}
+                summary={stepSummaries[3]}
+                onEdit={() => setStep(3)}
+                message="Qual chamada final voce prefere?"
+              >
+                <ChipGrid>
+                  {MULTI_IMAGE_TOUR_CTA_OPTIONS.map((option) => (
+                    <ChipButton
+                      key={option}
+                      active={answers.cta === option}
+                      onClick={() => updateAnswer('cta', option, 4)}
+                    >
+                      {option}
+                    </ChipButton>
+                  ))}
+                </ChipGrid>
+              </AssistantStep>
+            )}
+
+            {((!isWithTexts && answers.variant) || (isWithTexts && answers.cta)) && (
+              <AssistantStep
+                number={isWithTexts ? 4 : 2}
+                currentStep={step}
+                summary={isWithTexts ? stepSummaries[4] : stepSummaries[2]}
+                onEdit={() => setStep(isWithTexts ? 4 : 2)}
+                message="Quantas imagens entram no tour?"
+              >
+                <ChipGrid>
+                  {MULTI_IMAGE_TOUR_IMAGE_COUNT_OPTIONS.map((option) => (
+                    <ChipButton
+                      key={option}
+                      active={imageCount === option}
+                      onClick={() => {
+                        resetGeneration()
+                        setAnswers((current) => ({ ...current, imageCount: option }))
+                        setFiles((current) => Object.fromEntries(
+                          MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, option)
+                            .map((slot) => [slot.key, current[slot.key] || null])
+                        ))
+                        setStep(isWithTexts ? 4 : 2)
+                      }}
+                    >
+                      {option} imagens
+                    </ChipButton>
+                  ))}
+                </ChipGrid>
+                {imageCount > 0 && (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    {selectedSlots.map((slot) => (
+                      <FilePicker
+                        key={slot.key}
+                        slot={slot}
+                        file={files[slot.key]}
+                        onChange={(file) => updateFile(slot, file)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </AssistantStep>
+            )}
+          </div>
+
+          <aside className="space-y-4">
+            <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wide text-sky-700">Resumo</p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">Tour Cinematografico IA</h2>
+              <div className="mt-4 grid gap-2">
+                {[
+                  ['Entrega', variant?.label || 'Pendente'],
+                  ['Imagens', imageCount ? `${selectedFiles.length}/${imageCount}` : 'Pendente'],
+                  ['Final', isWithTexts ? (answers.cta || 'Pendente') : 'Frame neutro'],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                    <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {hasRequiredImages && !studioHeroAccess.canGenerate && (
+                <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-semibold leading-6 text-sky-800">
+                  Disponivel para assinantes ou usuarios com Smart Tokens suficientes.
+                </div>
+              )}
+
+              {hasRequiredImages && (
+                <Button type="button" onClick={handleGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Criando tour
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="h-4 w-4" />
+                      Gerar tour
+                    </>
+                  )}
+                </Button>
+              )}
+            </section>
+
+            {isGenerating && <LoadingCard generationMessage={generationMessage} />}
+            {status === 'failed' && (
+              <ErrorCard message={message} imageErrorTarget={getImageErrorTarget(message)} onEditImages={() => setStep(isWithTexts ? 4 : 3)} />
+            )}
+            {status === 'planned' && (
+              <section className="rounded-3xl border border-sky-100 bg-sky-50 p-5 text-sm font-semibold leading-6 text-sky-900 shadow-sm">
+                <p className="text-base font-black text-sky-950">Tour preparado</p>
+                <p className="mt-2">{message}</p>
+              </section>
+            )}
+            {videoUrl && (
+              <AnimationResultPanel videoUrl={videoUrl} onReset={resetFlow} />
+            )}
+          </aside>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function AnimationPremiumMode({ user, onBack }) {
+  const pollTimerRef = useRef(null)
+  const studioHeroAccess = getStudioHeroAccess(user)
+  const [step, setStep] = useState(1)
+  const [answers, setAnswers] = useState({
+    variant: '',
+    purpose: '',
+    status: '',
+    location: '',
+    uf: '',
+    ufOther: '',
+    bedrooms: '',
+    suites: '',
+    parking: '',
+    area: '',
+    cta: '',
+    phone: '',
+    imageCount: 0,
+  })
+  const [files, setFiles] = useState({})
+  const [renderMeta, setRenderMeta] = useState(null)
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
+  const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
+
+  const isGenerating = ['uploading', 'generating'].includes(status)
+  const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
+  const variant = ANIMATION_TEMPLATE_VARIANTS[answers.variant] || null
+  const isWithTexts = answers.variant === 'with_texts'
+  const imageCount = Number(answers.imageCount || 0)
+  const uploadStep = isWithTexts ? 10 : 3
+  const totalSteps = isWithTexts ? 10 : 3
+  const progressPercent = Math.min(100, Math.max(10, Math.round((Math.min(step, uploadStep) / totalSteps) * 100)))
+  const statusOptions = answers.purpose === 'Locacao' ? ANIMATION_RENT_STATUS_OPTIONS : ANIMATION_SALE_STATUS_OPTIONS
+  const selectedSlots = ANIMATION_IMAGE_SLOTS.slice(0, imageCount || 0)
+  const selectedFiles = selectedSlots.map((slot) => files[slot.key]).filter(Boolean)
+  const hasRequiredImages = imageCount >= 1 && imageCount <= 4 && selectedFiles.length === imageCount
+  const normalizedAnimationDistrict = normalizeAnimationDistrict(answers.location)
+  const normalizedAnimationUf = normalizeAnimationUf(answers.uf === ANIMATION_OTHER_UF_OPTION ? answers.ufOther : answers.uf)
+  const normalizedAnimationLocation = buildAnimationLocation(answers)
+  const animationPropertyDetails = buildAnimationPropertyDetails(answers)
+  const animationDescription = buildAnimationDescription(answers)
+  const hasRequiredTextFields = !isWithTexts || Boolean(answers.purpose && answers.status && normalizedAnimationLocation && answers.cta)
+  const canGenerate = studioHeroAccess.canGenerate && hasRequiredTextFields && hasRequiredImages
+  const animationPreviewAnswers = {
+    objective: answers.purpose === 'Locacao' ? 'rent' : 'sale',
+    propertyType: 'Imovel',
+    cta: answers.cta || 'Saiba Mais',
+    differentials: answers.status ? [answers.status] : [],
+    uf: '',
+  }
+  const stepSummaries = {
+    1: variant?.label || '',
+    2: isWithTexts ? answers.purpose : (imageCount ? `${imageCount} imagem${imageCount > 1 ? 's' : ''}` : ''),
+    3: isWithTexts ? answers.status : (hasRequiredImages ? `${selectedFiles.length} imagem${selectedFiles.length > 1 ? 's' : ''}` : ''),
+    4: normalizedAnimationDistrict,
+    5: normalizedAnimationUf || '',
+    6: animationPropertyDetails || 'Sem dados adicionais',
+    7: answers.cta,
+    8: answers.phone || 'Sem telefone',
+    9: imageCount ? `${imageCount} imagem${imageCount > 1 ? 's' : ''}` : '',
+    10: hasRequiredImages ? `${selectedFiles.length} imagem${selectedFiles.length > 1 ? 's' : ''}` : '',
+  }
+
+  const clearAnimationPolling = () => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+  }
+
+  useEffect(() => () => clearAnimationPolling(), [])
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setGenerationMessageIndex(0)
+      return undefined
+    }
+    const timer = window.setInterval(() => {
+      setGenerationMessageIndex((current) => (current + 1) % GENERATION_MESSAGES.length)
+    }, 3200)
+    return () => window.clearInterval(timer)
+  }, [isGenerating])
+
+  const resetAnimationGeneration = () => {
+    clearAnimationPolling()
+    setStatus('idle')
+    setMessage('')
+    setVideoUrl('')
+    setRenderMeta(null)
+  }
+
+  const resetAnimationFlow = () => {
+    resetAnimationGeneration()
+    setAnswers({
+      variant: '',
+      purpose: '',
+      status: '',
+      location: '',
+      uf: '',
+      ufOther: '',
+      bedrooms: '',
+      suites: '',
+      parking: '',
+      area: '',
+      cta: '',
+      phone: '',
+      imageCount: 0,
+    })
+    setFiles({})
+    setStep(1)
+  }
+
+  const updateAnimationAnswer = (field, value, nextStep) => {
+    resetAnimationGeneration()
+    setAnswers((current) => ({ ...current, [field]: value }))
+    if (nextStep) setStep(nextStep)
+  }
+
+  const selectAnimationVariant = (nextVariant) => {
+    resetAnimationGeneration()
+    setFiles({})
+    setAnswers({
+      variant: nextVariant,
+      purpose: '',
+      status: '',
+      location: '',
+      uf: '',
+      ufOther: '',
+      bedrooms: '',
+      suites: '',
+      parking: '',
+      area: '',
+      cta: '',
+      phone: '',
+      imageCount: 0,
+    })
+    setStep(nextVariant === 'with_texts' ? 2 : 2)
+  }
+
+  const handleAnimationImageChange = (slotKey, file) => {
+    resetAnimationGeneration()
+    setFiles((current) => ({ ...current, [slotKey]: file }))
+  }
+
+  const uploadAnimationImage = async (slot, file, jobId) => {
+    const contentType = getUploadContentType(file)
+    if (!contentType) {
+      throw new Error(`${slot.label}: Para este teste, envie imagens JPG ou PNG.`)
+    }
+
+    const extension = getFileExtensionFromContentType(contentType)
+    const path = `${user.id}/${jobId}/animacao-premium/${slot.fileName}.${extension}`
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        contentType,
+        upsert: true,
+      })
+
+    if (error) {
+      throw new Error(`Falha no upload de ${slot.label}. Para este teste, envie imagens JPG ou PNG.`)
+    }
+
+    return path
+  }
+
+  const pollAnimationRenderStatus = async (renderId, storedRender = renderMeta) => {
+    if (!renderId) return
+    try {
+      const result = await invokeStudioFunction('get-render-status', {
+        render_ids: [renderId],
+        renders: storedRender ? [storedRender] : [],
+      })
+      const data = result.body
+      if (!result.ok) throw new Error(data?.error || 'Falha ao consultar animacao.')
+      const render = Array.isArray(data?.renders) ? data.renders[0] : null
+      const renderStatus = normalizeAnimationRenderStatus(render?.status)
+      const nextVideoUrl = getAnimationVideoUrl(render)
+      logStudioHero('debug', 'studio_hero_animation_poll_response', {
+        httpStatus: result.status,
+        render: getSafeAnimationRenderLog(render),
+      })
+
+      if (ANIMATION_READY_STATUSES.has(renderStatus) && isAnimationMp4Url(nextVideoUrl)) {
+        clearAnimationPolling()
+        setVideoUrl(nextVideoUrl)
+        setStatus('completed')
+        setMessage('Sua animacao premium esta pronta.')
+        setRenderMeta(render)
+        return
+      }
+
+      if (ANIMATION_READY_STATUSES.has(renderStatus) && !isAnimationMp4Url(nextVideoUrl)) {
+        clearAnimationPolling()
+        setStatus('failed')
+        setMessage('O render foi finalizado, mas o Creatomate nao retornou uma URL MP4 valida.')
+        setRenderMeta(render)
+        return
+      }
+
+      if (ANIMATION_FAILED_STATUSES.has(renderStatus)) {
+        clearAnimationPolling()
+        setStatus('failed')
+        setMessage(render?.error_message || render?.erro || 'Nao foi possivel criar a animacao neste momento.')
+        setRenderMeta(render)
+        return
+      }
+
+      setStatus('generating')
+      setMessage('Animacao em processamento...')
+      setRenderMeta(render || storedRender)
+      pollTimerRef.current = setTimeout(() => pollAnimationRenderStatus(renderId, render || storedRender), 7000)
+    } catch (error) {
+      clearAnimationPolling()
+      logStudioHero('error', 'studio_hero_animation_status_error', {
+        renderId,
+        message: error instanceof Error ? error.message : String(error),
+      })
+      setStatus('failed')
+      setMessage('Nao foi possivel acompanhar a animacao neste momento.')
+    }
+  }
+
+  const handleGenerateAnimation = async () => {
+    if (!user?.id || !canGenerate || !variant) return
+
+    clearAnimationPolling()
+    setStatus('uploading')
+    setMessage('Enviando imagens...')
+    setVideoUrl('')
+
+    try {
+      const jobId = crypto.randomUUID()
+      const imagePaths = []
+      for (const slot of selectedSlots) {
+        const file = files[slot.key]
+        if (!file) throw new Error(`${slot.label}: selecione a imagem antes de gerar.`)
+        imagePaths.push(await uploadAnimationImage(slot, file, jobId))
+      }
+
+      setStatus('generating')
+      setMessage('Criando animacao premium...')
+
+      const result = await invokeStudioFunction('criar-animacao-premium', {
+        mode: 'animation_premium',
+        jobId,
+        variant: answers.variant,
+        imageCount,
+        imagePaths,
+        fields: isWithTexts
+          ? {
+            finalidade: answers.purpose,
+            status: answers.status,
+            localizacao: normalizedAnimationLocation,
+            description: animationDescription,
+            dormitorios: answers.bedrooms,
+            bedrooms: answers.bedrooms,
+            suites: answers.suites,
+            vagas: answers.parking,
+            parking: answers.parking,
+            area: answers.area,
+            cta: answers.cta,
+            telefone: answers.phone,
+          }
+          : {},
+      })
+      const data = result.body
+      logStudioHero('debug', 'studio_hero_animation_function_response', {
+        httpStatus: result.status,
+        ok: result.ok,
+        body: getSafeAnimationRenderLog(data),
+      })
+      if (!result.ok || (!data?.ok && !data?.success)) {
+        throw new Error(data?.error || 'Falha ao iniciar animacao.')
+      }
+
+      const renderId = data.render_id || data.renderId
+      if (!renderId) throw new Error('Creatomate nao retornou render_id.')
+      const nextRenderMeta = {
+        render_id: renderId,
+        template_id: data.template_id || null,
+        template_nome: variant.title,
+        status: data.status || 'planned',
+      }
+      setRenderMeta(nextRenderMeta)
+
+      const initialStatus = normalizeAnimationRenderStatus(data.status)
+      const initialVideoUrl = getAnimationVideoUrl(data)
+      if (ANIMATION_READY_STATUSES.has(initialStatus) && isAnimationMp4Url(initialVideoUrl)) {
+        setVideoUrl(initialVideoUrl)
+        setStatus('completed')
+        setMessage('Sua animacao premium esta pronta.')
+        return
+      }
+
+      setMessage('Animacao em processamento...')
+      pollTimerRef.current = setTimeout(() => pollAnimationRenderStatus(renderId, nextRenderMeta), 7000)
+    } catch (error) {
+      logStudioHero('error', 'studio_hero_animation_generate_error', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+      setStatus('failed')
+      setMessage(error instanceof Error ? error.message : 'Nao foi possivel criar a animacao neste momento.')
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f0fdf4_0%,#f8fafc_46%,#eef7fb_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#064e3b_0%,#0f172a_52%,#047857_100%)] text-white shadow-2xl shadow-emerald-950/20">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(110,231,183,0.24),transparent_30%),radial-gradient(circle_at_84%_28%,rgba(52,211,153,0.18),transparent_34%)]" />
+          <div className="relative grid gap-8 p-8 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-100">
+                <ImagePlus className="h-4 w-4" />
+                Animacao Premium
+              </div>
+              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
+                Transforme fotos em videos animados.
+              </h1>
+              <p className="mt-4 max-w-2xl text-xl font-black text-white">
+                Transforme suas fotos em videos animados profissionais para divulgar seus imoveis.
+              </p>
+              <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
+                Escolha uma versao com informacoes na tela ou uma versao clean, destacando apenas a beleza das imagens.
+              </p>
+              <button
+                type="button"
+                onClick={onBack}
+                className="mt-6 rounded-2xl border border-white/15 px-4 py-2 text-sm font-black text-emerald-100 transition hover:bg-white/10"
+              >
+                Escolher outro tipo de criacao
+              </button>
+            </div>
+            <div className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-emerald-950/20 backdrop-blur">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 text-emerald-200" />
+                <p className="font-black">Como vamos conduzir?</p>
+              </div>
+              <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-slate-100">
+                {STUDIO_GUIDE_ITEMS_BY_MODE.smart_carousel.map((item) => (
+                  <li key={item} className="flex gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-200" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-5 pb-12">
+          <div className="rounded-3xl border border-emerald-100 bg-white/85 p-4 shadow-sm backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Animacao Premium</p>
+                <p className="mt-1 text-sm font-semibold text-slate-600">
+                  Voce pode animar de 1 a 4 imagens por geracao.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
+                <ImagePlus className="h-4 w-4" />
+                {progressPercent}%
+              </span>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary-700 transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+
+          <AssistantStep
+            number={1}
+            currentStep={step}
+            summary={stepSummaries[1]}
+            onEdit={() => setStep(1)}
+            message="Voce quer animar e melhorar suas imagens para divulgacao com inclusao de textos no video ou sem textos?"
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              {ANIMATION_VARIANT_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => selectAnimationVariant(option.id)}
+                  className={`rounded-3xl border p-4 text-left transition ${
+                    answers.variant === option.id
+                      ? 'border-emerald-600 bg-emerald-950 text-white shadow-lg shadow-emerald-100'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50'
+                  }`}
+                >
+                  <div className="mx-auto max-w-[160px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-lg shadow-slate-200/70">
+                    <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.35rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#047857_100%)]">
+                      <div className="relative px-3 text-center text-white">
+                        <PlayCircle className="mx-auto h-8 w-8 opacity-90" />
+                        <p className="mt-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/70">{option.title}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <p className={`mt-4 text-base font-black ${answers.variant === option.id ? 'text-white' : 'text-slate-950'}`}>{option.title}</p>
+                  <p className={`mt-2 text-sm font-semibold leading-6 ${answers.variant === option.id ? 'text-emerald-100' : 'text-slate-500'}`}>{option.description}</p>
+                </button>
+              ))}
+            </div>
+          </AssistantStep>
+
+          {isWithTexts && step >= 2 && (
+            <AssistantStep number={2} currentStep={step} summary={stepSummaries[2]} onEdit={() => setStep(2)} message="Qual e a finalidade?">
+              <ChipGrid>
+                {ANIMATION_PURPOSE_OPTIONS.map((option) => (
+                  <ChipButton key={option} active={answers.purpose === option} onClick={() => updateAnimationAnswer('purpose', option, 3)}>
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && answers.purpose && step >= 3 && (
+            <AssistantStep number={3} currentStep={step} summary={stepSummaries[3]} onEdit={() => setStep(3)} message="Qual status deve aparecer no video?">
+              <ChipGrid>
+                {statusOptions.map((option) => (
+                  <ChipButton key={option} active={answers.status === option} onClick={() => updateAnimationAnswer('status', option, 4)}>
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && answers.status && step >= 4 && (
+            <AssistantStep number={4} currentStep={step} summary={stepSummaries[4]} onEdit={() => setStep(4)} message="Qual bairro deve aparecer no video?">
+              <div className="space-y-3">
+                <input
+                  value={answers.location}
+                  onChange={(event) => updateAnimationAnswer('location', cleanAnimationLocationInput(event.target.value), null)}
+                  placeholder="Ex.: Moema"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    disabled={!normalizedAnimationDistrict}
+                    onClick={() => {
+                      resetAnimationGeneration()
+                      setAnswers((current) => ({
+                        ...current,
+                        location: normalizedAnimationDistrict,
+                        uf: '',
+                        ufOther: '',
+                        cta: '',
+                        phone: '',
+                        imageCount: 0,
+                      }))
+                      setStep(5)
+                    }}
+                  >
+                    Confirmar bairro
+                  </Button>
+                </div>
+              </div>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && answers.location && step >= 5 && (
+            <AssistantStep number={5} currentStep={step} summary={stepSummaries[5]} onEdit={() => setStep(5)} message="Qual estado/UF?">
+              <div className="space-y-4">
+                <ChipGrid>
+                  {ANIMATION_UF_OPTIONS.map((option) => (
+                    <ChipButton
+                      key={option}
+                      active={answers.uf === option}
+                      onClick={() => {
+                        resetAnimationGeneration()
+                        setAnswers((current) => ({
+                          ...current,
+                          uf: option,
+                          ufOther: option === ANIMATION_OTHER_UF_OPTION ? '' : current.ufOther,
+                        }))
+                        if (option !== ANIMATION_OTHER_UF_OPTION) setStep(6)
+                      }}
+                    >
+                      {option === ANIMATION_OTHER_UF_OPTION ? 'Outro' : option}
+                    </ChipButton>
+                  ))}
+                </ChipGrid>
+                {answers.uf === ANIMATION_OTHER_UF_OPTION && (
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      value={answers.ufOther}
+                      onChange={(event) => updateAnimationAnswer('ufOther', normalizeAnimationUf(event.target.value), null)}
+                      placeholder="UF"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold uppercase outline-none focus:border-primary-500 sm:max-w-[140px]"
+                    />
+                    <Button type="button" disabled={!normalizedAnimationUf} onClick={() => setStep(6)}>
+                      Confirmar UF
+                    </Button>
+                  </div>
+                )}
+                {normalizedAnimationLocation && (
+                  <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+                    {normalizedAnimationLocation}
+                  </p>
+                )}
+              </div>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && normalizedAnimationLocation && step >= 6 && (
+            <AssistantStep number={6} currentStep={step} summary={stepSummaries[6]} onEdit={() => setStep(6)} message="Deseja incluir dados do imovel?">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {ANIMATION_FEATURE_FIELDS.map((field) => (
+                    <label key={field.key} className="block">
+                      <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-slate-500">{field.label}</span>
+                      <input
+                        value={answers[field.key]}
+                        onChange={(event) => updateAnimationAnswer(field.key, cleanAnimationNumber(event.target.value), null)}
+                        placeholder={field.placeholder}
+                        inputMode="numeric"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Description</p>
+                  <p className="mt-1 whitespace-pre-line text-sm font-black leading-6 text-slate-950">{animationDescription || 'A descricao sera montada com a localizacao e os dados disponiveis.'}</p>
+                </div>
+                <div className="flex justify-end">
+                  <Button type="button" onClick={() => setStep(7)}>
+                    Continuar
+                  </Button>
+                </div>
+              </div>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && normalizedAnimationLocation && step >= 7 && (
+            <AssistantStep number={7} currentStep={step} summary={stepSummaries[7]} onEdit={() => setStep(7)} message="Qual chamada final deseja usar?">
+              <ChipGrid>
+                {ANIMATION_CTA_OPTIONS.map((option) => (
+                  <ChipButton key={option} active={answers.cta === option} onClick={() => updateAnimationAnswer('cta', option, 8)}>
+                    {option}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && answers.cta && step >= 8 && (
+            <AssistantStep number={8} currentStep={step} summary={stepSummaries[8]} onEdit={() => setStep(8)} message="Deseja incluir telefone?">
+              <div className="space-y-3">
+                <input
+                  value={answers.phone}
+                  onChange={(event) => updateAnimationAnswer('phone', formatAnimationPhone(event.target.value), null)}
+                  placeholder="Opcional"
+                  inputMode="tel"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
+                />
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => updateAnimationAnswer('phone', '', 9)}>
+                    Continuar sem telefone
+                  </Button>
+                  <Button type="button" onClick={() => setStep(9)}>
+                    Confirmar telefone
+                  </Button>
+                </div>
+              </div>
+            </AssistantStep>
+          )}
+
+          {answers.variant === 'clean' && step >= 2 && (
+            <AssistantStep number={2} currentStep={step} summary={stepSummaries[2]} onEdit={() => setStep(2)} message="Quantas imagens voce quer animar nesta geracao?">
+              <div className="space-y-4">
+                <p className="text-sm font-bold leading-6 text-slate-500">
+                  Vou criar uma animacao clean, valorizando suas imagens com movimentos profissionais, sem adicionar textos na tela.
+                </p>
+                <ChipGrid>
+                  {ANIMATION_IMAGE_COUNT_OPTIONS.map((count) => (
+                    <ChipButton key={count} active={imageCount === count} onClick={() => updateAnimationAnswer('imageCount', count, 3)}>
+                      {count} imagem{count > 1 ? 's' : ''}
+                    </ChipButton>
+                  ))}
+                </ChipGrid>
+              </div>
+            </AssistantStep>
+          )}
+
+          {isWithTexts && answers.cta && step >= 9 && (
+            <AssistantStep number={9} currentStep={step} summary={stepSummaries[9]} onEdit={() => setStep(9)} message="Quantas imagens voce quer animar nesta geracao?">
+              <ChipGrid>
+                {ANIMATION_IMAGE_COUNT_OPTIONS.map((count) => (
+                  <ChipButton key={count} active={imageCount === count} onClick={() => updateAnimationAnswer('imageCount', count, 10)}>
+                    {count} imagem{count > 1 ? 's' : ''}
+                  </ChipButton>
+                ))}
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {imageCount > 0 && step >= uploadStep && (
+            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Envie as imagens que deseja animar.">
+              <div className="space-y-5">
+                {isGenerating && !videoUrl ? (
+                  <LoadingCard generationMessage={generationMessage} />
+                ) : videoUrl ? (
+                  <AnimationResultPanel videoUrl={videoUrl} onReset={resetAnimationFlow} />
+                ) : (
+                  <>
+                    {status === 'failed' && message && (
+                      <ErrorCard message={message} imageErrorTarget="all" onEditImages={() => setStep(uploadStep)} />
+                    )}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {selectedSlots.map((slot) => (
+                        <FilePicker
+                          key={slot.key}
+                          slot={slot}
+                          file={files[slot.key]}
+                          onChange={(file) => handleAnimationImageChange(slot.key, file)}
+                        />
+                      ))}
+                    </div>
+                    <AnimationReadyPanel
+                      variant={variant}
+                      answers={answers}
+                      selectedCount={selectedFiles.length}
+                      requiredCount={imageCount}
+                      canGenerate={canGenerate}
+                      isGenerating={isGenerating}
+                      studioHeroAccess={studioHeroAccess}
+                      onGenerate={handleGenerateAnimation}
+                    />
+                  </>
+                )}
+              </div>
+            </AssistantStep>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={resetAnimationFlow}
+              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reiniciar conversa
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function AnimationReadyPanel({ variant, answers, selectedCount, requiredCount, canGenerate, isGenerating, studioHeroAccess, onGenerate }) {
+  const ready = selectedCount === requiredCount
+  const animationDescription = buildAnimationDescription(answers)
+  const summaryItems = [
+    ['Versao', variant?.title || 'Pendente'],
+    ['Imagens', `${selectedCount}/${requiredCount || 0}`],
+    ...(answers.variant === 'with_texts'
+      ? [
+        ['Status', answers.status],
+        ['Description', animationDescription],
+        ['CTA', [answers.cta, answers.phone].filter(Boolean).join(' - ')],
+      ]
+      : [['Textos', 'Sem textos']]),
+  ]
+
+  return (
+    <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-950">
+            {ready ? 'Tudo pronto para animar.' : `Envie ${requiredCount} imagem${requiredCount > 1 ? 's' : ''}.`}
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            O Creatomate usa os elementos Video-1, Video-2, Video-3 e Video-4 conforme as imagens enviadas.
+          </p>
+        </div>
+        <span className={`rounded-full border px-3 py-1.5 text-xs font-black ${ready ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
+          {selectedCount}/{requiredCount || 0} imagens
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        {summaryItems.map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+            <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || 'Pendente'}</p>
+          </div>
+        ))}
+      </div>
+
+      {ready && !studioHeroAccess?.canGenerate && (
+        <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-800">
+          Disponivel para assinantes ou usuarios com Smart Tokens suficientes.
+        </div>
+      )}
+
+      {ready && (
+        <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Criando animacao
+            </>
+          ) : (
+            <>
+              <PlayCircle className="h-4 w-4" />
+              Gerar video animado
+            </>
+          )}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+function AnimationResultPanel({ videoUrl, onReset }) {
+  const hasPlayableVideo = isAnimationMp4Url(videoUrl)
+  return (
+    <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-xl shadow-emerald-100/40">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Resultado</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Sua animacao premium esta pronta</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Voce recebeu um video animado pronto para divulgar.
+          </p>
+        </div>
+        <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-500" />
+      </div>
+      <div className="mt-5 overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-2xl shadow-slate-200/70">
+        <div className="mx-auto flex aspect-[9/16] w-full max-w-[560px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-slate-100">
+          {hasPlayableVideo ? (
+            <video id="studio-hero-animation-video" src={videoUrl} controls className="h-full w-full object-contain" />
+          ) : (
+            <div className="px-6 text-center">
+              <p className="text-sm font-black text-slate-950">Video final ainda indisponivel.</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                Aguarde o processamento retornar uma URL MP4 valida.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => {
+            const playResult = document.getElementById('studio-hero-animation-video')?.play?.()
+            if (playResult?.catch) playResult.catch(() => {})
+          }}
+          disabled={!hasPlayableVideo}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-900"
+        >
+          <PlayCircle className="h-4 w-4" />
+          Assistir
+        </button>
+        {hasPlayableVideo ? (
+          <a
+            href={videoUrl}
+            download="studio-hero-animacao-premium.mp4"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-800"
+          >
+            <Download className="h-4 w-4" />
+            Baixar
+          </a>
+        ) : (
+          <span className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-200 px-5 py-3 text-sm font-black text-slate-500">
+            <Download className="h-4 w-4" />
+            Baixar
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Criar nova versao
+        </button>
+      </div>
+    </section>
   )
 }
 

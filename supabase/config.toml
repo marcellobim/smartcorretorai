@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.get-render-status]
 verify_jwt = false
 
+[functions.criar-animacao-premium]
+verify_jwt = false
+
 [functions.gerar-hero-ia]
 verify_jwt = false
 

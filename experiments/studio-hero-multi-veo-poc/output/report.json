@@ -1,0 +1,72 @@
+{
+  "poc": "studio-hero-multi-veo-poc",
+  "generatedAt": "2026-07-06T14:36:45.894Z",
+  "mode": "dry-run",
+  "configPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\sample-config.json",
+  "environment": {
+    "veoEnabled": false,
+    "hasGeminiApiKey": false,
+    "modelId": "veo-3.1-lite-generate-preview"
+  },
+  "imagesUsed": [
+    "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062941_Chrome.jpg",
+    "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062959_Chrome.jpg",
+    "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063020_Chrome.jpg",
+    "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063115_Chrome.jpg"
+  ],
+  "useCta": true,
+  "finalFrameKind": "cta",
+  "finalFramePath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\output\\cta-frame.png",
+  "prompt": "ROLE\n\nYou are an award-winning director of real estate commercials.\n\nMISSION\n\nCreate a short cinematic commercial that makes people stop scrolling and want to know more.\n\nPROPERTY\n\nUse the uploaded image as the visual reference.\n\nUse the property facts naturally in a fluent Brazilian Portuguese narration.\n\nProperty facts:\nApartamento de alto padrao. Ambientes integrados. Varanda gourmet. Lazer completo. Imovel pronto para morar.\n\nNever narrate in English.\n\nEMOTIONAL ATMOSPHERE\n\nCreate an elegant, premium and emotionally engaging commercial.\n\nIf the environment is empty, you may enrich it naturally while preserving the architecture.\n\nIf already furnished, preserve the existing furniture and decoration.\n\nDo not use people.\n\nDo not use logos.\n\nDo not use watermarks.\n\nSurprise the viewer.",
+  "pairs": [
+    {
+      "index": 1,
+      "fromImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062941_Chrome.jpg",
+      "toImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062959_Chrome.jpg",
+      "finalPairKind": "image",
+      "providerJobId": null,
+      "clipPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\output\\clips\\clip-01.mp4",
+      "durationSeconds": 8,
+      "status": "planned",
+      "error": null
+    },
+    {
+      "index": 2,
+      "fromImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_062959_Chrome.jpg",
+      "toImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063020_Chrome.jpg",
+      "finalPairKind": "image",
+      "providerJobId": null,
+      "clipPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\output\\clips\\clip-02.mp4",
+      "durationSeconds": 8,
+      "status": "planned",
+      "error": null
+    },
+    {
+      "index": 3,
+      "fromImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063020_Chrome.jpg",
+      "toImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063115_Chrome.jpg",
+      "finalPairKind": "image",
+      "providerJobId": null,
+      "clipPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\output\\clips\\clip-03.mp4",
+      "durationSeconds": 8,
+      "status": "planned",
+      "error": null
+    },
+    {
+      "index": 4,
+      "fromImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\input\\alto-padrao-01\\images\\Screenshot_20260622_063115_Chrome.jpg",
+      "toImage": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\output\\cta-frame.png",
+      "finalPairKind": "cta",
+      "providerJobId": null,
+      "clipPath": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\studio-hero-multi-veo-poc\\output\\clips\\clip-04.mp4",
+      "durationSeconds": 8,
+      "status": "planned",
+      "error": null
+    }
+  ],
+  "finalVideoPath": null,
+  "warnings": [
+    "dry_run_no_veo_jobs_started"
+  ],
+  "errors": []
+}

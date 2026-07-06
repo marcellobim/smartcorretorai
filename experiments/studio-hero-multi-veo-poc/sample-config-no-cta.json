@@ -1,0 +1,16 @@
+{
+  "images": [
+    "../../experiments/slideshow-poc/input/alto-padrao-01/images/Screenshot_20260622_062941_Chrome.jpg",
+    "../../experiments/slideshow-poc/input/alto-padrao-01/images/Screenshot_20260622_062959_Chrome.jpg",
+    "../../experiments/slideshow-poc/input/alto-padrao-01/images/Screenshot_20260622_063020_Chrome.jpg",
+    "../../experiments/slideshow-poc/input/alto-padrao-01/images/Screenshot_20260622_063115_Chrome.jpg"
+  ],
+  "useCta": false,
+  "cta": "",
+  "propertyFacts": "Apartamento de alto padrao. Ambientes integrados. Varanda gourmet. Lazer completo. Imovel pronto para morar.",
+  "aspectRatio": "9:16",
+  "durationSeconds": 8,
+  "resolution": "720p",
+  "pollIntervalMs": 15000,
+  "maxPollAttempts": 80
+}
