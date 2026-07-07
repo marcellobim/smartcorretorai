@@ -244,8 +244,8 @@ const STUDIO_HERO_MULTI_IMAGE_EXAMPLE = {
     'Video cinematografico maior',
     'Movimentos entre ambientes',
     'Transicoes suaves',
-    'Final com chamada comercial opcional',
-    'Campanha pronta para revisar',
+    'Final limpo e neutro',
+    'Video visual sem textos',
   ],
 }
 
@@ -623,27 +623,13 @@ const ANIMATION_IMAGE_SLOTS = [1, 2, 3, 4].map((number) => ({
   helper: number === 1 ? 'Envie a imagem principal.' : 'Envie uma imagem complementar.',
   fileName: `animation-${number}`,
 }))
-const MULTI_IMAGE_TOUR_VARIANTS = {
-  with_texts: {
-    id: 'with_texts',
-    label: 'Com informacoes e CTA',
-    description: 'Inclui dados comerciais enviados por voce e uma chamada final.',
-  },
-  clean: {
-    id: 'clean',
-    label: 'Video limpo, sem textos',
-    description: 'Usa somente as imagens e fecha com um frame neutro.',
-  },
-}
-const MULTI_IMAGE_TOUR_VARIANT_OPTIONS = Object.values(MULTI_IMAGE_TOUR_VARIANTS)
-const MULTI_IMAGE_TOUR_IMAGE_COUNT_OPTIONS = [2, 3, 4, 5]
-const MULTI_IMAGE_TOUR_IMAGE_SLOTS = [1, 2, 3, 4, 5].map((number) => ({
+const MULTI_IMAGE_TOUR_IMAGE_COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+const MULTI_IMAGE_TOUR_IMAGE_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => ({
   key: `image${number}`,
   label: `Imagem ${number}`,
   helper: number === 1 ? 'Comece pela imagem principal.' : 'Use a ordem desejada para o tour.',
   fileName: `multi-tour-${number}`,
 }))
-const MULTI_IMAGE_TOUR_CTA_OPTIONS = ['Saiba Mais', 'Agende Sua Visita', 'Entre em Contato']
 
 const initialAnswers = {
   objective: '',
@@ -2963,12 +2949,8 @@ export default function StudioHero() {
 
 function MultiImageTourMode({ user, onBack }) {
   const studioHeroAccess = getStudioHeroAccess(user)
-  const [step, setStep] = useState(1)
   const [answers, setAnswers] = useState({
-    variant: '',
     imageCount: 0,
-    objective: '',
-    cta: '',
   })
   const [files, setFiles] = useState({})
   const [status, setStatus] = useState('idle')
@@ -2978,22 +2960,12 @@ function MultiImageTourMode({ user, onBack }) {
 
   const isGenerating = ['uploading', 'generating'].includes(status)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
-  const variant = MULTI_IMAGE_TOUR_VARIANTS[answers.variant] || null
-  const isWithTexts = answers.variant === 'with_texts'
   const imageCount = Number(answers.imageCount || 0)
   const selectedSlots = MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, imageCount || 0)
   const selectedFiles = selectedSlots.map((slot) => files[slot.key]).filter(Boolean)
-  const hasRequiredImages = imageCount >= 2 && imageCount <= 5 && selectedFiles.length === imageCount
-  const hasRequiredTexts = !isWithTexts || Boolean(answers.objective && answers.cta)
-  const canGenerate = studioHeroAccess.canGenerate && hasRequiredImages && hasRequiredTexts
-  const uploadStep = isWithTexts ? 4 : 3
-  const progressPercent = Math.min(100, Math.max(12, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
-  const stepSummaries = {
-    1: variant?.label || '',
-    2: isWithTexts ? answers.objective : (imageCount ? `${imageCount} imagens` : ''),
-    3: isWithTexts ? answers.cta : (hasRequiredImages ? `${selectedFiles.length} imagens selecionadas` : ''),
-    4: hasRequiredImages ? `${selectedFiles.length} imagens selecionadas` : '',
-  }
+  const hasRequiredImages = imageCount >= 1 && imageCount <= 9 && selectedFiles.length === imageCount
+  const canGenerate = studioHeroAccess.canGenerate && hasRequiredImages
+  const progressPercent = imageCount ? Math.min(100, Math.max(20, Math.round((selectedFiles.length / imageCount) * 100))) : 12
 
   useEffect(() => {
     if (!isGenerating) {
@@ -3014,20 +2986,10 @@ function MultiImageTourMode({ user, onBack }) {
 
   const resetFlow = () => {
     resetGeneration()
-    setStep(1)
     setAnswers({
-      variant: '',
       imageCount: 0,
-      objective: '',
-      cta: '',
     })
     setFiles({})
-  }
-
-  const updateAnswer = (field, value, nextStep = step + 1) => {
-    resetGeneration()
-    setAnswers((current) => ({ ...current, [field]: value }))
-    if (nextStep) setStep(nextStep)
   }
 
   const updateFile = (slot, file) => {
@@ -3063,7 +3025,7 @@ function MultiImageTourMode({ user, onBack }) {
     if (!user?.id || !canGenerate) return
 
     setStatus('uploading')
-    setMessage('Preparando seu tour...')
+    setMessage('Preparando seu Motion...')
     setVideoUrl('')
 
     try {
@@ -3074,16 +3036,20 @@ function MultiImageTourMode({ user, onBack }) {
       }
 
       setStatus('generating')
-      setMessage('Criando seu tour...')
+      setMessage('Criando seu Motion...')
 
       const payload = {
-        mode: 'multi_image_tour',
-        variant: answers.variant,
-        includeTexts: isWithTexts,
-        objective: normalizeFreeText(answers.objective),
-        cta: normalizeVideoTextToken(answers.cta, 'SAIBA MAIS'),
+        mode: 'studio_hero_motion',
+        variant: 'clean',
+        includeTexts: false,
         imagePaths,
         jobId: draftId,
+        fidelityMode: 'high_fidelity',
+        movement: 'smooth cinematic camera movement',
+        lighting: 'soft premium natural light',
+        atmosphere: 'clean cinematic real estate atmosphere',
+        rhythm: 'calm balanced motion',
+        cinematicEffects: 'subtle depth reflections and light sweep',
       }
 
       logStudioHero('info', 'studio_hero_multi_image_payload_ready', {
@@ -3108,7 +3074,7 @@ function MultiImageTourMode({ user, onBack }) {
       }
 
       setStatus('planned')
-      setMessage(data.message || 'Seu tour foi preparado para processamento.')
+      setMessage(data.message || 'Seu Motion foi preparado para processamento.')
     } catch (error) {
       logStudioHero('error', 'studio_hero_multi_image_generate_error', {
         message: error instanceof Error ? error.message : String(error),
@@ -3117,7 +3083,7 @@ function MultiImageTourMode({ user, onBack }) {
       setStatus('failed')
       setMessage(error instanceof Error && /JPG|PNG|imagem/i.test(error.message)
         ? error.message
-        : 'Nao foi possivel preparar este tour neste ambiente. Tente novamente mais tarde.')
+        : 'Nao foi possivel preparar este Motion neste ambiente. Tente novamente mais tarde.')
     }
   }
 
@@ -3133,10 +3099,10 @@ function MultiImageTourMode({ user, onBack }) {
                 Tour Cinematografico IA
               </div>
               <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                Crie um tour com varias imagens.
+                Crie um Motion com imagens.
               </h1>
               <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-sky-50">
-                Envie fotos em sequencia e gere uma apresentacao cinematografica maior.
+                Envie de 1 a 9 fotos em sequencia para criar um video visual limpo, sem textos.
               </p>
               <button
                 type="button"
@@ -3153,7 +3119,7 @@ function MultiImageTourMode({ user, onBack }) {
                 <div className="h-full rounded-full bg-sky-200 transition-all" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="mt-4 text-sm font-semibold leading-6 text-sky-50">
-                Escolha o acabamento, envie as imagens em ordem e revise antes de criar.
+                Escolha a quantidade, envie as imagens em ordem e revise antes de criar.
               </p>
             </div>
           </div>
@@ -3163,81 +3129,15 @@ function MultiImageTourMode({ user, onBack }) {
           <div className="space-y-4">
             <AssistantStep
               number={1}
-              currentStep={step}
-              summary={stepSummaries[1]}
-              onEdit={() => setStep(1)}
-              message="Como voce quer entregar este tour?"
+              currentStep={1}
+              summary={imageCount ? `${imageCount} imagem${imageCount > 1 ? 's' : ''}` : ''}
+              onEdit={() => {}}
+              message="Quantas imagens entram no Motion?"
             >
-              <OptionGrid>
-                {MULTI_IMAGE_TOUR_VARIANT_OPTIONS.map((option) => (
-                  <ChoiceButton
-                    key={option.id}
-                    active={answers.variant === option.id}
-                    title={option.label}
-                    description={option.description}
-                    onClick={() => updateAnswer('variant', option.id, option.id === 'with_texts' ? 2 : 2)}
-                  />
-                ))}
-              </OptionGrid>
-            </AssistantStep>
-
-            {isWithTexts && (
-              <AssistantStep
-                number={2}
-                currentStep={step}
-                summary={stepSummaries[2]}
-                onEdit={() => setStep(2)}
-                message="Qual e o objetivo principal?"
-              >
-                <OptionGrid>
-                  {[
-                    ['Vender imovel', 'Valorizar a apresentacao para venda.'],
-                    ['Alugar imovel', 'Gerar interesse para locacao.'],
-                    ['Apresentar lancamento', 'Criar desejo e curiosidade.'],
-                    ['Divulgar oportunidade', 'Destacar o imovel de forma direta.'],
-                  ].map(([title, description]) => (
-                    <ChoiceButton
-                      key={title}
-                      active={answers.objective === title}
-                      title={title}
-                      description={description}
-                      onClick={() => updateAnswer('objective', title, 3)}
-                    />
-                  ))}
-                </OptionGrid>
-              </AssistantStep>
-            )}
-
-            {isWithTexts && (
-              <AssistantStep
-                number={3}
-                currentStep={step}
-                summary={stepSummaries[3]}
-                onEdit={() => setStep(3)}
-                message="Qual chamada final voce prefere?"
-              >
-                <ChipGrid>
-                  {MULTI_IMAGE_TOUR_CTA_OPTIONS.map((option) => (
-                    <ChipButton
-                      key={option}
-                      active={answers.cta === option}
-                      onClick={() => updateAnswer('cta', option, 4)}
-                    >
-                      {option}
-                    </ChipButton>
-                  ))}
-                </ChipGrid>
-              </AssistantStep>
-            )}
-
-            {((!isWithTexts && answers.variant) || (isWithTexts && answers.cta)) && (
-              <AssistantStep
-                number={isWithTexts ? 4 : 2}
-                currentStep={step}
-                summary={isWithTexts ? stepSummaries[4] : stepSummaries[2]}
-                onEdit={() => setStep(isWithTexts ? 4 : 2)}
-                message="Quantas imagens entram no tour?"
-              >
+              <div className="space-y-5">
+                <p className="text-sm font-bold leading-6 text-slate-500">
+                  O video final tera somente imagens, movimento e transicoes. Sem texto, CTA, narracao, musica, sons ou marca.
+                </p>
                 <ChipGrid>
                   {MULTI_IMAGE_TOUR_IMAGE_COUNT_OPTIONS.map((option) => (
                     <ChipButton
@@ -3250,10 +3150,9 @@ function MultiImageTourMode({ user, onBack }) {
                           MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, option)
                             .map((slot) => [slot.key, current[slot.key] || null])
                         ))
-                        setStep(isWithTexts ? 4 : 2)
                       }}
                     >
-                      {option} imagens
+                      {option} imagem{option > 1 ? 's' : ''}
                     </ChipButton>
                   ))}
                 </ChipGrid>
@@ -3269,8 +3168,8 @@ function MultiImageTourMode({ user, onBack }) {
                     ))}
                   </div>
                 )}
-              </AssistantStep>
-            )}
+              </div>
+            </AssistantStep>
           </div>
 
           <aside className="space-y-4">
@@ -3279,9 +3178,9 @@ function MultiImageTourMode({ user, onBack }) {
               <h2 className="mt-1 text-xl font-black text-slate-950">Tour Cinematografico IA</h2>
               <div className="mt-4 grid gap-2">
                 {[
-                  ['Entrega', variant?.label || 'Pendente'],
+                  ['Entrega', 'Motion sem textos'],
                   ['Imagens', imageCount ? `${selectedFiles.length}/${imageCount}` : 'Pendente'],
-                  ['Final', isWithTexts ? (answers.cta || 'Pendente') : 'Frame neutro'],
+                  ['Final', 'Frame neutro'],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
@@ -3301,12 +3200,12 @@ function MultiImageTourMode({ user, onBack }) {
                   {isGenerating ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Criando tour
+                      Criando Motion
                     </>
                   ) : (
                     <>
                       <PlayCircle className="h-4 w-4" />
-                      Gerar tour
+                      Gerar Motion
                     </>
                   )}
                 </Button>
@@ -3315,11 +3214,11 @@ function MultiImageTourMode({ user, onBack }) {
 
             {isGenerating && <LoadingCard generationMessage={generationMessage} />}
             {status === 'failed' && (
-              <ErrorCard message={message} imageErrorTarget={getImageErrorTarget(message)} onEditImages={() => setStep(isWithTexts ? 4 : 3)} />
+              <ErrorCard message={message} imageErrorTarget={getImageErrorTarget(message)} onEditImages={() => {}} />
             )}
             {status === 'planned' && (
               <section className="rounded-3xl border border-sky-100 bg-sky-50 p-5 text-sm font-semibold leading-6 text-sky-900 shadow-sm">
-                <p className="text-base font-black text-sky-950">Tour preparado</p>
+                <p className="text-base font-black text-sky-950">Motion preparado</p>
                 <p className="mt-2">{message}</p>
               </section>
             )}

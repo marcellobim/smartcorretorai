@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { startVeoVideo } from '../_shared/veoClient.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,10 +10,12 @@ const corsHeaders = {
 }
 
 const VIDEO_BUCKET = 'studio-videos'
-const MAX_IMAGES = 5
-const MIN_IMAGES = 2
+const MAX_IMAGES = 9
+const MIN_IMAGES = 1
+const MOTION_CLIP_SECONDS = 4
 const SUPPORTED_IMAGE_PATH = /\.(jpe?g|png)$/i
 const SAFE_TEXT_PATTERN = /[^A-Z0-9\s/-]/g
+const WHITE_PIXEL_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
 
 type JsonRecord = Record<string, unknown>
 
@@ -56,57 +59,118 @@ function normalizeImagePaths(value: unknown, userId: string, jobId: string) {
   return Array.from(unique).slice(0, MAX_IMAGES)
 }
 
-function buildFinalFrameDescriptor(options: { userId: string; jobId: string; variant: string; cta: string }) {
-  if (options.variant === 'clean') {
-    return {
-      type: 'neutral_blank_frame',
-      path: `${options.userId}/${options.jobId}/system-neutral-final-frame.png`,
-      hasText: false,
-      description: 'Frame neutro sem texto, logo ou marca.',
-    }
+function base64ToBytes(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
   }
+  return bytes
+}
 
+function buildNeutralFrameDescriptor(options: { userId: string; jobId: string }) {
   return {
-    type: 'cta_frame',
-    path: `${options.userId}/${options.jobId}/system-cta-final-frame.png`,
-    hasText: true,
-    text: options.cta || 'SAIBA MAIS',
-    description: 'Frame final com chamada comercial sanitizada.',
+    type: 'neutral_blank_frame',
+    path: `${options.userId}/${options.jobId}/system-neutral-final-frame.png`,
+    hasText: false,
+    description: 'Frame branco/neutro sem texto, logo, marca, CTA ou elemento comercial.',
   }
 }
 
-function buildPairs(imagePaths: string[], finalFramePath: string) {
-  const pairs = []
+function buildMotionPrompt(input: {
+  pairLabel: string
+  fidelityMode: string
+  movement: string
+  lighting: string
+  atmosphere: string
+  rhythm: string
+  cinematicEffects: string
+}) {
+  return [
+    'Create a vertical 9:16 cinematic motion video.',
+    '',
+    `Use ${input.pairLabel}.`,
+    `Duration: ${MOTION_CLIP_SECONDS} seconds.`,
+    '',
+    'Preserve the real property identity, architecture, layout, furniture, materials, colors and proportions.',
+    'Keep the result realistic and visually coherent with the uploaded property images.',
+    '',
+    'Apply the selected visual behavior:',
+    `- fidelity mode: ${input.fidelityMode}`,
+    `- movement: ${input.movement}`,
+    `- lighting: ${input.lighting}`,
+    `- atmosphere: ${input.atmosphere}`,
+    `- rhythm: ${input.rhythm}`,
+    `- cinematic effects: ${input.cinematicEffects}`,
+    '',
+    'No text.',
+    'No captions.',
+    'No hard words.',
+    'No CTA.',
+    'No logo.',
+    'No watermark.',
+    'No phone.',
+    'No address.',
+    'No narration.',
+    'No commercial offer.',
+    'No sale or rental language.',
+    'No marketing copy.',
+    '',
+    'Create visual motion only.',
+  ].join('\n')
+}
+
+function buildMotionJobs(input: {
+  imagePaths: string[]
+  neutralFramePath: string
+  fidelityMode: string
+  movement: string
+  lighting: string
+  atmosphere: string
+  rhythm: string
+  cinematicEffects: string
+}) {
+  const jobs = []
+  const { imagePaths } = input
   for (let index = 0; index < imagePaths.length - 1; index += 1) {
-    pairs.push({
+    jobs.push({
       index: index + 1,
       from: imagePaths[index],
       to: imagePaths[index + 1],
-      role: 'image_to_image',
+      role: 'motion_pair',
+      durationSeconds: MOTION_CLIP_SECONDS,
+      prompt: buildMotionPrompt({
+        ...input,
+        pairLabel: `image ${index + 1} as the opening frame and image ${index + 2} as the ending frame`,
+      }),
     })
   }
-  pairs.push({
+
+  jobs.push({
     index: imagePaths.length,
     from: imagePaths[imagePaths.length - 1],
-    to: finalFramePath,
-    role: 'final_frame',
+    to: input.neutralFramePath,
+    role: 'neutral_final',
+    durationSeconds: MOTION_CLIP_SECONDS,
+    prompt: buildMotionPrompt({
+      ...input,
+      pairLabel: `image ${imagePaths.length} as the opening frame and a blank neutral white frame as the ending frame`,
+    }),
   })
-  return pairs
+
+  return jobs
 }
 
-function buildBasePrompt(input: { variant: string; objective: string; cta: string }) {
-  const textPolicy = input.variant === 'clean'
-    ? 'Do not add visible text, logos, marks, captions, phone numbers or watermarks.'
-    : `Use the commercial intent naturally and finish with the provided final call to action: ${input.cta || 'SAIBA MAIS'}.`
-
-  return [
-    'Create a vertical cinematic real estate video segment in Brazilian advertising style.',
-    'Preserve the real property identity, architecture, materials and proportions from the input frames.',
-    'Use smooth premium camera movement, elegant lighting, realistic depth and tasteful motion.',
-    'Avoid slideshow feeling, warped geometry, duplicated objects, random text and hallucinated property facts.',
-    input.objective ? `Commercial objective: ${input.objective}.` : '',
-    textPolicy,
-  ].filter(Boolean).join('\n')
+async function ensureNeutralFrame(supabase: ReturnType<typeof createClient>, path: string) {
+  const bytes = base64ToBytes(WHITE_PIXEL_PNG_BASE64)
+  const { error } = await supabase.storage
+    .from(VIDEO_BUCKET)
+    .upload(path, bytes, {
+      contentType: 'image/png',
+      cacheControl: '3600',
+      upsert: true,
+    })
+  if (error) throw new Error(`neutral_frame_upload_failed:${error.message}`)
 }
 
 serve(async (req) => {
@@ -146,17 +210,30 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as JsonRecord
     const jobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
-    const variant = normalizeText(body.variant, 24) === 'CLEAN' ? 'clean' : 'with_texts'
-    const imagePaths = normalizeImagePaths(body.imagePaths, user.id, jobId)
-    const objective = normalizeText(body.objective, 80)
-    const cta = normalizeText(body.cta, 32) || 'SAIBA MAIS'
+    const variant = normalizeText(body.variant, 24)
+    const requestedMode = normalizeText(body.mode, 40)
+    const isMotionRequest = variant === 'CLEAN'
+      || requestedMode === 'MULTI_IMAGE_TOUR'
+      || requestedMode === 'STUDIO_HERO_MOTION'
+      || requestedMode === 'MOTION'
 
-    if (imagePaths.length < MIN_IMAGES) {
-      return jsonResponse({ success: false, error: 'Envie pelo menos duas imagens JPG ou PNG.' }, 400)
+    if (!isMotionRequest) {
+      return jsonResponse({
+        success: false,
+        error: 'Neste MVP, o modo multi-imagens disponivel e Motion sem textos.',
+      }, 501)
     }
 
-    if (variant === 'with_texts' && !objective) {
-      return jsonResponse({ success: false, error: 'Informe o objetivo do tour.' }, 400)
+    const imagePaths = normalizeImagePaths(body.imagePaths, user.id, jobId)
+    const fidelityMode = normalizeText(body.fidelityMode, 48) || 'HIGH_FIDELITY'
+    const movement = normalizeText(body.movement, 80) || 'SMOOTH CINEMATIC CAMERA MOVEMENT'
+    const lighting = normalizeText(body.lighting, 80) || 'SOFT PREMIUM NATURAL LIGHT'
+    const atmosphere = normalizeText(body.atmosphere, 80) || 'CLEAN CINEMATIC REAL ESTATE ATMOSPHERE'
+    const rhythm = normalizeText(body.rhythm, 80) || 'CALM BALANCED MOTION'
+    const cinematicEffects = normalizeText(body.cinematicEffects, 80) || 'SUBTLE DEPTH REFLECTIONS AND LIGHT SWEEP'
+
+    if (imagePaths.length < MIN_IMAGES) {
+      return jsonResponse({ success: false, error: 'Envie pelo menos uma imagem JPG ou PNG.' }, 400)
     }
 
     for (const path of imagePaths) {
@@ -166,9 +243,93 @@ serve(async (req) => {
       }
     }
 
-    const finalFrame = buildFinalFrameDescriptor({ userId: user.id, jobId, variant, cta })
-    const pairs = buildPairs(imagePaths, finalFrame.path)
-    const prompt = buildBasePrompt({ variant, objective, cta })
+    const neutralFrame = buildNeutralFrameDescriptor({ userId: user.id, jobId })
+    await ensureNeutralFrame(supabase, neutralFrame.path)
+
+    const jobs = buildMotionJobs({
+      imagePaths,
+      neutralFramePath: neutralFrame.path,
+      fidelityMode,
+      movement,
+      lighting,
+      atmosphere,
+      rhythm,
+      cinematicEffects,
+    })
+    const totalDurationSeconds = jobs.length * MOTION_CLIP_SECONDS
+    const reportPath = `${user.id}/${jobId}/motion-plan.json`
+    const outputPath = `${user.id}/${jobId}/motion-final.mp4`
+    const veoJobs = []
+
+    const { error: jobInsertError } = await supabase
+      .from('video_jobs')
+      .insert({
+        id: jobId,
+        user_id: user.id,
+        status: 'generating',
+        mode: 'studio_hero_motion',
+        style: 'motion_sem_textos',
+        model: Deno.env.get('VEO_MODEL_ID') || 'veo-3.1-lite-generate-preview',
+        prompt_final: jobs.map((job) => `# Clip ${job.index}\n${job.prompt}`).join('\n\n---\n\n'),
+        input_image_1_path: imagePaths[0] || null,
+        input_image_2_path: imagePaths[1] || neutralFrame.path,
+        tokens_reserved: 0,
+      })
+
+    if (jobInsertError) {
+      return jsonResponse({ success: false, error: `Falha ao criar job Motion: ${jobInsertError.message}` }, 500)
+    }
+
+    if (String(Deno.env.get('STUDIO_HERO_MOTION_START_VEO') || '').toLowerCase() === 'true') {
+      for (const job of jobs) {
+        const veoResult = await startVeoVideo({
+          prompt: job.prompt,
+          image1Path: job.from,
+          image2Path: job.to,
+          aspectRatio: '9:16',
+          durationSeconds: MOTION_CLIP_SECONDS,
+          resolution: '720p',
+          userId: user.id,
+          jobId: `${jobId}-clip-${job.index}`,
+          bucket: VIDEO_BUCKET,
+          supabase,
+        })
+        veoJobs.push({
+          index: job.index,
+          role: job.role,
+          providerJobId: veoResult.providerJobId,
+          status: 'generating',
+        })
+      }
+    }
+
+    const report = {
+      mode: 'studio_hero_motion',
+      jobId,
+      userId: user.id,
+      bucket: VIDEO_BUCKET,
+      imagePaths,
+      neutralFrame,
+      durationSecondsPerClip: MOTION_CLIP_SECONDS,
+      totalDurationSeconds,
+      outputPath,
+      reportPath,
+      jobs,
+      veoJobs,
+      merge: {
+        status: 'pending_worker',
+        required: true,
+        strategy: 'download_completed_clips_then_concat_to_single_mp4',
+      },
+      textPolicy: {
+        text: false,
+        cta: false,
+        narration: false,
+        music: false,
+        logo: false,
+        branding: false,
+      },
+    }
 
     return jsonResponse({
       ok: true,
@@ -176,16 +337,22 @@ serve(async (req) => {
       jobId,
       job_id: jobId,
       status: 'planned',
-      message: 'Seu tour foi preparado para processamento.',
+      message: 'Seu Motion foi preparado para processamento.',
       renderReady: false,
       bucket: VIDEO_BUCKET,
       imagePaths,
-      finalFrame,
-      pairs,
-      prompt,
+      neutralFrame,
+      durationSecondsPerClip: MOTION_CLIP_SECONDS,
+      totalDurationSeconds,
+      jobs,
+      veoJobs,
+      outputPath,
+      reportPath,
+      report,
       warnings: [
-        'A funcao valida entradas e monta os pares automaticamente.',
-        'A etapa de geracao dos clipes e montagem final deve ser ligada no worker/renderizador antes de entrega real.',
+        'Motion MVP: textos, CTA, narracao, musica, sons e branding desativados.',
+        'A funcao valida entradas, salva frame neutro e monta jobs de 4s automaticamente.',
+        'O merge final em MP4 unico deve ser executado por worker/renderizador com FFmpeg quando os clipes estiverem prontos.',
       ],
     })
   } catch (error) {

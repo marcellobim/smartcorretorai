@@ -133,3 +133,46 @@ export type SmartMotionRenderResult = {
   reportPath?: string
   report: SmartMotionRenderReport
 }
+
+export type StudioHeroMotionPreset =
+  | 'high_fidelity'
+  | 'light_transformation'
+
+export type StudioHeroMotionPlanInput = {
+  imagePaths: string[]
+  neutralFramePath?: string
+  jobId?: string
+  userId?: string
+  fidelityMode?: StudioHeroMotionPreset
+  movement?: string
+  lighting?: string
+  atmosphere?: string
+  rhythm?: string
+  cinematicEffects?: string
+}
+
+export type StudioHeroMotionJobPlan = {
+  index: number
+  role: 'motion_pair' | 'neutral_final'
+  from: string
+  to: string
+  durationSeconds: 4
+  prompt: string
+}
+
+export type StudioHeroMotionPlan = {
+  mode: 'studio_hero_motion'
+  jobId?: string
+  userId?: string
+  imageCount: number
+  durationSecondsPerClip: 4
+  totalDurationSeconds: number
+  neutralFrame: {
+    type: 'neutral_blank_frame'
+    path: string
+    hasText: false
+    description: string
+  }
+  jobs: StudioHeroMotionJobPlan[]
+  warnings: string[]
+}
