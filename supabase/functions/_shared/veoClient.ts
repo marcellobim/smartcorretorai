@@ -5,6 +5,7 @@ type StartVeoInput = {
   aspectRatio: string
   durationSeconds: number
   resolution: string
+  modelId?: string
   userId: string
   jobId: string
   bucket: string
@@ -160,7 +161,9 @@ async function fetchVideoUri(uri: string, apiKey: string) {
 }
 
 export async function startVeoVideo(input: StartVeoInput): Promise<{ providerJobId: string }> {
-  const { apiKey, modelId } = getVeoEnvironment()
+  const environment = getVeoEnvironment()
+  const apiKey = environment.apiKey
+  const modelId = input.modelId || environment.modelId
   const [openingImage, finalImage] = await Promise.all([
     input.image1Path ? prepareVeoImage(input.supabase, input.bucket, input.image1Path) : Promise.resolve(null),
     input.image2Path ? prepareVeoImage(input.supabase, input.bucket, input.image2Path) : Promise.resolve(null),

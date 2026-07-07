@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { startVeoVideo } from '../_shared/veoClient.ts'
+import { checkVeoVideoStatus, startVeoVideo } from '../_shared/veoClient.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,10 +12,12 @@ const corsHeaders = {
 const VIDEO_BUCKET = 'studio-videos'
 const MAX_IMAGES = 9
 const MIN_IMAGES = 1
-const MOTION_CLIP_SECONDS = 4
+const MOTION_CLIP_SECONDS = 8
+const MOTION_VEO_MODEL = 'veo-3.1-lite-generate-preview'
+const MOTION_POLL_INTERVAL_MS = 5000
+const MOTION_POLL_TIMEOUT_MS = 120000
 const SUPPORTED_IMAGE_PATH = /\.(jpe?g|png)$/i
 const SAFE_TEXT_PATTERN = /[^A-Z0-9\s/-]/g
-const WHITE_PIXEL_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
 
 type JsonRecord = Record<string, unknown>
 
@@ -71,24 +73,6 @@ function normalizeImagePaths(value: unknown, userId: string, jobId: string) {
   return Array.from(unique).slice(0, MAX_IMAGES)
 }
 
-function base64ToBytes(value: string) {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
-}
-
-function buildNeutralFrameDescriptor(options: { userId: string; jobId: string }) {
-  return {
-    type: 'neutral_blank_frame',
-    path: `${options.userId}/${options.jobId}/system-neutral-final-frame.png`,
-    hasText: false,
-    description: 'Frame branco/neutro sem texto, logo, marca, CTA ou elemento comercial.',
-  }
-}
-
 function buildMotionPrompt(input: {
   pairLabel: string
   fidelityMode: string
@@ -117,12 +101,12 @@ function buildMotionPrompt(input: {
     '',
     'Use smooth transitions, natural depth, subtle parallax, consistent exposure and coherent color grading.',
     'Maintain realistic scale, stable geometry and continuous camera flow.',
+    'Do not add text, captions, CTA, narration, music, sound effects, logos, brand marks or branding.',
   ].join('\n')
 }
 
 function buildMotionJobs(input: {
   imagePaths: string[]
-  neutralFramePath: string
   fidelityMode: string
   movement: string
   lighting: string
@@ -149,28 +133,52 @@ function buildMotionJobs(input: {
   jobs.push({
     index: imagePaths.length,
     from: imagePaths[imagePaths.length - 1],
-    to: input.neutralFramePath,
-    role: 'neutral_final',
+    to: '',
+    role: 'single_image_motion',
     durationSeconds: MOTION_CLIP_SECONDS,
     prompt: buildMotionPrompt({
       ...input,
-      pairLabel: `image ${imagePaths.length} as the opening frame and a blank neutral white frame as the ending frame`,
+      pairLabel: `image ${imagePaths.length} as the opening frame only`,
     }),
   })
 
   return jobs
 }
 
-async function ensureNeutralFrame(supabase: ReturnType<typeof createClient>, path: string) {
-  const bytes = base64ToBytes(WHITE_PIXEL_PNG_BASE64)
-  const { error } = await supabase.storage
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function sanitizeProviderError(value: unknown, maxLength = 500) {
+  return String(value || '')
+    .replace(/key=[A-Za-z0-9._~-]+/gi, 'key=[redacted]')
+    .replace(/AIza[0-9A-Za-z_-]+/g, '[redacted_api_key]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+}
+
+async function createSignedVideoUrl(supabase: ReturnType<typeof createClient>, path: string) {
+  const { data, error } = await supabase.storage
     .from(VIDEO_BUCKET)
-    .upload(path, bytes, {
-      contentType: 'image/png',
-      cacheControl: '3600',
-      upsert: true,
-    })
-  if (error) throw new Error(`neutral_frame_upload_failed:${error.message}`)
+    .createSignedUrl(path, 60 * 10)
+  if (error || !data?.signedUrl) throw new Error(`motion_signed_url_failed:${error?.message || 'empty_url'}`)
+  return data.signedUrl
+}
+
+async function waitForMotionVideo(providerJobId: string) {
+  const startedAt = Date.now()
+
+  while (Date.now() - startedAt < MOTION_POLL_TIMEOUT_MS) {
+    const status = await checkVeoVideoStatus(providerJobId)
+    if (status.status !== 'processing') return status
+    await sleep(MOTION_POLL_INTERVAL_MS)
+  }
+
+  return {
+    status: 'failed' as const,
+    errorMessage: 'veo_poll_timeout',
+  }
 }
 
 serve(async (req) => {
@@ -212,10 +220,7 @@ serve(async (req) => {
     const jobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
     const variant = normalizeModeToken(body.variant, 24)
     const requestedMode = normalizeModeToken(body.mode, 40)
-    const isMotionRequest = variant === 'CLEAN'
-      || requestedMode === 'MULTI_IMAGE_TOUR'
-      || requestedMode === 'STUDIO_HERO_MOTION'
-      || requestedMode === 'MOTION'
+    const isMotionRequest = requestedMode === 'STUDIO_HERO_MOTION' && variant === 'CLEAN'
 
     if (!isMotionRequest) {
       return jsonResponse({
@@ -225,6 +230,9 @@ serve(async (req) => {
     }
 
     const imagePaths = normalizeImagePaths(body.imagePaths, user.id, jobId)
+    const veoEnabled = Deno.env.get('VEO_ENABLED') === 'true'
+    const motionStartVeo = String(Deno.env.get('STUDIO_HERO_MOTION_START_VEO') || '').toLowerCase() === 'true'
+    const shouldStartVeo = veoEnabled && motionStartVeo
     const fidelityMode = normalizeText(body.fidelityMode, 48) || 'HIGH_FIDELITY'
     const movement = normalizeText(body.movement, 80) || 'SMOOTH CINEMATIC CAMERA MOVEMENT'
     const lighting = normalizeText(body.lighting, 80) || 'SOFT PREMIUM NATURAL LIGHT'
@@ -233,7 +241,14 @@ serve(async (req) => {
     const cinematicEffects = normalizeText(body.cinematicEffects, 80) || 'SUBTLE DEPTH REFLECTIONS AND LIGHT SWEEP'
 
     if (imagePaths.length < MIN_IMAGES) {
-      return jsonResponse({ success: false, error: 'Envie pelo menos uma imagem JPG ou PNG.' }, 400)
+      return jsonResponse({ success: false, error: 'Envie uma imagem JPG ou PNG.' }, 400)
+    }
+
+    if (imagePaths.length !== 1) {
+      return jsonResponse({
+        success: false,
+        error: 'Neste primeiro teste do Motion, envie exatamente uma imagem.',
+      }, 400)
     }
 
     for (const path of imagePaths) {
@@ -243,12 +258,8 @@ serve(async (req) => {
       }
     }
 
-    const neutralFrame = buildNeutralFrameDescriptor({ userId: user.id, jobId })
-    await ensureNeutralFrame(supabase, neutralFrame.path)
-
     const jobs = buildMotionJobs({
       imagePaths,
-      neutralFramePath: neutralFrame.path,
       fidelityMode,
       movement,
       lighting,
@@ -277,10 +288,10 @@ serve(async (req) => {
         status: 'generating',
         mode: 'studio_hero_motion',
         style: 'motion_sem_textos',
-        model: Deno.env.get('VEO_MODEL_ID') || 'veo-3.1-lite-generate-preview',
+        model: MOTION_VEO_MODEL,
         prompt_final: jobs.map((job) => `# Clip ${job.index}\n${job.prompt}`).join('\n\n---\n\n'),
         input_image_1_path: imagePaths[0] || null,
-        input_image_2_path: imagePaths[1] || neutralFrame.path,
+        input_image_2_path: null,
         tokens_reserved: 0,
       })
 
@@ -288,20 +299,23 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: `Falha ao criar job Motion: ${jobInsertError.message}` }, 500)
     }
 
-    if (String(Deno.env.get('STUDIO_HERO_MOTION_START_VEO') || '').toLowerCase() === 'true') {
-      for (const job of jobs) {
+    if (shouldStartVeo) {
+      const job = jobs[0]
+      try {
         const veoResult = await startVeoVideo({
           prompt: job.prompt,
           image1Path: job.from,
-          image2Path: job.to,
+          image2Path: job.to || undefined,
           aspectRatio: '9:16',
           durationSeconds: MOTION_CLIP_SECONDS,
           resolution: '720p',
+          modelId: MOTION_VEO_MODEL,
           userId: user.id,
           jobId: `${jobId}-clip-${job.index}`,
           bucket: VIDEO_BUCKET,
           supabase,
         })
+
         veoJobs.push({
           index: job.index,
           role: job.role,
@@ -313,6 +327,84 @@ serve(async (req) => {
           clipResult.providerJobId = veoResult.providerJobId
           clipResult.status = 'generating'
         }
+
+        await supabase
+          .from('video_jobs')
+          .update({
+            provider_job_id: veoResult.providerJobId,
+          })
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+
+        const providerStatus = await waitForMotionVideo(veoResult.providerJobId)
+        if (providerStatus.status === 'failed') {
+          const errorMessage = sanitizeProviderError(providerStatus.errorMessage)
+          await supabase
+            .from('video_jobs')
+            .update({
+              status: 'failed',
+              error_message: errorMessage,
+            })
+            .eq('id', jobId)
+            .eq('user_id', user.id)
+
+          return jsonResponse({
+            ok: false,
+            success: false,
+            jobId,
+            job_id: jobId,
+            status: 'failed',
+            error: 'Nao foi possivel gerar o Motion neste momento.',
+            errorMessage,
+          }, errorMessage === 'veo_poll_timeout' ? 504 : 502)
+        }
+
+        const { error: uploadError } = await supabase.storage
+          .from(VIDEO_BUCKET)
+          .upload(outputPath, providerStatus.videoBytes, {
+            contentType: providerStatus.contentType || 'video/mp4',
+            cacheControl: '3600',
+            upsert: true,
+          })
+        if (uploadError) throw new Error(`motion_video_upload_failed:${uploadError.message}`)
+
+        const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
+        await supabase
+          .from('video_jobs')
+          .update({
+            status: 'completed',
+            output_video_path: outputPath,
+            signed_video_url: signedVideoUrl,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+
+        const completedClipResult = clipResults.find((item) => item.index === job.index)
+        if (completedClipResult) {
+          completedClipResult.status = 'completed'
+          completedClipResult.clipPath = outputPath
+        }
+      } catch (error) {
+        const errorMessage = sanitizeProviderError(error instanceof Error ? error.message : String(error))
+        await supabase
+          .from('video_jobs')
+          .update({
+            status: 'failed',
+            error_message: errorMessage,
+          })
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+
+        return jsonResponse({
+          ok: false,
+          success: false,
+          jobId,
+          job_id: jobId,
+          status: 'failed',
+          error: 'Nao foi possivel gerar o Motion neste momento.',
+          errorMessage,
+        }, 502)
       }
     }
 
@@ -322,7 +414,6 @@ serve(async (req) => {
       userId: user.id,
       bucket: VIDEO_BUCKET,
       imagePaths,
-      neutralFrame,
       durationSecondsPerClip: MOTION_CLIP_SECONDS,
       totalDurationSeconds,
       outputPath,
@@ -331,9 +422,9 @@ serve(async (req) => {
       veoJobs,
       clipResults,
       merge: {
-        status: 'pending_worker',
-        required: true,
-        strategy: 'download_completed_clips_then_concat_to_single_mp4',
+        status: shouldStartVeo ? 'not_required_single_clip' : 'pending_worker',
+        required: !shouldStartVeo,
+        strategy: shouldStartVeo ? 'single_clip_saved_as_final_mp4' : 'download_completed_clips_then_concat_to_single_mp4',
         inputClipPaths: clipResults.map((clip) => clip.clipPath),
         outputPath,
       },
@@ -347,6 +438,41 @@ serve(async (req) => {
       },
     }
 
+    if (shouldStartVeo) {
+      const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
+      return jsonResponse({
+        ok: true,
+        success: true,
+        jobId,
+        job_id: jobId,
+        status: 'ready',
+        renderStatus: 'ready',
+        ready: true,
+        renderReady: true,
+        message: 'Seu Motion esta pronto.',
+        bucket: VIDEO_BUCKET,
+        outputPath,
+        storagePath: outputPath,
+        videoPath: outputPath,
+        signedVideoUrl,
+        signed_url: signedVideoUrl,
+        signedUrl: signedVideoUrl,
+        videoUrl: signedVideoUrl,
+        imagePaths,
+        durationSeconds: MOTION_CLIP_SECONDS,
+        durationSecondsPerClip: MOTION_CLIP_SECONDS,
+        totalDurationSeconds,
+        jobs,
+        veoJobs,
+        clipResults,
+        report,
+        warnings: [
+          'Motion real gerado com 1 imagem inicial, sem lastFrame.',
+          'Textos, CTA, narracao, musica, sons e branding permaneceram desativados.',
+        ],
+      })
+    }
+
     return jsonResponse({
       ok: true,
       success: true,
@@ -357,7 +483,6 @@ serve(async (req) => {
       renderReady: false,
       bucket: VIDEO_BUCKET,
       imagePaths,
-      neutralFrame,
       durationSecondsPerClip: MOTION_CLIP_SECONDS,
       totalDurationSeconds,
       jobs,

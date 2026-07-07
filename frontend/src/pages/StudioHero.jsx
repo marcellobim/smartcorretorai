@@ -3065,11 +3065,11 @@ function MultiImageTourMode({ user, onBack }) {
         throw new Error(data?.error || 'Nao foi possivel iniciar o tour.')
       }
 
-      const nextVideoUrl = data.videoUrl || data.video_url || ''
+      const nextVideoUrl = data.signedVideoUrl || data.signed_url || data.signedUrl || data.videoUrl || data.video_url || ''
       if (nextVideoUrl) {
         setVideoUrl(nextVideoUrl)
         setStatus('completed')
-        setMessage('')
+        setMessage(data.message || 'Seu Motion esta pronto.')
         return
       }
 
@@ -3180,7 +3180,7 @@ function MultiImageTourMode({ user, onBack }) {
                 {[
                   ['Entrega', 'Motion sem textos'],
                   ['Imagens', imageCount ? `${selectedFiles.length}/${imageCount}` : 'Pendente'],
-                  ['Final', 'Frame neutro'],
+                  ['Final', 'Imagem unica'],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
