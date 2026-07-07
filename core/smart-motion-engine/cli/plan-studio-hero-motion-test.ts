@@ -2,6 +2,29 @@
 import { createStudioHeroMotionPlan } from '../planner.ts'
 
 const counts = [1, 2, 5, 9]
+const forbiddenPromptTerms = [
+  'text',
+  'caption',
+  'hard word',
+  'cta',
+  'logo',
+  'watermark',
+  'phone',
+  'address',
+  'narration',
+  'voiceover',
+  'music',
+  'audio',
+  'sound',
+  'branding',
+  'marketing',
+  'commercial offer',
+]
+
+function findForbiddenPromptTerms(prompt: string) {
+  const lower = prompt.toLowerCase()
+  return forbiddenPromptTerms.filter((term) => lower.includes(term))
+}
 
 const plans = counts.map((count) => createStudioHeroMotionPlan({
   jobId: `motion-test-${count}`,
@@ -28,8 +51,10 @@ console.log(JSON.stringify({
       from: job.from,
       to: job.to,
       durationSeconds: job.durationSeconds,
-      promptPreview: job.prompt.split('\n').slice(0, 8).join('\n'),
+      prompt: job.prompt,
+      forbiddenPromptTermsFound: findForbiddenPromptTerms(job.prompt),
     })),
+    promptValidationOk: plan.jobs.every((job) => findForbiddenPromptTerms(job.prompt).length === 0),
     warnings: plan.warnings,
   })),
 }, null, 2))

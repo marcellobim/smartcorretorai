@@ -95,28 +95,16 @@ function buildMotionPrompt(input: {
     'Preserve the real property identity, architecture, layout, furniture, materials, colors and proportions.',
     'Keep the result realistic and visually coherent with the uploaded property images.',
     '',
-    'Apply the selected visual behavior:',
+    'Visual direction:',
     `- fidelity mode: ${input.fidelityMode}`,
-    `- movement: ${input.movement}`,
+    `- camera movement: ${input.movement}`,
     `- lighting: ${input.lighting}`,
     `- atmosphere: ${input.atmosphere}`,
     `- rhythm: ${input.rhythm}`,
     `- cinematic effects: ${input.cinematicEffects}`,
     '',
-    'No text.',
-    'No captions.',
-    'No hard words.',
-    'No CTA.',
-    'No logo.',
-    'No watermark.',
-    'No phone.',
-    'No address.',
-    'No narration.',
-    'No commercial offer.',
-    'No sale or rental language.',
-    'No marketing copy.',
-    '',
-    'Create visual motion only.',
+    'Use smooth transitions, natural depth, subtle parallax, consistent exposure and coherent color grading.',
+    'Maintain realistic scale, stable geometry and continuous camera flow.',
   ].join('\n')
 }
 
@@ -260,6 +248,14 @@ serve(async (req) => {
     const reportPath = `${user.id}/${jobId}/motion-plan.json`
     const outputPath = `${user.id}/${jobId}/motion-final.mp4`
     const veoJobs = []
+    const clipResults = jobs.map((job) => ({
+      index: job.index,
+      role: job.role,
+      status: 'pending',
+      providerJobId: '',
+      clipPath: `${user.id}/${jobId}/clips/clip-${String(job.index).padStart(2, '0')}.mp4`,
+      durationSeconds: job.durationSeconds,
+    }))
 
     const { error: jobInsertError } = await supabase
       .from('video_jobs')
@@ -300,6 +296,11 @@ serve(async (req) => {
           providerJobId: veoResult.providerJobId,
           status: 'generating',
         })
+        const clipResult = clipResults.find((item) => item.index === job.index)
+        if (clipResult) {
+          clipResult.providerJobId = veoResult.providerJobId
+          clipResult.status = 'generating'
+        }
       }
     }
 
@@ -316,10 +317,13 @@ serve(async (req) => {
       reportPath,
       jobs,
       veoJobs,
+      clipResults,
       merge: {
         status: 'pending_worker',
         required: true,
         strategy: 'download_completed_clips_then_concat_to_single_mp4',
+        inputClipPaths: clipResults.map((clip) => clip.clipPath),
+        outputPath,
       },
       textPolicy: {
         text: false,
@@ -346,6 +350,11 @@ serve(async (req) => {
       totalDurationSeconds,
       jobs,
       veoJobs,
+      clipResults,
+      mergeInput: {
+        clipPaths: clipResults.map((clip) => clip.clipPath),
+        outputPath,
+      },
       outputPath,
       reportPath,
       report,

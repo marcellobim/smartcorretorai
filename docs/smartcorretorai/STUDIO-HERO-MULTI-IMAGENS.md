@@ -290,29 +290,19 @@ Use image [N] as the opening frame and image [N+1 or neutral frame] as the endin
 Duration: 4 seconds.
 
 Preserve the real property identity, architecture, layout, materials, colors and proportions.
-Apply the selected visual behavior:
+Visual direction:
 - fidelity mode: [HIGH_FIDELITY or LIGHT_TRANSFORMATION]
-- movement: [SANITIZED_MOVEMENT]
+- camera movement: [SANITIZED_MOVEMENT]
 - lighting: [SANITIZED_LIGHTING]
 - atmosphere: [SANITIZED_ATMOSPHERE]
 - rhythm: [SANITIZED_RHYTHM]
 - cinematic effects: [SANITIZED_EFFECTS]
 
-No text.
-No captions.
-No hard words.
-No CTA.
-No logo.
-No watermark.
-No phone.
-No address.
-No narration.
-No commercial offer.
-No sale or rental language.
-No marketing copy.
-
-Create visual motion only.
+Use smooth transitions, natural depth, subtle parallax, consistent exposure and coherent color grading.
+Maintain realistic scale, stable geometry and continuous camera flow.
 ```
+
+Observacao obrigatoria: no modo Motion, o prompt gerado nao deve mencionar texto, CTA, som, musica, narracao, branding, logo, telefone, endereco, venda, aluguel ou marketing, nem mesmo como proibicao negativa. Essas restricoes pertencem ao contrato do sistema e as validacoes internas, nao ao prompt Motion enviado ao modelo.
 
 ## Regras Anti-Repeticao
 
@@ -385,9 +375,8 @@ No modo Motion / Sem Textos:
 - Garantir que clipes intermediarios tenham `no voiceover`.
 - Garantir que clipe final com textos use CTA oficial.
 - Garantir que modo Motion gere frame branco/neutro automaticamente.
-- Garantir que modo Motion remova CTA, texto, narracao e marketing.
+- Garantir que modo Motion remova CTA, texto, som, musica, narracao, branding e marketing do prompt enviado.
 - Garantir relatorio JSON com prompt de cada clipe.
 - Garantir que a UI nao mencione Veo, pares, clipes ou FFmpeg.
 - Garantir que Produto 3 e Creatomate nao sejam tocados.
 - Rodar build depois da implementacao.
-
