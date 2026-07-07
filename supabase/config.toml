@@ -18,5 +18,8 @@ verify_jwt = false
 [functions.criar-video-ia]
 verify_jwt = false
 
+[functions.criar-video-ia-multi]
+verify_jwt = false
+
 [functions.get-video-job-status]
 verify_jwt = false

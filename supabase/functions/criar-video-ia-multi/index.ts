@@ -37,6 +37,18 @@ function normalizeText(value: unknown, maxLength = 80) {
     .slice(0, maxLength)
 }
 
+function normalizeModeToken(value: unknown, maxLength = 80) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s_/-]/g, ' ')
+    .replace(/[\s/-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, maxLength)
+}
+
 function isUuid(value: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim())
 }
@@ -198,8 +210,8 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as JsonRecord
     const jobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
-    const variant = normalizeText(body.variant, 24)
-    const requestedMode = normalizeText(body.mode, 40)
+    const variant = normalizeModeToken(body.variant, 24)
+    const requestedMode = normalizeModeToken(body.mode, 40)
     const isMotionRequest = variant === 'CLEAN'
       || requestedMode === 'MULTI_IMAGE_TOUR'
       || requestedMode === 'STUDIO_HERO_MOTION'
