@@ -3152,7 +3152,7 @@ function MultiImageTourMode({ user, onBack }) {
                         ))
                       }}
                     >
-                      {option} imagem{option > 1 ? 's' : ''}
+                      {option === 1 ? '1 imagem' : `${option} imagens`}
                     </ChipButton>
                   ))}
                 </ChipGrid>
