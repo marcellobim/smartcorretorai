@@ -126,25 +126,25 @@ const STUDIO_CREATION_MODES = [
   },
   {
     id: 'improve_video',
-    title: 'Melhorar meu Video',
-    description: 'Envie um video gravado no celular e deixe a IA preparar uma versao mais profissional com legenda, musica, som e acabamento.',
-    status: 'Em breve',
+    title: 'Transforme seu Vídeo',
+    description: 'Envie um video gravado no celular e prepare uma versao mais profissional para divulgar.',
+    status: 'Acesso liberado',
     Icon: PlayCircle,
-    active: false,
+    active: true,
     accent: 'amber',
-    cta: 'Em breve',
+    cta: 'Transformar video',
   },
 ]
 
 const STUDIO_HERO_MULTI_IMAGE_MODE = {
   id: 'multi_image_tour',
-  title: 'Tour Cinematografico IA',
-  description: 'Use varias imagens do imovel para criar um video cinematografico maior.',
+  title: 'Animar uma imagem',
+  description: 'Envie uma imagem do imóvel e receba um vídeo curto com movimento e efeitos visuais.',
   status: 'Teste controlado',
   Icon: Film,
   active: true,
   accent: 'blue',
-  cta: 'Criar tour',
+  cta: 'Animar imagem',
 }
 
 const getStudioCreationModes = () => (
@@ -152,9 +152,9 @@ const getStudioCreationModes = () => (
     ? [
       STUDIO_CREATION_MODES[0],
       STUDIO_HERO_MULTI_IMAGE_MODE,
-      ...STUDIO_CREATION_MODES.slice(1),
+      ...STUDIO_CREATION_MODES.slice(1).filter((mode) => mode.id !== 'smart_carousel'),
     ]
-    : STUDIO_CREATION_MODES
+    : STUDIO_CREATION_MODES.filter((mode) => mode.id !== 'smart_carousel')
 )
 
 const STUDIO_MODE_EXAMPLES = [
@@ -173,7 +173,7 @@ const STUDIO_MODE_EXAMPLES = [
       '✨ Efeitos cinematográficos',
       '💡 Iluminação cinematográfica',
       '🎥 Movimentos de câmera',
-      '📢 CTA para divulgação',
+      '📢 Chamada final para divulgação',
       '📦 Campanha pronta para publicar',
     ],
   },
@@ -183,7 +183,7 @@ const STUDIO_MODE_EXAMPLES = [
     label: 'Criação por IA',
     accent: 'violet',
     send: [
-      '💡 Apenas sua ideia',
+      'Mesmo sem imagens, basta conversar com a IA.',
     ],
     receive: [
       '🎬 Comercial completo',
@@ -192,7 +192,7 @@ const STUDIO_MODE_EXAMPLES = [
       '🎵 Trilha sonora',
       '✨ Efeitos cinematográficos',
       '🎥 Movimentos de câmera',
-      '📢 CTA para divulgação',
+      '📢 Chamada final para divulgação',
       '📦 Campanha pronta para publicar',
     ],
   },
@@ -210,7 +210,7 @@ const STUDIO_MODE_EXAMPLES = [
       '✨ Transições profissionais',
       '🎙️ Narração',
       '🎵 Música',
-      '📢 CTA para divulgação',
+      '📢 Chamada final para divulgação',
       '📦 Campanha pronta para publicar',
     ],
   },
@@ -226,7 +226,7 @@ const STUDIO_MODE_EXAMPLES = [
       '✨ Acabamento profissional',
       '🎨 Identidade visual',
       '🎵 Música',
-      '📢 CTA para divulgação',
+      '📢 Chamada final para divulgação',
       '📦 Campanha pronta para publicar',
     ],
   },
@@ -234,18 +234,17 @@ const STUDIO_MODE_EXAMPLES = [
 
 const STUDIO_HERO_MULTI_IMAGE_EXAMPLE = {
   id: 'multi_image_tour',
-  title: 'Tour Cinematografico IA',
-  label: 'Tour com varias imagens',
+  title: '✨ Animar uma imagem',
+  label: 'Imagem animada',
   accent: 'blue',
   send: [
-    'As melhores fotos do imovel em ordem',
+    '📷 Uma imagem do imóvel',
   ],
   receive: [
-    'Video cinematografico maior',
-    'Movimentos entre ambientes',
-    'Transicoes suaves',
-    'Final limpo e neutro',
-    'Video visual sem textos',
+    '✨ Sua imagem ganha vida',
+    '🎥 Vídeo de 8 segundos',
+    '🌅 Movimentos e efeitos visuais criados por nossa IA',
+    '📲 Pronto para publicar nas redes sociais',
   ],
 }
 
@@ -254,9 +253,9 @@ const getStudioModeExamples = () => (
     ? [
       STUDIO_MODE_EXAMPLES[0],
       STUDIO_HERO_MULTI_IMAGE_EXAMPLE,
-      ...STUDIO_MODE_EXAMPLES.slice(1),
+      ...STUDIO_MODE_EXAMPLES.slice(1).filter((example) => example.id !== 'smart_carousel'),
     ]
-    : STUDIO_MODE_EXAMPLES
+    : STUDIO_MODE_EXAMPLES.filter((example) => example.id !== 'smart_carousel')
 )
 
 const STUDIO_POSSIBILITY_EXAMPLES = [
@@ -287,24 +286,24 @@ const STUDIO_GUIDE_ITEMS_BY_MODE = {
     'Criar direção criativa para o comercial',
     'Usar a imagem principal do imóvel',
     'Gerar uma peça curta para redes sociais',
-    'Entregar vídeo, CTA e textos prontos para divulgação',
+    'Entregar vídeo, chamada final e textos prontos para divulgação',
   ],
   free_ai: [
     'Criar direção criativa a partir da conversa',
     'Transformar sua ideia em um comercial completo',
     'Gerar uma peça curta para redes sociais',
-    'Entregar vídeo, CTA e textos prontos para divulgação',
+    'Entregar vídeo, chamada final e textos prontos para divulgação',
   ],
   smart_carousel: [
     'Organizar as imagens em sequência',
     'Criar movimentos e transições',
     'Montar uma apresentação dinâmica',
-    'Entregar vídeo, CTA e textos prontos para divulgação',
+    'Entregar vídeo, chamada final e textos prontos para divulgação',
   ],
   improve_video: [
     'Analisar o vídeo enviado',
     'Aplicar acabamento profissional',
-    'Adicionar identidade visual e CTA',
+    'Adicionar identidade visual e chamada final',
     'Entregar o vídeo pronto para publicar',
   ],
 }
@@ -371,14 +370,14 @@ const OBJECTIVE_OPTIONS = [
   {
     id: 'property_capture',
     label: 'Comercial para captar imoveis',
-    summaryLabel: 'Captacao de Imoveis',
+    summaryLabel: 'Captacao de imoveis',
     oferta: 'CAPTACAO DE IMOVEIS',
     description: 'Atrair proprietarios que querem vender ou alugar.',
   },
   {
     id: 'broker_capture',
     label: 'Comercial para captar corretores',
-    summaryLabel: 'Captacao de Corretores',
+    summaryLabel: 'Captacao de corretores',
     oferta: 'CAPTACAO DE CORRETORES',
     description: 'Atrair corretores e profissionais para sua equipe.',
   },
@@ -475,14 +474,24 @@ const FREE_AI_ATMOSPHERE_OPTIONS = ['DIA', 'GOLDEN HOUR', 'ENTARDECER', 'NOITE']
 const FREE_AI_PACE_OPTIONS = ['CALMO', 'EQUILIBRADO', 'DINAMICO', 'IMPACTANTE']
 const FREE_AI_FREEDOM_OPTIONS = ['MAIS REALISTA', 'EQUILIBRADO', 'MAIS CRIATIVO']
 const FURNISHING_OPTIONS = [
-  'SIM, JA ESTAO MOBILIADAS',
-  'NAO, ESTAO VAZIAS OU SEM DECORACAO',
-  'ALGUMAS SIM, OUTRAS NAO',
+  'SIM, JÁ ESTÁ MOBILIADA',
+  'NÃO, ESTÁ VAZIA OU SEM DECORAÇÃO',
+  'A IMAGEM TEM ÁREAS MOBILIADAS E VAZIAS',
+]
+const BROKER_CAMPAIGN_IMAGE_OPTIONS = [
+  '🏢 Enviar o logotipo da empresa',
+  '📸 Enviar uma imagem da empresa',
+  '🖼️ Enviar outra imagem de sua preferência',
 ]
 const DECORATION_POLICY_OPTIONS = [
-  'NAO, PRESERVAR EXATAMENTE COMO ESTA',
-  'SIM, PODE SUGERIR DECORACAO LEVE',
-  'SIM, PODE MELHORAR LIVREMENTE A AMBIENTACAO',
+  'NÃO, PRESERVAR EXATAMENTE COMO ESTÁ',
+  'SIM, PODE SUGERIR DECORAÇÃO LEVE',
+  'SIM, PODE MELHORAR LIVREMENTE A AMBIENTAÇÃO',
+]
+const BROKER_IMAGE_ADJUSTMENT_OPTIONS = [
+  'Não, preservar a imagem como está',
+  'Sim, permitir ajustes visuais leves',
+  'Sim, permitir melhoria visual livre',
 ]
 
 const PROPERTY_CAPTURE_DIFFERENTIAL_OPTIONS = [
@@ -586,7 +595,7 @@ const GENERATION_MESSAGES = [
   { Icon: CheckCircle2, text: 'Assim que ficar pronto, o video aparece aqui.' },
 ]
 
-const DELIVERY_PACKAGE_ITEMS = ['Instagram', 'WhatsApp', 'Facebook', 'Portal', 'LinkedIn quando aplicavel', 'Hashtags', 'CTA']
+const DELIVERY_PACKAGE_ITEMS = ['Instagram', 'WhatsApp', 'Facebook', 'Portal', 'LinkedIn quando aplicavel', 'Hashtags', 'Chamada final']
 
 const ANIMATION_TEMPLATE_VARIANTS = {
   with_texts: {
@@ -2015,7 +2024,9 @@ export default function StudioHero() {
                     </div>
                     <div className="mt-4 space-y-3">
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
-                        <p className="text-xs font-black text-slate-950">💬 Você conversa com a IA e envia:</p>
+                        <p className="text-xs font-black text-slate-950">
+                          {example.id === 'free_ai' ? '💬 Você conversa com a IA e:' : 'Você envia:'}
+                        </p>
                         <ul className="mt-2 space-y-1.5">
                           {example.send.map((item) => (
                             <li key={`${example.id}-${item}`} className="text-xs font-bold leading-5 text-slate-600">
@@ -2704,10 +2715,16 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[furnishingStep]}
               onEdit={() => setStep(furnishingStep)}
-              message="A imagem escolhida ja possui mobiliario?"
+              eyebrow={isBrokerCapture ? 'Identidade da campanha' : undefined}
+              message={isBrokerCapture ? 'Qual imagem você deseja utilizar para representar sua empresa?' : 'A imagem escolhida já possui mobiliário?'}
             >
+              {isBrokerCapture && (
+                <p className="mb-4 text-sm font-bold text-slate-500">
+                  Escolha a imagem que melhor representa sua marca nesta campanha.
+                </p>
+              )}
               <ChipGrid>
-                {FURNISHING_OPTIONS.map((option) => (
+                {(isBrokerCapture ? BROKER_CAMPAIGN_IMAGE_OPTIONS : FURNISHING_OPTIONS).map((option) => (
                   <ChipButton
                     key={option}
                     active={answers.furnishingStatus === option}
@@ -2726,10 +2743,10 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[decorationStep]}
               onEdit={() => setStep(decorationStep)}
-              message="Voce quer permitir que a IA sugira decoracao ou pequenos ajustes visuais na imagem?"
+              message={isBrokerCapture ? 'Deseja permitir ajustes visuais na imagem escolhida?' : 'Você quer permitir que a IA sugira decoração ou pequenos ajustes visuais na imagem?'}
             >
               <ChipGrid>
-                {DECORATION_POLICY_OPTIONS.map((option) => (
+                {(isBrokerCapture ? BROKER_IMAGE_ADJUSTMENT_OPTIONS : DECORATION_POLICY_OPTIONS).map((option) => (
                   <ChipButton
                     key={option}
                     active={answers.decorationPolicy === option}
@@ -2880,7 +2897,13 @@ export default function StudioHero() {
           )}
 
           {!isFreeAiMode && answers.decorationPolicy && step >= uploadStep && (
-            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Envie a melhor imagem do imovel. O SmartCorretorAI adiciona automaticamente o encerramento profissional do video.">
+            <AssistantStep
+              number={uploadStep}
+              currentStep={step}
+              summary={stepSummaries[uploadStep]}
+              onEdit={() => setStep(uploadStep)}
+              message={isBrokerCapture ? 'Envie a imagem escolhida para representar sua empresa.' : 'Envie a melhor imagem do imóvel. O SmartCorretorAI adiciona automaticamente o encerramento profissional do vídeo.'}
+            >
               <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
                 {isGenerating && !videoUrl ? (
                   <LoadingCard generationMessage={generationMessage} />
@@ -2910,7 +2933,9 @@ export default function StudioHero() {
                         ))}
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
-                        Escolha a foto que melhor representa o imovel. Ela abre o comercial; o encerramento profissional e aplicado automaticamente pelo SmartCorretorAI.
+                        {isBrokerCapture
+                          ? 'Escolha a imagem que melhor representa sua empresa nesta campanha. O encerramento profissional é aplicado automaticamente pelo SmartCorretorAI.'
+                          : 'Escolha a foto que melhor representa o imóvel. Ela abre o comercial; o encerramento profissional é aplicado automaticamente pelo SmartCorretorAI.'}
                       </div>
                     </div>
 
@@ -2950,7 +2975,7 @@ export default function StudioHero() {
 function MultiImageTourMode({ user, onBack }) {
   const studioHeroAccess = getStudioHeroAccess(user)
   const [answers, setAnswers] = useState({
-    imageCount: 0,
+    imageCount: 1,
   })
   const [files, setFiles] = useState({})
   const [status, setStatus] = useState('idle')
@@ -2960,12 +2985,16 @@ function MultiImageTourMode({ user, onBack }) {
 
   const isGenerating = ['uploading', 'generating'].includes(status)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
-  const imageCount = Number(answers.imageCount || 0)
-  const selectedSlots = MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, imageCount || 0)
+  const imageCount = 1
+  const selectedSlots = MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, 1).map((slot) => ({
+    ...slot,
+    label: 'Sua imagem',
+    helper: 'Escolha a foto que deseja transformar.',
+  }))
   const selectedFiles = selectedSlots.map((slot) => files[slot.key]).filter(Boolean)
-  const hasRequiredImages = imageCount >= 1 && imageCount <= 9 && selectedFiles.length === imageCount
+  const hasRequiredImages = selectedFiles.length === 1
   const canGenerate = studioHeroAccess.canGenerate && hasRequiredImages
-  const progressPercent = imageCount ? Math.min(100, Math.max(20, Math.round((selectedFiles.length / imageCount) * 100))) : 12
+  const progressPercent = Math.min(100, Math.max(20, Math.round((selectedFiles.length / imageCount) * 100)))
 
   useEffect(() => {
     if (!isGenerating) {
@@ -2987,7 +3016,7 @@ function MultiImageTourMode({ user, onBack }) {
   const resetFlow = () => {
     resetGeneration()
     setAnswers({
-      imageCount: 0,
+      imageCount: 1,
     })
     setFiles({})
   }
@@ -3025,7 +3054,7 @@ function MultiImageTourMode({ user, onBack }) {
     if (!user?.id || !canGenerate) return
 
     setStatus('uploading')
-    setMessage('Preparando seu Motion...')
+    setMessage('Preparando sua animação...')
     setVideoUrl('')
 
     try {
@@ -3036,7 +3065,7 @@ function MultiImageTourMode({ user, onBack }) {
       }
 
       setStatus('generating')
-      setMessage('Criando seu Motion...')
+      setMessage('Criando sua animação...')
 
       const payload = {
         mode: 'studio_hero_motion',
@@ -3062,19 +3091,19 @@ function MultiImageTourMode({ user, onBack }) {
       const data = result.body
 
       if (!result.ok || (!data?.ok && !data?.success)) {
-        throw new Error(data?.error || 'Nao foi possivel iniciar o tour.')
+        throw new Error(data?.error || 'Não foi possível iniciar a animação.')
       }
 
       const nextVideoUrl = data.signedVideoUrl || data.signed_url || data.signedUrl || data.videoUrl || data.video_url || ''
       if (nextVideoUrl) {
         setVideoUrl(nextVideoUrl)
         setStatus('completed')
-        setMessage(data.message || 'Seu Motion esta pronto.')
+        setMessage(data.message || 'Sua imagem animada está pronta.')
         return
       }
 
       setStatus('planned')
-      setMessage(data.message || 'Seu Motion foi preparado para processamento.')
+      setMessage(data.message || 'Sua animação foi preparada para processamento.')
     } catch (error) {
       logStudioHero('error', 'studio_hero_multi_image_generate_error', {
         message: error instanceof Error ? error.message : String(error),
@@ -3083,7 +3112,7 @@ function MultiImageTourMode({ user, onBack }) {
       setStatus('failed')
       setMessage(error instanceof Error && /JPG|PNG|imagem/i.test(error.message)
         ? error.message
-        : 'Nao foi possivel preparar este Motion neste ambiente. Tente novamente mais tarde.')
+        : 'Não foi possível preparar esta animação neste ambiente. Tente novamente mais tarde.')
     }
   }
 
@@ -3096,13 +3125,13 @@ function MultiImageTourMode({ user, onBack }) {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-sky-100">
                 <Film className="h-4 w-4" />
-                Tour Cinematografico IA
+                Animar uma imagem
               </div>
               <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                Crie um Motion com imagens.
+                Dê vida à sua melhor imagem.
               </h1>
               <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-sky-50">
-                Envie de 1 a 9 fotos em sequencia para criar um video visual limpo, sem textos.
+                Transforme uma foto em um vídeo curto com movimentos e efeitos visuais criados por nossa IA.
               </p>
               <button
                 type="button"
@@ -3119,7 +3148,7 @@ function MultiImageTourMode({ user, onBack }) {
                 <div className="h-full rounded-full bg-sky-200 transition-all" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="mt-4 text-sm font-semibold leading-6 text-sky-50">
-                Escolha a quantidade, envie as imagens em ordem e revise antes de criar.
+                {selectedFiles.length ? 'Tudo pronto! Agora é só criar seu vídeo.' : 'Escolha sua imagem para começar.'}
               </p>
             </div>
           </div>
@@ -3127,36 +3156,22 @@ function MultiImageTourMode({ user, onBack }) {
 
         <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
           <div className="space-y-4">
-            <AssistantStep
-              number={1}
-              currentStep={1}
-              summary={imageCount ? `${imageCount} imagem${imageCount > 1 ? 's' : ''}` : ''}
-              onEdit={() => {}}
-              message="Quantas imagens entram no Motion?"
-            >
-              <div className="space-y-5">
-                <p className="text-sm font-bold leading-6 text-slate-500">
-                  O video final tera somente imagens, movimento e transicoes. Sem texto, CTA, narracao, musica, sons ou marca.
-                </p>
-                <ChipGrid>
-                  {MULTI_IMAGE_TOUR_IMAGE_COUNT_OPTIONS.map((option) => (
-                    <ChipButton
-                      key={option}
-                      active={imageCount === option}
-                      onClick={() => {
-                        resetGeneration()
-                        setAnswers((current) => ({ ...current, imageCount: option }))
-                        setFiles((current) => Object.fromEntries(
-                          MULTI_IMAGE_TOUR_IMAGE_SLOTS.slice(0, option)
-                            .map((slot) => [slot.key, current[slot.key] || null])
-                        ))
-                      }}
-                    >
-                      {option === 1 ? '1 imagem' : `${option} imagens`}
-                    </ChipButton>
-                  ))}
-                </ChipGrid>
-                {imageCount > 0 && (
+            <section className="rounded-3xl border border-cyan-100 bg-white/95 p-4 shadow-sm sm:p-5">
+              <div className="flex gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+                  <ImagePlus className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-cyan-800">
+                      1 imagem
+                    </span>
+                    <span className="text-xs font-bold text-slate-400">Imagem em movimento</span>
+                  </div>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">Escolha a imagem que deseja transformar.</h2>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+                    Quanto melhor a imagem, melhor será o resultado final. O vídeo terá 8 segundos, sem textos, sem música, sem narração, sem marca e sem chamada final.
+                  </p>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {selectedSlots.map((slot) => (
                       <FilePicker
@@ -3167,20 +3182,20 @@ function MultiImageTourMode({ user, onBack }) {
                       />
                     ))}
                   </div>
-                )}
+                </div>
               </div>
-            </AssistantStep>
+            </section>
           </div>
 
           <aside className="space-y-4">
             <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-wide text-sky-700">Resumo</p>
-              <h2 className="mt-1 text-xl font-black text-slate-950">Tour Cinematografico IA</h2>
+              <h2 className="mt-1 text-xl font-black text-slate-950">Animar uma imagem</h2>
               <div className="mt-4 grid gap-2">
                 {[
-                  ['Entrega', 'Motion sem textos'],
-                  ['Imagens', imageCount ? `${selectedFiles.length}/${imageCount}` : 'Pendente'],
-                  ['Final', 'Imagem unica'],
+                  ['Resultado', 'Imagem em movimento'],
+                  ['Imagens', '1 imagem'],
+                  ['Status', selectedFiles.length ? 'Tudo pronto! Agora é só criar seu vídeo.' : 'Pronto para criar'],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
@@ -3200,12 +3215,12 @@ function MultiImageTourMode({ user, onBack }) {
                   {isGenerating ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Criando Motion
+                      Criando animação
                     </>
                   ) : (
                     <>
                       <PlayCircle className="h-4 w-4" />
-                      Gerar Motion
+                      Animar imagem
                     </>
                   )}
                 </Button>
@@ -3218,7 +3233,7 @@ function MultiImageTourMode({ user, onBack }) {
             )}
             {status === 'planned' && (
               <section className="rounded-3xl border border-sky-100 bg-sky-50 p-5 text-sm font-semibold leading-6 text-sky-900 shadow-sm">
-                <p className="text-base font-black text-sky-950">Motion preparado</p>
+                <p className="text-base font-black text-sky-950">Animação preparada</p>
                 <p className="mt-2">{message}</p>
               </section>
             )}
@@ -4078,7 +4093,7 @@ function StudioPossibilitiesShowcase() {
   )
 }
 
-function AssistantStep({ number, currentStep, summary, onEdit, message, children }) {
+function AssistantStep({ number, currentStep, summary, onEdit, message, eyebrow = 'Direcao criativa', children }) {
   if (number > currentStep) return null
 
   const answered = Boolean(summary) && number < currentStep
@@ -4116,7 +4131,7 @@ function AssistantStep({ number, currentStep, summary, onEdit, message, children
             <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-cyan-800">
               Etapa {number}
             </span>
-            <span className="text-xs font-bold text-slate-400">Direcao criativa</span>
+            <span className="text-xs font-bold text-slate-400">{eyebrow}</span>
           </div>
           <h2 className="mt-2 text-xl font-black text-slate-950">
             <TypewriterText text={message} active={active} />
@@ -4467,9 +4482,9 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       ['Ritmo', answers.pace, paceStep],
       ['Liberdade criativa', answers.creativeFreedom, creativeFreedomStep],
     ] : [
-      ['Mobiliario', answers.furnishingStatus, furnishingStep],
-      ['Ambientacao', answers.decorationPolicy, decorationStep],
-      ['Imagem do imovel', files.image1?.name, uploadStep],
+      [isBrokerCapture ? 'Imagem da campanha' : 'Mobiliário', answers.furnishingStatus, furnishingStep],
+      [isBrokerCapture ? 'Ajustes visuais' : 'Ambientação', answers.decorationPolicy, decorationStep],
+      [isBrokerCapture ? 'Imagem da campanha' : 'Imagem do imóvel', files.image1?.name, uploadStep],
     ]),
   ].filter((row) => row[2])
 
