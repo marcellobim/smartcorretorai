@@ -2984,10 +2984,37 @@ export default function StudioHero() {
   )
 }
 
+const STUDIO_HERO_MOTION_VIDEO_MOCK_PLAN = {
+  highlights: [
+    'Fachada e chegada ao imóvel nos primeiros segundos',
+    'Panorâmica da sala com melhor iluminação',
+    'Detalhe da varanda e vista como ponto de impacto',
+  ],
+  slowSectionsRemoved: [
+    'Trechos de deslocamento entre ambientes',
+    'Momentos com câmera parada por mais de 3 segundos',
+    'Repetições de cômodos já apresentados',
+  ],
+  reelsRhythm: 'Cortes rápidos no início, ritmo crescente no meio e encerramento com chamada direta para contato.',
+  suggestedTexts: [
+    'Conheça este imóvel em poucos segundos',
+    'Ambientes amplos, bem iluminados e prontos para encantar',
+    'Agende sua visita hoje',
+  ],
+  suggestedEffects: [
+    'Estabilização suave',
+    'Correção de luz e contraste',
+    'Zoom leve nos melhores detalhes',
+    'Transições rápidas entre ambientes',
+  ],
+  estimatedDuration: '28 a 35 segundos',
+}
+
 function StudioHeroMotionVideoMode({ onBack }) {
   const analysisTimerRef = useRef(null)
   const [videoFile, setVideoFile] = useState(null)
   const [analysisStatus, setAnalysisStatus] = useState('idle')
+  const [editionPlan, setEditionPlan] = useState(null)
 
   const isAnalyzing = analysisStatus === 'analyzing'
   const hasVideoFile = Boolean(videoFile)
@@ -3004,6 +3031,7 @@ function StudioHeroMotionVideoMode({ onBack }) {
       analysisTimerRef.current = null
     }
     setAnalysisStatus('idle')
+    setEditionPlan(null)
   }
 
   const handleVideoChange = (file) => {
@@ -3017,6 +3045,7 @@ function StudioHeroMotionVideoMode({ onBack }) {
     resetAnalysis()
     setAnalysisStatus('analyzing')
     analysisTimerRef.current = window.setTimeout(() => {
+      setEditionPlan(STUDIO_HERO_MOTION_VIDEO_MOCK_PLAN)
       setAnalysisStatus('planned')
       analysisTimerRef.current = null
     }, 1400)
@@ -3118,42 +3147,164 @@ function StudioHeroMotionVideoMode({ onBack }) {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-amber-100">
-                <PlayCircle className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Status</p>
-                <h2 className="mt-2 text-xl font-black text-slate-950">
-                  {analysisStatus === 'planned' ? 'Análise planejada com sucesso.' : isAnalyzing ? 'Analisando vídeo...' : 'Aguardando vídeo'}
-                </h2>
-                <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-                  {analysisStatus === 'planned'
-                    ? 'Este é um retorno mockado do fluxo inicial. Nenhuma edição real foi executada.'
-                    : isAnalyzing
-                      ? 'Estamos simulando a leitura inicial do arquivo para validar a experiência.'
-                      : 'Selecione um arquivo para habilitar a análise inicial.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-2 sm:grid-cols-3">
-              {[
-                ['Formato', 'mp4, mov, webm'],
-                ['Limite', 'Até 2 minutos'],
-                ['Arquivo', videoFile?.name || 'Pendente'],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <MotionVideoAnalysisPanel
+            videoFile={videoFile}
+            analysisStatus={analysisStatus}
+            editionPlan={editionPlan}
+          />
         </section>
       </div>
     </main>
+  )
+}
+
+function MotionVideoAnalysisPanel({ videoFile, analysisStatus, editionPlan }) {
+  const isAnalyzing = analysisStatus === 'analyzing'
+  const hasPlan = Boolean(editionPlan)
+
+  if (hasPlan) {
+    return (
+      <div className="rounded-3xl border border-amber-100 bg-white/95 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Studio Hero Motion</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Plano de edição criado</h2>
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+                Análise planejada com sucesso usando dados mockados. A estrutura já está pronta para receber dados da IA futuramente.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-800">
+            MVP mockado
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {[
+            ['Arquivo', videoFile?.name || 'Pendente'],
+            ['Formato', 'mp4, mov, webm'],
+            ['Duração final', editionPlan.estimatedDuration],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+              <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          <MotionPlanList
+            icon={PlayCircle}
+            title="Melhores momentos identificados"
+            items={editionPlan.highlights}
+            accentClassName="bg-amber-50 text-amber-700 ring-amber-100"
+          />
+          <MotionPlanList
+            icon={ShieldCheck}
+            title="Partes lentas removidas"
+            items={editionPlan.slowSectionsRemoved}
+            accentClassName="bg-slate-100 text-slate-700 ring-slate-200"
+          />
+          <MotionPlanText
+            icon={Film}
+            title="Ritmo sugerido para Reels"
+            text={editionPlan.reelsRhythm}
+            accentClassName="bg-cyan-50 text-cyan-700 ring-cyan-100"
+          />
+          <MotionPlanList
+            icon={MessageSquareText}
+            title="Textos sugeridos"
+            items={editionPlan.suggestedTexts}
+            accentClassName="bg-violet-50 text-violet-700 ring-violet-100"
+          />
+          <MotionPlanList
+            icon={ImagePlus}
+            title="Efeitos sugeridos"
+            items={editionPlan.suggestedEffects}
+            accentClassName="bg-emerald-50 text-emerald-700 ring-emerald-100"
+          />
+          <MotionPlanText
+            icon={CheckCircle2}
+            title="Duração estimada do vídeo final"
+            text={editionPlan.estimatedDuration}
+            accentClassName="bg-primary-50 text-primary-800 ring-primary-100"
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-amber-100">
+          {isAnalyzing ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlayCircle className="h-5 w-5" />}
+        </div>
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Status</p>
+          <h2 className="mt-2 text-xl font-black text-slate-950">
+            {isAnalyzing ? 'Analisando vídeo...' : 'Aguardando vídeo'}
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+            {isAnalyzing
+              ? 'Estamos simulando a leitura inicial do arquivo para montar o plano de edição.'
+              : 'Selecione um arquivo para habilitar a análise inicial.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-3">
+        {[
+          ['Formato', 'mp4, mov, webm'],
+          ['Limite', 'Até 2 minutos'],
+          ['Arquivo', videoFile?.name || 'Pendente'],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+            <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MotionPlanList({ icon: Icon, title, items, accentClassName }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex items-center gap-3">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ${accentClassName}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+      </div>
+      <ul className="mt-4 space-y-2">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 text-sm font-semibold leading-6 text-slate-600">
+            <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-500" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function MotionPlanText({ icon: Icon, title, text, accentClassName }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex items-center gap-3">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ${accentClassName}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+      </div>
+      <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{text}</p>
+    </div>
   )
 }
 
