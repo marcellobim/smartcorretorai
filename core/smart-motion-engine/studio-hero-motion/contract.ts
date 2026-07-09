@@ -52,6 +52,37 @@ export type StudioHeroMotionCta = {
   visualStyle?: 'clean' | 'strong' | 'premium' | 'direct'
 }
 
+export type StudioHeroMotionBackgroundMusic = {
+  enabled: boolean
+  source: 'internal_placeholder' | 'file'
+  filePath?: string
+  volumeMode: 'auto' | 'fixed'
+  volumeLevel?: number
+  fadeInSeconds?: number
+  fadeOutSeconds?: number
+}
+
+export type StudioHeroMotionCtaRenderPlan = {
+  enabled: boolean
+  renderNow: false
+  text: string
+  startSeconds?: number
+  endSeconds?: number
+}
+
+export type StudioHeroMotionCaptionTrackPlan = {
+  enabled: boolean
+  renderNow: false
+  source: 'future_speech_to_text' | 'manual'
+  language?: string
+}
+
+export type StudioHeroMotionFinishingPlan = {
+  backgroundMusic?: StudioHeroMotionBackgroundMusic
+  cta?: StudioHeroMotionCtaRenderPlan
+  captions?: StudioHeroMotionCaptionTrackPlan
+}
+
 export type StudioHeroMotionMainReel = {
   id: string
   title: string
@@ -60,6 +91,7 @@ export type StudioHeroMotionMainReel = {
   cuts: StudioHeroMotionCut[]
   ctaFinal: StudioHeroMotionCta
   effects?: StudioHeroMotionEffect[]
+  finishing?: StudioHeroMotionFinishingPlan
 }
 
 export type StudioHeroMotionSmartClip = {

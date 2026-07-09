@@ -19,7 +19,8 @@ async function main() {
       'Notes:',
       '  - Uses the official studioHeroMotionSampleCampaign contract.',
       '  - Renders only the main reels MP4 from contract cuts.',
-      '  - Does not render texts, zoom, speed ramp, music, CTA overlays or smart clips yet.',
+      '  - Applies only the finishing layer configured by the contract.',
+      '  - Does not render texts, zoom, speed ramp, CTA overlays or smart clips yet.',
     ].join('\n'))
     return
   }
@@ -33,6 +34,7 @@ async function main() {
     outputPath: result.outputPath,
     cutCount: result.cutCount,
     totalDurationSeconds: result.totalDurationSeconds,
+    finishing: result.finishing,
     smartClips: result.smartClips.status,
   }, null, 2))
 }

@@ -244,6 +244,29 @@ export const studioHeroMotionSampleCampaign = {
       visualStyle: 'direct',
     },
     effects: [],
+    finishing: {
+      backgroundMusic: {
+        enabled: true,
+        source: 'internal_placeholder',
+        volumeMode: 'auto',
+        volumeLevel: 0.08,
+        fadeInSeconds: 1.2,
+        fadeOutSeconds: 2.2,
+      },
+      cta: {
+        enabled: true,
+        renderNow: false,
+        text: 'AGENDE SUA VISITA',
+        startSeconds: Math.max(0, estimatedMainReelDurationSeconds - 7),
+        endSeconds: estimatedMainReelDurationSeconds,
+      },
+      captions: {
+        enabled: true,
+        renderNow: false,
+        source: 'future_speech_to_text',
+        language: 'pt-BR',
+      },
+    },
   },
   smartClips: [
     {
@@ -322,13 +345,13 @@ export const studioHeroMotionSampleCampaign = {
   },
   metadata: {
     sample: true,
-    phase: 'studio_hero_motion_mode_1_improve_original_video',
+    phase: 'studio_hero_motion_phase_2_finishing_layer',
     originalDurationSeconds: originalSampleVideoDurationSeconds,
     estimatedFinalDurationSeconds: estimatedMainReelDurationSeconds,
     brainVersion: 'studio_hero_motion_brain_v2_2_improve_original_visit',
     brainRulesApplied: studioHeroMotionBrainV2Selection.rulesApplied,
     rejectedMomentIds: studioHeroMotionBrainV2Selection.rejectedMomentIds,
-    renderer: 'main_reel_cut_join_only',
+    renderer: 'main_reel_cut_join_with_finishing_layer',
   },
 } satisfies StudioHeroBrainSmartMotionContract
 

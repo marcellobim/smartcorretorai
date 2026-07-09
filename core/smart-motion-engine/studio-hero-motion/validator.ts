@@ -50,6 +50,24 @@ export function validateStudioHeroMotionContract(input: unknown): StudioHeroMoti
     errors.push('main_reel.target_duration_seconds_required')
   }
   if (!hasText(contract.mainReel?.ctaFinal?.text)) errors.push('main_reel.cta_final.text_required')
+  if (contract.mainReel?.finishing?.backgroundMusic?.enabled) {
+    const music = contract.mainReel.finishing.backgroundMusic
+    if (!['internal_placeholder', 'file'].includes(music.source)) {
+      errors.push('main_reel.finishing.background_music.source_invalid')
+    }
+    if (!['auto', 'fixed'].includes(music.volumeMode)) {
+      errors.push('main_reel.finishing.background_music.volume_mode_invalid')
+    }
+    if (music.source === 'file' && !hasText(music.filePath)) {
+      errors.push('main_reel.finishing.background_music.file_path_required')
+    }
+  }
+  if (contract.mainReel?.finishing?.cta?.enabled && contract.mainReel.finishing.cta.renderNow !== false) {
+    errors.push('main_reel.finishing.cta.render_now_must_be_false')
+  }
+  if (contract.mainReel?.finishing?.captions?.enabled && contract.mainReel.finishing.captions.renderNow !== false) {
+    errors.push('main_reel.finishing.captions.render_now_must_be_false')
+  }
   if (!Array.isArray(contract.mainReel?.cuts) || contract.mainReel.cuts.length < 1) {
     errors.push('main_reel.cuts_required')
   } else {
