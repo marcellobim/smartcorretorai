@@ -97,7 +97,7 @@ const STUDIO_CREATION_MODES = [
   {
     id: 'cinematic',
     title: 'Comercial Cinematografico',
-    description: 'Crie um comercial curto e impactante a partir das melhores imagens do imovel.',
+    description: 'Transforme uma imagem do imóvel em um comercial curto e impactante.',
     status: 'Disponível',
     Icon: Film,
     active: true,
@@ -125,7 +125,7 @@ const STUDIO_CREATION_MODES = [
     cta: 'Animar imagens',
   },
   {
-    id: 'improve_video',
+    id: 'studio_hero_motion_video',
     title: 'Transforme seu Vídeo',
     description: 'Envie um video gravado no celular e prepare uma versao mais profissional para divulgar.',
     status: 'Novo',
@@ -215,7 +215,7 @@ const STUDIO_MODE_EXAMPLES = [
     ],
   },
   {
-    id: 'improve_video',
+    id: 'studio_hero_motion_video',
     title: '🎥 Finalizar meu Vídeo',
     label: 'Acabamento final',
     accent: 'amber',
@@ -300,7 +300,7 @@ const STUDIO_GUIDE_ITEMS_BY_MODE = {
     'Montar uma apresentação dinâmica',
     'Entregar vídeo, chamada final e textos prontos para divulgação',
   ],
-  improve_video: [
+  studio_hero_motion_video: [
     'Analisar o vídeo enviado',
     'Aplicar acabamento profissional',
     'Adicionar identidade visual e chamada final',
@@ -1267,6 +1267,7 @@ export default function StudioHero() {
   const isFreeAiMode = studioMode === 'free_ai'
   const isAnimationPremiumMode = studioMode === 'smart_carousel'
   const isMultiImageTourMode = studioMode === 'multi_image_tour'
+  const isMotionVideoMode = studioMode === 'studio_hero_motion_video'
   const studioCreationModes = getStudioCreationModes()
   const studioModeExamples = getStudioModeExamples()
   const guideItems = STUDIO_GUIDE_ITEMS_BY_MODE[studioMode] || STUDIO_GUIDE_ITEMS_BY_MODE.cinematic
@@ -2102,6 +2103,17 @@ export default function StudioHero() {
     return (
       <MultiImageTourMode
         user={user}
+        onBack={() => {
+          setStudioMode('')
+          setModeNotice('')
+        }}
+      />
+    )
+  }
+
+  if (isMotionVideoMode) {
+    return (
+      <StudioHeroMotionVideoMode
         onBack={() => {
           setStudioMode('')
           setModeNotice('')
@@ -2965,6 +2977,179 @@ export default function StudioHero() {
               <RotateCcw className="h-4 w-4" />
               Reiniciar conversa
             </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function StudioHeroMotionVideoMode({ onBack }) {
+  const analysisTimerRef = useRef(null)
+  const [videoFile, setVideoFile] = useState(null)
+  const [analysisStatus, setAnalysisStatus] = useState('idle')
+
+  const isAnalyzing = analysisStatus === 'analyzing'
+  const hasVideoFile = Boolean(videoFile)
+
+  useEffect(() => () => {
+    if (analysisTimerRef.current) {
+      window.clearTimeout(analysisTimerRef.current)
+    }
+  }, [])
+
+  const resetAnalysis = () => {
+    if (analysisTimerRef.current) {
+      window.clearTimeout(analysisTimerRef.current)
+      analysisTimerRef.current = null
+    }
+    setAnalysisStatus('idle')
+  }
+
+  const handleVideoChange = (file) => {
+    resetAnalysis()
+    setVideoFile(file)
+  }
+
+  const handleAnalyzeVideo = () => {
+    if (!videoFile || isAnalyzing) return
+
+    resetAnalysis()
+    setAnalysisStatus('analyzing')
+    analysisTimerRef.current = window.setTimeout(() => {
+      setAnalysisStatus('planned')
+      analysisTimerRef.current = null
+    }, 1400)
+  }
+
+  return (
+    <main className="min-h-screen bg-[linear-gradient(180deg,#fff7ed_0%,#f8fafc_44%,#eef7fb_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#78350f_0%,#0f172a_52%,#b45309_100%)] text-white shadow-2xl shadow-amber-950/20">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(253,230,138,0.22),transparent_32%),radial-gradient(circle_at_86%_24%,rgba(251,191,36,0.16),transparent_34%)]" />
+          <div className="relative grid gap-8 p-8 lg:grid-cols-[1.08fr_0.92fr] lg:p-10">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-amber-100">
+                <PlayCircle className="h-4 w-4" />
+                Studio Hero Motion
+              </div>
+              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
+                Transforme seu Vídeo
+              </h1>
+              <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-amber-50">
+                Envie um vídeo gravado no celular e a IA prepara uma versão mais dinâmica para redes sociais.
+              </p>
+              <button
+                type="button"
+                onClick={onBack}
+                className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Voltar aos modos
+              </button>
+            </div>
+            <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur">
+              <p className="text-sm font-black text-white">Fluxo inicial</p>
+              <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-amber-50">
+                {[
+                  'Envie um vídeo em mp4, mov ou webm.',
+                  'Vídeo de até 2 minutos para o MVP.',
+                  'A análise real será conectada em uma próxima etapa.',
+                ].map((item) => (
+                  <li key={item} className="flex gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-200" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
+          <div className="rounded-3xl border border-amber-100 bg-white/95 p-5 shadow-sm">
+            <div className="flex gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+                <UploadCloud className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black uppercase tracking-wide text-amber-700">Upload de vídeo</p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">Envie o vídeo gravado no celular.</h2>
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+                  Formatos aceitos: mp4, mov, webm. Vídeo de até 2 minutos para o MVP.
+                </p>
+
+                <label className="mt-5 flex cursor-pointer flex-col gap-3 rounded-3xl border border-dashed border-amber-200 bg-amber-50/40 p-5 shadow-sm transition hover:border-amber-400 hover:bg-amber-50">
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+                    className="sr-only"
+                    onChange={(event) => {
+                      event.currentTarget.blur()
+                      handleVideoChange(event.target.files?.[0] || null)
+                    }}
+                  />
+                  <div className="flex min-h-52 items-center justify-center rounded-2xl bg-white">
+                    <div className="flex flex-col items-center gap-3 px-4 text-center text-slate-500">
+                      <UploadCloud className="h-9 w-9 text-amber-600" />
+                      <span className="text-sm font-black text-slate-950">
+                        {videoFile ? 'Clique para trocar o vídeo' : 'Selecionar vídeo'}
+                      </span>
+                      <span className="text-xs font-bold leading-5">
+                        mp4, mov ou webm
+                      </span>
+                    </div>
+                  </div>
+                  <p className="min-h-5 truncate text-sm font-black text-slate-700">
+                    {videoFile?.name || 'Nenhum vídeo selecionado'}
+                  </p>
+                </label>
+
+                <Button
+                  type="button"
+                  onClick={handleAnalyzeVideo}
+                  disabled={!hasVideoFile || isAnalyzing}
+                  loading={isAnalyzing}
+                  className="mt-5 w-full justify-center py-4 text-base"
+                >
+                  {isAnalyzing ? 'Analisando vídeo...' : 'Analisar vídeo'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-amber-100">
+                <PlayCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Status</p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  {analysisStatus === 'planned' ? 'Análise planejada com sucesso.' : isAnalyzing ? 'Analisando vídeo...' : 'Aguardando vídeo'}
+                </h2>
+                <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+                  {analysisStatus === 'planned'
+                    ? 'Este é um retorno mockado do fluxo inicial. Nenhuma edição real foi executada.'
+                    : isAnalyzing
+                      ? 'Estamos simulando a leitura inicial do arquivo para validar a experiência.'
+                      : 'Selecione um arquivo para habilitar a análise inicial.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-3">
+              {[
+                ['Formato', 'mp4, mov, webm'],
+                ['Limite', 'Até 2 minutos'],
+                ['Arquivo', videoFile?.name || 'Pendente'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </div>
