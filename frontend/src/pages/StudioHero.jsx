@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 import { buildPublicationPackage } from '../../../core/copy-engine'
+import { studioHeroMotionSampleCampaign } from '../../../core/smart-motion-engine/studio-hero-motion'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
@@ -301,10 +302,10 @@ const STUDIO_GUIDE_ITEMS_BY_MODE = {
     'Entregar vídeo, chamada final e textos prontos para divulgação',
   ],
   studio_hero_motion_video: [
-    'Analisar o vídeo enviado',
-    'Aplicar acabamento profissional',
-    'Adicionar identidade visual e chamada final',
-    'Entregar o vídeo pronto para publicar',
+    'Selecionar os melhores momentos do vídeo',
+    'Criar reels principal e smart clips',
+    'Preparar textos para divulgação',
+    'Entregar a campanha pronta para publicar',
   ],
 }
 
@@ -2984,70 +2985,44 @@ export default function StudioHero() {
   )
 }
 
-const STUDIO_HERO_MOTION_VIDEO_MOCK_PLAN = {
-  highlights: [
-    'Fachada e chegada ao imóvel nos primeiros segundos',
-    'Panorâmica da sala com melhor iluminação',
-    'Detalhe da varanda e vista como ponto de impacto',
-  ],
-  slowSectionsRemoved: [
-    'Trechos de deslocamento entre ambientes',
-    'Momentos com câmera parada por mais de 3 segundos',
-    'Repetições de cômodos já apresentados',
-  ],
-  reelsRhythm: 'Cortes rápidos no início, ritmo crescente no meio e encerramento com chamada direta para contato.',
-  suggestedTexts: [
-    'Conheça este imóvel em poucos segundos',
-    'Ambientes amplos, bem iluminados e prontos para encantar',
-    'Agende sua visita hoje',
-  ],
-  suggestedEffects: [
-    'Estabilização suave',
-    'Correção de luz e contraste',
-    'Zoom leve nos melhores detalhes',
-    'Transições rápidas entre ambientes',
-  ],
-  estimatedDuration: '28 a 35 segundos',
-}
-
 function StudioHeroMotionVideoMode({ onBack }) {
-  const analysisTimerRef = useRef(null)
+  const transformTimerRef = useRef(null)
   const [videoFile, setVideoFile] = useState(null)
-  const [analysisStatus, setAnalysisStatus] = useState('idle')
-  const [editionPlan, setEditionPlan] = useState(null)
+  const [transformStatus, setTransformStatus] = useState('idle')
+  const [campaignDelivery, setCampaignDelivery] = useState(null)
 
-  const isAnalyzing = analysisStatus === 'analyzing'
+  const isTransforming = transformStatus === 'transforming'
   const hasVideoFile = Boolean(videoFile)
 
   useEffect(() => () => {
-    if (analysisTimerRef.current) {
-      window.clearTimeout(analysisTimerRef.current)
+    if (transformTimerRef.current) {
+      window.clearTimeout(transformTimerRef.current)
     }
   }, [])
 
-  const resetAnalysis = () => {
-    if (analysisTimerRef.current) {
-      window.clearTimeout(analysisTimerRef.current)
-      analysisTimerRef.current = null
+  const resetTransformation = () => {
+    if (transformTimerRef.current) {
+      window.clearTimeout(transformTimerRef.current)
+      transformTimerRef.current = null
     }
-    setAnalysisStatus('idle')
-    setEditionPlan(null)
+    setTransformStatus('idle')
+    setCampaignDelivery(null)
   }
 
   const handleVideoChange = (file) => {
-    resetAnalysis()
+    resetTransformation()
     setVideoFile(file)
   }
 
-  const handleAnalyzeVideo = () => {
-    if (!videoFile || isAnalyzing) return
+  const handleTransformVideo = () => {
+    if (!videoFile || isTransforming) return
 
-    resetAnalysis()
-    setAnalysisStatus('analyzing')
-    analysisTimerRef.current = window.setTimeout(() => {
-      setEditionPlan(STUDIO_HERO_MOTION_VIDEO_MOCK_PLAN)
-      setAnalysisStatus('planned')
-      analysisTimerRef.current = null
+    resetTransformation()
+    setTransformStatus('transforming')
+    transformTimerRef.current = window.setTimeout(() => {
+      setCampaignDelivery(studioHeroMotionSampleCampaign)
+      setTransformStatus('completed')
+      transformTimerRef.current = null
     }, 1400)
   }
 
@@ -3083,7 +3058,7 @@ function StudioHeroMotionVideoMode({ onBack }) {
                 {[
                   'Envie um vídeo em mp4, mov ou webm.',
                   'Vídeo de até 2 minutos para o MVP.',
-                  'A análise real será conectada em uma próxima etapa.',
+                  'A campanha completa será liberada em uma próxima etapa.',
                 ].map((item) => (
                   <li key={item} className="flex gap-3">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-200" />
@@ -3136,21 +3111,21 @@ function StudioHeroMotionVideoMode({ onBack }) {
 
                 <Button
                   type="button"
-                  onClick={handleAnalyzeVideo}
-                  disabled={!hasVideoFile || isAnalyzing}
-                  loading={isAnalyzing}
+                  onClick={handleTransformVideo}
+                  disabled={!hasVideoFile || isTransforming}
+                  loading={isTransforming}
                   className="mt-5 w-full justify-center py-4 text-base"
                 >
-                  {isAnalyzing ? 'Analisando vídeo...' : 'Analisar vídeo'}
+                  {isTransforming ? 'Estamos transformando seu vídeo...' : 'Transformar vídeo'}
                 </Button>
               </div>
             </div>
           </div>
 
-          <MotionVideoAnalysisPanel
+          <MotionVideoDeliveryPanel
             videoFile={videoFile}
-            analysisStatus={analysisStatus}
-            editionPlan={editionPlan}
+            transformStatus={transformStatus}
+            campaignDelivery={campaignDelivery}
           />
         </section>
       </div>
@@ -3158,11 +3133,13 @@ function StudioHeroMotionVideoMode({ onBack }) {
   )
 }
 
-function MotionVideoAnalysisPanel({ videoFile, analysisStatus, editionPlan }) {
-  const isAnalyzing = analysisStatus === 'analyzing'
-  const hasPlan = Boolean(editionPlan)
+function MotionVideoDeliveryPanel({ videoFile, transformStatus, campaignDelivery }) {
+  const isTransforming = transformStatus === 'transforming'
+  const completed = Boolean(campaignDelivery)
 
-  if (hasPlan) {
+  if (completed) {
+    const campaignTexts = campaignDelivery.campaignTexts
+    const mainTags = campaignDelivery.mainReel.cuts.flatMap((cut) => cut.textTags || []).map((tag) => tag.text)
     return (
       <div className="rounded-3xl border border-amber-100 bg-white/95 p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -3172,22 +3149,27 @@ function MotionVideoAnalysisPanel({ videoFile, analysisStatus, editionPlan }) {
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Studio Hero Motion</p>
-              <h2 className="mt-2 text-2xl font-black text-slate-950">Plano de edição criado</h2>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Sua campanha está pronta</h2>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-                Análise planejada com sucesso usando dados mockados. A estrutura já está pronta para receber dados da IA futuramente.
+                Preparamos um reels principal, smart clips e textos para divulgar o imóvel.
               </p>
             </div>
           </div>
-          <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-800">
-            MVP mockado
-          </span>
+          <button
+            type="button"
+            disabled
+            className="inline-flex shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-slate-200 px-4 py-3 text-sm font-black text-slate-500"
+          >
+            <Download className="h-4 w-4" />
+            Baixar campanha completa
+          </button>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {[
             ['Arquivo', videoFile?.name || 'Pendente'],
-            ['Formato', 'mp4, mov, webm'],
-            ['Duração final', editionPlan.estimatedDuration],
+            ['Reels principal', `${campaignDelivery.mainReel.targetDurationSeconds}s`],
+            ['Smart Clips', `${campaignDelivery.smartClips.length} clips`],
           ].map(([label, value]) => (
             <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
@@ -3196,43 +3178,43 @@ function MotionVideoAnalysisPanel({ videoFile, analysisStatus, editionPlan }) {
           ))}
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          <MotionPlanList
+        <div className="mt-5 space-y-4">
+          <CampaignDeliverySection
             icon={PlayCircle}
-            title="Melhores momentos identificados"
-            items={editionPlan.highlights}
+            title="Reels principal"
+            description={campaignDelivery.mainReel.title}
+            items={mainTags}
             accentClassName="bg-amber-50 text-amber-700 ring-amber-100"
           />
-          <MotionPlanList
-            icon={ShieldCheck}
-            title="Partes lentas removidas"
-            items={editionPlan.slowSectionsRemoved}
-            accentClassName="bg-slate-100 text-slate-700 ring-slate-200"
-          />
-          <MotionPlanText
+          <CampaignDeliverySection
             icon={Film}
-            title="Ritmo sugerido para Reels"
-            text={editionPlan.reelsRhythm}
+            title="Smart Clips"
+            description="Cortes curtos prontos para destacar cada ambiente."
+            items={campaignDelivery.smartClips.map((clip) => clip.title)}
             accentClassName="bg-cyan-50 text-cyan-700 ring-cyan-100"
           />
-          <MotionPlanList
-            icon={MessageSquareText}
-            title="Textos sugeridos"
-            items={editionPlan.suggestedTexts}
-            accentClassName="bg-violet-50 text-violet-700 ring-violet-100"
-          />
-          <MotionPlanList
-            icon={ImagePlus}
-            title="Efeitos sugeridos"
-            items={editionPlan.suggestedEffects}
-            accentClassName="bg-emerald-50 text-emerald-700 ring-emerald-100"
-          />
-          <MotionPlanText
-            icon={CheckCircle2}
-            title="Duração estimada do vídeo final"
-            text={editionPlan.estimatedDuration}
-            accentClassName="bg-primary-50 text-primary-800 ring-primary-100"
-          />
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
+                <MessageSquareText className="h-4 w-4" />
+              </span>
+              <h3 className="text-sm font-black text-slate-950">Textos da campanha</h3>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {[
+                ['Instagram', campaignTexts.shortCaption],
+                ['WhatsApp', campaignTexts.whatsappMessage],
+                ['Portal', campaignTexts.portalDescription],
+                ['Hashtags', campaignTexts.hashtags.join(' ')],
+                ['CTA final', campaignTexts.cta],
+              ].map(([label, text]) => (
+                <div key={label} className="rounded-2xl border border-white bg-white p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -3242,17 +3224,17 @@ function MotionVideoAnalysisPanel({ videoFile, analysisStatus, editionPlan }) {
     <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-amber-100">
-          {isAnalyzing ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlayCircle className="h-5 w-5" />}
+          {isTransforming ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlayCircle className="h-5 w-5" />}
         </div>
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-slate-500">Status</p>
           <h2 className="mt-2 text-xl font-black text-slate-950">
-            {isAnalyzing ? 'Analisando vídeo...' : 'Aguardando vídeo'}
+            {isTransforming ? 'Estamos transformando seu vídeo...' : 'Aguardando vídeo'}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-            {isAnalyzing
-              ? 'Estamos simulando a leitura inicial do arquivo para montar o plano de edição.'
-              : 'Selecione um arquivo para habilitar a análise inicial.'}
+            {isTransforming
+              ? 'Em instantes sua campanha aparece aqui.'
+              : 'Selecione um arquivo para preparar sua campanha.'}
           </p>
         </div>
       </div>
@@ -3273,7 +3255,7 @@ function MotionVideoAnalysisPanel({ videoFile, analysisStatus, editionPlan }) {
   )
 }
 
-function MotionPlanList({ icon: Icon, title, items, accentClassName }) {
+function CampaignDeliverySection({ icon: Icon, title, description, items, accentClassName }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
       <div className="flex items-center gap-3">
@@ -3282,6 +3264,7 @@ function MotionPlanList({ icon: Icon, title, items, accentClassName }) {
         </span>
         <h3 className="text-sm font-black text-slate-950">{title}</h3>
       </div>
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{description}</p>
       <ul className="mt-4 space-y-2">
         {items.map((item) => (
           <li key={item} className="flex gap-2 text-sm font-semibold leading-6 text-slate-600">
@@ -3290,20 +3273,6 @@ function MotionPlanList({ icon: Icon, title, items, accentClassName }) {
           </li>
         ))}
       </ul>
-    </div>
-  )
-}
-
-function MotionPlanText({ icon: Icon, title, text, accentClassName }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
-      <div className="flex items-center gap-3">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ${accentClassName}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <h3 className="text-sm font-black text-slate-950">{title}</h3>
-      </div>
-      <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{text}</p>
     </div>
   )
 }
