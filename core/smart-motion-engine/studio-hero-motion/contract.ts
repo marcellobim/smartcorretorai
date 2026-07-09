@@ -78,6 +78,7 @@ export type StudioHeroMotionCampaignTextPackage = {
   shortCaption: string
   longCaption?: string
   whatsappMessage?: string
+  portalDescription?: string
   hashtags: string[]
   cta: string
 }
