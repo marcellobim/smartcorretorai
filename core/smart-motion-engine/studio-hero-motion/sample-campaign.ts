@@ -3,8 +3,147 @@ import type {
   StudioHeroMotionMockExecutionResult,
   StudioHeroMotionValidationResult,
 } from './contract.ts'
+import { selectStudioHeroMotionMomentsV2, type StudioHeroMotionCandidateMoment } from './brain-v2.ts'
 import { executeStudioHeroMotionMockPlan } from './mock-executor.ts'
 import { validateStudioHeroMotionContract } from './validator.ts'
+
+export const studioHeroMotionSampleMomentsV2: StudioHeroMotionCandidateMoment[] = [
+  {
+    id: 'vista-livre',
+    environmentId: 'vista',
+    label: 'Abertura com vista livre',
+    sourceStartSeconds: 4,
+    sourceEndSeconds: 11,
+    visualInterestScore: 96,
+    openingStrength: 100,
+    closingStrength: 70,
+    textTags: [
+      {
+        id: 'tag-vista-livre',
+        label: 'VISTA LIVRE',
+        text: 'VISTA LIVRE',
+        startSeconds: 0.4,
+        endSeconds: 3.2,
+        style: 'headline',
+      },
+    ],
+  },
+  {
+    id: 'corredor-entrada',
+    environmentId: 'circulacao',
+    label: 'Corredor de entrada',
+    sourceStartSeconds: 11.2,
+    sourceEndSeconds: 14,
+    visualInterestScore: 28,
+    openingStrength: 12,
+    closingStrength: 8,
+    hasLongCorridor: true,
+  },
+  {
+    id: 'sala-integrada',
+    environmentId: 'sala',
+    label: 'Sala integrada',
+    sourceStartSeconds: 14,
+    sourceEndSeconds: 24,
+    visualInterestScore: 92,
+    openingStrength: 76,
+    closingStrength: 65,
+    textTags: [
+      {
+        id: 'tag-sala-integrada',
+        label: 'SALA INTEGRADA',
+        text: 'SALA INTEGRADA',
+        startSeconds: 6.4,
+        endSeconds: 9.6,
+        style: 'badge',
+      },
+    ],
+  },
+  {
+    id: 'porta-cozinha',
+    environmentId: 'transicao',
+    label: 'Passagem para cozinha',
+    sourceStartSeconds: 24.2,
+    sourceEndSeconds: 28.5,
+    visualInterestScore: 34,
+    openingStrength: 10,
+    closingStrength: 12,
+    hasDoorTransition: true,
+    isEnvironmentTransition: true,
+  },
+  {
+    id: 'sala-repetida',
+    environmentId: 'sala',
+    label: 'Sala em angulo repetido',
+    sourceStartSeconds: 20.5,
+    sourceEndSeconds: 24.5,
+    visualInterestScore: 70,
+    openingStrength: 45,
+    closingStrength: 40,
+  },
+  {
+    id: 'cozinha',
+    environmentId: 'cozinha',
+    label: 'Cozinha planejada',
+    sourceStartSeconds: 29,
+    sourceEndSeconds: 38,
+    visualInterestScore: 88,
+    openingStrength: 58,
+    closingStrength: 62,
+    textTags: [
+      {
+        id: 'tag-cozinha',
+        label: 'COZINHA',
+        text: 'COZINHA',
+        startSeconds: 14.5,
+        endSeconds: 17.2,
+        style: 'badge',
+      },
+    ],
+  },
+  {
+    id: 'varanda',
+    environmentId: 'varanda',
+    label: 'Varanda',
+    sourceStartSeconds: 43,
+    sourceEndSeconds: 53,
+    visualInterestScore: 94,
+    openingStrength: 82,
+    closingStrength: 88,
+    textTags: [
+      {
+        id: 'tag-varanda',
+        label: 'VARANDA',
+        text: 'VARANDA',
+        startSeconds: 21.2,
+        endSeconds: 24.2,
+        style: 'badge',
+      },
+    ],
+  },
+  {
+    id: 'cta-final',
+    environmentId: 'encerramento',
+    label: 'Chamada final',
+    sourceStartSeconds: 58,
+    sourceEndSeconds: 64,
+    visualInterestScore: 84,
+    openingStrength: 45,
+    closingStrength: 100,
+    textTags: [
+      {
+        id: 'tag-agende-sua-visita',
+        label: 'AGENDE SUA VISITA',
+        text: 'AGENDE SUA VISITA',
+        startSeconds: 27,
+        endSeconds: 30,
+        style: 'cta',
+      },
+    ],
+  },
+]
+
+export const studioHeroMotionBrainV2Selection = selectStudioHeroMotionMomentsV2(studioHeroMotionSampleMomentsV2)
 
 export const studioHeroMotionSampleCampaign = {
   contractVersion: 'studio_hero_motion.v1',
@@ -30,133 +169,7 @@ export const studioHeroMotionSampleCampaign = {
     title: 'Reels principal - Apartamento com vista livre',
     aspectRatio: '9:16',
     targetDurationSeconds: 30,
-    cuts: [
-      {
-        id: 'cut-vista-livre',
-        label: 'Abertura com vista livre',
-        sourceStartSeconds: 4,
-        sourceEndSeconds: 11,
-        outputStartSeconds: 0,
-        outputEndSeconds: 6,
-        textTags: [
-          {
-            id: 'tag-vista-livre',
-            label: 'VISTA LIVRE',
-            text: 'VISTA LIVRE',
-            startSeconds: 0.4,
-            endSeconds: 3.2,
-            style: 'headline',
-          },
-        ],
-        effects: [
-          {
-            id: 'fx-vista-zoom',
-            kind: 'zoom',
-            targetCutId: 'cut-vista-livre',
-            intensity: 'low',
-            params: { direction: 'in', reason: 'destacar profundidade da vista' },
-          },
-        ],
-      },
-      {
-        id: 'cut-sala-integrada',
-        label: 'Sala integrada',
-        sourceStartSeconds: 14,
-        sourceEndSeconds: 24,
-        outputStartSeconds: 6,
-        outputEndSeconds: 14,
-        textTags: [
-          {
-            id: 'tag-sala-integrada',
-            label: 'SALA INTEGRADA',
-            text: 'SALA INTEGRADA',
-            startSeconds: 6.4,
-            endSeconds: 9.6,
-            style: 'badge',
-          },
-        ],
-        effects: [
-          {
-            id: 'fx-sala-stabilize',
-            kind: 'stabilize',
-            targetCutId: 'cut-sala-integrada',
-            intensity: 'medium',
-          },
-        ],
-      },
-      {
-        id: 'cut-cozinha',
-        label: 'Cozinha planejada',
-        sourceStartSeconds: 29,
-        sourceEndSeconds: 38,
-        outputStartSeconds: 14,
-        outputEndSeconds: 21,
-        textTags: [
-          {
-            id: 'tag-cozinha',
-            label: 'COZINHA',
-            text: 'COZINHA',
-            startSeconds: 14.5,
-            endSeconds: 17.2,
-            style: 'badge',
-          },
-        ],
-        effects: [
-          {
-            id: 'fx-cozinha-color',
-            kind: 'color_grade',
-            targetCutId: 'cut-cozinha',
-            intensity: 'medium',
-            params: { look: 'clean_real_estate' },
-          },
-        ],
-      },
-      {
-        id: 'cut-varanda',
-        label: 'Varanda',
-        sourceStartSeconds: 43,
-        sourceEndSeconds: 53,
-        outputStartSeconds: 21,
-        outputEndSeconds: 27,
-        textTags: [
-          {
-            id: 'tag-varanda',
-            label: 'VARANDA',
-            text: 'VARANDA',
-            startSeconds: 21.2,
-            endSeconds: 24.2,
-            style: 'badge',
-          },
-        ],
-        effects: [
-          {
-            id: 'fx-varanda-speed-ramp',
-            kind: 'speed_ramp',
-            targetCutId: 'cut-varanda',
-            intensity: 'low',
-            params: { pacing: 'reels_dynamic' },
-          },
-        ],
-      },
-      {
-        id: 'cut-cta-final',
-        label: 'Chamada final',
-        sourceStartSeconds: 58,
-        sourceEndSeconds: 64,
-        outputStartSeconds: 27,
-        outputEndSeconds: 30,
-        textTags: [
-          {
-            id: 'tag-agende-sua-visita',
-            label: 'AGENDE SUA VISITA',
-            text: 'AGENDE SUA VISITA',
-            startSeconds: 27,
-            endSeconds: 30,
-            style: 'cta',
-          },
-        ],
-      },
-    ],
+    cuts: studioHeroMotionBrainV2Selection.cuts,
     ctaFinal: {
       text: 'AGENDE SUA VISITA',
       startSeconds: 27,
@@ -252,6 +265,9 @@ export const studioHeroMotionSampleCampaign = {
     phase: 'studio_hero_motion_phase_2',
     originalDurationSeconds: 67,
     estimatedFinalDurationSeconds: 30,
+    brainVersion: 'studio_hero_motion_brain_v2',
+    brainRulesApplied: studioHeroMotionBrainV2Selection.rulesApplied,
+    rejectedMomentIds: studioHeroMotionBrainV2Selection.rejectedMomentIds,
     renderer: 'not_implemented',
   },
 } satisfies StudioHeroBrainSmartMotionContract
