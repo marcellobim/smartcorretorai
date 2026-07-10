@@ -82,6 +82,7 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
         captionsEnabled: true,
       })
     } else {
+      const music = resolveSmartCarouselMusic(commercial.musicStyle)
       const sourcePath = String(contract.video?.storagePath || '')
       const sourceDuration = Number(contract.video?.durationSeconds || 0)
       if (!sourcePath.startsWith(`${job.user_id}/smart-video/`) || sourceDuration <= 0 || sourceDuration > SMART_VIDEO_MAX_DURATION_SECONDS) throw new Error('smart_video_contract_invalid')
@@ -94,7 +95,15 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
         outputPath: outputFile,
         cuts: [{ id: 'source-video', startSeconds: 0, endSeconds: sourceDuration }],
         finishing: {
-          backgroundMusic: { enabled: true, source: 'internal_placeholder', volumeMode: 'auto', volumeLevel: 0.06 },
+          backgroundMusic: music.musicPath ? {
+            enabled: true,
+            source: 'file',
+            filePath: music.musicPath,
+            volumeMode: 'fixed',
+            volumeLevel: 0.28,
+            fadeInSeconds: 1.2,
+            fadeOutSeconds: 2,
+          } : undefined,
           commercialCommunication: {
             enabled: true, renderNow: true,
             dealType: commercial.dealType === 'Locação' ? 'PARA LOCAÇÃO' : 'À VENDA',

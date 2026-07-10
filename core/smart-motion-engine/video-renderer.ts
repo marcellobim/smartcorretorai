@@ -4,6 +4,7 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
+import { buildNormalizedMusicFilter } from './ffmpeg-builder.ts'
 import type {
   StudioHeroBrainSmartMotionContract,
   StudioHeroMotionCommercialCommunicationPlan,
@@ -399,11 +400,15 @@ function buildMusicFinishingArgs(input: {
     args.push('-f', 'lavfi', '-i', buildGeneratedMusicFilter(input.durationSeconds))
   }
 
-  const fadeOutStart = Math.max(0, input.durationSeconds - input.fadeOutSeconds)
   const filters = [
-    `[1:a]volume=${input.musicVolume.toFixed(3)},afade=t=in:st=0:d=${input.fadeInSeconds.toFixed(2)},afade=t=out:st=${fadeOutStart.toFixed(2)}:d=${input.fadeOutSeconds.toFixed(2)}[music]`,
-    `[0:a]volume=1.0[voice]`,
-    '[voice][music]amix=inputs=2:duration=first:dropout_transition=0[aout]',
+    buildNormalizedMusicFilter({
+      durationSeconds: input.durationSeconds,
+      fadeInSeconds: input.fadeInSeconds,
+      fadeOutSeconds: input.fadeOutSeconds,
+      volumeLevel: input.musicVolume,
+    }),
+    `[0:a]volume=1.0,aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[voice]`,
+    `[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,atrim=0:${input.durationSeconds.toFixed(3)},asetpts=N/SR/TB[aout]`,
   ]
 
   args.push(
@@ -413,6 +418,9 @@ function buildMusicFinishingArgs(input: {
     '-c:v', 'copy',
     '-c:a', 'aac',
     '-b:a', '128k',
+    '-ar', '48000',
+    '-ac', '2',
+    '-t', input.durationSeconds.toFixed(3),
     '-shortest',
     '-movflags', '+faststart',
     input.outputFile,

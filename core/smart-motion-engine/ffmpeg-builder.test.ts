@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildMusicArgs } from './ffmpeg-builder.ts'
+import { buildMusicArgs, buildNormalizedMusicFilter } from './ffmpeg-builder.ts'
 
 test('merge musical exporta AAC 48 kHz estéreo com duração e fades', () => {
   const args = buildMusicArgs({
@@ -21,4 +21,19 @@ test('merge musical exporta AAC 48 kHz estéreo com duração e fades', () => {
   assert.match(filter, /afade=t=in:st=0:d=1\.200/)
   assert.match(filter, /afade=t=out:st=27\.500:d=2\.000/)
   assert.match(filter, /aformat=sample_rates=48000:channel_layouts=stereo/)
+})
+
+test('filtro musical compartilhado aplica volume sem duplicar normalização e fades', () => {
+  const filter = buildNormalizedMusicFilter({
+    durationSeconds: 12,
+    fadeInSeconds: 1.2,
+    fadeOutSeconds: 2,
+    volumeLevel: 0.28,
+  })
+  assert.match(filter, /^\[1:a\]/)
+  assert.match(filter, /loudnorm=I=-23:LRA=7:TP=-2/)
+  assert.match(filter, /volume=0\.280/)
+  assert.match(filter, /afade=t=in:st=0:d=1\.200/)
+  assert.match(filter, /afade=t=out:st=10\.000:d=2\.000/)
+  assert.match(filter, /\[music\]$/)
 })

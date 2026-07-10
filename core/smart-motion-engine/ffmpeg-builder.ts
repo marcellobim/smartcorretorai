@@ -104,6 +104,34 @@ export function buildCrossfadeArgs(input: {
   return args
 }
 
+export function buildNormalizedMusicFilter(input: {
+  inputLabel?: string
+  outputLabel?: string
+  durationSeconds: number
+  fadeInSeconds?: number
+  fadeOutSeconds?: number
+  volumeLevel?: number
+}) {
+  const duration = Math.max(0.1, input.durationSeconds)
+  const fadeInSeconds = Math.min(Math.max(0, input.fadeInSeconds ?? 1.2), duration / 4)
+  const fadeOutSeconds = Math.min(Math.max(0, input.fadeOutSeconds ?? 2), duration / 3)
+  const fadeOutStart = Math.max(0, duration - fadeOutSeconds)
+  const volumeLevel = Math.min(1, Math.max(0, input.volumeLevel ?? 1))
+  const inputLabel = input.inputLabel || '1:a'
+  const outputLabel = input.outputLabel || 'music'
+  const audioFilter = [
+    `atrim=0:${duration.toFixed(3)}`,
+    'asetpts=N/SR/TB',
+    'loudnorm=I=-23:LRA=7:TP=-2',
+    `volume=${volumeLevel.toFixed(3)}`,
+    `afade=t=in:st=0:d=${fadeInSeconds.toFixed(3)}`,
+    `afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOutSeconds.toFixed(3)}`,
+    'aresample=48000',
+    'aformat=sample_rates=48000:channel_layouts=stereo',
+  ].join(',')
+  return `[${inputLabel}]${audioFilter}[${outputLabel}]`
+}
+
 export function buildMusicArgs(input: {
   videoFile: string
   musicFile: string
@@ -111,25 +139,14 @@ export function buildMusicArgs(input: {
   durationSeconds: number
 }): string[] {
   const duration = Math.max(0.1, input.durationSeconds)
-  const fadeInSeconds = Math.min(1.2, duration / 4)
-  const fadeOutSeconds = Math.min(2, duration / 3)
-  const fadeOutStart = Math.max(0, duration - fadeOutSeconds)
-  const audioFilter = [
-    `atrim=0:${duration.toFixed(3)}`,
-    'asetpts=N/SR/TB',
-    'loudnorm=I=-23:LRA=7:TP=-2',
-    `afade=t=in:st=0:d=${fadeInSeconds.toFixed(3)}`,
-    `afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOutSeconds.toFixed(3)}`,
-    'aresample=48000',
-    'aformat=sample_rates=48000:channel_layouts=stereo',
-  ].join(',')
+  const audioFilter = buildNormalizedMusicFilter({ durationSeconds: duration, outputLabel: 'aout' })
 
   return [
     '-y',
     '-i', input.videoFile,
     '-stream_loop', '-1',
     '-i', input.musicFile,
-    '-filter_complex', `[1:a]${audioFilter}[aout]`,
+    '-filter_complex', audioFilter,
     '-map', '0:v:0',
     '-map', '[aout]',
     '-c:v', 'copy',
