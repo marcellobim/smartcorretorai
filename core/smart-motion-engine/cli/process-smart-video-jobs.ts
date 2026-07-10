@@ -2,11 +2,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { renderSmartMotionMainReel } from '../video-renderer.ts'
+import { renderSmartMotion } from '../renderer.ts'
 
 const url = String(process.env.SUPABASE_URL || '').replace(/\/$/, '')
 const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '')
 const bucket = 'studio-videos'
 const SMART_VIDEO_MAX_DURATION_SECONDS = 195
+const SMART_CAROUSEL_MAX_IMAGES = 20
 if (!url || !serviceKey) throw new Error('SUPABASE_URL_and_SUPABASE_SERVICE_ROLE_KEY_required')
 
 const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
@@ -25,7 +27,7 @@ async function updateJob(id: string, values: Record<string, unknown>) {
 }
 
 async function processNextJob() {
-  const response = await rest('video_jobs?mode=eq.smart_video&status=eq.queued&order=created_at.asc&limit=1&select=*')
+  const response = await rest('video_jobs?mode=in.(smart_video,smart_carousel)&status=eq.queued&order=created_at.asc&limit=1&select=*')
   const [job] = await response.json() as Array<Record<string, any>>
   if (!job) return { processed: false }
 
@@ -33,39 +35,60 @@ async function processNextJob() {
   try {
     await updateJob(job.id, { status: 'processing', error_message: null })
     const contract = JSON.parse(String(job.prompt_final || '{}'))
-    const sourcePath = String(contract.video?.storagePath || '')
-    const sourceDuration = Number(contract.video?.durationSeconds || 0)
-    if (!sourcePath.startsWith(`${job.user_id}/smart-video/`) || sourceDuration <= 0 || sourceDuration > SMART_VIDEO_MAX_DURATION_SECONDS) {
-      throw new Error('smart_video_contract_invalid')
-    }
-
-    const sourceResponse = await fetch(`${url}/storage/v1/object/authenticated/${bucket}/${sourcePath.split('/').map(encodeURIComponent).join('/')}`, { headers })
-    if (!sourceResponse.ok) throw new Error(`source_download_failed:${sourceResponse.status}`)
-    const sourceFile = path.join(workDir, `source.${sourcePath.split('.').pop() || 'mp4'}`)
-    fs.writeFileSync(sourceFile, Buffer.from(await sourceResponse.arrayBuffer()))
-
     const outputFile = path.join(workDir, 'smart-video.mp4')
     const commercial = contract.commercialCommunication || {}
     await updateJob(job.id, { status: 'rendering' })
-    await renderSmartMotionMainReel({
-      sourceVideoPath: sourceFile,
-      outputPath: outputFile,
-      cuts: [{ id: 'source-video', startSeconds: 0, endSeconds: sourceDuration }],
-      finishing: {
-        backgroundMusic: { enabled: true, source: 'internal_placeholder', volumeMode: 'auto', volumeLevel: 0.06 },
-        commercialCommunication: {
-          enabled: true,
-          renderNow: true,
-          dealType: commercial.dealType === 'Locação' ? 'PARA LOCAÇÃO' : 'À VENDA',
-          propertyType: String(commercial.propertyType || 'Imóvel'),
-          highlights: Array.isArray(commercial.highlights) ? commercial.highlights.slice(0, 3) : [],
-          cta: String(commercial.cta || 'Entre em contato'),
-          phone: commercial.phone ? String(commercial.phone) : undefined,
-        },
-      },
-    })
 
-    const outputPath = `${job.user_id}/smart-video/${job.id}/final.mp4`
+    if (job.mode === 'smart_carousel') {
+      const images = Array.isArray(contract.images) ? contract.images : []
+      if (images.length < 1 || images.length > SMART_CAROUSEL_MAX_IMAGES || images[0]?.isCover !== true) throw new Error('smart_carousel_contract_invalid')
+      const imageFiles: string[] = []
+      for (const [index, image] of images.entries()) {
+        const storagePath = String(image.storagePath || '')
+        if (!storagePath.startsWith(`${job.user_id}/super-carrossel/`) || Number(image.order) !== index) throw new Error('smart_carousel_image_invalid')
+        const sourceResponse = await fetch(`${url}/storage/v1/object/authenticated/${bucket}/${storagePath.split('/').map(encodeURIComponent).join('/')}`, { headers })
+        if (!sourceResponse.ok) throw new Error(`source_download_failed:${sourceResponse.status}`)
+        const imageFile = path.join(workDir, `image-${String(index + 1).padStart(2, '0')}.${storagePath.split('.').pop() || 'jpg'}`)
+        fs.writeFileSync(imageFile, Buffer.from(await sourceResponse.arrayBuffer()))
+        imageFiles.push(imageFile)
+      }
+      await renderSmartMotion({
+        outputType: 'motion_video',
+        visualModelId: commercial.objective === 'Locação' ? 'rental_direct' : 'clean_showcase',
+        scenes: imageFiles.map((imagePath, index) => ({ imagePath, caption: commercial.highlights?.[index] || '' })),
+        outputPath: outputFile,
+        cta: String(commercial.cta || 'Entre em contato'),
+        ctaEnabled: true,
+        captionsEnabled: true,
+      })
+    } else {
+      const sourcePath = String(contract.video?.storagePath || '')
+      const sourceDuration = Number(contract.video?.durationSeconds || 0)
+      if (!sourcePath.startsWith(`${job.user_id}/smart-video/`) || sourceDuration <= 0 || sourceDuration > SMART_VIDEO_MAX_DURATION_SECONDS) throw new Error('smart_video_contract_invalid')
+      const sourceResponse = await fetch(`${url}/storage/v1/object/authenticated/${bucket}/${sourcePath.split('/').map(encodeURIComponent).join('/')}`, { headers })
+      if (!sourceResponse.ok) throw new Error(`source_download_failed:${sourceResponse.status}`)
+      const sourceFile = path.join(workDir, `source.${sourcePath.split('.').pop() || 'mp4'}`)
+      fs.writeFileSync(sourceFile, Buffer.from(await sourceResponse.arrayBuffer()))
+      await renderSmartMotionMainReel({
+        sourceVideoPath: sourceFile,
+        outputPath: outputFile,
+        cuts: [{ id: 'source-video', startSeconds: 0, endSeconds: sourceDuration }],
+        finishing: {
+          backgroundMusic: { enabled: true, source: 'internal_placeholder', volumeMode: 'auto', volumeLevel: 0.06 },
+          commercialCommunication: {
+            enabled: true, renderNow: true,
+            dealType: commercial.dealType === 'Locação' ? 'PARA LOCAÇÃO' : 'À VENDA',
+            propertyType: String(commercial.propertyType || 'Imóvel'),
+            highlights: Array.isArray(commercial.highlights) ? commercial.highlights.slice(0, 3) : [],
+            cta: String(commercial.cta || 'Entre em contato'),
+            phone: commercial.phone ? String(commercial.phone) : undefined,
+          },
+        },
+      })
+    }
+
+    const outputFolder = job.mode === 'smart_carousel' ? 'super-carrossel' : 'smart-video'
+    const outputPath = `${job.user_id}/${outputFolder}/${job.id}/final.mp4`
     const uploadResponse = await fetch(`${url}/storage/v1/object/${bucket}/${outputPath.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'video/mp4', 'x-upsert': 'true' },

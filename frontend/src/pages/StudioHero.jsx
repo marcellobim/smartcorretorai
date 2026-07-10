@@ -3133,7 +3133,10 @@ function orderSmartCarouselImages(images) {
 
 function buildSmartCarouselPayload(answers) {
   return {
-    mode: 'studio_hero_image_to_video',
+    schemaVersion: 'smart_carousel_input_v1',
+    mode: 'smart_carousel',
+    storageBucket: BUCKET,
+    totalImages: answers.images.length,
     images: answers.images.map((image, index) => ({
       id: image.id,
       fileName: image.file.name,
@@ -3141,6 +3144,9 @@ function buildSmartCarouselPayload(answers) {
       mimeType: image.file.type || getSmartCarouselFileExtension(image.file.name),
       order: index,
       isCover: image.isCover,
+      storageBucket: image.storageBucket,
+      storagePath: image.storagePath,
+      status: image.status,
     })),
     commercialCommunication: {
       objective: answers.objective,
@@ -3156,10 +3162,17 @@ function buildSmartCarouselPayload(answers) {
       phone: answers.phone.masked || null,
       phoneNormalized: answers.phone.normalized || null,
     },
+    review: {
+      confirmedAt: new Date().toISOString(),
+      imageCount: answers.images.length,
+      coverImageId: answers.images[0]?.id || null,
+      highlightsCount: answers.highlights.length,
+    },
   }
 }
 
 function StudioHeroImageToVideoMode({ onBack }) {
+  const { user, accessToken } = useAuth()
   const [phase, setPhase] = useState('intro')
   const [answers, setAnswers] = useState(smartCarouselInitialAnswers)
   const [chatIndex, setChatIndex] = useState(0)
@@ -3173,6 +3186,10 @@ function StudioHeroImageToVideoMode({ onBack }) {
   const [generationNotice, setGenerationNotice] = useState('')
   const fileInputRef = useRef(null)
   const imagesRef = useRef([])
+  const pollTimerRef = useRef(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [job, setJob] = useState({ id: '', status: 'idle', message: '', videoUrl: '', error: '' })
 
   const currentQuestion = SMART_CAROUSEL_QUESTIONS[chatIndex]
   const progress = phase === 'review'
@@ -3186,6 +3203,7 @@ function StudioHeroImageToVideoMode({ onBack }) {
 
   useEffect(() => () => {
     imagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
   }, [])
 
   const startChat = () => {
@@ -3306,15 +3324,20 @@ function StudioHeroImageToVideoMode({ onBack }) {
       const nextImages = [...current.images]
       const [image] = nextImages.splice(index, 1)
       nextImages.splice(nextIndex, 0, image)
-      return { ...current, images: orderSmartCarouselImages(nextImages) }
+      return {
+        ...current,
+        images: orderSmartCarouselImages(nextImages).map((item, itemIndex) => ({ ...item, isCover: itemIndex === 0 })),
+      }
     })
   }
 
   const setCoverImage = (imageId) => {
-    setAnswers((current) => ({
-      ...current,
-      images: current.images.map((image) => ({ ...image, isCover: image.id === imageId })),
-    }))
+    setAnswers((current) => {
+      const selected = current.images.find((image) => image.id === imageId)
+      if (!selected) return current
+      const ordered = [selected, ...current.images.filter((image) => image.id !== imageId)]
+      return { ...current, images: ordered.map((image, index) => ({ ...image, order: index, isCover: index === 0 })) }
+    })
   }
 
   const submitImages = () => {
@@ -3368,14 +3391,63 @@ function StudioHeroImageToVideoMode({ onBack }) {
     return payload
   }
 
-  const handleGenerate = () => {
-    const payload = validateSmartCarouselData()
-    if (!payload) return
-    if (import.meta.env.DEV) {
-      console.info('Super Carrossel pronto para a próxima etapa:', payload)
+  const pollCarouselJob = async (jobId) => {
+    try {
+      const result = await invokeStudioFunction('get-video-job-status', { jobId })
+      const data = result.body || {}
+      if (!result.ok || data.ok === false) throw new Error(data.error || 'Falha ao consultar o Super Carrossel.')
+      if (data.status === 'completed' && data.signedVideoUrl) {
+        setJob({ id: jobId, status: 'completed', message: 'Seu Super Carrossel está pronto.', videoUrl: data.signedVideoUrl, error: '' })
+        return
+      }
+      if (data.status === 'failed') {
+        setJob({ id: jobId, status: 'failed', message: '', videoUrl: '', error: data.error || 'Não foi possível concluir o Super Carrossel.' })
+        return
+      }
+      setJob((current) => ({ ...current, status: data.status || 'processing', message: data.message || 'Preparando o Super Carrossel.' }))
+      pollTimerRef.current = setTimeout(() => pollCarouselJob(jobId), 7000)
+    } catch (error) {
+      setJob({ id: jobId, status: 'failed', message: '', videoUrl: '', error: error instanceof Error ? error.message : 'Falha ao consultar o Super Carrossel.' })
     }
-    setGenerationNotice('Tudo pronto! O Super Carrossel será exibido aqui após a geração.')
-    setPhase('result')
+  }
+
+  const handleGenerate = async () => {
+    if (!validateSmartCarouselData()) return
+    if (!user?.id || !accessToken) {
+      setReviewError('Sua sessão expirou. Faça login novamente.')
+      return
+    }
+    setIsUploading(true)
+    setUploadProgress(0)
+    try {
+      const uploadedImages = []
+      for (const [index, image] of answers.images.entries()) {
+        const extension = getSmartCarouselFileExtension(image.file.name) || 'jpg'
+        const storagePath = `${user.id}/super-carrossel/${image.id}/source.${extension}`
+        const { error } = await supabase.storage.from(BUCKET).upload(storagePath, image.file, {
+          contentType: image.file.type,
+          upsert: true,
+        })
+        if (error) throw new Error(`Falha ao enviar a imagem ${index + 1}: ${error.message}`)
+        uploadedImages.push({ ...image, order: index, isCover: index === 0, storageBucket: BUCKET, storagePath, status: 'uploaded' })
+        setUploadProgress(Math.round(((index + 1) / answers.images.length) * 100))
+      }
+      const nextAnswers = { ...answers, images: uploadedImages }
+      setAnswers(nextAnswers)
+      setJob({ id: '', status: 'queued', message: 'Enviando para processamento.', videoUrl: '', error: '' })
+      setGenerationNotice('Seu Super Carrossel entrou na fila de processamento.')
+      setPhase('result')
+      const result = await invokeStudioFunction('create-smart-video-job', buildSmartCarouselPayload(nextAnswers))
+      if (!result.ok || result.body?.ok === false) throw new Error(result.body?.error || 'Não foi possível criar o job.')
+      const jobId = result.body.jobId
+      setJob({ id: jobId, status: 'queued', message: 'Super Carrossel na fila de processamento.', videoUrl: '', error: '' })
+      pollTimerRef.current = setTimeout(() => pollCarouselJob(jobId), 1000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível iniciar o Super Carrossel.'
+      setJob({ id: '', status: 'failed', message: '', videoUrl: '', error: message })
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const formatAnswer = (question) => {
@@ -3710,9 +3782,9 @@ function StudioHeroImageToVideoMode({ onBack }) {
                   <RotateCcw className="h-4 w-4" />
                   Editar informações
                 </Button>
-                <Button type="button" onClick={handleGenerate}>
+                <Button type="button" onClick={handleGenerate} disabled={isUploading}>
                   <PlayCircle className="h-4 w-4" />
-                  Gerar Super Carrossel
+                  {isUploading ? `Enviando imagens ${uploadProgress}%` : 'Gerar Super Carrossel'}
                 </Button>
               </div>
             </div>
@@ -3746,17 +3818,20 @@ function StudioHeroImageToVideoMode({ onBack }) {
                 <div className="mx-auto w-full max-w-[320px] rounded-[2.25rem] border border-slate-200 bg-slate-950 p-2.5 shadow-xl shadow-slate-200/80">
                   <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.65rem] bg-gradient-to-br from-slate-100 via-white to-primary-50">
                     <div className="absolute left-1/2 top-2 h-1.5 w-16 -translate-x-1/2 rounded-full bg-slate-300/80" />
-                    <div className="px-8 text-center">
+                    {job.videoUrl ? (
+                      <video src={job.videoUrl} controls playsInline className="h-full w-full bg-black object-contain" />
+                    ) : <div className="px-8 text-center">
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-primary-800 shadow-sm ring-1 ring-blue-100">
                         <ImagePlus className="h-7 w-7" />
                       </div>
                       <p className="mt-5 text-base font-black leading-snug text-slate-950">
-                        Seu Super Carrossel aparecerá aqui após a geração.
+                        {job.status === 'failed' ? 'Não foi possível concluir' : job.message || 'Seu Super Carrossel aparecerá aqui após a geração.'}
                       </p>
                       <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-500">
-                        A entrega final usará as imagens em formato vertical, com música, comunicação comercial e CTA.
+                        {job.error || 'A entrega final usará as imagens em formato vertical, com comunicação comercial e CTA.'}
                       </p>
-                    </div>
+                      {['queued', 'processing', 'rendering'].includes(job.status) && <div className="mx-auto mt-5 h-2 w-40 overflow-hidden rounded-full bg-slate-200"><div className="h-full w-2/3 animate-pulse rounded-full bg-primary-700" /></div>}
+                    </div>}
                   </div>
                 </div>
 
@@ -3775,7 +3850,7 @@ function StudioHeroImageToVideoMode({ onBack }) {
                     <SmartCarouselInfoPill label="CTA" value={answers.cta || 'Não informado'} />
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button type="button" disabled className="cursor-not-allowed">
+                    <Button type="button" disabled={!job.videoUrl} onClick={() => job.videoUrl && window.open(job.videoUrl, '_blank', 'noopener,noreferrer')} className={!job.videoUrl ? 'cursor-not-allowed' : ''}>
                       <Download className="h-4 w-4" />
                       Baixar vídeo
                     </Button>

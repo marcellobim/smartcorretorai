@@ -182,12 +182,10 @@ serve(async (req) => {
       })
     }
 
-    if (job.mode === 'smart_video' && ['queued', 'processing', 'rendering'].includes(job.status)) {
-      const messages: Record<string, string> = {
-        queued: 'Video na fila de processamento.',
-        processing: 'Preparando o video original.',
-        rendering: 'Finalizando o Smart Video.',
-      }
+    if (['smart_video', 'smart_carousel'].includes(job.mode) && ['queued', 'processing', 'rendering'].includes(job.status)) {
+      const smartVideoMessages: Record<string, string> = { queued: 'Video na fila de processamento.', processing: 'Preparando o video original.', rendering: 'Finalizando o Smart Video.' }
+      const carouselMessages: Record<string, string> = { queued: 'Super Carrossel na fila de processamento.', processing: 'Preparando as imagens.', rendering: 'Montando o Super Carrossel.' }
+      const messages = job.mode === 'smart_carousel' ? carouselMessages : smartVideoMessages
       return jsonResponse({
         ok: true,
         status: job.status,
