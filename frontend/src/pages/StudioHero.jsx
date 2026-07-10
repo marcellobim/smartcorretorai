@@ -3440,6 +3440,17 @@ function StudioHeroImageToVideoMode({ onBack }) {
       const result = await invokeStudioFunction('create-smart-video-job', buildSmartCarouselPayload(nextAnswers))
       if (!result.ok || result.body?.ok === false) throw new Error(result.body?.error || 'Não foi possível criar o job.')
       const jobId = result.body.jobId
+      if (IS_DEV) {
+        void fetch('http://127.0.0.1:43129/smart-media/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId, accessToken }),
+        }).catch((error) => {
+          logStudioHero('warn', 'smart_media_local_bridge_unavailable', {
+            message: error instanceof Error ? error.message : String(error),
+          })
+        })
+      }
       setJob({ id: jobId, status: 'queued', message: 'Super Carrossel na fila de processamento.', videoUrl: '', error: '' })
       pollTimerRef.current = setTimeout(() => pollCarouselJob(jobId), 1000)
     } catch (error) {
