@@ -1,0 +1,16 @@
+project_id = "sfbowejaevlmhcvsxhbk"
+
+[functions.gerar-campanha]
+verify_jwt = false
+
+[functions.get-render-status]
+verify_jwt = false
+
+[functions.gerar-hero-ia]
+verify_jwt = false
+
+[functions.criar-video-ia]
+verify_jwt = false
+
+[functions.get-video-job-status]
+verify_jwt = false

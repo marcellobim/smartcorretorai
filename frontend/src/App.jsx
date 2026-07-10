@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import Hero from './pages/Hero'
 import HeroNext from './pages/HeroNext'
 import TransformarVideo from './pages/TransformarVideo'
+import SmartVideo from './pages/SmartVideo'
 import StudioHero from './pages/StudioHero'
 import NovaCompanha from './pages/NovaCampanha'
 import MeusImoveis from './pages/MeusImoveis'
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/hero-legacy" element={<Hero />} />
         <Route path="/studio-hero" element={<StudioHero />} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
+        <Route path="/smart-video" element={<SmartVideo />} />
         <Route path="/nova-campanha" element={<NovaCompanha />} />
         <Route path="/meus-imoveis" element={<MeusImoveis />} />
         <Route path="/pacotes-gerados" element={<PacotesGerados />} />

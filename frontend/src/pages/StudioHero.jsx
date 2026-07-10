@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
   CheckCircle2,
   Download,
   Film,
@@ -9,14 +12,16 @@ import {
   Pencil,
   PlayCircle,
   RotateCcw,
+  Send,
   ShieldCheck,
+  Sparkles,
   UploadCloud,
+  X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 import { buildPublicationPackage } from '../../../core/copy-engine'
-import { studioHeroMotionSampleCampaign } from '../../../core/smart-motion-engine/studio-hero-motion'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
@@ -126,14 +131,14 @@ const STUDIO_CREATION_MODES = [
     cta: 'Animar imagens',
   },
   {
-    id: 'studio_hero_motion_video',
-    title: 'Transforme seu Vídeo',
-    description: 'Envie um video gravado no celular e prepare uma versao mais profissional para divulgar.',
+    id: 'studio_hero_image_to_video',
+    title: 'Super Carrossel Inteligente',
+    description: 'Crie um vídeo profissional a partir das imagens do imóvel. Envie suas fotos e o Smart organiza o ritmo, os movimentos, as transições, a música e a comunicação comercial.',
     status: 'Novo',
     Icon: PlayCircle,
     active: true,
     accent: 'amber',
-    cta: 'Transformar video',
+    cta: 'Criar super carrossel',
   },
 ]
 
@@ -216,19 +221,20 @@ const STUDIO_MODE_EXAMPLES = [
     ],
   },
   {
-    id: 'studio_hero_motion_video',
-    title: '🎥 Finalizar meu Vídeo',
-    label: 'Acabamento final',
+    id: 'studio_hero_image_to_video',
+    title: 'Super Carrossel Inteligente',
+    label: 'IMAGENS PARA VÍDEO',
     accent: 'amber',
     send: [
-      '🎥 Seu vídeo',
+      'Imagens do imóvel',
     ],
     receive: [
-      '✨ Acabamento profissional',
-      '🎨 Identidade visual',
-      '🎵 Música',
-      '📢 Chamada final para divulgação',
-      '📦 Campanha pronta para publicar',
+      'Vídeo vertical pronto para divulgação',
+      'Movimentos e transições inteligentes',
+      'Música',
+      'Comunicação comercial',
+      'CTA final',
+      'Campanha pronta para publicar',
     ],
   },
 ]
@@ -301,11 +307,11 @@ const STUDIO_GUIDE_ITEMS_BY_MODE = {
     'Montar uma apresentação dinâmica',
     'Entregar vídeo, chamada final e textos prontos para divulgação',
   ],
-  studio_hero_motion_video: [
-    'Selecionar os melhores momentos do vídeo',
-    'Criar reels principal e smart clips',
-    'Preparar textos para divulgação',
-    'Entregar a campanha pronta para publicar',
+  studio_hero_image_to_video: [
+    'Organizar as imagens do imóvel',
+    'Criar ritmo, movimentos e transições',
+    'Adicionar música e comunicação comercial',
+    'Entregar vídeo vertical, CTA final e campanha pronta para publicar',
   ],
 }
 
@@ -1268,7 +1274,7 @@ export default function StudioHero() {
   const isFreeAiMode = studioMode === 'free_ai'
   const isAnimationPremiumMode = studioMode === 'smart_carousel'
   const isMultiImageTourMode = studioMode === 'multi_image_tour'
-  const isMotionVideoMode = studioMode === 'studio_hero_motion_video'
+  const isImageToVideoMode = studioMode === 'studio_hero_image_to_video'
   const studioCreationModes = getStudioCreationModes()
   const studioModeExamples = getStudioModeExamples()
   const guideItems = STUDIO_GUIDE_ITEMS_BY_MODE[studioMode] || STUDIO_GUIDE_ITEMS_BY_MODE.cinematic
@@ -1970,7 +1976,7 @@ export default function StudioHero() {
                   Seu estudio inteligente de criacao de videos imobiliarios.
                 </p>
                 <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
-                  Crie comerciais cinematograficos, apresentacoes profissionais ou melhore videos gravados em poucos minutos com IA.
+                  Crie comerciais cinematograficos, apresentacoes profissionais e videos inteligentes com suas imagens.
                 </p>
               </div>
               <div className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur">
@@ -1980,7 +1986,7 @@ export default function StudioHero() {
                     'Comerciais cinematograficos',
                     'Comerciais criados apenas com IA',
                     'Carrosseis inteligentes',
-                    'Melhoria automatica de videos',
+                    'Videos inteligentes com suas imagens',
                     'Novos modos chegando',
                   ].map((item) => (
                     <li key={item} className="flex items-center gap-3">
@@ -2112,9 +2118,9 @@ export default function StudioHero() {
     )
   }
 
-  if (isMotionVideoMode) {
+  if (isImageToVideoMode) {
     return (
-      <StudioHeroMotionVideoMode
+      <StudioHeroImageToVideoMode
         onBack={() => {
           setStudioMode('')
           setModeNotice('')
@@ -2985,294 +2991,962 @@ export default function StudioHero() {
   )
 }
 
-function StudioHeroMotionVideoMode({ onBack }) {
-  const transformTimerRef = useRef(null)
-  const [videoFile, setVideoFile] = useState(null)
-  const [transformStatus, setTransformStatus] = useState('idle')
-  const [campaignDelivery, setCampaignDelivery] = useState(null)
+const SMART_CAROUSEL_MAX_IMAGES = 20
+const SMART_CAROUSEL_MAX_HIGHLIGHTS = 3
+const SMART_CAROUSEL_ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png']
+const SMART_CAROUSEL_ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png']
+const SMART_CAROUSEL_GOALS = ['Venda', 'Locação']
+const SMART_CAROUSEL_PROPERTY_TYPES = [
+  'Apartamento',
+  'Casa',
+  'Casa em condomínio',
+  'Sala comercial',
+  'Laje corporativa',
+  'Loja',
+  'Terreno',
+  'Chácara / Sítio',
+]
+const SMART_CAROUSEL_UF_OPTIONS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
+const SMART_CAROUSEL_BEDROOM_OPTIONS = ['1', '2', '3', '4', '5+']
+const SMART_CAROUSEL_SUITE_OPTIONS = ['Sem suíte', '1', '2', '3', '4+']
+const SMART_CAROUSEL_PARKING_OPTIONS = ['Sem vaga', '1', '2', '3', '4+']
+const SMART_CAROUSEL_HIGHLIGHT_OPTIONS = [
+  'Vista livre',
+  'Varanda gourmet',
+  'Lazer completo',
+  'Piscina',
+  'Churrasqueira',
+  'Próximo ao metrô',
+  'Reformado',
+  'Mobiliado',
+  'Pronto para morar',
+  'Aceita financiamento',
+  'Alto padrão',
+  'Condomínio completo',
+]
+const SMART_CAROUSEL_MUSIC_OPTIONS = ['Moderna', 'Calma', 'Sofisticada', 'Animada', 'Instrumental']
+const SMART_CAROUSEL_CTA_OPTIONS = [
+  'Agende sua visita',
+  'Fale comigo',
+  'Entre em contato',
+  'Chame no WhatsApp',
+  'Conheça este imóvel',
+  'Solicite mais informações',
+]
+const SMART_CAROUSEL_QUESTIONS = [
+  { id: 'images', question: 'Envie as imagens do imóvel', type: 'images' },
+  { id: 'objective', question: 'Este imóvel é para:', type: 'chips', options: SMART_CAROUSEL_GOALS },
+  { id: 'propertyType', question: 'Qual é o tipo do imóvel?', type: 'chips', options: SMART_CAROUSEL_PROPERTY_TYPES },
+  { id: 'location', question: 'Onde está localizado o imóvel?', type: 'location' },
+  { id: 'features', question: 'Selecione as características do imóvel.', type: 'features' },
+  { id: 'highlights', question: 'Quais destaques deseja mostrar no vídeo?', type: 'highlights' },
+  { id: 'musicStyle', question: 'Qual estilo de música combina com este imóvel?', type: 'chips', options: SMART_CAROUSEL_MUSIC_OPTIONS },
+  { id: 'cta', question: 'Como deseja encerrar o vídeo?', type: 'chips', options: SMART_CAROUSEL_CTA_OPTIONS },
+  { id: 'phone', question: 'Deseja mostrar um telefone no final do vídeo?', type: 'phone' },
+]
 
-  const isTransforming = transformStatus === 'transforming'
-  const hasVideoFile = Boolean(videoFile)
+const smartCarouselInitialAnswers = {
+  images: [],
+  objective: '',
+  propertyType: '',
+  location: { uf: '', neighborhood: '' },
+  features: { bedrooms: '', suites: '', parking: '' },
+  highlights: [],
+  musicStyle: '',
+  cta: '',
+  phone: { masked: '', normalized: '' },
+}
+
+function getSmartCarouselFileExtension(fileName) {
+  return fileName.split('.').pop()?.toLowerCase() || ''
+}
+
+function isSmartCarouselAllowedImage(file) {
+  return SMART_CAROUSEL_ALLOWED_IMAGE_TYPES.includes(file.type)
+    || SMART_CAROUSEL_ALLOWED_EXTENSIONS.includes(getSmartCarouselFileExtension(file.name))
+}
+
+function createSmartCarouselImage(file, index) {
+  return {
+    id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${index}-${file.name}`,
+    file,
+    previewUrl: URL.createObjectURL(file),
+    order: index,
+    isCover: index === 0,
+  }
+}
+
+function normalizeSmartCarouselNeighborhood(value) {
+  return value.replace(/\s+/g, ' ').replace(/^\s+/, '')
+}
+
+function formatSmartCarouselNeighborhood(value) {
+  return normalizeSmartCarouselNeighborhood(value)
+    .trim()
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.length <= 2 ? word : `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(' ')
+}
+
+function formatSmartCarouselFileSize(bytes) {
+  if (!bytes) return '0 MB'
+  const mb = bytes / (1024 * 1024)
+  return `${mb.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`
+}
+
+function formatSmartCarouselPhone(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 2) return digits ? `(${digits}` : ''
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
+function formatSmartCarouselBedroomLabel(value) {
+  if (value === '1') return '1 dormitório'
+  if (value === '5+') return '5 ou mais dormitórios'
+  return value ? `${value} dormitórios` : ''
+}
+
+function formatSmartCarouselSuiteLabel(value) {
+  if (value === 'Sem suíte') return value
+  if (value === '1') return '1 suíte'
+  if (value === '4+') return '4 ou mais suítes'
+  return value ? `${value} suítes` : ''
+}
+
+function formatSmartCarouselParkingLabel(value) {
+  if (value === 'Sem vaga') return value
+  if (value === '1') return '1 vaga'
+  if (value === '4+') return '4 ou mais vagas'
+  return value ? `${value} vagas` : ''
+}
+
+function orderSmartCarouselImages(images) {
+  return images.map((image, index) => ({ ...image, order: index }))
+}
+
+function buildSmartCarouselPayload(answers) {
+  return {
+    mode: 'studio_hero_image_to_video',
+    images: answers.images.map((image, index) => ({
+      id: image.id,
+      fileName: image.file.name,
+      sizeBytes: image.file.size,
+      mimeType: image.file.type || getSmartCarouselFileExtension(image.file.name),
+      order: index,
+      isCover: image.isCover,
+    })),
+    commercialCommunication: {
+      objective: answers.objective,
+      propertyType: answers.propertyType,
+      uf: answers.location.uf,
+      neighborhood: formatSmartCarouselNeighborhood(answers.location.neighborhood),
+      bedrooms: answers.features.bedrooms,
+      suites: answers.features.suites,
+      parking: answers.features.parking,
+      highlights: answers.highlights,
+      musicStyle: answers.musicStyle,
+      cta: answers.cta,
+      phone: answers.phone.masked || null,
+      phoneNormalized: answers.phone.normalized || null,
+    },
+  }
+}
+
+function StudioHeroImageToVideoMode({ onBack }) {
+  const [phase, setPhase] = useState('intro')
+  const [answers, setAnswers] = useState(smartCarouselInitialAnswers)
+  const [chatIndex, setChatIndex] = useState(0)
+  const [imageError, setImageError] = useState('')
+  const [locationDraft, setLocationDraft] = useState(smartCarouselInitialAnswers.location)
+  const [featureDraft, setFeatureDraft] = useState(smartCarouselInitialAnswers.features)
+  const [highlightDraft, setHighlightDraft] = useState([])
+  const [highlightNotice, setHighlightNotice] = useState('')
+  const [phoneDraft, setPhoneDraft] = useState(smartCarouselInitialAnswers.phone)
+  const [reviewError, setReviewError] = useState('')
+  const [generationNotice, setGenerationNotice] = useState('')
+  const fileInputRef = useRef(null)
+  const imagesRef = useRef([])
+
+  const currentQuestion = SMART_CAROUSEL_QUESTIONS[chatIndex]
+  const progress = phase === 'review'
+    ? 100
+    : Math.round(((chatIndex + (phase === 'chat' ? 1 : 0)) / (SMART_CAROUSEL_QUESTIONS.length + 1)) * 100)
+  const coverImage = answers.images.find((image) => image.isCover) || answers.images[0] || null
+
+  useEffect(() => {
+    imagesRef.current = answers.images
+  }, [answers.images])
 
   useEffect(() => () => {
-    if (transformTimerRef.current) {
-      window.clearTimeout(transformTimerRef.current)
-    }
+    imagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
   }, [])
 
-  const resetTransformation = () => {
-    if (transformTimerRef.current) {
-      window.clearTimeout(transformTimerRef.current)
-      transformTimerRef.current = null
+  const startChat = () => {
+    setPhase('chat')
+    setChatIndex(0)
+  }
+
+  const goToQuestion = (index) => {
+    const safeIndex = Math.max(0, Math.min(index, SMART_CAROUSEL_QUESTIONS.length - 1))
+    const question = SMART_CAROUSEL_QUESTIONS[safeIndex]
+    if (question.id === 'location') setLocationDraft(answers.location)
+    if (question.id === 'features') setFeatureDraft(answers.features)
+    if (question.id === 'highlights') {
+      setHighlightDraft(answers.highlights.slice(0, SMART_CAROUSEL_MAX_HIGHLIGHTS))
+      setHighlightNotice('')
     }
-    setTransformStatus('idle')
-    setCampaignDelivery(null)
+    if (question.id === 'phone') setPhoneDraft(answers.phone)
+    setChatIndex(safeIndex)
+    setPhase('chat')
+    setReviewError('')
+    setGenerationNotice('')
   }
 
-  const handleVideoChange = (file) => {
-    resetTransformation()
-    setVideoFile(file)
+  const goBack = () => {
+    if (phase === 'review') return setPhase('chat')
+    if (phase === 'result') return setPhase('review')
+    if (phase === 'chat' && chatIndex > 0) return goToQuestion(chatIndex - 1)
+    if (phase === 'chat') return setPhase('intro')
+    return onBack()
   }
 
-  const handleTransformVideo = () => {
-    if (!videoFile || isTransforming) return
+  const commitAnswer = (questionId, value) => {
+    setAnswers((current) => ({ ...current, [questionId]: value }))
+    setReviewError('')
+    setGenerationNotice('')
+    if (questionId === 'highlights') setHighlightNotice('')
+    if (chatIndex >= SMART_CAROUSEL_QUESTIONS.length - 1) {
+      setPhase('review')
+      return
+    }
+    setChatIndex((current) => current + 1)
+  }
 
-    resetTransformation()
-    setTransformStatus('transforming')
-    transformTimerRef.current = window.setTimeout(() => {
-      setCampaignDelivery(studioHeroMotionSampleCampaign)
-      setTransformStatus('completed')
-      transformTimerRef.current = null
-    }, 1400)
+  const handleImageFiles = (fileList) => {
+    setImageError('')
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+
+    const invalidFile = files.find((file) => !isSmartCarouselAllowedImage(file))
+    if (invalidFile) {
+      setImageError('Formato não permitido. Envie imagens em JPG, JPEG ou PNG.')
+      return
+    }
+
+    setAnswers((current) => {
+      const remainingSlots = SMART_CAROUSEL_MAX_IMAGES - current.images.length
+      if (remainingSlots <= 0) {
+        setImageError('Você pode enviar no máximo 20 imagens.')
+        return current
+      }
+      if (files.length > remainingSlots) {
+        setImageError('Você pode enviar no máximo 20 imagens.')
+      }
+      const selectedFiles = files.slice(0, remainingSlots)
+      const nextImages = [
+        ...current.images,
+        ...selectedFiles.map((file, index) => createSmartCarouselImage(file, current.images.length + index)),
+      ]
+      return {
+        ...current,
+        images: orderSmartCarouselImages(nextImages).map((image, index) => ({
+          ...image,
+          isCover: current.images.some((item) => item.isCover) ? image.isCover : index === 0,
+        })),
+      }
+    })
+  }
+
+  const removeImage = (imageId) => {
+    setAnswers((current) => {
+      const removed = current.images.find((image) => image.id === imageId)
+      if (removed) URL.revokeObjectURL(removed.previewUrl)
+      const remaining = current.images.filter((image) => image.id !== imageId)
+      const hasCover = remaining.some((image) => image.isCover)
+      return {
+        ...current,
+        images: orderSmartCarouselImages(remaining).map((image, index) => ({
+          ...image,
+          isCover: hasCover ? image.isCover : index === 0,
+        })),
+      }
+    })
+    setImageError('')
+  }
+
+  const replaceImage = (imageId, file) => {
+    if (!file) return
+    if (!isSmartCarouselAllowedImage(file)) {
+      setImageError('Formato não permitido. Envie imagens em JPG, JPEG ou PNG.')
+      return
+    }
+    setAnswers((current) => ({
+      ...current,
+      images: current.images.map((image) => {
+        if (image.id !== imageId) return image
+        URL.revokeObjectURL(image.previewUrl)
+        return { ...image, file, previewUrl: URL.createObjectURL(file) }
+      }),
+    }))
+    setImageError('')
+  }
+
+  const moveImage = (imageId, direction) => {
+    setAnswers((current) => {
+      const index = current.images.findIndex((image) => image.id === imageId)
+      const nextIndex = index + direction
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.images.length) return current
+      const nextImages = [...current.images]
+      const [image] = nextImages.splice(index, 1)
+      nextImages.splice(nextIndex, 0, image)
+      return { ...current, images: orderSmartCarouselImages(nextImages) }
+    })
+  }
+
+  const setCoverImage = (imageId) => {
+    setAnswers((current) => ({
+      ...current,
+      images: current.images.map((image) => ({ ...image, isCover: image.id === imageId })),
+    }))
+  }
+
+  const submitImages = () => {
+    if (!answers.images.length) {
+      setImageError('Envie pelo menos 1 imagem para continuar.')
+      return
+    }
+    commitAnswer('images', answers.images)
+  }
+
+  const submitLocation = () => {
+    const corrected = {
+      uf: locationDraft.uf,
+      neighborhood: normalizeSmartCarouselNeighborhood(locationDraft.neighborhood).trim(),
+    }
+    if (!corrected.uf || !corrected.neighborhood) return
+    commitAnswer('location', corrected)
+  }
+
+  const submitFeatures = () => {
+    if (!featureDraft.bedrooms || !featureDraft.suites || !featureDraft.parking) return
+    commitAnswer('features', featureDraft)
+  }
+
+  const submitPhone = () => {
+    commitAnswer('phone', phoneDraft)
+  }
+
+  const validateSmartCarouselData = () => {
+    const payload = buildSmartCarouselPayload(answers)
+    const isValid = Boolean(
+      answers.images.length >= 1
+      && answers.images.length <= SMART_CAROUSEL_MAX_IMAGES
+      && answers.objective
+      && answers.propertyType
+      && answers.location.uf
+      && answers.location.neighborhood.trim()
+      && answers.features.bedrooms
+      && answers.features.suites
+      && answers.features.parking
+      && answers.highlights.length >= 1
+      && answers.highlights.length <= SMART_CAROUSEL_MAX_HIGHLIGHTS
+      && answers.musicStyle
+      && answers.cta,
+    )
+    if (!isValid) {
+      setReviewError('Revise as informações antes de gerar o Super Carrossel.')
+      return null
+    }
+    setReviewError('')
+    return payload
+  }
+
+  const handleGenerate = () => {
+    const payload = validateSmartCarouselData()
+    if (!payload) return
+    if (import.meta.env.DEV) {
+      console.info('Super Carrossel pronto para a próxima etapa:', payload)
+    }
+    setGenerationNotice('Tudo pronto! O Super Carrossel será exibido aqui após a geração.')
+    setPhase('result')
+  }
+
+  const formatAnswer = (question) => {
+    const value = answers[question.id]
+    if (question.id === 'images') return `${answers.images.length} de ${SMART_CAROUSEL_MAX_IMAGES} imagens`
+    if (question.id === 'location') return `${value.uf} · ${formatSmartCarouselNeighborhood(value.neighborhood)}`
+    if (question.id === 'features') {
+      return `${formatSmartCarouselBedroomLabel(value.bedrooms)} · ${formatSmartCarouselSuiteLabel(value.suites)} · ${formatSmartCarouselParkingLabel(value.parking)}`
+    }
+    if (question.id === 'highlights') return value.join(', ')
+    if (question.id === 'phone') return value.masked || 'Sem telefone'
+    return value
+  }
+
+  const renderChipGroup = (options, selected, onSelect) => (
+    <div className="mt-4 flex flex-wrap gap-3">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onSelect(option)}
+          className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${
+            selected === option
+              ? 'border-primary-800 bg-primary-800 text-white'
+              : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  )
+
+  const renderQuestionControls = () => {
+    if (!currentQuestion) return null
+
+    if (currentQuestion.type === 'images') {
+      const imageCounterText = answers.images.length >= SMART_CAROUSEL_MAX_IMAGES
+        ? 'Limite de 20 imagens atingido.'
+        : `${answers.images.length} de ${SMART_CAROUSEL_MAX_IMAGES} imagens`
+      return (
+        <div className="mt-4 space-y-4">
+          <div className="max-w-3xl space-y-2 text-sm font-semibold leading-relaxed text-gray-600">
+            <p>Envie de 1 a 20 imagens. A primeira imagem será usada como capa do vídeo.</p>
+            <p>Formatos aceitos: JPG, JPEG e PNG.</p>
+            <p className="font-black text-primary-800">{imageCounterText}</p>
+          </div>
+          <div className="rounded-3xl border border-dashed border-blue-100 bg-white p-5">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={answers.images.length >= SMART_CAROUSEL_MAX_IMAGES}
+              className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl bg-slate-50 px-6 py-8 text-center transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <UploadCloud className="h-9 w-9 text-primary-600" />
+              <span className="mt-3 text-sm font-black text-slate-950">Selecionar imagens do imóvel</span>
+              <span className="mt-1 text-xs font-semibold text-slate-500">JPG, JPEG ou PNG · até 20 imagens</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                handleImageFiles(event.target.files)
+                event.target.value = ''
+              }}
+            />
+          </div>
+          {answers.images.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {answers.images.map((image, index) => (
+                <SmartCarouselImageCard
+                  key={image.id}
+                  image={image}
+                  index={index}
+                  total={answers.images.length}
+                  onRemove={() => removeImage(image.id)}
+                  onReplace={(file) => replaceImage(image.id, file)}
+                  onMoveUp={() => moveImage(image.id, -1)}
+                  onMoveDown={() => moveImage(image.id, 1)}
+                  onSetCover={() => setCoverImage(image.id)}
+                />
+              ))}
+            </div>
+          )}
+          {imageError && (
+            <p className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold leading-relaxed text-red-700">
+              {imageError}
+            </p>
+          )}
+          <Button type="button" onClick={submitImages} disabled={!answers.images.length}>
+            Continuar
+          </Button>
+        </div>
+      )
+    }
+
+    if (currentQuestion.type === 'chips') {
+      return renderChipGroup(currentQuestion.options, answers[currentQuestion.id], (option) => commitAnswer(currentQuestion.id, option))
+    }
+
+    if (currentQuestion.type === 'location') {
+      return (
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+            <div>
+              <label className="text-sm font-black text-gray-950" htmlFor="smart-carousel-uf">Estado</label>
+              <select
+                id="smart-carousel-uf"
+                value={locationDraft.uf}
+                onChange={(event) => setLocationDraft((current) => ({ ...current, uf: event.target.value }))}
+                className="mt-2 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+              >
+                <option value="">UF</option>
+                {SMART_CAROUSEL_UF_OPTIONS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-black text-gray-950" htmlFor="smart-carousel-neighborhood">Bairro</label>
+              <input
+                id="smart-carousel-neighborhood"
+                value={locationDraft.neighborhood}
+                onChange={(event) => setLocationDraft((current) => ({ ...current, neighborhood: normalizeSmartCarouselNeighborhood(event.target.value) }))}
+                onBlur={() => setLocationDraft((current) => ({ ...current, neighborhood: normalizeSmartCarouselNeighborhood(current.neighborhood).trim() }))}
+                placeholder="Ex: Vila Mariana"
+                className="mt-2 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+              />
+            </div>
+          </div>
+          <Button type="button" onClick={submitLocation} disabled={!locationDraft.uf || !locationDraft.neighborhood.trim()}>
+            <Send className="h-4 w-4" />
+            Enviar
+          </Button>
+        </div>
+      )
+    }
+
+    if (currentQuestion.type === 'features') {
+      return (
+        <div className="mt-4 space-y-4">
+          <SmartCarouselFeatureChoice title="Dormitórios" options={SMART_CAROUSEL_BEDROOM_OPTIONS} value={featureDraft.bedrooms} onChange={(value) => setFeatureDraft((current) => ({ ...current, bedrooms: value }))} />
+          <SmartCarouselFeatureChoice title="Suítes" options={SMART_CAROUSEL_SUITE_OPTIONS} value={featureDraft.suites} onChange={(value) => setFeatureDraft((current) => ({ ...current, suites: value }))} />
+          <SmartCarouselFeatureChoice title="Vagas" options={SMART_CAROUSEL_PARKING_OPTIONS} value={featureDraft.parking} onChange={(value) => setFeatureDraft((current) => ({ ...current, parking: value }))} />
+          <Button type="button" onClick={submitFeatures} disabled={!featureDraft.bedrooms || !featureDraft.suites || !featureDraft.parking}>
+            Confirmar características
+          </Button>
+        </div>
+      )
+    }
+
+    if (currentQuestion.type === 'highlights') {
+      return (
+        <div className="mt-4 space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-black text-slate-700">Selecione até 3 destaques</p>
+            <p className="text-xs font-black uppercase tracking-wide text-primary-700">{highlightDraft.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {SMART_CAROUSEL_HIGHLIGHT_OPTIONS.map((option) => {
+              const active = highlightDraft.includes(option)
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  aria-disabled={!active && highlightDraft.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS}
+                  onClick={() => {
+                    setHighlightDraft((current) => {
+                      if (current.includes(option)) {
+                        setHighlightNotice('')
+                        return current.filter((item) => item !== option)
+                      }
+                      if (current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS) {
+                        setHighlightNotice('Você pode escolher até 3 destaques.')
+                        return current
+                      }
+                      setHighlightNotice('')
+                      return [...current, option]
+                    })
+                  }}
+                  className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                    active
+                      ? 'border-primary-800 bg-primary-800 text-white'
+                      : highlightDraft.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                        : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+                  }`}
+                >
+                  {option}
+                </button>
+              )
+            })}
+          </div>
+          {highlightNotice && (
+            <p className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+              {highlightNotice}
+            </p>
+          )}
+          <Button type="button" onClick={() => commitAnswer('highlights', highlightDraft)} disabled={highlightDraft.length === 0}>
+            Confirmar destaques
+          </Button>
+        </div>
+      )
+    }
+
+    if (currentQuestion.type === 'phone') {
+      return (
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input
+            value={phoneDraft.masked}
+            onChange={(event) => {
+              const normalized = event.target.value.replace(/\D/g, '').slice(0, 11)
+              setPhoneDraft({ masked: formatSmartCarouselPhone(normalized), normalized })
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') submitPhone()
+            }}
+            inputMode="numeric"
+            placeholder="(11) 99999-9999"
+            className="min-h-12 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+          />
+          <Button type="button" onClick={submitPhone}>
+            Continuar
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => commitAnswer('phone', { masked: '', normalized: '' })}>
+            Não mostrar telefone
+          </Button>
+        </div>
+      )
+    }
+
+    return null
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#fff7ed_0%,#f8fafc_44%,#eef7fb_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#78350f_0%,#0f172a_52%,#b45309_100%)] text-white shadow-2xl shadow-amber-950/20">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(253,230,138,0.22),transparent_32%),radial-gradient(circle_at_86%_24%,rgba(251,191,36,0.16),transparent_34%)]" />
-          <div className="relative grid gap-8 p-8 lg:grid-cols-[1.08fr_0.92fr] lg:p-10">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-amber-100">
-                <PlayCircle className="h-4 w-4" />
-                Studio Hero Motion
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <button
+          type="button"
+          onClick={goBack}
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Voltar
+        </button>
+
+        {phase === 'intro' && (
+          <section className="mt-6 overflow-hidden rounded-[2rem] bg-[#0F2742] p-7 text-white shadow-xl shadow-[#0F2742]/10 sm:p-10">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-100">
+                <ImagePlus className="h-4 w-4 text-cyan-200" />
+                Super Carrossel Inteligente
               </div>
-              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                Transforme seu Vídeo
+              <h1 className="mt-6 text-3xl font-black tracking-tight sm:text-5xl lg:text-6xl">
+                Crie um vídeo profissional com as imagens do imóvel
               </h1>
-              <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-amber-50">
-                Envie um vídeo gravado no celular e a IA prepara uma versão mais dinâmica para redes sociais.
+              <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-gray-300 sm:text-lg">
+                Envie até 20 imagens e escolha as informações que deseja destacar. O Smart organiza o ritmo, adiciona movimentos, transições, música, comunicação comercial e um CTA profissional.
               </p>
-              <button
-                type="button"
-                onClick={onBack}
-                className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Voltar aos modos
-              </button>
+              <Button type="button" onClick={startChat} size="lg" className="mt-8 min-h-12 px-6">
+                Enviar minhas imagens
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur">
-              <p className="text-sm font-black text-white">Fluxo inicial</p>
-              <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-amber-50">
-                {[
-                  'Envie um vídeo em mp4, mov ou webm.',
-                  'Vídeo de até 2 minutos para o MVP.',
-                  'A campanha completa será liberada em uma próxima etapa.',
-                ].map((item) => (
-                  <li key={item} className="flex gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-200" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
+          </section>
+        )}
+
+        {(phase === 'chat' || phase === 'review') && (
+          <div className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">
+                {phase === 'review' ? 'Resumo' : `Etapa ${chatIndex + 1} de ${SMART_CAROUSEL_QUESTIONS.length}`}
+              </p>
+              <span className="text-xs font-black text-gray-500">{progress}%</span>
+            </div>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
+              <div className="h-full rounded-full bg-primary-800 transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
-        </section>
+        )}
 
-        <section className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
-          <div className="rounded-3xl border border-amber-100 bg-white/95 p-5 shadow-sm">
-            <div className="flex gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
-                <UploadCloud className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase tracking-wide text-amber-700">Upload de vídeo</p>
-                <h2 className="mt-2 text-xl font-black text-slate-950">Envie o vídeo gravado no celular.</h2>
-                <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
-                  Formatos aceitos: mp4, mov, webm. Vídeo de até 2 minutos para o MVP.
-                </p>
-
-                <label className="mt-5 flex cursor-pointer flex-col gap-3 rounded-3xl border border-dashed border-amber-200 bg-amber-50/40 p-5 shadow-sm transition hover:border-amber-400 hover:bg-amber-50">
-                  <input
-                    type="file"
-                    accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
-                    className="sr-only"
-                    onChange={(event) => {
-                      event.currentTarget.blur()
-                      handleVideoChange(event.target.files?.[0] || null)
-                    }}
-                  />
-                  <div className="flex min-h-52 items-center justify-center rounded-2xl bg-white">
-                    <div className="flex flex-col items-center gap-3 px-4 text-center text-slate-500">
-                      <UploadCloud className="h-9 w-9 text-amber-600" />
-                      <span className="text-sm font-black text-slate-950">
-                        {videoFile ? 'Clique para trocar o vídeo' : 'Selecionar vídeo'}
-                      </span>
-                      <span className="text-xs font-bold leading-5">
-                        mp4, mov ou webm
-                      </span>
-                    </div>
+        {phase === 'chat' && (
+          <section className="mt-4 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
+            <div className="space-y-5">
+              <SmartCarouselAssistantBubble>
+                Perfeito. Vou montar o Super Carrossel com você, passo a passo.
+              </SmartCarouselAssistantBubble>
+              {SMART_CAROUSEL_QUESTIONS.slice(0, chatIndex).map((question, index) => (
+                <div key={question.id} className="space-y-3">
+                  <SmartCarouselAssistantBubble>{question.question}</SmartCarouselAssistantBubble>
+                  <div className="ml-12 flex max-w-3xl items-start justify-between gap-3 rounded-3xl rounded-tr-md bg-primary-800 px-5 py-4 text-white">
+                    <p className="text-sm font-bold leading-relaxed">{formatAnswer(question)}</p>
+                    <button type="button" onClick={() => goToQuestion(index)} className="text-xs font-black text-cyan-100 hover:text-white">
+                      Editar
+                    </button>
                   </div>
-                  <p className="min-h-5 truncate text-sm font-black text-slate-700">
-                    {videoFile?.name || 'Nenhum vídeo selecionado'}
-                  </p>
-                </label>
-
-                <Button
-                  type="button"
-                  onClick={handleTransformVideo}
-                  disabled={!hasVideoFile || isTransforming}
-                  loading={isTransforming}
-                  className="mt-5 w-full justify-center py-4 text-base"
-                >
-                  {isTransforming ? 'Estamos transformando seu vídeo...' : 'Transformar vídeo'}
+                </div>
+              ))}
+              {currentQuestion && (
+                <div>
+                  <SmartCarouselAssistantBubble>{currentQuestion.question}</SmartCarouselAssistantBubble>
+                  {renderQuestionControls()}
+                </div>
+              )}
+              <div className="pt-2">
+                <Button type="button" variant="secondary" onClick={goBack}>
+                  Voltar
                 </Button>
               </div>
             </div>
-          </div>
+          </section>
+        )}
 
-          <MotionVideoDeliveryPanel
-            videoFile={videoFile}
-            transformStatus={transformStatus}
-            campaignDelivery={campaignDelivery}
-          />
-        </section>
+        {phase === 'review' && (
+          <section className="mx-auto mt-4 max-w-5xl">
+            <div className="rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+              <SmartCarouselAssistantBubble>Está tudo correto?</SmartCarouselAssistantBubble>
+              <SmartCarouselReviewSummary answers={answers} coverImage={coverImage} />
+              {reviewError && (
+                <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
+                  {reviewError}
+                </p>
+              )}
+              {generationNotice && (
+                <p className="mt-4 rounded-2xl border border-primary-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
+                  {generationNotice}
+                </p>
+              )}
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <Button type="button" variant="secondary" onClick={() => goToQuestion(0)}>
+                  <RotateCcw className="h-4 w-4" />
+                  Editar informações
+                </Button>
+                <Button type="button" onClick={handleGenerate}>
+                  <PlayCircle className="h-4 w-4" />
+                  Gerar Super Carrossel
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {phase === 'result' && (
+          <section className="mt-6 space-y-6">
+            <div className="rounded-[2rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 text-white shadow-xl shadow-primary-900/10 sm:p-8">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Super Carrossel Inteligente</p>
+                  <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Prévia da entrega</h1>
+                  <p className="mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-gray-300">
+                    Seu vídeo vertical ficará pronto para divulgar o imóvel em Reels, Stories e WhatsApp.
+                  </p>
+                </div>
+                <Button type="button" variant="secondary" onClick={() => setPhase('review')}>
+                  Voltar ao resumo
+                </Button>
+              </div>
+            </div>
+
+            <div className="mx-auto max-w-5xl rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+              {generationNotice && (
+                <p className="mb-5 rounded-2xl border border-primary-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
+                  {generationNotice}
+                </p>
+              )}
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-center">
+                <div className="mx-auto w-full max-w-[320px] rounded-[2.25rem] border border-slate-200 bg-slate-950 p-2.5 shadow-xl shadow-slate-200/80">
+                  <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.65rem] bg-gradient-to-br from-slate-100 via-white to-primary-50">
+                    <div className="absolute left-1/2 top-2 h-1.5 w-16 -translate-x-1/2 rounded-full bg-slate-300/80" />
+                    <div className="px-8 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-primary-800 shadow-sm ring-1 ring-blue-100">
+                        <ImagePlus className="h-7 w-7" />
+                      </div>
+                      <p className="mt-5 text-base font-black leading-snug text-slate-950">
+                        Seu Super Carrossel aparecerá aqui após a geração.
+                      </p>
+                      <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-500">
+                        A entrega final usará as imagens em formato vertical, com música, comunicação comercial e CTA.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-primary-700">Entrega em vídeo</p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">Formato Reels/Stories</h2>
+                    <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-600">
+                      O resultado final ficará centralizado em uma moldura de celular, com proporção 9:16 e ações próximas ao preview.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <SmartCarouselInfoPill label="Formato" value="Vertical 9:16" />
+                    <SmartCarouselInfoPill label="Imagens" value={`${answers.images.length} selecionadas`} />
+                    <SmartCarouselInfoPill label="Objetivo" value={answers.objective || 'Não informado'} />
+                    <SmartCarouselInfoPill label="CTA" value={answers.cta || 'Não informado'} />
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button type="button" disabled className="cursor-not-allowed">
+                      <Download className="h-4 w-4" />
+                      Baixar vídeo
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => goToQuestion(0)}>
+                      Editar informações
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </main>
   )
 }
 
-function MotionVideoDeliveryPanel({ videoFile, transformStatus, campaignDelivery }) {
-  const isTransforming = transformStatus === 'transforming'
-  const completed = Boolean(campaignDelivery)
-
-  if (completed) {
-    const campaignTexts = campaignDelivery.campaignTexts
-    const mainTags = campaignDelivery.mainReel.cuts.flatMap((cut) => cut.textTags || []).map((tag) => tag.text)
-    return (
-      <div className="rounded-3xl border border-amber-100 bg-white/95 p-5 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Studio Hero Motion</p>
-              <h2 className="mt-2 text-2xl font-black text-slate-950">Sua campanha está pronta</h2>
-              <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-                Preparamos um reels principal, smart clips e textos para divulgar o imóvel.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled
-            className="inline-flex shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-slate-200 px-4 py-3 text-sm font-black text-slate-500"
-          >
-            <Download className="h-4 w-4" />
-            Baixar campanha completa
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {[
-            ['Arquivo', videoFile?.name || 'Pendente'],
-            ['Reels principal', `${campaignDelivery.mainReel.targetDurationSeconds}s`],
-            ['Smart Clips', `${campaignDelivery.smartClips.length} clips`],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-              <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-5 space-y-4">
-          <CampaignDeliverySection
-            icon={PlayCircle}
-            title="Reels principal"
-            description={campaignDelivery.mainReel.title}
-            items={mainTags}
-            accentClassName="bg-amber-50 text-amber-700 ring-amber-100"
-          />
-          <CampaignDeliverySection
-            icon={Film}
-            title="Smart Clips"
-            description="Cortes curtos prontos para destacar cada ambiente."
-            items={campaignDelivery.smartClips.map((clip) => clip.title)}
-            accentClassName="bg-cyan-50 text-cyan-700 ring-cyan-100"
-          />
-          <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
-                <MessageSquareText className="h-4 w-4" />
-              </span>
-              <h3 className="text-sm font-black text-slate-950">Textos da campanha</h3>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {[
-                ['Instagram', campaignTexts.shortCaption],
-                ['WhatsApp', campaignTexts.whatsappMessage],
-                ['Portal', campaignTexts.portalDescription],
-                ['Hashtags', campaignTexts.hashtags.join(' ')],
-                ['CTA final', campaignTexts.cta],
-              ].map(([label, text]) => (
-                <div key={label} className="rounded-2xl border border-white bg-white p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+function SmartCarouselAssistantBubble({ children }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-amber-100">
-          {isTransforming ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlayCircle className="h-5 w-5" />}
-        </div>
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Status</p>
-          <h2 className="mt-2 text-xl font-black text-slate-950">
-            {isTransforming ? 'Estamos transformando seu vídeo...' : 'Aguardando vídeo'}
-          </h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-            {isTransforming
-              ? 'Em instantes sua campanha aparece aqui.'
-              : 'Selecione um arquivo para preparar sua campanha.'}
-          </p>
-        </div>
+    <div className="flex items-start gap-3">
+      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100">
+        <Sparkles className="h-4 w-4" />
       </div>
+      <div className="max-w-3xl rounded-3xl rounded-tl-md border border-blue-100 bg-white px-5 py-4 shadow-sm">
+        <p className="text-sm font-bold leading-relaxed text-slate-700">{children}</p>
+      </div>
+    </div>
+  )
+}
 
-      <div className="mt-5 grid gap-2 sm:grid-cols-3">
-        {[
-          ['Formato', 'mp4, mov, webm'],
-          ['Limite', 'Até 2 minutos'],
-          ['Arquivo', videoFile?.name || 'Pendente'],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-            <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value}</p>
-          </div>
+function SmartCarouselImageCard({ image, index, total, onRemove, onReplace, onMoveUp, onMoveDown, onSetCover }) {
+  return (
+    <div className="rounded-3xl border border-blue-100 bg-white p-3 shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl bg-slate-100">
+        <img src={image.previewUrl} alt={image.file.name} className="aspect-[4/3] w-full object-cover" />
+        {image.isCover && (
+          <span className="absolute left-2 top-2 rounded-full bg-primary-800 px-3 py-1 text-xs font-black text-white">
+            Capa
+          </span>
+        )}
+      </div>
+      <div className="mt-3 min-w-0">
+        <p className="truncate text-sm font-black text-slate-950">{image.file.name}</p>
+        <p className="mt-1 text-xs font-bold text-slate-500">
+          Imagem {index + 1} · {formatSmartCarouselFileSize(image.file.size)}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" onClick={onMoveUp} disabled={index === 0} className="rounded-full border border-blue-100 px-3 py-2 text-xs font-black text-primary-800 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
+          <ArrowUp className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onMoveDown} disabled={index === total - 1} className="rounded-full border border-blue-100 px-3 py-2 text-xs font-black text-primary-800 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
+          <ArrowDown className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onSetCover} disabled={image.isCover} className="rounded-full border border-blue-100 px-3 py-2 text-xs font-black text-primary-800 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
+          Definir capa
+        </button>
+        <label className="cursor-pointer rounded-full border border-blue-100 px-3 py-2 text-xs font-black text-primary-800 hover:bg-primary-50">
+          Substituir
+          <input
+            type="file"
+            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={(event) => {
+              onReplace(event.target.files?.[0] || null)
+              event.target.value = ''
+            }}
+          />
+        </label>
+        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 rounded-full border border-red-100 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-50">
+          <X className="h-3.5 w-3.5" />
+          Remover
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SmartCarouselFeatureChoice({ title, options, value, onChange }) {
+  return (
+    <div className="rounded-3xl border border-blue-100 bg-white p-4">
+      <p className="text-sm font-black text-gray-950">{title}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+              value === option ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-primary-50 text-primary-800 hover:border-primary-300'
+            }`}
+          >
+            {option}
+          </button>
         ))}
       </div>
     </div>
   )
 }
 
-function CampaignDeliverySection({ icon: Icon, title, description, items, accentClassName }) {
+function SmartCarouselReviewSummary({ answers, coverImage }) {
+  const visibleImages = answers.images.slice(0, 5)
+  const extraCount = Math.max(0, answers.images.length - visibleImages.length)
+
   return (
-    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
-      <div className="flex items-center gap-3">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ${accentClassName}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+    <div className="mt-5 space-y-3">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-primary-700">Imagens</p>
+        <p className="mt-1 text-sm font-bold text-slate-700">{answers.images.length} imagens selecionadas</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Capa</p>
+            {coverImage && (
+              <img src={coverImage.previewUrl} alt={coverImage.file.name} className="aspect-[4/3] w-full rounded-2xl object-cover" />
+            )}
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Primeiras imagens</p>
+            <div className="flex flex-wrap gap-2">
+              {visibleImages.map((image) => (
+                <img key={image.id} src={image.previewUrl} alt={image.file.name} className="h-16 w-16 rounded-2xl object-cover" />
+              ))}
+              {extraCount > 0 && (
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-white text-xs font-black text-primary-800">
+                  +{extraCount} imagens
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{description}</p>
-      <ul className="mt-4 space-y-2">
-        {items.map((item) => (
-          <li key={item} className="flex gap-2 text-sm font-semibold leading-6 text-slate-600">
-            <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-500" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SmartCarouselSummaryItem label="Objetivo" value={answers.objective} />
+        <SmartCarouselSummaryItem label="Tipo" value={answers.propertyType} />
+        <SmartCarouselSummaryItem label="UF" value={answers.location.uf} />
+        <SmartCarouselSummaryItem label="Bairro" value={formatSmartCarouselNeighborhood(answers.location.neighborhood)} />
+        <SmartCarouselSummaryItem label="Dormitórios" value={formatSmartCarouselBedroomLabel(answers.features.bedrooms)} />
+        <SmartCarouselSummaryItem label="Suítes" value={formatSmartCarouselSuiteLabel(answers.features.suites)} />
+        <SmartCarouselSummaryItem label="Vagas" value={formatSmartCarouselParkingLabel(answers.features.parking)} />
+        <SmartCarouselSummaryItem label="Estilo da música" value={answers.musicStyle} />
+        <SmartCarouselSummaryItem label="CTA" value={answers.cta} />
+        {answers.phone.masked && <SmartCarouselSummaryItem label="Telefone" value={answers.phone.masked} />}
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-primary-700">Destaques</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {answers.highlights.map((highlight) => (
+            <span key={highlight} className="rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-black text-primary-800 shadow-sm">
+              {highlight}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SmartCarouselSummaryItem({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-primary-700">{label}</p>
+      <p className="mt-1 text-sm font-bold leading-relaxed text-slate-700">{value || 'Não informado'}</p>
+    </div>
+  )
+}
+
+function SmartCarouselInfoPill({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-primary-700">{label}</p>
+      <p className="mt-1 text-sm font-bold leading-relaxed text-slate-700">{value}</p>
     </div>
   )
 }
