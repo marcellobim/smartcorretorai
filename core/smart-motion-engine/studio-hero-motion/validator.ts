@@ -68,6 +68,21 @@ export function validateStudioHeroMotionContract(input: unknown): StudioHeroMoti
   if (contract.mainReel?.finishing?.captions?.enabled && contract.mainReel.finishing.captions.renderNow !== false) {
     errors.push('main_reel.finishing.captions.render_now_must_be_false')
   }
+  if (contract.mainReel?.finishing?.commercialCommunication?.enabled) {
+    const communication = contract.mainReel.finishing.commercialCommunication
+    if (!['À VENDA', 'PARA LOCAÇÃO'].includes(communication.dealType)) {
+      errors.push('main_reel.finishing.commercial_communication.deal_type_invalid')
+    }
+    if (!hasText(communication.propertyType)) {
+      errors.push('main_reel.finishing.commercial_communication.property_type_required')
+    }
+    if (Array.isArray(communication.highlights) && communication.highlights.length > 4) {
+      errors.push('main_reel.finishing.commercial_communication.highlights_max_4')
+    }
+    if (!hasText(communication.cta)) {
+      errors.push('main_reel.finishing.commercial_communication.cta_required')
+    }
+  }
   if (!Array.isArray(contract.mainReel?.cuts) || contract.mainReel.cuts.length < 1) {
     errors.push('main_reel.cuts_required')
   } else {

@@ -77,10 +77,21 @@ export type StudioHeroMotionCaptionTrackPlan = {
   language?: string
 }
 
+export type StudioHeroMotionCommercialCommunicationPlan = {
+  enabled: boolean
+  renderNow: boolean
+  dealType: 'À VENDA' | 'PARA LOCAÇÃO'
+  propertyType: 'Apartamento' | 'Casa' | 'Cobertura' | 'Sala Comercial' | 'Terreno'
+  highlights?: string[]
+  cta: string
+  phone?: string
+}
+
 export type StudioHeroMotionFinishingPlan = {
   backgroundMusic?: StudioHeroMotionBackgroundMusic
   cta?: StudioHeroMotionCtaRenderPlan
   captions?: StudioHeroMotionCaptionTrackPlan
+  commercialCommunication?: StudioHeroMotionCommercialCommunicationPlan
 }
 
 export type StudioHeroMotionMainReel = {

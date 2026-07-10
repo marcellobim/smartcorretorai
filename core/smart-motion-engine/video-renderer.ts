@@ -4,7 +4,12 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import type { StudioHeroBrainSmartMotionContract, StudioHeroMotionCut, StudioHeroMotionFinishingPlan } from './studio-hero-motion/contract.ts'
+import type {
+  StudioHeroBrainSmartMotionContract,
+  StudioHeroMotionCommercialCommunicationPlan,
+  StudioHeroMotionCut,
+  StudioHeroMotionFinishingPlan,
+} from './studio-hero-motion/contract.ts'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
@@ -37,6 +42,7 @@ export type SmartMotionMainReelRenderResult = {
     backgroundMusicApplied: boolean
     backgroundMusicSource?: string
     musicVolumeLevel?: number
+    commercialCommunicationStatus: 'rendered' | 'not_configured'
     ctaStatus: 'planned_not_rendered' | 'not_configured'
     captionsStatus: 'planned_not_rendered' | 'not_configured'
   }
@@ -141,6 +147,221 @@ function buildSegmentArgs(input: {
   ]
 }
 
+function resolveFontFile(): string {
+  const candidates = [
+    'C:/Windows/Fonts/arialbd.ttf',
+    'C:/Windows/Fonts/arial.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+    '/System/Library/Fonts/Supplemental/Arial.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  ]
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0]
+}
+
+function escapeFfmpegFilterPath(filePath: string) {
+  return filePath.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'")
+}
+
+function writeOverlayTextFile(input: {
+  workDir: string
+  name: string
+  lines: string[]
+}) {
+  const filePath = path.join(input.workDir, input.name)
+  fs.writeFileSync(filePath, `${input.lines.filter(Boolean).join('\n')}\n`, 'utf8')
+  return filePath
+}
+
+function buildTextEnable(startSeconds: number, endSeconds: number) {
+  return `enable='between(t,${startSeconds.toFixed(2)},${endSeconds.toFixed(2)})'`
+}
+
+function buildDrawText(input: {
+  textFile: string
+  fontFile: string
+  x: string
+  y: string
+  fontSize: number
+  alpha: number
+  startSeconds: number
+  endSeconds: number
+}) {
+  const enable = buildTextEnable(input.startSeconds, input.endSeconds)
+  return [
+    `drawtext=fontfile='${escapeFfmpegFilterPath(input.fontFile)}'`,
+    `textfile='${escapeFfmpegFilterPath(input.textFile)}'`,
+    `fontcolor=white@${input.alpha}`,
+    `fontsize=${input.fontSize}`,
+    'line_spacing=10',
+    `x=${input.x}`,
+    `y=${input.y}`,
+    enable,
+  ].join(':')
+}
+
+function buildDrawBox(input: {
+  x: string
+  y: string
+  width: string
+  height: string
+  alpha: number
+  startSeconds: number
+  endSeconds: number
+}) {
+  return [
+    `drawbox=x=${input.x}`,
+    `y=${input.y}`,
+    `w=${input.width}`,
+    `h=${input.height}`,
+    `color=black@${input.alpha}`,
+    't=fill',
+    buildTextEnable(input.startSeconds, input.endSeconds),
+  ].join(':')
+}
+
+function getCommercialHighlights(communication: StudioHeroMotionCommercialCommunicationPlan) {
+  return (communication.highlights || [])
+    .map((highlight) => highlight.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+}
+
+function buildCommercialCommunicationFilter(input: {
+  communication: StudioHeroMotionCommercialCommunicationPlan
+  durationSeconds: number
+  workDir: string
+  fontFile: string
+}) {
+  const filters: string[] = []
+  const duration = Math.max(1, input.durationSeconds)
+  const openingStart = Math.max(0, duration * 0.01)
+  const openingEnd = Math.min(duration, openingStart + Math.min(5, duration * 0.08))
+  const closingEnd = Math.max(0, duration - Math.max(6, duration * 0.06))
+  const highlightDuration = Math.min(4.8, Math.max(3.2, duration * 0.04))
+  const highlightAnchors = [0.24, 0.42, 0.60, 0.76]
+
+  const openingFile = writeOverlayTextFile({
+    workDir: input.workDir,
+    name: 'commercial-opening.txt',
+    lines: [input.communication.dealType, input.communication.propertyType],
+  })
+
+  filters.push(buildDrawBox({
+    x: '58',
+    y: '112',
+    width: '520',
+    height: '142',
+    alpha: 0.36,
+    startSeconds: openingStart,
+    endSeconds: openingEnd,
+  }))
+  filters.push(buildDrawText({
+    textFile: openingFile,
+    fontFile: input.fontFile,
+    x: '86',
+    y: '138',
+    fontSize: 42,
+    alpha: 0.96,
+    startSeconds: openingStart,
+    endSeconds: openingEnd,
+  }))
+
+  for (const [index, highlight] of getCommercialHighlights(input.communication).entries()) {
+    const center = duration * highlightAnchors[index]
+    const startSeconds = Math.max(openingEnd + 1, center - (highlightDuration / 2))
+    const endSeconds = Math.min(closingEnd - 1, startSeconds + highlightDuration)
+    if (endSeconds <= startSeconds) continue
+
+    const highlightFile = writeOverlayTextFile({
+      workDir: input.workDir,
+      name: `commercial-highlight-${index + 1}.txt`,
+      lines: [highlight],
+    })
+
+    filters.push(buildDrawBox({
+      x: '64',
+      y: 'h-306',
+      width: '620',
+      height: '82',
+      alpha: 0.30,
+      startSeconds,
+      endSeconds,
+    }))
+    filters.push(buildDrawText({
+      textFile: highlightFile,
+      fontFile: input.fontFile,
+      x: '92',
+      y: 'h-282',
+      fontSize: 38,
+      alpha: 0.94,
+      startSeconds,
+      endSeconds,
+    }))
+  }
+
+  const ctaLines = input.communication.phone
+    ? [input.communication.cta, input.communication.phone]
+    : [input.communication.cta]
+  const ctaFile = writeOverlayTextFile({
+    workDir: input.workDir,
+    name: 'commercial-cta.txt',
+    lines: ctaLines,
+  })
+
+  filters.push(buildDrawBox({
+    x: '70',
+    y: 'h-246',
+    width: '940',
+    height: input.communication.phone ? '132' : '92',
+    alpha: 0.42,
+    startSeconds: closingEnd,
+    endSeconds: duration,
+  }))
+  filters.push(buildDrawText({
+    textFile: ctaFile,
+    fontFile: input.fontFile,
+    x: '(w-text_w)/2',
+    y: input.communication.phone ? 'h-214' : 'h-216',
+    fontSize: input.communication.phone ? 38 : 42,
+    alpha: 0.98,
+    startSeconds: closingEnd,
+    endSeconds: duration,
+  }))
+
+  return filters.join(',')
+}
+
+function buildCommercialCommunicationArgs(input: {
+  videoFile: string
+  outputFile: string
+  communication: StudioHeroMotionCommercialCommunicationPlan
+  durationSeconds: number
+  workDir: string
+  fontFile: string
+}) {
+  return [
+    '-y',
+    '-i', input.videoFile,
+    '-vf', buildCommercialCommunicationFilter({
+      communication: input.communication,
+      durationSeconds: input.durationSeconds,
+      workDir: input.workDir,
+      fontFile: input.fontFile,
+    }),
+    '-map', '0:v:0',
+    '-map', '0:a?',
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '20',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'copy',
+    '-movflags', '+faststart',
+    input.outputFile,
+  ]
+}
+
 function clampVolume(value: number) {
   if (!Number.isFinite(value)) return 0.08
   return Math.min(0.3, Math.max(0.02, value))
@@ -206,14 +427,34 @@ async function applyFinishingLayer(input: {
   outputPath: string
   finishing?: StudioHeroMotionFinishingPlan
   durationSeconds: number
+  workDir: string
 }) {
+  const communication = input.finishing?.commercialCommunication
+  const communicationVideoPath = path.join(input.workDir, 'main-reel-commercial-communication.mp4')
+  let videoForAudioPath = input.baseVideoPath
+  let commercialCommunicationStatus: 'rendered' | 'not_configured' = 'not_configured'
+
+  if (communication?.enabled && communication.renderNow) {
+    await runFfmpeg(input.ffmpegPath, buildCommercialCommunicationArgs({
+      videoFile: input.baseVideoPath,
+      outputFile: communicationVideoPath,
+      communication,
+      durationSeconds: input.durationSeconds,
+      workDir: input.workDir,
+      fontFile: resolveFontFile(),
+    }))
+    videoForAudioPath = communicationVideoPath
+    commercialCommunicationStatus = 'rendered'
+  }
+
   const music = input.finishing?.backgroundMusic
   if (!music?.enabled) {
-    fs.copyFileSync(input.baseVideoPath, input.outputPath)
+    fs.copyFileSync(videoForAudioPath, input.outputPath)
     return {
       backgroundMusicApplied: false,
       backgroundMusicSource: undefined,
       musicVolumeLevel: undefined,
+      commercialCommunicationStatus,
     }
   }
 
@@ -223,7 +464,7 @@ async function applyFinishingLayer(input: {
   const musicVolume = resolveMusicVolume(input.finishing)
 
   await runFfmpeg(input.ffmpegPath, buildMusicFinishingArgs({
-    videoFile: input.baseVideoPath,
+    videoFile: videoForAudioPath,
     outputFile: input.outputPath,
     musicFile,
     musicVolume,
@@ -236,6 +477,7 @@ async function applyFinishingLayer(input: {
     backgroundMusicApplied: true,
     backgroundMusicSource: musicFile || 'internal_placeholder',
     musicVolumeLevel: musicVolume,
+    commercialCommunicationStatus,
   }
 }
 
@@ -302,6 +544,7 @@ export async function renderSmartMotionMainReel(input: SmartMotionMainReelRender
       outputPath: input.outputPath,
       finishing: input.finishing,
       durationSeconds: totalDurationSeconds,
+      workDir,
     })
 
     return {

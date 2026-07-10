@@ -266,6 +266,14 @@ export const studioHeroMotionSampleCampaign = {
         source: 'future_speech_to_text',
         language: 'pt-BR',
       },
+      commercialCommunication: {
+        enabled: true,
+        renderNow: true,
+        dealType: 'À VENDA',
+        propertyType: 'Apartamento',
+        highlights: ['3 Dormitórios', '2 Vagas', 'Vista Livre', 'Lazer Completo'],
+        cta: 'Agende sua visita',
+      },
     },
   },
   smartClips: [
@@ -345,13 +353,13 @@ export const studioHeroMotionSampleCampaign = {
   },
   metadata: {
     sample: true,
-    phase: 'studio_hero_motion_phase_2_finishing_layer',
+    phase: 'studio_hero_motion_phase_3_commercial_communication',
     originalDurationSeconds: originalSampleVideoDurationSeconds,
     estimatedFinalDurationSeconds: estimatedMainReelDurationSeconds,
     brainVersion: 'studio_hero_motion_brain_v2_2_improve_original_visit',
     brainRulesApplied: studioHeroMotionBrainV2Selection.rulesApplied,
     rejectedMomentIds: studioHeroMotionBrainV2Selection.rejectedMomentIds,
-    renderer: 'main_reel_cut_join_with_finishing_layer',
+    renderer: 'main_reel_cut_join_with_music_and_commercial_communication',
   },
 } satisfies StudioHeroBrainSmartMotionContract
 
