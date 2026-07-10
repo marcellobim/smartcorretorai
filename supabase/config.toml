@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.get-video-job-status]
 verify_jwt = false
+
+[functions.create-smart-video-job]
+verify_jwt = false

@@ -17,8 +17,11 @@ import {
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import Header from '../components/layout/Header'
+import { useAuth } from '../lib/auth-context'
+import { supabase } from '../lib/supabase'
 
-const MAX_VIDEO_SECONDS = 180
+const SMART_VIDEO_MAX_DURATION_SECONDS = 195
+const VIDEO_BUCKET = 'studio-videos'
 const MAX_HIGHLIGHTS = 3
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm']
@@ -154,6 +157,10 @@ function isAllowedVideo(file) {
   return ALLOWED_VIDEO_TYPES.includes(file.type) || ALLOWED_VIDEO_EXTENSIONS.includes(getFileExtension(file.name))
 }
 
+function isSmartVideoDurationAllowed(duration) {
+  return Number.isFinite(duration) && duration <= SMART_VIDEO_MAX_DURATION_SECONDS
+}
+
 function formatPhone(value) {
   const digits = value.replace(/\D/g, '').slice(0, 11)
   if (digits.length <= 2) return digits ? `(${digits}` : ''
@@ -198,11 +205,16 @@ function getVideoMetadata(file) {
 
 function buildSmartVideoData(answers) {
   return {
+    schemaVersion: 'smart_video_input_v1',
     video: answers.video ? {
+      id: answers.video.id,
       name: answers.video.name,
       sizeBytes: answers.video.size,
       durationSeconds: answers.video.duration,
       mimeType: answers.video.type,
+      storageBucket: answers.video.storageBucket,
+      storagePath: answers.video.storagePath,
+      status: answers.video.status,
     } : null,
     commercialCommunication: {
       dealType: answers.dealType,
@@ -222,6 +234,7 @@ function buildSmartVideoData(answers) {
 }
 
 export default function SmartVideo() {
+  const { user, accessToken } = useAuth()
   const [phase, setPhase] = useState('intro')
   const [answers, setAnswers] = useState(initialAnswers)
   const [chatIndex, setChatIndex] = useState(0)
@@ -233,7 +246,11 @@ export default function SmartVideo() {
   const [phoneDraft, setPhoneDraft] = useState(initialAnswers.phone)
   const [reviewError, setReviewError] = useState('')
   const [generationNotice, setGenerationNotice] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef(null)
+  const pollTimerRef = useRef(null)
+  const [job, setJob] = useState({ id: '', status: 'idle', message: '', videoUrl: '', error: '' })
 
   const currentQuestion = QUESTION_FLOW[chatIndex]
   const progress = phase === 'review'
@@ -260,6 +277,43 @@ export default function SmartVideo() {
       if (answers.video?.previewUrl) URL.revokeObjectURL(answers.video.previewUrl)
     }
   }, [answers.video?.previewUrl])
+
+  useEffect(() => () => {
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+  }, [])
+
+  const invokeVideoFunction = async (name, body) => {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken || ''}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Não foi possível processar o Smart Video.')
+    return data
+  }
+
+  const pollSmartVideoJob = async (jobId) => {
+    try {
+      const data = await invokeVideoFunction('get-video-job-status', { jobId })
+      if (data.status === 'completed' && data.signedVideoUrl) {
+        setJob({ id: jobId, status: 'completed', message: 'Seu Smart Video está pronto.', videoUrl: data.signedVideoUrl, error: '' })
+        return
+      }
+      if (data.status === 'failed') {
+        setJob({ id: jobId, status: 'failed', message: '', videoUrl: '', error: data.error || 'Não foi possível concluir o Smart Video.' })
+        return
+      }
+      setJob((current) => ({ ...current, status: data.status || 'processing', message: data.message || 'O Smart está preparando seu vídeo.' }))
+      pollTimerRef.current = setTimeout(() => pollSmartVideoJob(jobId), 7000)
+    } catch (error) {
+      setJob({ id: jobId, status: 'failed', message: '', videoUrl: '', error: error instanceof Error ? error.message : 'Falha ao consultar o Smart Video.' })
+    }
+  }
 
   const startChat = () => {
     setPhase('chat')
@@ -300,6 +354,12 @@ export default function SmartVideo() {
     setChatIndex((current) => current + 1)
   }
 
+  const deleteStoredVideo = async (video) => {
+    if (!video?.storagePath) return
+    const { error } = await supabase.storage.from(VIDEO_BUCKET).remove([video.storagePath])
+    if (error && import.meta.env.DEV) console.warn('Falha ao remover vídeo substituído:', error.message)
+  }
+
   const handleVideoFile = async (file) => {
     setVideoError('')
     if (!file) return
@@ -309,33 +369,76 @@ export default function SmartVideo() {
       return
     }
 
-    const metadata = await getVideoMetadata(file)
-    if (Number.isFinite(metadata.duration) && metadata.duration > MAX_VIDEO_SECONDS) {
-      setVideoError('Este vídeo possui mais de 3 minutos.\n\nAtualmente o Smart Video aceita vídeos com duração máxima de 3 minutos.')
+    if (!user?.id) {
+      setVideoError('Sua sessão expirou. Faça login novamente para enviar o vídeo.')
       return
     }
 
-    if (answers.video?.previewUrl) URL.revokeObjectURL(answers.video.previewUrl)
+    setIsUploading(true)
+    setUploadProgress(15)
+    const metadata = await getVideoMetadata(file)
+    if (Number.isFinite(metadata.duration) && !isSmartVideoDurationAllowed(metadata.duration)) {
+      setVideoError('Este vídeo ultrapassa o limite aceito. Envie uma versão com aproximadamente 3 minutos.')
+      setIsUploading(false)
+      setUploadProgress(0)
+      return
+    }
+
+    if (!Number.isFinite(metadata.duration)) {
+      setVideoError('Não foi possível identificar a duração deste vídeo. Verifique o arquivo e tente novamente.')
+      setIsUploading(false)
+      setUploadProgress(0)
+      return
+    }
+
+    const videoId = crypto.randomUUID()
+    const extension = getFileExtension(file.name)
+    const storagePath = `${user.id}/smart-video/${videoId}/source.${extension}`
+    setUploadProgress(40)
+    const { error: uploadError } = await supabase.storage
+      .from(VIDEO_BUCKET)
+      .upload(storagePath, file, { contentType: file.type, upsert: false })
+
+    if (uploadError) {
+      setVideoError(`Não foi possível enviar o vídeo: ${uploadError.message}`)
+      setIsUploading(false)
+      setUploadProgress(0)
+      return
+    }
+
+    const previousVideo = answers.video
+    if (previousVideo?.previewUrl) URL.revokeObjectURL(previousVideo.previewUrl)
     setAnswers((current) => ({
       ...current,
       video: {
-      name: file.name,
-      size: file.size,
-      type: file.type || getFileExtension(file.name),
-      duration: metadata.duration,
-      thumbnail: metadata.thumbnail,
-      previewUrl: URL.createObjectURL(file),
+        id: videoId,
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        duration: metadata.duration,
+        thumbnail: metadata.thumbnail,
+        previewUrl: URL.createObjectURL(file),
+        storageBucket: VIDEO_BUCKET,
+        storagePath,
+        status: 'uploaded',
       },
     }))
+    setUploadProgress(100)
+    setIsUploading(false)
+    await deleteStoredVideo(previousVideo)
     setGenerationNotice('')
   }
 
-  const removeVideo = () => {
+  const removeVideo = async () => {
+    const videoToRemove = answers.video
     if (answers.video?.previewUrl) URL.revokeObjectURL(answers.video.previewUrl)
     setAnswers((current) => ({ ...current, video: null }))
+    setUploadProgress(0)
     setVideoError('')
     setChatIndex(0)
     setPhase('chat')
+    await deleteStoredVideo(videoToRemove)
   }
 
   const submitLocation = () => {
@@ -357,7 +460,11 @@ export default function SmartVideo() {
   }
 
   const validateSmartVideoData = () => {
-    const smartVideoData = buildSmartVideoData(answers)
+    if (!isSmartVideoDurationAllowed(answers.video?.duration)) {
+      setReviewError('Este vídeo ultrapassa o limite aceito. Envie uma versão com aproximadamente 3 minutos.')
+      return null
+    }
+
     const isValid = Boolean(
       answers.video
       && answers.dealType
@@ -377,17 +484,26 @@ export default function SmartVideo() {
       return null
     }
     setReviewError('')
-    return smartVideoData
+    return buildSmartVideoData(answers)
   }
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const smartVideoData = validateSmartVideoData()
     if (!smartVideoData) return
-    if (import.meta.env.DEV) {
-      console.info('Smart Video pronto para a próxima etapa:', smartVideoData)
+    if (!accessToken) {
+      setReviewError('Sua sessão expirou. Faça login novamente.')
+      return
     }
-    setGenerationNotice('Tudo pronto! A geração do Smart Video será liberada na próxima etapa.')
+    setJob({ id: '', status: 'queued', message: 'Enviando para processamento.', videoUrl: '', error: '' })
+    setGenerationNotice('Seu vídeo entrou na fila de processamento.')
     setPhase('result')
+    try {
+      const data = await invokeVideoFunction('create-smart-video-job', smartVideoData)
+      setJob({ id: data.jobId, status: 'queued', message: 'Vídeo na fila de processamento.', videoUrl: '', error: '' })
+      pollTimerRef.current = setTimeout(() => pollSmartVideoJob(data.jobId), 1000)
+    } catch (error) {
+      setJob({ id: '', status: 'failed', message: '', videoUrl: '', error: error instanceof Error ? error.message : 'Não foi possível iniciar o Smart Video.' })
+    }
   }
 
   const formatAnswer = (question) => {
@@ -446,8 +562,8 @@ export default function SmartVideo() {
             </div>
           ) : (
             <>
-              <VideoPreviewCard video={answers.video} onRemove={removeVideo} onReplace={() => fileInputRef.current?.click()} />
-              <Button type="button" onClick={() => commitAnswer('video', answers.video)} className="mt-4">
+              <VideoPreviewCard video={answers.video} uploadProgress={uploadProgress} onRemove={removeVideo} onReplace={() => fileInputRef.current?.click()} />
+              <Button type="button" onClick={() => commitAnswer('video', answers.video)} disabled={isUploading} className="mt-4">
                 Continuar
               </Button>
             </>
@@ -463,6 +579,12 @@ export default function SmartVideo() {
             <p className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold leading-relaxed text-red-700">
               {videoError}
             </p>
+          )}
+          {isUploading && (
+            <div className="rounded-2xl border border-blue-100 bg-white p-4" role="status" aria-live="polite">
+              <div className="flex justify-between text-xs font-black text-slate-600"><span>Enviando vídeo</span><span>{uploadProgress}%</span></div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-primary-700 transition-all" style={{ width: `${uploadProgress}%` }} /></div>
+            </div>
           )}
         </div>
       )
@@ -742,17 +864,18 @@ export default function SmartVideo() {
                 <div className="mx-auto w-full max-w-[320px] rounded-[2.25rem] border border-slate-200 bg-slate-950 p-2.5 shadow-xl shadow-slate-200/80">
                   <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.65rem] bg-gradient-to-br from-slate-100 via-white to-primary-50">
                     <div className="absolute left-1/2 top-2 h-1.5 w-16 -translate-x-1/2 rounded-full bg-slate-300/80" />
-                    <div className="px-8 text-center">
+                    {job.videoUrl ? (
+                      <video src={job.videoUrl} controls playsInline className="h-full w-full object-contain bg-black" />
+                    ) : <div className="px-8 text-center">
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-primary-800 shadow-sm ring-1 ring-blue-100">
                         <FileVideo className="h-7 w-7" />
                       </div>
-                      <p className="mt-5 text-base font-black leading-snug text-slate-950">
-                        Seu Smart Video aparecerá aqui após a geração.
-                      </p>
+                      <p className="mt-5 text-base font-black leading-snug text-slate-950">{job.status === 'failed' ? 'Não foi possível concluir' : job.message || 'Seu Smart Video aparecerá aqui após a geração.'}</p>
                       <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-500">
-                        A entrega final manterá o vídeo em destaque, com comunicação discreta e formato vertical.
+                        {job.error || 'A entrega final manterá o vídeo em destaque, com comunicação discreta e formato vertical.'}
                       </p>
-                    </div>
+                      {['queued', 'processing', 'rendering'].includes(job.status) && <div className="mx-auto mt-5 h-2 w-40 overflow-hidden rounded-full bg-slate-200"><div className="h-full w-2/3 animate-pulse rounded-full bg-primary-700" /></div>}
+                    </div>}
                   </div>
                 </div>
 
@@ -771,7 +894,7 @@ export default function SmartVideo() {
                     <InfoPill label="Tipo" value={answers.propertyType || 'Não informado'} />
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button type="button" disabled className="cursor-not-allowed">
+                    <Button type="button" disabled={!job.videoUrl} onClick={() => job.videoUrl && window.open(job.videoUrl, '_blank', 'noopener,noreferrer')} className={!job.videoUrl ? 'cursor-not-allowed' : ''}>
                       <Download className="h-4 w-4" />
                       Baixar vídeo
                     </Button>
@@ -860,7 +983,7 @@ function InfoPill({ label, value }) {
   )
 }
 
-function VideoPreviewCard({ video, onRemove, onReplace }) {
+function VideoPreviewCard({ video, uploadProgress, onRemove, onReplace }) {
   return (
     <div className="rounded-3xl border border-blue-100 bg-white p-4">
       <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
@@ -889,6 +1012,10 @@ function VideoPreviewCard({ video, onRemove, onReplace }) {
               <X className="h-3.5 w-3.5" />
               Remover
             </button>
+          </div>
+          <div className="mt-4">
+            <div className="flex justify-between text-[11px] font-black text-slate-500"><span>Upload concluído</span><span>{uploadProgress}%</span></div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${uploadProgress}%` }} /></div>
           </div>
         </div>
       </div>

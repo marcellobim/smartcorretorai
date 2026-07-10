@@ -147,7 +147,7 @@ serve(async (req) => {
 
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id, user_id, status, provider_job_id, output_video_path, credit_idempotency_key, error_message, model')
+      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .single()
@@ -158,6 +158,9 @@ serve(async (req) => {
 
     if (job.status === 'completed') {
       const outputPath = String(job.output_video_path || '')
+      if (outputPath && !outputPath.startsWith(`${user.id}/`)) {
+        return jsonResponse({ ok: false, error: 'Arquivo de video invalido.' }, 403)
+      }
       const signedVideoUrl = outputPath ? await createSignedVideoUrl(supabase, outputPath) : ''
       return jsonResponse({
         ok: true,
@@ -179,8 +182,25 @@ serve(async (req) => {
       })
     }
 
+    if (job.mode === 'smart_video' && ['queued', 'processing', 'rendering'].includes(job.status)) {
+      const messages: Record<string, string> = {
+        queued: 'Video na fila de processamento.',
+        processing: 'Preparando o video original.',
+        rendering: 'Finalizando o Smart Video.',
+      }
+      return jsonResponse({
+        ok: true,
+        status: job.status,
+        jobId: job.id,
+        message: messages[job.status] || 'Preparando seu video.',
+      })
+    }
+
     const existingOutputPath = String(job.output_video_path || '')
     if (existingOutputPath) {
+      if (!existingOutputPath.startsWith(`${user.id}/`)) {
+        return jsonResponse({ ok: false, error: 'Arquivo de video invalido.' }, 403)
+      }
       await supabase
         .from('video_jobs')
         .update({
