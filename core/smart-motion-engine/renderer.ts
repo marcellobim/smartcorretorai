@@ -139,10 +139,13 @@ export async function renderSmartMotion(input: SmartMotionInput): Promise<SmartM
     }))
 
     if (plan.musicPath && fs.existsSync(plan.musicPath)) {
+      const durationSeconds = plan.scenes.reduce((total, scene) => total + scene.durationSeconds, 0)
+        - Math.max(0, plan.scenes.length - 1) * plan.transitionSeconds
       await run(ffmpeg, buildMusicArgs({
         videoFile: noAudioOutput,
         musicFile: plan.musicPath,
         outputFile: plan.outputPath,
+        durationSeconds,
       }))
       musicApplied = true
     } else {

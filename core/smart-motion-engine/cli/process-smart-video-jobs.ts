@@ -5,6 +5,7 @@ import path from 'node:path'
 import { renderSmartMotionMainReel } from '../video-renderer.ts'
 import { renderSmartMotion } from '../renderer.ts'
 import { buildSmartCarouselMessageQueue } from '../smart-carousel-message-queue.ts'
+import { resolveSmartCarouselMusic } from '../smart-carousel-music.ts'
 
 const url = String(process.env.SUPABASE_URL || '').replace(/\/$/, '')
 const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '')
@@ -69,11 +70,13 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
         imageFiles.push(imageFile)
       }
       const messageQueue = buildSmartCarouselMessageQueue(commercial, imageFiles.length)
+      const music = resolveSmartCarouselMusic(commercial.musicStyle)
       await renderSmartMotion({
         outputType: 'motion_video',
         visualModelId: commercial.objective === 'Locação' ? 'rental_direct' : 'clean_showcase',
         scenes: imageFiles.map((imagePath, index) => ({ imagePath, caption: messageQueue.captions[index] || '' })),
         outputPath: outputFile,
+        musicPath: music.musicPath,
         cta: String(commercial.cta || ''),
         ctaEnabled: false,
         captionsEnabled: true,

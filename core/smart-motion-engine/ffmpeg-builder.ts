@@ -108,17 +108,36 @@ export function buildMusicArgs(input: {
   videoFile: string
   musicFile: string
   outputFile: string
+  durationSeconds: number
 }): string[] {
+  const duration = Math.max(0.1, input.durationSeconds)
+  const fadeInSeconds = Math.min(1.2, duration / 4)
+  const fadeOutSeconds = Math.min(2, duration / 3)
+  const fadeOutStart = Math.max(0, duration - fadeOutSeconds)
+  const audioFilter = [
+    `atrim=0:${duration.toFixed(3)}`,
+    'asetpts=N/SR/TB',
+    'loudnorm=I=-23:LRA=7:TP=-2',
+    `afade=t=in:st=0:d=${fadeInSeconds.toFixed(3)}`,
+    `afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOutSeconds.toFixed(3)}`,
+    'aresample=48000',
+    'aformat=sample_rates=48000:channel_layouts=stereo',
+  ].join(',')
+
   return [
     '-y',
     '-i', input.videoFile,
     '-stream_loop', '-1',
     '-i', input.musicFile,
+    '-filter_complex', `[1:a]${audioFilter}[aout]`,
     '-map', '0:v:0',
-    '-map', '1:a:0',
+    '-map', '[aout]',
     '-c:v', 'copy',
     '-c:a', 'aac',
     '-b:a', '128k',
+    '-ar', '48000',
+    '-ac', '2',
+    '-t', duration.toFixed(3),
     '-shortest',
     '-movflags', '+faststart',
     input.outputFile,
