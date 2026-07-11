@@ -1,0 +1,16 @@
+# O upload do worker usa allowlist: Railway não precisa do monorepo inteiro.
+/*
+
+!/.dockerignore
+!/Dockerfile.smart-media-worker
+!/railway.json
+!/core/
+
+/core/*
+!/core/smart-motion-engine/
+
+/core/smart-motion-engine/output/
+/core/smart-motion-engine/**/*.mp4
+/core/smart-motion-engine/**/*.mov
+/core/smart-motion-engine/**/*.webm
+/core/smart-motion-engine/**/*.log
