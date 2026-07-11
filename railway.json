@@ -8,6 +8,6 @@
     "healthcheckPath": "/health",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ALWAYS",
-    "drainingSeconds": "45"
+    "drainingSeconds": 45
   }
 }
