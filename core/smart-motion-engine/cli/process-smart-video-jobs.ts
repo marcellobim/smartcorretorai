@@ -9,7 +9,7 @@ import { resolveSmartCarouselMusic } from '../smart-carousel-music.ts'
 
 const url = String(process.env.SUPABASE_URL || '').replace(/\/$/, '')
 const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-const bucket = 'studio-videos'
+const bucket = String(process.env.SMART_MEDIA_BUCKET || 'studio-videos')
 const SMART_VIDEO_MAX_DURATION_SECONDS = 195
 const SMART_CAROUSEL_MAX_IMAGES = 20
 const targetJobId = String(process.env.SMART_MEDIA_JOB_ID || '').trim()
@@ -17,8 +17,31 @@ const localBridgeRequested = process.env.SMART_MEDIA_LOCAL_BRIDGE === '1'
 const localBridgeEnabled = localBridgeRequested && process.env.NODE_ENV !== 'production'
 const localBridgePort = Number(process.env.SMART_MEDIA_LOCAL_BRIDGE_PORT || 43129)
 const localBridgeOrigins = new Set(['http://127.0.0.1:5173'])
+const runMode = String(process.env.SMART_MEDIA_RUN_MODE || 'once')
+const environment = String(process.env.SMART_MEDIA_ENV || (process.env.NODE_ENV === 'production' ? '' : 'dev'))
+const expectedProjectRef = String(process.env.SMART_MEDIA_EXPECTED_PROJECT_REF || '')
+const workerId = String(process.env.SMART_MEDIA_WORKER_ID || `${os.hostname()}-${process.pid}`).replace(/[^a-zA-Z0-9_.-]/g, '-').slice(0, 100)
+const pollIntervalMs = Number(process.env.SMART_MEDIA_POLL_INTERVAL_MS || 5000)
+const leaseSeconds = Number(process.env.SMART_MEDIA_LEASE_SECONDS || 120)
+const heartbeatSeconds = Number(process.env.SMART_MEDIA_HEARTBEAT_SECONDS || 30)
+const healthHost = String(process.env.SMART_MEDIA_HEALTH_HOST || '127.0.0.1')
+const healthPort = Number(process.env.SMART_MEDIA_HEALTH_PORT || process.env.PORT || 8080)
+const leasesEnabled = process.env.SMART_MEDIA_LEASES_ENABLED === '1' || runMode === 'service'
 if (!url || !serviceKey) throw new Error('SUPABASE_URL_and_SUPABASE_SERVICE_ROLE_KEY_required')
+if (!['dev', 'staging', 'production'].includes(environment)) throw new Error('SMART_MEDIA_ENV_required')
+if (!['once', 'service'].includes(runMode)) throw new Error('SMART_MEDIA_RUN_MODE_invalid')
+if (process.env.NODE_ENV === 'production' && (!expectedProjectRef || !url.includes(`://${expectedProjectRef}.supabase.co`))) throw new Error('SMART_MEDIA_EXPECTED_PROJECT_REF_mismatch')
+if (bucket !== 'studio-videos') throw new Error('SMART_MEDIA_BUCKET_must_match_existing_contract')
+if (!Number.isInteger(pollIntervalMs) || pollIntervalMs < 1000 || !Number.isInteger(leaseSeconds) || leaseSeconds < 30 || heartbeatSeconds < 10 || heartbeatSeconds >= leaseSeconds) throw new Error('smart_media_worker_timing_invalid')
 if (localBridgeRequested && !localBridgeEnabled) throw new Error('smart_media_local_bridge_not_allowed_in_production')
+
+let shuttingDown = false
+let currentJobId = ''
+let lastCompletedAt = ''
+let lastErrorCode = ''
+const log = (level: 'info' | 'warn' | 'error', event: string, fields: Record<string, unknown> = {}) => {
+  console.log(JSON.stringify({ timestamp: new Date().toISOString(), level, event, workerId, environment, ...fields }))
+}
 
 const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
 const rest = async (resource: string, init: RequestInit = {}) => {
@@ -28,32 +51,66 @@ const rest = async (resource: string, init: RequestInit = {}) => {
 }
 
 async function updateJob(id: string, values: Record<string, unknown>) {
-  await rest(`video_jobs?id=eq.${id}`, {
+  await rest(`video_jobs?id=eq.${id}${leasesEnabled ? `&worker_id=eq.${encodeURIComponent(workerId)}` : ''}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
     body: JSON.stringify(values),
   })
 }
 
+async function rpc(name: string, body: Record<string, unknown>) {
+  const response = await rest(`rpc/${name}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  })
+  return response.json()
+}
+
+async function storageOutputExists(outputPath: string) {
+  const parts = outputPath.split('/')
+  const fileName = parts.pop()
+  const prefix = parts.join('/')
+  const response = await fetch(`${url}/storage/v1/object/list/${bucket}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefix, search: fileName, limit: 2, offset: 0 }),
+  })
+  if (!response.ok) throw new Error(`output_probe_failed:${response.status}`)
+  const objects = await response.json() as Array<{ name?: string }>
+  return objects.some((object) => object.name === fileName)
+}
+
 async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') {
-  const response = selectedJobId
-    ? await rest(`video_jobs?id=eq.${encodeURIComponent(selectedJobId)}&limit=1&select=*`)
-    : await rest('video_jobs?mode=in.(smart_video,smart_carousel)&status=eq.queued&order=created_at.asc&limit=1&select=*')
-  const [job] = await response.json() as Array<Record<string, any>>
+  const jobs = leasesEnabled
+    ? await rpc('claim_video_job', { p_worker_id: workerId, p_lease_seconds: leaseSeconds, p_job_id: selectedJobId || null }) as Array<Record<string, any>>
+    : await (selectedJobId
+      ? rest(`video_jobs?id=eq.${encodeURIComponent(selectedJobId)}&status=eq.queued&limit=1&select=*`)
+      : rest('video_jobs?mode=in.(smart_video,smart_carousel)&status=eq.queued&order=created_at.asc&limit=1&select=*')).then((response) => response.json()) as Array<Record<string, any>>
+  const [job] = jobs
   if (selectedJobId) {
     if (!job) throw new Error('smart_media_target_job_not_found')
-    if (job.status !== 'queued') throw new Error('smart_media_target_job_not_queued')
-    if (job.mode !== 'smart_carousel') throw new Error('smart_media_target_job_not_smart_carousel')
     if (expectedUserId && job.user_id !== expectedUserId) throw new Error('smart_media_target_job_owner_mismatch')
   }
   if (!job) return { processed: false }
 
+  if (!leasesEnabled) await updateJob(job.id, { status: 'processing', error_message: null })
+  currentJobId = String(job.id)
+  const startedAt = Date.now()
+  const heartbeat = leasesEnabled ? setInterval(() => {
+    void rpc('heartbeat_video_job', { p_job_id: job.id, p_worker_id: workerId, p_lease_seconds: leaseSeconds })
+      .catch((error) => log('error', 'job_heartbeat_failed', { jobId: job.id, errorCode: classifyError(error).code }))
+  }, heartbeatSeconds * 1000) : undefined
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `smart-video-${job.id}-`))
   try {
-    await updateJob(job.id, { status: 'processing', error_message: null })
     const contract = JSON.parse(String(job.prompt_final || '{}'))
     const outputFile = path.join(workDir, 'smart-video.mp4')
     const commercial = contract.commercialCommunication || {}
+    const outputFolder = job.mode === 'smart_carousel' ? 'super-carrossel' : 'smart-video'
+    const outputPath = `${job.user_id}/${outputFolder}/${job.id}/final.mp4`
+    if (await storageOutputExists(outputPath)) {
+      await updateJob(job.id, { status: 'completed', output_video_path: outputPath, completed_at: new Date().toISOString(), ...(leasesEnabled ? { worker_id: null, lease_expires_at: null, heartbeat_at: null } : {}) })
+      log('info', 'job_completed_idempotently', { jobId: job.id, durationMs: Date.now() - startedAt })
+      return { processed: true, jobId: job.id, outputPath, reusedOutput: true }
+    }
     await updateJob(job.id, { status: 'rendering' })
 
     if (job.mode === 'smart_carousel') {
@@ -116,22 +173,38 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
       })
     }
 
-    const outputFolder = job.mode === 'smart_carousel' ? 'super-carrossel' : 'smart-video'
-    const outputPath = `${job.user_id}/${outputFolder}/${job.id}/final.mp4`
     const uploadResponse = await fetch(`${url}/storage/v1/object/${bucket}/${outputPath.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'video/mp4', 'x-upsert': 'true' },
       body: fs.readFileSync(outputFile),
     })
     if (!uploadResponse.ok) throw new Error(`output_upload_failed:${uploadResponse.status}:${await uploadResponse.text()}`)
-    await updateJob(job.id, { status: 'completed', output_video_path: outputPath, completed_at: new Date().toISOString() })
+    await updateJob(job.id, { status: 'completed', output_video_path: outputPath, completed_at: new Date().toISOString(), ...(leasesEnabled ? { worker_id: null, lease_expires_at: null, heartbeat_at: null } : {}) })
+    lastCompletedAt = new Date().toISOString()
+    log('info', 'job_completed', { jobId: job.id, mode: job.mode, attempt: job.attempt_count, durationMs: Date.now() - startedAt })
     return { processed: true, jobId: job.id, outputPath }
   } catch (error) {
-    await updateJob(job.id, { status: 'failed', error_message: error instanceof Error ? error.message.slice(0, 500) : 'smart_video_worker_failed' })
+    const failure = classifyError(error)
+    lastErrorCode = failure.code
+    if (leasesEnabled) {
+      await rpc('release_video_job', { p_job_id: job.id, p_worker_id: workerId, p_retryable: failure.retryable, p_error_code: failure.code, p_error_message: failure.message })
+    } else {
+      await updateJob(job.id, { status: 'failed', error_message: failure.message })
+    }
+    log('error', 'job_failed', { jobId: job.id, mode: job.mode, attempt: job.attempt_count, durationMs: Date.now() - startedAt, errorCode: failure.code, retryable: failure.retryable })
     throw error
   } finally {
+    if (heartbeat) clearInterval(heartbeat)
     fs.rmSync(workDir, { recursive: true, force: true })
+    currentJobId = ''
   }
+}
+
+function classifyError(error: unknown) {
+  const message = error instanceof Error ? error.message : 'smart_video_worker_failed'
+  const code = message.split(':', 1)[0].slice(0, 100)
+  const permanent = /contract_invalid|image_invalid|target_job_owner_mismatch|not_smart_carousel|duration|mime|SyntaxError/i.test(code)
+  return { code, message: message.slice(0, 500), retryable: !permanent }
 }
 
 async function validateLocalBridgeRequest(jobId: string, accessToken: string) {
@@ -257,11 +330,54 @@ function runLocalBridge() {
   })
 }
 
+function startHealthServer() {
+  const server = http.createServer((request, response) => {
+    if (request.method !== 'GET' || request.url !== '/health') {
+      response.writeHead(404).end()
+      return
+    }
+    response.writeHead(shuttingDown ? 503 : 200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+    response.end(JSON.stringify({ status: shuttingDown ? 'stopping' : 'ok', environment, workerId, currentJobId: currentJobId || null, lastCompletedAt: lastCompletedAt || null, lastErrorCode: lastErrorCode || null }))
+  })
+  server.listen(healthPort, healthHost, () => log('info', 'health_server_ready', { host: healthHost, port: healthPort }))
+  return server
+}
+
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+
+async function runService() {
+  const healthServer = startHealthServer()
+  const stop = (signal: string) => {
+    if (shuttingDown) return
+    shuttingDown = true
+    log('info', 'shutdown_requested', { signal, currentJobId: currentJobId || null })
+    healthServer.close()
+  }
+  process.once('SIGTERM', () => stop('SIGTERM'))
+  process.once('SIGINT', () => stop('SIGINT'))
+  log('info', 'worker_ready', { runMode, leasesEnabled, ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg', bucket })
+  while (!shuttingDown) {
+    try {
+      const result = await processNextJob()
+      if (!result.processed && !shuttingDown) await wait(pollIntervalMs)
+    } catch (error) {
+      lastErrorCode = classifyError(error).code
+      if (!shuttingDown) await wait(pollIntervalMs)
+    }
+  }
+  log('info', 'worker_stopped')
+}
+
 if (localBridgeEnabled) {
   runLocalBridge()
+} else if (runMode === 'service') {
+  runService().catch((error) => {
+    log('error', 'worker_fatal', { errorCode: classifyError(error).code })
+    process.exitCode = 1
+  })
 } else {
-  processNextJob().then((result) => console.log(JSON.stringify(result))).catch((error) => {
-    console.error(error)
+  processNextJob().then((result) => log('info', 'worker_once_finished', result)).catch((error) => {
+    log('error', 'worker_once_failed', { errorCode: classifyError(error).code })
     process.exitCode = 1
   })
 }

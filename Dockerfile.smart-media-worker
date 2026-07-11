@@ -1,0 +1,23 @@
+FROM node:24-bookworm-slim
+
+RUN export DEBIAN_FRONTEND=noninteractive \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg ca-certificates fonts-dejavu-core \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --chown=node:node core/smart-motion-engine ./core/smart-motion-engine
+
+ENV NODE_ENV=production \
+    FFMPEG_PATH=/usr/bin/ffmpeg \
+    FFPROBE_PATH=/usr/bin/ffprobe \
+    SMART_MEDIA_RUN_MODE=service \
+    SMART_MEDIA_HEALTH_HOST=0.0.0.0 \
+    SMART_MEDIA_HEALTH_PORT=8080
+
+USER node
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
+CMD ["node", "--experimental-strip-types", "core/smart-motion-engine/cli/process-smart-video-jobs.ts"]

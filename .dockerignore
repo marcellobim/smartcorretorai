@@ -1,0 +1,9 @@
+**
+!core/
+!core/smart-motion-engine/
+!core/smart-motion-engine/**
+core/smart-motion-engine/output/
+**/*.mp4
+**/*.mov
+**/*.webm
+**/*.log

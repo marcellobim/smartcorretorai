@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.local
+.env.smart-media.local
 dist/
 build/
 .DS_Store

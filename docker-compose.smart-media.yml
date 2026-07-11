@@ -1,0 +1,19 @@
+services:
+  smart-media-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.smart-media-worker
+    env_file:
+      - .env.smart-media.local
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=2g,uid=1000,gid=1000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
