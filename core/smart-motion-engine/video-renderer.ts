@@ -71,6 +71,19 @@ function resolveFfmpegPath(): string {
   }
 }
 
+function resolveFfprobePath(): string {
+  if (process.env.FFPROBE_PATH) return process.env.FFPROBE_PATH
+
+  const ffmpegPath = resolveFfmpegPath()
+  if (ffmpegPath !== 'ffmpeg') {
+    const ffprobeName = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'
+    const siblingFfprobe = path.join(path.dirname(ffmpegPath), ffprobeName)
+    if (fs.existsSync(siblingFfprobe)) return siblingFfprobe
+  }
+
+  return 'ffprobe'
+}
+
 function runFfmpeg(command: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -86,6 +99,41 @@ function runFfmpeg(command: string, args: string[]) {
         resolve()
       } else {
         reject(new Error(`smart_motion_video_render_failed:${code}:${stderr.slice(-1200)}`))
+      }
+    })
+  })
+}
+
+function probeHasAudioStream(command: string, videoFile: string) {
+  return new Promise<boolean>((resolve, reject) => {
+    const child = spawn(command, [
+      '-v', 'error',
+      '-select_streams', 'a',
+      '-show_entries', 'stream=index',
+      '-of', 'json',
+      videoFile,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`smart_motion_video_probe_failed:${code}:${stderr.slice(-1200)}`))
+        return
+      }
+
+      try {
+        const result = JSON.parse(stdout) as { streams?: unknown[] }
+        resolve(Array.isArray(result.streams) && result.streams.length > 0)
+      } catch (error) {
+        reject(new Error(`smart_motion_video_probe_invalid:${error instanceof Error ? error.message : String(error)}`))
       }
     })
   })
@@ -384,7 +432,7 @@ function buildGeneratedMusicFilter(durationSeconds: number) {
   ].join(',')
 }
 
-function buildMusicFinishingArgs(input: {
+export function buildMusicFinishingArgs(input: {
   videoFile: string
   outputFile: string
   musicFile?: string
@@ -392,6 +440,7 @@ function buildMusicFinishingArgs(input: {
   durationSeconds: number
   fadeInSeconds: number
   fadeOutSeconds: number
+  hasOriginalAudio: boolean
 }) {
   const args = ['-y', '-i', input.videoFile]
   if (input.musicFile) {
@@ -400,16 +449,20 @@ function buildMusicFinishingArgs(input: {
     args.push('-f', 'lavfi', '-i', buildGeneratedMusicFilter(input.durationSeconds))
   }
 
-  const filters = [
-    buildNormalizedMusicFilter({
-      durationSeconds: input.durationSeconds,
-      fadeInSeconds: input.fadeInSeconds,
-      fadeOutSeconds: input.fadeOutSeconds,
-      volumeLevel: input.musicVolume,
-    }),
-    `[0:a]volume=1.0,aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[voice]`,
-    `[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,atrim=0:${input.durationSeconds.toFixed(3)},asetpts=N/SR/TB[aout]`,
-  ]
+  const musicFilter = buildNormalizedMusicFilter({
+    durationSeconds: input.durationSeconds,
+    fadeInSeconds: input.fadeInSeconds,
+    fadeOutSeconds: input.fadeOutSeconds,
+    volumeLevel: input.musicVolume,
+    outputLabel: input.hasOriginalAudio ? 'music' : 'aout',
+  })
+  const filters = input.hasOriginalAudio
+    ? [
+        musicFilter,
+        `[0:a]volume=1.0,aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[voice]`,
+        `[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,atrim=0:${input.durationSeconds.toFixed(3)},asetpts=N/SR/TB[aout]`,
+      ]
+    : [musicFilter]
 
   args.push(
     '-filter_complex', filters.join(';'),
@@ -470,6 +523,7 @@ async function applyFinishingLayer(input: {
     ? music.filePath
     : undefined
   const musicVolume = resolveMusicVolume(input.finishing)
+  const hasOriginalAudio = await probeHasAudioStream(resolveFfprobePath(), videoForAudioPath)
 
   await runFfmpeg(input.ffmpegPath, buildMusicFinishingArgs({
     videoFile: videoForAudioPath,
@@ -479,6 +533,7 @@ async function applyFinishingLayer(input: {
     durationSeconds: input.durationSeconds,
     fadeInSeconds: music.fadeInSeconds ?? 1.2,
     fadeOutSeconds: music.fadeOutSeconds ?? 2.2,
+    hasOriginalAudio,
   }))
 
   return {
