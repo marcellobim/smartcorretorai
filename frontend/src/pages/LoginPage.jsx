@@ -14,7 +14,6 @@ export default function LoginPage() {
   const [resendingEmail, setResendingEmail] = useState(false)
   const [userEmail, setUserEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const [authDiagnostic, setAuthDiagnostic] = useState(null)
   const { signIn } = useAuth()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -27,15 +26,6 @@ export default function LoginPage() {
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
     } catch (err) {
-      if (import.meta.env.VITE_AUTH_DIAGNOSTICS === 'true') {
-        setAuthDiagnostic({
-          code: err?.code || null,
-          message: err?.message || 'Unknown authentication error',
-          status: err?.status || null,
-          supabaseUrl: import.meta.env.VITE_SUPABASE_URL || null,
-          environment: import.meta.env.VITE_DEPLOY_ENV || 'unknown',
-        })
-      }
       if (err.message?.includes('Email not confirmed')) {
         setShowResendButton(true)
         toast.error('Confirme seu email antes de fazer login.')
@@ -149,16 +139,6 @@ export default function LoginPage() {
             <Button type="submit" loading={loading} className="w-full mt-2">
               Entrar
             </Button>
-
-            {authDiagnostic && (
-              <div data-testid="auth-diagnostic" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900">
-                <p><strong>code:</strong> {authDiagnostic.code || 'null'}</p>
-                <p><strong>message:</strong> {authDiagnostic.message}</p>
-                <p><strong>status:</strong> {authDiagnostic.status || 'null'}</p>
-                <p><strong>Supabase:</strong> {authDiagnostic.supabaseUrl}</p>
-                <p><strong>Vercel environment:</strong> {authDiagnostic.environment}</p>
-              </div>
-            )}
 
             {showResendButton && (
               <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
