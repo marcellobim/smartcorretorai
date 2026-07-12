@@ -1,15 +1,22 @@
-# Trilhas originais do SmartCorretorAI
+# Trilhas instrumentais do SmartCorretorAI
 
-As cinco faixas deste diretório são instrumentais originais sintetizadas localmente para o SmartCorretorAI. Elas não contêm samples, gravações ou obras de terceiros e podem ser usadas comercialmente pelo projeto.
+Os cinco assets de produção são gravações instrumentais de John Bartmann, publicadas sob a dedicação de domínio público CC0 1.0. A licença permite copiar, adaptar, distribuir e usar comercialmente sem necessidade de autorização.
 
-Cada asset tem 60 segundos, áudio AAC, 48 kHz e dois canais. A normalização e os fades de entrada e saída são aplicados somente no merge final, de acordo com a duração efetiva do vídeo.
+Mapeamento:
 
-Arquivos:
+- `animada.m4a`: Happy Clappy
+- `calma.m4a`: Tender Moment
+- `instrumental.m4a`: Interstellar Space
+- `moderna.m4a`: Home At Last
+- `sofisticada.m4a`: Somewhere Nice
 
-- `moderna.m4a`
-- `calma.m4a`
-- `sofisticada.m4a`
-- `animada.m4a`
-- `instrumental.m4a`
+Fontes e licença:
 
-O script `generate-original-tracks.mjs` reproduz os assets usando apenas síntese do FFmpeg. A geração acontece no desenvolvimento; o worker nunca baixa nem gera música durante um job.
+- Autor: John Bartmann
+- Álbum: Public Domain Soundtrack Music: Album One
+- Fonte: Free Music Archive e Wikimedia Commons
+- Licença: CC0 1.0 Universal — https://creativecommons.org/publicdomain/zero/1.0/
+
+Os arquivos foram convertidos para AAC-LC, 48 kHz e estéreo. A normalização e os fades continuam sendo aplicados pelo pipeline existente durante o merge final.
+
+`generate-original-tracks.mjs` foi preservado somente como referência técnica/teste. Ele não deve gerar assets de produção e exige a opção explícita `ALLOW_SYNTHETIC_REFERENCE_TRACKS=1` para executar.

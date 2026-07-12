@@ -2,6 +2,11 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
+if (process.env.ALLOW_SYNTHETIC_REFERENCE_TRACKS !== '1') {
+  console.error('Synthetic reference tracks are disabled. Set ALLOW_SYNTHETIC_REFERENCE_TRACKS=1 only for explicit tests.')
+  process.exit(1)
+}
+
 const outputDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(outputDirectory, '..', '..', '..', '..')
 const durationSeconds = 60
