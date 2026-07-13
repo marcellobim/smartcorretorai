@@ -79,6 +79,6 @@ test('mantém frase longa inteira e reduz somente o tamanho necessário para cab
 
   assert.equal((filter.match(/drawtext=/g) || []).length, 1)
   assert.match(filter, /textfile='line-1\.txt'/)
-  assert.match(filter, /fontsize=77/)
+  assert.match(filter, /fontsize=64/)
   assert.doesNotMatch(filter, /fontsize=106/)
 })

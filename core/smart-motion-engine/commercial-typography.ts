@@ -13,7 +13,7 @@ export type CommercialTypographyFilterInput = {
 }
 
 const ACCENT_BLUE = '0x61D6FF'
-const BLUE_LINE_MAX_WIDTH = 930
+const BLUE_LINE_MAX_WIDTH = 780
 
 function normalizeLine(value: string) {
   return String(value || '')
@@ -24,13 +24,14 @@ function normalizeLine(value: string) {
 
 function blueLineFontSize(text: string) {
   const characters = Array.from(text.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+  if (characters.length <= 11) return 124
   const widthUnits = characters.reduce((total, character) => {
     if (character === ' ') return total + 0.35
     if (character === 'I') return total + 0.35
     if (character === 'M' || character === 'W') return total + 0.95
     return total + 0.65
   }, 0)
-  return Math.min(124, Math.max(62, Math.floor(BLUE_LINE_MAX_WIDTH / Math.max(1, widthUnits))))
+  return Math.min(124, Math.max(36, Math.floor(BLUE_LINE_MAX_WIDTH / Math.max(1, widthUnits))))
 }
 
 export function createCommercialTypographyLayout(value: string | string[]): CommercialTypographyLayout {
