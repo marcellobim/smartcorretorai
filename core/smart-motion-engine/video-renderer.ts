@@ -5,6 +5,11 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { buildNormalizedMusicFilter } from './ffmpeg-builder.ts'
+import { wrapText } from './sanitize.ts'
+import {
+  buildCommercialTypographyFilters,
+  createCommercialTypographyLayout,
+} from './commercial-typography.ts'
 import type {
   StudioHeroBrainSmartMotionContract,
   StudioHeroMotionCommercialCommunicationPlan,
@@ -198,19 +203,18 @@ function buildSegmentArgs(input: {
 
 function resolveFontFile(): string {
   const candidates = [
+    'C:/Windows/Fonts/ariblk.ttf',
     'C:/Windows/Fonts/arialbd.ttf',
     'C:/Windows/Fonts/arial.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Black.ttf',
     '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
     '/System/Library/Fonts/Supplemental/Arial.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   ]
 
   return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0]
-}
-
-function escapeFfmpegFilterPath(filePath: string) {
-  return filePath.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'")
 }
 
 function writeOverlayTextFile(input: {
@@ -221,55 +225,6 @@ function writeOverlayTextFile(input: {
   const filePath = path.join(input.workDir, input.name)
   fs.writeFileSync(filePath, `${input.lines.filter(Boolean).join('\n')}\n`, 'utf8')
   return filePath
-}
-
-function buildTextEnable(startSeconds: number, endSeconds: number) {
-  return `enable='between(t,${startSeconds.toFixed(2)},${endSeconds.toFixed(2)})'`
-}
-
-function buildDrawText(input: {
-  textFile: string
-  fontFile: string
-  x: string
-  y: string
-  fontSize: number
-  alpha: number
-  startSeconds: number
-  endSeconds: number
-}) {
-  const enable = buildTextEnable(input.startSeconds, input.endSeconds)
-  return [
-    `drawtext=fontfile='${escapeFfmpegFilterPath(input.fontFile)}'`,
-    `textfile='${escapeFfmpegFilterPath(input.textFile)}'`,
-    `fontcolor=white@${input.alpha}`,
-    `fontsize=${input.fontSize}`,
-    'borderw=2',
-    'bordercolor=black@0.48',
-    'line_spacing=10',
-    `x=${input.x}`,
-    `y=${input.y}`,
-    enable,
-  ].join(':')
-}
-
-function buildDrawBox(input: {
-  x: string
-  y: string
-  width: string
-  height: string
-  alpha: number
-  startSeconds: number
-  endSeconds: number
-}) {
-  return [
-    `drawbox=x=${input.x}`,
-    `y=${input.y}`,
-    `w=${input.width}`,
-    `h=${input.height}`,
-    `color=black@${input.alpha}`,
-    't=fill',
-    buildTextEnable(input.startSeconds, input.endSeconds),
-  ].join(':')
 }
 
 function getCommercialHighlights(communication: StudioHeroMotionCommercialCommunicationPlan) {
@@ -305,31 +260,48 @@ function buildCommercialCommunicationFilter(input: {
   const highlightDuration = Math.min(4.8, Math.max(3.2, duration * 0.04))
   const highlightAnchors = [0.24, 0.42, 0.60, 0.76]
 
-  const openingFile = writeOverlayTextFile({
-    workDir: input.workDir,
-    name: 'commercial-opening.txt',
-    lines: [input.communication.propertyType.toLocaleUpperCase('pt-BR'), input.communication.dealType],
-  })
+  const addMessage = (message: {
+    text: string
+    name: string
+    startSeconds: number
+    endSeconds: number
+    useAccent: boolean
+    placement?: 'standard' | 'cta'
+  }) => {
+    const layout = createCommercialTypographyLayout(message.text)
+    if (!layout.focus) return
+    const focusFile = writeOverlayTextFile({
+      workDir: input.workDir,
+      name: `${message.name}-focus.txt`,
+      lines: [wrapText(layout.focus, 16, 1)],
+    })
+    const supportFile = layout.support
+      ? writeOverlayTextFile({
+          workDir: input.workDir,
+          name: `${message.name}-support.txt`,
+          lines: [wrapText(layout.support, message.placement === 'cta' ? 18 : 20, message.placement === 'cta' ? 3 : 2)],
+        })
+      : undefined
 
-  filters.push(buildDrawBox({
-    x: '58',
-    y: '112',
-    width: '520',
-    height: '142',
-    alpha: 0.42,
+    filters.push(...buildCommercialTypographyFilters({
+      layout,
+      focusFile,
+      supportFile,
+      fontFile: input.fontFile,
+      startSeconds: message.startSeconds,
+      endSeconds: message.endSeconds,
+      useAccent: message.useAccent,
+      placement: message.placement,
+    }))
+  }
+
+  addMessage({
+    text: [input.communication.propertyType, input.communication.dealType].filter(Boolean).join(' '),
+    name: 'commercial-opening',
     startSeconds: openingStart,
     endSeconds: openingEnd,
-  }))
-  filters.push(buildDrawText({
-    textFile: openingFile,
-    fontFile: input.fontFile,
-    x: '86',
-    y: '138',
-    fontSize: 48,
-    alpha: 0.96,
-    startSeconds: openingStart,
-    endSeconds: openingEnd,
-  }))
+    useAccent: true,
+  })
 
   for (const [index, highlight] of getCommercialHighlights(input.communication).entries()) {
     const center = duration * highlightAnchors[index]
@@ -337,61 +309,23 @@ function buildCommercialCommunicationFilter(input: {
     const endSeconds = Math.min(closingEnd - 1, startSeconds + highlightDuration)
     if (endSeconds <= startSeconds) continue
 
-    const highlightFile = writeOverlayTextFile({
-      workDir: input.workDir,
-      name: `commercial-highlight-${index + 1}.txt`,
-      lines: [highlight],
+    addMessage({
+      text: highlight,
+      name: `commercial-highlight-${index + 1}`,
+      startSeconds,
+      endSeconds,
+      useAccent: index % 2 === 0,
     })
-
-    filters.push(buildDrawBox({
-      x: '64',
-      y: 'h-306',
-      width: '620',
-      height: '82',
-      alpha: 0.38,
-      startSeconds,
-      endSeconds,
-    }))
-    filters.push(buildDrawText({
-      textFile: highlightFile,
-      fontFile: input.fontFile,
-      x: '92',
-      y: 'h-282',
-      fontSize: 46,
-      alpha: 0.94,
-      startSeconds,
-      endSeconds,
-    }))
   }
 
-  const ctaLines = input.communication.phone
-    ? [strengthenCommercialCta(input.communication.cta), input.communication.phone]
-    : [strengthenCommercialCta(input.communication.cta)]
-  const ctaFile = writeOverlayTextFile({
-    workDir: input.workDir,
-    name: 'commercial-cta.txt',
-    lines: ctaLines,
+  addMessage({
+    text: [strengthenCommercialCta(input.communication.cta), input.communication.phone].filter(Boolean).join(' - '),
+    name: 'commercial-cta',
+    startSeconds: closingEnd,
+    endSeconds: duration,
+    useAccent: true,
+    placement: 'cta',
   })
-
-  filters.push(buildDrawBox({
-    x: '70',
-    y: 'h-246',
-    width: '940',
-    height: input.communication.phone ? '132' : '92',
-    alpha: 0.50,
-    startSeconds: closingEnd,
-    endSeconds: duration,
-  }))
-  filters.push(buildDrawText({
-    textFile: ctaFile,
-    fontFile: input.fontFile,
-    x: '(w-text_w)/2',
-    y: input.communication.phone ? 'h-214' : 'h-216',
-    fontSize: input.communication.phone ? 44 : 48,
-    alpha: 0.98,
-    startSeconds: closingEnd,
-    endSeconds: duration,
-  }))
 
   return filters.join(',')
 }

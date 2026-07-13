@@ -3,6 +3,10 @@ import { SMART_MOTION_DEFAULTS } from './schema.ts'
 import { buildMotionFilter } from './motion-presets.ts'
 import { toFfmpegXfadeTransition } from './transition-presets.ts'
 import { escapeFfmpegFilterPath } from './sanitize.ts'
+import {
+  buildCommercialTypographyFilters,
+  type CommercialTypographyFilterInput,
+} from './commercial-typography.ts'
 
 export function buildEncodeArgs(outputSegment: string, plan: Pick<SmartMotionPlan, 'fps'>): string[] {
   return [
@@ -19,10 +23,10 @@ export function buildEncodeArgs(outputSegment: string, plan: Pick<SmartMotionPla
 export function buildSceneFilter(input: {
   scene: SmartMotionScenePlan
   plan: SmartMotionPlan
-  captionFile: string
   fontFile: string
+  typography?: Omit<CommercialTypographyFilterInput, 'fontFile' | 'startSeconds' | 'endSeconds'>
 }): string {
-  const { scene, plan, captionFile, fontFile } = input
+  const { scene, plan, fontFile } = input
   const motion = buildMotionFilter(scene.motion, {
     width: plan.width,
     height: plan.height,
@@ -31,7 +35,6 @@ export function buildSceneFilter(input: {
   })
   const fadeOutStart = Math.max(0, scene.durationSeconds - 0.22).toFixed(2)
   const font = escapeFfmpegFilterPath(fontFile)
-  const caption = escapeFfmpegFilterPath(captionFile)
 
   const base = [
     motion,
@@ -40,25 +43,17 @@ export function buildSceneFilter(input: {
     `fade=t=out:st=${fadeOutStart}:d=0.22`,
   ]
 
-  if (scene.kind === 'cta') {
-    const strongCta = plan.ctaMode === 'strong'
-    const subtleCta = plan.ctaMode === 'subtle'
-    base.push(
-      `drawbox=x=0:y=0:w=iw:h=ih:color=black@${subtleCta ? '0.22' : '0.34'}:t=fill`,
-      `drawbox=x=${strongCta ? 70 : 112}:y=ih-${strongCta ? 690 : 620}:w=iw-${strongCta ? 140 : 224}:h=${strongCta ? 400 : 315}:color=black@${strongCta ? '0.66' : '0.54'}:t=fill`,
-      `drawbox=x=${strongCta ? 70 : 112}:y=ih-${strongCta ? 690 : 620}:w=iw-${strongCta ? 140 : 224}:h=4:color=white@0.84:t=fill`,
-      `drawtext=fontfile='${font}':textfile='${caption}':fontcolor=white:fontsize=${strongCta ? 88 : 72}:borderw=2:bordercolor=black@0.52:line_spacing=14:x=(w-text_w)/2:y=h-${strongCta ? 595 : 535}`,
-      `drawbox=x=238:y=ih-270:w=iw-476:h=82:color=white@${subtleCta ? '0.82' : '0.94'}:t=fill`,
-      `drawtext=fontfile='${font}':text='SMARTCORRETORAI':fontcolor=black@0.90:fontsize=30:x=(w-text_w)/2:y=h-244`,
-    )
-  } else if (scene.caption) {
-    const compactText = plan.rhythm === 'fast' || plan.rhythm === 'direct'
-    const textAlpha = plan.visualIntensity === 'high' ? '0.48' : '0.40'
-    base.push(
-      `drawbox=x=${compactText ? 142 : 112}:y=h-${compactText ? 350 : 405}:w=iw-${compactText ? 284 : 224}:h=${compactText ? 104 : 128}:color=black@${textAlpha}:t=fill`,
-      `drawbox=x=${compactText ? 142 : 112}:y=h-${compactText ? 350 : 405}:w=iw-${compactText ? 284 : 224}:h=3:color=white@0.58:t=fill`,
-      `drawtext=fontfile='${font}':textfile='${caption}':fontcolor=white@0.98:fontsize=${compactText ? 50 : 54}:borderw=2:bordercolor=black@0.52:line_spacing=8:x=(w-text_w)/2:y=h-${compactText ? 312 : 358}`,
-    )
+  if (input.typography && (scene.kind === 'cta' || scene.caption)) {
+    base.push(...buildCommercialTypographyFilters({
+      ...input.typography,
+      fontFile,
+      startSeconds: 0,
+      endSeconds: scene.durationSeconds,
+      placement: scene.kind === 'cta' ? 'cta' : 'standard',
+    }))
+    if (scene.kind === 'cta') {
+      base.push(`drawtext=fontfile='${font}':text='SMARTCORRETORAI':fontcolor=white@0.62:fontsize=27:x=(w-text_w)/2:y=h-92`)
+    }
   }
 
   base.push(`format=${SMART_MOTION_DEFAULTS.pixelFormat}`)

@@ -9,6 +9,7 @@ import { createSmartMotionPlan } from './planner.ts'
 import { buildCrossfadeArgs, buildEncodeArgs, buildMusicArgs, buildSceneFilter } from './ffmpeg-builder.ts'
 import { createSmartMotionReport } from './report.ts'
 import { sanitizeText, wrapText } from './sanitize.ts'
+import { createCommercialTypographyLayout } from './commercial-typography.ts'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
@@ -53,10 +54,13 @@ function resolveFfmpegPath(): string {
 
 function resolveFontFile(): string {
   const candidates = [
+    'C:/Windows/Fonts/ariblk.ttf',
     'C:/Windows/Fonts/arialbd.ttf',
     'C:/Windows/Fonts/arial.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Black.ttf',
     '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
     '/System/Library/Fonts/Supplemental/Arial.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   ]
@@ -91,9 +95,24 @@ async function createSceneSegment(input: {
   const caption = scene.kind === 'cta'
     ? sanitizeText(scene.caption, 48).toUpperCase()
     : scene.caption
-  const captionFile = writeTextFile(workDir, `caption-${String(sceneIndex + 1).padStart(2, '0')}.txt`, caption, scene.kind === 'cta' ? 18 : 24)
+  const typography = createCommercialTypographyLayout(caption)
+  const prefix = `caption-${String(sceneIndex + 1).padStart(2, '0')}`
+  const focusFile = writeTextFile(workDir, `${prefix}-focus.txt`, typography.focus, 16)
+  const supportFile = typography.support
+    ? writeTextFile(workDir, `${prefix}-support.txt`, typography.support, scene.kind === 'cta' ? 18 : 20)
+    : undefined
   const outputSegment = path.join(workDir, `segment-${String(sceneIndex + 1).padStart(2, '0')}.mp4`)
-  const filter = buildSceneFilter({ scene, plan, captionFile, fontFile })
+  const filter = buildSceneFilter({
+    scene,
+    plan,
+    fontFile,
+    typography: {
+      layout: typography,
+      focusFile,
+      supportFile,
+      useAccent: scene.kind === 'cta' || sceneIndex === 1 || (sceneIndex > 0 && sceneIndex % 2 === 0),
+    },
+  })
 
   await run(ffmpeg, [
     '-y',
