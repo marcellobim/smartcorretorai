@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { spawn } from 'node:child_process'
 import { renderSmartMotionMainReel } from '../video-renderer.ts'
 import { renderSmartMotion } from '../renderer.ts'
 import { buildSmartCarouselMessageQueue } from '../smart-carousel-message-queue.ts'
@@ -11,6 +12,9 @@ const url = String(process.env.SUPABASE_URL || '').replace(/\/$/, '')
 const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '')
 const bucket = String(process.env.SMART_MEDIA_BUCKET || 'studio-videos')
 const SMART_VIDEO_MAX_DURATION_SECONDS = 195
+const SMART_VIDEO_MAX_OUTPUT_BYTES = 45 * 1024 * 1024
+const SMART_VIDEO_AUDIO_BITRATE_KBPS = 128
+const SMART_VIDEO_BITRATE_SAFETY_FACTOR = 0.9
 const SMART_CAROUSEL_MAX_IMAGES = 20
 const targetJobId = String(process.env.SMART_MEDIA_JOB_ID || '').trim()
 const localBridgeRequested = process.env.SMART_MEDIA_LOCAL_BRIDGE === '1'
@@ -48,6 +52,62 @@ const rest = async (resource: string, init: RequestInit = {}) => {
   const response = await fetch(`${url}/rest/v1/${resource}`, { ...init, headers: { ...headers, ...init.headers } })
   if (!response.ok) throw new Error(`supabase_${response.status}:${await response.text()}`)
   return response
+}
+
+function runMediaCommand(command: string, args: string[]) {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-4000) })
+    child.once('error', reject)
+    child.once('close', (code) => code === 0 ? resolve() : reject(new Error(`media_command_failed:${code}:${stderr}`)))
+  })
+}
+
+async function probeDurationSeconds(filePath: string) {
+  const ffprobePath = String(process.env.FFPROBE_PATH || 'ffprobe')
+  return new Promise<number>((resolve, reject) => {
+    const child = spawn(ffprobePath, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', filePath], { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk) => { stdout += chunk })
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-2000) })
+    child.once('error', reject)
+    child.once('close', (code) => {
+      const duration = Number(stdout.trim())
+      if (code !== 0 || !Number.isFinite(duration) || duration <= 0) reject(new Error(`smart_video_duration_probe_failed:${code}:${stderr}`))
+      else resolve(duration)
+    })
+  })
+}
+
+async function enforceSmartVideoSizeLimit(outputFile: string, workDir: string, jobId: string) {
+  const sizeBeforeBytes = fs.statSync(outputFile).size
+  if (sizeBeforeBytes <= SMART_VIDEO_MAX_OUTPUT_BYTES) {
+    log('info', 'smart_video_size_check', { jobId, sizeBeforeBytes, sizeAfterBytes: sizeBeforeBytes, compressed: false })
+    return outputFile
+  }
+
+  const durationSeconds = await probeDurationSeconds(outputFile)
+  const targetTotalBitrateBps = Math.floor((SMART_VIDEO_MAX_OUTPUT_BYTES * 8 / durationSeconds) * SMART_VIDEO_BITRATE_SAFETY_FACTOR)
+  const videoBitrateKbps = Math.max(300, Math.floor((targetTotalBitrateBps / 1000) - SMART_VIDEO_AUDIO_BITRATE_KBPS))
+  const compressedFile = path.join(workDir, 'smart-video-compressed.mp4')
+  const ffmpegPath = String(process.env.FFMPEG_PATH || 'ffmpeg')
+  await runMediaCommand(ffmpegPath, [
+    '-y', '-i', outputFile,
+    '-map', '0:v:0', '-map', '0:a:0?',
+    '-c:v', 'libx264', '-preset', 'medium',
+    '-b:v', `${videoBitrateKbps}k`, '-maxrate', `${videoBitrateKbps}k`, '-bufsize', `${videoBitrateKbps * 2}k`,
+    '-c:a', 'aac', '-profile:a', 'aac_low', '-b:a', `${SMART_VIDEO_AUDIO_BITRATE_KBPS}k`, '-ar', '48000', '-ac', '2',
+    '-movflags', '+faststart',
+    compressedFile,
+  ])
+  const sizeAfterBytes = fs.statSync(compressedFile).size
+  log('info', 'smart_video_compressed', { jobId, sizeBeforeBytes, sizeAfterBytes, videoBitrateKbps, audioBitrateKbps: SMART_VIDEO_AUDIO_BITRATE_KBPS, durationSeconds: Number(durationSeconds.toFixed(3)) })
+  if (sizeAfterBytes > SMART_VIDEO_MAX_OUTPUT_BYTES) {
+    throw new Error(`smart_video_output_too_large_after_compression:${sizeAfterBytes}:${SMART_VIDEO_MAX_OUTPUT_BYTES}`)
+  }
+  return compressedFile
 }
 
 async function updateJob(id: string, values: Record<string, unknown>) {
@@ -173,10 +233,13 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
       })
     }
 
+    const uploadFile = job.mode === 'smart_video'
+      ? await enforceSmartVideoSizeLimit(outputFile, workDir, job.id)
+      : outputFile
     const uploadResponse = await fetch(`${url}/storage/v1/object/${bucket}/${outputPath.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'video/mp4', 'x-upsert': 'true' },
-      body: fs.readFileSync(outputFile),
+      body: fs.readFileSync(uploadFile),
     })
     if (!uploadResponse.ok) throw new Error(`output_upload_failed:${uploadResponse.status}:${await uploadResponse.text()}`)
     await updateJob(job.id, { status: 'completed', output_video_path: outputPath, completed_at: new Date().toISOString(), ...(leasesEnabled ? { worker_id: null, lease_expires_at: null, heartbeat_at: null } : {}) })
@@ -203,7 +266,7 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
 function classifyError(error: unknown) {
   const message = error instanceof Error ? error.message : 'smart_video_worker_failed'
   const code = message.split(':', 1)[0].slice(0, 100)
-  const permanent = /contract_invalid|image_invalid|target_job_owner_mismatch|not_smart_carousel|duration|mime|SyntaxError/i.test(code)
+  const permanent = /contract_invalid|image_invalid|target_job_owner_mismatch|not_smart_carousel|duration|mime|too_large_after_compression|SyntaxError/i.test(code)
   return { code, message: message.slice(0, 500), retryable: !permanent }
 }
 

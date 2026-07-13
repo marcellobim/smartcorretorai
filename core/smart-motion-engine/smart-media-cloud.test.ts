@@ -30,3 +30,21 @@ test('production keeps the local bridge disabled and requires project isolation'
   assert.match(worker, /SMART_MEDIA_EXPECTED_PROJECT_REF_mismatch/)
   assert.doesNotMatch(read('.env.smart-media.example'), /SUPABASE_SERVICE_ROLE_KEY=ey/)
 })
+
+test('Smart Video enforces a 45 MiB output guard without changing Smart Carousel', () => {
+  const worker = read('core/smart-motion-engine/cli/process-smart-video-jobs.ts')
+  assert.match(worker, /SMART_VIDEO_MAX_OUTPUT_BYTES = 45 \* 1024 \* 1024/)
+  assert.match(worker, /job\.mode === 'smart_video'[\s\S]*enforceSmartVideoSizeLimit/)
+  assert.match(worker, /'-c:v', 'libx264'/)
+  assert.match(worker, /'-c:a', 'aac', '-profile:a', 'aac_low'/)
+  assert.match(worker, /'-ar', '48000', '-ac', '2'/)
+  assert.match(worker, /'-movflags', '\+faststart'/)
+  assert.match(worker, /smart_video_output_too_large_after_compression/)
+
+  const maxBytes = 45 * 1024 * 1024
+  const durationSeconds = 180
+  const targetTotalBitrateBps = Math.floor((maxBytes * 8 / durationSeconds) * 0.9)
+  const videoBitrateKbps = Math.floor((targetTotalBitrateBps / 1000) - 128)
+  assert.equal(videoBitrateKbps, 1759)
+  assert.ok(((videoBitrateKbps + 128) * 1000 * durationSeconds / 8) < maxBytes)
+})
