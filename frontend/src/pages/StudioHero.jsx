@@ -3236,7 +3236,6 @@ function StudioHeroImageToVideoMode({ onBack }) {
     setAnswers((current) => ({ ...current, [questionId]: value }))
     setReviewError('')
     setGenerationNotice('')
-    if (questionId === 'highlights') setHighlightNotice('')
     if (chatIndex >= SMART_CAROUSEL_QUESTIONS.length - 1) {
       setPhase('review')
       return
