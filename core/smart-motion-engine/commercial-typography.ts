@@ -13,12 +13,24 @@ export type CommercialTypographyFilterInput = {
 }
 
 const ACCENT_BLUE = '0x61D6FF'
+const BLUE_LINE_MAX_WIDTH = 930
 
 function normalizeLine(value: string) {
   return String(value || '')
     .replace(/\s+/g, ' ')
     .trim()
     .toLocaleUpperCase('pt-BR')
+}
+
+function blueLineFontSize(text: string) {
+  const characters = Array.from(text.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+  const widthUnits = characters.reduce((total, character) => {
+    if (character === ' ') return total + 0.35
+    if (character === 'I') return total + 0.35
+    if (character === 'M' || character === 'W') return total + 0.95
+    return total + 0.65
+  }, 0)
+  return Math.min(124, Math.max(62, Math.floor(BLUE_LINE_MAX_WIDTH / Math.max(1, widthUnits))))
 }
 
 export function createCommercialTypographyLayout(value: string | string[]): CommercialTypographyLayout {
@@ -80,6 +92,7 @@ function buildWhiteLine(input: {
 
 function buildBlueLine(input: {
   textFile: string
+  text: string
   fontFile: string
   x: string
   alpha: string
@@ -89,7 +102,7 @@ function buildBlueLine(input: {
     `drawtext=fontfile='${escapeFfmpegFilterPath(input.fontFile)}'`,
     `textfile='${escapeFfmpegFilterPath(input.textFile)}'`,
     'fontcolor=0x101010',
-    'fontsize=124',
+    `fontsize=${blueLineFontSize(input.text)}`,
     'box=1',
     `boxcolor=${ACCENT_BLUE}@0.96`,
     'boxborderw=18',
@@ -115,9 +128,9 @@ export function buildCommercialTypographyFilters(input: CommercialTypographyFilt
   const filters = lines.length > 1 && files[1]
     ? [
         buildWhiteLine({ textFile: files[0], fontFile: input.fontFile, x: firstX, alpha, enable }),
-        buildBlueLine({ textFile: files[1], fontFile: input.fontFile, x: secondX, alpha, enable }),
+        buildBlueLine({ textFile: files[1], text: lines[1], fontFile: input.fontFile, x: secondX, alpha, enable }),
       ]
-    : [buildBlueLine({ textFile: files[0], fontFile: input.fontFile, x: secondX, alpha, enable })]
+    : [buildBlueLine({ textFile: files[0], text: lines[0], fontFile: input.fontFile, x: secondX, alpha, enable })]
 
   filters.push(
     `drawbox=x=82:y=1571:w='min(640\\,max(0\\,(t-${(start + 0.28).toFixed(2)})*960))':h=8:color=white@0.96:t=fill:${enable}`,

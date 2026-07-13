@@ -66,3 +66,19 @@ test('mantém frase única inteira dentro do bloco azul', () => {
   assert.match(filter, /boxcolor=0x61D6FF@0\.96/)
   assert.doesNotMatch(filter, /fontsize=106/)
 })
+
+test('mantém frase longa inteira e reduz somente o tamanho necessário para caber', () => {
+  const filters = buildCommercialTypographyFilters({
+    layout: createCommercialTypographyLayout('Apartamento à venda'),
+    lineFiles: ['line-1.txt'],
+    fontFile: 'font.ttf',
+    startSeconds: 0,
+    endSeconds: 4,
+  })
+  const filter = filters.join(',')
+
+  assert.equal((filter.match(/drawtext=/g) || []).length, 1)
+  assert.match(filter, /textfile='line-1\.txt'/)
+  assert.match(filter, /fontsize=77/)
+  assert.doesNotMatch(filter, /fontsize=106/)
+})
