@@ -39,6 +39,17 @@ function messageKey(value: string) {
     .toUpperCase()
 }
 
+function strengthenCta(value: unknown) {
+  const raw = message(value)
+  const replacements: Record<string, string> = {
+    FALECOMIGO: 'FALE AGORA',
+    ENTREEMCONTATO: 'FALE AGORA',
+    CONHECAESTEIMOVEL: 'CONHEÇA SEU NOVO IMÓVEL',
+    SOLICITEMAISINFORMACOES: 'RECEBA TODOS OS DETALHES',
+  }
+  return replacements[messageKey(raw)] || raw
+}
+
 function formatObjective(value: unknown) {
   const raw = message(value)
   const key = messageKey(raw)
@@ -93,7 +104,7 @@ export function buildSmartCarouselMessageQueue(
   const totalScenes = Math.max(0, Math.min(20, Math.floor(Number(imageCount) || 0)))
   if (totalScenes < 1) return { captions: [], messages: [], breathingSceneIndexes: [] }
 
-  const ctaText = message(commercial.cta)
+  const ctaText = strengthenCta(commercial.cta)
   const phone = message(commercial.phone)
   const cta = [ctaText, phone].filter(Boolean).join(' - ')
   const seen = new Set([cta, ctaText, phone].filter(Boolean).map(messageKey))
@@ -114,12 +125,12 @@ export function buildSmartCarouselMessageQueue(
   if (propertyType) seen.add(messageKey(propertyType))
   if (objective) seen.add(messageKey(objective))
 
-  add(formatCount(commercial.bedrooms, 'DORM', 'DORMS', 'SEM DORMITÓRIO'))
+  add(formatCount(commercial.bedrooms, 'DORMITÓRIO', 'DORMITÓRIOS', 'SEM DORMITÓRIO'))
   add(formatCount(commercial.suites, 'SUÍTE', 'SUÍTES', 'SEM SUÍTE'))
   add(formatCount(commercial.parking, 'VAGA', 'VAGAS', 'SEM VAGA'))
   add(formatArea(commercial))
 
-  const highlights = Array.isArray(commercial.highlights) ? commercial.highlights.slice(0, 3) : []
+  const highlights = Array.isArray(commercial.highlights) ? commercial.highlights : []
   highlights.forEach(add)
 
   add(commercial.situation)

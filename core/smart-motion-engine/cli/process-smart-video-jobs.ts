@@ -199,7 +199,7 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
         captionsEnabled: true,
       })
     } else {
-      const music = resolveSmartCarouselMusic(commercial.musicStyle)
+      const music = resolveSmartCarouselMusic()
       const sourcePath = String(contract.video?.storagePath || '')
       const sourceDuration = Number(contract.video?.durationSeconds || 0)
       if (!sourcePath.startsWith(`${job.user_id}/smart-video/`) || sourceDuration <= 0 || sourceDuration > SMART_VIDEO_MAX_DURATION_SECONDS) throw new Error('smart_video_contract_invalid')
@@ -217,9 +217,10 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
             source: 'file',
             filePath: music.musicPath,
             volumeMode: 'fixed',
-            volumeLevel: 0.28,
+            volumeLevel: 0.45,
             fadeInSeconds: 1.2,
             fadeOutSeconds: 2,
+            preserveOriginalAudio: false,
           } : undefined,
           commercialCommunication: {
             enabled: true, renderNow: true,

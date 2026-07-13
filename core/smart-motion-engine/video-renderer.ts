@@ -243,6 +243,8 @@ function buildDrawText(input: {
     `textfile='${escapeFfmpegFilterPath(input.textFile)}'`,
     `fontcolor=white@${input.alpha}`,
     `fontsize=${input.fontSize}`,
+    'borderw=2',
+    'bordercolor=black@0.48',
     'line_spacing=10',
     `x=${input.x}`,
     `y=${input.y}`,
@@ -272,9 +274,21 @@ function buildDrawBox(input: {
 
 function getCommercialHighlights(communication: StudioHeroMotionCommercialCommunicationPlan) {
   return (communication.highlights || [])
-    .map((highlight) => highlight.trim())
+    .map((highlight) => highlight.trim().toLocaleUpperCase('pt-BR'))
     .filter(Boolean)
     .slice(0, 4)
+}
+
+function strengthenCommercialCta(value: string) {
+  const normalized = value.trim().toLocaleUpperCase('pt-BR')
+  const key = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '')
+  const replacements: Record<string, string> = {
+    FALECOMIGO: 'FALE AGORA',
+    ENTREEMCONTATO: 'FALE AGORA',
+    CONHECAESTEIMOVEL: 'CONHEÇA SEU NOVO IMÓVEL',
+    SOLICITEMAISINFORMACOES: 'RECEBA TODOS OS DETALHES',
+  }
+  return replacements[key] || normalized
 }
 
 function buildCommercialCommunicationFilter(input: {
@@ -294,7 +308,7 @@ function buildCommercialCommunicationFilter(input: {
   const openingFile = writeOverlayTextFile({
     workDir: input.workDir,
     name: 'commercial-opening.txt',
-    lines: [input.communication.dealType, input.communication.propertyType],
+    lines: [input.communication.propertyType.toLocaleUpperCase('pt-BR'), input.communication.dealType],
   })
 
   filters.push(buildDrawBox({
@@ -302,7 +316,7 @@ function buildCommercialCommunicationFilter(input: {
     y: '112',
     width: '520',
     height: '142',
-    alpha: 0.36,
+    alpha: 0.42,
     startSeconds: openingStart,
     endSeconds: openingEnd,
   }))
@@ -311,7 +325,7 @@ function buildCommercialCommunicationFilter(input: {
     fontFile: input.fontFile,
     x: '86',
     y: '138',
-    fontSize: 42,
+    fontSize: 48,
     alpha: 0.96,
     startSeconds: openingStart,
     endSeconds: openingEnd,
@@ -334,7 +348,7 @@ function buildCommercialCommunicationFilter(input: {
       y: 'h-306',
       width: '620',
       height: '82',
-      alpha: 0.30,
+      alpha: 0.38,
       startSeconds,
       endSeconds,
     }))
@@ -343,7 +357,7 @@ function buildCommercialCommunicationFilter(input: {
       fontFile: input.fontFile,
       x: '92',
       y: 'h-282',
-      fontSize: 38,
+      fontSize: 46,
       alpha: 0.94,
       startSeconds,
       endSeconds,
@@ -351,8 +365,8 @@ function buildCommercialCommunicationFilter(input: {
   }
 
   const ctaLines = input.communication.phone
-    ? [input.communication.cta, input.communication.phone]
-    : [input.communication.cta]
+    ? [strengthenCommercialCta(input.communication.cta), input.communication.phone]
+    : [strengthenCommercialCta(input.communication.cta)]
   const ctaFile = writeOverlayTextFile({
     workDir: input.workDir,
     name: 'commercial-cta.txt',
@@ -364,7 +378,7 @@ function buildCommercialCommunicationFilter(input: {
     y: 'h-246',
     width: '940',
     height: input.communication.phone ? '132' : '92',
-    alpha: 0.42,
+    alpha: 0.50,
     startSeconds: closingEnd,
     endSeconds: duration,
   }))
@@ -373,7 +387,7 @@ function buildCommercialCommunicationFilter(input: {
     fontFile: input.fontFile,
     x: '(w-text_w)/2',
     y: input.communication.phone ? 'h-214' : 'h-216',
-    fontSize: input.communication.phone ? 38 : 42,
+    fontSize: input.communication.phone ? 44 : 48,
     alpha: 0.98,
     startSeconds: closingEnd,
     endSeconds: duration,
@@ -413,7 +427,7 @@ function buildCommercialCommunicationArgs(input: {
 
 function clampVolume(value: number) {
   if (!Number.isFinite(value)) return 0.08
-  return Math.min(0.3, Math.max(0.02, value))
+  return Math.min(0.5, Math.max(0.02, value))
 }
 
 function resolveMusicVolume(finishing?: StudioHeroMotionFinishingPlan) {
@@ -523,7 +537,8 @@ async function applyFinishingLayer(input: {
     ? music.filePath
     : undefined
   const musicVolume = resolveMusicVolume(input.finishing)
-  const hasOriginalAudio = await probeHasAudioStream(resolveFfprobePath(), videoForAudioPath)
+  const hasOriginalAudio = music.preserveOriginalAudio !== false
+    && await probeHasAudioStream(resolveFfprobePath(), videoForAudioPath)
 
   await runFfmpeg(input.ffmpegPath, buildMusicFinishingArgs({
     videoFile: videoForAudioPath,

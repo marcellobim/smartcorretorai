@@ -48,3 +48,10 @@ test('Smart Video enforces a 45 MiB output guard without changing Smart Carousel
   assert.equal(videoBitrateKbps, 1759)
   assert.ok(((videoBitrateKbps + 128) * 1000 * durationSeconds / 8) < maxBytes)
 })
+
+test('Smart Video discards original audio and ignores legacy music choice', () => {
+  const worker = read('core/smart-motion-engine/cli/process-smart-video-jobs.ts')
+  assert.match(worker, /} else \{\s+const music = resolveSmartCarouselMusic\(\)[\s\S]*?preserveOriginalAudio: false/)
+  assert.match(worker, /volumeLevel: 0\.45/)
+  assert.equal((worker.match(/resolveSmartCarouselMusic\(commercial\.musicStyle\)/g) || []).length, 1)
+})

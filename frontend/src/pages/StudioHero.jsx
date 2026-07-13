@@ -2992,7 +2992,6 @@ export default function StudioHero() {
 }
 
 const SMART_CAROUSEL_MAX_IMAGES = 20
-const SMART_CAROUSEL_MAX_HIGHLIGHTS = 3
 const SMART_CAROUSEL_ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png']
 const SMART_CAROUSEL_ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png']
 const SMART_CAROUSEL_GOALS = ['Venda', 'Locação']
@@ -3180,7 +3179,6 @@ function StudioHeroImageToVideoMode({ onBack }) {
   const [locationDraft, setLocationDraft] = useState(smartCarouselInitialAnswers.location)
   const [featureDraft, setFeatureDraft] = useState(smartCarouselInitialAnswers.features)
   const [highlightDraft, setHighlightDraft] = useState([])
-  const [highlightNotice, setHighlightNotice] = useState('')
   const [phoneDraft, setPhoneDraft] = useState(smartCarouselInitialAnswers.phone)
   const [reviewError, setReviewError] = useState('')
   const [generationNotice, setGenerationNotice] = useState('')
@@ -3217,8 +3215,7 @@ function StudioHeroImageToVideoMode({ onBack }) {
     if (question.id === 'location') setLocationDraft(answers.location)
     if (question.id === 'features') setFeatureDraft(answers.features)
     if (question.id === 'highlights') {
-      setHighlightDraft(answers.highlights.slice(0, SMART_CAROUSEL_MAX_HIGHLIGHTS))
-      setHighlightNotice('')
+      setHighlightDraft(answers.highlights)
     }
     if (question.id === 'phone') setPhoneDraft(answers.phone)
     setChatIndex(safeIndex)
@@ -3379,7 +3376,6 @@ function StudioHeroImageToVideoMode({ onBack }) {
       && answers.features.suites
       && answers.features.parking
       && answers.highlights.length >= 1
-      && answers.highlights.length <= SMART_CAROUSEL_MAX_HIGHLIGHTS
       && answers.musicStyle
       && answers.cta,
     )
@@ -3615,8 +3611,8 @@ function StudioHeroImageToVideoMode({ onBack }) {
       return (
         <div className="mt-4 space-y-4">
           <div className="space-y-1">
-            <p className="text-sm font-black text-slate-700">Selecione até 3 destaques</p>
-            <p className="text-xs font-black uppercase tracking-wide text-primary-700">{highlightDraft.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS}</p>
+            <p className="text-sm font-black text-slate-700">Selecione os destaques</p>
+            <p className="text-xs font-black uppercase tracking-wide text-primary-700">{highlightDraft.length} selecionados</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {SMART_CAROUSEL_HIGHLIGHT_OPTIONS.map((option) => {
@@ -3625,27 +3621,16 @@ function StudioHeroImageToVideoMode({ onBack }) {
                 <button
                   key={option}
                   type="button"
-                  aria-disabled={!active && highlightDraft.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS}
                   onClick={() => {
                     setHighlightDraft((current) => {
-                      if (current.includes(option)) {
-                        setHighlightNotice('')
-                        return current.filter((item) => item !== option)
-                      }
-                      if (current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS) {
-                        setHighlightNotice('Você pode escolher até 3 destaques.')
-                        return current
-                      }
-                      setHighlightNotice('')
+                      if (current.includes(option)) return current.filter((item) => item !== option)
                       return [...current, option]
                     })
                   }}
                   className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                     active
                       ? 'border-primary-800 bg-primary-800 text-white'
-                      : highlightDraft.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS
-                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
-                        : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+                      : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                   }`}
                 >
                   {option}
@@ -3653,11 +3638,6 @@ function StudioHeroImageToVideoMode({ onBack }) {
               )
             })}
           </div>
-          {highlightNotice && (
-            <p className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-sm font-bold text-amber-800">
-              {highlightNotice}
-            </p>
-          )}
           <Button type="button" onClick={() => commitAnswer('highlights', highlightDraft)} disabled={highlightDraft.length === 0}>
             Confirmar destaques
           </Button>

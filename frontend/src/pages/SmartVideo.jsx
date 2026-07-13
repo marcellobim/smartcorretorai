@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Download,
   FileVideo,
-  Music2,
   Phone,
   RotateCcw,
   Send,
@@ -58,7 +57,6 @@ const HIGHLIGHT_OPTIONS = [
   'Alto padrão',
   'Condomínio completo',
 ]
-const MUSIC_OPTIONS = ['Moderna', 'Calma', 'Sofisticada', 'Animada', 'Instrumental']
 const CTA_OPTIONS = [
   'Agende sua visita',
   'Fale comigo',
@@ -75,7 +73,6 @@ const QUESTION_FLOW = [
   { id: 'location', question: 'Onde está localizado o imóvel?', type: 'location' },
   { id: 'features', question: 'Selecione as características do imóvel.', type: 'featureGroups' },
   { id: 'highlights', question: 'Quais destaques deseja mostrar no vídeo?', type: 'multi', options: HIGHLIGHT_OPTIONS },
-  { id: 'musicStyle', question: 'Qual estilo de música combina com este imóvel?', type: 'chips', options: MUSIC_OPTIONS },
   { id: 'cta', question: 'Como deseja encerrar o vídeo?', type: 'chips', options: CTA_OPTIONS },
   { id: 'phone', question: 'Deseja mostrar um telefone no final do vídeo?', type: 'phone' },
 ]
@@ -87,7 +84,6 @@ const initialAnswers = {
   location: { uf: '', neighborhood: '' },
   features: { bedrooms: '', suites: '', parking: '' },
   highlights: [],
-  musicStyle: '',
   cta: '',
   phone: { masked: '', normalized: '' },
 }
@@ -225,7 +221,6 @@ function buildSmartVideoData(answers) {
       suites: answers.features.suites,
       parking: answers.features.parking,
       highlights: answers.highlights,
-      musicStyle: answers.musicStyle,
       cta: answers.cta,
       phone: answers.phone.masked || null,
       phoneNormalized: answers.phone.normalized || null,
@@ -267,7 +262,6 @@ export default function SmartVideo() {
     { id: 'suites', label: 'Suítes', value: formatSuiteLabel(answers.features.suites) },
     { id: 'parking', label: 'Vagas', value: formatParkingLabel(answers.features.parking) },
     { id: 'highlights', label: 'Destaques', type: 'chips', value: answers.highlights },
-    { id: 'musicStyle', label: 'Estilo da música', icon: Music2, value: answers.musicStyle },
     { id: 'cta', label: 'CTA', icon: Wand2, value: answers.cta },
     ...(answers.phone.masked ? [{ id: 'phone', label: 'Telefone', icon: Phone, value: answers.phone.masked }] : []),
   ]), [answers])
@@ -476,7 +470,6 @@ export default function SmartVideo() {
       && answers.features.parking
       && answers.highlights.length > 0
       && answers.highlights.length <= MAX_HIGHLIGHTS
-      && answers.musicStyle
       && answers.cta,
     )
     if (!isValid) {

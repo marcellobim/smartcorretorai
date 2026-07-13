@@ -44,20 +44,20 @@ export function buildSceneFilter(input: {
     const strongCta = plan.ctaMode === 'strong'
     const subtleCta = plan.ctaMode === 'subtle'
     base.push(
-      `drawbox=x=0:y=0:w=iw:h=ih:color=black@${subtleCta ? '0.18' : '0.30'}:t=fill`,
-      `drawbox=x=${strongCta ? 70 : 112}:y=ih-${strongCta ? 690 : 620}:w=iw-${strongCta ? 140 : 224}:h=${strongCta ? 400 : 315}:color=black@${strongCta ? '0.62' : '0.48'}:t=fill`,
+      `drawbox=x=0:y=0:w=iw:h=ih:color=black@${subtleCta ? '0.22' : '0.34'}:t=fill`,
+      `drawbox=x=${strongCta ? 70 : 112}:y=ih-${strongCta ? 690 : 620}:w=iw-${strongCta ? 140 : 224}:h=${strongCta ? 400 : 315}:color=black@${strongCta ? '0.66' : '0.54'}:t=fill`,
       `drawbox=x=${strongCta ? 70 : 112}:y=ih-${strongCta ? 690 : 620}:w=iw-${strongCta ? 140 : 224}:h=4:color=white@0.84:t=fill`,
-      `drawtext=fontfile='${font}':textfile='${caption}':fontcolor=white:fontsize=${strongCta ? 82 : 66}:line_spacing=14:x=(w-text_w)/2:y=h-${strongCta ? 595 : 535}`,
+      `drawtext=fontfile='${font}':textfile='${caption}':fontcolor=white:fontsize=${strongCta ? 88 : 72}:borderw=2:bordercolor=black@0.52:line_spacing=14:x=(w-text_w)/2:y=h-${strongCta ? 595 : 535}`,
       `drawbox=x=238:y=ih-270:w=iw-476:h=82:color=white@${subtleCta ? '0.82' : '0.94'}:t=fill`,
       `drawtext=fontfile='${font}':text='SMARTCORRETORAI':fontcolor=black@0.90:fontsize=30:x=(w-text_w)/2:y=h-244`,
     )
   } else if (scene.caption) {
     const compactText = plan.rhythm === 'fast' || plan.rhythm === 'direct'
-    const textAlpha = plan.visualIntensity === 'high' ? '0.42' : '0.32'
+    const textAlpha = plan.visualIntensity === 'high' ? '0.48' : '0.40'
     base.push(
       `drawbox=x=${compactText ? 142 : 112}:y=h-${compactText ? 350 : 405}:w=iw-${compactText ? 284 : 224}:h=${compactText ? 104 : 128}:color=black@${textAlpha}:t=fill`,
       `drawbox=x=${compactText ? 142 : 112}:y=h-${compactText ? 350 : 405}:w=iw-${compactText ? 284 : 224}:h=3:color=white@0.58:t=fill`,
-      `drawtext=fontfile='${font}':textfile='${caption}':fontcolor=white@0.95:fontsize=${compactText ? 44 : 48}:line_spacing=8:x=(w-text_w)/2:y=h-${compactText ? 312 : 358}`,
+      `drawtext=fontfile='${font}':textfile='${caption}':fontcolor=white@0.98:fontsize=${compactText ? 50 : 54}:borderw=2:bordercolor=black@0.52:line_spacing=8:x=(w-text_w)/2:y=h-${compactText ? 312 : 358}`,
     )
   }
 

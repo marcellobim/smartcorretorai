@@ -60,6 +60,7 @@ export type StudioHeroMotionBackgroundMusic = {
   volumeLevel?: number
   fadeInSeconds?: number
   fadeOutSeconds?: number
+  preserveOriginalAudio?: boolean
 }
 
 export type StudioHeroMotionCtaRenderPlan = {

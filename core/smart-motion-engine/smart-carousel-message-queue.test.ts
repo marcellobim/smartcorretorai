@@ -40,7 +40,7 @@ test('3 imagens recebem 2 mensagens e CTA', () => {
 
 test('5 imagens recebem 4 mensagens e CTA', () => {
   const queue = buildSmartCarouselMessageQueue(completeCommercial, 5)
-  assert.deepEqual(queue.captions, ['MOEMA', 'APARTAMENTO À VENDA', '3 DORMS', '2 SUÍTES', 'AGENDE SUA VISITA - (11) 99999-0000'])
+  assert.deepEqual(queue.captions, ['MOEMA', 'APARTAMENTO À VENDA', '3 DORMITÓRIOS', '2 SUÍTES', 'AGENDE SUA VISITA - (11) 99999-0000'])
   assertQueue(queue, 5)
 })
 
@@ -49,7 +49,7 @@ test('10 imagens recebem até 9 mensagens e CTA', () => {
   assert.deepEqual(queue.captions, [
     'MOEMA',
     'APARTAMENTO À VENDA',
-    '3 DORMS',
+    '3 DORMITÓRIOS',
     '2 SUÍTES',
     '2 VAGAS',
     '120 M²',
@@ -67,7 +67,7 @@ test('20 imagens usam todos os dados reais sem repetir', () => {
   assert.deepEqual(queue.messages, [
     'MOEMA',
     'APARTAMENTO À VENDA',
-    '3 DORMS',
+    '3 DORMITÓRIOS',
     '2 SUÍTES',
     '2 VAGAS',
     '120 M²',
@@ -101,4 +101,22 @@ test('destaques, situação e condições duplicadas aparecem uma única vez', (
   assert.equal(conditions.length, 1)
   assert.equal(queue.messages.includes('APARTAMENTO'), false)
   assertQueue(queue, 20)
+})
+
+test('aproveita destaques além do terceiro conforme a quantidade de imagens', () => {
+  const queue = buildSmartCarouselMessageQueue({
+    neighborhood: 'Moema',
+    highlights: ['Varanda gourmet', 'Lazer completo', 'Vista livre', 'Próximo ao metrô', 'Aceita financiamento'],
+    cta: 'Solicite mais informações',
+  }, 8)
+  assert.deepEqual(queue.captions, [
+    'MOEMA',
+    'VARANDA GOURMET',
+    'LAZER COMPLETO',
+    '',
+    'VISTA LIVRE',
+    'PRÓXIMO AO METRÔ',
+    'ACEITA FINANCIAMENTO',
+    'RECEBA TODOS OS DETALHES',
+  ])
 })
