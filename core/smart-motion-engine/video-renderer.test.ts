@@ -16,10 +16,11 @@ test('Smart Video com audio preserva o mix entre voz original e musica', () => {
   const args = buildMusicFinishingArgs({ ...baseInput, hasOriginalAudio: true })
   const filter = args[args.indexOf('-filter_complex') + 1]
 
-  assert.match(filter, /\[0:a\]volume=1\.0/)
-  assert.match(filter, /\[voice\]\[music\]amix=inputs=2:duration=longest:dropout_transition=0/)
+  assert.match(filter, /\[0:a\]volume=0\.85/)
+  assert.match(filter, /\[voice\]\[music\]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0/)
+  assert.match(filter, /alimiter=limit=0\.95/)
   assert.match(filter, /loudnorm=I=-23:LRA=7:TP=-2/)
-  assert.match(filter, /volume=0\.080/)
+  assert.match(filter, /volume=0\.450/)
   assert.match(filter, /afade=t=in:st=0:d=1\.200/)
   assert.match(filter, /afade=t=out:st=9\.800:d=2\.200/)
 })

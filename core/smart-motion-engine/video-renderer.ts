@@ -453,14 +453,14 @@ export function buildMusicFinishingArgs(input: {
     durationSeconds: input.durationSeconds,
     fadeInSeconds: input.fadeInSeconds,
     fadeOutSeconds: input.fadeOutSeconds,
-    volumeLevel: input.musicVolume,
+    volumeLevel: input.hasOriginalAudio ? Math.max(input.musicVolume, 0.45) : input.musicVolume,
     outputLabel: input.hasOriginalAudio ? 'music' : 'aout',
   })
   const filters = input.hasOriginalAudio
     ? [
         musicFilter,
-        `[0:a]volume=1.0,aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[voice]`,
-        `[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,atrim=0:${input.durationSeconds.toFixed(3)},asetpts=N/SR/TB[aout]`,
+        `[0:a]volume=0.85,aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[voice]`,
+        `[voice][music]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95,atrim=0:${input.durationSeconds.toFixed(3)},asetpts=N/SR/TB[aout]`,
       ]
     : [musicFilter]
 
