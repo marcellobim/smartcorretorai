@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildMusicArgs, buildNormalizedMusicFilter } from './ffmpeg-builder.ts'
 
-test('merge musical exporta AAC 48 kHz estéreo com duração e fades', () => {
+test('merge musical exporta AAC 48 kHz estéreo e começa no primeiro frame', () => {
   const args = buildMusicArgs({
     videoFile: 'video.mp4',
     musicFile: 'music.m4a',
@@ -18,7 +18,7 @@ test('merge musical exporta AAC 48 kHz estéreo com duração e fades', () => {
   assert.equal(args[args.indexOf('-t') + 1], '29.500')
   assert.match(filter, /atrim=0:29\.500/)
   assert.match(filter, /loudnorm=I=-23:LRA=7:TP=-2/)
-  assert.match(filter, /afade=t=in:st=0:d=1\.200/)
+  assert.match(filter, /afade=t=in:st=0:d=0\.000/)
   assert.match(filter, /afade=t=out:st=27\.500:d=2\.000/)
   assert.match(filter, /aformat=sample_rates=48000:channel_layouts=stereo/)
 })

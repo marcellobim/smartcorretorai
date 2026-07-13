@@ -9,10 +9,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const SMART_CAROUSEL_MUSIC_ASSETS_DIRECTORY = path.join(__dirname, 'assets', 'music')
 const FALLBACK_STYLE: SmartCarouselMusicStyle = 'Instrumental'
 const STYLE_TRACK_FILES: Record<SmartCarouselMusicStyle, string> = {
-  Moderna: 'moderna.m4a',
-  Calma: 'calma.m4a',
-  Sofisticada: 'sofisticada.m4a',
-  Animada: 'animada.m4a',
+  Moderna: 'instrumental.m4a',
+  Calma: 'instrumental.m4a',
+  Sofisticada: 'instrumental.m4a',
+  Animada: 'instrumental.m4a',
   Instrumental: 'instrumental.m4a',
 }
 

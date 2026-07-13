@@ -5,78 +5,64 @@ import {
   createCommercialTypographyLayout,
 } from './commercial-typography.ts'
 
-test('separa número, característica e complemento sem alterar a mensagem', () => {
-  assert.deepEqual(createCommercialTypographyLayout('145 m²'), {
-    focus: '145',
-    support: 'M²',
-    focusFirst: true,
-    accentEligible: true,
+test('preserva frases únicas sem interpretação ou divisão automática', () => {
+  assert.deepEqual(createCommercialTypographyLayout('Fale comigo'), {
+    lines: ['FALE COMIGO'],
   })
   assert.deepEqual(createCommercialTypographyLayout('Varanda gourmet'), {
-    focus: 'VARANDA',
-    support: 'GOURMET',
-    focusFirst: true,
-    accentEligible: true,
+    lines: ['VARANDA GOURMET'],
   })
 })
 
-test('mantém a finalidade como único foco mesmo quando ela vem no fim', () => {
-  assert.deepEqual(createCommercialTypographyLayout('Apartamento à venda'), {
-    focus: 'À VENDA',
-    support: 'APARTAMENTO',
-    focusFirst: false,
-    accentEligible: true,
+test('aceita somente as duas linhas fornecidas explicitamente', () => {
+  assert.deepEqual(createCommercialTypographyLayout(['Apartamento', 'À venda']), {
+    lines: ['APARTAMENTO', 'À VENDA'],
+  })
+  assert.deepEqual(createCommercialTypographyLayout('Agende sua\nvisita'), {
+    lines: ['AGENDE SUA', 'VISITA'],
   })
 })
 
-test('mantém CTA e complemento em camadas separadas', () => {
-  assert.deepEqual(createCommercialTypographyLayout('Agende sua visita'), {
-    focus: 'AGENDE',
-    support: 'SUA VISITA',
-    focusFirst: true,
-    accentEligible: true,
-  })
-})
-
-test('escolhe o diferencial comercial mesmo quando ele vem no fim', () => {
-  assert.deepEqual(createCommercialTypographyLayout('Próximo ao metrô'), {
-    focus: 'METRÔ',
-    support: 'PRÓXIMO AO',
-    focusFirst: false,
-    accentEligible: true,
-  })
-})
-
-test('aplica um único bloco azul apenas na camada de foco', () => {
-  const layout = createCommercialTypographyLayout('3 dormitórios')
+test('reproduz os valores visuais exatos da Proposta 1 original', () => {
   const filters = buildCommercialTypographyFilters({
-    layout,
-    focusFile: 'focus.txt',
-    supportFile: 'support.txt',
+    layout: createCommercialTypographyLayout(['Apartamento', 'À venda']),
+    lineFiles: ['line-1.txt', 'line-2.txt'],
     fontFile: 'font.ttf',
-    startSeconds: 0,
-    endSeconds: 4,
-    useAccent: true,
+    startSeconds: 0.8,
+    endSeconds: 5,
   })
   const filter = filters.join(',')
 
-  assert.equal((filter.match(/boxcolor=0x61D6FF/g) || []).length, 1)
-  assert.match(filter, /fontsize=108/)
-  assert.match(filter, /fontsize=82/)
+  assert.equal((filter.match(/drawtext=/g) || []).length, 2)
+  assert.match(filter, /fontcolor=white:fontsize=106:borderw=5:bordercolor=black@0\.78/)
+  assert.match(filter, /shadowx=8:shadowy=10:shadowcolor=black@0\.55/)
+  assert.match(filter, /fontcolor=0x101010:fontsize=124:box=1:boxcolor=0x61D6FF@0\.96:boxborderw=18:borderw=0/)
+  assert.match(filter, /y=1250/)
+  assert.match(filter, /y=1395/)
+  assert.match(filter, /0\.46/)
+  assert.match(filter, /0\.52/)
+  assert.match(filter, /0\.42/)
+  assert.match(filter, /0\.36/)
+  assert.match(filter, /0\.38/)
+  assert.match(filter, /drawbox=x=82:y=1571/)
+  assert.match(filter, /min\(640/)
+  assert.match(filter, /\*960/)
+  assert.match(filter, /h=8:color=white@0\.96/)
 })
 
-test('preserva hierarquia sem bloco azul quando o ritmo visual não pede acento', () => {
-  const layout = createCommercialTypographyLayout('Varanda gourmet')
-  const filter = buildCommercialTypographyFilters({
-    layout,
-    focusFile: 'focus.txt',
-    supportFile: 'support.txt',
+test('mantém frase única inteira dentro do bloco azul', () => {
+  const filters = buildCommercialTypographyFilters({
+    layout: createCommercialTypographyLayout('Fale comigo'),
+    lineFiles: ['line-1.txt'],
     fontFile: 'font.ttf',
     startSeconds: 0,
     endSeconds: 4,
-    useAccent: false,
-  }).join(',')
+  })
+  const filter = filters.join(',')
 
-  assert.doesNotMatch(filter, /boxcolor=0x61D6FF/)
-  assert.match(filter, /borderw=4/)
+  assert.equal((filter.match(/drawtext=/g) || []).length, 1)
+  assert.match(filter, /textfile='line-1\.txt'/)
+  assert.match(filter, /fontsize=124/)
+  assert.match(filter, /boxcolor=0x61D6FF@0\.96/)
+  assert.doesNotMatch(filter, /fontsize=106/)
 })

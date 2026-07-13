@@ -5,7 +5,6 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { buildNormalizedMusicFilter } from './ffmpeg-builder.ts'
-import { wrapText } from './sanitize.ts'
 import {
   buildCommercialTypographyFilters,
   createCommercialTypographyLayout,
@@ -234,18 +233,6 @@ function getCommercialHighlights(communication: StudioHeroMotionCommercialCommun
     .slice(0, 4)
 }
 
-function strengthenCommercialCta(value: string) {
-  const normalized = value.trim().toLocaleUpperCase('pt-BR')
-  const key = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '')
-  const replacements: Record<string, string> = {
-    FALECOMIGO: 'FALE AGORA',
-    ENTREEMCONTATO: 'FALE AGORA',
-    CONHECAESTEIMOVEL: 'CONHEÇA SEU NOVO IMÓVEL',
-    SOLICITEMAISINFORMACOES: 'RECEBA TODOS OS DETALHES',
-  }
-  return replacements[key] || normalized
-}
-
 function buildCommercialCommunicationFilter(input: {
   communication: StudioHeroMotionCommercialCommunicationPlan
   durationSeconds: number
@@ -261,46 +248,33 @@ function buildCommercialCommunicationFilter(input: {
   const highlightAnchors = [0.24, 0.42, 0.60, 0.76]
 
   const addMessage = (message: {
-    text: string
+    text: string | string[]
     name: string
     startSeconds: number
     endSeconds: number
-    useAccent: boolean
-    placement?: 'standard' | 'cta'
   }) => {
     const layout = createCommercialTypographyLayout(message.text)
-    if (!layout.focus) return
-    const focusFile = writeOverlayTextFile({
+    if (!layout.lines.length) return
+    const lineFiles = layout.lines.map((line, lineIndex) => writeOverlayTextFile({
       workDir: input.workDir,
-      name: `${message.name}-focus.txt`,
-      lines: [wrapText(layout.focus, 16, 1)],
-    })
-    const supportFile = layout.support
-      ? writeOverlayTextFile({
-          workDir: input.workDir,
-          name: `${message.name}-support.txt`,
-          lines: [wrapText(layout.support, message.placement === 'cta' ? 18 : 20, message.placement === 'cta' ? 3 : 2)],
-        })
-      : undefined
+      name: `${message.name}-line-${lineIndex + 1}.txt`,
+      lines: [line],
+    }))
 
     filters.push(...buildCommercialTypographyFilters({
       layout,
-      focusFile,
-      supportFile,
+      lineFiles,
       fontFile: input.fontFile,
       startSeconds: message.startSeconds,
       endSeconds: message.endSeconds,
-      useAccent: message.useAccent,
-      placement: message.placement,
     }))
   }
 
   addMessage({
-    text: [input.communication.propertyType, input.communication.dealType].filter(Boolean).join(' '),
+    text: [input.communication.propertyType, input.communication.dealType].filter(Boolean),
     name: 'commercial-opening',
     startSeconds: openingStart,
     endSeconds: openingEnd,
-    useAccent: true,
   })
 
   for (const [index, highlight] of getCommercialHighlights(input.communication).entries()) {
@@ -314,17 +288,14 @@ function buildCommercialCommunicationFilter(input: {
       name: `commercial-highlight-${index + 1}`,
       startSeconds,
       endSeconds,
-      useAccent: index % 2 === 0,
     })
   }
 
   addMessage({
-    text: [strengthenCommercialCta(input.communication.cta), input.communication.phone].filter(Boolean).join(' - '),
+    text: input.communication.phone ? [input.communication.cta, input.communication.phone] : input.communication.cta,
     name: 'commercial-cta',
     startSeconds: closingEnd,
     endSeconds: duration,
-    useAccent: true,
-    placement: 'cta',
   })
 
   return filters.join(',')

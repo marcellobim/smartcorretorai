@@ -117,6 +117,11 @@ test('aproveita destaques além do terceiro conforme a quantidade de imagens', (
     'VISTA LIVRE',
     'PRÓXIMO AO METRÔ',
     'ACEITA FINANCIAMENTO',
-    'RECEBA TODOS OS DETALHES',
+    'SOLICITE MAIS INFORMAÇÕES',
   ])
+})
+
+test('preserva o CTA informado sem reescrever ou dividir a frase', () => {
+  const queue = buildSmartCarouselMessageQueue({ cta: 'Fale comigo' }, 2)
+  assert.deepEqual(queue.captions, ['', 'FALE COMIGO'])
 })

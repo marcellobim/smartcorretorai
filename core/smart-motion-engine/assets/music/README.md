@@ -1,8 +1,8 @@
-# Trilhas originais do SmartCorretorAI
+# Trilha temporária do SmartCorretorAI
 
-As cinco faixas deste diretório são instrumentais originais sintetizadas localmente para o SmartCorretorAI. Elas não contêm samples, gravações ou obras de terceiros e podem ser usadas comercialmente pelo projeto.
+Enquanto a trilha oficial não é definida, todos os estilos legados resolvem exclusivamente para `instrumental.m4a`.
 
-Cada asset tem 60 segundos, áudio AAC, 48 kHz e dois canais. A normalização e os fades de entrada e saída são aplicados somente no merge final, de acordo com a duração efetiva do vídeo.
+O arquivo é uma versão ajustada de **Happy Clappy**, de John Bartmann, disponibilizada sob CC0. O silêncio inicial foi removido para que a música comece no primeiro frame. O asset usa AAC-LC, 48 kHz e dois canais.
 
 Arquivos:
 
@@ -12,4 +12,4 @@ Arquivos:
 - `animada.m4a`
 - `instrumental.m4a`
 
-O script `generate-original-tracks.mjs` reproduz os assets usando apenas síntese do FFmpeg. A geração acontece no desenvolvimento; o worker nunca baixa nem gera música durante um job.
+Os demais arquivos permanecem apenas como legado e não são selecionados pelo worker. O worker nunca baixa nem gera música durante um job.

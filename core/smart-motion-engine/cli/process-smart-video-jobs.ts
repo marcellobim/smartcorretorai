@@ -218,7 +218,7 @@ async function processNextJob(selectedJobId = targetJobId, expectedUserId = '') 
             filePath: music.musicPath,
             volumeMode: 'fixed',
             volumeLevel: 0.45,
-            fadeInSeconds: 1.2,
+            fadeInSeconds: 0,
             fadeOutSeconds: 2,
             preserveOriginalAudio: false,
           } : undefined,

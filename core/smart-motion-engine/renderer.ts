@@ -8,7 +8,7 @@ import type { SmartMotionInput, SmartMotionPlan, SmartMotionRenderResult } from 
 import { createSmartMotionPlan } from './planner.ts'
 import { buildCrossfadeArgs, buildEncodeArgs, buildMusicArgs, buildSceneFilter } from './ffmpeg-builder.ts'
 import { createSmartMotionReport } from './report.ts'
-import { sanitizeText, wrapText } from './sanitize.ts'
+import { sanitizeText } from './sanitize.ts'
 import { createCommercialTypographyLayout } from './commercial-typography.ts'
 
 const require = createRequire(import.meta.url)
@@ -68,10 +68,9 @@ function resolveFontFile(): string {
   return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0]
 }
 
-function writeTextFile(workDir: string, name: string, text: string, maxLineChars: number) {
+function writeTextFile(workDir: string, name: string, text: string) {
   const file = path.join(workDir, name)
-  const safeText = wrapText(text, maxLineChars, 3)
-  fs.writeFileSync(file, safeText, 'utf8')
+  fs.writeFileSync(file, `${text}\n`, 'utf8')
   return file
 }
 
@@ -97,10 +96,9 @@ async function createSceneSegment(input: {
     : scene.caption
   const typography = createCommercialTypographyLayout(caption)
   const prefix = `caption-${String(sceneIndex + 1).padStart(2, '0')}`
-  const focusFile = writeTextFile(workDir, `${prefix}-focus.txt`, typography.focus, 16)
-  const supportFile = typography.support
-    ? writeTextFile(workDir, `${prefix}-support.txt`, typography.support, scene.kind === 'cta' ? 18 : 20)
-    : undefined
+  const lineFiles = typography.lines.map((line, lineIndex) => (
+    writeTextFile(workDir, `${prefix}-line-${lineIndex + 1}.txt`, line)
+  ))
   const outputSegment = path.join(workDir, `segment-${String(sceneIndex + 1).padStart(2, '0')}.mp4`)
   const filter = buildSceneFilter({
     scene,
@@ -108,9 +106,7 @@ async function createSceneSegment(input: {
     fontFile,
     typography: {
       layout: typography,
-      focusFile,
-      supportFile,
-      useAccent: scene.kind === 'cta' || sceneIndex === 1 || (sceneIndex > 0 && sceneIndex % 2 === 0),
+      lineFiles,
     },
   })
 

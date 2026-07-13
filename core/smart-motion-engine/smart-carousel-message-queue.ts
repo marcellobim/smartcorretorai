@@ -39,17 +39,6 @@ function messageKey(value: string) {
     .toUpperCase()
 }
 
-function strengthenCta(value: unknown) {
-  const raw = message(value)
-  const replacements: Record<string, string> = {
-    FALECOMIGO: 'FALE AGORA',
-    ENTREEMCONTATO: 'FALE AGORA',
-    CONHECAESTEIMOVEL: 'CONHEÇA SEU NOVO IMÓVEL',
-    SOLICITEMAISINFORMACOES: 'RECEBA TODOS OS DETALHES',
-  }
-  return replacements[messageKey(raw)] || raw
-}
-
 function formatObjective(value: unknown) {
   const raw = message(value)
   const key = messageKey(raw)
@@ -104,7 +93,7 @@ export function buildSmartCarouselMessageQueue(
   const totalScenes = Math.max(0, Math.min(20, Math.floor(Number(imageCount) || 0)))
   if (totalScenes < 1) return { captions: [], messages: [], breathingSceneIndexes: [] }
 
-  const ctaText = strengthenCta(commercial.cta)
+  const ctaText = message(commercial.cta)
   const phone = message(commercial.phone)
   const cta = [ctaText, phone].filter(Boolean).join(' - ')
   const seen = new Set([cta, ctaText, phone].filter(Boolean).map(messageKey))

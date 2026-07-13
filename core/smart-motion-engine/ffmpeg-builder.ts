@@ -49,7 +49,6 @@ export function buildSceneFilter(input: {
       fontFile,
       startSeconds: 0,
       endSeconds: scene.durationSeconds,
-      placement: scene.kind === 'cta' ? 'cta' : 'standard',
     }))
     if (scene.kind === 'cta') {
       base.push(`drawtext=fontfile='${font}':text='SMARTCORRETORAI':fontcolor=white@0.62:fontsize=27:x=(w-text_w)/2:y=h-92`)
@@ -134,7 +133,11 @@ export function buildMusicArgs(input: {
   durationSeconds: number
 }): string[] {
   const duration = Math.max(0.1, input.durationSeconds)
-  const audioFilter = buildNormalizedMusicFilter({ durationSeconds: duration, outputLabel: 'aout' })
+  const audioFilter = buildNormalizedMusicFilter({
+    durationSeconds: duration,
+    fadeInSeconds: 0,
+    outputLabel: 'aout',
+  })
 
   return [
     '-y',
