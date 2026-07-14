@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#eef2ff"/>
+  <rect x="130" y="58" width="460" height="404" rx="30" fill="#ffffff" stroke="#c7d2fe" stroke-width="2"/>
+  <rect x="160" y="88" width="400" height="194" rx="22" fill="#dbeafe"/>
+  <path d="M160 282l94-82 82 56 62-48 162 124v16H160z" fill="#2563eb" opacity=".58"/>
+  <text x="160" y="334" font-family="Arial" font-size="31" font-weight="800" fill="#111827">Card Imobiliario</text>
+  <rect x="160" y="368" width="106" height="42" rx="14" fill="#f3f4f6"/>
+  <rect x="286" y="368" width="106" height="42" rx="14" fill="#f3f4f6"/>
+  <rect x="412" y="368" width="106" height="42" rx="14" fill="#f3f4f6"/>
+  <text x="181" y="395" font-family="Arial" font-size="16" font-weight="700" fill="#4b5563">3 dorms</text>
+  <text x="313" y="395" font-family="Arial" font-size="16" font-weight="700" fill="#4b5563">2 vagas</text>
+  <text x="438" y="395" font-family="Arial" font-size="16" font-weight="700" fill="#4b5563">120 m2</text>
+</svg>

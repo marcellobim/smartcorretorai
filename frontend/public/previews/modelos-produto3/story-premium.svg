@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#faf5ff"/>
+  <rect x="240" y="28" width="240" height="464" rx="34" fill="#7c3aed"/>
+  <rect x="262" y="58" width="196" height="280" rx="26" fill="#ddd6fe"/>
+  <text x="284" y="388" font-family="Arial" font-size="34" font-weight="800" fill="#fff">Story</text>
+  <text x="284" y="428" font-family="Arial" font-size="34" font-weight="800" fill="#fff">Premium</text>
+  <rect x="286" y="456" width="140" height="12" rx="6" fill="#c4b5fd"/>
+  <circle cx="438" cy="82" r="10" fill="#fff"/>
+</svg>

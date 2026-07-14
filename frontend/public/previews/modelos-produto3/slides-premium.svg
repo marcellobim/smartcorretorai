@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#f1f5f9"/>
+  <rect x="76" y="72" width="264" height="330" rx="24" fill="#fff" stroke="#dbeafe" stroke-width="2"/>
+  <rect x="112" y="110" width="192" height="150" rx="18" fill="#c4b5fd"/>
+  <rect x="112" y="292" width="150" height="18" rx="9" fill="#111827"/>
+  <rect x="112" y="326" width="184" height="12" rx="6" fill="#94a3b8"/>
+  <rect x="248" y="96" width="264" height="330" rx="24" fill="#fff" stroke="#ddd6fe" stroke-width="2"/>
+  <rect x="284" y="134" width="192" height="150" rx="18" fill="#93c5fd"/>
+  <rect x="284" y="316" width="154" height="18" rx="9" fill="#111827"/>
+  <rect x="284" y="350" width="184" height="12" rx="6" fill="#94a3b8"/>
+  <rect x="420" y="120" width="164" height="270" rx="22" fill="#7c3aed"/>
+  <text x="448" y="210" font-family="Arial" font-size="30" font-weight="800" fill="#fff">SLIDES</text>
+  <text x="448" y="248" font-family="Arial" font-size="30" font-weight="800" fill="#fff">PREMIUM</text>
+  <rect x="448" y="294" width="96" height="12" rx="6" fill="#ddd6fe"/>
+</svg>

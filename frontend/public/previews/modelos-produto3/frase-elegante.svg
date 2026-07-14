@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#111827"/>
+  <rect x="234" y="30" width="252" height="460" rx="34" fill="#020617" stroke="#475569" stroke-width="2"/>
+  <circle cx="362" cy="178" r="94" fill="#7c3aed" opacity=".5"/>
+  <text x="272" y="266" font-family="Georgia, serif" font-size="32" font-weight="700" fill="#fff">Uma nova</text>
+  <text x="272" y="306" font-family="Georgia, serif" font-size="32" font-weight="700" fill="#fff">forma de</text>
+  <text x="272" y="346" font-family="Georgia, serif" font-size="32" font-weight="700" fill="#fff">morar bem</text>
+  <rect x="272" y="392" width="142" height="10" rx="5" fill="#a78bfa"/>
+</svg>

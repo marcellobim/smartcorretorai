@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <rect width="960" height="600" fill="#18181b"/>
+  <rect x="100" y="120" width="760" height="380" rx="32" fill="#27272a"/>
+  <rect x="135" y="155" width="690" height="250" rx="24" fill="#a7f3d0"/>
+  <polygon points="440,245 440,340 525,292" fill="#ffffff"/>
+  <text x="135" y="460" font-family="Arial" font-size="42" font-weight="800" fill="#ffffff">Video Tour</text>
+  <text x="390" y="460" font-family="Arial" font-size="22" fill="#d4d4d8">apresentacao completa</text>
+</svg>

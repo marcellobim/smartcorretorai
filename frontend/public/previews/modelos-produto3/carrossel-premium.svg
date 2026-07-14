@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#f8fafc"/>
+  <rect x="78" y="76" width="250" height="334" rx="26" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <rect x="110" y="110" width="186" height="146" rx="18" fill="#bfdbfe"/>
+  <text x="110" y="310" font-family="Arial" font-size="25" font-weight="800" fill="#111827">Destaques</text>
+  <rect x="110" y="336" width="150" height="12" rx="6" fill="#9ca3af"/>
+  <rect x="276" y="58" width="250" height="334" rx="26" fill="#ffffff" stroke="#c7d2fe" stroke-width="2"/>
+  <rect x="308" y="92" width="186" height="146" rx="18" fill="#c4b5fd"/>
+  <text x="308" y="292" font-family="Arial" font-size="25" font-weight="800" fill="#111827">Ambientes</text>
+  <rect x="308" y="318" width="150" height="12" rx="6" fill="#9ca3af"/>
+  <rect x="474" y="92" width="250" height="334" rx="26" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <rect x="506" y="126" width="154" height="146" rx="18" fill="#bbf7d0"/>
+  <text x="506" y="326" font-family="Arial" font-size="25" font-weight="800" fill="#111827">Contato</text>
+</svg>

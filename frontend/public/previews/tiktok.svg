@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <rect width="960" height="600" fill="#030712"/>
+  <rect x="330" y="55" width="300" height="490" rx="36" fill="#111827"/>
+  <circle cx="480" cy="300" r="86" fill="#ec4899"/>
+  <circle cx="510" cy="270" r="86" fill="#06b6d4" opacity="0.72"/>
+  <polygon points="455,250 455,360 550,305" fill="#ffffff"/>
+  <text x="85" y="135" font-family="Arial" font-size="50" font-weight="800" fill="#ffffff">TikTok</text>
+  <text x="85" y="185" font-family="Arial" font-size="24" fill="#cbd5e1">Descoberta e alcance em video curto</text>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#0f172a"/>
+  <rect x="70" y="78" width="580" height="326" rx="30" fill="#1e293b"/>
+  <rect x="106" y="114" width="508" height="230" rx="24" fill="#a7f3d0"/>
+  <path d="M106 344l116-96 82 62 78-70 232 148v28H106z" fill="#059669" opacity=".52"/>
+  <circle cx="360" cy="252" r="58" fill="#ffffff" opacity=".94"/>
+  <polygon points="344,218 344,286 400,252" fill="#7c3aed"/>
+  <text x="106" y="450" font-family="Arial" font-size="40" font-weight="800" fill="#fff">Video Tour</text>
+  <rect x="350" y="434" width="130" height="16" rx="8" fill="#64748b"/>
+</svg>

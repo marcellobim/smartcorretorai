@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <rect width="960" height="600" fill="#0f172a"/>
+  <circle cx="480" cy="300" r="190" fill="#14b8a6" opacity="0.24"/>
+  <rect x="355" y="85" width="250" height="430" rx="30" fill="#020617"/>
+  <polygon points="450,245 450,355 545,300" fill="#ffffff"/>
+  <text x="90" y="135" font-family="Arial" font-size="52" font-weight="800" fill="#ffffff">Reels</text>
+  <text x="90" y="185" font-family="Arial" font-size="24" fill="#99f6e4">Video curto com impacto visual</text>
+</svg>

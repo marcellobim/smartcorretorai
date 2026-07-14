@@ -1,0 +1,76 @@
+{
+  "output": "C:\\Users\\bbqbi\\OneDrive\\Documents\\smartcorretorai\\experiments\\slideshow-poc\\output\\output-v31-alto-padrao-01.mp4",
+  "durationSeconds": 25.44,
+  "music": false,
+  "slides": [
+    {
+      "order": 1,
+      "image": "Screenshot_20260622_062941_Chrome.jpg",
+      "type": "pool",
+      "caption": "LAZER COM VISTA",
+      "movement": "aspirational-wide-pan",
+      "transition": "fadeblack"
+    },
+    {
+      "order": 2,
+      "image": "Screenshot_20260622_062959_Chrome.jpg",
+      "type": "gourmet",
+      "caption": "VARANDA GOURMET",
+      "movement": "diagonal-gourmet-travel",
+      "transition": "smoothup"
+    },
+    {
+      "order": 3,
+      "image": "Screenshot_20260622_063020_Chrome.jpg",
+      "type": "living",
+      "caption": "LIVING INTEGRADO",
+      "movement": "soft-lateral-living",
+      "transition": "fade"
+    },
+    {
+      "order": 4,
+      "image": "Screenshot_20260622_063115_Chrome.jpg",
+      "type": "kitchen",
+      "caption": "COZINHA PLANEJADA",
+      "movement": "elegant-kitchen-pan",
+      "transition": "smoothleft"
+    },
+    {
+      "order": 5,
+      "image": "Screenshot_20260622_063130_Chrome.jpg",
+      "type": "suite",
+      "caption": "SUITE MASTER",
+      "movement": "premium-suite-push",
+      "transition": "fadeblack"
+    },
+    {
+      "order": 6,
+      "image": "Screenshot_20260622_063126_Chrome.jpg",
+      "type": "bedroom",
+      "caption": "CONFORTO PRIVATIVO",
+      "movement": "quiet-bedroom-drift",
+      "transition": "fade"
+    },
+    {
+      "order": 7,
+      "image": "Screenshot_20260622_063303_Chrome.jpg",
+      "type": "balcony",
+      "caption": "VISTA URBANA",
+      "movement": "depth-balcony-move",
+      "transition": "smoothup"
+    },
+    {
+      "order": 8,
+      "image": "Screenshot_20260622_063108_Chrome.jpg",
+      "type": "bathroom",
+      "caption": "ACABAMENTO PREMIUM",
+      "movement": "short-detail-bathroom",
+      "transition": "fade"
+    }
+  ],
+  "cta": {
+    "caption": "Agende sua visita",
+    "movement": "stable-cta-frame",
+    "transition": "fadeblack"
+  }
+}
