@@ -1,0 +1,6 @@
+file 'C:/Users/bbqbi/OneDrive/Documents/smartcorretorai/experiments/slideshow-poc/.tmp/apresentacao-alto-padrao-01/segment-01.mp4'
+file 'C:/Users/bbqbi/OneDrive/Documents/smartcorretorai/experiments/slideshow-poc/.tmp/apresentacao-alto-padrao-01/segment-02.mp4'
+file 'C:/Users/bbqbi/OneDrive/Documents/smartcorretorai/experiments/slideshow-poc/.tmp/apresentacao-alto-padrao-01/segment-03.mp4'
+file 'C:/Users/bbqbi/OneDrive/Documents/smartcorretorai/experiments/slideshow-poc/.tmp/apresentacao-alto-padrao-01/segment-04.mp4'
+file 'C:/Users/bbqbi/OneDrive/Documents/smartcorretorai/experiments/slideshow-poc/.tmp/apresentacao-alto-padrao-01/segment-05.mp4'
+file 'C:/Users/bbqbi/OneDrive/Documents/smartcorretorai/experiments/slideshow-poc/.tmp/apresentacao-alto-padrao-01/segment-06-cta.mp4'
