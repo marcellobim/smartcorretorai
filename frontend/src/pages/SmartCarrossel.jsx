@@ -28,12 +28,8 @@ const TYPEWRITER_FINAL_CURSOR_MS = 400
 const SMART_CAROUSEL_BUCKET = 'studio-videos'
 const SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'
 const SMART_CAROUSEL_POLL_INTERVAL_MS = 4000
-const SMART_CAROUSEL_STATUS_MESSAGES = [
-  'Preparando sua apresentação...',
-  'Organizando as fotos...',
-  'Criando os movimentos...',
-  'Finalizando...',
-]
+const SMART_CAROUSEL_UPLOAD_TIMEOUT_MS = 2 * 60 * 1000
+const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 45 * 1000
 
 const SMART_CAROUSEL_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
 const SMART_CAROUSEL_STATE_OPTIONS = [
@@ -99,23 +95,56 @@ function getPhotoExtension(file) {
   return file?.type === 'image/png' ? 'png' : 'jpg'
 }
 
+function isValidSmartCarouselReceipt(value) {
+  return typeof value === 'string'
+    && value.length > 20
+    && value.length <= 2048
+    && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
+}
+
+async function waitWithTimeout(promise, timeoutMs, message) {
+  let timeoutId
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 async function invokeSmartCarouselFunction(accessToken, body) {
   if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente para continuar.')
 
-  const response = await fetch(`${supabase.supabaseUrl}/functions/v1/${SMART_CAROUSEL_FUNCTION}`, {
-    method: 'POST',
-    headers: {
-      apikey: supabase.supabaseKey,
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok || !data?.ok) {
-    throw new Error(data?.error || 'Não foi possível continuar. Tente novamente.')
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), SMART_CAROUSEL_FUNCTION_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/${SMART_CAROUSEL_FUNCTION}`, {
+      method: 'POST',
+      headers: {
+        apikey: supabase.supabaseKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    const data = await response.json().catch(() => null)
+    if (!response.ok || !data?.ok) {
+      throw new Error(data?.error || 'Não foi possível continuar. Tente novamente.')
+    }
+    return data
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('A solicitação demorou mais que o esperado. Tente novamente.')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
   }
-  return data
 }
 
 async function removeUploadedJobFiles(paths) {
@@ -162,6 +191,23 @@ async function uploadSmartCarouselFiles({ photos, userId, jobId, cta }) {
     return { imagePaths, ctaPath, uploadedPaths }
   } catch (error) {
     await removeUploadedJobFiles(uploadedPaths)
+    throw error
+  }
+}
+
+async function uploadSmartCarouselFilesWithTimeout(args) {
+  const uploadPromise = uploadSmartCarouselFiles(args)
+
+  try {
+    return await waitWithTimeout(
+      uploadPromise,
+      SMART_CAROUSEL_UPLOAD_TIMEOUT_MS,
+      'O envio das fotos demorou mais que o esperado. Tente novamente.',
+    )
+  } catch (error) {
+    uploadPromise
+      .then(({ uploadedPaths }) => removeUploadedJobFiles(uploadedPaths))
+      .catch(() => {})
     throw error
   }
 }
@@ -355,7 +401,6 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const generationInFlightRef = useRef(false)
   const [generationStatus, setGenerationStatus] = useState('idle')
   const [generationError, setGenerationError] = useState('')
-  const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
   const [receipt, setReceipt] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
 
@@ -365,22 +410,14 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const stageOptions = purpose === 'rent' ? ['Pronto para mudar'] : ['Pronto para morar', 'Lançamento', 'Em construção']
   const numberOptions = ['0', '1', '2', '3', '4', '5+']
 
-  useEffect(() => () => {
-    mountedRef.current = false
-    if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current)
-  }, [])
-
   useEffect(() => {
-    if (!['uploading', 'creating', 'polling'].includes(generationStatus)) {
-      setGenerationMessageIndex(0)
-      return undefined
-    }
+    mountedRef.current = true
 
-    const intervalId = window.setInterval(() => {
-      setGenerationMessageIndex((current) => Math.min(current + 1, SMART_CAROUSEL_STATUS_MESSAGES.length - 1))
-    }, 3500)
-    return () => window.clearInterval(intervalId)
-  }, [generationStatus])
+    return () => {
+      mountedRef.current = false
+      if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (!uf) { setCities([]); setCitiesLoading(false); return undefined }
@@ -420,11 +457,14 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     setGenerationStatus('failed')
     setGenerationError(message || 'Não foi possível criar sua apresentação. Tente novamente.')
     if (!keepReceipt) setReceipt('')
-    onGenerationStageChange(3)
   }
 
   const pollRenderStatus = async (signedReceipt) => {
     if (!mountedRef.current) return
+    if (!isValidSmartCarouselReceipt(signedReceipt)) {
+      stopWithError('Não foi possível acompanhar sua apresentação.')
+      return
+    }
     try {
       const data = await invokeSmartCarouselFunction(accessToken, {
         action: 'status',
@@ -459,7 +499,6 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     generationInFlightRef.current = true
     setGenerationStatus('polling')
     setGenerationError('')
-    setGenerationMessageIndex(2)
     onGenerationStageChange(3)
     pollRenderStatus(receipt)
   }
@@ -482,19 +521,16 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     generationInFlightRef.current = true
     setGenerationStatus('uploading')
     setGenerationError('')
-    setGenerationMessageIndex(0)
     setReceipt('')
     setVideoUrl('')
-    onGenerationStageChange(3)
 
     const jobId = crypto.randomUUID()
     let uploadedPaths = []
     try {
-      const uploaded = await uploadSmartCarouselFiles({ photos, userId: user.id, jobId, cta })
+      const uploaded = await uploadSmartCarouselFilesWithTimeout({ photos, userId: user.id, jobId, cta })
       uploadedPaths = uploaded.uploadedPaths
       if (!mountedRef.current) return
       setGenerationStatus('creating')
-      setGenerationMessageIndex(1)
 
       const data = await invokeSmartCarouselFunction(accessToken, {
         action: 'create',
@@ -506,11 +542,13 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
         share_phone: sharePhone === 'yes',
       })
       if (!mountedRef.current) return
-      if (!data.receipt) throw new Error('Não foi possível acompanhar sua apresentação.')
+      if (!isValidSmartCarouselReceipt(data.receipt)) {
+        throw new Error('Não foi possível acompanhar sua apresentação.')
+      }
 
       setReceipt(data.receipt)
       setGenerationStatus('polling')
-      setGenerationMessageIndex(2)
+      onGenerationStageChange(3)
       pollRenderStatus(data.receipt)
     } catch (error) {
       await removeUploadedJobFiles(uploadedPaths)
@@ -519,6 +557,12 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   }
 
   const isGenerating = ['uploading', 'creating', 'polling'].includes(generationStatus)
+  const generationStatusMessage = generationStatus === 'uploading'
+    ? 'Enviando fotos...'
+    : generationStatus === 'creating'
+      ? 'Iniciando apresentação...'
+      : 'Criando apresentação...'
+  const generationProgress = generationStatus === 'uploading' ? 34 : generationStatus === 'creating' ? 67 : 84
 
   let questionContent = null
   if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title="🏡 Venda" description="Apresentação para comercialização do imóvel." onClick={() => choose(setPurpose, 'sale', 2)} /><ChoiceButton active={purpose === 'rent'} title="🔑 Locação" description="Apresentação para encontrar o locatário ideal." onClick={() => choose(setPurpose, 'rent', 2)} /></OptionGrid>
@@ -547,8 +591,8 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
 
       {isGenerating && (
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 text-left">
-          <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-emerald-700" /><p className="text-sm font-black text-emerald-900">{SMART_CAROUSEL_STATUS_MESSAGES[generationMessageIndex]}</p></div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-100"><div className="h-full rounded-full bg-emerald-600 transition-all duration-700" style={{ width: `${25 * (generationMessageIndex + 1)}%` }} /></div>
+          <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-emerald-700" /><p className="text-sm font-black text-emerald-900">{generationStatusMessage}</p></div>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-100"><div className="h-full rounded-full bg-emerald-600 transition-all duration-700" style={{ width: `${generationProgress}%` }} /></div>
         </div>
       )}
 
