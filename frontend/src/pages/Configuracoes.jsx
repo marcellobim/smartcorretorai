@@ -3,16 +3,18 @@ import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   AlertCircle,
-  BadgeCheck,
   Bell,
   Briefcase,
   CheckCircle2,
   CreditCard,
+  Facebook,
+  Globe2,
   Image,
+  Instagram,
+  Linkedin,
   Lock,
   Palette,
   Share2,
-  ShieldCheck,
   Upload,
   User,
   X,
@@ -37,6 +39,78 @@ const VISUAL_STYLES = [
   'Minimalista',
   'Popular e acolhedor',
 ]
+
+const SOCIAL_LINK_CONFIG = {
+  instagram: {
+    label: 'Instagram',
+    placeholder: 'https://instagram.com/seuperfil',
+    icon: Instagram,
+    iconClass: 'bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-white',
+    hosts: ['instagram.com'],
+  },
+  facebook: {
+    label: 'Facebook',
+    placeholder: 'https://facebook.com/seuperfil',
+    icon: Facebook,
+    iconClass: 'bg-[#1877F2] text-white',
+    hosts: ['facebook.com', 'fb.com'],
+  },
+  linkedin: {
+    label: 'LinkedIn',
+    placeholder: 'https://linkedin.com/in/seuperfil',
+    icon: Linkedin,
+    iconClass: 'bg-[#0A66C2] text-white',
+    hosts: ['linkedin.com'],
+  },
+  site: {
+    label: 'Site',
+    placeholder: 'https://seusite.com.br',
+    icon: Globe2,
+    iconClass: 'bg-primary-800 text-cyan-100',
+    hosts: null,
+  },
+}
+
+function formatBrazilianPhone(value = '') {
+  const rawDigits = String(value).replace(/\D/g, '')
+  const digits = (rawDigits.length > 11 && rawDigits.startsWith('55') ? rawDigits.slice(2) : rawDigits).slice(0, 11)
+  if (!digits) return ''
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
+function normalizePublicLink(value = '', network = 'site') {
+  const trimmed = String(value).trim()
+  if (!trimmed) return ''
+
+  if (network === 'instagram' && trimmed.startsWith('@')) {
+    return `https://instagram.com/${trimmed.slice(1)}`
+  }
+
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+function validatePublicLink(value, network) {
+  if (!value?.trim()) return true
+
+  try {
+    const url = new URL(normalizePublicLink(value, network))
+    const host = url.hostname.toLowerCase().replace(/^www\./, '')
+    const config = SOCIAL_LINK_CONFIG[network]
+    const hasPublicHost = host.includes('.') && host !== 'localhost'
+    const hasValidProtocol = url.protocol === 'https:' || url.protocol === 'http:'
+    const matchesNetwork = !config.hosts || config.hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))
+
+    if (!hasValidProtocol || !hasPublicHost || !matchesNetwork) {
+      return `Informe um link público válido do ${config.label}.`
+    }
+    return true
+  } catch {
+    return `Informe um link público válido do ${SOCIAL_LINK_CONFIG[network].label}.`
+  }
+}
 
 const tabs = [
   { id: 'perfil', label: 'Perfil e Marca', icon: User },
@@ -125,18 +199,27 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
   )
 }
 
-function StatusBadge({ complete }) {
+function StatusBadge({ complete, optional = false }) {
+  if (optional) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Opcional
+      </span>
+    )
+  }
+
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${
       complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
     }`}>
       {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-      {complete ? 'Completo' : 'Incompleto'}
+      {complete ? 'Perfil básico pronto' : 'Complete os dados básicos'}
     </span>
   )
 }
 
-function SectionCard({ icon: Icon, eyebrow, title, description, complete, children }) {
+function SectionCard({ icon: Icon, eyebrow, title, description, complete, optional = false, children }) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -150,7 +233,7 @@ function SectionCard({ icon: Icon, eyebrow, title, description, complete, childr
             {description && <p className="mt-1 text-sm leading-relaxed text-gray-500">{description}</p>}
           </div>
         </div>
-        {typeof complete === 'boolean' && <StatusBadge complete={complete} />}
+        {(typeof complete === 'boolean' || optional) && <StatusBadge complete={complete} optional={optional} />}
       </div>
       {children}
     </section>
@@ -165,13 +248,57 @@ function FieldNotice({ children }) {
   )
 }
 
+function SocialLinkField({ network, registration, error }) {
+  const config = SOCIAL_LINK_CONFIG[network]
+  const Icon = config.icon
+
+  return (
+    <div className={`rounded-2xl border bg-white p-4 transition focus-within:border-primary-300 focus-within:shadow-md ${error ? 'border-red-300' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+      <div className="flex items-start gap-3">
+        <div
+          title={config.label}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm ${config.iconClass}`}
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <label htmlFor={`social-${network}`} className="block text-sm font-black text-gray-950">
+            {config.label}
+          </label>
+          <p className="mt-0.5 text-xs text-gray-500">Link público opcional</p>
+        </div>
+      </div>
+      <input
+        id={`social-${network}`}
+        type="url"
+        inputMode="url"
+        autoComplete="url"
+        placeholder={config.placeholder}
+        aria-invalid={Boolean(error)}
+        className={`input mt-4 ${error ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''}`}
+        {...registration}
+        onBlur={(event) => {
+          event.target.value = normalizePublicLink(event.target.value, network)
+          registration.onChange(event)
+          registration.onBlur(event)
+        }}
+      />
+      {error ? (
+        <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>
+      ) : (
+        <p className="mt-2 truncate text-xs text-gray-400">{config.placeholder}</p>
+      )}
+    </div>
+  )
+}
+
 export default function Configuracoes() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'perfil')
   const { user, session, updateUser } = useAuth()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
-  const [visualPreferences, setVisualPreferences] = useState({
+  const [visualPreferences] = useState({
     primaryColor: '#0F2742',
     secondaryColor: '#0E7490',
     visualStyle: VISUAL_STYLES[0],
@@ -181,8 +308,10 @@ export default function Configuracoes() {
     register: regPerfil,
     handleSubmit: handlePerfil,
     reset: resetPerfil,
+    clearErrors: clearProfileErrors,
+    setError: setProfileError,
     watch,
-    formState: { isSubmitting: savingPerfil },
+    formState: { errors: profileErrors, isSubmitting: savingPerfil },
   } = useForm({
     defaultValues: {
       nome: '',
@@ -194,6 +323,8 @@ export default function Configuracoes() {
       imobiliaria: '',
       site: '',
       instagram: '',
+      facebook: '',
+      linkedin: '',
     },
   })
 
@@ -207,14 +338,16 @@ export default function Configuracoes() {
       creci: user?.creci || '',
       estado: user?.estado || '',
       telefone: user?.telefone || '',
-      whatsapp: user?.whatsapp || '',
+      whatsapp: formatBrazilianPhone(user?.whatsapp || user?.telefone || ''),
       imobiliaria: user?.imobiliaria || '',
-      site: user?.site || '',
-      instagram: user?.instagram || '',
+      site: normalizePublicLink(user?.site || '', 'site'),
+      instagram: normalizePublicLink(user?.instagram || '', 'instagram'),
+      facebook: normalizePublicLink(user?.facebook || '', 'facebook'),
+      linkedin: normalizePublicLink(user?.linkedin || '', 'linkedin'),
     })
     setAvatarFile(undefined)
     setLogoFile(undefined)
-  }, [user?.id, user?.nome, user?.email, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.site, user?.instagram, user?.estado, session?.user?.email, resetPerfil])
+  }, [user?.id, user?.nome, user?.email, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.site, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
 
   useEffect(() => {
     const igStatus = searchParams.get('instagram')
@@ -232,19 +365,11 @@ export default function Configuracoes() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const watched = watch()
-  const accountEmail = session?.user?.email || user?.email || ''
   const profileComplete = useMemo(() => Boolean(
-    watched.nome
-    && watched.creci
-    && watched.whatsapp
-    && watched.email
-    && (avatarFile instanceof File || avatarFile === undefined ? user?.avatar_url || avatarFile instanceof File : false)
-  ), [watched.nome, watched.creci, watched.whatsapp, watched.email, avatarFile, user?.avatar_url])
-
-  const brandComplete = useMemo(() => Boolean(
-    watched.imobiliaria
-    && (logoFile instanceof File || logoFile === undefined ? user?.logo_url || logoFile instanceof File : false)
-  ), [watched.imobiliaria, logoFile, user?.logo_url])
+    watched.nome?.trim()
+    && watched.email?.trim()
+    && String(watched.whatsapp || '').replace(/\D/g, '').length >= 10
+  ), [watched.nome, watched.whatsapp, watched.email])
 
   const uploadProfileImage = async (file, slot) => {
     if (!file || !(file instanceof File)) return null
@@ -266,7 +391,7 @@ export default function Configuracoes() {
     return signed.signedUrl
   }
 
-  const onSavePerfil = async (data) => {
+  const onSavePerfil = async (data, successMessage = 'Perfil Comercial e Marca atualizados.') => {
     try {
       let avatar_url = user?.avatar_url || null
       let logo_url = user?.logo_url || null
@@ -284,11 +409,12 @@ export default function Configuracoes() {
           email: data.email,
           creci: data.creci,
           estado: data.estado,
-          telefone: data.telefone,
-          whatsapp: data.whatsapp,
+          whatsapp: formatBrazilianPhone(data.whatsapp || user?.telefone || ''),
           imobiliaria: data.imobiliaria,
-          site: data.site,
-          instagram: data.instagram,
+          site: normalizePublicLink(data.site, 'site'),
+          instagram: normalizePublicLink(data.instagram, 'instagram'),
+          facebook: normalizePublicLink(data.facebook, 'facebook'),
+          linkedin: normalizePublicLink(data.linkedin, 'linkedin'),
           avatar_url,
           logo_url,
         })
@@ -300,10 +426,39 @@ export default function Configuracoes() {
       updateUser(updated)
       setAvatarFile(undefined)
       setLogoFile(undefined)
-      toast.success('Perfil Comercial e Marca atualizados.')
+      toast.success(successMessage)
     } catch (err) {
       toast.error(err.message || 'Erro ao salvar perfil.')
     }
+  }
+
+  const onSaveBasicProfile = async (data) => {
+    clearProfileErrors(['nome', 'email', 'whatsapp'])
+    let hasError = false
+    const phoneDigits = String(data.whatsapp || '').replace(/\D/g, '')
+
+    if (!data.nome?.trim()) {
+      setProfileError('nome', { type: 'required', message: 'Informe seu nome profissional.' })
+      hasError = true
+    }
+    if (!data.email?.trim()) {
+      setProfileError('email', { type: 'required', message: 'Informe seu e-mail profissional.' })
+      hasError = true
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+      setProfileError('email', { type: 'validate', message: 'Informe um e-mail profissional válido.' })
+      hasError = true
+    }
+    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+      setProfileError('whatsapp', { type: 'validate', message: 'Informe um telefone com DDD.' })
+      hasError = true
+    }
+
+    if (hasError) {
+      toast.error('Revise os dados obrigatórios destacados.')
+      return
+    }
+
+    await onSavePerfil(data)
   }
 
   const onSaveSenha = async (data) => {
@@ -345,27 +500,23 @@ export default function Configuracoes() {
 
           <div className="min-w-0">
             {activeTab === 'perfil' && (
-              <form onSubmit={handlePerfil(onSavePerfil)} className="space-y-6">
-                <SectionCard
-                  icon={ShieldCheck}
-                  eyebrow="Conta"
-                  title="Login e autenticação"
-                  description="A conta identifica quem acessa a plataforma. Ela não é a marca e não substitui o perfil comercial."
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Input label="E-mail de login" value={accountEmail} disabled readOnly />
-                    <Input label="ID da conta" value={user?.id || ''} disabled readOnly />
+              <form onSubmit={handlePerfil(onSaveBasicProfile)} className="space-y-6">
+                <div className="rounded-3xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-cyan-50 p-5 shadow-sm sm:p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100 shadow-sm">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <p className="pt-1 text-sm font-semibold leading-6 text-slate-700">
+                      Preencha estas informações apenas uma vez. Sempre que necessário, o SmartCorretorAI utilizará automaticamente esses dados para agilizar a criação dos seus materiais.
+                    </p>
                   </div>
-                  <FieldNotice>
-                    Alterações de autenticação ficam na aba Conta e Senha. Nenhum produto deve depender de dados inventados: se o Perfil Comercial estiver incompleto, os materiais devem usar apenas os campos preenchidos.
-                  </FieldNotice>
-                </SectionCard>
+                </div>
 
                 <SectionCard
                   icon={Briefcase}
-                  eyebrow="Perfil Comercial"
+                  eyebrow="Perfil profissional"
                   title="Como você aparece nos materiais"
-                  description="Dados profissionais usados em banners, imagens, campanhas, vídeos e landings quando fizer sentido."
+                  description="Mantenha seus dados profissionais atualizados para que possam ser utilizados quando necessário."
                   complete={profileComplete}
                 >
                   <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
@@ -377,11 +528,35 @@ export default function Configuracoes() {
                       shape="circle"
                     />
                     <div className="grid gap-4 md:grid-cols-2">
-                      <Input label="Nome profissional" placeholder="Seu nome de divulgação" {...regPerfil('nome')} />
+                      <Input
+                        label="Nome profissional"
+                        placeholder="Seu nome de divulgação"
+                        error={profileErrors.nome?.message}
+                        {...regPerfil('nome')}
+                      />
                       <Input label="CRECI" placeholder="Ex: 12345-F" {...regPerfil('creci')} />
-                      <Input label="WhatsApp comercial" type="tel" placeholder="(11) 99999-9999" {...regPerfil('whatsapp')} />
-                      <Input label="E-mail comercial" type="email" placeholder="contato@seudominio.com.br" {...regPerfil('email')} />
-                      <Input label="Telefone alternativo" type="tel" placeholder="(11) 3333-4444" {...regPerfil('telefone')} />
+                      <Input
+                        label="Telefone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        maxLength={15}
+                        placeholder="(11) 99999-9999"
+                        hint="Telefone oficial usado somente quando você escolher divulgá-lo."
+                        error={profileErrors.whatsapp?.message}
+                        {...regPerfil('whatsapp', {
+                          onChange: (event) => {
+                            event.target.value = formatBrazilianPhone(event.target.value)
+                          },
+                        })}
+                      />
+                      <Input
+                        label="E-mail profissional"
+                        type="email"
+                        placeholder="contato@seudominio.com.br"
+                        error={profileErrors.email?.message}
+                        {...regPerfil('email')}
+                      />
                       <Select label="Estado profissional" {...regPerfil('estado')}>
                         <option value="">Selecione</option>
                         {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
@@ -393,76 +568,38 @@ export default function Configuracoes() {
                 <SectionCard
                   icon={Palette}
                   eyebrow="Marca"
-                  title="Identidade visual"
-                  description="A marca é separada do usuário. Ela define como a comunicação visual deve se comportar."
-                  complete={brandComplete}
+                  title="Identidade da empresa"
+                  description="Preencha apenas se desejar utilizar os dados da sua imobiliária, construtora ou empresa nos materiais gerados."
+                  optional
                 >
                   <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <ImageUploader
-                      label="Logo"
-                      hint="Use a marca da imobiliária ou sua marca pessoal, quando existir."
+                      label="Logo da empresa"
+                      hint="Opcional. Use apenas quando desejar identificar a empresa nos materiais."
                       value={logoFile === null ? null : (logoFile instanceof File ? null : user?.logo_url)}
                       onChange={setLogoFile}
                       shape="square"
                     />
                     <div className="space-y-4">
-                      <Input label="Nome da marca" placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="block">
-                          <span className="label">Cor principal</span>
-                          <input
-                            type="color"
-                            value={visualPreferences.primaryColor}
-                            onChange={(event) => setVisualPreferences((current) => ({ ...current, primaryColor: event.target.value }))}
-                            className="h-11 w-full rounded-xl border border-gray-200 bg-white p-1"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="label">Cor secundária</span>
-                          <input
-                            type="color"
-                            value={visualPreferences.secondaryColor}
-                            onChange={(event) => setVisualPreferences((current) => ({ ...current, secondaryColor: event.target.value }))}
-                            className="h-11 w-full rounded-xl border border-gray-200 bg-white p-1"
-                          />
-                        </label>
-                      </div>
-                      <Select
-                        label="Estilo visual"
-                        value={visualPreferences.visualStyle}
-                        onChange={(event) => setVisualPreferences((current) => ({ ...current, visualStyle: event.target.value }))}
-                      >
-                        {VISUAL_STYLES.map((style) => <option key={style} value={style}>{style}</option>)}
-                      </Select>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <Input label="Site" placeholder="https://seusite.com.br" {...regPerfil('site')} />
-                        <Input label="Instagram" placeholder="@sua_marca" {...regPerfil('instagram')} />
-                      </div>
+                      <Input label="Nome da empresa" placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
+                      <div
+                        className="hidden"
+                        aria-hidden="true"
+                        data-primary-color={visualPreferences.primaryColor}
+                        data-secondary-color={visualPreferences.secondaryColor}
+                        data-visual-style={visualPreferences.visualStyle}
+                      />
                       <FieldNotice>
-                        Cor principal, cor secundária e estilo visual ficam preparados na interface para reutilização futura. Nesta etapa, a persistência remota usa somente os campos já existentes do perfil, sem migration.
+                        Todos os dados desta seção são opcionais e nunca substituem automaticamente seus dados profissionais pessoais.
                       </FieldNotice>
                     </div>
                   </div>
                 </SectionCard>
 
-                <SectionCard
-                  icon={BadgeCheck}
-                  eyebrow="Integração futura"
-                  title="Reutilização da identidade"
-                  description="Esses dados foram organizados para alimentar os próximos produtos sem misturar login, pessoa e marca."
-                >
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {['Hero IA', 'Campanha IA Premium', 'Landing IA', 'Biblioteca Profissional'].map((item) => (
-                      <div key={item} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <p className="text-sm font-black text-gray-950">{item}</p>
-                        <p className="mt-1 text-xs font-semibold text-gray-500">Preparado para reutilizar perfil e marca.</p>
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
-
-                <div className="flex justify-end">
-                  <Button type="submit" loading={savingPerfil}>Salvar Perfil Comercial e Marca</Button>
+                <div className="flex justify-center sm:justify-end">
+                  <Button type="submit" loading={savingPerfil} className="w-full px-8 shadow-lg shadow-primary-900/10 sm:w-auto">
+                    Salvar Perfil Comercial e Marca
+                  </Button>
                 </div>
               </form>
             )}
@@ -481,18 +618,46 @@ export default function Configuracoes() {
             )}
 
             {activeTab === 'redes' && (
-              <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-gray-950">Redes sociais</h2>
-                <p className="mt-1 text-sm text-gray-500">Conexões automáticas serão ativadas em uma fase futura.</p>
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  {['Instagram', 'Facebook', 'TikTok'].map((item) => (
-                    <div key={item} className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5">
-                      <p className="text-sm font-black text-gray-700">{item}</p>
-                      <p className="mt-1 text-xs font-semibold text-gray-400">Em preparação</p>
-                    </div>
+              <form
+                onSubmit={handlePerfil((data) => onSavePerfil(data, 'Links públicos atualizados.'))}
+                className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6"
+              >
+                <div className="flex items-start gap-3 border-b border-gray-100 pb-5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100 shadow-sm">
+                    <Share2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-primary-700">Presença profissional</p>
+                    <h2 className="mt-1 text-lg font-black text-gray-950">Redes sociais</h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-500">
+                      Cadastre apenas seus perfis públicos. O SmartCorretorAI nunca solicitará senhas ou acesso às suas redes sociais.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {Object.keys(SOCIAL_LINK_CONFIG).map((network) => (
+                    <SocialLinkField
+                      key={network}
+                      network={network}
+                      error={profileErrors[network]?.message}
+                      registration={regPerfil(network, {
+                        validate: (value) => validatePublicLink(value, network),
+                      })}
+                    />
                   ))}
                 </div>
-              </section>
+
+                <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-xs font-semibold leading-relaxed text-emerald-800">
+                  Estes campos guardam somente links públicos opcionais. Nenhuma senha, conexão de conta ou permissão de publicação é solicitada.
+                </div>
+
+                <div className="mt-6 flex justify-center sm:justify-end">
+                  <Button type="submit" loading={savingPerfil} className="w-full px-8 shadow-lg shadow-primary-900/10 sm:w-auto">
+                    Salvar links públicos
+                  </Button>
+                </div>
+              </form>
             )}
 
             {activeTab === 'notificacoes' && (

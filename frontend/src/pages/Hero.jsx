@@ -908,7 +908,7 @@ export default function Hero() {
           />
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_370px]">
-            <div className="space-y-5">
+            <div className="hero-ai-conversation space-y-5 [&>section]:hidden [&>section:last-of-type]:block">
               <AssistantStep number="Imóvel" message="Ótimo. Qual imóvel deseja utilizar?">
                 <div className="grid gap-3 md:grid-cols-2">
                   {properties.map((property) => {
@@ -1933,6 +1933,29 @@ export default function Hero() {
             </div>
 
             <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+              <div className="rounded-3xl border border-amber-100 bg-[linear-gradient(145deg,#fffbeb,#ffffff)] p-5 shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Resumo da conversa</p>
+                <div className="mt-4 space-y-2">
+                  {[
+                    selectedProperty ? getPropertyTitle(selectedProperty) : '',
+                    campaignPropertyType,
+                    campaignProfile,
+                    propertyState,
+                    [campaignCity, campaignNeighborhood].filter(Boolean).join(' · '),
+                    campaignBedrooms ? `${campaignBedrooms} dormitórios` : '',
+                    campaignSuites ? `${campaignSuites} suítes` : '',
+                    campaignParkingSpaces ? `${campaignParkingSpaces} vagas` : '',
+                    valueConditionSummary,
+                    selectedCta,
+                    contactPhoneChoice,
+                  ].filter(Boolean).map((item) => (
+                    <div key={item} className="flex items-start gap-2 text-sm font-bold text-gray-700">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <ReadinessCard
                 selectedProperty={selectedProperty}
                 photoCount={photos.length}
@@ -2146,6 +2169,13 @@ function TextDeliveryBlock({ title, content }) {
 }
 
 function AssistantStep({ number, message, children }) {
+  const acknowledgements = ['Perfeito.', 'Ótimo.', 'Excelente.']
+  const hasAcknowledgement = /^(Perfeito|Ótimo|Excelente)\./.test(message)
+  const numericStep = Number.parseInt(number, 10)
+  const conversationalMessage = hasAcknowledgement || !Number.isFinite(numericStep)
+    ? message
+    : `${acknowledgements[(numericStep - 1) % acknowledgements.length]} ${message}`
+
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex gap-3">
@@ -2159,12 +2189,36 @@ function AssistantStep({ number, message, children }) {
             </span>
             <span className="text-xs font-bold text-gray-400">Assistente Hero IA</span>
           </div>
-          <h2 className="mt-2 text-xl font-black text-gray-950">{message}</h2>
+          <h2 className="mt-2 text-xl font-black text-gray-950"><HeroTypewriterText text={conversationalMessage} /></h2>
           <div className="mt-5">{children}</div>
         </div>
       </div>
     </section>
   )
+}
+
+function HeroTypewriterText({ text }) {
+  const [visibleText, setVisibleText] = useState('')
+
+  useEffect(() => {
+    let index = 0
+    let intervalId = null
+    setVisibleText('')
+    const startTimer = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        index += 1
+        setVisibleText(text.slice(0, index))
+        if (index >= text.length) window.clearInterval(intervalId)
+      }, 24)
+    }, 250)
+
+    return () => {
+      window.clearTimeout(startTimer)
+      if (intervalId) window.clearInterval(intervalId)
+    }
+  }, [text])
+
+  return <>{visibleText}<span className="ml-1 inline-block h-5 w-1 animate-pulse rounded-full bg-amber-500 align-middle" /></>
 }
 
 function UserReply({ children }) {

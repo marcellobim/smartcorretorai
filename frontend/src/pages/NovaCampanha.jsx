@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap, Video } from 'lucide-react'
+import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap, Video, Instagram, Youtube, Building2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
 import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEWS } from '../data/templateCatalog'
@@ -44,7 +44,10 @@ const ESTADOS_BR = [
 ]
 
 const MVP_FINALIDADE = 'venda'
-const MVP_FINALIDADE_LABEL = 'Venda'
+const FINALIDADE_OPTIONS = [
+  { id: 'venda', label: 'Venda', icon: '🏡' },
+  { id: 'locacao', label: 'Locação', icon: '🔑' },
+]
 
 const MAX_DESTAQUES_MESTRE = 20
 const MAX_DESTAQUES_PRODUTO_3 = 8
@@ -254,11 +257,53 @@ const TYPE_LABELS = {
 }
 
 const CAMPAIGN_USE_OPTIONS = {
-  feed: { id: 'feed', icon: '📱', label: 'Feed / Redes Sociais' },
-  vertical: { id: 'vertical', icon: '🎬', label: 'Stories / Reels / TikTok / Status' },
-  horizontal: { id: 'horizontal', icon: '🌐', label: 'Google Ads / Landing Page / Vídeo' },
-  whatsapp: { id: 'whatsapp', icon: '💬', label: 'WhatsApp / Envio Direto' },
-  portais: { id: 'portais', icon: '🏠', label: 'Portais Imobiliários' },
+  feed: { id: 'feed', icon: '📱', label: 'Feed / Redes Sociais', visualLabel: 'Instagram', description: 'Feed, Stories, Reels e Status', brand: 'instagram' },
+  vertical: { id: 'vertical', icon: '🎬', label: 'Stories / Reels / TikTok / Status', visualLabel: 'YouTube / Vídeos', description: 'Vídeos, Shorts e apresentações', brand: 'youtube' },
+  horizontal: { id: 'horizontal', icon: '🌐', label: 'Google Ads / Landing Page / Vídeo', visualLabel: 'Google Ads', description: 'Anúncios e campanhas de alta conversão', brand: 'google-ads' },
+  whatsapp: { id: 'whatsapp', icon: '💬', label: 'WhatsApp / Envio Direto', visualLabel: 'WhatsApp', description: 'Envio direto, catálogo e Status', brand: 'whatsapp' },
+  portais: { id: 'portais', icon: '🏠', label: 'Portais Imobiliários', visualLabel: 'Portais Imobiliários', description: 'Peças otimizadas para portais', brand: 'portais' },
+}
+
+const CAMPAIGN_USE_DISPLAY_ORDER = ['feed', 'horizontal', 'whatsapp', 'vertical', 'portais']
+
+function CampaignUseBrandIcon({ use }) {
+  if (use.brand === 'instagram') {
+    return (
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-600 via-pink-500 to-orange-400 text-white shadow-lg shadow-pink-100">
+        <Instagram className="h-8 w-8" strokeWidth={2.2} />
+      </span>
+    )
+  }
+  if (use.brand === 'google-ads') {
+    return (
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-blue-100 ring-1 ring-blue-100">
+        <svg viewBox="0 0 48 48" className="h-9 w-9" aria-hidden="true">
+          <path d="M19 7c2.6-1.5 5.9-.6 7.4 2l14.8 25.6a5.4 5.4 0 0 1-9.4 5.4L17 14.4A5.4 5.4 0 0 1 19 7Z" fill="#4285F4" />
+          <path d="M21.5 10.7 7 35.8a5.4 5.4 0 1 0 9.4 5.4l10.1-17.5-5-13Z" fill="#34A853" />
+          <circle cx="11.7" cy="38.5" r="5.4" fill="#FBBC04" />
+        </svg>
+      </span>
+    )
+  }
+  if (use.brand === 'whatsapp') {
+    return (
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#25D366] text-white shadow-lg shadow-emerald-100">
+        <MessageCircle className="h-8 w-8" strokeWidth={2.3} />
+      </span>
+    )
+  }
+  if (use.brand === 'youtube') {
+    return (
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF0000] text-white shadow-lg shadow-red-100">
+        <Youtube className="h-9 w-9" fill="currentColor" strokeWidth={1.6} />
+      </span>
+    )
+  }
+  return (
+    <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-100">
+      <Building2 className="h-8 w-8" strokeWidth={2.1} />
+    </span>
+  )
 }
 
 const MAX_VISUAL_PIECES_PER_GENERATION = 5
@@ -516,13 +561,13 @@ function PreviewMedia({ model, variant = 'card', controls = false }) {
   const isModal = variant === 'modal'
   const wrapperClassName = isModal
     ? 'mx-auto w-full max-w-[70vh]'
-    : 'mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm'
+    : 'mb-3 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm'
   const mediaClassName = isModal
     ? 'mx-auto aspect-square max-h-[70vh] w-full rounded-2xl bg-black object-contain'
-    : 'aspect-square w-full object-cover'
+    : 'aspect-[4/3] w-full object-cover'
   const fallbackClassName = isModal
     ? 'flex aspect-square w-full flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 text-center text-sm font-semibold text-gray-200'
-    : 'flex aspect-square w-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 text-center'
+    : 'flex aspect-[4/3] w-full flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 text-center'
 
   return (
     <div
@@ -1600,7 +1645,7 @@ export default function NovaCampanha() {
     reusable_until_strategy: 'created_at_plus_15_days',
     produto_origem: produtoParam || 'campanha_completa',
     subproduto_origem: subprodutoParam || null,
-    finalidade: MVP_FINALIDADE,
+    finalidade,
     tipo,
     estado,
     cidade,
@@ -1827,7 +1872,7 @@ export default function NovaCampanha() {
               titulo: tituloComercial,
               descricao: descricaoComercial,
               preco: precoParaPayload,
-              finalidade: MVP_FINALIDADE,
+              finalidade,
               suites: suitesParaPayload,
               quartos: quartosParaPayload,
               vagas: vagasParaPayload,
@@ -1851,7 +1896,7 @@ export default function NovaCampanha() {
             categoria,
             tipo,
             dados: {
-              finalidade: MVP_FINALIDADE, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
+              finalidade, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
               area: area || null, preco: precoParaPayload, bairro: bairroNormalizado, cidade, estado,
               diferenciais: todosDisferenciais,
               destaques_selecionados: destaquesSelecionados,
@@ -2252,7 +2297,7 @@ export default function NovaCampanha() {
           titulo: resultado?.titulo || resultado?.textos_gerados?.titulo_campanha || '',
           descricao: descricaoCurta,
           preco: precoParaPayload,
-          finalidade: MVP_FINALIDADE,
+          finalidade,
           suites: suitesParaPayload,
           quartos: quartosParaPayload,
           vagas: vagasParaPayload,
@@ -2469,8 +2514,26 @@ export default function NovaCampanha() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Finalidade</label>
-          <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-800">
-            {MVP_FINALIDADE_LABEL}
+          <div className="inline-flex gap-2 rounded-2xl bg-gray-50 p-1.5 ring-1 ring-gray-200">
+            {FINALIDADE_OPTIONS.map(option => {
+              const active = finalidade === option.id
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setFinalidade(option.id)}
+                  className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                    active
+                      ? 'bg-primary-800 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                  }`}
+                >
+                  <span aria-hidden="true" className="text-base">{option.icon}</span>
+                  <span>{option.label}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -2597,6 +2660,7 @@ export default function NovaCampanha() {
         </div>
       </div>
     )
+
     const formatFileSize = (bytes = 0) => {
       if (!bytes) return '0 MB'
       return `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -2796,53 +2860,80 @@ export default function NovaCampanha() {
         </div>
       )}
 
-      <div className="min-h-full bg-gray-50">
-          <Header title={productContext.headerTitle} subtitle={productContext.headerSubtitle} />
-          <main className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
+      <div className="min-h-full bg-slate-50/70 [&>header]:h-auto [&>header]:min-h-16 [&>header]:py-3">
+          <Header
+            title={fase === 'form' && productFlowStep === 'manual-catalog' ? 'Banners Rápidos' : productContext.headerTitle}
+            subtitle={fase === 'form' && productFlowStep === 'manual-catalog' ? 'Crie banners profissionais em poucos cliques' : productContext.headerSubtitle}
+          />
+          <main className={`mx-auto px-5 sm:px-8 ${fase === 'form' && productFlowStep === 'manual-catalog' ? 'max-w-7xl py-4' : 'max-w-5xl py-6'}`}>
             {fase === 'form' && productFlowStep === 'manual-catalog' && (<>
-              {renderFlowHeader('Banners Rápidos', 'Gerador de Banners Imobiliários', 'Escolha os modelos, informe o imóvel e gere peças prontas para divulgar.')}
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {renderBackButton(goHome, 'Voltar ao Dashboard')}
-                  <button
-                    type="button"
-                    onClick={goHome}
-                    className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                  >
-                    Cancelar fluxo
-                  </button>
-                </div>
-              </div>
-              <div className="mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <ol className="grid gap-2 text-xs font-bold text-gray-600 sm:grid-cols-5">
+              <div className="w-full">
+                <section className="relative mb-8 grid items-center gap-10 overflow-hidden px-7 py-10 sm:px-10 lg:min-h-[305px] lg:grid-cols-[.96fr_1.04fr] lg:px-8 lg:py-8 xl:px-10">
+                  <div className="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-blue-100/60 blur-3xl" aria-hidden="true" />
+                  <div className="relative z-10">
+                    <h1 className="max-w-2xl text-4xl font-black leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3rem] xl:text-[3.25rem]">
+                      <span className="block lg:whitespace-nowrap">Crie banners incríveis</span>
+                      <span className="mt-1 block text-primary-600 lg:whitespace-nowrap">para divulgar seus imóveis <span aria-hidden="true">⚡</span></span>
+                    </h1>
+                    <p className="mt-7 max-w-xl text-base font-medium leading-[1.75] text-slate-600 sm:text-lg">
+                      Escolha um modelo, personalize as informações e gere banners profissionais em segundos.
+                    </p>
+                  </div>
+
+                  <div className="relative min-h-[290px] lg:min-h-[275px]">
+                    <div className="absolute inset-y-2 right-0 w-[78%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
+                    <div className="absolute left-[7%] top-[5%] h-[84%] w-[84%] rotate-[-3deg] rounded-2xl border border-blue-100 bg-blue-100/70" aria-hidden="true" />
+                    <div className="absolute left-[11%] top-[10%] h-[84%] w-[84%] rotate-[2deg] rounded-2xl border border-blue-100 bg-white/80 shadow-sm" aria-hidden="true" />
+                    <div className="absolute left-0 top-[15%] h-[80%] w-[92%] -rotate-2 overflow-hidden rounded-2xl border-4 border-white bg-primary-950 shadow-[0_28px_60px_-18px_rgba(15,23,42,0.68)]">
+                      <img src="/banners-rapidos/hero-imovel.jpg" alt="Imóvel de alto padrão em um exemplo de banner" className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/35 to-transparent" aria-hidden="true" />
+                      <div className="absolute inset-y-0 left-0 flex w-[48%] flex-col justify-center p-5 text-white sm:p-7">
+                        <p className="text-base font-bold sm:text-lg">Seu próximo</p>
+                        <p className="mt-1 text-2xl font-black leading-none sm:text-3xl">IMÓVEL</p>
+                        <p className="mt-1 text-lg font-black sm:text-xl">está aqui!</p>
+                        <span className="mt-4 w-fit rounded-md bg-white px-3 py-1.5 text-[10px] font-black uppercase text-primary-950">Saiba mais</span>
+                      </div>
+                    </div>
+                    <div className="absolute right-0 top-[22%] flex h-12 w-12 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-4 ring-white">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                  </div>
+                </section>
+
+                <nav className="mb-10 overflow-hidden rounded-2xl border border-slate-200/70 bg-white px-5 py-4 shadow-[0_14px_38px_-30px_rgba(15,23,42,0.45)] sm:px-7" aria-label="Etapas para criar banners">
+                  <ol className="grid gap-4 text-sm font-bold text-slate-500 sm:grid-cols-5 sm:gap-2">
                   {[
-                    'Escolha os modelos',
-                    'Marque os usos desejados',
-                    'Preencha os dados do imóvel',
+                    'Escolha o modelo',
+                    'Informe os dados',
+                    'Personalize',
                     'Gere os banners',
-                    'Visualize e baixe',
+                    'Baixe e divulgue',
                   ].map((step, index) => (
-                    <li key={step} className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-primary-50 text-[11px] font-black text-primary-800">
+                    <li key={step} className={`relative flex items-center gap-3 ${index === 0 ? 'text-primary-800' : ''}`}>
+                      {index < 4 && <span className="absolute left-8 top-4 hidden h-px w-[calc(100%-2rem)] bg-slate-200 sm:block" aria-hidden="true" />}
+                      <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${index === 0 ? 'bg-primary-700 text-white shadow-lg shadow-primary-200' : 'bg-slate-100 text-slate-500'}`}>
                         {index + 1}
                       </span>
-                      <span>{step}</span>
+                      <span className="relative z-10 bg-white pr-2 sm:max-w-[8rem]">
+                        <span className="block text-xs font-black text-slate-800">{step}</span>
+                        <span className="mt-0.5 hidden text-[11px] font-medium text-slate-400 xl:block">{['Selecione um formato', 'Preencha as informações', 'Adapte ao seu estilo', 'IA cria seus banners', 'Use onde quiser'][index]}</span>
+                      </span>
                     </li>
                   ))}
-                </ol>
-              </div>
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  </ol>
+                </nav>
+
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
+                <section className="rounded-3xl bg-white p-6 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.45)] ring-1 ring-slate-200/70 sm:p-7">
+                  <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-primary-600">Biblioteca de modelos</p>
-                      <h2 className="mt-1 text-lg font-black text-gray-950">Modelos principais disponíveis</h2>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Use os ícones para escolher onde cada modelo será usado. O sistema cuida dos formatos internamente.
+                      <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Escolha o modelo ideal para você</h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
+                        Selecionamos os formatos mais usados pelos corretores para você divulgar com mais impacto.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-700">
+                      <span className="rounded-full bg-white px-3.5 py-2 text-xs font-black text-slate-700 shadow-sm ring-1 ring-slate-200">
                         {selectedModelCount} modelo{selectedModelCount === 1 ? '' : 's'} selecionado{selectedModelCount === 1 ? '' : 's'}
                       </span>
                       {selectedCatalogItems.length > 0 && (
@@ -2854,60 +2945,53 @@ export default function NovaCampanha() {
                     </div>
                   </div>
 
-                  <div className="mb-4 rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">Legenda dos usos</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {Object.values(CAMPAIGN_USE_OPTIONS).map(use => (
+                  <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                      {CAMPAIGN_USE_DISPLAY_ORDER.map(useId => CAMPAIGN_USE_OPTIONS[useId]).map(use => (
                         <span
                           key={use.id}
                           title={use.label}
-                          className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm"
+                          className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white px-4 py-6 text-center shadow-[0_16px_36px_-28px_rgba(15,23,42,0.5)] transition-transform hover:-translate-y-0.5"
                         >
-                          <span className="text-base leading-none">{use.icon}</span>
-                          <span>{use.label}</span>
+                          <CampaignUseBrandIcon use={use} />
+                          <span className="mt-4 text-sm font-black text-slate-900">{use.visualLabel}</span>
+                          <span className="mt-2 text-xs font-medium leading-relaxed text-slate-500">{use.description}</span>
                         </span>
                       ))}
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                     {CAMPAIGN_MODEL_LIBRARY.map(model => {
                       const useIds = selectedModelUses[model.id] || []
                       const selected = useIds.length > 0
                       return (
                         <article key={model.id}
-                          className={`flex h-full flex-col rounded-2xl border p-4 transition-all ${
+                          className={`group flex h-full flex-col rounded-3xl bg-white p-4 transition-all duration-200 ${
                             selected
-                              ? 'border-primary-400 bg-primary-50 shadow-sm'
-                              : 'border-gray-200 bg-white hover:border-primary-200 hover:shadow-sm'
+                              ? 'shadow-[0_20px_45px_-24px_rgba(30,64,175,0.65)] ring-2 ring-primary-500'
+                              : 'shadow-[0_14px_36px_-28px_rgba(15,23,42,0.55)] ring-1 ring-slate-200 hover:-translate-y-0.5 hover:shadow-[0_20px_45px_-26px_rgba(15,23,42,0.5)] hover:ring-primary-200'
                           }`}>
                           <div className="text-left">
                             <CampaignModelPreview model={model} />
 
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <h3 className="text-sm font-black text-gray-950">{model.name}</h3>
-                                <p className="mt-1 overflow-hidden text-xs leading-relaxed text-gray-500 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{model.description}</p>
+                                <h3 className="overflow-hidden text-base font-black leading-tight text-slate-950 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{model.name}</h3>
+                                <p className="mt-2 overflow-hidden text-sm leading-relaxed text-slate-500 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{model.description}</p>
                               </div>
                               <div className="flex shrink-0 items-center gap-2">
                                 <button
                                   type="button"
                                   onClick={(event) => openPreviewModal(model, event)}
-                                  className="rounded-full border border-blue-100 bg-white px-3 py-1 text-xs font-black text-primary-800 shadow-sm hover:border-primary-300 hover:bg-primary-50"
+                                  className="rounded-full bg-primary-50 px-3 py-1.5 text-xs font-black text-primary-800 hover:bg-primary-100"
                                 >
                                   {model.previewLabel || 'Ver'}
                                 </button>
-                                <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
-                                  selected ? 'border-primary-500 bg-primary-500' : 'border-gray-300 bg-white'
-                                }`}>
-                                  {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
-                                </div>
                               </div>
                             </div>
                           </div>
 
-                          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-3">
-                            <p className="text-xs font-black uppercase tracking-wide text-gray-500">Marque onde deseja usar</p>
+                          <div className="mt-5 border-t border-slate-100 pt-4">
+                            <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-500">Selecione onde usar</p>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {model.compatibleUses.map(useId => {
                                 const use = CAMPAIGN_USE_OPTIONS[useId]
@@ -2920,7 +3004,7 @@ export default function NovaCampanha() {
                                     title={blockedByLimit ? `Limite de ${MAX_VISUAL_PIECES_PER_GENERATION} peças atingido` : use.label}
                                     aria-label={`${checked ? 'Remover' : 'Selecionar'} ${use.label} para ${model.name}`}
                                     onClick={() => toggleCampaignModelUse(model.id, useId)}
-                                    className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border text-xl shadow-sm transition-all ${
+                                    className={`relative flex h-11 w-11 items-center justify-center rounded-xl border text-lg transition-all ${
                                       checked
                                         ? 'border-primary-500 bg-primary-600 text-white shadow-primary-100 ring-2 ring-primary-100'
                                         : blockedByLimit
@@ -2938,6 +3022,9 @@ export default function NovaCampanha() {
                                 )
                               })}
                             </div>
+                            <p className="mt-3 text-xs font-semibold text-slate-400">
+                              {selected ? `${useIds.length} ${useIds.length === 1 ? 'canal selecionado' : 'canais selecionados'}` : 'Toque nos canais para selecionar'}
+                            </p>
                           </div>
                         </article>
                       )
@@ -2945,9 +3032,34 @@ export default function NovaCampanha() {
                   </div>
                 </section>
                 <aside className="lg:sticky lg:top-6 lg:self-start">
-                  <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-xs font-black uppercase tracking-wide text-primary-600">Resumo dos banners</p>
-                    <h3 className="mt-1 text-lg font-black text-gray-950">Selecionados</h3>
+                  <div className="rounded-3xl bg-white/80 p-4 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70 backdrop-blur-sm">
+                    <h3 className="text-base font-black text-gray-900">Resumo da criação</h3>
+
+                    <div className="mt-4 rounded-2xl bg-slate-50/90 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-bold text-slate-700">Modelos selecionados</span>
+                          <span className="text-base font-black text-primary-600">{selectedModelCount}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-slate-700">Peças selecionadas</span>
+                        <span className="text-base font-black text-primary-600">{selectedUseCount}</span>
+                      </div>
+                      <div className="mt-3 border-t border-slate-200 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-bold text-slate-900">Total de peças</span>
+                          <span className="text-base font-black text-primary-600">{selectedUseCount}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="button" onClick={continueFromManual} disabled={selectedCatalogItems.length === 0}
+                      className={`mt-3 w-full rounded-xl px-4 py-3 text-sm font-black transition-all ${
+                        selectedCatalogItems.length > 0
+                          ? 'bg-primary-800 text-white shadow-lg shadow-primary-200 hover:bg-primary-700'
+                          : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                      }`}>
+                      Criar banners
+                    </button>
 
                     {selectedModelSummaries.length > 0 ? (
                       <div className="mt-4 space-y-3">
@@ -2966,27 +3078,11 @@ export default function NovaCampanha() {
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-500">
-                        Escolha pelo menos um modelo e marque onde deseja usá-lo.
-                      </p>
+                      <div className="mt-4 flex min-h-32 flex-col items-center justify-center rounded-2xl bg-slate-50/70 px-4 text-center">
+                        <p className="text-sm font-bold leading-relaxed text-slate-500">Selecione um modelo<br />para começar</p>
+                        <Camera className="mt-4 h-7 w-7 text-slate-300" />
+                      </div>
                     )}
-
-                    <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-primary-900">Modelos</span>
-                        <span className="text-sm font-black text-primary-900">{selectedModelCount}</span>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-primary-900">Peças selecionadas</span>
-                        <span className="text-sm font-black text-primary-900">{selectedUseCount}</span>
-                      </div>
-                      <div className="mt-3 border-t border-primary-100 pt-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-bold text-primary-900">Total</span>
-                          <span className="text-sm font-black text-primary-900">{selectedUseCount} peças</span>
-                        </div>
-                      </div>
-                    </div>
 
                     {selectedCatalogItems.length >= MAX_VISUAL_PIECES_PER_GENERATION - 1 && (
                       <p className="mt-3 rounded-xl border border-blue-100 bg-primary-50 p-3 text-xs font-semibold leading-relaxed text-primary-900">
@@ -3001,16 +3097,17 @@ export default function NovaCampanha() {
                       </button>
                     )}
 
-                    <button type="button" onClick={continueFromManual} disabled={selectedCatalogItems.length === 0}
-                      className={`mt-3 w-full rounded-xl px-4 py-3 text-sm font-black transition-colors ${
-                        selectedCatalogItems.length > 0
-                          ? 'bg-primary-800 text-white hover:bg-primary-700'
-                          : 'cursor-not-allowed bg-gray-100 text-gray-400'
-                      }`}>
-                      Criar banners
-                    </button>
+                    <div className="mt-5 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
+                      <button type="button" onClick={goHome} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                        Voltar
+                      </button>
+                      <button type="button" onClick={goHome} className="rounded-xl px-3 py-2 text-xs font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-700">
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 </aside>
+                </div>
               </div>
             </>)}
 
