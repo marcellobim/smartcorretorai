@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.get-video-job-status]
 verify_jwt = false
+
+[functions.smart-carousel-creatomate]
+verify_jwt = false

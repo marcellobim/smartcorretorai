@@ -4,15 +4,19 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Download,
   Image as ImageIcon,
   ImagePlus,
+  Loader2,
   MessageSquareText,
   PlayCircle,
   Plus,
+  RotateCcw,
   Sparkles,
   Trash2,
   UploadCloud,
 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 
@@ -21,6 +25,15 @@ const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
 const TYPEWRITER_FINAL_CURSOR_MS = 400
+const SMART_CAROUSEL_BUCKET = 'studio-videos'
+const SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'
+const SMART_CAROUSEL_POLL_INTERVAL_MS = 4000
+const SMART_CAROUSEL_STATUS_MESSAGES = [
+  'Preparando sua apresentação...',
+  'Organizando as fotos...',
+  'Criando os movimentos...',
+  'Finalizando...',
+]
 
 const SMART_CAROUSEL_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
 const SMART_CAROUSEL_STATE_OPTIONS = [
@@ -34,6 +47,12 @@ const SMART_CAROUSEL_CTA_OPTIONS = [
   'Entre em contato agora',
   'Aguardo seu contato',
 ]
+const SMART_CAROUSEL_CTA_ASSETS = {
+  'Saiba Mais': '/studio-hero/cta/cta-saiba-mais.png',
+  'Agende sua visita': '/studio-hero/cta/cta-agende-sua-visita.png',
+  'Entre em contato agora': '/studio-hero/cta/cta-entre-em-contato-agora.png',
+  'Aguardo seu contato': '/studio-hero/cta/cta-aguardo-seu-contato.png',
+}
 const SMART_CAROUSEL_HIGHLIGHT_GROUPS = [
   {
     title: 'Localização e conveniência',
@@ -76,14 +95,86 @@ const SMART_CAROUSEL_HIGHLIGHT_GROUPS = [
   },
 ].map((group) => ({ ...group, items: Array.from(new Set(group.items)) }))
 
+function getPhotoExtension(file) {
+  return file?.type === 'image/png' ? 'png' : 'jpg'
+}
+
+async function invokeSmartCarouselFunction(accessToken, body) {
+  if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente para continuar.')
+
+  const response = await fetch(`${supabase.supabaseUrl}/functions/v1/${SMART_CAROUSEL_FUNCTION}`, {
+    method: 'POST',
+    headers: {
+      apikey: supabase.supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error || 'Não foi possível continuar. Tente novamente.')
+  }
+  return data
+}
+
+async function removeUploadedJobFiles(paths) {
+  const safePaths = Array.from(new Set(paths)).filter((path) => typeof path === 'string' && path.includes('/smart-carousel/'))
+  if (!safePaths.length) return
+  await supabase.storage.from(SMART_CAROUSEL_BUCKET).remove(safePaths)
+}
+
+async function uploadSmartCarouselFiles({ photos, userId, jobId, cta }) {
+  const prefix = `${userId}/smart-carousel/${jobId}`
+  const uploadedPaths = []
+  const imagePaths = []
+
+  try {
+    for (let index = 0; index < photos.length; index += 1) {
+      const photo = photos[index]
+      const extension = getPhotoExtension(photo.file)
+      const path = `${prefix}/photo-${String(index + 1).padStart(2, '0')}.${extension}`
+      const { error } = await supabase.storage.from(SMART_CAROUSEL_BUCKET).upload(path, photo.file, {
+        cacheControl: '3600',
+        contentType: photo.file.type,
+        upsert: false,
+      })
+      if (error) throw new Error('Não foi possível enviar todas as fotos. Tente novamente.')
+      uploadedPaths.push(path)
+      imagePaths.push(path)
+    }
+
+    const ctaAsset = SMART_CAROUSEL_CTA_ASSETS[cta]
+    if (!ctaAsset) throw new Error('Escolha uma chamada final válida.')
+    const ctaResponse = await fetch(ctaAsset)
+    if (!ctaResponse.ok) throw new Error('Não foi possível preparar a chamada final.')
+    const ctaBlob = await ctaResponse.blob()
+    const ctaFileName = ctaAsset.split('/').pop()
+    const ctaPath = `${prefix}/${ctaFileName}`
+    const { error: ctaError } = await supabase.storage.from(SMART_CAROUSEL_BUCKET).upload(ctaPath, ctaBlob, {
+      cacheControl: '3600',
+      contentType: 'image/png',
+      upsert: false,
+    })
+    if (ctaError) throw new Error('Não foi possível preparar a chamada final.')
+    uploadedPaths.push(ctaPath)
+
+    return { imagePaths, ctaPath, uploadedPaths }
+  } catch (error) {
+    await removeUploadedJobFiles(uploadedPaths)
+    throw error
+  }
+}
+
 export default function SmartCarrossel() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
   const photoInputRef = useRef(null)
   const photoIdRef = useRef(0)
   const photosRef = useRef([])
   const [photos, setPhotos] = useState([])
   const [isDragActive, setIsDragActive] = useState(false)
+  const [generationStage, setGenerationStage] = useState(1)
 
   useEffect(() => {
     photosRef.current = photos
@@ -131,6 +222,7 @@ export default function SmartCarrossel() {
       current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl))
       return []
     })
+    setGenerationStage(1)
   }
 
   const movePhoto = (index, direction) => {
@@ -146,7 +238,7 @@ export default function SmartCarrossel() {
     })
   }
 
-  const currentStep = photos.length > 0 ? 2 : 1
+  const currentStep = photos.length > 0 ? Math.max(2, generationStage) : 1
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_38%,#eef7fb_100%)] px-4 py-6 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
@@ -193,7 +285,14 @@ export default function SmartCarrossel() {
         </section>
 
         <PhotoSection photos={photos} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} />
-        {photos.length > 0 && <SmartCarouselConversation user={user} />}
+        {photos.length > 0 && (
+          <SmartCarouselConversation
+            user={user}
+            accessToken={accessToken}
+            photos={photos}
+            onGenerationStageChange={setGenerationStage}
+          />
+        )}
       </div>
     </main>
   )
@@ -232,7 +331,7 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
   )
 }
 
-function SmartCarouselConversation({ user }) {
+function SmartCarouselConversation({ user, accessToken, photos, onGenerationStageChange }) {
   const [step, setStep] = useState(1)
   const [purpose, setPurpose] = useState('')
   const [propertyStage, setPropertyStage] = useState('')
@@ -251,12 +350,37 @@ function SmartCarouselConversation({ user }) {
   const [highlights, setHighlights] = useState([])
   const [cta, setCta] = useState('')
   const [sharePhone, setSharePhone] = useState('')
+  const pollTimerRef = useRef(null)
+  const mountedRef = useRef(true)
+  const generationInFlightRef = useRef(false)
+  const [generationStatus, setGenerationStatus] = useState('idle')
+  const [generationError, setGenerationError] = useState('')
+  const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
+  const [receipt, setReceipt] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
 
   const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const formatPrice = (digits) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
   const priceLabel = priceDigits ? `${priceMode === 'starting_at' ? 'A partir de ' : ''}${formatPrice(priceDigits)}` : ''
   const stageOptions = purpose === 'rent' ? ['Pronto para mudar'] : ['Pronto para morar', 'Lançamento', 'Em construção']
   const numberOptions = ['0', '1', '2', '3', '4', '5+']
+
+  useEffect(() => () => {
+    mountedRef.current = false
+    if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current)
+  }, [])
+
+  useEffect(() => {
+    if (!['uploading', 'creating', 'polling'].includes(generationStatus)) {
+      setGenerationMessageIndex(0)
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      setGenerationMessageIndex((current) => Math.min(current + 1, SMART_CAROUSEL_STATUS_MESSAGES.length - 1))
+    }, 3500)
+    return () => window.clearInterval(intervalId)
+  }, [generationStatus])
 
   useEffect(() => {
     if (!uf) { setCities([]); setCitiesLoading(false); return undefined }
@@ -275,6 +399,127 @@ function SmartCarouselConversation({ user }) {
   const messages = ['', 'Vamos começar. Qual é a finalidade do imóvel?', 'Perfeito. Qual é o estado atual do imóvel?', 'Ótimo. Que tipo de imóvel será apresentado?', 'Excelente. Quantos dormitórios o imóvel possui?', 'Perfeito. Quantas suítes?', 'Ótimo. Quantas vagas estão disponíveis?', 'Excelente. Em qual estado fica o imóvel?', 'Perfeito. Agora escolha a cidade.', 'Ótimo. Em qual bairro ele está localizado?', 'Excelente. Como deseja apresentar o preço?', 'Perfeito. Qual é a área do imóvel?', 'Ótimo. Quais são os principais destaques?', 'Excelente. Qual chamada deseja usar no final?', 'Perfeito. Deseja divulgar seu telefone profissional?', 'Excelente. Sua apresentação está pronta para a próxima etapa.']
   const summaryItems = [[1, purpose === 'sale' ? 'Venda' : purpose === 'rent' ? 'Locação' : ''], [2, propertyStage], [3, propertyType], [4, bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, district], [10, priceLabel], [11, area ? `${area} m²` : ''], [12, highlights.length ? `${highlights.length} destaques` : ''], [13, cta], [14, sharePhone === 'yes' ? 'Telefone profissional' : sharePhone === 'no' ? 'Sem telefone' : '']].filter(([, value]) => Boolean(value))
 
+  const confirmedAnswers = {
+    purpose,
+    property_stage: propertyStage,
+    property_type: propertyType,
+    bedrooms,
+    suites,
+    parking_spaces: parkingSpaces,
+    uf,
+    city,
+    district: district.trim(),
+    price_label: priceLabel,
+    area,
+    highlights,
+  }
+
+  const stopWithError = (message, keepReceipt = false) => {
+    if (!mountedRef.current) return
+    generationInFlightRef.current = false
+    setGenerationStatus('failed')
+    setGenerationError(message || 'Não foi possível criar sua apresentação. Tente novamente.')
+    if (!keepReceipt) setReceipt('')
+    onGenerationStageChange(3)
+  }
+
+  const pollRenderStatus = async (signedReceipt) => {
+    if (!mountedRef.current) return
+    try {
+      const data = await invokeSmartCarouselFunction(accessToken, {
+        action: 'status',
+        receipt: signedReceipt,
+      })
+      if (!mountedRef.current) return
+
+      if (data.status === 'succeeded' && data.video_url) {
+        generationInFlightRef.current = false
+        setReceipt('')
+        setVideoUrl(data.video_url)
+        setGenerationStatus('succeeded')
+        setGenerationError('')
+        onGenerationStageChange(4)
+        return
+      }
+
+      if (data.status === 'failed') {
+        stopWithError(data.error || 'Não foi possível criar sua apresentação. Tente novamente.')
+        return
+      }
+
+      setGenerationStatus('polling')
+      pollTimerRef.current = window.setTimeout(() => pollRenderStatus(signedReceipt), SMART_CAROUSEL_POLL_INTERVAL_MS)
+    } catch (error) {
+      stopWithError(error instanceof Error ? error.message : 'Não foi possível acompanhar sua apresentação.', true)
+    }
+  }
+
+  const resumeStatus = () => {
+    if (!receipt || generationInFlightRef.current) return
+    generationInFlightRef.current = true
+    setGenerationStatus('polling')
+    setGenerationError('')
+    setGenerationMessageIndex(2)
+    onGenerationStageChange(3)
+    pollRenderStatus(receipt)
+  }
+
+  const createPresentation = async () => {
+    if (generationInFlightRef.current) return
+    if (step < 15 || !cta || !sharePhone) {
+      stopWithError('Conclua todas as perguntas antes de criar sua apresentação.')
+      return
+    }
+    if (!photos.length) {
+      stopWithError('Selecione pelo menos uma foto para continuar.')
+      return
+    }
+    if (!user?.id || !accessToken) {
+      stopWithError('Sua sessão expirou. Entre novamente para continuar.')
+      return
+    }
+
+    generationInFlightRef.current = true
+    setGenerationStatus('uploading')
+    setGenerationError('')
+    setGenerationMessageIndex(0)
+    setReceipt('')
+    setVideoUrl('')
+    onGenerationStageChange(3)
+
+    const jobId = crypto.randomUUID()
+    let uploadedPaths = []
+    try {
+      const uploaded = await uploadSmartCarouselFiles({ photos, userId: user.id, jobId, cta })
+      uploadedPaths = uploaded.uploadedPaths
+      if (!mountedRef.current) return
+      setGenerationStatus('creating')
+      setGenerationMessageIndex(1)
+
+      const data = await invokeSmartCarouselFunction(accessToken, {
+        action: 'create',
+        job_id: jobId,
+        image_paths: uploaded.imagePaths,
+        cta_path: uploaded.ctaPath,
+        answers: confirmedAnswers,
+        cta,
+        share_phone: sharePhone === 'yes',
+      })
+      if (!mountedRef.current) return
+      if (!data.receipt) throw new Error('Não foi possível acompanhar sua apresentação.')
+
+      setReceipt(data.receipt)
+      setGenerationStatus('polling')
+      setGenerationMessageIndex(2)
+      pollRenderStatus(data.receipt)
+    } catch (error) {
+      await removeUploadedJobFiles(uploadedPaths)
+      stopWithError(error instanceof Error ? error.message : 'Não foi possível criar sua apresentação.')
+    }
+  }
+
+  const isGenerating = ['uploading', 'creating', 'polling'].includes(generationStatus)
+
   let questionContent = null
   if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title="🏡 Venda" description="Apresentação para comercialização do imóvel." onClick={() => choose(setPurpose, 'sale', 2)} /><ChoiceButton active={purpose === 'rent'} title="🔑 Locação" description="Apresentação para encontrar o locatário ideal." onClick={() => choose(setPurpose, 'rent', 2)} /></OptionGrid>
   else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => choose(setPropertyStage, item, 3)}>{item}</ChipButton>)}</ChipGrid>
@@ -288,7 +533,40 @@ function SmartCarouselConversation({ user }) {
   else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <div key={group.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></div>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length}/20 selecionados</span><Button type="button" disabled={!highlights.length} onClick={() => setStep(13)}>Continuar</Button></div></div>
   else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => choose(setCta, item, 14)}>{item}</ChipButton>)}</ChipGrid>
   else if (step === 14) questionContent = <div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={!profilePhone} onClick={() => choose(setSharePhone, 'yes', 15)} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-45"><span className="text-sm font-black text-slate-950">Sim</span><span className="mt-1 block text-xs font-semibold text-slate-500">{profilePhone || 'Cadastre um telefone no Perfil Profissional.'}</span></button><button type="button" onClick={() => choose(setSharePhone, 'no', 15)} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300"><span className="text-sm font-black text-slate-950">Não</span><span className="mt-1 block text-xs font-semibold text-slate-500">Continuar sem divulgar telefone.</span></button></div>
-  else questionContent = <div className="text-center"><button type="button" disabled aria-disabled="true" className="flex w-full cursor-not-allowed items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-8 py-5 text-lg font-black text-white opacity-55 shadow-[0_20px_38px_-20px_rgba(5,150,105,0.95)]"><Sparkles className="h-5 w-5" />Criar apresentação</button><p className="mt-3 text-xs font-semibold text-slate-500">Geração será conectada na próxima etapa.</p></div>
+  else questionContent = (
+    <div className="space-y-5 text-center">
+      <button
+        type="button"
+        disabled={isGenerating}
+        onClick={createPresentation}
+        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-8 py-5 text-lg font-black text-white shadow-[0_20px_38px_-20px_rgba(5,150,105,0.95)] transition hover:from-emerald-700 hover:to-emerald-800 disabled:cursor-not-allowed disabled:opacity-55"
+      >
+        {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+        Criar apresentação
+      </button>
+
+      {isGenerating && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 text-left">
+          <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-emerald-700" /><p className="text-sm font-black text-emerald-900">{SMART_CAROUSEL_STATUS_MESSAGES[generationMessageIndex]}</p></div>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-100"><div className="h-full rounded-full bg-emerald-600 transition-all duration-700" style={{ width: `${25 * (generationMessageIndex + 1)}%` }} /></div>
+        </div>
+      )}
+
+      {generationStatus === 'failed' && (
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-5 text-left">
+          <p className="text-sm font-bold leading-6 text-rose-800">{generationError}</p>
+          <button type="button" onClick={receipt ? resumeStatus : createPresentation} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-rose-700 shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-100"><RotateCcw className="h-4 w-4" />Tentar novamente</button>
+        </div>
+      )}
+
+      {generationStatus === 'succeeded' && videoUrl && (
+        <div className="overflow-hidden rounded-3xl border border-emerald-100 bg-white p-4 text-left shadow-sm sm:p-5">
+          <div className="overflow-hidden rounded-2xl bg-slate-950"><video src={videoUrl} controls playsInline className="mx-auto max-h-[680px] w-full object-contain" /></div>
+          <a href={videoUrl} download="smart-carrossel-apresentacao.mp4" className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-black text-white transition hover:bg-emerald-700"><Download className="h-5 w-5" />Baixar apresentação</a>
+        </div>
+      )}
+    </div>
+  )
 
   return <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]"><div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"><MessageSquareText className="h-5 w-5" /></span><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Etapa 2</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Converse com a IA</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Uma pergunta por vez para construir sua apresentação.</p></div></div></div><div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8"><SmartCarouselAssistantCard step={step} message={messages[step]}>{questionContent}</SmartCarouselAssistantCard><aside className="rounded-3xl border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 lg:sticky lg:top-6 lg:self-start"><p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Resumo da apresentação</p>{summaryItems.length ? <div className="mt-4 space-y-2">{summaryItems.map(([itemStep, value]) => <button key={itemStep} type="button" onClick={() => setStep(itemStep)} className="flex w-full items-start gap-2 rounded-xl px-2 py-1.5 text-left text-sm font-bold text-slate-700 hover:bg-white"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>{value}</span></button>)}</div> : <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">Suas escolhas aparecerão aqui durante a conversa.</p>}</aside></div></section>
 }
