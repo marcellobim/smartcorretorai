@@ -218,31 +218,39 @@ function buildCaptions(answers: JsonRecord) {
 
 function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string) {
   const captions = buildCaptions(answers)
-  const duration = imageUrls.length * SCENE_DURATION_SECONDS
+  const transitionDuration = 0.45
+  const ctaSceneDuration = 3.5
+  const photoSequenceDuration = imageUrls.length * SCENE_DURATION_SECONDS
+    - Math.max(0, imageUrls.length - 1) * transitionDuration
+  const duration = photoSequenceDuration + ctaSceneDuration
   const imageMovements = [
     {
       easing: 'cubic-in-out',
-      type: 'scale',
+      type: 'pan',
       scope: 'element',
-      start_scale: '108%',
-      end_scale: '122%',
+      start_x: '47%',
+      end_x: '53%',
+      start_y: '53%',
+      end_y: '47%',
+      start_scale: '110%',
+      end_scale: '132%',
       fade: false,
     },
     {
       easing: 'cubic-in-out',
       type: 'pan',
       scope: 'element',
-      start_x: '46%',
-      end_x: '54%',
-      start_scale: '118%',
-      end_scale: '118%',
+      start_x: '40%',
+      end_x: '60%',
+      start_scale: '126%',
+      end_scale: '126%',
       fade: false,
     },
     {
       easing: 'cubic-in-out',
       type: 'scale',
       scope: 'element',
-      start_scale: '122%',
+      start_scale: '132%',
       end_scale: '108%',
       fade: false,
     },
@@ -250,20 +258,24 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
       easing: 'cubic-in-out',
       type: 'pan',
       scope: 'element',
-      start_x: '54%',
-      end_x: '46%',
-      start_scale: '118%',
-      end_scale: '118%',
+      start_x: '60%',
+      end_x: '40%',
+      start_y: '48%',
+      end_y: '52%',
+      start_scale: '128%',
+      end_scale: '124%',
       fade: false,
     },
     {
       easing: 'cubic-in-out',
       type: 'pan',
       scope: 'element',
-      start_y: '53%',
-      end_y: '47%',
-      start_scale: '109%',
-      end_scale: '121%',
+      start_x: '44%',
+      end_x: '56%',
+      start_y: '54%',
+      end_y: '46%',
+      start_scale: '114%',
+      end_scale: '128%',
       fade: false,
     },
   ]
@@ -277,7 +289,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     x: index % 2 === 0 ? '49%' : '51%',
     animations: [
       ...(index > 0 ? [{
-        duration: 0.45,
+        duration: transitionDuration,
         easing: 'cubic-in-out',
         transition: true,
         type: 'fade',
@@ -289,7 +301,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   const textElements = captions.slice(0, imageUrls.length).map((text, index) => ({
     type: 'text',
     track: 2,
-    time: index * SCENE_DURATION_SECONDS + 0.45,
+    time: index * (SCENE_DURATION_SECONDS - transitionDuration) + transitionDuration,
     duration: 2.6,
     x: '50%',
     y: '82%',
@@ -310,20 +322,21 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     animations: [{ duration: 0.35, easing: 'quadratic-out', type: 'fade' }],
   }))
 
-  const ctaTime = Math.max(0, duration - 3.1)
+  const ctaTime = photoSequenceDuration
   const finalElements: JsonRecord[] = [
     {
       type: 'image',
       track: 3,
       time: ctaTime,
-      duration: 2.75,
+      duration: ctaSceneDuration,
       x: '50%',
-      y: phone ? '76%' : '80%',
-      width: '76%',
-      height: '18%',
+      y: '50%',
+      width: '100%',
+      height: '100%',
       source: ctaUrl,
-      fit: 'contain',
-      animations: [{ duration: 0.4, easing: 'quadratic-out', type: 'fade' }],
+      fit: 'cover',
+      clip: true,
+      animations: [{ duration: 0.65, easing: 'cubic-in-out', type: 'fade' }],
     },
   ]
 
@@ -331,10 +344,10 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     finalElements.push({
       type: 'text',
       track: 4,
-      time: ctaTime + 0.15,
-      duration: 2.5,
+      time: ctaTime + 1.15,
+      duration: 2.1,
       x: '50%',
-      y: '89%',
+      y: '87%',
       width: '82%',
       height: '8%',
       x_alignment: '50%',
@@ -349,7 +362,18 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
       background_x_padding: '14%',
       background_y_padding: '16%',
       background_border_radius: '20%',
-      animations: [{ duration: 0.4, easing: 'quadratic-out', type: 'fade' }],
+      animations: [
+        { duration: 0.55, easing: 'quadratic-out', type: 'fade' },
+        {
+          duration: 0.65,
+          easing: 'quadratic-out',
+          type: 'text-slide',
+          scope: 'element',
+          direction: 'up',
+          distance: '35%',
+          background_effect: 'disabled',
+        },
+      ],
     })
   }
 
