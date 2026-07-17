@@ -219,6 +219,54 @@ function buildCaptions(answers: JsonRecord) {
 function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string) {
   const captions = buildCaptions(answers)
   const duration = imageUrls.length * SCENE_DURATION_SECONDS
+  const imageMovements = [
+    {
+      easing: 'cubic-in-out',
+      type: 'scale',
+      scope: 'element',
+      start_scale: '108%',
+      end_scale: '122%',
+      fade: false,
+    },
+    {
+      easing: 'cubic-in-out',
+      type: 'pan',
+      scope: 'element',
+      start_x: '46%',
+      end_x: '54%',
+      start_scale: '118%',
+      end_scale: '118%',
+      fade: false,
+    },
+    {
+      easing: 'cubic-in-out',
+      type: 'scale',
+      scope: 'element',
+      start_scale: '122%',
+      end_scale: '108%',
+      fade: false,
+    },
+    {
+      easing: 'cubic-in-out',
+      type: 'pan',
+      scope: 'element',
+      start_x: '54%',
+      end_x: '46%',
+      start_scale: '118%',
+      end_scale: '118%',
+      fade: false,
+    },
+    {
+      easing: 'cubic-in-out',
+      type: 'pan',
+      scope: 'element',
+      start_y: '53%',
+      end_y: '47%',
+      start_scale: '109%',
+      end_scale: '121%',
+      fade: false,
+    },
+  ]
   const imageElements = imageUrls.map((source, index) => ({
     type: 'image',
     track: 1,
@@ -234,14 +282,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
         transition: true,
         type: 'fade',
       }] : []),
-      {
-        easing: 'linear',
-        type: 'scale',
-        scope: 'element',
-        start_scale: index % 2 === 0 ? '108%' : '116%',
-        end_scale: index % 2 === 0 ? '116%' : '108%',
-        fade: false,
-      },
+      imageMovements[index % imageMovements.length],
     ],
   }))
 
