@@ -59,7 +59,20 @@ function cleanText(value: unknown, maxLength: number) {
 }
 
 function normalizePhone(value: unknown) {
-  return cleanText(value, 40).replace(/[^0-9+()\-\s]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32)
+  let digits = cleanText(value, 40).replace(/\D/g, '')
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+    digits = digits.slice(2)
+  }
+
+  if (!/^\d{10,11}$/.test(digits)) return ''
+
+  const areaCode = digits.slice(0, 2)
+  const subscriber = digits.slice(2)
+  if (areaCode.startsWith('0') || subscriber.startsWith('0')) return ''
+
+  return subscriber.length === 9
+    ? `(${areaCode}) ${subscriber.slice(0, 5)}-${subscriber.slice(5)}`
+    : `(${areaCode}) ${subscriber.slice(0, 4)}-${subscriber.slice(4)}`
 }
 
 function toBase64Url(bytes: Uint8Array) {
