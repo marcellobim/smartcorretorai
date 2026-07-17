@@ -30,6 +30,15 @@ const SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'
 const SMART_CAROUSEL_POLL_INTERVAL_MS = 4000
 const SMART_CAROUSEL_UPLOAD_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 45 * 1000
+const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
+
+function normalizeDistrictName(value) {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator, letter) => `${separator}${letter.toLocaleUpperCase('pt-BR')}`)
+}
 
 const SMART_CAROUSEL_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
 const SMART_CAROUSEL_STATE_OPTIONS = [
@@ -406,6 +415,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
 
   const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const formatPrice = (digits) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
+  const normalizedDistrict = normalizeDistrictName(district)
   const priceLabel = priceDigits ? `${priceMode === 'starting_at' ? 'A partir de ' : ''}${formatPrice(priceDigits)}` : ''
   const stageOptions = purpose === 'rent' ? ['Pronto para mudar'] : ['Pronto para morar', 'Lançamento', 'Em construção']
   const numberOptions = ['0', '1', '2', '3', '4', '5+']
@@ -432,9 +442,9 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   }, [uf])
 
   const choose = (setter, value, nextStep) => { setter(value); setStep(nextStep) }
-  const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= 20 ? current : [...current, item])
+  const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS ? current : [...current, item])
   const messages = ['', 'Vamos começar. Qual é a finalidade do imóvel?', 'Perfeito. Qual é o estado atual do imóvel?', 'Ótimo. Que tipo de imóvel será apresentado?', 'Excelente. Quantos dormitórios o imóvel possui?', 'Perfeito. Quantas suítes?', 'Ótimo. Quantas vagas estão disponíveis?', 'Excelente. Em qual estado fica o imóvel?', 'Perfeito. Agora escolha a cidade.', 'Ótimo. Em qual bairro ele está localizado?', 'Excelente. Como deseja apresentar o preço?', 'Perfeito. Qual é a área do imóvel?', 'Ótimo. Quais são os principais destaques?', 'Excelente. Qual chamada deseja usar no final?', 'Perfeito. Deseja divulgar seu telefone profissional?', 'Excelente. Sua apresentação está pronta para a próxima etapa.']
-  const summaryItems = [[1, purpose === 'sale' ? 'Venda' : purpose === 'rent' ? 'Locação' : ''], [2, propertyStage], [3, propertyType], [4, bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, district], [10, priceLabel], [11, area ? `${area} m²` : ''], [12, highlights.length ? `${highlights.length} destaques` : ''], [13, cta], [14, sharePhone === 'yes' ? 'Telefone profissional' : sharePhone === 'no' ? 'Sem telefone' : '']].filter(([, value]) => Boolean(value))
+  const summaryItems = [[1, purpose === 'sale' ? 'Venda' : purpose === 'rent' ? 'Locação' : ''], [2, propertyStage], [3, propertyType], [4, bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, normalizedDistrict], [10, priceLabel], [11, area ? `${area} m²` : ''], [12, highlights.length ? `${highlights.length} destaques` : ''], [13, cta], [14, sharePhone === 'yes' ? 'Telefone profissional' : sharePhone === 'no' ? 'Sem telefone' : '']].filter(([, value]) => Boolean(value))
 
   const confirmedAnswers = {
     purpose,
@@ -445,7 +455,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     parking_spaces: parkingSpaces,
     uf,
     city,
-    district: district.trim(),
+    district: normalizedDistrict,
     price_label: priceLabel,
     area,
     highlights,
@@ -571,19 +581,19 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => choose(setter, item, step + 1)}>{item}</ChipButton>)}</ChipGrid> }
   else if (step === 7) questionContent = <select value={uf} onChange={(event) => { setUf(event.target.value); setCity(''); if (event.target.value) setStep(8) }} className="w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"><option value="">Selecione o estado</option>{SMART_CAROUSEL_STATE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select>
   else if (step === 8) questionContent = <select value={city} disabled={!uf || citiesLoading} onChange={(event) => { setCity(event.target.value); if (event.target.value) setStep(9) }} className="w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-400"><option value="">{citiesLoading ? 'Carregando cidades...' : 'Selecione a cidade'}</option>{cities.map((item) => <option key={item} value={item}>{item}</option>)}</select>
-  else if (step === 9) questionContent = <div><input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Digite o bairro" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!district.trim()} onClick={() => setStep(10)} className="mt-4">Continuar</Button></div>
-  else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!priceMode || !priceDigits} onClick={() => setStep(11)} className="mt-4">Continuar</Button></div>
+  else if (step === 9) questionContent = <div><input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Digite o bairro" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!district.trim()} onClick={() => { setDistrict(normalizedDistrict); setStep(10) }} className="mt-4">Continuar</Button></div>
+  else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Button type="button" disabled={!priceMode || !priceDigits} onClick={() => setStep(11)}>Continuar</Button><button type="button" onClick={() => { setPriceMode(''); setPriceDigits(''); setStep(11) }} className="rounded-xl px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Continuar sem informar preço</button></div></div>
   else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><Button type="button" disabled={!area} onClick={() => setStep(12)} className="mt-4">Continuar</Button></div>
-  else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <div key={group.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></div>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length}/20 selecionados</span><Button type="button" disabled={!highlights.length} onClick={() => setStep(13)}>Continuar</Button></div></div>
+  else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <div key={group.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></div>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS} selecionados</span><Button type="button" disabled={!highlights.length} onClick={() => setStep(13)}>Continuar</Button></div></div>
   else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => choose(setCta, item, 14)}>{item}</ChipButton>)}</ChipGrid>
   else if (step === 14) questionContent = <div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={!profilePhone} onClick={() => choose(setSharePhone, 'yes', 15)} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-45"><span className="text-sm font-black text-slate-950">Sim</span><span className="mt-1 block text-xs font-semibold text-slate-500">{profilePhone || 'Cadastre um telefone no Perfil Profissional.'}</span></button><button type="button" onClick={() => choose(setSharePhone, 'no', 15)} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300"><span className="text-sm font-black text-slate-950">Não</span><span className="mt-1 block text-xs font-semibold text-slate-500">Continuar sem divulgar telefone.</span></button></div>
   else questionContent = (
-    <div className="space-y-5 text-center">
+    <div className="space-y-4 text-center sm:space-y-5">
       <button
         type="button"
         disabled={isGenerating}
         onClick={createPresentation}
-        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-8 py-5 text-lg font-black text-white shadow-[0_20px_38px_-20px_rgba(5,150,105,0.95)] transition hover:from-emerald-700 hover:to-emerald-800 disabled:cursor-not-allowed disabled:opacity-55"
+        className="sticky bottom-3 z-10 flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4 text-base font-black text-white shadow-[0_20px_38px_-20px_rgba(5,150,105,0.95)] transition hover:from-emerald-700 hover:to-emerald-800 disabled:cursor-not-allowed disabled:opacity-55 sm:px-8 sm:py-5 sm:text-lg"
       >
         {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
         Criar apresentação

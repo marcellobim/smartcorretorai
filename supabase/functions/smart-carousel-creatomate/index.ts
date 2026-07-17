@@ -10,10 +10,12 @@ const corsHeaders = {
 
 const BUCKET = 'studio-videos'
 const MAX_IMAGES = 30
-const MAX_HIGHLIGHTS = 20
+const MAX_HIGHLIGHTS = 10
 const SIGNED_URL_TTL_SECONDS = 6 * 60 * 60
 const RECEIPT_TTL_SECONDS = 6 * 60 * 60
 const SCENE_DURATION_SECONDS = 3.5
+const NARRATION_CTA_GAP_SECONDS = 1.5
+const OPENAI_TTS_MODEL = 'tts-1'
 const RECEIPT_VERSION = 1
 const RECEIPT_CONTEXT = 'smart-carousel-creatomate:receipt:v1'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -56,6 +58,12 @@ function cleanText(value: unknown, maxLength: number) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, maxLength)
+}
+
+function normalizeDistrictName(value: unknown) {
+  return cleanText(value, 60)
+    .toLocaleLowerCase('pt-BR')
+    .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator, letter) => `${separator}${letter.toLocaleUpperCase('pt-BR')}`)
 }
 
 function normalizePhone(value: unknown) {
@@ -197,7 +205,7 @@ async function createSignedUrl(supabase: ReturnType<typeof createClient>, path: 
 function buildCaptions(answers: JsonRecord) {
   const propertyStage = cleanText(answers.property_stage, 40)
   const city = cleanText(answers.city, 60)
-  const district = cleanText(answers.district, 60)
+  const district = normalizeDistrictName(answers.district)
   const uf = cleanText(answers.uf, 2)
   const priceLabel = cleanText(answers.price_label, 50)
   const bedrooms = cleanText(answers.bedrooms, 8)
@@ -228,54 +236,121 @@ function joinNarrationItems(items: string[]) {
   return `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
 }
 
-function buildNarrationPlan(answers: JsonRecord, cta: string) {
+const NARRATION_HIGHLIGHT_PRIORITY = [
+  'Varanda gourmet', 'Próximo ao metrô', 'Lazer completo', 'Acabamento premium', 'Vista panorâmica',
+  'Bairro valorizado', 'Planta inteligente', 'Ambientes integrados', 'Iluminação natural', 'Portaria 24h',
+  'Segurança 24h', 'Piscina', 'Academia', 'Espaço gourmet', 'Alto potencial de valorização',
+]
+
+function getHighlightTheme(value: string) {
+  const normalized = value.toLocaleLowerCase('pt-BR')
+  if (/próximo|acesso|bairro|região|vista livre/.test(normalized)) return 'location'
+  if (/piscina|academia|lazer|salão|gourmet|churrasqueira|coworking|playground|quadra|rooftop|spa|sauna|wellness/.test(normalized)) return 'leisure'
+  if (/varanda|suíte|closet|planta|ambientes|cozinha|acabamento|iluminação|vista panorâmica/.test(normalized)) return 'property'
+  if (/financiamento|fgts|entrada|subsídio|documentação|unidades|condições|valorização/.test(normalized)) return 'commercial'
+  return 'services'
+}
+
+function selectNarrationHighlights(highlights: string[]) {
+  const targetCount = Math.min(5, Math.max(3, Math.ceil(highlights.length / 2)), highlights.length)
+  const ranked = highlights
+    .map((value, originalIndex) => {
+      const priorityIndex = NARRATION_HIGHLIGHT_PRIORITY.indexOf(value)
+      return { value, originalIndex, priorityIndex: priorityIndex === -1 ? NARRATION_HIGHLIGHT_PRIORITY.length : priorityIndex }
+    })
+    .sort((left, right) => left.priorityIndex - right.priorityIndex || left.originalIndex - right.originalIndex)
+
+  const selected: string[] = []
+  const usedThemes = new Set<string>()
+  for (const item of ranked) {
+    const theme = getHighlightTheme(item.value)
+    if (!usedThemes.has(theme)) {
+      selected.push(item.value)
+      usedThemes.add(theme)
+    }
+    if (selected.length === targetCount) return selected
+  }
+  for (const item of ranked) {
+    if (!selected.includes(item.value)) selected.push(item.value)
+    if (selected.length === targetCount) break
+  }
+  return selected
+}
+
+function selectNarrationVoice(imageCount: number, highlightCount: number) {
+  const useFemaleVoice = (imageCount + highlightCount) % 2 === 0
+  const id = useFemaleVoice ? 'nova' : 'onyx'
+  return {
+    id,
+    gender: useFemaleVoice ? 'feminina' : 'masculina',
+    provider: `openai model=${OPENAI_TTS_MODEL} voice=${id}`,
+    criterion: 'nova quando fotos + destaques é par; onyx quando é ímpar',
+  }
+}
+
+function stableVariantIndex(seed: string, variantCount: number) {
+  const hash = Array.from(seed).reduce((total, character) => (total * 31 + character.codePointAt(0)!) >>> 0, 0)
+  return variantCount ? hash % variantCount : 0
+}
+
+function countNarrationWords(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean).length
+}
+
+function buildNarrationPlan(answers: JsonRecord, cta: string, imageCount: number, availableSeconds: number) {
   const purpose = cleanText(answers.purpose, 20)
   const propertyStage = cleanText(answers.property_stage, 40)
   const propertyType = cleanText(answers.property_type, 40)
-  const bedrooms = cleanText(answers.bedrooms, 8)
-  const suites = cleanText(answers.suites, 8)
-  const parkingSpaces = cleanText(answers.parking_spaces, 8)
-  const area = cleanText(answers.area, 10)
   const priceLabel = cleanText(answers.price_label, 50)
-  const district = cleanText(answers.district, 60)
+  const district = normalizeDistrictName(answers.district)
   const city = cleanText(answers.city, 60)
   const uf = cleanText(answers.uf, 2)
   const highlights = (Array.isArray(answers.highlights) ? answers.highlights : [])
     .slice(0, MAX_HIGHLIGHTS)
     .map((item) => cleanText(item, 60))
     .filter(Boolean)
+  const narrationHighlights = selectNarrationHighlights(highlights)
   const ctaLabel = cleanText(cta, 80)
+  const voice = selectNarrationVoice(imageCount, highlights.length)
 
-  const subject = propertyType ? `Este ${propertyType.toLocaleLowerCase('pt-BR')}` : 'Este imóvel'
-  const purposeLabel = purpose === 'rent'
-    ? 'disponível para locação'
-    : purpose === 'sale'
-      ? 'à venda'
-      : purpose
-  const openingParts = [purposeLabel, propertyStage.toLocaleLowerCase('pt-BR')].filter(Boolean)
-  const composition = [
-    bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : '',
-    suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : '',
-    parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : '',
-  ].filter(Boolean)
-  const location = [district ? `no bairro ${district}` : '', city ? `em ${city}` : '', uf].filter(Boolean)
+  const propertyTypeLower = propertyType.toLocaleLowerCase('pt-BR')
+  const feminineProperty = /^(casa|cobertura)$/.test(propertyTypeLower)
+  const subject = propertyType ? `${feminineProperty ? 'esta' : 'este'} ${propertyTypeLower}` : 'este imóvel'
+  const purposeLabel = purpose === 'rent' ? 'para locação' : purpose === 'sale' ? 'à venda' : ''
+  const location = [district ? `em ${district}` : '', city ? `na cidade de ${city}` : ''].filter(Boolean).join(', ')
+  const spokenHighlights = narrationHighlights.map((item) => item.toLocaleLowerCase('pt-BR'))
   const ctaNarration: Record<string, string> = {
-    'Saiba Mais': 'Saiba mais.',
-    'Agende sua visita': 'Agende sua visita.',
-    'Entre em contato agora': 'Entre em contato agora.',
-    'Aguardo seu contato': 'Aguardo seu contato.',
+    'Saiba Mais': 'Vale a pena conhecer de perto. Saiba mais.',
+    'Agende sua visita': 'Venha conhecer todos os detalhes. Agende sua visita.',
+    'Entre em contato agora': 'Descubra se este é o imóvel ideal para você. Entre em contato agora.',
+    'Aguardo seu contato': 'Conheça melhor esta oportunidade. Aguardo seu contato.',
   }
 
-  const segments: string[] = []
-  segments.push(openingParts.length ? `${subject} está ${joinNarrationItems(openingParts)}.` : `${subject}.`)
-  if (location.length) segments.push(`Localizado ${location.join(', ')}.`)
-  if (composition.length || area) {
-    const compositionText = joinNarrationItems(composition)
-    segments.push(`${compositionText}${compositionText && area ? ', ' : ''}${area ? `com ${area} metros quadrados` : ''}.`)
+  const openingSeed = [propertyType, propertyStage, district, city, highlights.join('|')].join('|')
+  const openings = [
+    `Conheça ${subject}${location ? ` ${location}` : ''}${purposeLabel ? `, ${purposeLabel}` : ''}.`,
+    `Descubra uma nova forma de viver com ${subject}${location ? ` ${location}` : ''}.`,
+    `Apresentamos ${subject}${location ? ` ${location}` : ''}, uma oportunidade que merece sua atenção.`,
+    `Uma excelente oportunidade espera por você${location ? ` ${location}` : ''}.`,
+    `Se você procura um imóvel especial${location ? ` ${location}` : ''}, vale a pena conhecer esta opção.`,
+    `Vale a pena conhecer ${subject}${location ? ` ${location}` : ''}, pensado para uma experiência diferenciada.`,
+  ]
+  const segments: string[] = [openings[stableVariantIndex(openingSeed, openings.length)]]
+  if (propertyStage) segments.push(`${propertyStage} e pronto para despertar novas possibilidades.`)
+  if (spokenHighlights.length) segments.push(`A experiência ganha ainda mais valor com ${joinNarrationItems(spokenHighlights)}.`)
+
+  const targetWords = Math.max(24, Math.round(availableSeconds * 2.45))
+  const supportingSegments = [
+    'Uma combinação de atributos que torna cada momento mais agradável e cheio de possibilidades.',
+    'Tudo foi reunido para criar uma experiência marcante, acolhedora e alinhada ao seu estilo de vida.',
+    'É uma oportunidade para transformar planos em uma nova história e viver momentos especiais.',
+  ]
+  for (const supportingSegment of supportingSegments) {
+    const closing = ctaNarration[ctaLabel] || 'Venha conhecer este imóvel.'
+    if (countNarrationWords([...segments, closing].join(' ')) >= targetWords - 4) break
+    segments.push(supportingSegment)
   }
-  if (priceLabel) segments.push(`O valor é ${priceLabel}.`)
-  if (highlights.length) segments.push(`Entre os destaques estão ${joinNarrationItems(highlights)}.`)
-  if (ctaLabel) segments.push(ctaNarration[ctaLabel] || `${ctaLabel}.`)
+  segments.push(ctaNarration[ctaLabel] || 'Venha conhecer este imóvel.')
 
   return {
     source: 'broker_answers',
@@ -283,30 +358,34 @@ function buildNarrationPlan(answers: JsonRecord, cta: string) {
       purpose,
       property_stage: propertyStage,
       property_type: propertyType,
-      bedrooms,
-      suites,
-      parking_spaces: parkingSpaces,
-      area,
       price_label: priceLabel,
       district,
       city,
       uf,
       highlights,
+      narration_highlights: narrationHighlights,
       cta: ctaLabel,
     },
     segments,
     text: segments.join(' '),
-    voice: { status: 'pending' },
+    timing: {
+      available_seconds: availableSeconds,
+      target_gap_seconds: NARRATION_CTA_GAP_SECONDS,
+      estimated_words: countNarrationWords(segments.join(' ')),
+      estimated_seconds: Number((countNarrationWords(segments.join(' ')) / 2.45).toFixed(2)),
+    },
+    voice,
   }
 }
 
-function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string) {
+function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, narrationText: string, voiceProvider: string) {
   const captions = buildCaptions(answers)
   const transitionDuration = 0.45
   const ctaSceneDuration = 3.5
   const photoSequenceDuration = imageUrls.length * SCENE_DURATION_SECONDS
     - Math.max(0, imageUrls.length - 1) * transitionDuration
   const duration = photoSequenceDuration + ctaSceneDuration
+  const narrationDuration = Math.max(1, photoSequenceDuration - NARRATION_CTA_GAP_SECONDS)
   const imageMovements = [
     {
       easing: 'cubic-in-out',
@@ -406,6 +485,21 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     animations: [{ duration: 0.35, easing: 'quadratic-out', type: 'fade' }],
   }))
 
+  const voiceoverElements: JsonRecord[] = narrationText ? [
+    {
+      name: 'Smart-Carousel-Voiceover',
+      type: 'audio',
+      track: 5,
+      time: 0,
+      duration: narrationDuration,
+      source: narrationText,
+      provider: voiceProvider,
+      volume: '100%',
+      audio_fade_in: 0.2,
+      audio_fade_out: 0.35,
+    },
+  ] : []
+
   const ctaTime = photoSequenceDuration
   const finalElements: JsonRecord[] = [
     {
@@ -468,15 +562,18 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     frame_rate: 30,
     duration,
     snapshot_time: Math.min(1, Math.max(0, duration - 0.1)),
-    elements: [...imageElements, ...textElements, ...finalElements],
+    elements: [...imageElements, ...textElements, ...voiceoverElements, ...finalElements],
   }
 }
 
 function buildPresentationPlan(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, cta: string) {
+  const transitionDuration = 0.45
+  const photoSequenceDuration = imageUrls.length * SCENE_DURATION_SECONDS
+    - Math.max(0, imageUrls.length - 1) * transitionDuration
+  const narration = buildNarrationPlan(answers, cta, imageUrls.length, Math.max(1, photoSequenceDuration - NARRATION_CTA_GAP_SECONDS))
   return {
-    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone),
-    // A narração fica preparada no servidor, sem entrar na tela ou gerar voz nesta etapa.
-    narration: buildNarrationPlan(answers, cta),
+    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, narration.text, narration.voice.provider),
+    narration,
   }
 }
 
