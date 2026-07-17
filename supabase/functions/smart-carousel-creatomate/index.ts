@@ -182,8 +182,6 @@ async function createSignedUrl(supabase: ReturnType<typeof createClient>, path: 
 }
 
 function buildCaptions(answers: JsonRecord) {
-  const purpose = cleanText(answers.purpose, 20)
-  const propertyType = cleanText(answers.property_type, 40)
   const propertyStage = cleanText(answers.property_stage, 40)
   const city = cleanText(answers.city, 60)
   const district = cleanText(answers.district, 60)
@@ -193,13 +191,9 @@ function buildCaptions(answers: JsonRecord) {
   const suites = cleanText(answers.suites, 8)
   const parkingSpaces = cleanText(answers.parking_spaces, 8)
   const area = cleanText(answers.area, 10)
-  const rawHighlights = Array.isArray(answers.highlights) ? answers.highlights : []
-  const highlights = rawHighlights.slice(0, MAX_HIGHLIGHTS).map((item) => cleanText(item, 60)).filter(Boolean)
 
   const captions: string[] = []
   const location = [district, city, uf].filter(Boolean).join(' · ')
-  const purposeLabel = purpose === 'rent' ? 'Para locação' : purpose === 'sale' ? 'À venda' : ''
-  if (propertyType || purposeLabel) captions.push([propertyType, purposeLabel].filter(Boolean).join(' · '))
   if (location) captions.push(location)
   if (propertyStage) captions.push(propertyStage)
 
@@ -211,9 +205,86 @@ function buildCaptions(answers: JsonRecord) {
   if (details) captions.push(details)
   if (area) captions.push(`${area} m²`)
   if (priceLabel) captions.push(priceLabel)
-  captions.push(...highlights.slice(0, 4))
 
-  return captions.filter(Boolean).slice(0, 8)
+  return captions.filter(Boolean).slice(0, 5)
+}
+
+function joinNarrationItems(items: string[]) {
+  if (items.length < 2) return items[0] || ''
+  if (items.length === 2) return `${items[0]} e ${items[1]}`
+  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
+}
+
+function buildNarrationPlan(answers: JsonRecord, cta: string) {
+  const purpose = cleanText(answers.purpose, 20)
+  const propertyStage = cleanText(answers.property_stage, 40)
+  const propertyType = cleanText(answers.property_type, 40)
+  const bedrooms = cleanText(answers.bedrooms, 8)
+  const suites = cleanText(answers.suites, 8)
+  const parkingSpaces = cleanText(answers.parking_spaces, 8)
+  const area = cleanText(answers.area, 10)
+  const priceLabel = cleanText(answers.price_label, 50)
+  const district = cleanText(answers.district, 60)
+  const city = cleanText(answers.city, 60)
+  const uf = cleanText(answers.uf, 2)
+  const highlights = (Array.isArray(answers.highlights) ? answers.highlights : [])
+    .slice(0, MAX_HIGHLIGHTS)
+    .map((item) => cleanText(item, 60))
+    .filter(Boolean)
+  const ctaLabel = cleanText(cta, 80)
+
+  const subject = propertyType ? `Este ${propertyType.toLocaleLowerCase('pt-BR')}` : 'Este imóvel'
+  const purposeLabel = purpose === 'rent'
+    ? 'disponível para locação'
+    : purpose === 'sale'
+      ? 'à venda'
+      : purpose
+  const openingParts = [purposeLabel, propertyStage.toLocaleLowerCase('pt-BR')].filter(Boolean)
+  const composition = [
+    bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : '',
+    suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : '',
+    parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : '',
+  ].filter(Boolean)
+  const location = [district ? `no bairro ${district}` : '', city ? `em ${city}` : '', uf].filter(Boolean)
+  const ctaNarration: Record<string, string> = {
+    'Saiba Mais': 'Saiba mais.',
+    'Agende sua visita': 'Agende sua visita.',
+    'Entre em contato agora': 'Entre em contato agora.',
+    'Aguardo seu contato': 'Aguardo seu contato.',
+  }
+
+  const segments: string[] = []
+  segments.push(openingParts.length ? `${subject} está ${joinNarrationItems(openingParts)}.` : `${subject}.`)
+  if (location.length) segments.push(`Localizado ${location.join(', ')}.`)
+  if (composition.length || area) {
+    const compositionText = joinNarrationItems(composition)
+    segments.push(`${compositionText}${compositionText && area ? ', ' : ''}${area ? `com ${area} metros quadrados` : ''}.`)
+  }
+  if (priceLabel) segments.push(`O valor é ${priceLabel}.`)
+  if (highlights.length) segments.push(`Entre os destaques estão ${joinNarrationItems(highlights)}.`)
+  if (ctaLabel) segments.push(ctaNarration[ctaLabel] || `${ctaLabel}.`)
+
+  return {
+    source: 'broker_answers',
+    facts: {
+      purpose,
+      property_stage: propertyStage,
+      property_type: propertyType,
+      bedrooms,
+      suites,
+      parking_spaces: parkingSpaces,
+      area,
+      price_label: priceLabel,
+      district,
+      city,
+      uf,
+      highlights,
+      cta: ctaLabel,
+    },
+    segments,
+    text: segments.join(' '),
+    voice: { status: 'pending' },
+  }
 }
 
 function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string) {
@@ -388,6 +459,14 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   }
 }
 
+function buildPresentationPlan(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, cta: string) {
+  return {
+    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone),
+    // A narração fica preparada no servidor, sem entrar na tela ou gerar voz nesta etapa.
+    narration: buildNarrationPlan(answers, cta),
+  }
+}
+
 async function handleCreate(
   body: JsonRecord,
   userId: string,
@@ -438,14 +517,14 @@ async function handleCreate(
       phone = normalizePhone(profile?.whatsapp || profile?.telefone || '')
     }
 
-    const renderScript = buildRenderScript(imageUrls, ctaUrl, answers, phone)
+    const presentationPlan = buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta)
     const response = await fetch('https://api.creatomate.com/v2/renders', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${creatomateApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(renderScript),
+      body: JSON.stringify(presentationPlan.renderScript),
     })
     const responseBody = await response.json().catch(() => null)
     if (!response.ok) {
