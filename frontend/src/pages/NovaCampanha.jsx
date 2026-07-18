@@ -6,6 +6,7 @@ import Header from '../components/layout/Header'
 import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEWS } from '../data/templateCatalog'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
+import CampaignPackage from '../components/campaign/CampaignPackage'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -3247,7 +3248,7 @@ export default function NovaCampanha() {
             && visualPiecesFailed > 0
           const resultTitle = allVisualPiecesFailed
             ? 'Textos prontos. Materiais visuais com problema.'
-            : 'Campanha pronta!'
+            : 'Resumo da campanha'
 
           const textosEdge = [
             { key: 'titulo_campanha',         icon: '🏷️', titulo: 'Título da Campanha' },
@@ -3272,9 +3273,31 @@ export default function NovaCampanha() {
               ? (k === 'hashtags' ? v : removeHashtagsFromText(v))
               : JSON.stringify(v, null, 2)
           }
+          const packageProperty = resultado.dados_imovel || {}
 
           return (
-            <div className="space-y-6">
+            <CampaignPackage
+              preserveExistingContent
+              data={{
+                sourceProduct: 'Banners Rápidos',
+                mediaType: 'images',
+                files: visualPieces,
+                purpose: packageProperty.finalidade || finalidade,
+                propertyStage: packageProperty.situacao,
+                propertyType: packageProperty.tipo || tipo,
+                district: packageProperty.bairro || bairroNormalizado,
+                city: packageProperty.cidade || cidade,
+                state: packageProperty.estado || estado,
+                bedrooms: packageProperty.dormitorios ?? packageProperty.quartos,
+                suites: packageProperty.suites,
+                parkingSpaces: packageProperty.vagas,
+                area: packageProperty.area,
+                highlights: packageProperty.destaques || todosDestaques,
+                contactAuthorized: false,
+                existingTexts: tg,
+              }}
+            >
+              <div className="space-y-6">
 
               <AnimatedCard delay={0}>
                 <div className="card p-5">
@@ -3591,7 +3614,8 @@ export default function NovaCampanha() {
                 </div>
               </AnimatedCard>
 
-            </div>
+              </div>
+            </CampaignPackage>
           )
         })()}
 

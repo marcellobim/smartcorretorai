@@ -81,6 +81,16 @@ const isLinkedInApplicable = (campaign) => {
   return /(comercial|corporativ|lançamento|lancamento|investimento|institucional|sala|loja|galpão|galpao)/.test(context)
 }
 
+const existingTextValue = (value) => {
+  if (value == null) return ''
+  if (typeof value === 'string' || typeof value === 'number') return clean(value)
+  if (Array.isArray(value)) return value.map(existingTextValue).filter(Boolean).join('\n')
+  if (typeof value === 'object') {
+    return Object.values(value).map(existingTextValue).filter(Boolean).join('\n\n')
+  }
+  return ''
+}
+
 const normalizeExistingTextItems = (existingTexts) => {
   if (Array.isArray(existingTexts)) {
     return existingTexts
@@ -96,7 +106,7 @@ const normalizeExistingTextItems = (existingTexts) => {
     .map(([id, value]) => ({
       id,
       label: clean(value?.label) || clean(id).replace(/[_-]+/g, ' '),
-      text: clean(value?.text ?? value),
+      text: existingTextValue(value?.text ?? value),
     }))
     .filter((item) => item.text)
 }
@@ -111,7 +121,17 @@ const existingFields = (items, expression, copyLabel) => items
   }))
 
 export function normalizeCampaignPackageInput(input = {}) {
-  const files = Array.isArray(input.files) ? input.files.filter(Boolean) : []
+  const files = Array.isArray(input.files)
+    ? input.files.filter(Boolean).map((file, index) => ({
+      id: clean(file?.id || file?.piece_id || file?.render_id) || `media-${index}`,
+      name: clean(file?.name || file?.label || file?.template_nome || file?.format) || `Arte ${index + 1}`,
+      type: clean(file?.type || file?.mediaType),
+      status: clean(file?.status),
+      url: clean(file?.url),
+      previewUrl: clean(file?.previewUrl || file?.snapshot_url),
+      downloadUrl: clean(file?.downloadUrl || file?.url),
+    }))
+    : []
   const highlights = Array.isArray(input.highlights) ? compact(input.highlights) : []
   return {
     sourceProduct: clean(input.sourceProduct),
@@ -236,7 +256,7 @@ export function buildCampaignPackage(input = {}) {
       campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
     ].filter(Boolean),
     strategy: [
-      'Publique o vídeo no Instagram.',
+      campaign.mediaType === 'images' ? 'Publique as artes no Instagram.' : 'Publique o vídeo no Instagram.',
       'Reaproveite a publicação no Facebook.',
       'Envie a mensagem pronta pelo WhatsApp.',
       ...(isLinkedInApplicable(campaign) ? ['Use o LinkedIn para ampliar o alcance profissional.'] : []),

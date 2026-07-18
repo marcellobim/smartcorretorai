@@ -34,7 +34,36 @@ function CopyButton({ value, label = 'Copiar', copyKey, copiedKey, onCopy }) {
 }
 
 function MediaPanel({ campaign, videoRef }) {
-  if (campaign.mediaType === 'images') return null
+  if (campaign.mediaType === 'images') {
+    if (!campaign.files.length) return null
+    return (
+      <section aria-labelledby="campaign-media-title" className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Mídias geradas</p>
+          <h3 id="campaign-media-title" className="mt-1 text-lg font-black text-slate-950">Artes da campanha</h3>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {campaign.files.map((file, index) => {
+            const previewUrl = file.previewUrl || file.url
+            const downloadUrl = file.downloadUrl || file.url
+            const isVideo = file.type === 'video' || /\.(mp4|webm|mov)(?:$|\?)/i.test(previewUrl)
+            return (
+              <article key={file.id || `${file.name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-100">
+                  {previewUrl ? (isVideo ? <video src={previewUrl} controls className="h-full w-full object-contain" /> : <img src={previewUrl} alt={file.name || `Arte ${index + 1}`} className="h-full w-full object-contain" />) : <span className="px-4 text-center text-xs font-bold text-slate-400">Prévia indisponível</span>}
+                </div>
+                <div className="p-4">
+                  <p className="truncate text-sm font-black text-slate-900">{file.name || `Arte ${index + 1}`}</p>
+                  {file.status && <p className="mt-1 text-xs font-bold text-slate-500">{file.status}</p>}
+                  {downloadUrl && <a href={downloadUrl} download className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Baixar</a>}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+    )
+  }
   if (!campaign.previewUrl) return null
 
   return (
@@ -63,7 +92,7 @@ function MediaPanel({ campaign, videoRef }) {
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha' }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const [copiedKey, setCopiedKey] = useState('')
   const videoRef = useRef(null)
@@ -94,9 +123,9 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         </div>
       </header>
 
-      <MediaPanel campaign={campaign} videoRef={videoRef} />
+      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} />}
 
-      {campaign.modules.length > 0 && (
+      {!preserveExistingContent && campaign.modules.length > 0 && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-copy-title">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -128,7 +157,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         </section>
       )}
 
-      {campaign.contact.length > 0 && (
+      {!preserveExistingContent && campaign.contact.length > 0 && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-contact-title">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">CTA e contato</p>
           <h3 id="campaign-contact-title" className="mt-1 text-lg font-black text-slate-950">Informações utilizadas</h3>
