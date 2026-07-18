@@ -81,6 +81,35 @@ const isLinkedInApplicable = (campaign) => {
   return /(comercial|corporativ|lançamento|lancamento|investimento|institucional|sala|loja|galpão|galpao)/.test(context)
 }
 
+const normalizeExistingTextItems = (existingTexts) => {
+  if (Array.isArray(existingTexts)) {
+    return existingTexts
+      .map((item, index) => ({
+        id: clean(item?.id) || `existing-${index}`,
+        label: clean(item?.label) || `Texto ${index + 1}`,
+        text: clean(item?.text),
+      }))
+      .filter((item) => item.text)
+  }
+
+  return Object.entries(existingTexts || {})
+    .map(([id, value]) => ({
+      id,
+      label: clean(value?.label) || clean(id).replace(/[_-]+/g, ' '),
+      text: clean(value?.text ?? value),
+    }))
+    .filter((item) => item.text)
+}
+
+const existingFields = (items, expression, copyLabel) => items
+  .filter((item) => expression.test(item.label))
+  .map((item) => ({
+    id: item.id,
+    label: item.label,
+    text: item.text,
+    copyLabel,
+  }))
+
 export function normalizeCampaignPackageInput(input = {}) {
   const files = Array.isArray(input.files) ? input.files.filter(Boolean) : []
   const highlights = Array.isArray(input.highlights) ? compact(input.highlights) : []
@@ -113,6 +142,11 @@ export function normalizeCampaignPackageInput(input = {}) {
 
 export function buildCampaignPackage(input = {}) {
   const campaign = normalizeCampaignPackageInput(input)
+  const existingItems = normalizeExistingTextItems(campaign.existingTexts)
+  const existingSocial = existingFields(existingItems, /instagram|facebook/i, 'Copiar texto')
+  const existingWhatsapp = existingFields(existingItems, /whatsapp/i, 'Copiar mensagem')
+  const existingPortal = existingFields(existingItems, /portal/i, 'Copiar descrição')
+  const existingHashtags = existingItems.find((item) => /hashtag/i.test(item.label))
   const location = locationText(campaign)
   const purpose = purposeText(campaign.purpose)
   const subject = compact([campaign.propertyType, purpose, location ? `em ${location}` : '']).join(' ')
@@ -167,9 +201,14 @@ export function buildCampaignPackage(input = {}) {
   ]).join('\n\n')
 
   const modules = [
-    hasCampaignContext && instagram && { id: 'instagram', title: 'Instagram', copyLabel: 'Copiar texto', text: instagram },
-    hasCampaignContext && whatsapp && { id: 'whatsapp', title: 'WhatsApp', copyLabel: 'Copiar mensagem', text: whatsapp },
-    hasCampaignContext && facebook && { id: 'facebook', title: 'Facebook', copyLabel: 'Copiar texto', text: facebook },
+    existingSocial.length
+      ? { id: 'social', title: 'Instagram e Facebook', fields: existingSocial }
+      : hasCampaignContext && instagram && { id: 'instagram', title: 'Instagram', copyLabel: 'Copiar texto', text: instagram },
+    !existingSocial.length && hasCampaignContext && facebook && { id: 'facebook', title: 'Facebook', copyLabel: 'Copiar texto', text: facebook },
+    existingWhatsapp.length
+      ? { id: 'whatsapp', title: 'WhatsApp', fields: existingWhatsapp }
+      : hasCampaignContext && whatsapp && { id: 'whatsapp', title: 'WhatsApp', copyLabel: 'Copiar mensagem', text: whatsapp },
+    existingPortal.length && { id: 'portal', title: 'Portal imobiliário', fields: existingPortal },
     isLinkedInApplicable(campaign) && facebook && {
       id: 'linkedin',
       title: 'LinkedIn',
@@ -184,7 +223,9 @@ export function buildCampaignPackage(input = {}) {
         { id: 'email-body', label: 'Mensagem', text: emailBody, copyLabel: 'Copiar mensagem' },
       ],
     },
-    hashtags && { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: hashtags },
+    existingHashtags
+      ? { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: existingHashtags.text }
+      : hashtags && { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: hashtags },
   ].filter(Boolean)
 
   return {

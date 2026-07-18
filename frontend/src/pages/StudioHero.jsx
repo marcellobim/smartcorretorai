@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 import { buildPublicationPackage } from '../../../core/copy-engine'
+import CampaignPackage from '../components/campaign/CampaignPackage'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
@@ -3318,6 +3319,36 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
   const completed = Boolean(videoUrl)
   const deliveryTexts = completed ? buildDeliveryTexts({ answers, districtValue, cityValue }) : []
   if (!completed) return null
+
+  if (answers?.creativeMode !== 'free_ai') {
+    return (
+      <CampaignPackage
+        data={{
+          sourceProduct: 'Studio Hero Cinematográfico',
+          mediaType: 'video',
+          previewUrl: videoUrl,
+          downloadUrl: videoUrl,
+          downloadName: 'studio-hero-video.mp4',
+          purpose: answers.objective,
+          propertyStage: answers.stage,
+          propertyType: getStudioCopyPropertyType(answers),
+          district: districtValue,
+          city: cityValue,
+          state: answers.uf,
+          bedrooms: answers.bedrooms,
+          suites: answers.suites,
+          parkingSpaces: answers.parking,
+          area: answers.area,
+          highlights: getStudioCopyFeatures(answers),
+          cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
+          contactAuthorized: false,
+          existingTexts: deliveryTexts,
+        }}
+        onCreateNew={onReset}
+        createNewLabel="Criar nova versão"
+      />
+    )
+  }
 
   return (
     <section className={`rounded-3xl border border-cyan-100 bg-white shadow-xl shadow-cyan-100/40 ${compact ? 'p-4' : 'p-5'}`}>
