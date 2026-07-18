@@ -2,6 +2,16 @@ const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 
 const compact = (values) => values.map(clean).filter(Boolean)
 
+const formatBrazilianPhone = (value = '') => {
+  const rawDigits = String(value).replace(/\D/g, '')
+  const digits = (rawDigits.length > 11 && rawDigits.startsWith('55') ? rawDigits.slice(2) : rawDigits).slice(0, 11)
+  if (!digits) return ''
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
 const sentence = (value) => {
   const text = clean(value)
   if (!text) return ''
@@ -218,7 +228,7 @@ export function normalizeCampaignPackageInput(input = {}) {
     description: clean(input.description),
     highlights,
     cta: clean(input.cta),
-    phone: input.contactAuthorized ? clean(input.phone) : '',
+    phone: input.contactAuthorized ? formatBrazilianPhone(input.phone) : '',
     contactAuthorized: Boolean(input.contactAuthorized && clean(input.phone)),
     existingTexts: input.existingTexts && typeof input.existingTexts === 'object' ? input.existingTexts : {},
     aiCampaigns: normalizeAiCampaigns(input.aiCampaigns),
