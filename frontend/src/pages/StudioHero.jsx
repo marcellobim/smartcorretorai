@@ -12,6 +12,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  UploadCloud,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
@@ -2466,7 +2467,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[furnishingStep]}
               onEdit={() => setStep(furnishingStep)}
-              message="A imagem escolhida ja possui mobiliario?"
+              message="Sua imagem já possui mobiliário?"
             >
               <ChipGrid>
                 {FURNISHING_OPTIONS.map((option) => (
