@@ -306,6 +306,17 @@ function validateMarketingIntelligence(value: unknown) {
   }
 }
 
+function validateNarrationRevision(value: unknown) {
+  const result = asRecord(value)
+  const narration = cleanText(result.narration, 2200)
+  if (!narration) throw new Error('invalid_marketing_response')
+
+  return {
+    narration,
+    narrationHighlights: sanitizeStringList(result.narration_highlights, 5, 80),
+  }
+}
+
 async function generateMarketingIntelligence(
   apiKey: string,
   answers: JsonRecord,
@@ -332,8 +343,8 @@ async function generateMarketingIntelligence(
     contact_authorized: Boolean(phone),
     phone: phone || '',
   }
-  const maxNarrationWords = Math.max(8, Math.floor(availableSeconds * 2.35))
-  const minNarrationWords = Math.max(5, Math.min(maxNarrationWords - 2, Math.floor(availableSeconds * 1.85)))
+  const maxNarrationWords = Math.floor(availableSeconds * 2.20)
+  const minNarrationWords = Math.ceil(availableSeconds * 1.70)
 
   const systemPrompt = `Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
 Sua miss\u00e3o \u00e9 entregar uma narra\u00e7\u00e3o e tr\u00eas campanhas completas que um corretor publicaria exatamente como recebeu.
@@ -348,7 +359,8 @@ NARRA\u00c7\u00c3O — A TELA INFORMA; A NARRA\u00c7\u00c3O VENDE:
 - evite clich\u00eas sem prova: im\u00f3vel dos sonhos, localiza\u00e7\u00e3o privilegiada, oportunidade imperd\u00edvel, conforto e sofistica\u00e7\u00e3o;
 - escreva para voz brasileira: frases curtas, contra\u00e7\u00f5es naturais, ritmo oral e pequenas pausas marcadas por pontua\u00e7\u00e3o;
 - termine antes do CTA visual, com um convite natural, sem repetir mecanicamente o texto do CTA;
-- respeite rigorosamente a faixa de palavras informada.
+- o tempo util, o minimo recomendado e o maximo absoluto estao informados no JSON do usuario;
+- respeite rigorosamente essa faixa: nunca ultrapasse o maximo absoluto e nao entregue abaixo do minimo recomendado.
 
 CENTRAL DA CAMPANHA:
 - gere tr\u00eas campanhas realmente diferentes e coerentes em todos os canais;
@@ -393,6 +405,11 @@ Responda somente com JSON v\u00e1lido neste formato:
       minimum_words: minNarrationWords,
       maximum_words: maxNarrationWords,
       image_count: imageCount,
+      writing_requirements: [
+        'Use frases curtas.',
+        'Crie pausas naturais com pontuacao.',
+        'Nao ultrapasse a faixa de palavras.',
+      ],
     },
   })
 
@@ -425,12 +442,80 @@ Responda somente com JSON v\u00e1lido neste formato:
 
   try {
     const intelligence = validateMarketingIntelligence(JSON.parse(content))
-    const narrationWords = countNarrationWords(intelligence.narration)
+    let finalNarration = intelligence.narration
+    let finalNarrationHighlights = intelligence.narrationHighlights
+    let narrationWords = countNarrationWords(finalNarration)
+
     if (narrationWords < minNarrationWords || narrationWords > maxNarrationWords) {
-      throw new Error('invalid_narration_duration')
+      const revisionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENAI_MARKETING_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: `Voce e um revisor de narracao imobiliaria para voz brasileira.
+Revise uma unica vez a narracao recebida para caber rigorosamente na faixa informada.
+Preserve os fatos confirmados, o gancho e o convite natural.
+Nao adicione informacoes, nao invente fatos e nao faca corte mecanico.
+Use frases curtas, pausas naturais e ritmo comercial.
+Responda somente com JSON valido no formato:
+{"narration":"texto revisado","narration_highlights":["destaques efetivamente usados"]}`,
+            },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                confirmed_facts: facts,
+                original_narration: finalNarration,
+                original_narration_highlights: finalNarrationHighlights,
+                available_seconds: availableSeconds,
+                minimum_words: minNarrationWords,
+                maximum_words: maxNarrationWords,
+              }),
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.4,
+          max_tokens: 1200,
+        }),
+        signal: AbortSignal.timeout(OPENAI_MARKETING_TIMEOUT_MS),
+      })
+      const revisionBody = await revisionResponse.json().catch(() => null) as JsonRecord | null
+      if (!revisionResponse.ok || !revisionBody) throw new Error('marketing_generation_failed')
+
+      const revisionChoices = Array.isArray(revisionBody.choices) ? revisionBody.choices : []
+      const revisionChoice = asRecord(revisionChoices[0])
+      const revisionMessage = asRecord(revisionChoice.message)
+      const revisionContent = cleanText(revisionMessage.content, 10_000)
+      if (!revisionContent) throw new Error('marketing_generation_failed')
+
+      const revised = validateNarrationRevision(JSON.parse(revisionContent))
+      finalNarration = revised.narration
+      finalNarrationHighlights = revised.narrationHighlights
+      narrationWords = countNarrationWords(finalNarration)
+
+      if (narrationWords < minNarrationWords || narrationWords > maxNarrationWords) {
+        console.error('[smart-carousel] narration_duration_out_of_range', JSON.stringify({
+          actual_words: narrationWords,
+          minimum_words: minNarrationWords,
+          maximum_words: maxNarrationWords,
+          available_seconds: availableSeconds,
+          revision_attempts: 1,
+        }))
+        throw new Error('narration_duration_out_of_range')
+      }
     }
-    return intelligence
-  } catch {
+    return {
+      ...intelligence,
+      narration: finalNarration,
+      narrationHighlights: finalNarrationHighlights,
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'narration_duration_out_of_range') throw error
     throw new Error('marketing_generation_failed')
   }
 }
@@ -689,7 +774,6 @@ async function handleCreate(
   if (!assertOwnedJobPath(ctaPath, userId, jobId) || ctaPath.split('/').pop() !== CTA_FILES[cta]) {
     return jsonResponse({ ok: false, error: 'Chamada final inválida.' }, 400)
   }
-
   try {
     const existingNames = await listJobObjects(supabase, userId, jobId)
     const requestedNames = [...imagePaths, ctaPath].map((path) => path.split('/').pop() || '')
@@ -712,7 +796,14 @@ async function handleCreate(
       phone = normalizePhone(profile?.whatsapp || profile?.telefone || '')
     }
 
-    const presentationPlan = await buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta, openaiApiKey)
+    const presentationPlan = await buildPresentationPlan(
+      imageUrls,
+      ctaUrl,
+      answers,
+      phone,
+      cta,
+      openaiApiKey,
+    )
     const response = await fetch('https://api.creatomate.com/v2/renders', {
       method: 'POST',
       headers: {
@@ -733,7 +824,6 @@ async function handleCreate(
       await cleanupJobFiles(supabase, userId, jobId)
       return jsonResponse({ ok: false, error: 'Não foi possível iniciar sua apresentação.' }, 502)
     }
-
     const issuedAt = Math.floor(Date.now() / 1000)
     const receipt = await createReceipt(creatomateApiKey, {
       v: RECEIPT_VERSION,
@@ -743,7 +833,6 @@ async function handleCreate(
       i: issuedAt,
       e: issuedAt + RECEIPT_TTL_SECONDS,
     })
-
     return jsonResponse({
       ok: true,
       status: cleanText((render as JsonRecord).status, 32) || 'planned',
@@ -752,8 +841,11 @@ async function handleCreate(
         campaigns: presentationPlan.campaigns,
       },
     })
-  } catch {
+  } catch (error) {
     await cleanupJobFiles(supabase, userId, jobId)
+    if (error instanceof Error && error.message === 'narration_duration_out_of_range') {
+      return jsonResponse({ ok: false, error: 'narration_duration_out_of_range' }, 422)
+    }
     return jsonResponse({ ok: false, error: 'Não foi possível preparar sua apresentação.' }, 500)
   }
 }
