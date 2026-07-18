@@ -29,7 +29,7 @@ const SMART_CAROUSEL_BUCKET = 'studio-videos'
 const SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'
 const SMART_CAROUSEL_POLL_INTERVAL_MS = 4000
 const SMART_CAROUSEL_UPLOAD_TIMEOUT_MS = 2 * 60 * 1000
-const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 45 * 1000
+const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
 
 function normalizeDistrictName(value) {
@@ -412,6 +412,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const [generationError, setGenerationError] = useState('')
   const [receipt, setReceipt] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
+  const [campaignPackage, setCampaignPackage] = useState(null)
 
   const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const formatPrice = (digits) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
@@ -533,6 +534,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     setGenerationError('')
     setReceipt('')
     setVideoUrl('')
+    setCampaignPackage(null)
 
     const jobId = crypto.randomUUID()
     let uploadedPaths = []
@@ -555,7 +557,11 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
       if (!isValidSmartCarouselReceipt(data.receipt)) {
         throw new Error('Não foi possível acompanhar sua apresentação.')
       }
+      if (!Array.isArray(data?.campaign_package?.campaigns) || data.campaign_package.campaigns.length !== 3) {
+        throw new Error('Não foi possível preparar sua campanha completa.')
+      }
 
+      setCampaignPackage(data.campaign_package)
       setReceipt(data.receipt)
       setGenerationStatus('polling')
       onGenerationStageChange(3)
@@ -636,6 +642,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
             cta,
             contactAuthorized: sharePhone === 'yes',
             phone: sharePhone === 'yes' ? profilePhone : '',
+            aiCampaigns: campaignPackage?.campaigns || [],
           }}
         />
       )}

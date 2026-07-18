@@ -111,6 +111,40 @@ const normalizeExistingTextItems = (existingTexts) => {
     .filter((item) => item.text)
 }
 
+const normalizeAiCampaigns = (campaigns) => (Array.isArray(campaigns) ? campaigns : [])
+  .slice(0, 3)
+  .map((campaign, index) => ({
+    id: clean(campaign?.id) || `campaign-${index + 1}`,
+    style: clean(campaign?.style),
+    name: clean(campaign?.name),
+    objective: clean(campaign?.objective),
+    instagram: clean(campaign?.instagram),
+    whatsapp: clean(campaign?.whatsapp),
+    facebook: clean(campaign?.facebook),
+    emailSubject: clean(campaign?.email?.subject),
+    emailBody: clean(campaign?.email?.body),
+    linkedin: clean(campaign?.linkedin),
+    hashtags: Array.isArray(campaign?.hashtags) ? compact(campaign.hashtags).join(' ') : clean(campaign?.hashtags),
+    cta: clean(campaign?.cta),
+  }))
+  .filter((campaign) => campaign.name && campaign.instagram && campaign.whatsapp && campaign.facebook)
+
+const buildAiCampaignModules = (campaigns) => campaigns.map((campaign, index) => ({
+  id: campaign.id,
+  title: `Campanha ${index + 1} · ${campaign.name}`,
+  fields: [
+    campaign.objective && { id: `${campaign.id}-objective`, label: 'Estratégia', text: campaign.objective, copyLabel: 'Copiar estratégia' },
+    campaign.instagram && { id: `${campaign.id}-instagram`, label: 'Instagram', text: campaign.instagram, copyLabel: 'Copiar texto' },
+    campaign.whatsapp && { id: `${campaign.id}-whatsapp`, label: 'WhatsApp', text: campaign.whatsapp, copyLabel: 'Copiar mensagem' },
+    campaign.facebook && { id: `${campaign.id}-facebook`, label: 'Facebook', text: campaign.facebook, copyLabel: 'Copiar texto' },
+    campaign.emailSubject && { id: `${campaign.id}-email-subject`, label: 'Assunto do e-mail', text: campaign.emailSubject, copyLabel: 'Copiar assunto' },
+    campaign.emailBody && { id: `${campaign.id}-email-body`, label: 'E-mail', text: campaign.emailBody, copyLabel: 'Copiar mensagem' },
+    campaign.linkedin && { id: `${campaign.id}-linkedin`, label: 'LinkedIn', text: campaign.linkedin, copyLabel: 'Copiar texto' },
+    campaign.hashtags && { id: `${campaign.id}-hashtags`, label: 'Hashtags inteligentes', text: campaign.hashtags, copyLabel: 'Copiar hashtags' },
+    campaign.cta && { id: `${campaign.id}-cta`, label: 'CTA', text: campaign.cta, copyLabel: 'Copiar CTA' },
+  ].filter(Boolean),
+}))
+
 const existingFields = (items, expression, copyLabel) => items
   .filter((item) => expression.test(item.label))
   .map((item) => ({
@@ -157,11 +191,30 @@ export function normalizeCampaignPackageInput(input = {}) {
     phone: input.contactAuthorized ? clean(input.phone) : '',
     contactAuthorized: Boolean(input.contactAuthorized && clean(input.phone)),
     existingTexts: input.existingTexts && typeof input.existingTexts === 'object' ? input.existingTexts : {},
+    aiCampaigns: normalizeAiCampaigns(input.aiCampaigns),
   }
 }
 
 export function buildCampaignPackage(input = {}) {
   const campaign = normalizeCampaignPackageInput(input)
+  const aiCampaignModules = campaign.aiCampaigns.length === 3
+    ? buildAiCampaignModules(campaign.aiCampaigns)
+    : []
+  if (aiCampaignModules.length) {
+    return {
+      ...campaign,
+      modules: aiCampaignModules,
+      contact: [
+        campaign.cta && { id: 'cta', label: 'CTA utilizado', value: campaign.cta, copyLabel: 'Copiar CTA' },
+        campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
+      ].filter(Boolean),
+      strategy: [
+        '💡 Dica SmartCorretorAI — Sua campanha está pronta! Agora é o momento de colocá-la em ação. Baixe seus materiais para mantê-los sempre disponíveis e publique o quanto antes. Depois, aproveite este mesmo imóvel para criar novos vídeos, banners e campanhas com os outros produtos do SmartCorretorAI. Assim, você mantém suas redes sempre atualizadas com conteúdos variados e aumenta suas oportunidades de alcançar novos clientes.',
+        '🚀 Continue gerando resultados — Quem publica com frequência permanece em evidência. Aproveite que todas as informações deste imóvel já estão organizadas e crie novas versões da campanha em diferentes formatos. Em poucos minutos você terá conteúdo suficiente para vários dias de divulgação, economizando tempo e fortalecendo sua presença nas redes sociais.',
+        'Lembre-se: quanto mais conteúdos de qualidade você publicar, maiores serão suas oportunidades de gerar novos contatos e negócios.',
+      ],
+    }
+  }
   const existingItems = normalizeExistingTextItems(campaign.existingTexts)
   const existingSocial = existingFields(existingItems, /instagram|facebook/i, 'Copiar texto')
   const existingWhatsapp = existingFields(existingItems, /whatsapp/i, 'Copiar mensagem')
@@ -236,7 +289,7 @@ export function buildCampaignPackage(input = {}) {
     contactLine,
   ]).join('\n\n')
 
-  const modules = [
+  const fallbackModules = [
     existingSocial.length
       ? { id: 'social', title: 'Instagram e Facebook', fields: existingSocial }
       : hasCampaignContext && instagram && { id: 'instagram', title: 'Instagram', copyLabel: 'Copiar texto', text: instagram },
@@ -267,6 +320,7 @@ export function buildCampaignPackage(input = {}) {
       ? { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: existingHashtags.text }
       : hashtags && { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: hashtags },
   ].filter(Boolean)
+  const modules = fallbackModules
 
   return {
     ...campaign,

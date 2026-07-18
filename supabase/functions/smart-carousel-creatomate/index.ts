@@ -16,6 +16,8 @@ const RECEIPT_TTL_SECONDS = 6 * 60 * 60
 const SCENE_DURATION_SECONDS = 3.5
 const NARRATION_CTA_GAP_SECONDS = 1.5
 const OPENAI_TTS_MODEL = 'tts-1'
+const OPENAI_MARKETING_MODEL = 'gpt-4.1'
+const OPENAI_MARKETING_TIMEOUT_MS = 55_000
 const RECEIPT_VERSION = 1
 const RECEIPT_CONTEXT = 'smart-carousel-creatomate:receipt:v1'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -230,53 +232,6 @@ function buildCaptions(answers: JsonRecord) {
   return captions.filter(Boolean).slice(0, 5)
 }
 
-function joinNarrationItems(items: string[]) {
-  if (items.length < 2) return items[0] || ''
-  if (items.length === 2) return `${items[0]} e ${items[1]}`
-  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
-}
-
-const NARRATION_HIGHLIGHT_PRIORITY = [
-  'Varanda gourmet', 'Próximo ao metrô', 'Lazer completo', 'Acabamento premium', 'Vista panorâmica',
-  'Bairro valorizado', 'Planta inteligente', 'Ambientes integrados', 'Iluminação natural', 'Portaria 24h',
-  'Segurança 24h', 'Piscina', 'Academia', 'Espaço gourmet', 'Alto potencial de valorização',
-]
-
-function getHighlightTheme(value: string) {
-  const normalized = value.toLocaleLowerCase('pt-BR')
-  if (/próximo|acesso|bairro|região|vista livre/.test(normalized)) return 'location'
-  if (/piscina|academia|lazer|salão|gourmet|churrasqueira|coworking|playground|quadra|rooftop|spa|sauna|wellness/.test(normalized)) return 'leisure'
-  if (/varanda|suíte|closet|planta|ambientes|cozinha|acabamento|iluminação|vista panorâmica/.test(normalized)) return 'property'
-  if (/financiamento|fgts|entrada|subsídio|documentação|unidades|condições|valorização/.test(normalized)) return 'commercial'
-  return 'services'
-}
-
-function selectNarrationHighlights(highlights: string[]) {
-  const targetCount = Math.min(5, Math.max(3, Math.ceil(highlights.length / 2)), highlights.length)
-  const ranked = highlights
-    .map((value, originalIndex) => {
-      const priorityIndex = NARRATION_HIGHLIGHT_PRIORITY.indexOf(value)
-      return { value, originalIndex, priorityIndex: priorityIndex === -1 ? NARRATION_HIGHLIGHT_PRIORITY.length : priorityIndex }
-    })
-    .sort((left, right) => left.priorityIndex - right.priorityIndex || left.originalIndex - right.originalIndex)
-
-  const selected: string[] = []
-  const usedThemes = new Set<string>()
-  for (const item of ranked) {
-    const theme = getHighlightTheme(item.value)
-    if (!usedThemes.has(theme)) {
-      selected.push(item.value)
-      usedThemes.add(theme)
-    }
-    if (selected.length === targetCount) return selected
-  }
-  for (const item of ranked) {
-    if (!selected.includes(item.value)) selected.push(item.value)
-    if (selected.length === targetCount) break
-  }
-  return selected
-}
-
 function selectNarrationVoice(imageCount: number, highlightCount: number) {
   const useFemaleVoice = (imageCount + highlightCount) % 2 === 0
   const id = useFemaleVoice ? 'nova' : 'onyx'
@@ -288,93 +243,195 @@ function selectNarrationVoice(imageCount: number, highlightCount: number) {
   }
 }
 
-function stableVariantIndex(seed: string, variantCount: number) {
-  const hash = Array.from(seed).reduce((total, character) => (total * 31 + character.codePointAt(0)!) >>> 0, 0)
-  return variantCount ? hash % variantCount : 0
-}
-
 function countNarrationWords(value: string) {
   return value.trim().split(/\s+/).filter(Boolean).length
 }
 
-function buildNarrationPlan(answers: JsonRecord, cta: string, imageCount: number, availableSeconds: number) {
-  const purpose = cleanText(answers.purpose, 20)
-  const propertyStage = cleanText(answers.property_stage, 40)
-  const propertyType = cleanText(answers.property_type, 40)
-  const priceLabel = cleanText(answers.price_label, 50)
-  const district = normalizeDistrictName(answers.district)
-  const city = cleanText(answers.city, 60)
-  const uf = cleanText(answers.uf, 2)
-  const highlights = (Array.isArray(answers.highlights) ? answers.highlights : [])
-    .slice(0, MAX_HIGHLIGHTS)
-    .map((item) => cleanText(item, 60))
+function sanitizeStringList(value: unknown, maxItems: number, maxLength: number) {
+  return (Array.isArray(value) ? value : [])
+    .slice(0, maxItems)
+    .map((item) => cleanText(item, maxLength))
     .filter(Boolean)
-  const narrationHighlights = selectNarrationHighlights(highlights)
-  const ctaLabel = cleanText(cta, 80)
-  const voice = selectNarrationVoice(imageCount, highlights.length)
+}
 
-  const propertyTypeLower = propertyType.toLocaleLowerCase('pt-BR')
-  const feminineProperty = /^(casa|cobertura)$/.test(propertyTypeLower)
-  const subject = propertyType ? `${feminineProperty ? 'esta' : 'este'} ${propertyTypeLower}` : 'este imóvel'
-  const purposeLabel = purpose === 'rent' ? 'para locação' : purpose === 'sale' ? 'à venda' : ''
-  const location = [district ? `em ${district}` : '', city ? `na cidade de ${city}` : ''].filter(Boolean).join(', ')
-  const spokenHighlights = narrationHighlights.map((item) => item.toLocaleLowerCase('pt-BR'))
-  const ctaNarration: Record<string, string> = {
-    'Saiba Mais': 'Vale a pena conhecer de perto. Saiba mais.',
-    'Agende sua visita': 'Venha conhecer todos os detalhes. Agende sua visita.',
-    'Entre em contato agora': 'Descubra se este é o imóvel ideal para você. Entre em contato agora.',
-    'Aguardo seu contato': 'Conheça melhor esta oportunidade. Aguardo seu contato.',
+function sanitizeCampaign(value: unknown, index: number) {
+  const campaign = asRecord(value)
+  const email = asRecord(campaign.email)
+  const expectedStyles = ['emocional', 'comercial', 'curiosidade']
+  const style = expectedStyles[index] || cleanText(campaign.style, 30)
+  return {
+    id: `campaign-${index + 1}`,
+    style,
+    name: cleanText(campaign.name, 80),
+    objective: cleanText(campaign.objective, 220),
+    instagram: cleanText(campaign.instagram, 2400),
+    whatsapp: cleanText(campaign.whatsapp, 1200),
+    facebook: cleanText(campaign.facebook, 2400),
+    email: {
+      subject: cleanText(email.subject, 180),
+      body: cleanText(email.body, 3000),
+    },
+    linkedin: cleanText(campaign.linkedin, 2400),
+    hashtags: sanitizeStringList(campaign.hashtags, 12, 80),
+    cta: cleanText(campaign.cta, 220),
   }
+}
 
-  const openingSeed = [propertyType, propertyStage, district, city, highlights.join('|')].join('|')
-  const openings = [
-    `Conheça ${subject}${location ? ` ${location}` : ''}${purposeLabel ? `, ${purposeLabel}` : ''}.`,
-    `Descubra uma nova forma de viver com ${subject}${location ? ` ${location}` : ''}.`,
-    `Apresentamos ${subject}${location ? ` ${location}` : ''}, uma oportunidade que merece sua atenção.`,
-    `Uma excelente oportunidade espera por você${location ? ` ${location}` : ''}.`,
-    `Se você procura um imóvel especial${location ? ` ${location}` : ''}, vale a pena conhecer esta opção.`,
-    `Vale a pena conhecer ${subject}${location ? ` ${location}` : ''}, pensado para uma experiência diferenciada.`,
-  ]
-  const segments: string[] = [openings[stableVariantIndex(openingSeed, openings.length)]]
-  if (propertyStage) segments.push(`${propertyStage} e pronto para despertar novas possibilidades.`)
-  if (spokenHighlights.length) segments.push(`A experiência ganha ainda mais valor com ${joinNarrationItems(spokenHighlights)}.`)
+function validateMarketingIntelligence(value: unknown) {
+  const result = asRecord(value)
+  const narration = cleanText(result.narration, 2200)
+  const campaigns = (Array.isArray(result.campaigns) ? result.campaigns : [])
+    .slice(0, 3)
+    .map(sanitizeCampaign)
 
-  const targetWords = Math.max(24, Math.round(availableSeconds * 2.45))
-  const supportingSegments = [
-    'Uma combinação de atributos que torna cada momento mais agradável e cheio de possibilidades.',
-    'Tudo foi reunido para criar uma experiência marcante, acolhedora e alinhada ao seu estilo de vida.',
-    'É uma oportunidade para transformar planos em uma nova história e viver momentos especiais.',
-  ]
-  for (const supportingSegment of supportingSegments) {
-    const closing = ctaNarration[ctaLabel] || 'Venha conhecer este imóvel.'
-    if (countNarrationWords([...segments, closing].join(' ')) >= targetWords - 4) break
-    segments.push(supportingSegment)
+  if (!narration || campaigns.length !== 3) throw new Error('invalid_marketing_response')
+  for (const campaign of campaigns) {
+    if (
+      !campaign.name
+      || !campaign.objective
+      || !campaign.instagram
+      || !campaign.whatsapp
+      || !campaign.facebook
+      || !campaign.email.subject
+      || !campaign.email.body
+      || !campaign.hashtags.includes('#SmartCorretorAI')
+      || !campaign.cta
+    ) throw new Error('invalid_marketing_response')
   }
-  segments.push(ctaNarration[ctaLabel] || 'Venha conhecer este imóvel.')
 
   return {
-    source: 'broker_answers',
-    facts: {
-      purpose,
-      property_stage: propertyStage,
-      property_type: propertyType,
-      price_label: priceLabel,
-      district,
-      city,
-      uf,
-      highlights,
-      narration_highlights: narrationHighlights,
-      cta: ctaLabel,
-    },
-    segments,
-    text: segments.join(' '),
-    timing: {
+    narration,
+    narrationHighlights: sanitizeStringList(result.narration_highlights, 5, 80),
+    campaigns,
+  }
+}
+
+async function generateMarketingIntelligence(
+  apiKey: string,
+  answers: JsonRecord,
+  cta: string,
+  phone: string,
+  imageCount: number,
+  availableSeconds: number,
+) {
+  const facts = {
+    purpose: cleanText(answers.purpose, 20),
+    property_stage: cleanText(answers.property_stage, 40),
+    property_type: cleanText(answers.property_type, 40),
+    bedrooms: cleanText(answers.bedrooms, 8),
+    suites: cleanText(answers.suites, 8),
+    parking_spaces: cleanText(answers.parking_spaces, 8),
+    area: cleanText(answers.area, 10),
+    district: normalizeDistrictName(answers.district),
+    city: cleanText(answers.city, 60),
+    uf: cleanText(answers.uf, 2),
+    property_stage_label: cleanText(answers.property_stage, 40),
+    price_label: cleanText(answers.price_label, 50),
+    highlights: sanitizeStringList(answers.highlights, MAX_HIGHLIGHTS, 80),
+    cta: cleanText(cta, 80),
+    contact_authorized: Boolean(phone),
+    phone: phone || '',
+  }
+  const maxNarrationWords = Math.max(8, Math.floor(availableSeconds * 2.35))
+  const minNarrationWords = Math.max(5, Math.min(maxNarrationWords - 2, Math.floor(availableSeconds * 1.85)))
+
+  const systemPrompt = `Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
+Sua miss\u00e3o \u00e9 entregar uma narra\u00e7\u00e3o e tr\u00eas campanhas completas que um corretor publicaria exatamente como recebeu.
+
+REGRA ABSOLUTA: use somente os fatos confirmados no JSON do usu\u00e1rio. Nunca invente localiza\u00e7\u00e3o, proximidade, vista, acabamento, seguran\u00e7a, valoriza\u00e7\u00e3o, lazer, financiamento, perfil familiar, investimento ou qualquer caracter\u00edstica ausente.
+
+NARRA\u00c7\u00c3O — A TELA INFORMA; A NARRA\u00c7\u00c3O VENDE:
+- crie gancho, interesse, benef\u00edcio sustentado, desejo e convite;
+- n\u00e3o leia a ficha t\u00e9cnica nem narre pre\u00e7o, metragem, dormit\u00f3rios, su\u00edtes ou vagas;
+- selecione de 3 a 5 destaques quando existirem; com menos, use apenas os dispon\u00edveis; sem destaques, venda adequa\u00e7\u00e3o, clareza ou possibilidade sem fingir excepcionalidade;
+- n\u00e3o descreva as fotografias;
+- evite clich\u00eas sem prova: im\u00f3vel dos sonhos, localiza\u00e7\u00e3o privilegiada, oportunidade imperd\u00edvel, conforto e sofistica\u00e7\u00e3o;
+- escreva para voz brasileira: frases curtas, contra\u00e7\u00f5es naturais, ritmo oral e pequenas pausas marcadas por pontua\u00e7\u00e3o;
+- termine antes do CTA visual, com um convite natural, sem repetir mecanicamente o texto do CTA;
+- respeite rigorosamente a faixa de palavras informada.
+
+CENTRAL DA CAMPANHA:
+- gere tr\u00eas campanhas realmente diferentes e coerentes em todos os canais;
+- Campanha 1 emocional: convence por identifica\u00e7\u00e3o, momento ou mudan\u00e7a;
+- Campanha 2 comercial: convence por clareza, compara\u00e7\u00e3o e decis\u00e3o;
+- Campanha 3 curiosidade: convence por perguntas e descoberta;
+- cada campanha precisa ter personalidade pr\u00f3pria, n\u00e3o apenas outra abertura;
+- WhatsApp deve soar como conversa espont\u00e2nea entre pessoas. N\u00e3o use \"Tenho um im\u00f3vel para apresentar\", \"Deseja conhecer?\" ou \"Solicite informa\u00e7\u00f5es\";
+- e-mail deve criar relacionamento: humano, pr\u00f3ximo e profissional, nunca um comunicado;
+- adapte Instagram, Facebook, WhatsApp e e-mail ao comportamento de cada canal;
+- LinkedIn deve ser vazio quando n\u00e3o houver contexto profissional, comercial, institucional ou de investimento confirmado;
+- n\u00e3o inclua telefone sem contact_authorized=true;
+- hashtags devem ser grupos inteligentes de descoberta: marca, localiza\u00e7\u00e3o, estilo de vida sustentado, nicho e inten\u00e7\u00e3o compat\u00edvel. Nunca apenas converta campos. Evite listas \u00f3bvias e repetitivas. Inclua sempre #SmartCorretorAI;
+- CTAs devem variar conforme a estrat\u00e9gia e soar humanos;
+- revise silenciosamente cada sa\u00edda com a pergunta: \"Eu publicaria exatamente assim?\". Se n\u00e3o, reescreva antes de responder.
+
+Responda somente com JSON v\u00e1lido neste formato:
+{
+  \"narration\": \"texto final pronto para voz\",
+  \"narration_highlights\": [\"destaques efetivamente usados\"],
+  \"campaigns\": [
+    {
+      \"style\": \"emocional|comercial|curiosidade\",
+      \"name\": \"nome memor\u00e1vel\",
+      \"objective\": \"forma espec\u00edfica de convencer\",
+      \"instagram\": \"texto pronto\",
+      \"whatsapp\": \"mensagem pronta\",
+      \"facebook\": \"texto pronto\",
+      \"email\": { \"subject\": \"assunto\", \"body\": \"mensagem\" },
+      \"linkedin\": \"texto pronto ou string vazia\",
+      \"hashtags\": [\"#SmartCorretorAI\", \"outras hashtags\"],
+      \"cta\": \"CTA da estrat\u00e9gia\"
+    }
+  ]
+}`
+
+  const userPrompt = JSON.stringify({
+    confirmed_facts: facts,
+    visual_information: ['localiza\u00e7\u00e3o', 'estado do im\u00f3vel', 'composi\u00e7\u00e3o', 'area', 'pre\u00e7o quando informado'],
+    narration: {
       available_seconds: availableSeconds,
-      target_gap_seconds: NARRATION_CTA_GAP_SECONDS,
-      estimated_words: countNarrationWords(segments.join(' ')),
-      estimated_seconds: Number((countNarrationWords(segments.join(' ')) / 2.45).toFixed(2)),
+      minimum_words: minNarrationWords,
+      maximum_words: maxNarrationWords,
+      image_count: imageCount,
     },
-    voice,
+  })
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: OPENAI_MARKETING_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.8,
+      max_tokens: 6500,
+    }),
+    signal: AbortSignal.timeout(OPENAI_MARKETING_TIMEOUT_MS),
+  })
+  const responseBody = await response.json().catch(() => null) as JsonRecord | null
+  if (!response.ok || !responseBody) throw new Error('marketing_generation_failed')
+
+  const choices = Array.isArray(responseBody.choices) ? responseBody.choices : []
+  const firstChoice = asRecord(choices[0])
+  const message = asRecord(firstChoice.message)
+  const content = cleanText(message.content, 40_000)
+  if (!content) throw new Error('marketing_generation_failed')
+
+  try {
+    const intelligence = validateMarketingIntelligence(JSON.parse(content))
+    const narrationWords = countNarrationWords(intelligence.narration)
+    if (narrationWords < minNarrationWords || narrationWords > maxNarrationWords) {
+      throw new Error('invalid_narration_duration')
+    }
+    return intelligence
+  } catch {
+    throw new Error('marketing_generation_failed')
   }
 }
 
@@ -566,14 +623,41 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   }
 }
 
-function buildPresentationPlan(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, cta: string) {
+async function buildPresentationPlan(
+  imageUrls: string[],
+  ctaUrl: string,
+  answers: JsonRecord,
+  phone: string,
+  cta: string,
+  openaiApiKey: string,
+) {
   const transitionDuration = 0.45
   const photoSequenceDuration = imageUrls.length * SCENE_DURATION_SECONDS
     - Math.max(0, imageUrls.length - 1) * transitionDuration
-  const narration = buildNarrationPlan(answers, cta, imageUrls.length, Math.max(1, photoSequenceDuration - NARRATION_CTA_GAP_SECONDS))
+  const availableSeconds = Math.max(1, photoSequenceDuration - NARRATION_CTA_GAP_SECONDS)
+  const intelligence = await generateMarketingIntelligence(
+    openaiApiKey,
+    answers,
+    cta,
+    phone,
+    imageUrls.length,
+    availableSeconds,
+  )
+  const voice = selectNarrationVoice(imageUrls.length, intelligence.narrationHighlights.length)
   return {
-    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, narration.text, narration.voice.provider),
-    narration,
+    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, intelligence.narration, voice.provider),
+    narration: {
+      source: 'openai_marketing_director',
+      text: intelligence.narration,
+      highlights: intelligence.narrationHighlights,
+      timing: {
+        available_seconds: availableSeconds,
+        target_gap_seconds: NARRATION_CTA_GAP_SECONDS,
+        words: countNarrationWords(intelligence.narration),
+      },
+      voice,
+    },
+    campaigns: intelligence.campaigns,
   }
 }
 
@@ -582,6 +666,7 @@ async function handleCreate(
   userId: string,
   supabase: ReturnType<typeof createClient>,
   creatomateApiKey: string,
+  openaiApiKey: string,
 ) {
   const jobId = cleanText(body.job_id, 64)
   const imagePaths = Array.isArray(body.image_paths) ? body.image_paths : []
@@ -627,7 +712,7 @@ async function handleCreate(
       phone = normalizePhone(profile?.whatsapp || profile?.telefone || '')
     }
 
-    const presentationPlan = buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta)
+    const presentationPlan = await buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta, openaiApiKey)
     const response = await fetch('https://api.creatomate.com/v2/renders', {
       method: 'POST',
       headers: {
@@ -663,6 +748,9 @@ async function handleCreate(
       ok: true,
       status: cleanText((render as JsonRecord).status, 32) || 'planned',
       receipt,
+      campaign_package: {
+        campaigns: presentationPlan.campaigns,
+      },
     })
   } catch {
     await cleanupJobFiles(supabase, userId, jobId)
@@ -726,7 +814,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const creatomateApiKey = Deno.env.get('CREATOMATE_API_KEY')
-    if (!supabaseUrl || !serviceRoleKey || !creatomateApiKey) {
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!supabaseUrl || !serviceRoleKey || !creatomateApiKey || !openaiApiKey) {
       return jsonResponse({ ok: false, error: 'Serviço temporariamente indisponível.' }, 503)
     }
 
@@ -742,7 +831,7 @@ serve(async (req) => {
 
     const body = asRecord(await req.json().catch(() => ({})))
     const action = cleanText(body.action, 20)
-    if (action === 'create') return handleCreate(body, user.id, supabase, creatomateApiKey)
+    if (action === 'create') return handleCreate(body, user.id, supabase, creatomateApiKey, openaiApiKey)
     if (action === 'status') return handleStatus(body, user.id, supabase, creatomateApiKey)
     return jsonResponse({ ok: false, error: 'Ação inválida.' }, 400)
   } catch {
