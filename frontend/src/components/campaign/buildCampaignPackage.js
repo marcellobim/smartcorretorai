@@ -167,12 +167,24 @@ export function buildCampaignPackage(input = {}) {
   const existingWhatsapp = existingFields(existingItems, /whatsapp/i, 'Copiar mensagem')
   const existingPortal = existingFields(existingItems, /portal/i, 'Copiar descrição')
   const existingHashtags = existingItems.find((item) => /hashtag/i.test(item.label))
+  const existingLinkedin = existingFields(existingItems, /linkedin/i, 'Copiar texto')
+  const existingEmail = existingFields(existingItems, /e-?mail|assunto/i, 'Copiar')
   const location = locationText(campaign)
   const purpose = purposeText(campaign.purpose)
   const subject = compact([campaign.propertyType, purpose, location ? `em ${location}` : '']).join(' ')
   const facts = factsText(campaign)
   const highlights = joinNatural(campaign.highlights)
   const hasCampaignContext = Boolean(subject || campaign.description || highlights || campaign.cta)
+  const contextText = compact([
+    campaign.purpose,
+    campaign.propertyStage,
+    campaign.propertyType,
+    campaign.description,
+    ...campaign.highlights,
+  ]).join(' ').toLocaleLowerCase('pt-BR')
+  const hasPropertyContext = Boolean(purpose || campaign.propertyType)
+  const hasInstitutionalContext = /(institucional|empresa|empresarial|marca|posicionamento|profissional)/.test(contextText)
+  const hasProfessionalContext = isLinkedInApplicable(campaign) || hasInstitutionalContext
   const contactLine = campaign.contactAuthorized ? `Contato: ${campaign.phone}` : ''
   const ctaLine = compact([campaign.cta, contactLine]).join(' · ')
   const opening = subject ? sentence(subject) : ''
@@ -210,7 +222,11 @@ export function buildCampaignPackage(input = {}) {
     hashtags,
   ]).join('\n\n')
 
-  const emailSubject = subject ? sentence(subject).replace(/[.]$/, '') : ''
+  const emailSubject = subject
+    ? sentence(subject).replace(/[.]$/, '')
+    : campaign.description
+      ? sentence(campaign.description).replace(/[.]$/, '')
+      : ''
   const emailBody = compact([
     'Olá,',
     opening,
@@ -227,15 +243,19 @@ export function buildCampaignPackage(input = {}) {
     !existingSocial.length && hasCampaignContext && facebook && { id: 'facebook', title: 'Facebook', copyLabel: 'Copiar texto', text: facebook },
     existingWhatsapp.length
       ? { id: 'whatsapp', title: 'WhatsApp', fields: existingWhatsapp }
-      : hasCampaignContext && whatsapp && { id: 'whatsapp', title: 'WhatsApp', copyLabel: 'Copiar mensagem', text: whatsapp },
+      : (hasPropertyContext || campaign.cta) && whatsapp && { id: 'whatsapp', title: 'WhatsApp', copyLabel: 'Copiar mensagem', text: whatsapp },
     existingPortal.length && { id: 'portal', title: 'Portal imobiliário', fields: existingPortal },
-    isLinkedInApplicable(campaign) && facebook && {
+    existingLinkedin.length
+      ? { id: 'linkedin', title: 'LinkedIn', fields: existingLinkedin }
+      : hasProfessionalContext && facebook && {
       id: 'linkedin',
       title: 'LinkedIn',
       copyLabel: 'Copiar texto',
       text: compact([opening, campaign.description ? sentence(campaign.description) : '', ...detailLines, ctaLine]).join('\n\n'),
     },
-    emailSubject && emailBody && {
+    existingEmail.length
+      ? { id: 'email', title: 'E-mail', fields: existingEmail }
+      : (hasPropertyContext || hasProfessionalContext) && emailSubject && emailBody && {
       id: 'email',
       title: 'E-mail',
       fields: [
@@ -255,12 +275,16 @@ export function buildCampaignPackage(input = {}) {
       campaign.cta && { id: 'cta', label: 'CTA utilizado', value: campaign.cta, copyLabel: 'Copiar CTA' },
       campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
     ].filter(Boolean),
-    strategy: [
-      campaign.mediaType === 'images' ? 'Publique as artes no Instagram.' : 'Publique o vídeo no Instagram.',
-      'Reaproveite a publicação no Facebook.',
-      'Envie a mensagem pronta pelo WhatsApp.',
-      ...(isLinkedInApplicable(campaign) ? ['Use o LinkedIn para ampliar o alcance profissional.'] : []),
-      'Responda rapidamente aos contatos interessados.',
-    ],
+    strategy: (() => {
+      const moduleIds = new Set(modules.map((module) => module.id))
+      const hasSocial = moduleIds.has('social') || moduleIds.has('instagram') || moduleIds.has('facebook')
+      return [
+        campaign.mediaType === 'images' ? 'Publique as artes no canal mais adequado.' : 'Publique o vídeo no canal mais adequado.',
+        ...(hasSocial ? ['Reaproveite o conteúdo nas redes sociais compatíveis.'] : []),
+        ...(moduleIds.has('whatsapp') ? ['Envie a mensagem pronta pelo WhatsApp.'] : []),
+        ...(moduleIds.has('linkedin') ? ['Use o LinkedIn para ampliar o alcance profissional.'] : []),
+        ...(campaign.cta ? ['Responda rapidamente aos contatos interessados.'] : []),
+      ]
+    })(),
   }
 }

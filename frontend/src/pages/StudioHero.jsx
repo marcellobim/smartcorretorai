@@ -3350,6 +3350,36 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
     )
   }
 
+  if (answers?.creativeMode === 'free_ai') {
+    return (
+      <CampaignPackage
+        data={{
+          sourceProduct: 'IA Livre',
+          mediaType: 'video',
+          previewUrl: videoUrl,
+          downloadUrl: videoUrl,
+          downloadName: 'studio-hero-ia-livre.mp4',
+          purpose: answers.objective,
+          propertyStage: answers.stage,
+          propertyType: getStudioCopyPropertyType(answers),
+          district: districtValue,
+          city: cityValue,
+          state: answers.uf,
+          bedrooms: answers.bedrooms,
+          suites: answers.suites,
+          parkingSpaces: answers.parking,
+          area: answers.area,
+          highlights: getStudioCopyFeatures(answers),
+          cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
+          contactAuthorized: false,
+          existingTexts: deliveryTexts,
+        }}
+        onCreateNew={onReset}
+        createNewLabel="Criar nova versão"
+      />
+    )
+  }
+
   return (
     <section className={`rounded-3xl border border-cyan-100 bg-white shadow-xl shadow-cyan-100/40 ${compact ? 'p-4' : 'p-5'}`}>
       <div className="flex items-start justify-between gap-4">
