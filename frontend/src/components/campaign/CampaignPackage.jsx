@@ -3,19 +3,22 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Clipboard,
   Copy,
   Download,
-  Mail,
-  Megaphone,
   PlayCircle,
   Share2,
 } from 'lucide-react'
 import { buildCampaignPackage } from './buildCampaignPackage'
 
 const sectionIcons = {
-  email: Mail,
-  hashtags: Megaphone,
+  instagram: '📷',
+  social: '📷',
+  whatsapp: '📱',
+  facebook: '📘',
+  email: '✉️',
+  linkedin: '💼',
+  hashtags: '🏷️',
+  portal: '🏠',
 }
 
 function CopyButton({ value, label = 'Copiar', copyKey, copiedKey, onCopy }) {
@@ -104,12 +107,6 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     window.setTimeout(() => setCopiedKey((current) => current === key ? '' : current), 1800)
   }
 
-  const copyAllText = campaign.modules
-    .flatMap((module) => module.fields || [{ label: module.title, text: module.text }])
-    .filter((item) => item.text)
-    .map((item) => `${item.label || 'Texto'}\n${item.text}`)
-    .join('\n\n────────────────────\n\n')
-
   return (
     <section className={`space-y-5 ${className}`} aria-labelledby="campaign-package-title">
       <header className="overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_55%,#f0fdfa_100%)] p-5 shadow-sm sm:p-7">
@@ -127,25 +124,22 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
 
       {!preserveExistingContent && campaign.modules.length > 0 && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-copy-title">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Textos para divulgação</p>
-              <h3 id="campaign-copy-title" className="mt-1 text-lg font-black text-slate-950">Prontos para copiar e publicar</h3>
-            </div>
-            {copyAllText && <CopyButton value={copyAllText} label="Copiar tudo" copyKey="all" copiedKey={copiedKey} onCopy={copy} />}
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Textos para divulgação</p>
+            <h3 id="campaign-copy-title" className="mt-1 text-lg font-black text-slate-950">Escolha o canal e publique</h3>
           </div>
           <div className="mt-5 space-y-3">
             {campaign.modules.map((module, index) => {
-              const Icon = sectionIcons[module.id] || Clipboard
+              const icon = sectionIcons[module.id] || '📄'
               return (
                 <details key={module.id} open={index === 0} className="group rounded-2xl border border-slate-200 bg-slate-50/70 open:bg-white">
                   <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 focus:outline-none focus:ring-4 focus:ring-inset focus:ring-emerald-100">
-                    <span className="flex items-center gap-3 text-sm font-black text-slate-900"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Icon className="h-4 w-4" /></span>{module.title}</span>
+                    <span className="flex items-center gap-3 text-sm font-black text-slate-900"><span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-lg">{icon}</span>{module.title}</span>
                     <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
                   </summary>
                   <div className="border-t border-slate-100 p-4">
                     {module.fields ? (
-                      <div className="space-y-4">{module.fields.map((field) => <div key={field.id}><p className="text-xs font-black uppercase tracking-wide text-slate-400">{field.label}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-3"><CopyButton value={field.text} label={field.copyLabel} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
+                      <div className="space-y-4">{module.fields.map((field) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{field.label}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4"><CopyButton value={field.text} label={field.copyLabel} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
                     ) : (
                       <><p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{module.text}</p><div className="mt-4"><CopyButton value={module.text} label={module.copyLabel} copyKey={module.id} copiedKey={copiedKey} onCopy={copy} /></div></>
                     )}
@@ -166,7 +160,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       )}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-strategy-title">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Estratégia de publicação</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Dicas para divulgar</p>
         <h3 id="campaign-strategy-title" className="mt-1 text-lg font-black text-slate-950">Próximos passos</h3>
         <ol className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.strategy.map((item, index) => <li key={item} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">{index + 1}</span>{item}</li>)}</ol>
       </section>

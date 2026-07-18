@@ -44,31 +44,30 @@ const factsText = ({ bedrooms, suites, parkingSpaces, area }) => {
   ])
 }
 
-const hashtagToken = (value) => clean(value)
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-zA-Z0-9]+/g, ' ')
-  .trim()
-  .split(' ')
-  .filter(Boolean)
-  .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
-  .join('')
+const HASHTAG_PATTERN = /#[\p{L}\p{N}_]+/gu
+const REJECTED_DISCOVERY_HASHTAGS = new Set(['#fgts', '#vidasegura', '#novoscapitulos'])
 
-const buildHashtags = (campaign) => {
-  const source = [
-    campaign.purpose === 'sale' ? 'Imóvel à venda' : campaign.purpose === 'rent' ? 'Imóvel para locação' : '',
-    campaign.propertyType,
-    campaign.district,
-    campaign.city,
-    campaign.state,
-    ...campaign.highlights,
-  ]
-  const trustedTokens = source.map(hashtagToken).filter(Boolean)
-  if (!trustedTokens.length) return ''
-  return [...new Set([...trustedTokens, 'SmartCorretorAI'])]
-    .slice(0, 10)
-    .map((item) => `#${item}`)
-    .join(' ')
+const extractHashtags = (value) => String(value ?? '').match(HASHTAG_PATTERN) || []
+
+const withoutHashtags = (value) => String(value ?? '')
+  .replace(HASHTAG_PATTERN, '')
+  .replace(/[ \t]+\n/g, '\n')
+  .replace(/\n[ \t]+/g, '\n')
+  .replace(/[ \t]{2,}/g, ' ')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim()
+
+const normalizeHashtagBlock = (values) => {
+  const hashtags = [...new Map(values
+    .flatMap(extractHashtags)
+    .filter((hashtag) => !REJECTED_DISCOVERY_HASHTAGS.has(hashtag.toLocaleLowerCase('pt-BR')))
+    .map((hashtag) => [hashtag.toLocaleLowerCase('pt-BR'), hashtag])).values()]
+  const brandIndex = hashtags.findIndex((hashtag) => hashtag.toLocaleLowerCase('pt-BR') === '#smartcorretorai')
+  if (brandIndex >= 0) {
+    const [brand] = hashtags.splice(brandIndex, 1)
+    hashtags.splice(Math.floor(hashtags.length / 2), 0, brand)
+  }
+  return hashtags.join(' ')
 }
 
 const isLinkedInApplicable = (campaign) => {
@@ -129,30 +128,61 @@ const normalizeAiCampaigns = (campaigns) => (Array.isArray(campaigns) ? campaign
   }))
   .filter((campaign) => campaign.name && campaign.instagram && campaign.whatsapp && campaign.facebook)
 
-const buildAiCampaignModules = (campaigns) => campaigns.map((campaign, index) => ({
-  id: campaign.id,
-  title: `Campanha ${index + 1} · ${campaign.name}`,
-  fields: [
-    campaign.objective && { id: `${campaign.id}-objective`, label: 'Estratégia', text: campaign.objective, copyLabel: 'Copiar estratégia' },
-    campaign.instagram && { id: `${campaign.id}-instagram`, label: 'Instagram', text: campaign.instagram, copyLabel: 'Copiar texto' },
-    campaign.whatsapp && { id: `${campaign.id}-whatsapp`, label: 'WhatsApp', text: campaign.whatsapp, copyLabel: 'Copiar mensagem' },
-    campaign.facebook && { id: `${campaign.id}-facebook`, label: 'Facebook', text: campaign.facebook, copyLabel: 'Copiar texto' },
-    campaign.emailSubject && { id: `${campaign.id}-email-subject`, label: 'Assunto do e-mail', text: campaign.emailSubject, copyLabel: 'Copiar assunto' },
-    campaign.emailBody && { id: `${campaign.id}-email-body`, label: 'E-mail', text: campaign.emailBody, copyLabel: 'Copiar mensagem' },
-    campaign.linkedin && { id: `${campaign.id}-linkedin`, label: 'LinkedIn', text: campaign.linkedin, copyLabel: 'Copiar texto' },
-    campaign.hashtags && { id: `${campaign.id}-hashtags`, label: 'Hashtags inteligentes', text: campaign.hashtags, copyLabel: 'Copiar hashtags' },
-    campaign.cta && { id: `${campaign.id}-cta`, label: 'CTA', text: campaign.cta, copyLabel: 'Copiar CTA' },
-  ].filter(Boolean),
-}))
+const campaignOptions = (campaigns, channel, copyLabel, format = (value) => value) => campaigns
+  .map((campaign) => {
+    const text = withoutHashtags(format(campaign[channel], campaign))
+    return text && { text, copyLabel }
+  })
+  .filter(Boolean)
+  .map((option, index) => ({
+    ...option,
+    id: `${channel}-option-${index + 1}`,
+    label: `Texto ${index + 1}`,
+  }))
+
+const mergeCampaignHashtags = (campaigns) => normalizeHashtagBlock(campaigns.flatMap((campaign) => [
+  campaign.hashtags,
+  campaign.instagram,
+  campaign.whatsapp,
+  campaign.facebook,
+  campaign.emailSubject,
+  campaign.emailBody,
+  campaign.linkedin,
+]))
+
+const buildAiCampaignModules = (campaigns) => {
+  const modules = [
+    { id: 'instagram', title: 'Instagram', fields: campaignOptions(campaigns, 'instagram', 'Copiar') },
+    { id: 'whatsapp', title: 'WhatsApp', fields: campaignOptions(campaigns, 'whatsapp', 'Copiar') },
+    { id: 'facebook', title: 'Facebook', fields: campaignOptions(campaigns, 'facebook', 'Copiar') },
+    {
+      id: 'email',
+      title: 'Email',
+      fields: campaignOptions(campaigns, 'emailBody', 'Copiar', (body, campaign) => compact([
+        campaign.emailSubject ? `Assunto: ${campaign.emailSubject}` : '',
+        body,
+      ]).join('\n\n')),
+    },
+    { id: 'linkedin', title: 'LinkedIn', fields: campaignOptions(campaigns, 'linkedin', 'Copiar') },
+  ].filter((module) => module.fields.length)
+  const hashtags = mergeCampaignHashtags(campaigns)
+
+  if (hashtags) {
+    modules.push({ id: 'hashtags', title: 'Hashtags', text: hashtags, copyLabel: 'Copiar hashtags' })
+  }
+
+  return modules
+}
 
 const existingFields = (items, expression, copyLabel) => items
   .filter((item) => expression.test(item.label))
   .map((item) => ({
     id: item.id,
     label: item.label,
-    text: item.text,
+    text: withoutHashtags(item.text),
     copyLabel,
   }))
+  .filter((item) => item.text)
 
 export function normalizeCampaignPackageInput(input = {}) {
   const files = Array.isArray(input.files)
@@ -219,7 +249,6 @@ export function buildCampaignPackage(input = {}) {
   const existingSocial = existingFields(existingItems, /instagram|facebook/i, 'Copiar texto')
   const existingWhatsapp = existingFields(existingItems, /whatsapp/i, 'Copiar mensagem')
   const existingPortal = existingFields(existingItems, /portal/i, 'Copiar descrição')
-  const existingHashtags = existingItems.find((item) => /hashtag/i.test(item.label))
   const existingLinkedin = existingFields(existingItems, /linkedin/i, 'Copiar texto')
   const existingEmail = existingFields(existingItems, /e-?mail|assunto/i, 'Copiar')
   const location = locationText(campaign)
@@ -247,14 +276,13 @@ export function buildCampaignPackage(input = {}) {
     highlights ? sentence(`Entre os destaques estão ${lowerFirst(highlights)}`) : '',
     campaign.price ? sentence(campaign.price) : '',
   ])
-  const hashtags = buildHashtags(campaign)
+  const hashtags = normalizeHashtagBlock(existingItems.map((item) => item.text))
 
   const instagram = compact([
     opening,
     campaign.description ? sentence(campaign.description) : '',
     ...detailLines,
     ctaLine,
-    hashtags,
   ]).join('\n\n')
 
   const whatsapp = compact([
@@ -272,7 +300,6 @@ export function buildCampaignPackage(input = {}) {
     campaign.description ? sentence(campaign.description) : '',
     ...detailLines,
     ctaLine,
-    hashtags,
   ]).join('\n\n')
 
   const emailSubject = subject
@@ -316,9 +343,7 @@ export function buildCampaignPackage(input = {}) {
         { id: 'email-body', label: 'Mensagem', text: emailBody, copyLabel: 'Copiar mensagem' },
       ],
     },
-    existingHashtags
-      ? { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: existingHashtags.text }
-      : hashtags && { id: 'hashtags', title: 'Hashtags inteligentes', copyLabel: 'Copiar hashtags', text: hashtags },
+    hashtags && { id: 'hashtags', title: 'Hashtags', copyLabel: 'Copiar hashtags', text: hashtags },
   ].filter(Boolean)
   const modules = fallbackModules
 
