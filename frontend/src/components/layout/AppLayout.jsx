@@ -6,12 +6,12 @@ export default function AppLayout() {
   const isBannersRapidos = location.pathname === '/nova-campanha'
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className={isBannersRapidos ? 'hidden lg:block' : 'contents'}>
+    <div className="flex min-h-screen items-start bg-slate-50">
+      <div className={isBannersRapidos ? 'hidden w-64 shrink-0 lg:block' : 'w-64 shrink-0'}>
         <Sidebar />
       </div>
-      <div className={`flex min-w-0 flex-1 flex-col ${isBannersRapidos ? 'ml-0 lg:ml-64' : 'ml-64'}`}>
-        <main className="flex-1 overflow-y-auto">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <main className="min-w-0 flex-1">
           <Outlet />
         </main>
       </div>

@@ -127,7 +127,7 @@ export default function Sidebar() {
     'Usuário'
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-gray-200 bg-white">
+    <aside className="sticky top-0 z-30 flex min-h-screen w-64 flex-col border-r border-gray-200 bg-white">
       <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-800 shadow-md">
           <Zap className="h-5 w-5 text-cyan-100" />
@@ -138,7 +138,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => (
           <SidebarLink key={item.label} item={item} />
         ))}
