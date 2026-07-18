@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Download,
   Image as ImageIcon,
   ImagePlus,
   Loader2,
@@ -19,6 +18,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
+import CampaignPackage from '../components/campaign/CampaignPackage'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
@@ -614,10 +614,30 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
       )}
 
       {generationStatus === 'succeeded' && videoUrl && (
-        <div className="overflow-hidden rounded-3xl border border-emerald-100 bg-white p-4 text-left shadow-sm sm:p-5">
-          <div className="overflow-hidden rounded-2xl bg-slate-950"><video src={videoUrl} controls playsInline className="mx-auto max-h-[680px] w-full object-contain" /></div>
-          <a href={videoUrl} download="smart-carrossel-apresentacao.mp4" className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-black text-white transition hover:bg-emerald-700"><Download className="h-5 w-5" />Baixar apresentação</a>
-        </div>
+        <CampaignPackage
+          data={{
+            sourceProduct: 'Smart Carrossel',
+            mediaType: 'video',
+            previewUrl: videoUrl,
+            downloadUrl: videoUrl,
+            downloadName: 'smart-carrossel-apresentacao.mp4',
+            purpose,
+            propertyStage,
+            propertyType,
+            bedrooms,
+            suites,
+            parkingSpaces,
+            state: uf,
+            city,
+            district: normalizedDistrict,
+            price: priceLabel,
+            area,
+            highlights,
+            cta,
+            contactAuthorized: sharePhone === 'yes',
+            phone: sharePhone === 'yes' ? profilePhone : '',
+          }}
+        />
       )}
     </div>
   )
