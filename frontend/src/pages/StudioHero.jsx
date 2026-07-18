@@ -98,7 +98,7 @@ const STUDIO_CREATION_MODES = [
   {
     id: 'cinematic',
     title: 'Comercial Cinematografico',
-    description: 'Crie um comercial curto e impactante a partir das melhores imagens do imovel.',
+    description: 'Crie um comercial curto e impactante a partir da melhor imagem do imovel.',
     status: 'Ativo agora',
     Icon: Film,
     active: true,
@@ -108,7 +108,7 @@ const STUDIO_CREATION_MODES = [
   {
     id: 'free_ai',
     title: 'Comercial IA Livre',
-    description: 'Crie um comercial do zero apenas conversando com a IA, sem enviar imagens.',
+    description: 'Crie um comercial do zero apenas conversando com a IA, sem enviar uma imagem.',
     status: 'Ativo agora',
     Icon: MessageSquareText,
     active: true,
@@ -144,7 +144,7 @@ const STUDIO_MODE_EXAMPLES = [
     label: 'Comercial com imagem',
     accent: 'cyan',
     send: [
-      '📷 A principal imagem do seu imóvel',
+      '📷 A imagem do seu imóvel',
     ],
     receive: [
       '🎬 Comercial cinematográfico',
@@ -238,7 +238,7 @@ const STUDIO_POSSIBILITY_EXAMPLES = [
 const STUDIO_GUIDE_ITEMS_BY_MODE = {
   cinematic: [
     'Criar direção criativa para o comercial',
-    'Usar a imagem principal do imóvel',
+    'Usar a imagem do imóvel',
     'Gerar uma peça curta para redes sociais',
     'Entregar vídeo, CTA e textos prontos para divulgação',
   ],
@@ -421,9 +421,8 @@ const FREE_AI_ATMOSPHERE_OPTIONS = ['DIA', 'GOLDEN HOUR', 'ENTARDECER', 'NOITE']
 const FREE_AI_PACE_OPTIONS = ['CALMO', 'EQUILIBRADO', 'DINAMICO', 'IMPACTANTE']
 const FREE_AI_FREEDOM_OPTIONS = ['MAIS REALISTA', 'EQUILIBRADO', 'MAIS CRIATIVO']
 const FURNISHING_OPTIONS = [
-  'SIM, JA ESTAO MOBILIADAS',
-  'NAO, ESTAO VAZIAS OU SEM DECORACAO',
-  'ALGUMAS SIM, OUTRAS NAO',
+  'SIM, JA ESTA MOBILIADA',
+  'NAO, ESTA VAZIA OU SEM DECORACAO',
 ]
 const DECORATION_POLICY_OPTIONS = [
   'NAO, PRESERVAR EXATAMENTE COMO ESTA',
@@ -1364,7 +1363,7 @@ export default function StudioHero() {
         fileName: file?.name || '',
         fileSize: file?.size || 0,
       })
-      throw new Error(`${slot.label}: Para este teste, envie imagens JPG ou PNG.`)
+      throw new Error(`${slot.label}: Para este teste, envie uma imagem JPG ou PNG.`)
     }
 
     const extension = getFileExtensionFromContentType(contentType)
@@ -1388,7 +1387,7 @@ export default function StudioHero() {
         fileSize: file.size || 0,
         message: error.message,
       })
-      throw new Error(`Falha no upload de ${slot.label}. Para este teste, envie imagens JPG ou PNG.`)
+      throw new Error(`Falha no upload de ${slot.label}. Para este teste, envie uma imagem JPG ou PNG.`)
     }
 
     return path
@@ -1879,13 +1878,13 @@ export default function StudioHero() {
               </h1>
               <p className="mt-4 max-w-2xl text-xl font-black text-white">
                 {isFreeAiMode
-                  ? 'O Studio Hero vai construir a direcao criativa a partir da conversa, sem pedir imagens.'
-                  : 'O Studio Hero vai construir a direcao criativa a partir das suas escolhas e imagens.'}
+                  ? 'O Studio Hero vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
+                  : 'O Studio Hero vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
               </p>
               <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
                 {isFreeAiMode
                   ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
-                  : 'Um fluxo curto para transformar suas escolhas e imagens em uma peca de divulgacao mais cinematografica.'}
+                  : 'Um fluxo curto para transformar suas escolhas e sua imagem em uma peca de divulgacao mais cinematografica.'}
               </p>
               <p className={`mt-3 max-w-2xl text-base font-medium leading-7 ${isFreeAiMode ? 'text-violet-50' : 'text-cyan-50'}`}>
                 Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.
@@ -3174,7 +3173,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
           </p>
           <p className="mt-2 max-w-xl text-xs font-semibold leading-5 text-slate-500">
             {isFreeAiMode
-              ? 'Este modo usa a conversa para imaginar o comercial sem depender de imagens enviadas.'
+              ? 'Este modo usa a conversa para imaginar o comercial sem depender de uma imagem enviada.'
               : 'Cada comercial e criado de forma unica. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.'}
           </p>
         </div>
@@ -3185,7 +3184,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
           <span>{message}</span>
           {imageErrorTarget && (
             <Button type="button" variant="secondary" onClick={onEditImages}>
-              Voltar para imagens
+              Voltar para imagem
             </Button>
           )}
         </div>
@@ -3309,7 +3308,7 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
       <span>{message}</span>
       {imageErrorTarget && (
         <Button type="button" variant="secondary" onClick={onEditImages}>
-          Voltar para imagens
+          Voltar para imagem
         </Button>
       )}
     </div>
