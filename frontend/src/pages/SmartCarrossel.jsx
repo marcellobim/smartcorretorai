@@ -31,6 +31,18 @@ const SMART_CAROUSEL_POLL_INTERVAL_MS = 4000
 const SMART_CAROUSEL_UPLOAD_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
+const SMART_CAROUSEL_MIN_IMAGES = 5
+const SMART_CAROUSEL_MIN_IMAGES_MESSAGE = 'Selecione pelo menos 5 imagens para criar uma apresentação de qualidade.'
+
+function friendlyGenerationError(message, fallback = 'Não foi possível criar sua apresentação. Tente novamente.') {
+  const rawMessage = String(message || '').trim()
+  if (!rawMessage) return fallback
+  if (/^[a-z][a-z0-9_.:-]*$/i.test(rawMessage)) {
+    console.error('[Smart Carrossel] Erro interno:', rawMessage)
+    return fallback
+  }
+  return rawMessage
+}
 
 function normalizeDistrictName(value) {
   return value
@@ -466,7 +478,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     if (!mountedRef.current) return
     generationInFlightRef.current = false
     setGenerationStatus('failed')
-    setGenerationError(message || 'Não foi possível criar sua apresentação. Tente novamente.')
+    setGenerationError(friendlyGenerationError(message))
     if (!keepReceipt) setReceipt('')
   }
 
@@ -516,12 +528,12 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
 
   const createPresentation = async () => {
     if (generationInFlightRef.current) return
-    if (step < 15 || !cta || !sharePhone) {
-      stopWithError('Conclua todas as perguntas antes de criar sua apresentação.')
+    if (photos.length < SMART_CAROUSEL_MIN_IMAGES) {
+      stopWithError(SMART_CAROUSEL_MIN_IMAGES_MESSAGE)
       return
     }
-    if (!photos.length) {
-      stopWithError('Selecione pelo menos uma foto para continuar.')
+    if (step < 15 || !cta || !sharePhone) {
+      stopWithError('Conclua todas as perguntas antes de criar sua apresentação.')
       return
     }
     if (!user?.id || !accessToken) {
@@ -573,6 +585,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   }
 
   const isGenerating = ['uploading', 'creating', 'polling'].includes(generationStatus)
+  const hasMinimumImages = photos.length >= SMART_CAROUSEL_MIN_IMAGES
   const generationStatusMessage = generationStatus === 'uploading'
     ? 'Enviando fotos...'
     : generationStatus === 'creating'
@@ -597,13 +610,20 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     <div className="space-y-4 text-center sm:space-y-5">
       <button
         type="button"
-        disabled={isGenerating}
+        disabled={isGenerating || !hasMinimumImages}
         onClick={createPresentation}
+        aria-describedby={!hasMinimumImages ? 'smart-carousel-minimum-images-message' : undefined}
         className="sticky bottom-3 z-10 flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4 text-base font-black text-white shadow-[0_20px_38px_-20px_rgba(5,150,105,0.95)] transition hover:from-emerald-700 hover:to-emerald-800 disabled:cursor-not-allowed disabled:opacity-55 sm:px-8 sm:py-5 sm:text-lg"
       >
         {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
         Criar apresentação
       </button>
+
+      {!hasMinimumImages && (
+        <p id="smart-carousel-minimum-images-message" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+          {SMART_CAROUSEL_MIN_IMAGES_MESSAGE}
+        </p>
+      )}
 
       {isGenerating && (
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 text-left">
