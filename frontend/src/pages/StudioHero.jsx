@@ -180,7 +180,8 @@ const STUDIO_MODE_EXAMPLES = [
   },
   {
     id: 'smart_carousel',
-    title: '🖼️ Carrossel Inteligente',
+    media: '/showcase/smartcarrossel/showcase-carrossel.mp4',
+    title: 'Smart Carrossel',
     label: 'Apresentação dinâmica',
     accent: 'green',
     send: [
