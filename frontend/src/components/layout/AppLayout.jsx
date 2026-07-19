@@ -4,10 +4,11 @@ import Sidebar from './Sidebar'
 export default function AppLayout() {
   const location = useLocation()
   const isBannersRapidos = location.pathname === '/nova-campanha'
+  const usesFullWidthMobileLayout = isBannersRapidos || location.pathname === '/smart-carrossel'
 
   return (
     <div className="flex min-h-screen items-start bg-slate-50">
-      <div className={isBannersRapidos ? 'hidden w-64 shrink-0 lg:block' : 'w-64 shrink-0'}>
+      <div className={usesFullWidthMobileLayout ? 'hidden w-64 shrink-0 lg:block' : 'w-64 shrink-0'}>
         <Sidebar />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">

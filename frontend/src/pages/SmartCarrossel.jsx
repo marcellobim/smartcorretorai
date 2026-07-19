@@ -32,6 +32,7 @@ const SMART_CAROUSEL_UPLOAD_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
 const SMART_CAROUSEL_MIN_IMAGES = 5
+const SMART_CAROUSEL_MAX_IMAGES = 20
 const SMART_CAROUSEL_MIN_IMAGES_MESSAGE = 'Selecione pelo menos 5 imagens para criar uma apresentação de qualidade.'
 
 function friendlyGenerationError(message, fallback = 'Não foi possível criar sua apresentação. Tente novamente.') {
@@ -242,10 +243,18 @@ export default function SmartCarrossel() {
   const [photos, setPhotos] = useState([])
   const [isDragActive, setIsDragActive] = useState(false)
   const [generationStage, setGenerationStage] = useState(1)
+  const [informationStarted, setInformationStarted] = useState(false)
+  const [photoSelectionMessage, setPhotoSelectionMessage] = useState('')
 
   useEffect(() => {
     photosRef.current = photos
   }, [photos])
+
+  useEffect(() => {
+    if (photos.length >= SMART_CAROUSEL_MIN_IMAGES) return
+    setInformationStarted(false)
+    setGenerationStage(1)
+  }, [photos.length])
 
   useEffect(() => () => {
     photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl))
@@ -257,18 +266,29 @@ export default function SmartCarrossel() {
     ))
     if (!selectedFiles.length) return
 
-    setPhotos((current) => {
-      const existingFiles = new Set(current.map(({ file }) => `${file.name}-${file.size}-${file.lastModified}`))
-      const newPhotos = selectedFiles
-        .filter((file) => !existingFiles.has(`${file.name}-${file.size}-${file.lastModified}`))
-        .map((file) => ({
-          id: `smart-carousel-photo-${photoIdRef.current += 1}`,
-          file,
-          previewUrl: URL.createObjectURL(file),
-        }))
-
-      return [...current, ...newPhotos]
+    const current = photosRef.current
+    const existingFiles = new Set(current.map(({ file }) => `${file.name}-${file.size}-${file.lastModified}`))
+    const uniqueFiles = selectedFiles.filter((file) => {
+      const fileKey = `${file.name}-${file.size}-${file.lastModified}`
+      if (existingFiles.has(fileKey)) return false
+      existingFiles.add(fileKey)
+      return true
     })
+    const availableSlots = Math.max(SMART_CAROUSEL_MAX_IMAGES - current.length, 0)
+    const acceptedFiles = uniqueFiles.slice(0, availableSlots)
+    const rejectedCount = uniqueFiles.length - acceptedFiles.length
+    const newPhotos = acceptedFiles.map((file) => ({
+      id: `smart-carousel-photo-${photoIdRef.current += 1}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }))
+    const nextPhotos = [...current, ...newPhotos]
+
+    photosRef.current = nextPhotos
+    setPhotos(nextPhotos)
+    setPhotoSelectionMessage(rejectedCount > 0
+      ? `O limite é de ${SMART_CAROUSEL_MAX_IMAGES} imagens. ${rejectedCount === 1 ? 'A imagem excedente não foi adicionada.' : `${rejectedCount} imagens excedentes não foram adicionadas.`}`
+      : '')
   }
 
   const handlePhotoInput = (event) => {
@@ -277,6 +297,7 @@ export default function SmartCarrossel() {
   }
 
   const removePhoto = (photoId) => {
+    setPhotoSelectionMessage('')
     setPhotos((current) => {
       const photo = current.find((item) => item.id === photoId)
       if (photo) URL.revokeObjectURL(photo.previewUrl)
@@ -290,6 +311,8 @@ export default function SmartCarrossel() {
       return []
     })
     setGenerationStage(1)
+    setInformationStarted(false)
+    setPhotoSelectionMessage('')
   }
 
   const movePhoto = (index, direction) => {
@@ -305,7 +328,8 @@ export default function SmartCarrossel() {
     })
   }
 
-  const currentStep = photos.length > 0 ? Math.max(2, generationStage) : 1
+  const informationUnlocked = informationStarted && photos.length >= SMART_CAROUSEL_MIN_IMAGES
+  const currentStep = informationUnlocked ? Math.max(2, generationStage) : 1
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_38%,#eef7fb_100%)] px-4 py-6 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
@@ -351,8 +375,8 @@ export default function SmartCarrossel() {
           </nav>
         </section>
 
-        <PhotoSection photos={photos} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} />
-        {photos.length > 0 && (
+        <PhotoSection photos={photos} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />
+        {informationUnlocked && (
           <SmartCarouselConversation
             user={user}
             accessToken={accessToken}
@@ -365,12 +389,40 @@ export default function SmartCarrossel() {
   )
 }
 
-function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto }) {
+function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto, photoSelectionMessage, onContinue }) {
+  const hasMinimumImages = photos.length >= SMART_CAROUSEL_MIN_IMAGES
+  const missingImages = Math.max(SMART_CAROUSEL_MIN_IMAGES - photos.length, 0)
+  const minimumImagesProgress = Math.min((photos.length / SMART_CAROUSEL_MIN_IMAGES) * 100, 100)
+
   return (
     <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]">
       <div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"><ImagePlus className="h-5 w-5" /></span><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Etapa 1</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">1. Selecione e organize suas fotos</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Adicione as fotos do imóvel e organize na ordem desejada para a apresentação.</p></div></div><div className="grid gap-2 sm:grid-cols-2"><div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /><span>A primeira foto será a <strong className="font-black text-emerald-700">CAPA</strong></span></div><div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg font-black text-emerald-600">↔</span><span>Você pode alterar a ordem a qualquer momento</span></div></div></div></div>
       <div className="p-5 sm:p-8">
-        {photos.length > 0 && <div className="mb-5 w-fit rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800">{photos.length} {photos.length === 1 ? 'foto selecionada' : 'fotos selecionadas'}</div>}
+        <p className="mb-3 text-sm font-black text-slate-700">Mínimo de {SMART_CAROUSEL_MIN_IMAGES} imagens e máximo de {SMART_CAROUSEL_MAX_IMAGES} imagens.</p>
+        <div
+          aria-live="polite"
+          className={`mb-5 rounded-2xl border px-4 py-3 sm:px-5 ${hasMinimumImages ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className={`text-sm font-black ${hasMinimumImages ? 'text-emerald-900' : 'text-amber-900'}`}>
+              {hasMinimumImages
+                ? 'Quantidade mínima atingida.'
+                : `${photos.length} de ${SMART_CAROUSEL_MIN_IMAGES} imagens mínimas`}
+            </p>
+            <p className={`text-xs font-bold ${hasMinimumImages ? 'text-emerald-700' : 'text-amber-800'}`}>
+              {hasMinimumImages
+                ? `${photos.length} de ${SMART_CAROUSEL_MAX_IMAGES} imagens selecionadas`
+                : `Adicione mais ${missingImages} ${missingImages === 1 ? 'imagem' : 'imagens'} para continuar.`}
+            </p>
+          </div>
+          <div className={`mt-3 h-2 overflow-hidden rounded-full ${hasMinimumImages ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${hasMinimumImages ? 'bg-emerald-600' : 'bg-amber-500'}`}
+              style={{ width: `${minimumImagesProgress}%` }}
+            />
+          </div>
+        </div>
+        {photoSelectionMessage && <p role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{photoSelectionMessage}</p>}
         <input ref={inputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handlePhotoInput} className="sr-only" />
         {photos.length === 0 ? (
           <div onClick={() => inputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setIsDragActive(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setIsDragActive(false)} onDrop={(event) => { event.preventDefault(); setIsDragActive(false); addPhotos(event.dataTransfer.files) }} className={`group mt-7 flex min-h-[310px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border-2 border-dashed px-5 py-10 text-center outline-none transition sm:min-h-[340px] sm:px-8 ${isDragActive ? 'border-emerald-500 bg-emerald-100/70 shadow-inner' : 'border-emerald-200 bg-[linear-gradient(145deg,rgba(236,253,245,0.82),rgba(248,250,252,0.9))] hover:border-emerald-400 hover:bg-emerald-50/80 focus:ring-4 focus:ring-emerald-100'}`}>
@@ -393,6 +445,14 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
             <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-100 focus:outline-none focus:ring-4 focus:ring-emerald-100"><Plus className="h-4 w-4" />Adicionar mais fotos</button><button type="button" onClick={clearPhotos} className="inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-4 focus:ring-rose-100"><Trash2 className="h-4 w-4" />Limpar seleção</button></div>
           </div>
         )}
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:flex sm:items-center sm:justify-between sm:gap-5 sm:p-5">
+          <p className="text-sm font-bold leading-6 text-slate-600">
+            {hasMinimumImages ? 'Suas imagens estão prontas. Você ainda pode adicionar e organizar fotos depois.' : `Adicione mais ${missingImages} ${missingImages === 1 ? 'imagem' : 'imagens'} para continuar para as informações.`}
+          </p>
+          <button type="button" disabled={!hasMinimumImages} onClick={onContinue} className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-black text-white shadow-[0_14px_30px_-18px_rgba(5,150,105,0.95)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:mt-0 sm:w-auto sm:shrink-0">
+            Continuar para informações
+          </button>
+        </div>
       </div>
     </section>
   )
@@ -530,6 +590,10 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     if (generationInFlightRef.current) return
     if (photos.length < SMART_CAROUSEL_MIN_IMAGES) {
       stopWithError(SMART_CAROUSEL_MIN_IMAGES_MESSAGE)
+      return
+    }
+    if (photos.length > SMART_CAROUSEL_MAX_IMAGES) {
+      stopWithError(`Selecione no máximo ${SMART_CAROUSEL_MAX_IMAGES} imagens para continuar.`)
       return
     }
     if (step < 15 || !cta || !sharePhone) {
