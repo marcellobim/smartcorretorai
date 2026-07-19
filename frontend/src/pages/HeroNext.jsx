@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
+import CampaignPackage from '../components/campaign/CampaignPackage'
+import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
@@ -51,7 +53,7 @@ const isCommercialPropertyType = (propertyType) => {
 
 const shouldShowChatQuestion = (question, currentAnswers) => {
   if (question.id === 'contactPhone') {
-    return currentAnswers.contactPhoneChoice === 'Sim, quero divulgar'
+    return false
   }
   return true
 }
@@ -1334,11 +1336,11 @@ function TextBlock({ title, content, filename }) {
 function AssistantBubble({ children }) {
   return (
     <div className="flex gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-800 text-white">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm shadow-emerald-200">
         <Sparkles className="h-4 w-4" />
       </div>
-      <div className="max-w-2xl rounded-3xl rounded-tl-md bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200">
-        <p className="text-sm font-bold leading-relaxed text-gray-800">{children}</p>
+      <div className="max-w-2xl rounded-3xl rounded-tl-md bg-white px-5 py-4 shadow-sm ring-1 ring-emerald-100">
+        <p className="text-sm font-bold leading-relaxed text-slate-800">{children}</p>
       </div>
     </div>
   )
@@ -1347,7 +1349,7 @@ function AssistantBubble({ children }) {
 function UserBubble({ children }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-2xl rounded-3xl rounded-tr-md bg-primary-800 px-5 py-4 text-white shadow-sm">
+      <div className="max-w-2xl rounded-3xl rounded-tr-md bg-emerald-700 px-5 py-4 text-white shadow-sm shadow-emerald-200">
         <p className="text-sm font-bold leading-relaxed">{children}</p>
       </div>
     </div>
@@ -1355,6 +1357,7 @@ function UserBubble({ children }) {
 }
 
 export default function HeroNext() {
+  const { user } = useAuth()
   const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
   const [goal, setGoal] = useState('')
   const [answers, setAnswers] = useState({})
@@ -1390,6 +1393,8 @@ export default function HeroNext() {
   const isPropertyCaptureGoal = goal === 'property_capture'
   const isBrokerCaptureGoal = goal === 'broker_capture'
   const isAnyCaptureGoal = isPropertyCaptureGoal || isBrokerCaptureGoal
+  const profilePhoneRaw = String(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '').trim()
+  const profilePhone = normalizeContactPhoneForDisplay(profilePhoneRaw)
 
   useEffect(() => {
     writeStoredHeroNextResult(generationResult)
@@ -1483,8 +1488,12 @@ export default function HeroNext() {
     if (!normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)) return
 
     const updatedAnswers = { ...answers, [questionId]: normalizedValue }
-    if (questionId === 'contactPhoneChoice' && normalizedValue !== 'Sim, quero divulgar') {
-      delete updatedAnswers.contactPhone
+    if (questionId === 'contactPhoneChoice') {
+      if (normalizedValue === 'Sim, quero divulgar' && profilePhone) {
+        updatedAnswers.contactPhone = profilePhoneRaw
+      } else {
+        delete updatedAnswers.contactPhone
+      }
     }
     if (questionId === 'propertyType') {
       delete updatedAnswers.bedrooms
@@ -1961,8 +1970,92 @@ export default function HeroNext() {
     }
   }
 
+  const resetCampaign = () => {
+    setPhase('intro')
+    setGoal('')
+    setAnswers({})
+    setSaleValueMode('')
+    setSalePrice('')
+    setSaleConditions([])
+    setRentMode('')
+    setRentPrice('')
+    setCondoMode('')
+    setCondoFee('')
+    setIptuMode('')
+    setIptuValue('')
+    setRentGuarantee('')
+    setDestinationIds([])
+    setCreativeIdeaCount(1)
+    setPromptTouched(false)
+    setHumanPrompt('')
+    setImageChoice('')
+    setUploadedImages([])
+    setGoalNotice('')
+    setPieceLimitNotice('')
+    setGenerationResult(null)
+    setGenerationJobs([])
+  }
+
+  const campaignPackageData = generationResult ? {
+    sourceProduct: 'Hero IA',
+    mediaType: 'images',
+    files: (generationResult.jobs || [])
+      .filter((job) => job.status === 'completed' && job.imageUrl)
+      .map((job, index) => ({
+        id: job.jobId || `${job.formatId || 'hero'}-${index}`,
+        name: `${job.formatLabel || `Arte ${index + 1}`}${job.ideaNumber ? ` · ${getCreationOptionLabel(job.ideaNumber)}` : ''}`,
+        type: 'image',
+        status: 'Concluída',
+        previewUrl: job.imageUrl,
+        downloadUrl: job.imageUrl,
+      })),
+    purpose: getGoalLabel(goal),
+    propertyType: isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType,
+    neighborhood: answers.neighborhood || answers.neighborhoods,
+    city: answers.city,
+    bedrooms: answers.bedrooms,
+    suites: answers.suites,
+    parking: answers.parking,
+    area: answers.area,
+    highlights: isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials,
+    cta: answers.cta,
+    contactAuthorized: answers.contactPhoneChoice === 'Sim, quero divulgar' && Boolean(profilePhone),
+    phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? profilePhone : '',
+    existingTexts: campaignCopy.map((item, index) => ({
+      id: `hero-ia-${index}`,
+      label: item.label,
+      text: item.text,
+    })),
+  } : null
+
   const renderQuestionControls = () => {
     if (!currentQuestion) return null
+
+    if (currentQuestion.id === 'contactPhoneChoice') {
+      return (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={!profilePhone}
+            onClick={() => commitAnswer(currentQuestion.id, 'Sim, quero divulgar')}
+            className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:opacity-70"
+          >
+            <p className="text-base font-black text-slate-950">Sim, divulgar meu telefone</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              {profilePhone || 'Cadastre um telefone no Cadastro Profissional para habilitar esta opção.'}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => commitAnswer(currentQuestion.id, 'Não, continuar sem telefone')}
+            className="rounded-3xl border border-slate-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
+          >
+            <p className="text-base font-black text-slate-950">Não divulgar telefone</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">A campanha será criada sem contato telefônico.</p>
+          </button>
+        </div>
+      )
+    }
 
     if (currentQuestion.type === 'text') {
       return (
@@ -2063,8 +2156,8 @@ export default function HeroNext() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <Header title="Campanha IA" subtitle="Crie uma campanha imobiliária guiada, com estratégia, imagens opcionais e peças por formato." />
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f0fdf7_0%,#f8fafc_32%,#f8fafc_100%)]">
+      <Header title="Hero IA" subtitle="Campanhas imobiliárias guiadas com inteligência e acabamento profissional." />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
         <Link
@@ -2076,20 +2169,21 @@ export default function HeroNext() {
         </Link>
 
         {phase === 'intro' && (
-          <section className="mt-6 overflow-hidden rounded-[2rem] bg-[#0F2742] p-7 text-white shadow-xl shadow-[#0F2742]/10 sm:p-10">
+          <section className="relative mt-6 overflow-hidden rounded-[2rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.20),transparent_38%),linear-gradient(135deg,#ecfdf5_0%,#ffffff_58%,#f0fdfa_100%)] p-7 text-slate-950 shadow-xl shadow-emerald-900/5 sm:p-10">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border-[36px] border-emerald-100/60" aria-hidden="true" />
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-100">
-                <Sparkles className="h-4 w-4 text-cyan-200" />
-                Hero IA Next
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/80 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-emerald-700 shadow-sm">
+                <Sparkles className="h-4 w-4" />
+                Hero IA
               </div>
               <h1 className="mt-6 text-4xl font-black tracking-tight sm:text-6xl">
-                Vamos montar sua campanha agora
+                Sua campanha, criada com direção profissional.
               </h1>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-gray-300 sm:text-lg">
-                Responda algumas perguntas e a IA criará sua campanha.
+              <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-slate-600 sm:text-lg">
+                Conte o que deseja divulgar. O Hero IA organiza suas informações e prepara peças prontas para seus canais.
               </p>
-              <Button type="button" onClick={() => setPhase('goal')} className="mt-8">
-                Começar
+              <Button type="button" onClick={() => setPhase('goal')} className="mt-8 bg-emerald-600 hover:bg-emerald-700">
+                Começar minha campanha
               </Button>
             </div>
           </section>
@@ -2125,37 +2219,56 @@ export default function HeroNext() {
         )}
 
         {phase === 'chat' && (
-          <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <div className="mb-5 flex justify-between gap-3">
-              <Button type="button" variant="secondary" onClick={goBackInChat}>
-                Voltar
-              </Button>
-            </div>
-            <div className="space-y-5">
-              <AssistantBubble>
-                Perfeito. Vou montar uma campanha de {getGoalLabel(goal).toLowerCase()} com você, passo a passo.
-              </AssistantBubble>
-              {chatFlow.slice(0, chatIndex).map((question, index) => (
-                <div key={question.id} className="space-y-3">
-                  <AssistantBubble>{question.question}</AssistantBubble>
-                  <div className="flex items-start justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => goToQuestion(index)}
-                      className="mt-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-black text-gray-600 hover:bg-gray-100"
-                    >
-                      Editar
-                    </button>
-                    <UserBubble>{formatAnswer(answers[question.id])}</UserBubble>
-                  </div>
-                </div>
-              ))}
-              {currentQuestion && (
+          <section className="mt-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
+            <header className="border-b border-slate-100 px-5 py-5 sm:px-8">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <AssistantBubble>{currentQuestion.question}</AssistantBubble>
-                  {renderQuestionControls()}
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Conversa guiada</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">Conte sobre sua campanha</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">Uma pergunta por vez. Você pode revisar qualquer resposta.</p>
                 </div>
-              )}
+                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>
+              </div>
+            </header>
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_330px]">
+              <div className="min-w-0 bg-[linear-gradient(180deg,#f8fffb_0%,#ffffff_100%)] p-5 sm:p-8">
+                <div className="mb-5">
+                  <Button type="button" variant="secondary" onClick={goBackInChat}>Voltar</Button>
+                </div>
+                <div className="space-y-5">
+                  <AssistantBubble>
+                    Perfeito. Vou montar uma campanha de {getGoalLabel(goal).toLowerCase()} com você, passo a passo.
+                  </AssistantBubble>
+                  {chatFlow.slice(0, chatIndex).map((question, index) => (
+                    <div key={question.id} className="space-y-3">
+                      <AssistantBubble>{question.question}</AssistantBubble>
+                      <div className="flex items-start justify-end gap-2">
+                        <button type="button" onClick={() => goToQuestion(index)} className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-100">Editar</button>
+                        <UserBubble>{formatAnswer(answers[question.id])}</UserBubble>
+                      </div>
+                    </div>
+                  ))}
+                  {currentQuestion && (
+                    <div>
+                      {chatIndex > 0 && <p className="mb-3 pl-12 text-xs font-black uppercase tracking-wide text-emerald-700">Ótimo. Vamos continuar.</p>}
+                      <AssistantBubble>{currentQuestion.question}</AssistantBubble>
+                      {renderQuestionControls()}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <aside className="border-t border-slate-100 bg-slate-50/80 p-5 lg:border-l lg:border-t-0 sm:p-6">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Resumo ao vivo</p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">Sua campanha</h3>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm"><strong className="text-slate-950">Objetivo</strong><p className="mt-1 font-semibold text-slate-600">{getGoalLabel(goal)}</p></div>
+                  {chatFlow.slice(0, chatIndex).map((question, index) => answers[question.id] ? (
+                    <div key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+                      <div className="flex items-start justify-between gap-3"><p className="min-w-0"><strong className="text-slate-950">{question.question}</strong><span className="mt-1 block break-words font-semibold text-slate-600">{formatAnswer(answers[question.id])}</span></p><button type="button" onClick={() => goToQuestion(index)} className="shrink-0 text-xs font-black text-emerald-700">Editar</button></div>
+                    </div>
+                  ) : null)}
+                </div>
+              </aside>
             </div>
           </section>
         )}
@@ -2372,7 +2485,7 @@ export default function HeroNext() {
             )}
 
             <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-600">
-              <p><strong>Regra atual:</strong> {valueCondition.label}</p>
+              <p><strong>Como os valores serão apresentados:</strong> {valueCondition.label}</p>
               {valueCondition.details && <p className="mt-1">{valueCondition.details}</p>}
               {valueCondition.mode === 'hidden' || valueCondition.mode === 'no_values' ? <p className="mt-1">Não mostrar valores na campanha.</p> : null}
             </div>
@@ -2390,31 +2503,43 @@ export default function HeroNext() {
 
         {phase === 'prompt' && (
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#f8fffb_0%,#ffffff_100%)] p-5 shadow-sm sm:p-7">
               <AssistantBubble>
-                Com base na conversa, montei a Estratégia da Campanha. Você pode ajustar antes de gerar.
+                Excelente. Organizei suas escolhas e sua campanha está pronta para a etapa de imagens.
               </AssistantBubble>
-              <textarea
-                value={effectivePrompt}
-                onChange={(event) => handlePromptChange(event.target.value)}
-                rows={18}
-                className="mt-5 w-full resize-none rounded-3xl border border-blue-100 px-5 py-4 text-sm font-semibold leading-relaxed text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
-              />
+              <div className="mt-6 rounded-3xl border border-emerald-100 bg-white p-5 sm:p-6">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Revisão final</p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">Tudo certo para continuar</h2>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['Objetivo definido', getGoalLabel(goal)],
+                    ['Informações organizadas', `${chatFlow.filter((question) => answers[question.id]).length} respostas confirmadas`],
+                    ['Formatos escolhidos', selectedDestinations.map((item) => item.label).join(', ')],
+                    ['Opções criativas', formatCreationOptionCount(creativeIdeaCount)],
+                  ].map(([title, detail]) => (
+                    <div key={title} className="flex gap-3 rounded-2xl bg-emerald-50/70 p-4">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                      <p className="text-sm"><strong className="block text-slate-950">{title}</strong><span className="mt-1 block font-semibold text-slate-600">{detail}</span></p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">A inteligência do Hero IA seguirá suas respostas internamente. Nenhuma instrução técnica precisa ser revisada por você.</p>
+              </div>
               <div className="mt-5 flex flex-wrap justify-end gap-3">
                 <Button type="button" variant="secondary" onClick={() => setPhase('ideas')}>
                   Voltar
                 </Button>
-                <Button type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()}>
-                  Continuar
+                <Button type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()} className="bg-emerald-600 hover:bg-emerald-700">
+                  Continuar para imagens
                 </Button>
               </div>
             </div>
-            <aside className="rounded-[2rem] border border-gray-200 bg-gray-50 p-5">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resumo da conversa</p>
-              <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
+            <aside className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Resumo da campanha</p>
+              <div className="mt-4 space-y-3 text-sm font-semibold text-slate-600">
                 <p><strong>Objetivo:</strong> {getGoalLabel(goal)}</p>
                 {chatFlow.map((question, index) => answers[question.id] ? (
-                  <div key={question.id} className="rounded-2xl border border-gray-200 bg-white p-3">
+                  <div key={question.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>{question.question}</strong><br />
@@ -2423,7 +2548,7 @@ export default function HeroNext() {
                       <button
                         type="button"
                         onClick={() => goToQuestion(index)}
-                        className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600 hover:bg-gray-200"
+                        className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700 hover:bg-emerald-50"
                       >
                         Editar
                       </button>
@@ -2431,7 +2556,7 @@ export default function HeroNext() {
                   </div>
                 ) : null)}
                 {selectedDestinations.length > 0 && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>Formatos e opções</strong><br />
@@ -2442,7 +2567,7 @@ export default function HeroNext() {
                       <button
                         type="button"
                         onClick={() => setPhase('ideas')}
-                        className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600 hover:bg-gray-200"
+                        className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700 hover:bg-emerald-50"
                       >
                         Editar
                       </button>
@@ -2450,7 +2575,7 @@ export default function HeroNext() {
                   </div>
                 )}
                 {!isAnyCaptureGoal && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>Valores e condições</strong><br />
@@ -2460,7 +2585,7 @@ export default function HeroNext() {
                       <button
                         type="button"
                         onClick={() => setPhase('values')}
-                        className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-600 hover:bg-gray-200"
+                        className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700 hover:bg-emerald-50"
                       >
                         Editar
                       </button>
@@ -2589,8 +2714,12 @@ export default function HeroNext() {
         )}
 
         {phase === 'images' && (
-          <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
-            <AssistantBubble>{isAnyCaptureGoal ? 'Deseja anexar logo ou foto institucional?' : 'Você possui imagens reais deste imóvel?'}</AssistantBubble>
+          <section className="mt-6 rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm sm:p-8">
+            <p className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Etapa de imagens</p>
+            <AssistantBubble>Excelente. Agora vamos falar das imagens.</AssistantBubble>
+            <div className="mt-4">
+              <AssistantBubble>{isAnyCaptureGoal ? 'Deseja anexar logo ou foto institucional?' : 'Você possui imagens reais deste imóvel?'}</AssistantBubble>
+            </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -2620,7 +2749,7 @@ export default function HeroNext() {
                 <Image className="h-7 w-7 text-primary-600" />
                 <p className="mt-4 text-lg font-black">{isAnyCaptureGoal ? 'Não, seguir sem arquivos' : 'Não, gerar campanha sem imagens'}</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'no' ? 'text-gray-300' : 'text-gray-500'}`}>
-                  A campanha será criada apenas com a Estratégia da Campanha.
+                  A campanha será criada a partir das informações que você confirmou.
                 </p>
               </button>
             </div>
@@ -2738,7 +2867,31 @@ export default function HeroNext() {
           </section>
         )}
 
-        {phase === 'result' && generationResult && (
+        {phase === 'result' && generationResult && campaignPackageData && (
+          <section className="mt-6 space-y-5">
+            <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <div>
+                <p className="text-sm font-black text-slate-950">Arquivos da sua campanha</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">Pré-visualize ou baixe cada arte. Se preferir, reúna tudo em um único clique.</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {campaignPackageData.files.length > 0 && (
+                  <button type="button" onClick={downloadAllImages} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"><Download className="h-4 w-4" />Baixar todas as artes</button>
+                )}
+                {campaignCopy.length > 0 && (
+                  <button type="button" onClick={downloadTexts} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Baixar textos</button>
+                )}
+              </div>
+            </div>
+            <CampaignPackage
+              data={campaignPackageData}
+              onCreateNew={resetCampaign}
+              createNewLabel="Criar nova campanha"
+            />
+          </section>
+        )}
+
+        {false && phase === 'result' && generationResult && (
           <section className="mt-6 space-y-6">
             <div className="rounded-[2rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 text-white shadow-xl shadow-primary-900/10 sm:p-8">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
