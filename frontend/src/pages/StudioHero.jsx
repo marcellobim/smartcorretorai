@@ -181,7 +181,7 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'smart_carousel',
     media: '/showcase/smartcarrossel/showcase-carrossel.mp4',
-    title: 'Smart Carrossel',
+    title: '🖼️ Smart Carrossel',
     label: 'Apresentação dinâmica',
     accent: 'green',
     send: [
@@ -199,7 +199,7 @@ const STUDIO_MODE_EXAMPLES = [
   },
   {
     id: 'improve_video',
-    title: '🎥 Finalizar meu Vídeo',
+    title: '🎥 Melhore meu Vídeo',
     label: 'Acabamento final',
     accent: 'amber',
     send: [
@@ -1879,7 +1879,6 @@ export default function StudioHero() {
                         <div className="relative px-4 text-center text-white">
                           <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
                           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{example.label}</p>
-                          <p className="mt-2 text-base font-black leading-tight">{example.title}</p>
                         </div>
                         {example.media && (
                           <video
@@ -1898,6 +1897,9 @@ export default function StudioHero() {
                             }}
                           />
                         )}
+                        <div className="pointer-events-none absolute inset-x-2 top-2 z-20 rounded-xl bg-slate-950/70 px-2.5 py-2 text-center shadow-sm backdrop-blur-sm">
+                          <p className="text-[10px] font-black leading-4 text-white">{example.title}</p>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-4 space-y-3">
