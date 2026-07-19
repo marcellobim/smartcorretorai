@@ -1820,28 +1820,45 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   }
 }
 
-function buildLandConceptPilotInstruction(
+function buildOfficialLandInstruction(
   briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
   hasImage: boolean,
 ) {
   const propertyType = normalizeVideoTextToken(briefing.propertyType, '', 24)
   if (!['LOTE', 'TERRENO'].includes(propertyType)) return ''
+
+  const realTerrainReference = hasImage
+    ? 'Use the real lot or terrain photo as the mandatory visual and spatial reference. Keep the visible surroundings, access, perspective, terrain characteristics, apparent size, proportions and visual scale coherent.'
+    : 'There is no reference photo. Create a believable lot or terrain scene using only the information explicitly supplied by the user.'
+
+  if (briefing.imagineConstruction === 'no') {
+    return `OFFICIAL LAND AND TERRAIN RULE - APPLIES ONLY TO THIS REQUEST
+
+The advertised property is a ${propertyType.toLowerCase()}.
+The user explicitly declined any imagined construction.
+${realTerrainReference}
+Show only the lot or terrain and its existing or described context.
+Do not add, suggest, reveal or imply any house, building, warehouse, commercial structure, condominium, construction project, architectural mass, floor plan or future development.
+Do not show construction stages, excavation, cranes or a building rising.
+Use only facts supplied by the user.`
+  }
+
   if (briefing.imagineConstruction !== 'yes' || !briefing.imaginedConstructionType) return ''
 
   const suppliedContext = [
+    (briefing.objectiveLabel || briefing.objective) ? `finalidade informada: ${briefing.objectiveLabel || briefing.objective}` : '',
+    briefing.location ? `localização informada: ${briefing.location}` : '',
     briefing.area ? `metragem informada: ${briefing.area}` : '',
     briefing.profile ? `padrão informado: ${briefing.profile}` : '',
     briefing.finalFeatures ? `descrição comercial: ${briefing.finalFeatures}` : '',
     briefing.differentials.length ? `destaques informados: ${briefing.differentials.join(', ')}` : '',
   ].filter(Boolean).join('. ')
 
-  return `LAND AND TERRAIN CONCEPT PILOT - APPLIES ONLY TO THIS REQUEST
+  return `OFFICIAL LAND AND TERRAIN CONCEPT RULE - APPLIES ONLY TO THIS REQUEST
 
 The advertised property is a ${propertyType.toLowerCase()}.
 The user explicitly authorized one conceptual proposal for: ${briefing.imaginedConstructionType}.
-${hasImage
-    ? 'Use the real lot or terrain photo as the mandatory visual and spatial reference. Keep the visible surroundings, access, perspective and terrain characteristics coherent.'
-    : 'There is no reference photo. Create a believable lot or terrain scene from only the information explicitly supplied by the user.'}
+${realTerrainReference}
 ${suppliedContext || 'No exact lot dimensions or additional construction details were supplied.'}
 
 Create only a plausible conceptual visualization, not an engineering project and not a construction-stage simulation.
@@ -3839,11 +3856,11 @@ serve(async (req) => {
         visibleTextsForDebug = championPrompt.visibleTexts
       }
 
-      const landConceptPilotInstruction = buildLandConceptPilotInstruction(briefing, Boolean(inputImage1Path))
-      if (landConceptPilotInstruction) {
+      const officialLandInstruction = buildOfficialLandInstruction(briefing, Boolean(inputImage1Path))
+      if (officialLandInstruction) {
         const baseVisualPrompt = visualPromptForDebug || promptFinal
-        promptFinal = `${promptFinal}\n\n---\n\n${landConceptPilotInstruction}`
-        visualPromptForDebug = `${baseVisualPrompt}\n\n---\n\n${landConceptPilotInstruction}`
+        promptFinal = `${promptFinal}\n\n---\n\n${officialLandInstruction}`
+        visualPromptForDebug = `${baseVisualPrompt}\n\n---\n\n${officialLandInstruction}`
       }
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
