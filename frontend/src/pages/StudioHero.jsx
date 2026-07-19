@@ -338,8 +338,9 @@ const OBJECTIVE_OPTIONS = [
 
 const RESIDENTIAL_PROPERTY_TYPES = ['APARTAMENTO', 'CASA']
 const COMMERCIAL_PROPERTY_TYPES = ['SALA COMERCIAL', 'LOJA', 'LAJE CORPORATIVA', 'GALPAO']
-const SALE_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES]
-const RENT_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES]
+const LAND_PROPERTY_TYPES = ['LOTE', 'TERRENO']
+const SALE_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES, ...LAND_PROPERTY_TYPES]
+const RENT_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES, ...LAND_PROPERTY_TYPES]
 
 const SALE_STAGES = ['PRE-LANCAMENTO', 'LANCAMENTO', 'PRONTO']
 
@@ -774,6 +775,10 @@ function isResidentialType(type) {
   return RESIDENTIAL_PROPERTY_TYPES.includes(type)
 }
 
+function isLandType(type) {
+  return LAND_PROPERTY_TYPES.includes(type)
+}
+
 function isPropertyCampaignObjective(objective) {
   return objective === 'sale' || objective === 'rent'
 }
@@ -1044,7 +1049,7 @@ export default function StudioHero() {
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
   const hasStageStep = false
-  const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign
+  const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign && !isLandType(answers.propertyType)
   const profileStep = 3
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
@@ -3137,7 +3142,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
   const hasStageStep = false
-  const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign
+  const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign && !isLandType(answers.propertyType)
   const profileStep = 3
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
