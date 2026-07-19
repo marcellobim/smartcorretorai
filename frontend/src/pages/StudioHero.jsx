@@ -215,25 +215,25 @@ const STUDIO_MODE_EXAMPLES = [
 const STUDIO_POSSIBILITY_EXAMPLES = [
   {
     id: 'sale',
-    media: '/showcase/studio/Generated video 1.mp4',
+    media: '/showcase/studio/showcase-venda.mp4',
     title: '🏠 Vender um imóvel',
     description: 'Ideal para apresentar imóveis, destacar diferenciais e atrair compradores.',
   },
   {
     id: 'rent',
-    media: '/showcase/studio/22327cac-4723-47ff-9034-1b944bc6d8cd.mp4',
+    media: '/showcase/studio/showcase-locacao.mp4',
     title: '🔑 Alugar um imóvel',
     description: 'Ideal para valorizar imóveis disponíveis para locação e aumentar o interesse de futuros inquilinos.',
   },
   {
     id: 'capture_property',
-    media: '/showcase/studio/teste-premium-lite-16s.mp4',
+    media: '/showcase/studio/showcase-captacao-venda.mp4',
     title: '📈 Captar imóveis',
     description: 'Ideal para conquistar proprietários e ampliar sua carteira com apresentações profissionais.',
   },
   {
     id: 'capture_brokers',
-    media: '/showcase/studio/Generated Video June 19, 2026 - 5_48PM.mp4',
+    media: '/showcase/studio/showcase-captacao-corretores.mp4',
     title: '🤝 Captar corretores',
     description: 'Ideal para divulgar oportunidades, fortalecer sua equipe e atrair novos profissionais.',
   },
