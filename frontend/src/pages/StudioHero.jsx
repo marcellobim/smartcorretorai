@@ -140,6 +140,7 @@ const STUDIO_CREATION_MODES = [
 const STUDIO_MODE_EXAMPLES = [
   {
     id: 'cinematic',
+    media: '/showcase/studio/showcase-venda0.mp4.mp4',
     title: '🎬 Comercial Cinematográfico',
     label: 'Comercial com imagem',
     accent: 'cyan',
@@ -159,6 +160,7 @@ const STUDIO_MODE_EXAMPLES = [
   },
   {
     id: 'free_ai',
+    media: '/showcase/studio/showcase-captacao-venda.mp4',
     title: '✨ Comercial IA Livre',
     label: 'Criação por IA',
     accent: 'violet',
@@ -1773,6 +1775,23 @@ export default function StudioHero() {
                           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{example.label}</p>
                           <p className="mt-2 text-base font-black leading-tight">{example.title}</p>
                         </div>
+                        {example.media && (
+                          <video
+                            src={example.media}
+                            aria-label={`Demonstração: ${example.title}`}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            controls={false}
+                            preload="metadata"
+                            disablePictureInPicture
+                            className="absolute inset-0 h-full w-full object-cover object-center"
+                            onError={(event) => {
+                              event.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                     <div className="mt-4 space-y-3">
