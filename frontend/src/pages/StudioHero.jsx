@@ -339,6 +339,12 @@ const OBJECTIVE_OPTIONS = [
 const RESIDENTIAL_PROPERTY_TYPES = ['APARTAMENTO', 'CASA']
 const COMMERCIAL_PROPERTY_TYPES = ['SALA COMERCIAL', 'LOJA', 'LAJE CORPORATIVA', 'GALPAO']
 const LAND_PROPERTY_TYPES = ['LOTE', 'TERRENO']
+const LAND_CONSTRUCTION_OPTIONS = [
+  { value: 'Casa', label: 'Casa', icon: '🏡' },
+  { value: 'Pequeno edifício residencial', label: 'Pequeno edifício residencial', icon: '🏢' },
+  { value: 'Galpão', label: 'Galpão', icon: '🏭' },
+  { value: 'Pequeno prédio comercial', label: 'Pequeno prédio comercial', icon: '🏬' },
+]
 const SALE_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES, ...LAND_PROPERTY_TYPES]
 const RENT_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES, ...LAND_PROPERTY_TYPES]
 
@@ -543,6 +549,8 @@ const initialAnswers = {
   objective: '',
   oferta: '',
   propertyType: '',
+  imagineConstruction: '',
+  imaginedConstructionType: '',
   stage: '',
   profile: '',
   city: '',
@@ -877,6 +885,7 @@ function getFinalFeatureText(answers) {
     answers.stage,
     answers.profile,
     answers.houseLocationType,
+    answers.imagineConstruction === 'yes' ? answers.imaginedConstructionType : '',
     answers.city,
     answers.district,
     answers.bedrooms,
@@ -1048,12 +1057,20 @@ export default function StudioHero() {
   const isGenerating = ['uploading', 'generating'].includes(status)
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
+  const hasLandImaginationStep = isPropertyCampaign && isLandType(answers.propertyType)
+  const hasLandConceptStep = hasLandImaginationStep && answers.imagineConstruction === 'yes'
   const hasStageStep = false
   const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign && !isLandType(answers.propertyType)
   const profileStep = 3
+  const landImaginationStep = hasLandImaginationStep ? 3 : null
+  const landConceptStep = hasLandConceptStep ? 4 : null
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
-  const locationStep = isCapture ? 2 : stageStep + (hasStageStep ? 1 : 0)
+  const locationStep = isCapture
+    ? 2
+    : hasLandImaginationStep
+      ? 4 + (hasLandConceptStep ? 1 : 0)
+      : stageStep + (hasStageStep ? 1 : 0)
   const captureTypeStep = isCapture ? 3 : null
   const differentialsStep = isCapture ? 4 : locationStep + 1
   const benefitQuestionStep = isBrokerCapture ? differentialsStep + 1 : null
@@ -1084,6 +1101,10 @@ export default function StudioHero() {
     [profileStep]: hasProfileStep ? answers.profile : '',
     [houseLocationStep]: hasHouseLocationStep ? answers.houseLocationType : '',
     [stageStep]: hasStageStep ? answers.stage : '',
+    [landImaginationStep]: hasLandImaginationStep
+      ? answers.imagineConstruction === 'yes' ? 'Sim' : answers.imagineConstruction === 'no' ? 'Não' : ''
+      : '',
+    [landConceptStep]: hasLandConceptStep ? answers.imaginedConstructionType : '',
     [locationStep]: displayLocation,
     [captureTypeStep]: isCapture ? answers.propertyType : '',
     [differentialsStep]: answers.differentials.join(', '),
@@ -1126,6 +1147,8 @@ export default function StudioHero() {
     (!isCapture || answers.propertyType) &&
     (!hasProfileStep || answers.profile) &&
     (!hasHouseLocationStep || answers.houseLocationType) &&
+    (!hasLandImaginationStep || answers.imagineConstruction) &&
+    (!hasLandConceptStep || answers.imaginedConstructionType) &&
     (!hasStageStep || answers.stage) &&
     answers.uf &&
     cityValue &&
@@ -1145,6 +1168,8 @@ export default function StudioHero() {
       objective: option.id,
       oferta: option.oferta,
       propertyType: '',
+      imagineConstruction: '',
+      imaginedConstructionType: '',
       stage: '',
       profile: '',
       city: '',
@@ -1183,6 +1208,8 @@ export default function StudioHero() {
     setAnswers((current) => ({
       ...current,
       propertyType,
+      imagineConstruction: '',
+      imaginedConstructionType: '',
       stage: '',
       profile: '',
       bedrooms: '',
@@ -1211,7 +1238,42 @@ export default function StudioHero() {
       setStep(differentialsStep)
       return
     }
-    setStep(isResidentialType(propertyType) ? profileStep : locationStep)
+    setStep(isLandType(propertyType) ? 3 : isResidentialType(propertyType) ? profileStep : locationStep)
+  }
+
+  const updateImagineConstruction = (value) => {
+    resetGenerationState()
+    setAnswers((current) => ({
+      ...current,
+      imagineConstruction: value,
+      imaginedConstructionType: value === 'yes' ? current.imaginedConstructionType : '',
+      differentials: [],
+      cta: '',
+      furnishingStatus: '',
+      decorationPolicy: '',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
+    }))
+    setStep(4)
+  }
+
+  const updateImaginedConstructionType = (value) => {
+    resetGenerationState()
+    setAnswers((current) => ({
+      ...current,
+      imaginedConstructionType: value,
+      differentials: [],
+      cta: '',
+      furnishingStatus: '',
+      decorationPolicy: '',
+      visualStyle: '',
+      atmosphere: '',
+      pace: '',
+      creativeFreedom: '',
+    }))
+    setStep(5)
   }
 
   const updateProfile = (profile) => {
@@ -1589,6 +1651,11 @@ export default function StudioHero() {
           objective: answers.objective,
           objectiveLabel: getObjectiveSummaryLabel(answers.objective),
           propertyType: answers.propertyType,
+          ...(isLandType(answers.propertyType) ? {
+            imagineConstruction: answers.imagineConstruction,
+            imaginedConstructionType: answers.imaginedConstructionType,
+            area: answers.area,
+          } : {}),
           profile: answers.profile,
           stage: answers.stage,
           houseLocationType: answers.houseLocationType,
@@ -1636,6 +1703,10 @@ export default function StudioHero() {
             objective: payload.briefing.objective,
             objectiveLabel: payload.briefing.objectiveLabel,
             propertyType: payload.briefing.propertyType,
+            ...(isLandType(answers.propertyType) ? {
+              imagineConstruction: payload.briefing.imagineConstruction,
+              imaginedConstructionType: payload.briefing.imaginedConstructionType,
+            } : {}),
             profile: payload.briefing.profile,
             city: payload.briefing.city,
             district: payload.briefing.district,
@@ -2015,6 +2086,52 @@ export default function StudioHero() {
             </UserReply>
           )}
 
+          {hasLandImaginationStep && (
+            <AssistantStep
+              number={landImaginationStep}
+              currentStep={step}
+              summary={stepSummaries[landImaginationStep]}
+              onEdit={() => setStep(landImaginationStep)}
+              message="Deseja que a IA imagine uma construção neste local?"
+            >
+              <ChipGrid>
+                <ChipButton
+                  active={answers.imagineConstruction === 'yes'}
+                  onClick={() => updateImagineConstruction('yes')}
+                >
+                  Sim
+                </ChipButton>
+                <ChipButton
+                  active={answers.imagineConstruction === 'no'}
+                  onClick={() => updateImagineConstruction('no')}
+                >
+                  Não
+                </ChipButton>
+              </ChipGrid>
+            </AssistantStep>
+          )}
+
+          {hasLandConceptStep && answers.imagineConstruction === 'yes' && (
+            <AssistantStep
+              number={landConceptStep}
+              currentStep={step}
+              summary={stepSummaries[landConceptStep]}
+              onEdit={() => setStep(landConceptStep)}
+              message="O que devemos imaginar neste local?"
+            >
+              <OptionGrid>
+                {LAND_CONSTRUCTION_OPTIONS.map((option) => (
+                  <ChoiceButton
+                    key={option.value}
+                    active={answers.imaginedConstructionType === option.value}
+                    title={`${option.icon} ${option.label}`}
+                    onClick={() => updateImaginedConstructionType(option.value)}
+                  />
+                ))}
+              </OptionGrid>
+            </AssistantStep>
+          )}
+
           {answers.propertyType && hasProfileStep && (
             <AssistantStep number={3} currentStep={step} summary={stepSummaries[profileStep]} onEdit={() => setStep(profileStep)} message="Qual e o perfil comercial deste imovel?">
               <ChipGrid>
@@ -2101,7 +2218,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {answers.objective && (isCapture || (answers.propertyType && (!hasProfileStep || answers.profile) && (!hasHouseLocationStep || answers.houseLocationType) && (!hasStageStep || answers.stage))) && (
+          {answers.objective && (isCapture || (answers.propertyType && (!hasProfileStep || answers.profile) && (!hasHouseLocationStep || answers.houseLocationType) && (!hasLandImaginationStep || answers.imagineConstruction) && (!hasLandConceptStep || answers.imaginedConstructionType) && (!hasStageStep || answers.stage))) && (
             <AssistantStep
               number={locationStep}
               currentStep={step}
@@ -3167,12 +3284,20 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const isBrokerCapture = answers.objective === 'broker_capture'
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
+  const hasLandImaginationStep = isPropertyCampaign && isLandType(answers.propertyType)
+  const hasLandConceptStep = hasLandImaginationStep && answers.imagineConstruction === 'yes'
   const hasStageStep = false
   const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign && !isLandType(answers.propertyType)
   const profileStep = 3
+  const landImaginationStep = hasLandImaginationStep ? 3 : null
+  const landConceptStep = hasLandConceptStep ? 4 : null
   const houseLocationStep = profileStep + (hasProfileStep ? 1 : 0)
   const stageStep = houseLocationStep + (hasHouseLocationStep ? 1 : 0)
-  const locationStep = isCapture ? 2 : stageStep + (hasStageStep ? 1 : 0)
+  const locationStep = isCapture
+    ? 2
+    : hasLandImaginationStep
+      ? 4 + (hasLandConceptStep ? 1 : 0)
+      : stageStep + (hasStageStep ? 1 : 0)
   const captureTypeStep = isCapture ? 3 : null
   const differentialsStep = isCapture ? 4 : locationStep + 1
   const benefitQuestionStep = isBrokerCapture ? differentialsStep + 1 : null
@@ -3203,6 +3328,8 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
     ...(isBrokerCapture ? [['Profissional', answers.propertyType, captureTypeStep]] : []),
     ...(hasProfileStep ? [['Perfil', answers.profile, profileStep]] : []),
     ...(hasHouseLocationStep ? [['Localizacao da casa', answers.houseLocationType, houseLocationStep]] : []),
+    ...(hasLandImaginationStep ? [['Imaginar construção', answers.imagineConstruction === 'yes' ? 'Sim' : 'Não', landImaginationStep]] : []),
+    ...(hasLandConceptStep ? [['Proposta conceitual', answers.imaginedConstructionType, landConceptStep]] : []),
     ...(hasStageStep ? [['Estagio', answers.stage, stageStep]] : []),
     [isCapture ? 'Area de atuacao' : 'Localizacao', displayLocation, locationStep],
     ['Abertura', answers.differentials.join(', '), differentialsStep],

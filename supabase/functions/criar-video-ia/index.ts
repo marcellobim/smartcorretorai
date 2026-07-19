@@ -1738,11 +1738,25 @@ function getBriefingValue(briefing: JsonRecord, key: string, fallback: unknown =
   return normalizeText(briefing?.[key] ?? fallback, 180)
 }
 
+const LAND_CONSTRUCTION_LABELS: Record<string, string> = {
+  CASA: 'casa',
+  'PEQUENO EDIFICIO RESIDENCIAL': 'pequeno edifício residencial',
+  GALPAO: 'galpão',
+  'PEQUENO PREDIO COMERCIAL': 'pequeno prédio comercial',
+}
+
+function normalizeLandConstructionType(value: unknown) {
+  const key = normalizeVideoTextToken(value, '', 60)
+  return LAND_CONSTRUCTION_LABELS[key] || ''
+}
+
 function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const briefing = (body.briefing && typeof body.briefing === 'object' ? body.briefing : {}) as JsonRecord
   const objective = getBriefingValue(briefing, 'objective', '')
   const objectiveLabel = getBriefingValue(briefing, 'objectiveLabel', objective)
   const propertyType = getBriefingValue(briefing, 'propertyType', '')
+  const imagineConstruction = getBriefingValue(briefing, 'imagineConstruction', '').toLowerCase()
+  const imaginedConstructionType = normalizeLandConstructionType(briefing.imaginedConstructionType)
   const profile = getBriefingValue(briefing, 'profile', body.style)
   const stage = getBriefingValue(briefing, 'stage', '')
   const houseLocationType = getBriefingValue(briefing, 'houseLocationType', '')
@@ -1774,6 +1788,8 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     objective,
     objectiveLabel,
     propertyType,
+    imagineConstruction,
+    imaginedConstructionType,
     profile,
     stage,
     houseLocationType,
@@ -1802,6 +1818,44 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     brokerBenefitOther,
     creativeMode: getBriefingValue(briefing, 'creativeMode', body.creativeMode ?? body.mode ?? 'cinematic'),
   }
+}
+
+function buildLandConceptPilotInstruction(
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
+  hasImage: boolean,
+) {
+  const propertyType = normalizeVideoTextToken(briefing.propertyType, '', 24)
+  if (!['LOTE', 'TERRENO'].includes(propertyType)) return ''
+  if (briefing.imagineConstruction !== 'yes' || !briefing.imaginedConstructionType) return ''
+
+  const suppliedContext = [
+    briefing.area ? `metragem informada: ${briefing.area}` : '',
+    briefing.profile ? `padrão informado: ${briefing.profile}` : '',
+    briefing.finalFeatures ? `descrição comercial: ${briefing.finalFeatures}` : '',
+    briefing.differentials.length ? `destaques informados: ${briefing.differentials.join(', ')}` : '',
+  ].filter(Boolean).join('. ')
+
+  return `LAND AND TERRAIN CONCEPT PILOT - APPLIES ONLY TO THIS REQUEST
+
+The advertised property is a ${propertyType.toLowerCase()}.
+The user explicitly authorized one conceptual proposal for: ${briefing.imaginedConstructionType}.
+${hasImage
+    ? 'Use the real lot or terrain photo as the mandatory visual and spatial reference. Keep the visible surroundings, access, perspective and terrain characteristics coherent.'
+    : 'There is no reference photo. Create a believable lot or terrain scene from only the information explicitly supplied by the user.'}
+${suppliedContext || 'No exact lot dimensions or additional construction details were supplied.'}
+
+Create only a plausible conceptual visualization, not an engineering project and not a construction-stage simulation.
+Do not show excavation sequences, structural calculations, floor plans, technical drawings, cranes or the building rising step by step.
+Respect the supplied area when present. Never invent exact lot dimensions.
+If the area or dimensions are missing, use a conservative small-scale proposal and avoid filling the entire terrain.
+The construction must fit naturally inside the visible or described lot, with believable setbacks, access and proportions.
+Never create a skyscraper, tower, mega condominium, oversized complex, disproportionate structure or multiple buildings.
+For a casa, prefer one plausible single-family house of modest scale.
+For a pequeno edifício residencial, use only a low-rise compact building compatible with a small urban lot.
+For a galpão, use one modest warehouse compatible with the available terrain.
+For a pequeno prédio comercial, use only a compact low-rise commercial building.
+Do not state or imply that the conceptual construction already exists, is approved, licensed or guaranteed.
+Use only facts supplied by the user.`
 }
 
 function cleanScreenText(value: unknown, maxLength = 48) {
@@ -3783,6 +3837,13 @@ serve(async (req) => {
         promptProfileKey = championPrompt.profileKey
         visibleTextCount = championPrompt.visibleTexts.length
         visibleTextsForDebug = championPrompt.visibleTexts
+      }
+
+      const landConceptPilotInstruction = buildLandConceptPilotInstruction(briefing, Boolean(inputImage1Path))
+      if (landConceptPilotInstruction) {
+        const baseVisualPrompt = visualPromptForDebug || promptFinal
+        promptFinal = `${promptFinal}\n\n---\n\n${landConceptPilotInstruction}`
+        visualPromptForDebug = `${baseVisualPrompt}\n\n---\n\n${landConceptPilotInstruction}`
       }
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
