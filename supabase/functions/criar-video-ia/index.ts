@@ -1837,6 +1837,9 @@ function buildOfficialLandInstruction(
 The advertised property is a ${propertyType.toLowerCase()}.
 The user explicitly declined any imagined construction.
 ${realTerrainReference}
+${briefing.area
+    ? `Approximate area supplied by the user: ${briefing.area} m². Treat it only as campaign information and a general visual reference. Never invent or derive other measurements from it.`
+    : 'No approximate area was supplied. Never invent or derive measurements.'}
 Show only the lot or terrain and its existing or described context.
 Do not add, suggest, reveal or imply any house, building, warehouse, commercial structure, condominium, construction project, architectural mass, floor plan or future development.
 Do not show construction stages, excavation, cranes or a building rising.
@@ -1862,10 +1865,12 @@ ${realTerrainReference}
 ${suppliedContext || 'No exact lot dimensions or additional construction details were supplied.'}
 
 Create only a plausible conceptual visualization, not an engineering project and not a construction-stage simulation.
-Do not show excavation sequences, structural calculations, floor plans, technical drawings, cranes or the building rising step by step.
+Do not perform or imply engineering calculations, feasibility studies, setbacks, floor-area ratios, technical floor counts, architectural plans or executive design.
+Do not show excavation sequences, floor plans, technical drawings, cranes or the building rising step by step.
 Respect the supplied area when present. Never invent exact lot dimensions.
 If the area or dimensions are missing, use a conservative small-scale proposal and avoid filling the entire terrain.
-The construction must fit naturally inside the visible or described lot, with believable setbacks, access and proportions.
+Use the area only as a general visual scale reference. Never derive or display invented dimensions from it.
+The construction must fit naturally inside the visible or described lot, with believable access, scale and proportions.
 Never create a skyscraper, tower, mega condominium, oversized complex, disproportionate structure or multiple buildings.
 For a casa, prefer one plausible single-family house of modest scale.
 For a pequeno edifício residencial, use only a low-rise compact building compatible with a small urban lot.
