@@ -215,21 +215,25 @@ const STUDIO_MODE_EXAMPLES = [
 const STUDIO_POSSIBILITY_EXAMPLES = [
   {
     id: 'sale',
+    media: '/showcase/studio/Generated video 1.mp4',
     title: '🏠 Vender um imóvel',
     description: 'Ideal para apresentar imóveis, destacar diferenciais e atrair compradores.',
   },
   {
     id: 'rent',
+    media: '/showcase/studio/22327cac-4723-47ff-9034-1b944bc6d8cd.mp4',
     title: '🔑 Alugar um imóvel',
     description: 'Ideal para valorizar imóveis disponíveis para locação e aumentar o interesse de futuros inquilinos.',
   },
   {
     id: 'capture_property',
+    media: '/showcase/studio/teste-premium-lite-16s.mp4',
     title: '📈 Captar imóveis',
     description: 'Ideal para conquistar proprietários e ampliar sua carteira com apresentações profissionais.',
   },
   {
     id: 'capture_brokers',
+    media: '/showcase/studio/Generated Video June 19, 2026 - 5_48PM.mp4',
     title: '🤝 Captar corretores',
     description: 'Ideal para divulgar oportunidades, fortalecer sua equipe e atrair novos profissionais.',
   },
@@ -2724,6 +2728,9 @@ function StudioPossibilitiesShowcase() {
           <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
             Escolha um objetivo e veja algumas das possibilidades que o Studio Hero pode criar para você.
           </p>
+          <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-slate-500">
+            Os exemplos são demonstrações visuais. Cada campanha será criada exclusivamente para o imóvel e o objetivo informados por você.
+          </p>
           <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
             <p className="text-sm font-black text-cyan-950">Nenhum vídeo é igual ao outro.</p>
             <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
@@ -2741,12 +2748,27 @@ function StudioPossibilitiesShowcase() {
               <div className="rounded-[1.6rem] border border-slate-200 bg-slate-950 p-2 shadow-lg shadow-slate-200/70">
                 <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.15rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#0e7490_100%)]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(103,232,249,0.22),transparent_36%)]" />
-                  <div className="relative px-4 text-center text-white">
+                  <div className="relative px-4 text-center text-white" aria-hidden="true">
                     <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
                     <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
-                      Espaço para vídeo
+                      Demonstração visual
                     </p>
                   </div>
+                  <video
+                    src={example.media}
+                    aria-label={`Demonstração: ${example.title}`}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls={false}
+                    preload="metadata"
+                    disablePictureInPicture
+                    className="absolute inset-0 h-full w-full object-cover object-center"
+                    onError={(event) => {
+                      event.currentTarget.style.display = 'none'
+                    }}
+                  />
                 </div>
               </div>
               <div className="px-1 pb-1 pt-4">
