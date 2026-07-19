@@ -129,110 +129,29 @@ const VIDEO_TEXT_TOKEN_DICTIONARY: Record<string, string> = {
 
 const STUDIO_HERO_FREE_AI_FINAL_CTA = 'SAIBA MAIS'
 
-const STUDIO_HERO_SPELLING_LOCK = `TEXT RENDER ENGINE - MANDATORY
+const STUDIO_HERO_GENERATIVE_TEXT_EXCLUSION = `FINAL VISUAL QUALITY OVERRIDE - HIGHEST PRIORITY
 
-Every on-screen text must be rendered exactly as specified.
-Text rendering accuracy has maximum priority.
-If the model is uncertain about rendering a word correctly, it is preferable to omit that word rather than display an incorrect version.
-Incorrect spelling is considered a generation failure.
+This override supersedes every earlier instruction that asks the video model to generate, draw, animate or render native text.
 
-SPELLING LOCK
+The generated scenes must contain zero AI-generated text, letters, words, numbers or text-like glyphs.
+Do not generate signs, plaques, house numbers, street signs, license plates, storefront names, facade lettering, architectural inscriptions, wall writing, posters, papers, screens, captions, subtitles, lower thirds, buttons, QR codes, logos, brand marks or watermarks.
+Do not replace forbidden text with blurred, distorted, illegible or invented characters. Keep those surfaces clean, blank, neutral and unmarked.
+Do not create random combinations such as "2,5A", fake phone numbers, fake prices, fake unit codes or decorative numbers.
+Do not invent company names, development names, building names, store names or logos.
 
-All text rendered on screen must obey these rules:
+If text already exists in an uploaded property reference, do not rewrite, extrapolate or transform it into new content and do not create a close-up that emphasizes it.
+Preserve the same cinematic quality, camera movement, lighting, realism, atmosphere, style and visual impact. This override changes only text-bearing artifacts.
 
-Do not change letters.
-Do not remove letters.
-Do not insert letters.
-Do not replace letters.
-Do not invent spelling.
-Do not abbreviate.
-Do not stylize spelling.
-Do not translate.
-Do not paraphrase.
-Do not modify capitalization unless explicitly requested.
-Render every word exactly as provided.
+For Comercial Cinematografico, the only permitted visible campaign text is the official SmartCorretorAI CTA already supplied inside the fixed final CTA image. Preserve that final image faithfully. Never redraw, rewrite, duplicate or add text around it.
+For Comercial IA Livre, render no visible text at all. SmartCorretorAI controls campaign copy outside the generated scene.`
 
-ASCII MODE
+const STUDIO_HERO_PORTUGUESE_NARRATION_LOCK = `BRAZILIAN PORTUGUESE VOICE LOCK - MANDATORY
 
-All native on-screen video text must use ASCII characters only.
-Prefer uppercase.
-No accent marks.
-No cedilla.
-No alternate spelling.
-No invented words.
-Never invent accent marks.
-Never replace letters with accented versions.
-
-Correct examples:
-
-EXCLUSIVO
-LANCAMENTO
-DISPONIVEL
-
-Incorrect examples:
-
-EXCLUS\u00cdVO
-EXCLU\u00cdVO
-EXCLUIVO
-LAN\u00c7AMENTO
-DISPON\u00cdVEL
-
-OFFICIAL WORD DICTIONARY
-
-The following SmartCorretorAI terms must always be rendered exactly as written:
-
-EXCLUSIVO = E X C L U S I V O
-OPORTUNIDADE = O P O R T U N I D A D E
-LANCAMENTO = L A N C A M E N T O
-DISPONIVEL = D I S P O N I V E L
-SAIBA MAIS = S A I B A   M A I S
-QUER VENDER = Q U E R   V E N D E R
-QUER ALUGAR = Q U E R   A L U G A R
-CONTRATAMOS = C O N T R A T A M O S
-PRONTO PARA MORAR = P R O N T O   P A R A   M O R A R
-PRE-LANCAMENTO = P R E - L A N C A M E N T O
-EM OBRAS = E M   O B R A S
-VENDA = V E N D A
-LOCACAO = L O C A C A O
-
-Never add accent marks.
-Never write EXCLUS\u00cdVO.
-Never write EXCLU\u00cdVO.
-Never write EXCLUIVO.
-Never alter official SmartCorretorAI terms.
-
-TEXT SAFETY RULE
-
-Prefer fewer correct words over multiple risky words.
-One correctly spelled word is better than many distorted words.
-If the model is uncertain about rendering text correctly, avoid rendering that word.
-If exact rendering cannot be guaranteed, do not render the text.
-If uncertain, render no text instead of misspelled text.
-
-TEXT QUALITY PRIORITY
-
-Rendering priority:
-1. Correct spelling
-2. Correct letters
-3. Correct word
-4. Correct positioning
-5. Visual beauty
-
-Never sacrifice spelling for visual effects.
-
-FACT ENGINE FOR TEXT
-
-All user supplied text is immutable.
-Never modify city, neighborhood, phone, price, area, CTA, Hero Words, numbers or measurements.
-Never invent text.
-Never hallucinate text.
-Never generate random characters.
-
-PROMPT FINAL
-
-Treat every native on-screen text as if it were a company logo.
-Company logos cannot have spelling mistakes.
-Apply the same level of precision to every word rendered in the video.`
+Spoken narration is separate from visual text and must remain natural Brazilian Portuguese in UTF-8.
+Never convert narration to ASCII and never remove accents or cedilla from words sent to the voice.
+Preserve and pronounce Portuguese words correctly, including: lançamento, localização, condições, negociação, valorização, construção, coração, atenção and solução.
+Never pronounce "lançamento" as the unaccented written form "lancamento".
+Do not read any uppercase ASCII screen-text token as narration.`
 
 function resolveVideoTextToken(clean: string) {
   const compact = clean.replace(/[\s-]+/g, '')
@@ -271,48 +190,6 @@ function normalizeVideoTextToken(value: unknown, fallback = '', maxLength = 48) 
 
   const fallbackClean = normalizePromptText(fallback, maxLength)
   return resolveVideoTextToken(fallbackClean).slice(0, maxLength)
-}
-
-function withStudioHeroSpellingLock(prompt: string) {
-  const cleanPrompt = prompt.trim()
-  if (!cleanPrompt || cleanPrompt.includes('SPELLING LOCK')) return cleanPrompt
-  return `${cleanPrompt}
-
----
-
-${STUDIO_HERO_SPELLING_LOCK}`
-}
-
-function withStudioHeroFreeAiFinalCta(prompt: string) {
-  const cleanPrompt = prompt.trim()
-  if (!cleanPrompt || cleanPrompt.includes('FREE AI FINAL NATIVE CTA')) return cleanPrompt
-  return `${cleanPrompt}
-
----
-
-FREE AI FINAL NATIVE CTA - IA LIVRE ONLY
-
-This rule applies only to Studio Hero Modo 2 - IA Livre.
-In the final scene only, render one native CTA text:
-"${STUDIO_HERO_FREE_AI_FINAL_CTA}"
-
-The final CTA must be exactly one line.
-Do not render phone numbers.
-Do not render WhatsApp.
-Do not render QR Code.
-Do not render address.
-Do not render a two-line CTA.
-Do not render long CTA text.
-Do not render any CTA other than "${STUDIO_HERO_FREE_AI_FINAL_CTA}".
-
-Use TEXT RENDER ENGINE, SPELLING LOCK, ASCII MODE, OFFICIAL WORD DICTIONARY and TEXT QUALITY PRIORITY.
-If exact rendering of "${STUDIO_HERO_FREE_AI_FINAL_CTA}" cannot be guaranteed, omit the final CTA instead of misspelling it.`
-}
-
-function normalizeVisibleTextList(values: string[]) {
-  return values
-    .map((value) => normalizeVideoTextToken(value))
-    .filter(Boolean)
 }
 
 function cleanStaticText(text: string): string {
@@ -1738,6 +1615,46 @@ function getBriefingValue(briefing: JsonRecord, key: string, fallback: unknown =
   return normalizeText(briefing?.[key] ?? fallback, 180)
 }
 
+function withStudioHeroFinalVisualQualityLock(prompt: string, isFreeAi: boolean, isJsonMode = false) {
+  const cleanPrompt = prompt.trim()
+  if (!cleanPrompt) return cleanPrompt
+
+  const modeRule = isFreeAi
+    ? 'Render no visible text. There is no native CTA exception in IA Livre.'
+    : 'The fixed final CTA image supplied by SmartCorretorAI is the only visible-text exception. Preserve it without rewriting it.'
+
+  if (isJsonMode) {
+    const payload = JSON.parse(cleanPrompt) as JsonRecord
+    payload.text_engine = {
+      enabled: false,
+      native_text_count: 0,
+      generated_text_forbidden: true,
+      mode_rule: modeRule,
+    }
+    payload.final_visual_quality_override = {
+      priority: 'highest',
+      supersedes_previous_native_text_instructions: true,
+      instruction: STUDIO_HERO_GENERATIVE_TEXT_EXCLUSION,
+      mode_rule: modeRule,
+    }
+    payload.brazilian_portuguese_voice_lock = STUDIO_HERO_PORTUGUESE_NARRATION_LOCK
+    return JSON.stringify(payload, null, 2)
+  }
+
+  if (cleanPrompt.includes('FINAL VISUAL QUALITY OVERRIDE')) return cleanPrompt
+  return `${cleanPrompt}
+
+---
+
+${STUDIO_HERO_GENERATIVE_TEXT_EXCLUSION}
+
+${modeRule}
+
+---
+
+${STUDIO_HERO_PORTUGUESE_NARRATION_LOCK}`
+}
+
 const LAND_CONSTRUCTION_LABELS: Record<string, string> = {
   CASA: 'casa',
   'PEQUENO EDIFICIO RESIDENCIAL': 'pequeno edifício residencial',
@@ -1969,38 +1886,38 @@ function buildShortAdVoiceoverScript(
     : ''
 
   if (/CAPTACAO|CAPTAR|PROPRIET/.test(source) && !/CORRETOR|PROFISSION/.test(source)) {
-    return `Mostre seu imovel com quem entende de divulgacao profissional. Uma apresentacao forte ajuda a atrair compradores certos com mais confianca.`
+    return `Mostre seu imóvel com quem entende de divulgação profissional. Uma apresentação forte ajuda a atrair compradores certos com mais confiança.`
   }
 
   if (/CORRETOR|PROFISSION|CAPTADOR|GERENTE|DIRETOR|CARREIRA/.test(source)) {
-    return `Faca parte de uma equipe preparada para crescer no mercado imobiliario. Uma oportunidade para profissionais que querem mais estrutura e resultado.`
+    return `Faça parte de uma equipe preparada para crescer no mercado imobiliário. Uma oportunidade para profissionais que querem mais estrutura e resultado.`
   }
 
   if (/LOCAC|ALUG/.test(source)) {
-    return `Encontre uma opcao pronta para facilitar sua proxima escolha em ${place}. Um ${propertyType} apresentado com clareza para quem busca praticidade.`
+    return `Encontre uma opção pronta para facilitar sua próxima escolha em ${place}. Um ${propertyType} apresentado com clareza para quem busca praticidade.`
   }
 
   if (/MCMV|ECONOM|POPULAR|OPORTUNIDADE|CASA PROPRIA|SAIA DO ALUGUEL/.test(source)) {
     const second = /LANCAMENTO|OBRAS|FUTURO/.test(source)
-      ? 'Um lancamento pensado para quem busca praticidade, localizacao e bom custo-beneficio.'
+      ? 'Um lançamento pensado para quem busca praticidade, localização e bom custo-benefício.'
       : 'Uma escolha pensada para quem busca praticidade e uma excelente oportunidade.'
-    return `Conheca uma excelente oportunidade em ${place}. ${second}`
+    return `Conheça uma excelente oportunidade em ${place}. ${second}`
   }
 
   if (/LUXO|ALTO PADRAO|SOFISTIC|DESIGN|EXCLUSIV|ELEGAN/.test(source)) {
     const detail = featureText ? ` com foco em ${featureText}` : ''
-    return `Descubra um ${propertyType}${detail} em ${place}. Uma apresentacao criada para despertar desejo desde os primeiros segundos.`
+    return `Descubra um ${propertyType}${detail} em ${place}. Uma apresentação criada para despertar desejo desde os primeiros segundos.`
   }
 
   if (/COMERCIAL|SALA|LAJE|LOJA|GALPAO|NEGOCIO|NEGOCIOS/.test(source)) {
-    return `Apresente seu negocio com mais presenca em ${place}. Um comercial direto para destacar potencial, localizacao e oportunidade.`
+    return `Apresente seu negócio com mais presença em ${place}. Um comercial direto para destacar potencial, localização e oportunidade.`
   }
 
   if (/LANCAMENTO|OBRAS|FUTURO/.test(source)) {
-    return `Conheca uma novidade imobiliaria em ${place}. Um lancamento criado para quem busca uma nova oportunidade com praticidade.`
+    return `Conheça uma novidade imobiliária em ${place}. Um lançamento criado para quem busca uma nova oportunidade com praticidade.`
   }
 
-  return `Descubra um ${propertyType} com grande potencial em ${place}. Uma apresentacao pensada para gerar interesse e vontade de saber mais.`
+  return `Descubra um ${propertyType} com grande potencial em ${place}. Uma apresentação pensada para gerar interesse e vontade de saber mais.`
 }
 
 function buildShortAdVisualDirection(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
@@ -3869,20 +3786,13 @@ serve(async (req) => {
       }
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
-      visibleTextsForDebug = normalizeVisibleTextList(visibleTextsForDebug)
-      if (isFreeAiRequest) {
-        visibleTextsForDebug = normalizeVisibleTextList([...visibleTextsForDebug, STUDIO_HERO_FREE_AI_FINAL_CTA])
-      }
-      visibleTextCount = visibleTextsForDebug.length || visibleTextCount
-
-      if (promptMode !== 'json') {
-        promptFinal = withStudioHeroSpellingLock(promptFinal)
-        visualPromptForDebug = withStudioHeroSpellingLock(visualPromptForDebug)
-        if (isFreeAiRequest) {
-          promptFinal = withStudioHeroFreeAiFinalCta(promptFinal)
-          visualPromptForDebug = withStudioHeroFreeAiFinalCta(visualPromptForDebug)
-        }
-      }
+      promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json')
+      visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json')
+      voiceoverPromptForDebug = voiceoverPromptForDebug
+        ? `${voiceoverPromptForDebug}\n\n${STUDIO_HERO_PORTUGUESE_NARRATION_LOCK}`
+        : STUDIO_HERO_PORTUGUESE_NARRATION_LOCK
+      visibleTextsForDebug = []
+      visibleTextCount = 0
 
       if (promptMode !== 'json' && (promptFinal.includes('{') || promptFinal.includes('}'))) {
         throw new Error('prompt_placeholder_detected')
