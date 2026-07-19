@@ -1076,6 +1076,7 @@ export default function StudioHero() {
   const hasLandConceptStep = hasLandImaginationStep && answers.imagineConstruction === 'yes'
   const hasStageStep = false
   const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign && !isLandType(answers.propertyType)
+  const hasCinematicPropertyPreparationStep = !isFreeAiMode && !isLandType(answers.propertyType)
   const profileStep = 3
   const landAreaStep = hasLandAreaStep ? 3 : null
   const landImaginationStep = hasLandImaginationStep ? 4 : null
@@ -1095,14 +1096,14 @@ export default function StudioHero() {
   const ctaStep = isBrokerCapture
     ? benefitQuestionStep + (answers.brokerHasBenefits === 'yes' ? 2 : 1)
     : differentialsStep + (hasFreeAiPropertyFeaturesStep ? 2 : 1)
-  const furnishingStep = isFreeAiMode ? null : ctaStep + 1
-  const decorationStep = isFreeAiMode ? null : ctaStep + 2
+  const furnishingStep = hasCinematicPropertyPreparationStep ? ctaStep + 1 : null
+  const decorationStep = hasCinematicPropertyPreparationStep ? ctaStep + 2 : null
   const visualStyleStep = isFreeAiMode ? ctaStep + 1 : null
   const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
   const paceStep = isFreeAiMode ? ctaStep + 3 : null
   const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
   const imageCountStep = null
-  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + 3
+  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + (hasCinematicPropertyPreparationStep ? 3 : 1)
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroAccess = getStudioHeroAccess(user)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
@@ -1137,8 +1138,8 @@ export default function StudioHero() {
       ? propertyFeaturesSummary
       : '',
     [ctaStep]: answers.cta,
-    [furnishingStep]: !isFreeAiMode ? answers.furnishingStatus : '',
-    [decorationStep]: !isFreeAiMode ? answers.decorationPolicy : '',
+    [furnishingStep]: hasCinematicPropertyPreparationStep ? answers.furnishingStatus : '',
+    [decorationStep]: hasCinematicPropertyPreparationStep ? answers.decorationPolicy : '',
     [visualStyleStep]: isFreeAiMode ? answers.visualStyle : '',
     [atmosphereStep]: isFreeAiMode ? answers.atmosphere : '',
     [paceStep]: isFreeAiMode ? answers.pace : '',
@@ -1156,7 +1157,7 @@ export default function StudioHero() {
     || (isCommercialProperty ? Boolean(answers.area && answers.parking) : Boolean(answers.bedrooms && answers.suites && answers.parking))
   const hasRequiredModeInputs = isFreeAiMode
     ? Boolean(hasRequiredFreeAiBriefing && hasRequiredFreeAiPropertyFeatures)
-    : Boolean(answers.furnishingStatus && answers.decorationPolicy && hasRequiredCinematicImage)
+    : Boolean(hasRequiredCinematicImage && (!hasCinematicPropertyPreparationStep || (answers.furnishingStatus && answers.decorationPolicy)))
 
   const canGenerateBriefing = Boolean(
     answers.objective &&
@@ -1413,7 +1414,7 @@ export default function StudioHero() {
       pace: '',
       creativeFreedom: '',
     }))
-    setStep(isFreeAiMode ? visualStyleStep : furnishingStep)
+    setStep(isFreeAiMode ? visualStyleStep : hasCinematicPropertyPreparationStep ? furnishingStep : uploadStep)
   }
 
   const updatePropertyCharacteristic = (field, value) => {
@@ -2666,7 +2667,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {!isFreeAiMode && answers.cta && step >= furnishingStep && (
+          {hasCinematicPropertyPreparationStep && answers.cta && step >= furnishingStep && (
             <AssistantStep
               number={furnishingStep}
               currentStep={step}
@@ -2688,7 +2689,7 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {!isFreeAiMode && answers.furnishingStatus && step >= decorationStep && (
+          {hasCinematicPropertyPreparationStep && answers.furnishingStatus && step >= decorationStep && (
             <AssistantStep
               number={decorationStep}
               currentStep={step}
@@ -2847,7 +2848,7 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {!isFreeAiMode && answers.decorationPolicy && step >= uploadStep && (
+          {!isFreeAiMode && (hasCinematicPropertyPreparationStep ? answers.decorationPolicy : answers.cta) && step >= uploadStep && (
             <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Envie a melhor imagem do imovel. O SmartCorretorAI adiciona automaticamente o encerramento profissional do video.">
               <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
                 {isGenerating && !videoUrl ? (
@@ -3348,6 +3349,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const hasLandConceptStep = hasLandImaginationStep && answers.imagineConstruction === 'yes'
   const hasStageStep = false
   const hasFreeAiPropertyFeaturesStep = isFreeAiMode && isPropertyCampaign && !isLandType(answers.propertyType)
+  const hasCinematicPropertyPreparationStep = !isFreeAiMode && !isLandType(answers.propertyType)
   const profileStep = 3
   const landAreaStep = hasLandAreaStep ? 3 : null
   const landImaginationStep = hasLandImaginationStep ? 4 : null
@@ -3367,14 +3369,14 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const ctaStep = isBrokerCapture
     ? benefitQuestionStep + (answers.brokerHasBenefits === 'yes' ? 2 : 1)
     : differentialsStep + (hasFreeAiPropertyFeaturesStep ? 2 : 1)
-  const furnishingStep = isFreeAiMode ? null : ctaStep + 1
-  const decorationStep = isFreeAiMode ? null : ctaStep + 2
+  const furnishingStep = hasCinematicPropertyPreparationStep ? ctaStep + 1 : null
+  const decorationStep = hasCinematicPropertyPreparationStep ? ctaStep + 2 : null
   const visualStyleStep = isFreeAiMode ? ctaStep + 1 : null
   const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
   const paceStep = isFreeAiMode ? ctaStep + 3 : null
   const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
   const imageCountStep = null
-  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + 3
+  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + (hasCinematicPropertyPreparationStep ? 3 : 1)
   const imageErrorTarget = getImageErrorTarget(message)
   const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const visibleTextPreview = [
@@ -3412,8 +3414,10 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       ['Ritmo', answers.pace, paceStep],
       ['Liberdade criativa', answers.creativeFreedom, creativeFreedomStep],
     ] : [
-      ['Mobiliario', answers.furnishingStatus, furnishingStep],
-      ['Ambientacao', answers.decorationPolicy, decorationStep],
+      ...(hasCinematicPropertyPreparationStep ? [
+        ['Mobiliario', answers.furnishingStatus, furnishingStep],
+        ['Ambientacao', answers.decorationPolicy, decorationStep],
+      ] : []),
       ['Imagem do imovel', files.image1?.name, uploadStep],
     ]),
   ].filter((row) => row[2])
