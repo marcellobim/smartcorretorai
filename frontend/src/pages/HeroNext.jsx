@@ -1356,6 +1356,57 @@ function UserBubble({ children }) {
   )
 }
 
+const HERO_CONVERSATION_INITIAL_DELAY_MS = 350
+const HERO_CONVERSATION_CHAR_DELAY_MS = 30
+const HERO_CONVERSATION_FINAL_CURSOR_MS = 400
+const HERO_CONVERSATION_MESSAGE_GAP_MS = 180
+
+function ConversationTypewriterText({ text, active, onComplete }) {
+  const [visibleText, setVisibleText] = useState(active ? '' : text)
+  const [showCursor, setShowCursor] = useState(false)
+  const onCompleteRef = useRef(onComplete)
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
+
+  useEffect(() => {
+    if (!active) {
+      setVisibleText(text)
+      setShowCursor(false)
+      return undefined
+    }
+
+    let index = 0
+    let intervalId = null
+    let finalTimerId = null
+    setVisibleText('')
+    setShowCursor(true)
+
+    const startTimerId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        index += 1
+        setVisibleText(text.slice(0, index))
+        if (index >= text.length) {
+          window.clearInterval(intervalId)
+          finalTimerId = window.setTimeout(() => {
+            setShowCursor(false)
+            onCompleteRef.current?.()
+          }, HERO_CONVERSATION_FINAL_CURSOR_MS)
+        }
+      }, HERO_CONVERSATION_CHAR_DELAY_MS)
+    }, HERO_CONVERSATION_INITIAL_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(startTimerId)
+      if (intervalId) window.clearInterval(intervalId)
+      if (finalTimerId) window.clearTimeout(finalTimerId)
+    }
+  }, [active, text])
+
+  return <>{visibleText}{showCursor && <span className="ml-1 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse rounded-sm bg-emerald-600" />}</>
+}
+
 const CONVERSATION_CONFIRMATIONS = ['Perfeito.', 'Ótimo.', 'Excelente.', 'Entendi.', 'Muito bem.', 'Certo.']
 
 const getConversationConfirmation = (question, value, index) => {
@@ -1428,7 +1479,15 @@ export default function HeroNext() {
   const [generationResult, setGenerationResult] = useState(() => readStoredHeroNextResult())
   const [generationJobs, setGenerationJobs] = useState(() => readStoredHeroNextResult()?.jobs || [])
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
+  const [conversationQueue, setConversationQueue] = useState([])
+  const [conversationQueueIndex, setConversationQueueIndex] = useState(-1)
+  const [conversationContext, setConversationContext] = useState(null)
+  const [conversationBusy, setConversationBusy] = useState(false)
+  const [conversationOpeningComplete, setConversationOpeningComplete] = useState(false)
+  const [pendingConversationAnswer, setPendingConversationAnswer] = useState(null)
   const activeQuestionRef = useRef(null)
+  const conversationPauseRef = useRef(null)
+  const conversationBusyRef = useRef(false)
 
   const isRentGoal = goal === 'rent'
   const isPropertyCaptureGoal = goal === 'property_capture'
@@ -1447,7 +1506,11 @@ export default function HeroNext() {
       activeQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [phase, chatIndex])
+  }, [phase, chatIndex, conversationQueueIndex])
+
+  useEffect(() => () => {
+    if (conversationPauseRef.current) window.clearTimeout(conversationPauseRef.current)
+  }, [])
 
   const baseChatFlow = isRentGoal
     ? RENT_CHAT_FLOW
@@ -1501,6 +1564,61 @@ export default function HeroNext() {
     && !generationLoading,
   )
 
+  const startConversationSequence = (items, context) => {
+    if (conversationPauseRef.current) window.clearTimeout(conversationPauseRef.current)
+    setConversationQueue(items.filter((item) => item.text))
+    setConversationQueueIndex(0)
+    setConversationContext(context)
+    conversationBusyRef.current = true
+    setConversationBusy(true)
+  }
+
+  const finishConversationSequence = () => {
+    const completedContext = conversationContext
+    setConversationQueue([])
+    setConversationQueueIndex(-1)
+    setConversationContext(null)
+    conversationBusyRef.current = false
+    setConversationBusy(false)
+    setPendingConversationAnswer(null)
+
+    if (completedContext?.kind === 'opening') {
+      setConversationOpeningComplete(true)
+      return
+    }
+    if (completedContext?.kind === 'answer') {
+      if (completedContext.nextIndex === -1) {
+        setPhase(isAnyCaptureGoal ? 'destination' : 'values')
+      } else {
+        setChatIndex(completedContext.nextIndex)
+      }
+    }
+  }
+
+  const handleConversationMessageComplete = () => {
+    if (!conversationBusy) return
+    if (conversationPauseRef.current) window.clearTimeout(conversationPauseRef.current)
+    conversationPauseRef.current = window.setTimeout(() => {
+      if (conversationQueueIndex < conversationQueue.length - 1) {
+        setConversationQueueIndex((current) => current + 1)
+      } else {
+        finishConversationSequence()
+      }
+    }, HERO_CONVERSATION_MESSAGE_GAP_MS)
+  }
+
+  const renderConversationQueue = () => conversationQueue
+    .slice(0, conversationQueueIndex + 1)
+    .map((item, index) => (
+      <AssistantBubble key={item.id}>
+        <ConversationTypewriterText
+          text={item.text}
+          active={index === conversationQueueIndex}
+          onComplete={handleConversationMessageComplete}
+        />
+      </AssistantBubble>
+    ))
+
   const resetForGoal = (nextGoal) => {
     setGoalNotice('')
     setGoal(nextGoal)
@@ -1529,10 +1647,29 @@ export default function HeroNext() {
     setGenerationJobs([])
     setGenerationError('')
     setPieceLimitNotice('')
+    setConversationOpeningComplete(false)
+    setPendingConversationAnswer(null)
+    const nextBaseChatFlow = nextGoal === 'rent'
+      ? RENT_CHAT_FLOW
+      : nextGoal === 'property_capture'
+        ? PROPERTY_CAPTURE_CHAT_FLOW
+        : nextGoal === 'broker_capture'
+          ? BROKER_CAPTURE_CHAT_FLOW
+          : SALE_CHAT_FLOW
+    const nextChatFlow = getChatFlowForAnswers(nextBaseChatFlow, {}).filter((question) => shouldShowChatQuestion(question, {}))
+    const firstQuestion = nextChatFlow[0]
+    startConversationSequence([
+      { id: 'opening-hello', text: 'Olá!' },
+      { id: 'opening-together', text: `Vamos criar sua campanha de ${getGoalLabel(nextGoal).toLowerCase()} juntos.` },
+      { id: 'opening-guide', text: 'Vou fazer algumas perguntas rápidas e organizar tudo para você.' },
+      { id: 'opening-transition', text: getConversationTransition(firstQuestion, 0, nextChatFlow.length) },
+      { id: `opening-question-${firstQuestion.id}`, text: firstQuestion.question },
+    ], { kind: 'opening' })
     setPhase('chat')
   }
 
   const commitAnswer = (questionId, value) => {
+    if (conversationBusyRef.current) return
     const normalizedValue = normalizeAnswerValue(questionId, value)
     if (!normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)) return
 
@@ -1564,18 +1701,37 @@ export default function HeroNext() {
     setGenerationError('')
     setPromptTouched(false)
     setHumanPrompt('')
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 
-    if (nextMissingIndex === -1) {
-      setPhase(isAnyCaptureGoal ? 'destination' : 'values')
-    } else {
-      setChatIndex(nextMissingIndex)
-    }
+    const answeredQuestion = updatedChatFlow[currentUpdatedIndex]
+    const nextQuestion = nextMissingIndex === -1 ? null : updatedChatFlow[nextMissingIndex]
+    const nextTransition = nextQuestion
+      ? getConversationTransition(nextQuestion, nextMissingIndex, updatedChatFlow.length)
+      : ''
+    setPendingConversationAnswer({ questionId, value: normalizedValue })
+    startConversationSequence([
+      {
+        id: `confirmation-${questionId}`,
+        text: getConversationConfirmation(answeredQuestion, normalizedValue, currentUpdatedIndex),
+      },
+      { id: `transition-${nextQuestion?.id || 'complete'}`, text: nextTransition },
+      { id: `question-${nextQuestion?.id || 'complete'}`, text: nextQuestion?.question || '' },
+    ], { kind: 'answer', nextIndex: nextMissingIndex })
   }
 
   const goToQuestion = (index) => {
     const safeIndex = Math.max(0, Math.min(index, chatFlow.length - 1))
     const question = chatFlow[safeIndex]
     const currentValue = answers[question.id]
+
+    if (conversationPauseRef.current) window.clearTimeout(conversationPauseRef.current)
+    setConversationQueue([])
+    setConversationQueueIndex(-1)
+    setConversationContext(null)
+    conversationBusyRef.current = false
+    setConversationBusy(false)
+    setConversationOpeningComplete(true)
+    setPendingConversationAnswer(null)
 
     setChatIndex(safeIndex)
     setPhase('chat')
@@ -1589,6 +1745,7 @@ export default function HeroNext() {
   }
 
   const goBackInChat = () => {
+    if (conversationBusy) return
     if (chatIndex > 0) {
       goToQuestion(chatIndex - 1)
       return
@@ -2078,7 +2235,7 @@ export default function HeroNext() {
   } : null
 
   const renderQuestionControls = () => {
-    if (!currentQuestion) return null
+    if (!currentQuestion || conversationBusy) return null
 
     if (currentQuestion.id === 'contactPhoneChoice') {
       return (
@@ -2283,33 +2440,47 @@ export default function HeroNext() {
             <div className="grid lg:grid-cols-[minmax(0,1fr)_330px]">
               <div className="min-w-0 bg-[linear-gradient(180deg,#f8fffb_0%,#ffffff_100%)] p-5 sm:p-8">
                 <div className="mb-5">
-                  <Button type="button" variant="secondary" onClick={goBackInChat}>Voltar</Button>
+                  <Button type="button" variant="secondary" onClick={goBackInChat} disabled={conversationBusy}>Voltar</Button>
                 </div>
                 <div className="space-y-5">
-                  <AssistantBubble>Olá!</AssistantBubble>
-                  <AssistantBubble>Vamos criar sua campanha de {getGoalLabel(goal).toLowerCase()} juntos.</AssistantBubble>
-                  <AssistantBubble>Vou fazer algumas perguntas rápidas e organizar tudo para você.</AssistantBubble>
-                  {chatFlow.slice(0, chatIndex).map((question, index) => (
-                    <div key={question.id} className="space-y-3">
-                      {getConversationTransition(question, index, chatFlow.length) && (
-                        <AssistantBubble>{getConversationTransition(question, index, chatFlow.length)}</AssistantBubble>
-                      )}
-                      <AssistantBubble>{question.question}</AssistantBubble>
-                      <div className="flex items-start justify-end gap-2">
-                        <button type="button" onClick={() => goToQuestion(index)} className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-100">Editar</button>
-                        <UserBubble>{formatAnswer(answers[question.id])}</UserBubble>
-                      </div>
-                      <AssistantBubble>{getConversationConfirmation(question, answers[question.id], index)}</AssistantBubble>
+                  {!conversationOpeningComplete && (
+                    <div ref={activeQuestionRef} aria-live="polite" aria-busy="true" className="scroll-mt-6 space-y-3">
+                      {renderConversationQueue()}
                     </div>
-                  ))}
-                  {currentQuestion && (
-                    <div ref={activeQuestionRef} aria-live="polite" className="scroll-mt-6 space-y-3">
-                      {getConversationTransition(currentQuestion, chatIndex, chatFlow.length) && (
-                        <AssistantBubble>{getConversationTransition(currentQuestion, chatIndex, chatFlow.length)}</AssistantBubble>
+                  )}
+                  {conversationOpeningComplete && (
+                    <>
+                      <AssistantBubble>Olá!</AssistantBubble>
+                      <AssistantBubble>Vamos criar sua campanha de {getGoalLabel(goal).toLowerCase()} juntos.</AssistantBubble>
+                      <AssistantBubble>Vou fazer algumas perguntas rápidas e organizar tudo para você.</AssistantBubble>
+                      {chatFlow.slice(0, chatIndex).map((question, index) => (
+                        <div key={question.id} className="space-y-3">
+                          {getConversationTransition(question, index, chatFlow.length) && (
+                            <AssistantBubble>{getConversationTransition(question, index, chatFlow.length)}</AssistantBubble>
+                          )}
+                          <AssistantBubble>{question.question}</AssistantBubble>
+                          <div className="flex items-start justify-end gap-2">
+                            <button type="button" onClick={() => goToQuestion(index)} disabled={conversationBusy} className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">Editar</button>
+                            <UserBubble>{formatAnswer(answers[question.id])}</UserBubble>
+                          </div>
+                          <AssistantBubble>{getConversationConfirmation(question, answers[question.id], index)}</AssistantBubble>
+                        </div>
+                      ))}
+                      {currentQuestion && (
+                        <div ref={activeQuestionRef} aria-live="polite" aria-busy={conversationBusy} className="scroll-mt-6 space-y-3">
+                          {getConversationTransition(currentQuestion, chatIndex, chatFlow.length) && (
+                            <AssistantBubble>{getConversationTransition(currentQuestion, chatIndex, chatFlow.length)}</AssistantBubble>
+                          )}
+                          <AssistantBubble>{currentQuestion.question}</AssistantBubble>
+                          {pendingConversationAnswer ? (
+                            <>
+                              <UserBubble>{formatAnswer(pendingConversationAnswer.value)}</UserBubble>
+                              {renderConversationQueue()}
+                            </>
+                          ) : renderQuestionControls()}
+                        </div>
                       )}
-                      <AssistantBubble>{currentQuestion.question}</AssistantBubble>
-                      {renderQuestionControls()}
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
