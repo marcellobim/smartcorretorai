@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -1356,6 +1356,46 @@ function UserBubble({ children }) {
   )
 }
 
+const CONVERSATION_CONFIRMATIONS = ['Perfeito.', 'Ótimo.', 'Excelente.', 'Entendi.', 'Muito bem.', 'Certo.']
+
+const getConversationConfirmation = (question, value, index) => {
+  const prefix = CONVERSATION_CONFIRMATIONS[index % CONVERSATION_CONFIRMATIONS.length]
+  const formattedValue = formatAnswer(value)
+
+  if (question.id === 'contactPhoneChoice') {
+    return value === 'Sim, quero divulgar'
+      ? 'Entendi. Você deseja divulgar seu telefone profissional.'
+      : 'Entendi. A campanha seguirá sem telefone.'
+  }
+  if (question.id === 'differentials' || question.id === 'businessDifferentials') {
+    return `${prefix} Os diferenciais principais já estão definidos.`
+  }
+  if (Array.isArray(value) || formattedValue.length > 58) {
+    return `${prefix} Essa escolha já está registrada.`
+  }
+  return `${prefix} ${formattedValue}.`
+}
+
+const getConversationTransition = (question, index, total) => {
+  if (!question) return ''
+  if (index === 0) {
+    if (question.id === 'services') return 'Vamos começar pelos serviços que deseja apresentar.'
+    if (question.id === 'professionalProfile') return 'Vamos começar pelo perfil profissional que deseja atrair.'
+    return 'Vamos começar pelo tipo do imóvel.'
+  }
+  if (question.id === 'stage') return 'Agora quero entender a situação atual do imóvel.'
+  if (['state', 'city'].includes(question.id)) return 'Agora vamos falar da localização.'
+  if (['bedrooms', 'area'].includes(question.id)) return 'Muito bem. Vamos conhecer a composição do imóvel.'
+  if (question.id === 'differentials' || question.id === 'businessDifferentials') {
+    return 'Ótimo. Agora quero conhecer os principais diferenciais.'
+  }
+  if (question.id === 'mainMessage') return 'Muito bem. Agora vamos definir a mensagem principal da campanha.'
+  if (question.id === 'cta') return 'Já temos as principais informações. Vamos definir como a campanha convida o cliente a agir.'
+  if (question.id === 'contactPhoneChoice') return 'Estamos quase terminando. Só falta confirmar como deseja divulgar seu contato.'
+  if (index === total - 1) return 'Estamos quase terminando.'
+  return ''
+}
+
 export default function HeroNext() {
   const { user } = useAuth()
   const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
@@ -1388,6 +1428,7 @@ export default function HeroNext() {
   const [generationResult, setGenerationResult] = useState(() => readStoredHeroNextResult())
   const [generationJobs, setGenerationJobs] = useState(() => readStoredHeroNextResult()?.jobs || [])
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
+  const activeQuestionRef = useRef(null)
 
   const isRentGoal = goal === 'rent'
   const isPropertyCaptureGoal = goal === 'property_capture'
@@ -1399,6 +1440,14 @@ export default function HeroNext() {
   useEffect(() => {
     writeStoredHeroNextResult(generationResult)
   }, [generationResult])
+
+  useEffect(() => {
+    if (phase !== 'chat' || !activeQuestionRef.current) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      activeQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [phase, chatIndex])
 
   const baseChatFlow = isRentGoal
     ? RENT_CHAT_FLOW
@@ -2061,6 +2110,7 @@ export default function HeroNext() {
       return (
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <input
+            autoFocus
             value={textDraft}
             onChange={(event) => setTextDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -2236,21 +2286,27 @@ export default function HeroNext() {
                   <Button type="button" variant="secondary" onClick={goBackInChat}>Voltar</Button>
                 </div>
                 <div className="space-y-5">
-                  <AssistantBubble>
-                    Perfeito. Vou montar uma campanha de {getGoalLabel(goal).toLowerCase()} com você, passo a passo.
-                  </AssistantBubble>
+                  <AssistantBubble>Olá!</AssistantBubble>
+                  <AssistantBubble>Vamos criar sua campanha de {getGoalLabel(goal).toLowerCase()} juntos.</AssistantBubble>
+                  <AssistantBubble>Vou fazer algumas perguntas rápidas e organizar tudo para você.</AssistantBubble>
                   {chatFlow.slice(0, chatIndex).map((question, index) => (
                     <div key={question.id} className="space-y-3">
+                      {getConversationTransition(question, index, chatFlow.length) && (
+                        <AssistantBubble>{getConversationTransition(question, index, chatFlow.length)}</AssistantBubble>
+                      )}
                       <AssistantBubble>{question.question}</AssistantBubble>
                       <div className="flex items-start justify-end gap-2">
                         <button type="button" onClick={() => goToQuestion(index)} className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-100">Editar</button>
                         <UserBubble>{formatAnswer(answers[question.id])}</UserBubble>
                       </div>
+                      <AssistantBubble>{getConversationConfirmation(question, answers[question.id], index)}</AssistantBubble>
                     </div>
                   ))}
                   {currentQuestion && (
-                    <div>
-                      {chatIndex > 0 && <p className="mb-3 pl-12 text-xs font-black uppercase tracking-wide text-emerald-700">Ótimo. Vamos continuar.</p>}
+                    <div ref={activeQuestionRef} aria-live="polite" className="scroll-mt-6 space-y-3">
+                      {getConversationTransition(currentQuestion, chatIndex, chatFlow.length) && (
+                        <AssistantBubble>{getConversationTransition(currentQuestion, chatIndex, chatFlow.length)}</AssistantBubble>
+                      )}
                       <AssistantBubble>{currentQuestion.question}</AssistantBubble>
                       {renderQuestionControls()}
                     </div>
@@ -2504,9 +2560,11 @@ export default function HeroNext() {
         {phase === 'prompt' && (
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#f8fffb_0%,#ffffff_100%)] p-5 shadow-sm sm:p-7">
-              <AssistantBubble>
-                Excelente. Organizei suas escolhas e sua campanha está pronta para a etapa de imagens.
-              </AssistantBubble>
+              <div className="space-y-3">
+                <AssistantBubble>Excelente.</AssistantBubble>
+                <AssistantBubble>Já tenho todas as informações necessárias.</AssistantBubble>
+                <AssistantBubble>Confira o resumo ao lado. Se estiver tudo certo, podemos seguir para as imagens.</AssistantBubble>
+              </div>
               <div className="mt-6 rounded-3xl border border-emerald-100 bg-white p-5 sm:p-6">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Revisão final</p>
                 <h2 className="mt-2 text-2xl font-black text-slate-950">Tudo certo para continuar</h2>
