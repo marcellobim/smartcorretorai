@@ -1,0 +1,289 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Expand, Image as ImageIcon, Sparkles, X } from 'lucide-react'
+import { Button } from '../ui/Button'
+
+const INITIAL_EXAMPLE_COUNT = 12
+
+const HERO_SHOWCASE_EXAMPLES = [
+  { src: '/showcase/hero/hero-principal%201.jpg', width: 1536, height: 1024 },
+  { src: '/showcase/hero/hero-captacao1.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-18semimagem.jpg', width: 1024, height: 1536 },
+  { src: '/showcase/hero/hero-teste5.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-captacao2.jpg', width: 1024, height: 1536 },
+  { src: '/showcase/hero/hero-16semimagem.jpg', width: 1536, height: 1024 },
+  { src: '/showcase/hero/hero_teste2.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-captacao3.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste11semimagem.jpg', width: 1024, height: 1536 },
+  { src: '/showcase/hero/hero-teste7.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-captacao4.jpg', width: 1024, height: 1536 },
+  { src: '/showcase/hero/hero-teste14semimagem.jpg', width: 1536, height: 1024 },
+  { src: '/showcase/hero/hero-teste1.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-captacao%205.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste10semimagem.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-test4.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste12semimagem.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste6.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste13semimagem.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste8.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste15semimagem.jpg', width: 1536, height: 1024 },
+  { src: '/showcase/hero/hero-teste9.jpg', width: 1024, height: 1024 },
+  { src: '/showcase/hero/hero-teste17semimagem.jpg', width: 1536, height: 1024 },
+  { src: '/showcase/hero/hero-teste10.jpg', width: 1024, height: 1024 },
+]
+
+function ShowcasePhone({ example, index, onOpen, onFail }) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => onOpen(example, event.currentTarget)}
+      className="group mx-auto block w-full max-w-[17rem] rounded-[2.4rem] bg-slate-950 p-[7px] text-left shadow-[0_22px_50px_-28px_rgba(15,23,42,0.8)] outline-none transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_-26px_rgba(5,150,105,0.45)] focus-visible:ring-4 focus-visible:ring-emerald-300"
+      aria-label={`Ampliar exemplo ${index + 1} de campanha criada pelo Hero IA`}
+    >
+      <span className="relative block overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900">
+        <span className="absolute left-1/2 top-2 z-10 h-1.5 w-12 -translate-x-1/2 rounded-full bg-slate-700" aria-hidden="true" />
+        <span className="flex aspect-[9/16] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.10),transparent_55%),#020617] px-1.5 py-6">
+          <img
+            src={example.src}
+            width={example.width}
+            height={example.height}
+            loading={index < 4 ? 'eager' : 'lazy'}
+            decoding="async"
+            alt={`Exemplo ${index + 1} de campanha imobiliária criada pelo Hero IA`}
+            onError={() => onFail(example.src)}
+            className="max-h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
+          />
+        </span>
+        <span className="absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-slate-950/75 text-white opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">
+          <Expand className="h-4 w-4" />
+        </span>
+      </span>
+    </button>
+  )
+}
+
+export default function HeroShowcase({ onStart }) {
+  const [expanded, setExpanded] = useState(false)
+  const [failedSources, setFailedSources] = useState(() => new Set())
+  const [activeSource, setActiveSource] = useState('')
+  const sectionRef = useRef(null)
+  const dialogRef = useRef(null)
+  const closeButtonRef = useRef(null)
+  const lastTriggerRef = useRef(null)
+
+  const examples = useMemo(
+    () => HERO_SHOWCASE_EXAMPLES.filter((example) => !failedSources.has(example.src)),
+    [failedSources],
+  )
+  const visibleExamples = expanded ? examples : examples.slice(0, INITIAL_EXAMPLE_COUNT)
+  const activeIndex = examples.findIndex((example) => example.src === activeSource)
+  const activeExample = activeIndex >= 0 ? examples[activeIndex] : null
+
+  const handleFail = (source) => {
+    setFailedSources((current) => {
+      const next = new Set(current)
+      next.add(source)
+      return next
+    })
+    if (activeSource === source) setActiveSource('')
+  }
+
+  const closeLightbox = () => {
+    setActiveSource('')
+    window.requestAnimationFrame(() => lastTriggerRef.current?.focus())
+  }
+
+  const moveLightbox = (direction) => {
+    if (examples.length < 2 || activeIndex < 0) return
+    const nextIndex = (activeIndex + direction + examples.length) % examples.length
+    setActiveSource(examples[nextIndex].src)
+  }
+
+  useEffect(() => {
+    if (!activeExample) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeLightbox()
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        moveLightbox(-1)
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        moveLightbox(1)
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const focusable = dialogRef.current?.querySelectorAll('button:not([disabled])')
+      if (!focusable?.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [activeExample, activeIndex, examples])
+
+  const showLess = () => {
+    setExpanded(false)
+    window.requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  const startCampaign = () => {
+    onStart()
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
+
+  return (
+    <>
+      <section
+        ref={sectionRef}
+        className="relative mt-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/5 sm:p-8 lg:p-10"
+        aria-labelledby="hero-showcase-title"
+      >
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-100/70 blur-3xl" aria-hidden="true" />
+        <div className="relative mx-auto max-w-4xl text-center">
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+            <ImageIcon className="h-4 w-4" />
+            Exemplos reais
+          </div>
+          <h2 id="hero-showcase-title" className="mt-5 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            Inspire-se com campanhas reais
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-base font-semibold leading-relaxed text-slate-600">
+            Conheça alguns exemplos produzidos pelo Hero IA para diferentes tipos de imóveis e objetivos.
+          </p>
+          <p className="mt-3 inline-flex items-center gap-2 text-sm font-black text-emerald-700">
+            <Sparkles className="h-4 w-4" />
+            Cada campanha é criada de forma exclusiva.
+          </p>
+          <p className="mx-auto mt-5 max-w-3xl rounded-2xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-sm font-semibold leading-relaxed text-slate-600">
+            As imagens abaixo são exemplos reais da qualidade e da variedade que o Hero IA pode entregar. Elas não são modelos para seleção. O resultado da sua campanha será criado de forma personalizada, considerando as informações, imagens e o objetivo informados durante a criação.
+          </p>
+        </div>
+
+        {visibleExamples.length > 0 ? (
+          <div className="relative mt-9 grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibleExamples.map((example, index) => (
+              <ShowcasePhone
+                key={example.src}
+                example={example}
+                index={index}
+                onFail={handleFail}
+                onOpen={(selectedExample, trigger) => {
+                  lastTriggerRef.current = trigger
+                  setActiveSource(selectedExample.src)
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="relative mt-9 rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+            <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
+            <p className="mt-3 text-sm font-bold text-slate-600">Os exemplos estarão disponíveis novamente em breve.</p>
+          </div>
+        )}
+
+        {examples.length > INITIAL_EXAMPLE_COUNT && (
+          <div className="relative mt-9 flex justify-center">
+            <button
+              type="button"
+              onClick={() => (expanded ? showLess() : setExpanded(true))}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+            >
+              {expanded ? 'Ver menos exemplos' : 'Ver mais exemplos'}
+            </button>
+          </div>
+        )}
+
+        <div className="relative mx-auto mt-10 max-w-3xl rounded-3xl bg-[linear-gradient(135deg,#052e2b_0%,#064e3b_58%,#047857_100%)] px-6 py-8 text-center text-white shadow-xl shadow-emerald-950/15 sm:px-10">
+          <p className="text-2xl font-black tracking-tight sm:text-3xl">Sua campanha também pode ter este acabamento.</p>
+          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-relaxed text-emerald-50/85">
+            Responda às perguntas do Hero IA e receba uma criação exclusiva para o seu objetivo.
+          </p>
+          <Button type="button" onClick={startCampaign} className="mt-6 bg-white text-emerald-800 hover:bg-emerald-50">
+            Criar minha campanha
+          </Button>
+        </div>
+      </section>
+
+      {activeExample && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeLightbox()
+          }}
+        >
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hero-showcase-dialog-title"
+            className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col items-center justify-center rounded-3xl border border-white/15 bg-slate-950 p-3 shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
+          >
+            <h2 id="hero-showcase-dialog-title" className="sr-only">Exemplo ampliado de campanha criada pelo Hero IA</h2>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={closeLightbox}
+              className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+              aria-label="Fechar exemplo ampliado"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {examples.length > 1 && (
+              <button
+                type="button"
+                onClick={() => moveLightbox(-1)}
+                className="absolute left-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 sm:left-5"
+                aria-label="Ver exemplo anterior"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
+
+            <img
+              src={activeExample.src}
+              width={activeExample.width}
+              height={activeExample.height}
+              alt="Campanha imobiliária criada pelo Hero IA em tamanho ampliado"
+              onError={() => handleFail(activeExample.src)}
+              className="max-h-[calc(100dvh-3rem)] max-w-full rounded-2xl object-contain sm:max-h-[calc(100dvh-6rem)]"
+            />
+
+            {examples.length > 1 && (
+              <button
+                type="button"
+                onClick={() => moveLightbox(1)}
+                className="absolute right-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 sm:right-5"
+                aria-label="Ver próximo exemplo"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

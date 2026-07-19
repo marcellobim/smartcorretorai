@@ -16,6 +16,7 @@ import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
+import HeroShowcase from '../components/hero/HeroShowcase'
 import { useAuth } from '../lib/auth-context'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
@@ -1450,6 +1451,7 @@ const getConversationTransition = (question, index, total) => {
 export default function HeroNext() {
   const { user } = useAuth()
   const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
+  const startCampaign = () => setPhase('goal')
   const [goal, setGoal] = useState('')
   const [answers, setAnswers] = useState({})
   const [chatIndex, setChatIndex] = useState(0)
@@ -2479,12 +2481,14 @@ export default function HeroNext() {
               <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-slate-600 sm:text-lg">
                 Conte o que deseja divulgar. O Hero IA organiza suas informações e prepara peças prontas para seus canais.
               </p>
-              <Button type="button" onClick={() => setPhase('goal')} className="mt-8 bg-emerald-600 hover:bg-emerald-700">
+              <Button type="button" onClick={startCampaign} className="mt-8 bg-emerald-600 hover:bg-emerald-700">
                 Começar minha campanha
               </Button>
             </div>
           </section>
         )}
+
+        {phase === 'intro' && <HeroShowcase onStart={startCampaign} />}
 
         {phase === 'goal' && (
           <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
