@@ -115,6 +115,20 @@ const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+', 'Não informar']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+', 'Não informar']
 const PARKING_OPTIONS = ['0', '1', '2', '3+', 'Não informar']
 
+const HERO_STATE_OPTIONS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
+
+const formatHeroPrice = (digits) => digits
+  ? new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    }).format(Number(digits))
+  : ''
+
 const HERO_NEXT_RESULT_STORAGE_KEY = 'smartcorretorai:hero-ia-next:last-result'
 
 function readStoredHeroNextResult() {
@@ -1456,8 +1470,14 @@ export default function HeroNext() {
   const [textDraft, setTextDraft] = useState('')
   const [multiDraft, setMultiDraft] = useState([])
   const [customDifferential, setCustomDifferential] = useState('')
+  const [cityUf, setCityUf] = useState('')
+  const [citySelection, setCitySelection] = useState('')
+  const [cities, setCities] = useState([])
+  const [citiesLoading, setCitiesLoading] = useState(false)
   const [saleValueMode, setSaleValueMode] = useState('')
   const [salePrice, setSalePrice] = useState('')
+  const [salePricePresentationMode, setSalePricePresentationMode] = useState('')
+  const [salePriceDigits, setSalePriceDigits] = useState('')
   const [saleConditions, setSaleConditions] = useState([])
   const [rentMode, setRentMode] = useState('')
   const [rentPrice, setRentPrice] = useState('')
@@ -1501,6 +1521,28 @@ export default function HeroNext() {
   }, [generationResult])
 
   useEffect(() => {
+    if (!cityUf) {
+      setCities([])
+      setCitiesLoading(false)
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setCitiesLoading(true)
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${cityUf}/municipios?orderBy=nome`, { signal: controller.signal })
+      .then((response) => response.json())
+      .then((items) => setCities(Array.isArray(items) ? items.map((item) => item?.nome).filter(Boolean) : []))
+      .catch((error) => {
+        if (error?.name !== 'AbortError') setCities([])
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCitiesLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [cityUf])
+
+  useEffect(() => {
     if (phase !== 'chat' || !activeQuestionRef.current) return undefined
     const frame = window.requestAnimationFrame(() => {
       activeQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -1540,9 +1582,10 @@ export default function HeroNext() {
     iptu: iptuValue,
     guarantee: rentGuarantee,
   }), [goal, saleValueMode, salePrice, saleConditions, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee])
+  const formattedSalePrice = formatHeroPrice(salePriceDigits)
   const saleValueReady = goal !== 'sale'
     || saleValueMode === 'hidden'
-    || (saleValueMode === 'price' && Boolean(normalizeValueText(salePrice)))
+    || (saleValueMode === 'price' && Boolean(salePricePresentationMode) && Boolean(salePriceDigits) && Boolean(normalizeValueText(salePrice)))
     || (saleValueMode === 'conditions' && saleConditions.length > 0)
   const rentValueReady = goal !== 'rent' || (
     ['show', 'hide'].includes(rentMode)
@@ -1627,8 +1670,14 @@ export default function HeroNext() {
     setTextDraft('')
     setMultiDraft([])
     setCustomDifferential('')
+    setCityUf('')
+    setCitySelection('')
+    setCities([])
+    setCitiesLoading(false)
     setSaleValueMode('')
     setSalePrice('')
+    setSalePricePresentationMode('')
+    setSalePriceDigits('')
     setSaleConditions([])
     setRentMode('')
     setRentPrice('')
@@ -1736,6 +1785,7 @@ export default function HeroNext() {
     setChatIndex(safeIndex)
     setPhase('chat')
     setTextDraft(typeof currentValue === 'string' ? currentValue : '')
+    if (question.id === 'city') setCitySelection(typeof currentValue === 'string' ? currentValue : '')
     setMultiDraft(Array.isArray(currentValue) ? currentValue : [])
     setCustomDifferential('')
     setPromptTouched(false)
@@ -2180,8 +2230,14 @@ export default function HeroNext() {
     setPhase('intro')
     setGoal('')
     setAnswers({})
+    setCityUf('')
+    setCitySelection('')
+    setCities([])
+    setCitiesLoading(false)
     setSaleValueMode('')
     setSalePrice('')
+    setSalePricePresentationMode('')
+    setSalePriceDigits('')
     setSaleConditions([])
     setRentMode('')
     setRentPrice('')
@@ -2259,6 +2315,44 @@ export default function HeroNext() {
             <p className="text-base font-black text-slate-950">Não divulgar telefone</p>
             <p className="mt-2 text-sm font-semibold text-slate-600">A campanha será criada sem contato telefônico.</p>
           </button>
+        </div>
+      )
+    }
+
+    if (currentQuestion.id === 'city') {
+      return (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="space-y-2 text-sm font-black text-slate-700">
+            <span>Estado</span>
+            <select
+              autoFocus
+              value={cityUf}
+              onChange={(event) => {
+                setCityUf(event.target.value)
+                setCitySelection('')
+              }}
+              className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+            >
+              <option value="">Selecione o estado</option>
+              {HERO_STATE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-black text-slate-700">
+            <span>Cidade</span>
+            <select
+              value={citySelection}
+              disabled={!cityUf || citiesLoading}
+              onChange={(event) => {
+                const nextCity = event.target.value
+                setCitySelection(nextCity)
+                if (nextCity) commitAnswer(currentQuestion.id, nextCity)
+              }}
+              className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              <option value="">{citiesLoading ? 'Carregando cidades...' : 'Selecione a cidade'}</option>
+              {cities.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
         </div>
       )
     }
@@ -2519,6 +2613,8 @@ export default function HeroNext() {
                         setSaleValueMode(item.id)
                         if (item.id === 'hidden') {
                           setSalePrice('')
+                          setSalePricePresentationMode('')
+                          setSalePriceDigits('')
                           setSaleConditions([])
                         }
                         setPromptTouched(false)
@@ -2539,18 +2635,42 @@ export default function HeroNext() {
 
                 {saleValueMode === 'price' && (
                   <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5">
-                    <label className="text-sm font-black text-gray-950" htmlFor="sale-price">
-                      Valor do imóvel
-                    </label>
+                    <p className="text-sm font-black text-gray-950">Como deseja apresentar o valor?</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[
+                        ['fixed', 'Preço fixo'],
+                        ['starting_at', 'A partir de'],
+                      ].map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            setSalePricePresentationMode(id)
+                            setSalePrice(salePriceDigits ? `${id === 'starting_at' ? 'A partir de ' : ''}${formatHeroPrice(salePriceDigits)}` : '')
+                            setPromptTouched(false)
+                            setHumanPrompt('')
+                          }}
+                          className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                            salePricePresentationMode === id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="mt-5 block text-sm font-black text-gray-950" htmlFor="sale-price">Valor</label>
                     <input
                       id="sale-price"
-                      value={salePrice}
+                      value={formattedSalePrice}
                       onChange={(event) => {
-                        setSalePrice(event.target.value)
+                        const nextDigits = event.target.value.replace(/\D/g, '').slice(0, 12)
+                        setSalePriceDigits(nextDigits)
+                        setSalePrice(nextDigits ? `${salePricePresentationMode === 'starting_at' ? 'A partir de ' : ''}${formatHeroPrice(nextDigits)}` : '')
                         setPromptTouched(false)
                         setHumanPrompt('')
                       }}
-                      placeholder="Ex: R$ 384.000, A partir de R$ 384.000 ou Sob consulta"
+                      inputMode="numeric"
+                      placeholder="R$ 0"
                       className="mt-3 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                     />
                   </div>
@@ -2807,9 +2927,18 @@ export default function HeroNext() {
                   <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
-                        <strong>Valores e condições</strong><br />
-                        {valueCondition.label}
-                        {valueCondition.details ? `: ${valueCondition.details}` : ''}
+                        <strong>{goal === 'sale' && saleValueMode === 'price' ? 'Valor' : 'Valores e condições'}</strong><br />
+                        {goal === 'sale' && saleValueMode === 'price' ? (
+                          <>
+                            {salePricePresentationMode === 'starting_at' ? 'A partir de' : 'Preço fixo'}<br />
+                            {formattedSalePrice}
+                          </>
+                        ) : (
+                          <>
+                            {valueCondition.label}
+                            {valueCondition.details ? `: ${valueCondition.details}` : ''}
+                          </>
+                        )}
                       </p>
                       <button
                         type="button"
@@ -3135,8 +3264,14 @@ export default function HeroNext() {
                   setPhase('intro')
                   setGoal('')
                   setAnswers({})
+                  setCityUf('')
+                  setCitySelection('')
+                  setCities([])
+                  setCitiesLoading(false)
                   setSaleValueMode('')
                   setSalePrice('')
+                  setSalePricePresentationMode('')
+                  setSalePriceDigits('')
                   setSaleConditions([])
                   setRentMode('')
                   setRentPrice('')
