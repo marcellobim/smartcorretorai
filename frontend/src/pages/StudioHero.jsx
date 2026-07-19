@@ -1947,6 +1947,8 @@ export default function StudioHero() {
 
         <StudioPossibilitiesShowcase />
 
+        <StudioGalleryInvitation />
+
         <section className="space-y-5 pb-12">
           <div className="rounded-3xl border border-cyan-100 bg-white/85 p-4 shadow-sm backdrop-blur">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2803,6 +2805,30 @@ function StudioPossibilitiesShowcase() {
             </article>
           ))}
         </div>
+      </div>
+    </section>
+  )
+}
+
+function StudioGalleryInvitation() {
+  const navigate = useNavigate()
+
+  return (
+    <section className="rounded-[2rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_52%,#eff6ff_100%)] p-6 shadow-sm sm:p-8">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-slate-950">Inspire-se com mais campanhas</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            Veja outros exemplos reais criados pelo Smart Studio.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/studio-galeria')}
+          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-2xl bg-primary-800 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:bg-primary-900 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2"
+        >
+          Ver Galeria de Exemplos
+        </button>
       </div>
     </section>
   )
