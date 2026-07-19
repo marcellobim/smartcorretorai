@@ -1825,7 +1825,7 @@ export default function StudioHero() {
                     <button
                       type="button"
                       onClick={() => selectStudioMode(mode)}
-                      className="relative mt-5 w-fit rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                      className={`relative mt-5 text-left text-sm font-black ${accent.cta}`}
                     >
                       {mode.cta}
                     </button>
