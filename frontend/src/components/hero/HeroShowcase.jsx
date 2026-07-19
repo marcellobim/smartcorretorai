@@ -36,23 +36,21 @@ function ShowcasePhone({ example, index, onOpen, onFail }) {
     <button
       type="button"
       onClick={(event) => onOpen(example, event.currentTarget)}
-      className="group mx-auto block w-full max-w-[17rem] rounded-[2.4rem] bg-slate-950 p-[7px] text-left shadow-[0_22px_50px_-28px_rgba(15,23,42,0.8)] outline-none transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_-26px_rgba(5,150,105,0.45)] focus-visible:ring-4 focus-visible:ring-emerald-300"
+      className="group mx-auto mb-10 block w-full max-w-[19rem] break-inside-avoid rounded-[2.35rem] bg-slate-950 p-[6px] text-left shadow-[0_24px_54px_-27px_rgba(15,23,42,0.82)] outline-none transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_32px_66px_-26px_rgba(5,150,105,0.42)] focus-visible:ring-4 focus-visible:ring-emerald-300"
       aria-label={`Ampliar exemplo ${index + 1} de campanha criada pelo Hero IA`}
     >
       <span className="relative block overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900">
         <span className="absolute left-1/2 top-2 z-10 h-1.5 w-12 -translate-x-1/2 rounded-full bg-slate-700" aria-hidden="true" />
-        <span className="flex aspect-[9/16] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.10),transparent_55%),#020617] px-1.5 py-6">
-          <img
-            src={example.src}
-            width={example.width}
-            height={example.height}
-            loading={index < 4 ? 'eager' : 'lazy'}
-            decoding="async"
-            alt={`Exemplo ${index + 1} de campanha imobiliária criada pelo Hero IA`}
-            onError={() => onFail(example.src)}
-            className="max-h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
-          />
-        </span>
+        <img
+          src={example.src}
+          width={example.width}
+          height={example.height}
+          loading={index < 4 ? 'eager' : 'lazy'}
+          decoding="async"
+          alt={`Exemplo ${index + 1} de campanha imobiliária criada pelo Hero IA`}
+          onError={() => onFail(example.src)}
+          className="block h-auto w-full object-contain transition duration-500 group-hover:scale-[1.015]"
+        />
         <span className="absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-slate-950/75 text-white opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">
           <Expand className="h-4 w-4" />
         </span>
@@ -177,12 +175,12 @@ export default function HeroShowcase({ onStart }) {
             Cada campanha é criada de forma exclusiva.
           </p>
           <p className="mx-auto mt-5 max-w-3xl rounded-2xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-sm font-semibold leading-relaxed text-slate-600">
-            As imagens abaixo são exemplos reais da qualidade e da variedade que o Hero IA pode entregar. Elas não são modelos para seleção. O resultado da sua campanha será criado de forma personalizada, considerando as informações, imagens e o objetivo informados durante a criação.
+            As campanhas abaixo são apenas exemplos reais da qualidade que o Hero IA pode produzir. Cada resultado é criado exclusivamente para o imóvel informado. Elas não são modelos para seleção.
           </p>
         </div>
 
         {visibleExamples.length > 0 ? (
-          <div className="relative mt-9 grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="relative mt-10 columns-1 gap-7 sm:columns-2 lg:columns-3 xl:gap-9">
             {visibleExamples.map((example, index) => (
               <ShowcasePhone
                 key={example.src}
@@ -228,7 +226,7 @@ export default function HeroShowcase({ onStart }) {
 
       {activeExample && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 p-2 backdrop-blur-md sm:p-4"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeLightbox()
           }}
@@ -238,7 +236,7 @@ export default function HeroShowcase({ onStart }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="hero-showcase-dialog-title"
-            className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col items-center justify-center rounded-3xl border border-white/15 bg-slate-950 p-3 shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
+            className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col items-center justify-center rounded-3xl border border-white/15 bg-slate-950 p-2 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-3"
           >
             <h2 id="hero-showcase-dialog-title" className="sr-only">Exemplo ampliado de campanha criada pelo Hero IA</h2>
             <button
@@ -268,7 +266,7 @@ export default function HeroShowcase({ onStart }) {
               height={activeExample.height}
               alt="Campanha imobiliária criada pelo Hero IA em tamanho ampliado"
               onError={() => handleFail(activeExample.src)}
-              className="max-h-[calc(100dvh-3rem)] max-w-full rounded-2xl object-contain sm:max-h-[calc(100dvh-6rem)]"
+              className="max-h-[calc(100dvh-2rem)] max-w-full rounded-2xl object-contain sm:max-h-[calc(100dvh-3.5rem)]"
             />
 
             {examples.length > 1 && (
