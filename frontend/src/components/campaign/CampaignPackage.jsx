@@ -16,6 +16,7 @@ import {
   Share2,
 } from 'lucide-react'
 import { buildCampaignPackage } from './buildCampaignPackage'
+import { downloadFileFromPrivateUrl } from '../../lib/download-file'
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -51,7 +52,7 @@ function CopyButton({ value, label = 'Copiar', copyKey, copiedKey, onCopy }) {
   )
 }
 
-function MediaPanel({ campaign, videoRef }) {
+function MediaPanel({ campaign, videoRef, downloadingKey, onDownload }) {
   if (campaign.mediaType === 'images') {
     if (!campaign.files.length) return null
     return (
@@ -73,7 +74,17 @@ function MediaPanel({ campaign, videoRef }) {
                 <div className="p-4">
                   <p className="truncate text-sm font-black text-slate-900">{file.name || `Arte ${index + 1}`}</p>
                   {file.status && <p className="mt-1 text-xs font-bold text-slate-500">{file.status}</p>}
-                  {downloadUrl && <a href={downloadUrl} download className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Baixar</a>}
+                  {downloadUrl && (
+                    <button
+                      type="button"
+                      disabled={Boolean(downloadingKey)}
+                      onClick={() => onDownload(downloadUrl, file.downloadName || file.name || `smartcorretorai-arte-${index + 1}`, `image-${file.id || index}`)}
+                      className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <Download className="h-4 w-4" />
+                      {downloadingKey === `image-${file.id || index}` ? 'Baixando...' : 'Baixar'}
+                    </button>
+                  )}
                 </div>
               </article>
             )
@@ -101,9 +112,9 @@ function MediaPanel({ campaign, videoRef }) {
           <PlayCircle className="h-5 w-5" />Reproduzir
         </button>
         {campaign.downloadUrl && (
-          <a href={campaign.downloadUrl} download={campaign.downloadName} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700">
-            <Download className="h-5 w-5" />Baixar vídeo
-          </a>
+          <button type="button" disabled={Boolean(downloadingKey)} onClick={() => onDownload(campaign.downloadUrl, campaign.downloadName || 'smartcorretorai-apresentacao', 'video')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60">
+            <Download className="h-5 w-5" />{downloadingKey === 'video' ? 'Baixando...' : 'Baixar vídeo'}
+          </button>
         )}
       </div>
     </section>
@@ -113,6 +124,8 @@ function MediaPanel({ campaign, videoRef }) {
 export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const [copiedKey, setCopiedKey] = useState('')
+  const [downloadingKey, setDownloadingKey] = useState('')
+  const [downloadError, setDownloadError] = useState('')
   const videoRef = useRef(null)
 
   const copy = async (value, key) => {
@@ -120,6 +133,18 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     await navigator.clipboard.writeText(value)
     setCopiedKey(key)
     window.setTimeout(() => setCopiedKey((current) => current === key ? '' : current), 1800)
+  }
+
+  const download = async (url, filename, key) => {
+    setDownloadError('')
+    setDownloadingKey(key)
+    try {
+      await downloadFileFromPrivateUrl(url, filename)
+    } catch {
+      setDownloadError('Não foi possível baixar o arquivo. Verifique sua conexão e tente novamente.')
+    } finally {
+      setDownloadingKey('')
+    }
   }
 
   return (
@@ -135,7 +160,13 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         </div>
       </header>
 
-      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} />}
+      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} />}
+
+      {downloadError && (
+        <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+          {downloadError}
+        </p>
+      )}
 
       {!preserveExistingContent && campaign.modules.length > 0 && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-copy-title">

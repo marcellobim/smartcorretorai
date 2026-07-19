@@ -15,7 +15,10 @@ import {
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
 import { useAuth } from '../lib/auth-context'
+import { buildCampaignTextFile } from '../lib/campaign-text-file'
+import { downloadFileFromPrivateUrl } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
 import { buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
@@ -155,30 +158,7 @@ function writeStoredHeroNextResult(result) {
   }
 }
 
-async function downloadImageFile(url, filename) {
-  try {
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('download_failed')
-    const blob = await response.blob()
-    const objectUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = objectUrl
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(objectUrl)
-  } catch {
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    link.target = '_blank'
-    link.rel = 'noreferrer'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-  }
-}
+const downloadImageFile = downloadFileFromPrivateUrl
 
 async function getEdgeFunctionErrorMessage(error, fallback) {
   const response = error?.context
@@ -1279,8 +1259,14 @@ const downloadPlainTextFile = (filename, content) => {
   const link = document.createElement('a')
   link.href = url
   link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  try {
+    link.click()
+  } finally {
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 }
 
 const formatPieceCount = (count) => `${count} ${count === 1 ? 'peça' : 'peças'}`
@@ -1494,6 +1480,8 @@ export default function HeroNext() {
   const [uploadedImages, setUploadedImages] = useState([])
   const [generationLoading, setGenerationLoading] = useState(false)
   const [generationError, setGenerationError] = useState('')
+  const [downloadError, setDownloadError] = useState('')
+  const [downloadAllLoading, setDownloadAllLoading] = useState(false)
   const [goalNotice, setGoalNotice] = useState('')
   const [pieceLimitNotice, setPieceLimitNotice] = useState('')
   const [generationResult, setGenerationResult] = useState(() => readStoredHeroNextResult())
@@ -1695,6 +1683,8 @@ export default function HeroNext() {
     setGenerationResult(null)
     setGenerationJobs([])
     setGenerationError('')
+    setDownloadError('')
+    setDownloadAllLoading(false)
     setPieceLimitNotice('')
     setConversationOpeningComplete(false)
     setPendingConversationAnswer(null)
@@ -2125,6 +2115,7 @@ export default function HeroNext() {
 
     setGenerationLoading(true)
     setGenerationError('')
+    setDownloadError('')
     setGenerationResult(null)
     const campaignBatchId = createCampaignBatchId()
     const selectedIdeas = CREATIVE_IDEAS.slice(0, creativeIdeaCount)
@@ -2207,22 +2198,25 @@ export default function HeroNext() {
     : []
 
   const downloadTexts = () => {
-    const content = [
-      'CAMPANHA PRONTA PARA PUBLICAR - SMARTCORRETORAI',
-      '',
-      ...campaignCopy.map((item) => `[${item.label}]\n${item.text}`),
-    ]
-      .join('\n\n---\n\n')
-    downloadPlainTextFile('campanha-ia-textos.txt', content)
+    const content = buildCampaignTextFile(buildCampaignPackage(campaignPackageData))
+    downloadPlainTextFile('campanha-hero-ia.txt', content)
   }
 
   const downloadAllImages = async () => {
     const completedJobs = (generationResult.jobs || []).filter((job) => job.status === 'completed' && job.imageUrl)
-    for (const job of completedJobs) {
-      await downloadImageFile(
-        job.imageUrl,
-        `smartcorretorai-hero-ia-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.png`,
-      )
+    setDownloadError('')
+    setDownloadAllLoading(true)
+    try {
+      for (const job of completedJobs) {
+        await downloadImageFile(
+          job.imageUrl,
+          `smartcorretorai-hero-ia-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.png`,
+        )
+      }
+    } catch {
+      setDownloadError('Não foi possível baixar todas as artes. Verifique sua conexão e tente novamente.')
+    } finally {
+      setDownloadAllLoading(false)
     }
   }
 
@@ -2256,6 +2250,8 @@ export default function HeroNext() {
     setPieceLimitNotice('')
     setGenerationResult(null)
     setGenerationJobs([])
+    setDownloadError('')
+    setDownloadAllLoading(false)
   }
 
   const campaignPackageData = generationResult ? {
@@ -3234,13 +3230,14 @@ export default function HeroNext() {
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {campaignPackageData.files.length > 0 && (
-                  <button type="button" onClick={downloadAllImages} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"><Download className="h-4 w-4" />Baixar todas as artes</button>
+                  <button type="button" disabled={downloadAllLoading} onClick={downloadAllImages} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"><Download className="h-4 w-4" />{downloadAllLoading ? 'Baixando artes...' : 'Baixar todas as artes'}</button>
                 )}
                 {campaignCopy.length > 0 && (
-                  <button type="button" onClick={downloadTexts} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Baixar textos</button>
+                  <button type="button" onClick={downloadTexts} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Baixar todos os textos</button>
                 )}
               </div>
             </div>
+            {downloadError && <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{downloadError}</p>}
             <CampaignPackage
               data={campaignPackageData}
               onCreateNew={resetCampaign}
