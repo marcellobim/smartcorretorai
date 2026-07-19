@@ -141,7 +141,7 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'cinematic',
     media: '/showcase/studio/showcase-venda0.mp4.mp4',
-    title: '🎬 Comercial Cinematográfico',
+    title: 'Comercial Cinematográfico',
     label: 'Comercial com imagem',
     accent: 'cyan',
     send: [
@@ -161,7 +161,7 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'free_ai',
     media: '/showcase/studio/showcase-captacao-venda.mp4',
-    title: '✨ Comercial IA Livre',
+    title: 'Comercial IA Livre',
     label: 'Criação por IA',
     accent: 'violet',
     send: [
@@ -181,7 +181,7 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'smart_carousel',
     media: '/showcase/smartcarrossel/showcase-carrossel.mp4',
-    title: '🖼️ Smart Carrossel',
+    title: 'Smart Carrossel',
     label: 'Apresentação dinâmica',
     accent: 'green',
     send: [
@@ -199,7 +199,7 @@ const STUDIO_MODE_EXAMPLES = [
   },
   {
     id: 'improve_video',
-    title: '🎥 Melhore meu Vídeo',
+    title: 'Melhore meu Vídeo',
     label: 'Acabamento final',
     accent: 'amber',
     send: [
@@ -1897,12 +1897,12 @@ export default function StudioHero() {
                             }}
                           />
                         )}
-                        <div className="pointer-events-none absolute inset-x-2 top-2 z-20 rounded-xl bg-slate-950/70 px-2.5 py-2 text-center shadow-sm backdrop-blur-sm">
-                          <p className="text-[10px] font-black leading-4 text-white">{example.title}</p>
-                        </div>
                       </div>
                     </div>
-                    <div className="mt-4 space-y-3">
+                    <h3 className={`mt-4 text-center text-base font-black leading-tight ${accent.cta}`}>
+                      {example.title}
+                    </h3>
+                    <div className="mt-3 space-y-3">
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
                         <p className="text-xs font-black text-slate-950">💬 Você conversa com a IA e envia:</p>
                         <ul className="mt-2 space-y-1.5">
