@@ -933,6 +933,7 @@ function sanitizeTemplateText(input: unknown, ctx: SanitizeContext): string {
 // é mapeada (snapCta) para uma destas três opções.
 
 const APPROVED_CTAS = ['Saiba Mais', 'Me Ligue', 'Descrição abaixo'] as const
+const PRODUCT_3_APPROVED_CTAS = ['Saiba Mais', 'Agende sua visita', 'Entre em contato agora'] as const
 
 function isCtaElement(elementName: string): boolean {
   return /cta|button|action/i.test(elementName)
@@ -949,6 +950,9 @@ function isBathroomElement(elementName: string): boolean {
 function snapCta(value: string): string {
   const lower = value.trim().toLowerCase()
   if (!lower) return 'Saiba Mais'
+  for (const cta of PRODUCT_3_APPROVED_CTAS) {
+    if (lower === cta.toLowerCase()) return cta
+  }
   for (const cta of APPROVED_CTAS) {
     if (lower === cta.toLowerCase()) return cta
   }
@@ -1197,6 +1201,7 @@ function buildCanonicalTemplateData(input: {
   corretorWhatsApp: string
   corretorTelefone: string
   corretorEmail: string
+  ctaText: unknown
 }): CanonicalTemplateData {
   const bairro = resolveBairro(input.dadosImovel, input.endereco)
   const tipo = String(input.tipoImovel || input.dadosImovel.tipo || '').trim()
@@ -1227,7 +1232,7 @@ function buildCanonicalTemplateData(input: {
     property_description: propertyDescription,
     price_label: 'Valor',
     property_price: formatPriceBRL(input.preco),
-    cta_text: contact ? 'Agende sua visita' : 'Solicite informações',
+    cta_text: snapCta(String(input.ctaText || (contact ? 'Agende sua visita' : 'Saiba Mais'))),
     broker_whatsapp: contact,
     broker_email: input.corretorEmail,
     property_image_01: input.fotosArr[0] || '',
@@ -1350,6 +1355,8 @@ serve(async (req) => {
       endereco,
       tipo_imovel,
       finalidade,
+      cta,
+      cta_text,
       corretor_nome,
       corretor_avatar_url,
       marca_imovel,
@@ -1549,6 +1556,7 @@ serve(async (req) => {
       corretorWhatsApp,
       corretorTelefone,
       corretorEmail,
+      ctaText: cta_text ?? cta ?? dadosImovel.cta_text ?? dadosImovel.cta,
     })
 
     // Bloco compartilhado com os dois prompts

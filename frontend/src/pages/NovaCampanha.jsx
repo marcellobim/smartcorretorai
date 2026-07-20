@@ -72,12 +72,27 @@ const PRODUCT_3_SITUATIONS = {
 
 const MAX_DESTAQUES_FLUXO = 20
 const MAX_DESTAQUES_PRODUTO_3 = 8
+const MAX_DESTAQUES_CHAT_PRODUTO_3 = 5
 const MIN_FOTOS_PRODUTO_3 = 3
 const MAX_FOTOS_PRODUTO_3 = 5
 const MAX_FOTOS_OUTROS_PRODUTOS = 10
 const PRODUCT_3_TYPEWRITER_INITIAL_DELAY_MS = 350
 const PRODUCT_3_TYPEWRITER_CHAR_DELAY_MS = 30
 const PRODUCT_3_TYPEWRITER_FINAL_CURSOR_MS = 400
+const PRODUCT_3_HIGHLIGHTS = [
+  'Piscina',
+  'Academia',
+  'Churrasqueira',
+  'Varanda gourmet',
+  'Vista livre',
+  'Próximo ao metrô',
+  'Aceita financiamento',
+  'Documentação em ordem',
+  'Dormitórios',
+  'Suítes',
+  'Vagas',
+]
+const PRODUCT_3_CTA_OPTIONS = ['Saiba Mais', 'Agende sua visita', 'Entre em contato agora']
 
 const DESTAQUE_CATEGORIES = [
   {
@@ -845,6 +860,39 @@ const normalizePrecoPayload = (value) => {
   const normalized = String(value ?? '').trim()
   return normalized || 'Consulte'
 }
+const sanitizePriceDigits = value => String(value ?? '').replace(/\D/g, '').slice(0, 12)
+const formatProduct3Price = (value, mode = '') => {
+  const digits = sanitizePriceDigits(value)
+  if (!digits) return ''
+  const formatted = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0,
+  }).format(Number(digits))
+  return mode === 'starting_at' ? `A partir de ${formatted}` : formatted
+}
+const sanitizeAreaInput = (value) => {
+  const normalized = String(value ?? '').replace(',', '.').replace(/[^\d.]/g, '')
+  const [integerPart = '', ...decimalParts] = normalized.split('.')
+  const integerDigits = integerPart.slice(0, 7)
+  const decimalDigits = decimalParts.join('').slice(0, 2)
+  if (!integerDigits && !decimalDigits) return ''
+  return decimalDigits ? `${integerDigits || '0'}.${decimalDigits}` : integerDigits
+}
+const formatAreaLabel = value => {
+  const normalized = sanitizeAreaInput(value)
+  return normalized ? `${normalized.replace('.', ',')} m²` : ''
+}
+const normalizeSearchText = value => String(value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pt-BR')
+  .trim()
+const getMunicipalityUf = municipality => (
+  municipality?.microrregiao?.mesorregiao?.UF?.sigla
+  || municipality?.['regiao-imediata']?.['regiao-intermediaria']?.UF?.sigla
+  || ''
+)
 const normalizeSpaces = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 const capitalizePtWord = (word) => {
   if (!word) return ''
@@ -1083,14 +1131,16 @@ function BannerConversation({
   onCategoriaChange,
   tipo,
   onTipoChange,
-  campaignObjective,
-  onCampaignObjectiveChange,
   cidade,
   onCidadeChange,
+  estado,
+  onEstadoChange,
   bairro,
   onBairroChange,
   preco,
   onPrecoChange,
+  precoModo,
+  onPrecoModoChange,
   area,
   onAreaChange,
   quartos,
@@ -1101,8 +1151,8 @@ function BannerConversation({
   onVagasChange,
   diferenciais,
   onToggleDestaque,
-  difCustom,
-  onDifCustomChange,
+  cta,
+  onCtaChange,
   selectedModelSummaries,
   selectedUseCount,
   photosCount,
@@ -1113,21 +1163,20 @@ function BannerConversation({
   const interactionGuardRef = useRef(true)
   const activeQuestionRef = useRef(null)
   const prefersReducedMotion = usePrefersReducedMotion()
-  const land = ['Terreno / Lote', 'Loteamento'].includes(tipo)
-  const commercial = isCommercialPropertyType(tipo)
+  const [cityQuery, setCityQuery] = useState(cidade)
+  const [municipalities, setMunicipalities] = useState([])
+  const [citiesLoading, setCitiesLoading] = useState(false)
+  const [citiesError, setCitiesError] = useState('')
   const sequence = [
     'purpose',
     'situation',
     'type',
-    'focus',
     'city',
     'district',
     'price',
     'area',
-    ...(!land && !commercial ? ['bedrooms', 'suites'] : []),
-    ...(!land ? ['parking'] : []),
     'highlights',
-    'custom',
+    'cta',
     'done',
   ]
   const activeIndex = Math.max(sequence.indexOf(step), 0)
@@ -1137,43 +1186,78 @@ function BannerConversation({
   const situationOptions = PRODUCT_3_SITUATIONS[finalidade] || PRODUCT_3_SITUATIONS.venda
   const situationLabel = Object.values(PRODUCT_3_SITUATIONS).flat().find(item => item.id === situacao)?.label || ''
   const purposeLabel = FINALIDADE_OPTIONS.find(item => item.id === finalidade)?.label || ''
-  const focusLabel = SMART_CAMPAIGNS.find(item => item.id === campaignObjective)?.title || ''
   const modelNames = selectedModelSummaries.map(model => model.name)
+  const priceLabel = formatProduct3Price(preco, precoModo)
+  const areaLabel = formatAreaLabel(area)
   const answers = {
     purpose: purposeLabel,
     situation: situationLabel,
     type: tipo,
-    focus: focusLabel,
     city: cidade,
     district: bairro,
-    price: preco ? `R$ ${Number(preco).toLocaleString('pt-BR')}` : 'Preço não informado',
-    area: area ? `${area} m²` : 'Área não informada',
-    bedrooms: `${quartos} quarto${quartos === 1 ? '' : 's'}`,
-    suites: `${suites} suíte${suites === 1 ? '' : 's'}`,
-    parking: `${vagas} vaga${vagas === 1 ? '' : 's'}`,
-    highlights: diferenciais.length ? `${diferenciais.length} destaque${diferenciais.length === 1 ? '' : 's'} selecionado${diferenciais.length === 1 ? '' : 's'}` : 'Sem destaques selecionados',
-    custom: difCustom || 'Sem destaque personalizado',
+    price: priceLabel || 'Preço não informado',
+    area: areaLabel || 'Área não informada',
+    highlights: diferenciais.length ? diferenciais.join(', ') : 'Sem destaques selecionados',
+    cta,
   }
   const questionLabels = {
     purpose: 'Vamos divulgar um imóvel para:',
     situation: 'Qual é a situação do imóvel?',
     type: 'Que tipo de imóvel vamos divulgar?',
-    focus: 'Qual foco devemos usar nos textos?',
     city: 'Em qual cidade fica o imóvel?',
     district: 'Em qual bairro ele está localizado?',
     price: 'Qual é o preço do imóvel?',
     area: 'Qual é a área aproximada do imóvel?',
-    bedrooms: 'Quantos quartos o imóvel possui?',
-    suites: 'Quantas suítes?',
-    parking: 'Quantas vagas estão disponíveis?',
     highlights: 'Quais são os principais destaques?',
-    custom: 'Deseja acrescentar um destaque personalizado?',
+    cta: 'Qual chamada deseja usar no final?',
     done: 'Excelente. Os dados estão prontos para a próxima etapa.',
   }
   const history = sequence
     .slice(0, activeIndex)
     .filter(key => key !== 'done' && answers[key])
     .map((key, index) => ({ key, question: questionLabels[key], answer: answers[key], confirmation: confirmations[index % confirmations.length] }))
+
+  const normalizedCityQuery = normalizeSearchText(cityQuery)
+  const cityMatches = normalizedCityQuery.length >= 2
+    ? municipalities
+      .filter(item => item.searchText.includes(normalizedCityQuery))
+      .slice(0, 6)
+    : []
+
+  useEffect(() => {
+    setCityQuery(cidade)
+  }, [cidade])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setCitiesLoading(true)
+    setCitiesError('')
+    fetch('https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome', { signal: controller.signal })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error(`IBGE ${response.status}`)))
+      .then(items => {
+        if (controller.signal.aborted) return
+        const normalizedItems = (Array.isArray(items) ? items : [])
+          .map(item => {
+            const name = String(item?.nome || '').trim()
+            const uf = getMunicipalityUf(item)
+            return name && uf
+              ? { id: item.id, name, uf, searchText: normalizeSearchText(`${name} ${uf}`) }
+              : null
+          })
+          .filter(Boolean)
+        setMunicipalities(normalizedItems)
+      })
+      .catch(error => {
+        if (error?.name !== 'AbortError') {
+          setMunicipalities([])
+          setCitiesError('Não foi possível carregar as cidades. Tente novamente em instantes.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCitiesLoading(false)
+      })
+    return () => controller.abort()
+  }, [])
 
   useEffect(() => {
     interactionGuardRef.current = !questionReady
@@ -1215,16 +1299,18 @@ function BannerConversation({
       onCategoriaChange(null)
     }
     if (laterSteps.has('type')) onTipoChange('')
-    if (laterSteps.has('focus')) onCampaignObjectiveChange('')
-    if (laterSteps.has('city')) onCidadeChange('')
+    if (laterSteps.has('city')) {
+      onCidadeChange('')
+      onEstadoChange('')
+    }
     if (laterSteps.has('district')) onBairroChange('')
-    if (laterSteps.has('price')) onPrecoChange('')
+    if (laterSteps.has('price')) {
+      onPrecoChange('')
+      onPrecoModoChange('')
+    }
     if (laterSteps.has('area')) onAreaChange('')
-    if (laterSteps.has('bedrooms')) onQuartosChange(0)
-    if (laterSteps.has('suites')) onSuitesChange(0)
-    if (laterSteps.has('parking')) onVagasChange(0)
     if (laterSteps.has('highlights')) diferenciais.forEach(item => onToggleDestaque(item))
-    if (laterSteps.has('custom')) onDifCustomChange('')
+    if (laterSteps.has('cta')) onCtaChange('')
   }
 
   const editStep = (targetStep) => {
@@ -1288,40 +1374,111 @@ function BannerConversation({
   } else if (step === 'type') {
     questionContent = <div className="grid gap-2 sm:grid-cols-2">{TIPOS.map(option => optionButton(option, option, tipo === option, () => advance(() => {
       onTipoChange(option)
-      if (isCommercialPropertyType(option) || ['Terreno / Lote', 'Loteamento'].includes(option)) {
-        onQuartosChange(0)
-        onSuitesChange(0)
-      }
-      if (['Terreno / Lote', 'Loteamento'].includes(option)) onVagasChange(0)
+      onQuartosChange(0)
+      onSuitesChange(0)
+      onVagasChange(0)
     })))}</div>
-  } else if (step === 'focus') {
-    questionContent = <div className="grid gap-2">{SMART_CAMPAIGNS.filter(item => !item.hidden).map(option => optionButton(option.id, option.title, campaignObjective === option.id, () => advance(() => onCampaignObjectiveChange(option.id))))}</div>
   } else if (step === 'city') {
-    questionContent = textForm({ value: cidade, onChange: onCidadeChange, placeholder: 'Ex: São Paulo' })
+    questionContent = (
+      <div className="space-y-3">
+        <div className="relative">
+          <input
+            value={cityQuery}
+            onChange={event => {
+              setCityQuery(event.target.value)
+              onCidadeChange('')
+              onEstadoChange('')
+            }}
+            role="combobox"
+            aria-expanded={cityMatches.length > 0}
+            aria-controls="product3-city-results"
+            aria-autocomplete="list"
+            autoComplete="off"
+            placeholder={citiesLoading ? 'Carregando cidades...' : 'Digite ao menos 2 letras da cidade'}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          />
+          {citiesLoading && <span className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700 motion-reduce:animate-none" aria-label="Carregando cidades" />}
+        </div>
+        {citiesError && <p role="alert" className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{citiesError}</p>}
+        {normalizedCityQuery.length >= 2 && !citiesLoading && !citiesError && (
+          <div id="product3-city-results" role="listbox" className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+            {cityMatches.length > 0 ? cityMatches.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                role="option"
+                aria-selected={cidade === item.name && estado === item.uf}
+                onClick={() => advance(() => {
+                  onCidadeChange(item.name)
+                  onEstadoChange(item.uf)
+                  setCityQuery(item.name)
+                })}
+                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-primary-50 hover:text-primary-800"
+              >
+                <span>{item.name}</span>
+                <span className="text-xs font-black text-slate-400">{item.uf}</span>
+              </button>
+            )) : <p className="px-3 py-2 text-sm font-semibold text-slate-500">Nenhuma cidade encontrada.</p>}
+          </div>
+        )}
+        <p className="text-xs font-semibold text-slate-500">Selecione uma cidade da lista oficial do IBGE para continuar.</p>
+      </div>
+    )
   } else if (step === 'district') {
     questionContent = textForm({ value: bairro, onChange: onBairroChange, placeholder: 'Ex: Moema', normalize: normalizeBairro })
   } else if (step === 'price') {
-    questionContent = textForm({ value: preco, onChange: onPrecoChange, placeholder: 'Ex: 850000', optional: true })
+    questionContent = (
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'fixed', label: 'Preço fixo' },
+            { id: 'starting_at', label: 'A partir de' },
+          ].map(option => optionButton(option.id, option.label, precoModo === option.id, () => onPrecoModoChange(option.id)))}
+        </div>
+        <input
+          value={formatProduct3Price(preco)}
+          onChange={event => onPrecoChange(sanitizePriceDigits(event.target.value))}
+          inputMode="numeric"
+          placeholder="R$ 0"
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+        />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!precoModo || !preco} onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45">Continuar</button>
+          <button type="button" onClick={() => advance(() => { onPrecoModoChange(''); onPrecoChange('') })} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Continuar sem informar preço</button>
+        </div>
+      </div>
+    )
   } else if (step === 'area') {
-    questionContent = textForm({ value: area, onChange: onAreaChange, placeholder: 'Ex: 110', optional: true })
-  } else if (step === 'bedrooms' || step === 'suites' || step === 'parking') {
-    const config = step === 'bedrooms'
-      ? { label: 'Quartos', value: quartos, setter: onQuartosChange }
-      : step === 'suites'
-        ? { label: 'Suítes', value: suites, setter: onSuitesChange }
-        : { label: 'Vagas', value: vagas, setter: onVagasChange }
-    questionContent = <div className="flex flex-col items-start gap-4"><Counter label={config.label} value={config.value} onChange={config.setter} /><button type="button" onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Continuar</button></div>
+    questionContent = (
+      <div className="space-y-3">
+        <div className="relative">
+          <input
+            value={area}
+            onChange={event => onAreaChange(sanitizeAreaInput(event.target.value))}
+            inputMode="decimal"
+            placeholder="Ex: 110"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-14 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          />
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!area} onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45">Continuar</button>
+          <button type="button" onClick={() => advance(() => onAreaChange(''))} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Continuar sem informar área</button>
+        </div>
+      </div>
+    )
   } else if (step === 'highlights') {
-    questionContent = <div className="space-y-3">
-      {DESTAQUE_CATEGORIES.map(category => <div key={category.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3"><p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{category.title}</p><div className="flex flex-wrap gap-2">{category.items.map(item => {
+    questionContent = <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">{PRODUCT_3_HIGHLIGHTS.map(item => {
         const active = diferenciais.includes(item)
-        const disabled = !active && diferenciais.length >= MAX_DESTAQUES_FLUXO
+        const disabled = !active && diferenciais.length >= MAX_DESTAQUES_CHAT_PRODUTO_3
         return <button key={item} type="button" disabled={disabled} onClick={() => onToggleDestaque(item)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${active ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-600'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}>{item}</button>
-      })}</div></div>)}
+      })}</div>
+      <p className="text-xs font-semibold text-slate-500">{diferenciais.length} de {MAX_DESTAQUES_CHAT_PRODUTO_3} destaques selecionados</p>
       <button type="button" onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Confirmar destaques</button>
     </div>
-  } else if (step === 'custom') {
-    questionContent = textForm({ value: difCustom, onChange: value => onDifCustomChange(value.slice(0, 120)), placeholder: 'Ex: sol da manhã, rua tranquila', optional: true, normalize: value => normalizeShortFreeText(value, 120) })
+  } else if (step === 'cta') {
+    questionContent = <div className="grid gap-2 sm:grid-cols-3">{PRODUCT_3_CTA_OPTIONS.map(option => optionButton(option, option, cta === option, () => advance(() => onCtaChange(option))))}</div>
   } else {
     questionContent = <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm font-bold leading-6 text-emerald-900">Conversa concluída. Seus dados e modelos foram preservados.</p><button type="button" onClick={finishConversation} className="mt-4 rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">Continuar para as imagens</button></div>
   }
@@ -1333,10 +1490,10 @@ function BannerConversation({
     { label: 'Tipo', value: tipo, step: 'type' },
     { label: 'Cidade', value: cidade, step: 'city' },
     { label: 'Bairro', value: bairro, step: 'district' },
-    { label: 'Preço', value: preco ? `R$ ${Number(preco).toLocaleString('pt-BR')}` : '', step: 'price' },
-    { label: 'Área', value: area ? `${area} m²` : '', step: 'area' },
-    { label: 'Destaques', value: diferenciais.length ? diferenciais.slice(0, 3).join(', ') : '', step: 'highlights' },
-    { label: 'CTA', value: focusLabel, step: 'focus' },
+    { label: 'Preço', value: priceLabel, step: 'price' },
+    { label: 'Área', value: areaLabel, step: 'area' },
+    { label: 'Destaques', value: diferenciais.length ? diferenciais.join(', ') : '', step: 'highlights' },
+    { label: 'CTA', value: cta, step: 'cta' },
     { label: 'Imagens enviadas', value: photosCount ? `${photosCount}` : 'Ainda não enviadas' },
   ].filter(item => item.value)
 
@@ -1790,7 +1947,7 @@ export default function NovaCampanha() {
   const isProductEntry = ['hero', 'transformar_video'].includes(produtoParam)
   const defaultCampaignStep = isProductEntry ? 'property' : 'manual-catalog'
   const defaultCampaignFlowType = isProductEntry ? null : 'manual'
-  const defaultCampaignObjective = isProductEntry ? '' : 'venda_rapida'
+  const defaultCampaignObjective = ''
   const [fase, setFase] = useState('form')
 
   const [categoria, setCategoria] = useState(null)
@@ -1803,6 +1960,7 @@ export default function NovaCampanha() {
   const [vagas, setVagas] = useState(1)
   const [area, setArea] = useState('')
   const [preco, setPreco] = useState('')
+  const [precoModo, setPrecoModo] = useState('')
   const [bairro, setBairro] = useState('')
   const [cidade, setCidade] = useState('')
   const [estado, setEstado] = useState('')
@@ -1810,6 +1968,7 @@ export default function NovaCampanha() {
   const [carregandoCidades, setCarregandoCidades] = useState(false)
   const [diferenciais, setDiferenciais] = useState([])
   const [difCustom, setDifCustom] = useState('')
+  const [product3Cta, setProduct3Cta] = useState('')
   const [fotos, setFotos] = useState([])
   const [videoArquivo, setVideoArquivo] = useState(null)
   const [msgIdx, setMsgIdx] = useState(0)
@@ -1883,8 +2042,6 @@ export default function NovaCampanha() {
   const selectedCampaignPieces = getCampaignPiecesFromModelUses(selectedModelUses)
   const selectedTemplateIds = selectedCampaignPieces.map(piece => piece.template_id)
   const selectedTemplateIdSet = new Set(selectedTemplateIds)
-  const campaignObjectiveInfo = SMART_CAMPAIGNS.find(campaign => campaign.id === campaignObjective)
-  const campaignObjectiveLabel = campaignObjectiveInfo?.title || ''
   const selectedCatalogItems = selectedCampaignPieces.length > 0
     ? selectedCampaignPieces.map((piece, index) => ({
         ...piece.template,
@@ -1981,6 +2138,7 @@ export default function NovaCampanha() {
 
   // Carrega cidades do IBGE quando o estado muda
   useEffect(() => {
+    if (!isProductEntry) return undefined
     if (!estado) {
       setCidades([])
       setCarregandoCidades(false)
@@ -2006,7 +2164,7 @@ export default function NovaCampanha() {
         if (!abortado) setCarregandoCidades(false)
       })
     return () => { abortado = true }
-  }, [estado])
+  }, [estado, isProductEntry])
 
   const handleFotos = async (files) => {
     const disponiveis = Math.max(maxFotosImovel - fotos.length, 0)
@@ -2044,14 +2202,18 @@ export default function NovaCampanha() {
 
   const precoParaPayload = normalizePrecoPayload(preco)
   const bairroNormalizado = normalizeBairro(bairro)
-  const destaquePersonalizado = normalizeShortFreeText(difCustom, 120)
+  const destaquePersonalizado = isProductEntry ? normalizeShortFreeText(difCustom, 120) : ''
   const destaquesSelecionados = diferenciais.map(item => normalizeShortFreeText(item, 80)).filter(Boolean)
   const todosDestaques = [
     ...destaquesSelecionados,
     ...(destaquePersonalizado ? [destaquePersonalizado] : []),
   ]
   const destaquesProduto3 = todosDestaques.slice(0, MAX_DESTAQUES_PRODUTO_3)
-  const dadosImovelValidos = tipo && bairroNormalizado && cidade.trim() && (isProductEntry ? estado : true)
+  const dadosImovelValidos = tipo
+    && bairroNormalizado
+    && cidade.trim()
+    && (isProductEntry ? estado : product3Cta)
+    && (!preco || precoModo)
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
   const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
   const isCommercialProperty = isCommercialPropertyType(tipo)
@@ -2059,12 +2221,13 @@ export default function NovaCampanha() {
   const suitesParaPayload = isLandProperty || isCommercialProperty ? 0 : suites
   const vagasParaPayload = isLandProperty ? 0 : vagas
   const podaGerar = categoria && dadosImovelValidos
+  const maxDestaquesAtivos = isProductEntry ? MAX_DESTAQUES_FLUXO : MAX_DESTAQUES_CHAT_PRODUTO_3
 
   const toggleDestaque = (item) => {
     setDiferenciais(current => {
       if (current.includes(item)) return current.filter(value => value !== item)
-      if (current.length >= MAX_DESTAQUES_FLUXO) {
-        toast.error(`Selecione até ${MAX_DESTAQUES_FLUXO} destaques para esta campanha.`)
+      if (current.length >= maxDestaquesAtivos) {
+        toast.error(`Selecione até ${maxDestaquesAtivos} destaques para esta campanha.`)
         return current
       }
       return [...current, item]
@@ -2091,6 +2254,8 @@ export default function NovaCampanha() {
         ? 'alto padrão'
         : 'médio',
     preco: precoParaPayload,
+    preco_modo: precoModo || null,
+    preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
     area: area || null,
     dormitorios: quartosParaPayload,
     quartos: quartosParaPayload,
@@ -2101,6 +2266,8 @@ export default function NovaCampanha() {
     destaque_personalizado: destaquePersonalizado || null,
     destaques: todosDestaques,
     destaques_produto_3: destaquesProduto3,
+    cta: !isProductEntry ? product3Cta : null,
+    cta_text: !isProductEntry ? product3Cta : null,
     corretor_publico: {
       whatsapp: profileWhatsapp || null,
     },
@@ -2108,8 +2275,8 @@ export default function NovaCampanha() {
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE); setSituacao('')
-    setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
-    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
+    setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco(''); setPrecoModo('')
+    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
     setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setBannerChatStep('purpose'); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
@@ -2257,17 +2424,17 @@ export default function NovaCampanha() {
         + (estado ? ` - ${estado}` : '')
       const tituloPreliminar = `${tipo || 'Imóvel'} ${quartosParaPayload ? quartosParaPayload + 'q ' : ''}em ${bairroNormalizado || cidade || ''}`.trim()
       const descricaoPreliminar = [
-        campaignObjectiveLabel ? `Objetivo da campanha: ${campaignObjectiveLabel}` : '',
         `${tipo || 'Imóvel'} ${categoria ? '(' + categoria + ')' : ''}`,
         isLandProperty ? '' : `${quartosParaPayload} quarto${quartosParaPayload !== 1 ? 's' : ''}, ${banheiros} banheiro${banheiros !== 1 ? 's' : ''}, ${vagasParaPayload} vaga${vagasParaPayload !== 1 ? 's' : ''}`,
         area ? `${area}m²` : '',
         enderecoCompleto,
         todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
+        product3Cta ? `Chamada final: ${product3Cta}` : '',
       ].filter(Boolean).join('. ')
 
       // Foto do corretor: se o perfil não tem avatar cadastrado, força REMOVER_ELEMENTO
       // (assim o template não renderiza a mulher fictícia padrão).
-      const tituloComercial = `${tipo || 'Imóvel'} à Venda`.trim()
+      const tituloComercial = `${tipo || 'Imóvel'} ${finalidade === 'locacao' ? 'para Locação' : 'à Venda'}`.trim()
       const headlineComercial = tituloComercial || `${tipo || 'Imóvel'} em destaque`
       const especificacoesPrincipais = [
         formatQuantityLabel(quartosParaPayload, 'Dormitório'),
@@ -2281,6 +2448,7 @@ export default function NovaCampanha() {
         especificacoesPrincipais,
         enderecoCompleto,
         todosDisferenciais.length ? `Diferenciais: ${todosDisferenciais.join(', ')}` : '',
+        product3Cta ? `Chamada final: ${product3Cta}` : '',
       ].filter(Boolean).join('. ')
 
       const avatarPerfil = authedUser?.avatar_url || authedUser?.foto_url || authedUser?.photo_url || ''
@@ -2310,7 +2478,11 @@ export default function NovaCampanha() {
               titulo: tituloComercial,
               descricao: descricaoComercial,
               preco: precoParaPayload,
+              preco_modo: precoModo || null,
+              preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
               finalidade,
+              cta: product3Cta,
+              cta_text: product3Cta,
               suites: suitesParaPayload,
               quartos: quartosParaPayload,
               vagas: vagasParaPayload,
@@ -2334,8 +2506,12 @@ export default function NovaCampanha() {
             categoria,
             tipo,
             dados: {
-              finalidade, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
+              finalidade, situacao, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
               area: area || null, preco: precoParaPayload, bairro: bairroNormalizado, cidade, estado,
+              preco_modo: precoModo || null,
+              preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
+              cta: product3Cta,
+              cta_text: product3Cta,
               diferenciais: todosDisferenciais,
               destaques_selecionados: destaquesSelecionados,
               destaque_personalizado: destaquePersonalizado || null,
@@ -2344,7 +2520,6 @@ export default function NovaCampanha() {
               selectedTemplates,
               selected_templates: selectedTemplates,
               pieces: selectedTemplates,
-              objetivo_campanha: null,
             },
             fotos_urls: fotosOrdenadas,
             foto_principal: fotoPrincipal,
@@ -2734,7 +2909,11 @@ export default function NovaCampanha() {
           titulo: resultado?.titulo || resultado?.textos_gerados?.titulo_campanha || '',
           descricao: descricaoCurta,
           preco: precoParaPayload,
+          preco_modo: precoModo || null,
+          preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
           finalidade,
+          cta: product3Cta,
+          cta_text: product3Cta,
           suites: suitesParaPayload,
           quartos: quartosParaPayload,
           vagas: vagasParaPayload,
@@ -2822,7 +3001,6 @@ export default function NovaCampanha() {
         toast.error(`Selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} modelos.`)
         return
       }
-      if (!campaignObjective) setCampaignObjective(defaultCampaignObjective)
       setProductFlowStep('property')
     }
     const continueFromProperty = () => {
@@ -3223,14 +3401,14 @@ export default function NovaCampanha() {
       reviewSituationLabel ? `Situação: ${reviewSituationLabel}` : '',
       tipo ? `Tipo: ${tipo}` : '',
       [bairroNormalizado, cidade].filter(Boolean).length ? `Localização: ${[bairroNormalizado, cidade].filter(Boolean).join(', ')}` : '',
-      preco ? `Preço: R$ ${Number(preco).toLocaleString('pt-BR')}` : 'Preço não informado',
-      area ? `Área: ${area} m²` : 'Área não informada',
+      preco ? `Preço: ${formatProduct3Price(preco, precoModo)}` : 'Preço não informado',
+      area ? `Área: ${formatAreaLabel(area)}` : 'Área não informada',
       `Destaques: ${destaquesProduto3.length}`,
-      `CTA: ${campaignObjectiveLabel || 'Venda rápida'}`,
+      `CTA: ${product3Cta}`,
       `Imagens: ${fotos.length}`,
       `Modelos: ${selectedModelCount} · Peças: ${selectedUseCount}`,
     ].filter(Boolean)
-    const strategyLabel = campaignObjectiveLabel || 'Banners selecionados'
+    const strategyLabel = 'Banners selecionados'
 
     return (
       <>
@@ -3564,14 +3742,16 @@ export default function NovaCampanha() {
                   onCategoriaChange={setCategoria}
                   tipo={tipo}
                   onTipoChange={setTipo}
-                  campaignObjective={campaignObjective}
-                  onCampaignObjectiveChange={setCampaignObjective}
                   cidade={cidade}
                   onCidadeChange={setCidade}
+                  estado={estado}
+                  onEstadoChange={setEstado}
                   bairro={bairro}
                   onBairroChange={setBairro}
                   preco={preco}
                   onPrecoChange={setPreco}
+                  precoModo={precoModo}
+                  onPrecoModoChange={setPrecoModo}
                   area={area}
                   onAreaChange={setArea}
                   quartos={quartos}
@@ -3582,8 +3762,8 @@ export default function NovaCampanha() {
                   onVagasChange={setVagas}
                   diferenciais={diferenciais}
                   onToggleDestaque={toggleDestaque}
-                  difCustom={difCustom}
-                  onDifCustomChange={setDifCustom}
+                  cta={product3Cta}
+                  onCtaChange={setProduct3Cta}
                   selectedModelSummaries={selectedModelSummaries}
                   selectedUseCount={selectedUseCount}
                   photosCount={fotos.length}
