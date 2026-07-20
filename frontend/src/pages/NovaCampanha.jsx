@@ -51,7 +51,7 @@ const FINALIDADE_OPTIONS = [
 ]
 
 const PRODUCT_3_PROGRESS_STEPS = [
-  { title: 'Escolha os modelos', subtitle: 'Selecione até 6 modelos' },
+  { title: 'Escolha os modelos', subtitle: 'Selecione até 5 peças' },
   { title: 'Informe os dados', subtitle: 'Conte sobre o imóvel' },
   { title: 'Suba as imagens', subtitle: 'Envie as fotos do imóvel' },
   { title: 'Revise', subtitle: 'Confira as informações' },
@@ -327,7 +327,7 @@ function CampaignUseBrandIcon({ use }) {
   )
 }
 
-const MAX_VISUAL_PIECES_PER_GENERATION = 6
+const MAX_VISUAL_PIECES_PER_GENERATION = 5
 const MVP_ACTIVE_MODEL_IDS = new Set([
   'anuncio_premium',
   'story_premium',
@@ -3275,15 +3275,15 @@ export default function NovaCampanha() {
                                     title={blockedByLimit ? `Limite de ${MAX_VISUAL_PIECES_PER_GENERATION} peças atingido` : use.label}
                                     aria-label={`${checked ? 'Remover' : 'Selecionar'} ${use.label} para ${model.name}`}
                                     onClick={() => toggleCampaignModelUse(model.id, useId)}
-                                    className={`relative flex h-11 w-11 items-center justify-center rounded-xl border text-lg transition-all ${
+                                    className={`relative flex h-16 w-16 items-center justify-center rounded-2xl border bg-white transition-all ${
                                       checked
-                                        ? 'border-primary-500 bg-primary-600 text-white shadow-primary-100 ring-2 ring-primary-100'
+                                        ? 'border-primary-500 shadow-primary-100 ring-2 ring-primary-100'
                                         : blockedByLimit
-                                          ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300'
-                                          : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700'
+                                          ? 'cursor-not-allowed border-gray-200 opacity-40 grayscale'
+                                          : 'border-gray-200 hover:border-primary-300 hover:shadow-md'
                                     }`}
                                   >
-                                    <span aria-hidden="true">{use.icon}</span>
+                                    <CampaignUseBrandIcon use={use} />
                                     {checked && (
                                       <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-primary-600 shadow-sm">
                                         <CheckCircle2 className="h-4 w-4" />
