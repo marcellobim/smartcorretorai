@@ -51,7 +51,7 @@ const FINALIDADE_OPTIONS = [
 ]
 
 const PRODUCT_3_PROGRESS_STEPS = [
-  { title: 'Escolha os modelos', subtitle: 'Selecione até 5 peças' },
+  { title: 'Escolha os modelos', subtitle: 'Selecione até 5 modelos' },
   { title: 'Informe os dados', subtitle: 'Conte sobre o imóvel' },
   { title: 'Suba as imagens', subtitle: 'Envie as fotos do imóvel' },
   { title: 'Revise', subtitle: 'Confira as informações' },
@@ -1813,7 +1813,7 @@ export default function NovaCampanha() {
     if (next[modelId].length === 0) delete next[modelId]
 
     if (!alreadySelected && getCampaignPiecesFromModelUses(next).length > MAX_VISUAL_PIECES_PER_GENERATION) {
-      toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
+      toast.error(`Selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} modelos.`)
       return
     }
 
@@ -2033,7 +2033,7 @@ export default function NovaCampanha() {
         return
       }
       if (selectedTemplatePayload.length > MAX_VISUAL_PIECES_PER_GENERATION) {
-        toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
+        toast.error(`Selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} modelos.`)
         setFase('form')
         return
       }
@@ -2535,7 +2535,7 @@ export default function NovaCampanha() {
       return
     }
     if (selectedTemplates.length > MAX_VISUAL_PIECES_PER_GENERATION) {
-      toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
+      toast.error(`Selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} modelos.`)
       return
     }
 
@@ -2668,7 +2668,7 @@ export default function NovaCampanha() {
         return
       }
       if (selectedTemplatePayload.length > MAX_VISUAL_PIECES_PER_GENERATION) {
-        toast.error(`Para garantir a geração correta, selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} peças por vez neste momento.`)
+        toast.error(`Selecione até ${MAX_VISUAL_PIECES_PER_GENERATION} modelos.`)
         return
       }
       if (!campaignObjective) setCampaignObjective(defaultCampaignObjective)
@@ -3272,7 +3272,7 @@ export default function NovaCampanha() {
                                   <button
                                     key={`${model.id}-${useId}-${model.useTemplates?.[useId]}`}
                                     type="button"
-                                    title={blockedByLimit ? `Limite de ${MAX_VISUAL_PIECES_PER_GENERATION} peças atingido` : use.label}
+                                    title={blockedByLimit ? `Limite de ${MAX_VISUAL_PIECES_PER_GENERATION} modelos atingido` : use.label}
                                     aria-label={`${checked ? 'Remover' : 'Selecionar'} ${use.label} para ${model.name}`}
                                     onClick={() => toggleCampaignModelUse(model.id, useId)}
                                     className={`relative flex h-16 w-16 items-center justify-center rounded-2xl border bg-white transition-all ${
@@ -3357,7 +3357,7 @@ export default function NovaCampanha() {
 
                     {selectedCatalogItems.length >= MAX_VISUAL_PIECES_PER_GENERATION - 1 && (
                       <p className="mt-3 rounded-xl border border-blue-100 bg-primary-50 p-3 text-xs font-semibold leading-relaxed text-primary-900">
-                        Você pode gerar até {MAX_VISUAL_PIECES_PER_GENERATION} peças por vez. Depois de receber os resultados, poderá gerar mais materiais para este mesmo imóvel.
+                        Selecione até {MAX_VISUAL_PIECES_PER_GENERATION} modelos. Depois de receber os resultados, poderá gerar mais materiais para este mesmo imóvel.
                       </p>
                     )}
 
