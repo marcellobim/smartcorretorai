@@ -197,7 +197,7 @@ function normalizeShortFreeText(value: unknown, maxLength = 120) {
   return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
 }
 
-function normalizeMasterPropertyInput(dados: Record<string, unknown>) {
+function normalizeCampaignPropertyInput(dados: Record<string, unknown>) {
   const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
     ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
     : []
@@ -278,7 +278,7 @@ serve(async (req) => {
     console.log(`[${reqId}] gerar-campanha autenticada | tipo=${tipo} categoria=${categoria}`)
 
     // === Chamada DIRETA à OpenAI (fetch nativo, single shot, 45s) ====
-    const dadosObj = normalizeMasterPropertyInput((dados as Record<string, unknown> | null) || {})
+    const dadosObj = normalizeCampaignPropertyInput((dados as Record<string, unknown> | null) || {})
     const diferenciaisRaw = Array.isArray(dadosObj.diferenciais)
       ? (dadosObj.diferenciais as unknown[])
       : []

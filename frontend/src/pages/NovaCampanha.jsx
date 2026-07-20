@@ -50,7 +50,7 @@ const FINALIDADE_OPTIONS = [
   { id: 'locacao', label: 'Locação', icon: '🔑' },
 ]
 
-const MAX_DESTAQUES_MESTRE = 20
+const MAX_DESTAQUES_FLUXO = 20
 const MAX_DESTAQUES_PRODUTO_3 = 8
 const MIN_FOTOS_PRODUTO_3 = 3
 const MAX_FOTOS_PRODUTO_3 = 5
@@ -1632,18 +1632,16 @@ export default function NovaCampanha() {
   const toggleDestaque = (item) => {
     setDiferenciais(current => {
       if (current.includes(item)) return current.filter(value => value !== item)
-      if (current.length >= MAX_DESTAQUES_MESTRE) {
-        toast.error(`Selecione até ${MAX_DESTAQUES_MESTRE} destaques no cadastro mestre.`)
+      if (current.length >= MAX_DESTAQUES_FLUXO) {
+        toast.error(`Selecione até ${MAX_DESTAQUES_FLUXO} destaques para esta campanha.`)
         return current
       }
       return [...current, item]
     })
   }
 
-  const buildMasterPropertyV1 = (fotosUrls = []) => ({
-    schema_version: 'master_property_v1',
-    retention_days: 15,
-    reusable_until_strategy: 'created_at_plus_15_days',
+  const buildCampaignPropertyInput = (fotosUrls = []) => ({
+    schema_version: 'campaign_property_input_v1',
     produto_origem: produtoParam || 'campanha_completa',
     subproduto_origem: subprodutoParam || null,
     finalidade,
@@ -1674,13 +1672,6 @@ export default function NovaCampanha() {
     destaques_produto_3: destaquesProduto3,
     corretor_publico: {
       whatsapp: profileWhatsapp || null,
-    },
-    requisitos_por_produto: {
-      banners_rapidos: { exige: ['dados_basicos', 'fotos', 'destaques'], faltantes: [] },
-      hero_ia: { exige: ['dados_basicos', 'foto_principal', 'estilo_visual'], faltantes: ['estilo_visual'] },
-      transformar_video: { exige: ['dados_basicos', 'video'], faltantes: ['video'] },
-      campanha_ia: { exige: ['dados_basicos', 'fotos', 'objetivo'], faltantes: [] },
-      landing_page: { exige: ['dados_basicos', 'lead_config_automatica'], faltantes: [] },
     },
   })
 
@@ -1852,7 +1843,7 @@ export default function NovaCampanha() {
       // fotos_urls vai EM ORDEM — a primeira é a principal do imóvel, demais são secundárias.
       const fotosOrdenadas = fotos_urls.slice(0, maxFotosImovel)
       const fotoPrincipal = fotosOrdenadas[0] || null
-      const masterPropertyV1 = buildMasterPropertyV1(fotosOrdenadas)
+      const campaignPropertyInput = buildCampaignPropertyInput(fotosOrdenadas)
 
       setGerandoBanners(true)
       setRenders(null)
@@ -1880,7 +1871,7 @@ export default function NovaCampanha() {
               area: area || null,
               endereco: enderecoCompleto,
               tipo_imovel: tipo,
-              dados_imovel: masterPropertyV1,
+              dados_imovel: campaignPropertyInput,
               corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
               corretor_avatar_url: corretorAvatarUrl,
               marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
@@ -1902,7 +1893,6 @@ export default function NovaCampanha() {
               diferenciais: todosDisferenciais,
               destaques_selecionados: destaquesSelecionados,
               destaque_personalizado: destaquePersonalizado || null,
-              master_property_v1: masterPropertyV1,
               telefone_contato: profileWhatsapp,
               formatos_selecionados: selectedModelUses,
               selectedTemplates,
@@ -1959,7 +1949,7 @@ export default function NovaCampanha() {
         titulo: campaignRow?.titulo || generatedTexts.titulo_campanha || tituloComercial || 'Campanha gerada',
         textos_gerados: generatedTexts,
         dados_imovel: campaignRow?.dados_imovel || {
-          ...masterPropertyV1,
+          ...campaignPropertyInput,
           tipo,
           categoria,
           fotos_urls: fotosOrdenadas,
@@ -2275,7 +2265,7 @@ export default function NovaCampanha() {
 
       const enderecoCompleto = [bairroNormalizado, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
-      const masterPropertyV1 = buildMasterPropertyV1(fotosOrdenadas)
+      const campaignPropertyInput = buildCampaignPropertyInput(fotosOrdenadas)
 
       const descricaoCurta = resultado?.textos_gerados?.descricao_portal
         || resultado?.textos_gerados?.post_instagram
@@ -2305,7 +2295,7 @@ export default function NovaCampanha() {
           area: area || null,
           endereco: enderecoCompleto,
           tipo_imovel: tipo,
-          dados_imovel: masterPropertyV1,
+          dados_imovel: campaignPropertyInput,
           corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
           corretor_avatar_url: corretorAvatarUrl,
           marca_imovel: authedUser?.marca || authedUser?.imobiliaria || authedUser?.nome_imobiliaria || '',
@@ -2604,7 +2594,7 @@ export default function NovaCampanha() {
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
-              {diferenciais.length}/{MAX_DESTAQUES_MESTRE}
+              {diferenciais.length}/{MAX_DESTAQUES_FLUXO}
             </span>
           </div>
 
@@ -2615,7 +2605,7 @@ export default function NovaCampanha() {
                 <div className="flex flex-wrap gap-2">
                   {category.items.map(item => {
                     const active = diferenciais.includes(item)
-                    const disabled = !active && diferenciais.length >= MAX_DESTAQUES_MESTRE
+                    const disabled = !active && diferenciais.length >= MAX_DESTAQUES_FLUXO
                     return (
                       <button
                         key={item}

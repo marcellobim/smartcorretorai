@@ -3,7 +3,6 @@ import {
   BadgeCheck,
   Coins,
   Home,
-  LayoutGrid,
   LogOut,
   Package,
   Settings,
@@ -16,7 +15,6 @@ import { useAuth } from '../../lib/auth-context'
 
 const navItems = [
   { to: '/dashboard', icon: Home, label: 'Home' },
-  { to: '/meus-imoveis', icon: LayoutGrid, label: 'Cadastro Mestre' },
   { to: '/pacotes-gerados', icon: Package, label: 'Criações' },
   { to: '/nova-campanha', icon: Sparkles, label: 'Banners Rápidos' },
   { to: '/planos', icon: Coins, label: 'Smart Tokens' },

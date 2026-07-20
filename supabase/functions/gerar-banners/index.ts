@@ -1120,7 +1120,7 @@ function normalizeShortFreeText(value: unknown, maxLength = 120): string {
   return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
 }
 
-function normalizeMasterPropertyInput(dados: Record<string, unknown>): Record<string, unknown> {
+function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<string, unknown> {
   const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
     ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
     : []
@@ -1495,7 +1495,7 @@ serve(async (req) => {
     const payloadDadosImovel = payload.dados_imovel && typeof payload.dados_imovel === 'object'
       ? payload.dados_imovel as Record<string, unknown>
       : {}
-    const dadosImovel = normalizeMasterPropertyInput({
+    const dadosImovel = normalizeCampaignPropertyInput({
       ...payloadDadosImovel,
       ...((campaignRow?.dados_imovel as Record<string, unknown>) || {}),
     })

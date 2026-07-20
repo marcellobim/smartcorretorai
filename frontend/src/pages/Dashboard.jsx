@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   BadgeCheck,
-  Building2,
   CheckCircle2,
   Clock3,
   Coins,
@@ -10,7 +9,6 @@ import {
   Home,
   Image,
   Layers3,
-  MapPin,
   PlayCircle,
   Sparkles,
   UserCircle2,
@@ -19,7 +17,6 @@ import {
 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { useAuth } from '../lib/auth-context'
-import { useProperties } from '../hooks/useProperties'
 import { useCampaigns } from '../hooks/useCampaigns'
 
 const mainActions = [
@@ -80,15 +77,6 @@ const formatDate = (value) => {
   }
 }
 
-const getMainPhoto = (property) => (
-  property?.fotos?.[0]
-  || property?.photos?.[0]
-  || property?.foto_principal
-  || property?.image_url
-  || property?.preview_url
-  || null
-)
-
 const getProfileStatus = (user) => {
   const required = [
     user?.nome || user?.displayName,
@@ -107,7 +95,6 @@ const getProfileStatus = (user) => {
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { properties, loading: propertiesLoading } = useProperties()
   const { campaigns, loading: campaignsLoading } = useCampaigns()
 
   const firstName =
@@ -116,9 +103,7 @@ export default function Dashboard() {
     user?.email?.split('@')[0] ||
     'Corretor'
 
-  const recentProperties = properties.slice(0, 3)
   const recentCampaigns = campaigns.slice(0, 4)
-  const lastProperty = recentProperties[0] || null
   const lastCampaign = recentCampaigns[0] || null
   const lastMaterial = recentCampaigns.find(campaign => campaign.preview_url || campaign.status === 'concluido') || lastCampaign
   const profileStatus = getProfileStatus(user)
@@ -145,17 +130,16 @@ export default function Dashboard() {
 
             <div className="rounded-3xl border border-white/15 bg-white/12 p-5 backdrop-blur">
               <p className="text-xs font-black uppercase tracking-wide text-blue-100">Continue de onde parou</p>
-              {lastProperty || lastCampaign || lastMaterial ? (
+              {lastCampaign || lastMaterial ? (
                 <div className="mt-4 space-y-3">
-                  <ResumeLine label="Último imóvel" value={lastProperty ? `${lastProperty.bairro || 'Bairro'} · ${lastProperty.cidade || 'Cidade'}` : 'Nenhum imóvel recente'} />
                   <ResumeLine label="Última campanha" value={lastCampaign?.titulo || 'Nenhuma campanha recente'} />
                   <ResumeLine label="Último material" value={lastMaterial?.titulo || 'Nenhum material recente'} />
                 </div>
               ) : (
                 <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-bold text-white">Comece cadastrando seu primeiro imóvel.</p>
-                  <Link to="/meus-imoveis" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-cyan-100 hover:text-white">
-                    Cadastrar agora
+                  <p className="text-sm font-bold text-white">Comece criando seu primeiro material.</p>
+                  <Link to="/nova-campanha" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-cyan-100 hover:text-white">
+                    Criar banners
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
@@ -171,30 +155,7 @@ export default function Dashboard() {
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-6">
-            <Panel
-              title="Imóveis recentes"
-              action={<Link to="/meus-imoveis" className="text-sm font-black text-gray-600 hover:text-gray-950">Ver imóveis</Link>}
-            >
-              {propertiesLoading ? (
-                <LoadingRows count={3} />
-              ) : recentProperties.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-3">
-                  {recentProperties.map(property => (
-                    <PropertyPreview key={property.id} property={property} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={Building2}
-                  title="Nenhum imóvel recente"
-                  description="Comece cadastrando seu primeiro imóvel."
-                  to="/meus-imoveis"
-                  label="Cadastrar imóvel"
-                />
-              )}
-            </Panel>
-
+          <div className="min-w-0 space-y-6">
             <Panel
               title="Criações recentes"
               action={<Link to="/pacotes-gerados" className="text-sm font-black text-gray-600 hover:text-gray-950">Ver criações</Link>}
@@ -292,7 +253,7 @@ function ActionCard({ action }) {
 
 function Panel({ title, action, children }) {
   return (
-    <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="min-w-0 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-black text-gray-950">{title}</h2>
         {action}
@@ -302,42 +263,10 @@ function Panel({ title, action, children }) {
   )
 }
 
-function PropertyPreview({ property }) {
-  const photo = getMainPhoto(property)
-  return (
-    <article className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <div className="aspect-[4/3] bg-gray-100">
-        {photo ? (
-          <img src={photo} alt={property.titulo || 'Imóvel'} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center text-gray-400">
-            <Building2 className="h-8 w-8" />
-            <span className="mt-2 text-xs font-bold">Sem foto</span>
-          </div>
-        )}
-      </div>
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-black text-gray-950">{property.bairro || 'Bairro'}</p>
-            <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-gray-500">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
-              {property.cidade || 'Cidade'}
-            </p>
-          </div>
-          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-700">
-            {property.status || 'Ativo'}
-          </span>
-        </div>
-      </div>
-    </article>
-  )
-}
-
 function CreationPreview({ campaign }) {
   const status = statusLabel[campaign.status] || 'Pronto'
   return (
-    <article className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+    <article className="min-w-0 rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-gray-950">{campaign.titulo || 'Material gerado'}</p>

@@ -7,14 +7,12 @@ import HomeOpusExperiment from './pages/HomeOpusExperiment'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import Dashboard from './pages/Dashboard'
-import Hero from './pages/Hero'
 import HeroNext from './pages/HeroNext'
 import TransformarVideo from './pages/TransformarVideo'
 import StudioHero from './pages/StudioHero'
 import StudioGallery from './pages/StudioGallery'
 import SmartCarrossel from './pages/SmartCarrossel'
 import NovaCompanha from './pages/NovaCampanha'
-import MeusImoveis from './pages/MeusImoveis'
 import PacotesGerados from './pages/PacotesGerados'
 import Configuracoes from './pages/Configuracoes'
 import Planos from './pages/Planos'
@@ -79,13 +77,11 @@ export default function App() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/hero" element={<HeroNext />} />
-        <Route path="/hero-legacy" element={<Hero />} />
         <Route path="/studio-hero" element={<StudioHero />} />
         <Route path="/studio-galeria" element={<StudioGallery />} />
         <Route path="/smart-carrossel" element={<SmartCarrossel />} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
         <Route path="/nova-campanha" element={<NovaCompanha />} />
-        <Route path="/meus-imoveis" element={<MeusImoveis />} />
         <Route path="/pacotes-gerados" element={<PacotesGerados />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
       </Route>
