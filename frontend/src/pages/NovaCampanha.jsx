@@ -50,6 +50,26 @@ const FINALIDADE_OPTIONS = [
   { id: 'locacao', label: 'Locação', icon: '🔑' },
 ]
 
+const PRODUCT_3_PROGRESS_STEPS = [
+  { title: 'Escolha os modelos', subtitle: 'Selecione até 6 modelos' },
+  { title: 'Informe os dados', subtitle: 'Conte sobre o imóvel' },
+  { title: 'Suba as imagens', subtitle: 'Envie as fotos do imóvel' },
+  { title: 'Revise', subtitle: 'Confira as informações' },
+  { title: 'Gere e baixe', subtitle: 'Receba seus banners e campanha' },
+]
+
+const PRODUCT_3_SITUATIONS = {
+  venda: [
+    { id: 'lancamento', label: 'Lançamento', category: 'lancamento' },
+    { id: 'em_construcao', label: 'Em construção', category: 'em_construcao' },
+    { id: 'pronto_para_morar', label: 'Pronto para morar', category: 'medio_padrao' },
+  ],
+  locacao: [
+    { id: 'disponivel_imediatamente', label: 'Disponível imediatamente', category: 'medio_padrao' },
+    { id: 'pronto_para_mudar', label: 'Pronto para mudar', category: 'medio_padrao' },
+  ],
+}
+
 const MAX_DESTAQUES_FLUXO = 20
 const MAX_DESTAQUES_PRODUTO_3 = 8
 const MIN_FOTOS_PRODUTO_3 = 3
@@ -307,7 +327,7 @@ function CampaignUseBrandIcon({ use }) {
   )
 }
 
-const MAX_VISUAL_PIECES_PER_GENERATION = 5
+const MAX_VISUAL_PIECES_PER_GENERATION = 6
 const MVP_ACTIVE_MODEL_IDS = new Set([
   'anuncio_premium',
   'story_premium',
@@ -937,6 +957,264 @@ const DIAS_SEMANA = [
 //  SUB-COMPONENTES — FORMULÁRIO
 // ═══════════════════════════════════════════════════════════════
 
+function Product3Progress({ activeStep = 0 }) {
+  return (
+    <nav className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5" aria-label="Etapas para criar banners">
+      <ol className="grid gap-2 sm:grid-cols-5">
+        {PRODUCT_3_PROGRESS_STEPS.map((step, index) => {
+          const active = index === activeStep
+          const complete = index < activeStep
+          return (
+            <li key={step.title} className={`min-w-0 rounded-xl border px-3 py-3 ${active ? 'border-primary-200 bg-primary-50' : complete ? 'border-emerald-100 bg-emerald-50/60' : 'border-slate-100 bg-slate-50/70'}`}>
+              <div className="flex items-start gap-2.5">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${active ? 'bg-primary-700 text-white' : complete ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
+                  {complete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-black leading-4 text-slate-900">{step.title}</span>
+                  <span className="mt-0.5 block text-[11px] font-semibold leading-4 text-slate-500">{step.subtitle}</span>
+                </span>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
+  )
+}
+
+function BannerConversation({
+  step,
+  onStepChange,
+  finalidade,
+  onFinalidadeChange,
+  situacao,
+  onSituacaoChange,
+  onCategoriaChange,
+  tipo,
+  onTipoChange,
+  campaignObjective,
+  onCampaignObjectiveChange,
+  cidade,
+  onCidadeChange,
+  bairro,
+  onBairroChange,
+  preco,
+  onPrecoChange,
+  area,
+  onAreaChange,
+  quartos,
+  onQuartosChange,
+  suites,
+  onSuitesChange,
+  vagas,
+  onVagasChange,
+  diferenciais,
+  onToggleDestaque,
+  difCustom,
+  onDifCustomChange,
+  selectedModelSummaries,
+  selectedUseCount,
+  photosCount,
+  onEditModels,
+  onContinue,
+}) {
+  const land = ['Terreno / Lote', 'Loteamento'].includes(tipo)
+  const commercial = isCommercialPropertyType(tipo)
+  const sequence = [
+    'purpose',
+    'situation',
+    'type',
+    'focus',
+    'city',
+    'district',
+    'price',
+    'area',
+    ...(!land && !commercial ? ['bedrooms', 'suites'] : []),
+    ...(!land ? ['parking'] : []),
+    'highlights',
+    'custom',
+    'done',
+  ]
+  const activeIndex = Math.max(sequence.indexOf(step), 0)
+  const next = () => onStepChange(sequence[Math.min(activeIndex + 1, sequence.length - 1)])
+  const confirmations = ['Perfeito', 'Ótimo', 'Excelente']
+  const situationOptions = PRODUCT_3_SITUATIONS[finalidade] || PRODUCT_3_SITUATIONS.venda
+  const situationLabel = Object.values(PRODUCT_3_SITUATIONS).flat().find(item => item.id === situacao)?.label || ''
+  const purposeLabel = FINALIDADE_OPTIONS.find(item => item.id === finalidade)?.label || ''
+  const focusLabel = SMART_CAMPAIGNS.find(item => item.id === campaignObjective)?.title || ''
+  const modelNames = selectedModelSummaries.map(model => model.name)
+  const answers = {
+    purpose: purposeLabel,
+    situation: situationLabel,
+    type: tipo,
+    focus: focusLabel,
+    city: cidade,
+    district: bairro,
+    price: preco ? `R$ ${Number(preco).toLocaleString('pt-BR')}` : 'Preço não informado',
+    area: area ? `${area} m²` : 'Área não informada',
+    bedrooms: `${quartos} quarto${quartos === 1 ? '' : 's'}`,
+    suites: `${suites} suíte${suites === 1 ? '' : 's'}`,
+    parking: `${vagas} vaga${vagas === 1 ? '' : 's'}`,
+    highlights: diferenciais.length ? `${diferenciais.length} destaque${diferenciais.length === 1 ? '' : 's'} selecionado${diferenciais.length === 1 ? '' : 's'}` : 'Sem destaques selecionados',
+    custom: difCustom || 'Sem destaque personalizado',
+  }
+  const questionLabels = {
+    purpose: 'Vamos divulgar um imóvel para:',
+    situation: 'Qual é a situação do imóvel?',
+    type: 'Que tipo de imóvel vamos divulgar?',
+    focus: 'Qual foco devemos usar nos textos?',
+    city: 'Em qual cidade fica o imóvel?',
+    district: 'Em qual bairro ele está localizado?',
+    price: 'Qual é o preço do imóvel?',
+    area: 'Qual é a área aproximada do imóvel?',
+    bedrooms: 'Quantos quartos o imóvel possui?',
+    suites: 'Quantas suítes?',
+    parking: 'Quantas vagas estão disponíveis?',
+    highlights: 'Quais são os principais destaques?',
+    custom: 'Deseja acrescentar um destaque personalizado?',
+    done: 'Excelente. Os dados estão prontos para a próxima etapa.',
+  }
+  const history = sequence
+    .slice(0, activeIndex)
+    .filter(key => key !== 'done' && answers[key])
+    .map((key, index) => ({ key, question: questionLabels[key], answer: answers[key], confirmation: confirmations[index % confirmations.length] }))
+
+  const choose = (callback) => {
+    callback()
+    next()
+  }
+  const textForm = ({ value, onChange, placeholder, optional = false, normalize }) => (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        const normalized = normalize ? normalize(value) : String(value || '').trim()
+        if (!normalized && !optional) {
+          toast.error('Informe uma resposta para continuar.')
+          return
+        }
+        if (normalized !== value) onChange(normalized)
+        next()
+      }}
+      className="space-y-3"
+    >
+      <input
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+      />
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Continuar</button>
+        {optional && <button type="button" onClick={next} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Pular</button>}
+      </div>
+    </form>
+  )
+  const optionButton = (key, label, active, onClick) => (
+    <button
+      key={key}
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-2xl border px-4 py-3 text-left text-sm font-black transition ${active ? 'border-primary-600 bg-primary-700 text-white shadow-md shadow-primary-100' : 'border-slate-200 bg-white text-slate-700 hover:border-primary-300 hover:bg-primary-50'}`}
+    >
+      {label}
+    </button>
+  )
+
+  let questionContent = null
+  if (step === 'purpose') {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">{FINALIDADE_OPTIONS.map(option => optionButton(option.id, `${option.icon} ${option.label}`, finalidade === option.id, () => choose(() => {
+      onFinalidadeChange(option.id)
+      onSituacaoChange('')
+      onCategoriaChange(null)
+    })))}</div>
+  } else if (step === 'situation') {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">{situationOptions.map(option => optionButton(option.id, option.label, situacao === option.id, () => choose(() => {
+      onSituacaoChange(option.id)
+      onCategoriaChange(option.category)
+    })))}</div>
+  } else if (step === 'type') {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">{TIPOS.map(option => optionButton(option, option, tipo === option, () => choose(() => {
+      onTipoChange(option)
+      if (isCommercialPropertyType(option) || ['Terreno / Lote', 'Loteamento'].includes(option)) {
+        onQuartosChange(0)
+        onSuitesChange(0)
+      }
+      if (['Terreno / Lote', 'Loteamento'].includes(option)) onVagasChange(0)
+    })))}</div>
+  } else if (step === 'focus') {
+    questionContent = <div className="grid gap-2">{SMART_CAMPAIGNS.filter(item => !item.hidden).map(option => optionButton(option.id, option.title, campaignObjective === option.id, () => choose(() => onCampaignObjectiveChange(option.id))))}</div>
+  } else if (step === 'city') {
+    questionContent = textForm({ value: cidade, onChange: onCidadeChange, placeholder: 'Ex: São Paulo' })
+  } else if (step === 'district') {
+    questionContent = textForm({ value: bairro, onChange: onBairroChange, placeholder: 'Ex: Moema', normalize: normalizeBairro })
+  } else if (step === 'price') {
+    questionContent = textForm({ value: preco, onChange: onPrecoChange, placeholder: 'Ex: 850000', optional: true })
+  } else if (step === 'area') {
+    questionContent = textForm({ value: area, onChange: onAreaChange, placeholder: 'Ex: 110', optional: true })
+  } else if (step === 'bedrooms' || step === 'suites' || step === 'parking') {
+    const config = step === 'bedrooms'
+      ? { label: 'Quartos', value: quartos, setter: onQuartosChange }
+      : step === 'suites'
+        ? { label: 'Suítes', value: suites, setter: onSuitesChange }
+        : { label: 'Vagas', value: vagas, setter: onVagasChange }
+    questionContent = <div className="flex flex-col items-start gap-4"><Counter label={config.label} value={config.value} onChange={config.setter} /><button type="button" onClick={next} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Continuar</button></div>
+  } else if (step === 'highlights') {
+    questionContent = <div className="space-y-3">
+      {DESTAQUE_CATEGORIES.map(category => <div key={category.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3"><p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{category.title}</p><div className="flex flex-wrap gap-2">{category.items.map(item => {
+        const active = diferenciais.includes(item)
+        const disabled = !active && diferenciais.length >= MAX_DESTAQUES_FLUXO
+        return <button key={item} type="button" disabled={disabled} onClick={() => onToggleDestaque(item)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${active ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-600'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}>{item}</button>
+      })}</div></div>)}
+      <button type="button" onClick={next} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Confirmar destaques</button>
+    </div>
+  } else if (step === 'custom') {
+    questionContent = textForm({ value: difCustom, onChange: value => onDifCustomChange(value.slice(0, 120)), placeholder: 'Ex: sol da manhã, rua tranquila', optional: true, normalize: value => normalizeShortFreeText(value, 120) })
+  } else {
+    questionContent = <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm font-bold leading-6 text-emerald-900">Conversa concluída. Seus dados e modelos foram preservados.</p><button type="button" onClick={onContinue} className="mt-4 rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">Continuar para as imagens</button></div>
+  }
+
+  const summaryItems = [
+    { label: 'Modelos selecionados', value: modelNames.length ? modelNames.join(', ') : `${selectedUseCount} peça(s)`, edit: onEditModels },
+    { label: 'Finalidade', value: purposeLabel, step: 'purpose' },
+    { label: 'Situação', value: situationLabel, step: 'situation' },
+    { label: 'Tipo', value: tipo, step: 'type' },
+    { label: 'Cidade', value: cidade, step: 'city' },
+    { label: 'Bairro', value: bairro, step: 'district' },
+    { label: 'Preço', value: preco ? `R$ ${Number(preco).toLocaleString('pt-BR')}` : '', step: 'price' },
+    { label: 'Área', value: area ? `${area} m²` : '', step: 'area' },
+    { label: 'Destaques', value: diferenciais.length ? diferenciais.slice(0, 3).join(', ') : '', step: 'highlights' },
+    { label: 'CTA', value: focusLabel, step: 'focus' },
+    { label: 'Imagens enviadas', value: photosCount ? `${photosCount}` : 'Ainda não enviadas' },
+  ].filter(item => item.value)
+
+  return (
+    <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]">
+      <div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><MessageCircle className="h-5 w-5" /></span>
+          <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">Etapa 2</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Converse com a IA</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Uma pergunta por vez para preparar seus banners.</p></div>
+        </div>
+      </div>
+      <div className="grid min-w-0 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
+        <div className="min-w-0 space-y-4">
+          {history.map(item => <div key={item.key} className="space-y-2"><div className="max-w-[88%] rounded-2xl rounded-tl-md bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{item.question}</div><div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-md bg-primary-700 px-4 py-3 text-sm font-bold text-white"><span className="mr-2 text-primary-100">{item.confirmation}.</span>{item.answer}<button type="button" onClick={() => onStepChange(item.key)} className="ml-3 text-xs font-black text-white/80 underline underline-offset-2">Editar</button></div></div>)}
+          <div className="rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#ffffff,#f5f9ff)] p-5 shadow-sm sm:p-6">
+            <div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Sparkles className="h-5 w-5" /></span><div className="min-w-0 flex-1"><span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-primary-800">{step === 'done' ? 'Resumo concluído' : `Pergunta ${activeIndex + 1}`}</span><h3 className="mt-3 text-xl font-black leading-tight text-slate-950 sm:text-2xl">{questionLabels[step] || questionLabels.done}</h3><div className="mt-6">{questionContent}</div></div></div>
+          </div>
+        </div>
+        <aside className="min-w-0 rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#eff6ff,#ffffff)] p-5 lg:sticky lg:top-6 lg:self-start">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary-700">Resumo da campanha</p>
+          <div className="mt-4 space-y-2">
+            {summaryItems.map(item => <div key={item.label} className="rounded-xl bg-white/80 px-3 py-2.5"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{item.label}</p><p className="mt-1 break-words text-sm font-bold text-slate-700">{item.value}</p></div>{(item.step || item.edit) && <button type="button" onClick={item.edit || (() => onStepChange(item.step))} className="shrink-0 text-[11px] font-black text-primary-700">Editar</button>}</div></div>)}
+          </div>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
 function Counter({ label, value, onChange, max = 9 }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -1367,6 +1645,7 @@ export default function NovaCampanha() {
   const [categoria, setCategoria] = useState(null)
   const [tipo, setTipo] = useState('')
   const [finalidade, setFinalidade] = useState(MVP_FINALIDADE)
+  const [situacao, setSituacao] = useState('')
   const [quartos, setQuartos] = useState(2)
   const [banheiros, setBanheiros] = useState(1)
   const [suites, setSuites] = useState(0)
@@ -1432,6 +1711,7 @@ export default function NovaCampanha() {
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [productFlowStep, setProductFlowStep] = useState(defaultCampaignStep)
+  const [bannerChatStep, setBannerChatStep] = useState('purpose')
   const [activeCampaignModelId, setActiveCampaignModelId] = useState(null)
   const [selectedModelUses, setSelectedModelUses] = useState({})
   const [campaignObjective, setCampaignObjective] = useState(defaultCampaignObjective)
@@ -1620,7 +1900,7 @@ export default function NovaCampanha() {
     ...(destaquePersonalizado ? [destaquePersonalizado] : []),
   ]
   const destaquesProduto3 = todosDestaques.slice(0, MAX_DESTAQUES_PRODUTO_3)
-  const dadosImovelValidos = tipo && bairroNormalizado && cidade.trim() && estado
+  const dadosImovelValidos = tipo && bairroNormalizado && cidade.trim() && (isProductEntry ? estado : true)
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
   const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
   const isCommercialProperty = isCommercialPropertyType(tipo)
@@ -1649,11 +1929,11 @@ export default function NovaCampanha() {
     estado,
     cidade,
     bairro: bairroNormalizado,
-    situacao: categoria === 'lancamento'
+    situacao: situacao || (categoria === 'lancamento'
       ? 'lançamento'
       : categoria === 'em_construcao'
         ? 'em construção'
-        : 'pronto',
+        : 'pronto'),
     padrao: categoria === 'popular_mcmv'
       ? 'popular'
       : categoria === 'alto_padrao'
@@ -1676,12 +1956,27 @@ export default function NovaCampanha() {
   })
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
-    setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE)
+    setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE); setSituacao('')
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco('')
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
-    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
+    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setBannerChatStep('purpose'); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
+    clearInterval(renderPollRef.current)
+  }
+
+  const startAnotherBannerGeneration = () => {
+    setFase('form')
+    setProductFlowStep('manual-catalog')
+    setBannerChatStep('done')
+    setSelectedModelUses({})
+    setActiveCampaignModelId(null)
+    setResultado(null)
+    setCampanhaId(null)
+    setRenders(null)
+    setRequestedVisualPieces([])
+    setGerandoBanners(false)
+    setGenerationNotice('')
     clearInterval(renderPollRef.current)
   }
 
@@ -2771,13 +3066,19 @@ export default function NovaCampanha() {
         )}
       </div>
     )
+    const reviewSituationLabel = Object.values(PRODUCT_3_SITUATIONS).flat().find(item => item.id === situacao)?.label || ''
     const analysisItems = [
-      'Tipo e padrão do imóvel identificados',
-      'Localização considerada na estratégia',
-      'Diferenciais organizados para os textos',
-      'Fotos serão usadas para personalizar os banners',
-      'Peças selecionadas prontas para geração',
-    ]
+      finalidade ? `Finalidade: ${FINALIDADE_OPTIONS.find(item => item.id === finalidade)?.label || finalidade}` : '',
+      reviewSituationLabel ? `Situação: ${reviewSituationLabel}` : '',
+      tipo ? `Tipo: ${tipo}` : '',
+      [bairroNormalizado, cidade].filter(Boolean).length ? `Localização: ${[bairroNormalizado, cidade].filter(Boolean).join(', ')}` : '',
+      preco ? `Preço: R$ ${Number(preco).toLocaleString('pt-BR')}` : 'Preço não informado',
+      area ? `Área: ${area} m²` : 'Área não informada',
+      `Destaques: ${destaquesProduto3.length}`,
+      `CTA: ${campaignObjectiveLabel || 'Venda rápida'}`,
+      `Imagens: ${fotos.length}`,
+      `Modelos: ${selectedModelCount} · Peças: ${selectedUseCount}`,
+    ].filter(Boolean)
     const strategyLabel = campaignObjectiveLabel || 'Banners selecionados'
 
     return (
@@ -2891,28 +3192,7 @@ export default function NovaCampanha() {
                   </div>
                 </section>
 
-                <nav className="mb-10 overflow-hidden rounded-2xl border border-slate-200/70 bg-white px-5 py-4 shadow-[0_14px_38px_-30px_rgba(15,23,42,0.45)] sm:px-7" aria-label="Etapas para criar banners">
-                  <ol className="grid gap-4 text-sm font-bold text-slate-500 sm:grid-cols-5 sm:gap-2">
-                  {[
-                    'Escolha o modelo',
-                    'Informe os dados',
-                    'Personalize',
-                    'Gere os banners',
-                    'Baixe e divulgue',
-                  ].map((step, index) => (
-                    <li key={step} className={`relative flex items-center gap-3 ${index === 0 ? 'text-primary-800' : ''}`}>
-                      {index < 4 && <span className="absolute left-8 top-4 hidden h-px w-[calc(100%-2rem)] bg-slate-200 sm:block" aria-hidden="true" />}
-                      <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${index === 0 ? 'bg-primary-700 text-white shadow-lg shadow-primary-200' : 'bg-slate-100 text-slate-500'}`}>
-                        {index + 1}
-                      </span>
-                      <span className="relative z-10 bg-white pr-2 sm:max-w-[8rem]">
-                        <span className="block text-xs font-black text-slate-800">{step}</span>
-                        <span className="mt-0.5 hidden text-[11px] font-medium text-slate-400 xl:block">{['Selecione um formato', 'Preencha as informações', 'Adapte ao seu estilo', 'IA cria seus banners', 'Use onde quiser'][index]}</span>
-                      </span>
-                    </li>
-                  ))}
-                  </ol>
-                </nav>
+                <Product3Progress activeStep={0} />
 
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
                 <section className="rounded-3xl bg-white p-6 shadow-[0_20px_55px_-40px_rgba(15,23,42,0.45)] ring-1 ring-slate-200/70 sm:p-7">
@@ -3103,23 +3383,72 @@ export default function NovaCampanha() {
             </>)}
 
             {fase === 'form' && productFlowStep === 'property' && (<>
-              {renderFlowHeader(productContext.propertyEyebrow, productContext.propertyTitle, productContext.propertySubtitle)}
+              {!isProductEntry && <Product3Progress activeStep={1} />}
+              {renderFlowHeader(
+                isProductEntry ? productContext.propertyEyebrow : 'Etapa 2 de 5',
+                isProductEntry ? productContext.propertyTitle : 'Informe os dados',
+                isProductEntry ? productContext.propertySubtitle : 'Conte sobre o imóvel em uma conversa rápida.',
+              )}
               {renderStepActions(goBackFromProperty)}
               {renderProductContextNotice()}
-              {propertyForm}
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={continueFromProperty}
-                  className="rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700"
-                >
-                  Continuar
-                </button>
-              </div>
+              {isProductEntry ? (<>
+                {propertyForm}
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={continueFromProperty}
+                    className="rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700"
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </>) : (
+                <BannerConversation
+                  step={bannerChatStep}
+                  onStepChange={setBannerChatStep}
+                  finalidade={finalidade}
+                  onFinalidadeChange={setFinalidade}
+                  situacao={situacao}
+                  onSituacaoChange={setSituacao}
+                  onCategoriaChange={setCategoria}
+                  tipo={tipo}
+                  onTipoChange={setTipo}
+                  campaignObjective={campaignObjective}
+                  onCampaignObjectiveChange={setCampaignObjective}
+                  cidade={cidade}
+                  onCidadeChange={setCidade}
+                  bairro={bairro}
+                  onBairroChange={setBairro}
+                  preco={preco}
+                  onPrecoChange={setPreco}
+                  area={area}
+                  onAreaChange={setArea}
+                  quartos={quartos}
+                  onQuartosChange={setQuartos}
+                  suites={suites}
+                  onSuitesChange={setSuites}
+                  vagas={vagas}
+                  onVagasChange={setVagas}
+                  diferenciais={diferenciais}
+                  onToggleDestaque={toggleDestaque}
+                  difCustom={difCustom}
+                  onDifCustomChange={setDifCustom}
+                  selectedModelSummaries={selectedModelSummaries}
+                  selectedUseCount={selectedUseCount}
+                  photosCount={fotos.length}
+                  onEditModels={() => setProductFlowStep('manual-catalog')}
+                  onContinue={continueFromProperty}
+                />
+              )}
             </>)}
 
             {fase === 'form' && productFlowStep === 'photos' && (<>
-              {renderFlowHeader(productContext.uploadEyebrow, productContext.uploadTitle, productContext.photosSubtitle)}
+              {!isProductEntry && <Product3Progress activeStep={2} />}
+              {renderFlowHeader(
+                isProductEntry ? productContext.uploadEyebrow : 'Etapa 3 de 5',
+                isProductEntry ? productContext.uploadTitle : 'Suba as imagens',
+                isProductEntry ? productContext.photosSubtitle : 'Envie as fotos do imóvel',
+              )}
               {renderStepActions(() => setProductFlowStep('property'))}
               {photoUpload}
               <div className="mt-4 flex justify-end">
@@ -3134,7 +3463,12 @@ export default function NovaCampanha() {
             </>)}
 
             {fase === 'form' && productFlowStep === 'analysis' && (<>
-              {renderFlowHeader(productContext.reviewTitle, 'Confirmar banners selecionados', productContext.reviewSubtitle)}
+              {!isProductEntry && <Product3Progress activeStep={3} />}
+              {renderFlowHeader(
+                isProductEntry ? productContext.reviewTitle : 'Etapa 4 de 5',
+                isProductEntry ? 'Confirmar banners selecionados' : 'Revise sua campanha',
+                isProductEntry ? productContext.reviewSubtitle : 'Confira as informações antes de iniciar a geração.',
+              )}
               {renderStepActions(() => setProductFlowStep('photos'))}
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -3148,6 +3482,16 @@ export default function NovaCampanha() {
                       </div>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerChatStep('purpose')
+                      setProductFlowStep('property')
+                    }}
+                    className="mt-4 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
+                  >
+                    Corrigir informações
+                  </button>
                   {!profileWhatsapp && (
                     <div className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-4 text-sm text-primary-900">
                       WhatsApp não encontrado no perfil. Complete seu perfil para incluir seu contato automaticamente nos materiais.
@@ -3161,6 +3505,12 @@ export default function NovaCampanha() {
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-semibold text-gray-600">Peças incluídas</span>
                       <span className="font-black text-gray-950">{selectedCatalogItems.length}</span>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-gray-400">Modelos escolhidos</p>
+                      <p className="mt-1 text-sm font-bold leading-5 text-gray-700">
+                        {selectedModelSummaries.map(model => model.name).join(', ') || 'Nenhum modelo selecionado'}
+                      </p>
                     </div>
                     <p className="rounded-2xl bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
                       A seleção será validada com segurança no servidor antes da geração.
@@ -3315,7 +3665,7 @@ export default function NovaCampanha() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => resetCampaignState()}
+                      onClick={startAnotherBannerGeneration}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700"
                     >
                       <Plus className="w-4 h-4" />
@@ -3323,7 +3673,7 @@ export default function NovaCampanha() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => resetCampaignState()}
+                      onClick={goHome}
                       className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                     >
                       Voltar para Home
@@ -3628,7 +3978,7 @@ export default function NovaCampanha() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => resetCampaignState()}
+                    onClick={startAnotherBannerGeneration}
                     className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                   >
                     Criar novos banners
