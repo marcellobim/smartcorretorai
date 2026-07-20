@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
@@ -54,11 +55,6 @@ function normalizeDistrictName(value) {
 }
 
 const SMART_CAROUSEL_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
-const SMART_CAROUSEL_STATE_OPTIONS = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
-  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
-  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
-]
 const SMART_CAROUSEL_CTA_OPTIONS = [
   'Saiba Mais',
   'Agende sua visita',
@@ -467,8 +463,6 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const [suites, setSuites] = useState('')
   const [parkingSpaces, setParkingSpaces] = useState('')
   const [uf, setUf] = useState('')
-  const [cities, setCities] = useState([])
-  const [citiesLoading, setCitiesLoading] = useState(false)
   const [city, setCity] = useState('')
   const [district, setDistrict] = useState('')
   const [priceMode, setPriceMode] = useState('')
@@ -501,18 +495,6 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
       if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current)
     }
   }, [])
-
-  useEffect(() => {
-    if (!uf) { setCities([]); setCitiesLoading(false); return undefined }
-    const controller = new AbortController()
-    setCitiesLoading(true)
-    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`, { signal: controller.signal })
-      .then((response) => response.json())
-      .then((items) => setCities(Array.isArray(items) ? items.map((item) => item?.nome).filter(Boolean) : []))
-      .catch((error) => { if (error?.name !== 'AbortError') setCities([]) })
-      .finally(() => { if (!controller.signal.aborted) setCitiesLoading(false) })
-    return () => controller.abort()
-  }, [uf])
 
   const choose = (setter, value, nextStep) => { setter(value); setStep(nextStep) }
   const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS ? current : [...current, item])
@@ -662,8 +644,8 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => choose(setPropertyStage, item, 3)}>{item}</ChipButton>)}</ChipGrid>
   else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => choose(setPropertyType, item, 4)}>{item}</ChipButton>)}</ChipGrid>
   else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => choose(setter, item, step + 1)}>{item}</ChipButton>)}</ChipGrid> }
-  else if (step === 7) questionContent = <select value={uf} onChange={(event) => { setUf(event.target.value); setCity(''); if (event.target.value) setStep(8) }} className="w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"><option value="">Selecione o estado</option>{SMART_CAROUSEL_STATE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select>
-  else if (step === 8) questionContent = <select value={city} disabled={!uf || citiesLoading} onChange={(event) => { setCity(event.target.value); if (event.target.value) setStep(9) }} className="w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-400"><option value="">{citiesLoading ? 'Carregando cidades...' : 'Selecione a cidade'}</option>{cities.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+  else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { setUf(nextUf); setCity(''); if (nextUf) setStep(8) }} />
+  else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { setCity(nextCity); if (nextCity) setStep(9) }} />
   else if (step === 9) questionContent = <div><input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Digite o bairro" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!district.trim()} onClick={() => { setDistrict(normalizedDistrict); setStep(10) }} className="mt-4">Continuar</Button></div>
   else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Button type="button" disabled={!priceMode || !priceDigits} onClick={() => setStep(11)}>Continuar</Button><button type="button" onClick={() => { setPriceMode(''); setPriceDigits(''); setStep(11) }} className="rounded-xl px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Continuar sem informar preço</button></div></div>
   else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><Button type="button" disabled={!area} onClick={() => setStep(12)} className="mt-4">Continuar</Button></div>

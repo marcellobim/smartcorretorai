@@ -7,6 +7,7 @@ import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEW
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -883,16 +884,6 @@ const formatAreaLabel = value => {
   const normalized = sanitizeAreaInput(value)
   return normalized ? `${normalized.replace('.', ',')} m²` : ''
 }
-const normalizeSearchText = value => String(value ?? '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLocaleLowerCase('pt-BR')
-  .trim()
-const getMunicipalityUf = municipality => (
-  municipality?.microrregiao?.mesorregiao?.UF?.sigla
-  || municipality?.['regiao-imediata']?.['regiao-intermediaria']?.UF?.sigla
-  || ''
-)
 const normalizeSpaces = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 const capitalizePtWord = (word) => {
   if (!word) return ''
@@ -1163,10 +1154,6 @@ function BannerConversation({
   const interactionGuardRef = useRef(true)
   const activeQuestionRef = useRef(null)
   const prefersReducedMotion = usePrefersReducedMotion()
-  const [cityQuery, setCityQuery] = useState(cidade)
-  const [municipalities, setMunicipalities] = useState([])
-  const [citiesLoading, setCitiesLoading] = useState(false)
-  const [citiesError, setCitiesError] = useState('')
   const sequence = [
     'purpose',
     'situation',
@@ -1216,48 +1203,6 @@ function BannerConversation({
     .slice(0, activeIndex)
     .filter(key => key !== 'done' && answers[key])
     .map((key, index) => ({ key, question: questionLabels[key], answer: answers[key], confirmation: confirmations[index % confirmations.length] }))
-
-  const normalizedCityQuery = normalizeSearchText(cityQuery)
-  const cityMatches = normalizedCityQuery.length >= 2
-    ? municipalities
-      .filter(item => item.searchText.includes(normalizedCityQuery))
-      .slice(0, 6)
-    : []
-
-  useEffect(() => {
-    setCityQuery(cidade)
-  }, [cidade])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    setCitiesLoading(true)
-    setCitiesError('')
-    fetch('https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome', { signal: controller.signal })
-      .then(response => response.ok ? response.json() : Promise.reject(new Error(`IBGE ${response.status}`)))
-      .then(items => {
-        if (controller.signal.aborted) return
-        const normalizedItems = (Array.isArray(items) ? items : [])
-          .map(item => {
-            const name = String(item?.nome || '').trim()
-            const uf = getMunicipalityUf(item)
-            return name && uf
-              ? { id: item.id, name, uf, searchText: normalizeSearchText(`${name} ${uf}`) }
-              : null
-          })
-          .filter(Boolean)
-        setMunicipalities(normalizedItems)
-      })
-      .catch(error => {
-        if (error?.name !== 'AbortError') {
-          setMunicipalities([])
-          setCitiesError('Não foi possível carregar as cidades. Tente novamente em instantes.')
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setCitiesLoading(false)
-      })
-    return () => controller.abort()
-  }, [])
 
   useEffect(() => {
     interactionGuardRef.current = !questionReady
@@ -1409,47 +1354,19 @@ function BannerConversation({
   } else if (step === 'city') {
     questionContent = (
       <div className="space-y-3">
-        <div className="relative">
-          <input
-            value={cityQuery}
-            onChange={event => {
-              setCityQuery(event.target.value)
-              onCidadeChange('')
-              onEstadoChange('')
+        <SmartCarouselStateSelect value={estado} onChange={(nextUf) => {
+          onEstadoChange(nextUf)
+          onCidadeChange('')
+        }} />
+        {estado && (
+          <SmartCarouselCitySelect
+            uf={estado}
+            value={cidade}
+            onChange={(nextCity) => {
+              if (nextCity) advance(() => onCidadeChange(nextCity))
             }}
-            role="combobox"
-            aria-expanded={cityMatches.length > 0}
-            aria-controls="product3-city-results"
-            aria-autocomplete="list"
-            autoComplete="off"
-            placeholder={citiesLoading ? 'Carregando cidades...' : 'Digite ao menos 2 letras da cidade'}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
           />
-          {citiesLoading && <span className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700 motion-reduce:animate-none" aria-label="Carregando cidades" />}
-        </div>
-        {citiesError && <p role="alert" className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{citiesError}</p>}
-        {normalizedCityQuery.length >= 2 && !citiesLoading && !citiesError && (
-          <div id="product3-city-results" role="listbox" className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
-            {cityMatches.length > 0 ? cityMatches.map(item => (
-              <button
-                key={item.id}
-                type="button"
-                role="option"
-                aria-selected={cidade === item.name && estado === item.uf}
-                onClick={() => advance(() => {
-                  onCidadeChange(item.name)
-                  onEstadoChange(item.uf)
-                  setCityQuery(item.name)
-                })}
-                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-primary-50 hover:text-primary-800"
-              >
-                <span>{item.name}</span>
-                <span className="text-xs font-black text-slate-400">{item.uf}</span>
-              </button>
-            )) : <p className="px-3 py-2 text-sm font-semibold text-slate-500">Nenhuma cidade encontrada.</p>}
-          </div>
         )}
-        <p className="text-xs font-semibold text-slate-500">Selecione uma cidade da lista oficial do IBGE para continuar.</p>
       </div>
     )
   } else if (step === 'district') {
