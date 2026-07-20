@@ -75,6 +75,9 @@ const MAX_DESTAQUES_PRODUTO_3 = 8
 const MIN_FOTOS_PRODUTO_3 = 3
 const MAX_FOTOS_PRODUTO_3 = 5
 const MAX_FOTOS_OUTROS_PRODUTOS = 10
+const PRODUCT_3_TYPEWRITER_INITIAL_DELAY_MS = 350
+const PRODUCT_3_TYPEWRITER_CHAR_DELAY_MS = 30
+const PRODUCT_3_TYPEWRITER_FINAL_CURSOR_MS = 400
 
 const DESTAQUE_CATEGORIES = [
   {
@@ -983,6 +986,93 @@ function Product3Progress({ activeStep = 0 }) {
   )
 }
 
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  ))
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const handleChange = event => setPrefersReducedMotion(event.matches)
+    setPrefersReducedMotion(mediaQuery.matches)
+    mediaQuery.addEventListener?.('change', handleChange)
+    return () => mediaQuery.removeEventListener?.('change', handleChange)
+  }, [])
+
+  return prefersReducedMotion
+}
+
+function Product3ProgressiveQuestion({ text, onComplete, prefersReducedMotion }) {
+  const [phase, setPhase] = useState(prefersReducedMotion ? 'complete' : 'indicator')
+  const [visibleText, setVisibleText] = useState(prefersReducedMotion ? text : '')
+  const onCompleteRef = useRef(onComplete)
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
+
+  useEffect(() => {
+    let indicatorTimerId = null
+    let intervalId = null
+    let finalTimerId = null
+
+    if (prefersReducedMotion) {
+      setPhase('complete')
+      setVisibleText(text)
+      onCompleteRef.current?.()
+      return undefined
+    }
+
+    let index = 0
+    setPhase('indicator')
+    setVisibleText('')
+
+    indicatorTimerId = window.setTimeout(() => {
+      setPhase('writing')
+      intervalId = window.setInterval(() => {
+        index += 1
+        setVisibleText(text.slice(0, index))
+        if (index >= text.length) {
+          window.clearInterval(intervalId)
+          intervalId = null
+          finalTimerId = window.setTimeout(() => {
+            setPhase('complete')
+            onCompleteRef.current?.()
+          }, PRODUCT_3_TYPEWRITER_FINAL_CURSOR_MS)
+        }
+      }, PRODUCT_3_TYPEWRITER_CHAR_DELAY_MS)
+    }, PRODUCT_3_TYPEWRITER_INITIAL_DELAY_MS)
+
+    return () => {
+      if (indicatorTimerId) window.clearTimeout(indicatorTimerId)
+      if (intervalId) window.clearInterval(intervalId)
+      if (finalTimerId) window.clearTimeout(finalTimerId)
+    }
+  }, [prefersReducedMotion, text])
+
+  if (phase === 'indicator') {
+    return (
+      <span role="status" aria-label="Smart está digitando" className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-primary-50 px-3 py-2 align-middle">
+        {[0, 1, 2].map(index => (
+          <span
+            key={index}
+            className="h-2 w-2 animate-bounce rounded-full bg-primary-600 motion-reduce:animate-none"
+            style={{ animationDelay: `${index * 120}ms` }}
+          />
+        ))}
+      </span>
+    )
+  }
+
+  return (
+    <>
+      {visibleText}
+      {phase === 'writing' && <span className="ml-1 inline-block h-5 w-1.5 translate-y-0.5 animate-pulse rounded-sm bg-primary-700 motion-reduce:animate-none" />}
+    </>
+  )
+}
+
 function BannerConversation({
   step,
   onStepChange,
@@ -1019,6 +1109,10 @@ function BannerConversation({
   onEditModels,
   onContinue,
 }) {
+  const [readyStep, setReadyStep] = useState('')
+  const interactionGuardRef = useRef(true)
+  const activeQuestionRef = useRef(null)
+  const prefersReducedMotion = usePrefersReducedMotion()
   const land = ['Terreno / Lote', 'Loteamento'].includes(tipo)
   const commercial = isCommercialPropertyType(tipo)
   const sequence = [
@@ -1037,7 +1131,8 @@ function BannerConversation({
     'done',
   ]
   const activeIndex = Math.max(sequence.indexOf(step), 0)
-  const next = () => onStepChange(sequence[Math.min(activeIndex + 1, sequence.length - 1)])
+  const questionReady = readyStep === step
+  const nextStep = sequence[Math.min(activeIndex + 1, sequence.length - 1)]
   const confirmations = ['Perfeito', 'Ótimo', 'Excelente']
   const situationOptions = PRODUCT_3_SITUATIONS[finalidade] || PRODUCT_3_SITUATIONS.venda
   const situationLabel = Object.values(PRODUCT_3_SITUATIONS).flat().find(item => item.id === situacao)?.label || ''
@@ -1080,21 +1175,77 @@ function BannerConversation({
     .filter(key => key !== 'done' && answers[key])
     .map((key, index) => ({ key, question: questionLabels[key], answer: answers[key], confirmation: confirmations[index % confirmations.length] }))
 
-  const choose = (callback) => {
-    callback()
-    next()
+  useEffect(() => {
+    interactionGuardRef.current = !questionReady
+  }, [questionReady, step])
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      activeQuestionRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'nearest',
+      })
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [prefersReducedMotion, step])
+
+  const handleQuestionComplete = useCallback(() => {
+    interactionGuardRef.current = false
+    setReadyStep(step)
+  }, [step])
+
+  const advance = (callback) => {
+    if (interactionGuardRef.current) return
+    interactionGuardRef.current = true
+    callback?.()
+    onStepChange(nextStep)
+  }
+
+  const finishConversation = () => {
+    if (interactionGuardRef.current) return
+    interactionGuardRef.current = true
+    onContinue()
+  }
+
+  const resetAnswersAfter = (targetStep) => {
+    const targetIndex = sequence.indexOf(targetStep)
+    const laterSteps = new Set(sequence.slice(targetIndex + 1))
+    if (laterSteps.has('situation')) {
+      onSituacaoChange('')
+      onCategoriaChange(null)
+    }
+    if (laterSteps.has('type')) onTipoChange('')
+    if (laterSteps.has('focus')) onCampaignObjectiveChange('')
+    if (laterSteps.has('city')) onCidadeChange('')
+    if (laterSteps.has('district')) onBairroChange('')
+    if (laterSteps.has('price')) onPrecoChange('')
+    if (laterSteps.has('area')) onAreaChange('')
+    if (laterSteps.has('bedrooms')) onQuartosChange(0)
+    if (laterSteps.has('suites')) onSuitesChange(0)
+    if (laterSteps.has('parking')) onVagasChange(0)
+    if (laterSteps.has('highlights')) diferenciais.forEach(item => onToggleDestaque(item))
+    if (laterSteps.has('custom')) onDifCustomChange('')
+  }
+
+  const editStep = (targetStep) => {
+    if (interactionGuardRef.current) return
+    interactionGuardRef.current = true
+    resetAnswersAfter(targetStep)
+    setReadyStep('')
+    onStepChange(targetStep)
   }
   const textForm = ({ value, onChange, placeholder, optional = false, normalize }) => (
     <form
       onSubmit={(event) => {
         event.preventDefault()
+        if (interactionGuardRef.current) return
         const normalized = normalize ? normalize(value) : String(value || '').trim()
         if (!normalized && !optional) {
           toast.error('Informe uma resposta para continuar.')
           return
         }
         if (normalized !== value) onChange(normalized)
-        next()
+        advance()
       }}
       className="space-y-3"
     >
@@ -1106,7 +1257,7 @@ function BannerConversation({
       />
       <div className="flex flex-wrap gap-2">
         <button type="submit" className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Continuar</button>
-        {optional && <button type="button" onClick={next} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Pular</button>}
+        {optional && <button type="button" onClick={() => advance()} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Pular</button>}
       </div>
     </form>
   )
@@ -1124,18 +1275,18 @@ function BannerConversation({
 
   let questionContent = null
   if (step === 'purpose') {
-    questionContent = <div className="grid gap-2 sm:grid-cols-2">{FINALIDADE_OPTIONS.map(option => optionButton(option.id, `${option.icon} ${option.label}`, finalidade === option.id, () => choose(() => {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">{FINALIDADE_OPTIONS.map(option => optionButton(option.id, `${option.icon} ${option.label}`, finalidade === option.id, () => advance(() => {
       onFinalidadeChange(option.id)
       onSituacaoChange('')
       onCategoriaChange(null)
     })))}</div>
   } else if (step === 'situation') {
-    questionContent = <div className="grid gap-2 sm:grid-cols-2">{situationOptions.map(option => optionButton(option.id, option.label, situacao === option.id, () => choose(() => {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">{situationOptions.map(option => optionButton(option.id, option.label, situacao === option.id, () => advance(() => {
       onSituacaoChange(option.id)
       onCategoriaChange(option.category)
     })))}</div>
   } else if (step === 'type') {
-    questionContent = <div className="grid gap-2 sm:grid-cols-2">{TIPOS.map(option => optionButton(option, option, tipo === option, () => choose(() => {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">{TIPOS.map(option => optionButton(option, option, tipo === option, () => advance(() => {
       onTipoChange(option)
       if (isCommercialPropertyType(option) || ['Terreno / Lote', 'Loteamento'].includes(option)) {
         onQuartosChange(0)
@@ -1144,7 +1295,7 @@ function BannerConversation({
       if (['Terreno / Lote', 'Loteamento'].includes(option)) onVagasChange(0)
     })))}</div>
   } else if (step === 'focus') {
-    questionContent = <div className="grid gap-2">{SMART_CAMPAIGNS.filter(item => !item.hidden).map(option => optionButton(option.id, option.title, campaignObjective === option.id, () => choose(() => onCampaignObjectiveChange(option.id))))}</div>
+    questionContent = <div className="grid gap-2">{SMART_CAMPAIGNS.filter(item => !item.hidden).map(option => optionButton(option.id, option.title, campaignObjective === option.id, () => advance(() => onCampaignObjectiveChange(option.id))))}</div>
   } else if (step === 'city') {
     questionContent = textForm({ value: cidade, onChange: onCidadeChange, placeholder: 'Ex: São Paulo' })
   } else if (step === 'district') {
@@ -1159,7 +1310,7 @@ function BannerConversation({
       : step === 'suites'
         ? { label: 'Suítes', value: suites, setter: onSuitesChange }
         : { label: 'Vagas', value: vagas, setter: onVagasChange }
-    questionContent = <div className="flex flex-col items-start gap-4"><Counter label={config.label} value={config.value} onChange={config.setter} /><button type="button" onClick={next} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Continuar</button></div>
+    questionContent = <div className="flex flex-col items-start gap-4"><Counter label={config.label} value={config.value} onChange={config.setter} /><button type="button" onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Continuar</button></div>
   } else if (step === 'highlights') {
     questionContent = <div className="space-y-3">
       {DESTAQUE_CATEGORIES.map(category => <div key={category.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3"><p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{category.title}</p><div className="flex flex-wrap gap-2">{category.items.map(item => {
@@ -1167,12 +1318,12 @@ function BannerConversation({
         const disabled = !active && diferenciais.length >= MAX_DESTAQUES_FLUXO
         return <button key={item} type="button" disabled={disabled} onClick={() => onToggleDestaque(item)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${active ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-600'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}>{item}</button>
       })}</div></div>)}
-      <button type="button" onClick={next} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Confirmar destaques</button>
+      <button type="button" onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Confirmar destaques</button>
     </div>
   } else if (step === 'custom') {
     questionContent = textForm({ value: difCustom, onChange: value => onDifCustomChange(value.slice(0, 120)), placeholder: 'Ex: sol da manhã, rua tranquila', optional: true, normalize: value => normalizeShortFreeText(value, 120) })
   } else {
-    questionContent = <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm font-bold leading-6 text-emerald-900">Conversa concluída. Seus dados e modelos foram preservados.</p><button type="button" onClick={onContinue} className="mt-4 rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">Continuar para as imagens</button></div>
+    questionContent = <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm font-bold leading-6 text-emerald-900">Conversa concluída. Seus dados e modelos foram preservados.</p><button type="button" onClick={finishConversation} className="mt-4 rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">Continuar para as imagens</button></div>
   }
 
   const summaryItems = [
@@ -1199,15 +1350,15 @@ function BannerConversation({
       </div>
       <div className="grid min-w-0 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
         <div className="min-w-0 space-y-4">
-          {history.map(item => <div key={item.key} className="space-y-2"><div className="max-w-[88%] rounded-2xl rounded-tl-md bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{item.question}</div><div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-md bg-primary-700 px-4 py-3 text-sm font-bold text-white"><span className="mr-2 text-primary-100">{item.confirmation}.</span>{item.answer}<button type="button" onClick={() => onStepChange(item.key)} className="ml-3 text-xs font-black text-white/80 underline underline-offset-2">Editar</button></div></div>)}
-          <div className="rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#ffffff,#f5f9ff)] p-5 shadow-sm sm:p-6">
-            <div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Sparkles className="h-5 w-5" /></span><div className="min-w-0 flex-1"><span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-primary-800">{step === 'done' ? 'Resumo concluído' : `Pergunta ${activeIndex + 1}`}</span><h3 className="mt-3 text-xl font-black leading-tight text-slate-950 sm:text-2xl">{questionLabels[step] || questionLabels.done}</h3><div className="mt-6">{questionContent}</div></div></div>
+          {history.map(item => <div key={item.key} className="space-y-2"><div className="max-w-[88%] rounded-2xl rounded-tl-md bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{item.question}</div><div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-md bg-primary-700 px-4 py-3 text-sm font-bold text-white">{item.answer}<button type="button" aria-label={`Editar ${item.question}`} disabled={!questionReady} onClick={() => editStep(item.key)} className="ml-3 text-xs font-black text-white/80 underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50">Editar</button></div><div className="max-w-[88%] rounded-2xl rounded-tl-md bg-primary-50 px-4 py-3 text-sm font-black text-primary-800">{item.confirmation}.</div></div>)}
+          <div ref={activeQuestionRef} aria-live="polite" aria-busy={!questionReady} className="scroll-mt-6 rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#ffffff,#f5f9ff)] p-5 shadow-sm sm:p-6">
+            <div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Sparkles className="h-5 w-5" /></span><div className="min-w-0 flex-1"><span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-primary-800">{step === 'done' ? 'Resumo concluído' : `Pergunta ${activeIndex + 1}`}</span><h3 className="mt-3 min-h-7 text-xl font-black leading-tight text-slate-950 sm:text-2xl"><Product3ProgressiveQuestion key={step} text={questionLabels[step] || questionLabels.done} onComplete={handleQuestionComplete} prefersReducedMotion={prefersReducedMotion} /></h3>{questionReady && <div className="mt-6 animate-fade-in motion-reduce:animate-none">{questionContent}</div>}</div></div>
           </div>
         </div>
         <aside className="min-w-0 rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#eff6ff,#ffffff)] p-5 lg:sticky lg:top-6 lg:self-start">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-primary-700">Resumo da campanha</p>
           <div className="mt-4 space-y-2">
-            {summaryItems.map(item => <div key={item.label} className="rounded-xl bg-white/80 px-3 py-2.5"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{item.label}</p><p className="mt-1 break-words text-sm font-bold text-slate-700">{item.value}</p></div>{(item.step || item.edit) && <button type="button" onClick={item.edit || (() => onStepChange(item.step))} className="shrink-0 text-[11px] font-black text-primary-700">Editar</button>}</div></div>)}
+            {summaryItems.map(item => <div key={item.label} className="rounded-xl bg-white/80 px-3 py-2.5"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{item.label}</p><p className="mt-1 break-words text-sm font-bold text-slate-700">{item.value}</p></div>{(item.step || item.edit) && <button type="button" aria-label={`Editar ${item.label}`} disabled={!questionReady} onClick={item.edit || (() => editStep(item.step))} className="shrink-0 text-[11px] font-black text-primary-700 disabled:cursor-not-allowed disabled:opacity-50">Editar</button>}</div></div>)}
           </div>
         </aside>
       </div>
