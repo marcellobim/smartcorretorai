@@ -1264,14 +1264,42 @@ function BannerConversation({
   }, [questionReady, step])
 
   useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      activeQuestionRef.current?.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'nearest',
+    if (!questionReady) return undefined
+
+    let frameId = 0
+    let layoutFrameId = 0
+    frameId = window.requestAnimationFrame(() => {
+      layoutFrameId = window.requestAnimationFrame(() => {
+        const activeQuestion = activeQuestionRef.current
+        if (!activeQuestion) return
+
+        const rect = activeQuestion.getBoundingClientRect()
+        const viewportHeight = window.visualViewport?.height || window.innerHeight
+        const safeTop = Math.min(140, Math.max(72, viewportHeight * 0.16))
+        const comfortableBottomSpace = viewportHeight <= 700 ? 120 : 160
+        const availableHeight = viewportHeight - safeTop - comfortableBottomSpace
+        const centeredTop = (viewportHeight - rect.height) / 2 - 24
+        const targetTop = rect.height <= availableHeight
+          ? Math.max(safeTop, centeredTop)
+          : safeTop
+        const maxScrollTop = Math.max(0, document.documentElement.scrollHeight - viewportHeight)
+        const targetScrollTop = Math.min(
+          maxScrollTop,
+          Math.max(0, window.scrollY + rect.top - targetTop),
+        )
+
+        window.scrollTo({
+          top: targetScrollTop,
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        })
       })
     })
-    return () => window.cancelAnimationFrame(frameId)
-  }, [prefersReducedMotion, step])
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.cancelAnimationFrame(layoutFrameId)
+    }
+  }, [prefersReducedMotion, questionReady, step])
 
   const handleQuestionComplete = useCallback(() => {
     interactionGuardRef.current = false
@@ -3731,7 +3759,7 @@ export default function NovaCampanha() {
                     Continuar
                   </button>
                 </div>
-              </>) : (
+              </>) : (<>
                 <BannerConversation
                   step={bannerChatStep}
                   onStepChange={setBannerChatStep}
@@ -3770,7 +3798,8 @@ export default function NovaCampanha() {
                   onEditModels={() => setProductFlowStep('manual-catalog')}
                   onContinue={continueFromProperty}
                 />
-              )}
+                <div aria-hidden="true" className="h-36 sm:h-44" />
+              </>)}
             </>)}
 
             {fase === 'form' && productFlowStep === 'photos' && (<>
