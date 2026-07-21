@@ -1945,7 +1945,7 @@ export default function StudioHero() {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {STUDIO_CREATION_MODES.map((mode) => {
               const ModeIcon = mode.Icon
               const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan

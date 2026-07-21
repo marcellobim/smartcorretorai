@@ -42,6 +42,8 @@ test('places Smart Tour first without changing existing Studio Hero options', ()
   assert.match(studio, /mode\.id === 'smart_tour'[\s\S]*?navigate\('\/smart-tour-ai'\)/)
   assert.match(studio, /mode\.id === 'smart_carousel'[\s\S]*?navigate\('\/smart-carrossel'\)/)
   assert.match(studio, /setStudioMode\(mode\.id\)[\s\S]*?resetFlow\(mode\.id\)/)
+  assert.match(studio, /className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"/)
+  assert.doesNotMatch(studio, /xl:grid-cols-5/)
 })
 
 test('uses only the isolated Gemini Omni client for Smart Tour generation', () => {
