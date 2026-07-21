@@ -79,8 +79,8 @@ const PRODUCT_3_SITUATIONS = {
 }
 
 const MAX_DESTAQUES_FLUXO = 20
-const MAX_DESTAQUES_PRODUTO_3 = 8
-const MAX_DESTAQUES_CHAT_PRODUTO_3 = 5
+const MAX_DESTAQUES_BANNERS_PRODUTO_3 = 8
+const MAX_DESTAQUES_CHAT_PRODUTO_3 = 10
 const MIN_FOTOS_PRODUTO_3 = 3
 const MAX_FOTOS_PRODUTO_3 = 5
 const MAX_FOTOS_OUTROS_PRODUTOS = 10
@@ -1472,7 +1472,7 @@ function BannerConversation({
   } else if (step === 'highlights') {
     questionContent = <div className="space-y-4">
       <p className="text-xs font-semibold leading-relaxed text-slate-500 sm:text-sm">
-        Escolha até 5 características que realmente diferenciam este imóvel. Elas poderão ser usadas nos banners compatíveis e nos textos da campanha.
+        Escolha até 10 características que realmente diferenciam este imóvel. A IA utilizará as mais relevantes para enriquecer os textos da campanha e os banners compatíveis.
       </p>
       <div className="flex flex-wrap gap-2">{getProduct3Highlights(finalidade, tipo).map(item => {
         const active = diferenciais.includes(item)
@@ -2239,7 +2239,7 @@ export default function NovaCampanha() {
     ...destaquesSelecionados,
     ...(destaquePersonalizado ? [destaquePersonalizado] : []),
   ]
-  const destaquesProduto3 = todosDestaques.slice(0, MAX_DESTAQUES_PRODUTO_3)
+  const destaquesProduto3 = todosDestaques.slice(0, MAX_DESTAQUES_BANNERS_PRODUTO_3)
   const dadosImovelValidos = tipo
     && bairroNormalizado
     && cidade.trim()
@@ -2563,7 +2563,7 @@ export default function NovaCampanha() {
               iptu: iptu || null,
               cta: product3Cta,
               cta_text: product3Cta,
-              diferenciais: todosDisferenciais,
+              diferenciais: todosDestaques,
               destaques_selecionados: destaquesSelecionados,
               destaque_personalizado: destaquePersonalizado || null,
               telefone_contato: product3PublicPhone,
@@ -3562,7 +3562,7 @@ export default function NovaCampanha() {
       `Dormitórios: ${formatProduct3CountChoice(quartos, 5)}`,
       `Suítes: ${formatProduct3CountChoice(suites, 4)}`,
       `Vagas: ${formatProduct3CountChoice(vagas, 4)}`,
-      `Destaques: ${destaquesProduto3.length}`,
+      `Destaques: ${todosDestaques.length ? todosDestaques.join(', ') : 'Nenhum selecionado'}`,
       `CTA: ${product3Cta}`,
       `Telefone profissional: ${product3UseProfessionalPhone === 'yes' ? 'Sim' : 'Não'}`,
       `Imagens: ${fotos.length}`,
