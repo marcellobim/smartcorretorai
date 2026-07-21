@@ -221,6 +221,8 @@ const CANONICAL_TEMPLATE_FIELDS = [
   'headline_main',
   'property_tag',
   'sale_badge',
+  'property_type',
+  'neighborhood',
   'property_location_type',
   'property_features',
   'features_title',
@@ -270,7 +272,9 @@ const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
   headline_main: ['headline', 'main_headline', 'title', 'titulo', 'property_title'],
   property_tag: [],
   sale_badge: [],
-  property_location_type: ['property_location', 'property_type', 'location', 'address', 'bairro', 'neighborhood', 'city_type'],
+  property_type: ['tipo_imovel', 'tipo'],
+  neighborhood: ['bairro', 'district'],
+  property_location_type: ['property_location', 'location', 'address', 'city_type'],
   property_features: ['features', 'property_specs', 'property_details', 'specs', 'dorms_suites_vagas'],
   features_title: ['feature_title', 'features_heading', 'diferenciais_title', 'titulo_diferenciais'],
   feature_01: ['feature_1', 'feature_one', 'diferencial_01', 'diferencial_1'],
@@ -1144,6 +1148,43 @@ function sanitizeCreatomatePayloadForLog(payload: Record<string, unknown>) {
   return { template_id: payload.template_id || null, modifications }
 }
 
+function readTextModificationForElement(
+  elementos: Map<string, ElementInfo> | undefined,
+  modifications: Record<string, unknown>,
+  elementName: string,
+): unknown {
+  if (!elementos) return null
+  const normalizedTarget = normalizeElementLabel(elementName)
+  for (const [label, elem] of elementos.entries()) {
+    if (![label, elem.name, elem.virtualLabel || ''].some((value) => normalizeElementLabel(value) === normalizedTarget)) continue
+    for (const keyBase of [elem.id, elem.name, label].filter(Boolean)) {
+      const key = `${keyBase}.text`
+      if (Object.prototype.hasOwnProperty.call(modifications, key)) return modifications[key]
+    }
+  }
+  return null
+}
+
+function buildCreatomateContractValueLog(
+  elementos: Map<string, ElementInfo> | undefined,
+  modifications: Record<string, unknown>,
+) {
+  return {
+    property_type: readTextModificationForElement(elementos, modifications, 'property_type'),
+    neighborhood: readTextModificationForElement(elementos, modifications, 'neighborhood'),
+    property_tag: readTextModificationForElement(elementos, modifications, 'property_tag'),
+    headline: readTextModificationForElement(elementos, modifications, 'headline'),
+    property_title: readTextModificationForElement(elementos, modifications, 'property_title'),
+    value_helpers: {
+      property_type: 'buildCanonicalTemplateData: tipoImovel || dadosImovel.tipo',
+      neighborhood: 'buildCanonicalTemplateData: resolveBairro(dadosImovel, endereco)',
+      property_tag: 'buildCanonicalTemplateData: resolvePropertyTag(categoria, dadosImovel, titulo, descricao)',
+      headline: 'buildCanonicalTemplateData: headlineMain',
+      property_title: 'buildCanonicalTemplateData: headlineMain',
+    },
+  }
+}
+
 function serializeErrorForLog(error: unknown) {
   const value = error && typeof error === 'object' ? error as Record<string, unknown> : {}
   return {
@@ -1265,6 +1306,8 @@ function buildCanonicalTemplateData(input: {
     headline_main: headlineMain,
     property_tag: resolvePropertyTag(input.categoria, input.dadosImovel, input.titulo, input.descricao),
     sale_badge: resolveSaleBadge(finalidade),
+    property_type: tipo,
+    neighborhood: bairro,
     property_location_type: propertyLocationType,
     property_features: propertyFeatures,
     features_title: featureItems.length > 0 ? 'Diferenciais' : '',
@@ -2340,6 +2383,14 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         modifications: sel.modifications,
       }
       const payloadEnviado = sanitizeCreatomatePayloadForLog(creatomateRequestPayload)
+      console.log(`[${reqId}] contrato final antes do render:\n${JSON.stringify({
+        template_id: sel.template_id,
+        template_name: meta.nome,
+        ...buildCreatomateContractValueLog(
+          elementosPorTemplate.get(sel.template_id),
+          sel.modifications,
+        ),
+      }, null, 2)}`)
       let respostaHttp: Record<string, unknown> | null = null
       let corpoResposta: unknown = null
       try {
