@@ -7,10 +7,10 @@ export const SMART_TOUR_LANGUAGES = [
   { id: 'es', label: 'Espanhol' },
 ]
 export const SMART_TOUR_MODES = [
-  { id: 'guided_tour', label: 'Tour Guiado', description: 'Apresentador virtual, narração e textos elegantes.' },
-  { id: 'narrated_tour', label: 'Tour Narrado', description: 'Narração e textos, sem apresentador.' },
-  { id: 'smart_staging', label: 'Smart Staging', description: 'Sugestão realista de mobiliário, preservando a arquitetura.' },
-  { id: 'cinematic_tour', label: 'Tour Cinemático', description: 'Experiência visual focada no imóvel.' },
+  { id: 'guided_tour', label: 'Apresentação com Corretor(a) Virtual', description: 'Apresentador virtual, narração e textos elegantes.' },
+  { id: 'narrated_tour', label: 'Apresentação com Narração', description: 'Narração e textos, sem apresentador.' },
+  { id: 'smart_staging', label: 'Apresentação com Sugestão de Decoração', description: 'Sugestão realista de mobiliário, preservando a arquitetura.' },
+  { id: 'cinematic_tour', label: 'Apresentação Dinâmica', description: 'Experiência visual focada no imóvel.' },
 ]
 export const SMART_TOUR_EXAMPLES = [
   {

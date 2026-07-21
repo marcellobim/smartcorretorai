@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
   ImagePlus,
   Loader2,
-  MessageSquareText,
   PlayCircle,
   Plus,
   RotateCcw,
@@ -20,12 +18,11 @@ import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
+import GuidedConversation from '../components/conversation/GuidedConversation'
+import { useGuidedConversation } from '../hooks/useGuidedConversation'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
-const TYPEWRITER_INITIAL_DELAY_MS = 350
-const TYPEWRITER_CHAR_DELAY_MS = 30
-const TYPEWRITER_FINAL_CURSOR_MS = 400
 const SMART_CAROUSEL_BUCKET = 'studio-videos'
 const SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'
 const SMART_CAROUSEL_POLL_INTERVAL_MS = 4000
@@ -52,6 +49,26 @@ function normalizeDistrictName(value) {
     .replace(/\s+/g, ' ')
     .toLocaleLowerCase('pt-BR')
     .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator, letter) => `${separator}${letter.toLocaleUpperCase('pt-BR')}`)
+}
+
+function smartCarouselConfirmation(step, answer) {
+  if (step === 1) return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
+  const confirmations = {
+    2: `Ótimo! Vamos considerar o imóvel como “${answer}”.`,
+    3: `Perfeito! O tipo “${answer}” já está registrado.`,
+    4: `Certo! Registrei ${answer} dormitório${answer === '1' ? '' : 's'}.`,
+    5: `Ótimo! Registrei ${answer} suíte${answer === '1' ? '' : 's'}.`,
+    6: `Perfeito! Registrei ${answer} vaga${answer === '1' ? '' : 's'}.`,
+    7: `Ótimo! O imóvel fica em ${answer}.`,
+    8: `Perfeito! A cidade escolhida é ${answer}.`,
+    9: `Certo! Localização registrada no bairro ${answer}.`,
+    10: answer === 'Sem preço' ? 'Tudo bem! A apresentação seguirá sem informar o preço.' : `Perfeito! O preço será apresentado como ${answer}.`,
+    11: `Ótimo! A área informada é ${answer}.`,
+    12: `Excelente! ${answer} foram selecionados para valorizar o imóvel.`,
+    13: `Perfeito! A chamada final será “${answer}”.`,
+    14: answer === 'Telefone profissional' ? 'Ótimo! Seu telefone profissional será incluído.' : 'Tudo certo! A apresentação seguirá sem telefone.',
+  }
+  return confirmations[step] || 'Perfeito! Informação registrada.'
 }
 
 const SMART_CAROUSEL_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
@@ -455,7 +472,6 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
 }
 
 function SmartCarouselConversation({ user, accessToken, photos, onGenerationStageChange }) {
-  const [step, setStep] = useState(1)
   const [purpose, setPurpose] = useState('')
   const [propertyStage, setPropertyStage] = useState('')
   const [propertyType, setPropertyType] = useState('')
@@ -480,6 +496,27 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const [videoUrl, setVideoUrl] = useState('')
   const [campaignPackage, setCampaignPackage] = useState(null)
 
+  const resetCarouselFromStep = (targetStep) => {
+    const resetters = [
+      [1, () => setPurpose('')], [2, () => setPropertyStage('')], [3, () => setPropertyType('')],
+      [4, () => setBedrooms('')], [5, () => setSuites('')], [6, () => setParkingSpaces('')],
+      [7, () => setUf('')], [8, () => setCity('')], [9, () => setDistrict('')],
+      [10, () => { setPriceMode(''); setPriceDigits('') }], [11, () => setArea('')],
+      [12, () => setHighlights([])], [13, () => setCta('')], [14, () => setSharePhone('')],
+    ]
+    resetters.filter(([itemStep]) => itemStep >= Number(targetStep)).forEach(([, resetValue]) => resetValue())
+    generationInFlightRef.current = false
+    if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current)
+    setGenerationStatus('idle')
+    setGenerationError('')
+    setReceipt('')
+    setVideoUrl('')
+    setCampaignPackage(null)
+    onGenerationStageChange(2)
+  }
+  const conversation = useGuidedConversation({ initialQuestionId: 1, onEdit: resetCarouselFromStep })
+  const step = Number(conversation.activeQuestionId)
+
   const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const formatPrice = (digits) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
   const normalizedDistrict = normalizeDistrictName(district)
@@ -496,10 +533,15 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     }
   }, [])
 
-  const choose = (setter, value, nextStep) => { setter(value); setStep(nextStep) }
   const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS ? current : [...current, item])
-  const messages = ['', 'Vamos começar. Qual é a finalidade do imóvel?', 'Perfeito. Qual é o estado atual do imóvel?', 'Ótimo. Que tipo de imóvel será apresentado?', 'Excelente. Quantos dormitórios o imóvel possui?', 'Perfeito. Quantas suítes?', 'Ótimo. Quantas vagas estão disponíveis?', 'Excelente. Em qual estado fica o imóvel?', 'Perfeito. Agora escolha a cidade.', 'Ótimo. Em qual bairro ele está localizado?', 'Excelente. Como deseja apresentar o preço?', 'Perfeito. Qual é a área do imóvel?', 'Ótimo. Quais são os principais destaques?', 'Excelente. Qual chamada deseja usar no final?', 'Perfeito. Deseja divulgar seu telefone profissional?', 'Excelente. Sua apresentação está pronta para a próxima etapa.']
+  const messages = ['', 'Qual é a finalidade do imóvel?', 'Qual é o estado atual do imóvel?', 'Que tipo de imóvel será apresentado?', 'Quantos dormitórios o imóvel possui?', 'Quantas suítes?', 'Quantas vagas estão disponíveis?', 'Em qual estado fica o imóvel?', 'Agora escolha a cidade.', 'Em qual bairro ele está localizado?', 'Como deseja apresentar o preço?', 'Qual é a área do imóvel?', 'Quais são os principais destaques?', 'Qual chamada deseja usar no final?', 'Deseja divulgar seu telefone profissional?', 'Tudo pronto. Revise suas escolhas antes de criar.']
   const summaryItems = [[1, purpose === 'sale' ? 'Venda' : purpose === 'rent' ? 'Locação' : ''], [2, propertyStage], [3, propertyType], [4, bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, normalizedDistrict], [10, priceLabel], [11, area ? `${area} m²` : ''], [12, highlights.length ? `${highlights.length} destaques` : ''], [13, cta], [14, sharePhone === 'yes' ? 'Telefone profissional' : sharePhone === 'no' ? 'Sem telefone' : '']].filter(([, value]) => Boolean(value))
+
+  const submitCarouselAnswer = ({ setter, value, answer = value, nextStep }) => {
+    const accepted = conversation.submitAnswer({ questionId: step, question: messages[step], answer, confirmation: smartCarouselConfirmation(step, answer), nextQuestionId: nextStep })
+    if (accepted) setter?.(value)
+    return accepted
+  }
 
   const confirmedAnswers = {
     purpose,
@@ -640,18 +682,18 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const generationProgress = generationStatus === 'uploading' ? 34 : generationStatus === 'creating' ? 67 : 84
 
   let questionContent = null
-  if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title="🏡 Venda" description="Apresentação para comercialização do imóvel." onClick={() => choose(setPurpose, 'sale', 2)} /><ChoiceButton active={purpose === 'rent'} title="🔑 Locação" description="Apresentação para encontrar o locatário ideal." onClick={() => choose(setPurpose, 'rent', 2)} /></OptionGrid>
-  else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => choose(setPropertyStage, item, 3)}>{item}</ChipButton>)}</ChipGrid>
-  else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => choose(setPropertyType, item, 4)}>{item}</ChipButton>)}</ChipGrid>
-  else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => choose(setter, item, step + 1)}>{item}</ChipButton>)}</ChipGrid> }
-  else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { setUf(nextUf); setCity(''); if (nextUf) setStep(8) }} />
-  else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { setCity(nextCity); if (nextCity) setStep(9) }} />
-  else if (step === 9) questionContent = <div><input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Digite o bairro" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!district.trim()} onClick={() => { setDistrict(normalizedDistrict); setStep(10) }} className="mt-4">Continuar</Button></div>
-  else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Button type="button" disabled={!priceMode || !priceDigits} onClick={() => setStep(11)}>Continuar</Button><button type="button" onClick={() => { setPriceMode(''); setPriceDigits(''); setStep(11) }} className="rounded-xl px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Continuar sem informar preço</button></div></div>
-  else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><Button type="button" disabled={!area} onClick={() => setStep(12)} className="mt-4">Continuar</Button></div>
-  else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <div key={group.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></div>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS} selecionados</span><Button type="button" disabled={!highlights.length} onClick={() => setStep(13)}>Continuar</Button></div></div>
-  else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => choose(setCta, item, 14)}>{item}</ChipButton>)}</ChipGrid>
-  else if (step === 14) questionContent = <div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={!profilePhone} onClick={() => choose(setSharePhone, 'yes', 15)} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-45"><span className="text-sm font-black text-slate-950">Sim</span><span className="mt-1 block text-xs font-semibold text-slate-500">{profilePhone || 'Cadastre um telefone no Perfil Profissional.'}</span></button><button type="button" onClick={() => choose(setSharePhone, 'no', 15)} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300"><span className="text-sm font-black text-slate-950">Não</span><span className="mt-1 block text-xs font-semibold text-slate-500">Continuar sem divulgar telefone.</span></button></div>
+  if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title="🏡 Venda" description="Apresentação para comercialização do imóvel." onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'sale', answer: 'Venda', nextStep: 2 })} /><ChoiceButton active={purpose === 'rent'} title="🔑 Locação" description="Apresentação para encontrar o locatário ideal." onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'rent', answer: 'Locação', nextStep: 2 })} /></OptionGrid>
+  else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => submitCarouselAnswer({ setter: setPropertyStage, value: item, nextStep: 3 })}>{item}</ChipButton>)}</ChipGrid>
+  else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => submitCarouselAnswer({ setter: setPropertyType, value: item, nextStep: 4 })}>{item}</ChipButton>)}</ChipGrid>
+  else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => submitCarouselAnswer({ setter, value: item, nextStep: step + 1 })}>{item}</ChipButton>)}</ChipGrid> }
+  else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { if (nextUf && submitCarouselAnswer({ setter: setUf, value: nextUf, nextStep: 8 })) setCity('') }} />
+  else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { if (nextCity) submitCarouselAnswer({ setter: setCity, value: nextCity, nextStep: 9 }) }} />
+  else if (step === 9) questionContent = <div><input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Digite o bairro" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!district.trim()} onClick={() => submitCarouselAnswer({ setter: setDistrict, value: normalizedDistrict, answer: normalizedDistrict, nextStep: 10 })} className="mt-4">Continuar</Button></div>
+  else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Button type="button" disabled={!priceMode || !priceDigits} onClick={() => submitCarouselAnswer({ setter: () => {}, value: priceMode, answer: priceLabel, nextStep: 11 })}>Continuar</Button><button type="button" onClick={() => { if (submitCarouselAnswer({ setter: () => {}, value: '', answer: 'Sem preço', nextStep: 11 })) { setPriceMode(''); setPriceDigits('') } }} className="rounded-xl px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Continuar sem informar preço</button></div></div>
+  else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><Button type="button" disabled={!area} onClick={() => submitCarouselAnswer({ setter: () => {}, value: area, answer: `${area} m²`, nextStep: 12 })} className="mt-4">Continuar</Button></div>
+  else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <div key={group.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></div>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS} selecionados</span><Button type="button" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: `${highlights.length} destaques`, nextStep: 13 })}>Continuar</Button></div></div>
+  else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, nextStep: 14 })}>{item}</ChipButton>)}</ChipGrid>
+  else if (step === 14) questionContent = <div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={!profilePhone} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: 'Telefone profissional', nextStep: 15 })} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-45"><span className="text-sm font-black text-slate-950">Sim</span><span className="mt-1 block text-xs font-semibold text-slate-500">{profilePhone || 'Cadastre um telefone no Perfil Profissional.'}</span></button><button type="button" onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: 'Sem telefone', nextStep: 15 })} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300"><span className="text-sm font-black text-slate-950">Não</span><span className="mt-1 block text-xs font-semibold text-slate-500">Continuar sem divulgar telefone.</span></button></div>
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
       <button
@@ -715,52 +757,24 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     </div>
   )
 
-  return <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-transparent shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]"><div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"><MessageSquareText className="h-5 w-5" /></span><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Etapa 2</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Converse com a IA</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Uma pergunta por vez para construir sua apresentação.</p></div></div></div><div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8"><SmartCarouselAssistantCard step={step} message={messages[step]}>{questionContent}</SmartCarouselAssistantCard><aside className="rounded-3xl border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 lg:sticky lg:top-6 lg:self-start"><p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Resumo da apresentação</p>{summaryItems.length ? <div className="mt-4 space-y-2">{summaryItems.map(([itemStep, value]) => <button key={itemStep} type="button" onClick={() => setStep(itemStep)} className="flex w-full items-start gap-2 rounded-xl px-2 py-1.5 text-left text-sm font-bold text-slate-700 hover:bg-white"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>{value}</span></button>)}</div> : <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">Suas escolhas aparecerão aqui durante a conversa.</p>}</aside></div></section>
-}
-
-function SmartCarouselAssistantCard({ step, message, children }) {
-  return <div className="rounded-3xl border border-emerald-100 bg-[linear-gradient(145deg,#ffffff,#f8fffb)] p-5 shadow-sm sm:p-6"><div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"><Sparkles className="h-5 w-5" /></span><div className="min-w-0 flex-1"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-800">{step < 15 ? `Pergunta ${step} de 14` : 'Resumo concluído'}</span><h3 className="mt-3 text-xl font-black leading-tight text-slate-950 sm:text-2xl"><TypewriterText text={message} active /></h3><div className="mt-6">{children}</div></div></div></div>
+  return <GuidedConversation
+    history={conversation.history}
+    phase={conversation.phase}
+    questionId={step}
+    question={messages[step]}
+    questionNumber={Math.min(step, 14)}
+    totalQuestions={14}
+    onEdit={conversation.editAnswer}
+    summaryItems={summaryItems.map(([id, label]) => ({ id, label }))}
+    eyebrow="Etapa 2"
+    review={step >= 15}
+    editDisabled={isGenerating}
+  >
+    {questionContent}
+  </GuidedConversation>
 }
 
 function OptionGrid({ children, className = '' }) { return <div className={`grid gap-3 md:grid-cols-2 ${className}`}>{children}</div> }
 function ChipGrid({ children, className = '' }) { return <div className={`flex flex-wrap gap-2 ${className}`}>{children}</div> }
 function ChoiceButton({ active, title, description, onClick }) { return <button type="button" onClick={onClick} className={`rounded-2xl border p-4 text-left transition ${active ? 'border-cyan-700 bg-primary-950 text-white shadow-lg shadow-cyan-100' : 'border-slate-200 bg-white hover:border-cyan-300 hover:bg-cyan-50/40'}`}><p className={`text-sm font-black ${active ? 'text-white' : 'text-slate-950'}`}>{title}</p><p className={`mt-2 text-xs leading-relaxed ${active ? 'text-slate-200' : 'text-slate-500'}`}>{description}</p></button> }
 function ChipButton({ active, disabled = false, children, onClick }) { return <button type="button" disabled={disabled} onClick={onClick} className={`rounded-full border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${active ? 'border-cyan-700 bg-primary-950 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-cyan-50/50'}`}>{children}</button> }
-
-function TypewriterText({ text, active }) {
-  const [visibleText, setVisibleText] = useState(active ? '' : text)
-  const [showCursor, setShowCursor] = useState(false)
-
-  useEffect(() => {
-    if (!active) {
-      setVisibleText(text)
-      setShowCursor(false)
-      return undefined
-    }
-
-    let index = 0
-    let intervalId = null
-    let finalTimerId = null
-    setVisibleText('')
-    setShowCursor(true)
-
-    const startTimerId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        index += 1
-        setVisibleText(text.slice(0, index))
-        if (index >= text.length) {
-          window.clearInterval(intervalId)
-          finalTimerId = window.setTimeout(() => setShowCursor(false), TYPEWRITER_FINAL_CURSOR_MS)
-        }
-      }, TYPEWRITER_CHAR_DELAY_MS)
-    }, TYPEWRITER_INITIAL_DELAY_MS)
-
-    return () => {
-      window.clearTimeout(startTimerId)
-      if (intervalId) window.clearInterval(intervalId)
-      if (finalTimerId) window.clearTimeout(finalTimerId)
-    }
-  }, [active, text])
-
-  return <>{visibleText}{showCursor && <span className="ml-1 inline-block h-5 w-1.5 translate-y-0.5 animate-pulse rounded-sm bg-cyan-700" />}</>
-}
