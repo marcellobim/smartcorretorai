@@ -41,8 +41,8 @@ export function getProduct3PurposeLabel(value: unknown): 'Venda' | 'Locação' {
   return normalizeProduct3Purpose(value) === 'rental' ? 'Locação' : 'Venda'
 }
 
-export function getProduct3PurposeBadge(value: unknown): 'À VENDA' | 'PARA LOCAÇÃO' {
-  return normalizeProduct3Purpose(value) === 'rental' ? 'PARA LOCAÇÃO' : 'À VENDA'
+export function getProduct3PurposeBadge(value: unknown): 'À VENDA' | 'ALUGUEL' {
+  return normalizeProduct3Purpose(value) === 'rental' ? 'ALUGUEL' : 'À VENDA'
 }
 
 export function formatProduct3PropertyTag(value: unknown): string {
