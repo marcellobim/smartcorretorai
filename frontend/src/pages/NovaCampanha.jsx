@@ -7,6 +7,7 @@ import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEW
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import { buildProduct3CampaignOptions, normalizeProduct3CampaignFiles } from '../components/campaign/buildProduct3CampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 
@@ -4045,6 +4046,41 @@ export default function NovaCampanha() {
               : JSON.stringify(v, null, 2)
           }
           const packageProperty = resultado.dados_imovel || {}
+
+          if (!isProductEntry) {
+            return (
+              <CampaignPackage
+                data={{
+                  sourceProduct: 'Banners Rápidos',
+                  mediaType: 'images',
+                  files: normalizeProduct3CampaignFiles(visualPieces),
+                  purpose: packageProperty.finalidade || finalidade,
+                  propertyStage: packageProperty.situacao || situacao,
+                  propertyType: packageProperty.tipo || tipo,
+                  district: packageProperty.bairro || bairroNormalizado,
+                  city: packageProperty.cidade || cidade,
+                  state: packageProperty.estado || estado,
+                  bedrooms: packageProperty.dormitorios ?? packageProperty.quartos ?? quartos,
+                  suites: packageProperty.suites ?? suites,
+                  parkingSpaces: packageProperty.vagas ?? vagas,
+                  area: packageProperty.area || area,
+                  price: packageProperty.preco_exibicao || formatProduct3Price(preco, precoModo),
+                  description: getTextoEdge('descricao_portal'),
+                  highlights: packageProperty.destaques || todosDestaques,
+                  cta: packageProperty.cta || product3Cta,
+                  contactAuthorized: product3UseProfessionalPhone === 'yes',
+                  phone: product3UseProfessionalPhone === 'yes' ? profileWhatsapp : '',
+                  aiCampaigns: buildProduct3CampaignOptions({
+                    generatedTexts: tg,
+                    property: packageProperty,
+                    cta: packageProperty.cta || product3Cta,
+                  }),
+                }}
+                onCreateNew={() => resetCampaignState()}
+                createNewLabel="Criar banners para outro imóvel"
+              />
+            )
+          }
 
           return (
             <CampaignPackage

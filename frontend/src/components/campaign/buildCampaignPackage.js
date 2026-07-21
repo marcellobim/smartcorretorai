@@ -72,7 +72,11 @@ const normalizeHashtagBlock = (values) => {
     .flatMap(extractHashtags)
     .filter((hashtag) => !REJECTED_DISCOVERY_HASHTAGS.has(hashtag.toLocaleLowerCase('pt-BR')))
     .map((hashtag) => [hashtag.toLocaleLowerCase('pt-BR'), hashtag])).values()]
-  const brandIndex = hashtags.findIndex((hashtag) => hashtag.toLocaleLowerCase('pt-BR') === '#smartcorretorai')
+  let brandIndex = hashtags.findIndex((hashtag) => hashtag.toLocaleLowerCase('pt-BR') === '#smartcorretorai')
+  if (brandIndex < 0) {
+    hashtags.push('#SmartCorretorAI')
+    brandIndex = hashtags.length - 1
+  }
   if (brandIndex >= 0) {
     const [brand] = hashtags.splice(brandIndex, 1)
     hashtags.splice(Math.floor(hashtags.length / 2), 0, brand)
