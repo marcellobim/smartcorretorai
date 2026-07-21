@@ -96,6 +96,16 @@ const IMAGE_SLOTS = [
 
 const STUDIO_CREATION_MODES = [
   {
+    id: 'smart_tour',
+    title: 'Smart Tour AI',
+    description: 'Transforme até 6 fotos em uma visita guiada com narração, apresentador virtual, animação e ambientação por IA.',
+    status: 'Ativo agora',
+    Icon: Sparkles,
+    active: true,
+    accent: 'cyan',
+    cta: 'Criar Smart Tour',
+  },
+  {
     id: 'cinematic',
     title: 'Comercial Cinematografico',
     description: 'Crie um comercial curto e impactante a partir da melhor imagem do imovel.',
@@ -1800,6 +1810,11 @@ export default function StudioHero() {
     }
     setModeNotice('')
 
+    if (mode.id === 'smart_tour') {
+      navigate('/smart-tour-ai')
+      return
+    }
+
     if (mode.id === 'smart_carousel') {
       navigate('/smart-carrossel')
       return
@@ -1930,7 +1945,7 @@ export default function StudioHero() {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {STUDIO_CREATION_MODES.map((mode) => {
               const ModeIcon = mode.Icon
               const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
