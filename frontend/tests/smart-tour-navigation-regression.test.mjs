@@ -48,8 +48,8 @@ test('places Smart Tour first without changing existing Studio Hero options', ()
   assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES\.map/)
   assert.match(studio, /VISIBLE_STUDIO_MODE_EXAMPLES\.map/)
   assert.match(studio, /Transforme até 6 fotos em uma apresentação imobiliária profissional/)
-  for (const benefit of ['🎥 Visita guiada por IA', '🎙️ Narração profissional', '👤 Apresentador virtual opcional', '🛋️ Ambientação inteligente com IA', '🎬 Movimentos cinematográficos', '📱 Campanha pronta para publicar']) {
-    assert.match(studio, new RegExp(benefit))
+  for (const benefit of ['📸 Até 6 fotos do imóvel', '🎥 Apresentação profissional do imóvel', '👤 Corretor(a) virtual opcional', '🎙️ Narração profissional', '🛋️ Sugestões de decoração para ambientes vazios com IA', '📱 Campanha pronta para divulgação']) {
+    assert.ok(studio.includes(benefit))
   }
   assert.match(studio, /onClick=\{\(\) => selectStudioMode\(mode\)\}[\s\S]*?cursor-pointer/)
   assert.doesNotMatch(studio, /const isSmartCarousel/)

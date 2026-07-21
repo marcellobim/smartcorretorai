@@ -159,18 +159,17 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'smart_tour',
     title: 'Smart Tour AI',
-    label: 'Visita guiada por IA',
+    label: 'Apresentação imobiliária',
     accent: 'cyan',
     send: [
-      'Até 6 imagens do imóvel',
+      '📸 Até 6 fotos do imóvel',
     ],
     receive: [
-      '🎥 Visita guiada por IA',
+      '🎥 Apresentação profissional do imóvel',
+      '👤 Corretor(a) virtual opcional',
       '🎙️ Narração profissional',
-      '👤 Apresentador virtual opcional',
-      '🛋️ Ambientação inteligente com IA',
-      '🎬 Movimentos cinematográficos',
-      '📱 Campanha pronta para publicar',
+      '🛋️ Sugestões de decoração para ambientes vazios com IA',
+      '📱 Campanha pronta para divulgação',
     ],
   },
   {
