@@ -1133,6 +1133,27 @@ function normalizeShortFreeText(value: unknown, maxLength = 120): string {
   return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
 }
 
+function sanitizeCreatomatePayloadForLog(payload: Record<string, unknown>) {
+  const modifications = payload.modifications && typeof payload.modifications === 'object'
+    ? Object.fromEntries(Object.entries(payload.modifications as Record<string, unknown>).map(([key, value]) => {
+      if (/whatsapp|phone|telefone|email|contact|broker/i.test(key)) return [key, '[REDACTED]']
+      if (/\.source$/i.test(key)) return [key, '[MEDIA_SOURCE_OMITTED]']
+      return [key, value]
+    }))
+    : {}
+  return { template_id: payload.template_id || null, modifications }
+}
+
+function serializeErrorForLog(error: unknown) {
+  const value = error && typeof error === 'object' ? error as Record<string, unknown> : {}
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    code: value.code || null,
+    details: value.details || value.cause || null,
+    stack: error instanceof Error ? error.stack || null : value.stack || null,
+  }
+}
+
 function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<string, unknown> {
   const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
     ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
@@ -2314,6 +2335,13 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     await Promise.all(pecasParaRender.map(async (sel, index) => {
       const meta = validIds.get(sel.template_id)!
       const pieceCredit = getPieceCredit(sel)
+      const creatomateRequestPayload = {
+        template_id: sel.template_id,
+        modifications: sel.modifications,
+      }
+      const payloadEnviado = sanitizeCreatomatePayloadForLog(creatomateRequestPayload)
+      let respostaHttp: Record<string, unknown> | null = null
+      let corpoResposta: unknown = null
       try {
         const createRes = await fetch('https://api.creatomate.com/v1/renders', {
           method: 'POST',
@@ -2321,16 +2349,27 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             Authorization: `Bearer ${CREATOMATE_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            template_id: sel.template_id,
-            modifications: sel.modifications,
-          }),
+          body: JSON.stringify(creatomateRequestPayload),
           signal: AbortSignal.timeout(30000),
         })
+        respostaHttp = {
+          status: createRes.status,
+          status_text: createRes.statusText,
+          headers: Object.fromEntries(createRes.headers.entries()),
+        }
 
         if (!createRes.ok) {
           const errBody = await createRes.text()
-          console.error(`[${reqId}] Creatomate render ${createRes.status} em ${meta.nome}:`, errBody.slice(0, 200))
+          corpoResposta = errBody
+          console.error(`[${reqId}] Creatomate render falhou:\n${JSON.stringify({
+            render_id: null,
+            template_id: sel.template_id,
+            template_name: meta.nome,
+            status: 'failed',
+            payload_enviado: payloadEnviado,
+            resposta_http: respostaHttp,
+            corpo_resposta: corpoResposta,
+          }, null, 2)}`)
           const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
           if (reservation?.status === 'reserved') {
             await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_failed')
@@ -2351,10 +2390,13 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             categoria: meta.categoria,
             formato: meta.formato,
             status: 'failed',
-            erro: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
+            erro: `Creatomate ${createRes.status}: ${errBody}`,
             error_stage: 'creatomate_render',
             error_code: createRes.status === 429 ? 'rate_limited' : 'creatomate_render_failed',
-            error_message: `Creatomate ${createRes.status}: ${errBody.slice(0, 200)}`,
+            error_message: `Creatomate ${createRes.status}: ${errBody}`,
+            payload_enviado: payloadEnviado,
+            resposta_http: respostaHttp,
+            corpo_resposta: corpoResposta,
             ...pieceCredit,
             credit_status: reservation?.status || pieceCredit.credit_status,
           })
@@ -2362,6 +2404,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         }
 
         const body = await createRes.json()
+        corpoResposta = body
         const items = Array.isArray(body) ? body : [body]
         if (items.length === 0) {
           const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
@@ -2436,11 +2479,29 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             download_url: initialFinalUrl,
             preview_url: initialFinalUrl,
             snapshot_url: initialFinalUrl,
+            payload_enviado: payloadEnviado,
             ...pieceCredit,
           })
         }
       } catch (err) {
-        console.error(`[${reqId}] erro ao chamar Creatomate para ${meta.nome}:`, err)
+        const serializedError = serializeErrorForLog(err)
+        const responseItem = Array.isArray(corpoResposta) ? corpoResposta[0] : corpoResposta
+        const responseRenderId = responseItem && typeof responseItem === 'object'
+          ? String((responseItem as Record<string, unknown>).id || '') || null
+          : null
+        console.error(`[${reqId}] erro ao chamar Creatomate:\n${JSON.stringify({
+          render_id: responseRenderId,
+          template_id: sel.template_id,
+          template_name: meta.nome,
+          status: 'failed',
+          payload_enviado: payloadEnviado,
+          resposta_http: respostaHttp,
+          corpo_resposta: corpoResposta,
+          error_message: serializedError.message,
+          error_code: serializedError.code,
+          error_details: serializedError.details,
+          error_stack: serializedError.stack,
+        }, null, 2)}`)
         const reservation = pieceCreditReservations.find(item => item.pieceId === sel.piece_id)
         if (reservation?.status === 'reserved') {
           await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_error')
@@ -2462,6 +2523,12 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           error_stage: 'creatomate_render',
           error_code: err instanceof Error && err.name === 'TimeoutError' ? 'timeout' : 'creatomate_render_failed',
           error_message: err instanceof Error ? err.message : String(err),
+          error_details: serializedError.details,
+          error_stack: serializedError.stack,
+          render_id: responseRenderId,
+          payload_enviado: payloadEnviado,
+          resposta_http: respostaHttp,
+          corpo_resposta: corpoResposta,
           ...pieceCredit,
           credit_status: reservation?.status || pieceCredit.credit_status,
         })

@@ -44,6 +44,15 @@ const ERROR_STATUSES = new Set(['failed', 'error', 'canceled', 'timeout'])
 const FINAL_STATUSES = new Set([...READY_STATUSES, ...ERROR_STATUSES])
 
 const normalizeStatus = (value: unknown) => String(value || 'planned').toLowerCase()
+const serializeErrorForLog = (error: unknown) => {
+  const value = error && typeof error === 'object' ? error as Record<string, unknown> : {}
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    code: value.code || null,
+    details: value.details || value.cause || null,
+    stack: error instanceof Error ? error.stack || null : value.stack || null,
+  }
+}
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value))
   if (typeof value === 'string' && value.trim()) {
@@ -189,6 +198,8 @@ serve(async (req) => {
       const storedRender =
         campaignBanners.find(item => item?.render_id === renderId)
         || payloadRenders.find(item => item?.render_id === renderId)
+      let respostaHttp: Record<string, unknown> | null = null
+      let corpoResposta: unknown = null
       try {
         if (markTimeout) {
           const status = 'timeout'
@@ -210,10 +221,24 @@ serve(async (req) => {
           },
           signal: AbortSignal.timeout(15000),
         })
+        respostaHttp = {
+          status: response.status,
+          status_text: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+        }
+        const responseText = await response.text()
+        corpoResposta = responseText
 
         if (!response.ok) {
-          const body = await response.text()
-          console.error(`[${reqId}] Creatomate status ${response.status} render=${renderId}:`, body.slice(0, 200))
+          console.error(`[${reqId}] Creatomate status falhou:\n${JSON.stringify({
+            render_id: renderId,
+            template_id: storedRender?.template_id || null,
+            template_name: storedRender?.template_name || storedRender?.template_nome || null,
+            status: response.status,
+            payload_enviado: storedRender?.payload_enviado || null,
+            resposta_http: respostaHttp,
+            corpo_resposta: responseText,
+          }, null, 2)}`)
           const status = response.status === 404 ? 'failed' : normalizeStatus(storedRender?.status || 'rendering')
           const creditStatus = await finalizePieceCredit(supabase, reqId, user.id, storedRender, status)
           return {
@@ -225,13 +250,16 @@ serve(async (req) => {
             preview_url: null,
             snapshot_url: null,
             ...(response.status === 404
-              ? { erro: `Creatomate ${response.status}: ${body.slice(0, 200)}` }
+              ? { erro: `Creatomate ${response.status}: ${responseText}` }
               : { erro: null, error_message: null, poll_warning: `Creatomate ${response.status}` }),
+            resposta_http: respostaHttp,
+            corpo_resposta: responseText,
             credit_status: creditStatus,
           }
         }
 
-        const data = await response.json()
+        const data = JSON.parse(responseText)
+        corpoResposta = data
         const status = normalizeStatus(data.status || 'planned')
         const ready = READY_STATUSES.has(status)
         const finalUrl = ready && typeof data.url === 'string' && data.url.trim()
@@ -244,6 +272,21 @@ serve(async (req) => {
           refresh_urls: refreshUrls,
           final_url_available: Boolean(finalUrl),
         })
+        if (ERROR_STATUSES.has(status) || data.error || data.error_message) {
+          console.error(`[${reqId}] Creatomate render falhou:\n${JSON.stringify({
+            render_id: data.id || renderId,
+            template_id: storedRender?.template_id || data.template_id || null,
+            template_name: storedRender?.template_name || storedRender?.template_nome || null,
+            status,
+            payload_enviado: storedRender?.payload_enviado || null,
+            resposta_http: respostaHttp,
+            corpo_resposta: data,
+            error_message: data.error_message || data.error?.message || data.error || null,
+            error_code: data.error_code || data.error?.code || null,
+            error_details: data.error_details || data.error?.details || null,
+            error_stack: data.stack || data.error?.stack || null,
+          }, null, 2)}`)
+        }
         const creditStatus = await finalizePieceCredit(supabase, reqId, user.id, storedRender, status)
         return {
           ...(storedRender || {}),
@@ -256,11 +299,29 @@ serve(async (req) => {
           final_url_requested_at: ready ? new Date().toISOString() : null,
           erro: null,
           error_message: data.error_message || data.error || null,
+          error_code: data.error_code || data.error?.code || null,
+          error_details: data.error_details || data.error?.details || null,
+          error_stack: data.stack || data.error?.stack || null,
+          resposta_http: respostaHttp,
+          corpo_resposta: data,
           poll_warning: null,
           credit_status: creditStatus,
         }
       } catch (error) {
-        console.error(`[${reqId}] erro ao consultar render=${renderId}:`, error)
+        const serializedError = serializeErrorForLog(error)
+        console.error(`[${reqId}] erro ao consultar render:\n${JSON.stringify({
+          render_id: renderId,
+          template_id: storedRender?.template_id || null,
+          template_name: storedRender?.template_name || storedRender?.template_nome || null,
+          status: storedRender?.status || null,
+          payload_enviado: storedRender?.payload_enviado || null,
+          resposta_http: respostaHttp,
+          corpo_resposta: corpoResposta,
+          error_message: serializedError.message,
+          error_code: serializedError.code,
+          error_details: serializedError.details,
+          error_stack: serializedError.stack,
+        }, null, 2)}`)
         const storedStatus = normalizeStatus(storedRender?.status || 'rendering')
         const status = FINAL_STATUSES.has(storedStatus) ? storedStatus : 'rendering'
         const creditStatus = await finalizePieceCredit(supabase, reqId, user.id, storedRender, status)
@@ -273,7 +334,12 @@ serve(async (req) => {
           preview_url: null,
           snapshot_url: null,
           erro: null,
-          error_message: null,
+          error_message: serializedError.message,
+          error_code: serializedError.code,
+          error_details: serializedError.details,
+          error_stack: serializedError.stack,
+          resposta_http: respostaHttp,
+          corpo_resposta: corpoResposta,
           poll_warning: error instanceof Error ? error.message : String(error),
           credit_status: creditStatus,
         }

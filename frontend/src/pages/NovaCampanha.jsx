@@ -856,6 +856,7 @@ const getRenderDownloadName = (render, index) => {
 const getRenderDebugPayload = (render) => ({
   render_id: render?.render_id || null,
   template_id: render?.template_id || null,
+  template_name: render?.template_name || render?.template_nome || null,
   model_id: render?.model_id || render?.modelId || null,
   model_name: render?.model_name || render?.modelName || null,
   use_id: render?.use_id || render?.useId || null,
@@ -865,6 +866,11 @@ const getRenderDebugPayload = (render) => ({
   error_code: render?.error_code || null,
   erro: render?.erro || null,
   error_message: render?.error_message || null,
+  error_details: render?.error_details || render?.details || null,
+  error_stack: render?.error_stack || render?.stack || null,
+  payload_enviado: render?.payload_enviado || render?.request_payload || null,
+  resposta_http: render?.resposta_http || render?.response_http || null,
+  corpo_resposta: render?.corpo_resposta || render?.response_body || null,
 })
 const readFunctionErrorBody = async (error) => {
   try {
@@ -2885,10 +2891,12 @@ export default function NovaCampanha() {
 
     if (failedRenderLogRef.current.has(logKey)) return
     failedRenderLogRef.current.add(logKey)
-    console.error('[renders] render falhou:', {
+    const structuredError = {
       source,
       ...debugPayload,
-    })
+    }
+    console.error(`[renders] render falhou:\n${JSON.stringify(structuredError, null, 2)}`)
+    console.dir(structuredError, { depth: null })
   }
 
   const iniciarPollingRenders = (iniciais, campaignIdForPolling = campanhaId, requestedPieces = requestedVisualPieces) => {
