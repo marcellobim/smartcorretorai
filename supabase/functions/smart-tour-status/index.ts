@@ -27,4 +27,3 @@ serve(async req=>{
     return json({ok:true,status:'completed',jobId,signedVideoUrl:data?.signedUrl||''})
   }catch(error){console.warn('[smart-tour-status]',error instanceof Error?error.message:'status_error');return json({ok:false,error:'Não foi possível consultar sua apresentação.'},502)}
 })
-

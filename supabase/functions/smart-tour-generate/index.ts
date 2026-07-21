@@ -45,4 +45,3 @@ serve(async req => {
     return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
   }
 })
-

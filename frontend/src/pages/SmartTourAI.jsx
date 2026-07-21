@@ -25,7 +25,6 @@ function normalizeGeneration(input) {
   if (value.mode === 'cinematic_tour') return { ...value, presenterGender: 'none', narration: 'disabled', stagingPresentation: 'final_only' }
   return { ...value, presenterGender: 'none', stagingPresentation: value.furniture === 'virtual_staging' ? value.stagingPresentation : 'final_only' }
 }
-
 function questionsFor(generation) {
   const questions = [
     ['images', 1, 'Envie as fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
@@ -144,4 +143,3 @@ function Question(props) {
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; setIncludePhone(value === 'yes'); next() })
   return <><div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold">Usaremos todas as {images.length} imagens, exatamente na ordem escolhida. Nenhuma informação ausente será inventada.</div>{message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}<Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="mt-5 w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Criar apresentação'}</Button></>
 }
-

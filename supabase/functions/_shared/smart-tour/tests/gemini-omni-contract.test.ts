@@ -27,4 +27,3 @@ test('uses the approved Gemini Omni model and documented video contract', () => 
   assert.equal('resolution' in body.response_format, false)
   assert.equal('fps' in body.response_format, false)
 })
-

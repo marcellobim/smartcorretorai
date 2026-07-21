@@ -13,4 +13,3 @@ export const SMART_TOUR_MODES = [
   { id: 'cinematic_tour', label: 'Tour Cinemático', description: 'Experiência visual focada no imóvel.' },
 ]
 export const SMART_TOUR_CINEMATIC_VISUAL_CTA = true
-

@@ -24,4 +24,3 @@ export function buildSmartTourCampaignPackage({ property, language, cta, phone, 
   const hashtags = ['#Imóveis', property.type && `#${property.type.replace(/\W/g,'')}`, property.city && `#${property.city.replace(/\W/g,'')}`, '#SmartCorretorAI'].filter(Boolean)
   return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:language === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`smart-tour-${index+1}`,name:`Opção ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})) }
 }
-

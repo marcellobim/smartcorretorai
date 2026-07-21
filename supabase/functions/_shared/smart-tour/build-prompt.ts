@@ -28,7 +28,6 @@ export function buildPropertyContext(property: PropertyContext, cta: string, pho
   if (phone) lines.push(`Professional phone: ${phone}`)
   return `PROPERTY CONTEXT\n${lines.join('\n')}\nDo not invent, infer or alter information not explicitly supplied above.`
 }
-
 export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConfig; property: PropertyContext; selectedCta: string; phone?: string}) {
   const config = normalizeGeneration(input.generation)
   const language = languageNames[config.language]
@@ -46,4 +45,3 @@ export function assertNoContradictions(prompt: string, config: SmartTourGenerati
   ]
   if (conflicts.some(Boolean)) throw new Error('contradictory_prompt')
 }
-
