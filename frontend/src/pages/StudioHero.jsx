@@ -106,7 +106,7 @@ const STUDIO_CREATION_MODES = [
   {
     id: 'smart_tour',
     title: 'Smart Tour AI',
-    description: 'Transforme até 6 fotos em uma visita guiada com narração, apresentador virtual, animação e ambientação por IA.',
+    description: 'Transforme até 6 fotos em uma apresentação imobiliária profissional com narração, apresentador virtual, movimentos cinematográficos e sugestões realistas de mobiliário criadas por IA.',
     status: 'Ativo agora',
     Icon: Sparkles,
     active: true,
@@ -165,11 +165,12 @@ const STUDIO_MODE_EXAMPLES = [
       'Até 6 imagens do imóvel',
     ],
     receive: [
-      'Apresentação imobiliária guiada',
-      'Movimentos cinematográficos',
-      'Narração e textos configuráveis',
-      'Apresentador virtual opcional',
-      'Campanha pronta para publicar',
+      '🎥 Visita guiada por IA',
+      '🎙️ Narração profissional',
+      '👤 Apresentador virtual opcional',
+      '🛋️ Ambientação inteligente com IA',
+      '🎬 Movimentos cinematográficos',
+      '📱 Campanha pronta para publicar',
     ],
   },
   {
