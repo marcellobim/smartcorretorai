@@ -13,6 +13,23 @@ const PURPOSE_ALIASES: Record<Product3Purpose, Set<string>> = {
   rental: new Set(['rental', 'rent', 'locacao', 'aluguel', 'alugar', 'para_locacao', 'for_rent', 'for_lease']),
 }
 
+const PROPERTY_TAG_LABELS: Record<string, string> = {
+  pronto_para_morar: 'PRONTO PARA MORAR',
+  lancamento: 'LANÇAMENTO',
+  em_construcao: 'EM CONSTRUÇÃO',
+  disponivel_imediatamente: 'DISPONÍVEL AGORA',
+  disponivel_agora: 'DISPONÍVEL AGORA',
+  pronto_para_mudar: 'PRONTO PARA MUDAR',
+  pronto_para_uso: 'PRONTO PARA USO',
+  pronto_para_ocupacao: 'PRONTO PARA OCUPAÇÃO',
+  disponibilidade_a_combinar: 'DISPONIBILIDADE A COMBINAR',
+  mobiliado: 'MOBILIADO',
+  vazio: 'VAZIO',
+  semimobiliado: 'SEMIMOBILIADO',
+  oportunidade: 'OPORTUNIDADE',
+  alto_padrao: 'ALTO PADRÃO',
+}
+
 export function normalizeProduct3Purpose(value: unknown): Product3Purpose {
   const normalized = normalizeToken(value)
   if (PURPOSE_ALIASES.sale.has(normalized)) return 'sale'
@@ -26,6 +43,13 @@ export function getProduct3PurposeLabel(value: unknown): 'Venda' | 'Locação' {
 
 export function getProduct3PurposeBadge(value: unknown): 'À VENDA' | 'PARA LOCAÇÃO' {
   return normalizeProduct3Purpose(value) === 'rental' ? 'PARA LOCAÇÃO' : 'À VENDA'
+}
+
+export function formatProduct3PropertyTag(value: unknown): string {
+  const normalized = normalizeToken(value)
+  if (!normalized) return ''
+  return PROPERTY_TAG_LABELS[normalized]
+    || String(value).trim().replace(/_/g, ' ').toLocaleUpperCase('pt-BR')
 }
 
 export function formatBrazilianPhone(value: unknown = ''): string {

@@ -11,7 +11,7 @@ import { buildProduct3CampaignOptions, normalizeProduct3CampaignFiles } from '..
 import { getProduct3Highlights, isProduct3CommercialType, PRODUCT_3_PROPERTY_TYPES } from '../data/product3Campaign'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
-import { formatBrazilianPhone, formatProduct3Price as formatCanonicalProduct3Price } from '../../../supabase/functions/_shared/product3-contract.ts'
+import { formatBrazilianPhone, formatProduct3Price as formatCanonicalProduct3Price, formatProduct3PropertyTag, getProduct3PurposeBadge } from '../../../supabase/functions/_shared/product3-contract.ts'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -2249,6 +2249,7 @@ export default function NovaCampanha() {
   const dadosImovelValidos = tipo
     && bairroNormalizado
     && cidade.trim()
+    && (isProductEntry || situacao)
     && (isProductEntry ? estado : (product3Cta && product3UseProfessionalPhone))
     && (finalidade === 'rental' ? Boolean(preco) : (!preco || precoModo))
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
@@ -2256,6 +2257,8 @@ export default function NovaCampanha() {
   const product3PhonePayload = !isProductEntry && product3UseProfessionalPhone === 'no'
     ? 'REMOVER_ELEMENTO'
     : (isProductEntry ? profileWhatsapp : product3PublicPhone)
+  const product3SaleBadge = getProduct3PurposeBadge(finalidade)
+  const product3PropertyTag = formatProduct3PropertyTag(situacao)
   const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
   const isCommercialProperty = isCommercialPropertyType(tipo)
   const quartosParaPayload = isProductEntry && (isLandProperty || isCommercialProperty) ? 0 : quartos
@@ -2280,6 +2283,9 @@ export default function NovaCampanha() {
     produto_origem: produtoParam || 'campanha_completa',
     subproduto_origem: subprodutoParam || null,
     finalidade,
+    sale_badge: product3SaleBadge,
+    property_tag: product3PropertyTag,
+    broker_whatsapp: product3PhonePayload,
     tipo,
     estado,
     cidade,
@@ -2527,6 +2533,9 @@ export default function NovaCampanha() {
               preco_modo: precoModo || null,
               preco_exibicao: formatProduct3Price(preco, precoModo, finalidade) || 'Consulte',
               finalidade,
+              sale_badge: product3SaleBadge,
+              property_tag: product3PropertyTag,
+              broker_whatsapp: product3PhonePayload,
               cta: product3Cta,
               cta_text: product3Cta,
               suites: suitesParaPayload,
@@ -2564,6 +2573,9 @@ export default function NovaCampanha() {
               destaques_selecionados: destaquesSelecionados,
               destaque_personalizado: destaquePersonalizado || null,
               telefone_contato: product3PublicPhone,
+              sale_badge: product3SaleBadge,
+              property_tag: product3PropertyTag,
+              broker_whatsapp: product3PhonePayload,
               formatos_selecionados: selectedModelUses,
               selectedTemplates,
               selected_templates: selectedTemplates,
@@ -3017,6 +3029,9 @@ export default function NovaCampanha() {
           preco_modo: precoModo || null,
           preco_exibicao: formatProduct3Price(preco, precoModo, finalidade) || 'Consulte',
           finalidade,
+          sale_badge: product3SaleBadge,
+          property_tag: product3PropertyTag,
+          broker_whatsapp: product3PhonePayload,
           cta: product3Cta,
           cta_text: product3Cta,
           suites: suitesParaPayload,

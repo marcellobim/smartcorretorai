@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   formatBrazilianPhone,
+  formatProduct3PropertyTag,
   formatProduct3Currency,
   formatProduct3Price as formatCanonicalProduct3Price,
   getProduct3PurposeBadge,
@@ -267,8 +268,8 @@ const normalizeElementLabel = (value: string): string => (
 
 const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
   headline_main: ['headline', 'main_headline', 'title', 'titulo', 'property_title'],
-  property_tag: ['tag', 'badge', 'highlight', 'property_badge', 'property_highlight'],
-  sale_badge: ['sale_tag', 'sale_label', 'listing_badge', 'listing_type', 'offer_type', 'transaction_type'],
+  property_tag: [],
+  sale_badge: [],
   property_location_type: ['property_location', 'property_type', 'location', 'address', 'bairro', 'neighborhood', 'city_type'],
   property_features: ['features', 'property_specs', 'property_details', 'specs', 'dorms_suites_vagas'],
   features_title: ['feature_title', 'features_heading', 'diferenciais_title', 'titulo_diferenciais'],
@@ -281,7 +282,7 @@ const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
   condominium_price: ['condominium', 'condominio', 'condominium_value', 'condominio_valor', 'hoa', 'hoa_fee'],
   property_tax: ['iptu', 'property_tax_value', 'tax', 'tax_value'],
   cta_text: ['cta', 'cta_button', 'call_to_action', 'button_text', 'action_text'],
-  broker_whatsapp: ['agent_phone', 'broker_phone', 'broker_whastapp', 'phone', 'telephone', 'telefone', 'whatsapp', 'contact_phone'],
+  broker_whatsapp: [],
   broker_email: ['agent_email', 'broker_mail', 'agent_mail', 'email', 'contact_email'],
   property_image_01: ['property_image', 'property_image_1', 'property_photo', 'property_photo_1', 'image_01', 'image_1', 'photo_01', 'photo_1', 'picture', 'image', 'photo'],
   property_image_02: ['property_image_2', 'property_image_02', 'property_photo_2', 'property_photo_02', 'image_02', 'image_2', 'photo_02', 'photo_2', 'picture_2', 'image_2', 'photo_2'],
@@ -1039,7 +1040,9 @@ function buildCanonicalModifications(
       continue
     }
 
-    const keyBase = elem.id || elem.name
+    const keyBase = field === 'sale_badge' || field === 'property_tag' || field === 'broker_whatsapp'
+      ? field
+      : (elem.id || elem.name)
     modifications[`${keyBase}.${expectedProp}`] =
       field === 'cta_text' ? snapCta(rawValue || 'Saiba Mais') : rawValue
     sentFields.push(field)
@@ -1076,15 +1079,16 @@ function setCanonicalTextModification(
   if (!elementos) return
   const match = findCanonicalElement(elementos, field)
   if (!match || match.elem.type !== 'text') return
-  const keyBase = match.elem.id || match.elem.name
+  const keyBase = field === 'sale_badge' || field === 'property_tag' || field === 'broker_whatsapp'
+    ? field
+    : (match.elem.id || match.elem.name)
   mods[`${keyBase}.text`] = value
 }
 
 function applyAnuncioPremiumVisualRules(
   elementos: Map<string, ElementInfo> | undefined,
   mods: Record<string, unknown>,
-  templateData: CanonicalTemplateData,
-  saleBadge: string
+  templateData: CanonicalTemplateData
 ) {
   for (const [key, value] of Object.entries(mods)) {
     if (!key.endsWith('.text') || typeof value !== 'string') continue
@@ -1092,7 +1096,8 @@ function applyAnuncioPremiumVisualRules(
   }
 
   setCanonicalTextModification(elementos, mods, 'headline_main', templateData.headline_main)
-  setCanonicalTextModification(elementos, mods, 'sale_badge', saleBadge)
+  setCanonicalTextModification(elementos, mods, 'property_tag', templateData.property_tag)
+  setCanonicalTextModification(elementos, mods, 'sale_badge', templateData.sale_badge)
   setCanonicalTextModification(elementos, mods, 'property_description', 'Saiba mais')
   setCanonicalTextModification(elementos, mods, 'price_label', templateData.price_label)
   setCanonicalTextModification(elementos, mods, 'property_price', normalizeAnuncioPremiumPrice(templateData.property_price))
@@ -1100,14 +1105,6 @@ function applyAnuncioPremiumVisualRules(
   setCanonicalTextModification(elementos, mods, 'feature_01', templateData.feature_01)
   setCanonicalTextModification(elementos, mods, 'feature_02', templateData.feature_02)
   setCanonicalTextModification(elementos, mods, 'feature_03', templateData.feature_03)
-}
-
-function normalizeSearchText(...values: unknown[]): string {
-  return values
-    .map((value) => String(value ?? '').toLowerCase())
-    .join(' ')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
 }
 
 function normalizeSpaces(value: unknown): string {
@@ -1162,26 +1159,28 @@ function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<
   }
 }
 
-function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unknown>, titulo: unknown, descricao: unknown): string {
-  const search = normalizeSearchText(categoria, dadosImovel.categoria, dadosImovel.padrao, titulo, descricao)
-  const availability = normalizeSearchText(dadosImovel.situacao, dadosImovel.disponibilidade)
-  if (/disponivel_imediatamente|disponivel_agora/.test(availability)) return 'Disponível agora'
-  if (/pronto_para_ocupacao/.test(availability)) return 'Pronto para ocupação'
-  if (/pronto_para_mudar/.test(availability)) return 'Pronto para mudar'
-  if (/lancamento|lançamento/.test(search)) return 'Lançamento'
-  if (/alto\s*padrao|alto\s*padr[aã]o|luxo|premium/.test(search)) return 'Alto Padrão'
-  if (/minha\s*casa|minha\s*casa\s*minha\s*vida|mcmv/.test(search)) return 'Minha Casa Minha Vida'
-  if (/oportunidade|promocao|promoção|abaixo/.test(search)) return 'Oportunidade'
-  if (/construcao|construção|obra/.test(search)) return 'Em construção'
-  return 'Pronto para Morar'
+function resolvePropertyTag(
+  categoria: string,
+  dadosImovel: Record<string, unknown>,
+  titulo: unknown,
+  descricao: unknown,
+): string {
+  const explicit = normalizeSpaces(dadosImovel.situacao || dadosImovel.disponibilidade)
+  if (explicit) return formatProduct3PropertyTag(explicit)
+
+  const context = normalizeSpaces(`${categoria} ${dadosImovel.categoria || ''} ${dadosImovel.padrao || ''} ${titulo || ''} ${descricao || ''}`)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+  if (/lancamento/.test(context)) return 'LANÇAMENTO'
+  if (/em[_\s-]*construcao|construcao|obra/.test(context)) return 'EM CONSTRUÇÃO'
+  if (/alto\s*padrao|luxo|premium/.test(context)) return 'ALTO PADRÃO'
+  if (/oportunidade|promocao|abaixo/.test(context)) return 'OPORTUNIDADE'
+  return ''
 }
 
-function resolveSaleBadge(finalidade: unknown, _titulo: unknown, _descricao: unknown): string {
+function resolveSaleBadge(finalidade: unknown): string {
   return getProduct3PurposeBadge(finalidade)
-}
-
-function resolveAnuncioPremiumSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
-  return resolveSaleBadge(finalidade, titulo, descricao)
 }
 
 function normalizeAnuncioPremiumPrice(value: string): string {
@@ -1244,7 +1243,7 @@ function buildCanonicalTemplateData(input: {
   return {
     headline_main: headlineMain,
     property_tag: resolvePropertyTag(input.categoria, input.dadosImovel, input.titulo, input.descricao),
-    sale_badge: resolveSaleBadge(finalidade, input.titulo, input.descricao),
+    sale_badge: resolveSaleBadge(finalidade),
     property_location_type: propertyLocationType,
     property_features: propertyFeatures,
     features_title: featureItems.length > 0 ? 'Diferenciais' : '',
@@ -1552,7 +1551,9 @@ serve(async (req) => {
     const corretorEmail      = profileRow?.email       || ''
     const corretorCRECI      = profileRow?.creci       || ''
     const corretorTelefone   = hideProfessionalPhone ? '' : formatBrazilianPhone(profileRow?.telefone || String(dadosImovel.telefone_contato || ''))
-    const corretorWhatsApp   = hideProfessionalPhone ? '' : formatBrazilianPhone(profileRow?.whatsapp || corretorTelefone)
+    const corretorWhatsApp   = hideProfessionalPhone ? '' : formatBrazilianPhone(
+      profileRow?.whatsapp || String(dadosImovel.broker_whatsapp || '') || corretorTelefone
+    )
     const marcaFinal         = profileRow?.imobiliaria || (typeof marca_imovel === 'string' ? marca_imovel : '') || ''
     const siteFinal          = profileRow?.site        || ''
     const instagramFinal     = profileRow?.instagram   || ''
@@ -2135,8 +2136,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         applyAnuncioPremiumVisualRules(
           elementos,
           mods,
-          templateData,
-          resolveAnuncioPremiumSaleBadge(finalidadeNormalizada, titulo, descricao)
+          templateData
         )
       }
       console.log(`[${reqId}] campos enviados ao Creatomate`, {
