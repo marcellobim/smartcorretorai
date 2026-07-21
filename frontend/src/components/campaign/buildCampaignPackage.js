@@ -1,16 +1,8 @@
+import { formatBrazilianPhone } from '../../../../supabase/functions/_shared/product3-contract.ts'
+
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 
 const compact = (values) => values.map(clean).filter(Boolean)
-
-const formatBrazilianPhone = (value = '') => {
-  const rawDigits = String(value).replace(/\D/g, '')
-  const digits = (rawDigits.length > 11 && rawDigits.startsWith('55') ? rawDigits.slice(2) : rawDigits).slice(0, 11)
-  if (!digits) return ''
-  if (digits.length <= 2) return `(${digits}`
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-}
 
 const sentence = (value) => {
   const text = clean(value)
@@ -36,6 +28,7 @@ const locationText = ({ district, city, state }) => {
 
 const purposeText = (purpose) => {
   const normalized = clean(purpose).toLocaleLowerCase('pt-BR')
+  if (normalized === 'rental') return 'para locação'
   if (['sale', 'venda', 'vender'].includes(normalized)) return 'à venda'
   if (['rent', 'locação', 'locacao', 'aluguel', 'alugar'].includes(normalized)) return 'para locação'
   return ''

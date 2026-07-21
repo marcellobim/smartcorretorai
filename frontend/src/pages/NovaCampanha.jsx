@@ -8,8 +8,10 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import { buildProduct3CampaignOptions, normalizeProduct3CampaignFiles } from '../components/campaign/buildProduct3CampaignPackage'
+import { getProduct3Highlights, isProduct3CommercialType, PRODUCT_3_PROPERTY_TYPES } from '../data/product3Campaign'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
+import { formatBrazilianPhone, formatProduct3Price as formatCanonicalProduct3Price } from '../../../supabase/functions/_shared/product3-contract.ts'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -23,9 +25,10 @@ const CATEGORIAS = [
   { id: 'em_construcao',  nome: 'Em Construção', icon: '🏗️', cor: 'from-orange-500 to-amber-400',  ring: 'ring-orange-400',  badge: 'bg-orange-100 text-orange-800', desc: 'Em obra' },
 ]
 
-const TIPOS = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
+const TIPOS = PRODUCT_3_PROPERTY_TYPES
 
 const isCommercialPropertyType = (type) => {
+  if (isProduct3CommercialType(type)) return true
   const normalized = String(type || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -47,10 +50,10 @@ const ESTADOS_BR = [
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-const MVP_FINALIDADE = 'venda'
+const MVP_FINALIDADE = 'sale'
 const FINALIDADE_OPTIONS = [
-  { id: 'venda', label: 'Venda', icon: '🏡' },
-  { id: 'locacao', label: 'Locação', icon: '🔑' },
+  { id: 'sale', label: 'Venda', icon: '🏡' },
+  { id: 'rental', label: 'Locação', icon: '🔑' },
 ]
 
 const PRODUCT_3_PROGRESS_STEPS = [
@@ -62,14 +65,16 @@ const PRODUCT_3_PROGRESS_STEPS = [
 ]
 
 const PRODUCT_3_SITUATIONS = {
-  venda: [
+  sale: [
     { id: 'lancamento', label: 'Lançamento', category: 'lancamento' },
     { id: 'em_construcao', label: 'Em construção', category: 'em_construcao' },
     { id: 'pronto_para_morar', label: 'Pronto para morar', category: 'medio_padrao' },
   ],
-  locacao: [
-    { id: 'disponivel_imediatamente', label: 'Disponível imediatamente', category: 'medio_padrao' },
+  rental: [
+    { id: 'disponivel_imediatamente', label: 'Disponível agora', category: 'medio_padrao' },
     { id: 'pronto_para_mudar', label: 'Pronto para mudar', category: 'medio_padrao' },
+    { id: 'pronto_para_ocupacao', label: 'Pronto para ocupação', category: 'medio_padrao', commercialOnly: true },
+    { id: 'disponibilidade_a_combinar', label: 'Disponibilidade a combinar', category: 'medio_padrao', commercialOnly: true },
   ],
 }
 
@@ -82,23 +87,6 @@ const MAX_FOTOS_OUTROS_PRODUTOS = 10
 const PRODUCT_3_TYPEWRITER_INITIAL_DELAY_MS = 350
 const PRODUCT_3_TYPEWRITER_CHAR_DELAY_MS = 30
 const PRODUCT_3_TYPEWRITER_FINAL_CURSOR_MS = 400
-const PRODUCT_3_HIGHLIGHTS = [
-  'Piscina',
-  'Academia',
-  'Churrasqueira',
-  'Varanda gourmet',
-  'Lazer completo',
-  'Vista livre',
-  'Próximo ao metrô',
-  'Boa localização',
-  'Condomínio completo',
-  'Portaria 24 horas',
-  'Aceita financiamento',
-  'Documentação em ordem',
-  'Pronto para morar',
-  'Condições facilitadas',
-  'Ótimo para investir',
-]
 const PRODUCT_3_CTA_OPTIONS = ['Saiba Mais', 'Agende sua visita', 'Entre em contato agora']
 const PRODUCT_3_BEDROOM_OPTIONS = [0, 1, 2, 3, 4, 5]
 const PRODUCT_3_SUITE_AND_PARKING_OPTIONS = [0, 1, 2, 3, 4]
@@ -901,16 +889,9 @@ const normalizePrecoPayload = (value) => {
   return normalized || 'Consulte'
 }
 const sanitizePriceDigits = value => String(value ?? '').replace(/\D/g, '').slice(0, 12)
-const formatProduct3Price = (value, mode = '') => {
-  const digits = sanitizePriceDigits(value)
-  if (!digits) return ''
-  const formatted = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    maximumFractionDigits: 0,
-  }).format(Number(digits))
-  return mode === 'starting_at' ? `A partir de ${formatted}` : formatted
-}
+const formatProduct3Price = (value, mode = '', purpose = MVP_FINALIDADE) => (
+  formatCanonicalProduct3Price(sanitizePriceDigits(value), purpose, mode)
+)
 const sanitizeAreaInput = (value) => {
   const normalized = String(value ?? '').replace(',', '.').replace(/[^\d.]/g, '')
   const [integerPart = '', ...decimalParts] = normalized.split('.')
@@ -1172,6 +1153,10 @@ function BannerConversation({
   onPrecoChange,
   precoModo,
   onPrecoModoChange,
+  condominio,
+  onCondominioChange,
+  iptu,
+  onIptuChange,
   area,
   onAreaChange,
   quartos,
@@ -1197,16 +1182,18 @@ function BannerConversation({
   const interactionGuardRef = useRef(true)
   const activeQuestionRef = useRef(null)
   const prefersReducedMotion = usePrefersReducedMotion()
+  const commercialProperty = isCommercialPropertyType(tipo)
+  const isRental = finalidade === 'rental'
   const sequence = [
     'purpose',
-    'situation',
     'type',
+    'situation',
     'city',
     'district',
     'price',
+    ...(isRental ? ['condominium', 'iptu'] : []),
     'area',
-    'bedrooms',
-    'suites',
+    ...(!commercialProperty ? ['bedrooms', 'suites'] : []),
     'parking',
     'highlights',
     'cta',
@@ -1217,11 +1204,12 @@ function BannerConversation({
   const questionReady = readyStep === step
   const nextStep = sequence[Math.min(activeIndex + 1, sequence.length - 1)]
   const confirmations = ['Perfeito', 'Ótimo', 'Excelente']
-  const situationOptions = PRODUCT_3_SITUATIONS[finalidade] || PRODUCT_3_SITUATIONS.venda
+  const situationOptions = (PRODUCT_3_SITUATIONS[finalidade] || PRODUCT_3_SITUATIONS.sale)
+    .filter(option => !option.commercialOnly || commercialProperty)
   const situationLabel = Object.values(PRODUCT_3_SITUATIONS).flat().find(item => item.id === situacao)?.label || ''
   const purposeLabel = FINALIDADE_OPTIONS.find(item => item.id === finalidade)?.label || ''
   const modelNames = selectedModelSummaries.map(model => model.name)
-  const priceLabel = formatProduct3Price(preco, precoModo)
+  const priceLabel = formatProduct3Price(preco, precoModo, finalidade)
   const areaLabel = formatAreaLabel(area)
   const answers = {
     purpose: purposeLabel,
@@ -1230,6 +1218,8 @@ function BannerConversation({
     city: cidade,
     district: bairro,
     price: priceLabel || 'Preço não informado',
+    condominium: condominio ? formatProduct3Price(condominio, '', 'rental') : 'Não informado',
+    iptu: iptu ? formatProduct3Price(iptu, '', 'sale') : 'Não informado',
     area: areaLabel || 'Área não informada',
     bedrooms: `${formatProduct3CountChoice(quartos, 5)} dormitório${Number(quartos) === 1 ? '' : 's'}`,
     suites: `${formatProduct3CountChoice(suites, 4)} suíte${Number(suites) === 1 ? '' : 's'}`,
@@ -1244,14 +1234,16 @@ function BannerConversation({
     type: 'Que tipo de imóvel vamos divulgar?',
     city: 'Em qual cidade fica o imóvel?',
     district: 'Em qual bairro ele está localizado?',
-    price: 'Qual é o preço do imóvel?',
+    price: isRental ? 'Qual é o valor mensal da locação?' : 'Qual é o preço do imóvel?',
+    condominium: 'Qual é o valor do condomínio? (opcional)',
+    iptu: 'Qual é o valor do IPTU? (opcional)',
     area: 'Qual é a área aproximada do imóvel?',
     bedrooms: 'Quantos dormitórios o imóvel possui?',
     suites: 'Quantas suítes o imóvel possui?',
     parking: 'Quantas vagas o imóvel possui?',
     highlights: 'Quais são os principais destaques?',
     cta: 'Qual chamada deseja usar no final?',
-    phone: 'Deseja utilizar o telefone do seu Cadastro Profissional?',
+    phone: 'Deseja divulgar este telefone na campanha?',
     done: 'Excelente. Os dados estão prontos para a próxima etapa.',
   }
   const history = sequence
@@ -1336,6 +1328,8 @@ function BannerConversation({
       onPrecoChange('')
       onPrecoModoChange('')
     }
+    if (laterSteps.has('condominium')) onCondominioChange('')
+    if (laterSteps.has('iptu')) onIptuChange('')
     if (laterSteps.has('area')) onAreaChange('')
     if (laterSteps.has('bedrooms')) onQuartosChange(0)
     if (laterSteps.has('suites')) onSuitesChange(0)
@@ -1433,25 +1427,29 @@ function BannerConversation({
   } else if (step === 'price') {
     questionContent = (
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
+        {!isRental && <div className="flex flex-wrap gap-2">
           {[
             { id: 'fixed', label: 'Preço fixo' },
             { id: 'starting_at', label: 'A partir de' },
           ].map(option => optionButton(option.id, option.label, precoModo === option.id, () => onPrecoModoChange(option.id)))}
-        </div>
+        </div>}
         <input
           value={formatProduct3Price(preco)}
           onChange={event => onPrecoChange(sanitizePriceDigits(event.target.value))}
           inputMode="numeric"
-          placeholder="R$ 0"
+          placeholder={isRental ? 'R$ 3.000/mês' : 'R$ 450.000'}
           className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
         />
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={!precoModo || !preco} onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45">Continuar</button>
-          <button type="button" onClick={() => advance(() => { onPrecoModoChange(''); onPrecoChange('') })} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Continuar sem informar preço</button>
+          <button type="button" disabled={!preco || (!isRental && !precoModo)} onClick={() => advance(() => { if (isRental) onPrecoModoChange('monthly') })} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45">Continuar</button>
+          {!isRental && <button type="button" onClick={() => advance(() => { onPrecoModoChange(''); onPrecoChange('') })} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Continuar sem informar preço</button>}
         </div>
       </div>
     )
+  } else if (step === 'condominium') {
+    questionContent = textForm({ value: condominio, onChange: value => onCondominioChange(sanitizePriceDigits(value)), placeholder: 'R$ 650', optional: true })
+  } else if (step === 'iptu') {
+    questionContent = textForm({ value: iptu, onChange: value => onIptuChange(sanitizePriceDigits(value)), placeholder: 'R$ 180', optional: true })
   } else if (step === 'area') {
     questionContent = (
       <div className="space-y-3">
@@ -1480,9 +1478,9 @@ function BannerConversation({
   } else if (step === 'highlights') {
     questionContent = <div className="space-y-4">
       <p className="text-xs font-semibold leading-relaxed text-slate-500 sm:text-sm">
-        Essas informações ajudam a IA a criar uma campanha mais completa e poderão ser utilizadas tanto nos banners compatíveis quanto nos textos da sua campanha.
+        Escolha até 5 características que realmente diferenciam este imóvel. Elas poderão ser usadas nos banners compatíveis e nos textos da campanha.
       </p>
-      <div className="flex flex-wrap gap-2">{PRODUCT_3_HIGHLIGHTS.map(item => {
+      <div className="flex flex-wrap gap-2">{getProduct3Highlights(finalidade, tipo).map(item => {
         const active = diferenciais.includes(item)
         const disabled = !active && diferenciais.length >= MAX_DESTAQUES_CHAT_PRODUTO_3
         return <button key={item} type="button" aria-pressed={active} disabled={disabled} onClick={() => onToggleDestaque(item)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${active ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-600'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}>{item}</button>
@@ -1493,15 +1491,19 @@ function BannerConversation({
   } else if (step === 'cta') {
     questionContent = <div className="grid gap-2 sm:grid-cols-3">{PRODUCT_3_CTA_OPTIONS.map(option => optionButton(option, option, cta === option, () => advance(() => onCtaChange(option))))}</div>
   } else if (step === 'phone') {
-    questionContent = <div className="grid gap-2 sm:grid-cols-2">
-      {optionButton('yes', 'Sim', useProfessionalPhone === 'yes', () => {
+    questionContent = <div className="space-y-3">
+      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base font-black text-slate-900">{formatBrazilianPhone(professionalPhone) || 'Telefone não cadastrado'}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+      {optionButton('yes', 'Sim, divulgar este telefone', useProfessionalPhone === 'yes', () => {
         if (!professionalPhone) {
           toast.error('Cadastre um telefone no Cadastro Profissional para utilizar esta opção.')
           return
         }
         advance(() => onUseProfessionalPhoneChange('yes'))
       })}
-      {optionButton('no', 'Não', useProfessionalPhone === 'no', () => advance(() => onUseProfessionalPhoneChange('no')))}
+      {optionButton('no', 'Não divulgar', useProfessionalPhone === 'no', () => advance(() => onUseProfessionalPhoneChange('no')))}
+      </div>
+      {!professionalPhone && <p className="text-xs font-semibold text-amber-700">Corrija ou cadastre o número no Cadastro Profissional antes de divulgá-lo.</p>}
     </div>
   } else {
     questionContent = <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm font-bold leading-6 text-emerald-900">Conversa concluída. Seus dados e modelos foram preservados.</p><button type="button" onClick={finishConversation} className="mt-4 rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">Continuar para as imagens</button></div>
@@ -1515,13 +1517,15 @@ function BannerConversation({
     { label: 'Cidade', value: cidade, step: 'city' },
     { label: 'Bairro', value: bairro, step: 'district' },
     { label: 'Preço', value: priceLabel, step: 'price' },
+    { label: 'Condomínio', value: condominio ? formatProduct3Price(condominio, '', 'rental') : '', step: 'condominium' },
+    { label: 'IPTU', value: iptu ? formatProduct3Price(iptu) : '', step: 'iptu' },
     { label: 'Área', value: areaLabel, step: 'area' },
-    { label: 'Dormitórios', value: activeIndex > sequence.indexOf('bedrooms') ? formatProduct3CountChoice(quartos, 5) : '', step: 'bedrooms' },
-    { label: 'Suítes', value: activeIndex > sequence.indexOf('suites') ? formatProduct3CountChoice(suites, 4) : '', step: 'suites' },
+    { label: 'Dormitórios', value: sequence.includes('bedrooms') && activeIndex > sequence.indexOf('bedrooms') ? formatProduct3CountChoice(quartos, 5) : '', step: 'bedrooms' },
+    { label: 'Suítes', value: sequence.includes('suites') && activeIndex > sequence.indexOf('suites') ? formatProduct3CountChoice(suites, 4) : '', step: 'suites' },
     { label: 'Vagas', value: activeIndex > sequence.indexOf('parking') ? formatProduct3CountChoice(vagas, 4) : '', step: 'parking' },
     { label: 'Destaques', value: diferenciais.length ? diferenciais.join(', ') : '', step: 'highlights' },
     { label: 'CTA', value: cta, step: 'cta' },
-    { label: 'Telefone profissional', value: useProfessionalPhone === 'yes' ? 'Sim' : useProfessionalPhone === 'no' ? 'Não' : '', step: 'phone' },
+    { label: 'Telefone profissional', value: useProfessionalPhone === 'yes' ? formatBrazilianPhone(professionalPhone) : useProfessionalPhone === 'no' ? 'Não divulgar' : '', step: 'phone' },
     { label: 'Imagens enviadas', value: photosCount ? `${photosCount}` : 'Ainda não enviadas' },
   ].filter(item => item.value)
 
@@ -1989,6 +1993,8 @@ export default function NovaCampanha() {
   const [area, setArea] = useState('')
   const [preco, setPreco] = useState('')
   const [precoModo, setPrecoModo] = useState('')
+  const [condominio, setCondominio] = useState('')
+  const [iptu, setIptu] = useState('')
   const [bairro, setBairro] = useState('')
   const [cidade, setCidade] = useState('')
   const [estado, setEstado] = useState('')
@@ -2244,9 +2250,9 @@ export default function NovaCampanha() {
     && bairroNormalizado
     && cidade.trim()
     && (isProductEntry ? estado : (product3Cta && product3UseProfessionalPhone))
-    && (!preco || precoModo)
+    && (finalidade === 'rental' ? Boolean(preco) : (!preco || precoModo))
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
-  const product3PublicPhone = !isProductEntry && product3UseProfessionalPhone === 'yes' ? profileWhatsapp : ''
+  const product3PublicPhone = !isProductEntry && product3UseProfessionalPhone === 'yes' ? formatBrazilianPhone(profileWhatsapp) : ''
   const product3PhonePayload = !isProductEntry && product3UseProfessionalPhone === 'no'
     ? 'REMOVER_ELEMENTO'
     : (isProductEntry ? profileWhatsapp : product3PublicPhone)
@@ -2290,7 +2296,11 @@ export default function NovaCampanha() {
         : 'médio',
     preco: precoParaPayload,
     preco_modo: precoModo || null,
-    preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
+    preco_exibicao: formatProduct3Price(preco, precoModo, finalidade) || 'Consulte',
+    condominio: condominio || null,
+    condominio_exibicao: condominio ? formatProduct3Price(condominio, '', 'rental') : null,
+    iptu: iptu || null,
+    iptu_exibicao: iptu ? formatProduct3Price(iptu) : null,
     area: area || null,
     dormitorios: quartosParaPayload,
     quartos: quartosParaPayload,
@@ -2311,7 +2321,7 @@ export default function NovaCampanha() {
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE); setSituacao('')
-    setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco(''); setPrecoModo('')
+    setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco(''); setPrecoModo(''); setCondominio(''); setIptu('')
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setProduct3UseProfessionalPhone(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
@@ -2470,7 +2480,7 @@ export default function NovaCampanha() {
 
       // Foto do corretor: se o perfil não tem avatar cadastrado, força REMOVER_ELEMENTO
       // (assim o template não renderiza a mulher fictícia padrão).
-      const tituloComercial = `${tipo || 'Imóvel'} ${finalidade === 'locacao' ? 'para Locação' : 'à Venda'}`.trim()
+      const tituloComercial = `${tipo || 'Imóvel'} ${finalidade === 'rental' ? 'para locação' : 'à venda'}`.trim()
       const headlineComercial = tituloComercial || `${tipo || 'Imóvel'} em destaque`
       const especificacoesPrincipais = [
         formatQuantityLabel(quartosParaPayload, 'Dormitório'),
@@ -2515,7 +2525,7 @@ export default function NovaCampanha() {
               descricao: descricaoComercial,
               preco: precoParaPayload,
               preco_modo: precoModo || null,
-              preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
+              preco_exibicao: formatProduct3Price(preco, precoModo, finalidade) || 'Consulte',
               finalidade,
               cta: product3Cta,
               cta_text: product3Cta,
@@ -2545,7 +2555,9 @@ export default function NovaCampanha() {
               finalidade, situacao, quartos: quartosParaPayload, banheiros, suites: suitesParaPayload, vagas: vagasParaPayload,
               area: area || null, preco: precoParaPayload, bairro: bairroNormalizado, cidade, estado,
               preco_modo: precoModo || null,
-              preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
+              preco_exibicao: formatProduct3Price(preco, precoModo, finalidade) || 'Consulte',
+              condominio: condominio || null,
+              iptu: iptu || null,
               cta: product3Cta,
               cta_text: product3Cta,
               diferenciais: todosDisferenciais,
@@ -3003,7 +3015,7 @@ export default function NovaCampanha() {
           descricao: descricaoCurta,
           preco: precoParaPayload,
           preco_modo: precoModo || null,
-          preco_exibicao: formatProduct3Price(preco, precoModo) || 'Consulte',
+          preco_exibicao: formatProduct3Price(preco, precoModo, finalidade) || 'Consulte',
           finalidade,
           cta: product3Cta,
           cta_text: product3Cta,
@@ -3494,7 +3506,9 @@ export default function NovaCampanha() {
       reviewSituationLabel ? `Situação: ${reviewSituationLabel}` : '',
       tipo ? `Tipo: ${tipo}` : '',
       [bairroNormalizado, cidade].filter(Boolean).length ? `Localização: ${[bairroNormalizado, cidade].filter(Boolean).join(', ')}` : '',
-      preco ? `Preço: ${formatProduct3Price(preco, precoModo)}` : 'Preço não informado',
+      preco ? `${finalidade === 'rental' ? 'Valor da locação' : 'Preço'}: ${formatProduct3Price(preco, precoModo, finalidade)}` : 'Preço não informado',
+      finalidade === 'rental' && condominio ? `Condomínio: ${formatProduct3Price(condominio, '', 'rental')}` : '',
+      finalidade === 'rental' && iptu ? `IPTU: ${formatProduct3Price(iptu)}` : '',
       area ? `Área: ${formatAreaLabel(area)}` : 'Área não informada',
       `Dormitórios: ${formatProduct3CountChoice(quartos, 5)}`,
       `Suítes: ${formatProduct3CountChoice(suites, 4)}`,
@@ -3849,6 +3863,10 @@ export default function NovaCampanha() {
                   onPrecoChange={setPreco}
                   precoModo={precoModo}
                   onPrecoModoChange={setPrecoModo}
+                  condominio={condominio}
+                  onCondominioChange={setCondominio}
+                  iptu={iptu}
+                  onIptuChange={setIptu}
                   area={area}
                   onAreaChange={setArea}
                   quartos={quartos}
@@ -4064,7 +4082,7 @@ export default function NovaCampanha() {
                   suites: packageProperty.suites ?? suites,
                   parkingSpaces: packageProperty.vagas ?? vagas,
                   area: packageProperty.area || area,
-                  price: packageProperty.preco_exibicao || formatProduct3Price(preco, precoModo),
+                  price: packageProperty.preco_exibicao || formatProduct3Price(preco, precoModo, finalidade),
                   description: getTextoEdge('descricao_portal'),
                   highlights: packageProperty.destaques || todosDestaques,
                   cta: packageProperty.cta || product3Cta,

@@ -34,13 +34,15 @@ const prependOnce = (text, prefix) => {
 const threePresentationOptions = ({ primary, secondary, title, cta }) => {
   const base = withoutHashtags(primary || secondary || title)
   const alternate = withoutHashtags(secondary || primary || title)
-  const candidates = [
+  const candidates = [...new Set([
     base,
     prependOnce(alternate, title),
     appendOnce(alternate, cta),
-  ].filter(Boolean)
+    prependOnce(base, 'Conheça os detalhes deste imóvel.'),
+    appendOnce(base, 'Fale comigo para agendar uma visita.'),
+  ].filter(Boolean))]
 
-  while (candidates.length < 3) candidates.push(base)
+  while (candidates.length < 3) candidates.push(`${base}\n\nOpção ${candidates.length + 1}`.trim())
   return candidates.slice(0, 3)
 }
 

@@ -1,5 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  formatBrazilianPhone,
+  formatProduct3Currency,
+  formatProduct3Price as formatCanonicalProduct3Price,
+  getProduct3PurposeBadge,
+  normalizeProduct3Purpose,
+} from '../_shared/product3-contract.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -222,6 +229,8 @@ const CANONICAL_TEMPLATE_FIELDS = [
   'property_description',
   'price_label',
   'property_price',
+  'condominium_price',
+  'property_tax',
   'cta_text',
   'broker_whatsapp',
   'broker_email',
@@ -259,8 +268,8 @@ const normalizeElementLabel = (value: string): string => (
 const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
   headline_main: ['headline', 'main_headline', 'title', 'titulo', 'property_title'],
   property_tag: ['tag', 'badge', 'highlight', 'property_badge', 'property_highlight'],
-  sale_badge: ['sale_tag', 'sale_label', 'listing_type', 'offer_type', 'transaction_type'],
-  property_location_type: ['property_location', 'location', 'address', 'bairro', 'neighborhood', 'city_type'],
+  sale_badge: ['sale_tag', 'sale_label', 'listing_badge', 'listing_type', 'offer_type', 'transaction_type'],
+  property_location_type: ['property_location', 'property_type', 'location', 'address', 'bairro', 'neighborhood', 'city_type'],
   property_features: ['features', 'property_specs', 'property_details', 'specs', 'dorms_suites_vagas'],
   features_title: ['feature_title', 'features_heading', 'diferenciais_title', 'titulo_diferenciais'],
   feature_01: ['feature_1', 'feature_one', 'diferencial_01', 'diferencial_1'],
@@ -269,8 +278,10 @@ const CANONICAL_FIELD_ALIASES: Record<CanonicalTemplateField, string[]> = {
   property_description: ['description', 'descricao', 'property_text', 'property_copy', 'body_text'],
   price_label: ['price_title', 'preco_label', 'valor_label', 'label_preco'],
   property_price: ['price', 'preco', 'valor', 'property_value', 'property_amount'],
+  condominium_price: ['condominium', 'condominio', 'condominium_value', 'condominio_valor', 'hoa', 'hoa_fee'],
+  property_tax: ['iptu', 'property_tax_value', 'tax', 'tax_value'],
   cta_text: ['cta', 'cta_button', 'call_to_action', 'button_text', 'action_text'],
-  broker_whatsapp: ['agent_phone', 'broker_phone', 'phone', 'telephone', 'telefone', 'whatsapp', 'contact_phone'],
+  broker_whatsapp: ['agent_phone', 'broker_phone', 'broker_whastapp', 'phone', 'telephone', 'telefone', 'whatsapp', 'contact_phone'],
   broker_email: ['agent_email', 'broker_mail', 'agent_mail', 'email', 'contact_email'],
   property_image_01: ['property_image', 'property_image_1', 'property_photo', 'property_photo_1', 'image_01', 'image_1', 'photo_01', 'photo_1', 'picture', 'image', 'photo'],
   property_image_02: ['property_image_2', 'property_image_02', 'property_photo_2', 'property_photo_02', 'image_02', 'image_2', 'photo_02', 'photo_2', 'picture_2', 'image_2', 'photo_2'],
@@ -1083,7 +1094,7 @@ function applyAnuncioPremiumVisualRules(
   setCanonicalTextModification(elementos, mods, 'headline_main', templateData.headline_main)
   setCanonicalTextModification(elementos, mods, 'sale_badge', saleBadge)
   setCanonicalTextModification(elementos, mods, 'property_description', 'Saiba mais')
-  setCanonicalTextModification(elementos, mods, 'price_label', 'Valor')
+  setCanonicalTextModification(elementos, mods, 'price_label', templateData.price_label)
   setCanonicalTextModification(elementos, mods, 'property_price', normalizeAnuncioPremiumPrice(templateData.property_price))
   setCanonicalTextModification(elementos, mods, 'features_title', 'Diferenciais')
   setCanonicalTextModification(elementos, mods, 'feature_01', templateData.feature_01)
@@ -1125,18 +1136,6 @@ function normalizeShortFreeText(value: unknown, maxLength = 120): string {
   return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
 }
 
-function normalizeFinalidade(value: unknown): 'venda' | 'locacao' {
-  const normalized = String(value ?? '')
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-
-  if (['locacao', 'aluguel', 'alugar', 'rent', 'rental'].includes(normalized)) return 'locacao'
-  if (['venda', 'vender', 'sale'].includes(normalized)) return 'venda'
-  return 'venda'
-}
-
 function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<string, unknown> {
   const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
     ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
@@ -1150,7 +1149,7 @@ function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<
     ...(destaquePersonalizado ? [destaquePersonalizado] : []),
     ...diferenciais,
   ])).slice(0, 8)
-  const finalidade = normalizeFinalidade(dados.finalidade ?? dados.negocio)
+  const finalidade = normalizeProduct3Purpose(dados.finalidade ?? dados.negocio)
 
   return {
     ...dados,
@@ -1165,6 +1164,10 @@ function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<
 
 function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unknown>, titulo: unknown, descricao: unknown): string {
   const search = normalizeSearchText(categoria, dadosImovel.categoria, dadosImovel.padrao, titulo, descricao)
+  const availability = normalizeSearchText(dadosImovel.situacao, dadosImovel.disponibilidade)
+  if (/disponivel_imediatamente|disponivel_agora/.test(availability)) return 'Disponível agora'
+  if (/pronto_para_ocupacao/.test(availability)) return 'Pronto para ocupação'
+  if (/pronto_para_mudar/.test(availability)) return 'Pronto para mudar'
   if (/lancamento|lançamento/.test(search)) return 'Lançamento'
   if (/alto\s*padrao|alto\s*padr[aã]o|luxo|premium/.test(search)) return 'Alto Padrão'
   if (/minha\s*casa|minha\s*casa\s*minha\s*vida|mcmv/.test(search)) return 'Minha Casa Minha Vida'
@@ -1174,7 +1177,7 @@ function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unkno
 }
 
 function resolveSaleBadge(finalidade: unknown, _titulo: unknown, _descricao: unknown): string {
-  return normalizeFinalidade(finalidade) === 'locacao' ? 'Para Locação' : 'À Venda'
+  return getProduct3PurposeBadge(finalidade)
 }
 
 function resolveAnuncioPremiumSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
@@ -1204,6 +1207,8 @@ function buildCanonicalTemplateData(input: {
   titulo: unknown
   descricao: unknown
   preco: unknown
+  condominio: unknown
+  iptu: unknown
   finalidade: unknown
   tipoImovel: unknown
   endereco: unknown
@@ -1219,10 +1224,10 @@ function buildCanonicalTemplateData(input: {
 }): CanonicalTemplateData {
   const bairro = resolveBairro(input.dadosImovel, input.endereco)
   const tipo = String(input.tipoImovel || input.dadosImovel.tipo || '').trim()
-  const finalidade = normalizeFinalidade(input.finalidade ?? input.dadosImovel.finalidade ?? input.dadosImovel.negocio)
+  const finalidade = normalizeProduct3Purpose(input.finalidade ?? input.dadosImovel.finalidade ?? input.dadosImovel.negocio)
   const propertyLocationType = [bairro, tipo].filter(Boolean).join(', ') || tipo || bairro
   const headlineMain = tipo
-    ? `${tipo}${finalidade === 'locacao' ? ' para Locação' : ' à Venda'}`
+    ? `${tipo}${finalidade === 'rental' ? ' para locação' : ' à venda'}`
     : normalizeSpaces(input.titulo) || 'Imóvel em destaque'
   const propertyDescription = normalizeSpaces(input.descricao).slice(0, 140)
   const featureItems = Array.from(new Set(
@@ -1247,8 +1252,10 @@ function buildCanonicalTemplateData(input: {
     feature_02: featureItems[1] || '',
     feature_03: featureItems[2] || '',
     property_description: propertyDescription,
-    price_label: 'Valor',
-    property_price: formatPriceBRL(input.preco),
+    price_label: finalidade === 'rental' ? 'Valor mensal' : 'Valor',
+    property_price: formatCanonicalProduct3Price(input.preco, finalidade, String(input.dadosImovel.preco_modo || '')) || 'Consulte',
+    condominium_price: input.condominio ? formatProduct3Currency(input.condominio) : '',
+    property_tax: input.iptu ? formatProduct3Currency(input.iptu) : '',
     cta_text: snapCta(String(input.ctaText || (contact ? 'Agende sua visita' : 'Saiba Mais'))),
     broker_whatsapp: contact,
     broker_email: input.corretorEmail,
@@ -1524,9 +1531,13 @@ serve(async (req) => {
       ...payloadDadosImovel,
       ...((campaignRow?.dados_imovel as Record<string, unknown>) || {}),
     })
-    const finalidadeNormalizada = normalizeFinalidade(finalidade ?? dadosImovel.finalidade ?? dadosImovel.negocio)
+    const finalidadeNormalizada = normalizeProduct3Purpose(finalidade ?? dadosImovel.finalidade ?? dadosImovel.negocio)
     const categoria = String(dadosImovel.categoria || tipo_imovel || 'medio_padrao')
-    const precoFinal = formatPriceBRL(preco ?? dadosImovel.preco)
+    const precoFinal = formatCanonicalProduct3Price(
+      preco ?? dadosImovel.preco,
+      finalidadeNormalizada,
+      String(dadosImovel.preco_modo || ''),
+    ) || 'Consulte'
     const suitesCount = toPositiveCount(suites ?? dadosImovel.suites)
     const suitesLabel = formatCountLabel(suitesCount, 'Suíte')
     const quartosLabel = formatCountLabel(toPositiveCount(quartos ?? dadosImovel.quartos), 'Dormitório')
@@ -1540,8 +1551,8 @@ serve(async (req) => {
     const corretorNomeFinal  = profileRow?.nome        || (typeof corretor_nome === 'string' ? corretor_nome : '') || ''
     const corretorEmail      = profileRow?.email       || ''
     const corretorCRECI      = profileRow?.creci       || ''
-    const corretorTelefone   = hideProfessionalPhone ? '' : (profileRow?.telefone || String(dadosImovel.telefone_contato || ''))
-    const corretorWhatsApp   = hideProfessionalPhone ? '' : (profileRow?.whatsapp || corretorTelefone)
+    const corretorTelefone   = hideProfessionalPhone ? '' : formatBrazilianPhone(profileRow?.telefone || String(dadosImovel.telefone_contato || ''))
+    const corretorWhatsApp   = hideProfessionalPhone ? '' : formatBrazilianPhone(profileRow?.whatsapp || corretorTelefone)
     const marcaFinal         = profileRow?.imobiliaria || (typeof marca_imovel === 'string' ? marca_imovel : '') || ''
     const siteFinal          = profileRow?.site        || ''
     const instagramFinal     = profileRow?.instagram   || ''
@@ -1564,6 +1575,8 @@ serve(async (req) => {
       titulo: titulo || campaignRow?.titulo || '',
       descricao,
       preco: preco ?? dadosImovel.preco,
+      condominio: dadosImovel.condominio,
+      iptu: dadosImovel.iptu,
       finalidade: finalidadeNormalizada,
       tipoImovel: tipo_imovel || dadosImovel.tipo,
       endereco,
@@ -1580,6 +1593,10 @@ serve(async (req) => {
 
     // Bloco compartilhado com os dois prompts
     const dadosImovelBloco = `DADOS DO IMÓVEL:
+- Finalidade canônica: ${finalidadeNormalizada}
+- Disponibilidade: ${dadosImovel.situacao || dadosImovel.disponibilidade || 'não informada'}
+- Condomínio: ${dadosImovel.condominio ? formatProduct3Currency(dadosImovel.condominio) : 'não informado'}
+- IPTU: ${dadosImovel.iptu ? formatProduct3Currency(dadosImovel.iptu) : 'não informado'}
 - Título: ${titulo || campaignRow?.titulo || 'Imóvel'}
 - Categoria/Perfil: ${categoria}
 - Tipo de imóvel: ${tipo_imovel || dadosImovel.tipo || 'não informado'}

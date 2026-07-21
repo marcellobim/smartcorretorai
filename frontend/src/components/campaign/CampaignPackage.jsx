@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   CheckCircle2,
@@ -52,6 +52,24 @@ function CopyButton({ value, label = 'Copiar', copyKey, copiedKey, onCopy }) {
   )
 }
 
+function VideoPreview({ src, videoRef, className = '' }) {
+  const [status, setStatus] = useState('loading')
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    setStatus('loading')
+    videoRef?.current?.load?.()
+  }, [src, attempt, videoRef])
+
+  return (
+    <div className="relative flex h-full w-full items-center justify-center">
+      <video key={`${src}-${attempt}`} ref={videoRef} src={src} controls playsInline preload="metadata" onLoadedData={() => setStatus('ready')} onCanPlay={() => setStatus('ready')} onError={() => setStatus('error')} className={className} />
+      {status === 'loading' && <span className="absolute rounded-full bg-slate-900/80 px-4 py-2 text-xs font-black text-white">Carregando prévia...</span>}
+      {status === 'error' && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-4 text-center text-white"><p className="text-sm font-bold">Não foi possível carregar a prévia.</p><button type="button" onClick={() => setAttempt(value => value + 1)} className="rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-950">Tentar novamente</button></div>}
+    </div>
+  )
+}
+
 function MediaPanel({ campaign, videoRef, downloadingKey, onDownload }) {
   if (campaign.mediaType === 'images') {
     if (!campaign.files.length) return null
@@ -69,7 +87,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload }) {
             return (
               <article key={file.id || `${file.name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                 <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-100">
-                  {previewUrl ? (isVideo ? <video src={previewUrl} controls className="h-full w-full object-contain" /> : <img src={previewUrl} alt={file.name || `Arte ${index + 1}`} className="h-full w-full object-contain" />) : <span className="px-4 text-center text-xs font-bold text-slate-400">Prévia indisponível</span>}
+                  {previewUrl ? (isVideo ? <VideoPreview src={previewUrl} className="h-full w-full object-contain" /> : <img src={previewUrl} alt={file.name || `Arte ${index + 1}`} className="h-full w-full object-contain" />) : <span className="px-4 text-center text-xs font-bold text-slate-400">Prévia indisponível</span>}
                 </div>
                 <div className="p-4">
                   <p className="truncate text-sm font-black text-slate-900">{file.name || `Arte ${index + 1}`}</p>
@@ -105,7 +123,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload }) {
         <CheckCircle2 className="h-6 w-6 text-emerald-600" />
       </div>
       <div className="mt-5 overflow-hidden rounded-[1.5rem] bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
-        <video ref={videoRef} src={campaign.previewUrl} controls playsInline className="mx-auto max-h-[680px] w-full rounded-2xl object-contain" />
+        <VideoPreview src={campaign.previewUrl} videoRef={videoRef} className="mx-auto max-h-[680px] w-full rounded-2xl object-contain" />
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={() => videoRef.current?.play?.()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800">

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getProduct3PurposeLabel, normalizeProduct3Purpose } from '../_shared/product3-contract.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,6 +78,15 @@ REGRAS DE VERACIDADE:
 - Minha Casa Minha Vida: foco em oportunidade, entrada, financiamento ou subsídio apenas se informado.
 - MVP atual: sempre trate o imóvel como imóvel à venda. Não gere textos de aluguel, locação, temporada ou Airbnb.`
 
+const PRODUCT_3_PURPOSE_PROMPT = `
+REGRAS DE FINALIDADE (estas regras substituem qualquer regra anterior conflitante):
+- Respeite exatamente a finalidade canonica informada: sale significa venda; rental significa locacao.
+- Em rental, use exclusivamente linguagem de locacao, valor mensal e disponibilidade. Nunca use "a venda", compra, financiamento, entrada de compra ou hashtags de venda.
+- Em sale, use exclusivamente linguagem de venda e nunca use badge ou linguagem de locacao.
+- Em imovel comercial, use linguagem empresarial e nunca "novo lar", "familia" ou "pronto para morar".
+- Preserve literalmente a disponibilidade, o condominio e o IPTU quando informados; nao invente periodicidade para IPTU.
+- Nao inclua hashtags no corpo dos textos. Inclua #SmartCorretorAI no bloco de hashtags.`
+
 function stripDiacritics(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
@@ -93,6 +103,8 @@ function toHashtag(value: string) {
 }
 
 function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo: unknown, categoria: unknown) {
+  const purpose = normalizeProduct3Purpose(dados.finalidade ?? dados.negocio)
+  const isRental = purpose === 'rental'
   const categoriaTexto = String(categoria || '').toLowerCase()
   const isLuxury = /luxo|alto\s*padrao|alto\s*padr[aã]o|premium/.test(categoriaTexto)
   const cidade = String(dados.cidade || '').trim()
@@ -120,20 +132,23 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
     if (!tag) continue
     if (blocked[0].test(tag)) continue
     if (!isLuxury && blocked[1].test(tag)) continue
+    if (isRental && /avenda|vendadeimoveis|compra|financiamento/i.test(tag)) continue
+    if (!isRental && /paraalugar|paralocacao|aluguel|locacaodeimoveis/i.test(tag)) continue
     if (/financiamento|subsidio|entrada/i.test(tag) && !/financiamento|subs[ií]dio|entrada/.test(diferenciaisTexto)) continue
     if (!normalized.includes(tag)) normalized.push(tag)
   }
 
   const fallback = [
-    toHashtag(`${tipoImovel} a venda`),
+    toHashtag(`${tipoImovel} ${isRental ? 'para alugar' : 'a venda'}`),
     cidade ? toHashtag(`${tipoImovel} ${cidade}`) : '',
     cidade ? toHashtag(`Imoveis ${cidade}`) : '',
     bairro && cidade ? toHashtag(`${bairro} ${cidade}`) : '',
     bairro ? toHashtag(`Imoveis na ${bairro}`) : '',
-    toHashtag(`Venda de ${tipoImovel}`),
+    toHashtag(`${isRental ? 'Locacao de' : 'Venda de'} ${tipoImovel}`),
     '#MercadoImobiliario',
     '#CorretorDeImoveis',
-    '#ImovelAVenda',
+    isRental ? '#ImovelParaLocacao' : '#ImovelAVenda',
+    isRental ? '#Aluguel' : '',
     bairro ? toHashtag(`Morar na ${bairro}`) : '',
     cidade ? toHashtag(`${cidade} Imoveis`) : '',
     /financiamento|subs[ií]dio|entrada/.test(diferenciaisTexto) ? '#FinanciamentoImobiliario' : '',
@@ -157,12 +172,16 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
     if (!normalized.includes(tag)) normalized.push(tag)
   }
 
+  const brandIndex = normalized.findIndex((tag) => tag.toLocaleLowerCase('pt-BR') === '#smartcorretorai')
+  if (brandIndex >= 0) normalized.splice(brandIndex, 1)
+  normalized.splice(Math.floor(normalized.length / 2), 0, '#SmartCorretorAI')
+
   return normalized.slice(0, 15)
 }
 
 function buildWhatsappFallback(dados: Record<string, unknown>, tipo: unknown) {
   const tipoImovel = String(tipo || dados.tipo || 'imóvel').toLowerCase()
-  const acao = 'à venda'
+  const acao = normalizeProduct3Purpose(dados.finalidade ?? dados.negocio) === 'rental' ? 'para locação' : 'à venda'
   const bairro = String(dados.bairro || '').trim()
   const area = dados.area ? `${dados.area}m²` : ''
   const quartos = dados.quartos ? `${dados.quartos} quarto${Number(dados.quartos) === 1 ? '' : 's'}` : ''
@@ -198,6 +217,7 @@ function normalizeShortFreeText(value: unknown, maxLength = 120) {
 }
 
 function normalizeCampaignPropertyInput(dados: Record<string, unknown>) {
+  const purpose = normalizeProduct3Purpose(dados.finalidade ?? dados.negocio)
   const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
     ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
     : []
@@ -213,12 +233,30 @@ function normalizeCampaignPropertyInput(dados: Record<string, unknown>) {
 
   return {
     ...dados,
-    finalidade: 'venda',
-    negocio: 'venda',
+    finalidade: purpose,
+    negocio: purpose,
     bairro: normalizeBairro(dados.bairro),
     destaques_selecionados: destaquesSelecionados,
     destaque_personalizado: destaquePersonalizado || null,
     diferenciais: mergedDestaques,
+  }
+}
+
+function validateGeneratedPurpose(texts: Record<string, unknown>, dados: Record<string, unknown>) {
+  const purpose = normalizeProduct3Purpose(dados.finalidade ?? dados.negocio)
+  const prose = stripDiacritics(Object.entries(texts)
+    .filter(([key]) => key !== 'hashtags')
+    .map(([, value]) => typeof value === 'string' ? value : JSON.stringify(value))
+    .join(' ')).toLocaleLowerCase('pt-BR')
+  const commercial = /comercial|corporativ|sala|conjunto|loja|laje|galpao/i.test(stripDiacritics(String(dados.tipo || '')))
+  if (purpose === 'rental' && /a venda|oportunidade de compra|financiamento|condicoes de compra/i.test(prose)) {
+    throw new Error('Conteudo inconsistente: a campanha de locacao recebeu linguagem de venda')
+  }
+  if (purpose === 'sale' && /para locacao|para alugar/i.test(prose)) {
+    throw new Error('Conteudo inconsistente: a campanha de venda recebeu linguagem de locacao')
+  }
+  if (commercial && /pronto para morar|novo lar|sua familia/i.test(prose)) {
+    throw new Error('Conteudo inconsistente: o imovel comercial recebeu linguagem residencial')
   }
 }
 
@@ -298,6 +336,11 @@ serve(async (req) => {
     const userPrompt = `Imóvel:
 - Tipo: ${tipo}
 - Categoria: ${categoria || 'não informada'}
+- Finalidade canônica: ${dadosObj.finalidade} (${getProduct3PurposeLabel(dadosObj.finalidade)})
+- Disponibilidade: ${dadosObj.situacao || dadosObj.disponibilidade || 'não informada'}
+- Valor: ${dadosObj.preco_exibicao || dadosObj.preco || 'não informado'}
+- Condomínio: ${dadosObj.condominio_exibicao || dadosObj.condominio || 'não informado'}
+- IPTU: ${dadosObj.iptu_exibicao || dadosObj.iptu || 'não informado'}
 - Diferenciais: ${diferenciaisStr || 'nenhum informado'}
 - Dados: ${JSON.stringify(dadosSemDif, null, 2)}`
 
@@ -310,7 +353,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: `${SYSTEM_PROMPT}\n${PRODUCT_3_PURPOSE_PROMPT}` },
           { role: 'user', content: userPrompt },
         ],
         response_format: { type: 'json_object' },
@@ -350,6 +393,7 @@ serve(async (req) => {
     if (/\b(estou|tenho)\s+(interessad[oa]|interesse)\b/i.test(whatsappText)) {
       textos_gerados.mensagem_whatsapp = buildWhatsappFallback(dadosObj, tipo)
     }
+    validateGeneratedPurpose(textos_gerados, { ...dadosObj, tipo })
     const titulo = (textos_gerados.titulo_campanha as string) || `Imóvel ${tipo}`
     console.log(`[${reqId}] OpenAI OK`)
 
