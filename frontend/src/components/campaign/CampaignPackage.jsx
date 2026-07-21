@@ -16,7 +16,7 @@ import {
   Share2,
 } from 'lucide-react'
 import { buildCampaignPackage } from './buildCampaignPackage'
-import { downloadFileFromPrivateUrl } from '../../lib/download-file'
+import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../../lib/download-file'
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -140,8 +140,8 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     setDownloadingKey(key)
     try {
       await downloadFileFromPrivateUrl(url, filename)
-    } catch {
-      setDownloadError('Não foi possível baixar o arquivo. Verifique sua conexão e tente novamente.')
+    } catch (error) {
+      setDownloadError(getDownloadErrorMessage(error))
     } finally {
       setDownloadingKey('')
     }

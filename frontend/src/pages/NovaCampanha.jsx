@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
+import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -831,6 +832,37 @@ const mergeRequestedVisualPieces = (requestedPieces = [], returnedRenders = [], 
   })
 
   return merged
+}
+const getRenderFinalUrl = (render) => [
+  render?.download_url,
+  render?.downloadUrl,
+  render?.video_url,
+  render?.videoUrl,
+  render?.url,
+].find(value => typeof value === 'string' && value.trim())?.trim() || ''
+const getRenderPreviewUrl = (render) => [
+  render?.preview_url,
+  render?.previewUrl,
+  render?.snapshot_url,
+  getRenderFinalUrl(render),
+].find(value => typeof value === 'string' && value.trim())?.trim() || ''
+const getMediaUrlExtension = (url) => String(url || '')
+  .split(/[?#]/, 1)[0]
+  .match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || ''
+const isRenderVideo = (render) => {
+  const extension = getMediaUrlExtension(getRenderFinalUrl(render))
+  return ['mp4', 'webm', 'mov'].includes(extension)
+    || String(render?.type || render?.media_type || '').toLowerCase().includes('video')
+}
+const getRenderDownloadName = (render, index) => {
+  const label = String(render?.template_nome || render?.model_name || render?.label || `peca-${index + 1}`)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || `peca-${index + 1}`
+  const extension = getMediaUrlExtension(getRenderFinalUrl(render)) || (isRenderVideo(render) ? 'mp4' : 'png')
+  return `smartcorretorai-${label}-${index + 1}.${extension}`
 }
 const getRenderDebugPayload = (render) => ({
   render_id: render?.render_id || null,
@@ -1976,6 +2008,8 @@ export default function NovaCampanha() {
   const [requestedVisualPieces, setRequestedVisualPieces] = useState([])
   const [gerandoBanners, setGerandoBanners] = useState(false)
   const [generationNotice, setGenerationNotice] = useState('')
+  const [downloadingRenderKey, setDownloadingRenderKey] = useState('')
+  const [downloadingAllRenders, setDownloadingAllRenders] = useState(false)
   const renderPollRef = useRef(null)
   const [activePreviewModel, setActivePreviewModel] = useState(null)
 
@@ -2648,7 +2682,7 @@ export default function NovaCampanha() {
   }
   const abrirWhatsApp = (texto) => window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
 
-  const baixarTudo = () => {
+  const baixarTextosDaCampanha = () => {
     if (!resultado?.textos_gerados) return
     const REDES = {
       titulo_campanha: ['TÍTULO DA CAMPANHA', null],
@@ -2687,8 +2721,65 @@ export default function NovaCampanha() {
       txt += `${label || rede}\n${'─'.repeat(30)}\n${content}\n`
       txt += '\n\n'
     })
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' })), download: `anuncios-${resultado.titulo?.replace(/\s+/g, '-').toLowerCase() || 'imovel'}.txt` })
-    a.click(); URL.revokeObjectURL(a.href)
+    const objectUrl = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }))
+    const a = Object.assign(document.createElement('a'), { href: objectUrl, download: `anuncios-${resultado.titulo?.replace(/\s+/g, '-').toLowerCase() || 'imovel'}.txt` })
+    a.click()
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  }
+
+  const baixarPecaVisual = async (render, index) => {
+    const finalUrl = getRenderFinalUrl(render)
+    const downloadKey = render?.piece_id || render?.render_id || `render-${index}`
+    if (!finalUrl) {
+      toast.error('O arquivo final desta peça ainda não está disponível.')
+      return
+    }
+
+    setDownloadingRenderKey(downloadKey)
+    try {
+      await downloadFileFromPrivateUrl(finalUrl, getRenderDownloadName(render, index))
+      toast.success('Download iniciado.')
+    } catch (error) {
+      toast.error(getDownloadErrorMessage(error))
+    } finally {
+      setDownloadingRenderKey('')
+    }
+  }
+
+  const baixarTudo = async (visualPieces = []) => {
+    if (downloadingAllRenders) return
+    const readyPieces = visualPieces.filter(render => (
+      RENDER_READY_STATUSES.has(normalizeRenderStatus(render?.status))
+      && getRenderFinalUrl(render)
+    ))
+
+    if (!readyPieces.length) {
+      baixarTextosDaCampanha()
+      toast.error('Nenhuma peça visual concluída está disponível para download.')
+      return
+    }
+
+    setDownloadingAllRenders(true)
+    let completed = 0
+    let firstError = null
+    try {
+      for (const [index, render] of readyPieces.entries()) {
+        try {
+          await downloadFileFromPrivateUrl(getRenderFinalUrl(render), getRenderDownloadName(render, index))
+          completed += 1
+        } catch (error) {
+          firstError ||= error
+        }
+      }
+      baixarTextosDaCampanha()
+      if (completed === readyPieces.length) {
+        toast.success(`${completed} ${completed === 1 ? 'peça baixada' : 'peças baixadas'} com os textos da campanha.`)
+      } else {
+        toast.error(`${completed} de ${readyPieces.length} peças foram baixadas. ${getDownloadErrorMessage(firstError)}`)
+      }
+    } finally {
+      setDownloadingAllRenders(false)
+    }
   }
 
   const postarNoInstagram = async () => {
@@ -4016,10 +4107,13 @@ export default function NovaCampanha() {
                     >
                       Ver campanhas geradas
                     </button>
-                    <button onClick={baixarTudo}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => baixarTudo(visualPieces)}
+                      disabled={downloadingAllRenders || Boolean(downloadingRenderKey)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors disabled:cursor-wait disabled:opacity-60">
                       <Download className="w-4 h-4" />
-                      Baixar tudo
+                      {downloadingAllRenders ? 'Baixando peças...' : 'Baixar tudo'}
                     </button>
                   </div>
                 </div>
@@ -4217,7 +4311,12 @@ export default function NovaCampanha() {
                         const status = normalizeRenderStatus(r.status)
                         const ok = RENDER_READY_STATUSES.has(status)
                         const falhou = RENDER_ERROR_STATUSES.has(status) || !!r.erro
-                        const ehVideo = r.url && /\.(mp4|webm|mov)$/i.test(r.url)
+                        const finalUrl = getRenderFinalUrl(r)
+                        const previewUrl = getRenderPreviewUrl(r)
+                        const viewUrl = r.preview_url || r.previewUrl || finalUrl
+                        const ehVideo = isRenderVideo(r)
+                        const downloadKey = r.piece_id || r.render_id || `render-${i}`
+                        const isDownloading = downloadingRenderKey === downloadKey
                         const nomePeca = r.template_nome && !/template|creatomate|uuid/i.test(r.template_nome)
                           ? r.template_nome
                           : 'Peça visual'
@@ -4234,12 +4333,12 @@ export default function NovaCampanha() {
                               </span>
                             </div>
                             <div className="bg-gray-100 aspect-video flex items-center justify-center overflow-hidden">
-                              {ok && ehVideo ? (
-                                <video src={r.url} controls className="w-full h-full object-contain bg-black" />
-                              ) : ok && r.url ? (
-                                <img src={r.snapshot_url || r.url} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain pointer-events-none select-none" />
-                              ) : r.snapshot_url ? (
-                                <img src={r.snapshot_url} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain opacity-70 pointer-events-none select-none" />
+                              {ok && ehVideo && finalUrl ? (
+                                <video src={finalUrl} controls playsInline className="w-full h-full object-contain bg-black" />
+                              ) : ok && previewUrl ? (
+                                <img src={previewUrl} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain pointer-events-none select-none" />
+                              ) : previewUrl ? (
+                                <img src={previewUrl} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain opacity-70 pointer-events-none select-none" />
                               ) : (
                                 <div className="text-xs text-gray-500 px-3 py-6 text-center">
                                   {falhou ? (r.erro || 'Falhou') : 'Processando...'}
@@ -4247,17 +4346,20 @@ export default function NovaCampanha() {
                               )}
                             </div>
                             <div className="p-3 pt-2">
-                              {ok && r.url ? (
+                              {ok && finalUrl ? (
                                 <div className="grid grid-cols-2 gap-2">
-                                  <a href={r.url} target="_blank" rel="noopener noreferrer"
+                                  <a href={viewUrl} target="_blank" rel="noopener noreferrer"
                                     className="block text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
                                     Visualizar
                                   </a>
-                                  <a href={r.url} download target="_blank" rel="noopener noreferrer"
-                                    className="block text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                                  <button
+                                    type="button"
+                                    onClick={() => baixarPecaVisual(r, i)}
+                                    disabled={downloadingAllRenders || Boolean(downloadingRenderKey)}
+                                    className="block w-full text-xs font-bold text-center py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors disabled:cursor-wait disabled:opacity-60">
                                     <Download className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                                    Baixar
-                                  </a>
+                                    {isDownloading ? 'Baixando...' : 'Baixar'}
+                                  </button>
                                 </div>
                               ) : (
                                 <div className="text-[11px] text-gray-400 text-center py-2">
