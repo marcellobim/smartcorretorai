@@ -94,6 +94,14 @@ const IMAGE_SLOTS = [
   },
 ]
 
+const STUDIO_PRODUCT_VISIBILITY = {
+  smart_tour: { enabled: true },
+  cinematic: { enabled: true },
+  free_ai: { enabled: true },
+  smart_carousel: { enabled: true },
+  improve_video: { enabled: false },
+}
+
 const STUDIO_CREATION_MODES = [
   {
     id: 'smart_tour',
@@ -148,6 +156,22 @@ const STUDIO_CREATION_MODES = [
 ]
 
 const STUDIO_MODE_EXAMPLES = [
+  {
+    id: 'smart_tour',
+    title: 'Smart Tour AI',
+    label: 'Visita guiada por IA',
+    accent: 'cyan',
+    send: [
+      'Até 6 imagens do imóvel',
+    ],
+    receive: [
+      'Apresentação imobiliária guiada',
+      'Movimentos cinematográficos',
+      'Narração e textos configuráveis',
+      'Apresentador virtual opcional',
+      'Campanha pronta para publicar',
+    ],
+  },
   {
     id: 'cinematic',
     media: '/showcase/studio/showcase-venda0.mp4.mp4',
@@ -224,6 +248,9 @@ const STUDIO_MODE_EXAMPLES = [
     ],
   },
 ]
+
+const VISIBLE_STUDIO_CREATION_MODES = STUDIO_CREATION_MODES.filter((mode) => STUDIO_PRODUCT_VISIBILITY[mode.id]?.enabled !== false)
+const VISIBLE_STUDIO_MODE_EXAMPLES = STUDIO_MODE_EXAMPLES.filter((example) => STUDIO_PRODUCT_VISIBILITY[example.id]?.enabled !== false)
 
 const STUDIO_POSSIBILITY_EXAMPLES = [
   {
@@ -1883,8 +1910,8 @@ export default function StudioHero() {
                 Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única.
               </p>
             </div>
-            <div className="grid gap-4 lg:grid-cols-4">
-              {STUDIO_MODE_EXAMPLES.map((example) => {
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {VISIBLE_STUDIO_MODE_EXAMPLES.map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
                 return (
                   <div key={example.id} className={`overflow-hidden rounded-3xl border p-4 ${accent.card}`}>
@@ -1946,7 +1973,7 @@ export default function StudioHero() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {STUDIO_CREATION_MODES.map((mode) => {
+            {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
               const ModeIcon = mode.Icon
               const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
               const isSmartCarousel = mode.id === 'smart_carousel'

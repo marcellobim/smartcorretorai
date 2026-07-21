@@ -44,6 +44,13 @@ test('places Smart Tour first without changing existing Studio Hero options', ()
   assert.match(studio, /setStudioMode\(mode\.id\)[\s\S]*?resetFlow\(mode\.id\)/)
   assert.match(studio, /className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"/)
   assert.doesNotMatch(studio, /xl:grid-cols-5/)
+  assert.match(studio, /improve_video: \{ enabled: false \}/)
+  assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES\.map/)
+  assert.match(studio, /VISIBLE_STUDIO_MODE_EXAMPLES\.map/)
+  const examples = studio.slice(studio.indexOf('const STUDIO_MODE_EXAMPLES'), studio.indexOf('const STUDIO_POSSIBILITY_EXAMPLES'))
+  const examplePositions = ids.map(id => examples.indexOf(`id: '${id}'`))
+  assert.ok(examplePositions.every(position => position >= 0))
+  assert.deepEqual([...examplePositions].sort((a, b) => a - b), examplePositions)
 })
 
 test('uses only the isolated Gemini Omni client for Smart Tour generation', () => {
