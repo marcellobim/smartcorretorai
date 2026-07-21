@@ -1976,7 +1976,6 @@ export default function StudioHero() {
             {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
               const ModeIcon = mode.Icon
               const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
-              const isSmartCarousel = mode.id === 'smart_carousel'
               const cardContent = (
                 <>
                   <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${accent.glow}`} />
@@ -1990,23 +1989,13 @@ export default function StudioHero() {
                   </div>
                   <h2 className="relative mt-5 text-xl font-black text-slate-950">{mode.title}</h2>
                   <p className="relative mt-3 flex-1 text-sm font-semibold leading-6 text-slate-600">{mode.description}</p>
-                  {isSmartCarousel ? (
-                    <button
-                      type="button"
-                      onClick={() => selectStudioMode(mode)}
-                      className={`relative mt-5 text-left text-sm font-black ${accent.cta}`}
-                    >
-                      {mode.cta}
-                    </button>
-                  ) : (
-                    <span className={`relative mt-5 text-sm font-black ${accent.cta}`}>
-                      {mode.active ? mode.cta : 'Em breve'}
-                    </span>
-                  )}
+                  <span className={`relative mt-5 text-sm font-black ${accent.cta}`}>
+                    {mode.active ? mode.cta : 'Em breve'}
+                  </span>
                 </>
               )
 
-              if (isSmartCarousel) {
+              if (!mode.active) {
                 return (
                   <div
                     key={mode.id}
@@ -2022,7 +2011,7 @@ export default function StudioHero() {
                   key={mode.id}
                   type="button"
                   onClick={() => selectStudioMode(mode)}
-                  className={`relative flex min-h-[240px] flex-col overflow-hidden rounded-3xl border p-5 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${accent.card}`}
+                  className={`relative flex min-h-[240px] cursor-pointer flex-col overflow-hidden rounded-3xl border p-5 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${accent.card}`}
                 >
                   {cardContent}
                 </button>
