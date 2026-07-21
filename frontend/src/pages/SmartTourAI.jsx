@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, CheckCircle2, Loader2, MessageSquareText, Sparkles, Trash2, UploadCloud, Video } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Loader2, MessageSquareText, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
@@ -7,7 +7,7 @@ import { buildSmartTourCampaignPackage } from '../components/campaign/buildSmart
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
-import { SMART_TOUR_LANGUAGES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_MODES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
+import { SMART_TOUR_EXAMPLES, SMART_TOUR_LANGUAGES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_MODES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 
 const BUCKET = 'studio-videos'
 const ACTIVE_JOB_KEY = 'smartcorretorai:smart-tour:active-job'
@@ -113,11 +113,162 @@ export default function SmartTourAI() {
 
   const summary = [images.length && `${images.length} foto${images.length > 1 ? 's' : ''}`, property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação'), property.type, [property.district, property.city, property.state].filter(Boolean).join(', '), SMART_TOUR_MODES.find(item => item.id === generation.mode)?.label, SMART_TOUR_LANGUAGES.find(item => item.id === generation.language)?.label, cta, includePhone === true ? phone : includePhone === false ? 'Sem telefone' : ''].filter(Boolean)
   const visualStep = status === 'idle' ? question[1] : 5
-  return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="O SmartCorretorAI organiza o contexto. A IA faz o trabalho pesado." /><main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
+  return <>
+    <Header title={SMART_TOUR_PRODUCT_NAME} subtitle="O SmartCorretorAI organiza o contexto. A IA faz o trabalho pesado." />
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
+      <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#052e3b_0%,#0f172a_48%,#047857_100%)] px-6 py-9 text-white shadow-2xl shadow-emerald-950/20 sm:px-10 sm:py-11">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_10%,rgba(110,231,183,0.24),transparent_28%),radial-gradient(circle_at_88%_18%,rgba(34,211,238,0.16),transparent_30%)]" />
+        <div className="relative max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-100 ring-1 ring-white/10">
+            <Sparkles className="h-4 w-4" />
+            Smart Tour AI
+          </div>
+          <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Transforme fotos em uma apresentação que conduz a visita.</h1>
+          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-200 sm:text-base">
+            Escolha a experiência ideal no chat. A IA organiza movimentos, narração, textos, apresentação virtual e ambientação conforme suas escolhas.
+          </p>
+        </div>
+      </section>
+
+      <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div className="mb-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Exemplos de experiências</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Quatro formas de apresentar seu imóvel</h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+            Esta vitrine apresenta apenas as quatro famílias principais. As variações de cada experiência continuam disponíveis no chat de criação.
+          </p>
+        </div>
+        <SmartTourShowcase />
+      </section>
+
+      <div className="mb-5 mt-10">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Criação guiada</p>
+        <h2 className="mt-2 text-2xl font-black text-slate-950">Agora, conte como será o seu Smart Tour</h2>
+      </div>
     <div className="mb-6 grid grid-cols-5 gap-2">{['Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
     <section className="rounded-[2rem] border border-slate-200 bg-transparent"><div className="border-b border-slate-100 p-5 sm:px-8"><div className="flex gap-4"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><MessageSquareText /></span><div><p className="text-xs font-black uppercase tracking-widest text-emerald-700">Criação guiada</p><h2 className="text-xl font-black">Converse com a IA</h2></div></div></div>
       <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8"><div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm"><div className="flex gap-3"><Sparkles className="mt-1 text-emerald-600" /><div className="min-w-0 flex-1"><span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-black uppercase text-emerald-800">Pergunta {index + 1} de {questions.length}</span><h3 className="mt-3 text-xl font-black sm:text-2xl">{question[2]}</h3><div className="mt-6"><Question id={question[0]} {...{ images, property, generation, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, next, setPropertyField, setGenerationField, toggleHighlight, setCta, setIncludePhone, createTour }} /></div></div></div></div>
         <aside className="rounded-3xl border border-emerald-100 bg-emerald-50/60 p-5 lg:sticky lg:top-6 lg:self-start"><p className="text-xs font-black uppercase tracking-widest text-emerald-700">Resumo da apresentação</p><div className="mt-4 space-y-2">{summary.map((value, itemIndex) => <div key={`${value}-${itemIndex}`} className="flex gap-2 text-sm font-bold text-slate-700"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />{value}</div>)}</div></aside></div></section></main></>
+}
+
+function SmartTourShowcase() {
+  const [activeIndex, setActiveIndex] = useState(null)
+  const activeExample = activeIndex === null ? null : SMART_TOUR_EXAMPLES[activeIndex]
+  const close = () => setActiveIndex(null)
+  const showPrevious = () => setActiveIndex(current => (current - 1 + SMART_TOUR_EXAMPLES.length) % SMART_TOUR_EXAMPLES.length)
+  const showNext = () => setActiveIndex(current => (current + 1) % SMART_TOUR_EXAMPLES.length)
+
+  useEffect(() => {
+    if (activeIndex === null) return undefined
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') setActiveIndex(null)
+      if (event.key === 'ArrowLeft') setActiveIndex(current => (current - 1 + SMART_TOUR_EXAMPLES.length) % SMART_TOUR_EXAMPLES.length)
+      if (event.key === 'ArrowRight') setActiveIndex(current => (current + 1) % SMART_TOUR_EXAMPLES.length)
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [activeIndex])
+
+  return <>
+    <div className="grid grid-flow-col auto-cols-[minmax(240px,82vw)] gap-4 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:thin] snap-x snap-mandatory sm:auto-cols-[280px] lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible lg:pb-0">
+      {SMART_TOUR_EXAMPLES.map((example, exampleIndex) => (
+        <article key={example.id} className="min-w-0 snap-center rounded-3xl border border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)] p-4 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setActiveIndex(exampleIndex)}
+            className="group mx-auto block w-full max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 text-left shadow-xl shadow-slate-200/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            aria-label={`Ampliar demonstração: ${example.title}`}
+          >
+            <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#047857_100%)]">
+              {example.placeholder ? <ExamplePlaceholder example={example} /> : (
+                <video
+                  src={example.video}
+                  aria-label={`Demonstração: ${example.title}`}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls={false}
+                  preload="metadata"
+                  disablePictureInPicture
+                  disableRemotePlayback
+                  controlsList="nodownload noremoteplayback"
+                  onContextMenu={event => event.preventDefault()}
+                  className="absolute inset-0 h-full w-full bg-black object-contain"
+                />
+              )}
+              <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-emerald-300/60" />
+            </div>
+          </button>
+          <h3 className="mt-4 text-center text-base font-black text-slate-950">{example.title}</h3>
+          <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
+        </article>
+      ))}
+    </div>
+
+    {activeExample && (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Demonstração ampliada: ${activeExample.title}`}
+        onMouseDown={event => { if (event.target === event.currentTarget) close() }}
+      >
+        <div className="relative flex max-h-full w-full max-w-4xl flex-col items-center">
+          <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
+            <div className="min-w-0">
+              <p className="truncate text-lg font-black">{activeExample.title}</p>
+              <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} de {SMART_TOUR_EXAMPLES.length}</p>
+            </div>
+            <button type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Fechar demonstração">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-2 sm:gap-5">
+            <button type="button" onClick={showPrevious} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Demonstração anterior">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="flex aspect-[9/16] max-h-[calc(100vh-9rem)] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl sm:flex-none sm:w-[min(420px,70vw)]">
+              {activeExample.placeholder ? <ExamplePlaceholder example={activeExample} large /> : (
+                <video
+                  key={activeExample.id}
+                  src={activeExample.video}
+                  aria-label={`Demonstração ampliada: ${activeExample.title}`}
+                  autoPlay
+                  playsInline
+                  controls
+                  preload="metadata"
+                  disablePictureInPicture
+                  disableRemotePlayback
+                  controlsList="nodownload noremoteplayback"
+                  onContextMenu={event => event.preventDefault()}
+                  className="h-full w-full bg-black object-contain"
+                />
+              )}
+            </div>
+            <button type="button" onClick={showNext} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Próxima demonstração">
+              <ArrowRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+}
+
+function ExamplePlaceholder({ example, large = false }) {
+  return <div className="relative flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.22),transparent_42%),linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#064e3b_100%)] px-4 text-center text-white">
+    <PlayCircle className={large ? 'h-14 w-14 text-emerald-200' : 'h-9 w-9 text-emerald-200'} />
+    <p className={`${large ? 'mt-5 text-sm' : 'mt-4 text-[10px]'} font-black uppercase tracking-[0.2em] text-emerald-100`}>Vídeo pendente</p>
+    <p className={`${large ? 'mt-3 text-base' : 'mt-2 text-xs'} font-black`}>{example.title}</p>
+    <p className={`${large ? 'mt-4 max-w-sm text-sm' : 'mt-3 text-[10px]'} break-all font-semibold leading-5 text-slate-300`}>{example.video}</p>
+  </div>
 }
 
 function Question(props) {
