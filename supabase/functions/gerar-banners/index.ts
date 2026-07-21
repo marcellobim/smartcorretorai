@@ -1502,6 +1502,7 @@ serve(async (req) => {
     const payloadDadosImovel = payload.dados_imovel && typeof payload.dados_imovel === 'object'
       ? payload.dados_imovel as Record<string, unknown>
       : {}
+    const hideProfessionalPhone = String(payloadDadosImovel.telefone_contato || '').trim() === 'REMOVER_ELEMENTO'
     const dadosImovel = normalizeCampaignPropertyInput({
       ...payloadDadosImovel,
       ...((campaignRow?.dados_imovel as Record<string, unknown>) || {}),
@@ -1521,8 +1522,8 @@ serve(async (req) => {
     const corretorNomeFinal  = profileRow?.nome        || (typeof corretor_nome === 'string' ? corretor_nome : '') || ''
     const corretorEmail      = profileRow?.email       || ''
     const corretorCRECI      = profileRow?.creci       || ''
-    const corretorTelefone   = profileRow?.telefone    || String(dadosImovel.telefone_contato || '')
-    const corretorWhatsApp   = profileRow?.whatsapp    || corretorTelefone
+    const corretorTelefone   = hideProfessionalPhone ? '' : (profileRow?.telefone || String(dadosImovel.telefone_contato || ''))
+    const corretorWhatsApp   = hideProfessionalPhone ? '' : (profileRow?.whatsapp || corretorTelefone)
     const marcaFinal         = profileRow?.imobiliaria || (typeof marca_imovel === 'string' ? marca_imovel : '') || ''
     const siteFinal          = profileRow?.site        || ''
     const instagramFinal     = profileRow?.instagram   || ''

@@ -85,15 +85,15 @@ const PRODUCT_3_HIGHLIGHTS = [
   'Academia',
   'Churrasqueira',
   'Varanda gourmet',
+  'Lazer completo',
   'Vista livre',
   'Próximo ao metrô',
   'Aceita financiamento',
   'Documentação em ordem',
-  'Dormitórios',
-  'Suítes',
-  'Vagas',
 ]
 const PRODUCT_3_CTA_OPTIONS = ['Saiba Mais', 'Agende sua visita', 'Entre em contato agora']
+const PRODUCT_3_BEDROOM_OPTIONS = [0, 1, 2, 3, 4, 5]
+const PRODUCT_3_SUITE_AND_PARKING_OPTIONS = [0, 1, 2, 3, 4]
 
 const DESTAQUE_CATEGORIES = [
   {
@@ -884,6 +884,7 @@ const formatAreaLabel = value => {
   const normalized = sanitizeAreaInput(value)
   return normalized ? `${normalized.replace('.', ',')} m²` : ''
 }
+const formatProduct3CountChoice = (value, plusAt) => Number(value) === plusAt ? `${plusAt}+` : String(Number(value) || 0)
 const normalizeSpaces = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 const capitalizePtWord = (word) => {
   if (!word) return ''
@@ -1144,6 +1145,9 @@ function BannerConversation({
   onToggleDestaque,
   cta,
   onCtaChange,
+  useProfessionalPhone,
+  onUseProfessionalPhoneChange,
+  professionalPhone,
   selectedModelSummaries,
   selectedUseCount,
   photosCount,
@@ -1162,8 +1166,12 @@ function BannerConversation({
     'district',
     'price',
     'area',
+    'bedrooms',
+    'suites',
+    'parking',
     'highlights',
     'cta',
+    'phone',
     'done',
   ]
   const activeIndex = Math.max(sequence.indexOf(step), 0)
@@ -1184,8 +1192,12 @@ function BannerConversation({
     district: bairro,
     price: priceLabel || 'Preço não informado',
     area: areaLabel || 'Área não informada',
+    bedrooms: `${formatProduct3CountChoice(quartos, 5)} dormitório${Number(quartos) === 1 ? '' : 's'}`,
+    suites: `${formatProduct3CountChoice(suites, 4)} suíte${Number(suites) === 1 ? '' : 's'}`,
+    parking: `${formatProduct3CountChoice(vagas, 4)} vaga${Number(vagas) === 1 ? '' : 's'}`,
     highlights: diferenciais.length ? diferenciais.join(', ') : 'Sem destaques selecionados',
     cta,
+    phone: useProfessionalPhone === 'yes' ? 'Sim' : useProfessionalPhone === 'no' ? 'Não' : '',
   }
   const questionLabels = {
     purpose: 'Vamos divulgar um imóvel para:',
@@ -1195,8 +1207,12 @@ function BannerConversation({
     district: 'Em qual bairro ele está localizado?',
     price: 'Qual é o preço do imóvel?',
     area: 'Qual é a área aproximada do imóvel?',
+    bedrooms: 'Quantos dormitórios o imóvel possui?',
+    suites: 'Quantas suítes o imóvel possui?',
+    parking: 'Quantas vagas o imóvel possui?',
     highlights: 'Quais são os principais destaques?',
     cta: 'Qual chamada deseja usar no final?',
+    phone: 'Deseja utilizar o telefone do seu Cadastro Profissional?',
     done: 'Excelente. Os dados estão prontos para a próxima etapa.',
   }
   const history = sequence
@@ -1282,8 +1298,12 @@ function BannerConversation({
       onPrecoModoChange('')
     }
     if (laterSteps.has('area')) onAreaChange('')
+    if (laterSteps.has('bedrooms')) onQuartosChange(0)
+    if (laterSteps.has('suites')) onSuitesChange(0)
+    if (laterSteps.has('parking')) onVagasChange(0)
     if (laterSteps.has('highlights')) diferenciais.forEach(item => onToggleDestaque(item))
     if (laterSteps.has('cta')) onCtaChange('')
+    if (laterSteps.has('phone')) onUseProfessionalPhoneChange('')
   }
 
   const editStep = (targetStep) => {
@@ -1412,6 +1432,12 @@ function BannerConversation({
         </div>
       </div>
     )
+  } else if (step === 'bedrooms') {
+    questionContent = <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{PRODUCT_3_BEDROOM_OPTIONS.map(option => optionButton(option, formatProduct3CountChoice(option, 5), quartos === option, () => advance(() => onQuartosChange(option))))}</div>
+  } else if (step === 'suites') {
+    questionContent = <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{PRODUCT_3_SUITE_AND_PARKING_OPTIONS.map(option => optionButton(option, formatProduct3CountChoice(option, 4), suites === option, () => advance(() => onSuitesChange(option))))}</div>
+  } else if (step === 'parking') {
+    questionContent = <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{PRODUCT_3_SUITE_AND_PARKING_OPTIONS.map(option => optionButton(option, formatProduct3CountChoice(option, 4), vagas === option, () => advance(() => onVagasChange(option))))}</div>
   } else if (step === 'highlights') {
     questionContent = <div className="space-y-4">
       <div className="flex flex-wrap gap-2">{PRODUCT_3_HIGHLIGHTS.map(item => {
@@ -1424,6 +1450,17 @@ function BannerConversation({
     </div>
   } else if (step === 'cta') {
     questionContent = <div className="grid gap-2 sm:grid-cols-3">{PRODUCT_3_CTA_OPTIONS.map(option => optionButton(option, option, cta === option, () => advance(() => onCtaChange(option))))}</div>
+  } else if (step === 'phone') {
+    questionContent = <div className="grid gap-2 sm:grid-cols-2">
+      {optionButton('yes', 'Sim', useProfessionalPhone === 'yes', () => {
+        if (!professionalPhone) {
+          toast.error('Cadastre um telefone no Cadastro Profissional para utilizar esta opção.')
+          return
+        }
+        advance(() => onUseProfessionalPhoneChange('yes'))
+      })}
+      {optionButton('no', 'Não', useProfessionalPhone === 'no', () => advance(() => onUseProfessionalPhoneChange('no')))}
+    </div>
   } else {
     questionContent = <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><p className="text-sm font-bold leading-6 text-emerald-900">Conversa concluída. Seus dados e modelos foram preservados.</p><button type="button" onClick={finishConversation} className="mt-4 rounded-xl bg-primary-800 px-5 py-3 text-sm font-black text-white hover:bg-primary-700">Continuar para as imagens</button></div>
   }
@@ -1437,8 +1474,12 @@ function BannerConversation({
     { label: 'Bairro', value: bairro, step: 'district' },
     { label: 'Preço', value: priceLabel, step: 'price' },
     { label: 'Área', value: areaLabel, step: 'area' },
+    { label: 'Dormitórios', value: activeIndex > sequence.indexOf('bedrooms') ? formatProduct3CountChoice(quartos, 5) : '', step: 'bedrooms' },
+    { label: 'Suítes', value: activeIndex > sequence.indexOf('suites') ? formatProduct3CountChoice(suites, 4) : '', step: 'suites' },
+    { label: 'Vagas', value: activeIndex > sequence.indexOf('parking') ? formatProduct3CountChoice(vagas, 4) : '', step: 'parking' },
     { label: 'Destaques', value: diferenciais.length ? diferenciais.join(', ') : '', step: 'highlights' },
     { label: 'CTA', value: cta, step: 'cta' },
+    { label: 'Telefone profissional', value: useProfessionalPhone === 'yes' ? 'Sim' : useProfessionalPhone === 'no' ? 'Não' : '', step: 'phone' },
     { label: 'Imagens enviadas', value: photosCount ? `${photosCount}` : 'Ainda não enviadas' },
   ].filter(item => item.value)
 
@@ -1914,6 +1955,7 @@ export default function NovaCampanha() {
   const [diferenciais, setDiferenciais] = useState([])
   const [difCustom, setDifCustom] = useState('')
   const [product3Cta, setProduct3Cta] = useState('')
+  const [product3UseProfessionalPhone, setProduct3UseProfessionalPhone] = useState('')
   const [fotos, setFotos] = useState([])
   const [videoArquivo, setVideoArquivo] = useState(null)
   const [msgIdx, setMsgIdx] = useState(0)
@@ -2157,14 +2199,18 @@ export default function NovaCampanha() {
   const dadosImovelValidos = tipo
     && bairroNormalizado
     && cidade.trim()
-    && (isProductEntry ? estado : product3Cta)
+    && (isProductEntry ? estado : (product3Cta && product3UseProfessionalPhone))
     && (!preco || precoModo)
   const profileWhatsapp = authedUser?.whatsapp || authedUser?.telefone || authedUser?.phone || authedUser?.phone_number || ''
+  const product3PublicPhone = !isProductEntry && product3UseProfessionalPhone === 'yes' ? profileWhatsapp : ''
+  const product3PhonePayload = !isProductEntry && product3UseProfessionalPhone === 'no'
+    ? 'REMOVER_ELEMENTO'
+    : (isProductEntry ? profileWhatsapp : product3PublicPhone)
   const isLandProperty = ['Terreno / Lote', 'Loteamento'].includes(tipo)
   const isCommercialProperty = isCommercialPropertyType(tipo)
-  const quartosParaPayload = isLandProperty || isCommercialProperty ? 0 : quartos
-  const suitesParaPayload = isLandProperty || isCommercialProperty ? 0 : suites
-  const vagasParaPayload = isLandProperty ? 0 : vagas
+  const quartosParaPayload = isProductEntry && (isLandProperty || isCommercialProperty) ? 0 : quartos
+  const suitesParaPayload = isProductEntry && (isLandProperty || isCommercialProperty) ? 0 : suites
+  const vagasParaPayload = isProductEntry && isLandProperty ? 0 : vagas
   const podaGerar = categoria && dadosImovelValidos
   const maxDestaquesAtivos = isProductEntry ? MAX_DESTAQUES_FLUXO : MAX_DESTAQUES_CHAT_PRODUTO_3
 
@@ -2213,15 +2259,16 @@ export default function NovaCampanha() {
     destaques_produto_3: destaquesProduto3,
     cta: !isProductEntry ? product3Cta : null,
     cta_text: !isProductEntry ? product3Cta : null,
+    telefone_contato: product3PhonePayload,
     corretor_publico: {
-      whatsapp: profileWhatsapp || null,
+      whatsapp: product3PhonePayload || null,
     },
   })
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE); setSituacao('')
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco(''); setPrecoModo('')
-    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setFotos([]); setVideoArquivo(null)
+    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setProduct3UseProfessionalPhone(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
     setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setBannerChatStep('purpose'); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
@@ -2460,7 +2507,7 @@ export default function NovaCampanha() {
               diferenciais: todosDisferenciais,
               destaques_selecionados: destaquesSelecionados,
               destaque_personalizado: destaquePersonalizado || null,
-              telefone_contato: profileWhatsapp,
+              telefone_contato: product3PublicPhone,
               formatos_selecionados: selectedModelUses,
               selectedTemplates,
               selected_templates: selectedTemplates,
@@ -3348,8 +3395,12 @@ export default function NovaCampanha() {
       [bairroNormalizado, cidade].filter(Boolean).length ? `Localização: ${[bairroNormalizado, cidade].filter(Boolean).join(', ')}` : '',
       preco ? `Preço: ${formatProduct3Price(preco, precoModo)}` : 'Preço não informado',
       area ? `Área: ${formatAreaLabel(area)}` : 'Área não informada',
+      `Dormitórios: ${formatProduct3CountChoice(quartos, 5)}`,
+      `Suítes: ${formatProduct3CountChoice(suites, 4)}`,
+      `Vagas: ${formatProduct3CountChoice(vagas, 4)}`,
       `Destaques: ${destaquesProduto3.length}`,
       `CTA: ${product3Cta}`,
+      `Telefone profissional: ${product3UseProfessionalPhone === 'yes' ? 'Sim' : 'Não'}`,
       `Imagens: ${fotos.length}`,
       `Modelos: ${selectedModelCount} · Peças: ${selectedUseCount}`,
     ].filter(Boolean)
@@ -3709,6 +3760,9 @@ export default function NovaCampanha() {
                   onToggleDestaque={toggleDestaque}
                   cta={product3Cta}
                   onCtaChange={setProduct3Cta}
+                  useProfessionalPhone={product3UseProfessionalPhone}
+                  onUseProfessionalPhoneChange={setProduct3UseProfessionalPhone}
+                  professionalPhone={profileWhatsapp}
                   selectedModelSummaries={selectedModelSummaries}
                   selectedUseCount={selectedUseCount}
                   photosCount={fotos.length}
@@ -3769,7 +3823,7 @@ export default function NovaCampanha() {
                   >
                     Corrigir informações
                   </button>
-                  {!profileWhatsapp && (
+                  {product3UseProfessionalPhone === 'yes' && !profileWhatsapp && (
                     <div className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-4 text-sm text-primary-900">
                       WhatsApp não encontrado no perfil. Complete seu perfil para incluir seu contato automaticamente nos materiais.
                     </div>
