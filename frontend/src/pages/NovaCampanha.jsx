@@ -89,8 +89,14 @@ const PRODUCT_3_HIGHLIGHTS = [
   'Lazer completo',
   'Vista livre',
   'Próximo ao metrô',
+  'Boa localização',
+  'Condomínio completo',
+  'Portaria 24 horas',
   'Aceita financiamento',
   'Documentação em ordem',
+  'Pronto para morar',
+  'Condições facilitadas',
+  'Ótimo para investir',
 ]
 const PRODUCT_3_CTA_OPTIONS = ['Saiba Mais', 'Agende sua visita', 'Entre em contato agora']
 const PRODUCT_3_BEDROOM_OPTIONS = [0, 1, 2, 3, 4, 5]
@@ -1472,10 +1478,13 @@ function BannerConversation({
     questionContent = <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{PRODUCT_3_SUITE_AND_PARKING_OPTIONS.map(option => optionButton(option, formatProduct3CountChoice(option, 4), vagas === option, () => advance(() => onVagasChange(option))))}</div>
   } else if (step === 'highlights') {
     questionContent = <div className="space-y-4">
+      <p className="text-xs font-semibold leading-relaxed text-slate-500 sm:text-sm">
+        Essas informações ajudam a IA a criar uma campanha mais completa e poderão ser utilizadas tanto nos banners compatíveis quanto nos textos da sua campanha.
+      </p>
       <div className="flex flex-wrap gap-2">{PRODUCT_3_HIGHLIGHTS.map(item => {
         const active = diferenciais.includes(item)
         const disabled = !active && diferenciais.length >= MAX_DESTAQUES_CHAT_PRODUTO_3
-        return <button key={item} type="button" disabled={disabled} onClick={() => onToggleDestaque(item)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${active ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-600'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}>{item}</button>
+        return <button key={item} type="button" aria-pressed={active} disabled={disabled} onClick={() => onToggleDestaque(item)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${active ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-600'} ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}>{item}</button>
       })}</div>
       <p className="text-xs font-semibold text-slate-500">{diferenciais.length} de {MAX_DESTAQUES_CHAT_PRODUTO_3} destaques selecionados</p>
       <button type="button" onClick={() => advance()} className="rounded-xl bg-primary-800 px-5 py-2.5 text-sm font-black text-white hover:bg-primary-700">Confirmar destaques</button>
@@ -3935,7 +3944,7 @@ export default function NovaCampanha() {
                       </p>
                     </div>
                     <p className="rounded-2xl bg-gray-50 p-3 text-xs font-semibold leading-relaxed text-gray-500">
-                      A seleção será validada com segurança no servidor antes da geração.
+                      Cada modelo utiliza automaticamente apenas as informações compatíveis com seu layout. As demais informações serão utilizadas na criação completa da campanha.
                     </p>
                   </div>
                   <button
