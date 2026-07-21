@@ -163,6 +163,7 @@ serve(async (req) => {
 
     const campaignId = typeof payload.campaign_id === 'string' ? payload.campaign_id : ''
     const markTimeout = payload.mark_timeout === true || payload.force_timeout === true
+    const refreshUrls = payload.refresh_urls === true || payload.refreshUrls === true
     let campaignBanners: StoredRender[] = []
     if (campaignId) {
       const { data: campaign, error: campaignError } = await supabase
@@ -213,38 +214,67 @@ serve(async (req) => {
         if (!response.ok) {
           const body = await response.text()
           console.error(`[${reqId}] Creatomate status ${response.status} render=${renderId}:`, body.slice(0, 200))
-          const status = response.status === 404 ? 'failed' : 'error'
+          const status = response.status === 404 ? 'failed' : normalizeStatus(storedRender?.status || 'rendering')
           const creditStatus = await finalizePieceCredit(supabase, reqId, user.id, storedRender, status)
           return {
             ...(storedRender || {}),
             render_id: renderId,
             status,
-            erro: `Creatomate ${response.status}: ${body.slice(0, 200)}`,
+            url: null,
+            download_url: null,
+            preview_url: null,
+            snapshot_url: null,
+            ...(response.status === 404
+              ? { erro: `Creatomate ${response.status}: ${body.slice(0, 200)}` }
+              : { erro: null, error_message: null, poll_warning: `Creatomate ${response.status}` }),
             credit_status: creditStatus,
           }
         }
 
         const data = await response.json()
         const status = normalizeStatus(data.status || 'planned')
+        const ready = READY_STATUSES.has(status)
+        const finalUrl = ready && typeof data.url === 'string' && data.url.trim()
+          ? data.url.trim()
+          : null
+        console.log(`[${reqId}] render lifecycle`, {
+          render_id: data.id || renderId,
+          status,
+          final_url_requested: ready,
+          refresh_urls: refreshUrls,
+          final_url_available: Boolean(finalUrl),
+        })
         const creditStatus = await finalizePieceCredit(supabase, reqId, user.id, storedRender, status)
         return {
           ...(storedRender || {}),
           render_id: data.id || renderId,
           status,
-          url: data.url || null,
-          snapshot_url: data.snapshot_url || null,
+          url: finalUrl,
+          download_url: finalUrl,
+          preview_url: finalUrl,
+          snapshot_url: ready ? finalUrl : null,
+          final_url_requested_at: ready ? new Date().toISOString() : null,
+          erro: null,
           error_message: data.error_message || data.error || null,
+          poll_warning: null,
           credit_status: creditStatus,
         }
       } catch (error) {
         console.error(`[${reqId}] erro ao consultar render=${renderId}:`, error)
-        const status = 'error'
+        const storedStatus = normalizeStatus(storedRender?.status || 'rendering')
+        const status = FINAL_STATUSES.has(storedStatus) ? storedStatus : 'rendering'
         const creditStatus = await finalizePieceCredit(supabase, reqId, user.id, storedRender, status)
         return {
           ...(storedRender || {}),
           render_id: renderId,
           status,
-          erro: error instanceof Error ? error.message : String(error),
+          url: null,
+          download_url: null,
+          preview_url: null,
+          snapshot_url: null,
+          erro: null,
+          error_message: null,
+          poll_warning: error instanceof Error ? error.message : String(error),
           credit_status: creditStatus,
         }
       }

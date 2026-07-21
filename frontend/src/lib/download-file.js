@@ -8,11 +8,11 @@ const EXTENSION_BY_MIME_TYPE = {
 
 const DOWNLOAD_ERROR_MESSAGES = {
   download_url_missing: 'O arquivo final ainda não está disponível para download.',
-  download_url_invalid: 'O link final do arquivo é inválido. Atualize a página e tente novamente.',
-  download_url_expired: 'O link de download expirou. Atualize a página para obter um novo link e tente novamente.',
-  download_request_blocked: 'Não foi possível acessar o arquivo final. O link pode ter expirado; atualize a página e tente novamente.',
+  download_url_invalid: 'Não foi possível renovar o link final do arquivo. Tente novamente.',
+  download_url_expired: 'Não foi possível renovar o link de download. Tente novamente.',
+  download_request_blocked: 'Não foi possível acessar nem renovar o link do arquivo final. Tente novamente.',
   download_request_failed: 'Não foi possível baixar o arquivo final. Tente novamente em instantes.',
-  download_unexpected_content: 'O link retornou um arquivo inválido. Atualize a página e tente novamente.',
+  download_unexpected_content: 'O link retornou um arquivo inválido. Tente novamente.',
   download_empty_file: 'O arquivo final está vazio e não pode ser baixado.',
   download_timeout: 'O download demorou mais que o esperado. Tente novamente.',
 }

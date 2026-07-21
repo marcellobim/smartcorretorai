@@ -2335,6 +2335,9 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           if (reservation?.status === 'reserved') {
             await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_failed')
           }
+          const initialStatus = String(item.status || 'planned').toLocaleLowerCase('pt-BR')
+          const initialReady = initialStatus === 'succeeded' || initialStatus === 'completed'
+          const initialFinalUrl = initialReady && typeof item.url === 'string' ? item.url : null
           renders.push({
             piece_id: sel.piece_id,
             piece_index: index,
@@ -2428,9 +2431,11 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             template_nome: meta.nome,
             categoria: meta.categoria,
             formato: meta.formato,
-            status: item.status || 'planned',
-            url: item.url || null,
-            snapshot_url: item.snapshot_url || null,
+            status: initialStatus,
+            url: initialFinalUrl,
+            download_url: initialFinalUrl,
+            preview_url: initialFinalUrl,
+            snapshot_url: initialFinalUrl,
             ...pieceCredit,
           })
         }

@@ -111,18 +111,22 @@ export function buildProduct3CampaignOptions({ generatedTexts = {}, property = {
 
 export function normalizeProduct3CampaignFiles(files = []) {
   return (Array.isArray(files) ? files : []).map((file, index) => {
-    const url = clean(file?.download_url || file?.downloadUrl || file?.video_url || file?.videoUrl || file?.url)
-    const previewUrl = clean(file?.preview_url || file?.previewUrl || file?.snapshot_url || url)
+    const status = clean(file?.status || 'planned').toLocaleLowerCase('pt-BR')
+    const ready = ['succeeded', 'completed'].includes(status)
+    const url = ready
+      ? clean(file?.download_url || file?.downloadUrl || file?.video_url || file?.videoUrl || file?.url)
+      : ''
     const typeValue = clean(file?.type || file?.media_type).toLocaleLowerCase('pt-BR')
     const isVideo = typeValue.includes('video') || /\.(mp4|webm|mov)(?:$|\?)/i.test(url)
     return {
       id: file?.piece_id || file?.render_id || `produto-3-media-${index + 1}`,
       name: file?.template_nome || file?.model_name || file?.label || `Peça ${index + 1}`,
       type: isVideo ? 'video' : 'image',
-      status: file?.status,
+      status,
       url,
-      previewUrl,
+      previewUrl: url,
       downloadUrl: url,
+      renderId: clean(file?.render_id || file?.renderId),
     }
   })
 }

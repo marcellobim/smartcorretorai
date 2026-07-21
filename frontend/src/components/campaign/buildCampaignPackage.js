@@ -195,6 +195,7 @@ export function normalizeCampaignPackageInput(input = {}) {
   const files = Array.isArray(input.files)
     ? input.files.filter(Boolean).map((file, index) => ({
       id: clean(file?.id || file?.piece_id || file?.render_id) || `media-${index}`,
+      renderId: clean(file?.renderId || file?.render_id),
       name: clean(file?.name || file?.label || file?.template_nome || file?.format) || `Arte ${index + 1}`,
       type: clean(file?.type || file?.mediaType),
       status: clean(file?.status),

@@ -835,12 +835,6 @@ const getRenderFinalUrl = (render) => [
   render?.videoUrl,
   render?.url,
 ].find(value => typeof value === 'string' && value.trim())?.trim() || ''
-const getRenderPreviewUrl = (render) => [
-  render?.preview_url,
-  render?.previewUrl,
-  render?.snapshot_url,
-  getRenderFinalUrl(render),
-].find(value => typeof value === 'string' && value.trim())?.trim() || ''
 const getMediaUrlExtension = (url) => String(url || '')
   .split(/[?#]/, 1)[0]
   .match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || ''
@@ -2761,6 +2755,40 @@ export default function NovaCampanha() {
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 
+  const renovarUrlRender = async (render) => {
+    const renderId = render?.renderId || render?.render_id
+    if (!renderId) throw new Error('download_url_missing')
+    if (!accessToken) throw new Error('download_request_failed')
+
+    console.info('[renders] signed URL refresh requested', { render_id: renderId, at: new Date().toISOString(), restart_render: false })
+    const { data, error } = await supabase.functions.invoke('get-render-status', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        render_ids: [renderId],
+        renders: [render],
+        campaign_id: campanhaId || null,
+        refresh_urls: true,
+      },
+    })
+    if (error) throw new Error(error.message || 'download_request_failed')
+    const update = Array.isArray(data?.renders) ? data.renders[0] : null
+    const status = normalizeRenderStatus(update?.status)
+    const renewedUrl = getRenderFinalUrl(update)
+    if (!RENDER_READY_STATUSES.has(status) || !renewedUrl) throw new Error('download_url_missing')
+
+    setRenders(current => (Array.isArray(current) ? current : []).map(item => (
+      item?.render_id === renderId ? { ...item, ...update } : item
+    )))
+    console.info('[renders] signed URL refreshed', {
+      render_id: renderId,
+      status,
+      at: new Date().toISOString(),
+      preview_source_equals_download_source: true,
+      download_enabled: true,
+    })
+    return renewedUrl
+  }
+
   const baixarPecaVisual = async (render, index) => {
     const finalUrl = getRenderFinalUrl(render)
     const downloadKey = render?.piece_id || render?.render_id || `render-${index}`
@@ -2774,7 +2802,18 @@ export default function NovaCampanha() {
       await downloadFileFromPrivateUrl(finalUrl, getRenderDownloadName(render, index))
       toast.success('Download iniciado.')
     } catch (error) {
-      toast.error(getDownloadErrorMessage(error))
+      const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
+      if (refreshable) {
+        try {
+          const renewedUrl = await renovarUrlRender(render)
+          await downloadFileFromPrivateUrl(renewedUrl, getRenderDownloadName(render, index))
+          toast.success('Download iniciado com um novo link seguro.')
+        } catch (refreshError) {
+          toast.error(getDownloadErrorMessage(refreshError))
+        }
+      } else {
+        toast.error(getDownloadErrorMessage(error))
+      }
     } finally {
       setDownloadingRenderKey('')
     }
@@ -2802,7 +2841,18 @@ export default function NovaCampanha() {
           await downloadFileFromPrivateUrl(getRenderFinalUrl(render), getRenderDownloadName(render, index))
           completed += 1
         } catch (error) {
-          firstError ||= error
+          const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
+          if (refreshable) {
+            try {
+              const renewedUrl = await renovarUrlRender(render)
+              await downloadFileFromPrivateUrl(renewedUrl, getRenderDownloadName(render, index))
+              completed += 1
+            } catch (refreshError) {
+              firstError ||= refreshError
+            }
+          } else {
+            firstError ||= error
+          }
         }
       }
       baixarTextosDaCampanha()
@@ -2862,8 +2912,6 @@ export default function NovaCampanha() {
       return
     }
 
-    const startedAt = Date.now()
-    const timeoutMs = 3 * 60 * 1000
     let inFlight = false
 
     const mergeRenderUpdates = (updates = [], timedOut = false) => {
@@ -2902,29 +2950,6 @@ export default function NovaCampanha() {
       if (inFlight) return
       inFlight = true
       try {
-        const timedOut = Date.now() - startedAt >= timeoutMs
-        if (timedOut) {
-          const { data, error } = await supabase.functions.invoke('get-render-status', {
-            headers: { Authorization: `Bearer ${token}` },
-            body: {
-              render_ids: renderIds,
-              renders: Array.isArray(iniciais) ? iniciais : [],
-              campaign_id: campaignIdForPolling || null,
-              mark_timeout: true,
-            },
-          })
-          if (error) {
-            console.warn('[renders] timeout get-render-status erro:', error?.message || 'erro desconhecido')
-            mergeRenderUpdates([], true)
-          } else {
-            const updates = Array.isArray(data?.renders) ? data.renders : []
-            updates.forEach(render => logFailedRender(render, 'get-render-status-timeout'))
-            mergeRenderUpdates(updates, true)
-          }
-          stopPolling()
-          return
-        }
-
         const { data, error } = await supabase.functions.invoke('get-render-status', {
           headers: { Authorization: `Bearer ${token}` },
           body: {
@@ -2940,13 +2965,22 @@ export default function NovaCampanha() {
         }
 
         const updates = Array.isArray(data?.renders) ? data.renders : []
+        updates.forEach(render => console.info('[renders] polling', {
+          render_id: render.render_id,
+          status: normalizeRenderStatus(render.status),
+          at: new Date().toISOString(),
+          final_url_requested_at: render.final_url_requested_at || null,
+          final_url_available: Boolean(getRenderFinalUrl(render)),
+        }))
         updates.forEach(render => logFailedRender(render, 'get-render-status'))
         mergeRenderUpdates(updates)
 
         const updatesById = new Map(updates.map(item => [item.render_id, item]))
         const allDone = renderIds.every(renderId => {
           const update = updatesById.get(renderId)
-          return RENDER_FINAL_STATUSES.has(normalizeRenderStatus(update?.status))
+          const status = normalizeRenderStatus(update?.status)
+          return RENDER_ERROR_STATUSES.has(status)
+            || (RENDER_READY_STATUSES.has(status) && Boolean(getRenderFinalUrl(update)))
         })
         if (allDone) stopPolling()
       } catch (error) {
@@ -4025,7 +4059,9 @@ export default function NovaCampanha() {
                 requireProcessingEvidence: true,
               })
             : returnedVisualPieces
-          const visualPiecesReady = visualPieces.filter(r => RENDER_READY_STATUSES.has(normalizeRenderStatus(r.status))).length
+          const visualPiecesReady = visualPieces.filter(r => (
+            RENDER_READY_STATUSES.has(normalizeRenderStatus(r.status)) && Boolean(getRenderFinalUrl(r))
+          )).length
           const visualPiecesFailed = visualPieces.filter(r => RENDER_ERROR_STATUSES.has(normalizeRenderStatus(r.status)) || !!r.erro).length
           const visualPiecesPending = visualPieces.filter(r => {
             const status = normalizeRenderStatus(r.status)
@@ -4109,6 +4145,7 @@ export default function NovaCampanha() {
                     cta: packageProperty.cta || product3Cta,
                   }),
                 }}
+                onRefreshMedia={renovarUrlRender}
                 onCreateNew={() => resetCampaignState()}
                 createNewLabel="Criar banners para outro imóvel"
               />
@@ -4389,9 +4426,9 @@ export default function NovaCampanha() {
                         const status = normalizeRenderStatus(r.status)
                         const ok = RENDER_READY_STATUSES.has(status)
                         const falhou = RENDER_ERROR_STATUSES.has(status) || !!r.erro
-                        const finalUrl = getRenderFinalUrl(r)
-                        const previewUrl = getRenderPreviewUrl(r)
-                        const viewUrl = r.preview_url || r.previewUrl || finalUrl
+                        const finalUrl = ok ? getRenderFinalUrl(r) : ''
+                        const previewUrl = finalUrl
+                        const viewUrl = finalUrl
                         const ehVideo = isRenderVideo(r)
                         const downloadKey = r.piece_id || r.render_id || `render-${i}`
                         const isDownloading = downloadingRenderKey === downloadKey
@@ -4415,8 +4452,6 @@ export default function NovaCampanha() {
                                 <video src={finalUrl} controls playsInline className="w-full h-full object-contain bg-black" />
                               ) : ok && previewUrl ? (
                                 <img src={previewUrl} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain pointer-events-none select-none" />
-                              ) : previewUrl ? (
-                                <img src={previewUrl} alt={nomePeca} draggable="false" onContextMenu={e => e.preventDefault()} className="w-full h-full object-contain opacity-70 pointer-events-none select-none" />
                               ) : (
                                 <div className="text-xs text-gray-500 px-3 py-6 text-center">
                                   {falhou ? (r.erro || 'Falhou') : 'Processando...'}
