@@ -4,7 +4,7 @@ import Sidebar from './Sidebar'
 export default function AppLayout() {
   const location = useLocation()
   const isBannersRapidos = location.pathname === '/nova-campanha'
-  const usesFullWidthMobileLayout = location.pathname === '/dashboard' || isBannersRapidos || location.pathname === '/smart-carrossel' || location.pathname === '/studio-hero' || location.pathname === '/studio-galeria' || location.pathname === '/hero'
+  const usesFullWidthMobileLayout = location.pathname === '/dashboard' || isBannersRapidos || location.pathname === '/smart-carrossel' || location.pathname === '/studio-hero' || location.pathname === '/studio-galeria' || location.pathname === '/smart-tour-ai' || location.pathname === '/hero'
 
   return (
     <div className="flex min-h-screen items-start bg-slate-50">

@@ -12,6 +12,7 @@ import TransformarVideo from './pages/TransformarVideo'
 import StudioHero from './pages/StudioHero'
 import StudioGallery from './pages/StudioGallery'
 import SmartCarrossel from './pages/SmartCarrossel'
+import SmartTourAI from './pages/SmartTourAI'
 import NovaCompanha from './pages/NovaCampanha'
 import PacotesGerados from './pages/PacotesGerados'
 import Configuracoes from './pages/Configuracoes'
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/studio-hero" element={<StudioHero />} />
         <Route path="/studio-galeria" element={<StudioGallery />} />
         <Route path="/smart-carrossel" element={<SmartCarrossel />} />
+        <Route path="/smart-tour-ai" element={<SmartTourAI />} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
         <Route path="/nova-campanha" element={<NovaCompanha />} />
         <Route path="/pacotes-gerados" element={<PacotesGerados />} />
