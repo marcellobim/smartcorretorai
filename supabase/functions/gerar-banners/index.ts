@@ -389,7 +389,7 @@ Traducao obrigatória de frases fixas em inglês (regra global, sem exceções):
   - "NY" (estado isolado) -> estado do imóvel (UF brasileiro) ou ''
   - "Please join us for an Open House" -> "Agende sua visita" (ou '' se não houver contexto)
   - "Open House" -> "Visitação"
-  - "FOR SALE" / "FOR RENT" -> "À Venda"
+  - "FOR SALE" -> "À Venda"; "FOR RENT" / "FOR LEASE" -> "Para Locação"
   - "JUST LISTED" -> "Recém-Anunciado"
   - "CONTACT US" / "CALL TODAY" -> respeite a regra de CTA (apenas "Saiba Mais" / "Me Ligue" / "Descrição abaixo")
 - Qualquer outro texto fixo em inglês americano (endereços tipo "123 Main St", ZIP codes, "MLS#", "BR/BA", etc.) deve ser traduzido para o contexto brasileiro ou retornar string vazia.
@@ -532,8 +532,8 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'See full listing in description': 'Veja o anúncio completo na descrição',
   'Home For Sale': 'Imóvel à Venda',
   'House For Sale': 'Casa à Venda',
-  'House For Rent': 'Casa à Venda',
-  'Home For Rent': 'Imóvel à Venda',
+  'House For Rent': 'Casa para Locação',
+  'Home For Rent': 'Imóvel para Locação',
   'Price Starts At': 'A partir de',
   'Starts At': 'A partir de',
   'Great Features': 'Diferenciais',
@@ -542,8 +542,8 @@ const EN_PT_DICTIONARY: Record<string, string> = {
 
   // Status / labels do anúncio
   'For Sale': 'À Venda',
-  'For Rent': 'À Venda',
-  'For Lease': 'À Venda',
+  'For Rent': 'Para Locação',
+  'For Lease': 'Para Locação',
   'On Sale': 'À Venda',
   'New Listing': 'Novo Imóvel',
   'Just Listed': 'Recém-Anunciado',
@@ -555,7 +555,7 @@ const EN_PT_DICTIONARY: Record<string, string> = {
   'Price Reduced': 'Preço Reduzido',
   'Reduced Price': 'Preço Reduzido',
   'Sold': 'Vendido',
-  'Rented': 'À Venda',
+  'Rented': 'Para Locação',
   'Pending': 'Reservado',
   'Featured Listing': 'Imóvel em Destaque',
   'Featured Property': 'Imóvel em Destaque',
@@ -813,7 +813,8 @@ const FIXED_ENGLISH_PHRASES: FixedPhraseRule[] = [
   { pattern: /\bJUST\s+LISTED\b/gi,    resolve: () => 'Recém-Anunciado' },
   // Finalidade
   { pattern: /\bFOR\s+SALE\b/gi, resolve: () => 'À Venda' },
-  { pattern: /\bFOR\s+RENT\b/gi, resolve: () => 'À Venda' },
+  { pattern: /\bFOR\s+RENT\b/gi, resolve: () => 'Para Locação' },
+  { pattern: /\bFOR\s+LEASE\b/gi, resolve: () => 'Para Locação' },
   // Eventos
   { pattern: /\bOpen\s+House\b/gi, resolve: () => 'Visitação' },
   // Cidade isolada
@@ -1079,7 +1080,7 @@ function applyAnuncioPremiumVisualRules(
     mods[key] = stripCampaignLabelsFromVisualText(value)
   }
 
-  setCanonicalTextModification(elementos, mods, 'headline_main', 'Oportunidade')
+  setCanonicalTextModification(elementos, mods, 'headline_main', templateData.headline_main)
   setCanonicalTextModification(elementos, mods, 'sale_badge', saleBadge)
   setCanonicalTextModification(elementos, mods, 'property_description', 'Saiba mais')
   setCanonicalTextModification(elementos, mods, 'price_label', 'Valor')
@@ -1124,6 +1125,18 @@ function normalizeShortFreeText(value: unknown, maxLength = 120): string {
   return cleaned ? cleaned.charAt(0).toLocaleUpperCase('pt-BR') + cleaned.slice(1) : ''
 }
 
+function normalizeFinalidade(value: unknown): 'venda' | 'locacao' {
+  const normalized = String(value ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+  if (['locacao', 'aluguel', 'alugar', 'rent', 'rental'].includes(normalized)) return 'locacao'
+  if (['venda', 'vender', 'sale'].includes(normalized)) return 'venda'
+  return 'venda'
+}
+
 function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<string, unknown> {
   const destaquesSelecionados = Array.isArray(dados.destaques_selecionados)
     ? dados.destaques_selecionados.map((item) => normalizeShortFreeText(item, 80)).filter(Boolean)
@@ -1137,11 +1150,12 @@ function normalizeCampaignPropertyInput(dados: Record<string, unknown>): Record<
     ...(destaquePersonalizado ? [destaquePersonalizado] : []),
     ...diferenciais,
   ])).slice(0, 8)
+  const finalidade = normalizeFinalidade(dados.finalidade ?? dados.negocio)
 
   return {
     ...dados,
-    finalidade: 'venda',
-    negocio: 'venda',
+    finalidade,
+    negocio: finalidade,
     bairro: normalizeBairro(dados.bairro),
     destaques_selecionados: destaquesSelecionados,
     destaque_personalizado: destaquePersonalizado || null,
@@ -1159,12 +1173,12 @@ function resolvePropertyTag(categoria: string, dadosImovel: Record<string, unkno
   return 'Pronto para Morar'
 }
 
-function resolveSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
-  return 'À Venda'
+function resolveSaleBadge(finalidade: unknown, _titulo: unknown, _descricao: unknown): string {
+  return normalizeFinalidade(finalidade) === 'locacao' ? 'Para Locação' : 'À Venda'
 }
 
 function resolveAnuncioPremiumSaleBadge(finalidade: unknown, titulo: unknown, descricao: unknown): string {
-  return 'À Venda'
+  return resolveSaleBadge(finalidade, titulo, descricao)
 }
 
 function normalizeAnuncioPremiumPrice(value: string): string {
@@ -1205,8 +1219,11 @@ function buildCanonicalTemplateData(input: {
 }): CanonicalTemplateData {
   const bairro = resolveBairro(input.dadosImovel, input.endereco)
   const tipo = String(input.tipoImovel || input.dadosImovel.tipo || '').trim()
+  const finalidade = normalizeFinalidade(input.finalidade ?? input.dadosImovel.finalidade ?? input.dadosImovel.negocio)
   const propertyLocationType = [bairro, tipo].filter(Boolean).join(', ') || tipo || bairro
-  const headlineMain = normalizeSpaces(input.titulo) || [tipo, propertyLocationType].filter(Boolean).join(' em ') || 'Imóvel em destaque'
+  const headlineMain = tipo
+    ? `${tipo}${finalidade === 'locacao' ? ' para Locação' : ' à Venda'}`
+    : normalizeSpaces(input.titulo) || 'Imóvel em destaque'
   const propertyDescription = normalizeSpaces(input.descricao).slice(0, 140)
   const featureItems = Array.from(new Set(
     [input.quartosLabel, input.suitesLabel, input.vagasLabel, input.areaLabel]
@@ -1222,7 +1239,7 @@ function buildCanonicalTemplateData(input: {
   return {
     headline_main: headlineMain,
     property_tag: resolvePropertyTag(input.categoria, input.dadosImovel, input.titulo, input.descricao),
-    sale_badge: resolveSaleBadge(input.finalidade, input.titulo, input.descricao),
+    sale_badge: resolveSaleBadge(finalidade, input.titulo, input.descricao),
     property_location_type: propertyLocationType,
     property_features: propertyFeatures,
     features_title: featureItems.length > 0 ? 'Diferenciais' : '',
@@ -1507,6 +1524,7 @@ serve(async (req) => {
       ...payloadDadosImovel,
       ...((campaignRow?.dados_imovel as Record<string, unknown>) || {}),
     })
+    const finalidadeNormalizada = normalizeFinalidade(finalidade ?? dadosImovel.finalidade ?? dadosImovel.negocio)
     const categoria = String(dadosImovel.categoria || tipo_imovel || 'medio_padrao')
     const precoFinal = formatPriceBRL(preco ?? dadosImovel.preco)
     const suitesCount = toPositiveCount(suites ?? dadosImovel.suites)
@@ -1546,7 +1564,7 @@ serve(async (req) => {
       titulo: titulo || campaignRow?.titulo || '',
       descricao,
       preco: preco ?? dadosImovel.preco,
-      finalidade: finalidade ?? dadosImovel.finalidade,
+      finalidade: finalidadeNormalizada,
       tipoImovel: tipo_imovel || dadosImovel.tipo,
       endereco,
       fotosArr,
@@ -2101,7 +2119,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           elementos,
           mods,
           templateData,
-          resolveAnuncioPremiumSaleBadge(finalidade ?? dadosImovel.finalidade, titulo, descricao)
+          resolveAnuncioPremiumSaleBadge(finalidadeNormalizada, titulo, descricao)
         )
       }
       console.log(`[${reqId}] campos enviados ao Creatomate`, {
