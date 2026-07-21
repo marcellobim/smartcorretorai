@@ -1,0 +1,48 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
+import { buildSmartTourPrompt, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+const cors = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type'}
+const json = (body: unknown,status=200) => new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}})
+const safeError = (error: unknown) => error instanceof Error ? error.message.replace(/AIza[\w-]+/g,'[redacted]').slice(0,240) : 'unknown_error'
+
+serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok',{headers:cors})
+  if (req.method !== 'POST') return json({ok:false,error:'Método não permitido.'},405)
+  const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!url || !key) return json({ok:false,error:'Configuração indisponível.'},500)
+  const supabase = createClient(url,key,{auth:{persistSession:false}})
+  const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i,'')
+  const {data:{user}} = await supabase.auth.getUser(token)
+  if (!user) return json({ok:false,error:'Sua sessão expirou.'},401)
+  try {
+    const input = validateSmartTourRequest(await req.json())
+    if (!/^[0-9a-f-]{36}$/i.test(input.clientRequestId)) throw new Error('invalid_request_id')
+    if (input.imagePaths.some(path => !path.startsWith(`${user.id}/smart-tour/${input.clientRequestId}/`) || !/\.(jpg|jpeg|png)$/i.test(path))) throw new Error('invalid_image_owner')
+    const {data:objects,error:objectsError} = await supabase.storage.from('studio-videos').list(`${user.id}/smart-tour/${input.clientRequestId}`,{limit:10})
+    const available = new Set((objects || []).map(item => `${user.id}/smart-tour/${input.clientRequestId}/${item.name}`))
+    if (objectsError || input.imagePaths.some(path => !available.has(path))) throw new Error('image_unavailable')
+    const {data:existing} = await supabase.from('video_jobs').select('id,status').eq('id',input.clientRequestId).eq('user_id',user.id).maybeSingle()
+    if (existing) return json({ok:true,jobId:existing.id,status:existing.status,idempotent:true})
+    const {data:profile} = await supabase.from('profiles').select('whatsapp, telefone').eq('id',user.id).maybeSingle()
+    const phone = input.includeProfessionalPhone ? String(profile?.whatsapp || profile?.telefone || '') : ''
+    if (input.includeProfessionalPhone && !phone) throw new Error('professional_phone_missing')
+    const prompt = buildSmartTourPrompt({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone})
+    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),tokens_reserved:0})
+    if (insertError) throw new Error('job_create_failed')
+    try {
+      const started = await startGeminiOmniVideo({prompt,imagePaths:input.imagePaths,bucket:'studio-videos',supabase})
+      await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
+      return json({ok:true,jobId:input.clientRequestId,status:'generating'})
+    } catch (error) {
+      await supabase.from('video_jobs').update({status:'failed',error_message:safeError(error)}).eq('id',input.clientRequestId).eq('user_id',user.id)
+      throw error
+    }
+  } catch (error) {
+    console.warn('[smart-tour-generate]',safeError(error))
+    const code = safeError(error)
+    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 6 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',professional_phone_missing:'Complete seu telefone no Perfil Profissional.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
+    return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
+  }
+})
+

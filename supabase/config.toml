@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.smart-carousel-creatomate]
 verify_jwt = false
+
+[functions.smart-tour-generate]
+verify_jwt = false
+
+[functions.smart-tour-status]
+verify_jwt = false
