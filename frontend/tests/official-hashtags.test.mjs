@@ -1,12 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildOfficialHashtags } from '../../supabase/functions/_shared/official-hashtags.ts'
+import { buildOfficialHashtagGroups, buildOfficialHashtags } from '../../supabase/functions/_shared/official-hashtags.ts'
 import { buildSmartTourCampaignPackage } from '../src/components/campaign/buildSmartTourCampaignPackage.js'
 
 const assertOfficialSet = (hashtags) => {
   assert.ok(hashtags.length >= 12 && hashtags.length <= 15)
   assert.equal(new Set(hashtags.map((tag) => tag.toLocaleLowerCase('pt-BR'))).size, hashtags.length)
   assert.ok(hashtags.includes('#SmartCorretorAI'))
+}
+
+const assertGroupLimits = (groups) => {
+  assert.ok(groups.location.length <= 3)
+  assert.ok(groups.purpose.length <= 2)
+  assert.ok(groups.market.length <= 3)
+  assert.ok(groups.characteristics.length <= 4)
+  assert.ok(groups.commercialAppeal.length <= 2)
+  assert.deepEqual(groups.brand, ['#SmartCorretorAI'])
 }
 
 test('sale hashtags use structured context and never contradict the purpose', () => {
@@ -16,49 +25,57 @@ test('sale hashtags use structured context and never contradict the purpose', ()
     city: 'São Paulo',
     district: 'Moema',
     state: 'SP',
+    propertyStage: 'Pronto para morar',
     bedrooms: '3',
+    suites: '2',
     highlights: ['Varanda Gourmet', 'Vista Livre'],
     cta: 'Agende sua visita',
-  }, ['#Aluguel', '#Locacao', '#ApartamentoAVenda'])
+  })
+  const groups = buildOfficialHashtagGroups({ purpose:'sale', propertyType:'Apartamento', city:'São Paulo', district:'Moema', state:'SP', propertyStage:'Pronto para morar', bedrooms:'3', suites:'2', highlights:['Varanda Gourmet','Vista Livre'], cta:'Agende sua visita' })
   assertOfficialSet(hashtags)
+  assertGroupLimits(groups)
   assert.ok(hashtags.includes('#ApartamentoAVenda'))
   assert.ok(hashtags.includes('#SaoPaulo'))
   assert.ok(hashtags.includes('#Moema'))
   assert.ok(hashtags.includes('#VarandaGourmet'))
   assert.ok(hashtags.includes('#AgendeSuaVisita'))
   assert.equal(hashtags.some((tag) => /aluguel|locacao|paraalugar/i.test(tag)), false)
+  assert.equal(hashtags.some((tag) => /imovelavenda|vendadeimoveis/i.test(tag)), false)
 })
 
 test('rental hashtags never contain sale or purchase intent', () => {
   const hashtags = buildOfficialHashtags({
     purpose: 'rent',
     propertyType: 'Casa',
+    propertyStage: 'Disponível imediatamente',
     city: 'Curitiba',
     district: 'Batel',
+    state: 'PR',
+    bedrooms: '3',
+    parkingSpaces: '2',
     highlights: ['Piscina'],
     cta: 'Entre em contato agora',
-  }, ['#CasaAVenda', '#Venda', '#ComprarImovel'])
+  })
   assertOfficialSet(hashtags)
   assert.ok(hashtags.includes('#CasaParaAlugar'))
-  assert.ok(hashtags.includes('#Locacao'))
-  assert.ok(hashtags.includes('#Aluguel'))
+  assert.equal(hashtags.some((tag) => /locacao$|aluguel$/i.test(tag)), false)
   assert.equal(hashtags.some((tag) => /avenda|venda|comprar|compra/i.test(tag)), false)
 })
 
-test('sparse property context still produces the official range', () => {
-  const hashtags = buildOfficialHashtags({ purpose: 'sale', propertyType: 'Imóvel' })
+test('minimum structured Smart Tour context still produces the official range', () => {
+  const hashtags = buildOfficialHashtags({ purpose:'sale', propertyType:'Apartamento', propertyStage:'Pronto', city:'Salvador', state:'BA' })
   assertOfficialSet(hashtags)
 })
 
 test('apartment without district remains relevant and within the official range', () => {
-  const hashtags = buildOfficialHashtags({ purpose:'sale', propertyType:'Apartamento', city:'Salvador', state:'BA' })
+  const hashtags = buildOfficialHashtags({ purpose:'sale', propertyType:'Apartamento', propertyStage:'Pronto', city:'Salvador', state:'BA' })
   assertOfficialSet(hashtags)
   assert.ok(hashtags.includes('#ApartamentoAVenda'))
   assert.ok(hashtags.includes('#Salvador'))
 })
 
 test('highlight accents are removed without producing duplicates', () => {
-  const hashtags = buildOfficialHashtags({ purpose:'sale', propertyType:'Apartamento', highlights:['Área de Lazer', 'Area de Lazer', 'Piscina'] })
+  const hashtags = buildOfficialHashtags({ purpose:'sale', propertyType:'Apartamento', propertyStage:'Pronto', city:'São Paulo', state:'SP', highlights:['Área de Lazer', 'Area de Lazer', 'Piscina'] })
   assertOfficialSet(hashtags)
   assert.equal(hashtags.filter((tag) => tag === '#AreaDeLazer').length, 1)
   assert.ok(hashtags.includes('#Piscina'))
@@ -66,7 +83,7 @@ test('highlight accents are removed without producing duplicates', () => {
 
 test('Smart Tour consumes the official engine without changing Campaign Central', () => {
   const smartTour = buildSmartTourCampaignPackage({
-    property: { purpose:'rent', type:'Apartamento', city:'Recife', district:'Boa Viagem', state:'PE', highlights:['Vista para o mar'] },
+    property: { purpose:'rent', stage:'Disponível imediatamente', type:'Apartamento', city:'Recife', district:'Boa Viagem', state:'PE', bedrooms:'2', suites:'1', highlights:['Vista para o mar'] },
     language: 'pt-BR',
     cta: 'Agende sua visita',
     phone: '',
