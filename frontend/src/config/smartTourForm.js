@@ -6,6 +6,12 @@ export const SMART_TOUR_MEASURE_FIELDS = Object.freeze({
   land: ['area'],
 })
 
+export const SMART_TOUR_MEASURE_OPTIONS = Object.freeze({
+  bedrooms: ['0', '1', '2', '3', '4', '5+'],
+  suites: ['0', '1', '2', '3', '4+'],
+  parkingSpaces: ['0', '1', '2', '3', '4+'],
+})
+
 export const SMART_TOUR_HIGHLIGHTS = Object.freeze({
   residential: [
     'Próximo ao metrô', 'Lazer completo', 'Varanda gourmet', 'Vista livre', 'Piscina',

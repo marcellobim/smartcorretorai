@@ -11,7 +11,7 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_MODES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
-import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
+import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
 
 const BUCKET = 'studio-videos'
@@ -399,7 +399,40 @@ function Question(props) {
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
   if (id === 'stage') return choices(property.purpose === 'rent' ? ['Pronto para mudar'] : STAGES, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) }))
   if (id === 'type') return <>{choices(SMART_TOUR_PROPERTY_TYPES, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</>
-  if (id === 'facts') { const fields = getSmartTourMeasureFields(property.type); const fieldLabels = { bedrooms:'Dormitórios', suites:'Suítes', parkingSpaces:'Vagas', area:'Área em m²' }; const answer = fields.map(field => `${fieldLabels[field]}: ${property[field] || 0}`).join(' · '); return <><div className="grid gap-3 sm:grid-cols-2">{fields.map(field => <label key={field} className="text-xs font-black">{fieldLabels[field]}<input value={property[field]} onChange={event => setPropertyField(field,event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(!property.area, answer, 'location')}</> }
+  if (id === 'facts') {
+    const fields = getSmartTourMeasureFields(property.type)
+    const fieldLabels = { bedrooms:'Dormitórios', suites:'Suítes', parkingSpaces:'Vagas', area:'Área' }
+    const answer = fields.map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ' m²' : ''}`).join(' · ')
+    const isIncomplete = fields.some(field => field === 'area' ? Number(property.area) <= 0 : property[field] === '')
+    return <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {fields.map(field => field === 'area' ? (
+          <label key={field} className="text-xs font-black">
+            {fieldLabels[field]}
+            <div className="mt-1 flex items-center rounded-xl border bg-white focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100">
+              <input
+                aria-label="Área do imóvel"
+                value={property.area}
+                onChange={event => { const digits = event.target.value.replace(/\D/g, '').slice(0, 6); setPropertyField('area', Number(digits) > 0 ? String(Number(digits)) : '') }}
+                inputMode="numeric"
+                placeholder="Ex.: 85"
+                className="min-w-0 flex-1 rounded-xl border-0 p-3 outline-none"
+              />
+              <span className="pr-3 text-sm font-black text-slate-500">m²</span>
+            </div>
+          </label>
+        ) : (
+          <fieldset key={field} className="min-w-0">
+            <legend className="text-xs font-black">{fieldLabels[field]}</legend>
+            <div className="mt-1 flex flex-wrap gap-2" aria-label={`Opções de ${fieldLabels[field].toLocaleLowerCase('pt-BR')}`}>
+              {SMART_TOUR_MEASURE_OPTIONS[field].map(option => <button key={option} type="button" onClick={() => setPropertyField(field, option)} className={`min-w-11 rounded-xl border px-3 py-2 text-sm font-black transition ${property[field] === option ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}>{option}</button>)}
+            </div>
+          </fieldset>
+        ))}
+      </div>
+      {cont(isIncomplete, answer, 'location')}
+    </>
+  }
   if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
   if (id === 'highlights') { const availableHighlights = getSmartTourHighlights(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. A IA decidirá como utilizar esse contexto.</p><div className="flex flex-wrap gap-2">{availableHighlights.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'mode')}</> }
