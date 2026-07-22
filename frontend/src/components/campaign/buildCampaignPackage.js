@@ -1,5 +1,4 @@
 import { formatBrazilianPhone } from '../../../../supabase/functions/_shared/product3-contract.ts'
-import { buildOfficialHashtags } from '../../../../supabase/functions/_shared/official-hashtags.ts'
 
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 
@@ -236,10 +235,8 @@ export function normalizeCampaignPackageInput(input = {}) {
 
 export function buildCampaignPackage(input = {}) {
   const campaign = normalizeCampaignPackageInput(input)
-  const officialHashtags = buildOfficialHashtags(campaign, campaign.aiCampaigns.map((item) => item.hashtags))
-  const campaignsWithOfficialHashtags = campaign.aiCampaigns.map((item) => ({ ...item, hashtags: officialHashtags.join(' ') }))
-  const aiCampaignModules = campaignsWithOfficialHashtags.length === 3
-    ? buildAiCampaignModules(campaignsWithOfficialHashtags)
+  const aiCampaignModules = campaign.aiCampaigns.length === 3
+    ? buildAiCampaignModules(campaign.aiCampaigns)
     : []
   if (aiCampaignModules.length) {
     return {

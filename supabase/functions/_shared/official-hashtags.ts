@@ -52,7 +52,8 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}, gene
   const city = clean(context.city)
   const district = clean(context.district)
   const state = clean(context.state)
-  const highlights = Array.isArray(context.highlights) ? context.highlights.map(clean).filter(Boolean) : []
+  const rawHighlights = Array.isArray(context.highlights) ? context.highlights.map(clean).filter(Boolean) : []
+  const highlights = [...new Map(rawHighlights.map((item) => [fold(item), item])).values()]
   const cta = fold(context.cta)
   const characteristics = [
     clean(context.bedrooms) && toOfficialHashtag(`${context.bedrooms} dormitorios`),
