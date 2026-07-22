@@ -17,14 +17,13 @@ const LINEAR_NEXT_QUESTION = Object.freeze({
 export function getSmartTourNextQuestion({ questionId, answerId = '', mode = '' }) {
   if (questionId === 'mode') {
     if (answerId === 'guided_tour') return 'presenter'
-    if (answerId === 'smart_staging') return 'furniture'
+    if (answerId === 'smart_staging') return 'staging'
     if (answerId === 'cinematic_tour') return 'captions'
     if (answerId === 'free_ai') return 'free_ai_format'
     return 'cta'
   }
   if (questionId === 'free_ai_format') return answerId === 'presenter' ? 'presenter' : 'cta'
   if (questionId === 'furniture') {
-    if (mode === 'smart_staging') return answerId === 'virtual_staging' ? 'staging' : 'narration'
     return 'cta'
   }
   if (questionId === 'captions') return mode === 'cinematic_tour' ? 'furniture' : 'cta'

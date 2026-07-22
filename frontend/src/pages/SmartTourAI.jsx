@@ -26,6 +26,7 @@ function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
   if (value.mode === 'guided_tour') return { ...value, presenterGender: value.presenterGender === 'male' ? 'male' : 'female', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
   if (value.mode === 'narrated_tour') return { ...value, presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
+  if (value.mode === 'smart_staging') return { ...value, presenterGender: 'none', furniture: 'virtual_staging', stagingPresentation: value.stagingPresentation === 'before_after' ? 'before_after' : 'final_only' }
   if (value.mode === 'cinematic_tour') return { ...value, presenterGender: 'none', narration: 'disabled', stagingPresentation: 'final_only' }
   if (value.mode === 'free_ai') return { ...value, presenterGender: value.freeAiFormat === 'presenter' ? (value.presenterGender === 'male' ? 'male' : 'female') : 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
   return { ...value, presenterGender: 'none', stagingPresentation: value.furniture === 'virtual_staging' ? value.stagingPresentation : 'final_only' }
@@ -44,8 +45,7 @@ function questionsFor(generation) {
     if (generation.freeAiFormat === 'presenter') questions.push(['presenter', 3, 'Quem você prefere apresentando o imóvel?'])
   }
   if (generation.mode === 'smart_staging') {
-    questions.push(['furniture', 3, 'Como deseja apresentar os ambientes?'])
-    if (generation.furniture === 'virtual_staging') questions.push(['staging', 3, 'Como deseja mostrar o resultado?'])
+    questions.push(['staging', 3, 'Como deseja mostrar o resultado?'])
     questions.push(['narration', 3, 'Deseja narração?'], ['captions', 3, 'Deseja textos na tela?'])
   }
   if (generation.mode === 'cinematic_tour') questions.push(['captions', 3, 'Deseja textos na tela?'], ['furniture', 3, 'Deseja manter os ambientes como estão ou mobiliar ambientes vazios?'])
@@ -66,7 +66,9 @@ function smartTourConfirmation(id, answer) {
     free_ai_format: answer === 'Com Corretor(a) Virtual' ? 'Perfeito! A IA Livre contará com um corretor virtual.' : 'Perfeito! A IA Livre criará uma apresentação somente com narração.',
     presenter: `Perfeito! ${answer} fará a apresentação virtual.`,
     furniture: answer === 'Mobiliar com IA' ? 'Ótimo! A IA criará sugestões realistas para os ambientes vazios.' : 'Perfeito! Os ambientes serão preservados como estão.',
-    staging: `Certo! O mobiliário será mostrado como “${answer}”.`,
+    staging: answer === 'Antes e depois'
+      ? 'Ótima escolha! A apresentação mostrará os ambientes originais e depois a sugestão de decoração criada pela IA.'
+      : 'Perfeito! A apresentação mostrará diretamente os ambientes com a sugestão de decoração criada pela IA.',
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
     captions: answer === 'Sim' ? 'Ótimo! Os destaques também aparecerão na tela.' : 'Tudo certo! A apresentação seguirá sem textos na tela.',
     cta: `Ótimo! A chamada final será “${answer}”.`,
@@ -206,6 +208,9 @@ export default function SmartTourAI() {
   const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${measureLabels[field]}`).filter(Boolean).join(' · ')
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
+  const presentationSummary = generation.mode === 'smart_staging'
+    ? `Sugestão de decoração — ${generation.stagingPresentation === 'before_after' ? 'Antes e depois' : 'Apenas resultado final'}`
+    : SMART_TOUR_MODES.find(item => item.id === generation.mode)?.label
   const summary = [
     { id: 'images', label: images.length && `${images.length} foto${images.length > 1 ? 's' : ''}` },
     { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
@@ -215,7 +220,7 @@ export default function SmartTourAI() {
     { id: 'location', label: formatSmartTourLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
-    { id: 'mode', label: SMART_TOUR_MODES.find(item => item.id === generation.mode)?.label },
+    { id: 'mode', label: presentationSummary },
     { id: 'cta', label: cta },
     { id: 'phone', label: includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '' },
   ].filter(item => Boolean(item.label))
@@ -440,7 +445,7 @@ function Question(props) {
   if (id === 'free_ai_format') return choices([{id:'presenter',label:'Com Corretor(a) Virtual'},{id:'narration',label:'Somente com Narração'}], generation.freeAiFormat, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('freeAiFormat', value) }))
   if (id === 'presenter') return choices([{id:'female',label:'Corretora'},{id:'male',label:'Corretor'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) }))
   if (id === 'furniture') return choices([{id:'original',label:'Manter original'},{id:'virtual_staging',label:'Mobiliar com IA'}], generation.furniture, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('furniture', value) }))
-  if (id === 'staging') return choices([{id:'final_only',label:'Apenas mobiliado'},{id:'before_after',label:'Antes e depois'}], generation.stagingPresentation, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('stagingPresentation', value) }))
+  if (id === 'staging') return choices([{id:'final_only',label:'Apenas resultado final'},{id:'before_after',label:'Antes e depois'}], generation.stagingPresentation, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('stagingPresentation', value) }))
   if (id === 'narration' || id === 'captions') return choices([{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation[id], (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField(id, value) }))
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
