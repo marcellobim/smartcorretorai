@@ -1,3 +1,5 @@
+import { buildOfficialHashtags } from '../../../../supabase/functions/_shared/official-hashtags.ts'
+
 const clean = value => String(value || '').trim()
 const location = property => [property.district, property.city, property.state].filter(Boolean).join(', ')
 const translations = {
@@ -21,6 +23,6 @@ export function buildSmartTourCampaignPackage({ property, language, cta, phone, 
     `${localizedHighlights[0] || subject}.\n\n${subject}.\n\n${detail}\n\n${close}`,
     `${subject}.\n\n${localizedHighlights.slice(0,3).join(' · ') || detail}\n\n${close}`,
   ]
-  const hashtags = ['#Imóveis', property.type && `#${property.type.replace(/\W/g,'')}`, property.city && `#${property.city.replace(/\W/g,'')}`, '#SmartCorretorAI'].filter(Boolean)
+  const hashtags = buildOfficialHashtags({ purpose:property.purpose, propertyType:property.type, city:property.city, district:property.district, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, highlights:property.highlights, cta:localizedCta })
   return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:language === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`smart-tour-${index+1}`,name:`Opção ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})) }
 }
