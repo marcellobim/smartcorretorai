@@ -11,6 +11,7 @@ export const SMART_TOUR_MODES = [
   { id: 'narrated_tour', label: 'Apresentação com Narração', description: 'Narração e textos, sem apresentador.' },
   { id: 'smart_staging', label: 'Apresentação com Sugestão de Decoração', description: 'Sugestão realista de mobiliário, preservando a arquitetura.' },
   { id: 'cinematic_tour', label: 'Apresentação Dinâmica', description: 'Experiência visual focada no imóvel.' },
+  { id: 'free_ai', label: 'IA Livre ⭐', description: 'A IA usa todo o contexto confirmado e define livremente a apresentação.' },
 ]
 export const SMART_TOUR_EXAMPLES = [
   {
