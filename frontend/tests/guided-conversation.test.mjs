@@ -60,8 +60,7 @@ test('keeps all Smart Tour conditional paths coherent through review', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'guided_tour' }), 'presenter')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', mode: 'guided_tour' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'narrated_tour' }), 'cta')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'furniture')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'furniture', answerId: 'virtual_staging', mode: 'smart_staging' }), 'staging')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
   assert.equal(getSmartTourNextQuestion({ questionId: 'staging', mode: 'smart_staging' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions', mode: 'smart_staging' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'cinematic_tour' }), 'captions')
@@ -81,8 +80,7 @@ test('completes Locação with Narração path', () => {
 })
 
 test('completes Venda with Sugestão de Decoração path', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'furniture')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'furniture', answerId: 'virtual_staging', mode: 'smart_staging' }), 'staging')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
   assert.equal(getSmartTourNextQuestion({ questionId: 'staging', answerId: 'final_only', mode: 'smart_staging' }), 'narration')
 })
 
