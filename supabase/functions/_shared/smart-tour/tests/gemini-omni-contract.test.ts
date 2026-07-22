@@ -6,6 +6,7 @@ import {
   SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL,
   buildGeminiOmniInteractionGetRequest,
   buildGeminiOmniRequestBody,
+  readGeminiOmniInteractionId,
 } from '../../geminiOmniClient.ts'
 
 test('uses the approved Gemini Omni model and documented video contract', () => {
@@ -32,25 +33,30 @@ test('uses the approved Gemini Omni model and documented video contract', () => 
 test('builds the current official Interactions GET contract', () => {
   const rawId = 'v1_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
   const expectedUrl = `https://generativelanguage.googleapis.com/v1beta/interactions/${rawId}`
-  for (const value of [
-    rawId,
-    `interactions/${rawId}`,
-    `/v1beta/interactions/${rawId}`,
-    expectedUrl,
-    encodeURIComponent(`interactions/${rawId}`),
-  ]) {
-    const request = buildGeminiOmniInteractionGetRequest(value)
-    assert.equal(request.interactionId, rawId)
-    assert.equal(request.path, `/interactions/${rawId}`)
-    assert.equal(request.url, expectedUrl)
-    assert.equal(request.method, 'GET')
-    assert.deepEqual(request.headers, { Accept: 'application/json' })
-    assert.equal(request.url.includes('key='), false)
-  }
+  const request = buildGeminiOmniInteractionGetRequest(rawId)
+  assert.equal(request.interactionId, rawId)
+  assert.equal(request.path, `/interactions/${rawId}`)
+  assert.equal(request.url, expectedUrl)
+  assert.equal(request.method, 'GET')
+  assert.deepEqual(request.headers, { Accept: 'application/json' })
+  assert.equal(request.url.includes('key='), false)
 })
 
-test('rejects malformed interaction identifiers before calling Google', () => {
-  for (const value of ['', 'interactions/', 'bad id', 'https://example.com/interactions/id']) {
+test('persists exactly Interaction.id from the create response', () => {
+  const created = readGeminiOmniInteractionId({
+    status: 'in_progress',
+    id: 'v1_ExactInteractionId',
+    object: 'interaction',
+  })
+  assert.equal(created.interactionId, 'v1_ExactInteractionId')
+  assert.equal(created.providerIdSource, 'id')
+  assert.deepEqual(created.responseKeys, ['id', 'object', 'status'])
+  assert.equal(readGeminiOmniInteractionId({ id: 'v1_Id-With=Opaque:Characters' }).interactionId, 'v1_Id-With=Opaque:Characters')
+})
+
+test('rejects resource names and malformed identifiers instead of normalizing them', () => {
+  for (const value of ['', 'interactions/id', '/v1beta/interactions/id', 'bad id', 'https://generativelanguage.googleapis.com/v1beta/interactions/id']) {
     assert.throws(() => buildGeminiOmniInteractionGetRequest(value), /gemini_omni_interaction_id_invalid/)
   }
+  assert.throws(() => readGeminiOmniInteractionId({ name: 'interactions/id' }), /gemini_omni_interaction_id_missing/)
 })

@@ -29,7 +29,9 @@ serve(withCors(async req => {
     if (insertError) throw new Error('job_create_failed')
     try {
       const started = await startGeminiOmniVideo({prompt,imagePaths:input.imagePaths,bucket:'studio-videos',supabase})
-      await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
+      const { error: providerIdError } = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
+      if (providerIdError) throw new Error('provider_id_persist_failed')
+      console.info('[smart-tour-generate] provider_id_persisted', JSON.stringify({ providerIdSource: 'id' }))
       return json({ok:true,jobId:input.clientRequestId,status:'generating'})
     } catch (error) {
       await supabase.from('video_jobs').update({status:'failed',error_message:safeError(error)}).eq('id',input.clientRequestId).eq('user_id',user.id)

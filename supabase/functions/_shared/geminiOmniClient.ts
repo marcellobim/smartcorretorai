@@ -20,18 +20,29 @@ async function apiFetch(path: string, init: RequestInit = {}) { const response =
 function findVideo(value: unknown): { data?: string; uri?: string; mimeType?: string } | null { if (!value || typeof value !== 'object') return null; if (Array.isArray(value)) { for (const item of value) { const found = findVideo(item); if (found) return found } return null } const record = value as Record<string, unknown>; if (record.type === 'video') return { data: typeof record.data === 'string' ? record.data : undefined, uri: typeof record.uri === 'string' ? record.uri : undefined, mimeType: typeof record.mime_type === 'string' ? record.mime_type : 'video/mp4' }; for (const nested of Object.values(record)) { const found = findVideo(nested); if (found) return found } return null }
 async function downloadVideo(uri: string) { const response = await fetch(uri, { headers: { 'x-goog-api-key': getEnvironment() } }); if (!response.ok) throw new Error(`gemini_omni_video_download_failed:${response.status}`); return new Uint8Array(await response.arrayBuffer()) }
 
-export async function startGeminiOmniVideo(input: StartInput): Promise<{ interactionId: string }> { const images = await Promise.all(input.imagePaths.map(path => prepareImage(input.supabase, input.bucket, path))); const response = await apiFetch('/interactions', { method: 'POST', body: JSON.stringify(buildGeminiOmniRequestBody(input.prompt, images)) }); const data = await response.json(); const interactionId = typeof data.id === 'string' ? data.id : ''; if (!interactionId) throw new Error('gemini_omni_interaction_id_missing'); return { interactionId } }
+export function readGeminiOmniInteractionId(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('gemini_omni_interaction_id_missing')
+  const data = value as Record<string, unknown>
+  const interactionId = typeof data.id === 'string' ? data.id : ''
+  if (!interactionId) throw new Error('gemini_omni_interaction_id_missing')
+  if (interactionId.includes('/') || /[\u0000-\u0020\u007f]/.test(interactionId)) throw new Error('gemini_omni_interaction_id_invalid')
+  return { interactionId, responseKeys: Object.keys(data).sort(), providerIdSource: 'id' as const }
+}
+
+export async function startGeminiOmniVideo(input: StartInput): Promise<{ interactionId: string }> {
+  const images = await Promise.all(input.imagePaths.map(path => prepareImage(input.supabase, input.bucket, path)))
+  const response = await apiFetch('/interactions', { method: 'POST', body: JSON.stringify(buildGeminiOmniRequestBody(input.prompt, images)) })
+  const created = readGeminiOmniInteractionId(await response.json())
+  console.info('[smart-tour-generate] interaction_created', JSON.stringify({
+    responseKeys: created.responseKeys,
+    providerIdSource: created.providerIdSource,
+  }))
+  return { interactionId: created.interactionId }
+}
 
 export function buildGeminiOmniInteractionGetRequest(value: string) {
-  let interactionId = String(value || '').trim()
-  try { interactionId = decodeURIComponent(interactionId) } catch { /* keep original for validation */ }
-  interactionId = interactionId
-    .replace(/^https:\/\/generativelanguage\.googleapis\.com\/(?:v1|v1beta)\/interactions\//i, '')
-    .replace(/^\/?(?:v1|v1beta)\/interactions\//i, '')
-    .replace(/^\/?interactions\//i, '')
-    .split(/[?#]/, 1)[0]
-    .trim()
-  if (!interactionId || !/^[A-Za-z0-9._~-]+$/.test(interactionId)) throw new Error('gemini_omni_interaction_id_invalid')
+  const interactionId = String(value || '')
+  if (!interactionId || interactionId.includes('/') || /[\u0000-\u0020\u007f]/.test(interactionId)) throw new Error('gemini_omni_interaction_id_invalid')
   const path = `/interactions/${encodeURIComponent(interactionId)}`
   return {
     interactionId,
