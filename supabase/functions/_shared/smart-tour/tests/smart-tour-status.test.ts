@@ -57,10 +57,10 @@ test('timeout wrapper returns completed operations and rejects stalled ones', as
   )
 })
 
-test('status function logs every external boundary without logging identifiers', () => {
+test('status function logs every external boundary without exposing complete identifiers', () => {
   for (const event of [
     'job_lookup_started',
-    'interaction_poll_started',
+    'interaction_request',
     'interaction_poll_completed',
     'video_upload_started',
     'completed_persist_started',

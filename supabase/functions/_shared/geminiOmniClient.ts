@@ -16,9 +16,30 @@ export function buildGeminiOmniRequestBody(prompt: string, images: Array<{ type:
   return { model: SMART_TOUR_GEMINI_OMNI_MODEL, input: [...images, { type: 'text', text: prompt }], response_format: { type: 'video', duration: SMART_TOUR_GEMINI_OMNI_DURATION, delivery: 'uri' }, generation_config: { thinking_level: SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL, video_config: { task: 'reference_to_video' } }, background: true, store: true }
 }
 function getEnvironment() { const apiKey = Deno.env.get('GEMINI_API_KEY') || ''; if (!apiKey) throw new Error('gemini_omni_missing_environment'); return apiKey }
-async function apiFetch(path: string, init: RequestInit = {}) { const response = await fetch(`${API_BASE}${path}`, { ...init, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': getEnvironment(), ...(init.headers || {}) } }); if (!response.ok) { const body = await response.text(); throw new Error(`gemini_omni_api_failed:${response.status}:${body.slice(0, 180)}`) } return response }
+async function apiFetch(path: string, init: RequestInit = {}) { const response = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), 'x-goog-api-key': getEnvironment(), ...(init.headers || {}) } }); if (!response.ok) { const body = await response.text(); throw new Error(`gemini_omni_api_failed:${response.status}:${body.slice(0, 180)}`) } return response }
 function findVideo(value: unknown): { data?: string; uri?: string; mimeType?: string } | null { if (!value || typeof value !== 'object') return null; if (Array.isArray(value)) { for (const item of value) { const found = findVideo(item); if (found) return found } return null } const record = value as Record<string, unknown>; if (record.type === 'video') return { data: typeof record.data === 'string' ? record.data : undefined, uri: typeof record.uri === 'string' ? record.uri : undefined, mimeType: typeof record.mime_type === 'string' ? record.mime_type : 'video/mp4' }; for (const nested of Object.values(record)) { const found = findVideo(nested); if (found) return found } return null }
 async function downloadVideo(uri: string) { const response = await fetch(uri, { headers: { 'x-goog-api-key': getEnvironment() } }); if (!response.ok) throw new Error(`gemini_omni_video_download_failed:${response.status}`); return new Uint8Array(await response.arrayBuffer()) }
 
 export async function startGeminiOmniVideo(input: StartInput): Promise<{ interactionId: string }> { const images = await Promise.all(input.imagePaths.map(path => prepareImage(input.supabase, input.bucket, path))); const response = await apiFetch('/interactions', { method: 'POST', body: JSON.stringify(buildGeminiOmniRequestBody(input.prompt, images)) }); const data = await response.json(); const interactionId = typeof data.id === 'string' ? data.id : ''; if (!interactionId) throw new Error('gemini_omni_interaction_id_missing'); return { interactionId } }
-export async function checkGeminiOmniVideo(interactionId: string): Promise<CheckResult> { const response = await apiFetch(`/interactions/${encodeURIComponent(interactionId)}`); const data = await response.json(); const status = String(data.status || '').toLowerCase(); if (status === 'in_progress' || status === 'queued') return { status: 'processing' }; if (status !== 'completed') return { status: 'failed', errorMessage: String(data.error?.message || `gemini_omni_${status || 'unknown_status'}`).slice(0, 400) }; const video = findVideo(data.steps); if (video?.data) return { status: 'completed', videoBytes: base64ToBytes(video.data), contentType: video.mimeType || 'video/mp4' }; if (video?.uri) return { status: 'completed', videoBytes: await downloadVideo(video.uri), contentType: video.mimeType || 'video/mp4' }; return { status: 'failed', errorMessage: 'gemini_omni_video_missing' } }
+
+export function buildGeminiOmniInteractionGetRequest(value: string) {
+  let interactionId = String(value || '').trim()
+  try { interactionId = decodeURIComponent(interactionId) } catch { /* keep original for validation */ }
+  interactionId = interactionId
+    .replace(/^https:\/\/generativelanguage\.googleapis\.com\/(?:v1|v1beta)\/interactions\//i, '')
+    .replace(/^\/?(?:v1|v1beta)\/interactions\//i, '')
+    .replace(/^\/?interactions\//i, '')
+    .split(/[?#]/, 1)[0]
+    .trim()
+  if (!interactionId || !/^[A-Za-z0-9._~-]+$/.test(interactionId)) throw new Error('gemini_omni_interaction_id_invalid')
+  const path = `/interactions/${encodeURIComponent(interactionId)}`
+  return {
+    interactionId,
+    path,
+    url: `${API_BASE}${path}`,
+    method: 'GET' as const,
+    headers: { Accept: 'application/json' },
+  }
+}
+
+export async function checkGeminiOmniVideo(interactionId: string): Promise<CheckResult> { const request = buildGeminiOmniInteractionGetRequest(interactionId); const response = await apiFetch(request.path, { method: request.method, headers: request.headers }); const data = await response.json(); const status = String(data.status || '').toLowerCase(); if (status === 'in_progress' || status === 'queued') return { status: 'processing' }; if (status !== 'completed') return { status: 'failed', errorMessage: String(data.error?.message || `gemini_omni_${status || 'unknown_status'}`).slice(0, 400) }; const video = findVideo(data.steps); if (video?.data) return { status: 'completed', videoBytes: base64ToBytes(video.data), contentType: video.mimeType || 'video/mp4' }; if (video?.uri) return { status: 'completed', videoBytes: await downloadVideo(video.uri), contentType: video.mimeType || 'video/mp4' }; return { status: 'failed', errorMessage: 'gemini_omni_video_missing' } }

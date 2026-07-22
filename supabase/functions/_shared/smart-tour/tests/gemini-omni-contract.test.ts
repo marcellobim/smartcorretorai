@@ -4,6 +4,7 @@ import {
   SMART_TOUR_GEMINI_OMNI_DURATION,
   SMART_TOUR_GEMINI_OMNI_MODEL,
   SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL,
+  buildGeminiOmniInteractionGetRequest,
   buildGeminiOmniRequestBody,
 } from '../../geminiOmniClient.ts'
 
@@ -26,4 +27,30 @@ test('uses the approved Gemini Omni model and documented video contract', () => 
   assert.equal('aspect_ratio' in body.response_format, false)
   assert.equal('resolution' in body.response_format, false)
   assert.equal('fps' in body.response_format, false)
+})
+
+test('builds the current official Interactions GET contract', () => {
+  const rawId = 'v1_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
+  const expectedUrl = `https://generativelanguage.googleapis.com/v1beta/interactions/${rawId}`
+  for (const value of [
+    rawId,
+    `interactions/${rawId}`,
+    `/v1beta/interactions/${rawId}`,
+    expectedUrl,
+    encodeURIComponent(`interactions/${rawId}`),
+  ]) {
+    const request = buildGeminiOmniInteractionGetRequest(value)
+    assert.equal(request.interactionId, rawId)
+    assert.equal(request.path, `/interactions/${rawId}`)
+    assert.equal(request.url, expectedUrl)
+    assert.equal(request.method, 'GET')
+    assert.deepEqual(request.headers, { Accept: 'application/json' })
+    assert.equal(request.url.includes('key='), false)
+  }
+})
+
+test('rejects malformed interaction identifiers before calling Google', () => {
+  for (const value of ['', 'interactions/', 'bad id', 'https://example.com/interactions/id']) {
+    assert.throws(() => buildGeminiOmniInteractionGetRequest(value), /gemini_omni_interaction_id_invalid/)
+  }
 })

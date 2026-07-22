@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { checkGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
+import { buildGeminiOmniInteractionGetRequest, checkGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import {
   classifySmartTourStatusError,
@@ -54,8 +54,14 @@ serve(withCors(async req => {
     if (!job.provider_job_id) return json({ ok: true, status: 'generating', jobId, message: 'Preparando sua apresentação...' })
 
     stage = 'interaction_poll'
-    log('interaction_poll_started')
-    const remote = await withSmartTourStatusTimeout(checkGeminiOmniVideo(job.provider_job_id))
+    const interactionRequest = buildGeminiOmniInteractionGetRequest(job.provider_job_id)
+    console.info('[smart-tour-status] interaction_request', JSON.stringify({
+      interactionIdLength: interactionRequest.interactionId.length,
+      interactionIdFirst8: interactionRequest.interactionId.slice(0, 8),
+      interactionIdLast8: interactionRequest.interactionId.slice(-8),
+      interactionUrl: interactionRequest.url,
+    }))
+    const remote = await withSmartTourStatusTimeout(checkGeminiOmniVideo(interactionRequest.interactionId))
     log('interaction_poll_completed', { remoteStatus: remote.status })
 
     if (remote.status === 'processing') {
