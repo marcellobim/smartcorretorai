@@ -61,7 +61,7 @@ test('validation errors from smart-tour-generate return CORS', async () => {
 })
 
 test('smart-tour-status returns CORS for every response and unexpected error path', async () => {
-  assert.match(statusSource, /serve\(withCors\(async req=>/)
+  assert.match(statusSource, /serve\(withCors\(async req\s*=>/)
   for (const status of [200, 400, 401, 404, 502]) {
     const response = await withCors(() => jsonResponse({ ok: status === 200 }, status))(request())
     assert.equal(response.status, status)
