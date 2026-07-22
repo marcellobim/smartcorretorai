@@ -1,5 +1,6 @@
 import type { PropertyContext, SmartTourGenerationConfig } from './types.ts'
 import { normalizeGeneration } from './validation.ts'
+import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 const BASE = `Create a brand-new premium real estate presentation using all uploaded property images.
 The uploaded images are the only visual source for the video.
 Build one continuous cinematic property tour that naturally connects all environments.
@@ -19,19 +20,31 @@ const narration = (enabled: boolean) => enabled ? 'Create a natural, professiona
 const captions = (enabled: boolean, cta: string) => enabled ? `Add clean, modern and elegant captions, one short caption at a time. Never invent facts or cover architecture. The final call to action must be exactly: ${cta}` : 'Do not create captions, labels, titles, subtitles, property specifications, logos, signs, numbers, watermarks, call-to-action text or any other on-screen text.'
 const furniture = (virtual: boolean) => virtual ? 'Apply virtual staging only to suitable empty environments. Add only plausible furniture and decoration. Preserve all walls, doors, windows, floors, ceilings, cabinetry, countertops, structural lighting, finishes, dimensions, perspective and circulation. Do not hide defects, create rooms, change the property standard or stage rooms already furnished.' : 'Do not redesign rooms, add or remove furniture, or modify architecture, finishes, materials, colors, fixtures or proportions. Preserve every environment.'
 const beforeAfter = (enabled: boolean) => enabled ? 'For each suitable empty environment, briefly show the original room first, then transition elegantly to the staged concept using the same viewpoint. Never misrepresent the property.' : 'Do not create before-and-after or split-screen comparisons. Present only the selected final visual treatment.'
+const officialPhone = (phone: string) => phone
+  ? `OFFICIAL PROFESSIONAL PHONE — PROTECTED LITERAL TEXT: "${phone}"
+Use this exact phone text only. Do not translate, reformat, complete, correct, replace or infer any digit. If a phone is displayed or narrated, it must match the protected literal text character for character.
+Use somente o telefone fornecido no campo oficial. Não crie, não corrija e não substitua números.`
+  : `OFFICIAL PROFESSIONAL PHONE: NOT PROVIDED OR NOT AUTHORIZED.
+Do not display, narrate, write, imply or generate any phone number. Do not use placeholders, examples or fictitious contact numbers.
+Use somente o telefone fornecido no campo oficial. Não crie, não corrija e não substitua números.`
 
-export function buildPropertyContext(property: PropertyContext, cta: string, phone = '') {
+export function buildPropertyContext(property: PropertyContext, cta: string) {
   const labels: Record<string,string> = {purpose:'Purpose',stage:'Property state',type:'Property type',bedrooms:'Bedrooms',suites:'Suites',parkingSpaces:'Parking spaces',area:'Area',state:'State',city:'City',district:'Neighborhood',price:'Price',condominium:'Condominium fee',iptu:'IPTU',description:'Commercial description'}
-  const lines = Object.entries(labels).flatMap(([key,label]) => property[key as keyof PropertyContext] ? [`${label}: ${String(property[key as keyof PropertyContext])}`] : [])
-  if (property.highlights?.length) lines.push('Highlights:', ...property.highlights.map(item => `- ${item}`))
-  if (cta) lines.push(`Selected call to action: ${cta}`)
-  if (phone) lines.push(`Professional phone: ${phone}`)
+  const lines = Object.entries(labels).flatMap(([key,label]) => {
+    const safeValue = removeNonOfficialPhoneNumbers(property[key as keyof PropertyContext])
+    return safeValue ? [`${label}: ${safeValue}`] : []
+  })
+  const safeHighlights = property.highlights?.map(removeNonOfficialPhoneNumbers).filter(Boolean) || []
+  if (safeHighlights.length) lines.push('Highlights:', ...safeHighlights.map(item => `- ${item}`))
+  const safeCta = removeNonOfficialPhoneNumbers(cta)
+  if (safeCta) lines.push(`Selected call to action: ${safeCta}`)
   return `PROPERTY CONTEXT\n${lines.join('\n')}\nDo not invent, infer or alter information not explicitly supplied above.`
 }
 export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConfig; property: PropertyContext; selectedCta: string; phone?: string}) {
   const config = normalizeGeneration(input.generation)
   const language = languageNames[config.language]
-  const prompt = [BASE, `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Do not use any other language.`, presenter(config), narration(config.narration === 'enabled'), captions(config.captions === 'enabled', input.selectedCta), furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,input.selectedCta,input.phone)].join('\n\n')
+  const safeCta = removeNonOfficialPhoneNumbers(input.selectedCta)
+  const prompt = [BASE, `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Do not use any other language.`, officialPhone(input.phone || ''), presenter(config), narration(config.narration === 'enabled'), captions(config.captions === 'enabled', safeCta), furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,safeCta)].join('\n\n')
   assertNoContradictions(prompt, config)
   return prompt
 }

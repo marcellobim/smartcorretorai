@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
-import { buildSmartTourPrompt, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+import { buildSmartTourPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 const safeError = (error: unknown) => error instanceof Error ? error.message.replace(/AIza[\w-]+/g,'[redacted]').slice(0,240) : 'unknown_error'
 
@@ -22,8 +22,7 @@ serve(withCors(async req => {
     const {data:existing} = await supabase.from('video_jobs').select('id,status').eq('id',input.clientRequestId).eq('user_id',user.id).maybeSingle()
     if (existing) return json({ok:true,jobId:existing.id,status:existing.status,idempotent:true})
     const {data:profile} = await supabase.from('profiles').select('whatsapp, telefone').eq('id',user.id).maybeSingle()
-    const phone = input.includeProfessionalPhone ? String(profile?.whatsapp || profile?.telefone || '') : ''
-    if (input.includeProfessionalPhone && !phone) throw new Error('professional_phone_missing')
+    const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
     const prompt = buildSmartTourPrompt({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone})
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
@@ -40,7 +39,7 @@ serve(withCors(async req => {
   } catch (error) {
     console.warn('[smart-tour-generate]',safeError(error))
     const code = safeError(error)
-    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 6 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',professional_phone_missing:'Complete seu telefone no Perfil Profissional.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
+    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 6 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
     return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
   }
 }))

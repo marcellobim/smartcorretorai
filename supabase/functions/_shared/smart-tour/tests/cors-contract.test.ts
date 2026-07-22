@@ -93,9 +93,9 @@ test('Smart Tour frontend payload remains unchanged', () => {
   assert.match(frontendSource, /body: \{ clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta: cta, includeProfessionalPhone: includePhone === true, language: 'pt-BR' \}/)
 })
 
-test('Gemini Omni model and prompt engine contracts remain connected unchanged', () => {
+test('Gemini Omni model and protected professional phone contracts remain connected', () => {
   assert.match(generateSource, /SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo/)
-  assert.match(generateSource, /buildSmartTourPrompt, validateSmartTourRequest/)
+  assert.match(generateSource, /buildSmartTourPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest/)
   assert.match(generateSource, /mode:'smart_tour_gemini_omni'/)
   assert.match(statusSource, /checkGeminiOmniVideo/)
 })
