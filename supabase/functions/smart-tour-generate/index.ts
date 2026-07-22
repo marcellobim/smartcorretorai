@@ -2,13 +2,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourPrompt, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
-const cors = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type'}
-const json = (body: unknown,status=200) => new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}})
+import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 const safeError = (error: unknown) => error instanceof Error ? error.message.replace(/AIza[\w-]+/g,'[redacted]').slice(0,240) : 'unknown_error'
 
-serve(async req => {
-  if (req.method === 'OPTIONS') return new Response('ok',{headers:cors})
-  if (req.method !== 'POST') return json({ok:false,error:'Método não permitido.'},405)
+serve(withCors(async req => {
   const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!url || !key) return json({ok:false,error:'Configuração indisponível.'},500)
   const supabase = createClient(url,key,{auth:{persistSession:false}})
@@ -44,4 +41,4 @@ serve(async req => {
     const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 6 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',professional_phone_missing:'Complete seu telefone no Perfil Profissional.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
     return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
   }
-})
+}))

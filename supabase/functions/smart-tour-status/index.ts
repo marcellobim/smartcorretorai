@@ -1,10 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
-const cors = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type'}
-const json = (body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}})
-serve(async req=>{
-  if(req.method==='OPTIONS') return new Response('ok',{headers:cors})
+import { jsonResponse as json, withCors } from '../_shared/cors.ts'
+serve(withCors(async req=>{
   const url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if(!url||!key) return json({ok:false,error:'Configuração indisponível.'},500)
   const supabase=createClient(url,key,{auth:{persistSession:false}}),token=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'')
@@ -26,4 +24,4 @@ serve(async req=>{
     const {data}=await supabase.storage.from('studio-videos').createSignedUrl(path,3600)
     return json({ok:true,status:'completed',jobId,signedVideoUrl:data?.signedUrl||''})
   }catch(error){console.warn('[smart-tour-status]',error instanceof Error?error.message:'status_error');return json({ok:false,error:'Não foi possível consultar sua apresentação.'},502)}
-})
+}))
