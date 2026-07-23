@@ -1,21 +1,30 @@
 import type { PropertyContext, SmartTourGenerationConfig } from './types.ts'
 import { normalizeGeneration } from './validation.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
-const BASE = `Create a brand-new premium real estate presentation using all uploaded property images.
+const BASE = `You are NOT creating a commercial.
+You are NOT redesigning the property.
+You are NOT imagining a different house or apartment.
+Your only mission is to transform the uploaded real estate photographs into a realistic cinematic walkthrough.
+Create a brand-new premium real estate presentation using all uploaded property images.
 The uploaded images are the only visual source for the video.
+The uploaded photographs are the source of truth. Preserve them faithfully.
+Animate the camera, not the property.
 Build one continuous cinematic property tour that naturally connects all environments.
 The presentation must feel like one continuous guided visit instead of independent scenes.
 Each environment should naturally lead to the next, creating the sensation of walking through the property.
 The property must always be the main focus.
-Preserve the real architecture, proportions, materials, finishes and appearance of the property.
+Preserve exactly the real architecture, walls, windows, doors, floors, ceilings, furniture, decoration, objects, lighting fixtures, finishes, room proportions, layout, exterior, landscaping and appearance of the property.
 Never invent property features or factual information.
-Use smooth cinematic camera movement and elegant natural transitions.
-Create only camera movement and small natural perspective changes supported by the uploaded photographs, so the result feels recorded inside the same real property.
-Never merge photographs or environments, reconstruct rooms, create balconies, change the floor plan or modify finishes. New angles must remain faithful to the same scene shown in the source image.
+Use only physically possible, smooth cinematic camera movement: slow walking, stabilized gimbal, slow dolly, smooth pan, smooth tilt, gentle push in, gentle pull back and natural perspective shifts supported by the uploaded photographs.
+Imagine that a professional videographer standing in the exact position where each photograph was taken began recording with a stabilized cinema camera. The result must look like a real video recorded inside the property, never like an AI recreation.
+Improve only camera movement, image stabilization, natural cinematic exposure, color grading and depth perception. Preserve the existing lighting fixtures and the real lighting direction shown in the photograph.
+Never redesign, modernize, improve, renovate, reinterpret or replace existing property elements. Never merge photographs or environments, reconstruct rooms, create balconies, change the structure or floor plan, replace finishes or significantly modify real environments. New angles must remain faithful to the same scene shown in the source image.
 Synchronize every visual element, narration and caption with the actual progression of the property.
 Never describe a room before it appears on screen.
 Use all uploaded property images and respect their supplied order.
-Follow the supplied generation configuration, property context and language requirements exactly.`
+Follow the supplied generation configuration, property context and language requirements exactly.
+The final video must look exactly like a real cinematic walkthrough recorded by a professional videographer inside the real property. The viewer should believe the photographs simply came to life. The camera moves. The property does not.`
+const languageNames = {'pt-BR':'Brazilian Portuguese','en-US':'English','es':'Spanish'} as const
 type PurposeCopy = { phrase: string; openingText: string; forbidden: string } | null
 const purposeCopy = (value: unknown): PurposeCopy => {
   const purpose = String(value || '').trim().toLocaleLowerCase('pt-BR')
@@ -23,8 +32,16 @@ const purposeCopy = (value: unknown): PurposeCopy => {
   if (['rent','rental','locação','locacao','aluguel','alugar'].includes(purpose)) return { phrase:'disponível para locação', openingText:'DISPONÍVEL PARA LOCAÇÃO', forbidden:'venda, à venda, compra, oportunidade de compra' }
   return null
 }
-const presenter = (value: SmartTourGenerationConfig) => value.presenterGender === 'none' ? 'Do not create any presenter, real estate agent, avatar, host or visible narrator. The property must be presented without any person guiding the tour.' : `Create one realistic professional ${value.presenterGender === 'female' ? 'female' : 'male'} real estate agent naturally integrated into the property. The presenter is simply guiding the visitor and must never cover important property details. Maintain the same presenter throughout the entire video.`
-const narration = (enabled: boolean, purpose: PurposeCopy) => enabled ? `Create a natural, professional and emotionally engaging real estate narration. Follow the visual image sequence, never describe an environment before it appears, never invent facts, and keep speech compatible with the duration.${purpose ? ` NARRATION PURPOSE REQUIREMENT: Mention clearly and naturally that the property is "${purpose.phrase}" exactly once in the opening sentence. Do not use ${purpose.forbidden}.` : ''} Do not speak or repeat the final call to action; it is reserved for the single closing card.` : 'Do not create narration, spoken dialogue, voice-over, presenter speech or any spoken words. The final video must contain no speech.'
+const presenter = (value: SmartTourGenerationConfig) => value.presenterGender === 'none' ? 'Do not create any presenter, real estate agent, avatar, host or visible narrator. The property must be presented without any person guiding the tour.' : `Create one realistic professional ${value.presenterGender === 'female' ? 'female' : 'male'} real estate agent naturally integrated into the property, according to the selected option. Maintain the same presenter throughout the entire video and use natural behavior, gestures and expressions. The presenter is only a guide, must never cover important architectural details and must never compete with the property.`
+const locationNarration = (property: PropertyContext) => {
+  const district = removeNonOfficialPhoneNumbers(property.district)
+  const city = removeNonOfficialPhoneNumbers(property.city)
+  if (district && city) return `LOCATION NARRATION REQUIREMENT: Mention the location naturally exactly once, prioritizing neighborhood then city, for example: "Localizado em ${district}, ${city}..." Never invent or repeat the location.`
+  if (city) return `LOCATION NARRATION REQUIREMENT: Mention only the supplied city "${city}" naturally exactly once. No neighborhood was supplied; never invent one.`
+  if (district) return `LOCATION NARRATION REQUIREMENT: Mention only the supplied neighborhood "${district}" naturally exactly once. No city was supplied; never invent one.`
+  return 'LOCATION NARRATION REQUIREMENT: No neighborhood or city was supplied. Do not invent or mention a location.'
+}
+const narration = (enabled: boolean, purpose: PurposeCopy, property: PropertyContext) => enabled ? `Create a natural, elegant and professional real estate narration synchronized precisely with the visual sequence. Describe each environment only while it appears. Never anticipate the next room and never delay a description after the image has changed. Never invent facts and keep speech compatible with the duration.${purpose ? ` NARRATION PURPOSE REQUIREMENT: Mention clearly and naturally that the property is "${purpose.phrase}" exactly once in the opening sentence. Do not use ${purpose.forbidden}.` : ''} ${locationNarration(property)} Do not speak or repeat the final call to action; it is reserved for the single closing card. Avoid repetitive phrasing and never repeat a word or phrase consecutively, including constructions such as "Agende já... agende já...".` : 'Do not create narration, spoken dialogue, voice-over, presenter speech or any spoken words. The final video must contain no speech.'
 const captionSourceData = (property: PropertyContext) => {
   const fields: Array<[string, unknown]> = [
     ['Property state', property.stage],
@@ -41,10 +58,10 @@ const captionSourceData = (property: PropertyContext) => {
   if (highlights.length) lines.push('Selected highlights:', ...highlights.map(item => `- ${item}`))
   return lines.length ? lines.join('\n') : 'No descriptive caption facts were supplied.'
 }
-const captions = (enabled: boolean, purpose: PurposeCopy, property: PropertyContext) => enabled ? `Add clean, modern and elegant captions, one short caption at a time. Generate every descriptive caption automatically from the structured chat data below. Convert only supplied values into concise, natural Brazilian Portuguese, such as "2 dormitórios", "1 suíte", "2 vagas" or a selected highlight. Never invent facts, use fixed generic captions or cover architecture.${purpose ? ` OPENING PURPOSE REQUIREMENT: The first opening text must be exactly "${purpose.openingText}". Show it once only. Do not use ${purpose.forbidden}.` : ''}
+const captions = (enabled: boolean, purpose: PurposeCopy, property: PropertyContext) => enabled ? `Add elegant, minimal and synchronized captions, one short caption at a time, visible for approximately 2 to 3 seconds only when relevant to the current scene. Generate every caption automatically from PROPERTY CONTEXT and the structured chat data below, using only the supplied property type, purpose, neighborhood, city, bedrooms, suites, parking spaces and selected highlights. Captions must complement the narration and must never duplicate exactly what is being spoken. Convert only supplied values into concise natural text in the selected language. Never invent facts, use fixed generic captions, overload the screen or cover important parts of the property.${purpose ? ` OPENING PURPOSE REQUIREMENT: The first opening text must be exactly "${purpose.openingText}". Show it once only. Do not use ${purpose.forbidden}.` : ''}
 DYNAMIC CAPTION SOURCE DATA
 ${captionSourceData(property)}` : `Do not create descriptive captions, labels, property specifications, logos, signs, numbers or watermarks.${purpose ? ` The only opening-text exception is the mandatory purpose "${purpose.openingText}", shown exactly once. Do not use ${purpose.forbidden}.` : ''}`
-const furniture = (virtual: boolean) => virtual ? 'Apply virtual staging only to suitable empty environments. Add only plausible furniture and decoration. Preserve all walls, doors, windows, floors, ceilings, cabinetry, countertops, structural lighting, finishes, dimensions, perspective and circulation. Do not hide defects, create rooms, change the property standard or stage rooms already furnished.' : 'Do not redesign rooms, add or remove furniture, or modify architecture, finishes, materials, colors, fixtures or proportions. Preserve every environment.'
+const furniture = (virtual: boolean) => virtual ? 'Only when the selected virtual-staging mode explicitly requires it, apply virtual staging to suitable empty environments. Add only plausible furniture and decoration to spaces that are actually empty. Preserve every existing object and all walls, doors, windows, floors, ceilings, cabinetry, countertops, lighting fixtures, finishes, dimensions, perspective and circulation. Do not hide defects, create rooms, change the property standard or alter rooms already furnished.' : 'Do not redesign rooms, add or remove furniture or decoration, or modify architecture, finishes, materials, colors, objects, lighting fixtures or proportions. Preserve every environment exactly as photographed.'
 const beforeAfter = (enabled: boolean) => enabled ? 'For each suitable empty environment, briefly show the original room first, then transition elegantly to the staged concept using the same viewpoint. Never misrepresent the property.' : 'Do not create before-and-after or split-screen comparisons. Present only the selected final visual treatment.'
 const officialPhone = (phone: string) => phone
   ? `OFFICIAL PROFESSIONAL PHONE — PROTECTED LITERAL TEXT: "${phone}"
@@ -68,9 +85,10 @@ export function buildPropertyContext(property: PropertyContext, cta: string) {
 }
 export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConfig; property: PropertyContext; selectedCta: string; phone?: string}) {
   const config = normalizeGeneration(input.generation)
+  const language = languageNames[config.language]
   const safeCta = removeNonOfficialPhoneNumbers(input.selectedCta)
   const purpose = purposeCopy(input.property.purpose)
-  const prompt = [BASE, 'IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in Brazilian Portuguese. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Do not use any other language.', officialPhone(input.phone || ''), presenter(config), narration(config.narration === 'enabled', purpose), captions(config.captions === 'enabled', purpose, input.property), `FINAL CALL TO ACTION: Show exactly one closing call to action, only at the end: "${safeCta}". Never show, speak, paraphrase or repeat this call to action anywhere else.`, furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,'')].join('\n\n')
+  const prompt = [BASE, `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Use the selected language only and do not mix languages.`, officialPhone(input.phone || ''), presenter(config), narration(config.narration === 'enabled', purpose, input.property), captions(config.captions === 'enabled', purpose, input.property), `FINAL CALL TO ACTION: Show exactly one closing call to action, only at the end: "${safeCta}". Never show, speak, paraphrase or repeat this call to action anywhere else. FINAL SCREEN: Draw only the CTA, a WhatsApp icon when available, and the protected official phone received from the system when authorized. Do not create additional labels or decorative text. Never generate random characters, unreadable words or any other text above or around the phone.`, furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,'')].join('\n\n')
   assertNoContradictions(prompt, config)
   return prompt
 }

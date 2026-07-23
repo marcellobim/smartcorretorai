@@ -9,18 +9,21 @@ for (const [index,generation] of OFFICIAL_MATRIX.entries()) test(`champion promp
 
 test('restores the champion prompt as the literal baseline instead of the later matrix',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.ok(prompt.startsWith('Create a brand-new premium real estate presentation using all uploaded property images.'))
+  assert.ok(prompt.startsWith('You are NOT creating a commercial.'))
   assert.doesNotMatch(prompt,/COMMON MASTER MATRIX|SINGLE-IMAGE SCENE LOCK|CREATIVE LATITUDE/)
   assert.match(prompt,/The uploaded images are the only visual source for the video/)
+  assert.match(prompt,/Animate the camera, not the property/)
   assert.match(prompt,/one continuous cinematic property tour/)
 })
 
-test('champion behavior creates cinematic motion without changing the property',()=>{
+test('AI Studio concept creates only realistic camera motion without changing the property',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/Create only camera movement and small natural perspective changes supported by the uploaded photographs/)
-  assert.match(prompt,/feels recorded inside the same real property/)
-  assert.match(prompt,/Preserve the real architecture, proportions, materials, finishes and appearance/)
-  assert.match(prompt,/Never merge photographs or environments, reconstruct rooms, create balconies, change the floor plan or modify finishes/)
+  for(const movement of ['slow walking','stabilized gimbal','slow dolly','smooth pan','smooth tilt','gentle push in','gentle pull back']) assert.match(prompt,new RegExp(movement))
+  for(const element of ['architecture','walls','windows','doors','floors','ceilings','furniture','decoration','objects','lighting fixtures','finishes','room proportions','layout','exterior','landscaping']) assert.match(prompt,new RegExp(element))
+  assert.match(prompt,/real video recorded inside the property, never like an AI recreation/)
+  assert.match(prompt,/Never redesign, modernize, improve, renovate, reinterpret or replace existing property elements/)
+  assert.match(prompt,/Never merge photographs or environments, reconstruct rooms, create balconies, change the structure or floor plan, replace finishes/)
+  assert.match(prompt,/The camera moves\. The property does not\./)
 })
 
 test('presenter variants and disabled presenter remain unchanged',()=>{
@@ -29,11 +32,11 @@ test('presenter variants and disabled presenter remain unchanged',()=>{
   assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'CTA'}),/Do not create any presenter/)
 })
 
-test('every configured mode remains one hundred percent Brazilian Portuguese',()=>{
-  for(const language of ['pt-BR','en-US','es']){
+test('narration and text use exactly the language selected by the user',()=>{
+  for(const [language,label] of [['pt-BR','Brazilian Portuguese'],['en-US','English'],['es','Spanish']]){
     const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour',language}),property,selectedCta:'CTA'})
-    assert.match(prompt,/entire final presentation must be in Brazilian Portuguese/)
-    assert.doesNotMatch(prompt,/must be in English|must be in Spanish/)
+    assert.match(prompt,new RegExp(`entire final presentation must be in ${label}`))
+    assert.match(prompt,/Use the selected language only and do not mix languages/)
   }
 })
 
@@ -51,12 +54,26 @@ test('rental opens with DISPONÍVEL PARA LOCAÇÃO and mentions it once in narra
   assert.match(prompt,/Do not use venda, à venda, compra, oportunidade de compra/)
 })
 
+test('narration prefers neighborhood then city and never invents missing location fields',()=>{
+  const both=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo'})
+  const cityOnly=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property:{...property,district:''},selectedCta:'Fale comigo'})
+  const districtOnly=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property:{...property,city:''},selectedCta:'Fale comigo'})
+  assert.match(both,/prioritizing neighborhood then city[\s\S]*"Localizado em Moema, São Paulo\.\.\."/)
+  assert.match(cityOnly,/Mention only the supplied city "São Paulo" naturally exactly once/)
+  assert.match(cityOnly,/No neighborhood was supplied; never invent one/)
+  assert.match(districtOnly,/Mention only the supplied neighborhood "Moema" naturally exactly once/)
+  assert.match(districtOnly,/No city was supplied; never invent one/)
+})
+
 test('captions are generated dynamically from structured chat facts one at a time',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/Generate every descriptive caption automatically from the structured chat data below/)
+  assert.match(prompt,/Generate every caption automatically from PROPERTY CONTEXT and the structured chat data below/)
   assert.match(prompt,/one short caption at a time/)
+  assert.match(prompt,/visible for approximately 2 to 3 seconds/)
+  assert.match(prompt,/property type, purpose, neighborhood, city, bedrooms, suites, parking spaces and selected highlights/)
+  assert.match(prompt,/must complement the narration and must never duplicate exactly what is being spoken/)
   for(const fact of ['Bedrooms: 2','Suites: 1','Parking spaces: 2','Property state: Pronto para morar','- Vista livre','- Varanda gourmet','- Lazer completo']) assert.match(prompt,new RegExp(fact))
-  assert.match(prompt,/Never invent facts, use fixed generic captions or cover architecture/)
+  assert.match(prompt,/Never invent facts, use fixed generic captions, overload the screen or cover important parts of the property/)
 })
 
 test('disabled descriptive captions still preserve only mandatory opening purpose and final CTA',()=>{
@@ -72,6 +89,16 @@ test('selected CTA occurs once and only in the closing instruction',()=>{
   assert.equal(prompt.split(cta).length-1,1)
   assert.match(prompt,/FINAL CALL TO ACTION: Show exactly one closing call to action, only at the end/)
   assert.match(prompt,/Never show, speak, paraphrase or repeat this call to action anywhere else/)
+  assert.match(prompt,/never repeat a word or phrase consecutively/i)
+  assert.match(prompt,/Agende já\.\.\. agende já\.\.\./)
+})
+
+test('final screen contains only CTA protected phone and optional WhatsApp icon',()=>{
+  const phone=resolveSmartTourProfessionalPhone(true,'11987654321')
+  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo',phone})
+  assert.match(prompt,/FINAL SCREEN: Draw only the CTA, a WhatsApp icon when available, and the protected official phone received from the system when authorized/)
+  assert.match(prompt,/Do not create additional labels or decorative text/)
+  assert.match(prompt,/Never generate random characters, unreadable words or any other text above or around the phone/)
 })
 
 test('context omits empty fields and preserves CTA when used independently',()=>{const value=buildPropertyContext({...property,price:''},'Fale comigo');assert.doesNotMatch(value,/Price:/);assert.match(value,/Fale comigo/)})
