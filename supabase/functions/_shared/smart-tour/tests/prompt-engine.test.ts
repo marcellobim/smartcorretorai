@@ -26,6 +26,13 @@ test('AI Studio concept creates only realistic camera motion without changing th
   assert.match(prompt,/The camera moves\. The property does not\./)
 })
 
+test('camera and recording equipment remain completely outside the generated scene',()=>{
+  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
+  assert.match(prompt,/camera is only the invisible viewpoint of the viewer and must never appear inside the image/)
+  for(const forbidden of ['camera','mobile phone','smartphone','gimbal','stabilizer','tripod','drone','camera operator','videographer','cinematographer','recording equipment']) assert.match(prompt,new RegExp(forbidden))
+  assert.match(prompt,/including in reflections, mirrors, windows or shadows/)
+})
+
 test('presenter variants and disabled presenter remain unchanged',()=>{
   assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'female'}),property,selectedCta:'CTA'}),/female real estate agent/)
   assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'male'}),property,selectedCta:'CTA'}),/male real estate agent/)
@@ -67,6 +74,9 @@ test('narration prefers neighborhood then city and never invents missing locatio
 
 test('captions are generated dynamically from structured chat facts one at a time',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
+  assert.match(prompt,/CAPTIONS ARE REQUIRED AND MUST BE VISIBLY RENDERED DURING THE VIDEO/)
+  assert.match(prompt,/Do not omit, suppress or replace them with narration/)
+  assert.match(prompt,/Synchronize each rendered caption with the environment currently on screen/)
   assert.match(prompt,/Generate every caption automatically and exclusively from PROPERTY CONTEXT and the structured chat data below/)
   assert.match(prompt,/one short caption block at a time/)
   assert.match(prompt,/visible for approximately 2 to 3 seconds/)
@@ -114,15 +124,17 @@ test('selected CTA occurs once and only in the closing instruction',()=>{
 test('final screen contains only CTA protected phone and optional WhatsApp icon',()=>{
   const phone=resolveSmartTourProfessionalPhone(true,'11987654321')
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo',phone})
-  assert.match(prompt,/FINAL SCREEN: Draw only the CTA, a WhatsApp icon when available, and the protected official phone received from the system when authorized/)
-  assert.match(prompt,/Do not create additional labels or decorative text/)
-  assert.match(prompt,/Never generate random characters, unreadable words or any other text above or around the phone/)
+  assert.match(prompt,/FINAL SCREEN — STRICT VISIBLE CONTENT ALLOWLIST/)
+  assert.match(prompt,/Render exactly and only the official CTA, WhatsApp, and the exact authorized phone value when provided/)
+  assert.match(prompt,/Never render any instruction wording or metadata label from this prompt/)
+  assert.match(prompt,/Do not create titles, subtitles, sentences, phrases, labels, tags, decorative copy, automatic text, random characters or unreadable words/)
+  assert.doesNotMatch(prompt,/Protected official/i)
 })
 
 test('context omits empty fields and preserves CTA when used independently',()=>{const value=buildPropertyContext({...property,price:''},'Fale comigo');assert.doesNotMatch(value,/Price:/);assert.match(value,/Fale comigo/)})
-test('valid professional phone is formatted and protected as exact literal text',()=>{const phone=resolveSmartTourProfessionalPhone(true,'11987654321');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo',phone});assert.equal(phone,'+55 (11) 98765-4321');assert.match(prompt,/PROTECTED LITERAL TEXT: "\+55 \(11\) 98765-4321"/);assert.match(prompt,/Use somente o telefone fornecido no campo oficial\. Não crie, não corrija e não substitua números\./)})
+test('valid professional phone is formatted and protected as exact literal text',()=>{const phone=resolveSmartTourProfessionalPhone(true,'11987654321');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo',phone});assert.equal(phone,'+55 (11) 98765-4321');assert.match(prompt,/only authorized phone value is "\+55 \(11\) 98765-4321"/);assert.match(prompt,/Render only the characters inside these quotation marks as the phone value/);assert.match(prompt,/Use somente o telefone fornecido no campo oficial\. Não crie, não corrija e não substitua números\./)})
 test('choosing not to disclose the phone omits every profile number',()=>{const phone=resolveSmartTourProfessionalPhone(false,'11987654321');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo',phone});assert.equal(phone,'');assert.doesNotMatch(prompt,/98765-4321/);assert.match(prompt,/Do not display, narrate, write, imply or generate any phone number/)})
-test('missing or invalid professional phone is omitted without placeholder or example',()=>{for(const values of [[],[''],['12345'],['551198765432'],['00000000000']]) assert.equal(resolveSmartTourProfessionalPhone(true,...values),'');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo'});assert.doesNotMatch(prompt,/\+55 \(\d{2}\)/);assert.doesNotMatch(prompt,/99999|0000|1234/);assert.match(prompt,/NOT PROVIDED OR NOT AUTHORIZED/)})
+test('missing or invalid professional phone is omitted without placeholder or example',()=>{for(const values of [[],[''],['12345'],['551198765432'],['00000000000']]) assert.equal(resolveSmartTourProfessionalPhone(true,...values),'');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo'});assert.doesNotMatch(prompt,/\+55 \(\d{2}\)/);assert.doesNotMatch(prompt,/99999|0000|1234/);assert.match(prompt,/No phone value was provided or authorized/)})
 test('invalid WhatsApp falls back only to a valid phone from the professional profile',()=>assert.equal(resolveSmartTourProfessionalPhone(true,'invalid','1134567890'),'+55 (11) 3456-7890'))
 test('phone-like text outside the professional profile never reaches the prompt',()=>{const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,description:'Ligue para (21) 98765-4321 e conheça',highlights:['Contato 11 3456-7890']},selectedCta:'WhatsApp 31 99876-5432'});assert.doesNotMatch(prompt,/98765-4321|3456-7890|99876-5432/);assert.match(prompt,/Do not display, narrate, write, imply or generate any phone number/)})
 test('request preserves order, rejects seven and duplicates',()=>{const base={clientRequestId:'abc',imagePaths:['u/1.jpg','u/2.jpg'],imageOrder:['u/1.jpg','u/2.jpg'],property,generation:normalizeGeneration({mode:'narrated_tour'}),selectedCta:'CTA',includeProfessionalPhone:false,language:'pt-BR'};assert.deepEqual(validateSmartTourRequest(base).imageOrder,base.imageOrder);assert.throws(()=>validateSmartTourRequest({...base,imagePaths:Array.from({length:7},(_,i)=>`u/${i}.jpg`),imageOrder:Array.from({length:7},(_,i)=>`u/${i}.jpg`)}),/invalid_image_count/);assert.throws(()=>validateSmartTourRequest({...base,imagePaths:['u/1.jpg','u/1.jpg'],imageOrder:['u/1.jpg','u/1.jpg']}),/invalid_image_count/)})
