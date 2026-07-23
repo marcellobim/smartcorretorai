@@ -61,12 +61,22 @@ test('keeps all Smart Tour conditional paths coherent through review', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', mode: 'guided_tour' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'narrated_tour' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'staging', mode: 'smart_staging' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'staging', mode: 'smart_staging' }), 'presenter')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none', mode: 'smart_staging' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions', mode: 'smart_staging' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'cinematic_tour' }), 'captions')
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions', mode: 'cinematic_tour' }), 'furniture')
   assert.equal(getSmartTourNextQuestion({ questionId: 'furniture', answerId: 'original', mode: 'cinematic_tour' }), 'cta')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'cta', answerId: 'none' }), 'review')
   assert.equal(getSmartTourNextQuestion({ questionId: 'phone' }), 'review')
+})
+
+test('reuses the CTA question to offer a clean ending without asking for a phone', () => {
+  assert.match(smartTour, /\{ id: 'none', label: 'Sem CTA' \}/)
+  assert.match(smartTour, /cta \|\| 'none'/)
+  assert.match(smartTour, /includeProfessionalPhone: Boolean\(cta\) && includePhone === true/)
+  assert.match(smartTour, /phone:cta && includePhone \? phone : ''/)
+  assert.match(smartTour, /O vídeo terminará naturalmente na última cena, sem chamada final/)
 })
 
 test('completes Venda with Corretora Virtual path', () => {
@@ -81,7 +91,9 @@ test('completes Locação with Narração path', () => {
 
 test('completes Venda with Sugestão de Decoração path', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'staging', answerId: 'final_only', mode: 'smart_staging' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'staging', answerId: 'final_only', mode: 'smart_staging' }), 'presenter')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'female', mode: 'smart_staging' }), 'narration')
+  assert.match(smartTour, /generation\.mode === 'smart_staging' \? \[\{id:'none',label:'Sem apresentador'\}/)
 })
 
 test('completes Locação with Apresentação Dinâmica path', () => {

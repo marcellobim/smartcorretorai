@@ -15,6 +15,8 @@ const LINEAR_NEXT_QUESTION = Object.freeze({
 })
 
 export function getSmartTourNextQuestion({ questionId, answerId = '', mode = '' }) {
+  if (questionId === 'cta' && answerId === 'none') return 'review'
+  if (questionId === 'presenter' && mode === 'smart_staging') return 'narration'
   if (questionId === 'mode') {
     if (answerId === 'guided_tour') return 'presenter'
     if (answerId === 'smart_staging') return 'staging'
@@ -26,6 +28,7 @@ export function getSmartTourNextQuestion({ questionId, answerId = '', mode = '' 
   if (questionId === 'furniture') {
     return 'cta'
   }
+  if (questionId === 'staging' && mode === 'smart_staging') return 'presenter'
   if (questionId === 'captions') return mode === 'cinematic_tour' ? 'furniture' : 'cta'
   return LINEAR_NEXT_QUESTION[questionId] || 'review'
 }

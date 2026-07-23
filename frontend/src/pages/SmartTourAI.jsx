@@ -17,7 +17,7 @@ import { formatBrazilianPhone } from '../../../supabase/functions/_shared/produc
 const BUCKET = 'studio-videos'
 const ACTIVE_JOB_KEY = 'smartcorretorai:smart-tour:active-job'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
-const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
+const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo', { id: 'none', label: 'Sem CTA' }]
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const initialGeneration = { mode: '', presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR', freeAiFormat: 'narration' }
 const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'mode', 'free_ai_format', 'presenter', 'furniture', 'staging', 'narration', 'captions', 'cta', 'phone', 'review']
@@ -26,7 +26,7 @@ function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
   if (value.mode === 'guided_tour') return { ...value, presenterGender: value.presenterGender === 'male' ? 'male' : 'female', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
   if (value.mode === 'narrated_tour') return { ...value, presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
-  if (value.mode === 'smart_staging') return { ...value, presenterGender: 'none', furniture: 'virtual_staging', stagingPresentation: value.stagingPresentation === 'before_after' ? 'before_after' : 'final_only' }
+  if (value.mode === 'smart_staging') return { ...value, presenterGender: ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none', furniture: 'virtual_staging', stagingPresentation: value.stagingPresentation === 'before_after' ? 'before_after' : 'final_only' }
   if (value.mode === 'cinematic_tour') return { ...value, presenterGender: 'none', narration: 'disabled', stagingPresentation: 'final_only' }
   if (value.mode === 'free_ai') return { ...value, presenterGender: value.freeAiFormat === 'presenter' ? (value.presenterGender === 'male' ? 'male' : 'female') : 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
   return { ...value, presenterGender: 'none', stagingPresentation: value.furniture === 'virtual_staging' ? value.stagingPresentation : 'final_only' }
@@ -46,6 +46,7 @@ function questionsFor(generation) {
   }
   if (generation.mode === 'smart_staging') {
     questions.push(['staging', 3, 'Como deseja mostrar o resultado?'])
+    questions.push(['presenter', 3, 'Deseja corretor ou corretora virtual no staging?'])
     questions.push(['narration', 3, 'Deseja narração?'], ['captions', 3, 'Deseja textos na tela?'])
   }
   if (generation.mode === 'cinematic_tour') questions.push(['captions', 3, 'Deseja textos na tela?'], ['furniture', 3, 'Deseja manter os ambientes como estão ou mobiliar ambientes vazios?'])
@@ -71,7 +72,7 @@ function smartTourConfirmation(id, answer) {
       : 'Perfeito! A apresentação mostrará diretamente os ambientes com a sugestão de decoração criada pela IA.',
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
     captions: answer === 'Sim' ? 'Ótimo! Os destaques também aparecerão na tela.' : 'Tudo certo! A apresentação seguirá sem textos na tela.',
-    cta: `Ótimo! A chamada final será “${answer}”.`,
+    cta: answer === 'Sem CTA' ? 'Tudo certo! O vídeo terminará naturalmente na última cena, sem chamada final.' : `Ótimo! A chamada final será “${answer}”.`,
     phone: answer === 'Telefone profissional' ? 'Perfeito! Seu telefone profissional será incluído.' : 'Tudo certo! A apresentação seguirá sem telefone.',
   }
   return confirmations[id] || 'Perfeito! Informação registrada.'
@@ -197,9 +198,9 @@ export default function SmartTourAI() {
       const apiGeneration = generation.mode === 'free_ai'
         ? normalizeGeneration({ ...generation, mode: generation.freeAiFormat === 'presenter' ? 'guided_tour' : 'narrated_tour' })
         : normalizeGeneration(generation)
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta: cta, includeProfessionalPhone: includePhone === true, language: 'pt-BR' } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta: cta, includeProfessionalPhone: Boolean(cta) && includePhone === true, language: 'pt-BR' } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta, phone:includePhone ? phone : '' })
+      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta, phone:cta && includePhone ? phone : '' })
       sessionStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
@@ -225,8 +226,8 @@ export default function SmartTourAI() {
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
     { id: 'mode', label: presentationSummary },
-    { id: 'cta', label: cta },
-    { id: 'phone', label: includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '' },
+    { id: 'cta', label: cta || (isReviewContext ? 'Sem CTA' : '') },
+    { id: 'phone', label: cta ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
   return <>
@@ -447,11 +448,11 @@ function Question(props) {
   if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'mode')}</> }
   if (id === 'mode') return choices(SMART_TOUR_MODES, generation.mode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('mode', value) }))
   if (id === 'free_ai_format') return choices([{id:'presenter',label:'Com Corretor(a) Virtual'},{id:'narration',label:'Somente com Narração'}], generation.freeAiFormat, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('freeAiFormat', value) }))
-  if (id === 'presenter') return choices([{id:'female',label:'Corretora'},{id:'male',label:'Corretor'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) }))
+  if (id === 'presenter') { const presenterChoices = generation.mode === 'smart_staging' ? [{id:'none',label:'Sem apresentador'},{id:'female',label:'Corretora'},{id:'male',label:'Corretor'}] : [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'}]; return choices(presenterChoices, generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) })) }
   if (id === 'furniture') return choices([{id:'original',label:'Manter original'},{id:'virtual_staging',label:'Mobiliar com IA'}], generation.furniture, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('furniture', value) }))
   if (id === 'staging') return choices([{id:'final_only',label:'Apenas resultado final'},{id:'before_after',label:'Antes e depois'}], generation.stagingPresentation, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('stagingPresentation', value) }))
   if (id === 'narration' || id === 'captions') return choices([{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation[id], (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField(id, value) }))
-  if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
+  if (id === 'cta') return choices(CTAS, cta || 'none', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setCta(value === 'none' ? '' : value); if (value === 'none') setIncludePhone(false) } }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   return <>
     <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">

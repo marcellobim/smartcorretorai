@@ -8,8 +8,13 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
   const language = LANGUAGES.has(String(value.language)) ? value.language as SmartTourGenerationConfig['language'] : 'pt-BR'
   const normalized: SmartTourGenerationConfig = { mode, language, presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
   if (mode === 'guided_tour') normalized.presenterGender = value.presenterGender === 'male' ? 'male' : 'female'
-  if (mode === 'smart_staging') { normalized.narration = value.narration === 'disabled' ? 'disabled' : 'enabled'; normalized.captions = value.captions === 'disabled' ? 'disabled' : 'enabled'; normalized.furniture = value.furniture === 'virtual_staging' ? 'virtual_staging' : 'original'; normalized.stagingPresentation = normalized.furniture === 'virtual_staging' && value.stagingPresentation === 'before_after' ? 'before_after' : 'final_only' }
-  if (mode === 'cinematic_tour') { normalized.narration = 'disabled'; normalized.captions = value.captions === 'disabled' ? 'disabled' : 'enabled'; normalized.furniture = value.furniture === 'virtual_staging' ? 'virtual_staging' : 'original' }
+  if (mode === 'smart_staging' || mode === 'cinematic_tour') {
+    normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
+    normalized.narration = value.narration === 'disabled' || (mode === 'cinematic_tour' && value.narration !== 'enabled') ? 'disabled' : 'enabled'
+    normalized.captions = value.captions === 'disabled' ? 'disabled' : 'enabled'
+    normalized.furniture = value.furniture === 'virtual_staging' ? 'virtual_staging' : 'original'
+    normalized.stagingPresentation = normalized.furniture === 'virtual_staging' && value.stagingPresentation === 'before_after' ? 'before_after' : 'final_only'
+  }
   return normalized
 }
 

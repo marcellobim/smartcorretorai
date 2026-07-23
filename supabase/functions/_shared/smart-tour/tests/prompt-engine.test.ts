@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { OFFICIAL_MATRIX, SMART_TOUR_VISUAL_CORE, buildPropertyContext, buildSmartTourPrompt, normalizeGeneration, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../index.ts'
 
 const property = {purpose:'sale',type:'Apartamento',city:'São Paulo',district:'Moema',bedrooms:'2',suites:'1',parkingSpaces:'2',stage:'Pronto para morar',highlights:['Vista livre','Varanda gourmet','Lazer completo']}
+const buildOptionalPrompt = (generation: Parameters<typeof normalizeGeneration>[0], selectedCta = 'Fale comigo', phone = '') => buildSmartTourPrompt({generation:normalizeGeneration(generation),property,selectedCta,phone})
 
 test('official matrix has all 19 supported combinations',()=>assert.equal(OFFICIAL_MATRIX.length,19))
 for (const [index,generation] of OFFICIAL_MATRIX.entries()) test(`champion prompt combination ${index + 1} builds without contradictions`,()=>assert.doesNotThrow(()=>buildSmartTourPrompt({generation,property,selectedCta:'Agende sua visita'})))
@@ -14,6 +16,12 @@ test('restores the champion prompt as the literal baseline instead of the later 
   assert.match(prompt,/The uploaded images are the only visual source for the video/)
   assert.match(prompt,/Animate the camera, not the property/)
   assert.match(prompt,/one continuous cinematic property tour/)
+})
+
+test('complete approved guided tour prompt remains byte-for-byte unchanged',()=>{
+  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'female'}),property:{...property,price:'R$ 890.000'},selectedCta:'Agende sua visita',phone:resolveSmartTourProfessionalPhone(true,'11987654321')})
+  assert.equal(prompt.length,10856)
+  assert.equal(createHash('sha256').update(prompt).digest('hex'),'30b94392b193fc083d5d2aad99ea7b0637311c198d38ed769d9805395f43e510')
 })
 
 test('AI Studio concept creates only realistic camera motion without changing the property',()=>{
@@ -71,6 +79,87 @@ test('guided and narrated prompts differ only by the necessary presenter instruc
   const narrated=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo'})
   const presenterInstruction=/Create one realistic professional female real estate agent[^\n]+|Do not create any presenter, person, real estate agent, avatar, host or visible narrator[^\n]+/
   assert.equal(guided.replace(presenterInstruction,'[MODE-SPECIFIC PRESENTER INSTRUCTION]'),narrated.replace(presenterInstruction,'[MODE-SPECIFIC PRESENTER INSTRUCTION]'))
+})
+
+test('optional presenter removal preserves narration text CTA and the shared visual core',()=>{
+  const prompt=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'none',narration:'enabled',captions:'enabled',furniture:'original'})
+  assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
+  assert.match(prompt,/Do not create any presenter, person/)
+  assert.doesNotMatch(prompt,/Create one realistic professional/)
+  assert.match(prompt,/Create a natural, elegant and professional real estate narration/)
+  assert.match(prompt,/CAPTIONS ARE REQUIRED/)
+  assert.match(prompt,/FINAL CALL TO ACTION/)
+})
+
+test('narration text and CTA are independently controlled',()=>{
+  const noNarration=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'female',narration:'disabled',captions:'enabled',furniture:'original'})
+  assert.match(noNarration,/Create one realistic professional female real estate agent/)
+  assert.match(noNarration,/final video must contain no speech/)
+  assert.doesNotMatch(noNarration,/Create a natural, elegant and professional real estate narration/)
+  assert.match(noNarration,/Narration is disabled, so render these as concise informational and commercial property texts/)
+  assert.match(noNarration,/FINAL CALL TO ACTION/)
+
+  const noText=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'female',narration:'enabled',captions:'disabled',furniture:'original'})
+  assert.match(noText,/Create a natural, elegant and professional real estate narration/)
+  assert.match(noText,/Do not create captions, subtitles, commercial text, informational overlays/)
+  assert.doesNotMatch(noText,/CAPTIONS ARE REQUIRED|DYNAMIC CAPTION SOURCE DATA|CAPTION PRIORITY/)
+  assert.match(noText,/FINAL CALL TO ACTION/)
+})
+
+test('disabling CTA removes CTA phone WhatsApp and final screen without removing other enabled layers',()=>{
+  const prompt=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'female',narration:'enabled',captions:'enabled',furniture:'original'},'',resolveSmartTourProfessionalPhone(true,'11987654321'))
+  assert.match(prompt,/Create one realistic professional female real estate agent/)
+  assert.match(prompt,/Create a natural, elegant and professional real estate narration/)
+  assert.match(prompt,/CAPTIONS ARE REQUIRED/)
+  assert.match(prompt,/NO CALL TO ACTION OR COMMERCIAL FINAL SCREEN/)
+  assert.match(prompt,/End naturally on the last property scene/)
+  assert.doesNotMatch(prompt,/FINAL CALL TO ACTION: Show exactly one closing call|98765-4321|GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/)
+})
+
+test('fully clean video keeps only the shared visual treatment and explicit prohibitions',()=>{
+  const prompt=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'none',narration:'disabled',captions:'disabled',furniture:'original'},'')
+  assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
+  assert.match(prompt,/Do not create any presenter, person/)
+  assert.match(prompt,/final video must contain no speech/)
+  assert.match(prompt,/Do not create captions, subtitles, commercial text/)
+  assert.match(prompt,/NO CALL TO ACTION OR COMMERCIAL FINAL SCREEN/)
+  assert.match(prompt,/FULLY CLEAN VIDEO — REQUIRED OUTPUT/)
+  assert.match(prompt,/Do not create any person, voice, speech, generated music, soundtrack, caption, text, title, CTA, phone, WhatsApp, final screen, brand, watermark or promotional element/)
+  assert.doesNotMatch(prompt,/Create one realistic professional|Create a natural, elegant and professional real estate narration|CAPTIONS ARE REQUIRED|FINAL CALL TO ACTION: Show exactly one closing call|Apply virtual staging|GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/i)
+})
+
+test('staging adds only controlled removable furniture and keeps complements independent',()=>{
+  const cleanStaging=buildOptionalPrompt({mode:'smart_staging',presenterGender:'none',narration:'disabled',captions:'disabled',furniture:'virtual_staging',stagingPresentation:'final_only'},'')
+  assert.ok(cleanStaging.startsWith(SMART_TOUR_VISUAL_CORE))
+  assert.match(cleanStaging,/apply virtual staging to suitable empty environments/)
+  for(const protectedElement of ['architecture','apparent dimensions','perspective','walls','floors','ceilings','doors','windows','fixed cabinetry','countertops','structural lighting','exterior view']) assert.match(cleanStaging,new RegExp(protectedElement))
+  assert.match(cleanStaging,/plausible, removable furniture and decoration/)
+  assert.match(cleanStaging,/Do not hide defects, renovate, modernize, replace structural elements, create rooms, change the floor plan/)
+  assert.doesNotMatch(cleanStaging,/Create one realistic professional|Create a natural, elegant and professional real estate narration|CAPTIONS ARE REQUIRED|FINAL CALL TO ACTION: Show exactly one closing call/i)
+
+  const stagingWithSelectedComplements=buildOptionalPrompt({mode:'smart_staging',presenterGender:'male',narration:'enabled',captions:'enabled',furniture:'virtual_staging',stagingPresentation:'final_only'})
+  assert.match(stagingWithSelectedComplements,/Create one realistic professional male real estate agent/)
+  assert.match(stagingWithSelectedComplements,/Create a natural, elegant and professional real estate narration/)
+  assert.match(stagingWithSelectedComplements,/CAPTIONS ARE REQUIRED/)
+  assert.match(stagingWithSelectedComplements,/FINAL CALL TO ACTION/)
+  assert.match(stagingWithSelectedComplements,/apply virtual staging/)
+})
+
+test('enabling staging changes only the controlled furniture block',()=>{
+  const base={mode:'cinematic_tour' as const,presenterGender:'none' as const,narration:'disabled' as const,captions:'disabled' as const,stagingPresentation:'final_only' as const}
+  const original=buildOptionalPrompt({...base,furniture:'original'},'')
+  const staged=buildOptionalPrompt({...base,furniture:'virtual_staging'},'')
+  const originalFurniture=/Do not redesign rooms, add or remove furniture or decoration, or modify architecture, finishes, materials, colors, objects, lighting fixtures or proportions\. Preserve every environment exactly as photographed\./
+  const stagingFurniture=/Only when the selected virtual-staging mode explicitly requires it, apply virtual staging[^\n]+/
+  assert.equal(original.replace(originalFurniture,'[CONTROLLED FURNITURE BLOCK]'),staged.replace(stagingFurniture,'[CONTROLLED FURNITURE BLOCK]'))
+})
+
+test('every optional combination keeps the approved core and excludes legacy prompt families',()=>{
+  for(const mode of ['smart_staging','cinematic_tour'] as const) for(const presenterGender of ['none','female','male'] as const) for(const narration of ['enabled','disabled'] as const) for(const captions of ['enabled','disabled'] as const) for(const furniture of ['original','virtual_staging'] as const) for(const selectedCta of ['Fale comigo','']){
+    const prompt=buildOptionalPrompt({mode,presenterGender,narration,captions,furniture,stagingPresentation:'final_only'},selectedCta)
+    assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
+    assert.doesNotMatch(prompt,/COMMON MASTER MATRIX|SINGLE-IMAGE SCENE LOCK|CREATIVE LATITUDE/)
+  }
 })
 
 test('mandatory guided and narrated delivery contract is absent from optional-output modes',()=>{
@@ -153,11 +242,11 @@ test('missing caption fields are omitted rather than invented',()=>{
   assert.doesNotMatch(prompt,/Neighborhood:|City:|Bedrooms:|Suites:|Parking spaces:|Price:/)
 })
 
-test('disabled descriptive captions still preserve only mandatory opening purpose and final CTA',()=>{
+test('disabled texts remove every caption and informational overlay while preserving final CTA',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'smart_staging',captions:'disabled'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/Do not create descriptive captions/)
-  assert.match(prompt,/only opening-text exception is the mandatory purpose "À VENDA"/)
-  assert.doesNotMatch(prompt,/DYNAMIC CAPTION SOURCE DATA/)
+  assert.match(prompt,/Do not create captions, subtitles, commercial text, informational overlays/)
+  assert.doesNotMatch(prompt,/DYNAMIC CAPTION SOURCE DATA|CAPTION PRIORITY|only opening-text exception/)
+  assert.match(prompt,/FINAL CALL TO ACTION/)
 })
 
 test('selected CTA occurs once and only in the closing instruction',()=>{
