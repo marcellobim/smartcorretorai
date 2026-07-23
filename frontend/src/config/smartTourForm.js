@@ -12,38 +12,89 @@ export const SMART_TOUR_MEASURE_OPTIONS = Object.freeze({
   parkingSpaces: ['0', '1', '2', '3', '4+'],
 })
 
+export const SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY = Object.freeze({
+  'Localização': Object.freeze([
+    'Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a universidades',
+    'Próximo a hospitais', 'Próximo a parques', 'Próximo ao shopping', 'Próximo à praia',
+    'Próximo ao aeroporto', 'Próximo ao centro', 'Fácil acesso', 'Próximo a rodovias',
+    'Rua tranquila', 'Bairro valorizado', 'Região nobre', 'Vista livre', 'Frente para praça',
+  ]),
+  'Condomínio': Object.freeze([
+    'Lazer completo', 'Piscina', 'Piscina aquecida', 'Academia', 'Churrasqueira', 'Espaço gourmet',
+    'Salão de festas', 'Salão de jogos', 'Playground', 'Brinquedoteca', 'Coworking', 'Pet Place',
+    'Quadra esportiva', 'Quadra de tênis', 'Sauna', 'Spa', 'Cinema', 'Mini mercado', 'Bicicletário',
+    'Lavanderia coletiva', 'Portaria 24h', 'Segurança 24h', 'Monitoramento', 'Elevador', 'Gerador',
+    'Energia solar',
+  ]),
+  'Diferenciais do imóvel': Object.freeze([
+    'Alto padrão', 'Reformado', 'Novo', 'Nunca habitado', 'Semi mobiliado', 'Mobiliado',
+    'Móveis planejados', 'Closet', 'Escritório', 'Home office', 'Lavabo', 'Suíte master',
+    'Cozinha americana', 'Despensa', 'Área de serviço', 'Dependência', 'Varanda gourmet', 'Sacada',
+    'Sacada envidraçada', 'Terraço', 'Quintal', 'Jardim', 'Piscina privativa', 'Jacuzzi',
+    'Churrasqueira privativa', 'Piso porcelanato', 'Piso vinílico', 'Mármore', 'Granito',
+    'Pé-direito alto', 'Excelente ventilação', 'Sol da manhã', 'Sol da tarde', 'Iluminação natural',
+    'Ambientes integrados', 'Vista panorâmica', 'Vista permanente', 'Vista para o mar',
+    'Vista para parque', 'Vista para cidade', 'Ar-condicionado', 'Fechadura eletrônica',
+    'Acabamento premium',
+  ]),
+  'Garagem': Object.freeze([
+    'Vagas demarcadas', 'Vaga coberta', 'Box privativo', 'Carregador para veículo elétrico',
+  ]),
+  'Sustentabilidade': Object.freeze([
+    'Energia solar', 'Aquecimento solar', 'Reuso de água', 'Preparação para carro elétrico',
+  ]),
+  'Comercial': Object.freeze([
+    'Recepção', 'Copa', 'Sala de reunião', 'Excelente visibilidade', 'Frente para avenida',
+    'Alto fluxo', 'Ideal para clínica', 'Ideal para escritório', 'Ideal para loja',
+    'Localização estratégica', 'Alto fluxo de pessoas', 'Estacionamento', 'Vitrine', 'Salas privativas',
+    'Ar-condicionado', 'Elevador', 'Acessibilidade', 'Segurança 24h', 'Pronto para uso',
+    'Zoneamento comercial', 'Internet de alta velocidade', 'Cabeamento estruturado',
+    'Piso elevado', 'Energia trifásica', 'Coworking', 'Sala de reuniões', 'Banheiros privativos',
+    'Depósito', 'Refeitório', 'Controle de acesso', 'Monitoramento por câmeras',
+    'Estacionamento para clientes', 'Acesso para carga e descarga', 'Doca',
+    'Ponto para carregamento de carro elétrico', 'Próximo ao transporte público',
+    'Fácil acesso às principais vias', 'Ideal para coworking',
+    'Ideal para logística', 'Recém-reformado',
+  ]),
+  'Terrenos': Object.freeze([
+    'Plano', 'Esquina', 'Murado', 'Documentação regular', 'Alto potencial construtivo',
+    'Zoneamento residencial', 'Zoneamento comercial', 'Excelente investimento', 'Rua asfaltada',
+    'Infraestrutura completa', 'Rede de água', 'Rede elétrica', 'Área valorizada',
+  ]),
+})
+
+const masterGroup = (title, additions = []) => ({
+  title,
+  items: [...new Set([...additions, ...SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY[title]])],
+})
+
+const withoutItemsAlreadyUsed = groups => {
+  const used = new Set()
+  return groups.map(group => ({
+    ...group,
+    items: group.items.filter(item => !used.has(item) && used.add(item)),
+  }))
+}
+
+const RESIDENTIAL_GROUPS = withoutItemsAlreadyUsed([
+  masterGroup('Localização'), masterGroup('Condomínio'), masterGroup('Diferenciais do imóvel'),
+  masterGroup('Garagem'), masterGroup('Sustentabilidade'),
+])
+
 export const SMART_TOUR_HIGHLIGHT_GROUPS = Object.freeze({
-  residential: [
-    { title: 'Localização', items: ['Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a parques', 'Próximo a hospitais', 'Fácil acesso', 'Bairro valorizado', 'Vista livre'] },
-    { title: 'Condomínio', items: ['Lazer completo', 'Piscina', 'Academia', 'Churrasqueira', 'Salão de festas', 'Playground', 'Quadra esportiva', 'Quadra de tênis', 'Pet Place', 'Pista de caminhada', 'Coworking', 'Portaria 24h', 'Segurança 24h', 'Monitoramento', 'Elevador', 'Ponto para carregamento de carro elétrico'] },
-    { title: 'Diferenciais do imóvel', items: ['Alto padrão', 'Mobiliado', 'Móveis planejados', 'Varanda gourmet', 'Depósito privativo', 'Vagas demarcadas', 'Ar-condicionado', 'Iluminação natural', 'Ambientes integrados', 'Andar alto', 'Acabamento premium'] },
-  ],
-  house: [
-    { title: 'Localização', items: ['Próximo ao comércio', 'Próximo a escolas', 'Próximo a parques', 'Próximo a hospitais', 'Fácil acesso', 'Bairro valorizado', 'Rua tranquila'] },
-    { title: 'Condomínio', items: ['Casa em condomínio fechado', 'Lazer completo', 'Academia', 'Salão de festas', 'Playground', 'Quadra esportiva', 'Pet Place', 'Portaria 24h', 'Segurança 24h', 'Monitoramento'] },
-    { title: 'Diferenciais do imóvel', items: ['Casa térrea', 'Sobrado', 'Casa em rua aberta', 'Quintal', 'Jardim', 'Área gourmet', 'Piscina', 'Churrasqueira', 'Edícula', 'Escritório', 'Suíte master', 'Closet', 'Garagem coberta', 'Alto padrão', 'Mobiliado', 'Móveis planejados', 'Ar-condicionado', 'Iluminação natural', 'Ambientes integrados', 'Acabamento premium'] },
-  ],
-  commercial: [
-    { title: 'Destaques comerciais', items: [
-      'Localização estratégica', 'Alto fluxo de pessoas', 'Fácil acesso', 'Estacionamento',
-      'Vitrine', 'Recepção', 'Salas privativas', 'Ar-condicionado', 'Elevador',
-      'Acessibilidade', 'Segurança 24h', 'Pronto para uso', 'Zoneamento comercial',
-      'Internet de alta velocidade', 'Cabeamento estruturado', 'Piso elevado', 'Energia trifásica',
-      'Energia solar', 'Ponto para carregamento de carro elétrico', 'Coworking', 'Sala de reuniões',
-      'Copa', 'Banheiros privativos', 'Depósito', 'Refeitório', 'Controle de acesso',
-      'Monitoramento por câmeras', 'Estacionamento para clientes', 'Acesso para carga e descarga',
-      'Doca', 'Próximo ao transporte público', 'Fácil acesso às principais vias', 'Ideal para clínica',
-      'Ideal para escritório', 'Ideal para coworking', 'Ideal para loja', 'Ideal para logística',
-      'Recém-reformado',
-    ] },
-  ],
-  land: [
-    { title: 'Destaques do terreno', items: [
-      'Topografia plana', 'Esquina', 'Rua asfaltada', 'Infraestrutura completa',
-      'Rede de água', 'Rede elétrica', 'Área valorizada', 'Fácil acesso',
-      'Próximo ao comércio', 'Documentação regular', 'Potencial construtivo',
-    ] },
-  ],
+  residential: RESIDENTIAL_GROUPS,
+  house: withoutItemsAlreadyUsed([
+    masterGroup('Localização'),
+    masterGroup('Condomínio', ['Casa em condomínio fechado']),
+    masterGroup('Diferenciais do imóvel', ['Casa térrea', 'Sobrado', 'Casa em rua aberta', 'Área gourmet', 'Churrasqueira', 'Edícula']),
+    masterGroup('Garagem'), masterGroup('Sustentabilidade'),
+  ]),
+  commercial: withoutItemsAlreadyUsed([
+    masterGroup('Localização'), masterGroup('Comercial'), masterGroup('Garagem'), masterGroup('Sustentabilidade'),
+  ]),
+  land: withoutItemsAlreadyUsed([
+    masterGroup('Localização'), masterGroup('Terrenos'),
+  ]),
 })
 
 export const SMART_TOUR_HIGHLIGHTS = Object.freeze(Object.fromEntries(

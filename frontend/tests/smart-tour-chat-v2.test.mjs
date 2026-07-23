@@ -7,6 +7,7 @@ import {
   getSmartTourHighlightGroups,
   getSmartTourHighlights,
   getSmartTourMeasureFields,
+  SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY,
   SMART_TOUR_MEASURE_OPTIONS,
   SMART_TOUR_PROPERTY_TYPES,
 } from '../src/config/smartTourForm.js'
@@ -62,27 +63,52 @@ test('7. commercial library contains every approved V2 highlight', () => {
   for (const highlight of additions) assert.ok(commercial.includes(highlight), highlight)
 })
 
-test('8. residential library has exactly the three approved groups and options', () => {
+test('8. residential library exposes the expanded master categories and options', () => {
   const groups = getSmartTourHighlightGroups('Apartamento')
-  assert.deepEqual(groups.map(group => group.title), ['Localização', 'Condomínio', 'Diferenciais do imóvel'])
+  assert.deepEqual(groups.map(group => group.title), ['Localização', 'Condomínio', 'Diferenciais do imóvel', 'Garagem', 'Sustentabilidade'])
   const residential = groups.flatMap(group => group.items)
   const approved = [
-    'Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a parques',
-    'Próximo a hospitais', 'Fácil acesso', 'Bairro valorizado', 'Vista livre', 'Lazer completo',
-    'Piscina', 'Academia', 'Churrasqueira', 'Salão de festas', 'Playground', 'Quadra esportiva',
-    'Quadra de tênis', 'Pet Place', 'Pista de caminhada', 'Coworking', 'Portaria 24h',
-    'Segurança 24h', 'Monitoramento', 'Elevador', 'Ponto para carregamento de carro elétrico',
-    'Alto padrão', 'Mobiliado', 'Móveis planejados', 'Varanda gourmet', 'Depósito privativo',
-    'Vagas demarcadas', 'Ar-condicionado', 'Iluminação natural', 'Ambientes integrados',
-    'Andar alto', 'Acabamento premium',
+    'Próximo ao metrô', 'Próximo a universidades', 'Próximo à praia', 'Próximo ao aeroporto',
+    'Próximo a rodovias', 'Região nobre', 'Frente para praça', 'Piscina aquecida', 'Espaço gourmet',
+    'Salão de jogos', 'Brinquedoteca', 'Sauna', 'Spa', 'Cinema', 'Mini mercado', 'Bicicletário',
+    'Lavanderia coletiva', 'Gerador', 'Reformado', 'Nunca habitado', 'Semi mobiliado', 'Home office',
+    'Cozinha americana', 'Sacada envidraçada', 'Piscina privativa', 'Jacuzzi', 'Piso porcelanato',
+    'Pé-direito alto', 'Vista para o mar', 'Fechadura eletrônica', 'Vagas demarcadas', 'Vaga coberta',
+    'Box privativo', 'Carregador para veículo elétrico', 'Aquecimento solar', 'Reuso de água',
+    'Preparação para carro elétrico',
   ]
   for (const highlight of approved) assert.ok(residential.includes(highlight), highlight)
+})
+
+test('8b. master highlight library is reusable and contains conditional commercial and land categories', () => {
+  assert.deepEqual(Object.keys(SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY), ['Localização', 'Condomínio', 'Diferenciais do imóvel', 'Garagem', 'Sustentabilidade', 'Comercial', 'Terrenos'])
+  for (const highlight of ['Recepção', 'Sala de reunião', 'Excelente visibilidade', 'Frente para avenida', 'Alto fluxo', 'Ideal para clínica', 'Ideal para escritório', 'Ideal para loja']) assert.ok(SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY.Comercial.includes(highlight), highlight)
+  for (const highlight of ['Plano', 'Esquina', 'Murado', 'Documentação regular', 'Alto potencial construtivo', 'Zoneamento residencial', 'Zoneamento comercial', 'Excelente investimento']) assert.ok(SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY.Terrenos.includes(highlight), highlight)
+  assert.equal(getSmartTourHighlightGroups('Apartamento').some(group => group.title === 'Comercial' || group.title === 'Terrenos'), false)
+  assert.equal(getSmartTourHighlightGroups('Comercial').some(group => group.title === 'Comercial'), true)
+  assert.equal(getSmartTourHighlightGroups('Terreno / Lote').some(group => group.title === 'Terrenos'), true)
+})
+
+test('8c. master library contains every approved highlight from all seven categories', () => {
+  const required = {
+    'Localização': ['Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a universidades', 'Próximo a hospitais', 'Próximo a parques', 'Próximo ao shopping', 'Próximo à praia', 'Próximo ao aeroporto', 'Próximo ao centro', 'Fácil acesso', 'Próximo a rodovias', 'Rua tranquila', 'Bairro valorizado', 'Região nobre', 'Vista livre', 'Frente para praça'],
+    'Condomínio': ['Piscina', 'Piscina aquecida', 'Academia', 'Espaço gourmet', 'Salão de festas', 'Salão de jogos', 'Playground', 'Brinquedoteca', 'Coworking', 'Pet Place', 'Quadra esportiva', 'Quadra de tênis', 'Sauna', 'Spa', 'Cinema', 'Mini mercado', 'Bicicletário', 'Lavanderia coletiva', 'Portaria 24h', 'Segurança 24h', 'Monitoramento', 'Elevador', 'Gerador', 'Energia solar'],
+    'Diferenciais do imóvel': ['Alto padrão', 'Reformado', 'Novo', 'Nunca habitado', 'Semi mobiliado', 'Mobiliado', 'Móveis planejados', 'Closet', 'Escritório', 'Home office', 'Lavabo', 'Suíte master', 'Cozinha americana', 'Despensa', 'Área de serviço', 'Dependência', 'Varanda gourmet', 'Sacada', 'Sacada envidraçada', 'Terraço', 'Quintal', 'Jardim', 'Piscina privativa', 'Jacuzzi', 'Churrasqueira privativa', 'Piso porcelanato', 'Piso vinílico', 'Mármore', 'Granito', 'Pé-direito alto', 'Excelente ventilação', 'Sol da manhã', 'Sol da tarde', 'Iluminação natural', 'Ambientes integrados', 'Vista panorâmica', 'Vista permanente', 'Vista para o mar', 'Vista para parque', 'Vista para cidade', 'Ar-condicionado', 'Fechadura eletrônica', 'Acabamento premium'],
+    'Garagem': ['Vagas demarcadas', 'Vaga coberta', 'Box privativo', 'Carregador para veículo elétrico'],
+    'Sustentabilidade': ['Energia solar', 'Aquecimento solar', 'Reuso de água', 'Preparação para carro elétrico'],
+    'Comercial': ['Recepção', 'Copa', 'Sala de reunião', 'Excelente visibilidade', 'Frente para avenida', 'Alto fluxo', 'Ideal para clínica', 'Ideal para escritório', 'Ideal para loja'],
+    'Terrenos': ['Plano', 'Esquina', 'Murado', 'Documentação regular', 'Alto potencial construtivo', 'Zoneamento residencial', 'Zoneamento comercial', 'Excelente investimento'],
+  }
+  for (const [category, items] of Object.entries(required)) {
+    for (const item of items) assert.ok(SMART_TOUR_MASTER_HIGHLIGHT_LIBRARY[category].includes(item), `${category}: ${item}`)
+  }
 })
 
 test('9. highlight selection remains limited to ten', () => {
   assert.match(page, /property\.highlights\.length < 10/)
   assert.match(page, /property\.highlights\.length >= 10/)
   assert.match(page, /Selecione até 10 características/)
+  assert.match(page, /Somente os itens escolhidos serão enviados como contexto/)
 })
 
 test('10. highlight lists change coherently with property type', () => {
