@@ -156,12 +156,15 @@ export default function SmartTourAI() {
   useEffect(() => { const stored = sessionStorage.getItem(ACTIVE_JOB_KEY); if (stored) { let jobId = stored; try { jobId = JSON.parse(stored).jobId || stored } catch { /* legacy value */ } setStatus('generating'); setMessage('Retomando sua criação...'); poll(jobId) } }, [])
 
   const addImages = files => {
-    const selected = [...files]
-    if (selected.some(file => !['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024)) return setMessage('Envie imagens JPG ou PNG de até 15 MB.')
-    const known = new Set(images.map(item => item.key))
-    const unique = selected.filter(file => !known.has(`${file.name}:${file.size}:${file.lastModified}`))
-    if (images.length + unique.length > SMART_TOUR_MAX_IMAGES) return setMessage('Você pode enviar no máximo 6 imagens.')
-    setMessage(''); setImages(current => [...current, ...unique.map(file => ({ file, key: `${file.name}:${file.size}:${file.lastModified}`, preview: URL.createObjectURL(file) }))])
+    const selectedInSystemOrder = Array.from(files)
+    if (selectedInSystemOrder.some(file => !['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024)) return setMessage('Envie imagens JPG ou PNG de até 15 MB.')
+    setImages(current => {
+      const known = new Set(current.map(item => item.key))
+      const uniqueInSystemOrder = selectedInSystemOrder.filter(file => !known.has(`${file.name}:${file.size}:${file.lastModified}`))
+      if (current.length + uniqueInSystemOrder.length > SMART_TOUR_MAX_IMAGES) { setMessage('Você pode enviar no máximo 6 imagens.'); return current }
+      setMessage('')
+      return [...current, ...uniqueInSystemOrder.map(file => ({ file, key: `${file.name}:${file.size}:${file.lastModified}`, preview: URL.createObjectURL(file) }))]
+    })
   }
   const move = (position, offset) => setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages })
   const remove = position => setImages(current => current.filter((item, itemIndex) => { if (itemIndex === position) URL.revokeObjectURL(item.preview); return itemIndex !== position }))
@@ -181,13 +184,14 @@ export default function SmartTourAI() {
     setStatus('uploading'); setMessage('Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()
-      const imagePaths = []
-      for (let imageIndex = 0; imageIndex < images.length; imageIndex += 1) {
-        const file = images[imageIndex].file
+      const orderedImages = images.slice()
+      const imagePaths = new Array(orderedImages.length)
+      for (let imageIndex = 0; imageIndex < orderedImages.length; imageIndex += 1) {
+        const file = orderedImages[imageIndex].file
         const path = `${user.id}/smart-tour/${requestId}/${String(imageIndex + 1).padStart(2, '0')}.${file.type === 'image/png' ? 'png' : 'jpg'}`
         const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type })
         if (error) throw new Error('Uma das fotos não pôde ser enviada. Tente novamente.')
-        imagePaths.push(path)
+        imagePaths[imageIndex] = path
       }
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
       const apiGeneration = generation.mode === 'free_ai'

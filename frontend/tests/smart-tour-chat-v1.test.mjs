@@ -13,7 +13,17 @@ const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 
 test('communicates and enforces the 1 to 6 photo contract', () => {
   assert.match(page, /Envie até 6 fotos na ordem em que deseja apresentá-las/)
   assert.match(page, /Selecione de 1 a 6 fotos/)
-  assert.match(page, /images\.length \+ unique\.length > SMART_TOUR_MAX_IMAGES/)
+  assert.match(page, /current\.length \+ uniqueInSystemOrder\.length > SMART_TOUR_MAX_IMAGES/)
+})
+
+test('preserves the native file selection order through thumbnails and generation', () => {
+  assert.match(page, /const selectedInSystemOrder = Array\.from\(files\)/)
+  assert.match(page, /uniqueInSystemOrder = selectedInSystemOrder\.filter/)
+  assert.match(page, /return \[\.\.\.current, \.\.\.uniqueInSystemOrder\.map/)
+  assert.match(page, /const orderedImages = images\.slice\(\)/)
+  assert.match(page, /const file = orderedImages\[imageIndex\]\.file/)
+  assert.match(page, /imagePaths\[imageIndex\] = path/)
+  assert.match(page, /imageOrder: imagePaths/)
 })
 
 test('uses the approved real-estate formatters', () => {
