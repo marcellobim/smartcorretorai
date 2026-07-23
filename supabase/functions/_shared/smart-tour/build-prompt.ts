@@ -1,25 +1,25 @@
 import type { PropertyContext, SmartTourGenerationConfig } from './types.ts'
 import { normalizeGeneration } from './validation.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
-const BASE = `You are NOT creating a commercial.
+export const SMART_TOUR_VISUAL_CORE = `You are NOT creating a commercial.
 You are NOT redesigning the property.
 You are NOT imagining a different house or apartment.
 Your only mission is to transform the uploaded real estate photographs into a realistic cinematic walkthrough.
-Create a brand-new premium real estate presentation using all uploaded property images.
 The uploaded images are the only visual source for the video.
-The uploaded photographs are the source of truth. Preserve them faithfully.
+The uploaded photographs are the absolute source of truth. Preserve them faithfully.
 Animate the camera, not the property.
 Build one continuous cinematic property tour that naturally connects all environments.
 The presentation must feel like one continuous guided visit instead of independent scenes.
 Each environment should naturally lead to the next, creating the sensation of walking through the property.
+Create continuity only through the supplied image order and camera motion within each photograph. Never invent connective rooms, passages, viewpoints or visual content between photographs.
 The property must always be the main focus.
 Preserve exactly the real architecture, walls, windows, doors, floors, ceilings, furniture, decoration, objects, lighting fixtures, finishes, room proportions, layout, exterior, landscaping and appearance of the property.
 Never invent property features or factual information.
 Use only physically possible, smooth cinematic camera movement: slow walking, stabilized gimbal, slow dolly, smooth pan, smooth tilt, gentle push in, gentle pull back and natural perspective shifts supported by the uploaded photographs.
 Simulate the viewpoint and motion of professional stabilized real-estate footage from the exact position where each photograph was taken. The result must look like a real video recorded inside the property, never like an AI recreation.
 The camera is only the invisible viewpoint of the viewer and must never appear inside the image. Keep the entire recording process off-screen. Never depict a camera, mobile phone, smartphone, gimbal, stabilizer, tripod, drone, camera operator, videographer, cinematographer or any recording equipment, including in reflections, mirrors, windows or shadows.
-Improve only camera movement, image stabilization, natural cinematic exposure, color grading and depth perception. Preserve the existing lighting fixtures and the real lighting direction shown in the photograph.
-Never redesign, modernize, improve, renovate, reinterpret or replace existing property elements. Never merge photographs or environments, reconstruct rooms, create balconies, change the structure or floor plan, replace finishes or significantly modify real environments. New angles must remain faithful to the same scene shown in the source image.
+Camera movement and stabilization are the only creative visual transformations. Keep the photographed exposure, colors, lighting direction, depth appearance and every property element faithful to the source.
+Never redesign, modernize, enhance, renovate, reinterpret, recreate or replace existing property elements. Never merge photographs or environments, reconstruct rooms, create balconies, change the structure or floor plan, replace finishes or significantly modify real environments. Never generate an angle or viewpoint unsupported by its single source photograph.
 Each scene must use exactly one uploaded photograph as its sole visual source. Never combine, overlap, stack, collage, split-screen or compress two photographs into the same scene. Present every supplied photograph separately and in the supplied order.
 Synchronize every visual element, narration and caption with the actual progression of the property.
 Never describe a room before it appears on screen.
@@ -34,7 +34,7 @@ const purposeCopy = (value: unknown): PurposeCopy => {
   if (['rent','rental','locação','locacao','aluguel','alugar'].includes(purpose)) return { phrase:'disponível para locação', openingText:'PARA LOCAÇÃO', forbidden:'venda, à venda, compra, oportunidade de compra' }
   return null
 }
-const presenter = (value: SmartTourGenerationConfig) => value.presenterGender === 'none' ? 'Do not create any presenter, real estate agent, avatar, host or visible narrator. The property must be presented without any person guiding the tour.' : `Create one realistic professional ${value.presenterGender === 'female' ? 'female' : 'male'} real estate agent naturally integrated into the property, according to the selected option. Maintain the same presenter throughout the entire video and use natural behavior, gestures and expressions. The presenter is only a guide, must never cover important architectural details and must never compete with the property.`
+const presenter = (value: SmartTourGenerationConfig) => value.presenterGender === 'none' ? 'Do not create any presenter, person, real estate agent, avatar, host or visible narrator. The property must be presented without any person guiding the tour. The absence of a presenter must not change the visual style, camera language, source-image fidelity or preservation rules in any way.' : `Create one realistic professional ${value.presenterGender === 'female' ? 'female' : 'male'} real estate agent naturally integrated into the property, according to the selected option. Maintain the same presenter throughout the entire video and use natural behavior, gestures and expressions. The presenter is only a guide, must never cover important architectural details, must never compete with the property and must never cause any property element to be moved, hidden, removed or altered.`
 const locationNarration = (property: PropertyContext) => {
   const district = removeNonOfficialPhoneNumbers(property.district)
   const city = removeNonOfficialPhoneNumbers(property.city)
@@ -78,13 +78,13 @@ Use somente o telefone fornecido no campo oficial. Não crie, não corrija e nã
 No phone value was provided or authorized.
 Do not display, narrate, write, imply or generate any phone number. Do not use placeholders, examples or fictitious contact numbers.
 Use somente o telefone fornecido no campo oficial. Não crie, não corrija e não substitua números.`
-const NARRATED_TOUR_VISUAL_CONTRACT = `NARRATED TOUR WITHOUT PRESENTER — REQUIRED FINAL OUTPUT CONTRACT
-This contract applies only to the narrated_tour mode. Keep the already defined narration exactly as instructed and do not create a presenter.
-The finished video is incomplete and invalid unless all three required layers below are visibly present:
-1. ON SCREEN TEXT — REQUIRED: Render the captions during the video. Follow CAPTION PRIORITY 1 through CAPTION PRIORITY 4 exactly: supplied purpose; supplied neighborhood and city; supplied bedrooms, suites and parking spaces; only 2 or 3 supplied differentiators; and supplied price only when present. Use Brazilian Portuguese, use no invented information, keep captions discreet and synchronized with the environment, display each for approximately 2 to 3 seconds, never cover important property details, and never duplicate the narration exactly.
-2. FINAL SCREEN — REQUIRED: The video must end with a visible final screen containing only the selected official CTA, WhatsApp, and the exact authorized phone value when provided. Do not omit this final screen and do not add any other text.
-3. CALL TO ACTION — REQUIRED: Render the selected official CTA exactly once, on the final screen only. Do not replace, paraphrase, repeat or omit it.
-Narration alone is not a complete result for this mode. Captions and the final screen are mandatory visual output.`
+const REQUIRED_TOUR_DELIVERY_CONTRACT = `GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT
+This same contract applies to guided_tour and narrated_tour. The finished video is incomplete and invalid unless every required layer below is present:
+1. NARRATION — REQUIRED: Keep the already defined narration exactly as instructed and synchronized with the current photograph.
+2. USEFUL ON-SCREEN TEXT AND SHORT SYNCHRONIZED CAPTIONS — REQUIRED: Visibly render the captions during the video. Follow CAPTION PRIORITY 1 through CAPTION PRIORITY 4 exactly: supplied purpose; supplied neighborhood and city; supplied bedrooms, suites and parking spaces; only 2 or 3 supplied differentiators; and supplied price only when present. Use only the selected language and supplied information, keep text discreet and synchronized with the current environment, display one short block for approximately 2 to 3 seconds, never cover important property details, and never duplicate the narration exactly.
+3. FINAL SCREEN — REQUIRED: End with one visible final screen. Its strict allowlist is the selected official CTA, the word or icon WhatsApp only when applicable, and the exact authorized phone value only when provided. Do not omit the final screen and do not add titles, subtitles, slogans, labels, invented copy, random characters, unreadable text or any other visible element.
+4. CALL TO ACTION — REQUIRED: Render the selected official CTA exactly once, on the final screen only. Do not replace, paraphrase, repeat or omit it.
+Narration alone is never a complete result for either mode. Narration, useful on-screen text, short synchronized captions, the single CTA and the final screen are all mandatory.`
 
 export function buildPropertyContext(property: PropertyContext, cta: string) {
   const labels: Record<string,string> = {purpose:'Purpose',stage:'Property state',type:'Property type',bedrooms:'Bedrooms',suites:'Suites',parkingSpaces:'Parking spaces',area:'Area',state:'State',city:'City',district:'Neighborhood',price:'Price',condominium:'Condominium fee',iptu:'IPTU',description:'Commercial description'}
@@ -103,8 +103,8 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   const language = languageNames[config.language]
   const safeCta = removeNonOfficialPhoneNumbers(input.selectedCta)
   const purpose = purposeCopy(input.property.purpose)
-  const promptSections = [BASE, `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Use the selected language only and do not mix languages.`, officialPhone(input.phone || ''), presenter(config), narration(config.narration === 'enabled', purpose, input.property), captions(config.captions === 'enabled', purpose, input.property), `FINAL CALL TO ACTION: Show exactly one closing call to action, only at the end: "${safeCta}". Never show, speak, paraphrase or repeat this call to action anywhere else. FINAL SCREEN — STRICT VISIBLE CONTENT ALLOWLIST: Render exactly and only the official CTA, WhatsApp, and the exact authorized phone value when provided. Every other visible word or element is prohibited. Never render any instruction wording or metadata label from this prompt, including words such as "official", "protected", "phone", "contact", "system", "authorized" or "literal text". Do not create titles, subtitles, sentences, phrases, labels, tags, decorative copy, automatic text, random characters or unreadable words above, below or around the phone.`, furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,'')]
-  if (config.mode === 'narrated_tour') promptSections.push(NARRATED_TOUR_VISUAL_CONTRACT)
+  const promptSections = [SMART_TOUR_VISUAL_CORE, `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Use the selected language only and do not mix languages.`, officialPhone(input.phone || ''), presenter(config), narration(config.narration === 'enabled', purpose, input.property), captions(config.captions === 'enabled', purpose, input.property), `FINAL CALL TO ACTION: Show exactly one closing call to action, only at the end: "${safeCta}". Never show, speak, paraphrase or repeat this call to action anywhere else. FINAL SCREEN — STRICT VISIBLE CONTENT ALLOWLIST: Render exactly and only the official CTA, WhatsApp when applicable, and the exact authorized phone value when provided. Every other visible word or element is prohibited. Never render any instruction wording or metadata label from this prompt, including words such as "official", "protected", "phone", "contact", "system", "authorized" or "literal text". Do not create titles, subtitles, sentences, phrases, labels, tags, decorative copy, automatic text, random characters or unreadable words above, below or around the phone. Do not create slogans.`, furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,'')]
+  if (config.mode === 'guided_tour' || config.mode === 'narrated_tour') promptSections.push(REQUIRED_TOUR_DELIVERY_CONTRACT)
   const prompt = promptSections.join('\n\n')
   assertNoContradictions(prompt, config)
   return prompt
