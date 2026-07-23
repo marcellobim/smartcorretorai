@@ -18,7 +18,7 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   const raw = input as Record<string, unknown>
   const paths = Array.isArray(raw.imagePaths) ? raw.imagePaths.map(item => clean(item,300)).filter(Boolean) : []
   const order = Array.isArray(raw.imageOrder) ? raw.imageOrder.map(item => clean(item,300)).filter(Boolean) : []
-  if (!paths.length || paths.length > 6 || new Set(paths).size !== paths.length) throw new Error('invalid_image_count')
+  if (!paths.length || paths.length > 5 || new Set(paths).size !== paths.length) throw new Error('invalid_image_count')
   if (order.length !== paths.length || order.some((path,index) => path !== paths[index])) throw new Error('invalid_image_order')
   const propertyRaw = raw.property && typeof raw.property === 'object' ? raw.property as Record<string, unknown> : {}
   const highlights = Array.isArray(propertyRaw.highlights) ? propertyRaw.highlights.map(item => clean(item,80)).filter(Boolean).slice(0,10) : []

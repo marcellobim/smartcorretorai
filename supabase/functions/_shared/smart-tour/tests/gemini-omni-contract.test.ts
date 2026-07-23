@@ -30,6 +30,14 @@ test('uses the approved Gemini Omni model and documented video contract', () => 
   assert.equal('fps' in body.response_format, false)
 })
 
+test('sends exactly five distinct images to Gemini in the supplied order', () => {
+  const images = Array.from({ length: 5 }, (_, index) => ({ type: 'image', data: `image-${index + 1}`, mime_type: 'image/jpeg' }))
+  const body = buildGeminiOmniRequestBody('prompt', images)
+  assert.equal(body.input.length, 6)
+  assert.deepEqual(body.input.slice(0, 5), images)
+  assert.deepEqual(body.input.map(item => item.type), ['image','image','image','image','image','text'])
+})
+
 test('builds the current official Interactions GET contract', () => {
   const rawId = 'v1_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
   const expectedUrl = `https://generativelanguage.googleapis.com/v1beta/interactions/${rawId}`

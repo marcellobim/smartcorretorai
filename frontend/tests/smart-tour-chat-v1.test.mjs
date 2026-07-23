@@ -3,17 +3,20 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { SMART_TOUR_MODES } from '../src/config/smartTour.js'
+import { SMART_TOUR_MAX_IMAGES, SMART_TOUR_MODES } from '../src/config/smartTour.js'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_PROPERTY_TYPES } from '../src/config/smartTourForm.js'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../src/config/smartTourConversation.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 'utf8')
 
-test('communicates and enforces the 1 to 6 photo contract', () => {
-  assert.match(page, /Envie até 6 fotos na ordem em que deseja apresentá-las/)
-  assert.match(page, /Selecione de 1 a 6 fotos/)
+test('communicates and enforces the 1 to 5 photo contract', () => {
+  assert.equal(SMART_TOUR_MAX_IMAGES, 5)
+  assert.match(page, /Envie até 5 fotos na ordem em que deseja apresentá-las/)
+  assert.match(page, /Selecione de 1 a \{SMART_TOUR_MAX_IMAGES\} fotos/)
+  assert.match(page, /\{images\.length\} de \{SMART_TOUR_MAX_IMAGES\} imagens/)
   assert.match(page, /current\.length \+ uniqueInSystemOrder\.length > SMART_TOUR_MAX_IMAGES/)
+  assert.match(page, /Você pode enviar no máximo \$\{SMART_TOUR_MAX_IMAGES\} imagens/)
 })
 
 test('preserves the native file selection order through thumbnails and generation', () => {

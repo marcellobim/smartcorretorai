@@ -20,6 +20,7 @@ Simulate the viewpoint and motion of professional stabilized real-estate footage
 The camera is only the invisible viewpoint of the viewer and must never appear inside the image. Keep the entire recording process off-screen. Never depict a camera, mobile phone, smartphone, gimbal, stabilizer, tripod, drone, camera operator, videographer, cinematographer or any recording equipment, including in reflections, mirrors, windows or shadows.
 Improve only camera movement, image stabilization, natural cinematic exposure, color grading and depth perception. Preserve the existing lighting fixtures and the real lighting direction shown in the photograph.
 Never redesign, modernize, improve, renovate, reinterpret or replace existing property elements. Never merge photographs or environments, reconstruct rooms, create balconies, change the structure or floor plan, replace finishes or significantly modify real environments. New angles must remain faithful to the same scene shown in the source image.
+Each scene must use exactly one uploaded photograph as its sole visual source. Never combine, overlap, stack, collage, split-screen or compress two photographs into the same scene. Present every supplied photograph separately and in the supplied order.
 Synchronize every visual element, narration and caption with the actual progression of the property.
 Never describe a room before it appears on screen.
 Use all uploaded property images and respect their supplied order.

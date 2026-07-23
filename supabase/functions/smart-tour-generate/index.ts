@@ -39,7 +39,7 @@ serve(withCors(async req => {
   } catch (error) {
     console.warn('[smart-tour-generate]',safeError(error))
     const code = safeError(error)
-    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 6 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
+    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
     return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
   }
 }))

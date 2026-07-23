@@ -54,10 +54,11 @@ test('authentication errors from smart-tour-generate return CORS', async () => {
 })
 
 test('validation errors from smart-tour-generate return CORS', async () => {
-  const response = await withCors(() => jsonResponse({ ok: false, error: 'Envie de 1 a 6 imagens válidas.' }, 400))(request())
+  const response = await withCors(() => jsonResponse({ ok: false, error: 'Envie de 1 a 5 imagens válidas.' }, 400))(request())
   assert.equal(response.status, 400)
   assertCors(response)
   assert.match(generateSource, /validateSmartTourRequest\(await req\.json\(\)\)/)
+  assert.match(generateSource, /invalid_image_count:'Envie de 1 a 5 imagens válidas\.'/)
 })
 
 test('smart-tour-status returns CORS for every response and unexpected error path', async () => {
