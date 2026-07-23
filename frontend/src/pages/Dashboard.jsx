@@ -4,7 +4,6 @@ import {
   BadgeCheck,
   CheckCircle2,
   Clock3,
-  Coins,
   FileText,
   Home,
   Image,
@@ -20,6 +19,16 @@ import { useAuth } from '../lib/auth-context'
 import { useCampaigns } from '../hooks/useCampaigns'
 
 const mainActions = [
+  {
+    id: 'smart-tour-ai',
+    icon: PlayCircle,
+    title: 'Smart Tour AI',
+    description: 'Crie uma apresentação completa do imóvel com IA, narração, apresentador virtual e campanha pronta.',
+    to: '/smart-tour-ai',
+    label: 'Criar Smart Tour',
+    tone: 'featured',
+    ready: true,
+  },
   {
     id: 'hero-ia',
     icon: Wand2,
@@ -47,16 +56,6 @@ const mainActions = [
     description: 'Use a Biblioteca Profissional para criar materiais prontos e consistentes.',
     to: '/nova-campanha',
     label: 'Criar banners',
-    tone: 'soft',
-    ready: true,
-  },
-  {
-    id: 'smart-tokens',
-    icon: Coins,
-    title: 'Adicionar Smart Tokens',
-    description: 'Aumente sua capacidade de criação e use em todos os produtos da plataforma.',
-    to: '/planos',
-    label: 'Adicionar Smart Tokens',
     tone: 'soft',
     ready: true,
   },

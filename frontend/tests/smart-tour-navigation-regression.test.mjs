@@ -25,11 +25,18 @@ test('keeps every baseline route and adds an isolated Smart Tour route', () => {
   assert.match(app, /path="\/smart-tour-ai" element=\{<SmartTourAI \/>\}/)
 })
 
-test('keeps the Dashboard unchanged by Smart Tour navigation', () => {
+test('places Smart Tour first in the Dashboard product grid and keeps token purchase out of it', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
-  assert.doesNotMatch(dashboard, /smart-tour-ai|Smart Tour AI|SMART_TOUR/)
+  const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
+  const ids = ['smart-tour-ai', 'hero-ia', 'studio-hero', 'banners-rapidos']
+  const positions = ids.map(id => catalog.indexOf(`id: '${id}'`))
+  assert.ok(positions.every(position => position >= 0))
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions)
+  assert.match(catalog, /id: 'smart-tour-ai'[\s\S]*?title: 'Smart Tour AI'[\s\S]*?to: '\/smart-tour-ai'[\s\S]*?label: 'Criar Smart Tour'/)
   assert.match(dashboard, /id: 'studio-hero'[\s\S]*?to: '\/studio-hero'/)
   assert.match(dashboard, /id: 'banners-rapidos'[\s\S]*?to: '\/nova-campanha'/)
+  assert.doesNotMatch(catalog, /smart-tokens|Adicionar Smart Tokens|to: '\/planos'/)
+  assert.match(dashboard, /<Link to=\{action\.to\}[\s\S]*?\{content\}[\s\S]*?<\/Link>/)
 })
 
 test('places Smart Tour first without changing existing Studio Hero options', () => {
