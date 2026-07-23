@@ -39,6 +39,34 @@ test('presenter variants and disabled presenter remain unchanged',()=>{
   assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'CTA'}),/Do not create any presenter/)
 })
 
+test('narrated tour normalizes to narration and captions without presenter',()=>{
+  const config=normalizeGeneration({mode:'narrated_tour',presenterGender:'female',narration:'disabled',captions:'disabled'})
+  assert.deepEqual({mode:config.mode,presenterGender:config.presenterGender,narration:config.narration,captions:config.captions},{mode:'narrated_tour',presenterGender:'none',narration:'enabled',captions:'enabled'})
+})
+
+test('narrated tour receives an exclusive mandatory visual output contract',()=>{
+  const phone=resolveSmartTourProfessionalPhone(true,'11987654321')
+  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property:{...property,price:'R$ 890.000'},selectedCta:'Agende sua visita',phone})
+  assert.match(prompt,/NARRATED TOUR WITHOUT PRESENTER — REQUIRED FINAL OUTPUT CONTRACT/)
+  assert.match(prompt,/This contract applies only to the narrated_tour mode/)
+  assert.match(prompt,/1\. ON SCREEN TEXT — REQUIRED:[\s\S]*CAPTION PRIORITY 1 through CAPTION PRIORITY 4/)
+  assert.match(prompt,/Use Brazilian Portuguese, use no invented information/)
+  assert.match(prompt,/2\. FINAL SCREEN — REQUIRED:[\s\S]*selected official CTA, WhatsApp, and the exact authorized phone value/)
+  assert.match(prompt,/3\. CALL TO ACTION — REQUIRED:[\s\S]*exactly once, on the final screen only/)
+  assert.match(prompt,/Narration alone is not a complete result for this mode/)
+  assert.match(prompt,/Do not create any presenter/)
+  assert.doesNotMatch(prompt,/Create one realistic professional/)
+  assert.match(prompt,/only authorized phone value is "\+55 \(11\) 98765-4321"/)
+  assert.equal(prompt.split('Agende sua visita').length-1,1)
+})
+
+test('narrated tour visual contract is absent from every other generation mode',()=>{
+  for(const mode of ['guided_tour','smart_staging','cinematic_tour']){
+    const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode}),property,selectedCta:'Fale comigo'})
+    assert.doesNotMatch(prompt,/NARRATED TOUR WITHOUT PRESENTER — REQUIRED FINAL OUTPUT CONTRACT/)
+  }
+})
+
 test('narration and text use exactly the language selected by the user',()=>{
   for(const [language,label] of [['pt-BR','Brazilian Portuguese'],['en-US','English'],['es','Spanish']]){
     const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour',language}),property,selectedCta:'CTA'})
