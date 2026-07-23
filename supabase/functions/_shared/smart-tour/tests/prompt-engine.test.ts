@@ -42,14 +42,14 @@ test('narration and text use exactly the language selected by the user',()=>{
 
 test('sale opens with À VENDA and mentions à venda once in opening narration',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,purpose:'sale'},selectedCta:'Agende sua visita'})
-  assert.match(prompt,/first opening text must be exactly "À VENDA"/)
+  assert.match(prompt,/purpose text must be exactly "À VENDA"/)
   assert.match(prompt,/property is "à venda" exactly once in the opening sentence/)
   assert.match(prompt,/Do not use locação, aluguel, para alugar/)
 })
 
-test('rental opens with DISPONÍVEL PARA LOCAÇÃO and mentions it once in narration',()=>{
+test('rental displays PARA LOCAÇÃO without changing the approved narration wording',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,purpose:'rent'},selectedCta:'Agende sua visita'})
-  assert.match(prompt,/first opening text must be exactly "DISPONÍVEL PARA LOCAÇÃO"/)
+  assert.match(prompt,/purpose text must be exactly "PARA LOCAÇÃO"/)
   assert.match(prompt,/property is "disponível para locação" exactly once in the opening sentence/)
   assert.match(prompt,/Do not use venda, à venda, compra, oportunidade de compra/)
 })
@@ -67,13 +67,31 @@ test('narration prefers neighborhood then city and never invents missing locatio
 
 test('captions are generated dynamically from structured chat facts one at a time',()=>{
   const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/Generate every caption automatically from PROPERTY CONTEXT and the structured chat data below/)
-  assert.match(prompt,/one short caption at a time/)
+  assert.match(prompt,/Generate every caption automatically and exclusively from PROPERTY CONTEXT and the structured chat data below/)
+  assert.match(prompt,/one short caption block at a time/)
   assert.match(prompt,/visible for approximately 2 to 3 seconds/)
-  assert.match(prompt,/property type, purpose, neighborhood, city, bedrooms, suites, parking spaces and selected highlights/)
   assert.match(prompt,/must complement the narration and must never duplicate exactly what is being spoken/)
   for(const fact of ['Bedrooms: 2','Suites: 1','Parking spaces: 2','Property state: Pronto para morar','- Vista livre','- Varanda gourmet','- Lazer completo']) assert.match(prompt,new RegExp(fact))
-  assert.match(prompt,/Never invent facts, use fixed generic captions, overload the screen or cover important parts of the property/)
+  assert.match(prompt,/Never infer, invent, embellish or use generic copy/)
+})
+
+test('caption priorities use only supplied property data and limit differentiators',()=>{
+  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,price:'R$ 890.000'},selectedCta:'Fale comigo'})
+  assert.match(prompt,/CAPTION PRIORITY 1 — OPENING:[\s\S]*"Neighborhood • City"/)
+  assert.match(prompt,/purpose text must be exactly "À VENDA"/)
+  assert.match(prompt,/CAPTION PRIORITY 2 — PROPERTY SUMMARY:[\s\S]*bedrooms, suites and parking spaces, separated by " • "/)
+  assert.match(prompt,/CAPTION PRIORITY 3 — DIFFERENTIATORS:[\s\S]*only the 2 or 3 most relevant items from the supplied property state and selected highlights/)
+  assert.match(prompt,/never show all available items, never repeat an item or information already displayed/)
+  assert.match(prompt,/CAPTION PRIORITY 4 — PRICE:[\s\S]*If and only if a price exists in PROPERTY CONTEXT/)
+  assert.match(prompt,/Price: R\$ 890\.000/)
+  assert.match(prompt,/Never add qualifiers such as "A partir de" unless that qualifier is part of the supplied price/)
+})
+
+test('missing caption fields are omitted rather than invented',()=>{
+  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{purpose:'sale',type:'Apartamento',highlights:[]},selectedCta:'Fale comigo'})
+  assert.match(prompt,/If a field was not supplied by the user, omit it completely/)
+  assert.match(prompt,/If no price exists, show no price caption/)
+  assert.doesNotMatch(prompt,/Neighborhood:|City:|Bedrooms:|Suites:|Parking spaces:|Price:/)
 })
 
 test('disabled descriptive captions still preserve only mandatory opening purpose and final CTA',()=>{
