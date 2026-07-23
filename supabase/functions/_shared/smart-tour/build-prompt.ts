@@ -45,7 +45,7 @@ The purpose phrase must occur exactly once in this opening block. Keep it readab
 }
 
 const COMMON_MASTER_MATRIX = `SMART TOUR AI — COMMON MASTER MATRIX (mandatory for every mode)
-1. VISUAL FIDELITY: Treat every uploaded image as immutable evidence of the real property. Preserve it with absolute fidelity. Never alter, move, add, remove, redesign or reinterpret walls, doors, windows, floors, ceilings, cabinetry, countertops, fixtures, structural lighting, materials, finishes, proportions, dimensions, perspective or circulation.
+1. VISUAL FIDELITY: Treat every uploaded image as immutable evidence of the real property. Preserve it with absolute fidelity. The AI may imagine only camera motion; it may never imagine a new property. Never alter, move, add, remove, redesign or reinterpret walls, doors, windows, floors, ceilings, balconies, cabinetry, countertops, fixtures, structural lighting, materials, finishes, proportions, dimensions, floor plan, spatial arrangement, perspective or circulation.
 2. PURPOSE: Communicate the supplied transaction purpose clearly in the first seconds. Never infer a purpose that was not supplied and never mix sale and rental vocabulary.
 3. TYPE AND LOCATION: Use only the supplied property type and location. Never invent a neighborhood, city, state or property category.
 4. STRUCTURED CHARACTERISTICS: Use only facts explicitly present in PROPERTY CONTEXT. Never infer missing measurements, rooms, amenities, prices or conditions.
@@ -55,6 +55,16 @@ const COMMON_MASTER_MATRIX = `SMART TOUR AI — COMMON MASTER MATRIX (mandatory 
 8. PROTECTED PHONE: Apply the official-phone rule exactly. A phone may come only from the protected official field and must never be inferred or modified.
 9. NO INVENTIONS: The property is always the main focus. Do not create architecture, permanent elements, views, amenities, people, facts, logos, signs, plates or claims not explicitly authorized by the selected module and context.
 10. COMMERCIAL LANGUAGE: Use polished, natural Brazilian real-estate language, focused on benefits and free of hype, awkward repetition or technical prompt language.`
+
+const SINGLE_IMAGE_SCENE_LOCK = `SINGLE-IMAGE SCENE LOCK — MANDATORY FOR EVERY GENERATED SCENE
+You may synthesize realistic cinematic camera motion, but you must never synthesize, reconstruct, merge or redesign the property's architecture.
+Every generated scene must originate from exactly one single uploaded image. Select one original photograph as the exclusive visual and architectural source for that scene, then animate only that photograph.
+Camera movement is allowed. Architectural invention is forbidden.
+Allowed motion: travelling, pan, dolly, zoom, approach, pull-back, stabilization and small natural camera movements or perspective shifts that remain fully supported by the single source photograph.
+Never use multiple uploaded images as the basis for one scene. Never fuse, blend, composite, morph, stitch or combine two photographs, two viewpoints or two environments into a single scene, even when they appear related.
+Never create a wider synthetic view, an intermediate viewpoint, an extra balcony, a duplicate architectural element, an unseen surface or a spatial connection that is not visible in the chosen source photograph. Never change the floor plan or the position and relationship of environments.
+Transitions may connect consecutive scenes in time, but they must not spatially merge their source photographs. Complete the scene based on one photograph before beginning the next scene from another photograph.
+OPENING SCENE — MAXIMUM PROTECTION: The first scene must use one original uploaded photograph exclusively. A virtual presenter, opening text, narration and permitted camera motion may be layered onto that photograph, but none of them may alter, extend, reconstruct, merge or reinterpret its architecture.`
 
 const TOUR_DIRECTION = `Create a brand-new premium real estate presentation using all uploaded property images as the only visual source.
 Build one continuous cinematic visit with smooth camera movement, elegant natural transitions and coherent progression between environments. The property must remain the main focus at all times. Follow the generation configuration, property context and language requirements exactly.
@@ -139,6 +149,7 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   const promptConfig = {...config, captions: captionsEnabled ? 'enabled' : 'disabled'} as SmartTourGenerationConfig
   const prompt = [
     COMMON_MASTER_MATRIX,
+    SINGLE_IMAGE_SCENE_LOCK,
     TOUR_DIRECTION,
     `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Do not use any other language.`,
     purposeModule(purpose),
