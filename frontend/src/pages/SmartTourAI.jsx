@@ -9,7 +9,7 @@ import GuidedConversation from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
-import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_MODES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
+import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
@@ -17,39 +17,26 @@ import { formatBrazilianPhone } from '../../../supabase/functions/_shared/produc
 const BUCKET = 'studio-videos'
 const ACTIVE_JOB_KEY = 'smartcorretorai:smart-tour:active-job'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
-const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo', { id: 'none', label: 'Sem CTA' }]
+const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
-const initialGeneration = { mode: '', presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR', freeAiFormat: 'narration' }
-const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'mode', 'free_ai_format', 'presenter', 'furniture', 'staging', 'narration', 'captions', 'cta', 'phone', 'review']
+const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
+const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
 
 function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
-  if (value.mode === 'guided_tour') return { ...value, presenterGender: value.presenterGender === 'male' ? 'male' : 'female', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
-  if (value.mode === 'narrated_tour') return { ...value, presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
-  if (value.mode === 'smart_staging') return { ...value, presenterGender: ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none', furniture: 'virtual_staging', stagingPresentation: value.stagingPresentation === 'before_after' ? 'before_after' : 'final_only' }
-  if (value.mode === 'cinematic_tour') return { ...value, presenterGender: 'none', narration: 'disabled', stagingPresentation: 'final_only' }
-  if (value.mode === 'free_ai') return { ...value, presenterGender: value.freeAiFormat === 'presenter' ? (value.presenterGender === 'male' ? 'male' : 'female') : 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
-  return { ...value, presenterGender: 'none', stagingPresentation: value.furniture === 'virtual_staging' ? value.stagingPresentation : 'final_only' }
+  return { ...value, mode: 'guided_tour', presenterGender: ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none', narration: value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 }
-function questionsFor(generation) {
+function questionsFor() {
   const questions = [
     ['images', 1, 'Envie até 5 fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
     ['stage', 2, 'Qual é o estado atual do imóvel?'], ['type', 2, 'Que tipo de imóvel vamos apresentar?'],
     ['facts', 2, 'Quais são as principais medidas?'], ['location', 2, 'Onde fica o imóvel?'],
     ['commercial', 2, 'Quais informações comerciais deseja incluir?'], ['highlights', 2, 'Quais são os principais destaques?'],
-    ['mode', 3, 'Como deseja apresentar este imóvel?'],
+    ['presenter', 3, 'Deseja um apresentador virtual durante o vídeo?'],
+    ['narration', 3, 'Deseja narração durante o vídeo?'],
+    ['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo?'],
+    ['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo?'],
   ]
-  if (generation.mode === 'guided_tour') questions.push(['presenter', 3, 'Quem você prefere apresentando o imóvel?'])
-  if (generation.mode === 'free_ai') {
-    questions.push(['free_ai_format', 3, 'Como deseja que a IA Livre apresente o imóvel?'])
-    if (generation.freeAiFormat === 'presenter') questions.push(['presenter', 3, 'Quem você prefere apresentando o imóvel?'])
-  }
-  if (generation.mode === 'smart_staging') {
-    questions.push(['staging', 3, 'Como deseja mostrar o resultado?'])
-    questions.push(['presenter', 3, 'Deseja corretor ou corretora virtual no staging?'])
-    questions.push(['narration', 3, 'Deseja narração?'], ['captions', 3, 'Deseja textos na tela?'])
-  }
-  if (generation.mode === 'cinematic_tour') questions.push(['captions', 3, 'Deseja textos na tela?'], ['furniture', 3, 'Deseja manter os ambientes como estão ou mobiliar ambientes vazios?'])
   return [...questions, ['cta', 4, 'Qual chamada deseja usar no final?'], ['phone', 4, 'Deseja divulgar seu telefone profissional?'], ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.']]
 }
 
@@ -63,16 +50,11 @@ function smartTourConfirmation(id, answer) {
     location: `Ótimo! A localização em ${answer} foi registrada.`,
     commercial: answer === 'Sem informações comerciais' ? 'Tudo bem! Seguiremos sem exibir valores comerciais.' : 'Perfeito! As informações comerciais foram registradas.',
     highlights: `Excelente! ${answer} foram selecionados para valorizar o imóvel.`,
-    mode: `Excelente escolha! Vamos preparar uma ${answer.toLocaleLowerCase('pt-BR')}.`,
-    free_ai_format: answer === 'Com Corretor(a) Virtual' ? 'Perfeito! A IA Livre contará com um corretor virtual.' : 'Perfeito! A IA Livre criará uma apresentação somente com narração.',
-    presenter: `Perfeito! ${answer} fará a apresentação virtual.`,
-    furniture: answer === 'Mobiliar com IA' ? 'Ótimo! A IA criará sugestões realistas para os ambientes vazios.' : 'Perfeito! Os ambientes serão preservados como estão.',
-    staging: answer === 'Antes e depois'
-      ? 'Ótima escolha! A apresentação mostrará os ambientes originais e depois a sugestão de decoração criada pela IA.'
-      : 'Perfeito! A apresentação mostrará diretamente os ambientes com a sugestão de decoração criada pela IA.',
+    presenter: answer === 'Nenhum' ? 'Tudo certo! O vídeo seguirá sem apresentador virtual.' : `Perfeito! ${answer} fará a apresentação virtual.`,
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
-    captions: answer === 'Sim' ? 'Ótimo! Os destaques também aparecerão na tela.' : 'Tudo certo! A apresentação seguirá sem textos na tela.',
-    cta: answer === 'Sem CTA' ? 'Tudo certo! O vídeo terminará naturalmente na última cena, sem chamada final.' : `Ótimo! A chamada final será “${answer}”.`,
+    captions: answer === 'Sim' ? 'Ótimo! Uma seleção curta de destaques poderá aparecer no vídeo.' : 'Tudo certo! As informações continuarão na campanha, mas não aparecerão no vídeo.',
+    cta_enabled: answer === 'Sim' ? 'Perfeito! Agora escolha a chamada final.' : 'Tudo certo! O vídeo terminará naturalmente na última cena, sem chamada final.',
+    cta: `Ótimo! A chamada final será “${answer}”.`,
     phone: answer === 'Telefone profissional' ? 'Perfeito! Seu telefone profissional será incluído.' : 'Tudo certo! A apresentação seguirá sem telefone.',
   }
   return confirmations[id] || 'Perfeito! Informação registrada.'
@@ -86,16 +68,17 @@ export default function SmartTourAI() {
   const [images, setImages] = useState([])
   const [property, setProperty] = useState(initialProperty)
   const [generation, setGeneration] = useState(initialGeneration)
+  const [ctaEnabled, setCtaEnabled] = useState(null)
   const [cta, setCta] = useState('')
   const [includePhone, setIncludePhone] = useState(null)
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
-  const questions = useMemo(() => questionsFor(generation), [generation])
+  const questions = useMemo(() => questionsFor(), [])
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatBrazilianPhone(rawPhone)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
-  const setGenerationField = (field, value) => setGeneration(current => normalizeGeneration({ ...current, [field]: value }))
+  const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
 
   const resetTourFromQuestion = (questionId) => {
     if (reviewEditRef.current) {
@@ -107,7 +90,10 @@ export default function SmartTourAI() {
       if (questionId === 'location') setProperty(current => ({ ...current, state: '', city: '', district: '' }))
       if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '' }))
       if (questionId === 'highlights') setProperty(current => ({ ...current, highlights: [] }))
-      if (questionId === 'mode') setGeneration(initialGeneration)
+      if (questionId === 'presenter') setGeneration(current => ({ ...current, presenterGender: '' }))
+      if (questionId === 'narration') setGeneration(current => ({ ...current, narration: '' }))
+      if (questionId === 'captions') setGeneration(current => ({ ...current, captions: '' }))
+      if (questionId === 'cta_enabled') { setCtaEnabled(null); setCta(''); setIncludePhone(null) }
       if (questionId === 'cta') setCta('')
       if (questionId === 'phone') setIncludePhone(null)
       setStatus('idle')
@@ -119,15 +105,14 @@ export default function SmartTourAI() {
     if (shouldReset('images')) setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
     const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'city'], ['location', 'district'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
-    if (shouldReset('mode')) setGeneration(initialGeneration)
-    else setGeneration(current => ({
+    setGeneration(current => ({
       ...current,
-      ...(shouldReset('presenter') ? { presenterGender: 'none' } : {}),
-      ...(shouldReset('furniture') ? { furniture: 'original', stagingPresentation: 'final_only' } : {}),
-      ...(shouldReset('narration') ? { narration: 'enabled' } : {}),
-      ...(shouldReset('captions') ? { captions: 'enabled' } : {}),
-      ...(shouldReset('free_ai_format') ? { freeAiFormat: 'narration' } : {}),
+      ...(shouldReset('presenter') ? { presenterGender: '' } : {}),
+      ...(shouldReset('narration') ? { narration: '' } : {}),
+      ...(shouldReset('captions') ? { captions: '' } : {}),
+      furniture: 'original', stagingPresentation: 'final_only',
     }))
+    if (shouldReset('cta_enabled')) setCtaEnabled(null)
     if (shouldReset('cta')) setCta('')
     if (shouldReset('phone')) setIncludePhone(null)
     if (pollRef.current) clearTimeout(pollRef.current)
@@ -195,17 +180,16 @@ export default function SmartTourAI() {
         imagePaths[imageIndex] = path
       }
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
-      const apiGeneration = generation.mode === 'free_ai'
-        ? normalizeGeneration({ ...generation, mode: generation.freeAiFormat === 'presenter' ? 'guided_tour' : 'narrated_tour' })
-        : normalizeGeneration(generation)
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta: cta, includeProfessionalPhone: Boolean(cta) && includePhone === true, language: 'pt-BR' } })
+      const apiGeneration = normalizeGeneration(generation)
+      const selectedCta = ctaEnabled === true ? cta : ''
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta, phone:cta && includePhone ? phone : '' })
+      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '' })
       sessionStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
+  const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
   if (result) return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Sua apresentação imobiliária premium." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar nova apresentação" /></main></>
 
   const measureFields = getSmartTourMeasureFields(property.type)
@@ -213,9 +197,6 @@ export default function SmartTourAI() {
   const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${measureLabels[field]}`).filter(Boolean).join(' · ')
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
-  const presentationSummary = generation.mode === 'smart_staging'
-    ? `Sugestão de decoração — ${generation.stagingPresentation === 'before_after' ? 'Antes e depois' : 'Apenas resultado final'}`
-    : SMART_TOUR_MODES.find(item => item.id === generation.mode)?.label
   const summary = [
     { id: 'images', label: images.length && `${images.length} foto${images.length > 1 ? 's' : ''}` },
     { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
@@ -225,9 +206,12 @@ export default function SmartTourAI() {
     { id: 'location', label: formatSmartTourLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
-    { id: 'mode', label: presentationSummary },
-    { id: 'cta', label: cta || (isReviewContext ? 'Sem CTA' : '') },
-    { id: 'phone', label: cta ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
+    { id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') },
+    { id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' },
+    { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
+    { id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' },
+    { id: 'cta', label: ctaEnabled === true ? cta : '' },
+    { id: 'phone', label: ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
   return <>
@@ -242,7 +226,7 @@ export default function SmartTourAI() {
           </div>
           <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Transforme fotos em uma apresentação que conduz a visita.</h1>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-200 sm:text-base">
-            Escolha a experiência ideal no chat. A IA organiza movimentos, narração, textos, apresentação virtual e ambientação conforme suas escolhas.
+            Escolha a experiência ideal no chat. A IA organiza movimentos, narração, destaques e apresentação virtual conforme suas escolhas.
           </p>
         </div>
       </section>
@@ -275,7 +259,7 @@ export default function SmartTourAI() {
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
     >
-      <Question id={question[0]} {...{ images, property, generation, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCta, setIncludePhone, createTour, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
     </main>
   </>
@@ -402,8 +386,9 @@ function ExamplePlaceholder({ example, large = false }) {
 }
 
 function Question(props) {
-  const { id, images, property, generation, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCta, setIncludePhone, createTour, reviewItems, onReviewEdit } = props
+  const { id, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-2xl border p-4 text-left ${value === item.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
+  const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
   if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
@@ -445,14 +430,12 @@ function Question(props) {
   }
   if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
-  if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'mode')}</> }
-  if (id === 'mode') return choices(SMART_TOUR_MODES, generation.mode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('mode', value) }))
-  if (id === 'free_ai_format') return choices([{id:'presenter',label:'Com Corretor(a) Virtual'},{id:'narration',label:'Somente com Narração'}], generation.freeAiFormat, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('freeAiFormat', value) }))
-  if (id === 'presenter') { const presenterChoices = generation.mode === 'smart_staging' ? [{id:'none',label:'Sem apresentador'},{id:'female',label:'Corretora'},{id:'male',label:'Corretor'}] : [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'}]; return choices(presenterChoices, generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) })) }
-  if (id === 'furniture') return choices([{id:'original',label:'Manter original'},{id:'virtual_staging',label:'Mobiliar com IA'}], generation.furniture, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('furniture', value) }))
-  if (id === 'staging') return choices([{id:'final_only',label:'Apenas resultado final'},{id:'before_after',label:'Antes e depois'}], generation.stagingPresentation, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('stagingPresentation', value) }))
-  if (id === 'narration' || id === 'captions') return choices([{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation[id], (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField(id, value) }))
-  if (id === 'cta') return choices(CTAS, cta || 'none', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setCta(value === 'none' ? '' : value); if (value === 'none') setIncludePhone(false) } }))
+  if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'presenter')}</> }
+  if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) }))
+  if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
+  if (id === 'captions') return explainedChoices('As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa. Ao escolher ‘Não’, elas apenas deixarão de aparecer durante o vídeo.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
+  if (id === 'cta_enabled') return explainedChoices('Ao final do vídeo poderá ser exibido um convite para contato utilizando as informações do seu cadastro profissional.', [{id:'yes',label:'Sim'},{id:'no',label:'Não'}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
+  if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   return <>
     <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">
@@ -472,7 +455,7 @@ function Question(props) {
 function reviewLabel(id) {
   return {
     images: 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
-    location: 'Localização', commercial: 'Valores', highlights: 'Destaques', mode: 'Apresentação',
-    cta: 'CTA', phone: 'Telefone',
+    location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
+    presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }[id] || id
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { SMART_TOUR_MAX_IMAGES, SMART_TOUR_MODES } from '../src/config/smartTour.js'
+import { SMART_TOUR_MAX_IMAGES } from '../src/config/smartTour.js'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_PROPERTY_TYPES } from '../src/config/smartTourForm.js'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../src/config/smartTourConversation.js'
 
@@ -65,13 +65,14 @@ test('removes commercial description and language questions from Brazil flow', (
   assert.match(page, /language: 'pt-BR'/)
 })
 
-test('adds IA Livre as the fifth presentation without a free-text prompt', () => {
-  assert.deepEqual(SMART_TOUR_MODES.map(mode => mode.id), ['guided_tour', 'narrated_tour', 'smart_staging', 'cinematic_tour', 'free_ai'])
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'free_ai' }), 'free_ai_format')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'free_ai_format', answerId: 'presenter' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'free_ai_format', answerId: 'narration' }), 'cta')
-  assert.match(page, /Com Corretor\(a\) Virtual/)
-  assert.match(page, /Somente com Narração/)
+test('uses the four independent production choices instead of presentation modes', () => {
+  assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'narration' }), 'captions')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'captions' }), 'cta_enabled')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'no' }), 'review')
+  assert.doesNotMatch(page, /SMART_TOUR_MODES|free_ai_format|id === 'mode'/)
   assert.doesNotMatch(page, /prompt livre|briefing/i)
 })
 
@@ -81,11 +82,13 @@ test('supports targeted review edits and returns automatically to review', () =>
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'type', questionId: 'type' }), 'facts')
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'type', questionId: 'facts' }), 'highlights')
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'type', questionId: 'highlights' }), 'review')
+  assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'cta_enabled', questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
+  assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'cta_enabled', questionId: 'phone' }), 'review')
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'cta', questionId: 'cta' }), 'review')
   assert.match(page, />Editar</)
 })
 
 test('uses the homologated intelligent final review message', () => {
   for (const text of ['Tudo pronto!', 'respeitando a ordem escolhida', 'Nenhuma informação será inventada.', 'Agora é só clicar em Criar apresentação.']) assert.ok(page.includes(text))
-  for (const label of ['Finalidade', 'Estado', 'Tipo', 'Medidas', 'Localização', 'Valores', 'CTA', 'Telefone']) assert.ok(page.includes(label))
+  for (const label of ['Finalidade', 'Estado', 'Tipo', 'Medidas', 'Localização', 'Valores', 'Apresentador', 'Narração', 'Destaques no vídeo', 'CTA final', 'Chamada escolhida', 'Telefone']) assert.ok(page.includes(label))
 })

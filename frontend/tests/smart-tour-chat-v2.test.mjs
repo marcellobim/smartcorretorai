@@ -19,7 +19,6 @@ const page = read('src/pages/SmartTourAI.jsx')
 const smartCarousel = read('src/pages/SmartCarrossel.jsx')
 const sharedUi = read('src/components/conversation/GuidedConversation.jsx')
 const sharedHook = read('src/hooks/useGuidedConversation.js')
-const smartStagingQuestions = page.match(/if \(generation\.mode === 'smart_staging'\) \{([\s\S]*?)\n  \}/)?.[1] || ''
 
 test('1. bedrooms use the approved clickable choices', () => {
   assert.deepEqual(SMART_TOUR_MEASURE_OPTIONS.bedrooms, ['0', '1', '2', '3', '4', '5+'])
@@ -126,27 +125,30 @@ test('12. Sobrado remains a Casa highlight', () => {
   assert.equal(getSmartTourHighlights('Casa').includes('Sobrado'), true)
 })
 
-test('13. decoration mode does not ask to keep original or furnish with AI', () => {
-  assert.doesNotMatch(smartStagingQuestions, /furniture|Manter original|Mobiliar com IA/)
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
+test('13. active flow contains no staging, furniture or decoration question', () => {
+  assert.doesNotMatch(page, /id === 'furniture'|id === 'staging'|Como deseja mostrar o resultado|Mobiliar com IA|Sugestão de decoração/)
+  assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
 })
 
-test('14. decoration mode asks directly how to show the result', () => {
-  assert.match(smartStagingQuestions, /questions\.push\(\['staging', 3, 'Como deseja mostrar o resultado\?'\]\)/)
+test('14. frontend forces the original property without virtual staging', () => {
+  assert.match(page, /furniture: 'original'/)
+  assert.match(page, /stagingPresentation: 'final_only'/)
+  assert.doesNotMatch(page, /virtual_staging|before_after/)
 })
 
-test('15. decoration result choices use the approved labels', () => {
-  assert.match(page, /id:'final_only',label:'Apenas resultado final'/)
-  assert.match(page, /id:'before_after',label:'Antes e depois'/)
-  assert.doesNotMatch(page, /Apenas mobiliado/)
+test('15. asks the exact four formal independent questions', () => {
+  for (const question of [
+    'Deseja um apresentador virtual durante o vídeo?',
+    'Deseja narração durante o vídeo?',
+    'Deseja destacar algumas informações importantes durante o vídeo?',
+    'Deseja uma chamada para ação no final do vídeo?',
+  ]) assert.ok(page.includes(question), question)
 })
 
-test('16. history, summary and review reflect the decoration result', () => {
-  assert.match(page, /Sugestão de decoração —/)
-  assert.match(page, /Apenas resultado final/)
-  assert.match(page, /Antes e depois/)
-  assert.match(page, /mostrará diretamente os ambientes com a sugestão de decoração criada pela IA/)
-  assert.match(page, /mostrará os ambientes originais e depois a sugestão de decoração criada pela IA/)
+test('16. history, summary and review reflect every independent choice', () => {
+  for (const label of ['Apresentador', 'Narração', 'Destaques no vídeo', 'CTA final', 'Chamada escolhida', 'Telefone']) assert.ok(page.includes(label), label)
+  assert.match(page, /ctaEnabled === true \? cta : ''/)
+  assert.match(page, /ctaEnabled === true && includePhone === true/)
   assert.match(page, /reviewItems\.map/)
 })
 

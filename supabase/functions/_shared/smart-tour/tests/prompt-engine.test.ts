@@ -49,9 +49,9 @@ test('presenter variants and disabled presenter remain unchanged',()=>{
   assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'CTA'}),/Do not create any presenter/)
 })
 
-test('narrated tour normalizes to narration and captions without presenter',()=>{
+test('narrated tour keeps narration and captions independent without presenter',()=>{
   const config=normalizeGeneration({mode:'narrated_tour',presenterGender:'female',narration:'disabled',captions:'disabled'})
-  assert.deepEqual({mode:config.mode,presenterGender:config.presenterGender,narration:config.narration,captions:config.captions},{mode:'narrated_tour',presenterGender:'none',narration:'enabled',captions:'enabled'})
+  assert.deepEqual({mode:config.mode,presenterGender:config.presenterGender,narration:config.narration,captions:config.captions},{mode:'narrated_tour',presenterGender:'none',narration:'disabled',captions:'disabled'})
 })
 
 test('guided and narrated tours receive the same mandatory delivery contract',()=>{
@@ -128,30 +128,21 @@ test('fully clean video keeps only the shared visual treatment and explicit proh
   assert.doesNotMatch(prompt,/Create one realistic professional|Create a natural, elegant and professional real estate narration|CAPTIONS ARE REQUIRED|FINAL CALL TO ACTION: Show exactly one closing call|Apply virtual staging|GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/i)
 })
 
-test('staging adds only controlled removable furniture and keeps complements independent',()=>{
-  const cleanStaging=buildOptionalPrompt({mode:'smart_staging',presenterGender:'none',narration:'disabled',captions:'disabled',furniture:'virtual_staging',stagingPresentation:'final_only'},'')
-  assert.ok(cleanStaging.startsWith(SMART_TOUR_VISUAL_CORE))
-  assert.match(cleanStaging,/apply virtual staging to suitable empty environments/)
-  for(const protectedElement of ['architecture','apparent dimensions','perspective','walls','floors','ceilings','doors','windows','fixed cabinetry','countertops','structural lighting','exterior view']) assert.match(cleanStaging,new RegExp(protectedElement))
-  assert.match(cleanStaging,/plausible, removable furniture and decoration/)
-  assert.match(cleanStaging,/Do not hide defects, renovate, modernize, replace structural elements, create rooms, change the floor plan/)
-  assert.doesNotMatch(cleanStaging,/Create one realistic professional|Create a natural, elegant and professional real estate narration|CAPTIONS ARE REQUIRED|FINAL CALL TO ACTION: Show exactly one closing call/i)
-
-  const stagingWithSelectedComplements=buildOptionalPrompt({mode:'smart_staging',presenterGender:'male',narration:'enabled',captions:'enabled',furniture:'virtual_staging',stagingPresentation:'final_only'})
-  assert.match(stagingWithSelectedComplements,/Create one realistic professional male real estate agent/)
-  assert.match(stagingWithSelectedComplements,/Create a natural, elegant and professional real estate narration/)
-  assert.match(stagingWithSelectedComplements,/CAPTIONS ARE REQUIRED/)
-  assert.match(stagingWithSelectedComplements,/FINAL CALL TO ACTION/)
-  assert.match(stagingWithSelectedComplements,/apply virtual staging/)
+test('backend forces virtual staging off for every incoming mode',()=>{
+  for(const mode of ['guided_tour','narrated_tour','smart_staging','cinematic_tour'] as const){
+    const config=normalizeGeneration({mode,furniture:'virtual_staging',stagingPresentation:'before_after'})
+    assert.equal(config.furniture,'original')
+    assert.equal(config.stagingPresentation,'final_only')
+    const prompt=buildSmartTourPrompt({generation:config,property,selectedCta:'Fale comigo'})
+    assert.doesNotMatch(prompt,/apply virtual staging|plausible, removable furniture|BEFORE AND AFTER/i)
+  }
 })
 
-test('enabling staging changes only the controlled furniture block',()=>{
+test('legacy staging inputs produce the same prompt as original-property inputs',()=>{
   const base={mode:'cinematic_tour' as const,presenterGender:'none' as const,narration:'disabled' as const,captions:'disabled' as const,stagingPresentation:'final_only' as const}
   const original=buildOptionalPrompt({...base,furniture:'original'},'')
   const staged=buildOptionalPrompt({...base,furniture:'virtual_staging'},'')
-  const originalFurniture=/Do not redesign rooms, add or remove furniture or decoration, or modify architecture, finishes, materials, colors, objects, lighting fixtures or proportions\. Preserve every environment exactly as photographed\./
-  const stagingFurniture=/Only when the selected virtual-staging mode explicitly requires it, apply virtual staging[^\n]+/
-  assert.equal(original.replace(originalFurniture,'[CONTROLLED FURNITURE BLOCK]'),staged.replace(stagingFurniture,'[CONTROLLED FURNITURE BLOCK]'))
+  assert.equal(staged,original)
 })
 
 test('every optional combination keeps the approved core and excludes legacy prompt families',()=>{
@@ -159,6 +150,7 @@ test('every optional combination keeps the approved core and excludes legacy pro
     const prompt=buildOptionalPrompt({mode,presenterGender,narration,captions,furniture,stagingPresentation:'final_only'},selectedCta)
     assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
     assert.doesNotMatch(prompt,/COMMON MASTER MATRIX|SINGLE-IMAGE SCENE LOCK|CREATIVE LATITUDE/)
+    assert.doesNotMatch(prompt,/apply virtual staging|plausible, removable furniture|BEFORE AND AFTER/i)
   }
 })
 
@@ -276,4 +268,7 @@ test('missing or invalid professional phone is omitted without placeholder or ex
 test('invalid WhatsApp falls back only to a valid phone from the professional profile',()=>assert.equal(resolveSmartTourProfessionalPhone(true,'invalid','1134567890'),'+55 (11) 3456-7890'))
 test('phone-like text outside the professional profile never reaches the prompt',()=>{const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,description:'Ligue para (21) 98765-4321 e conheça',highlights:['Contato 11 3456-7890']},selectedCta:'WhatsApp 31 99876-5432'});assert.doesNotMatch(prompt,/98765-4321|3456-7890|99876-5432/);assert.match(prompt,/Do not display, narrate, write, imply or generate any phone number/)})
 test('request accepts exactly five ordered images and rejects the sixth and duplicates',()=>{const paths=Array.from({length:5},(_,i)=>`u/${i+1}.jpg`);const base={clientRequestId:'abc',imagePaths:paths,imageOrder:[...paths],property,generation:normalizeGeneration({mode:'narrated_tour'}),selectedCta:'CTA',includeProfessionalPhone:false,language:'pt-BR'};const validated=validateSmartTourRequest(base);assert.deepEqual(validated.imagePaths,paths);assert.deepEqual(validated.imageOrder,paths);const six=Array.from({length:6},(_,i)=>`u/${i+1}.jpg`);assert.throws(()=>validateSmartTourRequest({...base,imagePaths:six,imageOrder:[...six]}),/invalid_image_count/);assert.throws(()=>validateSmartTourRequest({...base,imagePaths:['u/1.jpg','u/1.jpg'],imageOrder:['u/1.jpg','u/1.jpg']}),/invalid_image_count/)})
-test('before_after is normalized away without virtual staging',()=>assert.equal(normalizeGeneration({mode:'smart_staging',furniture:'original',stagingPresentation:'before_after'}).stagingPresentation,'final_only'))
+test('before_after and virtual staging are always normalized away',()=>assert.deepEqual(
+  (({furniture,stagingPresentation})=>({furniture,stagingPresentation}))(normalizeGeneration({mode:'smart_staging',furniture:'virtual_staging',stagingPresentation:'before_after'})),
+  {furniture:'original',stagingPresentation:'final_only'},
+))

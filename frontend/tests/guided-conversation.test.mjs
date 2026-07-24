@@ -57,49 +57,34 @@ test('updates the lateral summary through the same edit action', () => {
 })
 
 test('keeps all Smart Tour conditional paths coherent through review', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'guided_tour' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', mode: 'guided_tour' }), 'cta')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'narrated_tour' }), 'cta')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'staging', mode: 'smart_staging' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none', mode: 'smart_staging' }), 'narration')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', mode: 'smart_staging' }), 'cta')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'cinematic_tour' }), 'captions')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', mode: 'cinematic_tour' }), 'furniture')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'furniture', answerId: 'original', mode: 'cinematic_tour' }), 'cta')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'cta', answerId: 'none' }), 'review')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'narration', answerId: 'disabled' }), 'captions')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'disabled' }), 'cta_enabled')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'no' }), 'review')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'cta' }), 'phone')
   assert.equal(getSmartTourNextQuestion({ questionId: 'phone' }), 'review')
 })
 
-test('reuses the CTA question to offer a clean ending without asking for a phone', () => {
-  assert.match(smartTour, /\{ id: 'none', label: 'Sem CTA' \}/)
-  assert.match(smartTour, /cta \|\| 'none'/)
-  assert.match(smartTour, /includeProfessionalPhone: Boolean\(cta\) && includePhone === true/)
-  assert.match(smartTour, /phone:cta && includePhone \? phone : ''/)
+test('asks CTA yes or no and omits phone when CTA is disabled', () => {
+  assert.match(smartTour, /\['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo\?'\]/)
+  assert.match(smartTour, /includeProfessionalPhone: ctaEnabled === true && includePhone === true/)
+  assert.match(smartTour, /phone:ctaEnabled === true && includePhone \? phone : ''/)
   assert.match(smartTour, /O vídeo terminará naturalmente na última cena, sem chamada final/)
 })
 
-test('completes Venda with Corretora Virtual path', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'guided_tour' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'female', mode: 'guided_tour' }), 'cta')
+test('offers the four independent presentation choices in the existing chat', () => {
+  for (const question of ['Deseja um apresentador virtual durante o vídeo?', 'Deseja narração durante o vídeo?', 'Deseja destacar algumas informações importantes durante o vídeo?', 'Deseja uma chamada para ação no final do vídeo?']) assert.ok(smartTour.includes(question))
+  for (const explanation of ['Um corretor ou corretora virtual poderá apresentar', 'Uma narração em português do Brasil', 'As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa', 'Ao final do vídeo poderá ser exibido um convite para contato']) assert.ok(smartTour.includes(explanation))
+  assert.match(smartTour, /\{id:'female',label:'Corretora'\},\{id:'male',label:'Corretor'\},\{id:'none',label:'Nenhum'\}/)
+  assert.match(smartTour, /presenterGender: '', narration: '', captions: ''/)
+  assert.match(smartTour, /setGeneration\(current => \(\{ \.\.\.current, \[field\]: value \}\)\)/)
 })
 
-test('completes Locação with Narração path', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'narrated_tour' }), 'cta')
-  assert.match(smartTour, /property\.purpose === 'rent'/)
-})
-
-test('completes Venda with Sugestão de Decoração path', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'smart_staging' }), 'staging')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'staging', answerId: 'final_only', mode: 'smart_staging' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'female', mode: 'smart_staging' }), 'narration')
-  assert.match(smartTour, /generation\.mode === 'smart_staging' \? \[\{id:'none',label:'Sem apresentador'\}/)
-})
-
-test('completes Locação with Apresentação Dinâmica path', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'mode', answerId: 'cinematic_tour' }), 'captions')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'disabled', mode: 'cinematic_tour' }), 'furniture')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'furniture', answerId: 'original', mode: 'cinematic_tour' }), 'cta')
+test('removes staging and furniture questions from the active Smart Tour chat', () => {
+  assert.doesNotMatch(smartTour, /id === 'staging'|id === 'furniture'|Como deseja mostrar o resultado|Mobiliar com IA|virtual_staging/)
+  assert.match(smartTour, /furniture: 'original', stagingPresentation: 'final_only'/)
 })
 
 test('rebuilds coherently when changing Venda to Locação', () => {
@@ -109,11 +94,11 @@ test('rebuilds coherently when changing Venda to Locação', () => {
   assert.deepEqual(edited.removed.map(item => item.questionId), ['purpose', 'stage', 'type'])
 })
 
-test('rebuilds coherently when changing the presentation type', () => {
-  const turns = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'mode', 'presenter', 'cta'].map(questionId => ({ questionId }))
-  const edited = truncateConversationAt(turns, 'mode')
+test('rebuilds coherently when changing an independent presentation choice', () => {
+  const turns = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions'].map(questionId => ({ questionId }))
+  const edited = truncateConversationAt(turns, 'presenter')
   assert.equal(edited.history.at(-1).questionId, 'highlights')
-  assert.deepEqual(edited.removed.map(item => item.questionId), ['mode', 'presenter', 'cta'])
+  assert.deepEqual(edited.removed.map(item => item.questionId), ['presenter', 'narration', 'captions'])
 })
 
 test('shares the approved engine without changing product generation integrations', () => {
