@@ -17,7 +17,7 @@ export function formatSmartTourProfessionalPhone(value: unknown): string {
   if (!validSubscriber) return ''
 
   const prefixLength = subscriber.length === 9 ? 5 : 4
-  return `+55 (${areaCode}) ${subscriber.slice(0, prefixLength)}-${subscriber.slice(prefixLength)}`
+  return `(${areaCode}) ${subscriber.slice(0, prefixLength)}-${subscriber.slice(prefixLength)}`
 }
 
 export function resolveSmartTourProfessionalPhone(includePhone: boolean, ...profileValues: unknown[]): string {

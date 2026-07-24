@@ -34,7 +34,7 @@ const purposeCopy = (value: unknown): PurposeCopy => {
   if (['rent','rental','locação','locacao','aluguel','alugar'].includes(purpose)) return { phrase:'disponível para locação', openingText:'PARA LOCAÇÃO', forbidden:'venda, à venda, compra, oportunidade de compra' }
   return null
 }
-const presenter = (value: SmartTourGenerationConfig) => value.presenterGender === 'none' ? 'Do not create any presenter, person, real estate agent, avatar, host or visible narrator. The property must be presented without any person guiding the tour. The absence of a presenter must not change the visual style, camera language, source-image fidelity or preservation rules in any way.' : `Create one realistic professional ${value.presenterGender === 'female' ? 'female' : 'male'} real estate agent naturally integrated into the property, according to the selected option. Maintain the same presenter throughout the entire video and use natural behavior, gestures and expressions. The presenter is only a guide, must never cover important architectural details, must never compete with the property and must never cause any property element to be moved, hidden, removed or altered.`
+const presenter = (value: SmartTourGenerationConfig) => value.presenterGender === 'none' ? '' : `Create one realistic professional ${value.presenterGender === 'female' ? 'female' : 'male'} real estate agent naturally integrated into the property, according to the selected option. Maintain the same presenter throughout the entire video and use natural behavior, gestures and expressions. The presenter is only a guide, must never cover important architectural details, must never compete with the property and must never cause any property element to be moved, hidden, removed or altered.`
 const locationNarration = (property: PropertyContext) => {
   const district = removeNonOfficialPhoneNumbers(property.district)
   const city = removeNonOfficialPhoneNumbers(property.city)
@@ -90,6 +90,23 @@ const finalCallToAction = (cta: string) => cta
   : 'NO CALL TO ACTION OR COMMERCIAL FINAL SCREEN: Do not create a CTA, phone number, WhatsApp word or icon, contact information, slogan, promotional closing, end card, final title or final commercial screen. End naturally on the last property scene. This removes only the closing layer and must not remove any separately enabled presenter, narration or on-screen text.'
 const CLEAN_VIDEO_CONTRACT = `FULLY CLEAN VIDEO — REQUIRED OUTPUT
 Keep only the real uploaded photographs, cinematic animation, natural camera movement, absolute property preservation and exactly one photograph per scene. Do not create any person, voice, speech, generated music, soundtrack, caption, text, title, CTA, phone, WhatsApp, final screen, brand, watermark or promotional element. End naturally on the last animated property scene.`
+const NO_PERSON_CONTRACT = `NO PRESENTER OR PERSON — ABSOLUTE VISUAL PROHIBITION
+No presenter or person may appear anywhere in the video. Do not show or generate people, human silhouettes, human reflections, human shadows, hands, faces or any other body parts. The property must be the only visible subject and the only protagonist.
+Any reference to a guided visit, walking or a viewer viewpoint in the frozen visual core describes invisible camera motion only. It must never create or imply a human being inside or outside the property.`
+const NARRATION_DELIVERY_CONTRACT = `NARRATION DELIVERY ENFORCEMENT — REQUIRED
+Keep the narration brief enough to finish naturally before the final call-to-action screen when one is enabled. Never cut off a word or sentence. Use short, continuous and natural sentences synchronized with the visible environment. Follow the supplied image order, speak only about the environment currently visible and never anticipate an environment that has not appeared. Prioritize fluent delivery over narrating every supplied fact.`
+const CAPTION_DELIVERY_CONTRACT = `VISIBLE ON-SCREEN CAPTION DELIVERY ENFORCEMENT — REQUIRED
+Visible on-screen captions are mandatory throughout the video. Do not omit them. Display only one short caption at a time. Use only real information supplied in PROPERTY CONTEXT. Prioritize the supplied purpose; supplied neighborhood and city; supplied bedrooms, suites and parking spaces; supplied area; and the most relevant supplied differentiators. This requirement applies with or without a presenter and must never be removed because no person is visible.`
+const ctaDeliveryContract = (cta: string, phone: string) => {
+  if (!cta) return ''
+  const visibleContent = phone ? `${cta}\n\nWhatsApp: ${phone}` : cta
+  return `FINAL CALL-TO-ACTION SCREEN DELIVERY ENFORCEMENT — REQUIRED
+The final call-to-action screen is mandatory and must be the last visible scene. Render exactly and only the following visible content:
+
+${visibleContent}
+
+Do not omit this final screen, the selected call to action${phone ? ', WhatsApp or the authorized phone' : ''}. Do not add any other phrase, logo, brand, company name, promotional text, label, icon, title, subtitle, punctuation, character or visible element.`
+}
 
 export function buildPropertyContext(property: PropertyContext, cta: string) {
   const labels: Record<string,string> = {purpose:'Purpose',stage:'Property state',type:'Property type',bedrooms:'Bedrooms',suites:'Suites',parkingSpaces:'Parking spaces',area:'Area',state:'State',city:'City',district:'Neighborhood',price:'Price',condominium:'Condominium fee',iptu:'IPTU',description:'Commercial description'}
@@ -109,9 +126,17 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   const safeCta = removeNonOfficialPhoneNumbers(input.selectedCta)
   const hasCta = Boolean(safeCta)
   const purpose = purposeCopy(input.property.purpose)
-  const promptSections = [SMART_TOUR_VISUAL_CORE, `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Use the selected language only and do not mix languages.`, officialPhone(hasCta ? input.phone || '' : ''), presenter(config), narration(config.narration === 'enabled', purpose, input.property, hasCta), captions(config.captions === 'enabled', purpose, input.property, config.narration === 'enabled'), finalCallToAction(safeCta), furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,'')]
+  const phone = hasCta ? input.phone || '' : ''
+  const languageRequirement = config.presenterGender === 'none'
+    ? `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, captions, on-screen text and the final call to action. Use the selected language only and do not mix languages.`
+    : `IMPORTANT LANGUAGE REQUIREMENT: The entire final presentation must be in ${language}. This includes all narration, presenter speech, captions, on-screen text and the final call to action. Use the selected language only and do not mix languages.`
+  const promptSections = [SMART_TOUR_VISUAL_CORE, languageRequirement, officialPhone(phone), presenter(config), narration(config.narration === 'enabled', purpose, input.property, hasCta), captions(config.captions === 'enabled', purpose, input.property, config.narration === 'enabled'), finalCallToAction(safeCta), furniture(config.furniture === 'virtual_staging'), beforeAfter(config.stagingPresentation === 'before_after'), buildPropertyContext(input.property,'')].filter(Boolean)
   if ((config.mode === 'guided_tour' || config.mode === 'narrated_tour') && config.narration === 'enabled' && config.captions === 'enabled' && hasCta) promptSections.push(REQUIRED_TOUR_DELIVERY_CONTRACT)
   if (config.presenterGender === 'none' && config.narration === 'disabled' && config.captions === 'disabled' && !hasCta) promptSections.push(CLEAN_VIDEO_CONTRACT)
+  if (config.presenterGender === 'none') promptSections.push(NO_PERSON_CONTRACT)
+  if (config.narration === 'enabled') promptSections.push(NARRATION_DELIVERY_CONTRACT)
+  if (config.captions === 'enabled') promptSections.push(CAPTION_DELIVERY_CONTRACT)
+  if (hasCta) promptSections.push(ctaDeliveryContract(safeCta, phone))
   const prompt = promptSections.join('\n\n')
   assertNoContradictions(prompt, config)
   return prompt
