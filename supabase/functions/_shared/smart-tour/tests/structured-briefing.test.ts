@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { buildGeminiOmniRequestBody } from '../../geminiOmniClient.ts'
-import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, SMART_TOUR_PHRASE_LIBRARY } from '../index.ts'
+import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, SMART_TOUR_GEMINI_MISSION, SMART_TOUR_PHRASE_LIBRARY } from '../index.ts'
 
 const property = {
   purpose: 'sale',
@@ -36,7 +36,9 @@ const build = (overrides = {}) => buildSmartTourStructuredBriefing({
 test('SmartCorretorAI builds the complete structured JSON without asking Gemini to organize data', () => {
   const briefing = build()
   assert.equal(briefing.versao, 'smart-tour-structured-briefing-v1')
-  assert.equal(briefing.tarefa, 'gerar_video_smart_tour')
+  assert.equal(briefing.tarefa, SMART_TOUR_GEMINI_MISSION)
+  assert.match(briefing.tarefa, /^MISSÃO PRINCIPAL\nVocê é um cinegrafista profissional especializado em imóveis\./)
+  assert.match(briefing.tarefa, /Sua criatividade deve ser utilizada para filmar\.\n\nNunca para redesenhar\./)
   assert.deepEqual(briefing.configuracoes, {
     modo: 'guided_tour', idioma: 'pt-BR', formato: '9:16', duracaoSegundos: 10,
     quantidadeImagens: 5, narracaoAtiva: true, legendasAtivas: true, ctaAtivo: true,
