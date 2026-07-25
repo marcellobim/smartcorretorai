@@ -103,22 +103,38 @@ test('narration has scenes as its single source of truth and leaves 0.8 second f
   assert.equal('narracao' in briefing, false)
   for (const scene of briefing.cenas) {
     assert.notEqual(scene.narracao, scene.legenda)
-    assert.ok(scene.narracao.split(/\s+/).length <= (scene.tipo === 'encerramento' ? 3 : 5), scene.narracao)
+    assert.ok(scene.narracao.split(/\s+/).length <= (scene.tipo === 'encerramento' ? 3 : 6), scene.narracao)
   }
   assert.deepEqual(briefing.cenas.slice(0, -1).map(scene => scene.duracaoNarracaoSegundos), [1.8, 1.8, 1.8, 1.8])
   assert.deepEqual(briefing.cenas.slice(0, -1).map(scene => scene.tempoTelefoneVisivelAposNarracaoSegundos), [0, 0, 0, 0])
   assert.equal(briefing.cenas.at(-1)?.duracaoNarracaoSegundos, 1.2)
   assert.equal(briefing.cenas.at(-1)?.tempoTelefoneVisivelAposNarracaoSegundos, 0.8)
-  assert.equal(briefing.cenas.at(-1)?.narracao, 'Conheça de perto.')
+  assert.deepEqual(briefing.cenas.map(scene => scene.narracao), [
+    'Conheça este excelente apartamento à venda.',
+    'Espaços bem distribuídos para sua rotina.',
+    'Qualidade percebida em cada escolha.',
+    'Mobilidade que facilita o cotidiano.',
+    'Entre em contato.',
+  ])
   assert.match(JSON.stringify(briefing.regrasObrigatorias), /aproximadamente 0,8 segundo/)
 })
 
-test('every phrase in the library fits its scene time without accelerated speech', () => {
+test('restored commercial phrases remain concise and remove repeated proximity wording', () => {
   for (const phrase of SMART_TOUR_PHRASE_LIBRARY) {
     const words = phrase.texto.trim().split(/\s+/).length
-    const maximumWords = phrase.tipo === 'encerramento' ? 3 : 5
+    const maximumWords = phrase.tipo === 'encerramento' ? 3 : 6
     assert.ok(words <= maximumWords, `${phrase.id}: ${phrase.texto}`)
   }
+  const portugueseNarration = SMART_TOUR_PHRASE_LIBRARY
+    .filter(phrase => phrase.idioma === 'pt-BR')
+    .map(phrase => phrase.texto)
+    .join(' ')
+  assert.doesNotMatch(portugueseNarration, /perto de você|conhe(?:ça|cer) de perto/i)
+
+  const selectedWords = build().cenas
+    .flatMap(scene => scene.narracao.toLocaleLowerCase('pt-BR').match(/[\p{L}]+/gu) || [])
+    .filter(word => !new Set(['a', 'à', 'ao', 'cada', 'e', 'em', 'este', 'o', 'para', 'sua']).has(word))
+  assert.equal(new Set(selectedWords).size, selectedWords.length)
 })
 
 test('phrase selection is deterministic and constrained by type, purpose, property type and language', () => {
