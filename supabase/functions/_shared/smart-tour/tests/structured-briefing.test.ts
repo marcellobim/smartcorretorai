@@ -74,21 +74,22 @@ test('every scene has a semantic type and a phrase selected from the contextual 
   }
 })
 
-test('captions reserve the last scene for exact CTA and put price in an intermediate scene', () => {
+test('captions follow the five-scene commercial structure and reserve the last scene for exact CTA', () => {
   const briefing = build()
   assert.deepEqual(briefing.legendas, { ativas: true })
   assert.deepEqual(briefing.cenas.map(scene => scene.legenda), [
-    'Apartamento • Venda',
-    '198 m² • 4 Dormitórios • 2 Suítes\nR$ 2.850.000',
-    'Vista livre',
     'Moema • São Paulo',
+    'Pronto para morar\n4 Dormitórios • 2 Suítes • 3 Vagas',
+    'Condomínio R$ 1.200',
+    'Vista livre • Varanda gourmet',
     'Agende sua visita\n(11) 98765-4321',
   ])
   assert.deepEqual(briefing.cenas.map(scene => scene.imagem), imagePaths)
   assert.equal(briefing.cenas.at(-1)?.tipo, 'encerramento')
   assert.equal(briefing.cenas.at(-1)?.legenda, `${briefing.cta.titulo}\n${briefing.cta.telefone}`)
   assert.doesNotMatch(briefing.cenas.at(-1)?.legenda || '', /R\$ 2\.850\.000/)
-  assert.ok(briefing.cenas.slice(0, -1).some(scene => scene.legenda.includes('R$ 2.850.000')))
+  assert.ok(briefing.cenas.every(scene => !scene.legenda.includes('R$ 2.850.000')))
+  assert.deepEqual(briefing.cenas.map(scene => Boolean(scene.legenda)), [true, true, true, true, true])
 })
 
 test('CTA title and phone preserve every supplied character in the final scene', () => {

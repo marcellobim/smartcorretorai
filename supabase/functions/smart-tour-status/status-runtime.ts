@@ -7,6 +7,10 @@ export type SmartTourStatusStage =
   | 'job_lookup'
   | 'completed_url'
   | 'interaction_poll'
+  | 'caption_render_poll'
+  | 'caption_render_start'
+  | 'caption_video_download'
+  | 'caption_video_upload'
   | 'failed_persist'
   | 'video_upload'
   | 'completed_persist'
@@ -67,19 +71,24 @@ export function maskSmartTourInteractionId(value: unknown) {
 export function classifySmartTourStatusError(error: unknown, stage: SmartTourStatusStage): SmartTourStatusDiagnostic {
   const message = error instanceof Error ? error.message : String(error || '')
   const providerMatch = message.match(/gemini_omni_(?:api_failed|video_download_failed):(\d{3})/)
-  const providerStatus = providerMatch ? Number(providerMatch[1]) : null
+  const captionProviderMatch = message.match(/smart_tour_caption_(?:api|download)_failed:(\d{3})/)
+  const providerStatus = providerMatch ? Number(providerMatch[1]) : captionProviderMatch ? Number(captionProviderMatch[1]) : null
   const timedOut = message === 'smart_tour_status_timeout'
   const kind = timedOut
     ? 'interaction_timeout'
     : message.startsWith('gemini_omni_api_failed:')
       ? 'interaction_api_error'
       : message.startsWith('gemini_omni_video_download_failed:')
-        ? 'video_download_error'
-        : message.startsWith('status_')
+      ? 'video_download_error'
+      : message.startsWith('smart_tour_caption_api_failed:')
+        ? 'caption_api_error'
+        : message.startsWith('smart_tour_caption_download_failed:')
+          ? 'caption_download_error'
+      : message.startsWith('status_')
           ? message.split(':')[0]
           : 'unexpected_error'
-  const retriable = stage === 'interaction_poll'
-    && (timedOut || (providerStatus !== null && RETRIABLE_HTTP_STATUSES.has(providerStatus)))
+  const retriableStage = stage === 'interaction_poll' || stage === 'caption_render_poll' || stage === 'caption_video_download'
+  const retriable = retriableStage && (timedOut || (providerStatus !== null && RETRIABLE_HTTP_STATUSES.has(providerStatus)))
 
   return { stage, kind, providerStatus, retriable, providerMessage: sanitizeSmartTourStatusProviderMessage(error) }
 }

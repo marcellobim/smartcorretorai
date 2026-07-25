@@ -261,20 +261,24 @@ const selectPhrase = (input: {
   return { id: selected.id, texto: selected.texto }
 }
 
-const measuresCaption = (property: PropertyContext) => unique([
-  literal(property.area) ? `${literal(property.area)} m²` : '',
+const technicalCaption = (property: PropertyContext) => unique([
   labelQuantity(property.bedrooms, 'Dormitório', 'Dormitórios'),
   labelQuantity(property.suites, 'Suíte', 'Suítes'),
+  labelQuantity(property.parkingSpaces, 'Vaga', 'Vagas'),
 ]).join(' • ')
 
-const intermediateCaption = (tipo: SmartTourSceneType, property: PropertyContext, includePrice: boolean) => {
-  if (tipo === 'abertura') return unique([literal(property.type), purpose(property.purpose)]).join(' • ')
-  if (tipo === 'caracteristicas') return unique([
-    measuresCaption(property),
-    includePrice ? literal(property.price) : '',
-  ]).join('\n')
-  if (tipo === 'diferencial') return literal(property.highlights?.[0]) || literal(property.stage)
-  if (tipo === 'localizacao') return unique([literal(property.district), literal(property.city)]).join(' • ')
+const intermediateCaption = (tipo: SmartTourSceneType, property: PropertyContext) => {
+  if (tipo === 'abertura') return unique([literal(property.district), literal(property.city)]).join(' • ')
+  if (tipo === 'caracteristicas') return unique([literal(property.stage), technicalCaption(property)]).join('\n')
+  if (tipo === 'diferencial') {
+    const condominium = literal(property.condominium)
+    return condominium ? `Condomínio ${condominium}` : literal(property.highlights?.[0])
+  }
+  if (tipo === 'localizacao') {
+    const highlights = unique((property.highlights || []).map(literal))
+    const start = literal(property.condominium) ? 0 : 1
+    return highlights.slice(start, start + 2).join(' • ') || unique([literal(property.district), literal(property.state)]).join(' • ')
+  }
   return ''
 }
 
@@ -293,8 +297,6 @@ export function buildSmartTourStructuredBriefing(input: {
   const phone = ctaTitle ? input.phone || '' : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
   const types = sceneTypes(input.imagePaths.length)
-  const priceSceneIndex = types.findIndex(type => type === 'caracteristicas')
-  const fallbackPriceSceneIndex = types.findIndex(type => type !== 'encerramento')
   const scenes = input.imagePaths.map((image, index) => {
     const sceneNumber = index + 1
     const tipo = types[index]
@@ -302,10 +304,9 @@ export function buildSmartTourStructuredBriefing(input: {
     const phrase = config.narration === 'enabled'
       ? selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` })
       : { id: '', texto: '' }
-    const shouldIncludePrice = index === (priceSceneIndex >= 0 ? priceSceneIndex : fallbackPriceSceneIndex)
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (config.captions === 'enabled' ? intermediateCaption(tipo, input.property, shouldIncludePrice) : '')
+      : (config.captions === 'enabled' ? intermediateCaption(tipo, input.property) : '')
     return {
       numero: sceneNumber,
       tipo,
@@ -371,6 +372,7 @@ export function buildSmartTourStructuredBriefing(input: {
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
+      { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. As legendas de cenas[].legenda serão aplicadas literalmente pelo compositor determinístico após a geração.' },
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
       { codigo: 'preco_intermediario', valor: 'quando informado e as legendas estiverem ativas, exibir imovel.preco somente em cena intermediária, nunca na cena final' },

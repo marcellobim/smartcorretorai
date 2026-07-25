@@ -35,6 +35,13 @@ test('keeps processing when interaction polling reaches its local timeout', () =
   })
 })
 
+test('keeps processing when deterministic caption polling is briefly unavailable', () => {
+  const diagnostic = classifySmartTourStatusError(new Error('smart_tour_caption_api_failed:503'), 'caption_render_poll')
+  assert.equal(diagnostic.retriable, true)
+  assert.equal(diagnostic.providerStatus, 503)
+  assert.equal(diagnostic.kind, 'caption_api_error')
+})
+
 test('does not hide permanent authentication errors from the Interactions API', () => {
   for (const status of [400, 401, 403]) {
     const diagnostic = classifySmartTourStatusError(new Error(`gemini_omni_api_failed:${status}:permanent`), 'interaction_poll')
@@ -126,6 +133,14 @@ test('status function preserves the existing frontend response contract', () => 
   assert.match(statusSource, /status: 'failed', error:/)
   assert.match(statusSource, /Não foi possível consultar sua apresentação\.' \}, 502/)
   assert.doesNotMatch(statusSource, /error: diagnostic\.providerMessage|message: diagnostic\.providerMessage/)
+})
+
+test('status function routes active captions through deterministic composition before completion', () => {
+  assert.match(statusSource, /hasDeterministicSmartTourText\(briefing\)/)
+  assert.match(statusSource, /startSmartTourCaptionRender/)
+  assert.match(statusSource, /checkSmartTourCaptionRender/)
+  assert.match(statusSource, /downloadSmartTourCaptionRender/)
+  assert.match(statusSource, /smart-tour-gemini\.mp4/)
 })
 
 test('polling classification rules remain byte-for-byte unchanged', () => {
