@@ -1,7 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
-import { buildSmartTourPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+import { prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
+import { orchestrateSmartTour } from '../_shared/geminiSmartTourOrchestrator.ts'
+import { buildSmartTourOrchestrationInput, buildSmartTourPrompt, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 const safeError = (error: unknown) => error instanceof Error ? error.message.replace(/AIza[\w-]+/g,'[redacted]').slice(0,240) : 'unknown_error'
 
@@ -23,11 +24,17 @@ serve(withCors(async req => {
     if (existing) return json({ok:true,jobId:existing.id,status:existing.status,idempotent:true})
     const {data:profile} = await supabase.from('profiles').select('whatsapp, telefone').eq('id',user.id).maybeSingle()
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
-    const prompt = buildSmartTourPrompt({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone})
-    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),tokens_reserved:0})
+    const briefing = buildSmartTourPrompt({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone})
+    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:briefing,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
     try {
-      const started = await startGeminiOmniVideo({prompt,imagePaths:input.imagePaths,bucket:'studio-videos',supabase})
+      const images = await prepareGeminiImages(supabase,'studio-videos',input.imagePaths)
+      const phaseOne = buildSmartTourOrchestrationInput({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language,briefing})
+      const orchestration = await orchestrateSmartTour({prompt:phaseOne.prompt,images,expectation:phaseOne.expectation})
+      const prompt = buildSmartTourVideoPrompt(orchestration)
+      const { error: promptError } = await supabase.from('video_jobs').update({prompt_final:prompt}).eq('id',input.clientRequestId).eq('user_id',user.id)
+      if (promptError) throw new Error('orchestration_persist_failed')
+      const started = await startGeminiOmniVideo({prompt,images})
       const { error: providerIdError } = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
       if (providerIdError) throw new Error('provider_id_persist_failed')
       console.info('[smart-tour-generate] provider_id_persisted', JSON.stringify({ providerIdSource: 'id' }))

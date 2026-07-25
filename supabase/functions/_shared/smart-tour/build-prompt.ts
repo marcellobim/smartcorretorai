@@ -1,4 +1,5 @@
 import type { PropertyContext, SmartTourGenerationConfig } from './types.ts'
+import type { SmartTourOrchestration } from './orchestration.ts'
 import { normalizeGeneration } from './validation.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 
@@ -264,6 +265,29 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   ].join('\n\n')
   assertNoContradictions(prompt, config, Boolean(cta), Boolean(phone))
   return prompt
+}
+
+export function buildSmartTourVideoPrompt(plan: SmartTourOrchestration) {
+  const activeModules = new Set<BriefingModule>()
+  if (plan.configuracoes.apresentador !== 'nenhum') activeModules.add('CORRETOR')
+  if (plan.configuracoes.narracaoAtiva) activeModules.add('NARRACAO')
+  if (plan.configuracoes.legendasAtivas) activeModules.add('LEGENDAS')
+  if (plan.configuracoes.ctaAtivo) activeModules.add('CTA')
+  if (plan.configuracoes.ctaAtivo && plan.telefone) activeModules.add('TELEFONE')
+  const compiledBriefing = compileBaseBriefing(SMART_TOUR_BASE_BRIEFING, activeModules, {
+    NARRACAO: plan.narracao,
+    CTA: plan.cta,
+    TELEFONE: plan.telefone,
+  })
+  const exactJson = JSON.stringify(plan)
+  return [
+    'FASE 2 — GERAÇÃO DO VÍDEO',
+    'O JSON DA FASE 1 abaixo é a fonte única de todas as informações factuais e de todos os textos. Use-o exatamente como recebido.',
+    'Não reescreva textos, não reinterprete dados do imóvel e não crie informações. As listas cenas e legendas já estão finalizadas e são obrigatórias. Use cada imagem na cena indicada e mantenha a ordem.',
+    'O Briefing Base compilado contém somente regras de execução visual. Sempre que ele mencionar DADOS ESTRUTURADOS, leia exclusivamente o JSON DA FASE 1. Em caso de conflito, o JSON DA FASE 1 prevalece para informações e textos.',
+    `BRIEFING BASE COMPILADO — REGRAS DE EXECUÇÃO\n${compiledBriefing}`,
+    `JSON DA FASE 1 — NÃO ALTERAR NENHUM CARACTERE\n${exactJson}`,
+  ].join('\n\n')
 }
 
 export function assertNoContradictions(prompt: string, config: SmartTourGenerationConfig, hasCta = false, hasPhone = false) {

@@ -95,8 +95,9 @@ test('Smart Tour frontend payload keeps its contract and suppresses phone withou
 })
 
 test('Gemini Omni model and protected professional phone contracts remain connected', () => {
-  assert.match(generateSource, /SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo/)
-  assert.match(generateSource, /buildSmartTourPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest/)
+  assert.match(generateSource, /prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo/)
+  assert.match(generateSource, /orchestrateSmartTour/)
+  assert.match(generateSource, /buildSmartTourOrchestrationInput, buildSmartTourPrompt, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest/)
   assert.match(generateSource, /mode:'smart_tour_gemini_omni'/)
   assert.match(statusSource, /checkGeminiOmniVideo/)
 })
