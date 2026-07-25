@@ -4,6 +4,7 @@ import { buildGeminiOmniInteractionGetRequest, checkGeminiOmniVideo } from '../_
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import {
   classifySmartTourStatusError,
+  maskSmartTourInteractionId,
   type SmartTourStatusStage,
   withSmartTourStatusTimeout,
 } from './status-runtime.ts'
@@ -28,6 +29,7 @@ serve(withCors(async req => {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return json({ ok: false, error: 'Criação inválida.' }, 400)
 
   let stage: SmartTourStatusStage = 'job_lookup'
+  let interactionIdMasked = ''
   try {
     log('job_lookup_started')
     const { data: job, error: jobError } = await supabase
@@ -55,11 +57,10 @@ serve(withCors(async req => {
 
     stage = 'interaction_poll'
     const interactionRequest = buildGeminiOmniInteractionGetRequest(job.provider_job_id)
+    interactionIdMasked = maskSmartTourInteractionId(interactionRequest.interactionId)
     console.info('[smart-tour-status] interaction_request', JSON.stringify({
       interactionIdLength: interactionRequest.interactionId.length,
-      interactionIdFirst8: interactionRequest.interactionId.slice(0, 8),
-      interactionIdLast8: interactionRequest.interactionId.slice(-8),
-      interactionUrl: interactionRequest.url,
+      interactionIdMasked,
     }))
     const remote = await withSmartTourStatusTimeout(checkGeminiOmniVideo(interactionRequest.interactionId))
     log('interaction_poll_completed', { remoteStatus: remote.status })
@@ -109,7 +110,14 @@ serve(withCors(async req => {
   } catch (error) {
     const diagnostic = classifySmartTourStatusError(error, stage)
     const logger = diagnostic.retriable ? console.warn : console.error
-    logger('[smart-tour-status]', JSON.stringify({ traceId, event: 'status_error', ...diagnostic }))
+    logger('[smart-tour-status] status_error', JSON.stringify({
+      stage: diagnostic.stage,
+      kind: diagnostic.kind,
+      providerStatus: diagnostic.providerStatus,
+      retriable: diagnostic.retriable,
+      providerMessage: diagnostic.providerMessage,
+      ...(interactionIdMasked ? { interactionIdMasked } : {}),
+    }))
     if (diagnostic.retriable) {
       return json({ ok: true, status: 'generating', jobId, message: 'A IA ainda está processando sua apresentação...' })
     }
