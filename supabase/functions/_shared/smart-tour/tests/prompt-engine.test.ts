@@ -92,43 +92,58 @@ test('presenter option only controls the broker module', () => {
   assert.match(none, /Se o módulo CORRETOR não estiver presente, não mostre pessoas, silhuetas, reflexos, sombras, mãos, rostos ou partes do corpo/)
 })
 
-test('creative protagonist follows the broker and no-broker contracts', () => {
+test('creative protagonist limits broker mode to broker movement and existing light', () => {
   const withBroker = buildPrompt({ mode: 'guided_tour', presenterGender: 'female' })
-  assert.match(withBroker, /Concentre a criatividade exclusivamente na movimentação natural, nos gestos e nas expressões dessa pessoa/)
-  assert.match(withBroker, /O imóvel deve permanecer como cenário preservado/)
+  assert.match(withBroker, /dois focos estreitos e controlados: a movimentação natural e discreta do corretor ou da corretora e variações extremamente sutis da iluminação já existente/)
+  assert.match(withBroker, /O imóvel deve permanecer como cenário protegido e preservado/)
+  assert.match(withBroker, /Não mude radicalmente o horário do dia, não crie fontes de luz/)
+  assert.match(withBroker, /Use apenas pequenas variações de luminosidade, sombras e reflexos/)
+  assert.match(withBroker, /A iluminação é um foco criativo secundário/)
   const withoutBroker = buildPrompt({ mode: 'cinematic_tour', presenterGender: 'none' })
   assert.match(withoutBroker, /movimentos cinematográficos suaves de câmera e em pequenas variações naturais da iluminação já existente/)
   assert.match(withoutBroker, /Preserve todo o restante fiel às fotografias/)
 })
 
-test('narration module follows exact required sequence and is removed when disabled', () => {
+test('narration uses the required human format without reading differentiators', () => {
   const enabled = buildPrompt({ mode: 'cinematic_tour', narration: 'enabled' })
-  const sequence = [
-    '1. Finalidade: "À VENDA"',
-    '2. Tipologia: "Apartamento"',
-    '3. Descrição resumida: "2 dormitórios • 1 suíte • 1 vaga"',
-    '4. Principais diferenciais',
-    '5. Encerramento natural',
-  ]
+  assert.match(enabled, /"Conheça este excelente Apartamento à venda no bairro Moema, em São Paulo\. São 2 dormitórios, 1 suíte e 1 vaga\. Agende sua visita\."/)
+  assert.match(enabled, /pronúncia, gramática e vocabulário exclusivamente brasileiros/)
+  assert.match(enabled, /Não leia, mencione nem transforme em fala a lista de diferenciais/)
+  assert.match(enabled, /Não narre palavras isoladas como "portaria", "ventilação"/)
+  assert.match(enabled, /adequada a um vídeo de aproximadamente 10 segundos/)
+  assert.match(enabled, /"Agende sua visita" é fixo, encerra a narração e é independente do CTA visual final/)
+  assert.doesNotMatch(enabled, /Principais diferenciais/)
+  assert.match(enabled, /jamais antecipe ambientes/)
+  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', narration: 'disabled' }), /MÓDULO NARRAÇÃO/)
+})
+
+test('caption module requires at most five ordered commercial scene captions', () => {
+  const enabled = buildPrompt({ mode: 'cinematic_tour', captions: 'enabled' })
+  assert.match(enabled, /MÓDULO LEGENDAS — OBRIGATÓRIO QUANDO PRESENTE/)
+  assert.match(enabled, /As legendas são obrigatórias quando este módulo estiver presente/)
+  assert.match(enabled, /no máximo uma informação comercial por cena/)
+  assert.match(enabled, /Não repita finalidade, tipologia, dormitórios, suítes ou vagas/)
+  const sequence = ['CENA 1 — estadoDoImovel', 'CENA 2 — primeiro item de diferenciais', 'CENA 3 — item de localização ainda não utilizado', 'CENA 4 — segundo item de diferenciais', 'CENA 5 — preco']
   let previous = -1
   for (const item of sequence) {
     const current = enabled.indexOf(item)
     assert.ok(current > previous, item)
     previous = current
   }
-  assert.match(enabled, /curta, natural, sincronizada e com Português do Brasil perfeito/)
-  assert.match(enabled, /jamais antecipe ambientes/)
-  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', narration: 'disabled' }), /MÓDULO NARRAÇÃO/)
+  assert.match(enabled, /preco, exatamente como recebido, somente quando o campo existir e estiver preenchido/)
+  assert.match(enabled, /Se preco não existir ou estiver vazio, use o próximo item de diferenciais/)
+  assert.match(enabled, /Se houver menos de cinco informações válidas, use apenas as disponíveis e não preencha espaços/)
+  assert.match(enabled, /O CTA final permanece separado dessas cinco legendas/)
+  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', captions: 'disabled' }), /MÓDULO LEGENDAS/)
 })
 
-test('caption module enforces exact initial sequence then supplied differentiators', () => {
-  const enabled = buildPrompt({ mode: 'cinematic_tour', captions: 'enabled' })
-  assert.match(enabled, /MÓDULO LEGENDAS — OBRIGATÓRIO QUANDO PRESENTE/)
-  assert.match(enabled, /A sequência inicial deve ser exatamente:[\s\S]*1\. "À VENDA"[\s\S]*2\. "Apartamento"[\s\S]*3\. "2 dormitórios • 1 suíte • 1 vaga"/)
-  const third = enabled.indexOf('3. "2 dormitórios • 1 suíte • 1 vaga"')
-  for (const highlight of property.highlights) assert.ok(enabled.indexOf(`- "${highlight}"`, third) > third)
-  assert.match(enabled, /Utilize no máximo os 10 diferenciais fornecidos/)
-  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', captions: 'disabled' }), /MÓDULO LEGENDAS/)
+test('caption price is available only when supplied and authorized', () => {
+  const withoutPrice = buildPrompt({ mode: 'cinematic_tour', captions: 'enabled' }, '', '')
+  const withPrice = buildPrompt({ mode: 'cinematic_tour', captions: 'enabled' }, '', '', { ...property, price: 'R$ 850.000' })
+  assert.match(withoutPrice, /"preco": ""/)
+  assert.match(withPrice, /"preco": "R\$ 850\.000"/)
+  assert.match(withPrice, /somente quando o campo existir e estiver preenchido, pois sua presença representa autorização de exibição/)
+  assert.match(withoutPrice, /Se preco não existir ou estiver vazio, use o próximo item de diferenciais ainda não utilizado/)
 })
 
 test('differentials are literal, ordered, capped at ten and never invented', () => {
@@ -171,9 +186,9 @@ test('all SmartCorretorAI text-control prohibitions are explicit', () => {
     'Não crie nenhum texto',
     'Não crie CTA diferente',
     'não complemente o CTA',
-    'não reescreva finalidade, tipologia ou descrição resumida',
+    'não reescreva finalidade, tipologia, bairro, cidade ou descrição resumida',
     'não invente diferenciais',
-    'exatamente como aparece nos DADOS ESTRUTURADOS, caractere por caractere',
+    'exatamente como aparece nos DADOS ESTRUTURADOS ou nos campos literais compilados neste Briefing Base, caractere por caractere',
   ]) assert.match(prompt, new RegExp(rule, 'i'))
 })
 
@@ -185,6 +200,19 @@ test('fixed visual restrictions preserve the property and image order', () => {
   assert.match(prompt, /não contempla Virtual Staging, casal, família, pessoas vivendo no imóvel, criação de mobiliário ou alterações arquitetônicas/)
 })
 
+test('each original photograph remains the immutable master frame', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' })
+  assert.match(prompt, /Cada fotografia é o quadro mestre e a referência visual imutável de sua cena/)
+  assert.match(prompt, /não inverta horizontalmente, não espelhe, não troque o lado dos elementos/)
+  assert.match(prompt, /não mude o ponto de vista e não reconstrua o ambiente a partir de outro ângulo/)
+  assert.match(prompt, /não aproxime excessivamente um único objeto/)
+  assert.match(prompt, /não transforme uma fotografia ampla em close/)
+  assert.match(prompt, /movimentos de câmera muito suaves e de baixa amplitude/)
+  assert.match(prompt, /Evite órbitas, giros, rotações amplas/)
+  assert.match(prompt, /não foque apenas em pia, bancada ou outro objeto/i)
+  assert.match(prompt, /exatamente uma fotografia por cena como única fonte visual/)
+})
+
 test('structured data preserves literals and omits unauthorized phone-like text', () => {
   const value = buildPropertyContext({ ...property, description: 'Ligue (21) 98765-4321', highlights: ['Contato 11 3456-7890'] }, 'CTA 31 99876-5432')
   assert.match(value, /\"tipologia\": \"Apartamento\"/)
@@ -193,8 +221,9 @@ test('structured data preserves literals and omits unauthorized phone-like text'
 })
 
 test('sale and rental get controlled exact display purpose', () => {
-  assert.match(buildPrompt({ mode: 'guided_tour' }), /1\. Finalidade: "À VENDA"/)
-  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /1\. Finalidade: "PARA LOCAÇÃO"/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }), /Apartamento à venda no bairro Moema/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /Apartamento para locação no bairro Moema/)
+  assert.doesNotMatch(buildPrompt({ mode: 'guided_tour' }), /Apartamento venda|Apartamento locação/)
 })
 
 test('all official combinations compile without contradictions or legacy staging instructions', () => {
