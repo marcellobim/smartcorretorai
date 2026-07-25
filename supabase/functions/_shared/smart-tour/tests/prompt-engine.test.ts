@@ -5,6 +5,7 @@ import {
   OFFICIAL_MATRIX,
   SMART_TOUR_BASE_BRIEFING,
   buildPropertyContext,
+  buildSmartTourNarration,
   buildSmartTourPrompt,
   normalizeGeneration,
   resolveSmartTourProfessionalPhone,
@@ -109,15 +110,29 @@ test('creative protagonist confines human transformation to the broker', () => {
   assert.match(withoutBroker, /Não crie pessoas, animais, objetos, móveis ou novos elementos/)
 })
 
-test('narration uses the required human format without reading differentiators', () => {
+test('backend builds the complete narration exclusively from captured property data', () => {
+  assert.equal(
+    buildSmartTourNarration(property),
+    'Conheça este excelente apartamento à venda no bairro Moema, em São Paulo. São 2 dormitórios, 1 suíte e 1 vaga. Agende sua visita.',
+  )
+  assert.equal(
+    buildSmartTourNarration({ ...property, purpose: 'rent', type: 'Casa', district: 'Limão' }),
+    'Conheça esta excelente casa para locação no bairro Limão, em São Paulo. São 2 dormitórios, 1 suíte e 1 vaga. Agende sua visita.',
+  )
+})
+
+test('Gemini receives the ready narration and is forbidden from rewriting it', () => {
   const enabled = buildPrompt({ mode: 'cinematic_tour', narration: 'enabled' })
-  assert.match(enabled, /"Conheça este excelente Apartamento à venda no bairro Moema, em São Paulo\. São 2 dormitórios, 1 suíte e 1 vaga\. Agende sua visita\."/)
+  assert.match(enabled, /"Conheça este excelente apartamento à venda no bairro Moema, em São Paulo\. São 2 dormitórios, 1 suíte e 1 vaga\. Agende sua visita\."/)
+  assert.match(enabled, /Utilize exatamente o texto abaixo/)
+  assert.match(enabled, /Não altere\. Não reescreva\. Não complemente\. Não substitua palavras\. Não adicione informações\. Não mude a ordem\./)
+  assert.match(enabled, /Não improvise e não resuma/)
+  assert.match(enabled, /Narre exatamente o texto fornecido em Português do Brasil/)
   assert.match(enabled, /pronúncia, gramática e vocabulário exclusivamente brasileiros/)
-  assert.match(enabled, /Não leia, mencione nem transforme em fala a lista de diferenciais/)
-  assert.match(enabled, /Não narre palavras isoladas como "portaria", "ventilação"/)
-  assert.match(enabled, /adequada a um vídeo de aproximadamente 10 segundos/)
-  assert.match(enabled, /"Agende sua visita" é fixo, encerra a narração e é independente do CTA visual final/)
+  assert.match(enabled, /Não leia diferenciais, destaques, CTA ou telefone/)
+  assert.match(enabled, /Não crie frases adicionais/)
   assert.doesNotMatch(enabled, /Principais diferenciais/)
+  assert.doesNotMatch(enabled, /frase-modelo|\{\{TIPOLOGIA\}\}|\{\{FINALIDADE_NATURAL\}\}/)
   assert.match(enabled, /jamais antecipe ambientes/)
   assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', narration: 'disabled' }), /MÓDULO NARRAÇÃO/)
 })
@@ -192,6 +207,7 @@ test('all SmartCorretorAI text-control prohibitions are explicit', () => {
   const prompt = buildPrompt({ mode: 'guided_tour' })
   for (const rule of [
     'Não crie nenhum texto',
+    'Na narração, vocalize somente o texto completo fornecido pelo SmartCorretorAI',
     'Não crie CTA diferente',
     'não complemente o CTA',
     'não reescreva finalidade, tipologia, bairro, cidade ou descrição resumida',
@@ -248,9 +264,9 @@ test('structured data preserves literals and omits unauthorized phone-like text'
 })
 
 test('sale and rental get controlled exact display purpose', () => {
-  assert.match(buildPrompt({ mode: 'guided_tour' }), /Apartamento à venda no bairro Moema/)
-  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /Apartamento para locação no bairro Moema/)
-  assert.doesNotMatch(buildPrompt({ mode: 'guided_tour' }), /Apartamento venda|Apartamento locação/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }), /apartamento à venda no bairro Moema/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /apartamento para locação no bairro Moema/)
+  assert.doesNotMatch(buildPrompt({ mode: 'guided_tour' }), /apartamento venda|apartamento locação/)
 })
 
 test('all official combinations compile without contradictions or legacy staging instructions', () => {

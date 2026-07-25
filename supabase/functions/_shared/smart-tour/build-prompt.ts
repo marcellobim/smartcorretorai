@@ -20,7 +20,7 @@ OBJETIVO
 Criar uma visita contínua e natural ao imóvel. O imóvel permanece como protagonista e cenário preservado. Anime a câmera, nunca o imóvel.
 
 TEXTOS CONTROLADOS PELO SMARTCORRETORAI
-Não crie nenhum texto além das palavras fixas da frase-modelo definida no módulo NARRAÇÃO. Não altere, traduza, complete, resuma, corrija, reformate, reescreva ou combine os valores recebidos. Não crie CTA diferente, não complemente o CTA, não reescreva finalidade, tipologia, bairro, cidade ou descrição resumida e não invente diferenciais. Utilize cada valor autorizado exatamente como aparece nos DADOS ESTRUTURADOS ou nos campos literais compilados neste Briefing Base, caractere por caractere. Não exiba nomes de campos, instruções, placeholders ou metadados.
+Não crie nenhum texto. Na narração, vocalize somente o texto completo fornecido pelo SmartCorretorAI no módulo NARRAÇÃO. Não altere, traduza, complete, resuma, corrija, reformate, reescreva ou combine os valores recebidos. Não crie CTA diferente, não complemente o CTA, não reescreva finalidade, tipologia, bairro, cidade ou descrição resumida e não invente diferenciais. Utilize cada valor autorizado exatamente como aparece nos DADOS ESTRUTURADOS ou nos campos literais compilados neste Briefing Base, caractere por caractere. Não exiba nomes de campos, instruções, placeholders ou metadados.
 
 ESCOPO E RESTRIÇÕES
 Este produto não contempla Virtual Staging, casal, família, pessoas vivendo no imóvel, criação de mobiliário ou alterações arquitetônicas. A única pessoa permitida é o corretor ou a corretora descrito no módulo CORRETOR, quando esse módulo estiver presente. Se o módulo CORRETOR não estiver presente, não mostre pessoas, silhuetas, reflexos, sombras, mãos, rostos ou partes do corpo.
@@ -62,11 +62,11 @@ O corretor ou a corretora não pode causar reconstrução, reposicionamento, ocu
 
 [[MODULE:NARRACAO]]
 MÓDULO NARRAÇÃO — OBRIGATÓRIO QUANDO PRESENTE
-Apresente o imóvel com tom humano, curto e comercial de um corretor, pronúncia, gramática e vocabulário exclusivamente brasileiros. Use exatamente esta frase-modelo, sem acrescentar, remover ou substituir informações:
-"Conheça este excelente {{TIPOLOGIA}} {{FINALIDADE_NATURAL}} no bairro {{BAIRRO}}, em {{CIDADE}}. São {{DESCRICAO_NARRADA}}. Agende sua visita."
-A finalidade natural deve ser exatamente "à venda" para Venda e "para locação" para Locação. Nunca produza construções artificiais como "apartamento venda" ou "apartamento locação".
-Não leia, mencione nem transforme em fala a lista de diferenciais. Não narre palavras isoladas como "portaria", "ventilação" ou equivalentes. Não invente informações e não altere finalidade, tipologia, bairro, cidade ou descrição resumida.
-Mantenha a narração curta, natural, sincronizada e adequada a um vídeo de aproximadamente 10 segundos. Termine-a por completo antes da tela final e jamais antecipe ambientes. O convite narrado "Agende sua visita" é fixo, encerra a narração e é independente do CTA visual final; não fale o CTA nem o telefone.
+Utilize exatamente o texto abaixo.
+Não altere. Não reescreva. Não complemente. Não substitua palavras. Não adicione informações. Não mude a ordem. Não improvise e não resuma.
+Narre exatamente o texto fornecido em Português do Brasil, com pronúncia, gramática e vocabulário exclusivamente brasileiros:
+"{{NARRACAO}}"
+Não leia diferenciais, destaques, CTA ou telefone. Não crie frases adicionais. Mantenha a narração sincronizada, termine-a por completo antes da tela final e jamais antecipe ambientes.
 [[/MODULE:NARRACAO]]
 
 [[MODULE:LEGENDAS]]
@@ -133,6 +133,16 @@ const narratedDescription = (property: PropertyContext) => {
   return `${facts.slice(0, -1).join(', ')} e ${facts[facts.length - 1]}`
 }
 
+export function buildSmartTourNarration(property: PropertyContext) {
+  const propertyType = removeNonOfficialPhoneNumbers(property.type).toLocaleLowerCase('pt-BR')
+  const demonstrative = propertyType === 'casa' || propertyType === 'cobertura' ? 'esta' : 'este'
+  const purpose = naturalPurposeText(property.purpose)
+  const district = removeNonOfficialPhoneNumbers(property.district)
+  const city = removeNonOfficialPhoneNumbers(property.city)
+  const description = narratedDescription(property)
+  return `Conheça ${demonstrative} excelente ${propertyType} ${purpose} no bairro ${district}, em ${city}. São ${description}. Agende sua visita.`
+}
+
 const safeHighlights = (property: PropertyContext) => (property.highlights || [])
   .map(removeNonOfficialPhoneNumbers)
   .filter(Boolean)
@@ -180,7 +190,6 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   const config = normalizeGeneration(input.generation)
   const cta = removeNonOfficialPhoneNumbers(input.selectedCta)
   const phone = cta ? input.phone || '' : ''
-  const highlights = safeHighlights(input.property)
   const activeModules = new Set<BriefingModule>()
   if (config.presenterGender !== 'none') activeModules.add('CORRETOR')
   if (config.narration === 'enabled') activeModules.add('NARRACAO')
@@ -189,14 +198,7 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   if (cta && phone) activeModules.add('TELEFONE')
 
   const values = {
-    FINALIDADE: purposeText(input.property.purpose),
-    FINALIDADE_NATURAL: naturalPurposeText(input.property.purpose),
-    TIPOLOGIA: removeNonOfficialPhoneNumbers(input.property.type),
-    DESCRICAO_RESUMIDA: summarizedDescription(input.property),
-    DESCRICAO_NARRADA: narratedDescription(input.property),
-    BAIRRO: removeNonOfficialPhoneNumbers(input.property.district),
-    CIDADE: removeNonOfficialPhoneNumbers(input.property.city),
-    DIFERENCIAIS: highlights.length ? highlights.map(value => `- "${value}"`).join('\n') : '- Nenhum diferencial foi enviado; não exiba nem narre diferenciais.',
+    NARRACAO: buildSmartTourNarration(input.property),
     CTA: cta,
     TELEFONE: phone,
   }
