@@ -2,8 +2,17 @@ import type { PropertyContext, SmartTourGenerationConfig, SupportedLanguage } fr
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
 
-type CaptionCandidate = { tipo: 'medidas' | 'estado' | 'destaque' | 'localizacao' | 'preco'; texto: string }
 type Presenter = 'corretora' | 'corretor' | 'nenhum'
+export type SmartTourSceneType = 'abertura' | 'caracteristicas' | 'diferencial' | 'localizacao' | 'encerramento'
+
+type PhraseDefinition = {
+  id: string
+  tipo: SmartTourSceneType
+  idioma: SupportedLanguage
+  finalidades: readonly string[]
+  tiposImovel: readonly string[]
+  texto: string
+}
 
 export type SmartTourStructuredBriefing = {
   versao: 'smart-tour-structured-briefing-v1'
@@ -41,13 +50,15 @@ export type SmartTourStructuredBriefing = {
   movimentosDesejados: Array<'pan_suave' | 'push_in_minimo' | 'pull_back_minimo' | 'movimento_linear_baixa_amplitude'>
   cenas: Array<{
     numero: number
+    tipo: SmartTourSceneType
+    frase_id: string
     imagem: string
     movimento: 'pan_suave' | 'push_in_minimo' | 'pull_back_minimo' | 'movimento_linear_baixa_amplitude'
     legenda: string
     narracao: string
     duracaoNarracaoSegundos: 1.8 | 1.2 | 0
+    tempoTelefoneVisivelAposNarracaoSegundos: 0.8 | 0
   }>
-  narracao: { ativa: boolean; tempoAproximadoPorCenaSegundos: 1.8; cenas: Array<{ cena: number; texto: string; duracaoAproximadaSegundos: 1.8 | 1.2 }> }
   legendas: { ativas: boolean; cenas: Array<{ cena: number; texto: string }> }
   cta: { titulo: string; telefone: string }
   regrasPreservacao: {
@@ -60,53 +71,35 @@ export type SmartTourStructuredBriefing = {
   regrasObrigatorias: Array<{ codigo: string; valor: string | boolean | number }>
 }
 
-export const SMART_TOUR_NARRATION_LIBRARY = {
-  aberturaVenda: [
-    'Um imóvel pensado para viver bem.',
-    'Conforto e qualidade em cada ambiente.',
-    'Uma oportunidade para viver melhor.',
-  ],
-  aberturaLocacao: [
-    'Seu próximo lar pode estar aqui.',
-    'Praticidade para uma nova fase.',
-    'Um novo endereço para viver bem.',
-  ],
-  aberturaGeral: [
-    'Conheça espaços feitos para você.',
-    'Descubra uma nova forma de viver.',
-    'Ambientes que convidam a ficar.',
-  ],
-  medidas: [
-    'Ambientes amplos e confortáveis para todos.',
-    'Espaço bem distribuído para sua rotina.',
-    'Conforto presente em cada ambiente.',
-  ],
-  localizacao: [
-    'Mobilidade e conveniência ao seu alcance.',
-    'Uma localização que facilita sua rotina.',
-    'Tudo o que importa por perto.',
-  ],
-  destaque: [
-    'Detalhes que tornam a experiência especial.',
-    'Qualidade percebida em cada escolha.',
-    'Um ambiente pensado para bons momentos.',
-  ],
-  estado: [
-    'Pronto para receber sua próxima história.',
-    'Cuidado e qualidade em cada detalhe.',
-    'Uma escolha segura para seu momento.',
-  ],
-  preco: [
-    'Uma oportunidade alinhada aos seus planos.',
-    'Valor e qualidade no mesmo endereço.',
-    'Uma escolha que merece sua atenção.',
-  ],
-  encerramento: [
-    'Conheça de perto.',
-    'Descubra seu próximo endereço.',
-    'Venha conhecer.',
-  ],
-} as const
+const ANY = '*'
+
+export const SMART_TOUR_PHRASE_LIBRARY: readonly PhraseDefinition[] = [
+  { id: 'OPENING_01', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Conheça uma oportunidade para viver melhor.' },
+  { id: 'OPENING_02', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Seu próximo lar pode estar aqui.' },
+  { id: 'OPENING_03', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: ['Apartamento'], texto: 'Conheça este excelente apartamento à venda.' },
+  { id: 'OPENING_04', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: ['Casa'], texto: 'Conheça esta excelente casa à venda.' },
+  { id: 'OPENING_05', tipo: 'abertura', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Descubra uma nova forma de viver.' },
+  { id: 'FEATURES_01', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Ambientes amplos e confortáveis para todos.' },
+  { id: 'FEATURES_02', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: ['Apartamento'], texto: 'Espaços bem distribuídos para sua rotina.' },
+  { id: 'FEATURES_03', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: ['Casa'], texto: 'Conforto presente em cada ambiente.' },
+  { id: 'HIGHLIGHT_01', tipo: 'diferencial', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Detalhes que tornam a experiência especial.' },
+  { id: 'HIGHLIGHT_02', tipo: 'diferencial', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Qualidade percebida em cada escolha.' },
+  { id: 'HIGHLIGHT_03', tipo: 'diferencial', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Praticidade para aproveitar todos os momentos.' },
+  { id: 'LOCATION_01', tipo: 'localizacao', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Mobilidade e conveniência ao seu alcance.' },
+  { id: 'LOCATION_02', tipo: 'localizacao', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Uma localização que valoriza sua rotina.' },
+  { id: 'LOCATION_03', tipo: 'localizacao', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Tudo o que importa por perto.' },
+  { id: 'CLOSING_01', tipo: 'encerramento', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Venha conhecer este imóvel pessoalmente.' },
+  { id: 'OPENING_EN_01', tipo: 'abertura', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Discover a home designed for you.' },
+  { id: 'FEATURES_EN_01', tipo: 'caracteristicas', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Comfort and space for your routine.' },
+  { id: 'HIGHLIGHT_EN_01', tipo: 'diferencial', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Details make this home truly special.' },
+  { id: 'LOCATION_EN_01', tipo: 'localizacao', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Convenience is always close at hand.' },
+  { id: 'CLOSING_EN_01', tipo: 'encerramento', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Come see this property in person.' },
+  { id: 'OPENING_ES_01', tipo: 'abertura', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Descubre un hogar pensado para ti.' },
+  { id: 'FEATURES_ES_01', tipo: 'caracteristicas', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Comodidad y espacio para tu rutina.' },
+  { id: 'HIGHLIGHT_ES_01', tipo: 'diferencial', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Detalles que hacen especial este hogar.' },
+  { id: 'LOCATION_ES_01', tipo: 'localizacao', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Todo lo importante está muy cerca.' },
+  { id: 'CLOSING_ES_01', tipo: 'encerramento', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Ven a conocer esta propiedad personalmente.' },
+] as const
 
 const MOVEMENTS: SmartTourStructuredBriefing['cenas'][number]['movimento'][] = [
   'movimento_linear_baixa_amplitude',
@@ -122,18 +115,12 @@ const labelQuantity = (value: unknown, singular: string, plural: string) => {
   if (!cleaned || Number(cleaned) === 0) return ''
   return `${cleaned} ${cleaned === '1' ? singular : plural}`
 }
+const normalizeMatch = (value: string) => value.trim().toLocaleLowerCase('pt-BR')
+const matches = (criteria: readonly string[], value: string) => criteria.includes(ANY) || criteria.some(item => normalizeMatch(item) === normalizeMatch(value))
 const stableHash = (value: string) => {
   let hash = 2166136261
   for (let index = 0; index < value.length; index += 1) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619)
   return hash >>> 0
-}
-const choose = (options: readonly string[], seed: string, used: Set<string>) => {
-  const start = stableHash(seed) % options.length
-  for (let offset = 0; offset < options.length; offset += 1) {
-    const option = options[(start + offset) % options.length]
-    if (!used.has(option)) return option
-  }
-  return options[start]
 }
 
 const presenter = (config: SmartTourGenerationConfig): Presenter => {
@@ -149,34 +136,52 @@ const purpose = (value: unknown) => {
   return cleaned
 }
 
-const captionCandidates = (property: PropertyContext): CaptionCandidate[] => {
-  const measures = unique([
-    literal(property.area) ? `${literal(property.area)} m²` : '',
-    labelQuantity(property.bedrooms, 'Dormitório', 'Dormitórios'),
-    labelQuantity(property.suites, 'Suíte', 'Suítes'),
-  ]).join(' • ')
-  const location = unique([literal(property.district), literal(property.city)]).join(' • ')
-  const highlights = (property.highlights || []).map(value => ({ tipo: 'destaque' as const, texto: literal(value) })).filter(item => item.texto)
-  const candidates: CaptionCandidate[] = [
-    ...(measures ? [{ tipo: 'medidas' as const, texto: measures }] : []),
-    ...(literal(property.stage) ? [{ tipo: 'estado' as const, texto: literal(property.stage) }] : []),
-    ...highlights.slice(0, 1),
-    ...(location ? [{ tipo: 'localizacao' as const, texto: location }] : []),
-    ...(literal(property.price) ? [{ tipo: 'preco' as const, texto: literal(property.price) }] : []),
-    ...highlights.slice(1),
-  ]
-  const seen = new Set<string>()
-  return candidates.filter(candidate => !seen.has(candidate.texto) && Boolean(seen.add(candidate.texto)))
+const sceneTypes = (count: number): SmartTourSceneType[] => {
+  if (count <= 0) return []
+  if (count === 1) return ['encerramento']
+  if (count === 2) return ['abertura', 'encerramento']
+  if (count === 3) return ['abertura', 'caracteristicas', 'encerramento']
+  if (count === 4) return ['abertura', 'caracteristicas', 'localizacao', 'encerramento']
+  return ['abertura', 'caracteristicas', 'diferencial', 'localizacao', ...Array.from({ length: count - 5 }, () => 'diferencial' as const), 'encerramento']
 }
 
-const narrationOptions = (kind: CaptionCandidate['tipo'] | 'abertura' | 'encerramento', purposeValue: string) => {
-  if (kind === 'encerramento') return SMART_TOUR_NARRATION_LIBRARY.encerramento
-  if (kind === 'abertura') {
-    if (purposeValue === 'Venda') return SMART_TOUR_NARRATION_LIBRARY.aberturaVenda
-    if (purposeValue === 'Locação') return SMART_TOUR_NARRATION_LIBRARY.aberturaLocacao
-    return SMART_TOUR_NARRATION_LIBRARY.aberturaGeral
-  }
-  return SMART_TOUR_NARRATION_LIBRARY[kind]
+const selectPhrase = (input: {
+  tipo: SmartTourSceneType
+  finalidade: string
+  tipoImovel: string
+  idioma: SupportedLanguage
+  signature: string
+}) => {
+  const eligible = SMART_TOUR_PHRASE_LIBRARY.filter(phrase =>
+    phrase.tipo === input.tipo &&
+    phrase.idioma === input.idioma &&
+    matches(phrase.finalidades, input.finalidade) &&
+    matches(phrase.tiposImovel, input.tipoImovel)
+  )
+  if (!eligible.length) return { id: '', texto: '' }
+  const score = (phrase: PhraseDefinition) =>
+    (phrase.finalidades.includes(ANY) ? 0 : 2) + (phrase.tiposImovel.includes(ANY) ? 0 : 1)
+  const highestScore = Math.max(...eligible.map(score))
+  const contextual = eligible.filter(phrase => score(phrase) === highestScore)
+  const selected = contextual[stableHash(`${input.signature}:${input.tipo}`) % contextual.length]
+  return { id: selected.id, texto: selected.texto }
+}
+
+const measuresCaption = (property: PropertyContext) => unique([
+  literal(property.area) ? `${literal(property.area)} m²` : '',
+  labelQuantity(property.bedrooms, 'Dormitório', 'Dormitórios'),
+  labelQuantity(property.suites, 'Suíte', 'Suítes'),
+]).join(' • ')
+
+const intermediateCaption = (tipo: SmartTourSceneType, property: PropertyContext, includePrice: boolean) => {
+  if (tipo === 'abertura') return unique([literal(property.type), purpose(property.purpose)]).join(' • ')
+  if (tipo === 'caracteristicas') return unique([
+    measuresCaption(property),
+    includePrice ? literal(property.price) : '',
+  ]).join('\n')
+  if (tipo === 'diferencial') return literal(property.highlights?.[0]) || literal(property.stage)
+  if (tipo === 'localizacao') return unique([literal(property.district), literal(property.city)]).join(' • ')
+  return ''
 }
 
 export function buildSmartTourStructuredBriefing(input: {
@@ -189,30 +194,34 @@ export function buildSmartTourStructuredBriefing(input: {
 }): SmartTourStructuredBriefing {
   const config = normalizeGeneration(input.generation)
   const finalidade = purpose(input.property.purpose)
+  const tipoImovel = literal(input.property.type)
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
-  const candidates = captionCandidates(input.property)
-  const selectedCaptions = config.captions === 'enabled' ? candidates.slice(0, Math.min(5, input.imagePaths.length)) : []
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
-  const usedNarrations = new Set<string>()
+  const types = sceneTypes(input.imagePaths.length)
+  const priceSceneIndex = types.findIndex(type => type === 'caracteristicas')
+  const fallbackPriceSceneIndex = types.findIndex(type => type !== 'encerramento')
   const scenes = input.imagePaths.map((image, index) => {
     const sceneNumber = index + 1
-    const caption = selectedCaptions[index]
-    const isLast = index === input.imagePaths.length - 1
-    let narration = ''
-    if (config.narration === 'enabled') {
-      const kind = isLast ? 'encerramento' : index === 0 ? 'abertura' : caption?.tipo || 'destaque'
-      narration = choose(narrationOptions(kind, finalidade), `${signature}:${sceneNumber}:${kind}`, usedNarrations)
-      if (narration === caption?.texto) narration = choose(SMART_TOUR_NARRATION_LIBRARY.destaque, `${signature}:${sceneNumber}:fallback`, usedNarrations)
-      usedNarrations.add(narration)
-    }
+    const tipo = types[index]
+    const isLast = tipo === 'encerramento'
+    const phrase = config.narration === 'enabled'
+      ? selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` })
+      : { id: '', texto: '' }
+    const shouldIncludePrice = index === (priceSceneIndex >= 0 ? priceSceneIndex : fallbackPriceSceneIndex)
+    const legenda = isLast
+      ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
+      : (config.captions === 'enabled' ? intermediateCaption(tipo, input.property, shouldIncludePrice) : '')
     return {
       numero: sceneNumber,
+      tipo,
+      frase_id: phrase.id,
       imagem: image,
       movimento: MOVEMENTS[index % MOVEMENTS.length],
-      legenda: caption?.texto || '',
-      narracao: narration,
+      legenda,
+      narracao: phrase.texto,
       duracaoNarracaoSegundos: config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
+      tempoTelefoneVisivelAposNarracaoSegundos: isLast && Boolean(phone) ? 0.8 : 0,
     } as SmartTourStructuredBriefing['cenas'][number]
   })
   const presenterType = presenter(config)
@@ -231,7 +240,7 @@ export function buildSmartTourStructuredBriefing(input: {
     },
     imovel: {
       finalidade,
-      tipo: literal(input.property.type),
+      tipo: tipoImovel,
       estadoDoImovel: literal(input.property.stage),
       localizacao: { estado: literal(input.property.state), cidade: literal(input.property.city), bairro: literal(input.property.district) },
       dormitorios: literal(input.property.bedrooms),
@@ -251,13 +260,8 @@ export function buildSmartTourStructuredBriefing(input: {
     sequenciaDasImagens: [...input.imagePaths],
     movimentosDesejados: [...MOVEMENTS],
     cenas: scenes,
-    narracao: {
-      ativa: config.narration === 'enabled',
-      tempoAproximadoPorCenaSegundos: 1.8,
-      cenas: scenes.filter(scene => scene.narracao).map(scene => ({ cena: scene.numero, texto: scene.narracao, duracaoAproximadaSegundos: scene.duracaoNarracaoSegundos as 1.8 | 1.2 })),
-    },
     legendas: {
-      ativas: config.captions === 'enabled',
+      ativas: config.captions === 'enabled' || Boolean(ctaTitle),
       cenas: scenes.filter(scene => scene.legenda).map(scene => ({ cena: scene.numero, texto: scene.legenda })),
     },
     cta: { titulo: ctaTitle, telefone: phone },
@@ -269,16 +273,16 @@ export function buildSmartTourStructuredBriefing(input: {
       transformacoesPermitidas: ['movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo', 'variações naturais sutis de luminosidade'],
     },
     regrasObrigatorias: [
-      { codigo: 'fonte_unica', valor: 'usar somente este JSON para informações e textos' },
-      { codigo: 'texto_literal', valor: 'não reescrever, corrigir, completar ou traduzir textos' },
+      { codigo: 'usar_json_como_fonte_unica', valor: 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
       { codigo: 'sem_invencao', valor: 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
-      { codigo: 'cta_deterministico', valor: 'usar somente cta.titulo e cta.telefone na última cena' },
-      { codigo: 'ultima_narracao_curta', valor: 'encerrar a fala antes do fim e manter o telefone visível' },
+      { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
+      { codigo: 'preco_intermediario', valor: 'quando informado e as legendas estiverem ativas, exibir imovel.preco somente em cena intermediária, nunca na cena final' },
+      { codigo: 'ultima_narracao_curta', valor: 'limitar a narração final a 1,2 segundo e manter somente o telefone visível por aproximadamente 0,8 segundo após a fala' },
     ],
   }
 }
