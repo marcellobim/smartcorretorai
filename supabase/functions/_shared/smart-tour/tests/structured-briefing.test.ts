@@ -50,7 +50,7 @@ test('SmartCorretorAI builds the complete structured JSON without asking Gemini 
     descricao: 'Apartamento amplo com excelente distribuição.',
   })
   assert.deepEqual(briefing.apresentador, { tipo: 'corretora', unicoHumanoAutorizado: true })
-  assert.deepEqual(briefing.staging, { modo: 'original', apresentacao: 'final_only' })
+  assert.equal('staging' in briefing, false)
   assert.deepEqual(briefing.musica, { configurada: false, instrucao: 'preservar_comportamento_atual' })
   assert.deepEqual(briefing.sequenciaDasImagens, imagePaths)
   assert.deepEqual(briefing.movimentosDesejados, ['movimento_linear_baixa_amplitude', 'pan_suave', 'push_in_minimo', 'pull_back_minimo'])
@@ -74,17 +74,14 @@ test('every scene has a semantic type and a phrase selected from the contextual 
 
 test('captions reserve the last scene for exact CTA and put price in an intermediate scene', () => {
   const briefing = build()
-  assert.deepEqual(briefing.legendas, {
-    ativas: true,
-    cenas: [
-      { cena: 1, texto: 'Apartamento • Venda' },
-      { cena: 2, texto: '198 m² • 4 Dormitórios • 2 Suítes\nR$ 2.850.000' },
-      { cena: 3, texto: 'Vista livre' },
-      { cena: 4, texto: 'Moema • São Paulo' },
-      { cena: 5, texto: 'Agende sua visita\n(11) 98765-4321' },
-    ],
-  })
-  assert.deepEqual(briefing.cenas.map(scene => scene.legenda), briefing.legendas.cenas.map(caption => caption.texto))
+  assert.deepEqual(briefing.legendas, { ativas: true })
+  assert.deepEqual(briefing.cenas.map(scene => scene.legenda), [
+    'Apartamento • Venda',
+    '198 m² • 4 Dormitórios • 2 Suítes\nR$ 2.850.000',
+    'Vista livre',
+    'Moema • São Paulo',
+    'Agende sua visita\n(11) 98765-4321',
+  ])
   assert.deepEqual(briefing.cenas.map(scene => scene.imagem), imagePaths)
   assert.equal(briefing.cenas.at(-1)?.tipo, 'encerramento')
   assert.equal(briefing.cenas.at(-1)?.legenda, `${briefing.cta.titulo}\n${briefing.cta.telefone}`)
@@ -104,14 +101,22 @@ test('narration has scenes as its single source of truth and leaves 0.8 second f
   assert.equal('narracao' in briefing, false)
   for (const scene of briefing.cenas) {
     assert.notEqual(scene.narracao, scene.legenda)
-    assert.ok(scene.narracao.split(/\s+/).length <= 8, scene.narracao)
+    assert.ok(scene.narracao.split(/\s+/).length <= (scene.tipo === 'encerramento' ? 3 : 5), scene.narracao)
   }
   assert.deepEqual(briefing.cenas.slice(0, -1).map(scene => scene.duracaoNarracaoSegundos), [1.8, 1.8, 1.8, 1.8])
   assert.deepEqual(briefing.cenas.slice(0, -1).map(scene => scene.tempoTelefoneVisivelAposNarracaoSegundos), [0, 0, 0, 0])
   assert.equal(briefing.cenas.at(-1)?.duracaoNarracaoSegundos, 1.2)
   assert.equal(briefing.cenas.at(-1)?.tempoTelefoneVisivelAposNarracaoSegundos, 0.8)
-  assert.equal(briefing.cenas.at(-1)?.narracao, 'Venha conhecer este imóvel pessoalmente.')
+  assert.equal(briefing.cenas.at(-1)?.narracao, 'Conheça de perto.')
   assert.match(JSON.stringify(briefing.regrasObrigatorias), /aproximadamente 0,8 segundo/)
+})
+
+test('every phrase in the library fits its scene time without accelerated speech', () => {
+  for (const phrase of SMART_TOUR_PHRASE_LIBRARY) {
+    const words = phrase.texto.trim().split(/\s+/).length
+    const maximumWords = phrase.tipo === 'encerramento' ? 3 : 5
+    assert.ok(words <= maximumWords, `${phrase.id}: ${phrase.texto}`)
+  }
 })
 
 test('phrase selection is deterministic and constrained by type, purpose, property type and language', () => {
@@ -137,12 +142,12 @@ test('single-source JSON rule replaces texto_literal and forbids invention or re
 
 test('CTA remains the final caption even when commercial captions are disabled', () => {
   const briefing = build({ generation: { ...generation, captions: 'disabled' } })
-  assert.deepEqual(briefing.legendas, { ativas: true, cenas: [{ cena: 5, texto: 'Agende sua visita\n(11) 98765-4321' }] })
+  assert.deepEqual(briefing.legendas, { ativas: true })
   assert.ok(briefing.cenas.slice(0, -1).every(scene => scene.legenda === ''))
   assert.equal(briefing.cenas.at(-1)?.legenda, 'Agende sua visita\n(11) 98765-4321')
 })
 
-test('disabled modules remain empty without changing staging, duration or images', () => {
+test('disabled modules remain empty without changing duration or images', () => {
   const disabled = build({
     generation: { ...generation, presenterGender: 'none', narration: 'disabled', captions: 'disabled' },
     selectedCta: '',
@@ -150,7 +155,8 @@ test('disabled modules remain empty without changing staging, duration or images
   })
   assert.deepEqual(disabled.apresentador, { tipo: 'nenhum', unicoHumanoAutorizado: false })
   assert.equal('narracao' in disabled, false)
-  assert.deepEqual(disabled.legendas, { ativas: false, cenas: [] })
+  assert.deepEqual(disabled.legendas, { ativas: false })
+  assert.equal('staging' in disabled, false)
   assert.deepEqual(disabled.cta, { titulo: '', telefone: '' })
   assert.equal(disabled.configuracoes.duracaoSegundos, 10)
   assert.equal(disabled.configuracoes.quantidadeImagens, 5)

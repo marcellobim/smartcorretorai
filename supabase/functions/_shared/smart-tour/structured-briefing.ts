@@ -44,7 +44,6 @@ export type SmartTourStructuredBriefing = {
     descricao: string
   }
   apresentador: { tipo: Presenter; unicoHumanoAutorizado: boolean }
-  staging: { modo: 'original'; apresentacao: 'final_only' }
   musica: { configurada: false; instrucao: 'preservar_comportamento_atual' }
   sequenciaDasImagens: string[]
   movimentosDesejados: Array<'pan_suave' | 'push_in_minimo' | 'pull_back_minimo' | 'movimento_linear_baixa_amplitude'>
@@ -59,7 +58,7 @@ export type SmartTourStructuredBriefing = {
     duracaoNarracaoSegundos: 1.8 | 1.2 | 0
     tempoTelefoneVisivelAposNarracaoSegundos: 0.8 | 0
   }>
-  legendas: { ativas: boolean; cenas: Array<{ cena: number; texto: string }> }
+  legendas: { ativas: boolean }
   cta: { titulo: string; telefone: string }
   regrasPreservacao: {
     cenarioProtegido: true
@@ -74,31 +73,31 @@ export type SmartTourStructuredBriefing = {
 const ANY = '*'
 
 export const SMART_TOUR_PHRASE_LIBRARY: readonly PhraseDefinition[] = [
-  { id: 'OPENING_01', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Conheça uma oportunidade para viver melhor.' },
-  { id: 'OPENING_02', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Seu próximo lar pode estar aqui.' },
-  { id: 'OPENING_03', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: ['Apartamento'], texto: 'Conheça este excelente apartamento à venda.' },
-  { id: 'OPENING_04', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: ['Casa'], texto: 'Conheça esta excelente casa à venda.' },
-  { id: 'OPENING_05', tipo: 'abertura', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Descubra uma nova forma de viver.' },
-  { id: 'FEATURES_01', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Ambientes amplos e confortáveis para todos.' },
-  { id: 'FEATURES_02', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: ['Apartamento'], texto: 'Espaços bem distribuídos para sua rotina.' },
-  { id: 'FEATURES_03', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: ['Casa'], texto: 'Conforto presente em cada ambiente.' },
-  { id: 'HIGHLIGHT_01', tipo: 'diferencial', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Detalhes que tornam a experiência especial.' },
-  { id: 'HIGHLIGHT_02', tipo: 'diferencial', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Qualidade percebida em cada escolha.' },
-  { id: 'HIGHLIGHT_03', tipo: 'diferencial', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Praticidade para aproveitar todos os momentos.' },
-  { id: 'LOCATION_01', tipo: 'localizacao', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Mobilidade e conveniência ao seu alcance.' },
-  { id: 'LOCATION_02', tipo: 'localizacao', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Uma localização que valoriza sua rotina.' },
-  { id: 'LOCATION_03', tipo: 'localizacao', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Tudo o que importa por perto.' },
-  { id: 'CLOSING_01', tipo: 'encerramento', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Venha conhecer este imóvel pessoalmente.' },
-  { id: 'OPENING_EN_01', tipo: 'abertura', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Discover a home designed for you.' },
-  { id: 'FEATURES_EN_01', tipo: 'caracteristicas', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Comfort and space for your routine.' },
-  { id: 'HIGHLIGHT_EN_01', tipo: 'diferencial', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Details make this home truly special.' },
-  { id: 'LOCATION_EN_01', tipo: 'localizacao', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Convenience is always close at hand.' },
-  { id: 'CLOSING_EN_01', tipo: 'encerramento', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Come see this property in person.' },
-  { id: 'OPENING_ES_01', tipo: 'abertura', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Descubre un hogar pensado para ti.' },
-  { id: 'FEATURES_ES_01', tipo: 'caracteristicas', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Comodidad y espacio para tu rutina.' },
-  { id: 'HIGHLIGHT_ES_01', tipo: 'diferencial', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Detalles que hacen especial este hogar.' },
-  { id: 'LOCATION_ES_01', tipo: 'localizacao', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Todo lo importante está muy cerca.' },
-  { id: 'CLOSING_ES_01', tipo: 'encerramento', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Ven a conocer esta propiedad personalmente.' },
+  { id: 'OPENING_01', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Excelente imóvel à venda.' },
+  { id: 'OPENING_02', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Excelente imóvel para locação.' },
+  { id: 'OPENING_03', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: ['Apartamento'], texto: 'Excelente apartamento à venda.' },
+  { id: 'OPENING_04', tipo: 'abertura', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: ['Casa'], texto: 'Excelente casa à venda.' },
+  { id: 'OPENING_05', tipo: 'abertura', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Um imóvel para você.' },
+  { id: 'FEATURES_01', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Espaços pensados para você.' },
+  { id: 'FEATURES_02', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: ['Apartamento'], texto: 'Ambientes para viver bem.' },
+  { id: 'FEATURES_03', tipo: 'caracteristicas', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: ['Casa'], texto: 'Conforto em cada ambiente.' },
+  { id: 'HIGHLIGHT_01', tipo: 'diferencial', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Qualidade em cada detalhe.' },
+  { id: 'HIGHLIGHT_02', tipo: 'diferencial', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Detalhes que fazem diferença.' },
+  { id: 'HIGHLIGHT_03', tipo: 'diferencial', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Praticidade para sua rotina.' },
+  { id: 'LOCATION_01', tipo: 'localizacao', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Localização para viver melhor.' },
+  { id: 'LOCATION_02', tipo: 'localizacao', idioma: 'pt-BR', finalidades: ['Venda'], tiposImovel: [ANY], texto: 'Tudo perto de você.' },
+  { id: 'LOCATION_03', tipo: 'localizacao', idioma: 'pt-BR', finalidades: ['Locação'], tiposImovel: [ANY], texto: 'Mobilidade para sua rotina.' },
+  { id: 'CLOSING_01', tipo: 'encerramento', idioma: 'pt-BR', finalidades: [ANY], tiposImovel: [ANY], texto: 'Conheça de perto.' },
+  { id: 'OPENING_EN_01', tipo: 'abertura', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Discover your next home.' },
+  { id: 'FEATURES_EN_01', tipo: 'caracteristicas', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Spaces designed for you.' },
+  { id: 'HIGHLIGHT_EN_01', tipo: 'diferencial', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'Quality in every detail.' },
+  { id: 'LOCATION_EN_01', tipo: 'localizacao', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'A location for living well.' },
+  { id: 'CLOSING_EN_01', tipo: 'encerramento', idioma: 'en-US', finalidades: [ANY], tiposImovel: [ANY], texto: 'See it closely.' },
+  { id: 'OPENING_ES_01', tipo: 'abertura', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Descubre tu próximo hogar.' },
+  { id: 'FEATURES_ES_01', tipo: 'caracteristicas', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Espacios pensados para ti.' },
+  { id: 'HIGHLIGHT_ES_01', tipo: 'diferencial', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Calidad en cada detalle.' },
+  { id: 'LOCATION_ES_01', tipo: 'localizacao', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Ubicación para vivir mejor.' },
+  { id: 'CLOSING_ES_01', tipo: 'encerramento', idioma: 'es', finalidades: [ANY], tiposImovel: [ANY], texto: 'Conócelo de cerca.' },
 ] as const
 
 const MOVEMENTS: SmartTourStructuredBriefing['cenas'][number]['movimento'][] = [
@@ -255,14 +254,12 @@ export function buildSmartTourStructuredBriefing(input: {
       descricao: literal(input.property.description),
     },
     apresentador: { tipo: presenterType, unicoHumanoAutorizado: presenterType !== 'nenhum' },
-    staging: { modo: 'original', apresentacao: 'final_only' },
     musica: { configurada: false, instrucao: 'preservar_comportamento_atual' },
     sequenciaDasImagens: [...input.imagePaths],
     movimentosDesejados: [...MOVEMENTS],
     cenas: scenes,
     legendas: {
       ativas: config.captions === 'enabled' || Boolean(ctaTitle),
-      cenas: scenes.filter(scene => scene.legenda).map(scene => ({ cena: scene.numero, texto: scene.legenda })),
     },
     cta: { titulo: ctaTitle, telefone: phone },
     regrasPreservacao: {
