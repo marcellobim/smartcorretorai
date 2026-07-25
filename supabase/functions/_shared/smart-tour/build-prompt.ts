@@ -24,26 +24,40 @@ Não crie nenhum texto além das palavras fixas da frase-modelo definida no mód
 
 ESCOPO E RESTRIÇÕES
 Este produto não contempla Virtual Staging, casal, família, pessoas vivendo no imóvel, criação de mobiliário ou alterações arquitetônicas. A única pessoa permitida é o corretor ou a corretora descrito no módulo CORRETOR, quando esse módulo estiver presente. Se o módulo CORRETOR não estiver presente, não mostre pessoas, silhuetas, reflexos, sombras, mãos, rostos ou partes do corpo.
-Preserve integralmente arquitetura, acabamentos, móveis existentes, decoração, objetos, portas, janelas, pisos, tetos, iluminação, cores, proporções, layout, área externa e paisagismo existentes.
-Não redesenhe, modernize, reforme, aprimore, substitua, remova ou acrescente elementos. Não crie móveis, cômodos, passagens, varandas, ângulos, pontos de vista ou atributos não comprovados pelas fotografias.
+
+CENÁRIO PROTEGIDO
+Todo o ambiente visível em cada fotografia constitui um cenário protegido.
+O cenário protegido inclui integralmente: arquitetura; paredes; pisos; tetos; portas; janelas; esquadrias; telhado; bancadas; louças; metais; móveis existentes; decoração; objetos; acabamentos; materiais; cores; iluminação física existente; proporções; perspectiva; orientação; enquadramento; composição visual.
+Nenhum elemento do cenário protegido poderá ser recriado, reinterpretado, redesenhado, invertido, espelhado, reposicionado, ampliado, reduzido, removido, substituído, recortado, ocultado, transformado em close ou mostrado a partir de outro ângulo.
+A fotografia original deve permanecer imediatamente reconhecível durante toda a cena.
 Utilize exatamente uma fotografia por cena como única fonte visual. Nunca combine, sobreponha, mescle, empilhe ou use duas fotografias na mesma cena. Utilize todas as fotografias e respeite integralmente a ordem recebida.
 FORMATO DE SAÍDA — Renderize exclusivamente em formato vertical 9:16. Preserve o máximo possível da composição original dentro do quadro vertical e não corte elementos essenciais do ambiente para acomodar o apresentador.
-Cada fotografia é o quadro mestre e a referência visual imutável de sua cena. Preserve sua orientação original e não inverta horizontalmente, não espelhe, não troque o lado dos elementos, não mude o ponto de vista e não reconstrua o ambiente a partir de outro ângulo.
-Não altere a composição principal, não aproxime excessivamente um único objeto, não recorte partes importantes do ambiente e não transforme uma fotografia ampla em close. Mantenha visíveis os principais elementos da imagem original; ela deve continuar imediatamente reconhecível durante toda a cena.
-Use somente movimentos de câmera muito suaves e de baixa amplitude. Evite órbitas, giros, rotações amplas e qualquer movimento que exija imaginar áreas não mostradas. Não gere conteúdo fora dos limites visuais conhecidos da fotografia.
-Em ambientes pequenos, inclusive banheiros, preserve a visão geral. Não foque apenas em pia, bancada ou outro objeto; mantenha box, janela, paredes e demais elementos relevantes visíveis conforme a fotografia original.
 
-PROTAGONISTA CRIATIVO E MOVIMENTO CINEMATOGRÁFICO
-Quando o módulo CORRETOR estiver ausente, concentre toda a criatividade exclusivamente em movimentos cinematográficos suaves de câmera e em pequenas variações naturais da iluminação já existente. Preserve todo o restante fiel às fotografias.
-Utilize somente movimentos fisicamente possíveis e sustentados pela fotografia: caminhada lenta estabilizada, dolly suave, pan suave, tilt suave, aproximação suave, afastamento suave e pequenas mudanças naturais de perspectiva.
-A câmera é apenas o ponto de vista invisível. Nunca mostre câmera, celular, gimbal, estabilizador, tripé, drone, operador ou equipamento de gravação, inclusive em reflexos, espelhos, janelas ou sombras.
-Cada ambiente deve conduzir naturalmente ao seguinte somente pela ordem das fotografias e pelo movimento dentro de cada fotografia. Nunca antecipe um ambiente que ainda não apareceu.
+PROTAGONISTA CRIATIVO
+Quando houver corretor ou corretora, essa pessoa será o único protagonista criativo humano autorizado. Toda transformação humana deve ficar confinada ao módulo CORRETOR. Nenhuma outra pessoa é permitida.
+
+TRANSFORMAÇÕES AUTORIZADAS
+Além do protagonista autorizado, permita exclusivamente: movimento de câmera linear; movimento de baixíssima amplitude; pan suave; push-in ou pull-back mínimo; pequenas variações naturais de luminosidade já compatíveis com a fotografia; sombras e reflexos extremamente sutis.
+Essas transformações não podem mudar o horário do dia, criar novas fontes de luz, modificar janelas ou luminárias, alterar cores, esconder elementos, exigir a criação de áreas não visíveis na fotografia ou mudar a composição original.
+A câmera é apenas o ponto de vista invisível. Nunca mostre câmera, celular, gimbal, estabilizador, tripé, drone, operador ou equipamento de gravação, inclusive em reflexos, espelhos, janelas ou sombras. Cada ambiente deve conduzir naturalmente ao seguinte somente pela ordem das fotografias. Nunca antecipe um ambiente que ainda não apareceu.
+
+MODO SEM CORRETOR
+Quando o módulo CORRETOR estiver ausente, não existe protagonista humano. Toda a criatividade deve ficar confinada exclusivamente ao movimento linear de câmera de baixíssima amplitude, a pequenas variações naturais da iluminação já existente e a sombras e reflexos discretos. O cenário protegido continua imutável. Não crie pessoas, animais, objetos, móveis ou novos elementos.
+
+HIERARQUIA OBRIGATÓRIA
+Prioridade 1: preservar o cenário protegido.
+Prioridade 2: manter orientação, enquadramento, composição e perspectiva da fotografia.
+Prioridade 3: executar apenas as transformações autorizadas.
+Se existir conflito entre movimento cinematográfico e fidelidade visual, a fidelidade visual deve prevalecer.
+
+AMBIENTES PEQUENOS
+Preserve a visão geral. Não aproxime apenas pia, bancada, vaso, box ou outro objeto. Mantenha os principais elementos visíveis conforme a fotografia original e não transforme ambientes pequenos em closes.
 
 [[MODULE:CORRETOR]]
 MÓDULO CORRETOR
-Crie exatamente uma pessoa profissional — corretor ou corretora conforme o valor literal indicado em apresentador nos DADOS ESTRUTURADOS — realista e consistente durante todo o vídeo. Concentre a transformação criativa exclusivamente em dois focos estreitos e controlados: a movimentação natural e discreta do corretor ou da corretora e variações extremamente sutis da iluminação já existente na fotografia. O imóvel deve permanecer como cenário protegido e preservado.
-Não altere a posição, a orientação, a composição, a arquitetura, os móveis, os objetos, os materiais, as cores ou as proporções do imóvel. A pessoa não pode encobrir detalhes arquitetônicos, competir com o imóvel ou provocar qualquer alteração visual no ambiente. Nenhuma outra pessoa é permitida.
-Trabalhe somente com luz compatível com a fotografia. Não mude radicalmente o horário do dia, não crie fontes de luz, não modifique janelas, luminárias ou aberturas, não apague elementos e não transforme a cena em noite. Use apenas pequenas variações de luminosidade, sombras e reflexos. A iluminação é um foco criativo secundário para ajudar a preservar o imóvel, nunca uma transformação visual ampla.
+Crie exatamente uma pessoa profissional — corretor ou corretora conforme o valor literal indicado em apresentador nos DADOS ESTRUTURADOS — realista e consistente durante todo o vídeo. Essa pessoa é o único protagonista criativo humano autorizado.
+Concentre toda a transformação criativa humana exclusivamente em movimentos corporais discretos, caminhada natural, gestos suaves, expressões naturais e apresentação do imóvel.
+O corretor ou a corretora não pode causar reconstrução, reposicionamento, ocultação ou recorte do cenário protegido, encobrir elementos importantes do imóvel nem alterar sua composição. Não crie outras pessoas.
 [[/MODULE:CORRETOR]]
 
 [[MODULE:NARRACAO]]

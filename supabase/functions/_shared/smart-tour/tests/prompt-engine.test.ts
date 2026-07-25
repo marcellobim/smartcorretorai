@@ -72,7 +72,10 @@ test('compiler only removes disabled modules and keeps fixed rules byte-for-byte
     'OBJETIVO\nCriar uma visita contínua e natural',
     'TEXTOS CONTROLADOS PELO SMARTCORRETORAI',
     'ESCOPO E RESTRIÇÕES',
-    'PROTAGONISTA CRIATIVO E MOVIMENTO CINEMATOGRÁFICO',
+    'CENÁRIO PROTEGIDO',
+    'PROTAGONISTA CRIATIVO',
+    'TRANSFORMAÇÕES AUTORIZADAS',
+    'HIERARQUIA OBRIGATÓRIA',
     'REGRAS GERAIS',
   ]) {
     assert.match(full, new RegExp(fixed))
@@ -92,16 +95,18 @@ test('presenter option only controls the broker module', () => {
   assert.match(none, /Se o módulo CORRETOR não estiver presente, não mostre pessoas, silhuetas, reflexos, sombras, mãos, rostos ou partes do corpo/)
 })
 
-test('creative protagonist limits broker mode to broker movement and existing light', () => {
+test('creative protagonist confines human transformation to the broker', () => {
   const withBroker = buildPrompt({ mode: 'guided_tour', presenterGender: 'female' })
-  assert.match(withBroker, /dois focos estreitos e controlados: a movimentação natural e discreta do corretor ou da corretora e variações extremamente sutis da iluminação já existente/)
-  assert.match(withBroker, /O imóvel deve permanecer como cenário protegido e preservado/)
-  assert.match(withBroker, /Não mude radicalmente o horário do dia, não crie fontes de luz/)
-  assert.match(withBroker, /Use apenas pequenas variações de luminosidade, sombras e reflexos/)
-  assert.match(withBroker, /A iluminação é um foco criativo secundário/)
+  assert.match(withBroker, /Essa pessoa é o único protagonista criativo humano autorizado/)
+  assert.match(withBroker, /movimentos corporais discretos, caminhada natural, gestos suaves, expressões naturais e apresentação do imóvel/)
+  assert.match(withBroker, /não pode causar reconstrução, reposicionamento, ocultação ou recorte do cenário protegido/)
+  assert.match(withBroker, /Não crie outras pessoas/)
   const withoutBroker = buildPrompt({ mode: 'cinematic_tour', presenterGender: 'none' })
-  assert.match(withoutBroker, /movimentos cinematográficos suaves de câmera e em pequenas variações naturais da iluminação já existente/)
-  assert.match(withoutBroker, /Preserve todo o restante fiel às fotografias/)
+  assert.match(withoutBroker, /MODO SEM CORRETOR/)
+  assert.match(withoutBroker, /não existe protagonista humano/)
+  assert.match(withoutBroker, /movimento linear de câmera de baixíssima amplitude, a pequenas variações naturais da iluminação já existente e a sombras e reflexos discretos/)
+  assert.match(withoutBroker, /O cenário protegido continua imutável/)
+  assert.match(withoutBroker, /Não crie pessoas, animais, objetos, móveis ou novos elementos/)
 })
 
 test('narration uses the required human format without reading differentiators', () => {
@@ -203,20 +208,36 @@ test('fixed visual restrictions preserve the property and image order', () => {
   assert.match(prompt, /não contempla Virtual Staging, casal, família, pessoas vivendo no imóvel, criação de mobiliário ou alterações arquitetônicas/)
 })
 
-test('each original photograph remains the immutable master frame', () => {
+test('protected scene semantically locks every visual element', () => {
   const prompt = buildPrompt({ mode: 'guided_tour' })
   assert.match(prompt, /Renderize exclusivamente em formato vertical 9:16/)
   assert.match(prompt, /Preserve o máximo possível da composição original dentro do quadro vertical/)
   assert.match(prompt, /não corte elementos essenciais do ambiente para acomodar o apresentador/)
-  assert.match(prompt, /Cada fotografia é o quadro mestre e a referência visual imutável de sua cena/)
-  assert.match(prompt, /não inverta horizontalmente, não espelhe, não troque o lado dos elementos/)
-  assert.match(prompt, /não mude o ponto de vista e não reconstrua o ambiente a partir de outro ângulo/)
-  assert.match(prompt, /não aproxime excessivamente um único objeto/)
-  assert.match(prompt, /não transforme uma fotografia ampla em close/)
-  assert.match(prompt, /movimentos de câmera muito suaves e de baixa amplitude/)
-  assert.match(prompt, /Evite órbitas, giros, rotações amplas/)
-  assert.match(prompt, /não foque apenas em pia, bancada ou outro objeto/i)
+  assert.match(prompt, /Todo o ambiente visível em cada fotografia constitui um cenário protegido/)
+  for (const item of ['arquitetura', 'paredes', 'pisos', 'tetos', 'portas', 'janelas', 'esquadrias', 'telhado', 'bancadas', 'louças', 'metais', 'móveis existentes', 'decoração', 'objetos', 'acabamentos', 'materiais', 'cores', 'iluminação física existente', 'proporções', 'perspectiva', 'orientação', 'enquadramento', 'composição visual']) assert.match(prompt, new RegExp(item))
+  for (const action of ['recriado', 'reinterpretado', 'redesenhado', 'invertido', 'espelhado', 'reposicionado', 'ampliado', 'reduzido', 'removido', 'substituído', 'recortado', 'ocultado', 'transformado em close', 'mostrado a partir de outro ângulo']) assert.match(prompt, new RegExp(action))
+  assert.match(prompt, /A fotografia original deve permanecer imediatamente reconhecível durante toda a cena/)
   assert.match(prompt, /exatamente uma fotografia por cena como única fonte visual/)
+})
+
+test('authorized transformations remain narrow and subordinate to fidelity', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' })
+  assert.match(prompt, /TRANSFORMAÇÕES AUTORIZADAS/)
+  assert.match(prompt, /movimento de câmera linear; movimento de baixíssima amplitude; pan suave; push-in ou pull-back mínimo/)
+  assert.match(prompt, /pequenas variações naturais de luminosidade já compatíveis com a fotografia; sombras e reflexos extremamente sutis/)
+  for (const prohibition of ['mudar o horário do dia', 'criar novas fontes de luz', 'modificar janelas ou luminárias', 'alterar cores', 'esconder elementos', 'criação de áreas não visíveis', 'mudar a composição original']) assert.match(prompt, new RegExp(prohibition))
+  assert.match(prompt, /Prioridade 1: preservar o cenário protegido/)
+  assert.match(prompt, /Prioridade 2: manter orientação, enquadramento, composição e perspectiva da fotografia/)
+  assert.match(prompt, /Prioridade 3: executar apenas as transformações autorizadas/)
+  assert.match(prompt, /Se existir conflito entre movimento cinematográfico e fidelidade visual, a fidelidade visual deve prevalecer/)
+})
+
+test('small rooms preserve the overview and never become close-ups', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' })
+  assert.match(prompt, /AMBIENTES PEQUENOS/)
+  assert.match(prompt, /Não aproxime apenas pia, bancada, vaso, box ou outro objeto/)
+  assert.match(prompt, /Mantenha os principais elementos visíveis conforme a fotografia original/)
+  assert.match(prompt, /não transforme ambientes pequenos em closes/)
 })
 
 test('structured data preserves literals and omits unauthorized phone-like text', () => {
