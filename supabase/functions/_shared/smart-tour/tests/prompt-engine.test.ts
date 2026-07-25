@@ -1,363 +1,240 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
-import { OFFICIAL_MATRIX, SMART_TOUR_VISUAL_CORE, buildPropertyContext, buildSmartTourPrompt, normalizeGeneration, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../index.ts'
+import { readFileSync } from 'node:fs'
+import {
+  OFFICIAL_MATRIX,
+  SMART_TOUR_BASE_BRIEFING,
+  buildPropertyContext,
+  buildSmartTourPrompt,
+  normalizeGeneration,
+  resolveSmartTourProfessionalPhone,
+  validateSmartTourRequest,
+} from '../index.ts'
 
-const property = {purpose:'sale',type:'Apartamento',city:'São Paulo',district:'Moema',bedrooms:'2',suites:'1',parkingSpaces:'2',stage:'Pronto para morar',highlights:['Vista livre','Varanda gourmet','Lazer completo']}
-const realProperty = {...property,area:'85'}
-const realPhone = resolveSmartTourProfessionalPhone(true,'11999999999')
-const buildOptionalPrompt = (generation: Parameters<typeof normalizeGeneration>[0], selectedCta = 'Fale comigo', phone = '') => buildSmartTourPrompt({generation:normalizeGeneration(generation),property,selectedCta,phone})
+const property = {
+  purpose: 'sale',
+  type: 'Apartamento',
+  city: 'São Paulo',
+  district: 'Moema',
+  bedrooms: '2',
+  suites: '1',
+  parkingSpaces: '1',
+  area: '85',
+  stage: 'Pronto para morar',
+  highlights: ['Vista livre', 'Varanda gourmet', 'Lazer completo'],
+}
 
-test('official matrix has all 19 supported combinations',()=>assert.equal(OFFICIAL_MATRIX.length,19))
-for (const [index,generation] of OFFICIAL_MATRIX.entries()) test(`champion prompt combination ${index + 1} builds without contradictions`,()=>assert.doesNotThrow(()=>buildSmartTourPrompt({generation,property,selectedCta:'Agende sua visita'})))
-
-test('restores the champion prompt as the literal baseline instead of the later matrix',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
-  assert.doesNotMatch(prompt,/COMMON MASTER MATRIX|SINGLE-IMAGE SCENE LOCK|CREATIVE LATITUDE/)
-  assert.match(prompt,/The uploaded images are the only visual source for the video/)
-  assert.match(prompt,/Animate the camera, not the property/)
-  assert.match(prompt,/one continuous cinematic property tour/)
+const buildPrompt = (
+  generation: Parameters<typeof normalizeGeneration>[0],
+  selectedCta = 'Fale comigo',
+  phone = '(11) 99999-9999',
+  propertyOverride = property,
+) => buildSmartTourPrompt({
+  generation: normalizeGeneration(generation),
+  property: propertyOverride,
+  selectedCta,
+  phone,
 })
 
-test('complete approved guided tour baseline remains byte-for-byte unchanged before appended enforcement blocks',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'female'}),property:{...property,price:'R$ 890.000'},selectedCta:'Agende sua visita',phone:'+55 (11) 98765-4321'})
-  const baseline=prompt.slice(0,prompt.indexOf('\n\nNARRATION DELIVERY ENFORCEMENT — REQUIRED'))
-  assert.equal(baseline.length,10856)
-  assert.equal(createHash('sha256').update(baseline).digest('hex'),'30b94392b193fc083d5d2aad99ea7b0637311c198d38ed769d9805395f43e510')
-  assert.equal(createHash('sha256').update(SMART_TOUR_VISUAL_CORE).digest('hex'),'2af58b5f4ec2518442f73e7ee5e5b474c161d588d7f6989d45a8dab08b0c3e7c')
-})
-
-test('AI Studio concept creates only realistic camera motion without changing the property',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  for(const movement of ['slow walking','stabilized gimbal','slow dolly','smooth pan','smooth tilt','gentle push in','gentle pull back']) assert.match(prompt,new RegExp(movement))
-  for(const element of ['architecture','walls','windows','doors','floors','ceilings','furniture','decoration','objects','lighting fixtures','finishes','room proportions','layout','exterior','landscaping']) assert.match(prompt,new RegExp(element))
-  assert.match(prompt,/real video recorded inside the property, never like an AI recreation/)
-  assert.match(prompt,/Never redesign, modernize, enhance, renovate, reinterpret, recreate or replace existing property elements/)
-  assert.match(prompt,/Never merge photographs or environments, reconstruct rooms, create balconies, change the structure or floor plan, replace finishes/)
-  assert.match(prompt,/Each scene must use exactly one uploaded photograph as its sole visual source/)
-  assert.match(prompt,/Never combine, overlap, stack, collage, split-screen or compress two photographs into the same scene/)
-  assert.match(prompt,/The camera moves\. The property does not\./)
-})
-
-test('camera and recording equipment remain completely outside the generated scene',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/camera is only the invisible viewpoint of the viewer and must never appear inside the image/)
-  for(const forbidden of ['camera','mobile phone','smartphone','gimbal','stabilizer','tripod','drone','camera operator','videographer','cinematographer','recording equipment']) assert.match(prompt,new RegExp(forbidden))
-  assert.match(prompt,/including in reflections, mirrors, windows or shadows/)
-})
-
-test('presenter variants and disabled presenter remain unchanged',()=>{
-  assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'female'}),property,selectedCta:'CTA'}),/female real estate agent/)
-  assert.match(buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'male'}),property,selectedCta:'CTA'}),/male real estate agent/)
-  const none=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'none'}),property,selectedCta:'CTA'})
-  assert.match(none,/NO PRESENTER OR PERSON — ABSOLUTE VISUAL PROHIBITION/)
-  assert.doesNotMatch(none,/Create one realistic professional (?:female|male) real estate agent/)
-})
-
-test('narrated tour keeps narration and captions independent without presenter',()=>{
-  const config=normalizeGeneration({mode:'narrated_tour',presenterGender:'female',narration:'disabled',captions:'disabled'})
-  assert.deepEqual({mode:config.mode,presenterGender:config.presenterGender,narration:config.narration,captions:config.captions},{mode:'narrated_tour',presenterGender:'none',narration:'disabled',captions:'disabled'})
-})
-
-test('guided and narrated tours receive the same mandatory delivery contract',()=>{
-  const phone=resolveSmartTourProfessionalPhone(true,'11987654321')
-  const prompts=['guided_tour','narrated_tour'].map(mode=>buildSmartTourPrompt({generation:normalizeGeneration({mode:mode as 'guided_tour'|'narrated_tour'}),property:{...property,price:'R$ 890.000'},selectedCta:'Agende sua visita',phone}))
-  for(const prompt of prompts){
-    assert.match(prompt,/GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/)
-    assert.match(prompt,/This same contract applies to guided_tour and narrated_tour/)
-    assert.match(prompt,/1\. NARRATION — REQUIRED/)
-    assert.match(prompt,/2\. USEFUL ON-SCREEN TEXT AND SHORT SYNCHRONIZED CAPTIONS — REQUIRED:[\s\S]*CAPTION PRIORITY 1 through CAPTION PRIORITY 4/)
-    assert.match(prompt,/Use only the selected language and supplied information/)
-    assert.match(prompt,/3\. FINAL SCREEN — REQUIRED:[\s\S]*strict allowlist is the selected official CTA/)
-    assert.match(prompt,/4\. CALL TO ACTION — REQUIRED:[\s\S]*exactly once, on the final screen only/)
-    assert.match(prompt,/Narration alone is never a complete result for either mode/)
-    assert.match(prompt,/only authorized phone value is "\(11\) 98765-4321"/)
-    assert.equal(prompt.split('Agende sua visita').length-1,2)
+test('has one complete modular Briefing Base as the only instruction source', () => {
+  const source = readFileSync(new URL('../build-prompt.ts', import.meta.url), 'utf8')
+  assert.equal((source.match(/export const SMART_TOUR_BASE_BRIEFING =/g) || []).length, 1)
+  for (const module of ['CORRETOR', 'NARRACAO', 'LEGENDAS', 'CTA', 'TELEFONE']) {
+    assert.equal((SMART_TOUR_BASE_BRIEFING.match(new RegExp(`\\[\\[MODULE:${module}\\]\\]`, 'g')) || []).length, 1)
   }
-  assert.match(prompts[0],/Create one realistic professional female real estate agent/)
-  assert.match(prompts[1],/No presenter or person may appear anywhere in the video/)
-  assert.doesNotMatch(prompts[1],/Create one realistic professional/)
+  assert.doesNotMatch(source, /SMART_TOUR_VISUAL_CORE|champion prompt|Prompt Campeão/i)
 })
 
-test('female and male presenter blocks remain exclusive while none uses only the no-person contract',()=>{
-  const female=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'female'}),property,selectedCta:'Fale comigo'})
-  const male=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'male'}),property,selectedCta:'Fale comigo'})
-  const none=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour',presenterGender:'none'}),property,selectedCta:'Fale comigo'})
-  assert.match(female,/Create one realistic professional female real estate agent/)
-  assert.doesNotMatch(female,/Create one realistic professional male real estate agent|NO PRESENTER OR PERSON/)
-  assert.match(male,/Create one realistic professional male real estate agent/)
-  assert.doesNotMatch(male,/Create one realistic professional female real estate agent|NO PRESENTER OR PERSON/)
-  assert.doesNotMatch(none,/Create one realistic professional (?:female|male) real estate agent|natural behavior, gestures and expressions/)
-  assert.match(none,/No presenter or person may appear anywhere in the video[\s\S]*human silhouettes[\s\S]*human reflections[\s\S]*human shadows[\s\S]*hands[\s\S]*body parts/)
+test('global Brazilian Portuguese rule is the first rule in the Briefing Base', () => {
+  assert.ok(SMART_TOUR_BASE_BRIEFING.startsWith('REGRA GLOBAL OBRIGATÓRIA — PORTUGUÊS DO BRASIL'))
+  assert.match(SMART_TOUR_BASE_BRIEFING, /exclusivamente Português do Brasil \(pt-BR\)/)
+  assert.match(SMART_TOUR_BASE_BRIEFING, /Português de Portugal, misturar idiomas/)
+  const prompt = buildPrompt({ mode: 'guided_tour', language: 'en-US' })
+  assert.match(prompt, /exclusivamente Português do Brasil/)
+  assert.doesNotMatch(prompt, /entire final presentation must be in English|selected language/i)
 })
 
-test('optional presenter removal preserves narration text CTA and the shared visual core',()=>{
-  const prompt=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'none',narration:'enabled',captions:'enabled',furniture:'original'})
-  assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
-  assert.match(prompt,/No presenter or person may appear anywhere in the video/)
-  assert.doesNotMatch(prompt,/Create one realistic professional/)
-  assert.match(prompt,/Create a natural, elegant and professional real estate narration/)
-  assert.match(prompt,/CAPTIONS ARE REQUIRED/)
-  assert.match(prompt,/FINAL CALL TO ACTION/)
+test('request text contains structured data, compiled base and remaining modules in order', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour', presenterGender: 'female' })
+  const dataIndex = prompt.indexOf('DADOS ESTRUTURADOS')
+  const briefingIndex = prompt.indexOf('BRIEFING BASE COMPILADO')
+  const modulesIndex = prompt.indexOf('MÓDULOS RESTANTES APÓS A COMPILAÇÃO')
+  assert.ok(dataIndex === 0)
+  assert.ok(dataIndex < briefingIndex && briefingIndex < modulesIndex)
+  assert.doesNotMatch(prompt, /\[\[\/?MODULE:|\{\{[A-Z_]+\}\}/)
 })
 
-test('narration text and CTA are independently controlled',()=>{
-  const noNarration=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'female',narration:'disabled',captions:'enabled',furniture:'original'})
-  assert.match(noNarration,/Create one realistic professional female real estate agent/)
-  assert.match(noNarration,/final video must contain no speech/)
-  assert.doesNotMatch(noNarration,/Create a natural, elegant and professional real estate narration/)
-  assert.match(noNarration,/Narration is disabled, so render these as concise informational and commercial property texts/)
-  assert.match(noNarration,/FINAL CALL TO ACTION/)
-
-  const noText=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'female',narration:'enabled',captions:'disabled',furniture:'original'})
-  assert.match(noText,/Create a natural, elegant and professional real estate narration/)
-  assert.match(noText,/Do not create captions, subtitles, commercial text, informational overlays/)
-  assert.doesNotMatch(noText,/CAPTIONS ARE REQUIRED|DYNAMIC CAPTION SOURCE DATA|CAPTION PRIORITY/)
-  assert.match(noText,/FINAL CALL TO ACTION/)
-})
-
-test('disabling CTA removes CTA phone WhatsApp and final screen without removing other enabled layers',()=>{
-  const prompt=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'female',narration:'enabled',captions:'enabled',furniture:'original'},'',resolveSmartTourProfessionalPhone(true,'11987654321'))
-  assert.match(prompt,/Create one realistic professional female real estate agent/)
-  assert.match(prompt,/Create a natural, elegant and professional real estate narration/)
-  assert.match(prompt,/CAPTIONS ARE REQUIRED/)
-  assert.match(prompt,/NO CALL TO ACTION OR COMMERCIAL FINAL SCREEN/)
-  assert.match(prompt,/End naturally on the last property scene/)
-  assert.doesNotMatch(prompt,/FINAL CALL TO ACTION: Show exactly one closing call|98765-4321|GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/)
-})
-
-test('fully clean video keeps only the shared visual treatment and explicit prohibitions',()=>{
-  const prompt=buildOptionalPrompt({mode:'cinematic_tour',presenterGender:'none',narration:'disabled',captions:'disabled',furniture:'original'},'')
-  assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
-  assert.match(prompt,/No presenter or person may appear anywhere in the video/)
-  assert.match(prompt,/final video must contain no speech/)
-  assert.match(prompt,/Do not create captions, subtitles, commercial text/)
-  assert.match(prompt,/NO CALL TO ACTION OR COMMERCIAL FINAL SCREEN/)
-  assert.match(prompt,/FULLY CLEAN VIDEO — REQUIRED OUTPUT/)
-  assert.match(prompt,/Do not create any person, voice, speech, generated music, soundtrack, caption, text, title, CTA, phone, WhatsApp, final screen, brand, watermark or promotional element/)
-  assert.doesNotMatch(prompt,/Create one realistic professional|Create a natural, elegant and professional real estate narration|CAPTIONS ARE REQUIRED|FINAL CALL TO ACTION: Show exactly one closing call|Apply virtual staging|GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/i)
-})
-
-test('backend forces virtual staging off for every incoming mode',()=>{
-  for(const mode of ['guided_tour','narrated_tour','smart_staging','cinematic_tour'] as const){
-    const config=normalizeGeneration({mode,furniture:'virtual_staging',stagingPresentation:'before_after'})
-    assert.equal(config.furniture,'original')
-    assert.equal(config.stagingPresentation,'final_only')
-    const prompt=buildSmartTourPrompt({generation:config,property,selectedCta:'Fale comigo'})
-    assert.doesNotMatch(prompt,/apply virtual staging|plausible, removable furniture|BEFORE AND AFTER/i)
+test('compiler only removes disabled modules and keeps fixed rules byte-for-byte', () => {
+  const full = buildPrompt({ mode: 'guided_tour', presenterGender: 'female', narration: 'enabled', captions: 'enabled' })
+  const clean = buildPrompt({ mode: 'cinematic_tour', presenterGender: 'none', narration: 'disabled', captions: 'disabled' }, '', '')
+  for (const fixed of [
+    'MISSÃO\nTransformar as fotografias fornecidas',
+    'OBJETIVO\nCriar uma visita contínua e natural',
+    'TEXTOS CONTROLADOS PELO SMARTCORRETORAI',
+    'ESCOPO E RESTRIÇÕES',
+    'PROTAGONISTA CRIATIVO E MOVIMENTO CINEMATOGRÁFICO',
+    'REGRAS GERAIS',
+  ]) {
+    assert.match(full, new RegExp(fixed))
+    assert.match(clean, new RegExp(fixed))
   }
+  for (const module of ['CORRETOR', 'NARRAÇÃO', 'LEGENDAS', 'CTA']) assert.doesNotMatch(clean, new RegExp(`MÓDULO ${module}`))
 })
 
-test('legacy staging inputs produce the same prompt as original-property inputs',()=>{
-  const base={mode:'cinematic_tour' as const,presenterGender:'none' as const,narration:'disabled' as const,captions:'disabled' as const,stagingPresentation:'final_only' as const}
-  const original=buildOptionalPrompt({...base,furniture:'original'},'')
-  const staged=buildOptionalPrompt({...base,furniture:'virtual_staging'},'')
-  assert.equal(staged,original)
+test('presenter option only controls the broker module', () => {
+  const female = buildPrompt({ mode: 'guided_tour', presenterGender: 'female' })
+  const male = buildPrompt({ mode: 'guided_tour', presenterGender: 'male' })
+  const none = buildPrompt({ mode: 'guided_tour', presenterGender: 'none' })
+  assert.match(female, /MÓDULO CORRETOR[\s\S]*corretor ou corretora conforme o valor literal indicado em apresentador/)
+  assert.match(female, /"apresentador": "corretora"/)
+  assert.match(male, /"apresentador": "corretor"/)
+  assert.doesNotMatch(none, /MÓDULO CORRETOR/)
+  assert.match(none, /Se o módulo CORRETOR não estiver presente, não mostre pessoas, silhuetas, reflexos, sombras, mãos, rostos ou partes do corpo/)
 })
 
-test('every optional combination keeps the approved core and excludes legacy prompt families',()=>{
-  for(const mode of ['smart_staging','cinematic_tour'] as const) for(const presenterGender of ['none','female','male'] as const) for(const narration of ['enabled','disabled'] as const) for(const captions of ['enabled','disabled'] as const) for(const furniture of ['original','virtual_staging'] as const) for(const selectedCta of ['Fale comigo','']){
-    const prompt=buildOptionalPrompt({mode,presenterGender,narration,captions,furniture,stagingPresentation:'final_only'},selectedCta)
-    assert.ok(prompt.startsWith(SMART_TOUR_VISUAL_CORE))
-    assert.doesNotMatch(prompt,/COMMON MASTER MATRIX|SINGLE-IMAGE SCENE LOCK|CREATIVE LATITUDE/)
-    assert.doesNotMatch(prompt,/apply virtual staging|plausible, removable furniture|BEFORE AND AFTER/i)
+test('creative protagonist follows the broker and no-broker contracts', () => {
+  const withBroker = buildPrompt({ mode: 'guided_tour', presenterGender: 'female' })
+  assert.match(withBroker, /Concentre a criatividade exclusivamente na movimentação natural, nos gestos e nas expressões dessa pessoa/)
+  assert.match(withBroker, /O imóvel deve permanecer como cenário preservado/)
+  const withoutBroker = buildPrompt({ mode: 'cinematic_tour', presenterGender: 'none' })
+  assert.match(withoutBroker, /movimentos cinematográficos suaves de câmera e em pequenas variações naturais da iluminação já existente/)
+  assert.match(withoutBroker, /Preserve todo o restante fiel às fotografias/)
+})
+
+test('narration module follows exact required sequence and is removed when disabled', () => {
+  const enabled = buildPrompt({ mode: 'cinematic_tour', narration: 'enabled' })
+  const sequence = [
+    '1. Finalidade: "À VENDA"',
+    '2. Tipologia: "Apartamento"',
+    '3. Descrição resumida: "2 dormitórios • 1 suíte • 1 vaga"',
+    '4. Principais diferenciais',
+    '5. Encerramento natural',
+  ]
+  let previous = -1
+  for (const item of sequence) {
+    const current = enabled.indexOf(item)
+    assert.ok(current > previous, item)
+    previous = current
   }
+  assert.match(enabled, /curta, natural, sincronizada e com Português do Brasil perfeito/)
+  assert.match(enabled, /jamais antecipe ambientes/)
+  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', narration: 'disabled' }), /MÓDULO NARRAÇÃO/)
 })
 
-test('mandatory guided and narrated delivery contract is absent from optional-output modes',()=>{
-  for(const mode of ['smart_staging','cinematic_tour'] as const) assert.doesNotMatch(buildSmartTourPrompt({generation:normalizeGeneration({mode}),property,selectedCta:'Fale comigo'}),/GUIDED AND NARRATED TOUR — REQUIRED DELIVERY CONTRACT/)
+test('caption module enforces exact initial sequence then supplied differentiators', () => {
+  const enabled = buildPrompt({ mode: 'cinematic_tour', captions: 'enabled' })
+  assert.match(enabled, /MÓDULO LEGENDAS — OBRIGATÓRIO QUANDO PRESENTE/)
+  assert.match(enabled, /A sequência inicial deve ser exatamente:[\s\S]*1\. "À VENDA"[\s\S]*2\. "Apartamento"[\s\S]*3\. "2 dormitórios • 1 suíte • 1 vaga"/)
+  const third = enabled.indexOf('3. "2 dormitórios • 1 suíte • 1 vaga"')
+  for (const highlight of property.highlights) assert.ok(enabled.indexOf(`- "${highlight}"`, third) > third)
+  assert.match(enabled, /Utilize no máximo os 10 diferenciais fornecidos/)
+  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', captions: 'disabled' }), /MÓDULO LEGENDAS/)
 })
 
-test('every supported mode uses the exact shared preservation and cinematography core',()=>{
-  for(const generation of OFFICIAL_MATRIX) assert.ok(buildSmartTourPrompt({generation,property,selectedCta:'Fale comigo'}).startsWith(SMART_TOUR_VISUAL_CORE))
+test('differentials are literal, ordered, capped at ten and never invented', () => {
+  const highlights = Array.from({ length: 12 }, (_, index) => `Diferencial ${index + 1}`)
+  const prompt = buildPrompt({ mode: 'cinematic_tour', narration: 'enabled', captions: 'enabled' }, '', '', { ...property, highlights })
+  for (const value of highlights.slice(0, 10)) assert.match(prompt, new RegExp(value))
+  assert.doesNotMatch(prompt, /Diferencial 11|Diferencial 12/)
+  assert.ok(prompt.indexOf('Diferencial 1') < prompt.indexOf('Diferencial 2'))
+  assert.match(prompt, /não invente diferenciais/i)
 })
 
-test('shared visual core contains no residual creative latitude that can reinterpret the property',()=>{
-  assert.doesNotMatch(SMART_TOUR_VISUAL_CORE,/brand-new|Improve only|New angles/i)
-  assert.match(SMART_TOUR_VISUAL_CORE,/absolute source of truth/)
-  assert.match(SMART_TOUR_VISUAL_CORE,/Camera movement and stabilization are the only creative visual transformations/)
-  assert.match(SMART_TOUR_VISUAL_CORE,/Never invent connective rooms, passages, viewpoints or visual content between photographs/)
+test('CTA and phone are exact nested modules shown only on the final screen', () => {
+  const cta = 'Agende sua visita agora'
+  const phone = '(11) 98765-4321'
+  const prompt = buildPrompt({ mode: 'guided_tour' }, cta, phone)
+  assert.match(prompt, /MÓDULO CTA — OBRIGATÓRIO QUANDO PRESENTE/)
+  assert.match(prompt, /uma única tela final/)
+  assert.match(prompt, /"Agende sua visita agora"/)
+  assert.match(prompt, /Na mesma tela final[\s\S]*"\(11\) 98765-4321"/)
+  assert.match(prompt, /Não fale o CTA\. Não crie frases comerciais/)
 })
 
-test('narration and text use exactly the language selected by the user',()=>{
-  for(const [language,label] of [['pt-BR','Brazilian Portuguese'],['en-US','English'],['es','Spanish']]){
-    const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour',language}),property,selectedCta:'CTA'})
-    assert.match(prompt,new RegExp(`entire final presentation must be in ${label}`))
-    assert.match(prompt,/Use the selected language only and do not mix languages/)
-  }
+test('disabling CTA removes CTA and phone modules and strips the profile phone', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' }, '', '(11) 98765-4321')
+  assert.doesNotMatch(prompt, /MÓDULO CTA|Na mesma tela final|98765-4321/)
+  assert.doesNotMatch(prompt, /\"cta\":|\"telefone\":/)
+  assert.match(prompt, /sem CTA, nenhuma tela final comercial, CTA, telefone ou contato/)
 })
 
-test('sale opens with À VENDA and mentions à venda once in opening narration',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,purpose:'sale'},selectedCta:'Agende sua visita'})
-  assert.match(prompt,/purpose text must be exactly "À VENDA"/)
-  assert.match(prompt,/property is "à venda" exactly once in the opening sentence/)
-  assert.match(prompt,/Do not use locação, aluguel, para alugar/)
+test('CTA without authorized phone keeps CTA and removes only phone module', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '')
+  assert.match(prompt, /MÓDULO CTA/)
+  assert.doesNotMatch(prompt, /Na mesma tela final, exiba exatamente o telefone abaixo/)
+  assert.doesNotMatch(prompt, /\"telefone\":/)
 })
 
-test('rental displays PARA LOCAÇÃO without changing the approved narration wording',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,purpose:'rent'},selectedCta:'Agende sua visita'})
-  assert.match(prompt,/purpose text must be exactly "PARA LOCAÇÃO"/)
-  assert.match(prompt,/property is "disponível para locação" exactly once in the opening sentence/)
-  assert.match(prompt,/Do not use venda, à venda, compra, oportunidade de compra/)
+test('all SmartCorretorAI text-control prohibitions are explicit', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' })
+  for (const rule of [
+    'Não crie nenhum texto',
+    'Não crie CTA diferente',
+    'não complemente o CTA',
+    'não reescreva finalidade, tipologia ou descrição resumida',
+    'não invente diferenciais',
+    'exatamente como aparece nos DADOS ESTRUTURADOS, caractere por caractere',
+  ]) assert.match(prompt, new RegExp(rule, 'i'))
 })
 
-test('narration prefers neighborhood then city and never invents missing location fields',()=>{
-  const both=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo'})
-  const cityOnly=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property:{...property,district:''},selectedCta:'Fale comigo'})
-  const districtOnly=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property:{...property,city:''},selectedCta:'Fale comigo'})
-  assert.match(both,/prioritizing neighborhood then city[\s\S]*"Localizado em Moema, São Paulo\.\.\."/)
-  assert.match(cityOnly,/Mention only the supplied city "São Paulo" naturally exactly once/)
-  assert.match(cityOnly,/No neighborhood was supplied; never invent one/)
-  assert.match(districtOnly,/Mention only the supplied neighborhood "Moema" naturally exactly once/)
-  assert.match(districtOnly,/No city was supplied; never invent one/)
+test('fixed visual restrictions preserve the property and image order', () => {
+  const prompt = buildPrompt({ mode: 'guided_tour' })
+  for (const item of ['arquitetura', 'acabamentos', 'móveis existentes', 'decoração', 'objetos', 'portas', 'janelas', 'pisos', 'tetos', 'proporções']) assert.match(prompt, new RegExp(item))
+  assert.match(prompt, /exatamente uma fotografia por cena como única fonte visual/)
+  assert.match(prompt, /Utilize todas as fotografias e respeite integralmente a ordem recebida/)
+  assert.match(prompt, /não contempla Virtual Staging, casal, família, pessoas vivendo no imóvel, criação de mobiliário ou alterações arquitetônicas/)
 })
 
-test('captions are generated dynamically from structured chat facts one at a time',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/CAPTIONS ARE REQUIRED AND MUST BE VISIBLY RENDERED DURING THE VIDEO/)
-  assert.match(prompt,/Do not omit, suppress or replace them with narration/)
-  assert.match(prompt,/Synchronize each rendered caption with the environment currently on screen/)
-  assert.match(prompt,/Generate every caption automatically and exclusively from PROPERTY CONTEXT and the structured chat data below/)
-  assert.match(prompt,/one short caption block at a time/)
-  assert.match(prompt,/visible for approximately 2 to 3 seconds/)
-  assert.match(prompt,/must complement the narration and must never duplicate exactly what is being spoken/)
-  for(const fact of ['Bedrooms: 2','Suites: 1','Parking spaces: 2','Property state: Pronto para morar','- Vista livre','- Varanda gourmet','- Lazer completo']) assert.match(prompt,new RegExp(fact))
-  assert.match(prompt,/Never infer, invent, embellish or use generic copy/)
+test('structured data preserves literals and omits unauthorized phone-like text', () => {
+  const value = buildPropertyContext({ ...property, description: 'Ligue (21) 98765-4321', highlights: ['Contato 11 3456-7890'] }, 'CTA 31 99876-5432')
+  assert.match(value, /\"tipologia\": \"Apartamento\"/)
+  assert.match(value, /\"descricaoResumida\": \"2 dormitórios • 1 suíte • 1 vaga\"/)
+  assert.doesNotMatch(value, /98765-4321|3456-7890|99876-5432/)
 })
 
-test('caption priorities use only supplied property data and limit differentiators',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,price:'R$ 890.000'},selectedCta:'Fale comigo'})
-  assert.match(prompt,/CAPTION PRIORITY 1 — OPENING:[\s\S]*"Neighborhood • City"/)
-  assert.match(prompt,/purpose text must be exactly "À VENDA"/)
-  assert.match(prompt,/CAPTION PRIORITY 2 — PROPERTY SUMMARY:[\s\S]*bedrooms, suites and parking spaces, separated by " • "/)
-  assert.match(prompt,/CAPTION PRIORITY 3 — DIFFERENTIATORS:[\s\S]*only the 2 or 3 most relevant items from the supplied property state and selected highlights/)
-  assert.match(prompt,/never show all available items, never repeat an item or information already displayed/)
-  assert.match(prompt,/CAPTION PRIORITY 4 — PRICE:[\s\S]*If and only if a price exists in PROPERTY CONTEXT/)
-  assert.match(prompt,/Price: R\$ 890\.000/)
-  assert.match(prompt,/Never add qualifiers such as "A partir de" unless that qualifier is part of the supplied price/)
+test('sale and rental get controlled exact display purpose', () => {
+  assert.match(buildPrompt({ mode: 'guided_tour' }), /1\. Finalidade: "À VENDA"/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /1\. Finalidade: "PARA LOCAÇÃO"/)
 })
 
-test('missing caption fields are omitted rather than invented',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{purpose:'sale',type:'Apartamento',highlights:[]},selectedCta:'Fale comigo'})
-  assert.match(prompt,/If a field was not supplied by the user, omit it completely/)
-  assert.match(prompt,/If no price exists, show no price caption/)
-  assert.doesNotMatch(prompt,/Neighborhood:|City:|Bedrooms:|Suites:|Parking spaces:|Price:/)
-})
-
-test('disabled texts remove every caption and informational overlay while preserving final CTA',()=>{
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'smart_staging',captions:'disabled'}),property,selectedCta:'Fale comigo'})
-  assert.match(prompt,/Do not create captions, subtitles, commercial text, informational overlays/)
-  assert.doesNotMatch(prompt,/DYNAMIC CAPTION SOURCE DATA|CAPTION PRIORITY|only opening-text exception/)
-  assert.match(prompt,/FINAL CALL TO ACTION/)
-})
-
-test('selected CTA is repeated only in the original closing instruction and exact delivery enforcement',()=>{
-  const cta='Fale com um especialista'
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:cta})
-  assert.equal(prompt.split(cta).length-1,2)
-  assert.match(prompt,/FINAL CALL TO ACTION: Show exactly one closing call to action, only at the end/)
-  assert.match(prompt,/FINAL CALL-TO-ACTION SCREEN DELIVERY ENFORCEMENT — REQUIRED/)
-  assert.match(prompt,/Never show, speak, paraphrase or repeat this call to action anywhere else/)
-  assert.match(prompt,/never repeat a word or phrase consecutively/i)
-  assert.match(prompt,/Agende já\.\.\. agende já\.\.\./)
-})
-
-test('final screen contains only CTA protected phone and optional WhatsApp icon',()=>{
-  const phone=resolveSmartTourProfessionalPhone(true,'11987654321')
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo',phone})
-  assert.match(prompt,/FINAL SCREEN — STRICT VISIBLE CONTENT ALLOWLIST/)
-  assert.match(prompt,/Render exactly and only the official CTA, WhatsApp when applicable, and the exact authorized phone value when provided/)
-  assert.match(prompt,/Never render any instruction wording or metadata label from this prompt/)
-  assert.match(prompt,/Do not create titles, subtitles, sentences, phrases, labels, tags, decorative copy, automatic text, random characters or unreadable words/)
-  assert.doesNotMatch(prompt,/Protected official/i)
-})
-
-test('context omits empty fields and preserves CTA when used independently',()=>{const value=buildPropertyContext({...property,price:''},'Fale comigo');assert.doesNotMatch(value,/Price:/);assert.match(value,/Fale comigo/)})
-test('valid professional phone is formatted and protected as exact literal text',()=>{const phone=resolveSmartTourProfessionalPhone(true,'11987654321');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property,selectedCta:'Fale comigo',phone});assert.equal(phone,'(11) 98765-4321');assert.match(prompt,/only authorized phone value is "\(11\) 98765-4321"/);assert.match(prompt,/Render only the characters inside these quotation marks as the phone value/);assert.match(prompt,/Use somente o telefone fornecido no campo oficial\. Não crie, não corrija e não substitua números\./)})
-test('choosing not to disclose the phone omits every profile number',()=>{const phone=resolveSmartTourProfessionalPhone(false,'11987654321');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo',phone});assert.equal(phone,'');assert.doesNotMatch(prompt,/98765-4321/);assert.match(prompt,/Do not display, narrate, write, imply or generate any phone number/)})
-test('missing or invalid professional phone is omitted without placeholder or example',()=>{for(const values of [[],[''],['12345'],['551198765432'],['00000000000']]) assert.equal(resolveSmartTourProfessionalPhone(true,...values),'');const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'narrated_tour'}),property,selectedCta:'Fale comigo'});assert.doesNotMatch(prompt,/\+55 \(\d{2}\)/);assert.doesNotMatch(prompt,/99999|0000|1234/);assert.match(prompt,/No phone value was provided or authorized/)})
-test('invalid WhatsApp falls back only to a valid phone from the professional profile',()=>assert.equal(resolveSmartTourProfessionalPhone(true,'invalid','1134567890'),'(11) 3456-7890'))
-test('phone-like text outside the professional profile never reaches the prompt',()=>{const prompt=buildSmartTourPrompt({generation:normalizeGeneration({mode:'guided_tour'}),property:{...property,description:'Ligue para (21) 98765-4321 e conheça',highlights:['Contato 11 3456-7890']},selectedCta:'WhatsApp 31 99876-5432'});assert.doesNotMatch(prompt,/98765-4321|3456-7890|99876-5432/);assert.match(prompt,/Do not display, narrate, write, imply or generate any phone number/)})
-test('request accepts exactly five ordered images and rejects the sixth and duplicates',()=>{const paths=Array.from({length:5},(_,i)=>`u/${i+1}.jpg`);const base={clientRequestId:'abc',imagePaths:paths,imageOrder:[...paths],property,generation:normalizeGeneration({mode:'narrated_tour'}),selectedCta:'CTA',includeProfessionalPhone:false,language:'pt-BR'};const validated=validateSmartTourRequest(base);assert.deepEqual(validated.imagePaths,paths);assert.deepEqual(validated.imageOrder,paths);const six=Array.from({length:6},(_,i)=>`u/${i+1}.jpg`);assert.throws(()=>validateSmartTourRequest({...base,imagePaths:six,imageOrder:[...six]}),/invalid_image_count/);assert.throws(()=>validateSmartTourRequest({...base,imagePaths:['u/1.jpg','u/1.jpg'],imageOrder:['u/1.jpg','u/1.jpg']}),/invalid_image_count/)})
-test('before_after and virtual staging are always normalized away',()=>assert.deepEqual(
-  (({furniture,stagingPresentation})=>({furniture,stagingPresentation}))(normalizeGeneration({mode:'smart_staging',furniture:'virtual_staging',stagingPresentation:'before_after'})),
-  {furniture:'original',stagingPresentation:'final_only'},
-))
-
-const regressionCombinations = [
-  {
-    name:'none presenter, narration, captions and exact CTA with WhatsApp',
-    generation:{mode:'cinematic_tour',presenterGender:'none',narration:'enabled',captions:'enabled',furniture:'virtual_staging',stagingPresentation:'before_after'},
-    selectedCta:'Saiba mais',
-    phone:realPhone,
-  },
-  {
-    name:'none presenter, no narration, no captions and no CTA',
-    generation:{mode:'cinematic_tour',presenterGender:'none',narration:'disabled',captions:'disabled',furniture:'virtual_staging',stagingPresentation:'before_after'},
-    selectedCta:'',
-    phone:realPhone,
-  },
-  {
-    name:'female presenter, narration, captions and CTA',
-    generation:{mode:'cinematic_tour',presenterGender:'female',narration:'enabled',captions:'enabled',furniture:'virtual_staging',stagingPresentation:'before_after'},
-    selectedCta:'Saiba mais',
-    phone:realPhone,
-  },
-  {
-    name:'male presenter, no narration, captions and no CTA',
-    generation:{mode:'cinematic_tour',presenterGender:'male',narration:'disabled',captions:'enabled',furniture:'virtual_staging',stagingPresentation:'before_after'},
-    selectedCta:'',
-    phone:realPhone,
-  },
-] as const
-
-test('four regression combinations keep all conditional layers independent and staging off',()=>{
-  for(const combination of regressionCombinations){
-    const config=normalizeGeneration(combination.generation)
-    const prompt=buildSmartTourPrompt({generation:config,property:realProperty,selectedCta:combination.selectedCta,phone:combination.phone})
-    assert.equal(config.furniture,'original',combination.name)
-    assert.equal(config.stagingPresentation,'final_only',combination.name)
-    assert.doesNotMatch(prompt,/apply virtual staging|plausible, removable furniture|BEFORE AND AFTER/i,combination.name)
-
-    if(config.presenterGender==='none'){
-      assert.match(prompt,/NO PRESENTER OR PERSON .* ABSOLUTE VISUAL PROHIBITION/s,combination.name)
-      assert.match(prompt,/human silhouettes.*human reflections.*human shadows.*hands.*faces.*body parts/s,combination.name)
-      assert.doesNotMatch(prompt,/Create one realistic professional (?:female|male) real estate agent/,combination.name)
-    } else {
-      assert.match(prompt,new RegExp(`Create one realistic professional ${config.presenterGender} real estate agent`),combination.name)
-      assert.doesNotMatch(prompt,/NO PRESENTER OR PERSON/,combination.name)
-    }
-
-    if(config.narration==='enabled'){
-      assert.match(prompt,/NARRATION DELIVERY ENFORCEMENT .* REQUIRED/s,combination.name)
-      assert.match(prompt,/brief enough to finish naturally before the final call-to-action screen.*Never cut off a word or sentence.*short, continuous and natural sentences.*environment currently visible/s,combination.name)
-    } else {
-      assert.match(prompt,/final video must contain no speech/,combination.name)
-      assert.doesNotMatch(prompt,/NARRATION DELIVERY ENFORCEMENT/,combination.name)
-    }
-
-    if(config.captions==='enabled'){
-      assert.match(prompt,/VISIBLE ON-SCREEN CAPTION DELIVERY ENFORCEMENT .* REQUIRED/s,combination.name)
-      assert.match(prompt,/captions are mandatory.*only one short caption at a time.*supplied area.*with or without a presenter/s,combination.name)
-      for(const fact of ['Purpose: sale','Neighborhood: Moema',`City: ${realProperty.city}`,'Bedrooms: 2','Suites: 1','Parking spaces: 2','Area: 85','- Vista livre']) assert.match(prompt,new RegExp(fact),combination.name)
-    } else {
-      assert.match(prompt,/Do not create captions, subtitles, commercial text, informational overlays/,combination.name)
-      assert.doesNotMatch(prompt,/VISIBLE ON-SCREEN CAPTION DELIVERY ENFORCEMENT/,combination.name)
-    }
-
-    if(combination.selectedCta){
-      assert.match(prompt,/FINAL CALL-TO-ACTION SCREEN DELIVERY ENFORCEMENT .* REQUIRED/s,combination.name)
-      assert.match(prompt,/must be the last visible scene[\s\S]*Saiba mais\n\nWhatsApp: \(11\) 99999-9999[\s\S]*Do not add any other phrase/,combination.name)
-    } else {
-      assert.match(prompt,/NO CALL TO ACTION OR COMMERCIAL FINAL SCREEN/,combination.name)
-      assert.doesNotMatch(prompt,/FINAL CALL-TO-ACTION SCREEN DELIVERY ENFORCEMENT|Saiba mais|WhatsApp:|99999-9999/,combination.name)
-    }
+test('all official combinations compile without contradictions or legacy staging instructions', () => {
+  assert.equal(OFFICIAL_MATRIX.length, 19)
+  for (const generation of OFFICIAL_MATRIX) {
+    const prompt = buildSmartTourPrompt({ generation, property, selectedCta: 'Agende sua visita' })
+    assert.doesNotMatch(prompt, /apply virtual staging|plausible, removable furniture|before-and-after/i)
+    assert.doesNotMatch(prompt, /\[\[\/?MODULE:|\{\{[A-Z_]+\}\}/)
   }
 })
 
-test('critical real combination complete prompt snapshot',(t)=>{
-  const combination=regressionCombinations[0]
-  const prompt=buildSmartTourPrompt({generation:normalizeGeneration(combination.generation),property:realProperty,selectedCta:combination.selectedCta,phone:combination.phone})
-  t.assert.snapshot(prompt)
+test('backend continues normalizing legacy staging inputs away', () => {
+  const normalized = normalizeGeneration({ mode: 'smart_staging', furniture: 'virtual_staging', stagingPresentation: 'before_after' })
+  assert.equal(normalized.furniture, 'original')
+  assert.equal(normalized.stagingPresentation, 'final_only')
+})
+
+test('professional phone resolution contract remains unchanged', () => {
+  assert.equal(resolveSmartTourProfessionalPhone(true, '11987654321'), '(11) 98765-4321')
+  assert.equal(resolveSmartTourProfessionalPhone(false, '11987654321'), '')
+  assert.equal(resolveSmartTourProfessionalPhone(true, 'invalid', '1134567890'), '(11) 3456-7890')
+  for (const phone of ['', '12345', '551198765432', '00000000000']) assert.equal(resolveSmartTourProfessionalPhone(true, phone), '')
+})
+
+test('request payload validation contract remains unchanged', () => {
+  const paths = Array.from({ length: 5 }, (_, index) => `u/${index + 1}.jpg`)
+  const base = {
+    clientRequestId: 'abc',
+    imagePaths: paths,
+    imageOrder: [...paths],
+    property,
+    generation: normalizeGeneration({ mode: 'narrated_tour' }),
+    selectedCta: 'CTA',
+    includeProfessionalPhone: false,
+    language: 'pt-BR',
+  }
+  const validated = validateSmartTourRequest(base)
+  assert.deepEqual(validated.imagePaths, paths)
+  assert.deepEqual(validated.imageOrder, paths)
+  const six = Array.from({ length: 6 }, (_, index) => `u/${index + 1}.jpg`)
+  assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: six, imageOrder: six }), /invalid_image_count/)
+  assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: ['u/1.jpg', 'u/1.jpg'], imageOrder: ['u/1.jpg', 'u/1.jpg'] }), /invalid_image_count/)
 })
