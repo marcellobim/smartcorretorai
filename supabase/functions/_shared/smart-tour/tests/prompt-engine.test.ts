@@ -111,19 +111,40 @@ test('creative protagonist confines human transformation to the broker', () => {
 })
 
 test('backend builds the complete narration exclusively from captured property data', () => {
+  const narration = (overrides: Partial<typeof property>) => buildSmartTourNarration({ ...property, ...overrides })
   assert.equal(
-    buildSmartTourNarration(property),
-    'Conheça este excelente apartamento à venda no bairro Moema, em São Paulo. São 2 dormitórios, 1 suíte e 1 vaga. Agende sua visita.',
+    narration({ district: 'Copacabana', city: 'Rio de Janeiro', bedrooms: '4', suites: '2', parkingSpaces: '2' }),
+    'Conheça este excelente apartamento à venda em Copacabana, Rio de Janeiro. São 4 dormitórios, 2 suítes e 2 vagas de garagem. Agende sua visita.',
   )
+  assert.match(narration({ bedrooms: '2', suites: '1', parkingSpaces: '1' }), /São 2 dormitórios, 1 suíte e 1 vaga de garagem\./)
+  assert.match(narration({ bedrooms: '1', suites: '1', parkingSpaces: '1' }), /O imóvel possui 1 dormitório, 1 suíte e 1 vaga de garagem\./)
+  assert.match(narration({ bedrooms: '3', suites: '0', parkingSpaces: '2' }), /São 3 dormitórios e 2 vagas de garagem\./)
+  assert.match(narration({ bedrooms: '2', suites: '1', parkingSpaces: '0' }), /São 2 dormitórios e 1 suíte\./)
+  assert.match(narration({ bedrooms: '1', suites: '0', parkingSpaces: '0' }), /O imóvel possui 1 dormitório\./)
+
   assert.equal(
-    buildSmartTourNarration({ ...property, purpose: 'rent', type: 'Casa', district: 'Limão' }),
-    'Conheça esta excelente casa para locação no bairro Limão, em São Paulo. São 2 dormitórios, 1 suíte e 1 vaga. Agende sua visita.',
+    narration({ purpose: 'rent', type: 'Casa', district: 'Boa Viagem', city: 'Recife' }),
+    'Conheça esta excelente casa para locação em Boa Viagem, Recife. São 2 dormitórios, 1 suíte e 1 vaga de garagem. Agende sua visita.',
   )
+  assert.match(narration({ type: 'Apartamento' }), /^Conheça este excelente apartamento /)
+  assert.match(narration({ type: 'Cobertura' }), /^Conheça esta excelente cobertura /)
+  assert.match(narration({ type: 'Tipo não mapeado' }), /^Conheça este imóvel à venda /)
+  assert.match(narration({ district: '', city: 'São Paulo' }), /à venda em São Paulo\./)
+  assert.match(narration({ district: 'Copacabana', city: '' }), /à venda em Copacabana\./)
+  assert.doesNotMatch(narration({ district: 'Copacabana', city: 'Rio de Janeiro', state: 'RJ' }), /Rio de Janeiro, RJ/)
+
+  const prohibited = /no bairro|na cidade em|suítes em|vagas em|0 suítes|0 vagas/
+  for (const values of [
+    { bedrooms: '4', suites: '2', parkingSpaces: '2' },
+    { bedrooms: '3', suites: '0', parkingSpaces: '2' },
+    { bedrooms: '2', suites: '1', parkingSpaces: '0' },
+    { bedrooms: '1', suites: '0', parkingSpaces: '0' },
+  ]) assert.doesNotMatch(narration(values), prohibited)
 })
 
 test('Gemini receives the ready narration and is forbidden from rewriting it', () => {
   const enabled = buildPrompt({ mode: 'cinematic_tour', narration: 'enabled' })
-  assert.match(enabled, /"Conheça este excelente apartamento à venda no bairro Moema, em São Paulo\. São 2 dormitórios, 1 suíte e 1 vaga\. Agende sua visita\."/)
+  assert.match(enabled, /"Conheça este excelente apartamento à venda em Moema, São Paulo\. São 2 dormitórios, 1 suíte e 1 vaga de garagem\. Agende sua visita\."/)
   assert.match(enabled, /Utilize exatamente o texto abaixo/)
   assert.match(enabled, /Não altere\. Não reescreva\. Não complemente\. Não substitua palavras\. Não adicione informações\. Não mude a ordem\./)
   assert.match(enabled, /Não improvise e não resuma/)
@@ -264,8 +285,8 @@ test('structured data preserves literals and omits unauthorized phone-like text'
 })
 
 test('sale and rental get controlled exact display purpose', () => {
-  assert.match(buildPrompt({ mode: 'guided_tour' }), /apartamento à venda no bairro Moema/)
-  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /apartamento para locação no bairro Moema/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }), /apartamento à venda em Moema, São Paulo/)
+  assert.match(buildPrompt({ mode: 'guided_tour' }, 'Fale comigo', '', { ...property, purpose: 'rent' }), /apartamento para locação em Moema, São Paulo/)
   assert.doesNotMatch(buildPrompt({ mode: 'guided_tour' }), /apartamento venda|apartamento locação/)
 })
 

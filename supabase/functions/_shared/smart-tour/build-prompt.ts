@@ -106,9 +106,9 @@ const purposeText = (value: unknown) => {
 
 const naturalPurposeText = (value: unknown) => {
   const purpose = removeNonOfficialPhoneNumbers(value).toLocaleLowerCase('pt-BR')
-  if (purpose === 'sale') return 'à venda'
-  if (purpose === 'rent') return 'para locação'
-  return removeNonOfficialPhoneNumbers(value)
+  if (purpose === 'sale' || purpose === 'venda') return 'à venda'
+  if (purpose === 'rent' || purpose === 'locação' || purpose === 'locacao') return 'para locação'
+  return ''
 }
 
 const measuredFact = (value: unknown, singular: string, plural: string) => {
@@ -123,24 +123,58 @@ const summarizedDescription = (property: PropertyContext) => [
   measuredFact(property.parkingSpaces, 'vaga', 'vagas'),
 ].filter(Boolean).join(' • ')
 
+const NARRATION_PROPERTY_TYPES: Record<string, { demonstrative: 'este' | 'esta'; label: string }> = {
+  apartamento: { demonstrative: 'este', label: 'apartamento' },
+  casa: { demonstrative: 'esta', label: 'casa' },
+  cobertura: { demonstrative: 'esta', label: 'cobertura' },
+  sobrado: { demonstrative: 'este', label: 'sobrado' },
+  'studio / loft': { demonstrative: 'este', label: 'studio / loft' },
+  'terreno / lote': { demonstrative: 'este', label: 'terreno / lote' },
+  comercial: { demonstrative: 'este', label: 'imóvel comercial' },
+}
+
+const narrationOpening = (property: PropertyContext) => {
+  const capturedType = removeNonOfficialPhoneNumbers(property.type).toLocaleLowerCase('pt-BR')
+  const mappedType = NARRATION_PROPERTY_TYPES[capturedType]
+  const subject = mappedType
+    ? `Conheça ${mappedType.demonstrative} excelente ${mappedType.label}`
+    : 'Conheça este imóvel'
+  return [subject, naturalPurposeText(property.purpose)].filter(Boolean).join(' ')
+}
+
+const narrationLocation = (property: PropertyContext) => {
+  const district = removeNonOfficialPhoneNumbers(property.district)
+  const city = removeNonOfficialPhoneNumbers(property.city)
+  const location = [district, city].filter(Boolean).join(', ')
+  return location ? `em ${location}` : ''
+}
+
+const narratedFact = (value: unknown, singular: string, plural: string) => {
+  const literal = removeNonOfficialPhoneNumbers(value)
+  if (!literal || Number(literal) === 0) return null
+  return { literal, text: `${literal} ${literal === '1' ? singular : plural}` }
+}
+
+const naturalList = (items: string[]) => {
+  if (items.length < 2) return items[0] || ''
+  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
+}
+
 const narratedDescription = (property: PropertyContext) => {
   const facts = [
-    measuredFact(property.bedrooms, 'dormitório', 'dormitórios'),
-    measuredFact(property.suites, 'suíte', 'suítes'),
-    measuredFact(property.parkingSpaces, 'vaga', 'vagas'),
-  ].filter(Boolean)
-  if (facts.length < 2) return facts[0] || ''
-  return `${facts.slice(0, -1).join(', ')} e ${facts[facts.length - 1]}`
+    narratedFact(property.bedrooms, 'dormitório', 'dormitórios'),
+    narratedFact(property.suites, 'suíte', 'suítes'),
+    narratedFact(property.parkingSpaces, 'vaga de garagem', 'vagas de garagem'),
+  ].filter((fact): fact is { literal: string; text: string } => Boolean(fact))
+  if (!facts.length) return ''
+  const subject = facts[0].literal === '1' ? 'O imóvel possui' : 'São'
+  return `${subject} ${naturalList(facts.map(fact => fact.text))}.`
 }
 
 export function buildSmartTourNarration(property: PropertyContext) {
-  const propertyType = removeNonOfficialPhoneNumbers(property.type).toLocaleLowerCase('pt-BR')
-  const demonstrative = propertyType === 'casa' || propertyType === 'cobertura' ? 'esta' : 'este'
-  const purpose = naturalPurposeText(property.purpose)
-  const district = removeNonOfficialPhoneNumbers(property.district)
-  const city = removeNonOfficialPhoneNumbers(property.city)
+  const opening = [narrationOpening(property), narrationLocation(property)].filter(Boolean).join(' ')
   const description = narratedDescription(property)
-  return `Conheça ${demonstrative} excelente ${propertyType} ${purpose} no bairro ${district}, em ${city}. São ${description}. Agende sua visita.`
+  return [`${opening}.`, description, 'Agende sua visita.'].filter(Boolean).join(' ')
 }
 
 const safeHighlights = (property: PropertyContext) => (property.highlights || [])
