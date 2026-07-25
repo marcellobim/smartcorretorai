@@ -37,7 +37,7 @@ const buildPrompt = (
   phone,
 })
 
-test('has one complete modular Briefing Base as the only instruction source', () => {
+test('has one complete modular Briefing Base and no legacy instruction source', () => {
   const source = readFileSync(new URL('../build-prompt.ts', import.meta.url), 'utf8')
   assert.equal((source.match(/export const SMART_TOUR_BASE_BRIEFING =/g) || []).length, 1)
   for (const module of ['CORRETOR', 'NARRACAO', 'LEGENDAS', 'CTA', 'TELEFONE']) {
@@ -65,7 +65,7 @@ test('request text contains structured data, compiled base and remaining modules
   assert.doesNotMatch(prompt, /\[\[\/?MODULE:|\{\{[A-Z_]+\}\}/)
 })
 
-test('compiler only removes disabled modules and keeps fixed rules byte-for-byte', () => {
+test('compiler resolves modules while keeping fixed Briefing Base rules byte-for-byte', () => {
   const full = buildPrompt({ mode: 'guided_tour', presenterGender: 'female', narration: 'enabled', captions: 'enabled' })
   const clean = buildPrompt({ mode: 'cinematic_tour', presenterGender: 'none', narration: 'disabled', captions: 'disabled' }, '', '')
   for (const fixed of [
@@ -158,7 +158,7 @@ test('Gemini receives the ready narration and is forbidden from rewriting it', (
   assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', narration: 'disabled' }), /MÓDULO NARRAÇÃO/)
 })
 
-test('caption module requires at most five ordered commercial scene captions', () => {
+test('caption module makes every available commercial scene caption mandatory', () => {
   const enabled = buildPrompt({ mode: 'cinematic_tour', captions: 'enabled' })
   assert.match(enabled, /MÓDULO LEGENDAS — OBRIGATÓRIO QUANDO PRESENTE/)
   assert.match(enabled, /As legendas são obrigatórias quando este módulo estiver presente/)
@@ -178,7 +178,12 @@ test('caption module requires at most five ordered commercial scene captions', (
   assert.match(enabled, /Se preco não existir ou estiver vazio, use o próximo item de diferenciais/)
   assert.match(enabled, /Se houver menos de cinco informações válidas, use apenas as disponíveis e não preencha espaços/)
   assert.match(enabled, /O CTA final permanece separado dessas cinco legendas/)
+  assert.match(enabled, /As legendas fazem parte obrigatória da geração quando o módulo LEGENDAS estiver ativo/)
+  assert.match(enabled, /Não podem ser omitidas e devem aparecer obrigatoriamente/)
+  assert.match(enabled, /Exiba exatamente cinco legendas comerciais quando existirem informações suficientes, com uma legenda por cena/)
+  assert.match(enabled, /Nunca substitua legendas por narração\. Nunca omita legendas\. Nunca transforme legendas em elementos opcionais\./)
   assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', captions: 'disabled' }), /MÓDULO LEGENDAS/)
+  assert.doesNotMatch(buildPrompt({ mode: 'cinematic_tour', captions: 'disabled' }), /REFORÇO DE LEGENDAS/)
 })
 
 test('caption price is available only when supplied and authorized', () => {
@@ -210,10 +215,33 @@ test('CTA and phone are exact nested modules shown only on the final screen', ()
   assert.match(prompt, /Não fale o CTA\. Não crie frases comerciais/)
 })
 
+test('final CTA content remains exactly equal to the SmartCorretorAI text', () => {
+  const cta = 'Agende sua visita — condição 100% exclusiva! contato@smartcorretor.ai https://smartcorretor.ai/imovel?id=42&origem=tour'
+  const prompt = buildPrompt({ mode: 'guided_tour' }, cta, '')
+  assert.ok(prompt.includes(JSON.stringify(cta)))
+  assert.match(prompt, /O conteúdo do CTA deverá ser reproduzido exatamente como recebido, caractere por caractere/)
+  assert.match(prompt, /Nenhum caractere poderá ser alterado/)
+  assert.match(prompt, /Não recrie, interprete, corrija, complete, reformate ou substitua o conteúdo textual do cartão final/)
+})
+
+test('final card preserves phones, e-mails and URLs and forbids creating alternatives', () => {
+  const phone = '+55 (11) 98765-4321'
+  const email = 'contato+tour@smartcorretor.ai'
+  const url = 'https://smartcorretor.ai/imovel/ABC-123?utm_source=smart-tour&ref=CTA'
+  const cta = `Fale comigo | ${email} | ${url}`
+  const prompt = buildPrompt({ mode: 'guided_tour' }, cta, phone)
+
+  assert.ok(prompt.includes(JSON.stringify(phone)))
+  assert.ok(prompt.includes(email))
+  assert.ok(prompt.includes(url))
+  assert.match(prompt, /É proibido criar telefone, alterar telefone, criar e-mail, alterar e-mail, criar URL, alterar URL, criar frases, corrigir frases ou completar frases/)
+})
+
 test('disabling CTA removes CTA and phone modules and strips the profile phone', () => {
   const prompt = buildPrompt({ mode: 'guided_tour' }, '', '(11) 98765-4321')
   assert.doesNotMatch(prompt, /MÓDULO CTA|Na mesma tela final|98765-4321/)
   assert.doesNotMatch(prompt, /\"cta\":|\"telefone\":/)
+  assert.doesNotMatch(prompt, /REFORÇO DETERMINÍSTICO DO CTA FINAL/)
   assert.match(prompt, /sem CTA, nenhuma tela final comercial, CTA, telefone ou contato/)
 })
 

@@ -184,12 +184,30 @@ const safeHighlights = (property: PropertyContext) => (property.highlights || []
 
 const replaceLiteral = (source: string, token: string, value: string) => source.replaceAll(token, () => value)
 
+const CTA_DETERMINISTIC_REINFORCEMENT = `REFORÇO DETERMINÍSTICO DO CTA FINAL — OBRIGATÓRIO
+O cartão final deverá utilizar EXCLUSIVAMENTE os textos fornecidos pelo SmartCorretorAI. O conteúdo do CTA deverá ser reproduzido exatamente como recebido, caractere por caractere. Nenhum caractere poderá ser alterado.
+É proibido criar telefone, alterar telefone, criar e-mail, alterar e-mail, criar URL, alterar URL, criar frases, corrigir frases ou completar frases.
+Não recrie, interprete, corrija, complete, reformate ou substitua o conteúdo textual do cartão final.`
+
+const REQUIRED_CAPTIONS_REINFORCEMENT = `REFORÇO DE LEGENDAS — OBRIGATÓRIO
+As legendas fazem parte obrigatória da geração quando o módulo LEGENDAS estiver ativo. Não podem ser omitidas e devem aparecer obrigatoriamente.
+Exiba exatamente cinco legendas comerciais quando existirem informações suficientes, com uma legenda por cena. Quando houver menos de cinco informações válidas, exiba obrigatoriamente todas as disponíveis, conforme o roteiro do módulo LEGENDAS.
+Nunca substitua legendas por narração. Nunca omita legendas. Nunca transforme legendas em elementos opcionais.`
+
+const MODULE_REINFORCEMENTS: Partial<Record<BriefingModule, string>> = {
+  CTA: CTA_DETERMINISTIC_REINFORCEMENT,
+  LEGENDAS: REQUIRED_CAPTIONS_REINFORCEMENT,
+}
+
 function compileBaseBriefing(base: string, activeModules: Set<BriefingModule>, values: Record<string, string>) {
   let compiled = base
   let previous = ''
   while (compiled !== previous) {
     previous = compiled
-    compiled = compiled.replace(MODULE_PATTERN, (_match, module: BriefingModule, content: string) => activeModules.has(module) ? content.trim() : '')
+    compiled = compiled.replace(MODULE_PATTERN, (_match, module: BriefingModule, content: string) => {
+      if (!activeModules.has(module)) return ''
+      return [content.trim(), MODULE_REINFORCEMENTS[module]].filter(Boolean).join('\n')
+    })
   }
   for (const [token, value] of Object.entries(values)) compiled = replaceLiteral(compiled, `{{${token}}}`, value)
   if (/\{\{[A-Z_]+\}\}/.test(compiled)) throw new Error('unresolved_briefing_value')
