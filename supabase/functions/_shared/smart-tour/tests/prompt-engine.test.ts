@@ -122,6 +122,9 @@ test('caption module requires at most five ordered commercial scene captions', (
   assert.match(enabled, /MÓDULO LEGENDAS — OBRIGATÓRIO QUANDO PRESENTE/)
   assert.match(enabled, /As legendas são obrigatórias quando este módulo estiver presente/)
   assert.match(enabled, /no máximo uma informação comercial por cena/)
+  assert.match(enabled, /Renderize cada legenda em uma zona inferior segura, discreta e legível/)
+  assert.match(enabled, /Não cubra o rosto do corretor ou da corretora nem elementos importantes do imóvel/)
+  assert.match(enabled, /distância adequada das bordas e dos controles típicos de Reels e Shorts/)
   assert.match(enabled, /Não repita finalidade, tipologia, dormitórios, suítes ou vagas/)
   const sequence = ['CENA 1 — estadoDoImovel', 'CENA 2 — primeiro item de diferenciais', 'CENA 3 — item de localização ainda não utilizado', 'CENA 4 — segundo item de diferenciais', 'CENA 5 — preco']
   let previous = -1
@@ -202,6 +205,9 @@ test('fixed visual restrictions preserve the property and image order', () => {
 
 test('each original photograph remains the immutable master frame', () => {
   const prompt = buildPrompt({ mode: 'guided_tour' })
+  assert.match(prompt, /Renderize exclusivamente em formato vertical 9:16/)
+  assert.match(prompt, /Preserve o máximo possível da composição original dentro do quadro vertical/)
+  assert.match(prompt, /não corte elementos essenciais do ambiente para acomodar o apresentador/)
   assert.match(prompt, /Cada fotografia é o quadro mestre e a referência visual imutável de sua cena/)
   assert.match(prompt, /não inverta horizontalmente, não espelhe, não troque o lado dos elementos/)
   assert.match(prompt, /não mude o ponto de vista e não reconstrua o ambiente a partir de outro ângulo/)

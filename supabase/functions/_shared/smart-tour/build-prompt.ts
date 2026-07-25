@@ -27,6 +27,7 @@ Este produto não contempla Virtual Staging, casal, família, pessoas vivendo no
 Preserve integralmente arquitetura, acabamentos, móveis existentes, decoração, objetos, portas, janelas, pisos, tetos, iluminação, cores, proporções, layout, área externa e paisagismo existentes.
 Não redesenhe, modernize, reforme, aprimore, substitua, remova ou acrescente elementos. Não crie móveis, cômodos, passagens, varandas, ângulos, pontos de vista ou atributos não comprovados pelas fotografias.
 Utilize exatamente uma fotografia por cena como única fonte visual. Nunca combine, sobreponha, mescle, empilhe ou use duas fotografias na mesma cena. Utilize todas as fotografias e respeite integralmente a ordem recebida.
+FORMATO DE SAÍDA — Renderize exclusivamente em formato vertical 9:16. Preserve o máximo possível da composição original dentro do quadro vertical e não corte elementos essenciais do ambiente para acomodar o apresentador.
 Cada fotografia é o quadro mestre e a referência visual imutável de sua cena. Preserve sua orientação original e não inverta horizontalmente, não espelhe, não troque o lado dos elementos, não mude o ponto de vista e não reconstrua o ambiente a partir de outro ângulo.
 Não altere a composição principal, não aproxime excessivamente um único objeto, não recorte partes importantes do ambiente e não transforme uma fotografia ampla em close. Mantenha visíveis os principais elementos da imagem original; ela deve continuar imediatamente reconhecível durante toda a cena.
 Use somente movimentos de câmera muito suaves e de baixa amplitude. Evite órbitas, giros, rotações amplas e qualquer movimento que exija imaginar áreas não mostradas. Não gere conteúdo fora dos limites visuais conhecidos da fotografia.
@@ -57,6 +58,7 @@ Mantenha a narração curta, natural, sincronizada e adequada a um vídeo de apr
 [[MODULE:LEGENDAS]]
 MÓDULO LEGENDAS — OBRIGATÓRIO QUANDO PRESENTE
 As legendas são obrigatórias quando este módulo estiver presente. Devem ser curtas, legíveis, discretas e sincronizadas, com no máximo uma informação comercial por cena, sem cobrir partes importantes do imóvel.
+Renderize cada legenda em uma zona inferior segura, discreta e legível. Não cubra o rosto do corretor ou da corretora nem elementos importantes do imóvel. Mantenha distância adequada das bordas e dos controles típicos de Reels e Shorts.
 Não repita finalidade, tipologia, dormitórios, suítes ou vagas já apresentados pela narração. Monte um roteiro de no máximo cinco legendas comerciais, nesta ordem:
 CENA 1 — estadoDoImovel, exatamente como recebido, quando existir.
 CENA 2 — primeiro item de diferenciais, exatamente como recebido.
