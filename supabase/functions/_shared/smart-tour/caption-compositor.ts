@@ -26,7 +26,11 @@ export function decodeSmartTourCaptionRenderId(value: string) {
 }
 
 export function hasDeterministicSmartTourText(briefing: SmartTourStructuredBriefing) {
-  return briefing.legendas.ativas && briefing.cenas.some(scene => Boolean(scene.legenda))
+  const timedText = [
+    ...(briefing.timeline?.legendas || []),
+    ...(briefing.timeline?.cta ? [briefing.timeline.cta] : []),
+  ]
+  return briefing.legendas.ativas && (timedText.some(block => Boolean(block.texto)) || briefing.cenas.some(scene => Boolean(scene.legenda)))
 }
 
 export function parseSmartTourStructuredBriefing(value: unknown): SmartTourStructuredBriefing {
@@ -36,6 +40,20 @@ export function parseSmartTourStructuredBriefing(value: unknown): SmartTourStruc
     const briefing = parsed as SmartTourStructuredBriefing
     if (briefing.versao !== 'smart-tour-structured-briefing-v1' || !Array.isArray(briefing.cenas)) throw new Error('invalid')
     if (briefing.cenas.length !== briefing.configuracoes?.quantidadeImagens) throw new Error('invalid')
+    if (briefing.timeline) {
+      const blocks = [...briefing.timeline.legendas, ...briefing.timeline.narracao, briefing.timeline.cta]
+      const validBlock = (block: { inicioSegundos: number; fimSegundos: number }) =>
+        Number.isFinite(block.inicioSegundos) && Number.isFinite(block.fimSegundos) &&
+        block.inicioSegundos >= 0 && block.fimSegundos > block.inicioSegundos && block.fimSegundos <= 10
+      if (
+        briefing.timeline.duracaoTotalSegundos !== 10 ||
+        briefing.timeline.legendas.length !== 4 ||
+        briefing.timeline.narracao.length !== 5 ||
+        briefing.timeline.cta.inicioSegundos !== 8 ||
+        briefing.timeline.cta.fimSegundos !== 10 ||
+        !blocks.every(validBlock)
+      ) throw new Error('invalid')
+    }
     return briefing
   } catch {
     throw new Error('smart_tour_caption_briefing_invalid')
@@ -46,22 +64,37 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
   if (!/^https:\/\//i.test(videoUrl)) throw new Error('smart_tour_caption_video_url_invalid')
   const duration = briefing.configuracoes.duracaoSegundos
   const sceneDuration = duration / Math.max(1, briefing.cenas.length)
-  const captionElements = briefing.cenas.flatMap((scene, index) => {
-    if (!scene.legenda) return []
-    const isClosing = scene.tipo === 'encerramento'
+  const legacyTextBlocks = briefing.cenas.map((scene, index) => ({
+    bloco: scene.numero,
+    inicioSegundos: index * sceneDuration,
+    fimSegundos: (index + 1) * sceneDuration,
+    texto: scene.legenda,
+    isClosing: scene.tipo === 'encerramento',
+  }))
+  const timedTextBlocks = briefing.timeline
+    ? [
+        ...briefing.timeline.legendas.map(block => ({ ...block, isClosing: false })),
+        { ...briefing.timeline.cta, isClosing: true },
+      ]
+    : legacyTextBlocks
+  const captionElements = timedTextBlocks.flatMap(block => {
+    if (!block.texto) return []
+    const blockDuration = block.fimSegundos - block.inicioSegundos
+    if (block.inicioSegundos < 0 || blockDuration <= 0 || block.fimSegundos > duration) throw new Error('smart_tour_caption_timeline_invalid')
+    const isClosing = block.isClosing
     return [{
-      name: `Smart-Tour-Caption-${scene.numero}`,
+      name: `Smart-Tour-Caption-${block.bloco}`,
       type: 'text',
       track: 2,
-      time: index * sceneDuration,
-      duration: sceneDuration,
+      time: block.inicioSegundos,
+      duration: blockDuration,
       x: '50%',
       y: isClosing ? '79%' : '82%',
       width: '88%',
       height: isClosing ? '18%' : '14%',
       x_alignment: '50%',
       y_alignment: '50%',
-      text: scene.legenda,
+      text: block.texto,
       fill_color: '#ffffff',
       font_family: 'Inter',
       font_weight: 700,

@@ -18,7 +18,7 @@ const property = {
   price: 'R$ 2.850.000',
   condominium: 'R$ 1.200',
   iptu: 'R$ 650',
-  highlights: ['Vista livre', 'Varanda gourmet', 'Próximo ao metrô'],
+  highlights: ['Próximo ao metrô', 'Lazer completo', 'Varanda gourmet'],
   description: 'Apartamento amplo com excelente distribuição.',
 }
 const generation = { mode: 'guided_tour', presenterGender: 'female', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' } as const
@@ -48,7 +48,7 @@ test('SmartCorretorAI builds the complete structured JSON without asking Gemini 
     localizacao: { estado: 'SP', cidade: 'São Paulo', bairro: 'Moema' },
     dormitorios: '4', suites: '2', banheiros: null, vagas: '3', area: '198',
     preco: 'R$ 2.850.000', condominio: 'R$ 1.200', iptu: 'R$ 650',
-    destaques: ['Vista livre', 'Varanda gourmet', 'Próximo ao metrô'],
+    destaques: ['Próximo ao metrô', 'Lazer completo', 'Varanda gourmet'],
     descricao: 'Apartamento amplo com excelente distribuição.',
   })
   assert.deepEqual(briefing.apresentador, { tipo: 'corretora', unicoHumanoAutorizado: true })
@@ -80,8 +80,8 @@ test('captions follow the five-scene commercial structure and reserve the last s
   assert.deepEqual(briefing.cenas.map(scene => scene.legenda), [
     'Moema • São Paulo',
     'Pronto para morar\n4 Dormitórios • 2 Suítes • 3 Vagas',
-    'Condomínio R$ 1.200',
-    'Vista livre • Varanda gourmet',
+    'Próximo ao metrô',
+    'Lazer completo • Varanda gourmet',
     'Agende sua visita\n(11) 98765-4321',
   ])
   assert.deepEqual(briefing.cenas.map(scene => scene.imagem), imagePaths)
@@ -89,7 +89,73 @@ test('captions follow the five-scene commercial structure and reserve the last s
   assert.equal(briefing.cenas.at(-1)?.legenda, `${briefing.cta.titulo}\n${briefing.cta.telefone}`)
   assert.doesNotMatch(briefing.cenas.at(-1)?.legenda || '', /R\$ 2\.850\.000/)
   assert.ok(briefing.cenas.every(scene => !scene.legenda.includes('R$ 2.850.000')))
+  assert.ok(briefing.cenas.every(scene => !scene.legenda.includes('R$ 1.200')))
+  assert.ok(briefing.cenas.every(scene => !scene.legenda.includes('R$ 650')))
   assert.deepEqual(briefing.cenas.map(scene => Boolean(scene.legenda)), [true, true, true, true, true])
+})
+
+test('text, narration and CTA use five fixed temporal blocks independently from 1 to 5 images', () => {
+  for (const imageCount of [1, 2, 3, 4, 5]) {
+    const paths = imagePaths.slice(0, imageCount)
+    const briefing = build({ imagePaths: paths })
+    assert.equal(briefing.configuracoes.quantidadeImagens, imageCount)
+    assert.equal(briefing.cenas.length, imageCount)
+    assert.deepEqual(briefing.sequenciaDasImagens, paths)
+    assert.deepEqual(briefing.cenas.map(scene => scene.imagem), paths)
+    assert.deepEqual(briefing.movimentosDesejados, ['movimento_linear_baixa_amplitude', 'pan_suave', 'push_in_minimo', 'pull_back_minimo'])
+    assert.deepEqual(briefing.cenas.map(scene => scene.movimento), ['movimento_linear_baixa_amplitude', 'pan_suave', 'push_in_minimo', 'pull_back_minimo', 'movimento_linear_baixa_amplitude'].slice(0, imageCount))
+    assert.equal(briefing.timeline.duracaoTotalSegundos, 10)
+    assert.equal(briefing.timeline.legendas.length, 4)
+    assert.equal(briefing.timeline.narracao.length, 5)
+    assert.deepEqual(briefing.timeline.legendas.map(block => [block.inicioSegundos, block.fimSegundos]), [[0, 2], [2, 4], [4, 6], [6, 8]])
+    assert.deepEqual(briefing.timeline.narracao.map(block => [block.inicioSegundos, block.fimSegundos]), [[0, 2], [2, 4], [4, 6], [6, 8], [8, 10]])
+    assert.deepEqual([briefing.timeline.cta.inicioSegundos, briefing.timeline.cta.fimSegundos], [8, 10])
+    assert.equal(briefing.timeline.cta.texto, 'Agende sua visita\n(11) 98765-4321')
+    assert.deepEqual(
+      [...briefing.timeline.legendas.map(block => block.texto), briefing.timeline.cta.texto],
+      ['Moema • São Paulo', 'Pronto para morar\n4 Dormitórios • 2 Suítes • 3 Vagas', 'Próximo ao metrô', 'Lazer completo • Varanda gourmet', 'Agende sua visita\n(11) 98765-4321'],
+    )
+    assert.ok(briefing.timeline.narracao.every(block => Boolean(block.texto)))
+    assert.equal(briefing.apresentador.tipo, 'corretora')
+    assert.ok(briefing.regrasObrigatorias.some(item => item.codigo === 'apresentador_obrigatorio'))
+  }
+})
+
+test('automatic captions never use monetary values, fees, taxes or property codes', () => {
+  const briefing = build({
+    property: {
+      ...property,
+      price: 'R$ 9.999.999',
+      condominium: 'R$ 8.888',
+      iptu: 'R$ 7.777',
+      description: 'Código do imóvel SC-12345. Taxa extra R$ 6.666.',
+      highlights: ['Bairro valorizado', 'Piscina', 'Academia', 'Alto padrão'],
+    },
+  })
+  const captions = briefing.cenas.map(scene => scene.legenda).join('\n')
+  assert.doesNotMatch(captions, /9\.999\.999|8\.888|7\.777|6\.666|SC-12345|Taxa extra/)
+  assert.equal(briefing.cenas[2].legenda, 'Bairro valorizado')
+  assert.equal(briefing.cenas[3].legenda, 'Piscina • Alto padrão')
+  assert.match(JSON.stringify(briefing.regrasObrigatorias), /Condomínio somente pode aparecer como benefício selecionado/)
+  assert.equal(briefing.regrasObrigatorias.some(item => item.codigo === 'preco_intermediario'), false)
+})
+
+test('an active presenter is mandatory, unique, natural and the only person exception', () => {
+  const female = build()
+  const femaleRules = JSON.stringify(female.regrasObrigatorias)
+  assert.deepEqual(female.apresentador, { tipo: 'corretora', unicoHumanoAutorizado: true })
+  assert.match(femaleRules, /exibir obrigatoriamente exatamente uma pessoa: uma corretora/)
+  assert.match(femaleRules, /única exceção autorizada à regra de não inventar pessoas/)
+  assert.match(femaleRules, /Não criar, exibir ou sugerir nenhuma pessoa adicional/)
+  assert.match(femaleRules, /aparecer naturalmente durante a apresentação/)
+  assert.match(femaleRules, /O imóvel deve ser preservado integralmente/)
+  assert.match(female.regrasPreservacao.transformacoesPermitidas.join(' '), /única corretora autorizada/)
+
+  const male = build({ generation: { ...generation, presenterGender: 'male' } })
+  const maleRules = JSON.stringify(male.regrasObrigatorias)
+  assert.deepEqual(male.apresentador, { tipo: 'corretor', unicoHumanoAutorizado: true })
+  assert.match(maleRules, /exibir obrigatoriamente exatamente uma pessoa: um corretor/)
+  assert.match(maleRules, /O corretor é a única exceção autorizada/)
 })
 
 test('CTA title and phone preserve every supplied character in the final scene', () => {
@@ -99,9 +165,17 @@ test('CTA title and phone preserve every supplied character in the final scene',
   assert.equal(briefing.cenas.at(-1)?.legenda, 'Fale comigo — agora!\n+55 (11) 98765-4321')
 })
 
-test('narration has scenes as its single source of truth and leaves 0.8 second for the final phone', () => {
+test('timeline narration is the effective temporal source and keeps legacy scene fields compatible', () => {
   const briefing = build()
   assert.equal('narracao' in briefing, false)
+  assert.deepEqual(briefing.timeline.narracao.map(block => [block.inicioSegundos, block.fimSegundos]), [[0, 2], [2, 4], [4, 6], [6, 8], [8, 10]])
+  assert.deepEqual(briefing.timeline.narracao.map(block => block.texto), [
+    'Conheça este excelente apartamento à venda.',
+    'Espaços bem distribuídos para sua rotina.',
+    'Mobilidade que facilita o cotidiano.',
+    'Qualidade percebida em cada escolha.',
+    'Entre em contato.',
+  ])
   for (const scene of briefing.cenas) {
     assert.notEqual(scene.narracao, scene.legenda)
     assert.ok(scene.narracao.split(/\s+/).length <= (scene.tipo === 'encerramento' ? 3 : 6), scene.narracao)
@@ -173,6 +247,8 @@ test('disabled modules remain empty without changing duration or images', () => 
     phone: '(11) 98765-4321',
   })
   assert.deepEqual(disabled.apresentador, { tipo: 'nenhum', unicoHumanoAutorizado: false })
+  assert.equal(disabled.regrasObrigatorias.some(item => item.codigo.startsWith('apresentador_')), false)
+  assert.match(String(disabled.regrasObrigatorias.find(item => item.codigo === 'sem_invencao')?.valor), /não inventar dados, contatos, ambientes, pessoas ou elementos/)
   assert.equal('narracao' in disabled, false)
   assert.deepEqual(disabled.legendas, { ativas: false })
   assert.equal('staging' in disabled, false)
@@ -181,6 +257,9 @@ test('disabled modules remain empty without changing duration or images', () => 
   assert.equal(disabled.configuracoes.quantidadeImagens, 5)
   assert.deepEqual(disabled.cenas.map(scene => scene.imagem), imagePaths)
   assert.ok(disabled.cenas.every(scene => scene.frase_id === '' && scene.narracao === '' && scene.legenda === '' && scene.duracaoNarracaoSegundos === 0))
+  assert.ok(disabled.timeline.legendas.every(block => block.texto === ''))
+  assert.ok(disabled.timeline.narracao.every(block => block.texto === ''))
+  assert.equal(disabled.timeline.cta.texto, '')
 })
 
 test('Gemini Omni receives the exact JSON as the only briefing text and remains the video generator', () => {

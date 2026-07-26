@@ -99,6 +99,13 @@ Seu trabalho é somente registrar esse imóvel como um cinegrafista profissional
 
 type Presenter = 'corretora' | 'corretor' | 'nenhum'
 export type SmartTourSceneType = 'abertura' | 'caracteristicas' | 'diferencial' | 'localizacao' | 'encerramento'
+export type SmartTourTimelineBlock = {
+  bloco: number
+  inicioSegundos: number
+  fimSegundos: number
+  texto: string
+  frase_id?: string
+}
 
 type PhraseDefinition = {
   id: string
@@ -153,6 +160,12 @@ export type SmartTourStructuredBriefing = {
     duracaoNarracaoSegundos: 1.8 | 1.2 | 0
     tempoTelefoneVisivelAposNarracaoSegundos: 0.8 | 0
   }>
+  timeline: {
+    duracaoTotalSegundos: 10
+    legendas: SmartTourTimelineBlock[]
+    narracao: SmartTourTimelineBlock[]
+    cta: SmartTourTimelineBlock & { titulo: string; telefone: string }
+  }
   legendas: { ativas: boolean }
   cta: { titulo: string; telefone: string }
   regrasPreservacao: {
@@ -202,6 +215,30 @@ const MOVEMENTS: SmartTourStructuredBriefing['cenas'][number]['movimento'][] = [
   'pull_back_minimo',
 ]
 
+const TEXT_TIMELINE = [
+  { bloco: 1, inicioSegundos: 0, fimSegundos: 2, tipo: 'abertura' },
+  { bloco: 2, inicioSegundos: 2, fimSegundos: 4, tipo: 'caracteristicas' },
+  { bloco: 3, inicioSegundos: 4, fimSegundos: 6, tipo: 'localizacao' },
+  { bloco: 4, inicioSegundos: 6, fimSegundos: 8, tipo: 'diferencial' },
+  { bloco: 5, inicioSegundos: 8, fimSegundos: 10, tipo: 'encerramento' },
+] as const
+
+const LOCATION_HIGHLIGHTS = new Set([
+  'Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a universidades',
+  'Próximo a hospitais', 'Próximo a parques', 'Próximo ao shopping', 'Próximo à praia',
+  'Próximo ao aeroporto', 'Próximo ao centro', 'Fácil acesso', 'Próximo a rodovias',
+  'Rua tranquila', 'Bairro valorizado', 'Região nobre', 'Vista livre', 'Frente para praça',
+])
+
+const CONDOMINIUM_BENEFITS = new Set([
+  'Lazer completo', 'Piscina', 'Piscina aquecida', 'Academia', 'Churrasqueira',
+  'Espaço gourmet', 'Salão de festas', 'Salão de jogos', 'Playground', 'Brinquedoteca',
+  'Coworking', 'Pet Place', 'Quadra esportiva', 'Quadra de tênis', 'Sauna', 'Spa',
+  'Cinema', 'Mini mercado', 'Bicicletário', 'Lavanderia coletiva', 'Portaria 24h',
+  'Portaria 24 horas', 'Condomínio clube', 'Piscina e academia',
+  'Segurança 24h', 'Monitoramento', 'Elevador', 'Gerador', 'Energia solar',
+])
+
 const literal = (value: unknown) => removeNonOfficialPhoneNumbers(value)
 const unique = <T extends string>(values: T[]) => [...new Set(values.filter(Boolean))]
 const labelQuantity = (value: unknown, singular: string, plural: string) => {
@@ -210,6 +247,9 @@ const labelQuantity = (value: unknown, singular: string, plural: string) => {
   return `${cleaned} ${cleaned === '1' ? singular : plural}`
 }
 const normalizeMatch = (value: string) => value.trim().toLocaleLowerCase('pt-BR')
+const normalizedHighlightSet = (values: Set<string>) => new Set([...values].map(normalizeMatch))
+const NORMALIZED_LOCATION_HIGHLIGHTS = normalizedHighlightSet(LOCATION_HIGHLIGHTS)
+const NORMALIZED_CONDOMINIUM_BENEFITS = normalizedHighlightSet(CONDOMINIUM_BENEFITS)
 const matches = (criteria: readonly string[], value: string) => criteria.includes(ANY) || criteria.some(item => normalizeMatch(item) === normalizeMatch(value))
 const stableHash = (value: string) => {
   let hash = 2166136261
@@ -267,17 +307,28 @@ const technicalCaption = (property: PropertyContext) => unique([
   labelQuantity(property.parkingSpaces, 'Vaga', 'Vagas'),
 ]).join(' • ')
 
-const intermediateCaption = (tipo: SmartTourSceneType, property: PropertyContext) => {
-  if (tipo === 'abertura') return unique([literal(property.district), literal(property.city)]).join(' • ')
-  if (tipo === 'caracteristicas') return unique([literal(property.stage), technicalCaption(property)]).join('\n')
-  if (tipo === 'diferencial') {
-    const condominium = literal(property.condominium)
-    return condominium ? `Condomínio ${condominium}` : literal(property.highlights?.[0])
+const commercialHighlights = (property: PropertyContext) => {
+  const highlights = unique((property.highlights || []).map(literal))
+  const location = highlights.filter(item => NORMALIZED_LOCATION_HIGHLIGHTS.has(normalizeMatch(item)))
+  const condominium = highlights.filter(item => NORMALIZED_CONDOMINIUM_BENEFITS.has(normalizeMatch(item)))
+  const differentials = highlights.filter(item => !location.includes(item) && !condominium.includes(item))
+  return { location, condominium, differentials }
+}
+
+const commercialCaption = (blockNumber: number, property: PropertyContext) => {
+  if (blockNumber === 1) return unique([literal(property.district), literal(property.city)]).join(' • ')
+  if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property)]).join('\n')
+  if (blockNumber === 3) {
+    const highlights = commercialHighlights(property)
+    return highlights.location[0] || highlights.differentials[0] || highlights.condominium[0] || ''
   }
-  if (tipo === 'localizacao') {
-    const highlights = unique((property.highlights || []).map(literal))
-    const start = literal(property.condominium) ? 0 : 1
-    return highlights.slice(start, start + 2).join(' • ') || unique([literal(property.district), literal(property.state)]).join(' • ')
+  if (blockNumber === 4) {
+    const highlights = commercialHighlights(property)
+    const selected = unique([
+      highlights.condominium[0] || '',
+      highlights.differentials[0] || highlights.location[1] || '',
+    ])
+    return selected.slice(0, 2).join(' • ')
   }
   return ''
 }
@@ -296,6 +347,26 @@ export function buildSmartTourStructuredBriefing(input: {
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
+  const narrationTimeline = TEXT_TIMELINE.map(block => {
+    const phrase = config.narration === 'enabled'
+      ? selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` })
+      : { id: '', texto: '' }
+    return { ...block, texto: phrase.texto, frase_id: phrase.id }
+  })
+  const captionTimeline = TEXT_TIMELINE.slice(0, 4).map(block => ({
+    bloco: block.bloco,
+    inicioSegundos: block.inicioSegundos,
+    fimSegundos: block.fimSegundos,
+    texto: config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : '',
+  }))
+  const ctaTimeline = {
+    bloco: 5,
+    inicioSegundos: 8,
+    fimSegundos: 10,
+    texto: ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '',
+    titulo: ctaTitle,
+    telefone: phone,
+  }
   const types = sceneTypes(input.imagePaths.length)
   const scenes = input.imagePaths.map((image, index) => {
     const sceneNumber = index + 1
@@ -306,7 +377,7 @@ export function buildSmartTourStructuredBriefing(input: {
       : { id: '', texto: '' }
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (config.captions === 'enabled' ? intermediateCaption(tipo, input.property) : '')
+      : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : '')
     return {
       numero: sceneNumber,
       tipo,
@@ -320,6 +391,14 @@ export function buildSmartTourStructuredBriefing(input: {
     } as SmartTourStructuredBriefing['cenas'][number]
   })
   const presenterType = presenter(config)
+  const hasPresenter = presenterType !== 'nenhum'
+  const presenterLabel = presenterType === 'corretor' ? 'um corretor' : 'uma corretora'
+  const presenterReference = presenterType === 'corretor' ? 'O corretor' : 'A corretora'
+  const presenterRules = hasPresenter ? [
+    { codigo: 'apresentador_obrigatorio', valor: `Criar e exibir obrigatoriamente exatamente uma pessoa: ${presenterLabel}. Essa pessoa deve aparecer naturalmente durante a apresentação.` },
+    { codigo: 'apresentador_excecao_unica', valor: `${presenterReference} é a única exceção autorizada à regra de não inventar pessoas. Não criar, exibir ou sugerir nenhuma pessoa adicional.` },
+    { codigo: 'apresentador_preserva_imovel', valor: `A presença e os movimentos naturais de ${presenterLabel} não podem alterar, reconstruir, ocultar ou substituir qualquer parte do imóvel. O imóvel deve ser preservado integralmente.` },
+  ] : []
   return {
     versao: 'smart-tour-structured-briefing-v1',
     tarefa: SMART_TOUR_GEMINI_MISSION,
@@ -349,11 +428,17 @@ export function buildSmartTourStructuredBriefing(input: {
       destaques: unique((input.property.highlights || []).map(literal)).slice(0, 10),
       descricao: literal(input.property.description),
     },
-    apresentador: { tipo: presenterType, unicoHumanoAutorizado: presenterType !== 'nenhum' },
+    apresentador: { tipo: presenterType, unicoHumanoAutorizado: hasPresenter },
     musica: { configurada: false, instrucao: 'preservar_comportamento_atual' },
     sequenciaDasImagens: [...input.imagePaths],
     movimentosDesejados: [...MOVEMENTS],
     cenas: scenes,
+    timeline: {
+      duracaoTotalSegundos: 10,
+      legendas: captionTimeline,
+      narracao: narrationTimeline.map(({ tipo: _tipo, ...block }) => block),
+      cta: ctaTimeline,
+    },
     legendas: {
       ativas: config.captions === 'enabled' || Boolean(ctaTitle),
     },
@@ -363,19 +448,25 @@ export function buildSmartTourStructuredBriefing(input: {
       umaImagemPorCena: true,
       respeitarOrdemDasImagens: true,
       elementosImutaveis: ['arquitetura', 'paredes', 'pisos', 'tetos', 'portas', 'janelas', 'móveis existentes', 'decoração', 'objetos', 'acabamentos', 'cores', 'proporções', 'perspectiva', 'enquadramento'],
-      transformacoesPermitidas: ['movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo', 'variações naturais sutis de luminosidade'],
+      transformacoesPermitidas: [
+        'movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo',
+        'variações naturais sutis de luminosidade',
+        ...(hasPresenter ? [`movimentos naturais e discretos da única ${presenterType} autorizada`] : []),
+      ],
     },
     regrasObrigatorias: [
       { codigo: 'usar_json_como_fonte_unica', valor: 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
-      { codigo: 'sem_invencao', valor: 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
+      { codigo: 'sem_invencao', valor: hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
+      ...presenterRules,
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
-      { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. As legendas de cenas[].legenda serão aplicadas literalmente pelo compositor determinístico após a geração.' },
+      { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. Os textos e tempos de timeline.legendas e timeline.cta serão aplicados literalmente pelo compositor determinístico após a geração.' },
+      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Usar exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
+      { codigo: 'legendas_sem_valores_comerciais_automaticos', valor: 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
-      { codigo: 'preco_intermediario', valor: 'quando informado e as legendas estiverem ativas, exibir imovel.preco somente em cena intermediária, nunca na cena final' },
       { codigo: 'ultima_narracao_curta', valor: 'limitar a narração final a 1,2 segundo e manter somente o telefone visível por aproximadamente 0,8 segundo após a fala' },
     ],
   }
