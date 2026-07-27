@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { getVirtualStagingJourney, getVirtualStagingJourneySessionKey, VIRTUAL_STAGING_JOURNEYS } from '../src/config/virtualStagingJourneys.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(frontendRoot, '..')
@@ -44,7 +45,7 @@ test('copies the complete Video Imobiliario frontend flow under its own namespac
     /<CampaignPackage/,
     /functions\.invoke\('virtual-staging-generate'/,
     /functions\.invoke\('virtual-staging-status'/,
-    /smartcorretorai:virtual-staging:active-job/,
+    /getVirtualStagingJourneySessionKey\(journey\.id\)/,
     /\/virtual-staging\/\$\{requestId\}/,
   ]) assert.match(staging, contract)
 
@@ -94,9 +95,50 @@ test('duplicates the homologated prompt and validation core byte for byte', () =
   }
 })
 
-test('does not expose future module implementations in this scaffold', () => {
+test('exposes exactly the three approved Virtual Staging modules in order', () => {
+  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.id), [
+    'furnish-renovate',
+    'life-in-property',
+    'broker-presentation',
+  ])
+  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.title), [
+    'Mobiliar e Renovar',
+    'Vida no Imóvel',
+    'Apresentação pelo Corretor',
+  ])
+  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.description), [
+    'Adicione móveis, substitua a decoração ou transforme completamente os ambientes preservando a estrutura original do imóvel.',
+    'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
+    'Utilize sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
+  ])
+  assert.ok(VIRTUAL_STAGING_JOURNEYS.every(journey => journey.demoAssetStatus === 'temporary'))
+  assert.equal(getVirtualStagingJourney('life-in-property')?.title, 'Vida no Imóvel')
+  assert.equal(getVirtualStagingJourney('unknown'), null)
+})
+
+test('opens one keyed journey at a time and isolates every active job namespace', () => {
   const staging = read('frontend/src/pages/VirtualStaging.jsx')
-  for (const futureModule of ['Pessoas no Imóvel', 'Renovar Ambientes', 'Apresentação pelo Corretor']) {
-    assert.doesNotMatch(staging, new RegExp(futureModule))
-  }
+  const sessionKeys = VIRTUAL_STAGING_JOURNEYS.map(journey => getVirtualStagingJourneySessionKey(journey.id))
+
+  assert.equal(new Set(sessionKeys).size, 3)
+  assert.match(staging, /const \[selectedJourneyId, setSelectedJourneyId\] = useState\(null\)/)
+  assert.match(staging, /selectedJourney && <div[\s\S]*?<VirtualStagingJourney[\s\S]*?key=\{selectedJourney\.id\}/)
+  assert.match(staging, /onClick=\{\(\) => onSelect\(journey\.id\)\}/)
+  assert.match(staging, /aria-pressed=\{isSelected\}/)
+  assert.match(staging, /getVirtualStagingJourneySessionKey\(journey\.id\)/)
+  assert.match(staging, />\s*Escolher outro módulo\s*</)
+})
+
+test('uses the approved Virtual Staging communication and removes only its inherited guide', () => {
+  const staging = read('frontend/src/pages/VirtualStaging.jsx')
+  const tour = read('frontend/src/pages/SmartTourAI.jsx')
+
+  assert.match(staging, /Mobilie, renove e transforme os ambientes dos seus imóveis com inteligência artificial\./)
+  assert.match(staging, /Escolha como deseja transformar seu imóvel/)
+  assert.match(staging, /Agora, conte como deseja transformar seu imóvel/)
+  assert.match(staging, /md:grid-cols-3/)
+  assert.doesNotMatch(staging, /Como criar cada tipo de vídeo|VirtualStagingGuide|guideExamples|lg:grid-cols-4/)
+  assert.doesNotMatch(staging, /Fotos em Movimento|Legendas na Tela|Narração Profissional|Corretor Virtual IA/)
+  assert.match(tour, /Como criar cada tipo de vídeo/)
+  assert.match(tour, /<SmartTourGuide \/>/)
 })

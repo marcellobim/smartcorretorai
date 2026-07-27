@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Loader2, Sparkles, Trash2, UploadCloud, Video } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
@@ -9,40 +9,16 @@ import GuidedConversation from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
-import { VIRTUAL_STAGING_EXAMPLES, VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
+import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
+import { getVirtualStagingJourney, getVirtualStagingJourneySessionKey, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
 
 const BUCKET = 'studio-videos'
-const ACTIVE_JOB_KEY = 'smartcorretorai:virtual-staging:active-job'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
-const visibleExamples = VIRTUAL_STAGING_EXAMPLES.map(example => ({
-  ...example,
-  ...(example.id === 'animate-images' ? {
-    title: 'Fotos em Movimento',
-    description: 'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
-  } : example.id === 'campaign-video' ? {
-    title: 'Legendas na Tela',
-    description: 'Apresente seu imóvel com legendas sincronizadas, música de fundo e destaque para as principais informações.',
-  } : example.id === 'narrated-video' ? {
-    title: 'Narração Profissional',
-    description: 'Apresente seu imóvel com uma narração natural e profissional, acompanhada das principais informações na tela.',
-  } : example.id === 'virtual-agent' ? {
-    title: 'Corretor Virtual IA',
-    description: 'Um corretor virtual apresenta o imóvel de forma envolvente, valoriza cada ambiente e desperta o interesse do cliente para entrar em contato.',
-  } : {}),
-}))
-const guideExamples = visibleExamples.map(example => ({
-  id: example.id,
-  title: example.title,
-  presenter: example.hasPresenter,
-  narration: example.hasNarration,
-  texts: example.id === 'virtual-agent' ? true : example.hasTexts,
-  cta: example.id !== 'animate-images',
-}))
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const VIRTUAL_STAGING_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
 
@@ -85,6 +61,57 @@ function virtualStagingConfirmation(id, answer) {
 }
 
 export default function VirtualStagingAI() {
+  const [selectedJourneyId, setSelectedJourneyId] = useState(null)
+  const modulesRef = useRef(null)
+  const chatRef = useRef(null)
+  const selectedJourney = getVirtualStagingJourney(selectedJourneyId)
+
+  useEffect(() => {
+    if (selectedJourney) chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [selectedJourney])
+
+  const chooseAnotherJourney = () => {
+    setSelectedJourneyId(null)
+    requestAnimationFrame(() => modulesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  return <>
+    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle="Transformações imobiliárias com inteligência artificial." />
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
+      <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#052e3b_0%,#0f172a_48%,#047857_100%)] px-6 py-9 text-white shadow-2xl shadow-emerald-950/20 sm:px-10 sm:py-11">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_10%,rgba(110,231,183,0.24),transparent_28%),radial-gradient(circle_at_88%_18%,rgba(34,211,238,0.16),transparent_30%)]" />
+        <div className="relative max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-100 ring-1 ring-white/10">
+            <Sparkles className="h-4 w-4" />
+            SmartCorretorAI
+          </div>
+          <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Virtual Staging</h1>
+          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-200 sm:text-base">
+            Mobilie, renove e transforme os ambientes dos seus imóveis com inteligência artificial.
+          </p>
+        </div>
+      </section>
+
+      <section ref={modulesRef} className="mt-8 scroll-mt-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div className="mb-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Módulos de transformação</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Escolha como deseja transformar seu imóvel</h2>
+        </div>
+        <VirtualStagingModules selectedJourneyId={selectedJourneyId} onSelect={setSelectedJourneyId} />
+      </section>
+
+      {selectedJourney && <div ref={chatRef} className="scroll-mt-6">
+        <VirtualStagingJourney
+          key={selectedJourney.id}
+          journey={selectedJourney}
+          onChooseAnother={chooseAnotherJourney}
+        />
+      </div>}
+    </main>
+  </>
+}
+
+function VirtualStagingJourney({ journey, onChooseAnother }) {
   const { user } = useAuth()
   const inputRef = useRef(null)
   const pollRef = useRef(null)
@@ -98,6 +125,7 @@ export default function VirtualStagingAI() {
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
+  const activeJobKey = getVirtualStagingJourneySessionKey(journey.id)
   const questions = useMemo(() => questionsFor(), [])
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatBrazilianPhone(rawPhone)
@@ -163,7 +191,7 @@ export default function VirtualStagingAI() {
   }
 
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current) }, [])
-  useEffect(() => { const stored = sessionStorage.getItem(ACTIVE_JOB_KEY); if (stored) { let jobId = stored; try { jobId = JSON.parse(stored).jobId || stored } catch { /* legacy value */ } setStatus('generating'); setMessage('Retomando sua criação...'); poll(jobId) } }, [])
+  useEffect(() => { const stored = sessionStorage.getItem(activeJobKey); if (stored) { let jobId = stored; try { jobId = JSON.parse(stored).jobId || stored } catch { /* legacy value */ } setStatus('generating'); setMessage('Retomando sua criação...'); poll(jobId) } }, [activeJobKey])
 
   const addImages = files => {
     const selectedInSystemOrder = Array.from(files)
@@ -184,7 +212,7 @@ export default function VirtualStagingAI() {
     try {
       const { data, error } = await supabase.functions.invoke('virtual-staging-status', { body: { jobId } })
       if (error || !data?.ok) throw new Error(data?.error || 'Não foi possível consultar a criação.')
-      if (data.status === 'completed') { let campaignPackage = {}; try { campaignPackage = JSON.parse(sessionStorage.getItem(ACTIVE_JOB_KEY) || '{}').campaignPackage || {} } catch { /* legacy value */ } sessionStorage.removeItem(ACTIVE_JOB_KEY); setResult({ ...data, campaignPackage }); setStatus('completed'); return }
+      if (data.status === 'completed') { let campaignPackage = {}; try { campaignPackage = JSON.parse(sessionStorage.getItem(activeJobKey) || '{}').campaignPackage || {} } catch { /* legacy value */ } sessionStorage.removeItem(activeJobKey); setResult({ ...data, campaignPackage }); setStatus('completed'); return }
       if (data.status === 'failed') throw new Error(data.error)
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
@@ -209,12 +237,12 @@ export default function VirtualStagingAI() {
       const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '' })
-      sessionStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
+      sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
   const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
-  if (result) return <><Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></>
+  if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
@@ -238,39 +266,15 @@ export default function VirtualStagingAI() {
     { id: 'phone', label: ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
-  return <>
-    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle="O SmartCorretorAI organiza o contexto. A IA faz o trabalho pesado." />
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
-      <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#052e3b_0%,#0f172a_48%,#047857_100%)] px-6 py-9 text-white shadow-2xl shadow-emerald-950/20 sm:px-10 sm:py-11">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_10%,rgba(110,231,183,0.24),transparent_28%),radial-gradient(circle_at_88%_18%,rgba(34,211,238,0.16),transparent_30%)]" />
-        <div className="relative max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-100 ring-1 ring-white/10">
-            <Sparkles className="h-4 w-4" />
-            SmartCorretorAI
-          </div>
-          <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Virtual Staging</h1>
-          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-200 sm:text-base">
-            Transforme as fotos do seu imóvel utilizando inteligência artificial para mobiliar ambientes, criar novas experiências e gerar apresentações ainda mais atrativas.
-          </p>
+  return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className="mt-10">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Jornada selecionada · {journey.title}</p>
+          <h2 id={`virtual-staging-chat-${journey.id}`} className="mt-2 text-2xl font-black text-slate-950">Agora, conte como deseja transformar seu imóvel</h2>
         </div>
-      </section>
-
-      <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div className="mb-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Exemplos de experiências</p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">Escolha o resultado que você deseja</h2>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-            Estas são as combinações mais utilizadas. Durante a criação do vídeo você pode personalizar cada opção e criar a combinação que melhor atende à sua necessidade.
-          </p>
-        </div>
-        <VirtualStagingShowcase />
-      </section>
-
-      <VirtualStagingGuide />
-
-      <div className="mb-5 mt-10">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Criação guiada</p>
-        <h2 className="mt-2 text-2xl font-black text-slate-950">Agora, conte como será o seu vídeo</h2>
+        <button type="button" onClick={onChooseAnother} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+          Escolher outro módulo
+        </button>
       </div>
     <div className="mb-6 grid grid-cols-5 gap-2">{['Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
     <GuidedConversation
@@ -287,172 +291,48 @@ export default function VirtualStagingAI() {
     >
       <Question id={question[0]} {...{ images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
-    </main>
-  </>
-}
-
-function VirtualStagingGuide() {
-  const [activeGuideId, setActiveGuideId] = useState(null)
-  const [hoveredGuideId, setHoveredGuideId] = useState(null)
-  return <section className="mt-8 rounded-[2rem] border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 shadow-sm sm:p-6">
-    <h2 className="text-xl font-black text-slate-950 sm:text-2xl">Como criar cada tipo de vídeo</h2>
-    <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Passe o mouse ou toque em uma opção para ver como ela foi configurada.</p>
-    <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-      {guideExamples.map((example, index) => {
-        const isActive = activeGuideId === example.id || hoveredGuideId === example.id
-        return <div key={example.id} className="relative" onMouseEnter={() => setHoveredGuideId(example.id)} onMouseLeave={() => setHoveredGuideId(current => current === example.id ? null : current)}>
-          <button
-            type="button"
-            aria-expanded={isActive}
-            aria-controls={`guide-${example.id}`}
-            onClick={() => setActiveGuideId(current => current === example.id ? null : example.id)}
-            className="flex min-h-12 w-full items-center justify-center rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-center text-xs font-black text-slate-800 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:text-sm"
-          >
-            {example.title}
-          </button>
-          {isActive && <div id={`guide-${example.id}`} role="tooltip" className={`absolute top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-3rem))] rounded-2xl border border-emerald-100 bg-slate-950 p-4 text-xs font-bold text-white shadow-2xl ${index % 2 === 0 ? 'left-0' : 'right-0'} lg:left-1/2 lg:right-auto lg:-translate-x-1/2`}>
-            <div className="space-y-2">
-              {[['Apresentador', example.presenter], ['Narração', example.narration], ['Textos', example.texts], ['CTA', example.cta]].map(([label, enabled]) => <p key={label} className="flex items-center justify-between gap-4"><span>{label}:</span><span className="text-emerald-300">{enabled ? 'Sim' : 'Não'}</span></p>)}
-            </div>
-          </div>}
-        </div>
-      })}
-    </div>
   </section>
 }
 
-function VirtualStagingShowcase() {
-  const [activeIndex, setActiveIndex] = useState(null)
-  const modalVideoRef = useRef(null)
-  const closeButtonRef = useRef(null)
-  const activeExample = activeIndex === null ? null : visibleExamples[activeIndex]
-  const close = () => {
-    modalVideoRef.current?.pause()
-    setActiveIndex(null)
-  }
-  const showPrevious = () => setActiveIndex(current => (current - 1 + VIRTUAL_STAGING_EXAMPLES.length) % VIRTUAL_STAGING_EXAMPLES.length)
-  const showNext = () => setActiveIndex(current => (current + 1) % VIRTUAL_STAGING_EXAMPLES.length)
-
-  useEffect(() => {
-    if (activeIndex === null) return undefined
-    const previousOverflow = document.body.style.overflow
-    const handleKeyDown = event => {
-      if (event.key === 'Escape') setActiveIndex(null)
-      if (event.key === 'ArrowLeft') setActiveIndex(current => (current - 1 + VIRTUAL_STAGING_EXAMPLES.length) % VIRTUAL_STAGING_EXAMPLES.length)
-      if (event.key === 'ArrowRight') setActiveIndex(current => (current + 1) % VIRTUAL_STAGING_EXAMPLES.length)
-    }
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', handleKeyDown)
-    closeButtonRef.current?.focus()
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [activeIndex])
-
-  return <>
-    <div className="grid grid-flow-col auto-cols-[minmax(240px,82vw)] gap-4 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:thin] snap-x snap-mandatory sm:auto-cols-[280px] lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible lg:pb-0">
-      {visibleExamples.map((example, exampleIndex) => (
-        <article key={example.id} className="min-w-0 snap-center rounded-3xl border border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)] p-4 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setActiveIndex(exampleIndex)}
-            className="group mx-auto block w-full max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 text-left shadow-xl shadow-slate-200/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-            aria-label={`Ampliar demonstração: ${example.title}`}
-          >
-            <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#047857_100%)]">
-              {example.placeholder ? <ExamplePlaceholder example={example} /> : (
-                <video
-                  src={example.video}
-                  aria-label={`Demonstração: ${example.title}`}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  controls={false}
-                  preload="metadata"
-                  disablePictureInPicture
-                  disableRemotePlayback
-                  controlsList="nodownload noremoteplayback"
-                  onContextMenu={event => event.preventDefault()}
-                  className="absolute inset-0 h-full w-full bg-black object-contain"
-                />
-              )}
-              <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-emerald-300/60" />
-            </div>
-          </button>
-          <h3 className="mt-4 text-center text-base font-black text-slate-950">{example.title}</h3>
-          <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
-          <button
-            type="button"
-            onClick={() => setActiveIndex(exampleIndex)}
-            className="mx-auto mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-          >
-            <PlayCircle className="h-4 w-4" aria-hidden="true" />
-            Ver exemplo
-          </button>
-        </article>
-      ))}
-    </div>
-
-    {activeExample && (
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Demonstração ampliada: ${activeExample.title}`}
-        onMouseDown={event => { if (event.target === event.currentTarget) close() }}
+function VirtualStagingModules({ selectedJourneyId, onSelect }) {
+  return <div className="grid gap-5 md:grid-cols-3">
+    {VIRTUAL_STAGING_JOURNEYS.map(journey => {
+      const isSelected = selectedJourneyId === journey.id
+      return <button
+        key={journey.id}
+        type="button"
+        aria-pressed={isSelected}
+        aria-controls={isSelected ? `virtual-staging-chat-${journey.id}` : undefined}
+        onClick={() => onSelect(journey.id)}
+        className={`group min-w-0 rounded-3xl border p-4 text-left shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${isSelected ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)] hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg'}`}
       >
-        <div className="relative flex max-h-full w-full max-w-4xl flex-col items-center">
-          <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
-            <div className="min-w-0">
-              <p className="truncate text-lg font-black">{activeExample.title}</p>
-              <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} de {VIRTUAL_STAGING_EXAMPLES.length}</p>
-            </div>
-            <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Fechar demonstração">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-2 sm:gap-5">
-            <button type="button" onClick={showPrevious} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Demonstração anterior">
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="flex aspect-[9/16] max-h-[calc(100vh-9rem)] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl sm:flex-none sm:w-[min(420px,70vw)]">
-              {activeExample.placeholder ? <ExamplePlaceholder example={activeExample} large /> : (
-                <video
-                  key={activeExample.id}
-                  ref={modalVideoRef}
-                  src={activeExample.video}
-                  aria-label={`Demonstração ampliada: ${activeExample.title}`}
-                  autoPlay
-                  playsInline
-                  controls
-                  preload="metadata"
-                  disablePictureInPicture
-                  disableRemotePlayback
-                  controlsList="nodownload noremoteplayback"
-                  onContextMenu={event => event.preventDefault()}
-                  className="h-full w-full bg-black object-contain"
-                />
-              )}
-            </div>
-            <button type="button" onClick={showNext} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Próxima demonstração">
-              <ArrowRight className="h-5 w-5" />
-            </button>
+        <div className="mx-auto w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 shadow-xl shadow-slate-200/70">
+          <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
+            <video
+              src={journey.demoVideo}
+              aria-label={`Demonstração provisória: ${journey.title}`}
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls={false}
+              preload="metadata"
+              disablePictureInPicture
+              disableRemotePlayback
+              controlsList="nodownload noremoteplayback"
+              onContextMenu={event => event.preventDefault()}
+              className="pointer-events-none absolute inset-0 h-full w-full bg-black object-contain"
+            />
+            <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-emerald-300/60" />
           </div>
         </div>
-      </div>
-    )}
-  </>
-}
-
-function ExamplePlaceholder({ example, large = false }) {
-  return <div className="relative flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.22),transparent_42%),linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#064e3b_100%)] px-4 text-center text-white">
-    <PlayCircle className={large ? 'h-14 w-14 text-emerald-200' : 'h-9 w-9 text-emerald-200'} />
-    <p className={`${large ? 'mt-5 text-sm' : 'mt-4 text-[10px]'} font-black uppercase tracking-[0.2em] text-emerald-100`}>Vídeo pendente</p>
-    <p className={`${large ? 'mt-3 text-base' : 'mt-2 text-xs'} font-black`}>{example.title}</p>
-    <p className={`${large ? 'mt-4 max-w-sm text-sm' : 'mt-3 text-[10px]'} break-all font-semibold leading-5 text-slate-300`}>{example.video}</p>
+        <h3 className="mt-4 text-center text-base font-black text-slate-950">{journey.title}</h3>
+        <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{journey.description}</p>
+        <span className="mx-auto mt-4 flex min-h-11 w-fit items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition group-hover:border-emerald-400 group-hover:bg-emerald-50">
+          {isSelected ? 'Módulo selecionado' : 'Escolher módulo'}
+        </span>
+      </button>
+    })}
   </div>
 }
 
