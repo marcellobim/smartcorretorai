@@ -1,5 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS,
+  SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS,
+  SMART_CAROUSEL_SCENE_DURATION_SECONDS,
+  SMART_CAROUSEL_TRANSITION_DURATION_SECONDS,
+  calculateNarrationWordTargets,
+  calculateSmartCarouselTiming,
+  resolveNarrationTiming,
+} from './narration-timing.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,8 +22,6 @@ const MAX_IMAGES = 30
 const MAX_HIGHLIGHTS = 10
 const SIGNED_URL_TTL_SECONDS = 6 * 60 * 60
 const RECEIPT_TTL_SECONDS = 6 * 60 * 60
-const SCENE_DURATION_SECONDS = 3.5
-const NARRATION_CTA_GAP_SECONDS = 1.5
 const OPENAI_TTS_MODEL = 'tts-1'
 const OPENAI_MARKETING_MODEL = 'gpt-4.1'
 const OPENAI_MARKETING_TIMEOUT_MS = 55_000
@@ -243,10 +250,6 @@ function selectNarrationVoice(imageCount: number, highlightCount: number) {
   }
 }
 
-function countNarrationWords(value: string) {
-  return value.trim().split(/\s+/).filter(Boolean).length
-}
-
 function sanitizeStringList(value: unknown, maxItems: number, maxLength: number) {
   return (Array.isArray(value) ? value : [])
     .slice(0, maxItems)
@@ -343,8 +346,10 @@ async function generateMarketingIntelligence(
     contact_authorized: Boolean(phone),
     phone: phone || '',
   }
-  const maxNarrationWords = Math.floor(availableSeconds * 2.20)
-  const minNarrationWords = Math.ceil(availableSeconds * 1.70)
+  const {
+    minimumWords: minNarrationWords,
+    maximumWords: maxNarrationWords,
+  } = calculateNarrationWordTargets(availableSeconds)
 
   const systemPrompt = `Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
 Sua miss\u00e3o \u00e9 entregar uma narra\u00e7\u00e3o e tr\u00eas campanhas completas que um corretor publicaria exatamente como recebeu.
@@ -442,77 +447,71 @@ Responda somente com JSON v\u00e1lido neste formato:
 
   try {
     const intelligence = validateMarketingIntelligence(JSON.parse(content))
-    let finalNarration = intelligence.narration
-    let finalNarrationHighlights = intelligence.narrationHighlights
-    let narrationWords = countNarrationWords(finalNarration)
-
-    if (narrationWords < minNarrationWords || narrationWords > maxNarrationWords) {
-      const revisionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: OPENAI_MARKETING_MODEL,
-          messages: [
-            {
-              role: 'system',
-              content: `Voce e um revisor de narracao imobiliaria para voz brasileira.
+    const resolvedNarration = await resolveNarrationTiming({
+      initial: {
+        narration: intelligence.narration,
+        narrationHighlights: intelligence.narrationHighlights,
+      },
+      minimumWords: minNarrationWords,
+      maximumWords: maxNarrationWords,
+      fallbackInvitation: cta,
+      reviseOnce: async (targetNarrationWords) => {
+        const revisionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: OPENAI_MARKETING_MODEL,
+            messages: [
+              {
+                role: 'system',
+                content: `Voce e um revisor de narracao imobiliaria para voz brasileira.
 Revise uma unica vez a narracao recebida para caber rigorosamente na faixa informada.
+Entregue exatamente a contagem-alvo informada sempre que semanticamente possivel.
 Preserve os fatos confirmados, o gancho e o convite natural.
 Nao adicione informacoes, nao invente fatos e nao faca corte mecanico.
 Use frases curtas, pausas naturais e ritmo comercial.
 Responda somente com JSON valido no formato:
 {"narration":"texto revisado","narration_highlights":["destaques efetivamente usados"]}`,
-            },
-            {
-              role: 'user',
-              content: JSON.stringify({
-                confirmed_facts: facts,
-                original_narration: finalNarration,
-                original_narration_highlights: finalNarrationHighlights,
-                available_seconds: availableSeconds,
-                minimum_words: minNarrationWords,
-                maximum_words: maxNarrationWords,
-              }),
-            },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.4,
-          max_tokens: 1200,
-        }),
-        signal: AbortSignal.timeout(OPENAI_MARKETING_TIMEOUT_MS),
-      })
-      const revisionBody = await revisionResponse.json().catch(() => null) as JsonRecord | null
-      if (!revisionResponse.ok || !revisionBody) throw new Error('marketing_generation_failed')
+              },
+              {
+                role: 'user',
+                content: JSON.stringify({
+                  confirmed_facts: facts,
+                  original_narration: intelligence.narration,
+                  original_narration_highlights: intelligence.narrationHighlights,
+                  available_seconds: availableSeconds,
+                  minimum_words: minNarrationWords,
+                  maximum_words: maxNarrationWords,
+                  target_words: targetNarrationWords,
+                }),
+              },
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0,
+            max_tokens: 1200,
+          }),
+          signal: AbortSignal.timeout(OPENAI_MARKETING_TIMEOUT_MS),
+        })
+        const revisionBody = await revisionResponse.json().catch(() => null) as JsonRecord | null
+        if (!revisionResponse.ok || !revisionBody) throw new Error('marketing_generation_failed')
 
-      const revisionChoices = Array.isArray(revisionBody.choices) ? revisionBody.choices : []
-      const revisionChoice = asRecord(revisionChoices[0])
-      const revisionMessage = asRecord(revisionChoice.message)
-      const revisionContent = cleanText(revisionMessage.content, 10_000)
-      if (!revisionContent) throw new Error('marketing_generation_failed')
+        const revisionChoices = Array.isArray(revisionBody.choices) ? revisionBody.choices : []
+        const revisionChoice = asRecord(revisionChoices[0])
+        const revisionMessage = asRecord(revisionChoice.message)
+        const revisionContent = cleanText(revisionMessage.content, 10_000)
+        if (!revisionContent) throw new Error('marketing_generation_failed')
 
-      const revised = validateNarrationRevision(JSON.parse(revisionContent))
-      finalNarration = revised.narration
-      finalNarrationHighlights = revised.narrationHighlights
-      narrationWords = countNarrationWords(finalNarration)
+        return validateNarrationRevision(JSON.parse(revisionContent))
+      },
+    })
 
-      if (narrationWords < minNarrationWords || narrationWords > maxNarrationWords) {
-        console.error('[smart-carousel] narration_duration_out_of_range', JSON.stringify({
-          actual_words: narrationWords,
-          minimum_words: minNarrationWords,
-          maximum_words: maxNarrationWords,
-          available_seconds: availableSeconds,
-          revision_attempts: 1,
-        }))
-        throw new Error('narration_duration_out_of_range')
-      }
-    }
     return {
       ...intelligence,
-      narration: finalNarration,
-      narrationHighlights: finalNarrationHighlights,
+      narration: resolvedNarration.narration,
+      narrationHighlights: resolvedNarration.narrationHighlights,
     }
   } catch (error) {
     if (error instanceof Error && error.message === 'narration_duration_out_of_range') throw error
@@ -522,12 +521,11 @@ Responda somente com JSON valido no formato:
 
 function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, narrationText: string, voiceProvider: string) {
   const captions = buildCaptions(answers)
-  const transitionDuration = 0.45
-  const ctaSceneDuration = 3.5
-  const photoSequenceDuration = imageUrls.length * SCENE_DURATION_SECONDS
-    - Math.max(0, imageUrls.length - 1) * transitionDuration
-  const duration = photoSequenceDuration + ctaSceneDuration
-  const narrationDuration = Math.max(1, photoSequenceDuration - NARRATION_CTA_GAP_SECONDS)
+  const transitionDuration = SMART_CAROUSEL_TRANSITION_DURATION_SECONDS
+  const ctaSceneDuration = SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS
+  const timing = calculateSmartCarouselTiming(imageUrls.length)
+  const duration = timing.totalSeconds
+  const narrationDuration = timing.narrationSeconds
   const imageMovements = [
     {
       easing: 'cubic-in-out',
@@ -587,7 +585,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   const imageElements = imageUrls.map((source, index) => ({
     type: 'image',
     track: 1,
-    duration: SCENE_DURATION_SECONDS,
+    duration: SMART_CAROUSEL_SCENE_DURATION_SECONDS,
     source,
     fit: 'cover',
     clip: true,
@@ -606,7 +604,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   const textElements = captions.slice(0, imageUrls.length).map((text, index) => ({
     type: 'text',
     track: 2,
-    time: index * (SCENE_DURATION_SECONDS - transitionDuration) + transitionDuration,
+    time: index * (SMART_CAROUSEL_SCENE_DURATION_SECONDS - transitionDuration) + transitionDuration,
     duration: 2.6,
     x: '50%',
     y: '82%',
@@ -716,10 +714,8 @@ async function buildPresentationPlan(
   cta: string,
   openaiApiKey: string,
 ) {
-  const transitionDuration = 0.45
-  const photoSequenceDuration = imageUrls.length * SCENE_DURATION_SECONDS
-    - Math.max(0, imageUrls.length - 1) * transitionDuration
-  const availableSeconds = Math.max(1, photoSequenceDuration - NARRATION_CTA_GAP_SECONDS)
+  const timing = calculateSmartCarouselTiming(imageUrls.length)
+  const availableSeconds = timing.narrationSeconds
   const intelligence = await generateMarketingIntelligence(
     openaiApiKey,
     answers,
@@ -737,7 +733,7 @@ async function buildPresentationPlan(
       highlights: intelligence.narrationHighlights,
       timing: {
         available_seconds: availableSeconds,
-        target_gap_seconds: NARRATION_CTA_GAP_SECONDS,
+        target_gap_seconds: SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS,
         words: countNarrationWords(intelligence.narration),
       },
       voice,
