@@ -89,7 +89,9 @@ test('supports targeted review edits and returns automatically to review', () =>
 })
 
 test('uses the approved final video review structure', () => {
-  for (const text of ['Revise suas escolhas', 'Confirma suas escolhas?', 'Confirmar e criar vídeo', 'Alterar opções', 'Refazer criação']) assert.ok(page.includes(text))
+  for (const text of ['Revise suas escolhas', 'Confirma suas escolhas?', 'Confirmar e criar vídeo', 'Refazer criação']) assert.ok(page.includes(text))
+  assert.doesNotMatch(page, />Alterar opções</)
+  assert.match(page, /onClick=\{resetCreation\}/)
   for (const label of ['Apresentador', 'Narração', 'Textos', 'CTA', 'Telefone']) assert.ok(page.includes(label))
   assert.match(page, /\.\.\.\(ctaEnabled === true \? \[\{ label: 'Telefone'/)
 })

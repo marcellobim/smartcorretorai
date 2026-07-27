@@ -59,8 +59,8 @@ test('uses the approved commercial-video communication and guide', () => {
     'Transforme as fotos dos seus imóveis em comerciais profissionais.',
     'Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante.',
     'Escolha o resultado que você deseja',
-    'Como criar o vídeo que você deseja',
-    'Essas são apenas combinações recomendadas. Você pode criar qualquer combinação durante a criação do vídeo.',
+    'Como criar cada tipo de vídeo',
+    'Passe o mouse ou toque em uma opção para ver como ela foi configurada.',
   ]) assert.ok(page.includes(text))
   assert.doesNotMatch(page, />Smart Tour AI</)
   assert.doesNotMatch(page, /Quatro formas de apresentar seu imóvel/)
@@ -75,8 +75,20 @@ test('uses the approved visible copy for all four options without changing their
     "title: 'Narração Profissional'",
     'Apresente seu imóvel com uma narração natural e profissional, acompanhada das principais informações na tela.',
     "title: 'Corretor Virtual IA'",
-    'Um corretor virtual apresenta o imóvel de forma humanizada, conduzindo a experiência do início ao fim.',
+    'Um corretor virtual apresenta o imóvel de forma envolvente, valoriza cada ambiente e desperta o interesse do cliente para entrar em contato.',
   ]) assert.ok(page.includes(text))
   assert.equal(SMART_TOUR_EXAMPLES[0].title, 'Animar Imagens')
   assert.equal(SMART_TOUR_EXAMPLES[0].video, '/demos-videos/animar-imagens.mp4')
+})
+
+test('keeps the guide contextual and teaches only the four generation settings', () => {
+  assert.match(page, /role="tooltip"/)
+  assert.match(page, /onMouseEnter=\{\(\) => setHoveredGuideId/)
+  assert.match(page, /onClick=\{\(\) => setActiveGuideId/)
+  assert.match(page, /\['Apresentador', example\.presenter\]/)
+  assert.match(page, /\['Narração', example\.narration\]/)
+  assert.match(page, /\['Textos', example\.texts\]/)
+  assert.match(page, /\['CTA', example\.cta\]/)
+  assert.match(page, /texts: example\.id === 'virtual-agent' \? true : example\.hasTexts/)
+  assert.match(page, /cta: example\.id !== 'animate-images'/)
 })

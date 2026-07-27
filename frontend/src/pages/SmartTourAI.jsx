@@ -32,8 +32,16 @@ const visibleExamples = SMART_TOUR_EXAMPLES.map(example => ({
     description: 'Apresente seu imóvel com uma narração natural e profissional, acompanhada das principais informações na tela.',
   } : example.id === 'virtual-agent' ? {
     title: 'Corretor Virtual IA',
-    description: 'Um corretor virtual apresenta o imóvel de forma humanizada, conduzindo a experiência do início ao fim.',
+    description: 'Um corretor virtual apresenta o imóvel de forma envolvente, valoriza cada ambiente e desperta o interesse do cliente para entrar em contato.',
   } : {}),
+}))
+const guideExamples = visibleExamples.map(example => ({
+  id: example.id,
+  title: example.title,
+  presenter: example.hasPresenter,
+  narration: example.hasNarration,
+  texts: example.id === 'virtual-agent' ? true : example.hasTexts,
+  cta: example.id !== 'animate-images',
 }))
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
@@ -258,21 +266,7 @@ export default function SmartTourAI() {
         <SmartTourShowcase />
       </section>
 
-      <section className="mt-8 rounded-[2rem] border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 shadow-sm sm:p-7">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Guia rápido</p>
-        <h2 className="mt-2 text-2xl font-black text-slate-950">Como criar o vídeo que você deseja</h2>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {visibleExamples.map((example, index) => (
-            <div key={example.id} className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3 shadow-sm">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">{index + 1}</span>
-              <p className="text-sm font-black text-slate-800">{example.title}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-5 rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold leading-6 text-emerald-950">
-          Essas são apenas combinações recomendadas. Você pode criar qualquer combinação durante a criação do vídeo.
-        </p>
-      </section>
+      <SmartTourGuide />
 
       <div className="mb-5 mt-10">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Criação guiada</p>
@@ -291,10 +285,40 @@ export default function SmartTourAI() {
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
     >
-      <Question id={question[0]} {...{ images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
     </main>
   </>
+}
+
+function SmartTourGuide() {
+  const [activeGuideId, setActiveGuideId] = useState(null)
+  const [hoveredGuideId, setHoveredGuideId] = useState(null)
+  return <section className="mt-8 rounded-[2rem] border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 shadow-sm sm:p-6">
+    <h2 className="text-xl font-black text-slate-950 sm:text-2xl">Como criar cada tipo de vídeo</h2>
+    <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Passe o mouse ou toque em uma opção para ver como ela foi configurada.</p>
+    <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {guideExamples.map((example, index) => {
+        const isActive = activeGuideId === example.id || hoveredGuideId === example.id
+        return <div key={example.id} className="relative" onMouseEnter={() => setHoveredGuideId(example.id)} onMouseLeave={() => setHoveredGuideId(current => current === example.id ? null : current)}>
+          <button
+            type="button"
+            aria-expanded={isActive}
+            aria-controls={`guide-${example.id}`}
+            onClick={() => setActiveGuideId(current => current === example.id ? null : example.id)}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-center text-xs font-black text-slate-800 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:text-sm"
+          >
+            {example.title}
+          </button>
+          {isActive && <div id={`guide-${example.id}`} role="tooltip" className={`absolute top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-3rem))] rounded-2xl border border-emerald-100 bg-slate-950 p-4 text-xs font-bold text-white shadow-2xl ${index % 2 === 0 ? 'left-0' : 'right-0'} lg:left-1/2 lg:right-auto lg:-translate-x-1/2`}>
+            <div className="space-y-2">
+              {[['Apresentador', example.presenter], ['Narração', example.narration], ['Textos', example.texts], ['CTA', example.cta]].map(([label, enabled]) => <p key={label} className="flex items-center justify-between gap-4"><span>{label}:</span><span className="text-emerald-300">{enabled ? 'Sim' : 'Não'}</span></p>)}
+            </div>
+          </div>}
+        </div>
+      })}
+    </div>
+  </section>
 }
 
 function SmartTourShowcase() {
@@ -433,7 +457,7 @@ function ExamplePlaceholder({ example, large = false }) {
 }
 
 function Question(props) {
-  const { id, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, reviewItems, onReviewEdit } = props
+  const { id, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-2xl border p-4 text-left ${value === item.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
@@ -504,10 +528,9 @@ function Question(props) {
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
-    <div className="mt-5 grid gap-3 sm:grid-cols-3">
-      <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full sm:col-span-3"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
-      <button type="button" disabled title="Estrutura preparada para uma futura implementação" className="cursor-not-allowed rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-sm font-black text-emerald-400 sm:col-span-2">Alterar opções</button>
-      <button type="button" disabled title="Estrutura preparada para uma futura implementação" className="cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-400">Refazer criação</button>
+    <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
+      <button type="button" disabled={['uploading','generating'].includes(status)} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Refazer criação</button>
     </div>
   </>
 }
