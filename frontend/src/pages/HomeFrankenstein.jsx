@@ -20,7 +20,7 @@ const demoCards = [
     badge: 'imagem principal',
   },
   {
-    label: 'Studio Hero',
+    label: 'Studio IA',
     title: 'Imagem -> Video',
     asset: '/previews/studio-hero/moema-demo.mp4',
     badge: 'video do imovel',
@@ -50,7 +50,7 @@ const featureCards = [
   },
   {
     icon: Video,
-    title: 'Studio Hero',
+    title: 'Studio IA',
     copy: 'Transforme fotos do imovel em um video cinematografico pronto para divulgar.',
     cta: 'Criar video',
     gradient: 'from-emerald-400 via-teal-500 to-cyan-600',
@@ -82,7 +82,7 @@ const steps = [
 const faqs = [
   'Preciso saber escrever prompts?',
   'Posso usar fotos reais do imovel?',
-  'O Studio Hero gera sempre o mesmo video?',
+  'O Studio IA gera sempre o mesmo video?',
   'Como funcionam os Smart Tokens?',
 ]
 
@@ -250,7 +250,7 @@ export default function HomeFrankenstein() {
                 para uma campanha que parece viva.
               </h2>
               <div className="mt-6 grid grid-cols-3 gap-2">
-                {['Banner Imobiliário', 'Studio Hero', 'Banners'].map((item) => (
+                {['Banner Imobiliário', 'Studio IA', 'Banners'].map((item) => (
                   <div key={item} className="rounded-2xl bg-white/8 px-3 py-4 text-center text-xs font-black uppercase text-slate-200">
                     {item}
                   </div>
@@ -263,7 +263,7 @@ export default function HomeFrankenstein() {
               <div className="relative grid grid-cols-[0.72fr_1fr] gap-3 rounded-[2.5rem] border border-white/12 bg-white/[0.07] p-3 shadow-2xl shadow-black/40 backdrop-blur-xl">
                 <MediaFrame src="/previews/produto3/anuncio-premium-preview-1x1.jpg" alt="Banner Imobiliário" className="aspect-[9/16]" />
                 <div className="grid gap-3">
-                  <MediaFrame src="/previews/studio-hero/moema-demo.mp4" alt="Studio Hero" className="aspect-video" contain />
+                  <MediaFrame src="/previews/studio-hero/moema-demo.mp4" alt="Studio IA" className="aspect-video" contain />
                   <div className="rounded-[1.5rem] bg-gradient-to-br from-orange-500 via-rose-500 to-violet-600 p-5">
                     <p className="text-xs font-black uppercase tracking-[0.24em] text-white/80">Imagem {'->'} Campanha</p>
                     <h3 className="mt-3 text-3xl font-black leading-none">pronto para publicar</h3>
@@ -358,7 +358,7 @@ export default function HomeFrankenstein() {
               Smart Tokens servem para criar imagens, videos, anuncios e materiais. Teste gratis e avance quando enxergar valor.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {['Banner Imobiliário', 'Studio Hero', 'Banners Rapidos', 'Textos', 'Campanhas'].map((item) => (
+              {['Banner Imobiliário', 'Studio IA', 'Banners Rapidos', 'Textos', 'Campanhas'].map((item) => (
                 <span key={item} className="rounded-full border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-black text-slate-700">
                   {item}
                 </span>

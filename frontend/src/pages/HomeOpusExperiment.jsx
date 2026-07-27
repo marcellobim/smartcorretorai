@@ -21,7 +21,7 @@ const productStories = [
     afterLabel: 'imagem principal',
   },
   {
-    eyebrow: 'Studio Hero',
+    eyebrow: 'Studio IA',
     icon: Video,
     title: 'Fotos paradas ganham movimento, ritmo e presença.',
     description: 'Crie um vídeo profissional do imóvel para redes sociais, WhatsApp e atendimento.',

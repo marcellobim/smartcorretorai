@@ -353,8 +353,8 @@ export default function SmartCarrossel() {
           <div className="absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-cyan-100/40 blur-3xl" />
           <div className="relative grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-700"><Sparkles className="h-4 w-4" />Smart Carrossel</div>
-              <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-[3.45rem]">Smart Carrossel</h1>
+              <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-700"><Sparkles className="h-4 w-4" />Carrossel de Anúncios</div>
+              <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-[3.45rem]">Carrossel de Anúncios</h1>
               <p className="mt-3 text-lg font-black text-emerald-700 sm:text-xl">Apresentação Profissional</p>
               <p className="mt-5 max-w-lg text-base font-semibold leading-7 text-slate-600">Transforme as fotos do seu imóvel em uma apresentação elegante, dinâmica e pronta para divulgação.</p>
               <button type="button" onClick={() => navigate('/studio-hero')} className="mt-6 w-fit rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-black text-slate-600 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700">Escolher outro tipo de criação</button>
@@ -373,7 +373,7 @@ export default function SmartCarrossel() {
             </div>
           </div>
 
-          <nav className="relative mt-8 overflow-x-auto rounded-2xl border border-emerald-100/80 bg-white/90 p-2 shadow-[0_18px_45px_-34px_rgba(15,23,42,0.5)] backdrop-blur" aria-label="Etapas do Smart Carrossel">
+          <nav className="relative mt-8 overflow-x-auto rounded-2xl border border-emerald-100/80 bg-white/90 p-2 shadow-[0_18px_45px_-34px_rgba(15,23,42,0.5)] backdrop-blur" aria-label="Etapas do Carrossel de Anúncios">
             <ol className="grid min-w-[650px] grid-cols-4 gap-2 sm:min-w-0">
               {[
                 { number: 1, title: 'Fotos', subtitle: 'Selecione e organize' },

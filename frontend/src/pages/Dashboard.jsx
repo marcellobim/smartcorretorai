@@ -42,10 +42,10 @@ const mainActions = [
   {
     id: 'studio-hero',
     icon: Video,
-    title: 'Studio Hero',
-    description: 'Transforme fotos em um vídeo cinematográfico do imóvel para redes sociais.',
+    title: 'Studio IA',
+    description: 'Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios com IA.',
     to: '/studio-hero',
-    label: 'Criar vídeo',
+    label: 'Abrir Studio IA',
     tone: 'featured',
     ready: true,
   },

@@ -126,7 +126,7 @@ const STUDIO_CREATION_MODES = [
   {
     id: 'free_ai',
     title: 'Vídeo Criativo',
-    description: 'Descreva sua ideia e transforme-a em um vídeo criativo, exclusivo e pronto para divulgação.',
+    description: 'Descreva sua ideia e transforme-a em um vídeo criativo exclusivo, pronto para divulgação.',
     status: 'Ativo agora',
     Icon: MessageSquareText,
     active: true,
@@ -135,13 +135,13 @@ const STUDIO_CREATION_MODES = [
   },
   {
     id: 'smart_carousel',
-    title: 'Smart Carrossel',
-    description: 'APRESENTAÇÃO PROFISSIONAL',
+    title: 'Carrossel de Anúncios',
+    description: 'Crie apresentações em formato de carrossel, prontas para redes sociais e campanhas imobiliárias.',
     status: 'ATIVO AGORA',
     Icon: ImagePlus,
     active: true,
     accent: 'green',
-    cta: 'Abrir Smart Carrossel',
+    cta: 'Abrir Carrossel de Anúncios',
   },
   {
     id: 'improve_video',
@@ -215,7 +215,7 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'smart_carousel',
     media: '/showcase/smartcarrossel/showcase-carrossel.mp4',
-    title: 'Smart Carrossel',
+    title: 'Carrossel de Anúncios',
     label: 'Apresentação dinâmica',
     accent: 'green',
     send: [
@@ -1862,16 +1862,16 @@ export default function StudioHero() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-100">
                   <Film className="h-4 w-4" />
-                  Studio Hero
+                  Studio IA
                 </div>
                 <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                  Studio Hero
+                  Studio IA
                 </h1>
                 <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-cyan-50">
                   Seu estudio inteligente de criacao de videos imobiliarios.
                 </p>
                 <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
-                  Crie comerciais imobiliários, vídeos criativos e carrosséis inteligentes em poucos minutos com IA.
+                  Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em poucos minutos com IA.
                 </p>
               </div>
               <div className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur">
@@ -1880,7 +1880,7 @@ export default function StudioHero() {
                   {[
                     'Comercial Imobiliário',
                     'Vídeo Criativo',
-                    'Smart Carrossel',
+                    'Carrossel de Anúncios',
                   ].map((item) => (
                     <li key={item} className="flex items-center gap-3">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-300/15 text-cyan-100 ring-1 ring-cyan-100/20">
@@ -1902,7 +1902,7 @@ export default function StudioHero() {
 
           <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-6">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Soluções Studio Hero</p>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Soluções Studio IA</p>
               <h2 className="mt-2 text-2xl font-black text-slate-950">✨ Descubra o que você pode criar</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
                 Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única.
@@ -2038,8 +2038,8 @@ export default function StudioHero() {
               </h1>
               <p className="mt-4 max-w-2xl text-xl font-black text-white">
                 {isFreeAiMode
-                  ? 'O Studio Hero vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
-                  : 'O Studio Hero vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
+                  ? 'O Studio IA vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
+                  : 'O Studio IA vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
               </p>
               <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
                 {isFreeAiMode
@@ -2953,7 +2953,7 @@ function StudioPossibilitiesShowcase() {
     <section className="overflow-hidden rounded-[2rem] border border-cyan-100 bg-white p-5 shadow-xl shadow-cyan-100/50 sm:p-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-primary-700">Possibilidades Studio Hero</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-700">Possibilidades Studio IA</p>
           <h2 className="mt-2 text-2xl font-black text-slate-950">
             ✨ Descubra o que você pode criar
           </h2>
@@ -2961,7 +2961,7 @@ function StudioPossibilitiesShowcase() {
             Cada conversa com a IA gera um resultado único.
           </p>
           <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
-            Escolha um objetivo e veja algumas das possibilidades que o Studio Hero pode criar para você.
+            Escolha um objetivo e veja algumas das possibilidades que o Studio IA pode criar para você.
           </p>
           <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-slate-500">
             Os exemplos são demonstrações visuais. Cada campanha será criada exclusivamente para o imóvel e o objetivo informados por você.

@@ -300,7 +300,7 @@ export default function Planos() {
                 Escolha quanto deseja adicionar
               </h3>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                Use em Banner Imobiliário, Studio Hero, Landing IA, Banners e Textos.
+                Use em Banner Imobiliário, Studio IA, Landing IA, Banners e Textos.
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">

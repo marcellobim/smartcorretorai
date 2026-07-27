@@ -19,13 +19,13 @@ import {
 
 const products = [
   {
-    name: 'Studio Hero',
+    name: 'Studio IA',
     description: 'Apresentações cinematográficas que valorizam cada detalhe do imóvel.',
     icon: ImagePlus,
     accent: 'from-cyan-400/20 to-blue-500/5',
   },
   {
-    name: 'Smart Carrossel',
+    name: 'Carrossel de Anúncios',
     description: 'Fotos organizadas em uma narrativa elegante, dinâmica e profissional.',
     icon: Layers3,
     accent: 'from-emerald-400/20 to-teal-500/5',

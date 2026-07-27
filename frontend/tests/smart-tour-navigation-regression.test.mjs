@@ -34,12 +34,13 @@ test('uses the approved Video Imobiliario copy in the Dashboard and keeps its in
   assert.deepEqual([...positions].sort((a, b) => a - b), positions)
   assert.match(catalog, /id: 'smart-tour-ai'[\s\S]*?title: 'Vídeo Imobiliário'[\s\S]*?description: 'Transforme as fotos dos seus imóveis em comerciais profissionais\. Escolha o resultado desejado e nossa IA faz o restante\.'[\s\S]*?to: '\/smart-tour-ai'[\s\S]*?label: 'Criar vídeo'/)
   assert.match(dashboard, /id: 'studio-hero'[\s\S]*?to: '\/studio-hero'/)
+  assert.match(catalog, /id: 'studio-hero'[\s\S]*?title: 'Studio IA'[\s\S]*?description: 'Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios com IA\.'[\s\S]*?label: 'Abrir Studio IA'/)
   assert.match(dashboard, /id: 'banners-rapidos'[\s\S]*?to: '\/nova-campanha'/)
   assert.doesNotMatch(catalog, /smart-tokens|Adicionar Smart Tokens|to: '\/planos'/)
   assert.match(dashboard, /<Link to=\{action\.to\}[\s\S]*?\{content\}[\s\S]*?<\/Link>/)
 })
 
-test('shows only the three approved Studio Hero modules without changing internal routes', () => {
+test('shows only the three approved Studio IA modules without changing internal routes', () => {
   const studio = read('frontend/src/pages/StudioHero.jsx')
   const catalog = studio.slice(studio.indexOf('const STUDIO_CREATION_MODES'), studio.indexOf('const STUDIO_MODE_EXAMPLES'))
   const ids = ['smart_tour', 'cinematic', 'free_ai', 'smart_carousel', 'improve_video']
@@ -56,8 +57,10 @@ test('shows only the three approved Studio Hero modules without changing interna
   assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES\.map/)
   assert.match(studio, /VISIBLE_STUDIO_MODE_EXAMPLES\.map/)
   assert.match(studio, /title: 'Comercial Imobiliário'[\s\S]*?Transforme uma imagem do imóvel em um comercial profissional, com movimentos, narração, música e chamada para divulgação\./)
-  assert.match(studio, /title: 'Vídeo Criativo'[\s\S]*?Descreva sua ideia e transforme-a em um vídeo criativo, exclusivo e pronto para divulgação\./)
-  assert.match(studio, /'Comercial Imobiliário',[\s\S]*?'Vídeo Criativo',[\s\S]*?'Smart Carrossel'/)
+  assert.match(studio, /title: 'Vídeo Criativo'[\s\S]*?Descreva sua ideia e transforme-a em um vídeo criativo exclusivo, pronto para divulgação\./)
+  assert.match(studio, /title: 'Carrossel de Anúncios'[\s\S]*?Crie apresentações em formato de carrossel, prontas para redes sociais e campanhas imobiliárias\./)
+  assert.match(studio, /'Comercial Imobiliário',[\s\S]*?'Vídeo Criativo',[\s\S]*?'Carrossel de Anúncios'/)
+  assert.match(studio, />\s*Studio IA\s*</)
   for (const benefit of ['📸 Até 5 fotos do imóvel', '🎥 Apresentação profissional do imóvel', '👤 Corretor(a) virtual opcional', '🎙️ Narração profissional', '🛋️ Sugestões de decoração para ambientes vazios com IA', '📱 Campanha pronta para divulgação']) {
     assert.ok(studio.includes(benefit))
   }
@@ -68,6 +71,23 @@ test('shows only the three approved Studio Hero modules without changing interna
   const examplePositions = ids.map(id => examples.indexOf(`id: '${id}'`))
   assert.ok(examplePositions.every(position => position >= 0))
   assert.deepEqual([...examplePositions].sort((a, b) => a - b), examplePositions)
+})
+
+test('updates public product names while preserving Smart Carousel technical contracts', () => {
+  const dashboard = read('frontend/src/pages/Dashboard.jsx')
+  const landing = read('frontend/src/pages/LandingPage.jsx')
+  const homeOpus = read('frontend/src/pages/HomeOpusExperiment.jsx')
+  const homeFrankenstein = read('frontend/src/pages/HomeFrankenstein.jsx')
+  const plans = read('frontend/src/pages/Planos.jsx')
+  const smartCarousel = read('frontend/src/pages/SmartCarrossel.jsx')
+
+  for (const source of [dashboard, landing, homeOpus, homeFrankenstein, plans]) {
+    assert.doesNotMatch(source, /Studio Hero/)
+  }
+  assert.match(smartCarousel, />Carrossel de Anúncios</)
+  assert.match(smartCarousel, /aria-label="Etapas do Carrossel de Anúncios"/)
+  assert.match(smartCarousel, /\[Smart Carrossel\] Erro interno:/)
+  assert.match(smartCarousel, /sourceProduct: 'Smart Carrossel'/)
 })
 
 test('uses only the isolated Gemini Omni client for Smart Tour generation', () => {
