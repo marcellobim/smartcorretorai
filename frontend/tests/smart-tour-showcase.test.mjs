@@ -53,3 +53,15 @@ test('uses a contained mobile carousel without page-wide horizontal overflow', (
   assert.match(page, /lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible/)
   assert.match(page, /object-contain/)
 })
+
+test('uses the approved commercial-video communication and guide', () => {
+  for (const text of [
+    'Transforme as fotos dos seus imóveis em comerciais profissionais.',
+    'Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante.',
+    'Escolha o resultado que você deseja',
+    'Como criar o vídeo que você deseja',
+    'Essas são apenas combinações recomendadas. Você pode criar qualquer combinação durante a criação do vídeo.',
+  ]) assert.ok(page.includes(text))
+  assert.doesNotMatch(page, />Smart Tour AI</)
+  assert.doesNotMatch(page, /Quatro formas de apresentar seu imóvel/)
+})

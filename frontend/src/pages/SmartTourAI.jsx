@@ -190,7 +190,7 @@ export default function SmartTourAI() {
   }
 
   const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
-  if (result) return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Sua apresentação imobiliária premium." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar nova apresentação" /></main></>
+  if (result) return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></>
 
   const measureFields = getSmartTourMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
@@ -222,11 +222,11 @@ export default function SmartTourAI() {
         <div className="relative max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-100 ring-1 ring-white/10">
             <Sparkles className="h-4 w-4" />
-            Smart Tour AI
+            SmartCorretorAI
           </div>
-          <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Transforme fotos em uma apresentação que conduz a visita.</h1>
+          <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Transforme as fotos dos seus imóveis em comerciais profissionais.</h1>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-200 sm:text-base">
-            Escolha a experiência ideal no chat. A IA organiza movimentos, narração, destaques e apresentação virtual conforme suas escolhas.
+            Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante.
           </p>
         </div>
       </section>
@@ -234,17 +234,33 @@ export default function SmartTourAI() {
       <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="mb-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Exemplos de experiências</p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">Quatro formas de apresentar seu imóvel</h2>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Escolha o resultado que você deseja</h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-            Esta vitrine apresenta apenas as quatro famílias principais. As variações de cada experiência continuam disponíveis no chat de criação.
+            Estas são as combinações mais utilizadas. Durante a criação do vídeo você pode personalizar cada opção e criar a combinação que melhor atende à sua necessidade.
           </p>
         </div>
         <SmartTourShowcase />
       </section>
 
+      <section className="mt-8 rounded-[2rem] border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 shadow-sm sm:p-7">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Guia rápido</p>
+        <h2 className="mt-2 text-2xl font-black text-slate-950">Como criar o vídeo que você deseja</h2>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {SMART_TOUR_EXAMPLES.map((example, index) => (
+            <div key={example.id} className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3 shadow-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">{index + 1}</span>
+              <p className="text-sm font-black text-slate-800">{example.title}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-5 rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold leading-6 text-emerald-950">
+          Essas são apenas combinações recomendadas. Você pode criar qualquer combinação durante a criação do vídeo.
+        </p>
+      </section>
+
       <div className="mb-5 mt-10">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Criação guiada</p>
-        <h2 className="mt-2 text-2xl font-black text-slate-950">Agora, conte como será o seu Smart Tour</h2>
+        <h2 className="mt-2 text-2xl font-black text-slate-950">Agora, conte como será o seu vídeo</h2>
       </div>
     <div className="mb-6 grid grid-cols-5 gap-2">{['Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
     <GuidedConversation
@@ -452,18 +468,31 @@ function Question(props) {
   if (id === 'cta_enabled') return explainedChoices('Ao final do vídeo poderá ser exibido um convite para contato utilizando as informações do seu cadastro profissional.', [{id:'yes',label:'Sim'},{id:'no',label:'Não'}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
+  const finalChoiceItems = [
+    { label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' },
+    { label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' },
+    { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
+    { label: 'CTA', value: ctaEnabled === true ? (cta || 'Sim') : 'Não' },
+    ...(ctaEnabled === true ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
+  ]
   return <>
     <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">
-      <p className="font-black">Tudo pronto!</p>
-      <p className="mt-2">Sua apresentação será criada utilizando todas as fotos enviadas, respeitando a ordem escolhida e todas as informações confirmadas durante esta conversa.</p>
-      <p className="mt-2">Nenhuma informação será inventada.</p>
-      <p className="mt-2">Agora é só clicar em Criar apresentação.</p>
+      <p className="text-lg font-black">Revise suas escolhas</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {finalChoiceItems.map(item => <div key={item.label} className="rounded-2xl border border-emerald-100 bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{item.label}</p><p className="mt-1 text-sm font-black text-slate-800">{item.value}</p></div>)}
+      </div>
+      <p className="mt-4 font-black">Confirma suas escolhas?</p>
     </div>
+    <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">Todas as escolhas</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
-    <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="mt-5 w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Criar apresentação'}</Button>
+    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full sm:col-span-3"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
+      <button type="button" disabled title="Estrutura preparada para uma futura implementação" className="cursor-not-allowed rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-sm font-black text-emerald-400 sm:col-span-2">Alterar opções</button>
+      <button type="button" disabled title="Estrutura preparada para uma futura implementação" className="cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-400">Refazer criação</button>
+    </div>
   </>
 }
 

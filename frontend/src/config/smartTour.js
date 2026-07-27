@@ -1,4 +1,4 @@
-export const SMART_TOUR_PRODUCT_NAME = 'Smart Tour AI'
+export const SMART_TOUR_PRODUCT_NAME = 'SmartCorretorAI'
 export const SMART_TOUR_ROUTE = '/smart-tour-ai'
 export const SMART_TOUR_MAX_IMAGES = 5
 export const SMART_TOUR_LANGUAGES = [

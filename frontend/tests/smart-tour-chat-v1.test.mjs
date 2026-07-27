@@ -88,7 +88,8 @@ test('supports targeted review edits and returns automatically to review', () =>
   assert.match(page, />Editar</)
 })
 
-test('uses the homologated intelligent final review message', () => {
-  for (const text of ['Tudo pronto!', 'respeitando a ordem escolhida', 'Nenhuma informação será inventada.', 'Agora é só clicar em Criar apresentação.']) assert.ok(page.includes(text))
-  for (const label of ['Finalidade', 'Estado', 'Tipo', 'Medidas', 'Localização', 'Valores', 'Apresentador', 'Narração', 'Destaques no vídeo', 'CTA final', 'Chamada escolhida', 'Telefone']) assert.ok(page.includes(label))
+test('uses the approved final video review structure', () => {
+  for (const text of ['Revise suas escolhas', 'Confirma suas escolhas?', 'Confirmar e criar vídeo', 'Alterar opções', 'Refazer criação']) assert.ok(page.includes(text))
+  for (const label of ['Apresentador', 'Narração', 'Textos', 'CTA', 'Telefone']) assert.ok(page.includes(label))
+  assert.match(page, /\.\.\.\(ctaEnabled === true \? \[\{ label: 'Telefone'/)
 })
