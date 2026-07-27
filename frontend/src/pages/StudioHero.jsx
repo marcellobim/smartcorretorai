@@ -95,7 +95,7 @@ const IMAGE_SLOTS = [
 ]
 
 const STUDIO_PRODUCT_VISIBILITY = {
-  smart_tour: { enabled: true },
+  smart_tour: { enabled: false },
   cinematic: { enabled: true },
   free_ai: { enabled: true },
   smart_carousel: { enabled: true },
@@ -105,18 +105,18 @@ const STUDIO_PRODUCT_VISIBILITY = {
 const STUDIO_CREATION_MODES = [
   {
     id: 'smart_tour',
-    title: 'Smart Tour AI',
+    title: 'Vídeo Imobiliário',
     description: 'Transforme até 5 fotos em uma apresentação imobiliária profissional com narração, apresentador virtual, movimentos cinematográficos e sugestões realistas de mobiliário criadas por IA.',
     status: 'Ativo agora',
     Icon: Sparkles,
     active: true,
     accent: 'cyan',
-    cta: 'Criar Smart Tour',
+    cta: 'Criar vídeo',
   },
   {
     id: 'cinematic',
-    title: 'Comercial Cinematografico',
-    description: 'Crie um comercial curto e impactante a partir da melhor imagem do imovel.',
+    title: 'Comercial Imobiliário',
+    description: 'Transforme uma imagem do imóvel em um comercial profissional, com movimentos, narração, música e chamada para divulgação.',
     status: 'Ativo agora',
     Icon: Film,
     active: true,
@@ -125,13 +125,13 @@ const STUDIO_CREATION_MODES = [
   },
   {
     id: 'free_ai',
-    title: 'Comercial IA Livre',
-    description: 'Crie um comercial do zero apenas conversando com a IA, sem enviar uma imagem.',
+    title: 'Vídeo Criativo',
+    description: 'Descreva sua ideia e transforme-a em um vídeo criativo, exclusivo e pronto para divulgação.',
     status: 'Ativo agora',
     Icon: MessageSquareText,
     active: true,
     accent: 'violet',
-    cta: 'Criar comercial livre',
+    cta: 'Criar vídeo criativo',
   },
   {
     id: 'smart_carousel',
@@ -158,7 +158,7 @@ const STUDIO_CREATION_MODES = [
 const STUDIO_MODE_EXAMPLES = [
   {
     id: 'smart_tour',
-    title: 'Smart Tour AI',
+    title: 'Vídeo Imobiliário',
     label: 'Apresentação imobiliária',
     accent: 'cyan',
     send: [
@@ -175,14 +175,14 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'cinematic',
     media: '/showcase/studio/showcase-venda0.mp4.mp4',
-    title: 'Comercial Cinematográfico',
+    title: 'Comercial Imobiliário',
     label: 'Comercial com imagem',
     accent: 'cyan',
     send: [
       '📷 A imagem do seu imóvel',
     ],
     receive: [
-      '🎬 Comercial cinematográfico',
+      '🎬 Comercial imobiliário',
       '🎙️ Narração profissional',
       '🎵 Trilha sonora sincronizada',
       '✨ Efeitos cinematográficos',
@@ -195,14 +195,14 @@ const STUDIO_MODE_EXAMPLES = [
   {
     id: 'free_ai',
     media: '/showcase/studio/showcase-captacao-venda.mp4',
-    title: 'Comercial IA Livre',
+    title: 'Vídeo Criativo',
     label: 'Criação por IA',
     accent: 'violet',
     send: [
       '💡 Apenas sua ideia',
     ],
     receive: [
-      '🎬 Comercial completo',
+      '🎬 Vídeo criativo',
       '📝 Roteiro criado pela IA',
       '🎙️ Narração profissional',
       '🎵 Trilha sonora',
@@ -574,7 +574,7 @@ const MATRIX_ALLOWED_OPTIONS = {
 }
 
 const GENERATION_MESSAGES = [
-  { Icon: Film, text: 'Estamos preparando seu comercial cinematografico.' },
+  { Icon: Film, text: 'Estamos preparando seu Comercial Imobiliário.' },
   { Icon: ImagePlus, text: 'A IA esta analisando sua imagem.' },
   { Icon: PlayCircle, text: 'Criando movimento, luz e atmosfera.' },
   { Icon: MessageSquareText, text: 'Montando uma apresentacao com aparencia profissional.' },
@@ -1871,18 +1871,16 @@ export default function StudioHero() {
                   Seu estudio inteligente de criacao de videos imobiliarios.
                 </p>
                 <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
-                  Crie comerciais cinematograficos, apresentacoes profissionais ou melhore videos gravados em poucos minutos com IA.
+                  Crie comerciais imobiliários, vídeos criativos e carrosséis inteligentes em poucos minutos com IA.
                 </p>
               </div>
               <div className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur">
                 <p className="text-sm font-black text-white">O que voce pode criar</p>
                 <ul className="mt-4 space-y-3 text-sm font-bold leading-6 text-slate-100">
                   {[
-                    'Comerciais cinematograficos',
-                    'Comerciais criados apenas com IA',
-                    'Carrosseis inteligentes',
-                    'Melhoria automatica de videos',
-                    'Novos modos chegando',
+                    'Comercial Imobiliário',
+                    'Vídeo Criativo',
+                    'Smart Carrossel',
                   ].map((item) => (
                     <li key={item} className="flex items-center gap-3">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-300/15 text-cyan-100 ring-1 ring-cyan-100/20">
@@ -1910,7 +1908,7 @@ export default function StudioHero() {
                 Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única.
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {VISIBLE_STUDIO_MODE_EXAMPLES.map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
                 return (
@@ -1972,7 +1970,7 @@ export default function StudioHero() {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
               const ModeIcon = mode.Icon
               const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
@@ -2033,7 +2031,7 @@ export default function StudioHero() {
             <div>
               <div className={`inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-100' : 'text-cyan-100'}`}>
                 {isFreeAiMode ? <MessageSquareText className="h-4 w-4" /> : <Film className="h-4 w-4" />}
-                {isFreeAiMode ? 'Comercial IA Livre' : 'Comercial Cinematografico'}
+                {isFreeAiMode ? 'Vídeo Criativo' : 'Comercial Imobiliário'}
               </div>
               <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
                 Vamos criar seu comercial.

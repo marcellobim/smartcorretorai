@@ -25,21 +25,21 @@ test('keeps every baseline route and adds an isolated Smart Tour route', () => {
   assert.match(app, /path="\/smart-tour-ai" element=\{<SmartTourAI \/>\}/)
 })
 
-test('places Smart Tour first in the Dashboard product grid and keeps token purchase out of it', () => {
+test('uses the approved Video Imobiliario copy in the Dashboard and keeps its internal route', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
   const ids = ['smart-tour-ai', 'hero-ia', 'studio-hero', 'banners-rapidos']
   const positions = ids.map(id => catalog.indexOf(`id: '${id}'`))
   assert.ok(positions.every(position => position >= 0))
   assert.deepEqual([...positions].sort((a, b) => a - b), positions)
-  assert.match(catalog, /id: 'smart-tour-ai'[\s\S]*?title: 'Smart Tour AI'[\s\S]*?to: '\/smart-tour-ai'[\s\S]*?label: 'Criar Smart Tour'/)
+  assert.match(catalog, /id: 'smart-tour-ai'[\s\S]*?title: 'Vídeo Imobiliário'[\s\S]*?description: 'Transforme as fotos dos seus imóveis em comerciais profissionais\. Escolha o resultado desejado e nossa IA faz o restante\.'[\s\S]*?to: '\/smart-tour-ai'[\s\S]*?label: 'Criar vídeo'/)
   assert.match(dashboard, /id: 'studio-hero'[\s\S]*?to: '\/studio-hero'/)
   assert.match(dashboard, /id: 'banners-rapidos'[\s\S]*?to: '\/nova-campanha'/)
   assert.doesNotMatch(catalog, /smart-tokens|Adicionar Smart Tokens|to: '\/planos'/)
   assert.match(dashboard, /<Link to=\{action\.to\}[\s\S]*?\{content\}[\s\S]*?<\/Link>/)
 })
 
-test('places Smart Tour first without changing existing Studio Hero options', () => {
+test('shows only the three approved Studio Hero modules without changing internal routes', () => {
   const studio = read('frontend/src/pages/StudioHero.jsx')
   const catalog = studio.slice(studio.indexOf('const STUDIO_CREATION_MODES'), studio.indexOf('const STUDIO_MODE_EXAMPLES'))
   const ids = ['smart_tour', 'cinematic', 'free_ai', 'smart_carousel', 'improve_video']
@@ -49,17 +49,21 @@ test('places Smart Tour first without changing existing Studio Hero options', ()
   assert.match(studio, /mode\.id === 'smart_tour'[\s\S]*?navigate\('\/smart-tour-ai'\)/)
   assert.match(studio, /mode\.id === 'smart_carousel'[\s\S]*?navigate\('\/smart-carrossel'\)/)
   assert.match(studio, /setStudioMode\(mode\.id\)[\s\S]*?resetFlow\(mode\.id\)/)
-  assert.match(studio, /className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"/)
-  assert.doesNotMatch(studio, /xl:grid-cols-5/)
+  assert.match(studio, /smart_tour: \{ enabled: false \}/)
+  assert.equal(studio.match(/className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"/g)?.length, 2)
+  assert.doesNotMatch(studio, /xl:grid-cols-[45]/)
   assert.match(studio, /improve_video: \{ enabled: false \}/)
   assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES\.map/)
   assert.match(studio, /VISIBLE_STUDIO_MODE_EXAMPLES\.map/)
-  assert.match(studio, /Transforme até 5 fotos em uma apresentação imobiliária profissional/)
+  assert.match(studio, /title: 'Comercial Imobiliário'[\s\S]*?Transforme uma imagem do imóvel em um comercial profissional, com movimentos, narração, música e chamada para divulgação\./)
+  assert.match(studio, /title: 'Vídeo Criativo'[\s\S]*?Descreva sua ideia e transforme-a em um vídeo criativo, exclusivo e pronto para divulgação\./)
+  assert.match(studio, /'Comercial Imobiliário',[\s\S]*?'Vídeo Criativo',[\s\S]*?'Smart Carrossel'/)
   for (const benefit of ['📸 Até 5 fotos do imóvel', '🎥 Apresentação profissional do imóvel', '👤 Corretor(a) virtual opcional', '🎙️ Narração profissional', '🛋️ Sugestões de decoração para ambientes vazios com IA', '📱 Campanha pronta para divulgação']) {
     assert.ok(studio.includes(benefit))
   }
   assert.match(studio, /onClick=\{\(\) => selectStudioMode\(mode\)\}[\s\S]*?cursor-pointer/)
   assert.doesNotMatch(studio, /const isSmartCarousel/)
+  assert.doesNotMatch(studio, /Smart Tour AI|Comercial Cinematográfico|Comercial IA Livre/)
   const examples = studio.slice(studio.indexOf('const STUDIO_MODE_EXAMPLES'), studio.indexOf('const STUDIO_POSSIBILITY_EXAMPLES'))
   const examplePositions = ids.map(id => examples.indexOf(`id: '${id}'`))
   assert.ok(examplePositions.every(position => position >= 0))

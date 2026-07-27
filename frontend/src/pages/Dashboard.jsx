@@ -22,10 +22,10 @@ const mainActions = [
   {
     id: 'smart-tour-ai',
     icon: PlayCircle,
-    title: 'Smart Tour AI',
-    description: 'Crie uma apresentação completa do imóvel com IA, narração, apresentador virtual e campanha pronta.',
+    title: 'Vídeo Imobiliário',
+    description: 'Transforme as fotos dos seus imóveis em comerciais profissionais. Escolha o resultado desejado e nossa IA faz o restante.',
     to: '/smart-tour-ai',
-    label: 'Criar Smart Tour',
+    label: 'Criar vídeo',
     tone: 'featured',
     ready: true,
   },
