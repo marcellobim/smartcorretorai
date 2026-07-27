@@ -19,11 +19,22 @@ const ACTIVE_JOB_KEY = 'smartcorretorai:smart-tour:active-job'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
-const visibleExamples = SMART_TOUR_EXAMPLES.map(example => example.id === 'animate-images' ? {
+const visibleExamples = SMART_TOUR_EXAMPLES.map(example => ({
   ...example,
-  title: 'Fotos em Movimento',
-  description: 'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
-} : example)
+  ...(example.id === 'animate-images' ? {
+    title: 'Fotos em Movimento',
+    description: 'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
+  } : example.id === 'campaign-video' ? {
+    title: 'Legendas na Tela',
+    description: 'Apresente seu imóvel com legendas sincronizadas, música de fundo e destaque para as principais informações.',
+  } : example.id === 'narrated-video' ? {
+    title: 'Narração Profissional',
+    description: 'Apresente seu imóvel com uma narração natural e profissional, acompanhada das principais informações na tela.',
+  } : example.id === 'virtual-agent' ? {
+    title: 'Corretor Virtual IA',
+    description: 'Um corretor virtual apresenta o imóvel de forma humanizada, conduzindo a experiência do início ao fim.',
+  } : {}),
+}))
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
 

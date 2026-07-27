@@ -66,9 +66,17 @@ test('uses the approved commercial-video communication and guide', () => {
   assert.doesNotMatch(page, /Quatro formas de apresentar seu imóvel/)
 })
 
-test('uses the approved visible name for the animated-photo option without changing its technical configuration', () => {
-  assert.ok(page.includes("title: 'Fotos em Movimento'"))
-  assert.ok(page.includes('Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.'))
+test('uses the approved visible copy for all four options without changing their technical configuration', () => {
+  for (const text of [
+    "title: 'Fotos em Movimento'",
+    'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
+    "title: 'Legendas na Tela'",
+    'Apresente seu imóvel com legendas sincronizadas, música de fundo e destaque para as principais informações.',
+    "title: 'Narração Profissional'",
+    'Apresente seu imóvel com uma narração natural e profissional, acompanhada das principais informações na tela.',
+    "title: 'Corretor Virtual IA'",
+    'Um corretor virtual apresenta o imóvel de forma humanizada, conduzindo a experiência do início ao fim.',
+  ]) assert.ok(page.includes(text))
   assert.equal(SMART_TOUR_EXAMPLES[0].title, 'Animar Imagens')
   assert.equal(SMART_TOUR_EXAMPLES[0].video, '/demos-videos/animar-imagens.mp4')
 })
