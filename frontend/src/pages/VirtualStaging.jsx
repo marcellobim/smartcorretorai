@@ -279,7 +279,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
     ...(isLifeInProperty
-      ? [{ id: 'life_scene', label: lifeScene ? `Vida no imóvel: ${getLifeSceneLabel(lifeScene)}` : '' }]
+      ? [{ id: 'life_scene', label: lifeScene ? `Vida no Imóvel: ${getLifeSceneLabel(lifeScene)}` : '' }]
       : [
           { id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') },
           { id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' },
@@ -416,7 +416,7 @@ function Question(props) {
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
   const finalChoiceItems = [
     ...(isLifeInProperty
-      ? [{ label: 'Vida no imóvel', value: getLifeSceneLabel(lifeScene) }]
+      ? [{ label: 'Vida no Imóvel', value: getLifeSceneLabel(lifeScene) }]
       : [
           { label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' },
           { label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' },
@@ -449,6 +449,6 @@ function reviewLabel(id) {
   return {
     images: 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
-    life_scene: 'Vida no imóvel', presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
+    life_scene: 'Vida no Imóvel', presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }[id] || id
 }

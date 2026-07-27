@@ -29,6 +29,7 @@ test('Vida no Imovel has the nine approved single-choice profiles', () => {
     { id: 'senior_cat', label: 'Idosos com gato' },
   ])
   assert.equal(getLifeSceneLabel('adult_dog'), 'Adultos com cachorro')
+  assert.equal(LIFE_SCENE_OPTIONS.some(({ label }) => /nenhum|sem pessoas|não incluir pessoas/i.test(label)), false)
   assert.match(page, /const \[lifeScene, setLifeScene\] = useState\(''\)/)
   assert.match(page, /choices\(LIFE_SCENE_OPTIONS, lifeScene/)
   assert.doesNotMatch(page, /setLifeScene\(current => \[/)
@@ -36,6 +37,28 @@ test('Vida no Imovel has the nine approved single-choice profiles', () => {
 
 test('branches only Vida no Imovel after highlights and makes CTA mandatory', () => {
   const next = questionId => getVirtualStagingNextQuestion({ questionId, journeyId: LIFE_IN_PROPERTY_JOURNEY_ID })
+
+  const sequence = ['images']
+  while (sequence.at(-1) !== 'review') sequence.push(next(sequence.at(-1)))
+
+  assert.deepEqual(sequence, [
+    'images',
+    'purpose',
+    'stage',
+    'type',
+    'facts',
+    'location',
+    'commercial',
+    'highlights',
+    'life_scene',
+    'captions',
+    'cta',
+    'phone',
+    'review',
+  ])
+  assert.equal(sequence.includes('presenter'), false)
+  assert.equal(sequence.includes('narration'), false)
+  assert.equal(sequence.includes('cta_enabled'), false)
 
   assert.equal(next('highlights'), 'life_scene')
   assert.equal(next('life_scene'), 'captions')
@@ -47,6 +70,7 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /\['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo\?'\]/)
   assert.match(page, /\['cta', 4, 'Qual chamada deseja usar no final\?'\]/)
   assert.match(page, /const selectedCta = isLifeInProperty \|\| ctaEnabled === true \? cta : ''/)
+  assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| ctaEnabled === true\) && includePhone === true/)
 })
 
 test('builds the Vida no Imovel JSON without presenter semantics', () => {
@@ -67,12 +91,28 @@ test('builds the Vida no Imovel JSON without presenter semantics', () => {
 })
 
 test('shows the selected life profile in summary and review', () => {
-  assert.match(page, /Vida no imóvel: \$\{getLifeSceneLabel\(lifeScene\)\}/)
-  assert.match(page, /label: 'Vida no imóvel', value: getLifeSceneLabel\(lifeScene\)/)
-  assert.match(page, /life_scene: 'Vida no imóvel'/)
+  assert.match(page, /Vida no Imóvel: \$\{getLifeSceneLabel\(lifeScene\)\}/)
+  assert.match(page, /label: 'Vida no Imóvel', value: getLifeSceneLabel\(lifeScene\)/)
+  assert.match(page, /life_scene: 'Vida no Imóvel'/)
 })
 
 test('keeps the homologated Video Imobiliario questions unchanged', () => {
+  for (const question of [
+    'Envie até 5 fotos na ordem em que deseja apresentá-las.',
+    'Qual é a finalidade do imóvel?',
+    'Qual é o estado atual do imóvel?',
+    'Que tipo de imóvel vamos apresentar?',
+    'Quais são as principais medidas?',
+    'Onde fica o imóvel?',
+    'Quais informações comerciais deseja incluir?',
+    'Quais são os principais destaques?',
+    'Deseja destacar algumas informações importantes durante o vídeo?',
+    'Qual chamada deseja usar no final?',
+    'Deseja divulgar seu telefone profissional?',
+  ]) {
+    assert.ok(page.includes(question), `Virtual Staging: ${question}`)
+    assert.ok(smartTour.includes(question), `Vídeo Imobiliário: ${question}`)
+  }
   for (const question of [
     'Deseja um apresentador virtual durante o vídeo?',
     'Deseja narração durante o vídeo?',
