@@ -1,5 +1,11 @@
 export const LIFE_IN_PROPERTY_JOURNEY_ID = 'life-in-property'
 
+export const LIFE_RENTAL_STAGE_OPTIONS = Object.freeze([
+  'Pronto para morar',
+  'Disponível já',
+  'Vago',
+])
+
 export const LIFE_SCENE_OPTIONS = Object.freeze([
   { id: 'young', label: 'Jovens' },
   { id: 'young_dog', label: 'Jovens com cachorro' },

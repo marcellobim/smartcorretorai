@@ -10,8 +10,8 @@ export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
     id: 'life-in-property',
     title: 'Vida no Imóvel',
     description: 'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
-    demoVideo: '/demos-videos/video-campanha.mp4',
-    demoAssetStatus: 'temporary',
+    demoVideo: '/demos-videos/vida-no-imovel.mp4',
+    demoAssetStatus: 'official',
   },
   {
     id: 'broker-presentation',

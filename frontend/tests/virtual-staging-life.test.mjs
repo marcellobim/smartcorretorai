@@ -8,6 +8,7 @@ import {
   buildLifeInPropertyGenerationPayload,
   getLifeSceneLabel,
   LIFE_IN_PROPERTY_JOURNEY_ID,
+  LIFE_RENTAL_STAGE_OPTIONS,
   LIFE_SCENE_OPTIONS,
 } from '../src/config/virtualStagingLife.js'
 
@@ -71,6 +72,25 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /\['cta', 4, 'Qual chamada deseja usar no final\?'\]/)
   assert.match(page, /const selectedCta = isLifeInProperty \|\| ctaEnabled === true \? cta : ''/)
   assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| ctaEnabled === true\) && includePhone === true/)
+})
+
+test('adds the approved rental states to the existing Vida no Imovel question only', () => {
+  assert.deepEqual(LIFE_RENTAL_STAGE_OPTIONS, ['Pronto para morar', 'Disponível já', 'Vago'])
+  assert.match(page, /journeyId === LIFE_IN_PROPERTY_JOURNEY_ID && property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS/)
+  assert.match(page, /property\.purpose === 'rent' \? \['Pronto para mudar'\] : STAGES/)
+  assert.doesNotMatch(smartTour, /LIFE_RENTAL_STAGE_OPTIONS|Disponível já|Vago/)
+})
+
+test('uses the official Vida no Imovel demo with the homologated protected modal', () => {
+  assert.match(page, /activeDemo\.demoVideo/)
+  assert.match(page, />Ver exemplo</)
+  assert.match(page, /role="dialog"/)
+  assert.match(page, /event\.key === 'Escape'/)
+  assert.match(page, /event\.target === event\.currentTarget/)
+  assert.match(page, /autoPlay playsInline controls preload="metadata"/)
+  assert.match(page, /controlsList="nodownload noremoteplayback"/)
+  assert.match(page, /disablePictureInPicture/)
+  assert.match(page, /onContextMenu=\{event => event\.preventDefault\(\)\}/)
 })
 
 test('builds the Vida no Imovel JSON without presenter semantics', () => {

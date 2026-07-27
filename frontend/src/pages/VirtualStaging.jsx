@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Loader2, Sparkles, Trash2, UploadCloud, Video } from 'lucide-react'
+import { ArrowDown, ArrowUp, Loader2, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
@@ -11,7 +11,7 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { getVirtualStagingJourney, getVirtualStagingJourneySessionKey, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
-import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
+import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
@@ -319,45 +319,83 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 }
 
 function VirtualStagingModules({ selectedJourneyId, onSelect }) {
-  return <div className="grid gap-5 md:grid-cols-3">
-    {VIRTUAL_STAGING_JOURNEYS.map(journey => {
+  const [activeDemo, setActiveDemo] = useState(null)
+  const modalVideoRef = useRef(null)
+  const closeButtonRef = useRef(null)
+  const closeDemo = () => {
+    modalVideoRef.current?.pause()
+    setActiveDemo(null)
+  }
+
+  useEffect(() => {
+    if (!activeDemo) return undefined
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') {
+        modalVideoRef.current?.pause()
+        setActiveDemo(null)
+      }
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+    closeButtonRef.current?.focus()
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [activeDemo])
+
+  return <>
+    <div className="grid gap-5 md:grid-cols-3">
+      {VIRTUAL_STAGING_JOURNEYS.map(journey => {
       const isSelected = selectedJourneyId === journey.id
-      return <button
+      const hasOfficialDemo = journey.demoAssetStatus === 'official'
+      const preview = <div className="mx-auto w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 shadow-xl shadow-slate-200/70">
+        <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
+          <video
+            src={journey.demoVideo}
+            aria-label={`Demonstração: ${journey.title}`}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls={false}
+            preload="metadata"
+            disablePictureInPicture
+            disableRemotePlayback
+            controlsList="nodownload noremoteplayback"
+            onContextMenu={event => event.preventDefault()}
+            className="pointer-events-none absolute inset-0 h-full w-full bg-black object-contain"
+          />
+          <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-emerald-300/60" />
+        </div>
+      </div>
+      return <article
         key={journey.id}
-        type="button"
-        aria-pressed={isSelected}
-        aria-controls={isSelected ? `virtual-staging-chat-${journey.id}` : undefined}
-        onClick={() => onSelect(journey.id)}
         className={`group min-w-0 rounded-3xl border p-4 text-left shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${isSelected ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)] hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg'}`}
       >
-        <div className="mx-auto w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 shadow-xl shadow-slate-200/70">
-          <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
-            <video
-              src={journey.demoVideo}
-              aria-label={`Demonstração provisória: ${journey.title}`}
-              autoPlay
-              muted
-              loop
-              playsInline
-              controls={false}
-              preload="metadata"
-              disablePictureInPicture
-              disableRemotePlayback
-              controlsList="nodownload noremoteplayback"
-              onContextMenu={event => event.preventDefault()}
-              className="pointer-events-none absolute inset-0 h-full w-full bg-black object-contain"
-            />
-            <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-emerald-300/60" />
-          </div>
-        </div>
+        {hasOfficialDemo ? <button type="button" onClick={() => setActiveDemo(journey)} aria-label={`Ampliar demonstração: ${journey.title}`} className="mx-auto block w-full rounded-[2rem] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">{preview}</button> : preview}
         <h3 className="mt-4 text-center text-base font-black text-slate-950">{journey.title}</h3>
         <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{journey.description}</p>
-        <span className="mx-auto mt-4 flex min-h-11 w-fit items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition group-hover:border-emerald-400 group-hover:bg-emerald-50">
+        {hasOfficialDemo && <button type="button" onClick={() => setActiveDemo(journey)} className="mx-auto mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"><PlayCircle className="h-4 w-4" aria-hidden="true" />Ver exemplo</button>}
+        <button type="button" aria-pressed={isSelected} aria-controls={isSelected ? `virtual-staging-chat-${journey.id}` : undefined} onClick={() => onSelect(journey.id)} className="mx-auto mt-4 flex min-h-11 w-fit items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
           {isSelected ? 'Módulo selecionado' : 'Escolher módulo'}
-        </span>
-      </button>
-    })}
-  </div>
+        </button>
+      </article>
+      })}
+    </div>
+    {activeDemo && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={`Demonstração ampliada: ${activeDemo.title}`} onMouseDown={event => { if (event.target === event.currentTarget) closeDemo() }}>
+      <div className="relative flex max-h-full w-full max-w-4xl flex-col items-center">
+        <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
+          <p className="truncate text-lg font-black">{activeDemo.title}</p>
+          <button ref={closeButtonRef} type="button" onClick={closeDemo} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70" aria-label="Fechar demonstração"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex aspect-[9/16] max-h-[calc(100vh-9rem)] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl sm:flex-none sm:w-[min(420px,70vw)]">
+          <video key={activeDemo.id} ref={modalVideoRef} src={activeDemo.demoVideo} aria-label={`Demonstração ampliada: ${activeDemo.title}`} autoPlay playsInline controls preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="h-full w-full bg-black object-contain" />
+        </div>
+      </div>
+    </div>}
+  </>
 }
 
 function Question(props) {
@@ -367,7 +405,7 @@ function Question(props) {
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
   if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {VIRTUAL_STAGING_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {VIRTUAL_STAGING_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
-  if (id === 'stage') return choices(property.purpose === 'rent' ? ['Pronto para mudar'] : STAGES, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) }))
+  if (id === 'stage') { const stageOptions = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID && property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : property.purpose === 'rent' ? ['Pronto para mudar'] : STAGES; return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') return <>{choices(VIRTUAL_STAGING_PROPERTY_TYPES, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</>
   if (id === 'facts') {
     const fields = getVirtualStagingMeasureFields(property.type)

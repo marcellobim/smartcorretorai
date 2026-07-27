@@ -128,6 +128,25 @@ test('Vida no Imovel makes rent and rental purpose mandatory as para locacao', (
   }
 })
 
+test('Vida no Imovel sends each approved rental state to the second caption', () => {
+  for (const stage of ['Pronto para morar', 'Disponível já', 'Vago']) {
+    const validated = validateVirtualStagingRequest({
+      ...request('young_dog'),
+      property: { ...property, purpose: 'rent', stage },
+    })
+    const briefing = buildVirtualStagingBriefing({
+      generation: validated.generation,
+      property: validated.property,
+      selectedCta: validated.selectedCta,
+      imagePaths: validated.imagePaths,
+      language: validated.language,
+    })
+
+    assert.equal(briefing.timeline.legendas[0].texto, 'PARA LOCAÇÃO')
+    assert.match(briefing.timeline.legendas[1].texto, new RegExp(`^${stage}`))
+  }
+})
+
 test('requests without life_scene remain byte-compatible with the original Video Imobiliario engine', () => {
   const virtualInput = validateVirtualStagingRequest(request(undefined))
   const originalInput = validateOriginalSmartTourRequest(request(undefined))
