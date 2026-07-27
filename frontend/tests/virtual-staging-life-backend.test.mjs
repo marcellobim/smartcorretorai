@@ -92,6 +92,42 @@ test('structured generation payload includes the selected life profile and manda
   assert.match(prompt, /respeitar integralmente a ordem original das imagens/)
 })
 
+test('Vida no Imovel makes sale purpose mandatory in narration and the first active caption', () => {
+  const validated = validateVirtualStagingRequest(request('adult'))
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+  })
+
+  assert.match(briefing.timeline.narracao[0].texto, /à venda/i)
+  assert.equal(briefing.timeline.legendas[0].texto, 'À VENDA')
+  assert.match(briefing.timeline.legendas[1].texto, /^Pronto para morar/)
+  assert.doesNotMatch(briefing.timeline.legendas[0].texto, /Pronto para morar/)
+})
+
+test('Vida no Imovel makes rent and rental purpose mandatory as para locacao', () => {
+  for (const purpose of ['rent', 'rental']) {
+    const validated = validateVirtualStagingRequest({
+      ...request('senior_cat'),
+      property: { ...property, purpose },
+    })
+    const briefing = buildVirtualStagingBriefing({
+      generation: validated.generation,
+      property: validated.property,
+      selectedCta: validated.selectedCta,
+      imagePaths: validated.imagePaths,
+      language: validated.language,
+    })
+
+    assert.match(briefing.timeline.narracao[0].texto, /para locação/i)
+    assert.equal(briefing.timeline.legendas[0].texto, 'PARA LOCAÇÃO')
+    assert.match(briefing.timeline.legendas[1].texto, /^Pronto para morar/)
+  }
+})
+
 test('requests without life_scene remain byte-compatible with the original Video Imobiliario engine', () => {
   const virtualInput = validateVirtualStagingRequest(request(undefined))
   const originalInput = validateOriginalSmartTourRequest(request(undefined))

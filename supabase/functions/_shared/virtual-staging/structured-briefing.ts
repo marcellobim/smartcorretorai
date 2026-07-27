@@ -282,6 +282,31 @@ const purpose = (value: unknown) => {
   return cleaned
 }
 
+const LIFE_SCENE_PROPERTY_OPENINGS: Record<string, string> = {
+  apartamento: 'este excelente apartamento',
+  casa: 'esta excelente casa',
+  cobertura: 'esta excelente cobertura',
+  'studio / loft': 'este excelente studio',
+  'terreno / lote': 'este excelente terreno',
+  comercial: 'este excelente imóvel comercial',
+}
+
+const lifeScenePurpose = (value: unknown) => {
+  const normalized = normalizeMatch(literal(value)).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (['sale', 'venda'].includes(normalized)) return { narration: 'à venda', caption: 'À VENDA' }
+  if (['rent', 'rental', 'locacao'].includes(normalized)) return { narration: 'para locação', caption: 'PARA LOCAÇÃO' }
+  return null
+}
+
+const lifeSceneOpeningNarration = (property: PropertyContext, language: SupportedLanguage) => {
+  if (language !== 'pt-BR') return ''
+  const purposeLabel = lifeScenePurpose(property.purpose)
+  if (!purposeLabel) return ''
+  const propertyType = normalizeMatch(literal(property.type))
+  const subject = LIFE_SCENE_PROPERTY_OPENINGS[propertyType] || 'este excelente imóvel'
+  return `Conheça ${subject} ${purposeLabel.narration}.`
+}
+
 const sceneTypes = (count: number): SmartTourSceneType[] => {
   if (count <= 0) return []
   if (count === 1) return ['encerramento']
@@ -358,10 +383,15 @@ export function buildSmartTourStructuredBriefing(input: {
   const tipoImovel = literal(input.property.type)
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
+  const lifeScene = config.life_scene
+  const purposeOpening = lifeScene ? lifeSceneOpeningNarration(input.property, input.language) : ''
+  const purposeCaption = lifeScene ? lifeScenePurpose(input.property.purpose)?.caption || '' : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
     const phrase = config.narration === 'enabled'
-      ? selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` })
+      ? (block.tipo === 'abertura' && purposeOpening
+          ? { id: 'LIFE_PURPOSE_OPENING', texto: purposeOpening }
+          : selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` }))
       : { id: '', texto: '' }
     return { ...block, texto: phrase.texto, frase_id: phrase.id }
   })
@@ -369,7 +399,9 @@ export function buildSmartTourStructuredBriefing(input: {
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
-    texto: config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : '',
+    texto: config.captions === 'enabled'
+      ? (block.bloco === 1 && purposeCaption ? purposeCaption : commercialCaption(block.bloco, input.property))
+      : '',
   }))
   const ctaTimeline = {
     bloco: 5,
@@ -385,11 +417,15 @@ export function buildSmartTourStructuredBriefing(input: {
     const tipo = types[index]
     const isLast = tipo === 'encerramento'
     const phrase = config.narration === 'enabled'
-      ? selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` })
+      ? (tipo === 'abertura' && purposeOpening
+          ? { id: 'LIFE_PURPOSE_OPENING', texto: purposeOpening }
+          : selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` }))
       : { id: '', texto: '' }
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : '')
+      : (config.captions === 'enabled'
+          ? (sceneNumber === 1 && purposeCaption ? purposeCaption : commercialCaption(sceneNumber, input.property))
+          : '')
     return {
       numero: sceneNumber,
       tipo,
@@ -404,7 +440,6 @@ export function buildSmartTourStructuredBriefing(input: {
   })
   const presenterType = presenter(config)
   const hasPresenter = presenterType !== 'nenhum'
-  const lifeScene = config.life_scene
   const lifeSceneLabel = lifeScene ? LIFE_SCENE_LABELS[lifeScene] : ''
   const hasLifeScene = Boolean(lifeScene)
   const presenterLabel = presenterType === 'corretor' ? 'um corretor' : 'uma corretora'
