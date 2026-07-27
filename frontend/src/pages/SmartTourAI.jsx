@@ -267,8 +267,13 @@ export default function SmartTourAI() {
 
 function SmartTourShowcase() {
   const [activeIndex, setActiveIndex] = useState(null)
+  const modalVideoRef = useRef(null)
+  const closeButtonRef = useRef(null)
   const activeExample = activeIndex === null ? null : SMART_TOUR_EXAMPLES[activeIndex]
-  const close = () => setActiveIndex(null)
+  const close = () => {
+    modalVideoRef.current?.pause()
+    setActiveIndex(null)
+  }
   const showPrevious = () => setActiveIndex(current => (current - 1 + SMART_TOUR_EXAMPLES.length) % SMART_TOUR_EXAMPLES.length)
   const showNext = () => setActiveIndex(current => (current + 1) % SMART_TOUR_EXAMPLES.length)
 
@@ -282,6 +287,7 @@ function SmartTourShowcase() {
     }
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', handleKeyDown)
+    closeButtonRef.current?.focus()
     return () => {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', handleKeyDown)
@@ -321,6 +327,14 @@ function SmartTourShowcase() {
           </button>
           <h3 className="mt-4 text-center text-base font-black text-slate-950">{example.title}</h3>
           <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
+          <button
+            type="button"
+            onClick={() => setActiveIndex(exampleIndex)}
+            className="mx-auto mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          >
+            <PlayCircle className="h-4 w-4" aria-hidden="true" />
+            Ver exemplo
+          </button>
         </article>
       ))}
     </div>
@@ -339,7 +353,7 @@ function SmartTourShowcase() {
               <p className="truncate text-lg font-black">{activeExample.title}</p>
               <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} de {SMART_TOUR_EXAMPLES.length}</p>
             </div>
-            <button type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Fechar demonstração">
+            <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Fechar demonstração">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -352,6 +366,7 @@ function SmartTourShowcase() {
               {activeExample.placeholder ? <ExamplePlaceholder example={activeExample} large /> : (
                 <video
                   key={activeExample.id}
+                  ref={modalVideoRef}
                   src={activeExample.video}
                   aria-label={`Demonstração ampliada: ${activeExample.title}`}
                   autoPlay

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { SMART_TOUR_EXAMPLES } from '../src/config/smartTour.js'
@@ -10,19 +10,26 @@ const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 
 
 test('centralizes exactly the four approved Smart Tour families in order', () => {
   assert.deepEqual(SMART_TOUR_EXAMPLES.map(example => example.id), [
-    'guided-tour',
-    'narrated-tour',
-    'smart-staging',
-    'cinematic-tour',
+    'animate-images',
+    'campaign-video',
+    'narrated-video',
+    'virtual-agent',
+  ])
+  assert.deepEqual(SMART_TOUR_EXAMPLES.map(example => example.title), [
+    'Animar Imagens',
+    'Vídeo para Campanha',
+    'Vídeo Narrado',
+    'Corretor Virtual',
   ])
   for (const example of SMART_TOUR_EXAMPLES) {
     assert.equal(typeof example.title, 'string')
     assert.equal(typeof example.description, 'string')
-    assert.match(example.video, /^\/smart-tour\/examples\/.+\.mp4$/)
+    assert.match(example.video, /^\/demos-videos\/.+\.mp4(?:\.mp4)?$/)
+    assert.equal(existsSync(path.join(frontendRoot, 'public', example.video)), true)
     for (const field of ['hasNarration', 'hasTexts', 'hasPresenter', 'hasFurniture']) {
       assert.equal(typeof example[field], 'boolean')
     }
-    assert.equal(example.placeholder, true)
+    assert.equal(example.placeholder, false)
   }
 })
 
@@ -33,6 +40,10 @@ test('keeps showcase playback silent and inline while enabling modal controls', 
   assert.match(page, /Demonstração anterior/)
   assert.match(page, /Próxima demonstração/)
   assert.match(page, /controlsList="nodownload noremoteplayback"/)
+  assert.match(page, /Ver exemplo/)
+  assert.match(page, /event\.target === event\.currentTarget/)
+  assert.match(page, /disablePictureInPicture/)
+  assert.match(page, /onContextMenu=\{event => event\.preventDefault\(\)\}/)
   assert.doesNotMatch(page, /target="_blank"/)
 })
 
