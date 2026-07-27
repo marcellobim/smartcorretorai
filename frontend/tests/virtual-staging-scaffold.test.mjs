@@ -81,7 +81,6 @@ test('creates isolated generation and polling functions without changing the exi
 test('keeps the homologated engine files unchanged outside the isolated Vida no Imovel extension', () => {
   const files = [
     'build-prompt.ts',
-    'caption-compositor.ts',
     'index.ts',
     'professional-phone.ts',
   ]
@@ -97,9 +96,13 @@ test('keeps the homologated engine files unchanged outside the isolated Vida no 
   const originalTypes = read('supabase/functions/_shared/smart-tour/types.ts')
   const originalValidation = read('supabase/functions/_shared/smart-tour/validation.ts')
   const originalBriefing = read('supabase/functions/_shared/smart-tour/structured-briefing.ts')
+  const originalCompositor = read('supabase/functions/_shared/smart-tour/caption-compositor.ts')
+  const virtualCompositor = read('supabase/functions/_shared/virtual-staging/caption-compositor.ts')
   assert.doesNotMatch(originalTypes, /LifeScene|life_scene/)
   assert.doesNotMatch(originalValidation, /LIFE_SCENES|invalid_life_scene|life_scene/)
   assert.doesNotMatch(originalBriefing, /vidaNoImovel|lifeScene/)
+  assert.doesNotMatch(originalCompositor, /vidaNoImovel|expectedCaptionCount/)
+  assert.match(virtualCompositor, /briefing\.vidaNoImovel \? 5 : 4/)
 })
 
 test('exposes exactly the three approved Virtual Staging modules in order', () => {

@@ -235,6 +235,14 @@ const TEXT_TIMELINE = [
   { bloco: 5, inicioSegundos: 8, fimSegundos: 10, tipo: 'encerramento' },
 ] as const
 
+const LIFE_SCENE_CAPTION_TIMELINE = [
+  { bloco: 1, inicioSegundos: 0, fimSegundos: 1.6 },
+  { bloco: 2, inicioSegundos: 1.6, fimSegundos: 3.2 },
+  { bloco: 3, inicioSegundos: 3.2, fimSegundos: 4.8 },
+  { bloco: 4, inicioSegundos: 4.8, fimSegundos: 6.4 },
+  { bloco: 5, inicioSegundos: 6.4, fimSegundos: 8 },
+] as const
+
 const LOCATION_HIGHLIGHTS = new Set([
   'Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a universidades',
   'Próximo a hospitais', 'Próximo a parques', 'Próximo ao shopping', 'Próximo à praia',
@@ -304,7 +312,41 @@ const lifeSceneOpeningNarration = (property: PropertyContext, language: Supporte
   if (!purposeLabel) return ''
   const propertyType = normalizeMatch(literal(property.type))
   const subject = LIFE_SCENE_PROPERTY_OPENINGS[propertyType] || 'este excelente imóvel'
-  return `Conheça ${subject} ${purposeLabel.narration}.`
+  const district = literal(property.district)
+  const city = literal(property.city)
+  const location = district && city
+    ? ` no bairro ${district}, em ${city}`
+    : district
+      ? ` no bairro ${district}`
+      : city
+        ? ` em ${city}`
+        : ''
+  return `Conheça ${subject} ${purposeLabel.narration}${location}.`
+}
+
+const lifeSceneFactsNarration = (property: PropertyContext) => {
+  const facts = unique([
+    labelQuantity(property.bedrooms, 'dormitório', 'dormitórios'),
+    labelQuantity(property.suites, 'suíte', 'suítes'),
+    labelQuantity(property.parkingSpaces, 'vaga de garagem', 'vagas de garagem'),
+  ])
+  if (!facts.length) return ''
+  const list = facts.length === 1 ? facts[0] : `${facts.slice(0, -1).join(', ')} e ${facts.at(-1)}`
+  return `O imóvel possui ${list}.`
+}
+
+const lifeSceneStageNarration = (property: PropertyContext) => {
+  const stage = literal(property.stage)
+  if (!stage) return ''
+  return `O imóvel está ${stage.charAt(0).toLocaleLowerCase('pt-BR')}${stage.slice(1)}.`
+}
+
+const lifeSceneNarration = (blockNumber: number, property: PropertyContext, language: SupportedLanguage) => {
+  if (blockNumber === 1) return { id: 'LIFE_COMMERCIAL_OPENING', texto: lifeSceneOpeningNarration(property, language) }
+  if (blockNumber === 2) return { id: 'LIFE_PROPERTY_FACTS', texto: lifeSceneFactsNarration(property) }
+  if (blockNumber === 3) return { id: 'LIFE_PROPERTY_STAGE', texto: lifeSceneStageNarration(property) }
+  if (blockNumber === 5) return { id: 'LIFE_FINAL_INVITATION', texto: language === 'pt-BR' ? 'Agende sua visita.' : '' }
+  return { id: '', texto: '' }
 }
 
 const sceneTypes = (count: number): SmartTourSceneType[] => {
@@ -370,6 +412,16 @@ const commercialCaption = (blockNumber: number, property: PropertyContext) => {
   return ''
 }
 
+const lifeSceneCommercialCaption = (blockNumber: number, property: PropertyContext) => {
+  const highlights = unique((property.highlights || []).map(literal))
+  if (blockNumber === 1) return lifeScenePurpose(property.purpose)?.caption || ''
+  if (blockNumber === 2) return literal(property.stage)
+  if (blockNumber === 3) return unique([literal(property.district), literal(property.city)]).join(', ')
+  if (blockNumber === 4) return highlights[0] || ''
+  if (blockNumber === 5) return literal(property.price) || highlights[1] || ''
+  return ''
+}
+
 export function buildSmartTourStructuredBriefing(input: {
   generation: SmartTourGenerationConfig
   property: PropertyContext
@@ -389,22 +441,23 @@ export function buildSmartTourStructuredBriefing(input: {
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
     const phrase = config.narration === 'enabled'
-      ? (block.tipo === 'abertura' && purposeOpening
-          ? { id: 'LIFE_PURPOSE_OPENING', texto: purposeOpening }
+      ? (lifeScene
+          ? lifeSceneNarration(block.bloco, input.property, input.language)
           : selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` }))
       : { id: '', texto: '' }
     return { ...block, texto: phrase.texto, frase_id: phrase.id }
   })
-  const captionTimeline = TEXT_TIMELINE.slice(0, 4).map(block => ({
+  const captionBlocks = lifeScene ? LIFE_SCENE_CAPTION_TIMELINE : TEXT_TIMELINE.slice(0, 4)
+  const captionTimeline = captionBlocks.map(block => ({
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
     texto: config.captions === 'enabled'
-      ? (block.bloco === 1 && purposeCaption ? purposeCaption : commercialCaption(block.bloco, input.property))
+      ? (lifeScene ? lifeSceneCommercialCaption(block.bloco, input.property) : commercialCaption(block.bloco, input.property))
       : '',
   }))
   const ctaTimeline = {
-    bloco: 5,
+    bloco: lifeScene ? 6 : 5,
     inicioSegundos: 8,
     fimSegundos: 10,
     texto: ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '',
@@ -523,7 +576,10 @@ export function buildSmartTourStructuredBriefing(input: {
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
       { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. Os textos e tempos de timeline.legendas e timeline.cta serão aplicados literalmente pelo compositor determinístico após a geração.' },
       { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Usar exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
-      { codigo: 'legendas_sem_valores_comerciais_automaticos', valor: 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
+      { codigo: lifeScene ? 'sequencia_comercial_vida_no_imovel' : 'legendas_sem_valores_comerciais_automaticos', valor: lifeScene
+        ? 'Aplicar literalmente a sequência de timeline.legendas: finalidade; estado do imóvel; bairro e cidade; primeiro destaque; preço quando informado ou segundo destaque. Não omitir, reordenar, completar ou inventar valores.'
+        : 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
+      ...(lifeScene ? [{ codigo: 'sequencia_narracao_vida_no_imovel', valor: 'A abertura de timeline.narracao deve manter nesta ordem: tipo do imóvel, finalidade, bairro e cidade. Depois, manter dormitórios, suítes, vagas, estado do imóvel e convite final, usando somente os valores recebidos.' }] : []),
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
       { codigo: 'ultima_narracao_curta', valor: 'limitar a narração final a 1,2 segundo e manter somente o telefone visível por aproximadamente 0,8 segundo após a fala' },

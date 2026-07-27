@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildSmartTourCaptionRenderScript,
   buildSmartTourStructuredBriefing as buildVirtualStagingBriefing,
   buildSmartTourVideoPrompt,
+  parseSmartTourStructuredBriefing,
   validateSmartTourRequest as validateVirtualStagingRequest,
 } from '../../supabase/functions/_shared/virtual-staging/index.ts'
 import {
@@ -34,6 +36,7 @@ const property = {
   state: 'SP',
   city: 'São Paulo',
   district: 'Moema',
+  price: 'R$ 950.000',
   highlights: ['Varanda gourmet'],
 }
 const generation = {
@@ -66,6 +69,15 @@ test('backend rejects missing-domain and malformed life_scene values before gene
   for (const invalid of ['', 'none', 'young_with_dog', 'adult ', null, 1, true]) {
     assert.throws(() => validateVirtualStagingRequest(request(invalid)), /invalid_life_scene/)
   }
+  assert.throws(() => validateVirtualStagingRequest(request(undefined)), /invalid_life_scene/)
+})
+
+test('frontend commercial fields survive validation unchanged for Vida no Imovel', () => {
+  const validated = validateVirtualStagingRequest(request('young'))
+  assert.equal(validated.property.district, 'Moema')
+  assert.equal(validated.property.city, 'São Paulo')
+  assert.equal(validated.property.stage, 'Pronto para morar')
+  assert.equal(validated.property.price, 'R$ 950.000')
 })
 
 test('structured generation payload includes the selected life profile and mandatory preservation rules', () => {
@@ -92,7 +104,7 @@ test('structured generation payload includes the selected life profile and manda
   assert.match(prompt, /respeitar integralmente a ordem original das imagens/)
 })
 
-test('Vida no Imovel makes sale purpose mandatory in narration and the first active caption', () => {
+test('Vida no Imovel makes type, sale purpose, district and city mandatory in the narration opening', () => {
   const validated = validateVirtualStagingRequest(request('adult'))
   const briefing = buildVirtualStagingBriefing({
     generation: validated.generation,
@@ -102,9 +114,18 @@ test('Vida no Imovel makes sale purpose mandatory in narration and the first act
     language: validated.language,
   })
 
-  assert.match(briefing.timeline.narracao[0].texto, /à venda/i)
+  assert.equal(briefing.timeline.narracao[0].texto, 'Conheça este excelente apartamento à venda no bairro Moema, em São Paulo.')
+  assert.match(briefing.timeline.narracao[0].texto, /apartamento.*à venda.*Moema.*São Paulo/i)
+  assert.equal(briefing.timeline.narracao[1].texto, 'O imóvel possui 3 dormitórios, 1 suíte e 2 vagas de garagem.')
+  assert.equal(briefing.timeline.narracao[2].texto, 'O imóvel está pronto para morar.')
+  assert.equal(briefing.timeline.narracao[4].texto, 'Agende sua visita.')
+  assert.equal(briefing.imovel.localizacao.bairro, 'Moema')
+  assert.equal(briefing.imovel.localizacao.cidade, 'São Paulo')
   assert.equal(briefing.timeline.legendas[0].texto, 'À VENDA')
-  assert.match(briefing.timeline.legendas[1].texto, /^Pronto para morar/)
+  assert.equal(briefing.timeline.legendas[1].texto, 'Pronto para morar')
+  assert.equal(briefing.timeline.legendas[2].texto, 'Moema, São Paulo')
+  assert.equal(briefing.timeline.legendas[3].texto, 'Varanda gourmet')
+  assert.equal(briefing.timeline.legendas[4].texto, 'R$ 950.000')
   assert.doesNotMatch(briefing.timeline.legendas[0].texto, /Pronto para morar/)
 })
 
@@ -122,9 +143,11 @@ test('Vida no Imovel makes rent and rental purpose mandatory as para locacao', (
       language: validated.language,
     })
 
-    assert.match(briefing.timeline.narracao[0].texto, /para locação/i)
+    assert.equal(briefing.timeline.narracao[0].texto, 'Conheça este excelente apartamento para locação no bairro Moema, em São Paulo.')
+    assert.match(briefing.timeline.narracao[0].texto, /apartamento.*para locação.*Moema.*São Paulo/i)
     assert.equal(briefing.timeline.legendas[0].texto, 'PARA LOCAÇÃO')
-    assert.match(briefing.timeline.legendas[1].texto, /^Pronto para morar/)
+    assert.equal(briefing.timeline.legendas[1].texto, 'Pronto para morar')
+    assert.equal(briefing.timeline.legendas[2].texto, 'Moema, São Paulo')
   }
 })
 
@@ -143,13 +166,60 @@ test('Vida no Imovel sends each approved rental state to the second caption', ()
     })
 
     assert.equal(briefing.timeline.legendas[0].texto, 'PARA LOCAÇÃO')
-    assert.match(briefing.timeline.legendas[1].texto, new RegExp(`^${stage}`))
+    assert.equal(briefing.timeline.legendas[1].texto, stage)
+    assert.match(briefing.timeline.narracao[2].texto, new RegExp(stage, 'i'))
   }
 })
 
-test('requests without life_scene remain byte-compatible with the original Video Imobiliario engine', () => {
-  const virtualInput = validateVirtualStagingRequest(request(undefined))
-  const originalInput = validateOriginalSmartTourRequest(request(undefined))
+test('Vida no Imovel uses the second highlight when price was not informed', () => {
+  const input = request('adult_cat')
+  input.property = { ...property, price: '', highlights: ['Varanda gourmet', 'Vista livre'] }
+  const validated = validateVirtualStagingRequest(input)
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+  })
+  assert.equal(briefing.timeline.legendas[3].texto, 'Varanda gourmet')
+  assert.equal(briefing.timeline.legendas[4].texto, 'Vista livre')
+})
+
+test('five commercial captions finish before the unchanged final CTA block', () => {
+  const validated = validateVirtualStagingRequest(request('senior'))
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+  })
+  const parsed = parseSmartTourStructuredBriefing(JSON.stringify(briefing))
+  const script = buildSmartTourCaptionRenderScript('https://example.com/video.mp4', parsed)
+  const textElements = script.elements.filter(element => element.type === 'text')
+
+  assert.equal(briefing.timeline.legendas.length, 5)
+  assert.equal(briefing.timeline.legendas.at(-1).fimSegundos, 8)
+  assert.deepEqual([briefing.timeline.cta.inicioSegundos, briefing.timeline.cta.fimSegundos], [8, 10])
+  assert.equal(briefing.timeline.cta.texto, 'Agende sua visita')
+  assert.deepEqual(textElements.map(element => element.text), [
+    'À VENDA',
+    'Pronto para morar',
+    'Moema, São Paulo',
+    'Varanda gourmet',
+    'R$ 950.000',
+    'Agende sua visita',
+  ])
+})
+
+test('non-life guided requests remain byte-compatible with the original Video Imobiliario engine', () => {
+  const nonLifeRequest = {
+    ...request('adult'),
+    generation: { ...generation, mode: 'guided_tour', presenterGender: 'female' },
+  }
+  const virtualInput = validateVirtualStagingRequest(nonLifeRequest)
+  const originalInput = validateOriginalSmartTourRequest(nonLifeRequest)
   assert.deepEqual(virtualInput, originalInput)
 
   const briefingInput = {

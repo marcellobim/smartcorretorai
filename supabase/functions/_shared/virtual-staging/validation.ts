@@ -31,7 +31,9 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   const propertyRaw = raw.property && typeof raw.property === 'object' ? raw.property as Record<string, unknown> : {}
   const highlights = Array.isArray(propertyRaw.highlights) ? propertyRaw.highlights.map(item => clean(item,80)).filter(Boolean).slice(0,10) : []
   const property = Object.fromEntries(Object.entries(propertyRaw).filter(([key]) => key !== 'highlights').map(([key,value]) => [key,clean(value,key === 'description' ? 1000 : 120)]))
-  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation: normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {}), selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
+  const generation = normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {})
+  if (generation.mode === 'narrated_tour' && !generation.life_scene) throw new Error('invalid_life_scene')
+  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
 }
 
 export const OFFICIAL_MATRIX: SmartTourGenerationConfig[] = [
