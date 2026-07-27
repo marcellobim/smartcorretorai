@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, Loader2, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
@@ -12,6 +13,7 @@ import { supabase } from '../lib/supabase'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { getVirtualStagingJourney, getVirtualStagingJourneySessionKey, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
+import { BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
@@ -41,6 +43,16 @@ function questionsFor(journeyId) {
     ['phone', 4, 'Deseja divulgar seu telefone profissional?'],
     ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.'],
   ]
+  if (journeyId === BROKER_PRESENTATION_JOURNEY_ID) return [
+    ['presenter_reference', 1, 'Deseja utilizar sua própria imagem como referência para apresentar o imóvel?'],
+    ['presenter_photo', 1, 'Envie uma foto com o rosto visível.'],
+    ...sharedQuestions,
+    ['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo?'],
+    ['cta', 4, 'Qual chamada deseja usar no final?'],
+    ['phone', 4, 'Deseja divulgar seu telefone profissional?'],
+    ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.'],
+    ['presenter_reference_required', 1, 'Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.'],
+  ]
   const questions = [
     ...sharedQuestions,
     ['presenter', 3, 'Deseja um apresentador virtual durante o vídeo?'],
@@ -62,6 +74,8 @@ function virtualStagingConfirmation(id, answer) {
     commercial: answer === 'Sem informações comerciais' ? 'Tudo bem! Seguiremos sem exibir valores comerciais.' : 'Perfeito! As informações comerciais foram registradas.',
     highlights: `Excelente! ${answer} foram selecionados para valorizar o imóvel.`,
     life_scene: `Perfeito! Vamos criar cenas com ${answer.toLocaleLowerCase('pt-BR')} utilizando o imóvel naturalmente.`,
+    presenter_reference: answer === 'Sim' ? 'Perfeito! Agora envie a foto que será usada como referência do apresentador.' : 'Tudo certo. Você pode continuar sua criação no produto Vídeo Imobiliário.',
+    presenter_photo: 'Foto do apresentador confirmada para esta criação.',
     presenter: answer === 'Nenhum' ? 'Tudo certo! O vídeo seguirá sem apresentador virtual.' : `Perfeito! ${answer} fará a apresentação virtual.`,
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
     captions: answer === 'Sim' ? 'Ótimo! Uma seleção curta de destaques poderá aparecer no vídeo.' : 'Tudo certo! As informações continuarão na campanha, mas não aparecerão no vídeo.',
@@ -125,13 +139,19 @@ export default function VirtualStagingAI() {
 
 function VirtualStagingJourney({ journey, onChooseAnother }) {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const inputRef = useRef(null)
+  const presenterInputRef = useRef(null)
+  const presenterReferenceRef = useRef(null)
   const pollRef = useRef(null)
   const reviewEditRef = useRef(null)
   const [images, setImages] = useState([])
   const [property, setProperty] = useState(initialProperty)
   const [generation, setGeneration] = useState(initialGeneration)
   const [lifeScene, setLifeScene] = useState('')
+  const [presenterReferenceDecision, setPresenterReferenceDecision] = useState(null)
+  const [presenterReference, setPresenterReference] = useState(null)
+  const [presenterReferenceMessage, setPresenterReferenceMessage] = useState('')
   const [ctaEnabled, setCtaEnabled] = useState(null)
   const [cta, setCta] = useState('')
   const [includePhone, setIncludePhone] = useState(null)
@@ -140,15 +160,33 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [result, setResult] = useState(null)
   const activeJobKey = getVirtualStagingJourneySessionKey(journey.id)
   const isLifeInProperty = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID
+  const isBrokerPresentation = journey.id === BROKER_PRESENTATION_JOURNEY_ID
   const questions = useMemo(() => questionsFor(journey.id), [journey.id])
   const questionOrder = useMemo(() => questions.map(item => item[0]), [questions])
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatBrazilianPhone(rawPhone)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
   const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
+  const clearPresenterReference = () => {
+    if (presenterReferenceRef.current?.preview) URL.revokeObjectURL(presenterReferenceRef.current.preview)
+    presenterReferenceRef.current = null
+    setPresenterReference(null)
+    setPresenterReferenceMessage('')
+  }
+  const addPresenterReference = files => {
+    const { file, error } = validatePresenterReferenceSelection(files)
+    if (error) { setPresenterReferenceMessage(error); return }
+    if (presenterReferenceRef.current?.preview) URL.revokeObjectURL(presenterReferenceRef.current.preview)
+    const nextReference = { file, preview: URL.createObjectURL(file) }
+    presenterReferenceRef.current = nextReference
+    setPresenterReference(nextReference)
+    setPresenterReferenceMessage('')
+  }
 
   const resetTourFromQuestion = (questionId) => {
     if (reviewEditRef.current) {
+      if (questionId === 'presenter_reference') { setPresenterReferenceDecision(null); clearPresenterReference() }
+      if (questionId === 'presenter_photo') clearPresenterReference()
       if (questionId === 'images') setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
       if (questionId === 'purpose') setProperty(current => ({ ...current, purpose: '', stage: '' }))
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
@@ -170,6 +208,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     }
     const targetIndex = questionOrder.indexOf(questionId)
     const shouldReset = id => questionOrder.indexOf(id) >= targetIndex
+    if (shouldReset('presenter_reference')) setPresenterReferenceDecision(null)
+    if (shouldReset('presenter_photo')) clearPresenterReference()
     if (shouldReset('images')) setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
     const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'city'], ['location', 'district'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
@@ -189,7 +229,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     setMessage('')
     setResult(null)
   }
-  const conversation = useGuidedConversation({ initialQuestionId: 'images', onEdit: resetTourFromQuestion })
+  const conversation = useGuidedConversation({ initialQuestionId: isBrokerPresentation ? 'presenter_reference' : 'images', onEdit: resetTourFromQuestion })
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
   const question = questions[questionIndex] || questions[0]
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getVirtualStagingNextQuestion({ questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id }), apply }) => {
@@ -207,7 +247,10 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     conversation.editAnswer(questionId)
   }
 
-  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current) }, [])
+  useEffect(() => () => {
+    if (pollRef.current) clearTimeout(pollRef.current)
+    if (presenterReferenceRef.current?.preview) URL.revokeObjectURL(presenterReferenceRef.current.preview)
+  }, [])
   useEffect(() => { const stored = sessionStorage.getItem(activeJobKey); if (stored) { let jobId = stored; try { jobId = JSON.parse(stored).jobId || stored } catch { /* legacy value */ } setStatus('generating'); setMessage('Retomando sua criação...'); poll(jobId) } }, [activeJobKey])
 
   const addImages = files => {
@@ -236,6 +279,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }
 
   const createTour = async () => {
+    if (isBrokerPresentation) {
+      setStatus('idle')
+      setMessage('A integração da geração será disponibilizada na próxima etapa.')
+      return
+    }
     setStatus('uploading'); setMessage('Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()
@@ -261,7 +309,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
+  const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
   if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
@@ -278,16 +326,21 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'location', label: formatVirtualStagingLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
-    ...(isLifeInProperty
-      ? [{ id: 'life_scene', label: lifeScene ? `Vida no Imóvel: ${getLifeSceneLabel(lifeScene)}` : '' }]
-      : [
+    ...(isBrokerPresentation
+      ? [
+          { id: 'presenter_reference', label: presenterReferenceDecision === true ? 'Apresentação pelo Corretor: Imagem própria enviada' : '' },
+          { id: 'presenter_photo', label: presenterReference ? 'Foto do apresentador: 1 imagem temporária' : '' },
+        ]
+      : isLifeInProperty
+        ? [{ id: 'life_scene', label: lifeScene ? `Vida no Imóvel: ${getLifeSceneLabel(lifeScene)}` : '' }]
+        : [
           { id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') },
           { id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' },
-        ]),
+          ]),
     { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
-    ...(!isLifeInProperty ? [{ id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' }] : []),
-    { id: 'cta', label: isLifeInProperty || ctaEnabled === true ? cta : '' },
-    { id: 'phone', label: isLifeInProperty || ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
+    ...(!isLifeInProperty && !isBrokerPresentation ? [{ id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' }] : []),
+    { id: 'cta', label: isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : '' },
+    { id: 'phone', label: isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
   return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className="mt-10">
@@ -300,7 +353,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           Escolher outro módulo
         </button>
       </div>
-    <div className="mb-6 grid grid-cols-5 gap-2">{['Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
+    <div className="mb-6 grid grid-cols-5 gap-2">{(isBrokerPresentation ? ['Referência','Imóvel','Estilo','Revisão','Criar'] : ['Fotos','Imóvel','Estilo','Revisão','Criar']).map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
     <GuidedConversation
       history={conversation.history}
       phase={conversation.phase}
@@ -313,7 +366,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
     >
-      <Question id={question[0]} {...{ journeyId: journey.id, lifeScene, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setLifeScene, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ journeyId: journey.id, lifeScene, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setPresenterReferenceDecision, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
     </GuidedConversation>
   </section>
 }
@@ -399,13 +452,24 @@ function VirtualStagingModules({ selectedJourneyId, onSelect }) {
 }
 
 function Question(props) {
-  const { id, journeyId, lifeScene, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setLifeScene, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit } = props
+  const { id, journeyId, lifeScene, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setPresenterReferenceDecision, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-2xl border p-4 text-left ${value === item.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
-  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {VIRTUAL_STAGING_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {VIRTUAL_STAGING_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
+  if (id === 'presenter_reference') return choices(BROKER_REFERENCE_OPTIONS, presenterReferenceDecision === true ? 'yes' : presenterReferenceDecision === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterReferenceDecision(value === 'yes'); if (value === 'no') clearPresenterReference() } }))
+  if (id === 'presenter_photo') return <>
+    <p className="text-sm font-semibold leading-6 text-slate-600">Ela será utilizada somente nesta criação como referência para o apresentador.</p>
+    <div className="mt-3 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm font-semibold leading-6 text-cyan-950">A IA utilizará sua foto como referência de identidade. O apresentador será semelhante a você, mas pequenas diferenças de aparência podem ocorrer durante a geração.</div>
+    <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Foto do apresentador</p>
+    <input ref={presenterInputRef} type="file" accept="image/jpeg,image/png" hidden onChange={event => { addPresenterReference(event.target.files); event.target.value = '' }} />
+    {!presenterReference ? <button type="button" onClick={() => presenterInputRef.current?.click()} className="mt-3 flex min-h-36 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 text-center"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar foto do apresentador</b><span className="mt-1 text-xs text-slate-500">Uma foto · JPG ou PNG · até 15 MB</span></button> : <div className="mt-3 overflow-hidden rounded-3xl border border-emerald-200 bg-white p-3 shadow-sm"><img src={presenterReference.preview} alt="Preview da foto do apresentador" className="mx-auto aspect-square max-h-72 w-full rounded-2xl object-cover sm:max-w-72" /><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center"><button type="button" onClick={() => presenterInputRef.current?.click()} className="min-h-11 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-800 hover:bg-emerald-50">Substituir foto</button><button type="button" onClick={clearPresenterReference} className="min-h-11 rounded-xl border border-red-200 px-4 py-2 text-sm font-black text-red-700 hover:bg-red-50">Remover foto</button></div></div>}
+    {presenterReferenceMessage && <p className="mt-3 text-sm font-bold text-red-600">{presenterReferenceMessage}</p>}
+    {presenterReference && cont(false, '1 foto do apresentador', 'images')}
+  </>
+  if (id === 'presenter_reference_required') return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="text-sm font-semibold leading-6 text-amber-950">Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.</p><Button type="button" onClick={navigateToVideoProduct} className="mt-5">Ir para Vídeo Imobiliário</Button></div>
+  if (id === 'images') return <>{journeyId === BROKER_PRESENTATION_JOURNEY_ID && <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Imagens do imóvel</p>}<input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">{journeyId === BROKER_PRESENTATION_JOURNEY_ID ? 'Selecionar fotos do imóvel' : 'Selecionar fotos'}</b><span className="text-xs text-slate-500">Selecione de 1 a {VIRTUAL_STAGING_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {VIRTUAL_STAGING_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
-  if (id === 'stage') { const stageOptions = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID && property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : property.purpose === 'rent' ? ['Pronto para mudar'] : STAGES; return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
+  if (id === 'stage') { const usesLifeRentalStates = [LIFE_IN_PROPERTY_JOURNEY_ID, BROKER_PRESENTATION_JOURNEY_ID].includes(journeyId); const stageOptions = usesLifeRentalStates && property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : property.purpose === 'rent' ? ['Pronto para mudar'] : STAGES; return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') return <>{choices(VIRTUAL_STAGING_PROPERTY_TYPES, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</>
   if (id === 'facts') {
     const fields = getVirtualStagingMeasureFields(property.type)
@@ -443,7 +507,7 @@ function Question(props) {
   }
   if (id === 'location') { const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
-  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type); const nextQuestionId = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID ? 'life_scene' : 'presenter'; return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', nextQuestionId)}</> }
+  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type); const nextQuestionId = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID ? 'life_scene' : journeyId === BROKER_PRESENTATION_JOURNEY_ID ? 'captions' : 'presenter'; return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', nextQuestionId)}</> }
   if (id === 'life_scene') return choices(LIFE_SCENE_OPTIONS, lifeScene, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setLifeScene(value) }))
   if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) }))
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
@@ -452,16 +516,22 @@ function Question(props) {
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
+  const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID
   const finalChoiceItems = [
-    ...(isLifeInProperty
+    ...(isBrokerPresentation
+      ? [
+          { label: 'Apresentação pelo Corretor', value: 'Imagem própria enviada' },
+          { label: 'Foto do apresentador', value: '1 imagem temporária' },
+        ]
+      : isLifeInProperty
       ? [{ label: 'Vida no Imóvel', value: getLifeSceneLabel(lifeScene) }]
       : [
           { label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' },
           { label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' },
         ]),
     { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
-    { label: 'CTA', value: isLifeInProperty ? cta : ctaEnabled === true ? (cta || 'Sim') : 'Não' },
-    ...((isLifeInProperty || ctaEnabled === true) ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
+    { label: 'CTA', value: isLifeInProperty || isBrokerPresentation ? cta : ctaEnabled === true ? (cta || 'Sim') : 'Não' },
+    ...((isLifeInProperty || isBrokerPresentation || ctaEnabled === true) ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
   ]
   return <>
     <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">
@@ -476,8 +546,9 @@ function Question(props) {
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
+    {isBrokerPresentation && <p className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-600">A integração da geração será disponibilizada na próxima etapa. Nenhuma imagem será enviada nesta homologação de UX.</p>}
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
+      <Button type="button" disabled={isBrokerPresentation || ['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{isBrokerPresentation ? 'Geração disponível na próxima etapa' : status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
       <button type="button" disabled={['uploading','generating'].includes(status)} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Refazer criação</button>
     </div>
   </>
@@ -487,6 +558,6 @@ function reviewLabel(id) {
   return {
     images: 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
-    life_scene: 'Vida no Imóvel', presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
+    presenter_reference: 'Apresentação pelo Corretor', presenter_photo: 'Foto do apresentador', life_scene: 'Vida no Imóvel', presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }[id] || id
 }

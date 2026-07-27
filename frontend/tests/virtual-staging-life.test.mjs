@@ -74,9 +74,10 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| ctaEnabled === true\) && includePhone === true/)
 })
 
-test('adds the approved rental states to the existing Vida no Imovel question only', () => {
+test('keeps the approved rental states in Vida no Imovel while sharing them with Broker Presentation', () => {
   assert.deepEqual(LIFE_RENTAL_STAGE_OPTIONS, ['Pronto para morar', 'Disponível já', 'Vago'])
-  assert.match(page, /journeyId === LIFE_IN_PROPERTY_JOURNEY_ID && property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS/)
+  assert.match(page, /\[LIFE_IN_PROPERTY_JOURNEY_ID, BROKER_PRESENTATION_JOURNEY_ID\]\.includes\(journeyId\)/)
+  assert.match(page, /usesLifeRentalStates && property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS/)
   assert.match(page, /property\.purpose === 'rent' \? \['Pronto para mudar'\] : STAGES/)
   assert.doesNotMatch(smartTour, /LIFE_RENTAL_STAGE_OPTIONS|Disponível já|Vago/)
 })
