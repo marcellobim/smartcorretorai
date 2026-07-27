@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
