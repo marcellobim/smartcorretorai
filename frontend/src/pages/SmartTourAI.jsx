@@ -19,6 +19,11 @@ const ACTIVE_JOB_KEY = 'smartcorretorai:smart-tour:active-job'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
+const visibleExamples = SMART_TOUR_EXAMPLES.map(example => example.id === 'animate-images' ? {
+  ...example,
+  title: 'Fotos em Movimento',
+  description: 'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
+} : example)
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
 
@@ -246,7 +251,7 @@ export default function SmartTourAI() {
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Guia rápido</p>
         <h2 className="mt-2 text-2xl font-black text-slate-950">Como criar o vídeo que você deseja</h2>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {SMART_TOUR_EXAMPLES.map((example, index) => (
+          {visibleExamples.map((example, index) => (
             <div key={example.id} className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3 shadow-sm">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">{index + 1}</span>
               <p className="text-sm font-black text-slate-800">{example.title}</p>
@@ -285,7 +290,7 @@ function SmartTourShowcase() {
   const [activeIndex, setActiveIndex] = useState(null)
   const modalVideoRef = useRef(null)
   const closeButtonRef = useRef(null)
-  const activeExample = activeIndex === null ? null : SMART_TOUR_EXAMPLES[activeIndex]
+  const activeExample = activeIndex === null ? null : visibleExamples[activeIndex]
   const close = () => {
     modalVideoRef.current?.pause()
     setActiveIndex(null)
@@ -312,7 +317,7 @@ function SmartTourShowcase() {
 
   return <>
     <div className="grid grid-flow-col auto-cols-[minmax(240px,82vw)] gap-4 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:thin] snap-x snap-mandatory sm:auto-cols-[280px] lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible lg:pb-0">
-      {SMART_TOUR_EXAMPLES.map((example, exampleIndex) => (
+      {visibleExamples.map((example, exampleIndex) => (
         <article key={example.id} className="min-w-0 snap-center rounded-3xl border border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)] p-4 shadow-sm">
           <button
             type="button"

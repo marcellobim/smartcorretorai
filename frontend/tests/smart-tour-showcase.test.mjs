@@ -65,3 +65,10 @@ test('uses the approved commercial-video communication and guide', () => {
   assert.doesNotMatch(page, />Smart Tour AI</)
   assert.doesNotMatch(page, /Quatro formas de apresentar seu imóvel/)
 })
+
+test('uses the approved visible name for the animated-photo option without changing its technical configuration', () => {
+  assert.ok(page.includes("title: 'Fotos em Movimento'"))
+  assert.ok(page.includes('Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.'))
+  assert.equal(SMART_TOUR_EXAMPLES[0].title, 'Animar Imagens')
+  assert.equal(SMART_TOUR_EXAMPLES[0].video, '/demos-videos/animar-imagens.mp4')
+})
