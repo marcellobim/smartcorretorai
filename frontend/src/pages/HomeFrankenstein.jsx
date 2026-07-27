@@ -14,8 +14,8 @@ import {
 
 const demoCards = [
   {
-    label: 'Hero IA',
-    title: 'Imagem -> Hero IA',
+    label: 'Banner Imobiliário',
+    title: 'Imagem -> Banner Imobiliário',
     asset: '/previews/produto3/anuncio-premium-preview-1x1.jpg',
     badge: 'imagem principal',
   },
@@ -42,9 +42,9 @@ const demoCards = [
 const featureCards = [
   {
     icon: Wand2,
-    title: 'Hero IA',
-    copy: 'Crie uma imagem principal de alto impacto para destacar o imovel em anuncios e redes sociais.',
-    cta: 'Criar imagem',
+    title: 'Banner Imobiliário',
+    copy: 'Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto.',
+    cta: 'Criar Banner',
     gradient: 'from-fuchsia-500 via-violet-600 to-blue-600',
     asset: '/previews/produto3/anuncio-premium-preview-1x1.jpg',
   },
@@ -250,7 +250,7 @@ export default function HomeFrankenstein() {
                 para uma campanha que parece viva.
               </h2>
               <div className="mt-6 grid grid-cols-3 gap-2">
-                {['Hero IA', 'Studio Hero', 'Banners'].map((item) => (
+                {['Banner Imobiliário', 'Studio Hero', 'Banners'].map((item) => (
                   <div key={item} className="rounded-2xl bg-white/8 px-3 py-4 text-center text-xs font-black uppercase text-slate-200">
                     {item}
                   </div>
@@ -261,7 +261,7 @@ export default function HomeFrankenstein() {
             <div className="relative mx-auto w-full max-w-[620px] animate-[frankensteinFloat_6s_ease-in-out_infinite]">
               <div className="absolute -inset-6 rounded-[3rem] bg-cyan-400/10 blur-3xl" />
               <div className="relative grid grid-cols-[0.72fr_1fr] gap-3 rounded-[2.5rem] border border-white/12 bg-white/[0.07] p-3 shadow-2xl shadow-black/40 backdrop-blur-xl">
-                <MediaFrame src="/previews/produto3/anuncio-premium-preview-1x1.jpg" alt="Hero IA" className="aspect-[9/16]" />
+                <MediaFrame src="/previews/produto3/anuncio-premium-preview-1x1.jpg" alt="Banner Imobiliário" className="aspect-[9/16]" />
                 <div className="grid gap-3">
                   <MediaFrame src="/previews/studio-hero/moema-demo.mp4" alt="Studio Hero" className="aspect-video" contain />
                   <div className="rounded-[1.5rem] bg-gradient-to-br from-orange-500 via-rose-500 to-violet-600 p-5">
@@ -358,7 +358,7 @@ export default function HomeFrankenstein() {
               Smart Tokens servem para criar imagens, videos, anuncios e materiais. Teste gratis e avance quando enxergar valor.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {['Hero IA', 'Studio Hero', 'Banners Rapidos', 'Textos', 'Campanhas'].map((item) => (
+              {['Banner Imobiliário', 'Studio Hero', 'Banners Rapidos', 'Textos', 'Campanhas'].map((item) => (
                 <span key={item} className="rounded-full border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-black text-slate-700">
                   {item}
                 </span>

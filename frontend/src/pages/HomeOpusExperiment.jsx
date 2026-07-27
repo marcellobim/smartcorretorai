@@ -13,10 +13,10 @@ import {
 
 const productStories = [
   {
-    eyebrow: 'Hero IA',
+    eyebrow: 'Banner Imobiliário',
     icon: Wand2,
     title: 'Uma imagem comum vira uma chamada visual de impacto.',
-    description: 'Use fotos reais, referências ou apenas uma ideia. A IA transforma intenção em uma imagem principal para divulgação.',
+    description: 'Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto.',
     before: '/previews/produto3/anuncio-premium-preview-1x1.jpg',
     afterLabel: 'imagem principal',
   },

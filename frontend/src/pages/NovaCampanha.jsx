@@ -181,26 +181,26 @@ const DESTAQUE_CATEGORIES = [
 
 const PRODUCT_CONTEXTS = {
   hero: {
-    label: 'Hero IA',
+    label: 'Banner Imobiliário',
     sourcePath: '/hero',
     headerTitle: 'Cadastro padrão do imóvel',
-    headerSubtitle: 'O contexto do Hero IA será preservado neste fluxo.',
-    propertyEyebrow: 'Hero IA',
+    headerSubtitle: 'O contexto do Banner Imobiliário será preservado neste fluxo.',
+    propertyEyebrow: 'Banner Imobiliário',
     propertyTitle: 'Cadastro padrão do imóvel',
     propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. Nenhum cadastro paralelo será criado.',
-    uploadEyebrow: 'Upload do Hero IA',
+    uploadEyebrow: 'Upload do Banner Imobiliário',
     uploadTitle: 'Envie as fotos do imóvel',
-    photosSubtitle: 'As fotos serão usadas como base visual do Hero IA.',
-    uploadHelp: 'Fotos obrigatórias para gerar materiais Hero IA. Vídeo é opcional nesta etapa.',
+    photosSubtitle: 'As fotos serão usadas como base visual do Banner Imobiliário.',
+    uploadHelp: 'Fotos obrigatórias para gerar materiais do Banner Imobiliário. Vídeo é opcional nesta etapa.',
     photoRequired: true,
     videoRequired: false,
     allowOptionalPhotos: true,
     allowVideo: true,
-    reviewTitle: 'Revisão do Hero IA',
-    reviewSubtitle: 'Confira o imóvel e as fotos antes da etapa de geração do Hero IA.',
-    costTitle: 'Hero IA preparado',
-    costSubtitle: 'O cadastro único foi preservado. A geração real do Hero IA será conectada na próxima fase.',
-    nextLabel: 'Geração do Hero IA em preparação',
+    reviewTitle: 'Revisão do Banner Imobiliário',
+    reviewSubtitle: 'Confira o imóvel e as fotos antes da etapa de geração do Banner Imobiliário.',
+    costTitle: 'Banner Imobiliário preparado',
+    costSubtitle: 'O cadastro único foi preservado. A geração real do Banner Imobiliário será conectada na próxima fase.',
+    nextLabel: 'Geração do Banner Imobiliário em preparação',
   },
   transformar_video: {
     label: 'Transformar Meu Vídeo',
@@ -247,7 +247,7 @@ const PRODUCT_CONTEXTS = {
 }
 
 const SUBPRODUCT_LABELS = {
-  hero_completo: 'Hero Completo',
+  hero_completo: 'Banner Imobiliário Completo',
   pecas_individuais: 'Peças Individuais',
   video_rapido: 'Vídeo Rápido',
   video_premium_cinematografico: 'Vídeo Premium/Cinematográfico',

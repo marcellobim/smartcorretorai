@@ -623,7 +623,7 @@ export default function MeusImoveis() {
             <p className="text-xs font-black uppercase tracking-wide text-primary-700">Perfil do imóvel</p>
             <h3 className="mt-1 text-base font-black text-gray-950">Qual o perfil deste imóvel?</h3>
             <p className="mt-1 text-xs leading-relaxed text-gray-500">
-              Essa informação orienta Hero IA, Campanha IA, Landing IA e o Smart Prompt Engine.
+              Essa informação orienta Banner Imobiliário, Campanha IA, Landing IA e o Smart Prompt Engine.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {PERFIS_IMOVEL.map((perfil) => {
@@ -792,8 +792,8 @@ export default function MeusImoveis() {
         {actionProperty && (
           <div className="space-y-3">
             <ActionOption
-              title="Criar Hero IA"
-              description="Preparar uma imagem premium guiada pelo Smart Prompt Engine."
+              title="Criar Banner"
+              description="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto."
               onClick={() => handleOpenHero(actionProperty)}
             />
             <ActionOption title="Criar Campanha IA" description="Em breve." disabled />

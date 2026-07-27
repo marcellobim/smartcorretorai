@@ -32,10 +32,10 @@ const mainActions = [
   {
     id: 'hero-ia',
     icon: Wand2,
-    title: 'Hero IA',
-    description: 'Crie uma imagem publicitária forte para divulgar o imóvel com mais impacto.',
+    title: 'Banner Imobiliário',
+    description: 'Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto.',
     to: '/hero',
-    label: 'Criar Hero IA',
+    label: 'Criar Banner',
     tone: 'featured',
     ready: true,
   },

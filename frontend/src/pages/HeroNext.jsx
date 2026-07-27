@@ -1895,7 +1895,7 @@ export default function HeroNext() {
       if (data.status === 'completed') {
         const imageUrl = data.image_url || data.imageUrl || ''
         if (!imageUrl) {
-          throw new Error(data.message || data.error || 'Hero IA nao retornou a imagem gerada.')
+          throw new Error(data.message || data.error || 'Banner Imobiliário não retornou a imagem gerada.')
         }
 
         setGenerationResult({
@@ -1942,7 +1942,7 @@ export default function HeroNext() {
       if (data.status === 'completed') {
         const imageUrl = data.image_url || data.imageUrl || ''
         if (!imageUrl) {
-          throw new Error(data.message || data.error || `Hero IA nao retornou a imagem de ${destination.label}.`)
+          throw new Error(data.message || data.error || `Banner Imobiliário não retornou a imagem de ${destination.label}.`)
         }
 
         const completedJob = {
@@ -2089,7 +2089,7 @@ export default function HeroNext() {
     }
 
     if (!returnedImageUrl) {
-      throw new Error(data.message || data.error || `Hero IA nao retornou a imagem de ${destination.label}.`)
+      throw new Error(data.message || data.error || `Banner Imobiliário não retornou a imagem de ${destination.label}.`)
     }
 
     return {
@@ -2177,7 +2177,7 @@ export default function HeroNext() {
       const firstCompleted = settledJobs.find((job) => job.status === 'completed' && job.imageUrl)
       if (!firstCompleted) {
         const firstError = settledJobs.find((job) => job.status === 'failed')?.error
-        throw new Error(firstError || 'Nao foi possivel gerar nenhuma imagem do Hero IA.')
+        throw new Error(firstError || 'Não foi possível gerar nenhuma imagem do Banner Imobiliário.')
       }
       setGenerationResult({
         jobs: settledJobs,
@@ -2257,7 +2257,7 @@ export default function HeroNext() {
   }
 
   const campaignPackageData = generationResult ? {
-    sourceProduct: 'Hero IA',
+    sourceProduct: 'Banner Imobiliário',
     mediaType: 'images',
     files: (generationResult.jobs || [])
       .filter((job) => job.status === 'completed' && job.imageUrl)
@@ -2456,7 +2456,7 @@ export default function HeroNext() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f0fdf7_0%,#f8fafc_32%,#f8fafc_100%)]">
-      <Header title="Hero IA" subtitle="Campanhas imobiliárias guiadas com inteligência e acabamento profissional." />
+      <Header title="Banner Imobiliário" subtitle="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto." />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
         <Link
@@ -2473,13 +2473,13 @@ export default function HeroNext() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/80 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-emerald-700 shadow-sm">
                 <Sparkles className="h-4 w-4" />
-                Hero IA
+                Banner Imobiliário
               </div>
               <h1 className="mt-6 text-4xl font-black tracking-tight sm:text-6xl">
                 Sua campanha, criada com direção profissional.
               </h1>
               <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-slate-600 sm:text-lg">
-                Conte o que deseja divulgar. O Hero IA organiza suas informações e prepara peças prontas para seus canais.
+                Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto.
               </p>
               <Button type="button" onClick={startCampaign} className="mt-8 bg-emerald-600 hover:bg-emerald-700">
                 Começar minha campanha
@@ -2872,7 +2872,7 @@ export default function HeroNext() {
                     </div>
                   ))}
                 </div>
-                <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">A inteligência do Hero IA seguirá suas respostas internamente. Nenhuma instrução técnica precisa ser revisada por você.</p>
+                <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">A inteligência do Banner Imobiliário seguirá suas respostas internamente. Nenhuma instrução técnica precisa ser revisada por você.</p>
               </div>
               <div className="mt-5 flex flex-wrap justify-end gap-3">
                 <Button type="button" variant="secondary" onClick={() => setPhase('ideas')}>

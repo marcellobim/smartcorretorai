@@ -691,7 +691,7 @@ export default function TransformarVideo() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      <Header title="Vídeo IA" subtitle="Crie uma campanha em vídeo usando a mesma inteligência do Hero IA Next, agora adaptada para fotos do imóvel." />
+      <Header title="Vídeo IA" subtitle="Crie uma campanha em vídeo usando a mesma inteligência do Banner Imobiliário, agora adaptada para fotos do imóvel." />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
         <Link

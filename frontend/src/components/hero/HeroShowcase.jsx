@@ -37,7 +37,7 @@ function ShowcasePhone({ example, index, onOpen, onFail }) {
       type="button"
       onClick={(event) => onOpen(example, event.currentTarget)}
       className="group mx-auto mb-10 block w-full max-w-[19rem] break-inside-avoid rounded-[2.35rem] bg-slate-950 p-[6px] text-left shadow-[0_24px_54px_-27px_rgba(15,23,42,0.82)] outline-none transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_32px_66px_-26px_rgba(5,150,105,0.42)] focus-visible:ring-4 focus-visible:ring-emerald-300"
-      aria-label={`Ampliar exemplo ${index + 1} de campanha criada pelo Hero IA`}
+      aria-label={`Ampliar exemplo ${index + 1} de campanha criada pelo Banner Imobiliário`}
     >
       <span className="relative block overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900">
         <span className="absolute left-1/2 top-2 z-10 h-1.5 w-12 -translate-x-1/2 rounded-full bg-slate-700" aria-hidden="true" />
@@ -47,7 +47,7 @@ function ShowcasePhone({ example, index, onOpen, onFail }) {
           height={example.height}
           loading={index < 4 ? 'eager' : 'lazy'}
           decoding="async"
-          alt={`Exemplo ${index + 1} de campanha imobiliária criada pelo Hero IA`}
+          alt={`Exemplo ${index + 1} de campanha imobiliária criada pelo Banner Imobiliário`}
           onError={() => onFail(example.src)}
           className="block h-auto w-full object-contain transition duration-500 group-hover:scale-[1.015]"
         />
@@ -168,14 +168,14 @@ export default function HeroShowcase({ onStart }) {
             Inspire-se com campanhas reais
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-base font-semibold leading-relaxed text-slate-600">
-            Conheça alguns exemplos produzidos pelo Hero IA para diferentes tipos de imóveis e objetivos.
+            Conheça alguns exemplos produzidos pelo Banner Imobiliário para diferentes tipos de imóveis e objetivos.
           </p>
           <p className="mt-3 inline-flex items-center gap-2 text-sm font-black text-emerald-700">
             <Sparkles className="h-4 w-4" />
             Cada campanha é criada de forma exclusiva.
           </p>
           <p className="mx-auto mt-5 max-w-3xl rounded-2xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-sm font-semibold leading-relaxed text-slate-600">
-            As campanhas abaixo são apenas exemplos reais da qualidade que o Hero IA pode produzir. Cada resultado é criado exclusivamente para o imóvel informado. Elas não são modelos para seleção.
+            As campanhas abaixo são apenas exemplos reais da qualidade que o Banner Imobiliário pode produzir. Cada resultado é criado exclusivamente para o imóvel informado. Elas não são modelos para seleção.
           </p>
         </div>
 
@@ -216,7 +216,7 @@ export default function HeroShowcase({ onStart }) {
         <div className="relative mx-auto mt-10 max-w-3xl rounded-3xl bg-[linear-gradient(135deg,#052e2b_0%,#064e3b_58%,#047857_100%)] px-6 py-8 text-center text-white shadow-xl shadow-emerald-950/15 sm:px-10">
           <p className="text-2xl font-black tracking-tight sm:text-3xl">Sua campanha também pode ter este acabamento.</p>
           <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-relaxed text-emerald-50/85">
-            Responda às perguntas do Hero IA e receba uma criação exclusiva para o seu objetivo.
+            Responda às perguntas do Banner Imobiliário e receba uma criação exclusiva para o seu objetivo.
           </p>
           <Button type="button" onClick={startCampaign} className="mt-6 bg-white text-emerald-800 hover:bg-emerald-50">
             Criar minha campanha
@@ -238,7 +238,7 @@ export default function HeroShowcase({ onStart }) {
             aria-labelledby="hero-showcase-dialog-title"
             className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col items-center justify-center rounded-3xl border border-white/15 bg-slate-950 p-2 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-3"
           >
-            <h2 id="hero-showcase-dialog-title" className="sr-only">Exemplo ampliado de campanha criada pelo Hero IA</h2>
+            <h2 id="hero-showcase-dialog-title" className="sr-only">Exemplo ampliado de campanha criada pelo Banner Imobiliário</h2>
             <button
               ref={closeButtonRef}
               type="button"
@@ -264,7 +264,7 @@ export default function HeroShowcase({ onStart }) {
               src={activeExample.src}
               width={activeExample.width}
               height={activeExample.height}
-              alt="Campanha imobiliária criada pelo Hero IA em tamanho ampliado"
+              alt="Campanha imobiliária criada pelo Banner Imobiliário em tamanho ampliado"
               onError={() => handleFail(activeExample.src)}
               className="max-h-[calc(100dvh-2rem)] max-w-full rounded-2xl object-contain sm:max-h-[calc(100dvh-3.5rem)]"
             />
