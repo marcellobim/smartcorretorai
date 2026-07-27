@@ -1,4 +1,4 @@
-import type { PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
+import type { LifeScene, PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
 
@@ -98,6 +98,17 @@ O imóvel já está pronto.
 Seu trabalho é somente registrar esse imóvel como um cinegrafista profissional faria.`
 
 type Presenter = 'corretora' | 'corretor' | 'nenhum'
+const LIFE_SCENE_LABELS: Record<LifeScene, string> = {
+  young: 'jovens',
+  young_dog: 'jovens com cachorro',
+  young_cat: 'jovens com gato',
+  adult: 'adultos',
+  adult_dog: 'adultos com cachorro',
+  adult_cat: 'adultos com gato',
+  senior: 'idosos',
+  senior_dog: 'idosos com cachorro',
+  senior_cat: 'idosos com gato',
+}
 export type SmartTourSceneType = 'abertura' | 'caracteristicas' | 'diferencial' | 'localizacao' | 'encerramento'
 export type SmartTourTimelineBlock = {
   bloco: number
@@ -146,6 +157,7 @@ export type SmartTourStructuredBriefing = {
     descricao: string
   }
   apresentador: { tipo: Presenter; unicoHumanoAutorizado: boolean }
+  vidaNoImovel?: { life_scene: LifeScene; descricao: string }
   musica: { configurada: false; instrucao: 'preservar_comportamento_atual' }
   sequenciaDasImagens: string[]
   movimentosDesejados: Array<'pan_suave' | 'push_in_minimo' | 'pull_back_minimo' | 'movimento_linear_baixa_amplitude'>
@@ -392,12 +404,21 @@ export function buildSmartTourStructuredBriefing(input: {
   })
   const presenterType = presenter(config)
   const hasPresenter = presenterType !== 'nenhum'
+  const lifeScene = config.life_scene
+  const lifeSceneLabel = lifeScene ? LIFE_SCENE_LABELS[lifeScene] : ''
+  const hasLifeScene = Boolean(lifeScene)
   const presenterLabel = presenterType === 'corretor' ? 'um corretor' : 'uma corretora'
   const presenterReference = presenterType === 'corretor' ? 'O corretor' : 'A corretora'
   const presenterRules = hasPresenter ? [
     { codigo: 'apresentador_obrigatorio', valor: `Criar e exibir obrigatoriamente exatamente uma pessoa: ${presenterLabel}. Essa pessoa deve aparecer naturalmente durante a apresentação.` },
     { codigo: 'apresentador_excecao_unica', valor: `${presenterReference} é a única exceção autorizada à regra de não inventar pessoas. Não criar, exibir ou sugerir nenhuma pessoa adicional.` },
     { codigo: 'apresentador_preserva_imovel', valor: `A presença e os movimentos naturais de ${presenterLabel} não podem alterar, reconstruir, ocultar ou substituir qualquer parte do imóvel. O imóvel deve ser preservado integralmente.` },
+  ] : []
+  const lifeSceneRules = hasLifeScene ? [
+    { codigo: 'vida_no_imovel_perfil_obrigatorio', valor: `Incluir naturalmente ${lifeSceneLabel} durante o vídeo, sem incluir pessoas ou animais de outro perfil.` },
+    { codigo: 'vida_no_imovel_imovel_protagonista', valor: 'Utilizar as pessoas e, quando aplicável, o animal escolhido apenas para valorizar os ambientes. O imóvel deve permanecer como protagonista em todas as cenas.' },
+    { codigo: 'vida_no_imovel_preservacao_total', valor: 'A inclusão do perfil escolhido não autoriza modificar a arquitetura original, acabamentos, materiais, móveis existentes, decoração, objetos, cores, iluminação arquitetônica, geometria, proporções, perspectiva ou enquadramento. Não reconstruir ambientes.' },
+    { codigo: 'vida_no_imovel_ordem_das_imagens', valor: 'Manter todas as regras existentes desta apresentação e respeitar integralmente a ordem original das imagens.' },
   ] : []
   return {
     versao: 'smart-tour-structured-briefing-v1',
@@ -429,6 +450,7 @@ export function buildSmartTourStructuredBriefing(input: {
       descricao: literal(input.property.description),
     },
     apresentador: { tipo: presenterType, unicoHumanoAutorizado: hasPresenter },
+    ...(lifeScene ? { vidaNoImovel: { life_scene: lifeScene, descricao: lifeSceneLabel } } : {}),
     musica: { configurada: false, instrucao: 'preservar_comportamento_atual' },
     sequenciaDasImagens: [...input.imagePaths],
     movimentosDesejados: [...MOVEMENTS],
@@ -452,12 +474,14 @@ export function buildSmartTourStructuredBriefing(input: {
         'movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo',
         'variações naturais sutis de luminosidade',
         ...(hasPresenter ? [`movimentos naturais e discretos da única ${presenterType} autorizada`] : []),
+        ...(hasLifeScene ? [`presença e movimentos naturais somente de ${lifeSceneLabel}, subordinados à preservação integral do imóvel`] : []),
       ],
     },
     regrasObrigatorias: [
       { codigo: 'usar_json_como_fonte_unica', valor: 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
-      { codigo: 'sem_invencao', valor: hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
+      { codigo: 'sem_invencao', valor: hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : hasLifeScene ? `não inventar dados, contatos, ambientes, pessoas, animais ou elementos além do perfil ${lifeSceneLabel} definido em vidaNoImovel` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
       ...presenterRules,
+      ...lifeSceneRules,
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },

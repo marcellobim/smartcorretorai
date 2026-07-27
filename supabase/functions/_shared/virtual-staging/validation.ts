@@ -1,6 +1,7 @@
-import type { SmartTourGenerationConfig, SmartTourRequest } from './types.ts'
+import type { LifeScene, SmartTourGenerationConfig, SmartTourRequest } from './types.ts'
 const MODES = new Set(['guided_tour','narrated_tour','smart_staging','cinematic_tour'])
 const LANGUAGES = new Set(['pt-BR','en-US','es'])
+const LIFE_SCENES = new Set<LifeScene>(['young','young_dog','young_cat','adult','adult_dog','adult_cat','senior','senior_dog','senior_cat'])
 const clean = (value: unknown, max = 160) => String(value ?? '').replace(/[{}<>]/g, '').replace(/\s+/g, ' ').trim().slice(0,max)
 
 export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): SmartTourGenerationConfig {
@@ -13,6 +14,10 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
   normalized.captions = value.captions === 'disabled' ? 'disabled' : 'enabled'
   normalized.furniture = 'original'
   normalized.stagingPresentation = 'final_only'
+  if (value.life_scene !== undefined) {
+    if (!LIFE_SCENES.has(value.life_scene as LifeScene)) throw new Error('invalid_life_scene')
+    normalized.life_scene = value.life_scene as LifeScene
+  }
   return normalized
 }
 

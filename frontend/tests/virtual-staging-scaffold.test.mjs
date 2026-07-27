@@ -65,25 +65,25 @@ test('creates isolated generation and polling functions without changing the exi
   assert.match(generator, /\.\.\/_shared\/virtual-staging\/index\.ts/)
   assert.match(generator, /mode:'virtual_staging_gemini_omni'/)
   assert.match(generator, /\/virtual-staging\/\$\{input\.clientRequestId\}/)
+  assert.match(generator, /buildSmartTourStructuredBriefing\(\{generation:input\.generation/)
+  assert.match(generator, /invalid_life_scene:'A opção de Vida no Imóvel é inválida\.'/)
   assert.match(status, /\.eq\('mode', 'virtual_staging_gemini_omni'\)/)
   assert.match(status, /virtual-staging-gemini\.mp4/)
   assert.match(status, /virtual-staging\.mp4/)
 
   assert.match(originalGenerator, /\.\.\/_shared\/smart-tour\/index\.ts/)
   assert.match(originalGenerator, /mode:'smart_tour_gemini_omni'/)
+  assert.doesNotMatch(originalGenerator, /life_scene|invalid_life_scene/)
   assert.doesNotMatch(originalGenerator, /virtual-staging/)
   assert.doesNotMatch(originalStatus, /virtual-staging/)
 })
 
-test('duplicates the homologated prompt and validation core byte for byte', () => {
+test('keeps the homologated engine files unchanged outside the isolated Vida no Imovel extension', () => {
   const files = [
     'build-prompt.ts',
     'caption-compositor.ts',
     'index.ts',
     'professional-phone.ts',
-    'structured-briefing.ts',
-    'types.ts',
-    'validation.ts',
   ]
 
   for (const file of files) {
@@ -93,6 +93,13 @@ test('duplicates the homologated prompt and validation core byte for byte', () =
       `${file} must remain an exact architectural copy`,
     )
   }
+
+  const originalTypes = read('supabase/functions/_shared/smart-tour/types.ts')
+  const originalValidation = read('supabase/functions/_shared/smart-tour/validation.ts')
+  const originalBriefing = read('supabase/functions/_shared/smart-tour/structured-briefing.ts')
+  assert.doesNotMatch(originalTypes, /LifeScene|life_scene/)
+  assert.doesNotMatch(originalValidation, /LIFE_SCENES|invalid_life_scene|life_scene/)
+  assert.doesNotMatch(originalBriefing, /vidaNoImovel|lifeScene/)
 })
 
 test('exposes exactly the three approved Virtual Staging modules in order', () => {
