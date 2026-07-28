@@ -89,6 +89,109 @@ test('structured briefing receives identity reference without adding it to prope
   for (const forbidden of ['100% identical', 'exact clone', 'pixel perfect']) assert.doesNotMatch(rules, new RegExp(forbidden, 'i'))
 })
 
+test('broker presentation reuses the complete rental commercial sequence from Module 2', () => {
+  const validated = validateVirtualStagingRequest({
+    ...brokerRequest,
+    property: {
+      ...brokerRequest.property,
+      purpose: 'rental',
+      stage: 'Disponível já',
+      bedrooms: '2',
+      suites: '1',
+      parkingSpaces: '1',
+      price: 'R$ 4.500',
+      highlights: ['Varanda gourmet', 'Vista livre'],
+    },
+  })
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+    presenterReference: validated.presenter_reference,
+  })
+
+  assert.equal(briefing.imovel.finalidade, 'Locação')
+  assert.match(briefing.timeline.narracao[0].texto, /apartamento.*para locação.*Moema.*São Paulo/i)
+  assert.match(briefing.timeline.narracao[1].texto, /2 dormitórios.*1 suíte.*1 vaga de garagem/i)
+  assert.match(briefing.timeline.narracao[2].texto, /disponível já/i)
+  assert.equal(briefing.timeline.narracao[4].texto, 'Agende sua visita.')
+  assert.deepEqual(briefing.timeline.legendas.map(block => block.texto), [
+    'PARA LOCAÇÃO',
+    'Disponível já',
+    'Moema, São Paulo',
+    'Varanda gourmet',
+    'R$ 4.500',
+  ])
+  assert.equal(briefing.cenas[0].legenda, 'PARA LOCAÇÃO')
+  assert.equal(briefing.cta.titulo, brokerRequest.selectedCta)
+  assert.equal(briefing.timeline.cta.titulo, brokerRequest.selectedCta)
+  assert.equal(briefing.timeline.cta.bloco, 6)
+})
+
+test('broker presentation reuses the sale sequence without weakening presenter identity rules', () => {
+  const validated = validateVirtualStagingRequest({
+    ...brokerRequest,
+    property: {
+      ...brokerRequest.property,
+      price: 'R$ 850.000',
+      highlights: ['Varanda gourmet', 'Vista livre'],
+    },
+  })
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+    presenterReference: validated.presenter_reference,
+  })
+
+  assert.match(briefing.timeline.narracao[0].texto, /apartamento.*à venda.*Moema.*São Paulo/i)
+  assert.deepEqual(briefing.timeline.legendas.map(block => block.texto), [
+    'À VENDA',
+    'Pronto para morar',
+    'Moema, São Paulo',
+    'Varanda gourmet',
+    'R$ 850.000',
+  ])
+  const rules = briefing.regrasObrigatorias.map(rule => `${rule.codigo}: ${rule.valor}`).join('\n')
+  for (const identityRule of [
+    'IMAGE 1 — PRESENTER IDENTITY',
+    'single source of truth',
+    'identity reference, never as a style reference',
+    'two immutable visual references',
+    'Identity preservation always takes precedence over aesthetic enhancement',
+    'Não copiar fundo, roupa ou pose',
+    'traje formal padrão do mercado imobiliário',
+  ]) assert.match(rules, new RegExp(identityRule, 'i'))
+  assert.match(rules, /finalidade_narracao_apresentacao_corretor: .*Não omitir nem inferir a finalidade/i)
+  assert.match(rules, /finalidade_legenda_apresentacao_corretor: .*Não omitir, inferir nem substituir/i)
+  assert.match(rules, /sequencia_comercial_apresentacao_corretor/)
+  assert.match(rules, /sequencia_narracao_apresentacao_corretor/)
+})
+
+test('broker presentation does not create narration or captions when each option is disabled', () => {
+  const validated = validateVirtualStagingRequest({
+    ...brokerRequest,
+    generation: { ...brokerRequest.generation, narration: 'disabled', captions: 'disabled' },
+  })
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+    presenterReference: validated.presenter_reference,
+  })
+
+  assert.ok(briefing.timeline.narracao.every(block => block.texto === ''))
+  assert.ok(briefing.timeline.legendas.every(block => block.texto === ''))
+  assert.ok(briefing.cenas.slice(0, -1).every(scene => scene.narracao === '' && scene.legenda === ''))
+  assert.equal(briefing.timeline.cta.titulo, brokerRequest.selectedCta)
+})
+
 test('generator loads reference separately and sends property images only to scenes and job columns', () => {
   const generator = read('supabase/functions/virtual-staging-generate/index.ts')
   assert.match(generator, /const requestedPaths = presenterReferencePath \? \[presenterReferencePath, \.\.\.input\.imagePaths\]/)

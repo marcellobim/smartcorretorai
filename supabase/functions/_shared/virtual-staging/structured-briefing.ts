@@ -286,8 +286,9 @@ const presenter = (config: SmartTourGenerationConfig): Presenter => {
 
 const purpose = (value: unknown) => {
   const cleaned = literal(value)
-  if (cleaned.toLocaleLowerCase('pt-BR') === 'sale') return 'Venda'
-  if (cleaned.toLocaleLowerCase('pt-BR') === 'rent') return 'Locação'
+  const normalized = cleaned.toLocaleLowerCase('pt-BR')
+  if (normalized === 'sale') return 'Venda'
+  if (normalized === 'rent' || normalized === 'rental') return 'Locação'
   return cleaned
 }
 
@@ -438,28 +439,31 @@ export function buildSmartTourStructuredBriefing(input: {
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
   const lifeScene = config.life_scene
-  const purposeOpening = lifeScene ? lifeSceneOpeningNarration(input.property, input.language) : ''
-  const purposeCaption = lifeScene ? lifeScenePurpose(input.property.purpose)?.caption || '' : ''
+  const requiresCommercialPurpose = Boolean(lifeScene || input.presenterReference)
+  const purposeOpening = requiresCommercialPurpose ? lifeSceneOpeningNarration(input.property, input.language) : ''
+  const purposeCaption = requiresCommercialPurpose ? lifeScenePurpose(input.property.purpose)?.caption || '' : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths, presenterReference: input.presenterReference })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
     const phrase = config.narration === 'enabled'
-      ? (lifeScene
+      ? (requiresCommercialPurpose
           ? lifeSceneNarration(block.bloco, input.property, input.language)
           : selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` }))
       : { id: '', texto: '' }
     return { ...block, texto: phrase.texto, frase_id: phrase.id }
   })
-  const captionBlocks = lifeScene ? LIFE_SCENE_CAPTION_TIMELINE : TEXT_TIMELINE.slice(0, 4)
+  const captionBlocks = requiresCommercialPurpose ? LIFE_SCENE_CAPTION_TIMELINE : TEXT_TIMELINE.slice(0, 4)
   const captionTimeline = captionBlocks.map(block => ({
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
     texto: config.captions === 'enabled'
-      ? (lifeScene ? lifeSceneCommercialCaption(block.bloco, input.property) : commercialCaption(block.bloco, input.property))
+      ? (requiresCommercialPurpose
+          ? lifeSceneCommercialCaption(block.bloco, input.property)
+          : commercialCaption(block.bloco, input.property))
       : '',
   }))
   const ctaTimeline = {
-    bloco: lifeScene ? 6 : 5,
+    bloco: requiresCommercialPurpose ? 6 : 5,
     inicioSegundos: 8,
     fimSegundos: 10,
     texto: ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '',
@@ -473,7 +477,7 @@ export function buildSmartTourStructuredBriefing(input: {
     const isLast = tipo === 'encerramento'
     const phrase = config.narration === 'enabled'
       ? (tipo === 'abertura' && purposeOpening
-          ? { id: 'LIFE_PURPOSE_OPENING', texto: purposeOpening }
+          ? { id: lifeScene ? 'LIFE_PURPOSE_OPENING' : 'BROKER_COMMERCIAL_OPENING', texto: purposeOpening }
           : selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` }))
       : { id: '', texto: '' }
     const legenda = isLast
@@ -587,16 +591,18 @@ export function buildSmartTourStructuredBriefing(input: {
       ...presenterRules,
       ...presenterReferenceRules,
       ...lifeSceneRules,
+      ...(input.presenterReference && config.narration === 'enabled' ? [{ codigo: 'finalidade_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve declarar obrigatoriamente a finalidade recebida: à venda para sale ou para locação para rent/rental. Não omitir nem inferir a finalidade.' }] : []),
+      ...(input.presenterReference && config.captions === 'enabled' ? [{ codigo: 'finalidade_legenda_apresentacao_corretor', valor: 'A primeira legenda de timeline.legendas deve ser obrigatoriamente À VENDA para sale ou PARA LOCAÇÃO para rent/rental. Não omitir, inferir nem substituir pela localização, pelo tipo ou pelo estado do imóvel.' }] : []),
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
       { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. Os textos e tempos de timeline.legendas e timeline.cta serão aplicados literalmente pelo compositor determinístico após a geração.' },
       { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Usar exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
-      { codigo: lifeScene ? 'sequencia_comercial_vida_no_imovel' : 'legendas_sem_valores_comerciais_automaticos', valor: lifeScene
+      { codigo: lifeScene ? 'sequencia_comercial_vida_no_imovel' : input.presenterReference ? 'sequencia_comercial_apresentacao_corretor' : 'legendas_sem_valores_comerciais_automaticos', valor: requiresCommercialPurpose
         ? 'Aplicar literalmente a sequência de timeline.legendas: finalidade; estado do imóvel; bairro e cidade; primeiro destaque; preço quando informado ou segundo destaque. Não omitir, reordenar, completar ou inventar valores.'
         : 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
-      ...(lifeScene ? [{ codigo: 'sequencia_narracao_vida_no_imovel', valor: 'A abertura de timeline.narracao deve manter nesta ordem: tipo do imóvel, finalidade, bairro e cidade. Depois, manter dormitórios, suítes, vagas, estado do imóvel e convite final, usando somente os valores recebidos.' }] : []),
+      ...(requiresCommercialPurpose ? [{ codigo: lifeScene ? 'sequencia_narracao_vida_no_imovel' : 'sequencia_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve manter nesta ordem: tipo do imóvel, finalidade, bairro e cidade. Depois, manter dormitórios, suítes, vagas, estado do imóvel e convite final, usando somente os valores recebidos.' }] : []),
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
       { codigo: 'ultima_narracao_curta', valor: 'limitar a narração final a 1,2 segundo e manter somente o telefone visível por aproximadamente 0,8 segundo após a fala' },
