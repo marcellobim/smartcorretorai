@@ -1,5 +1,8 @@
 export const BROKER_PRESENTATION_JOURNEY_ID = 'broker-presentation'
 
+export const BROKER_PRESENTER_REFERENCE_SOURCE = 'temporary_upload'
+export const BROKER_PRESENTER_REFERENCE_PURPOSE = 'identity_reference'
+
 export const BROKER_REFERENCE_OPTIONS = Object.freeze([
   { id: 'yes', label: 'Sim' },
   { id: 'no', label: 'Não' },
@@ -16,4 +19,32 @@ export function validatePresenterReferenceSelection(files) {
     return { file: null, error: 'Envie uma foto JPG ou PNG de até 15 MB.' }
   }
   return { file, error: '' }
+}
+
+export function buildBrokerPresentationGenerationPayload({ captions }) {
+  return {
+    mode: 'guided_tour',
+    presenterGender: 'none',
+    narration: 'enabled',
+    captions: captions === 'disabled' ? 'disabled' : 'enabled',
+    furniture: 'original',
+    stagingPresentation: 'final_only',
+    language: 'pt-BR',
+  }
+}
+
+export function buildBrokerPresentationFilePayload({ presenterReferencePath, propertyImagePaths }) {
+  return {
+    module: BROKER_PRESENTATION_JOURNEY_ID,
+    presenter_reference: {
+      enabled: true,
+      source: BROKER_PRESENTER_REFERENCE_SOURCE,
+      purpose: BROKER_PRESENTER_REFERENCE_PURPOSE,
+      image_path: presenterReferencePath,
+    },
+    property_images: {
+      image_paths: [...propertyImagePaths],
+      image_order: [...propertyImagePaths],
+    },
+  }
 }

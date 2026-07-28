@@ -1,4 +1,4 @@
-import type { LifeScene, PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
+import type { LifeScene, PresenterReference, PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
 
@@ -97,7 +97,7 @@ O imóvel já está pronto.
 
 Seu trabalho é somente registrar esse imóvel como um cinegrafista profissional faria.`
 
-type Presenter = 'corretora' | 'corretor' | 'nenhum'
+type Presenter = 'corretora' | 'corretor' | 'referencia_do_usuario' | 'nenhum'
 const LIFE_SCENE_LABELS: Record<LifeScene, string> = {
   young: 'jovens',
   young_dog: 'jovens com cachorro',
@@ -157,6 +157,7 @@ export type SmartTourStructuredBriefing = {
     descricao: string
   }
   apresentador: { tipo: Presenter; unicoHumanoAutorizado: boolean }
+  referenciaApresentador?: PresenterReference & { posicaoNaEntrada: 1; usoExclusivo: 'referencia_de_identidade' }
   vidaNoImovel?: { life_scene: LifeScene; descricao: string }
   musica: { configurada: false; instrucao: 'preservar_comportamento_atual' }
   sequenciaDasImagens: string[]
@@ -429,6 +430,7 @@ export function buildSmartTourStructuredBriefing(input: {
   phone?: string
   imagePaths: string[]
   language: SupportedLanguage
+  presenterReference?: PresenterReference
 }): SmartTourStructuredBriefing {
   const config = normalizeGeneration(input.generation)
   const finalidade = purpose(input.property.purpose)
@@ -438,7 +440,7 @@ export function buildSmartTourStructuredBriefing(input: {
   const lifeScene = config.life_scene
   const purposeOpening = lifeScene ? lifeSceneOpeningNarration(input.property, input.language) : ''
   const purposeCaption = lifeScene ? lifeScenePurpose(input.property.purpose)?.caption || '' : ''
-  const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
+  const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths, presenterReference: input.presenterReference })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
     const phrase = config.narration === 'enabled'
       ? (lifeScene
@@ -491,16 +493,25 @@ export function buildSmartTourStructuredBriefing(input: {
       tempoTelefoneVisivelAposNarracaoSegundos: isLast && Boolean(phone) ? 0.8 : 0,
     } as SmartTourStructuredBriefing['cenas'][number]
   })
-  const presenterType = presenter(config)
+  const presenterType = input.presenterReference ? 'referencia_do_usuario' : presenter(config)
   const hasPresenter = presenterType !== 'nenhum'
   const lifeSceneLabel = lifeScene ? LIFE_SCENE_LABELS[lifeScene] : ''
   const hasLifeScene = Boolean(lifeScene)
   const presenterLabel = presenterType === 'corretor' ? 'um corretor' : 'uma corretora'
-  const presenterReference = presenterType === 'corretor' ? 'O corretor' : 'A corretora'
-  const presenterRules = hasPresenter ? [
+  const presenterReferenceLabel = presenterType === 'corretor' ? 'O corretor' : 'A corretora'
+  const presenterRules = hasPresenter && !input.presenterReference ? [
     { codigo: 'apresentador_obrigatorio', valor: `Criar e exibir obrigatoriamente exatamente uma pessoa: ${presenterLabel}. Essa pessoa deve aparecer naturalmente durante a apresentação.` },
-    { codigo: 'apresentador_excecao_unica', valor: `${presenterReference} é a única exceção autorizada à regra de não inventar pessoas. Não criar, exibir ou sugerir nenhuma pessoa adicional.` },
+    { codigo: 'apresentador_excecao_unica', valor: `${presenterReferenceLabel} é a única exceção autorizada à regra de não inventar pessoas. Não criar, exibir ou sugerir nenhuma pessoa adicional.` },
     { codigo: 'apresentador_preserva_imovel', valor: `A presença e os movimentos naturais de ${presenterLabel} não podem alterar, reconstruir, ocultar ou substituir qualquer parte do imóvel. O imóvel deve ser preservado integralmente.` },
+  ] : []
+  const presenterReferenceRules = input.presenterReference ? [
+    { codigo: 'referencia_identidade_primeira_imagem', valor: 'A primeira imagem recebida é exclusivamente a referência facial do apresentador. Todas as imagens seguintes são fotografias do imóvel na ordem definida em sequenciaDasImagens.' },
+    { codigo: 'referencia_identidade_uso_exclusivo', valor: 'Utilizar a fotografia de referência exclusivamente para a identidade facial do único apresentador. Não utilizar essa fotografia como cena ou fotografia do imóvel.' },
+    { codigo: 'referencia_identidade_preservacao', valor: 'Preservar com a maior fidelidade possível o formato do rosto, olhos, nariz, boca, sorriso, cabelo e demais características reconhecíveis da pessoa.' },
+    { codigo: 'referencia_identidade_nao_copiar', valor: 'Não copiar fundo, roupa ou pose da fotografia de referência.' },
+    { codigo: 'referencia_identidade_traje', valor: 'Vestir o apresentador com traje formal padrão do mercado imobiliário.' },
+    { codigo: 'referencia_identidade_cenas', valor: 'Inserir naturalmente o apresentador nas cenas, sempre mantendo o imóvel como protagonista e preservando integralmente sua arquitetura e seus acabamentos.' },
+    { codigo: 'referencia_identidade_limite', valor: 'A IA utilizará a fotografia como referência de identidade. Pequenas diferenças naturais podem ocorrer durante a geração. Não prometer fidelidade absoluta.' },
   ] : []
   const lifeSceneRules = hasLifeScene ? [
     { codigo: 'vida_no_imovel_perfil_obrigatorio', valor: `Incluir naturalmente ${lifeSceneLabel} durante o vídeo, sem incluir pessoas ou animais de outro perfil.` },
@@ -538,6 +549,7 @@ export function buildSmartTourStructuredBriefing(input: {
       descricao: literal(input.property.description),
     },
     apresentador: { tipo: presenterType, unicoHumanoAutorizado: hasPresenter },
+    ...(input.presenterReference ? { referenciaApresentador: { ...input.presenterReference, posicaoNaEntrada: 1 as const, usoExclusivo: 'referencia_de_identidade' as const } } : {}),
     ...(lifeScene ? { vidaNoImovel: { life_scene: lifeScene, descricao: lifeSceneLabel } } : {}),
     musica: { configurada: false, instrucao: 'preservar_comportamento_atual' },
     sequenciaDasImagens: [...input.imagePaths],
@@ -561,14 +573,15 @@ export function buildSmartTourStructuredBriefing(input: {
       transformacoesPermitidas: [
         'movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo',
         'variações naturais sutis de luminosidade',
-        ...(hasPresenter ? [`movimentos naturais e discretos da única ${presenterType} autorizada`] : []),
+        ...(hasPresenter ? [input.presenterReference ? 'movimentos naturais e discretos do único apresentador autorizado' : `movimentos naturais e discretos da única ${presenterType} autorizada`] : []),
         ...(hasLifeScene ? [`presença e movimentos naturais somente de ${lifeSceneLabel}, subordinados à preservação integral do imóvel`] : []),
       ],
     },
     regrasObrigatorias: [
       { codigo: 'usar_json_como_fonte_unica', valor: 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
-      { codigo: 'sem_invencao', valor: hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : hasLifeScene ? `não inventar dados, contatos, ambientes, pessoas, animais ou elementos além do perfil ${lifeSceneLabel} definido em vidaNoImovel` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
+      { codigo: 'sem_invencao', valor: input.presenterReference ? 'não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é o apresentador cuja identidade vem da fotografia de referência' : hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : hasLifeScene ? `não inventar dados, contatos, ambientes, pessoas, animais ou elementos além do perfil ${lifeSceneLabel} definido em vidaNoImovel` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
       ...presenterRules,
+      ...presenterReferenceRules,
       ...lifeSceneRules,
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },

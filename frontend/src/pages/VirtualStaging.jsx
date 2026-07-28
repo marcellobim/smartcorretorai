@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { getVirtualStagingJourney, getVirtualStagingJourneySessionKey, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
-import { BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
+import { BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
@@ -279,14 +279,17 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }
 
   const createTour = async () => {
-    if (isBrokerPresentation) {
-      setStatus('idle')
-      setMessage('A integração da geração será disponibilizada na próxima etapa.')
-      return
-    }
+    if (isBrokerPresentation && !presenterReference?.file) return setMessage('Envie uma foto do apresentador para continuar.')
     setStatus('uploading'); setMessage('Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()
+      let presenterReferencePath = ''
+      if (isBrokerPresentation) {
+        const presenterFile = presenterReference.file
+        presenterReferencePath = `${user.id}/virtual-staging/${requestId}/presenter-reference.${presenterFile.type === 'image/png' ? 'png' : 'jpg'}`
+        const { error } = await supabase.storage.from(BUCKET).upload(presenterReferencePath, presenterFile, { contentType: presenterFile.type })
+        if (error) throw new Error('A foto do apresentador não pôde ser enviada. Tente novamente.')
+      }
       const orderedImages = images.slice()
       const imagePaths = new Array(orderedImages.length)
       for (let imageIndex = 0; imageIndex < orderedImages.length; imageIndex += 1) {
@@ -299,10 +302,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
       const apiGeneration = isLifeInProperty
         ? buildLifeInPropertyGenerationPayload({ lifeScene, captions: generation.captions })
-        : normalizeGeneration(generation)
-      const selectedCta = isLifeInProperty || ctaEnabled === true ? cta : ''
-      const includeProfessionalPhone = (isLifeInProperty || ctaEnabled === true) && includePhone === true
-      const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR' } })
+        : isBrokerPresentation
+          ? buildBrokerPresentationGenerationPayload({ captions: generation.captions })
+          : normalizeGeneration(generation)
+      const selectedCta = isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : ''
+      const includeProfessionalPhone = (isLifeInProperty || isBrokerPresentation || ctaEnabled === true) && includePhone === true
+      const brokerFiles = isBrokerPresentation ? buildBrokerPresentationFilePayload({ presenterReferencePath, propertyImagePaths: imagePaths }) : {}
+      const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR', ...brokerFiles } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:includeProfessionalPhone ? phone : '' })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
@@ -546,9 +552,8 @@ function Question(props) {
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
-    {isBrokerPresentation && <p className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-600">A integração da geração será disponibilizada na próxima etapa. Nenhuma imagem será enviada nesta homologação de UX.</p>}
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <Button type="button" disabled={isBrokerPresentation || ['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{isBrokerPresentation ? 'Geração disponível na próxima etapa' : status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
+      <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
       <button type="button" disabled={['uploading','generating'].includes(status)} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Refazer criação</button>
     </div>
   </>

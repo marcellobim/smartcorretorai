@@ -7,6 +7,8 @@ import { getVirtualStagingNextQuestion } from '../src/config/virtualStagingConve
 import {
   BROKER_PRESENTATION_JOURNEY_ID,
   BROKER_REFERENCE_OPTIONS,
+  buildBrokerPresentationFilePayload,
+  buildBrokerPresentationGenerationPayload,
   validatePresenterReferenceSelection,
 } from '../src/config/virtualStagingBroker.js'
 import { LIFE_IN_PROPERTY_JOURNEY_ID } from '../src/config/virtualStagingLife.js'
@@ -82,7 +84,6 @@ test('presenter preview is removable and replaceable and remains separate from p
 test('identity notice and temporary-use communication are shown literally', () => {
   assert.match(page, /Ela será utilizada somente nesta criação como referência para o apresentador\./)
   assert.match(page, /A IA utilizará sua foto como referência de identidade\. O apresentador será semelhante a você, mas pequenas diferenças de aparência podem ocorrer durante a geração\./)
-  assert.match(page, /Nenhuma imagem será enviada nesta homologação de UX\./)
 })
 
 test('broker journey keeps optional phone, mandatory CTA, rental states and final summary', () => {
@@ -97,14 +98,27 @@ test('broker journey keeps optional phone, mandatory CTA, rental states and fina
   assert.match(page, /\{ label: 'Foto do apresentador', value: '1 imagem temporária' \}/)
 })
 
-test('UX-only stage blocks broker generation and does not modify backend contracts', () => {
-  assert.match(page, /if \(isBrokerPresentation\) \{[\s\S]*A integração da geração será disponibilizada na próxima etapa\.[\s\S]*return/)
-  assert.match(page, /disabled=\{isBrokerPresentation \|\|/)
-  for (const file of [
-    'supabase/functions/virtual-staging-generate/index.ts',
-    'supabase/functions/virtual-staging-status/index.ts',
-    'supabase/functions/_shared/virtual-staging/build-prompt.ts',
-  ]) assert.doesNotMatch(read(file), /presenter_reference|broker-presentation/)
+test('broker generation sends one separate presenter reference without mixing property images', () => {
+  const propertyImagePaths = ['user/virtual-staging/request/01.jpg', 'user/virtual-staging/request/02.jpg']
+  const presenterReferencePath = 'user/virtual-staging/request/presenter-reference.jpg'
+  assert.deepEqual(buildBrokerPresentationFilePayload({ presenterReferencePath, propertyImagePaths }), {
+    module: 'broker-presentation',
+    presenter_reference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: presenterReferencePath },
+    property_images: { image_paths: propertyImagePaths, image_order: propertyImagePaths },
+  })
+  assert.deepEqual(buildBrokerPresentationGenerationPayload({ captions: 'disabled' }), {
+    mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR',
+  })
+  assert.match(page, /presenter-reference\.\$\{presenterFile\.type === 'image\/png' \? 'png' : 'jpg'\}/)
+  assert.match(page, /buildBrokerPresentationFilePayload\(\{ presenterReferencePath, propertyImagePaths: imagePaths \}\)/)
+  assert.match(page, /if \(isBrokerPresentation && !presenterReference\?\.file\)/)
+  assert.doesNotMatch(page, /Geração disponível na próxima etapa|Nenhuma imagem será enviada nesta homologação de UX/)
+  assert.doesNotMatch(page, /disabled=\{isBrokerPresentation \|\|/)
+
+  const virtualGenerator = read('supabase/functions/virtual-staging-generate/index.ts')
+  assert.match(virtualGenerator, /presenterReferencePath/)
+  assert.match(virtualGenerator, /images:\[\.\.\.presenterImages,\.\.\.images\]/)
+  assert.doesNotMatch(read('supabase/functions/smart-tour-generate/index.ts'), /presenter_reference|presenterReferencePath|broker-presentation/)
 })
 
 test('Modules 1 and 2 retain their approved branching', () => {

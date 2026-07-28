@@ -70,8 +70,8 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /\['life_scene', 3, 'Quem deseja incluir para valorizar ainda mais a apresentação do seu imóvel\?'\]/)
   assert.match(page, /\['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo\?'\]/)
   assert.match(page, /\['cta', 4, 'Qual chamada deseja usar no final\?'\]/)
-  assert.match(page, /const selectedCta = isLifeInProperty \|\| ctaEnabled === true \? cta : ''/)
-  assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| ctaEnabled === true\) && includePhone === true/)
+  assert.match(page, /const selectedCta = isLifeInProperty \|\| isBrokerPresentation \|\| ctaEnabled === true \? cta : ''/)
+  assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| isBrokerPresentation \|\| ctaEnabled === true\) && includePhone === true/)
 })
 
 test('keeps the approved rental states in Vida no Imovel while sharing them with Broker Presentation', () => {
