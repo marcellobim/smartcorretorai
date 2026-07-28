@@ -11,6 +11,7 @@ import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
+import { buildFurnishRenovatePayload, buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, FURNISH_COMPLETE_VIDEO_MODE, FURNISH_RENOVATE_COPY, FURNISH_RENOVATE_HIGHLIGHT_GROUPS, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_HIGHLIGHTS, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_NARRATED_CTAS, FURNISH_RENOVATE_QUESTIONS, FURNISH_RENOVATE_STYLES, FURNISH_RENOVATE_VIDEO_MODES, getFurnishRenovateStyle, getFurnishRenovateVideoMode } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
 import { BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
@@ -22,13 +23,9 @@ const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
-const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
-
-function normalizeGeneration(input) {
-  const value = { ...initialGeneration, ...input }
-  return { ...value, mode: 'guided_tour', presenterGender: ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none', narration: value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
-}
+const initialGeneration = { mode: 'guided_tour', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 function questionsFor(journeyId) {
+  if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) return FURNISH_RENOVATE_QUESTIONS
   const sharedQuestions = [
     ['images', 1, 'Envie até 5 fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
     ['stage', 2, 'Qual é o estado atual do imóvel?'], ['type', 2, 'Que tipo de imóvel vamos apresentar?'],
@@ -53,17 +50,16 @@ function questionsFor(journeyId) {
     ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.'],
     ['presenter_reference_required', 1, 'Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.'],
   ]
-  const questions = [
-    ...sharedQuestions,
-    ['presenter', 3, 'Deseja um apresentador virtual durante o vídeo?'],
-    ['narration', 3, 'Deseja narração durante o vídeo?'],
-    ['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo?'],
-    ['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo?'],
-  ]
-  return [...questions, ['cta', 4, 'Qual chamada deseja usar no final?'], ['phone', 4, 'Deseja divulgar seu telefone profissional?'], ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.']]
+  return sharedQuestions
 }
 
-function virtualStagingConfirmation(id, answer) {
+function virtualStagingConfirmation(id, answer, journeyId) {
+  if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
+    if (id === 'images') return FURNISH_RENOVATE_COPY.styleIntroduction
+    if (id === 'style_gallery') return `Estilo selecionado: ${answer}.`
+    if (id === 'video_mode') return answer === 'Transformação Completa' ? 'Perfeito! Agora vamos registrar somente os dados necessários para a narração comercial.' : 'Perfeito! O vídeo mostrará somente a transformação visual dos ambientes.'
+    if (id === 'narrated_cta') return `Perfeito! O convite “${answer}” será narrado literalmente no encerramento.`
+  }
   if (id === 'purpose') return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
   const confirmations = {
     images: `Ótimo! ${answer} serão usadas exatamente na ordem escolhida.`,
@@ -76,7 +72,6 @@ function virtualStagingConfirmation(id, answer) {
     life_scene: `Perfeito! Vamos criar cenas com ${answer.toLocaleLowerCase('pt-BR')} utilizando o imóvel naturalmente.`,
     presenter_reference: answer === 'Sim' ? 'Perfeito! Agora envie a foto que será usada como referência do apresentador.' : 'Tudo certo. Você pode continuar sua criação no produto Vídeo Imobiliário.',
     presenter_photo: 'Foto do apresentador confirmada para esta criação.',
-    presenter: answer === 'Nenhum' ? 'Tudo certo! O vídeo seguirá sem apresentador virtual.' : `Perfeito! ${answer} fará a apresentação virtual.`,
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
     captions: answer === 'Sim' ? 'Ótimo! Uma seleção curta de destaques poderá aparecer no vídeo.' : 'Tudo certo! As informações continuarão na campanha, mas não aparecerão no vídeo.',
     cta_enabled: answer === 'Sim' ? 'Perfeito! Agora escolha a chamada final.' : 'Tudo certo! O vídeo terminará naturalmente na última cena, sem chamada final.',
@@ -148,6 +143,9 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [images, setImages] = useState([])
   const [property, setProperty] = useState(initialProperty)
   const [generation, setGeneration] = useState(initialGeneration)
+  const [transformationStyle, setTransformationStyle] = useState('')
+  const [videoMode, setVideoMode] = useState('')
+  const [narratedCta, setNarratedCta] = useState('')
   const [lifeScene, setLifeScene] = useState('')
   const [presenterReferenceDecision, setPresenterReferenceDecision] = useState(null)
   const [presenterReference, setPresenterReference] = useState(null)
@@ -159,6 +157,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
   const activeJobKey = getVirtualStagingJourneySessionKey(journey.id)
+  const isFurnishRenovate = journey.id === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID
   const isBrokerPresentation = journey.id === BROKER_PRESENTATION_JOURNEY_ID
   const questions = useMemo(() => questionsFor(journey.id), [journey.id])
@@ -188,6 +187,9 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (questionId === 'presenter_reference') { setPresenterReferenceDecision(null); clearPresenterReference() }
       if (questionId === 'presenter_photo') clearPresenterReference()
       if (questionId === 'images') setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
+      if (questionId === 'style_gallery') setTransformationStyle('')
+      if (questionId === 'video_mode') setVideoMode('')
+      if (questionId === 'narrated_cta') setNarratedCta('')
       if (questionId === 'purpose') setProperty(current => ({ ...current, purpose: '', stage: '' }))
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
       if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [] }))
@@ -196,7 +198,6 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '' }))
       if (questionId === 'highlights') setProperty(current => ({ ...current, highlights: [] }))
       if (questionId === 'life_scene') setLifeScene('')
-      if (questionId === 'presenter') setGeneration(current => ({ ...current, presenterGender: '' }))
       if (questionId === 'narration') setGeneration(current => ({ ...current, narration: '' }))
       if (questionId === 'captions') setGeneration(current => ({ ...current, captions: '' }))
       if (questionId === 'cta_enabled') { setCtaEnabled(null); setCta(''); setIncludePhone(null) }
@@ -211,11 +212,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (shouldReset('presenter_reference')) setPresenterReferenceDecision(null)
     if (shouldReset('presenter_photo')) clearPresenterReference()
     if (shouldReset('images')) setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
+    if (shouldReset('style_gallery')) setTransformationStyle('')
+    if (shouldReset('video_mode')) setVideoMode('')
+    if (shouldReset('narrated_cta')) setNarratedCta('')
     const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'city'], ['location', 'district'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
     setGeneration(current => ({
       ...current,
-      ...(shouldReset('presenter') ? { presenterGender: '' } : {}),
       ...(shouldReset('narration') ? { narration: '' } : {}),
       ...(shouldReset('captions') ? { captions: '' } : {}),
       furniture: 'original', stagingPresentation: 'final_only',
@@ -238,7 +241,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       resolvedNextQuestionId = getVirtualStagingReviewEditNext({ originQuestionId: reviewEditRef.current, questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id })
       if (resolvedNextQuestionId === 'review') reviewEditRef.current = null
     }
-    const accepted = conversation.submitAnswer({ questionId: question[0], question: question[2], answer, confirmation: virtualStagingConfirmation(question[0], answer), nextQuestionId: resolvedNextQuestionId })
+    const accepted = conversation.submitAnswer({ questionId: question[0], question: question[2], answer, confirmation: virtualStagingConfirmation(question[0], answer, journey.id), nextQuestionId: resolvedNextQuestionId })
     if (accepted) apply?.()
     return accepted
   }
@@ -260,12 +263,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }, [activeJobKey])
 
   const addImages = files => {
+    const imageLimit = isFurnishRenovate ? FURNISH_RENOVATE_MAX_IMAGES : VIRTUAL_STAGING_MAX_IMAGES
     const selectedInSystemOrder = Array.from(files)
     if (selectedInSystemOrder.some(file => !['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024)) return setMessage('Envie imagens JPG ou PNG de até 15 MB.')
     setImages(current => {
       const known = new Set(current.map(item => item.key))
       const uniqueInSystemOrder = selectedInSystemOrder.filter(file => !known.has(`${file.name}:${file.size}:${file.lastModified}`))
-      if (current.length + uniqueInSystemOrder.length > VIRTUAL_STAGING_MAX_IMAGES) { setMessage(`Você pode enviar no máximo ${VIRTUAL_STAGING_MAX_IMAGES} imagens.`); return current }
+      const exceedsLimit = isFurnishRenovate ? !canAddFurnishRenovateImages(current.length, uniqueInSystemOrder.length) : current.length + uniqueInSystemOrder.length > imageLimit
+      if (exceedsLimit) { setMessage(`Você pode enviar no máximo ${imageLimit} imagens.`); return current }
       setMessage('')
       return [...current, ...uniqueInSystemOrder.map(file => ({ file, key: `${file.name}:${file.size}:${file.lastModified}`, preview: URL.createObjectURL(file) }))]
     })
@@ -273,6 +278,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const move = (position, offset) => setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages })
   const remove = position => setImages(current => current.filter((item, itemIndex) => { if (itemIndex === position) URL.revokeObjectURL(item.preview); return itemIndex !== position }))
   const toggleHighlight = value => setPropertyField('highlights', property.highlights.includes(value) ? property.highlights.filter(item => item !== value) : property.highlights.length < 10 ? [...property.highlights, value] : property.highlights)
+  const toggleFurnishHighlight = value => setPropertyField('highlights', property.highlights.includes(value) ? property.highlights.filter(item => item !== value) : property.highlights.length < FURNISH_RENOVATE_MAX_HIGHLIGHTS ? [...property.highlights, value] : property.highlights)
 
   async function poll(jobId) {
     try {
@@ -318,6 +324,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 
   const createTour = async () => {
     if (isBrokerPresentation && !presenterReference?.file) return setMessage('Envie uma foto do apresentador para continuar.')
+    if (isFurnishRenovate && (!transformationStyle || !videoMode || (videoMode === FURNISH_COMPLETE_VIDEO_MODE && !narratedCta))) return setMessage('Confirme o estilo, o tipo de vídeo e o convite narrado antes de transformar os ambientes.')
     setStatus('uploading'); setMessage('Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()
@@ -337,23 +344,26 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         if (error) throw new Error('Uma das fotos não pôde ser enviada. Tente novamente.')
         imagePaths[imageIndex] = path
       }
-      setStatus('generating'); setMessage('A IA está criando sua apresentação...')
-      const apiGeneration = isLifeInProperty
-        ? buildLifeInPropertyGenerationPayload({ lifeScene, captions: generation.captions })
-        : isBrokerPresentation
-          ? buildBrokerPresentationGenerationPayload({ captions: generation.captions })
-          : normalizeGeneration(generation)
-      const selectedCta = isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : ''
-      const includeProfessionalPhone = (isLifeInProperty || isBrokerPresentation || ctaEnabled === true) && includePhone === true
-      const brokerFiles = isBrokerPresentation ? buildBrokerPresentationFilePayload({ presenterReferencePath, propertyImagePaths: imagePaths }) : {}
-      const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR', ...brokerFiles } })
+      setStatus('generating'); setMessage(isFurnishRenovate ? 'A IA está preparando a transformação dos ambientes...' : 'A IA está criando sua apresentação...')
+      const requestBody = isFurnishRenovate
+        ? { clientRequestId: requestId, ...buildFurnishRenovatePayload({ imagePaths, transformationStyle, videoMode, property, narratedCta }) }
+        : (() => {
+            const apiGeneration = isLifeInProperty
+              ? buildLifeInPropertyGenerationPayload({ lifeScene, captions: generation.captions })
+              : buildBrokerPresentationGenerationPayload({ captions: generation.captions })
+            const selectedCta = isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : ''
+            const includeProfessionalPhone = (isLifeInProperty || isBrokerPresentation || ctaEnabled === true) && includePhone === true
+            const brokerFiles = isBrokerPresentation ? buildBrokerPresentationFilePayload({ presenterReferencePath, propertyImagePaths: imagePaths }) : {}
+            return { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR', ...brokerFiles }
+          })()
+      const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: requestBody })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:includeProfessionalPhone ? phone : '' })
+      const campaignPackage = isFurnishRenovate ? {} : buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '' })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setTransformationStyle(''); setVideoMode(''); setNarratedCta(''); setLifeScene(''); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
   if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>Consultar resultado novamente</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">Criar novo projeto</button></div></section>
 
@@ -362,7 +372,25 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${measureLabels[field]}`).filter(Boolean).join(' · ')
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
-  const summary = [
+  const selectedFurnishStyle = getFurnishRenovateStyle(transformationStyle)
+  const selectedFurnishMode = getFurnishRenovateVideoMode(videoMode)
+  const furnishFactsSummary = [property.bedrooms && `${property.bedrooms} dormitórios`, property.suites && `${property.suites} suítes`, property.parkingSpaces && `${property.parkingSpaces} vagas`, property.area && `${property.area} m²`].filter(Boolean).join(' · ')
+  const furnishSummary = [
+    { id: 'images', label: images.length && `${images.length} ambiente${images.length > 1 ? 's' : ''}` },
+    { id: 'style_gallery', label: selectedFurnishStyle && `Estilo: ${selectedFurnishStyle.name}` },
+    { id: 'video_mode', label: selectedFurnishMode?.label || '' },
+    ...(videoMode === FURNISH_COMPLETE_VIDEO_MODE ? [
+      { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
+      { id: 'stage', label: property.stage },
+      { id: 'type', label: property.type },
+      { id: 'facts', label: furnishFactsSummary },
+      { id: 'location', label: [property.district, property.city].filter(Boolean).join(', ') },
+      { id: 'highlights', label: property.highlights.length ? property.highlights.join(' · ') : '' },
+      { id: 'narrated_cta', label: narratedCta },
+    ] : []),
+  ].filter(item => Boolean(item.label))
+  const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: images.length, transformationStyle, videoMode, property, narratedCta })
+  const standardSummary = [
     { id: 'images', label: images.length && `${images.length} foto${images.length > 1 ? 's' : ''}` },
     { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
     { id: 'stage', label: property.stage },
@@ -378,17 +406,16 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         ]
       : isLifeInProperty
         ? [{ id: 'life_scene', label: lifeScene ? `Vida no Imóvel: ${getLifeSceneLabel(lifeScene)}` : '' }]
-        : [
-          { id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') },
-          { id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' },
-          ]),
+        : [{ id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' }]),
     { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
     ...(!isLifeInProperty && !isBrokerPresentation ? [{ id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' }] : []),
     { id: 'cta', label: isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : '' },
     { id: 'phone', label: isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
   ].filter(item => Boolean(item.label))
+  const summary = isFurnishRenovate ? furnishSummary : standardSummary
   const visualStep = status === 'idle' ? question[1] : 5
   return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className="mt-10">
+      {isFurnishRenovate && <FurnishStyleHero />}
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Jornada selecionada · {journey.title}</p>
@@ -398,7 +425,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           Escolher outro módulo
         </button>
       </div>
-    <div className="mb-6 grid grid-cols-5 gap-2">{(isBrokerPresentation ? ['Referência','Imóvel','Estilo','Revisão','Criar'] : ['Fotos','Imóvel','Estilo','Revisão','Criar']).map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
+    <div className="mb-6 grid grid-cols-5 gap-2">{(isFurnishRenovate ? ['Fotos','Estilo','Formato','Revisão','Transformar'] : isBrokerPresentation ? ['Referência','Imóvel','Estilo','Revisão','Criar'] : ['Fotos','Imóvel','Estilo','Revisão','Criar']).map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
     <GuidedConversation
       history={conversation.history}
       phase={conversation.phase}
@@ -411,9 +438,73 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
     >
-      <Question id={question[0]} {...{ journeyId: journey.id, lifeScene, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setPresenterReferenceDecision, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
+      <Question id={question[0]} {...{ journeyId: journey.id, lifeScene, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, transformationStyle, videoMode, narratedCta, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setPresenterReferenceDecision, setPropertyField, setGenerationField, setTransformationStyle, setVideoMode, setNarratedCta, toggleHighlight, toggleFurnishHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
     </GuidedConversation>
   </section>
+}
+
+function FurnishStyleHero() {
+  const [activeIndex, setActiveIndex] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setActiveIndex(index => (index + 1) % FURNISH_RENOVATE_STYLES.length), 3600)
+    return () => window.clearInterval(timer)
+  }, [])
+  const style = FURNISH_RENOVATE_STYLES[activeIndex]
+  return <section aria-label="Carrossel demonstrativo de estilos do Ambiente Renovado" aria-live="off" className="mb-7 overflow-hidden rounded-[2rem] border border-emerald-100 bg-[linear-gradient(135deg,#ecfdf5,#ffffff_55%,#ecfeff)] p-5 shadow-sm sm:p-7">
+    <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,1fr)_220px]">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Inspirações de transformação</p>
+        <h3 className="mt-2 text-2xl font-black text-slate-950">{style.name}</h3>
+        <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">{style.description}</p>
+        <p className="mt-4 text-xs font-bold text-slate-400">Demonstração automática · a seleção acontece dentro da conversa</p>
+      </div>
+      <div className="flex aspect-video items-center justify-center rounded-3xl border border-dashed border-emerald-200 bg-white/80 p-5 text-center text-xs font-black text-emerald-800">
+        Prévia oficial em preparação
+      </div>
+    </div>
+    <div className="mt-5 flex gap-2" aria-hidden="true">{FURNISH_RENOVATE_STYLES.map((item, index) => <span key={item.id} className={`h-1.5 rounded-full transition-all ${index === activeIndex ? 'w-10 bg-emerald-600' : 'w-5 bg-emerald-200'}`} />)}</div>
+  </section>
+}
+
+function FurnishStyleGallery({ selectedStyleId, onSelect }) {
+  const [activeStyle, setActiveStyle] = useState(null)
+  const modalVideoRef = useRef(null)
+  const closeButtonRef = useRef(null)
+  const closeDemo = () => { modalVideoRef.current?.pause(); setActiveStyle(null) }
+  useEffect(() => {
+    if (!activeStyle) return undefined
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = event => { if (event.key === 'Escape') closeDemo() }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+    closeButtonRef.current?.focus()
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', handleKeyDown) }
+  }, [activeStyle])
+  return <>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Galeria de estilos de transformação">
+      {FURNISH_RENOVATE_STYLES.map(style => {
+        const selected = selectedStyleId === style.id
+        const hasDemo = Boolean(style.demoVideo)
+        return <article key={style.id} className={`overflow-hidden rounded-3xl border p-4 shadow-sm transition ${selected ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 bg-white hover:border-emerald-300'}`}>
+          <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4,#ecfeff)] p-4 text-center text-xs font-black text-emerald-800">
+            {hasDemo ? 'Vídeo demonstrativo disponível' : 'Prévia oficial em preparação'}
+          </div>
+          <h4 className="mt-4 text-base font-black text-slate-950">{style.name}</h4>
+          <p className="mt-2 min-h-10 text-xs font-semibold leading-5 text-slate-600">{style.description}</p>
+          <div className="mt-4 grid gap-2">
+            {hasDemo ? <button type="button" onClick={() => setActiveStyle(style)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-xs font-black text-emerald-800"><PlayCircle className="h-4 w-4" />Visualizar exemplo</button> : <span className="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-200 px-4 py-2 text-center text-xs font-black text-slate-400">Exemplo em preparação</span>}
+            <button type="button" aria-pressed={selected} onClick={() => onSelect(style)} className={`min-h-11 rounded-xl px-4 py-2 text-xs font-black ${selected ? 'bg-emerald-700 text-white' : 'bg-slate-950 text-white hover:bg-slate-800'}`}>{selected ? 'Estilo selecionado' : 'Selecionar estilo'}</button>
+          </div>
+        </article>
+      })}
+    </div>
+    {activeStyle?.demoVideo && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={`Exemplo do estilo ${activeStyle.name}`} onMouseDown={event => { if (event.target === event.currentTarget) closeDemo() }}>
+      <div className="relative flex max-h-full w-full max-w-4xl flex-col items-center">
+        <div className="mb-3 flex w-full items-center justify-between gap-3 text-white"><p className="truncate text-lg font-black">{activeStyle.name}</p><button ref={closeButtonRef} type="button" onClick={closeDemo} aria-label="Fechar exemplo de estilo" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><X className="h-5 w-5" /></button></div>
+        <div className="flex aspect-[9/16] max-h-[calc(100vh-9rem)] items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/15 bg-black sm:w-[min(420px,70vw)]"><video ref={modalVideoRef} src={activeStyle.demoVideo} autoPlay playsInline controls preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="h-full w-full bg-black object-contain" /></div>
+      </div>
+    </div>}
+  </>
 }
 
 function VirtualStagingModules({ selectedJourneyId, onSelect }) {
@@ -497,7 +588,10 @@ function VirtualStagingModules({ selectedJourneyId, onSelect }) {
 }
 
 function Question(props) {
-  const { id, journeyId, lifeScene, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setPresenterReferenceDecision, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
+  const { id, journeyId, lifeScene, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, transformationStyle, videoMode, narratedCta, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setPresenterReferenceDecision, setPropertyField, setGenerationField, setTransformationStyle, setVideoMode, setNarratedCta, toggleHighlight, toggleFurnishHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
+  const isFurnishRenovate = journeyId === FURNISH_RENOVATE_JOURNEY_ID
+  const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
+  const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-2xl border p-4 text-left ${value === item.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
@@ -512,15 +606,20 @@ function Question(props) {
     {presenterReference && cont(false, '1 foto do apresentador', 'images')}
   </>
   if (id === 'presenter_reference_required') return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="text-sm font-semibold leading-6 text-amber-950">Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.</p><Button type="button" onClick={navigateToVideoProduct} className="mt-5">Ir para Vídeo Imobiliário</Button></div>
-  if (id === 'images') return <>{journeyId === BROKER_PRESENTATION_JOURNEY_ID && <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Imagens do imóvel</p>}<input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">{journeyId === BROKER_PRESENTATION_JOURNEY_ID ? 'Selecionar fotos do imóvel' : 'Selecionar fotos'}</b><span className="text-xs text-slate-500">Selecione de 1 a {VIRTUAL_STAGING_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {VIRTUAL_STAGING_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
+  if (id === 'images') {
+    const imageLimit = isFurnishRenovate ? FURNISH_RENOVATE_MAX_IMAGES : VIRTUAL_STAGING_MAX_IMAGES
+    return <>{isBrokerPresentation && <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Imagens do imóvel</p>}<input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 text-center"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">{isFurnishRenovate ? 'Selecionar ambientes' : isBrokerPresentation ? 'Selecionar fotos do imóvel' : 'Selecionar fotos'}</b>{isFurnishRenovate ? <><span className="text-xs text-slate-500">Selecione de 1 a 4 imagens.</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG.</span></> : <><span className="text-xs text-slate-500">Selecione de 1 a {VIRTUAL_STAGING_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></>}</button>{isFurnishRenovate && <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{FURNISH_RENOVATE_COPY.uploadHint}</p>}<p className="mt-3 text-xs font-bold">{images.length} de {imageLimit} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} ${isFurnishRenovate ? `ambiente${images.length > 1 ? 's' : ''}` : `foto${images.length > 1 ? 's' : ''}`}`)}</>
+  }
+  if (id === 'style_gallery') return <FurnishStyleGallery selectedStyleId={transformationStyle} onSelect={style => answerQuestion({ answer: style.name, answerId: style.id, apply: () => setTransformationStyle(style.id) })} />
+  if (id === 'video_mode') return choices(FURNISH_RENOVATE_VIDEO_MODES, videoMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setVideoMode(value); if (value !== FURNISH_COMPLETE_VIDEO_MODE) { setPropertyField('highlights', []); setPropertyField('area', ''); setNarratedCta('') } } }))
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
-  if (id === 'stage') { const usesLifeRentalStates = [LIFE_IN_PROPERTY_JOURNEY_ID, BROKER_PRESENTATION_JOURNEY_ID].includes(journeyId); const stageOptions = usesLifeRentalStates && property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : property.purpose === 'rent' ? ['Pronto para mudar'] : STAGES; return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
+  if (id === 'stage') { const stageOptions = property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : STAGES; return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') return <>{choices(VIRTUAL_STAGING_PROPERTY_TYPES, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</>
   if (id === 'facts') {
     const fields = getVirtualStagingMeasureFields(property.type)
     const fieldLabels = { bedrooms:'Dormitórios', suites:'Suítes', parkingSpaces:'Vagas', area:'Área' }
-    const answer = fields.map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ' m²' : ''}`).join(' · ')
-    const isIncomplete = fields.some(field => field === 'area' ? Number(property.area) <= 0 : property[field] === '')
+    const answer = fields.filter(field => property[field] !== '').map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ' m²' : ''}`).join(' · ') || 'Sem medidas adicionais'
+    const isIncomplete = fields.some(field => field === 'area' ? (!isFurnishRenovate && Number(property.area) <= 0) : property[field] === '')
     return <>
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map(field => field === 'area' ? (
@@ -550,18 +649,30 @@ function Question(props) {
       {cont(isIncomplete, answer, 'location')}
     </>
   }
-  if (id === 'location') { const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
+  if (id === 'location') { const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = isFurnishRenovate ? [normalizedDistrict, property.city].filter(Boolean).join(', ') : formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, isFurnishRenovate ? 'highlights' : 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
-  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type); const nextQuestionId = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID ? 'life_scene' : journeyId === BROKER_PRESENTATION_JOURNEY_ID ? 'captions' : 'presenter'; return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', nextQuestionId)}</> }
+  if (id === 'highlights') { const highlightGroups = isFurnishRenovate ? FURNISH_RENOVATE_HIGHLIGHT_GROUPS : getVirtualStagingHighlightGroups(property.type); const highlightLimit = isFurnishRenovate ? FURNISH_RENOVATE_MAX_HIGHLIGHTS : 10; const nextQuestionId = isFurnishRenovate ? 'narrated_cta' : isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">{isFurnishRenovate ? 'Selecione até 3 opções para uma narração curta e natural.' : 'Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.'}</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= highlightLimit} onClick={() => isFurnishRenovate ? toggleFurnishHighlight(item) : toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', nextQuestionId)}</> }
+  if (id === 'narrated_cta') return explainedChoices('O convite será narrado literalmente no encerramento. Não haverá CTA visual, texto na tela, telefone ou tela final.', FURNISH_RENOVATE_NARRATED_CTAS, narratedCta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setNarratedCta(value) }))
   if (id === 'life_scene') return choices(LIFE_SCENE_OPTIONS, lifeScene, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setLifeScene(value) }))
-  if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) }))
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices('As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa. Ao escolher ‘Não’, elas apenas deixarão de aparecer durante o vídeo.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
   if (id === 'cta_enabled') return explainedChoices('Ao final do vídeo poderá ser exibido um convite para contato utilizando as informações do seu cadastro profissional.', [{id:'yes',label:'Sim'},{id:'no',label:'Não'}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
-  const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
-  const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID
+  if (isFurnishRenovate) {
+    const projectItems = reviewItems.filter(item => ['images', 'style_gallery', 'video_mode'].includes(item.id))
+    const commercialItems = reviewItems.filter(item => !['images', 'style_gallery', 'video_mode'].includes(item.id))
+    return <>
+      <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">
+        <p className="text-lg font-black">Projeto</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">{projectItems.map(item => <div key={item.id} className="rounded-2xl border border-emerald-100 bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 text-sm font-black text-slate-800">{item.label}</p></div>)}</div>
+        {commercialItems.length > 0 && <><p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Dados para a narração</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{commercialItems.map(item => <div key={item.id} className="rounded-2xl border border-emerald-100 bg-white px-4 py-3"><div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{item.displayLabel || reviewLabel(item.id)}</p><p className="mt-1 text-sm font-black text-slate-800">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.editQuestionId || item.id)} className="rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}</div></>}
+        <p className="mt-5 rounded-2xl border border-emerald-100 bg-white/80 p-4 font-bold">{FURNISH_RENOVATE_COPY.reviewNotice}</p>
+      </div>
+      {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
+      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Transformar Ambientes'}</Button><button type="button" disabled={['uploading','generating'].includes(status)} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700">Refazer transformação</button></div>
+    </>
+  }
   const finalChoiceItems = [
     ...(isBrokerPresentation
       ? [
@@ -570,10 +681,7 @@ function Question(props) {
         ]
       : isLifeInProperty
       ? [{ label: 'Vida no Imóvel', value: getLifeSceneLabel(lifeScene) }]
-      : [
-          { label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' },
-          { label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' },
-        ]),
+      : [{ label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' }]),
     { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
     { label: 'CTA', value: isLifeInProperty || isBrokerPresentation ? cta : ctaEnabled === true ? (cta || 'Sim') : 'Não' },
     ...((isLifeInProperty || isBrokerPresentation || ctaEnabled === true) ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
@@ -602,6 +710,6 @@ function reviewLabel(id) {
   return {
     images: 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
-    presenter_reference: 'Apresentação pelo Corretor', presenter_photo: 'Foto do apresentador', life_scene: 'Vida no Imóvel', presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
+    style_gallery: 'Estilo escolhido', video_mode: 'Tipo de vídeo', presenter_reference: 'Apresentação pelo Corretor', presenter_photo: 'Foto do apresentador', life_scene: 'Vida no Imóvel', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }[id] || id
 }

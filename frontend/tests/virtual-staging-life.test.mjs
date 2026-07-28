@@ -66,7 +66,7 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.equal(next('captions'), 'cta')
   assert.equal(next('cta'), 'phone')
   assert.equal(next('phone'), 'review')
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'furnish-renovate' }), 'presenter')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'furnish-renovate' }), 'narrated_cta')
   assert.match(page, /\['life_scene', 3, 'Quem deseja incluir para valorizar ainda mais a apresentação do seu imóvel\?'\]/)
   assert.match(page, /\['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo\?'\]/)
   assert.match(page, /\['cta', 4, 'Qual chamada deseja usar no final\?'\]/)
@@ -74,11 +74,10 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| isBrokerPresentation \|\| ctaEnabled === true\) && includePhone === true/)
 })
 
-test('keeps the approved rental states in Vida no Imovel while sharing them with Broker Presentation', () => {
+test('keeps the approved rental states shared by all Virtual Staging modules', () => {
   assert.deepEqual(LIFE_RENTAL_STAGE_OPTIONS, ['Pronto para morar', 'Disponível já', 'Vago'])
-  assert.match(page, /\[LIFE_IN_PROPERTY_JOURNEY_ID, BROKER_PRESENTATION_JOURNEY_ID\]\.includes\(journeyId\)/)
-  assert.match(page, /usesLifeRentalStates && property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS/)
-  assert.match(page, /property\.purpose === 'rent' \? \['Pronto para mudar'\] : STAGES/)
+  assert.match(page, /property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS : STAGES/)
+  assert.doesNotMatch(page, /Pronto para mudar/)
   assert.doesNotMatch(smartTour, /LIFE_RENTAL_STAGE_OPTIONS|Disponível já|Vago/)
 })
 
