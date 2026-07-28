@@ -505,9 +505,13 @@ export function buildSmartTourStructuredBriefing(input: {
     { codigo: 'apresentador_preserva_imovel', valor: `A presença e os movimentos naturais de ${presenterLabel} não podem alterar, reconstruir, ocultar ou substituir qualquer parte do imóvel. O imóvel deve ser preservado integralmente.` },
   ] : []
   const presenterReferenceRules = input.presenterReference ? [
-    { codigo: 'referencia_identidade_primeira_imagem', valor: 'A primeira imagem recebida é exclusivamente a referência facial do apresentador. Todas as imagens seguintes são fotografias do imóvel na ordem definida em sequenciaDasImagens.' },
-    { codigo: 'referencia_identidade_uso_exclusivo', valor: 'Utilizar a fotografia de referência exclusivamente para a identidade facial do único apresentador. Não utilizar essa fotografia como cena ou fotografia do imóvel.' },
+    { codigo: 'referencia_identidade_fonte_unica', valor: "IMAGE 1 — PRESENTER IDENTITY. The uploaded presenter reference photo is the single source of truth for the presenter's identity." },
+    { codigo: 'referencia_identidade_nao_estilo', valor: 'Treat the uploaded presenter photo as an identity reference, never as a style reference. Do not use it as a scene or property photograph.' },
+    { codigo: 'referencia_imovel_hierarquia', valor: `IMAGES 2 TO ${input.imagePaths.length + 1} — PROPERTY. These are the property photographs in the exact order defined in sequenciaDasImagens.` },
+    { codigo: 'referencias_visuais_imutaveis', valor: 'The presenter identity and the property photographs are the two immutable visual references of this video.' },
     { codigo: 'referencia_identidade_preservacao', valor: 'Preservar com a maior fidelidade possível o formato do rosto, olhos, nariz, boca, sorriso, cabelo e demais características reconhecíveis da pessoa.' },
+    { codigo: 'referencia_identidade_reconhecivel', valor: 'The presenter must remain immediately recognizable as the same individual throughout the entire video.' },
+    { codigo: 'referencia_identidade_prioridade', valor: "Identity preservation always takes precedence over aesthetic enhancement. If a conflict exists, preserve the presenter's identity instead of generating a different-looking individual." },
     { codigo: 'referencia_identidade_nao_copiar', valor: 'Não copiar fundo, roupa ou pose da fotografia de referência.' },
     { codigo: 'referencia_identidade_traje', valor: 'Vestir o apresentador com traje formal padrão do mercado imobiliário.' },
     { codigo: 'referencia_identidade_cenas', valor: 'Inserir naturalmente o apresentador nas cenas, sempre mantendo o imóvel como protagonista e preservando integralmente sua arquitetura e seus acabamentos.' },

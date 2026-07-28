@@ -70,7 +70,23 @@ test('structured briefing receives identity reference without adding it to prope
   assert.deepEqual(briefing.cenas.map(scene => scene.imagem), propertyImagePaths)
   assert.equal(briefing.configuracoes.quantidadeImagens, propertyImagePaths.length)
   const rules = briefing.regrasObrigatorias.map(rule => `${rule.codigo}: ${rule.valor}`).join('\n')
-  for (const expected of ['exclusivamente a referência facial', 'formato do rosto, olhos, nariz, boca, sorriso, cabelo', 'Não copiar fundo, roupa ou pose', 'traje formal padrão do mercado imobiliário', 'imóvel como protagonista', 'Pequenas diferenças naturais podem ocorrer', 'Não prometer fidelidade absoluta']) assert.match(rules, new RegExp(expected, 'i'))
+  for (const expected of [
+    'IMAGE 1 — PRESENTER IDENTITY',
+    'single source of truth',
+    'identity reference, never as a style reference',
+    'IMAGES 2 TO 3 — PROPERTY',
+    'two immutable visual references',
+    'immediately recognizable as the same individual',
+    'Identity preservation always takes precedence over aesthetic enhancement',
+    'preserve the presenter.s identity instead of generating a different-looking individual',
+    'formato do rosto, olhos, nariz, boca, sorriso, cabelo',
+    'Não copiar fundo, roupa ou pose',
+    'traje formal padrão do mercado imobiliário',
+    'imóvel como protagonista',
+    'Pequenas diferenças naturais podem ocorrer',
+    'Não prometer fidelidade absoluta',
+  ]) assert.match(rules, new RegExp(expected, 'i'))
+  for (const forbidden of ['100% identical', 'exact clone', 'pixel perfect']) assert.doesNotMatch(rules, new RegExp(forbidden, 'i'))
 })
 
 test('generator loads reference separately and sends property images only to scenes and job columns', () => {
