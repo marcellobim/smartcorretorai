@@ -17,8 +17,8 @@ export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
     id: 'broker-presentation',
     title: 'Apresentação pelo Corretor',
     description: 'Utilize sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
-    demoVideo: '/demos-videos/corretor-virtual.mp4',
-    demoAssetStatus: 'temporary',
+    demoVideo: '/demos-videos/apresentacao-pelo-proprio-corretor.mp4',
+    demoAssetStatus: 'official',
   },
 ])
 

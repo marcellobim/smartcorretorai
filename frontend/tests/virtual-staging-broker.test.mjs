@@ -12,6 +12,7 @@ import {
   validatePresenterReferenceSelection,
 } from '../src/config/virtualStagingBroker.js'
 import { LIFE_IN_PROPERTY_JOURNEY_ID } from '../src/config/virtualStagingLife.js'
+import { getVirtualStagingJourney } from '../src/config/virtualStagingJourneys.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(frontendRoot, '..')
@@ -79,6 +80,21 @@ test('presenter preview is removable and replaceable and remains separate from p
   assert.match(page, /Imagens do imóvel/)
   assert.match(page, /Selecionar fotos do imóvel/)
   assert.match(page, /presenterReference[\s\S]*images/)
+})
+
+test('uses the approved Module 3 demo with audio-enabled protected modal', () => {
+  const journey = getVirtualStagingJourney(BROKER_PRESENTATION_JOURNEY_ID)
+  assert.equal(journey?.demoVideo, '/demos-videos/apresentacao-pelo-proprio-corretor.mp4')
+  assert.equal(journey?.demoAssetStatus, 'official')
+  assert.match(page, /const hasOfficialDemo = journey\.demoAssetStatus === 'official'/)
+  assert.match(page, />Ver exemplo</)
+  assert.match(page, /activeDemo\.demoVideo/)
+  assert.match(page, /autoPlay playsInline controls preload="metadata"/)
+  assert.match(page, /controlsList="nodownload noremoteplayback"/)
+  assert.match(page, /disablePictureInPicture/)
+  assert.match(page, /onContextMenu=\{event => event\.preventDefault\(\)\}/)
+  const modalVideo = page.match(/<video key=\{activeDemo\.id\}[\s\S]*?\/>/)?.[0] || ''
+  assert.doesNotMatch(modalVideo, /\bmuted\b/)
 })
 
 test('identity notice and temporary-use communication are shown literally', () => {

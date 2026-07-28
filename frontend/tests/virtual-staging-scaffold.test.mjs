@@ -121,9 +121,11 @@ test('exposes exactly the three approved Virtual Staging modules in order', () =
     'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
     'Utilize sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
   ])
-  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.demoAssetStatus), ['temporary', 'official', 'temporary'])
+  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.demoAssetStatus), ['temporary', 'official', 'official'])
   assert.equal(getVirtualStagingJourney('life-in-property')?.demoVideo, '/demos-videos/vida-no-imovel.mp4')
   assert.equal(getVirtualStagingJourney('life-in-property')?.title, 'Vida no Imóvel')
+  assert.equal(getVirtualStagingJourney('broker-presentation')?.demoVideo, '/demos-videos/apresentacao-pelo-proprio-corretor.mp4')
+  assert.equal(getVirtualStagingJourney('furnish-renovate')?.demoVideo, '/demos-videos/animar-imagens.mp4')
   assert.equal(getVirtualStagingJourney('unknown'), null)
 })
 
