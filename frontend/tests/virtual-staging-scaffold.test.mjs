@@ -132,7 +132,7 @@ test('opens one keyed journey at a time and isolates every active job namespace'
   const sessionKeys = VIRTUAL_STAGING_JOURNEYS.map(journey => getVirtualStagingJourneySessionKey(journey.id))
 
   assert.equal(new Set(sessionKeys).size, 3)
-  assert.match(staging, /const \[selectedJourneyId, setSelectedJourneyId\] = useState\(null\)/)
+  assert.match(staging, /const \[selectedJourneyId, setSelectedJourneyId\] = useState\(\(\) => getRecoverableVirtualStagingJourneyId\(globalThis\.sessionStorage\)\)/)
   assert.match(staging, /selectedJourney && <div[\s\S]*?<VirtualStagingJourney[\s\S]*?key=\{selectedJourney\.id\}/)
   assert.match(staging, /onClick=\{\(\) => onSelect\(journey\.id\)\}/)
   assert.match(staging, /aria-pressed=\{isSelected\}/)

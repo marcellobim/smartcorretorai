@@ -1,0 +1,115 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import {
+  getRecoverableVirtualStagingJourneyId,
+  getVirtualStagingJourneySessionKey,
+  isUsableVirtualStagingVideoUrl,
+  parseVirtualStagingJobRecord,
+} from '../src/config/virtualStagingJourneys.js'
+
+const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const repositoryRoot = path.resolve(frontendRoot, '..')
+const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
+const page = read('frontend/src/pages/VirtualStaging.jsx')
+const campaignPackage = read('frontend/src/components/campaign/CampaignPackage.jsx')
+const smartTour = read('frontend/src/pages/SmartTourAI.jsx')
+
+const memoryStorage = entries => ({
+  getItem(key) { return Object.hasOwn(entries, key) ? entries[key] : null },
+})
+
+test('restores Module 3 from its known active-job key after reload', () => {
+  const key = getVirtualStagingJourneySessionKey('broker-presentation')
+  const storage = memoryStorage({ [key]: JSON.stringify({ jobId: 'job-module-3', updatedAt: 30 }) })
+
+  assert.equal(getRecoverableVirtualStagingJourneyId(storage), 'broker-presentation')
+  assert.match(page, /useState\(\(\) => getRecoverableVirtualStagingJourneyId\(globalThis\.sessionStorage\)\)/)
+})
+
+test('restored journey mounts and resumes polling with the saved job id', () => {
+  assert.match(page, /selectedJourney && <div[\s\S]*?<VirtualStagingJourney/)
+  assert.match(page, /parseVirtualStagingJobRecord\(sessionStorage\.getItem\(activeJobKey\)\)[\s\S]*?poll\(stored\.jobId\)/)
+})
+
+test('completed accepts only an assignable signed video URL and renders CampaignPackage', () => {
+  assert.equal(isUsableVirtualStagingVideoUrl('https://example.test/storage/video.mp4?token=masked'), true)
+  assert.equal(isUsableVirtualStagingVideoUrl('http://localhost/video.mp4'), true)
+  assert.match(page, /data\.status === 'completed'/)
+  assert.match(page, /isUsableVirtualStagingVideoUrl\(data\.signedVideoUrl\)/)
+  assert.match(page, /previewUrl: result\.signedVideoUrl, downloadUrl: result\.signedVideoUrl/)
+})
+
+test('completed result remains recoverable across another reload', () => {
+  const stored = parseVirtualStagingJobRecord(JSON.stringify({
+    jobId: 'completed-job',
+    campaignPackage: { sourceProduct: 'Virtual Staging' },
+    result: { status: 'completed', signedVideoUrl: 'https://example.test/video.mp4' },
+    updatedAt: 50,
+  }))
+
+  assert.equal(stored.jobId, 'completed-job')
+  assert.equal(stored.result.status, 'completed')
+  assert.equal(getRecoverableVirtualStagingJourneyId(memoryStorage({
+    [getVirtualStagingJourneySessionKey('broker-presentation')]: JSON.stringify(stored),
+  })), 'broker-presentation')
+  assert.match(page, /result: \{ status: data\.status, signedVideoUrl: data\.signedVideoUrl \}/)
+})
+
+test('completed does not remove the job before Create new project', () => {
+  const completedBranch = page.slice(page.indexOf("if (data.status === 'completed')"), page.indexOf("if (data.status === 'failed')"))
+  assert.doesNotMatch(completedBranch, /sessionStorage\.removeItem/)
+  assert.match(completedBranch, /sessionStorage\.setItem\(activeJobKey/)
+})
+
+test('Create new project clears the recoverable job explicitly', () => {
+  assert.match(page, /const reset = \(\) => \{ sessionStorage\.removeItem\(activeJobKey\)/)
+  assert.match(page, /createNewLabel="Criar novo projeto"/)
+})
+
+test('completed without signedVideoUrl keeps the job and exposes a status-only retry', () => {
+  assert.equal(isUsableVirtualStagingVideoUrl(''), false)
+  assert.equal(isUsableVirtualStagingVideoUrl('   '), false)
+  assert.match(page, /setStatus\('result_unavailable'\)/)
+  assert.match(page, /vídeo está temporariamente indisponível/)
+  assert.match(page, /Consultar resultado novamente/)
+  assert.match(page, /if \(status === 'result_unavailable'\) return <section role="alert"/)
+  assert.match(page, /onClick=\{retryResultStatus\}>Consultar resultado novamente/)
+})
+
+test('invalid URL never clears the recoverable job', () => {
+  assert.equal(isUsableVirtualStagingVideoUrl('not-a-url'), false)
+  assert.equal(isUsableVirtualStagingVideoUrl('javascript:alert(1)'), false)
+  const invalidUrlBranch = page.slice(page.indexOf('if (!isUsableVirtualStagingVideoUrl'), page.indexOf('const campaignPackage = stored.campaignPackage'))
+  assert.doesNotMatch(invalidUrlBranch, /removeItem|createTour/)
+  assert.match(page, /const retryResultStatus = \(\) =>[\s\S]*?poll\(stored\.jobId\)/)
+})
+
+test('secondary preview errors stay local and final video remains the primary result', () => {
+  assert.match(campaignPackage, /onError=\{\(\) => setFailed\(true\)\}/)
+  assert.match(campaignPackage, /onError=\{\(\) => setStatus\('error'\)\}/)
+  assert.match(page, /if \(result\) return <section[\s\S]*?<CampaignPackage/)
+  assert.doesNotMatch(campaignPackage, /setResult|sessionStorage\.removeItem/)
+})
+
+test('empty CampaignPackage preview displays a controlled unavailable result', () => {
+  assert.match(campaignPackage, /if \(!campaign\.previewUrl\)/)
+  assert.match(campaignPackage, /role="alert"/)
+  assert.match(campaignPackage, /Resultado temporariamente indisponível\./)
+  assert.doesNotMatch(campaignPackage, /if \(!campaign\.previewUrl\) return null/)
+})
+
+test('Module 2 recovery remains isolated and smart-tour stays untouched', () => {
+  const lifeKey = getVirtualStagingJourneySessionKey('life-in-property')
+  const brokerKey = getVirtualStagingJourneySessionKey('broker-presentation')
+  const storage = memoryStorage({
+    [lifeKey]: JSON.stringify({ jobId: 'life-job', updatedAt: 100 }),
+    [brokerKey]: JSON.stringify({ jobId: 'broker-job', updatedAt: 90 }),
+  })
+
+  assert.equal(getRecoverableVirtualStagingJourneyId(storage), 'life-in-property')
+  assert.doesNotMatch(smartTour, /getRecoverableVirtualStagingJourneyId|result_unavailable|virtual-staging/)
+  assert.match(smartTour, /functions\.invoke\('smart-tour-status'/)
+})

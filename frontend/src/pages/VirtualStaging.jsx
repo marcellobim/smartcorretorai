@@ -11,7 +11,7 @@ import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
-import { getVirtualStagingJourney, getVirtualStagingJourneySessionKey, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
+import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
 import { BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
@@ -87,7 +87,7 @@ function virtualStagingConfirmation(id, answer) {
 }
 
 export default function VirtualStagingAI() {
-  const [selectedJourneyId, setSelectedJourneyId] = useState(null)
+  const [selectedJourneyId, setSelectedJourneyId] = useState(() => getRecoverableVirtualStagingJourneyId(globalThis.sessionStorage))
   const modulesRef = useRef(null)
   const chatRef = useRef(null)
   const selectedJourney = getVirtualStagingJourney(selectedJourneyId)
@@ -251,7 +251,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (pollRef.current) clearTimeout(pollRef.current)
     if (presenterReferenceRef.current?.preview) URL.revokeObjectURL(presenterReferenceRef.current.preview)
   }, [])
-  useEffect(() => { const stored = sessionStorage.getItem(activeJobKey); if (stored) { let jobId = stored; try { jobId = JSON.parse(stored).jobId || stored } catch { /* legacy value */ } setStatus('generating'); setMessage('Retomando sua criação...'); poll(jobId) } }, [activeJobKey])
+  useEffect(() => {
+    const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey))
+    if (!stored) return
+    setStatus('generating')
+    setMessage('Retomando sua criação...')
+    poll(stored.jobId)
+  }, [activeJobKey])
 
   const addImages = files => {
     const selectedInSystemOrder = Array.from(files)
@@ -272,10 +278,42 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     try {
       const { data, error } = await supabase.functions.invoke('virtual-staging-status', { body: { jobId } })
       if (error || !data?.ok) throw new Error(data?.error || 'Não foi possível consultar a criação.')
-      if (data.status === 'completed') { let campaignPackage = {}; try { campaignPackage = JSON.parse(sessionStorage.getItem(activeJobKey) || '{}').campaignPackage || {} } catch { /* legacy value */ } sessionStorage.removeItem(activeJobKey); setResult({ ...data, campaignPackage }); setStatus('completed'); return }
+      if (data.status === 'completed') {
+        const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey)) || { jobId }
+        if (!isUsableVirtualStagingVideoUrl(data.signedVideoUrl)) {
+          setStatus('result_unavailable')
+          setMessage('Sua apresentação foi concluída, mas o vídeo está temporariamente indisponível. Consulte o resultado novamente.')
+          return
+        }
+        const campaignPackage = stored.campaignPackage || {}
+        const completedResult = { ...data, campaignPackage }
+        sessionStorage.setItem(activeJobKey, JSON.stringify({
+          ...stored,
+          jobId,
+          campaignPackage,
+          result: { status: data.status, signedVideoUrl: data.signedVideoUrl },
+          updatedAt: Date.now(),
+        }))
+        setResult(completedResult)
+        setStatus('completed')
+        return
+      }
       if (data.status === 'failed') throw new Error(data.error)
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
+  }
+
+  const retryResultStatus = () => {
+    const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey))
+    if (!stored) {
+      setStatus('error')
+      setMessage('Não foi possível recuperar esta criação.')
+      return
+    }
+    if (pollRef.current) clearTimeout(pollRef.current)
+    setStatus('generating')
+    setMessage('Consultando sua apresentação...')
+    poll(stored.jobId)
   }
 
   const createTour = async () => {
@@ -311,12 +349,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR', ...brokerFiles } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:includeProfessionalPhone ? phone : '' })
-      sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
+      sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
   if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
+  if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>Consultar resultado novamente</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">Criar novo projeto</button></div></section>
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }

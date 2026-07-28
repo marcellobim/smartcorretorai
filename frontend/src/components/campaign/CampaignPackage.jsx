@@ -130,7 +130,14 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
       </section>
     )
   }
-  if (!campaign.previewUrl) return null
+  if (!campaign.previewUrl) {
+    return (
+      <section role="alert" className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-6">
+        <p className="text-sm font-black text-amber-900">Resultado temporariamente indisponível.</p>
+        <p className="mt-2 text-xs font-bold leading-5 text-amber-800">Consulte novamente em instantes para carregar o vídeo concluído.</p>
+      </section>
+    )
+  }
 
   return (
     <section aria-labelledby="campaign-media-title" className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
