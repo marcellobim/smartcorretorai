@@ -1,6 +1,6 @@
 import { LIFE_IN_PROPERTY_JOURNEY_ID } from './virtualStagingLife.js'
 import { BROKER_PRESENTATION_JOURNEY_ID } from './virtualStagingBroker.js'
-import { FURNISH_COMPLETE_VIDEO_MODE, FURNISH_RENOVATE_JOURNEY_ID } from './virtualStagingFurnish.js'
+import { FURNISH_RENOVATE_JOURNEY_ID } from './virtualStagingFurnish.js'
 
 const LINEAR_NEXT_QUESTION = Object.freeze({
   images: 'purpose',
@@ -49,20 +49,21 @@ const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
 })
 
 const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
-  images: 'style_gallery',
-  style_gallery: 'video_mode',
-  purpose: 'stage',
-  stage: 'type',
-  type: 'facts',
-  facts: 'location',
-  location: 'highlights',
-  highlights: 'narrated_cta',
-  narrated_cta: 'review',
+  images: 'purpose',
+  purpose: 'type',
+  type: 'bedrooms',
+  bedrooms: 'suites',
+  suites: 'parkingSpaces',
+  parkingSpaces: 'area',
+  area: 'state',
+  state: 'city',
+  city: 'neighborhood',
+  neighborhood: 'highlights',
+  highlights: 'review',
 })
 
 export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '' }) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
-    if (questionId === 'video_mode') return answerId === FURNISH_COMPLETE_VIDEO_MODE ? 'purpose' : 'review'
     return FURNISH_RENOVATE_NEXT_QUESTION[questionId] || 'review'
   }
   if (journeyId === LIFE_IN_PROPERTY_JOURNEY_ID) return LIFE_IN_PROPERTY_NEXT_QUESTION[questionId] || 'review'
@@ -74,10 +75,7 @@ export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode 
   return LINEAR_NEXT_QUESTION[questionId] || 'review'
 }
 export function getVirtualStagingReviewEditNext({ originQuestionId, questionId, answerId = '', mode = '', journeyId = '' }) {
-  if (journeyId === FURNISH_RENOVATE_JOURNEY_ID && originQuestionId === 'video_mode') {
-    if (questionId === 'video_mode') return answerId === FURNISH_COMPLETE_VIDEO_MODE ? 'purpose' : 'review'
-    return FURNISH_RENOVATE_NEXT_QUESTION[questionId] || 'review'
-  }
+  if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) return 'review'
   if (originQuestionId === 'presenter_reference') {
     if (questionId === 'presenter_reference') return getVirtualStagingNextQuestion({ questionId, answerId, mode, journeyId })
     if (questionId === 'presenter_photo') return 'review'

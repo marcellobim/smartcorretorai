@@ -62,8 +62,8 @@ const mainActions = [
   {
     id: 'virtual-staging',
     icon: Home,
-    title: 'Virtual Staging',
-    description: 'Transforme as fotos do seu imóvel utilizando inteligência artificial para mobiliar ambientes, criar novas experiências e gerar apresentações ainda mais atrativas.',
+    title: 'Virtual Space',
+    description: 'Reimagine ambientes, crie experiências com pessoas e apresente seus imóveis utilizando sua própria imagem.',
     to: '/virtual-staging',
     label: 'Criar projeto',
     tone: 'soft',

@@ -138,7 +138,7 @@ test('broker generation sends one separate presenter reference without mixing pr
 })
 
 test('Modules 1 and 2 retain their approved branching', () => {
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'furnish-renovate' }), 'narrated_cta')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'furnish-renovate' }), 'review')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: LIFE_IN_PROPERTY_JOURNEY_ID }), 'life_scene')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'life_scene', journeyId: LIFE_IN_PROPERTY_JOURNEY_ID }), 'captions')
 })

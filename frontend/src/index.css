@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --smart-canvas: #f8fafc;
+    --smart-surface: #ffffff;
+    --smart-surface-muted: #f1f5f9;
+    --smart-border: #dbeafe;
+    --smart-text: #0f172a;
+    --smart-text-muted: #64748b;
+    --smart-brand: #0f5f7a;
+    --smart-brand-strong: #0f2742;
+    --smart-accent: #0891b2;
+  }
+
   * {
     box-sizing: border-box;
   }

@@ -4,6 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        smart: {
+          canvas: 'var(--smart-canvas)',
+          surface: 'var(--smart-surface)',
+          muted: 'var(--smart-surface-muted)',
+          border: 'var(--smart-border)',
+        },
         primary: {
           50:  '#f0f9ff',
           100: '#e0f2fe',
@@ -25,6 +31,21 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      maxWidth: {
+        smart: '80rem',
+      },
+      spacing: {
+        'smart-page': 'clamp(1rem, 4vw, 2rem)',
+      },
+      borderRadius: {
+        'smart-control': '0.75rem',
+        'smart-card': '1.5rem',
+        'smart-hero': '2rem',
+      },
+      boxShadow: {
+        'smart-card': '0 20px 55px -40px rgba(15, 23, 42, 0.45)',
+        'smart-floating': '0 24px 60px -42px rgba(15, 23, 42, 0.5)',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-in-out',

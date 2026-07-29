@@ -1,83 +1,105 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  buildSmartTourStructuredBriefing,
-  validateSmartTourRequest,
-} from '../../supabase/functions/_shared/virtual-staging/index.ts'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import { buildReimaginePrompt, REIMAGINE_BASE_PROMPT, validateSmartTourRequest } from '../../supabase/functions/_shared/virtual-staging/index.ts'
 
-const imagePaths = [
-  'user/virtual-staging/00000000-0000-4000-8000-000000000001/01.jpg',
-  'user/virtual-staging/00000000-0000-4000-8000-000000000001/02.jpg',
-]
+const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const repositoryRoot = path.resolve(frontendRoot, '..')
+const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
+const imagePaths = ['user/virtual-staging/request/01.jpg', 'user/virtual-staging/request/02.jpg']
+const property = {
+  purpose: 'rent', type: 'Apartamento', bedrooms: '2', suites: '1', parkingSpaces: '1', area: '85',
+  state: 'SP', city: 'São Paulo', neighborhood: 'Limão',
+  highlights: ['Varanda gourmet', 'Lazer completo', 'Vista livre'],
+}
 const base = {
   clientRequestId: '00000000-0000-4000-8000-000000000001',
   module: 'furnish-renovate',
   property_images: { image_paths: imagePaths, image_order: imagePaths },
-  transformationStyle: 'style-placeholder-1',
+  property,
   language: 'pt-BR',
 }
-const commercialProperty = {
-  purpose: 'rent', stage: 'Disponível já', type: 'Apartamento', bedrooms: '2', suites: '1', parkingSpaces: '1',
-  area: '85', district: 'Moema', city: 'São Paulo', highlights: ['Lazer completo', 'Bairro valorizado', 'Varanda gourmet'],
-}
 
-test('backend accepts visual-only without fabricated commercial data', () => {
-  const validated = validateSmartTourRequest({ ...base, videoMode: 'visual-only' })
+test('accepts the direct Reimagine AI contract and forces narration without presenter or captions', () => {
+  const validated = validateSmartTourRequest(base)
   assert.equal(validated.module, 'furnish-renovate')
-  assert.equal(validated.videoMode, 'visual-only')
-  assert.equal(validated.transformationStyle, 'style-placeholder-1')
-  assert.deepEqual(validated.property, { highlights: [] })
+  assert.deepEqual(validated.imagePaths, imagePaths)
+  assert.deepEqual(validated.imageOrder, imagePaths)
+  assert.deepEqual(validated.property, property)
   assert.equal(validated.generation.presenterGender, 'none')
-  assert.equal(validated.generation.narration, 'disabled')
+  assert.equal(validated.generation.narration, 'enabled')
   assert.equal(validated.generation.captions, 'disabled')
   assert.equal(validated.selectedCta, '')
   assert.equal(validated.includeProfessionalPhone, false)
 })
 
-test('backend accepts complete-transformation and preserves area and literal narrated CTA', () => {
-  const validated = validateSmartTourRequest({ ...base, videoMode: 'complete-transformation', narrationEnabled: true, property: commercialProperty, narratedCta: 'Saiba mais' })
-  assert.equal(validated.videoMode, 'complete-transformation')
-  assert.equal(validated.narrationEnabled, true)
-  assert.equal(validated.generation.narration, 'enabled')
-  assert.equal(validated.generation.captions, 'disabled')
-  assert.deepEqual(validated.property, commercialProperty)
-  assert.equal(validated.narratedCta, 'Saiba mais')
-  assert.equal(validated.selectedCta, '')
-})
-
-test('backend enforces one to four ordered property images for Module 1', () => {
-  const one = ['user/virtual-staging/request/01.jpg']
-  assert.equal(validateSmartTourRequest({ ...base, property_images: { image_paths: one, image_order: one }, videoMode: 'visual-only' }).imagePaths.length, 1)
-  const four = Array.from({ length: 4 }, (_, index) => `user/virtual-staging/request/0${index + 1}.jpg`)
-  assert.equal(validateSmartTourRequest({ ...base, property_images: { image_paths: four, image_order: four }, videoMode: 'visual-only' }).imagePaths.length, 4)
-  const five = Array.from({ length: 5 }, (_, index) => `user/virtual-staging/request/0${index + 1}.jpg`)
-  assert.throws(() => validateSmartTourRequest({ ...base, property_images: { image_paths: five, image_order: five }, videoMode: 'visual-only' }), /invalid_image_count/)
-  assert.throws(() => validateSmartTourRequest({ ...base, property_images: { image_paths: imagePaths, image_order: [...imagePaths].reverse() }, videoMode: 'visual-only' }), /invalid_image_order/)
-})
-
-test('backend rejects presenter, visual outputs and invalid mode contracts', () => {
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'visual-only', presenter_reference: { enabled: true } }), /invalid_presenter_reference/)
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'visual-only', narrationEnabled: true }), /invalid_visual_only_context/)
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'visual-only', narratedCta: 'Saiba mais' }), /invalid_visual_only_context/)
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'visual-only', selectedCta: 'Agende sua visita' }), /invalid_furnish_output/)
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'complete-transformation', property: commercialProperty }), /invalid_complete_transformation/)
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'complete-transformation', narrationEnabled: true, property: commercialProperty, narratedCta: 'Texto livre' }), /invalid_complete_transformation/)
-  assert.throws(() => validateSmartTourRequest({ ...base, videoMode: 'unknown' }), /invalid_video_mode/)
-  assert.throws(() => validateSmartTourRequest({ ...base, transformationStyle: '', videoMode: 'visual-only' }), /invalid_transformation_style/)
-})
-
-test('briefing contract keeps Module 1 without presenter, people, captions, phone or visual CTA', () => {
-  for (const request of [
-    { ...base, videoMode: 'visual-only' },
-    { ...base, videoMode: 'complete-transformation', narrationEnabled: true, property: commercialProperty, narratedCta: 'Saiba mais' },
-  ]) {
-    const validated = validateSmartTourRequest(request)
-    const briefing = buildSmartTourStructuredBriefing({ generation: validated.generation, property: validated.property, selectedCta: validated.selectedCta, imagePaths: validated.imagePaths, language: validated.language })
-    assert.deepEqual(briefing.apresentador, { tipo: 'nenhum', unicoHumanoAutorizado: false })
-    assert.equal(briefing.configuracoes.legendasAtivas, false)
-    assert.equal(briefing.configuracoes.ctaAtivo, false)
-    assert.deepEqual(briefing.cta, { titulo: '', telefone: '' })
-    assert.equal(briefing.regrasPreservacao.transformacoesPermitidas.some(value => /apresentador|corretor|corretora/i.test(value)), false)
-    assert.match(String(briefing.regrasObrigatorias.find(rule => rule.codigo === 'sem_invencao')?.valor), /pessoas/)
+test('accepts one to five ordered images and rejects zero, six and reordered images', () => {
+  const withImages = count => {
+    const paths = Array.from({ length: count }, (_, index) => `user/virtual-staging/request/${String(index + 1).padStart(2, '0')}.jpg`)
+    return { ...base, property_images: { image_paths: paths, image_order: paths } }
   }
+  assert.equal(validateSmartTourRequest(withImages(1)).imagePaths.length, 1)
+  assert.equal(validateSmartTourRequest(withImages(5)).imagePaths.length, 5)
+  assert.throws(() => validateSmartTourRequest(withImages(0)), /invalid_image_count/)
+  assert.throws(() => validateSmartTourRequest(withImages(6)), /invalid_image_count/)
+  assert.throws(() => validateSmartTourRequest({ ...base, property_images: { image_paths: imagePaths, image_order: [...imagePaths].reverse() } }), /invalid_image_order/)
+})
+
+test('accepts only the approved residential types', () => {
+  for (const type of ['Apartamento', 'Casa', 'Sobrado', 'Studio', 'Loft', 'Cobertura', 'Kitnet']) {
+    assert.equal(validateSmartTourRequest({ ...base, property: { ...property, type } }).property.type, type)
+  }
+  for (const type of ['Comercial', 'Terreno / Lote', 'Galpão', 'Escritório', 'Fazenda']) {
+    assert.throws(() => validateSmartTourRequest({ ...base, property: { ...property, type } }), /invalid_furnish_property/)
+  }
+})
+
+test('rejects more than three highlights instead of silently inventing or truncating context', () => {
+  assert.throws(() => validateSmartTourRequest({ ...base, property: { ...property, highlights: [...property.highlights, 'Piscina'] } }), /invalid_furnish_highlights/)
+})
+
+test('rejects every removed top-level and property field from the old Module 1 contract', () => {
+  for (const field of ['transformationStyle', 'videoMode', 'narrationEnabled', 'narratedCta', 'selectedCta', 'includeProfessionalPhone', 'phone', 'captions', 'cta']) {
+    assert.throws(() => validateSmartTourRequest({ ...base, [field]: field === 'includeProfessionalPhone' ? false : 'legacy' }), /invalid_furnish_output/)
+  }
+  for (const field of ['stage', 'district', 'price', 'description']) {
+    assert.throws(() => validateSmartTourRequest({ ...base, property: { ...property, [field]: 'legacy' } }), /invalid_furnish_property/)
+  }
+  assert.throws(() => validateSmartTourRequest({ ...base, generation: { mode: 'guided_tour' } }), /invalid_furnish_output/)
+  assert.throws(() => validateSmartTourRequest({ ...base, presenter_reference: { enabled: true } }), /invalid_presenter_reference/)
+})
+
+test('requires a positive numeric area in square metres', () => {
+  for (const area of ['', '0', '-1', '85.5', 'abc']) {
+    assert.throws(() => validateSmartTourRequest({ ...base, property: { ...property, area } }), /invalid_furnish_area/)
+  }
+  assert.equal(validateSmartTourRequest({ ...base, property: { ...property, area: '120' } }).property.area, '120')
+})
+
+test('builds a short exclusive prompt with role, mission, narration and ordered dynamic data', () => {
+  const prompt = buildReimaginePrompt(property, imagePaths)
+  assert.match(REIMAGINE_BASE_PROMPT, /^Atue como um decorador de interiores\./)
+  assert.match(prompt, /Nunca crie outro ambiente\./)
+  assert.match(prompt, /decoração moderna, elegante, acolhedora/)
+  assert.match(prompt, /narração CURTA em português do Brasil/)
+  assert.match(prompt, /"finalidade": "Locação"/)
+  assert.match(prompt, /"tipoDoImovel": "Apartamento"/)
+  assert.match(prompt, /"areaMetrosQuadrados": "85"/)
+  assert.match(prompt, /"estado": "SP"/)
+  assert.match(prompt, /"bairro": "Limão"/)
+  assert.match(prompt, /"cidade": "São Paulo"/)
+  assert.ok(prompt.indexOf(imagePaths[0]) < prompt.indexOf(imagePaths[1]))
+  assert.equal(prompt.length < 2500, true)
+  assert.doesNotMatch(prompt, /MÓDULO CORRETOR|CENÁRIO PROTEGIDO|timeline|tela final|telefone/)
+})
+
+test('isolates the new prompt in virtual-staging-generate without changing Smart Tour or Modules 2 and 3', () => {
+  const generator = read('supabase/functions/virtual-staging-generate/index.ts')
+  assert.match(generator, /input\.module === 'furnish-renovate'/)
+  assert.match(generator, /buildReimaginePrompt\(input\.property, input\.imageOrder\)/)
+  assert.match(generator, /buildSmartTourVideoPrompt\(buildSmartTourStructuredBriefing/)
+  assert.doesNotMatch(read('supabase/functions/smart-tour-generate/index.ts'), /buildReimaginePrompt|furnish-renovate/)
+  assert.doesNotMatch(read('supabase/functions/_shared/smart-tour/build-prompt.ts'), /REIMAGINE_BASE_PROMPT|buildReimaginePrompt/)
 })

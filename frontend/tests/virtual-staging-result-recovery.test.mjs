@@ -45,7 +45,7 @@ test('completed accepts only an assignable signed video URL and renders Campaign
 test('completed result remains recoverable across another reload', () => {
   const stored = parseVirtualStagingJobRecord(JSON.stringify({
     jobId: 'completed-job',
-    campaignPackage: { sourceProduct: 'Virtual Staging' },
+    campaignPackage: { sourceProduct: 'Virtual Space' },
     result: { status: 'completed', signedVideoUrl: 'https://example.test/video.mp4' },
     updatedAt: 50,
   }))

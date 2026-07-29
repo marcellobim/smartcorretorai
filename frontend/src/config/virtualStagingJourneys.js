@@ -3,7 +3,7 @@ import { FURNISH_RENOVATE_JOURNEY_ID } from './virtualStagingFurnish.js'
 export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
   {
     id: FURNISH_RENOVATE_JOURNEY_ID,
-    title: 'Mobiliar e Renovar',
+    title: 'Reimagine AI',
     description: 'Adicione móveis, substitua a decoração ou transforme completamente os ambientes preservando a estrutura original do imóvel.',
     demoVideo: '/demos-videos/animar-imagens.mp4',
     demoAssetStatus: 'temporary',

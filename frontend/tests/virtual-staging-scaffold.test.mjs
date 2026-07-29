@@ -10,7 +10,7 @@ const repositoryRoot = path.resolve(frontendRoot, '..')
 const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 const readBuffer = relativePath => readFileSync(path.join(repositoryRoot, relativePath))
 
-test('registers Virtual Staging as an independent protected product route', () => {
+test('registers Virtual Space on the preserved Virtual Staging technical route', () => {
   const app = read('frontend/src/App.jsx')
   const layout = read('frontend/src/components/layout/AppLayout.jsx')
 
@@ -19,7 +19,7 @@ test('registers Virtual Staging as an independent protected product route', () =
   assert.match(layout, /location\.pathname === '\/virtual-staging'/)
 })
 
-test('places Virtual Staging beside Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
+test('places Virtual Space beside Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const sidebar = read('frontend/src/components/layout/Sidebar.jsx')
   const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
@@ -27,7 +27,7 @@ test('places Virtual Staging beside Banners Rapidos and keeps Smart Tokens only 
   const stagingPosition = catalog.indexOf("id: 'virtual-staging'")
 
   assert.ok(bannersPosition >= 0 && stagingPosition > bannersPosition)
-  assert.match(catalog, /id: 'virtual-staging'[\s\S]*?title: 'Virtual Staging'[\s\S]*?to: '\/virtual-staging'[\s\S]*?label: 'Criar projeto'/)
+  assert.match(catalog, /id: 'virtual-staging'[\s\S]*?title: 'Virtual Space'[\s\S]*?to: '\/virtual-staging'[\s\S]*?label: 'Criar projeto'/)
   assert.doesNotMatch(catalog, /Smart Tokens|smart-tokens|to: '\/planos'/)
   assert.match(sidebar, /to: '\/planos'[\s\S]*?label: 'Smart Tokens'/)
   assert.match(sidebar, />Smart Tokens</)
@@ -78,10 +78,9 @@ test('creates isolated generation and polling functions without changing the exi
   assert.doesNotMatch(originalStatus, /virtual-staging/)
 })
 
-test('keeps the homologated engine files unchanged outside the isolated Vida no Imovel extension', () => {
+test('keeps the homologated engine files unchanged outside the isolated module extensions', () => {
   const files = [
     'build-prompt.ts',
-    'index.ts',
     'professional-phone.ts',
   ]
 
@@ -92,6 +91,11 @@ test('keeps the homologated engine files unchanged outside the isolated Vida no 
       `${file} must remain an exact architectural copy`,
     )
   }
+
+  const virtualIndex = read('supabase/functions/_shared/virtual-staging/index.ts')
+  const smartTourIndex = read('supabase/functions/_shared/smart-tour/index.ts')
+  for (const sharedExport of smartTourIndex.trim().split(/\r?\n/)) assert.ok(virtualIndex.includes(sharedExport), `${sharedExport} must remain exported`)
+  assert.match(virtualIndex, /export \* from '\.\/reimagine-prompt\.ts'/)
 
   const originalTypes = read('supabase/functions/_shared/smart-tour/types.ts')
   const originalValidation = read('supabase/functions/_shared/smart-tour/validation.ts')
@@ -105,14 +109,14 @@ test('keeps the homologated engine files unchanged outside the isolated Vida no 
   assert.match(virtualCompositor, /briefing\.vidaNoImovel \? 5 : 4/)
 })
 
-test('exposes exactly the three approved Virtual Staging modules in order', () => {
+test('exposes exactly the three approved Virtual Space modules in order', () => {
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.id), [
     'furnish-renovate',
     'life-in-property',
     'broker-presentation',
   ])
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.title), [
-    'Mobiliar e Renovar',
+    'Reimagine AI',
     'Vida no Imóvel',
     'Apresentação pelo Corretor',
   ])
@@ -142,13 +146,15 @@ test('opens one keyed journey at a time and isolates every active job namespace'
   assert.match(staging, />\s*Escolher outro módulo\s*</)
 })
 
-test('uses the approved Virtual Staging communication and removes only its inherited guide', () => {
+test('uses the approved Virtual Space identity and preserves its three modules', () => {
   const staging = read('frontend/src/pages/VirtualStaging.jsx')
   const tour = read('frontend/src/pages/SmartTourAI.jsx')
 
-  assert.match(staging, /Mobilie, renove e transforme os ambientes dos seus imóveis com inteligência artificial\./)
-  assert.match(staging, /Escolha como deseja transformar seu imóvel/)
+  assert.match(staging, /title="Virtual Space"/)
+  assert.match(staging, /description="Reimagine ambientes, crie experiências com pessoas e apresente seus imóveis utilizando sua própria imagem\."/)
+  assert.match(staging, /Escolha como deseja apresentar seu imóvel/)
   assert.match(staging, /Agora, conte como deseja transformar seu imóvel/)
+  assert.match(staging, /<VirtualStagingModules selectedJourneyId=\{selectedJourneyId\}/)
   assert.match(staging, /md:grid-cols-3/)
   assert.doesNotMatch(staging, /Como criar cada tipo de vídeo|VirtualStagingGuide|guideExamples|lg:grid-cols-4/)
   assert.doesNotMatch(staging, /Fotos em Movimento|Legendas na Tela|Narração Profissional|Corretor Virtual IA/)
