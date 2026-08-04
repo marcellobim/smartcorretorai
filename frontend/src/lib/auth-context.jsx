@@ -3,6 +3,11 @@ import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
+const devAuthLog = (level, message) => {
+  if (!import.meta.env.DEV) return
+  console[level](`[auth] ${message}`)
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 // Promise.race com timeout — não deixa nenhuma chamada de rede travar a UI.
 function withTimeout(promise, ms, label) {
@@ -84,13 +89,13 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async (uid, email, accessToken) => {
     if (!uid) { setProfile(null); return null }
     if (profileInFlightRef.current) {
-      console.log('[loadProfile] já em andamento — skip')
+      devAuthLog('log', 'profile load already in progress')
       return null
     }
     profileInFlightRef.current = true
 
     try {
-      console.log(`[loadProfile] start uid=${uid} hasToken=${!!accessToken}`)
+      devAuthLog('log', `profile load started; token present: ${!!accessToken}`)
 
       // Tenta UMA fetch — direct fetch (com token) ou client supabase (sem token).
       // Direct fetch é o caminho preferido pós F5: bypassa o estado interno do
@@ -118,13 +123,13 @@ export function AuthProvider({ children }) {
       let data = null
       try {
         data = await fetchOnce()
-      } catch (err) {
-        console.error('[loadProfile] tentativa 1 falhou:', err.message || err)
+      } catch {
+        devAuthLog('warn', 'profile load attempt failed')
         await new Promise((r) => setTimeout(r, 600))
         try {
           data = await fetchOnce()
-        } catch (err2) {
-          console.error('[loadProfile] tentativa 2 falhou:', err2.message || err2)
+        } catch {
+          devAuthLog('error', 'profile load failed')
           setProfile(null)
           return null
         }
@@ -132,25 +137,25 @@ export function AuthProvider({ children }) {
 
       // Linha não existe — auto-create (somente possível com token).
       if (!data && accessToken) {
-        console.warn('[loadProfile] row não existe — auto-create')
+        devAuthLog('warn', 'profile row missing; creating')
         try {
           await withTimeout(upsertProfileDirect(uid, email, accessToken), 5000, 'loadProfile upsert')
           data = await withTimeout(fetchProfileDirect(uid, accessToken), 5000, 'loadProfile post-upsert fetch')
-        } catch (err) {
-          console.error('[loadProfile] auto-create error:', err.message || err)
+        } catch {
+          devAuthLog('error', 'profile creation failed')
         }
       }
 
       if (!data) {
-        console.warn('[loadProfile] sem profile após todas as tentativas. uid:', uid)
+        devAuthLog('warn', 'profile unavailable after retries')
         setProfile(null)
         return null
       }
 
       if (!data.nome && !data.full_name) {
-        console.warn('[loadProfile] perfil sem nome — exibirá "Usuário". Preencha em Configurações. uid:', uid)
+        devAuthLog('warn', 'profile display name missing')
       } else {
-        console.log('[loadProfile] OK | nome:', data.nome || data.full_name)
+        devAuthLog('log', 'profile load success')
       }
       setProfile(data)
       return data
@@ -169,7 +174,7 @@ export function AuthProvider({ children }) {
     const resolveSession = async (newSession, source) => {
       if (!mounted) return
       const sessionUser = newSession?.user ?? null
-      console.log(`[auth ${source}] hasSession=${!!newSession} userId=${sessionUser?.id || '(nenhum)'}`)
+      devAuthLog('log', `event received; session present: ${!!newSession}`)
       setSession(newSession ?? null)
       setAuthUser(sessionUser)
       if (sessionUser) {
@@ -199,14 +204,14 @@ export function AuthProvider({ children }) {
     // getSession com timeout. Cobre casos raros de hidratação travada.
     const fallbackTimer = setTimeout(async () => {
       if (!mounted || initialResolvedRef.current) return
-      console.warn('[auth] INITIAL_SESSION não disparou em 4s — fallback getSession()')
+      devAuthLog('warn', 'initial session delayed; using fallback')
       try {
         const { data } = await withTimeout(supabase.auth.getSession(), 4000, 'fallback getSession')
         if (!initialResolvedRef.current) {
           await resolveSession(data?.session ?? null, 'fallback-getSession')
         }
-      } catch (err) {
-        console.error('[auth fallback] erro:', err.message || err)
+      } catch {
+        devAuthLog('error', 'session fallback failed')
         if (mounted && !initialResolvedRef.current) {
           initialResolvedRef.current = true
           setLoading(false)
@@ -234,7 +239,7 @@ export function AuthProvider({ children }) {
     }
     if (profile || retryAttemptedRef.current) return
     retryAttemptedRef.current = true
-    console.log('[auth] profile null com authUser válido — retry defensivo')
+    devAuthLog('log', 'profile absent; defensive retry')
     loadProfile(authUser.id, authUser.email, session?.access_token)
   }, [authUser?.id, authUser?.email, session?.access_token, profile, loading, loadProfile])
 
@@ -247,7 +252,7 @@ export function AuthProvider({ children }) {
     const handleFocus = () => {
       if (!initialResolvedRef.current) return
       if (authUser?.id && !profile) {
-        console.log('[auth focus] profile null — recarregando')
+        devAuthLog('log', 'window focused; reloading missing profile')
         retryAttemptedRef.current = false
         loadProfile(authUser.id, authUser.email, session?.access_token)
       }
@@ -276,7 +281,7 @@ export function AuthProvider({ children }) {
     setAuthUser(null)
     setSession(null)
     setProfile(null)
-    try { await supabase.auth.signOut() } catch (err) { console.error('signOut error', err) }
+    try { await supabase.auth.signOut() } catch { devAuthLog('error', 'sign out failed') }
   }
 
   const reloadProfile = useCallback(async () => {
