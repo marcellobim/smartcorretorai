@@ -1,5 +1,6 @@
 export const SMART_TOUR_STATUS_TIMEOUT_MS = 25_000
 export const SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH = 180
+export const SHORT_VIDEO_PRE_PROVIDER_STALE_MS = 10 * 60 * 1000
 
 const RETRIABLE_HTTP_STATUSES = new Set([404, 408, 409, 425, 429, 500, 502, 503, 504])
 
@@ -22,6 +23,15 @@ export type SmartTourStatusDiagnostic = {
   providerStatus: number | null
   retriable: boolean
   providerMessage: string
+}
+
+export function isShortVideoPreProviderStale(
+  job: { mode?: unknown; status?: unknown; provider_job_id?: unknown; created_at?: unknown },
+  nowMs = Date.now(),
+) {
+  if (job.mode !== 'smart_tour_gemini_omni_short_video' || job.status !== 'pending' || job.provider_job_id) return false
+  const createdAtMs = Date.parse(String(job.created_at || ''))
+  return Number.isFinite(createdAtMs) && nowMs - createdAtMs >= SHORT_VIDEO_PRE_PROVIDER_STALE_MS
 }
 
 function extractProviderMessage(message: string) {

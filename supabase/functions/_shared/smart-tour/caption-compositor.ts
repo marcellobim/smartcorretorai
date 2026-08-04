@@ -1,10 +1,11 @@
-import type { SmartTourStructuredBriefing } from './structured-briefing.ts'
+import type { ShortVideosStructuredBriefing, SmartTourStructuredBriefing } from './structured-briefing.ts'
 
 export const SMART_TOUR_CAPTION_RENDER_PREFIX = 'creatomate:'
 const RENDER_API = 'https://api.creatomate.com/v2/renders'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 type JsonRecord = Record<string, unknown>
+type SmartTourComposableBriefing = SmartTourStructuredBriefing | ShortVideosStructuredBriefing
 type CaptionRenderStatus =
   | { status: 'processing' }
   | { status: 'completed'; url: string }
@@ -25,7 +26,7 @@ export function decodeSmartTourCaptionRenderId(value: string) {
   return cleanRenderId(value.slice(SMART_TOUR_CAPTION_RENDER_PREFIX.length))
 }
 
-export function hasDeterministicSmartTourText(briefing: SmartTourStructuredBriefing) {
+export function hasDeterministicSmartTourText(briefing: SmartTourComposableBriefing) {
   const timedText = [
     ...(briefing.timeline?.legendas || []),
     ...(briefing.timeline?.cta ? [briefing.timeline.cta] : []),
@@ -33,13 +34,14 @@ export function hasDeterministicSmartTourText(briefing: SmartTourStructuredBrief
   return briefing.legendas.ativas && (timedText.some(block => Boolean(block.texto)) || briefing.cenas.some(scene => Boolean(scene.legenda)))
 }
 
-export function parseSmartTourStructuredBriefing(value: unknown): SmartTourStructuredBriefing {
+export function parseSmartTourStructuredBriefing(value: unknown): SmartTourComposableBriefing {
   try {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('invalid')
-    const briefing = parsed as SmartTourStructuredBriefing
-    if (briefing.versao !== 'smart-tour-structured-briefing-v1' || !Array.isArray(briefing.cenas)) throw new Error('invalid')
-    if (briefing.cenas.length !== briefing.configuracoes?.quantidadeImagens) throw new Error('invalid')
+    const briefing = parsed as SmartTourComposableBriefing
+    if (!['smart-tour-structured-briefing-v1', 'short-videos-structured-briefing-v1'].includes(briefing.versao) || !Array.isArray(briefing.cenas)) throw new Error('invalid')
+    if (briefing.versao === 'smart-tour-structured-briefing-v1' && briefing.cenas.length !== briefing.configuracoes?.quantidadeImagens) throw new Error('invalid')
+    if (briefing.versao === 'short-videos-structured-briefing-v1' && (briefing.configuracoes?.quantidadeVideos !== 1 || briefing.cenas.length !== 1)) throw new Error('invalid')
     if (briefing.timeline) {
       const blocks = [...briefing.timeline.legendas, ...briefing.timeline.narracao, briefing.timeline.cta]
       const validBlock = (block: { inicioSegundos: number; fimSegundos: number }) =>
@@ -60,7 +62,7 @@ export function parseSmartTourStructuredBriefing(value: unknown): SmartTourStruc
   }
 }
 
-export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: SmartTourStructuredBriefing) {
+export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: SmartTourComposableBriefing) {
   if (!/^https:\/\//i.test(videoUrl)) throw new Error('smart_tour_caption_video_url_invalid')
   const duration = briefing.configuracoes.duracaoSegundos
   const sceneDuration = duration / Math.max(1, briefing.cenas.length)
@@ -145,7 +147,7 @@ async function creatomateFetch(apiKey: string, path: string, init: RequestInit =
   return body
 }
 
-export async function startSmartTourCaptionRender(apiKey: string, videoUrl: string, briefing: SmartTourStructuredBriefing) {
+export async function startSmartTourCaptionRender(apiKey: string, videoUrl: string, briefing: SmartTourComposableBriefing) {
   const body = await creatomateFetch(apiKey, '', {
     method: 'POST',
     body: JSON.stringify(buildSmartTourCaptionRenderScript(videoUrl, briefing)),

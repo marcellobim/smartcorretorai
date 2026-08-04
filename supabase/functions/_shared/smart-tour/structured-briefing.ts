@@ -1,6 +1,7 @@
 import type { PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
+import { GEMINI_VIDEO_TEXT_RULES } from '../gemini-video-text-rules.ts'
 
 export const SMART_TOUR_GEMINI_MISSION = `MISSÃO PRINCIPAL
 Você é um cinegrafista profissional especializado em imóveis.
@@ -178,6 +179,32 @@ export type SmartTourStructuredBriefing = {
   regrasObrigatorias: Array<{ codigo: string; valor: string | boolean | number }>
 }
 
+export const SHORT_VIDEOS_MISSION_OPENING = 'Você é um editor de vídeo automatizado de alta performance para o mercado imobiliário. Analise o vídeo de entrada fornecido. Identifique e selecione de forma inteligente os momentos visualmente mais impactantes e luxuosos do imóvel para criar um Short vertical.'
+
+const SHORT_VIDEOS_COMPATIBLE_BASE_RULES = SMART_TOUR_GEMINI_MISSION
+  .slice(SMART_TOUR_GEMINI_MISSION.indexOf('REGRA DE OURO'))
+  .replace('Considere todas as fotografias recebidas como a representação definitiva do imóvel.', 'Considere o vídeo original recebido como a representação definitiva do imóvel.')
+
+export const SHORT_VIDEOS_NATURAL_ENDING_RULE = 'O vídeo deve terminar de forma natural. Não encerrar durante uma fala, expressão facial, movimento brusco ou quadro desfavorável. Finalizar em uma imagem estável e agradável, mantendo o último quadro adequado por um breve momento antes do término.'
+
+export const SHORT_VIDEOS_GEMINI_MISSION = `${SHORT_VIDEOS_MISSION_OPENING}\n\n${SHORT_VIDEOS_COMPATIBLE_BASE_RULES}\n\n${SHORT_VIDEOS_NATURAL_ENDING_RULE}`
+
+export type ShortVideosStructuredBriefing = Omit<SmartTourStructuredBriefing,
+  'versao' | 'tarefa' | 'configuracoes' | 'sequenciaDasImagens' | 'cenas' | 'regrasPreservacao'
+> & {
+  versao: 'short-videos-structured-briefing-v1'
+  tarefa: typeof SHORT_VIDEOS_GEMINI_MISSION
+  configuracoes: Omit<SmartTourStructuredBriefing['configuracoes'], 'quantidadeImagens'> & {
+    quantidadeVideos: 1
+  }
+  sequenciaDosVideos: string[]
+  cenas: Array<Omit<SmartTourStructuredBriefing['cenas'][number], 'imagem'> & { video: string }>
+  regrasPreservacao: Omit<SmartTourStructuredBriefing['regrasPreservacao'], 'umaImagemPorCena' | 'respeitarOrdemDasImagens'> & {
+    usarSomenteVideoOriginal: true
+    respeitarOrdemDoVideoOriginal: true
+  }
+}
+
 const ANY = '*'
 
 export const SMART_TOUR_PHRASE_LIBRARY: readonly PhraseDefinition[] = [
@@ -315,8 +342,30 @@ const commercialHighlights = (property: PropertyContext) => {
   return { location, condominium, differentials }
 }
 
-const commercialCaption = (blockNumber: number, property: PropertyContext) => {
-  if (blockNumber === 1) return unique([literal(property.district), literal(property.city)]).join(' • ')
+const purposePresentation = (value: unknown) => {
+  const normalized = literal(value).toLocaleLowerCase('pt-BR')
+  if (normalized === 'sale') return 'À venda'
+  if (normalized === 'rent') return 'Para alugar'
+  return ''
+}
+
+const narrationWithPurpose = (text: string, displayedPurpose: string) => {
+  if (!text || !displayedPurpose) return text
+  const normalized = text.toLocaleLowerCase('pt-BR')
+  if (displayedPurpose === 'À venda' && normalized.includes('à venda')) return text
+  if (displayedPurpose === 'Para alugar') {
+    if (normalized.includes('para alugar')) return text
+    if (normalized.includes('para locação')) return text.replace(/para locação/giu, 'para alugar')
+  }
+  return `${displayedPurpose}. ${text}`
+}
+
+const commercialCaption = (blockNumber: number, property: PropertyContext, includePurposePresentation = true) => {
+  if (blockNumber === 1) {
+    const location = unique([literal(property.district), literal(property.city)]).join(' • ')
+    const displayedPurpose = includePurposePresentation ? purposePresentation(property.purpose) : ''
+    return [displayedPurpose, location].filter(Boolean).join('\n')
+  }
   if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property)]).join('\n')
   if (blockNumber === 3) {
     const highlights = commercialHighlights(property)
@@ -333,6 +382,83 @@ const commercialCaption = (blockNumber: number, property: PropertyContext) => {
   return ''
 }
 
+export function buildShortVideosStructuredBriefing(input: {
+  generation: SmartTourGenerationConfig
+  property: PropertyContext
+  selectedCta: string
+  phone?: string
+  videoPath: string
+  language: SupportedLanguage
+}): ShortVideosStructuredBriefing {
+  const base = buildSmartTourStructuredBriefing({
+    generation: input.generation,
+    property: input.property,
+    selectedCta: input.selectedCta,
+    phone: input.phone,
+    imagePaths: [input.videoPath],
+    language: input.language,
+    includePurposePresentation: true,
+  })
+  const { quantidadeImagens: _quantidadeImagens, ...configuracoes } = base.configuracoes
+  const { umaImagemPorCena: _umaImagemPorCena, respeitarOrdemDasImagens: _respeitarOrdemDasImagens, ...regrasPreservacao } = base.regrasPreservacao
+  const cenas = base.cenas.map(({ imagem, ...cena }) => ({ ...cena, video: imagem }))
+  const regrasObrigatorias = base.regrasObrigatorias.map(regra => ({
+    ...regra,
+    valor: typeof regra.valor === 'string' ? regra.valor.replace('trocas de imagem', 'trocas de trecho do vídeo original') : regra.valor,
+  }))
+  const {
+    versao: _versao,
+    tarefa: _tarefa,
+    configuracoes: _configuracoes,
+    sequenciaDasImagens: _sequenciaDasImagens,
+    cenas: _cenas,
+    regrasPreservacao: _regrasPreservacao,
+    ...estruturaComprovada
+  } = base
+  return {
+    ...estruturaComprovada,
+    versao: 'short-videos-structured-briefing-v1',
+    tarefa: SHORT_VIDEOS_GEMINI_MISSION,
+    configuracoes: { ...configuracoes, quantidadeVideos: 1 },
+    sequenciaDosVideos: [input.videoPath],
+    cenas,
+    regrasPreservacao: { ...regrasPreservacao, usarSomenteVideoOriginal: true, respeitarOrdemDoVideoOriginal: true },
+    regrasObrigatorias,
+  }
+}
+
+export function isShortVideosStructuredBriefing(value: unknown): value is ShortVideosStructuredBriefing {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    return Boolean(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed as { versao?: unknown }).versao === 'short-videos-structured-briefing-v1')
+  } catch {
+    return false
+  }
+}
+
+export function applySmartTourDynamicNarration<
+  T extends SmartTourStructuredBriefing | ShortVideosStructuredBriefing,
+>(briefing: T, narration: string): T {
+  const text = String(narration || '').trim()
+  if (!text || !briefing.configuracoes.narracaoAtiva) return briefing
+  const narrationBlocks = briefing.timeline.narracao.map((block, index) => ({
+    ...block,
+    ...(index === 0 ? { inicioSegundos: 0, fimSegundos: briefing.timeline.duracaoTotalSegundos } : {}),
+    texto: index === 0 ? text : '',
+    frase_id: index === 0 ? 'OPENAI_DYNAMIC' : '',
+  }))
+  const scenes = briefing.cenas.map((scene, index) => ({
+    ...scene,
+    narracao: narrationBlocks[index]?.texto || '',
+    frase_id: narrationBlocks[index]?.texto ? 'OPENAI_DYNAMIC' : scene.frase_id,
+  }))
+  return {
+    ...briefing,
+    cenas: scenes,
+    timeline: { ...briefing.timeline, narracao: narrationBlocks },
+  }
+}
+
 export function buildSmartTourStructuredBriefing(input: {
   generation: SmartTourGenerationConfig
   property: PropertyContext
@@ -340,24 +466,34 @@ export function buildSmartTourStructuredBriefing(input: {
   phone?: string
   imagePaths: string[]
   language: SupportedLanguage
+  includePurposePresentation?: boolean
 }): SmartTourStructuredBriefing {
   const config = normalizeGeneration(input.generation)
   const finalidade = purpose(input.property.purpose)
   const tipoImovel = literal(input.property.type)
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
+  const includePurposePresentation = input.includePurposePresentation !== false
+  const displayedPurpose = input.language === 'pt-BR' && includePurposePresentation
+    ? purposePresentation(input.property.purpose)
+    : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
     const phrase = config.narration === 'enabled'
       ? selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` })
       : { id: '', texto: '' }
-    return { ...block, texto: phrase.texto, frase_id: phrase.id }
+    const texto = block.bloco === 1
+      ? narrationWithPurpose(phrase.texto, displayedPurpose)
+      : phrase.texto
+    return { ...block, texto, frase_id: phrase.id }
   })
   const captionTimeline = TEXT_TIMELINE.slice(0, 4).map(block => ({
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
-    texto: config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : '',
+    texto: block.bloco === 1 && displayedPurpose
+      ? (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property, includePurposePresentation) : displayedPurpose)
+      : (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property, includePurposePresentation) : ''),
   }))
   const ctaTimeline = {
     bloco: 5,
@@ -375,9 +511,14 @@ export function buildSmartTourStructuredBriefing(input: {
     const phrase = config.narration === 'enabled'
       ? selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` })
       : { id: '', texto: '' }
+    const narration = sceneNumber === 1
+      ? narrationWithPurpose(phrase.texto, displayedPurpose)
+      : phrase.texto
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : '')
+      : (sceneNumber === 1 && displayedPurpose
+        ? (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, includePurposePresentation) : displayedPurpose)
+        : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, includePurposePresentation) : ''))
     return {
       numero: sceneNumber,
       tipo,
@@ -385,7 +526,7 @@ export function buildSmartTourStructuredBriefing(input: {
       imagem: image,
       movimento: MOVEMENTS[index % MOVEMENTS.length],
       legenda,
-      narracao: phrase.texto,
+      narracao: narration,
       duracaoNarracaoSegundos: config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
       tempoTelefoneVisivelAposNarracaoSegundos: isLast && Boolean(phone) ? 0.8 : 0,
     } as SmartTourStructuredBriefing['cenas'][number]
@@ -440,7 +581,7 @@ export function buildSmartTourStructuredBriefing(input: {
       cta: ctaTimeline,
     },
     legendas: {
-      ativas: config.captions === 'enabled' || Boolean(ctaTitle),
+      ativas: config.captions === 'enabled' || Boolean(ctaTitle) || Boolean(displayedPurpose),
     },
     cta: { titulo: ctaTitle, telefone: phone },
     regrasPreservacao: {
@@ -456,14 +597,14 @@ export function buildSmartTourStructuredBriefing(input: {
     },
     regrasObrigatorias: [
       { codigo: 'usar_json_como_fonte_unica', valor: 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
+      ...GEMINI_VIDEO_TEXT_RULES,
       { codigo: 'sem_invencao', valor: hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
       ...presenterRules,
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
-      { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. Os textos e tempos de timeline.legendas e timeline.cta serão aplicados literalmente pelo compositor determinístico após a geração.' },
-      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Usar exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
+      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Renderizar no próprio vídeo final exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos, da narração e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
       { codigo: 'legendas_sem_valores_comerciais_automaticos', valor: 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },

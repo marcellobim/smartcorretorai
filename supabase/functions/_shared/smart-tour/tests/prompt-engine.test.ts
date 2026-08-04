@@ -255,7 +255,7 @@ test('CTA without authorized phone keeps CTA and removes only phone module', () 
 test('all SmartCorretorAI text-control prohibitions are explicit', () => {
   const prompt = buildPrompt({ mode: 'guided_tour' })
   for (const rule of [
-    'Não crie nenhum texto',
+    'Não crie nenhum texto além dos textos autorizados neste briefing',
     'Na narração, vocalize somente o texto completo fornecido pelo SmartCorretorAI',
     'Não crie CTA diferente',
     'não complemente o CTA',

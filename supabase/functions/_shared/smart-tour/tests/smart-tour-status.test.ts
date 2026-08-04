@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import {
   SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH,
+  SHORT_VIDEO_PRE_PROVIDER_STALE_MS,
   classifySmartTourStatusError,
+  isShortVideoPreProviderStale,
   maskSmartTourInteractionId,
   sanitizeSmartTourStatusProviderMessage,
   withSmartTourStatusTimeout,
@@ -109,6 +111,23 @@ test('timeout wrapper returns completed operations and rejects stalled ones', as
   )
 })
 
+test('only stale Short Videos pending jobs without a provider are failed by status recovery', () => {
+  const now = Date.parse('2026-08-04T22:00:00.000Z')
+  const staleCreatedAt = new Date(now - SHORT_VIDEO_PRE_PROVIDER_STALE_MS).toISOString()
+  const recentCreatedAt = new Date(now - SHORT_VIDEO_PRE_PROVIDER_STALE_MS + 1).toISOString()
+  assert.equal(isShortVideoPreProviderStale({ mode: 'smart_tour_gemini_omni_short_video', status: 'pending', provider_job_id: null, created_at: staleCreatedAt }, now), true)
+  assert.equal(isShortVideoPreProviderStale({ mode: 'smart_tour_gemini_omni_short_video', status: 'pending', provider_job_id: null, created_at: recentCreatedAt }, now), false)
+  assert.equal(isShortVideoPreProviderStale({ mode: 'smart_tour_gemini_omni', status: 'pending', provider_job_id: null, created_at: staleCreatedAt }, now), false)
+  assert.equal(isShortVideoPreProviderStale({ mode: 'smart_tour_gemini_omni_short_video', status: 'generating', provider_job_id: 'provider', created_at: staleCreatedAt }, now), false)
+})
+
+test('stale Short Videos recovery persists failure and removes only the exact owned raw path', () => {
+  assert.match(statusSource, /isShortVideoPreProviderStale\(job\)/)
+  assert.match(statusSource, /error_message: 'short_video_stale_before_provider'/)
+  assert.match(statusSource, /expectedInputPath = `\$\{user\.id\}\/short-videos\/\$\{jobId\}\/input\.mp4`/)
+  assert.match(statusSource, /from\('short-videos-inputs'\)\.remove\(\[expectedInputPath\]\)/)
+})
+
 test('status function logs every external boundary without exposing complete identifiers', () => {
   for (const event of [
     'job_lookup_started',
@@ -135,12 +154,29 @@ test('status function preserves the existing frontend response contract', () => 
   assert.doesNotMatch(statusSource, /error: diagnostic\.providerMessage|message: diagnostic\.providerMessage/)
 })
 
-test('status function routes active captions through deterministic composition before completion', () => {
-  assert.match(statusSource, /hasDeterministicSmartTourText\(briefing\)/)
-  assert.match(statusSource, /startSmartTourCaptionRender/)
+test('status function uses resumable SSE URI recovery for images and Short Videos', () => {
+  assert.match(statusSource, /job\.mode === 'smart_tour_gemini_omni_short_video'/)
+  assert.match(statusSource, /checkGeminiOmniVideoStream\(interactionId, streamState\.lastEventId\)/)
+  assert.match(statusSource, /decodeGeminiOmniStreamState\(job\.provider_job_id\)/)
+  assert.match(statusSource, /interaction_cursor_persisted/)
+  assert.match(statusSource, /interaction_output_uri_persisted/)
+  assert.match(statusSource, /downloadGeminiOmniVideoFromUri\(remote\.videoUri, remote\.contentType\)/)
+  assert.doesNotMatch(statusSource, /checkGeminiOmniVideo\(/)
+  assert.doesNotMatch(statusSource, /Accept:\s*'application\/json'/)
+})
+
+test('status function delivers new Gemini videos without starting a second text compositor', () => {
+  assert.doesNotMatch(statusSource, /hasDeterministicSmartTourText\(briefing\)/)
+  assert.doesNotMatch(statusSource, /startSmartTourCaptionRender/)
+  assert.doesNotMatch(statusSource, /smart-tour-gemini\.mp4/)
+  assert.doesNotMatch(statusSource, /const briefing = parseSmartTourStructuredBriefing\(job\.prompt_final\)/)
+  assert.match(statusSource, /upload\(outputPath, completedVideo\.videoBytes/)
+})
+
+test('status function only keeps deterministic composition recovery for legacy jobs already in progress', () => {
   assert.match(statusSource, /checkSmartTourCaptionRender/)
   assert.match(statusSource, /downloadSmartTourCaptionRender/)
-  assert.match(statusSource, /smart-tour-gemini\.mp4/)
+  assert.match(statusSource, /decodeSmartTourCaptionRenderId\(job\.provider_job_id\)/)
 })
 
 test('polling classification rules remain byte-for-byte unchanged', () => {

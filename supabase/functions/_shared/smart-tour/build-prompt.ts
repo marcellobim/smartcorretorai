@@ -2,6 +2,7 @@ import type { PropertyContext, SmartTourGenerationConfig } from './types.ts'
 import type { SmartTourStructuredBriefing } from './structured-briefing.ts'
 import { normalizeGeneration } from './validation.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
+import { GEMINI_VIDEO_TEXT_RULES_PROMPT } from '../gemini-video-text-rules.ts'
 
 type BriefingModule = 'CORRETOR' | 'NARRACAO' | 'LEGENDAS' | 'CTA' | 'TELEFONE'
 
@@ -21,7 +22,9 @@ OBJETIVO
 Criar uma visita contínua e natural ao imóvel. O imóvel permanece como protagonista e cenário preservado. Anime a câmera, nunca o imóvel.
 
 TEXTOS CONTROLADOS PELO SMARTCORRETORAI
-Não crie nenhum texto. Na narração, vocalize somente o texto completo fornecido pelo SmartCorretorAI no módulo NARRAÇÃO. Não altere, traduza, complete, resuma, corrija, reformate, reescreva ou combine os valores recebidos. Não crie CTA diferente, não complemente o CTA, não reescreva finalidade, tipologia, bairro, cidade ou descrição resumida e não invente diferenciais. Utilize cada valor autorizado exatamente como aparece nos DADOS ESTRUTURADOS ou nos campos literais compilados neste Briefing Base, caractere por caractere. Não exiba nomes de campos, instruções, placeholders ou metadados.
+Não crie nenhum texto além dos textos autorizados neste briefing. Na narração, vocalize somente o texto completo fornecido pelo SmartCorretorAI no módulo NARRAÇÃO. Não altere, traduza, complete, resuma, corrija, reformate, reescreva ou combine os valores recebidos. Não crie CTA diferente, não complemente o CTA, não reescreva finalidade, tipologia, bairro, cidade ou descrição resumida e não invente diferenciais. Renderize os textos autorizados exatamente uma vez, como uma única camada do próprio vídeo final. Utilize cada valor autorizado exatamente como aparece nos DADOS ESTRUTURADOS ou nos campos literais compilados neste Briefing Base, caractere por caractere. Não exiba nomes de campos, instruções, placeholders ou metadados.
+
+${GEMINI_VIDEO_TEXT_RULES_PROMPT}
 
 ESCOPO E RESTRIÇÕES
 Este produto não contempla Virtual Staging, casal, família, pessoas vivendo no imóvel, criação de mobiliário ou alterações arquitetônicas. A única pessoa permitida é o corretor ou a corretora descrito no módulo CORRETOR, quando esse módulo estiver presente. Se o módulo CORRETOR não estiver presente, não mostre pessoas, silhuetas, reflexos, sombras, mãos, rostos ou partes do corpo.

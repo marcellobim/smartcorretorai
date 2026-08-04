@@ -1,4 +1,4 @@
-import type { SmartTourGenerationConfig, SmartTourRequest } from './types.ts'
+import type { ShortVideosRequest, SmartTourGenerationConfig, SmartTourRequest } from './types.ts'
 const MODES = new Set(['guided_tour','narrated_tour','smart_staging','cinematic_tour'])
 const LANGUAGES = new Set(['pt-BR','en-US','es'])
 const clean = (value: unknown, max = 160) => String(value ?? '').replace(/[{}<>]/g, '').replace(/\s+/g, ' ').trim().slice(0,max)
@@ -27,6 +27,32 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   const highlights = Array.isArray(propertyRaw.highlights) ? propertyRaw.highlights.map(item => clean(item,80)).filter(Boolean).slice(0,10) : []
   const property = Object.fromEntries(Object.entries(propertyRaw).filter(([key]) => key !== 'highlights').map(([key,value]) => [key,clean(value,key === 'description' ? 1000 : 120)]))
   return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation: normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {}), selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
+}
+
+export function validateShortVideosRequest(input: unknown): ShortVideosRequest {
+  if (!input || typeof input !== 'object') throw new Error('invalid_request')
+  const raw = input as Record<string, unknown>
+  if (raw.inputFlow !== 'short-videos') throw new Error('invalid_input_flow')
+  const videoPath = clean(raw.videoPath, 300)
+  if (!videoPath || !/\.mp4$/i.test(videoPath)) throw new Error('invalid_video_path')
+  const metadata = raw.videoMetadata && typeof raw.videoMetadata === 'object' ? raw.videoMetadata as Record<string, unknown> : {}
+  const durationSeconds = Number(metadata.durationSeconds)
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > 300) throw new Error('invalid_video_duration')
+  if (metadata.mimeType !== 'video/mp4') throw new Error('invalid_video_type')
+  const propertyRaw = raw.property && typeof raw.property === 'object' ? raw.property as Record<string, unknown> : {}
+  const highlights = Array.isArray(propertyRaw.highlights) ? propertyRaw.highlights.map(item => clean(item,80)).filter(Boolean).slice(0,10) : []
+  const property = Object.fromEntries(Object.entries(propertyRaw).filter(([key]) => key !== 'highlights').map(([key,value]) => [key,clean(value,key === 'description' ? 1000 : 120)]))
+  return {
+    inputFlow: 'short-videos',
+    clientRequestId: clean(raw.clientRequestId,80),
+    videoPath,
+    videoMetadata: { durationSeconds, mimeType: 'video/mp4' },
+    property: { ...property, highlights },
+    generation: { ...normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {}), presenterGender: 'none' },
+    selectedCta: clean(raw.selectedCta,120),
+    includeProfessionalPhone: raw.includeProfessionalPhone === true,
+    language: LANGUAGES.has(String(raw.language)) ? raw.language as ShortVideosRequest['language'] : 'pt-BR',
+  }
 }
 
 export const OFFICIAL_MATRIX: SmartTourGenerationConfig[] = [

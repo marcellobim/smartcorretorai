@@ -1,18 +1,20 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildGeminiOmniInteractionGetRequest, checkGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
+import {
+  checkGeminiOmniVideoStream,
+  decodeGeminiOmniStreamState,
+  downloadGeminiOmniVideoFromUri,
+  encodeGeminiOmniStreamState,
+} from '../_shared/geminiOmniClient.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import {
   checkSmartTourCaptionRender,
   decodeSmartTourCaptionRenderId,
   downloadSmartTourCaptionRender,
-  encodeSmartTourCaptionRenderId,
-  hasDeterministicSmartTourText,
-  parseSmartTourStructuredBriefing,
-  startSmartTourCaptionRender,
 } from '../_shared/smart-tour/index.ts'
 import {
   classifySmartTourStatusError,
+  isShortVideoPreProviderStale,
   maskSmartTourInteractionId,
   type SmartTourStatusStage,
   withSmartTourStatusTimeout,
@@ -44,7 +46,7 @@ serve(withCors(async req => {
     log('job_lookup_started')
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final')
+      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final,mode,created_at,marketing_hashtags,input_image_1_path')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -59,11 +61,27 @@ serve(withCors(async req => {
       log('completed_url_started')
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
       if (error) throw new Error('status_completed_url_failed')
-      log('completed_url_completed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '' })
+      log('completed_url_completed', { isShortVideos: job.mode === 'smart_tour_gemini_omni_short_video', totalProcessingDurationMs: Math.max(0, Date.now() - Date.parse(job.created_at)) })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
-    if (!job.provider_job_id) return json({ ok: true, status: 'generating', jobId, message: 'Preparando sua apresentação...' })
+    if (!job.provider_job_id) {
+      if (isShortVideoPreProviderStale(job)) {
+        const { error: staleError } = await supabase
+          .from('video_jobs')
+          .update({ status: 'failed', error_message: 'short_video_stale_before_provider' })
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+        if (staleError) throw new Error('status_failed_persist_failed')
+        const expectedInputPath = `${user.id}/short-videos/${jobId}/input.mp4`
+        if (job.input_image_1_path === expectedInputPath) {
+          const { error: cleanupError } = await supabase.storage.from('short-videos-inputs').remove([expectedInputPath])
+          if (cleanupError) console.warn('[smart-tour-status] short_video_stale_cleanup_failed')
+        }
+        return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
+      }
+      return json({ ok: true, status: 'generating', jobId, message: 'Preparando sua apresentação...' })
+    }
 
     const captionRenderId = decodeSmartTourCaptionRenderId(job.provider_job_id)
     if (captionRenderId) {
@@ -102,20 +120,36 @@ serve(withCors(async req => {
       if (updateError) throw new Error('status_completed_persist_failed')
       const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
       if (signedUrlError) throw new Error('status_result_url_failed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '' })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
     stage = 'interaction_poll'
-    const interactionRequest = buildGeminiOmniInteractionGetRequest(job.provider_job_id)
-    interactionIdMasked = maskSmartTourInteractionId(interactionRequest.interactionId)
+    const streamState = decodeGeminiOmniStreamState(job.provider_job_id)
+    const interactionId = streamState.interactionId
+    interactionIdMasked = maskSmartTourInteractionId(interactionId)
     console.info('[smart-tour-status] interaction_request', JSON.stringify({
-      interactionIdLength: interactionRequest.interactionId.length,
+      interactionIdLength: interactionId.length,
       interactionIdMasked,
+      cursorPresent: Boolean(streamState.lastEventId),
+      outputUriPresent: Boolean(streamState.videoUri),
     }))
-    const remote = await withSmartTourStatusTimeout(checkGeminiOmniVideo(interactionRequest.interactionId))
-    log('interaction_poll_completed', { remoteStatus: remote.status })
+    const isShortVideos = job.mode === 'smart_tour_gemini_omni_short_video'
+    const remote = streamState.videoUri
+      ? { status: 'completed' as const, videoUri: streamState.videoUri, contentType: streamState.contentType, delivery: 'uri' as const, lastEventId: streamState.lastEventId }
+      : await withSmartTourStatusTimeout(checkGeminiOmniVideoStream(interactionId, streamState.lastEventId))
+    log('interaction_poll_completed', { remoteStatus: remote.status, isShortVideos, ...(remote.status === 'completed' ? { resultFormat: remote.delivery } : {}) })
 
     if (remote.status === 'processing') {
+      if (remote.lastEventId && remote.lastEventId !== streamState.lastEventId) {
+        const cursorState = encodeGeminiOmniStreamState({ ...streamState, lastEventId: remote.lastEventId })
+        const { error: cursorError } = await supabase
+          .from('video_jobs')
+          .update({ provider_job_id: cursorState, error_message: null })
+          .eq('id', jobId)
+          .eq('user_id', user.id)
+        if (cursorError) throw new Error('status_cursor_persist_failed')
+        log('interaction_cursor_persisted', { cursorPresent: true })
+      }
       return json({ ok: true, status: 'generating', jobId, message: 'A IA está criando sua apresentação...' })
     }
 
@@ -132,34 +166,29 @@ serve(withCors(async req => {
       return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
     }
 
-    const briefing = parseSmartTourStructuredBriefing(job.prompt_final)
-    if (hasDeterministicSmartTourText(briefing)) {
-      stage = 'video_upload'
-      const rawPath = `${user.id}/${jobId}/smart-tour-gemini.mp4`
-      const { error: rawUploadError } = await supabase.storage
-        .from('studio-videos')
-        .upload(rawPath, remote.videoBytes, { contentType: remote.contentType || 'video/mp4', upsert: true })
-      if (rawUploadError) throw new Error('status_video_upload_failed')
-      const { data: rawUrl, error: rawUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(rawPath, 21_600)
-      if (rawUrlError || !rawUrl?.signedUrl) throw new Error('status_raw_video_url_failed')
-
-      stage = 'caption_render_start'
-      const captionRender = await withSmartTourStatusTimeout(startSmartTourCaptionRender(creatomateKey, rawUrl.signedUrl, briefing))
-      const { error: renderPersistError } = await supabase
+    const completedStreamState = encodeGeminiOmniStreamState({
+      interactionId,
+      lastEventId: remote.lastEventId,
+      videoUri: remote.videoUri,
+      contentType: remote.contentType,
+    })
+    if (job.provider_job_id !== completedStreamState) {
+      const { error: outputUriPersistError } = await supabase
         .from('video_jobs')
-        .update({ provider_job_id: encodeSmartTourCaptionRenderId(captionRender.renderId), error_message: null })
+        .update({ provider_job_id: completedStreamState, error_message: null })
         .eq('id', jobId)
         .eq('user_id', user.id)
-      if (renderPersistError) throw new Error('status_caption_render_persist_failed')
-      return json({ ok: true, status: 'generating', jobId, message: 'Finalizando as legendas da sua apresentação...' })
+      if (outputUriPersistError) throw new Error('status_output_uri_persist_failed')
+      log('interaction_output_uri_persisted', { cursorPresent: Boolean(remote.lastEventId) })
     }
+    const completedVideo = await withSmartTourStatusTimeout(downloadGeminiOmniVideoFromUri(remote.videoUri, remote.contentType))
 
     stage = 'video_upload'
-    log('video_upload_started', { byteLength: remote.videoBytes.byteLength, contentType: remote.contentType || 'video/mp4' })
+    log('video_upload_started', { byteLength: completedVideo.videoBytes.byteLength, contentType: completedVideo.contentType || 'video/mp4' })
     const outputPath = `${user.id}/${jobId}/smart-tour.mp4`
     const { error: uploadError } = await supabase.storage
       .from('studio-videos')
-      .upload(outputPath, remote.videoBytes, { contentType: remote.contentType || 'video/mp4', upsert: true })
+      .upload(outputPath, completedVideo.videoBytes, { contentType: completedVideo.contentType || 'video/mp4', upsert: true })
     if (uploadError) throw new Error('status_video_upload_failed')
     log('video_upload_completed')
 
@@ -177,8 +206,8 @@ serve(withCors(async req => {
     log('result_url_started')
     const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
     if (signedUrlError) throw new Error('status_result_url_failed')
-    log('result_url_completed')
-    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '' })
+    log('result_url_completed', { isShortVideos: job.mode === 'smart_tour_gemini_omni_short_video', totalProcessingDurationMs: Math.max(0, Date.now() - Date.parse(job.created_at)), resultFormat: remote.delivery })
+    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
   } catch (error) {
     const diagnostic = classifySmartTourStatusError(error, stage)
     const logger = diagnostic.retriable ? console.warn : console.error

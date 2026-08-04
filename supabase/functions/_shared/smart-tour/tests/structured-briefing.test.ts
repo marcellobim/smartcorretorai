@@ -70,7 +70,7 @@ test('every scene has a semantic type and a phrase selected from the contextual 
     assert.ok(phrase)
     assert.equal(phrase?.tipo, scene.tipo)
     assert.equal(phrase?.idioma, 'pt-BR')
-    assert.equal(phrase?.texto, scene.narracao)
+    assert.equal(scene.narracao, phrase?.texto)
   }
 })
 
@@ -78,7 +78,7 @@ test('captions follow the five-scene commercial structure and reserve the last s
   const briefing = build()
   assert.deepEqual(briefing.legendas, { ativas: true })
   assert.deepEqual(briefing.cenas.map(scene => scene.legenda), [
-    'Moema • São Paulo',
+    'À venda\nMoema • São Paulo',
     'Pronto para morar\n4 Dormitórios • 2 Suítes • 3 Vagas',
     'Próximo ao metrô',
     'Lazer completo • Varanda gourmet',
@@ -92,6 +92,16 @@ test('captions follow the five-scene commercial structure and reserve the last s
   assert.ok(briefing.cenas.every(scene => !scene.legenda.includes('R$ 1.200')))
   assert.ok(briefing.cenas.every(scene => !scene.legenda.includes('R$ 650')))
   assert.deepEqual(briefing.cenas.map(scene => Boolean(scene.legenda)), [true, true, true, true, true])
+})
+
+test('sale and rental purpose are mandatory in the first caption and active narration', () => {
+  const sale = build()
+  const rental = build({ property: { ...property, purpose: 'rent', stage: 'Disponível já' } })
+  assert.equal(sale.timeline.legendas[0].texto, 'À venda\nMoema • São Paulo')
+  assert.match(sale.timeline.narracao[0].texto, /à venda/i)
+  assert.equal(rental.timeline.legendas[0].texto, 'Para alugar\nMoema • São Paulo')
+  assert.match(rental.timeline.narracao[0].texto, /para alugar/i)
+  assert.doesNotMatch(rental.timeline.narracao[0].texto, /para locação/i)
 })
 
 test('text, narration and CTA use five fixed temporal blocks independently from 1 to 5 images', () => {
@@ -113,7 +123,7 @@ test('text, narration and CTA use five fixed temporal blocks independently from 
     assert.equal(briefing.timeline.cta.texto, 'Agende sua visita\n(11) 98765-4321')
     assert.deepEqual(
       [...briefing.timeline.legendas.map(block => block.texto), briefing.timeline.cta.texto],
-      ['Moema • São Paulo', 'Pronto para morar\n4 Dormitórios • 2 Suítes • 3 Vagas', 'Próximo ao metrô', 'Lazer completo • Varanda gourmet', 'Agende sua visita\n(11) 98765-4321'],
+      ['À venda\nMoema • São Paulo', 'Pronto para morar\n4 Dormitórios • 2 Suítes • 3 Vagas', 'Próximo ao metrô', 'Lazer completo • Varanda gourmet', 'Agende sua visita\n(11) 98765-4321'],
     )
     assert.ok(briefing.timeline.narracao.every(block => Boolean(block.texto)))
     assert.equal(briefing.apresentador.tipo, 'corretora')
@@ -233,14 +243,16 @@ test('single-source JSON rule replaces texto_literal and forbids invention or re
   assert.equal(briefing.regrasObrigatorias.some(item => item.codigo === 'fonte_unica'), false)
 })
 
-test('CTA remains the final caption even when commercial captions are disabled', () => {
+test('purpose and CTA remain visible even when optional commercial captions are disabled', () => {
   const briefing = build({ generation: { ...generation, captions: 'disabled' } })
   assert.deepEqual(briefing.legendas, { ativas: true })
-  assert.ok(briefing.cenas.slice(0, -1).every(scene => scene.legenda === ''))
+  assert.equal(briefing.cenas[0].legenda, 'À venda')
+  assert.ok(briefing.cenas.slice(1, -1).every(scene => scene.legenda === ''))
+  assert.equal(briefing.timeline.legendas[0].texto, 'À venda')
   assert.equal(briefing.cenas.at(-1)?.legenda, 'Agende sua visita\n(11) 98765-4321')
 })
 
-test('disabled modules remain empty without changing duration or images', () => {
+test('disabled optional modules keep only the mandatory purpose without changing duration or images', () => {
   const disabled = build({
     generation: { ...generation, presenterGender: 'none', narration: 'disabled', captions: 'disabled' },
     selectedCta: '',
@@ -250,14 +262,17 @@ test('disabled modules remain empty without changing duration or images', () => 
   assert.equal(disabled.regrasObrigatorias.some(item => item.codigo.startsWith('apresentador_')), false)
   assert.match(String(disabled.regrasObrigatorias.find(item => item.codigo === 'sem_invencao')?.valor), /não inventar dados, contatos, ambientes, pessoas ou elementos/)
   assert.equal('narracao' in disabled, false)
-  assert.deepEqual(disabled.legendas, { ativas: false })
+  assert.deepEqual(disabled.legendas, { ativas: true })
   assert.equal('staging' in disabled, false)
   assert.deepEqual(disabled.cta, { titulo: '', telefone: '' })
   assert.equal(disabled.configuracoes.duracaoSegundos, 10)
   assert.equal(disabled.configuracoes.quantidadeImagens, 5)
   assert.deepEqual(disabled.cenas.map(scene => scene.imagem), imagePaths)
-  assert.ok(disabled.cenas.every(scene => scene.frase_id === '' && scene.narracao === '' && scene.legenda === '' && scene.duracaoNarracaoSegundos === 0))
-  assert.ok(disabled.timeline.legendas.every(block => block.texto === ''))
+  assert.ok(disabled.cenas.every(scene => scene.frase_id === '' && scene.narracao === '' && scene.duracaoNarracaoSegundos === 0))
+  assert.equal(disabled.cenas[0].legenda, 'À venda')
+  assert.ok(disabled.cenas.slice(1).every(scene => scene.legenda === ''))
+  assert.equal(disabled.timeline.legendas[0].texto, 'À venda')
+  assert.ok(disabled.timeline.legendas.slice(1).every(block => block.texto === ''))
   assert.ok(disabled.timeline.narracao.every(block => block.texto === ''))
   assert.equal(disabled.timeline.cta.texto, '')
 })

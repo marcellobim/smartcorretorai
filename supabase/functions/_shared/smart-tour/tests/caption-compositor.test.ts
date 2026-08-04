@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildSmartTourCaptionRenderScript,
+  buildShortVideosStructuredBriefing,
   buildSmartTourStructuredBriefing,
   decodeSmartTourCaptionRenderId,
   encodeSmartTourCaptionRenderId,
@@ -84,4 +85,51 @@ test('caption render identifiers cannot be confused with Gemini interaction iden
   assert.equal(encodeSmartTourCaptionRenderId(id), `creatomate:${id}`)
   assert.equal(decodeSmartTourCaptionRenderId(`creatomate:${id}`), id)
   assert.equal(decodeSmartTourCaptionRenderId('v1_gemini-interaction'), null)
+})
+
+test('Short Videos compositor applies purpose, enabled captions, CTA and phone without replacing Gemini audio', () => {
+  const shortBriefing = buildShortVideosStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
+    property: {
+      purpose: 'rent', type: 'Apartamento', stage: 'Disponível já', city: 'São Paulo', district: 'Klabin',
+      bedrooms: '2', suites: '1', parkingSpaces: '1', area: '72', highlights: ['Próximo ao metrô', 'Varanda'],
+    },
+    selectedCta: 'Agende sua visita',
+    phone: '(11) 99999-9999',
+    videoPath: 'input.mp4',
+    language: 'pt-BR',
+  })
+  const parsed = parseSmartTourStructuredBriefing(JSON.stringify(shortBriefing))
+  const script = buildSmartTourCaptionRenderScript('https://example.com/gemini-short.mp4', parsed)
+  const video = script.elements[0]
+  const textElements = script.elements.filter(element => element.type === 'text')
+
+  assert.equal(parsed.versao, 'short-videos-structured-briefing-v1')
+  assert.equal(video.type, 'video')
+  assert.equal(video.source, 'https://example.com/gemini-short.mp4')
+  assert.equal(video.volume, '100%')
+  assert.equal(script.elements.some(element => element.type === 'audio'), false)
+  assert.deepEqual(textElements.map(element => element.text), [
+    ...shortBriefing.timeline.legendas.map(block => block.texto),
+    shortBriefing.timeline.cta.texto,
+  ])
+  assert.match(String(textElements[0]?.text), /^Para alugar(?:\n|$)/)
+  assert.equal(textElements.at(-1)?.text, 'Agende sua visita\n(11) 99999-9999')
+})
+
+test('Short Videos compositor keeps only mandatory purpose and active CTA when optional captions are disabled', () => {
+  const shortBriefing = buildShortVideosStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
+    property: { purpose: 'sale', type: 'Casa', city: 'Campinas', district: 'Cambuí' },
+    selectedCta: 'Fale comigo',
+    phone: '(19) 99999-9999',
+    videoPath: 'input.mp4',
+    language: 'pt-BR',
+  })
+  const script = buildSmartTourCaptionRenderScript('https://example.com/gemini-short.mp4', shortBriefing)
+  const textElements = script.elements.filter(element => element.type === 'text')
+
+  assert.deepEqual(textElements.map(element => element.text), ['À venda', 'Fale comigo\n(19) 99999-9999'])
+  assert.equal(script.elements[0].volume, '100%')
+  assert.equal(script.elements.some(element => element.type === 'audio'), false)
 })
