@@ -9,6 +9,7 @@ import {
 } from '../../geminiOmniClient.ts'
 import {
   applySmartTourDynamicNarration,
+  buildShortVideosCleanGeminiPrompt,
   buildShortVideosStructuredBriefing,
   buildSmartTourStructuredBriefing,
   SHORT_VIDEOS_MISSION_OPENING,
@@ -132,6 +133,11 @@ test('builds the exclusive Short Videos mission without image-specific fields', 
   assert.equal(briefing.configuracoes.idioma, 'pt-BR')
   assert.match(briefing.timeline.legendas[0].texto, /^À venda(?:\n|$)/)
   assert.match(briefing.timeline.narracao[0].texto, /à venda/i)
+  const cleanPrompt = JSON.parse(buildShortVideosCleanGeminiPrompt(briefing))
+  assert.equal(cleanPrompt.versao, 'short-videos-clean-gemini-prompt-v1')
+  assert.equal('cta' in cleanPrompt, false)
+  assert.equal('imovel' in cleanPrompt, false)
+  assert.match(cleanPrompt.regrasObrigatorias.join('\n'), /Não gerar, desenhar, inventar ou sobrepor qualquer texto/)
 })
 
 test('Short Videos makes rental purpose mandatory in the first caption and active narration', () => {

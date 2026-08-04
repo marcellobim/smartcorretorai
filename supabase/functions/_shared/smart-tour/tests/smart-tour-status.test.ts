@@ -165,12 +165,21 @@ test('status function uses resumable SSE URI recovery for images and Short Video
   assert.doesNotMatch(statusSource, /Accept:\s*'application\/json'/)
 })
 
-test('status function delivers new Gemini videos without starting a second text compositor', () => {
-  assert.doesNotMatch(statusSource, /hasDeterministicSmartTourText\(briefing\)/)
-  assert.doesNotMatch(statusSource, /startSmartTourCaptionRender/)
-  assert.doesNotMatch(statusSource, /smart-tour-gemini\.mp4/)
-  assert.doesNotMatch(statusSource, /const briefing = parseSmartTourStructuredBriefing\(job\.prompt_final\)/)
+test('status function composes only Short Videos and never delivers its raw Gemini video', () => {
+  assert.match(statusSource, /if \(isShortVideos\) \{/)
+  assert.match(statusSource, /startSmartTourCaptionRender/)
+  assert.match(statusSource, /smart-tour-gemini\.mp4/)
+  assert.match(statusSource, /const briefing = parseSmartTourStructuredBriefing\(job\.prompt_final\)/)
+  assert.match(statusSource, /validateShortVideosFinalMp4/)
+  assert.match(statusSource, /encodeSmartTourCaptionRenderId/)
+  assert.match(statusSource, /cleanupShortVideoRaw/)
+  assert.match(statusSource, /return json\(\{ ok: true, status: 'generating'/)
+  assert.doesNotMatch(statusSource, /output_video_path: shortVideoRawPath/)
   assert.match(statusSource, /upload\(outputPath, completedVideo\.videoBytes/)
+  assert.doesNotMatch(statusSource, /startGeminiOmni(?:ShortVideo|Video)\(/)
+  assert.doesNotMatch(statusSource, /tokens_reserved|smart_tokens|decrement/i)
+  assert.match(statusSource, /short_video_composition_\$\{diagnostic\.kind\}/)
+  assert.match(statusSource, /update\(\{ status: 'failed', error_message: code \}\)/)
 })
 
 test('status function only keeps deterministic composition recovery for legacy jobs already in progress', () => {

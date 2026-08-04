@@ -115,6 +115,7 @@ test('generation invokes dynamic narration only when enabled and persists the fi
   const guardedCalls = generator.match(/input\.generation\.narration === 'enabled'[\s\S]{0,180}generateSmartTourDynamicNarration/g) || []
   assert.equal(guardedCalls.length, 2)
   assert.match(generator, /update\(\{prompt_final:prompt,marketing_hashtags:hashtags,error_message:'stage:openai_ready'\}\)/)
-  assert.ok(generator.indexOf("update({prompt_final:prompt,marketing_hashtags:hashtags,error_message:'stage:openai_ready'})") < generator.indexOf('startGeminiOmniShortVideo({prompt,video:prepared.video})'))
+  assert.match(generator, /geminiPrompt:buildShortVideosCleanGeminiPrompt\(briefing\)/)
+  assert.ok(generator.indexOf("update({prompt_final:prompt,marketing_hashtags:hashtags,error_message:'stage:openai_ready'})") < generator.indexOf('startGeminiOmniShortVideo({prompt:geminiPrompt,video:prepared.video})'))
   assert.ok(generator.lastIndexOf('update({prompt_final:prompt,marketing_hashtags:hashtags})') < generator.indexOf('startGeminiOmniVideo({prompt,images})'))
 })

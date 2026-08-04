@@ -6,6 +6,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 type JsonRecord = Record<string, unknown>
 type SmartTourComposableBriefing = SmartTourStructuredBriefing | ShortVideosStructuredBriefing
+export type SmartTourCaptionPlan = {
+  durationSeconds: 10
+  blocks: Array<{ bloco: number; inicioSegundos: number; fimSegundos: number; texto: string; isClosing: boolean }>
+}
 type CaptionRenderStatus =
   | { status: 'processing' }
   | { status: 'completed'; url: string }
@@ -62,9 +66,9 @@ export function parseSmartTourStructuredBriefing(value: unknown): SmartTourCompo
   }
 }
 
-export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: SmartTourComposableBriefing) {
+export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: SmartTourComposableBriefing, controlledPlan?: SmartTourCaptionPlan) {
   if (!/^https:\/\//i.test(videoUrl)) throw new Error('smart_tour_caption_video_url_invalid')
-  const duration = briefing.configuracoes.duracaoSegundos
+  const duration = controlledPlan?.durationSeconds || briefing.configuracoes.duracaoSegundos
   const sceneDuration = duration / Math.max(1, briefing.cenas.length)
   const legacyTextBlocks = briefing.cenas.map((scene, index) => ({
     bloco: scene.numero,
@@ -73,17 +77,18 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
     texto: scene.legenda,
     isClosing: scene.tipo === 'encerramento',
   }))
-  const timedTextBlocks = briefing.timeline
+  const timedTextBlocks = controlledPlan?.blocks || (briefing.timeline
     ? [
         ...briefing.timeline.legendas.map(block => ({ ...block, isClosing: false })),
         { ...briefing.timeline.cta, isClosing: true },
       ]
-    : legacyTextBlocks
+    : legacyTextBlocks)
   const captionElements = timedTextBlocks.flatMap(block => {
     if (!block.texto) return []
     const blockDuration = block.fimSegundos - block.inicioSegundos
     if (block.inicioSegundos < 0 || blockDuration <= 0 || block.fimSegundos > duration) throw new Error('smart_tour_caption_timeline_invalid')
     const isClosing = block.isClosing
+    const isControlledClosing = Boolean(controlledPlan) && isClosing
     return [{
       name: `Smart-Tour-Caption-${block.bloco}`,
       type: 'text',
@@ -91,9 +96,9 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
       time: block.inicioSegundos,
       duration: blockDuration,
       x: '50%',
-      y: isClosing ? '79%' : '82%',
+      y: isControlledClosing ? '50%' : isClosing ? '79%' : '82%',
       width: '88%',
-      height: isClosing ? '18%' : '14%',
+      height: isControlledClosing ? '70%' : isClosing ? '18%' : '14%',
       x_alignment: '50%',
       y_alignment: '50%',
       text: block.texto,
@@ -147,10 +152,10 @@ async function creatomateFetch(apiKey: string, path: string, init: RequestInit =
   return body
 }
 
-export async function startSmartTourCaptionRender(apiKey: string, videoUrl: string, briefing: SmartTourComposableBriefing) {
+export async function startSmartTourCaptionRender(apiKey: string, videoUrl: string, briefing: SmartTourComposableBriefing, controlledPlan?: SmartTourCaptionPlan) {
   const body = await creatomateFetch(apiKey, '', {
     method: 'POST',
-    body: JSON.stringify(buildSmartTourCaptionRenderScript(videoUrl, briefing)),
+    body: JSON.stringify(buildSmartTourCaptionRenderScript(videoUrl, briefing, controlledPlan)),
   })
   const render = Array.isArray(body) ? body[0] : body
   return { renderId: cleanRenderId(render?.id) }

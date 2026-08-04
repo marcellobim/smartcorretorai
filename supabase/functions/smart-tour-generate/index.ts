@@ -4,7 +4,7 @@ import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, prepareGeminiImages, SMART_TOUR_GE
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
-import { buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
+import { buildShortVideosCleanGeminiPrompt, buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
 import { buildOfficialHashtags } from '../_shared/official-hashtags.ts'
@@ -78,13 +78,13 @@ serve(withCors(async req => {
             const briefing = dynamicNarration ? applySmartTourDynamicNarration(fallbackBriefing,dynamicNarration) : fallbackBriefing
             const prompt = JSON.stringify(briefing)
             const hashtags = await generateStrategicHashtags({apiKey:Deno.env.get('OPENAI_API_KEY') || '',variationKey:input.clientRequestId,context:hashtagContext})
-            return {prompt,hashtags}
+            return {prompt,geminiPrompt:buildShortVideosCleanGeminiPrompt(briefing),hashtags}
           },
           persistBriefing: async ({prompt,hashtags}) => {
             const {error} = await supabase.from('video_jobs').update({prompt_final:prompt,marketing_hashtags:hashtags,error_message:'stage:openai_ready'}).eq('id',input.clientRequestId).eq('user_id',user.id)
             if (error) throw new Error('job_briefing_persist_failed')
           },
-          startGemini: (prepared,{prompt}) => startGeminiOmniShortVideo({prompt,video:prepared.video}),
+          startGemini: (prepared,{geminiPrompt}) => startGeminiOmniShortVideo({prompt:geminiPrompt,video:prepared.video}),
           persistProvider: async started => {
             const {error} = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId,error_message:null}).eq('id',input.clientRequestId).eq('user_id',user.id)
             if (error) throw new Error('provider_id_persist_failed')

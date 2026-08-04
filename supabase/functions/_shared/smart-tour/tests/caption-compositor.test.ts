@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildSmartTourCaptionRenderScript,
+  buildShortVideosCaptionPlan,
   buildShortVideosStructuredBriefing,
   buildSmartTourStructuredBriefing,
   decodeSmartTourCaptionRenderId,
@@ -132,4 +133,18 @@ test('Short Videos compositor keeps only mandatory purpose and active CTA when o
   assert.deepEqual(textElements.map(element => element.text), ['À venda', 'Fale comigo\n(19) 99999-9999'])
   assert.equal(script.elements[0].volume, '100%')
   assert.equal(script.elements.some(element => element.type === 'audio'), false)
+})
+
+test('Short Videos controlled plan limits information and turns the last two seconds into the CTA screen', () => {
+  const shortBriefing = buildShortVideosStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
+    property: { purpose: 'sale', type: 'Apartamento', city: 'Cabo Frio', district: 'Centro', bedrooms: '2', suites: '1', parkingSpaces: '1' },
+    selectedCta: 'Entre em contato agora', phone: '(22) 99999-9999', videoPath: 'input.mp4', language: 'pt-BR',
+  })
+  const plan = buildShortVideosCaptionPlan(shortBriefing)
+  const script = buildSmartTourCaptionRenderScript('https://example.com/clean.mp4', shortBriefing, plan)
+  assert.ok(plan.blocks.filter(block => !block.isClosing).length <= 2)
+  assert.equal(plan.blocks.at(-1)?.texto, 'Entre em contato agora\n(22) 99999-9999')
+  assert.deepEqual(script.elements.slice(1).map(element => element.time), [0.4, 3.2, 8])
+  assert.equal(script.elements.at(-1)?.height, '70%')
 })
