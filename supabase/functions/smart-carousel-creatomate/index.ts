@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import {
   SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS,
   SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS,
@@ -378,7 +379,7 @@ CENTRAL DA CAMPANHA:
 - adapte Instagram, Facebook, WhatsApp e e-mail ao comportamento de cada canal;
 - LinkedIn deve ser vazio quando n\u00e3o houver contexto profissional, comercial, institucional ou de investimento confirmado;
 - n\u00e3o inclua telefone sem contact_authorized=true;
-- hashtags devem ser grupos inteligentes de descoberta: marca, localiza\u00e7\u00e3o, estilo de vida sustentado, nicho e inten\u00e7\u00e3o compat\u00edvel. Nunca apenas converta campos. Evite listas \u00f3bvias e repetitivas. Inclua sempre #SmartCorretorAI;
+- hashtags devem ser grupos inteligentes de descoberta: misture localiza\u00e7\u00e3o, tipo, finalidade, estilo de vida sustentado, diferenciais reais, inten\u00e7\u00e3o de busca e termos amplos, m\u00e9dios e espec\u00edficos. Gere de 12 a 15, varie entre im\u00f3veis semelhantes, nunca apenas converta campos, n\u00e3o repita e evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario. Inclua sempre #SmartCorretorAI no meio da lista, nunca no in\u00edcio ou no final;
 - CTAs devem variar conforme a estrat\u00e9gia e soar humanos;
 - revise silenciosamente cada sa\u00edda com a pergunta: \"Eu publicaria exatamente assim?\". Se n\u00e3o, reescreva antes de responder.
 
@@ -508,8 +509,17 @@ Responda somente com JSON valido no formato:
       },
     })
 
+    const campaigns = intelligence.campaigns.map(campaign => ({
+      ...campaign,
+      hashtags: normalizeOfficialHashtags(campaign.hashtags, {
+        purpose:facts.purpose, propertyType:facts.property_type, propertyStage:facts.property_stage,
+        city:facts.city, district:facts.district, state:facts.uf, bedrooms:facts.bedrooms,
+        suites:facts.suites, parkingSpaces:facts.parking_spaces, highlights:facts.highlights, cta:campaign.cta,
+      }),
+    }))
     return {
       ...intelligence,
+      campaigns,
       narration: resolvedNarration.narration,
       narrationHighlights: resolvedNarration.narrationHighlights,
     }

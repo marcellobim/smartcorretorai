@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 
@@ -841,6 +842,16 @@ function buildTextBriefing(briefing: JsonRecord) {
   }
 }
 
+function buildHeroHashtagContext(briefing: JsonRecord, textBriefing: JsonRecord, cta: string) {
+  const property = briefing.property && typeof briefing.property === 'object' ? briefing.property as JsonRecord : {}
+  return {
+    purpose:property.purpose, propertyType:textBriefing.tipo, propertyStage:textBriefing.estado_imovel,
+    city:property.city, district:property.neighborhood || property.district, state:property.state,
+    bedrooms:textBriefing.dormitorios, suites:textBriefing.suites, parkingSpaces:textBriefing.vagas,
+    highlights:textBriefing.destaques, cta,
+  }
+}
+
 function buildChannelCtaGuidance(destinationLabel: string) {
   const label = normalizeComparableText(destinationLabel)
 
@@ -883,12 +894,8 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
   const hashtagsRaw = Array.isArray(value.hashtags)
      ? value.hashtags.join(' ')
     : normalizeText(value.hashtags, 500)
-  const hashtags = hashtagsRaw
-    .split(/\s+/)
-    .map((item) => item.trim())
-    .filter((item) => /^#[A-Za-z0-9_]+$/.test(item))
-    .slice(0, 15)
-    .join(' ')
+  const hashtagContext = buildHeroHashtagContext(briefing, textBriefing, cta)
+  const hashtags = normalizeOfficialHashtags(hashtagsRaw, hashtagContext).join(' ')
 
   const texts: Record<string, string> = {
     instagram: normalizeText(value.instagram, 1600),
@@ -911,9 +918,7 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
   if (!texts.portal) {
     texts.portal = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao privilegiada'}, com diferenciais selecionados para uma divulgacao clara e profissional.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`
   }
-  if (!texts.hashtags) {
-    texts.hashtags = '#Imoveis #MercadoImobiliario #ImovelAVenda #CorretorDeImoveis #MorarBem'
-  }
+  if (!texts.hashtags) texts.hashtags = buildOfficialHashtags(hashtagContext).join(' ')
 
   return texts
 }
@@ -932,7 +937,7 @@ function buildFallbackHeroTexts(briefing: JsonRecord) {
     facebook: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com apresentacao clara, visual forte e convite para contato. ${cta}.${contactLine}`,
     cta,
     portal: `${tipo}${localizacao ? ` em ${localizacao}` : ''}, com apresentacao profissional e informacoes objetivas para interessados no imovel.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`,
-    hashtags: '#Imoveis #MercadoImobiliario #CorretorDeImoveis #ImovelAVenda #MorarBem',
+    hashtags: buildOfficialHashtags(buildHeroHashtagContext(briefing, textBriefing, cta)).join(' '),
   }
 }
 
@@ -961,7 +966,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
             'Escreva em portugues do Brasil, com linguagem comercial, clara e correta.',
             'Nao invente informacoes nao fornecidas. Nao invente CRECI, telefone, email, metro, escola, shopping, vista, lazer, financiamento ou condominio.',
             'Se houver telefone de contato no briefing, use exatamente o numero informado, sem alterar DDD, completar, encurtar ou reformatar. Se nao houver telefone, nao inclua nenhum numero de contato.',
-            'Hashtags devem ser sem acentos, sem termos estranhos e coerentes com o briefing.',
+            'Hashtags: gere de 12 a 15, sem acentos, naturais e coerentes com o briefing. Misture localizacao, tipo, finalidade, estilo de vida sustentado, diferenciais reais, intencao de busca e termos amplos, medios e especificos. Nao apenas coloque # na frente dos campos. Varie entre imoveis semelhantes, nao repita e evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario. Inclua #SmartCorretorAI no meio da lista, nunca no inicio ou no final.',
             'Sempre gere Instagram, WhatsApp, Facebook, CTA, portal e hashtags, mesmo que o pacote visual tenha sido ajustado.',
             'O CTA escolhido deve ser o eixo principal da campanha e aparecer de forma forte nos textos.',
             'Use emojis com bom gosto em Instagram e WhatsApp, sem exagero. Portal deve ter pouco ou nenhum emoji.',

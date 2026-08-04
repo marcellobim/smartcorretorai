@@ -1,12 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildOfficialHashtagGroups, buildOfficialHashtags } from '../../supabase/functions/_shared/official-hashtags.ts'
+import { buildOfficialHashtagGroups, buildOfficialHashtags, normalizeOfficialHashtags } from '../../supabase/functions/_shared/official-hashtags.ts'
 import { buildSmartTourCampaignPackage } from '../src/components/campaign/buildSmartTourCampaignPackage.js'
 
 const assertOfficialSet = (hashtags) => {
   assert.ok(hashtags.length >= 12 && hashtags.length <= 15)
   assert.equal(new Set(hashtags.map((tag) => tag.toLocaleLowerCase('pt-BR'))).size, hashtags.length)
   assert.ok(hashtags.includes('#SmartCorretorAI'))
+  const brandIndex = hashtags.indexOf('#SmartCorretorAI')
+  assert.ok(brandIndex > 0 && brandIndex < hashtags.length - 1)
 }
 
 const assertGroupLimits = (groups) => {
@@ -41,6 +43,17 @@ test('sale hashtags use structured context and never contradict the purpose', ()
   assert.ok(hashtags.includes('#AgendeSuaVisita'))
   assert.equal(hashtags.some((tag) => /aluguel|locacao|paraalugar/i.test(tag)), false)
   assert.equal(hashtags.some((tag) => /imovelavenda|vendadeimoveis/i.test(tag)), false)
+})
+
+test('normalizes OpenAI output, removes duplicates and limits excessive generic tags', () => {
+  const hashtags = normalizeOfficialHashtags([
+    '#Imoveis', '#CorretorDeImoveis', '#MercadoImobiliario', '#StudioNoKlabin',
+    '#StudioNoKlabin', '#ApartamentoParaAlugar', '#MorarNoKlabin', '#VidaEmSaoPaulo',
+    '#KlabinSP', '#SeuNovoEndereco', '#LocacaoSP', '#SmartCorretorAI', '#VistaLivre',
+  ], { purpose:'rent', propertyType:'Studio', city:'SÃ£o Paulo', district:'Klabin', state:'SP', highlights:['Vista livre'] })
+  assertOfficialSet(hashtags)
+  assert.equal(hashtags.filter(tag => ['#Imoveis','#CorretorDeImoveis','#MercadoImobiliario'].includes(tag)).length, 1)
+  assert.equal(hashtags.filter(tag => tag === '#StudioNoKlabin').length, 1)
 })
 
 test('rental hashtags never contain sale or purchase intent', () => {

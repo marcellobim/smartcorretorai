@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProduct3PurposeLabel, normalizeProduct3Purpose } from '../_shared/product3-contract.ts'
+import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,6 +57,11 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON
 
 REGRAS PARA HASHTAGS:
 - Gere de 12 a 15 hashtags relevantes, prontas para copiar.
+- Pense como um estrategista de marketing imobiliário: combine naturalmente localização, tipo, finalidade, estilo de vida sustentado, diferenciais reais e intenção de busca.
+- Misture hashtags amplas, médias e específicas sem apenas colocar # na frente dos campos recebidos.
+- Varie a seleção e as combinações entre imóveis semelhantes.
+- Não repita hashtags e evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario.
+- Inclua #SmartCorretorAI naturalmente no meio da lista, nunca no início ou no final.
 - Prefira hashtags sem acentos e sem cedilha: use #ImoveisSP, #SaoPauloImoveis, #ApartamentoAVenda.
 - Não use palavras estranhas, traduções ruins ou termos inexistentes como #AparelhoImobiliario.
 - Não use Premium, Luxo, AltoPadrao ou similares se a categoria/perfil não for luxo, alto padrão ou premium.
@@ -388,7 +394,10 @@ serve(async (req) => {
       const extracted = postInstagram.match(/#[\p{L}\p{N}_]+/gu) || []
       textos_gerados.hashtags = extracted.slice(0, 20)
     }
-    textos_gerados.hashtags = normalizeHashtags(textos_gerados.hashtags, dadosObj, tipo, categoria)
+    textos_gerados.hashtags = normalizeOfficialHashtags(
+      normalizeHashtags(textos_gerados.hashtags, dadosObj, tipo, categoria),
+      { purpose:dadosObj.finalidade ?? dadosObj.negocio, propertyType:tipo ?? dadosObj.tipo, propertyStage:dadosObj.situacao ?? dadosObj.disponibilidade, city:dadosObj.cidade, district:dadosObj.bairro, state:dadosObj.estado ?? dadosObj.uf, bedrooms:dadosObj.quartos ?? dadosObj.dormitorios, suites:dadosObj.suites, parkingSpaces:dadosObj.vagas, highlights:dadosObj.diferenciais, cta:textos_gerados.cta },
+    )
     const whatsappText = String(textos_gerados.mensagem_whatsapp || '')
     if (/\b(estou|tenho)\s+(interessad[oa]|interesse)\b/i.test(whatsappText)) {
       textos_gerados.mensagem_whatsapp = buildWhatsappFallback(dadosObj, tipo)
