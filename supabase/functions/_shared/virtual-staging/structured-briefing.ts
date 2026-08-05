@@ -396,8 +396,30 @@ const commercialHighlights = (property: PropertyContext) => {
   return { location, condominium, differentials }
 }
 
-const commercialCaption = (blockNumber: number, property: PropertyContext) => {
-  if (blockNumber === 1) return unique([literal(property.district), literal(property.city)]).join(' • ')
+const purposePresentation = (value: unknown) => {
+  const normalized = literal(value).toLocaleLowerCase('pt-BR')
+  if (normalized === 'sale') return 'À venda'
+  if (normalized === 'rent') return 'Para alugar'
+  return ''
+}
+
+const narrationWithPurpose = (text: string, displayedPurpose: string) => {
+  if (!text || !displayedPurpose) return text
+  const normalized = text.toLocaleLowerCase('pt-BR')
+  if (displayedPurpose === 'À venda' && normalized.includes('à venda')) return text
+  if (displayedPurpose === 'Para alugar') {
+    if (normalized.includes('para alugar')) return text
+    if (normalized.includes('para locação')) return text.replace(/para locação/giu, 'para alugar')
+  }
+  return `${displayedPurpose}. ${text}`
+}
+
+const commercialCaption = (blockNumber: number, property: PropertyContext, includePurposePresentation = true) => {
+  if (blockNumber === 1) {
+    const location = unique([literal(property.district), literal(property.city)]).join(' • ')
+    const displayedPurpose = includePurposePresentation ? purposePresentation(property.purpose) : ''
+    return [displayedPurpose, location].filter(Boolean).join('\n')
+  }
   if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property)]).join('\n')
   if (blockNumber === 3) {
     const highlights = commercialHighlights(property)
@@ -442,6 +464,9 @@ export function buildSmartTourStructuredBriefing(input: {
   const requiresCommercialPurpose = Boolean(lifeScene || input.presenterReference)
   const purposeOpening = requiresCommercialPurpose ? lifeSceneOpeningNarration(input.property, input.language) : ''
   const purposeCaption = requiresCommercialPurpose ? lifeScenePurpose(input.property.purpose)?.caption || '' : ''
+  const displayedPurpose = !requiresCommercialPurpose && input.language === 'pt-BR'
+    ? purposePresentation(input.property.purpose)
+    : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths, presenterReference: input.presenterReference })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
     const phrase = config.narration === 'enabled'
@@ -449,18 +474,21 @@ export function buildSmartTourStructuredBriefing(input: {
           ? lifeSceneNarration(block.bloco, input.property, input.language)
           : selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` }))
       : { id: '', texto: '' }
-    return { ...block, texto: phrase.texto, frase_id: phrase.id }
+    const texto = !requiresCommercialPurpose && block.bloco === 1
+      ? narrationWithPurpose(phrase.texto, displayedPurpose)
+      : phrase.texto
+    return { ...block, texto, frase_id: phrase.id }
   })
   const captionBlocks = requiresCommercialPurpose ? LIFE_SCENE_CAPTION_TIMELINE : TEXT_TIMELINE.slice(0, 4)
   const captionTimeline = captionBlocks.map(block => ({
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
-    texto: config.captions === 'enabled'
-      ? (requiresCommercialPurpose
-          ? lifeSceneCommercialCaption(block.bloco, input.property)
-          : commercialCaption(block.bloco, input.property))
-      : '',
+    texto: requiresCommercialPurpose
+      ? (config.captions === 'enabled' ? lifeSceneCommercialCaption(block.bloco, input.property) : '')
+      : (block.bloco === 1 && displayedPurpose
+          ? (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : displayedPurpose)
+          : (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : '')),
   }))
   const ctaTimeline = {
     bloco: requiresCommercialPurpose ? 6 : 5,
@@ -480,11 +508,18 @@ export function buildSmartTourStructuredBriefing(input: {
           ? { id: lifeScene ? 'LIFE_PURPOSE_OPENING' : 'BROKER_COMMERCIAL_OPENING', texto: purposeOpening }
           : selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` }))
       : { id: '', texto: '' }
+    const narration = !requiresCommercialPurpose && sceneNumber === 1
+      ? narrationWithPurpose(phrase.texto, displayedPurpose)
+      : phrase.texto
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (config.captions === 'enabled'
-          ? (sceneNumber === 1 && purposeCaption ? purposeCaption : commercialCaption(sceneNumber, input.property))
-          : '')
+      : (requiresCommercialPurpose
+          ? (config.captions === 'enabled'
+              ? (sceneNumber === 1 && purposeCaption ? purposeCaption : commercialCaption(sceneNumber, input.property, false))
+              : '')
+          : (sceneNumber === 1 && displayedPurpose
+              ? (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : displayedPurpose)
+              : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : '')))
     return {
       numero: sceneNumber,
       tipo,
@@ -492,7 +527,7 @@ export function buildSmartTourStructuredBriefing(input: {
       imagem: image,
       movimento: MOVEMENTS[index % MOVEMENTS.length],
       legenda,
-      narracao: phrase.texto,
+      narracao: narration,
       duracaoNarracaoSegundos: config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
       tempoTelefoneVisivelAposNarracaoSegundos: isLast && Boolean(phone) ? 0.8 : 0,
     } as SmartTourStructuredBriefing['cenas'][number]
@@ -570,7 +605,7 @@ export function buildSmartTourStructuredBriefing(input: {
       cta: ctaTimeline,
     },
     legendas: {
-      ativas: config.captions === 'enabled' || Boolean(ctaTitle),
+      ativas: config.captions === 'enabled' || Boolean(ctaTitle) || Boolean(displayedPurpose),
     },
     cta: { titulo: ctaTitle, telefone: phone },
     regrasPreservacao: {

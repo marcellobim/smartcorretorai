@@ -32,7 +32,7 @@ test('provides reusable Hero, card, progress, grid, heading and summary componen
 
 test('applies the new foundation only to the Reimagine AI pilot', () => {
   assert.match(virtualStaging, /<ProductHero[\s\S]*visual=\{<FurnishReimagineComparison \/>\}/)
-  assert.match(virtualStaging, /<ProductSteps steps=\{\[[\s\S]*title: 'Fotos'[\s\S]*title: 'Criar'/)
+  assert.match(virtualStaging, /const journeySteps = isFurnishRenovate[\s\S]*\['Fotos', 'Imóvel', 'Estilo', 'Revisão', 'Criar'\][\s\S]*\.map\(title => \(\{ title, subtitle: '' \}\)\)/)
   assert.match(virtualStaging, /designSystem=\{isFurnishRenovate\}/)
   assert.match(conversation, /designSystem = false/)
   assert.match(conversation, /designSystem \? <ProductFlowLayout/)

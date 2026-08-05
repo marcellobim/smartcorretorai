@@ -11,13 +11,15 @@ const read = relativePath => readFileSync(path.join(frontendRoot, relativePath),
 const hook = read('src/hooks/useGuidedConversation.js')
 const sharedUi = read('src/components/conversation/GuidedConversation.jsx')
 const smartTour = read('src/pages/SmartTourAI.jsx')
+const smartTourForm = read('src/config/smartTourForm.js')
 const smartCarousel = read('src/pages/SmartCarrossel.jsx')
 
 test('supports Venda and Locação with purpose-specific confirmations', () => {
   for (const value of ['Venda', 'Locação']) assert.ok(smartTour.includes(value) && smartCarousel.includes(value))
   assert.match(smartTour, /divulgar a locação/)
   assert.match(smartCarousel, /apoiar a venda/)
-  assert.match(smartTour, /property\.purpose === 'rent' \? \['Pronto para mudar'\]/)
+  assert.match(smartTour, /getSmartTourStageOptions\(property\.purpose, STAGES\)/)
+  assert.match(smartTourForm, /SMART_TOUR_RENTAL_STAGES = Object\.freeze\(\['Pronto para morar', 'Disponível já', 'Vago'\]\)/)
   assert.match(smartTour, /Valor da locação/)
 })
 
