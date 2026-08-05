@@ -726,6 +726,7 @@ const normalizeRenderStatus = (status) => String(status || 'planned').toLowerCas
 const getRenderStatusLabel = (status) => RENDER_STATUS_LABELS[normalizeRenderStatus(status)] || 'Processando'
 const MISSING_RENDER_ERROR = 'Não foi possível iniciar esta peça. Tente novamente.'
 const BANNER_BATCH_ERROR = 'Materiais visuais não foram iniciados agora. Tente gerar novamente em alguns instantes.'
+const CAMPAIGN_GENERATION_ERROR = 'Não foi possível concluir a geração agora. Revise os dados e tente novamente.'
 const hasRenderProcessingEvidence = (render) => Boolean(
   render?.render_id
   || render?.render_job_id
@@ -2024,6 +2025,9 @@ export default function NovaCampanha() {
   const [requestedVisualPieces, setRequestedVisualPieces] = useState([])
   const [gerandoBanners, setGerandoBanners] = useState(false)
   const [generationNotice, setGenerationNotice] = useState('')
+  const [generationError, setGenerationError] = useState('')
+  const [generationInFlight, setGenerationInFlight] = useState(false)
+  const generationInFlightRef = useRef(false)
   const [downloadingRenderKey, setDownloadingRenderKey] = useState('')
   const [downloadingAllRenders, setDownloadingAllRenders] = useState(false)
   const renderPollRef = useRef(null)
@@ -2331,7 +2335,7 @@ export default function NovaCampanha() {
     setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setProduct3UseProfessionalPhone(''); setFotos([]); setVideoArquivo(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
-    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setProductFlowStep(targetStep); setBannerChatStep('purpose'); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
+    setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setGenerationError(''); setProductFlowStep(targetStep); setBannerChatStep('purpose'); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
     clearInterval(renderPollRef.current)
   }
 
@@ -2347,6 +2351,7 @@ export default function NovaCampanha() {
     setRequestedVisualPieces([])
     setGerandoBanners(false)
     setGenerationNotice('')
+    setGenerationError('')
     clearInterval(renderPollRef.current)
   }
 
@@ -2376,10 +2381,14 @@ export default function NovaCampanha() {
   //  Se falhar, continua sem fotos e avisa o usuário.
   // ══════════════════════════════════════════════════════════
   const gerarAnuncios = async () => {
+    if (generationInFlightRef.current) return
+    generationInFlightRef.current = true
+    setGenerationInFlight(true)
     setShowConfirm(false)
     setFase('gerando')
     setMsgIdx(0)
     setGenerationNotice('')
+    setGenerationError('')
 
     try {
       const todosDisferenciais = destaquesProduto3
@@ -2437,24 +2446,24 @@ export default function NovaCampanha() {
           try {
             const { error: upErr } = await uploadComTimeout(path, blob, f.tipo)
             if (upErr) {
-              console.error(`[upload] foto ${i + 1} tentativa ${tentativa} falhou:`, upErr.message)
+              if (import.meta.env.DEV) console.error(`[upload] foto ${i + 1} tentativa ${tentativa} falhou`)
               continue
             }
             if (!path.startsWith(`${userId}/`)) {
-              console.error(`[upload] foto ${i + 1} caminho invalido`)
+              if (import.meta.env.DEV) console.error(`[upload] foto ${i + 1} caminho inválido`)
               continue
             }
             const { data: signed, error: signedErr } = await supabase.storage
               .from('smartcorretor-assets')
               .createSignedUrl(path, 60 * 60 * 24)
             if (signedErr) {
-              console.error(`[upload] foto ${i + 1} assinatura falhou:`, signedErr.message)
+              if (import.meta.env.DEV) console.error(`[upload] foto ${i + 1} assinatura falhou`)
               continue
             }
             url = signed.signedUrl
             break
-          } catch (uploadErr) {
-            console.error(`[upload] foto ${i + 1} tentativa ${tentativa} erro/timeout:`, uploadErr?.message || 'erro desconhecido')
+          } catch {
+            if (import.meta.env.DEV) console.error(`[upload] foto ${i + 1} tentativa ${tentativa} falhou ou expirou`)
           }
         }
         if (url) fotos_urls.push(url)
@@ -2470,7 +2479,6 @@ export default function NovaCampanha() {
         video_ia_premium: generationHasPremiumVideo,
         idempotency_key: idempotencyKey,
       }
-      // ── Disparar gerar-campanha E gerar-banners EM PARALELO (mesmo clique) ──
       // Inputs derivados do formulário para o gerar-banners (não dependem do AI ainda)
       const enderecoCompleto = [bairroNormalizado, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
@@ -2511,12 +2519,11 @@ export default function NovaCampanha() {
       const fotoPrincipal = fotosOrdenadas[0] || null
       const campaignPropertyInput = buildCampaignPropertyInput(fotosOrdenadas)
 
-      setGerandoBanners(true)
       setRenders(null)
       setRequestedVisualPieces(selectedTemplates)
 
-      // Só dispara gerar-banners se o usuário escolheu pelo menos 1 template.
-      const bannersInvoke = selectedTemplates.length > 0
+      // A criação visual só é iniciada depois que a campanha indispensável é validada.
+      const invokeBanners = () => selectedTemplates.length > 0
         ? supabase.functions.invoke('gerar-banners', {
             headers: { Authorization: `Bearer ${token}` },
             body: {
@@ -2553,7 +2560,7 @@ export default function NovaCampanha() {
           })
         : Promise.resolve({ data: { renders: [], skipped: true }, error: null })
 
-      const [campaignResult, bannersResult] = await Promise.allSettled([
+      const [campaignResult] = await Promise.allSettled([
         supabase.functions.invoke('gerar-campanha', {
           headers: { Authorization: `Bearer ${token}` },
           body: {
@@ -2586,7 +2593,6 @@ export default function NovaCampanha() {
             redes_sociais: ['instagram_feed', 'instagram_stories', 'whatsapp', 'facebook', 'tiktok'],
           },
         }),
-        bannersInvoke,
       ])
 
       // ── Processar resultado da CAMPANHA (textos) ──
@@ -2594,10 +2600,10 @@ export default function NovaCampanha() {
       let partialCampaignWarning = ''
       if (campaignResult.status === 'rejected') {
         const errBody = await readFunctionErrorBody(campaignResult.reason)
-        console.error('[gerar-campanha] rejeitado:', campaignResult.reason?.message || 'erro desconhecido')
+        if (import.meta.env.DEV) console.error('[gerar-campanha] falha controlada')
         if (errBody?.textos) {
           campaignData = { textos: errBody.textos, error: errBody.error }
-          partialCampaignWarning = errBody.error || 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
+          partialCampaignWarning = 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
         } else {
           throw new Error(errBody?.error || campaignResult.reason?.message || 'Erro ao gerar campanha')
         }
@@ -2605,10 +2611,10 @@ export default function NovaCampanha() {
         const { data, error } = campaignResult.value
         if (error) {
           const errBody = await readFunctionErrorBody(error)
-          console.error('[gerar-campanha] erro:', error?.message || 'erro desconhecido')
+          if (import.meta.env.DEV) console.error('[gerar-campanha] resposta de erro controlada')
           if (errBody?.textos) {
             campaignData = { textos: errBody.textos, error: errBody.error }
-            partialCampaignWarning = errBody.error || 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
+            partialCampaignWarning = 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
           } else {
             throw new Error(errBody?.error || error.message || 'Erro desconhecido')
           }
@@ -2645,18 +2651,20 @@ export default function NovaCampanha() {
       }
       setFase('resultado')
 
+      setGerandoBanners(selectedTemplates.length > 0)
+      const [bannersResult] = await Promise.allSettled([invokeBanners()])
+
       // ── Processar resultado dos BANNERS (renders) ──
       if (bannersResult.status === 'fulfilled') {
         const { data: bData, error: bError } = bannersResult.value
         if (bError) {
-          const edgeErrorBody = await readFunctionErrorBody(bError)
-          console.error('[gerar-banners] erro:', bError?.message || 'erro desconhecido')
+          if (import.meta.env.DEV) console.error('[gerar-banners] resposta de erro controlada')
           setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
             missingStatus: 'failed',
             missingErrorMessage: BANNER_BATCH_ERROR,
           }))
           setGenerationNotice('Textos IA gerados. Materiais visuais não foram iniciados agora; tente gerar novamente em alguns instantes.')
-          toast.error(edgeErrorBody?.error || 'Falha ao gerar banners (textos OK)')
+          toast.error('Textos gerados, mas os materiais visuais não foram iniciados.')
         } else if (bData?.renders?.length) {
           const rs = bData.renders
           const normalizedRenders = mergeRequestedVisualPieces(selectedTemplates, rs, {
@@ -2676,11 +2684,11 @@ export default function NovaCampanha() {
               .update({ banners: rs })
               .eq('id', camp.id)
               .then(({ error: updErr }) => {
-                if (updErr) console.warn('[link banners] falhou:', updErr.message)
+                if (updErr && import.meta.env.DEV) console.warn('[link banners] falha controlada')
               })
           }
         } else {
-          console.warn('[gerar-banners] sem renders no retorno')
+          if (import.meta.env.DEV) console.warn('[gerar-banners] retorno sem renders')
           setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
             missingStatus: 'failed',
             missingErrorMessage: MISSING_RENDER_ERROR,
@@ -2688,24 +2696,26 @@ export default function NovaCampanha() {
           setGenerationNotice('Textos IA gerados. Nenhum material visual foi retornado ainda.')
         }
       } else {
-        const edgeErrorBody = await readFunctionErrorBody(bannersResult.reason)
-        console.error('[gerar-banners] rejeitado:', bannersResult.reason?.message || 'erro desconhecido')
+        if (import.meta.env.DEV) console.error('[gerar-banners] falha controlada')
         setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
           missingStatus: 'failed',
           missingErrorMessage: BANNER_BATCH_ERROR,
         }))
         setGenerationNotice('Textos IA gerados. Materiais visuais não foram iniciados agora; tente gerar novamente em alguns instantes.')
-        toast.error(edgeErrorBody?.error || 'Falha ao gerar banners (textos OK)')
+        toast.error('Textos gerados, mas os materiais visuais não foram iniciados.')
       }
 
       setGerandoBanners(false)
       setTimeout(() => setShowAgendamento(true), 1800)
 
-    } catch (err) {
-      console.error('[gerarAnuncios] erro:', err?.message || 'erro desconhecido')
-      toast.error(err.message || 'Erro ao gerar campanha')
+    } catch {
+      if (import.meta.env.DEV) console.error('[gerarAnuncios] falha controlada')
+      setGenerationError(CAMPAIGN_GENERATION_ERROR)
+      toast.error(CAMPAIGN_GENERATION_ERROR)
+    } finally {
+      generationInFlightRef.current = false
+      setGenerationInFlight(false)
       setGerandoBanners(false)
-      setFase('form')
     }
   }
 
@@ -3639,8 +3649,8 @@ export default function NovaCampanha() {
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                 Cancelar
               </button>
-              <button onClick={gerarAnuncios}
-                className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              <button onClick={gerarAnuncios} disabled={generationInFlight}
+                className="flex-1 py-2.5 rounded-xl gradient-primary text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
                 <Sparkles className="w-4 h-4" />
                 Gerar
               </button>
@@ -4042,17 +4052,33 @@ export default function NovaCampanha() {
 
         {fase === 'gerando' && (
           <div className="card p-14 text-center animate-fade-in">
-            <div className={`w-24 h-24 bg-gradient-to-br ${catAtual?.cor || 'from-primary-500 to-primary-400'} rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-2xl`}>
-              <span className="text-5xl">{catAtual?.icon || '✨'}</span>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Criando sua campanha...</h2>
-            <p className="text-primary-600 font-semibold text-lg min-h-[28px]" key={msgIdx}>{msgs[msgIdx]}</p>
-            <p className="text-gray-400 text-sm mt-3">A IA está pesquisando o bairro e criando textos personalizados</p>
-            <div className="mt-8 flex justify-center gap-2">
-              {[0,1,2,3].map(i => (
-                <div key={i} className="w-2.5 h-2.5 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.18}s` }} />
-              ))}
-            </div>
+            {generationError ? (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">A geração não foi concluída</h2>
+                <p className="text-gray-600 font-semibold text-base">{generationError}</p>
+                <button
+                  type="button"
+                  onClick={() => { setGenerationError(''); setFase('form') }}
+                  className="mt-8 rounded-xl bg-primary-700 px-5 py-3 text-sm font-bold text-white hover:bg-primary-800"
+                >
+                  Voltar e revisar dados
+                </button>
+              </>
+            ) : (
+              <>
+                <div className={`w-24 h-24 bg-gradient-to-br ${catAtual?.cor || 'from-primary-500 to-primary-400'} rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse shadow-2xl`}>
+                  <span className="text-5xl">{catAtual?.icon || '✨'}</span>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Criando sua campanha...</h2>
+                <p className="text-primary-600 font-semibold text-lg min-h-[28px]" key={msgIdx}>{msgs[msgIdx]}</p>
+                <p className="text-gray-400 text-sm mt-3">A IA está pesquisando o bairro e criando textos personalizados</p>
+                <div className="mt-8 flex justify-center gap-2">
+                  {[0,1,2,3].map(i => (
+                    <div key={i} className="w-2.5 h-2.5 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.18}s` }} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
