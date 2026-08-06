@@ -52,7 +52,7 @@ function CopyButton({ value, label = 'Copiar', copyKey, copiedKey, onCopy }) {
   )
 }
 
-const READY_MEDIA_STATUSES = new Set(['succeeded', 'completed'])
+const READY_MEDIA_STATUSES = new Set(['succeeded', 'completed', 'concluída'])
 const FAILED_MEDIA_STATUSES = new Set(['failed', 'error', 'canceled', 'timeout'])
 const normalizeMediaStatus = value => String(value || 'planned').toLocaleLowerCase('pt-BR')
 
