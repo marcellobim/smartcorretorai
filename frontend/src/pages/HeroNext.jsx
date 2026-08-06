@@ -16,6 +16,9 @@ import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
+import { ProductButton } from '../components/design-system'
+import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
+import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import HeroShowcase from '../components/hero/HeroShowcase'
 import { useAuth } from '../lib/auth-context'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
@@ -1335,26 +1338,11 @@ function TextBlock({ title, content, filename }) {
 }
 
 function AssistantBubble({ children }) {
-  return (
-    <div className="flex gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm shadow-emerald-200">
-        <Sparkles className="h-4 w-4" />
-      </div>
-      <div className="max-w-2xl rounded-3xl rounded-tl-md bg-white px-5 py-4 shadow-sm ring-1 ring-emerald-100">
-        <p className="text-sm font-bold leading-relaxed text-slate-800">{children}</p>
-      </div>
-    </div>
-  )
+  return <ConversationAssistantBubble accent="emerald">{children}</ConversationAssistantBubble>
 }
 
-function UserBubble({ children }) {
-  return (
-    <div className="flex justify-end">
-      <div className="max-w-2xl rounded-3xl rounded-tr-md bg-emerald-700 px-5 py-4 text-white shadow-sm shadow-emerald-200">
-        <p className="text-sm font-bold leading-relaxed">{children}</p>
-      </div>
-    </div>
-  )
+function UserBubble({ children, actions }) {
+  return <ConversationUserBubble actions={actions}>{children}</ConversationUserBubble>
 }
 
 const HERO_CONVERSATION_INITIAL_DELAY_MS = 350
@@ -2319,38 +2307,39 @@ export default function HeroNext() {
 
     if (currentQuestion.id === 'city') {
       return (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="space-y-2 text-sm font-black text-slate-700">
-            <span>Estado</span>
-            <select
+        <div className="mt-4 space-y-4">
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Estado</p>
+            <SmartLocationSelect
               autoFocus
+              accent="primary"
+              ariaLabel="Estado"
               value={cityUf}
-              onChange={(event) => {
-                setCityUf(event.target.value)
+              onChange={(nextUf) => {
+                setCityUf(nextUf)
                 setCitySelection('')
               }}
-              className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">Selecione o estado</option>
               {HERO_STATE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-black text-slate-700">
-            <span>Cidade</span>
-            <select
+            </SmartLocationSelect>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
+            <SmartLocationSelect
+              accent="primary"
+              ariaLabel="Cidade"
               value={citySelection}
               disabled={!cityUf || citiesLoading}
-              onChange={(event) => {
-                const nextCity = event.target.value
+              onChange={(nextCity) => {
                 setCitySelection(nextCity)
                 if (nextCity) commitAnswer(currentQuestion.id, nextCity)
               }}
-              className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
             >
               <option value="">{citiesLoading ? 'Carregando cidades...' : 'Selecione a cidade'}</option>
               {cities.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </label>
+            </SmartLocationSelect>
+          </div>
         </div>
       )
     }
@@ -2358,16 +2347,30 @@ export default function HeroNext() {
     if (currentQuestion.type === 'text') {
       return (
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <input
-            autoFocus
-            value={textDraft}
-            onChange={(event) => setTextDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commitAnswer(currentQuestion.id, textDraft)
-            }}
-            placeholder={currentQuestion.placeholder}
-            className="min-h-12 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
-          />
+          {['neighborhood', 'neighborhoods'].includes(currentQuestion.id) ? (
+            <SmartLocationTextInput
+              autoFocus
+              accent="primary"
+              ariaLabel={currentQuestion.id === 'neighborhood' ? 'Bairro' : 'Bairros'}
+              value={textDraft}
+              onChange={(event) => setTextDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitAnswer(currentQuestion.id, textDraft)
+              }}
+              placeholder={currentQuestion.placeholder}
+            />
+          ) : (
+            <input
+              autoFocus
+              value={textDraft}
+              onChange={(event) => setTextDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitAnswer(currentQuestion.id, textDraft)
+              }}
+              placeholder={currentQuestion.placeholder}
+              className="min-h-12 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+            />
+          )}
           <Button type="button" onClick={() => commitAnswer(currentQuestion.id, textDraft)} disabled={!textDraft.trim()}>
             <Send className="h-4 w-4" />
             Enviar
@@ -2520,25 +2523,24 @@ export default function HeroNext() {
         )}
 
         {phase === 'chat' && (
-          <section className="mt-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
-            <header className="border-b border-slate-100 px-5 py-5 sm:px-8">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Conversa guiada</p>
-                  <h2 className="mt-1 text-2xl font-black text-slate-950">Conte sobre sua campanha</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">Uma pergunta por vez. Você pode revisar qualquer resposta.</p>
+          <section data-smart-conversation className="mt-6 overflow-visible">
+            <div className="mb-5">
+              <ConversationHeader
+                eyebrow="Conversa guiada"
+                title="Conte sobre sua campanha"
+                description="Uma pergunta por vez. Você pode revisar qualquer resposta."
+                accent="emerald"
+                trailing={<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>}
+              />
+            </div>
+            <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="min-w-0">
+                <div className="mb-4">
+                  <ProductButton type="button" variant="secondary" onClick={goBackInChat} disabled={conversationBusy}>Voltar</ProductButton>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>
-              </div>
-            </header>
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_330px]">
-              <div className="min-w-0 bg-[linear-gradient(180deg,#f8fffb_0%,#ffffff_100%)] p-5 sm:p-8">
-                <div className="mb-5">
-                  <Button type="button" variant="secondary" onClick={goBackInChat} disabled={conversationBusy}>Voltar</Button>
-                </div>
-                <div className="space-y-5">
+                <div className="min-w-0 space-y-4" aria-live="polite">
                   {!conversationOpeningComplete && (
-                    <div ref={activeQuestionRef} aria-live="polite" aria-busy="true" className="scroll-mt-6 space-y-3">
+                    <div ref={activeQuestionRef} aria-busy="true" className="scroll-mt-6 space-y-4">
                       {renderConversationQueue()}
                     </div>
                   )}
@@ -2548,43 +2550,50 @@ export default function HeroNext() {
                       <AssistantBubble>Vamos criar sua campanha de {getGoalLabel(goal).toLowerCase()} juntos.</AssistantBubble>
                       <AssistantBubble>Vou fazer algumas perguntas rápidas e organizar tudo para você.</AssistantBubble>
                       {chatFlow.slice(0, chatIndex).map((question, index) => (
-                        <div key={question.id} className="space-y-3">
+                        <div key={question.id} className="space-y-4">
                           {getConversationTransition(question, index, chatFlow.length) && (
                             <AssistantBubble>{getConversationTransition(question, index, chatFlow.length)}</AssistantBubble>
                           )}
                           <AssistantBubble>{question.question}</AssistantBubble>
-                          <div className="flex items-start justify-end gap-2">
-                            <button type="button" onClick={() => goToQuestion(index)} disabled={conversationBusy} className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">Editar</button>
-                            <UserBubble>{formatAnswer(answers[question.id])}</UserBubble>
-                          </div>
-                          <AssistantBubble>{getConversationConfirmation(question, answers[question.id], index)}</AssistantBubble>
+                          <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} disabled={conversationBusy} className="mt-2 inline-flex items-center text-xs font-black text-emerald-200 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">Editar</button>}>
+                            {formatAnswer(answers[question.id])}
+                          </UserBubble>
+                          <ConversationAssistantBubble accent="emerald" confirmation>{getConversationConfirmation(question, answers[question.id], index)}</ConversationAssistantBubble>
                         </div>
                       ))}
                       {currentQuestion && (
-                        <div ref={activeQuestionRef} aria-live="polite" aria-busy={conversationBusy} className="scroll-mt-6 space-y-3">
+                        <div ref={activeQuestionRef} aria-busy={conversationBusy} className="scroll-mt-6 space-y-4">
                           {getConversationTransition(currentQuestion, chatIndex, chatFlow.length) && (
                             <AssistantBubble>{getConversationTransition(currentQuestion, chatIndex, chatFlow.length)}</AssistantBubble>
                           )}
-                          <AssistantBubble>{currentQuestion.question}</AssistantBubble>
                           {pendingConversationAnswer ? (
                             <>
+                              <AssistantBubble>{currentQuestion.question}</AssistantBubble>
                               <UserBubble>{formatAnswer(pendingConversationAnswer.value)}</UserBubble>
                               {renderConversationQueue()}
                             </>
-                          ) : renderQuestionControls()}
+                          ) : (
+                            <ConversationQuestionCard
+                              accent="emerald"
+                              label={`${Math.min(chatIndex + 1, chatFlow.length)} de ${chatFlow.length}`}
+                              title={currentQuestion.question}
+                            >
+                              {renderQuestionControls()}
+                            </ConversationQuestionCard>
+                          )}
                         </div>
                       )}
                     </>
                   )}
                 </div>
               </div>
-              <aside className="border-t border-slate-100 bg-slate-50/80 p-5 lg:border-l lg:border-t-0 sm:p-6">
+              <aside className="rounded-3xl bg-white/80 p-4 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70 backdrop-blur-sm lg:sticky lg:top-6 lg:self-start">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Resumo ao vivo</p>
                 <h3 className="mt-1 text-lg font-black text-slate-950">Sua campanha</h3>
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm"><strong className="text-slate-950">Objetivo</strong><p className="mt-1 font-semibold text-slate-600">{getGoalLabel(goal)}</p></div>
+                <div className="mt-4 space-y-2 rounded-2xl bg-slate-50/90 p-2">
+                  <div className="rounded-xl px-2 py-2 text-sm"><strong className="text-slate-950">Objetivo</strong><p className="mt-1 font-semibold text-slate-600">{getGoalLabel(goal)}</p></div>
                   {chatFlow.slice(0, chatIndex).map((question, index) => answers[question.id] ? (
-                    <div key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+                    <div key={question.id} className="rounded-xl px-2 py-2 text-sm transition hover:bg-primary-50">
                       <div className="flex items-start justify-between gap-3"><p className="min-w-0"><strong className="text-slate-950">{question.question}</strong><span className="mt-1 block break-words font-semibold text-slate-600">{formatAnswer(answers[question.id])}</span></p><button type="button" onClick={() => goToQuestion(index)} className="shrink-0 text-xs font-black text-emerald-700">Editar</button></div>
                     </div>
                   ) : null)}
