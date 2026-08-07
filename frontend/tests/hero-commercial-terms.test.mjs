@@ -37,7 +37,7 @@ test('locação permanece fora da funcionalidade no frontend e backend', () => {
   assert.match(backend, /campaignObjective === 'venda' && isCommercialTermsStage\(payload\.property_stage\)/)
 })
 
-test('os quatro campos são opcionais e não entram na validação como obrigatórios', () => {
+test('os três campos são opcionais e não entram na validação como obrigatórios', () => {
   assert.equal((frontendFields.match(/\(opcional\)/g) || []).length, 0)
   assert.match(frontend, /\{label\} <span className="font-semibold text-gray-400">\(opcional\)<\/span>/)
   assert.match(frontend, /saleValueMode === 'conditions' && \(saleConditions\.length > 0 \|\| commercialTermsEnabled\)/)
@@ -53,8 +53,12 @@ test('é possível informar somente Entrada', () => {
   assert.match(frontendFields, /id: 'entry_amount'[\s\S]*?prefix: 'Entrada de'/)
 })
 
-test('qualquer combinação dos quatro campos é preservada independentemente', () => {
-  for (const field of ['starting_price', 'entry_amount', 'monthly_amount', 'annual_amount']) {
+test('é possível informar somente Anuais', () => {
+  assert.match(frontendFields, /id: 'annual_amount'[\s\S]*?prefix: 'Anuais de'/)
+})
+
+test('qualquer combinação dos três campos é preservada independentemente', () => {
+  for (const field of ['entry_amount', 'monthly_amount', 'annual_amount']) {
     assert.match(frontendFields, new RegExp(`id: '${field}'`))
     assert.match(backendFields, new RegExp(`${field}:`))
   }
@@ -67,9 +71,22 @@ test('valores ausentes não são inventados nem enviados', () => {
   assert.match(backend, /Nao invente, complete ou combine valores ausentes/)
 })
 
-test('backend aceita somente os quatro campos estruturados permitidos', () => {
+test('preço permanece exclusivamente no fluxo existente', () => {
+  assert.match(frontend, /\['fixed', 'Preço fixo'\]/)
+  assert.match(frontend, /\['starting_at', 'A partir de'\]/)
+  assert.match(frontend, /htmlFor="sale-price">Valor<\/label>/)
+  assert.doesNotMatch(frontendFields, /starting_price/)
+  assert.doesNotMatch(backendFields, /starting_price/)
+})
+
+test('interface usa a orientação comercial aprovada', () => {
+  assert.match(frontend, /Adicione chamadas comerciais ao banner, se quiser\./)
+  assert.doesNotMatch(frontend, /Chamadas opcionais para o empreendimento, sem montar tabela de pagamento\./)
+})
+
+test('backend aceita somente os três campos estruturados permitidos', () => {
   const allowed = [...backendFields.matchAll(/^\s+([a-z_]+):/gm)].map((match) => match[1])
-  assert.deepEqual(allowed, ['starting_price', 'entry_amount', 'monthly_amount', 'annual_amount'])
+  assert.deepEqual(allowed, ['entry_amount', 'monthly_amount', 'annual_amount'])
   assert.match(backend, /Object\.keys\(COMMERCIAL_TERM_LABELS\)/)
   assert.match(backend, /String\(source\[field\] \?\? ''\)\.replace\(\/\\D\/g, ''\)\.slice\(0, 12\)/)
 })

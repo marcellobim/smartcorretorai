@@ -320,7 +320,6 @@ function formatValueConditionDetails(details: unknown, mode: string, label: stri
 }
 
 const COMMERCIAL_TERM_LABELS = {
-  starting_price: 'A partir de',
   entry_amount: 'Entrada de',
   monthly_amount: 'Mensais a partir de',
   annual_amount: 'Anuais de',

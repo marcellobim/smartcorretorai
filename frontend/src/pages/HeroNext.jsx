@@ -207,13 +207,11 @@ const SALE_CONDITION_OPTIONS = [
 
 const COMMERCIAL_TERMS_STAGES = new Set(['Pré-lançamento', 'Lançamento', 'Em obras'])
 const COMMERCIAL_TERM_FIELDS = [
-  { id: 'starting_price', label: 'Valor a partir de', prefix: 'A partir de' },
   { id: 'entry_amount', label: 'Entrada', prefix: 'Entrada de' },
   { id: 'monthly_amount', label: 'Mensais', prefix: 'Mensais a partir de' },
   { id: 'annual_amount', label: 'Anuais', prefix: 'Anuais de' },
 ]
 const EMPTY_COMMERCIAL_TERMS = {
-  starting_price: '',
   entry_amount: '',
   monthly_amount: '',
   annual_amount: '',
@@ -2820,7 +2818,7 @@ export default function HeroNext() {
                 {commercialTermsAvailable && (
                   <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5">
                     <p className="text-sm font-black text-gray-950">Quer destacar condições comerciais?</p>
-                    <p className="mt-1 text-sm font-semibold text-gray-500">Chamadas opcionais para o empreendimento, sem montar tabela de pagamento.</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-500">Adicione chamadas comerciais ao banner, se quiser.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {[
                         ['yes', 'Sim'],
