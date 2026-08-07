@@ -204,6 +204,33 @@ const SALE_CONDITION_OPTIONS = [
   'Unidades limitadas',
 ]
 
+const COMMERCIAL_TERMS_STAGES = new Set(['Pré-lançamento', 'Lançamento', 'Em obras'])
+const COMMERCIAL_TERM_FIELDS = [
+  { id: 'starting_price', label: 'Valor a partir de', prefix: 'A partir de' },
+  { id: 'entry_amount', label: 'Entrada', prefix: 'Entrada de' },
+  { id: 'monthly_amount', label: 'Mensais', prefix: 'Mensais a partir de' },
+  { id: 'annual_amount', label: 'Anuais', prefix: 'Anuais de' },
+]
+const EMPTY_COMMERCIAL_TERMS = {
+  starting_price: '',
+  entry_amount: '',
+  monthly_amount: '',
+  annual_amount: '',
+}
+
+const normalizeCommercialTerms = (value) => Object.fromEntries(
+  COMMERCIAL_TERM_FIELDS
+    .map(({ id }) => [id, String(value?.[id] || '').replace(/\D/g, '').slice(0, 12)])
+    .filter(([, amount]) => amount),
+)
+
+const formatCommercialTermCalls = (value) => {
+  const terms = normalizeCommercialTerms(value)
+  return COMMERCIAL_TERM_FIELDS
+    .map(({ id, prefix }) => terms[id] ? `${prefix} ${formatHeroPrice(terms[id])}` : '')
+    .filter(Boolean)
+}
+
 const RENT_GUARANTEE_OPTIONS = [
   { id: 'seguro_fianca', label: 'Seguro-fiança' },
   { id: 'fiador', label: 'Fiador' },
@@ -892,6 +919,12 @@ const buildValueCondition = (goal, saleValues, rentValues) => {
     }
   }
 
+  const commercialTerms = normalizeCommercialTerms(saleValues.commercialTerms)
+  const commercialTermCalls = formatCommercialTermCalls(commercialTerms)
+  const commercialTermsContract = commercialTermCalls.length > 0
+    ? { commercial_terms: commercialTerms }
+    : {}
+
   if (saleValues.mode === 'price') {
     const conditions = normalizeList(saleValues.conditions).map(normalizeTerm)
     return {
@@ -900,12 +933,16 @@ const buildValueCondition = (goal, saleValues, rentValues) => {
       details: [
         normalizeValueText(saleValues.price) ? `Valor: ${formatCurrencyForDisplay(normalizeValueText(saleValues.price), 'venda')}` : '',
         conditions.length ? `Condições: ${conditions.join(', ')}` : '',
+        ...commercialTermCalls,
       ].filter(Boolean).join(' | '),
       promptLines: [
         `Valor informado: ${formatCurrencyForDisplay(normalizeValueText(saleValues.price), 'venda')}.`,
         conditions.length ? `Condições comerciais informadas: ${conditions.join(', ')}.` : '',
+        commercialTermCalls.length ? `Chamadas comerciais informadas: ${commercialTermCalls.join(', ')}.` : '',
+        commercialTermCalls.length ? 'Use somente essas chamadas comerciais. Não invente valores ou condições ausentes.' : '',
         'Pode mostrar o valor informado na campanha. Não inventar outras condições comerciais.',
-      ],
+      ].filter(Boolean),
+      ...commercialTermsContract,
     }
   }
 
@@ -914,11 +951,27 @@ const buildValueCondition = (goal, saleValues, rentValues) => {
     return {
       mode: 'conditions',
       label: 'Apenas condições comerciais',
-      details: conditions.join(', '),
+      details: [...conditions, ...commercialTermCalls].join(', '),
       promptLines: [
-        `Condições comerciais informadas: ${conditions.join(', ')}.`,
+        conditions.length ? `Condições comerciais informadas: ${conditions.join(', ')}.` : '',
+        commercialTermCalls.length ? `Chamadas comerciais informadas: ${commercialTermCalls.join(', ')}.` : '',
+        commercialTermCalls.length ? 'Use somente essas chamadas comerciais. Não invente valores ou condições ausentes.' : '',
         'Não mostrar preço e não inventar valor do imóvel.',
+      ].filter(Boolean),
+      ...commercialTermsContract,
+    }
+  }
+
+  if (commercialTermCalls.length > 0) {
+    return {
+      mode: 'commercial_terms',
+      label: 'Condições comerciais informadas',
+      details: commercialTermCalls.join(', '),
+      promptLines: [
+        `Chamadas comerciais informadas: ${commercialTermCalls.join(', ')}.`,
+        'Use somente essas chamadas comerciais. Não invente preço, valores ou condições ausentes.',
       ],
+      ...commercialTermsContract,
     }
   }
 
@@ -1455,6 +1508,8 @@ export default function HeroNext() {
   const [salePricePresentationMode, setSalePricePresentationMode] = useState('')
   const [salePriceDigits, setSalePriceDigits] = useState('')
   const [saleConditions, setSaleConditions] = useState([])
+  const [commercialTermsChoice, setCommercialTermsChoice] = useState('')
+  const [commercialTerms, setCommercialTerms] = useState(EMPTY_COMMERCIAL_TERMS)
   const [rentMode, setRentMode] = useState('')
   const [rentPrice, setRentPrice] = useState('')
   const [condoMode, setCondoMode] = useState('')
@@ -1547,10 +1602,14 @@ export default function HeroNext() {
   const selectedDestination = selectedDestinations[0] || null
   const totalPieceCount = getTotalPieceCount(selectedDestinations, creativeIdeaCount)
   const pieceLimitExceeded = totalPieceCount > MAX_HERO_NEXT_PIECES
+  const commercialTermsAvailable = goal === 'sale' && COMMERCIAL_TERMS_STAGES.has(answers.stage)
+  const commercialTermsEnabled = commercialTermsAvailable && commercialTermsChoice === 'yes'
+  const commercialTermCalls = formatCommercialTermCalls(commercialTermsEnabled ? commercialTerms : {})
   const valueCondition = useMemo(() => buildValueCondition(goal, {
     mode: saleValueMode,
     price: salePrice,
     conditions: saleConditions,
+    commercialTerms: commercialTermsEnabled ? commercialTerms : {},
   }, {
     rentMode,
     rentPrice,
@@ -1559,12 +1618,12 @@ export default function HeroNext() {
     iptuMode,
     iptu: iptuValue,
     guarantee: rentGuarantee,
-  }), [goal, saleValueMode, salePrice, saleConditions, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee])
+  }), [goal, saleValueMode, salePrice, saleConditions, commercialTermsEnabled, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee])
   const formattedSalePrice = formatHeroPrice(salePriceDigits)
   const saleValueReady = goal !== 'sale'
     || saleValueMode === 'hidden'
     || (saleValueMode === 'price' && Boolean(salePricePresentationMode) && Boolean(salePriceDigits) && Boolean(normalizeValueText(salePrice)))
-    || (saleValueMode === 'conditions' && saleConditions.length > 0)
+    || (saleValueMode === 'conditions' && (saleConditions.length > 0 || commercialTermsEnabled))
   const rentValueReady = goal !== 'rent' || (
     ['show', 'hide'].includes(rentMode)
     && ['show', 'hide', 'na'].includes(condoMode)
@@ -1657,6 +1716,8 @@ export default function HeroNext() {
     setSalePricePresentationMode('')
     setSalePriceDigits('')
     setSaleConditions([])
+    setCommercialTermsChoice('')
+    setCommercialTerms(EMPTY_COMMERCIAL_TERMS)
     setRentMode('')
     setRentPrice('')
     setCondoMode('')
@@ -1811,6 +1872,14 @@ export default function HeroNext() {
          ? current.filter((item) => item !== condition)
         : [...current, condition]
     ))
+    setPromptTouched(false)
+    setHumanPrompt('')
+    setGenerationError('')
+  }
+
+  const updateCommercialTerm = (field, value) => {
+    const amount = String(value || '').replace(/\D/g, '').slice(0, 12)
+    setCommercialTerms((current) => ({ ...current, [field]: amount }))
     setPromptTouched(false)
     setHumanPrompt('')
     setGenerationError('')
@@ -2223,6 +2292,8 @@ export default function HeroNext() {
     setSalePricePresentationMode('')
     setSalePriceDigits('')
     setSaleConditions([])
+    setCommercialTermsChoice('')
+    setCommercialTerms(EMPTY_COMMERCIAL_TERMS)
     setRentMode('')
     setRentPrice('')
     setCondoMode('')
@@ -2625,6 +2696,8 @@ export default function HeroNext() {
                           setSalePricePresentationMode('')
                           setSalePriceDigits('')
                           setSaleConditions([])
+                          setCommercialTermsChoice('')
+                          setCommercialTerms(EMPTY_COMMERCIAL_TERMS)
                         }
                         setPromptTouched(false)
                         setHumanPrompt('')
@@ -2707,6 +2780,59 @@ export default function HeroNext() {
                         )
                       })}
                     </div>
+                  </div>
+                )}
+
+                {commercialTermsAvailable && (
+                  <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5">
+                    <p className="text-sm font-black text-gray-950">Quer destacar condições comerciais?</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-500">Chamadas opcionais para o empreendimento, sem montar tabela de pagamento.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[
+                        ['yes', 'Sim'],
+                        ['no', 'Não'],
+                      ].map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            setCommercialTermsChoice(id)
+                            if (id === 'no') setCommercialTerms(EMPTY_COMMERCIAL_TERMS)
+                            setPromptTouched(false)
+                            setHumanPrompt('')
+                            setGenerationError('')
+                          }}
+                          className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                            commercialTermsChoice === id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {commercialTermsEnabled && (
+                      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                        {COMMERCIAL_TERM_FIELDS.map(({ id, label }) => (
+                          <label key={id} className="text-sm font-black text-gray-950">
+                            {label} <span className="font-semibold text-gray-400">(opcional)</span>
+                            <input
+                              value={formatHeroPrice(commercialTerms[id])}
+                              onChange={(event) => updateCommercialTerm(id, event.target.value)}
+                              inputMode="numeric"
+                              placeholder="R$ 0"
+                              className="mt-2 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {commercialTermsEnabled && commercialTermCalls.length > 0 && (
+                      <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-900">
+                        {commercialTermCalls.map((call) => <p key={call}>{call}</p>)}
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -3283,6 +3409,8 @@ export default function HeroNext() {
                   setSalePricePresentationMode('')
                   setSalePriceDigits('')
                   setSaleConditions([])
+                  setCommercialTermsChoice('')
+                  setCommercialTerms(EMPTY_COMMERCIAL_TERMS)
                   setRentMode('')
                   setRentPrice('')
                   setCondoMode('')

@@ -319,14 +319,53 @@ function formatValueConditionDetails(details: unknown, mode: string, label: stri
     .join(' | ')
 }
 
-function normalizeValueCondition(input: unknown) {
+const COMMERCIAL_TERM_LABELS = {
+  starting_price: 'A partir de',
+  entry_amount: 'Entrada de',
+  monthly_amount: 'Mensais a partir de',
+  annual_amount: 'Anuais de',
+} as const
+
+function normalizeCommercialTerms(input: unknown): JsonRecord {
+  const source = input && typeof input === 'object' ? input as JsonRecord : {}
+  return Object.fromEntries(
+    Object.keys(COMMERCIAL_TERM_LABELS)
+      .map((field) => [field, String(source[field] ?? '').replace(/\D/g, '').slice(0, 12)])
+      .filter(([, amount]) => Boolean(amount)),
+  )
+}
+
+function formatCommercialTermCalls(input: unknown): string[] {
+  const terms = normalizeCommercialTerms(input)
+  return Object.entries(COMMERCIAL_TERM_LABELS)
+    .map(([field, label]) => {
+      const amount = String(terms[field] || '')
+      if (!amount) return ''
+      const formatted = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        maximumFractionDigits: 0,
+      }).format(Number(amount))
+      return `${label} ${formatted}`
+    })
+    .filter(Boolean)
+}
+
+function isCommercialTermsStage(value: unknown): boolean {
+  const stage = normalizeComparableText(value)
+  return ['pre-lancamento', 'lancamento', 'em obras'].includes(stage)
+}
+
+function normalizeValueCondition(input: unknown, allowCommercialTerms = false) {
   const source = input && typeof input === 'object' ? input as JsonRecord : {}
   const mode = normalizeId(source.mode)
   const label = normalizeText(source.label, 120)
+  const commercialTerms = allowCommercialTerms ? normalizeCommercialTerms(source.commercial_terms) : {}
   return {
     mode: mode || 'hide_values',
     label,
     details: formatValueConditionDetails(source.details, mode, label),
+    ...(Object.keys(commercialTerms).length > 0 ? { commercial_terms: commercialTerms } : {}),
   }
 }
 
@@ -542,6 +581,10 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
   const profile = normalizeText(choices.property_profile || property.master_profile, 120)
   const objective = normalizeText(choices.campaign_objective || property.purpose, 80)
   const stage = normalizeText(choices.property_stage || property.master_property_state, 120)
+  const valueCondition = choices.value_condition && typeof choices.value_condition === 'object'
+    ? choices.value_condition as JsonRecord
+    : {}
+  const commercialTermCalls = formatCommercialTermCalls(valueCondition.commercial_terms)
   const contactPhone = normalizeContactPhone(choices.contact_phone, 80)
   const displayPhone = normalizeContactPhoneForDisplay(choices.display_phone || contactPhone)
   const cta = normalizeText(choices.cta, 120) || 'Fale comigo'
@@ -605,6 +648,8 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
     'Perfil comercial orienta estilo, tom e composiÃ§Ã£o. Ele nÃ£o Ã© texto obrigatÃ³rio, mas pode aparecer como selo curto quando fizer sentido comercial explÃ­cito: Minha Casa Minha Vida, Alto padrÃ£o, Investimento ou Comercial. Usar Luxo com cuidado e evitar EconÃ´mico como texto principal. Nunca escrever "Perfil comercial".',
     'EstÃ¡gio comercial do imÃ³vel pode ser usado naturalmente quando informado: PrÃ©-lanÃ§amento, LanÃ§amento, Em obras ou Pronto para morar.',
     'Nunca juntar perfil e estÃ¡gio em frase automÃ¡tica feia. Priorize localizaÃ§Ã£o, tipo do imÃ³vel, estÃ¡gio, diferencial real e CTA.',
+    commercialTermCalls.length > 0 ? `CHAMADAS COMERCIAIS AUTORIZADAS: ${commercialTermCalls.join(' | ')}.` : '',
+    commercialTermCalls.length > 0 ? 'Use somente as chamadas comerciais autorizadas. Nao invente, complete ou combine valores ausentes e nao transforme as chamadas em tabela financeira.' : '',
     contactPhone
       ? `Telefone de contato autorizado pelo usuario: ${contactPhone}. Se usar telefone, escreva exatamente esse numero junto ao CTA, sem alterar DDD, completar, encurtar ou reformatar.`
       : 'Nenhum telefone foi autorizado. Nao escreva telefone, WhatsApp, site, Instagram ou e-mail.',
@@ -1602,7 +1647,10 @@ function buildPromptBriefing(property: JsonRecord, masterProperty: JsonRecord, p
       cta: normalizeText(payload.cta, 120),
       contact_phone: normalizeContactPhone(payload.contact_phone || payload.campaign_contact_phone, 80),
       display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
-      value_condition: normalizeValueCondition(payload.value_condition),
+      value_condition: normalizeValueCondition(
+        payload.value_condition,
+        isCommercialTermsStage(payload.property_state || masterProperty.estado_imovel),
+      ),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,
       campaign_batch_id: normalizeText(payload.campaign_batch_id, 160),
@@ -1663,7 +1711,10 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       cta: normalizeText(payload.cta, 120),
       contact_phone: normalizeContactPhone(payload.contact_phone || payload.campaign_contact_phone, 80),
       display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
-      value_condition: normalizeValueCondition(payload.value_condition),
+      value_condition: normalizeValueCondition(
+        payload.value_condition,
+        campaignObjective === 'venda' && isCommercialTermsStage(payload.property_stage),
+      ),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,
       campaign_batch_id: normalizeText(payload.campaign_batch_id, 160),
