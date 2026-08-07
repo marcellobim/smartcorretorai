@@ -11,6 +11,7 @@ import {
   Sparkles,
   Upload,
   Wand2,
+  X,
 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
@@ -1531,6 +1532,7 @@ export default function HeroNext() {
   const [pieceLimitNotice, setPieceLimitNotice] = useState('')
   const [generationResult, setGenerationResult] = useState(() => readStoredHeroNextResult())
   const [generationJobs, setGenerationJobs] = useState(() => readStoredHeroNextResult()?.jobs || [])
+  const [expandedPreview, setExpandedPreview] = useState(null)
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
   const [conversationQueue, setConversationQueue] = useState([])
   const [conversationQueueIndex, setConversationQueueIndex] = useState(-1)
@@ -1539,6 +1541,8 @@ export default function HeroNext() {
   const [conversationOpeningComplete, setConversationOpeningComplete] = useState(false)
   const [pendingConversationAnswer, setPendingConversationAnswer] = useState(null)
   const activeQuestionRef = useRef(null)
+  const expandedPreviewCloseRef = useRef(null)
+  const expandedPreviewTriggerRef = useRef(null)
   const conversationPauseRef = useRef(null)
   const conversationBusyRef = useRef(false)
 
@@ -1552,6 +1556,36 @@ export default function HeroNext() {
   useEffect(() => {
     writeStoredHeroNextResult(generationResult)
   }, [generationResult])
+
+  const closeExpandedPreview = () => {
+    setExpandedPreview(null)
+    window.requestAnimationFrame(() => expandedPreviewTriggerRef.current?.focus())
+  }
+
+  const openExpandedPreview = (preview, trigger) => {
+    expandedPreviewTriggerRef.current = trigger
+    setExpandedPreview(preview)
+  }
+
+  useEffect(() => {
+    if (!expandedPreview) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    expandedPreviewCloseRef.current?.focus()
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closeExpandedPreview()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [expandedPreview])
 
   useEffect(() => {
     if (!cityUf) {
@@ -3381,7 +3415,42 @@ export default function HeroNext() {
               data={campaignPackageData}
               onCreateNew={resetCampaign}
               createNewLabel="Criar nova campanha"
+              onOpenImage={openExpandedPreview}
             />
+            {expandedPreview && (
+              <div
+                className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 p-2 backdrop-blur-md sm:p-4"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) closeExpandedPreview()
+                }}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="hero-result-preview-title"
+                  className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-7xl items-center justify-center sm:max-h-[calc(100dvh-2rem)]"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) closeExpandedPreview()
+                  }}
+                >
+                  <h2 id="hero-result-preview-title" className="sr-only">Preview ampliado do Banner Imobiliário</h2>
+                  <button
+                    ref={expandedPreviewCloseRef}
+                    type="button"
+                    onClick={closeExpandedPreview}
+                    className="absolute right-2 top-2 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300 sm:right-3 sm:top-3"
+                    aria-label="Fechar preview ampliado"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                  <img
+                    src={expandedPreview.src}
+                    alt={expandedPreview.alt || 'Banner Imobiliário ampliado'}
+                    className="max-h-[calc(100dvh-1rem)] max-w-full object-contain sm:max-h-[calc(100dvh-2rem)]"
+                  />
+                </div>
+              </div>
+            )}
           </section>
         )}
 

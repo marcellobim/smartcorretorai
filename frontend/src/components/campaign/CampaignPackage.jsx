@@ -75,7 +75,7 @@ function VideoPreview({ src, renderId = '', videoRef, className = '', onRefresh 
   )
 }
 
-function ImagePreview({ src, alt, renderId = '', onRefresh }) {
+function ImagePreview({ src, alt, renderId = '', onRefresh, onOpen }) {
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
@@ -83,10 +83,12 @@ function ImagePreview({ src, alt, renderId = '', onRefresh }) {
     console.info('[renders] preview load', { render_id: renderId || null, status: 'succeeded', at: new Date().toISOString(), download_enabled: true, same_source_as_download: true })
   }, [src, attempt, renderId])
   if (failed) return <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-100 p-4 text-center"><p className="text-xs font-bold text-slate-600">Não foi possível carregar a prévia.</p><button type="button" onClick={async () => { try { await onRefresh?.(); setAttempt(value => value + 1) } catch { setFailed(true) } }} className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white">Tentar novamente</button></div>
-  return <img key={`${src}-${attempt}`} src={src} alt={alt} onError={() => setFailed(true)} className="h-full w-full object-contain" />
+  const image = <img key={`${src}-${attempt}`} src={src} alt={alt} onError={() => setFailed(true)} className="h-full w-full object-contain" />
+  if (!onOpen) return image
+  return <button type="button" onClick={(event) => onOpen({ src, alt }, event.currentTarget)} className="block h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-primary-300" aria-label={`Ampliar ${alt}`}>{image}</button>
 }
 
-function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshMedia }) {
+function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshMedia, onOpenImage }) {
   if (campaign.mediaType === 'images') {
     if (!campaign.files.length) return null
     return (
@@ -106,7 +108,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
             return (
               <article key={file.id || `${file.name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                 <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-100">
-                  {ready && assetUrl ? (isVideo ? <VideoPreview src={assetUrl} renderId={file.renderId} onRefresh={refresh} className="h-full w-full object-contain" /> : <ImagePreview src={assetUrl} renderId={file.renderId} alt={file.name || `Arte ${index + 1}`} onRefresh={refresh} />) : <span className="px-4 text-center text-xs font-bold text-slate-400">{failed ? 'Arquivo indisponível' : status === 'planned' ? 'Aguardando renderização' : 'Renderizando...'}</span>}
+                  {ready && assetUrl ? (isVideo ? <VideoPreview src={assetUrl} renderId={file.renderId} onRefresh={refresh} className="h-full w-full object-contain" /> : <ImagePreview src={assetUrl} renderId={file.renderId} alt={file.name || `Arte ${index + 1}`} onRefresh={refresh} onOpen={onOpenImage} />) : <span className="px-4 text-center text-xs font-bold text-slate-400">{failed ? 'Arquivo indisponível' : status === 'planned' ? 'Aguardando renderização' : 'Renderizando...'}</span>}
                 </div>
                 <div className="p-4">
                   <p className="truncate text-sm font-black text-slate-900">{file.name || `Arte ${index + 1}`}</p>
@@ -165,7 +167,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const [copiedKey, setCopiedKey] = useState('')
   const [downloadingKey, setDownloadingKey] = useState('')
@@ -215,7 +217,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         </div>
       </header>
 
-      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} />}
+      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} />}
 
       {downloadError && (
         <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
