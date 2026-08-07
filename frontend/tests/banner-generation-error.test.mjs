@@ -92,6 +92,18 @@ test('fluxo de sucesso continua publicando resultado e fase resultado', () => {
   assert.match(gerarAnuncios, /setFase\('resultado'\)/)
 })
 
+test('banners solicitados permanecem pending enquanto a resposta visual ainda não chegou', () => {
+  const resultView = novaCampanha.slice(novaCampanha.indexOf("{fase === 'resultado'"))
+  const statusExpression = resultView.match(/const missingVisualPieceStatus = (.+)/)?.[1]
+
+  assert.ok(statusExpression)
+  const resolveStatus = new Function('gerandoBanners', 'renders', `return ${statusExpression}`)
+  assert.equal(resolveStatus(true, null), 'pending')
+  assert.equal(resolveStatus(false, null), 'pending')
+  assert.equal(resolveStatus(false, []), 'failed')
+  assert.match(resultView, /missingStatus: missingVisualPieceStatus/)
+})
+
 test('teste é somente textual e não contém clientes ou chamadas reais de provedores', () => {
   const ownSource = readFileSync(fileURLToPath(import.meta.url), 'utf8')
   const imports = ownSource.match(/^import .*$/gm) || []

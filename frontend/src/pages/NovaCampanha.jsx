@@ -4086,9 +4086,10 @@ export default function NovaCampanha() {
           const tg = resultado.textos_gerados || {}
           const grad = catAtual?.cor || 'from-primary-500 to-primary-400'
           const returnedVisualPieces = Array.isArray(renders) ? renders : []
+          const missingVisualPieceStatus = gerandoBanners || renders === null ? 'pending' : 'failed'
           const visualPieces = requestedVisualPieces.length
             ? mergeRequestedVisualPieces(requestedVisualPieces, returnedVisualPieces, {
-                missingStatus: 'failed',
+                missingStatus: missingVisualPieceStatus,
                 missingErrorMessage: MISSING_RENDER_ERROR,
                 requireProcessingEvidence: true,
               })
