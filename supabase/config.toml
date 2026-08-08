@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.short-videos-cleanup]
 verify_jwt = true
+
+[functions.virtual-staging-images-cleanup]
+verify_jwt = true
