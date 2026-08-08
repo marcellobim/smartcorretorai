@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Expand, Image as ImageIcon, Sparkles, X } from 'lucide-react'
-import { Button } from '../ui/Button'
+import { ProductButton, ProductCard, SMART_UI } from '../design-system'
 
 const INITIAL_EXAMPLE_COUNT = 12
 
@@ -36,7 +36,7 @@ function ShowcasePhone({ example, index, onOpen, onFail }) {
     <button
       type="button"
       onClick={(event) => onOpen(example, event.currentTarget)}
-      className="group mx-auto mb-10 block w-full max-w-[19rem] break-inside-avoid rounded-[2.35rem] bg-slate-950 p-[6px] text-left shadow-[0_24px_54px_-27px_rgba(15,23,42,0.82)] outline-none transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_32px_66px_-26px_rgba(5,150,105,0.42)] focus-visible:ring-4 focus-visible:ring-emerald-300"
+      className="group mx-auto mb-10 block w-full max-w-[19rem] break-inside-avoid rounded-[2.35rem] bg-slate-950 p-[6px] text-left shadow-[0_24px_54px_-27px_rgba(15,23,42,0.82)] outline-none transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_32px_66px_-26px_rgba(15,95,122,0.36)] focus-visible:ring-4 focus-visible:ring-primary-300"
       aria-label={`Ampliar exemplo ${index + 1} de campanha criada pelo Banner Imobiliário`}
     >
       <span className="relative block overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900">
@@ -153,14 +153,14 @@ export default function HeroShowcase({ onStart }) {
 
   return (
     <>
-      <section
+      <ProductCard
         ref={sectionRef}
-        className="relative mt-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/5 sm:p-8 lg:p-10"
+        className="relative mt-6 overflow-hidden p-5 sm:p-8 lg:p-10"
         aria-labelledby="hero-showcase-title"
       >
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-100/70 blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" aria-hidden="true" />
         <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+          <div className={`${SMART_UI.eyebrow} mx-auto inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5`}>
             <ImageIcon className="h-4 w-4" />
             Exemplos reais
           </div>
@@ -170,11 +170,11 @@ export default function HeroShowcase({ onStart }) {
           <p className="mx-auto mt-3 max-w-2xl text-base font-semibold leading-relaxed text-slate-600">
             Conheça alguns exemplos produzidos pelo Banner Imobiliário para diferentes tipos de imóveis e objetivos.
           </p>
-          <p className="mt-3 inline-flex items-center gap-2 text-sm font-black text-emerald-700">
+          <p className="mt-3 inline-flex items-center gap-2 text-sm font-black text-primary-700">
             <Sparkles className="h-4 w-4" />
             Cada campanha é criada de forma exclusiva.
           </p>
-          <p className="mx-auto mt-5 max-w-3xl rounded-2xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-sm font-semibold leading-relaxed text-slate-600">
+          <p className="mx-auto mt-5 max-w-3xl rounded-2xl border border-smart-border bg-primary-50/70 px-5 py-4 text-sm font-semibold leading-relaxed text-slate-600">
             As campanhas abaixo são apenas exemplos reais da qualidade que o Banner Imobiliário pode produzir. Cada resultado é criado exclusivamente para o imóvel informado. Elas não são modelos para seleção.
           </p>
         </div>
@@ -203,26 +203,26 @@ export default function HeroShowcase({ onStart }) {
 
         {examples.length > INITIAL_EXAMPLE_COUNT && (
           <div className="relative mt-9 flex justify-center">
-            <button
+            <ProductButton
               type="button"
               onClick={() => (expanded ? showLess() : setExpanded(true))}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+              variant="secondary"
             >
               {expanded ? 'Ver menos exemplos' : 'Ver mais exemplos'}
-            </button>
+            </ProductButton>
           </div>
         )}
 
-        <div className="relative mx-auto mt-10 max-w-3xl rounded-3xl bg-[linear-gradient(135deg,#052e2b_0%,#064e3b_58%,#047857_100%)] px-6 py-8 text-center text-white shadow-xl shadow-emerald-950/15 sm:px-10">
+        <div className="relative mx-auto mt-10 max-w-3xl rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 px-6 py-8 text-center text-white shadow-xl shadow-primary-950/15 sm:px-10">
           <p className="text-2xl font-black tracking-tight sm:text-3xl">Sua campanha também pode ter este acabamento.</p>
-          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-relaxed text-emerald-50/85">
+          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-relaxed text-blue-50/85">
             Responda às perguntas do Banner Imobiliário e receba uma criação exclusiva para o seu objetivo.
           </p>
-          <Button type="button" onClick={startCampaign} className="mt-6 bg-white text-emerald-800 hover:bg-emerald-50">
+          <ProductButton type="button" onClick={startCampaign} variant="secondary" className="mt-6">
             Criar minha campanha
-          </Button>
+          </ProductButton>
         </div>
-      </section>
+      </ProductCard>
 
       {activeExample && (
         <div
@@ -243,7 +243,7 @@ export default function HeroShowcase({ onStart }) {
               ref={closeButtonRef}
               type="button"
               onClick={closeLightbox}
-              className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+              className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300"
               aria-label="Fechar exemplo ampliado"
             >
               <X className="h-5 w-5" />
@@ -253,7 +253,7 @@ export default function HeroShowcase({ onStart }) {
               <button
                 type="button"
                 onClick={() => moveLightbox(-1)}
-                className="absolute left-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 sm:left-5"
+                className="absolute left-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300 sm:left-5"
                 aria-label="Ver exemplo anterior"
               >
                 <ChevronLeft className="h-6 w-6" />
@@ -273,7 +273,7 @@ export default function HeroShowcase({ onStart }) {
               <button
                 type="button"
                 onClick={() => moveLightbox(1)}
-                className="absolute right-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 sm:right-5"
+                className="absolute right-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white transition hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300 sm:right-5"
                 aria-label="Ver próximo exemplo"
               >
                 <ChevronRight className="h-6 w-6" />

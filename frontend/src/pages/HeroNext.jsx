@@ -14,10 +14,9 @@ import {
   X,
 } from 'lucide-react'
 import Header from '../components/layout/Header'
-import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
-import { ProductButton } from '../components/design-system'
+import { ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI } from '../components/design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
 import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import HeroShowcase from '../components/hero/HeroShowcase'
@@ -128,6 +127,25 @@ const HERO_STATE_OPTIONS = [
   'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
+
+const BANNER_CREATION_STEPS = [
+  { title: 'Objetivo', subtitle: 'Conte sobre a campanha' },
+  { title: 'Formatos', subtitle: 'Escolha as entregas' },
+  { title: 'Revisão', subtitle: 'Confira as informações' },
+  { title: 'Imagens', subtitle: 'Envie seus arquivos' },
+  { title: 'Criação', subtitle: 'Acompanhe o resultado' },
+]
+
+const BANNER_STEP_BY_PHASE = {
+  goal: 1,
+  chat: 1,
+  values: 1,
+  destination: 2,
+  ideas: 2,
+  prompt: 3,
+  images: 4,
+  processing: 5,
+}
 
 const formatHeroPrice = (digits) => digits
   ? new Intl.NumberFormat('pt-BR', {
@@ -2474,14 +2492,14 @@ export default function HeroNext() {
               className="min-h-12 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
             />
           )}
-          <Button type="button" onClick={() => commitAnswer(currentQuestion.id, textDraft)} disabled={!textDraft.trim()}>
+          <ProductButton type="button" onClick={() => commitAnswer(currentQuestion.id, textDraft)} disabled={!textDraft.trim()}>
             <Send className="h-4 w-4" />
             Enviar
-          </Button>
+          </ProductButton>
           {currentQuestion.optionalLabel && (
-            <Button type="button" variant="secondary" onClick={() => commitAnswer(currentQuestion.id, 'Não informar')}>
+            <ProductButton type="button" variant="secondary" onClick={() => commitAnswer(currentQuestion.id, 'Não informar')}>
               {currentQuestion.optionalLabel}
-            </Button>
+            </ProductButton>
           )}
         </div>
       )
@@ -2535,9 +2553,9 @@ export default function HeroNext() {
             maxLength={60}
             className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
           />
-          <Button type="button" onClick={() => commitAnswer(currentQuestion.id, selectedWithCustom)} disabled={selectedWithCustom.length === 0}>
+          <ProductButton type="button" onClick={() => commitAnswer(currentQuestion.id, selectedWithCustom)} disabled={selectedWithCustom.length === 0}>
             {currentQuestion.confirmLabel || 'Confirmar diferenciais'}
-          </Button>
+          </ProductButton>
         </div>
       )
     }
@@ -2561,43 +2579,47 @@ export default function HeroNext() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f0fdf7_0%,#f8fafc_32%,#f8fafc_100%)]">
+    <div className="min-h-screen bg-smart-canvas">
       <Header title="Banner Imobiliário" subtitle="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto." />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
-        <Link
+      <main className={SMART_UI.page}>
+        <div data-smart-conversation>
+        <ProductButton
+          as={Link}
           to="/dashboard"
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+          variant="secondary"
+          size="sm"
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar para Home
-        </Link>
+        </ProductButton>
 
         {phase === 'intro' && (
-          <section className="relative mt-6 overflow-hidden rounded-[2rem] border border-emerald-100 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.20),transparent_38%),linear-gradient(135deg,#ecfdf5_0%,#ffffff_58%,#f0fdfa_100%)] p-7 text-slate-950 shadow-xl shadow-emerald-900/5 sm:p-10">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border-[36px] border-emerald-100/60" aria-hidden="true" />
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/80 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-emerald-700 shadow-sm">
-                <Sparkles className="h-4 w-4" />
-                Banner Imobiliário
-              </div>
-              <h1 className="mt-6 text-4xl font-black tracking-tight sm:text-6xl">
-                Sua campanha, criada com direção profissional.
-              </h1>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-slate-600 sm:text-lg">
-                Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto.
-              </p>
-              <Button type="button" onClick={startCampaign} className="mt-8 bg-emerald-600 hover:bg-emerald-700">
-                Começar minha campanha
-              </Button>
-            </div>
-          </section>
+          <ProductHero
+            id="banner-imobiliario-title"
+            eyebrow="SmartCorretorAI"
+            productName="Banner Imobiliário"
+            headline="Sua campanha, criada com"
+            highlight="direção profissional."
+            description="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto."
+            actions={<ProductButton type="button" size="lg" onClick={startCampaign}>Começar minha campanha</ProductButton>}
+            className="mt-6"
+          />
         )}
 
         {phase === 'intro' && <HeroShowcase onStart={startCampaign} />}
 
+        {BANNER_STEP_BY_PHASE[phase] && (
+          <ProductSteps
+            steps={BANNER_CREATION_STEPS}
+            activeStep={BANNER_STEP_BY_PHASE[phase]}
+            label="Etapas da criação do Banner Imobiliário"
+            className="mt-6"
+          />
+        )}
+
         {phase === 'goal' && (
-          <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
+          <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>O que deseja divulgar</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {GOALS.map((item) => (
@@ -2622,7 +2644,7 @@ export default function HeroNext() {
                 {goalNotice}
               </p>
             )}
-          </section>
+          </ProductCard>
         )}
 
         {phase === 'chat' && (
@@ -2707,7 +2729,7 @@ export default function HeroNext() {
         )}
 
         {phase === 'values' && (
-          <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
+          <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>{goal === 'rent' ? 'Quais valores deseja divulgar' : 'Deseja divulgar valor ou condições'}</AssistantBubble>
 
             {goal === 'sale' && (
@@ -3005,19 +3027,19 @@ export default function HeroNext() {
             </div>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setPhase('chat')}>
+              <ProductButton type="button" variant="secondary" onClick={() => setPhase('chat')}>
                 Voltar
-              </Button>
-              <Button type="button" onClick={goToDestinationStep} disabled={goal === 'sale' ? !saleValueReady : !rentValueReady}>
+              </ProductButton>
+              <ProductButton type="button" onClick={goToDestinationStep} disabled={goal === 'sale' ? !saleValueReady : !rentValueReady}>
                 Continuar
-              </Button>
+              </ProductButton>
             </div>
-          </section>
+          </ProductCard>
         )}
 
         {phase === 'prompt' && (
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(180deg,#f8fffb_0%,#ffffff_100%)] p-5 shadow-sm sm:p-7">
+            <ProductCard className="p-5 sm:p-7">
               <div className="space-y-3">
                 <AssistantBubble>Excelente.</AssistantBubble>
                 <AssistantBubble>Já tenho todas as informações necessárias.</AssistantBubble>
@@ -3042,15 +3064,15 @@ export default function HeroNext() {
                 <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">A inteligência do Banner Imobiliário seguirá suas respostas internamente. Nenhuma instrução técnica precisa ser revisada por você.</p>
               </div>
               <div className="mt-5 flex flex-wrap justify-end gap-3">
-                <Button type="button" variant="secondary" onClick={() => setPhase('ideas')}>
+                <ProductButton type="button" variant="secondary" onClick={() => setPhase('ideas')}>
                   Voltar
-                </Button>
-                <Button type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()} className="bg-emerald-600 hover:bg-emerald-700">
+                </ProductButton>
+                <ProductButton type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()}>
                   Continuar para imagens
-                </Button>
+                </ProductButton>
               </div>
-            </div>
-            <aside className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+            </ProductCard>
+            <ProductCard as="aside" variant="flat" className="p-5">
               <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Resumo da campanha</p>
               <div className="mt-4 space-y-3 text-sm font-semibold text-slate-600">
                 <p><strong>Objetivo:</strong> {getGoalLabel(goal)}</p>
@@ -3118,12 +3140,12 @@ export default function HeroNext() {
                   </div>
                 )}
               </div>
-            </aside>
+            </ProductCard>
           </section>
         )}
 
         {phase === 'destination' && (
-          <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-5 sm:p-8">
+          <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>Quais formatos deseja gerar para esta campanha</AssistantBubble>
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
               Cada formato selecionado gera uma peça IA própria, otimizada para aquele canal.
@@ -3168,18 +3190,18 @@ export default function HeroNext() {
               </p>
             )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' || goal === 'rent' ? 'values' : 'chat')}>
+              <ProductButton type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' || goal === 'rent' ? 'values' : 'chat')}>
                 Voltar
-              </Button>
-              <Button type="button" onClick={() => setPhase('ideas')} disabled={!selectedDestination || pieceLimitExceeded}>
+              </ProductButton>
+              <ProductButton type="button" onClick={() => setPhase('ideas')} disabled={!selectedDestination || pieceLimitExceeded}>
                 Continuar
-              </Button>
+              </ProductButton>
             </div>
-          </section>
+          </ProductCard>
         )}
 
         {phase === 'ideas' && (
-          <section className="mt-6 rounded-[2rem] border border-slate-200 bg-[#EEF6FF] p-5 sm:p-8">
+          <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>Quantas opções de criação você quer receber?</AssistantBubble>
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
               Você pode receber uma ou mais versões da mesma campanha para comparar antes de escolher.
@@ -3228,18 +3250,18 @@ export default function HeroNext() {
               </p>
             )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setPhase('destination')}>
+              <ProductButton type="button" variant="secondary" onClick={() => setPhase('destination')}>
                 Voltar
-              </Button>
-              <Button type="button" onClick={() => setPhase('prompt')} disabled={pieceLimitExceeded}>
+              </ProductButton>
+              <ProductButton type="button" onClick={() => setPhase('prompt')} disabled={pieceLimitExceeded}>
                 Continuar
-              </Button>
+              </ProductButton>
             </div>
-          </section>
+          </ProductCard>
         )}
 
         {phase === 'images' && (
-          <section className="mt-6 rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm sm:p-8">
+          <ProductCard className="mt-6 p-5 sm:p-8">
             <p className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Etapa de imagens</p>
             <AssistantBubble>Excelente. Agora vamos falar das imagens.</AssistantBubble>
             <div className="mt-4">
@@ -3329,21 +3351,21 @@ export default function HeroNext() {
             )}
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setPhase('prompt')}>
+              <ProductButton type="button" variant="secondary" onClick={() => setPhase('prompt')}>
                 Voltar
-              </Button>
-              <Button type="button" onClick={handleGenerate} disabled={!canGenerate} loading={generationLoading}>
+              </ProductButton>
+              <ProductButton type="button" onClick={handleGenerate} disabled={!canGenerate} loading={generationLoading}>
                 <Wand2 className="h-4 w-4" />
                 {generationLoading
                    ? `Gerando ${formatPieceCount(totalPieceCount)}...`
                   : `Gerar ${formatPieceCount(totalPieceCount || 1)} da campanha`}
-              </Button>
+              </ProductButton>
             </div>
-          </section>
+          </ProductCard>
         )}
 
         {phase === 'processing' && (
-          <section className="mt-6 rounded-[2rem] border border-gray-200 bg-gray-50 p-6 text-center shadow-sm sm:p-10">
+          <ProductCard variant="muted" className="mt-6 p-6 text-center sm:p-10">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-800 text-white">
               <Wand2 className="h-7 w-7 animate-pulse" />
             </div>
@@ -3389,7 +3411,7 @@ export default function HeroNext() {
                 {generationError}
               </p>
             )}
-          </section>
+          </ProductCard>
         )}
 
         {phase === 'result' && generationResult && campaignPackageData && (
@@ -3463,7 +3485,7 @@ export default function HeroNext() {
                     Suas peças foram geradas nos formatos selecionados.
                   </p>
                 </div>
-                <Button type="button" onClick={() => {
+                <ProductButton type="button" onClick={() => {
                   setPhase('intro')
                   setGoal('')
                   setAnswers({})
@@ -3497,7 +3519,7 @@ export default function HeroNext() {
                   setGenerationJobs([])
                 }}>
                   Gerar outra campanha
-                </Button>
+                </ProductButton>
               </div>
             </div>
 
@@ -3636,6 +3658,7 @@ export default function HeroNext() {
             </div>
           </section>
         )}
+        </div>
       </main>
     </div>
   )

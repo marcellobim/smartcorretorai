@@ -8,7 +8,45 @@ const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const read = (relativePath) => readFileSync(path.join(frontendRoot, relativePath), 'utf8')
 
 const banner = read('src/pages/HeroNext.jsx')
+const showcase = read('src/components/hero/HeroShowcase.jsx')
 const location = read('src/components/location/SmartCarouselCitySelect.jsx')
+
+test('uses the shared product design system throughout the Banner Imobiliário interface', () => {
+  assert.match(banner, /ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI/)
+  assert.match(banner, /<main className=\{SMART_UI\.page\}>/)
+  assert.match(banner, /<ProductHero[\s\S]*?id="banner-imobiliario-title"/)
+  assert.match(banner, /<ProductCard(?:\s|>)/)
+  assert.match(banner, /<ProductSteps[\s\S]*?steps=\{BANNER_CREATION_STEPS\}[\s\S]*?activeStep=\{BANNER_STEP_BY_PHASE\[phase\]\}/)
+  assert.match(banner, /const BANNER_CREATION_STEPS = \[[\s\S]*?Objetivo[\s\S]*?Formatos[\s\S]*?Revisão[\s\S]*?Imagens[\s\S]*?Criação[\s\S]*?\]/)
+  assert.match(banner, /const BANNER_STEP_BY_PHASE = \{[\s\S]*?goal: 1,[\s\S]*?chat: 1,[\s\S]*?values: 1,[\s\S]*?destination: 2,[\s\S]*?ideas: 2,[\s\S]*?prompt: 3,[\s\S]*?images: 4,[\s\S]*?processing: 5,[\s\S]*?\}/)
+})
+
+test('preserves Banner actions while migrating controls to ProductButton', () => {
+  assert.match(banner, /actions=\{<ProductButton[^>]*onClick=\{startCampaign\}>Começar minha campanha<\/ProductButton>\}/)
+  assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => commitAnswer\(currentQuestion\.id, textDraft\)\}[^>]*disabled=\{!textDraft\.trim\(\)\}/)
+  assert.match(banner, /<ProductButton[^>]*onClick=\{goToDestinationStep\}[^>]*disabled=\{goal === 'sale' \? !saleValueReady : !rentValueReady\}/)
+  assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => setPhase\('images'\)\}[^>]*disabled=\{!effectivePrompt\.trim\(\)\}/)
+  assert.match(banner, /<ProductButton[^>]*onClick=\{handleGenerate\}[^>]*disabled=\{!canGenerate\}[^>]*loading=\{generationLoading\}/)
+})
+
+test('keeps HeroShowcase actions and keyboard navigation with shared components', () => {
+  assert.match(showcase, /ProductButton, ProductCard, SMART_UI/)
+  assert.match(showcase, /<ProductCard[\s\S]*?aria-labelledby="hero-showcase-title"/)
+  assert.match(showcase, /onClick=\{\(event\) => onOpen\(example, event\.currentTarget\)\}/)
+  assert.match(showcase, /const startCampaign = \(\) => \{[\s\S]*?onStart\(\)/)
+  assert.match(showcase, /<ProductButton[^>]*onClick=\{startCampaign\}/)
+  assert.match(showcase, /onClick=\{\(\) => moveLightbox\(-1\)\}/)
+  assert.match(showcase, /onClick=\{\(\) => moveLightbox\(1\)\}/)
+  assert.match(showcase, /event\.key === 'Escape'[\s\S]*?event\.key === 'ArrowLeft'[\s\S]*?event\.key === 'ArrowRight'/)
+})
+
+test('keeps the multi-format campaign delivery presentation unchanged', () => {
+  assert.match(banner, /phase === 'result'[\s\S]*?<CampaignPackage/)
+  assert.doesNotMatch(banner, /<CampaignPackage[\s\S]*?mediaPresentation="mobile"/)
+  assert.match(showcase, /className="block h-auto w-full object-contain/)
+  assert.match(showcase, /max-h-\[calc\(100dvh-2rem\)\][^\n]*object-contain/)
+})
+
 test('standardizes only the Banner location controls without replacing its conversation flow', () => {
   assert.match(read('src/components/design-system/ProductButton.jsx'), /aria-busy=\{loading \? true : ariaBusy\}/)
   assert.match(location, /export function SmartLocationSelect/)
