@@ -49,17 +49,11 @@ const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
 })
 
 const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
-  images: 'purpose',
-  purpose: 'type',
-  type: 'bedrooms',
-  bedrooms: 'suites',
-  suites: 'parkingSpaces',
-  parkingSpaces: 'area',
-  area: 'state',
-  state: 'city',
-  city: 'neighborhood',
-  neighborhood: 'highlights',
-  highlights: 'review',
+  transformation_type: 'decoration_style',
+  decoration_style: 'images',
+  images: 'image_destinations',
+  image_destinations: 'ai_notice',
+  ai_notice: 'review',
 })
 
 export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '' }) {
