@@ -19,6 +19,7 @@ import { useAuth } from '../lib/auth-context'
 import { Button } from '../components/ui/Button'
 import { buildPublicationPackage } from '../../../core/copy-engine'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
@@ -35,7 +36,6 @@ function logStudioHero(level, event, payload) {
   if (!IS_DEV) return
   console[level](event, payload)
 }
-
 function sanitizeStudioHeroDiagnostic(value) {
   if (value === null || value === undefined) return value
 
@@ -391,26 +391,6 @@ const SALE_STAGES = ['PRE-LANCAMENTO', 'LANCAMENTO', 'PRONTO']
 const RESIDENTIAL_PROFILES = ['MCMV', 'PRONTOS', 'ALTO PADRAO', 'LANCAMENTO']
 const HOUSE_LOCATION_OPTIONS = ['CONDOMINIO FECHADO', 'BAIRRO ABERTO']
 
-const UF_OPTIONS = ['SP', 'RJ', 'MG', 'PR', 'SC', 'RS', 'BA', 'PE', 'CE', 'GO', 'DF', 'ES', 'MT', 'MS']
-const OTHER_CITY_OPTION = 'OUTRA_CIDADE'
-
-const CITY_OPTIONS_BY_UF = {
-  SP: ['São Paulo', 'Campinas', 'Santos', 'São Bernardo do Campo', 'Santo André', 'Osasco', 'Barueri', 'Guarulhos', 'Ribeirão Preto', 'Sorocaba'],
-  RJ: ['Rio de Janeiro', 'Niterói', 'Petrópolis', 'Nova Iguaçu', 'Duque de Caxias'],
-  MG: ['Belo Horizonte', 'Nova Lima', 'Contagem', 'Uberlândia', 'Juiz de Fora'],
-  PR: ['Curitiba', 'Londrina', 'Maringa'],
-  SC: ['Florianópolis', 'Balneário Camboriú', 'Joinville', 'Itajaí'],
-  RS: ['Porto Alegre', 'Gramado', 'Caxias do Sul'],
-  DF: ['Brasília'],
-  GO: ['Goiânia'],
-  BA: ['Salvador'],
-  PE: ['Recife'],
-  CE: ['Fortaleza'],
-  ES: ['Vitória', 'Vila Velha'],
-  MT: ['Cuiabá'],
-  MS: ['Campo Grande'],
-}
-
 const BEDROOM_OPTIONS = ['1 DORMITORIO', '2 DORMITORIOS', '3 DORMITORIOS', '4 DORMITORIOS']
 const SUITE_OPTIONS = ['SEM SUITE', '1 SUITE', '2 SUITES', '3 SUITES', '4 SUITES']
 const PARKING_OPTIONS = ['SEM VAGA', '1 VAGA', '2 VAGAS', '3 VAGAS', '4 VAGAS']
@@ -724,13 +704,45 @@ function formatDisplayText(value) {
     .join(' ')
 }
 
-function getCityOptions(uf) {
-  return [...(CITY_OPTIONS_BY_UF[uf] || []), OTHER_CITY_OPTION]
+export function getEffectiveStudioCity(answers = {}) {
+  return formatDisplayText(answers.cityOther) || formatDisplayText(answers.city)
 }
 
-function getDisplayCityValue(answers) {
-  if (answers.city === OTHER_CITY_OPTION) return formatDisplayText(answers.cityOther)
-  return answers.city || ''
+export function changeStudioStateLocation(current, uf) {
+  return {
+    ...current,
+    uf,
+    city: '',
+    cityOther: '',
+    district: '',
+    captureHasDistrict: '',
+    cta: '',
+    imageCount: 1,
+  }
+}
+
+export function changeStudioSelectedCity(current, city) {
+  return {
+    ...current,
+    city,
+    cityOther: '',
+    district: '',
+    captureHasDistrict: '',
+    cta: '',
+    imageCount: 1,
+  }
+}
+
+export function changeStudioManualCity(current, cityOther = '') {
+  return {
+    ...current,
+    city: '',
+    cityOther: formatDisplayText(cityOther),
+    district: '',
+    captureHasDistrict: '',
+    cta: '',
+    imageCount: 1,
+  }
 }
 
 function getDisplayLocation({ district, city, uf, isCapture }) {
@@ -1075,6 +1087,7 @@ export default function StudioHero() {
   const [modeNotice, setModeNotice] = useState('')
   const [step, setStep] = useState(1)
   const [answers, setAnswers] = useState(initialAnswers)
+  const [manualCityMode, setManualCityMode] = useState(() => Boolean(formatDisplayText(initialAnswers.cityOther)))
   const [files, setFiles] = useState({ image1: null })
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
@@ -1095,8 +1108,8 @@ export default function StudioHero() {
   const stageOptions = getStageOptions(answers)
   const differentialOptions = getDifferentialOptions(answers)
   const ctaOptions = getCtaOptions(answers)
-  const cityOptions = getCityOptions(answers.uf)
-  const cityValue = getDisplayCityValue(answers)
+  const cityValue = getEffectiveStudioCity(answers)
+  const usesManualCity = manualCityMode || Boolean(formatDisplayText(answers.cityOther))
   const districtValue = formatDisplayText(answers.district)
   const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const normalizedLocation = getNormalizedLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
@@ -1220,6 +1233,7 @@ export default function StudioHero() {
 
   const updateObjective = (option) => {
     resetGenerationState()
+    setManualCityMode(false)
     setAnswers((current) => ({
       ...current,
       objective: option.id,
@@ -1819,6 +1833,7 @@ export default function StudioHero() {
 
   const resetFlow = (nextMode = studioMode) => {
     clearPolling()
+    setManualCityMode(false)
     setAnswers({
       ...initialAnswers,
       creativeMode: nextMode === 'free_ai' ? 'free_ai' : 'cinematic',
@@ -2320,72 +2335,75 @@ export default function StudioHero() {
             >
               <div className="space-y-5">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">UF</p>
-                  <ChipGrid className="mt-3">
-                    {UF_OPTIONS.map((option) => (
-                      <ChipButton
-                        key={option}
-                        active={answers.uf === option}
-                        onClick={() => {
-                          resetGenerationState()
-                          setAnswers((current) => ({
-                            ...current,
-                            uf: option,
-                            city: '',
-                            cityOther: '',
-                            district: '',
-                            captureHasDistrict: '',
-                            cta: '',
-                            imageCount: 1,
-                          }))
-                        }}
-                      >
-                        {option}
-                      </ChipButton>
-                    ))}
-                  </ChipGrid>
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Estado</p>
+                  <SmartCarouselStateSelect
+                    accent="cyan"
+                    value={answers.uf}
+                    onChange={(option) => {
+                      resetGenerationState()
+                      setManualCityMode(false)
+                      setAnswers((current) => changeStudioStateLocation(current, option))
+                    }}
+                  />
                 </div>
 
                 {answers.uf && (
                   <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
-                    <ChipGrid className="mt-3">
-                      {cityOptions.map((option) => (
-                        <ChipButton
-                          key={option}
-                          active={answers.city === option}
+                    <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
+                    {usesManualCity ? (
+                      <div className="space-y-3">
+                        <SmartLocationTextInput
+                          accent="cyan"
+                          ariaLabel="Cidade manual"
+                          value={answers.cityOther}
+                          onChange={(event) => {
+                            resetGenerationState()
+                            setAnswers((current) => changeStudioManualCity(current, event.target.value))
+                          }}
+                          placeholder="Digite a cidade"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Voltar para a lista de cidades"
                           onClick={() => {
                             resetGenerationState()
-                            setAnswers((current) => ({
-                              ...current,
-                              city: option,
-                              cityOther: '',
-                              district: '',
-                              captureHasDistrict: '',
-                              cta: '',
-                              imageCount: 1,
-                            }))
+                            setManualCityMode(false)
+                            setAnswers((current) => changeStudioSelectedCity(current, ''))
                           }}
                         >
-                          {option === OTHER_CITY_OPTION ? 'Outra cidade' : option}
-                        </ChipButton>
-                      ))}
-                    </ChipGrid>
-                  </div>
-                )}
-
-                {answers.city === OTHER_CITY_OPTION && (
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Nome da cidade</p>
-                    <input
-                      value={answers.cityOther}
-                      onChange={(event) => {
-                        resetGenerationState()
-                        setAnswers((current) => ({ ...current, cityOther: formatDisplayText(event.target.value), district: '', captureHasDistrict: '', cta: '', imageCount: 1 }))
-                      }}
-                      placeholder="Digite a cidade"
-                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
-                    />
+                          Voltar para a lista de cidades
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <SmartCarouselCitySelect
+                          accent="cyan"
+                          uf={answers.uf}
+                          value={answers.city}
+                          onChange={(option) => {
+                            resetGenerationState()
+                            setManualCityMode(false)
+                            setAnswers((current) => changeStudioSelectedCity(current, option))
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Digitar cidade manualmente"
+                          aria-pressed="false"
+                          onClick={() => {
+                            resetGenerationState()
+                            setManualCityMode(true)
+                            setAnswers((current) => changeStudioManualCity({ ...current, city: '' }, current.cityOther))
+                          }}
+                        >
+                          Não encontrou sua cidade? Digite manualmente.
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2418,14 +2436,15 @@ export default function StudioHero() {
                 {cityValue && (!isCapture || answers.captureHasDistrict === 'yes') && (
                   <div>
                     <p className="text-xs font-black uppercase tracking-wide text-slate-500">{isCapture ? 'Bairro ou regiao' : 'Bairro'}</p>
-                    <input
+                    <SmartLocationTextInput
+                      accent="cyan"
+                      ariaLabel={isCapture ? 'Bairro ou regiao' : 'Bairro'}
                       value={answers.district}
                       onChange={(event) => {
                         resetGenerationState()
                         setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 1 }))
                       }}
                       placeholder={isCapture ? 'Ex.: Moema, Zona Sul, Centro, Toda a cidade' : 'Digite o bairro'}
-                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
                     />
                   </div>
                 )}
