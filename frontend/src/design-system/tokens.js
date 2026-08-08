@@ -32,3 +32,9 @@ export const SMART_UI = Object.freeze({
   body: 'text-sm font-medium leading-7 text-slate-600 sm:text-base',
   focus: 'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
 })
+
+export const SMART_MEDIA_STANDARD = Object.freeze({
+  mobileAspectRatio: '9:16',
+  interface: 'Todas as imagens e vídeos apresentados pelo SmartCorretorAI em mockups de celular, comparativos, exemplos, prévias, modais e entregas destinadas ao formato mobile devem ocupar visualmente toda a tela, preservando a proporção e sem deformação. O padrão preferencial é vertical 9:16, com object-fit: cover e object-position ajustado ao conteúdo principal. Faixas pretas, letterboxing, pillarboxing e áreas vazias devem ser evitadas e aceitas somente quando tecnicamente inevitáveis. A regra vale igualmente para mídias de Antes e Depois e para todos os produtos atuais e futuros.',
+  generation: 'Futuras gerações destinadas ao celular devem preferir saída vertical 9:16, compor elementos importantes dentro de uma região segura e entregar uma apresentação criada originalmente para preencher a tela, sem conteúdo horizontal encaixado com faixas pretas.',
+})

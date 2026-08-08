@@ -68,6 +68,12 @@
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full;
   }
+
+  /* Apresentações, exemplos, previews, modais e mockups mobile preenchem toda a área, sem faixas ou deformação. */
+  .smart-presentation-media,
+  .smart-phone-media {
+    @apply h-full w-full object-cover object-center;
+  }
 }
 
 @layer utilities {
