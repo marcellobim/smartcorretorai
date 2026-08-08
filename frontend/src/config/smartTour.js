@@ -1,5 +1,7 @@
 export const SMART_TOUR_PRODUCT_NAME = 'SmartCorretorAI'
 export const SMART_TOUR_ROUTE = '/smart-tour-ai'
+import { SHORT_VIDEOS_EXAMPLE_PATH } from './shortVideos.js'
+
 export const SMART_TOUR_MAX_IMAGES = 5
 export const SMART_TOUR_LANGUAGES = [
   { id: 'pt-BR', label: 'Português do Brasil' },
@@ -55,6 +57,17 @@ export const SMART_TOUR_EXAMPLES = [
     hasNarration: true,
     hasTexts: false,
     hasPresenter: true,
+    hasFurniture: false,
+    placeholder: false,
+  },
+  {
+    id: 'short-videos',
+    title: 'Short Videos',
+    description: 'Transforme um vídeo do imóvel em um Short vertical, com os melhores momentos selecionados automaticamente pela IA.',
+    video: SHORT_VIDEOS_EXAMPLE_PATH,
+    hasNarration: true,
+    hasTexts: true,
+    hasPresenter: false,
     hasFurniture: false,
     placeholder: false,
   },

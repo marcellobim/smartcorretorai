@@ -15,6 +15,7 @@ import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } f
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
+import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
 
 const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
@@ -51,9 +52,9 @@ function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
   return { ...value, mode: 'guided_tour', presenterGender: ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none', narration: value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 }
-function questionsFor() {
+function questionsFor(isShortVideos = false) {
   const questions = [
-    ['images', 1, 'Envie até 5 fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
+    ['images', 1, isShortVideos ? 'Envie o vídeo original do imóvel.' : 'Envie até 5 fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
     ['stage', 2, 'Qual é o estado atual do imóvel?'], ['type', 2, 'Que tipo de imóvel vamos apresentar?'],
     ['facts', 2, 'Quais são as principais medidas?'], ['location', 2, 'Onde fica o imóvel?'],
     ['commercial', 2, 'Quais informações comerciais deseja incluir?'], ['highlights', 2, 'Quais são os principais destaques?'],
@@ -62,13 +63,14 @@ function questionsFor() {
     ['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo?'],
     ['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo?'],
   ]
-  return [...questions, ['cta', 4, 'Qual chamada deseja usar no final?'], ['phone', 4, 'Deseja divulgar seu telefone profissional?'], ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.']]
+  const completeQuestions = [...questions, ['cta', 4, 'Qual chamada deseja usar no final?'], ['phone', 4, 'Deseja divulgar seu telefone profissional?'], ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.']]
+  return isShortVideos ? adaptQuestionsForShortVideos(completeQuestions) : completeQuestions
 }
 
-function smartTourConfirmation(id, answer) {
+function smartTourConfirmation(id, answer, isShortVideos = false) {
   if (id === 'purpose') return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
   const confirmations = {
-    images: `Ótimo! ${answer} serão usadas exatamente na ordem escolhida.`,
+    images: isShortVideos ? `Ótimo! O vídeo “${answer}” foi validado.` : `Ótimo! ${answer} serão usadas exatamente na ordem escolhida.`,
     stage: `Perfeito! Vamos considerar o imóvel como “${answer}”.`,
     type: `Ótimo! O tipo “${answer}” já está registrado.`,
     facts: 'Perfeito! As principais medidas do imóvel foram registradas.',
@@ -91,7 +93,9 @@ export default function SmartTourAI() {
   const pollRef = useRef(null)
   const recoveryStartedRef = useRef(false)
   const reviewEditRef = useRef(null)
+  const shortVideoGenerationLockRef = useRef(false)
   const [images, setImages] = useState([])
+  const [shortVideo, setShortVideo] = useState(null)
   const [property, setProperty] = useState(initialProperty)
   const [generation, setGeneration] = useState(initialGeneration)
   const [ctaEnabled, setCtaEnabled] = useState(null)
@@ -101,15 +105,24 @@ export default function SmartTourAI() {
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
   const [activeInputFlow, setActiveInputFlow] = useState(null)
-  const questions = useMemo(() => questionsFor(), [])
+  const isShortVideos = activeInputFlow === SHORT_VIDEOS_MODULE_ID
+  const questions = useMemo(() => questionsFor(isShortVideos), [isShortVideos])
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatBrazilianPhone(rawPhone)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
   const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
+  const clearInputMedia = () => {
+    setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
+    setShortVideo(null)
+  }
+
+  useEffect(() => () => {
+    if (shortVideo?.preview) URL.revokeObjectURL(shortVideo.preview)
+  }, [shortVideo?.preview])
 
   const resetTourFromQuestion = (questionId) => {
     if (reviewEditRef.current) {
-      if (questionId === 'images') setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
+      if (questionId === 'images') clearInputMedia()
       if (questionId === 'purpose') setProperty(current => ({ ...current, purpose: '', stage: '' }))
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
       if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [] }))
@@ -129,7 +142,7 @@ export default function SmartTourAI() {
     }
     const targetIndex = SMART_TOUR_QUESTION_ORDER.indexOf(questionId)
     const shouldReset = id => SMART_TOUR_QUESTION_ORDER.indexOf(id) >= targetIndex
-    if (shouldReset('images')) setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
+    if (shouldReset('images')) clearInputMedia()
     const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'city'], ['location', 'district'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
     setGeneration(current => ({
@@ -156,7 +169,8 @@ export default function SmartTourAI() {
       resolvedNextQuestionId = getSmartTourReviewEditNext({ originQuestionId: reviewEditRef.current, questionId: question[0], answerId, mode: generation.mode })
       if (resolvedNextQuestionId === 'review') reviewEditRef.current = null
     }
-    const accepted = conversation.submitAnswer({ questionId: question[0], question: question[2], answer, confirmation: smartTourConfirmation(question[0], answer), nextQuestionId: resolvedNextQuestionId })
+    if (isShortVideos && resolvedNextQuestionId === 'presenter') resolvedNextQuestionId = 'narration'
+    const accepted = conversation.submitAnswer({ questionId: question[0], question: question[2], answer, confirmation: smartTourConfirmation(question[0], answer, isShortVideos), nextQuestionId: resolvedNextQuestionId })
     if (accepted) apply?.()
     return accepted
   }
@@ -192,6 +206,21 @@ export default function SmartTourAI() {
       return [...current, ...uniqueInSystemOrder.map(file => ({ file, key: `${file.name}:${file.size}:${file.lastModified}`, preview: URL.createObjectURL(file) }))]
     })
   }
+  const addShortVideo = async files => {
+    const file = Array.from(files || [])[0]
+    const fileError = validateShortVideoFile(file)
+    if (fileError) return setMessage(fileError)
+    setMessage('Validando a duração do vídeo...')
+    try {
+      const duration = await readShortVideoDuration(file)
+      const durationError = validateShortVideoDuration(duration)
+      if (durationError) return setMessage(durationError)
+      setShortVideo({ file, duration, preview: URL.createObjectURL(file) })
+      setMessage('')
+    } catch (error) {
+      setMessage(error.message || 'Não foi possível validar o vídeo.')
+    }
+  }
   const move = (position, offset) => setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages })
   const remove = position => setImages(current => current.filter((item, itemIndex) => { if (itemIndex === position) URL.revokeObjectURL(item.preview); return itemIndex !== position }))
   const toggleHighlight = value => setPropertyField('highlights', property.highlights.includes(value) ? property.highlights.filter(item => item !== value) : property.highlights.length < 10 ? [...property.highlights, value] : property.highlights)
@@ -208,21 +237,72 @@ export default function SmartTourAI() {
           return
         }
         if (getSmartTourStatusHttpStatus(error) === 404) {
+          const terminalActions = getShortVideoTerminalActions(activeJob, 'not-found')
+          if (terminalActions.cleanupInput) {
+            try {
+              await cleanupShortVideoInput(supabase.storage, user.id, activeJob.jobId)
+            } catch {
+              setStatus('error')
+              setMessage('Não foi possível remover o vídeo temporário. Recarregue a página para tentar novamente.')
+              return
+            }
+          }
           clearSmartTourActiveJob(sessionStorage)
-          throw new Error('Esta criação não está mais disponível. Inicie um novo projeto.')
+          if (terminalActions.releaseLock) shortVideoGenerationLockRef.current = false
+          setStatus('error')
+          setMessage('Esta criação não está mais disponível. Tente novamente.')
+          return
         }
         throw new Error(data?.error || 'Não foi possível consultar a criação.')
       }
       if (data.status === 'completed') { clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: mergeSmartTourCampaignHashtags(activeJob?.campaignPackage || {}, data.hashtags), inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); return }
-      if (data.status === 'failed') { clearSmartTourActiveJob(sessionStorage); setStatus('error'); setMessage(data.error || 'Não foi possível concluir. Tente novamente.'); return }
+      if (data.status === 'failed') { clearSmartTourActiveJob(sessionStorage); if (getShortVideoTerminalActions(activeJob, 'failed').releaseLock) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(data.error || 'Não foi possível concluir. Tente novamente.'); return }
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
   }
 
   const createTour = async () => {
-    setStatus('uploading'); setMessage('Enviando suas fotos com segurança...')
+    if (isShortVideos) {
+      if (shortVideoGenerationLockRef.current) {
+        setMessage('A criação do Short Videos já foi iniciada. Aguarde a conclusão.')
+        return
+      }
+      if (!shortVideo?.file) return setMessage('Selecione um vídeo MP4 antes de continuar.')
+      shortVideoGenerationLockRef.current = true
+    }
+    setStatus('uploading'); setMessage(isShortVideos ? 'Enviando seu vídeo com segurança...' : 'Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()
+      const apiGeneration = normalizeGeneration(generation)
+      const selectedCta = ctaEnabled === true ? cta : ''
+      if (isShortVideos) {
+        const videoPath = buildShortVideoInputPath(user.id, requestId)
+        const { error: uploadError } = await supabase.storage.from(SHORT_VIDEOS_INPUT_BUCKET).upload(videoPath, shortVideo.file, { contentType: 'video/mp4' })
+        if (uploadError) throw new Error('O vídeo não pôde ser enviado. Tente novamente.')
+        setStatus('generating'); setMessage('A IA está selecionando os melhores momentos do seu vídeo...')
+        let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '' })
+        writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'starting', updatedAt:Date.now() })
+        const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: {
+          inputFlow: SHORT_VIDEOS_MODULE_ID,
+          clientRequestId: requestId,
+          videoPath,
+          videoMetadata: { durationSeconds: shortVideo.duration, mimeType: 'video/mp4' },
+          property,
+          generation: { ...apiGeneration, presenterGender: 'none' },
+          selectedCta,
+          includeProfessionalPhone: ctaEnabled === true && includePhone === true,
+          language: 'pt-BR',
+        } })
+        if (error || !data?.ok || !data?.jobId) {
+          setStatus('generating')
+          setMessage('Confirmando o início da sua criação...')
+          poll(requestId)
+          return
+        }
+        campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags })
+        writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'active', updatedAt:Date.now() }); poll(data.jobId)
+        return
+      }
       const orderedImages = images.slice()
       const imagePaths = new Array(orderedImages.length)
       for (let imageIndex = 0; imageIndex < orderedImages.length; imageIndex += 1) {
@@ -233,17 +313,34 @@ export default function SmartTourAI() {
         imagePaths[imageIndex] = path
       }
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
-      const apiGeneration = normalizeGeneration(generation)
-      const selectedCta = ctaEnabled === true ? cta : ''
       const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
-    } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
+    } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { clearSmartTourActiveJob(sessionStorage); images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
-  if (result) return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></>
+  const reset = () => {
+    clearSmartTourActiveJob(sessionStorage)
+    shortVideoGenerationLockRef.current = false
+    clearInputMedia()
+    reviewEditRef.current = null
+    setActiveInputFlow(null)
+    setProperty(initialProperty)
+    setGeneration(initialGeneration)
+    setCtaEnabled(null)
+    setCta('')
+    setIncludePhone(null)
+    conversation.resetConversation()
+    setStatus('idle')
+    setMessage('')
+    setResult(null)
+  }
+  const selectInputFlow = inputFlow => {
+    if (activeInputFlow !== inputFlow) reset()
+    setActiveInputFlow(inputFlow)
+  }
+  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
 
   const measureFields = getSmartTourMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
@@ -251,7 +348,7 @@ export default function SmartTourAI() {
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
   const summary = [
-    { id: 'images', label: images.length && `${images.length} foto${images.length > 1 ? 's' : ''}` },
+    { id: 'images', label: isShortVideos ? (shortVideo && `${shortVideo.file.name} · ${formatShortVideoDuration(shortVideo.duration)} · saída em formato Short vertical`) : (images.length && `${images.length} foto${images.length > 1 ? 's' : ''}`) },
     { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
     { id: 'stage', label: property.stage },
     { id: 'type', label: property.type },
@@ -259,7 +356,7 @@ export default function SmartTourAI() {
     { id: 'location', label: formatSmartTourLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
-    { id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') },
+    ...(!isShortVideos ? [{ id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') }] : []),
     { id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' },
     { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
     { id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' },
@@ -297,11 +394,16 @@ export default function SmartTourAI() {
 
       <SmartTourGuide />
 
+      <SmartTourStartChoice
+        onSelectImages={() => selectInputFlow('images')}
+        onSelectShortVideos={() => selectInputFlow(SHORT_VIDEOS_MODULE_ID)}
+      />
+
       <div className="mb-5 mt-10">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Criação guiada</p>
         <h2 className="mt-2 text-2xl font-black text-slate-950">Agora, conte como será o seu vídeo</h2>
       </div>
-    <div className="mb-6 grid grid-cols-5 gap-2">{['Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
+    <div className="mb-6 grid grid-cols-5 gap-2">{[isShortVideos ? 'Vídeo' : 'Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
     <GuidedConversation
       history={conversation.history}
       phase={conversation.phase}
@@ -314,10 +416,28 @@ export default function SmartTourAI() {
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
     >
-      <Question id={question[0]} {...{ images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, shortVideo, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
     </main>
   </>
+}
+
+function SmartTourStartChoice({ onSelectImages, onSelectShortVideos }) {
+  return <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <h2 className="text-xl font-black text-slate-950 sm:text-2xl">Como deseja começar?</h2>
+    <div className="mt-5 grid gap-4 md:grid-cols-2">
+      <article className="flex flex-col rounded-2xl border border-slate-200 p-5">
+        <h3 className="text-lg font-black text-slate-950">Criar um vídeo com fotos</h3>
+        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Utilize até 5 fotos do imóvel para criar uma apresentação profissional.</p>
+        <Button type="button" onClick={onSelectImages} className="mt-5 w-full sm:w-fit">Criar vídeo com fotos</Button>
+      </article>
+      <article className="flex flex-col rounded-2xl border border-slate-200 p-5">
+        <h3 className="text-lg font-black text-slate-950">Transformar um vídeo em Short</h3>
+        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo do imóvel e transforme-o em um Short automaticamente.</p>
+        <Button type="button" onClick={onSelectShortVideos} className="mt-5 w-full sm:w-fit">Criar Short com vídeo</Button>
+      </article>
+    </div>
+  </section>
 }
 
 function SmartTourGuide() {
@@ -486,14 +606,21 @@ function ExamplePlaceholder({ example, large = false }) {
 }
 
 function Question(props) {
-  const { id, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit } = props
+  const { id, images, shortVideo, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-2xl border p-4 text-left ${value === item.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
+  if (id === 'images' && isShortVideos) return <>
+    <input ref={inputRef} type="file" accept="video/mp4" hidden onChange={event => { addShortVideo(event.target.files); event.target.value = '' }} />
+    <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo de até 5 minutos. A IA selecionará automaticamente os melhores momentos para criar um Short vertical.</p>
+    {!shortVideo ? <button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 text-center"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar vídeo</b><span className="text-xs text-slate-500">Um arquivo MP4 de até 5 minutos</span><span className="mt-1 text-xs text-slate-400">Máximo de 250 MB</span></button> : <div className="rounded-2xl border border-slate-200 bg-white p-4"><video src={shortVideo.preview} controls playsInline preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="mx-auto max-h-80 w-full rounded-2xl bg-slate-950 object-contain" aria-label="Prévia do vídeo original" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Video className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-900">{shortVideo.file.name}</p><p className="text-xs font-semibold text-slate-500">{formatShortVideoDuration(shortVideo.duration)} · {(shortVideo.file.size / 1024 / 1024).toFixed(1)} MB</p></div><Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>Substituir</Button><button type="button" onClick={() => setShortVideo(null)} aria-label="Remover vídeo" className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-black text-red-700"><Trash2 className="h-4 w-4" />Remover</button></div></div>}
+    {message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}
+    {shortVideo && cont(false, shortVideo.file.name, 'purpose')}
+  </>
   if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
-  if (id === 'stage') return choices(getSmartTourStageOptions(property.purpose, STAGES), property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) }))
-  if (id === 'type') { const propertyTypes = getSmartTourPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES); return <>{choices(propertyTypes, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</> }
+  if (id === 'stage') { const stageOptions = isShortVideos ? getShortVideosStageOptions(property.purpose, STAGES) : getSmartTourStageOptions(property.purpose, STAGES); return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
+  if (id === 'type') { const propertyTypes = isShortVideos ? getShortVideosPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES) : getSmartTourPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES); return <>{choices(propertyTypes, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</> }
   if (id === 'facts') {
     const fields = getSmartTourMeasureFields(property.type)
     const fieldLabels = { bedrooms:'Dormitórios', suites:'Suítes', parkingSpaces:'Vagas', area:'Área' }
@@ -538,7 +665,7 @@ function Question(props) {
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   const finalChoiceItems = [
-    { label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' },
+    ...(!isShortVideos ? [{ label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' }] : []),
     { label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' },
     { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
     { label: 'CTA', value: ctaEnabled === true ? (cta || 'Sim') : 'Não' },
@@ -554,7 +681,7 @@ function Question(props) {
     </div>
     <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">Todas as escolhas</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
+      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id, isShortVideos)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -564,9 +691,9 @@ function Question(props) {
   </>
 }
 
-function reviewLabel(id) {
+function reviewLabel(id, isShortVideos = false) {
   return {
-    images: 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
+    images: isShortVideos ? 'Vídeo original' : 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
     presenter: 'Apresentador', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }[id] || id
