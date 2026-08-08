@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Play, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, Play, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, SMART_UI } from '../components/design-system'
 
 const GALLERY_ROOT = '/showcase/smart-studio-gallery'
+const SMART_CAROUSEL_GALLERY_VIDEO = '/showcase/smartcarrossel/showcase-carrossel.mp4'
 
 const IMAGE_CREATED_VIDEOS = [
   'Generated Video June 19, 2026 - 5_48PM.mp4',
@@ -56,9 +58,17 @@ const GALLERY_SECTIONS = [
     videos: AI_CREATED_VIDEOS,
     accent: 'violet',
   },
+  {
+    id: 'smart-carousel',
+    title: 'Carrossel de Anúncios',
+    description: 'Você envia as imagens do imóvel. O Studio IA cria uma apresentação dinâmica pronta para divulgação.',
+    videos: [SMART_CAROUSEL_GALLERY_VIDEO],
+    accent: 'emerald',
+  },
 ]
 
-function getVideoSource(fileName) {
+export function getVideoSource(fileName) {
+  if (fileName.startsWith('/')) return fileName
   return `${GALLERY_ROOT}/${fileName}`
 }
 
@@ -66,11 +76,20 @@ export default function StudioGallery() {
   const navigate = useNavigate()
   const [selectedVideo, setSelectedVideo] = useState(null)
   const modalVideoRef = useRef(null)
-  const closeButtonRef = useRef(null)
+  const lastTriggerRef = useRef(null)
 
   const closeModal = () => {
-    modalVideoRef.current?.pause()
+    if (modalVideoRef.current) {
+      modalVideoRef.current.pause()
+      modalVideoRef.current.currentTime = 0
+    }
     setSelectedVideo(null)
+    window.requestAnimationFrame(() => lastTriggerRef.current?.focus())
+  }
+
+  const openModal = (video, trigger) => {
+    lastTriggerRef.current = trigger
+    setSelectedVideo(video)
   }
 
   useEffect(() => {
@@ -83,7 +102,6 @@ export default function StudioGallery() {
 
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', handleKeyDown)
-    closeButtonRef.current?.focus()
 
     return () => {
       document.body.style.overflow = previousOverflow
@@ -92,31 +110,30 @@ export default function StudioGallery() {
   }, [selectedVideo])
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#ecfeff_38%,#f8fafc_100%)] px-4 py-6 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <button
+    <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#ecfeff_38%,#f8fafc_100%)] text-slate-900">
+      <div className={SMART_UI.page}>
+        <ProductButton
           type="button"
           onClick={() => navigate('/studio-hero')}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:border-cyan-300 hover:text-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2"
+          variant="secondary"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Voltar
-        </button>
+        </ProductButton>
 
-        <header className="mt-5 overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#082f49_0%,#0f172a_50%,#4c1d95_100%)] px-6 py-10 text-white shadow-2xl shadow-cyan-950/20 sm:px-10 sm:py-12">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-100 ring-1 ring-white/10">
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Galeria Smart Studio
-          </div>
-          <h1 className="mt-5 text-4xl font-black sm:text-5xl">Inspire-se</h1>
-          <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-200 sm:text-lg">
-            Veja alguns exemplos do que o Smart Studio pode criar para você.
-          </p>
+        <header className="mt-5 overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#f0f7ff_52%,#faf5ff_100%)] text-slate-900 shadow-2xl shadow-blue-100/70">
+          <ProductHero
+            id="studio-gallery-title"
+            eyebrow="SmartCorretorAI"
+            productName="Studio IA"
+            headline="Inspire-se"
+            description="Veja alguns exemplos do que o Smart Studio pode criar para você."
+          />
         </header>
 
         <div className="mt-8 space-y-10 pb-12">
           {GALLERY_SECTIONS.map((section) => (
-            <GallerySection key={section.id} section={section} onOpen={setSelectedVideo} />
+            <GallerySection key={section.id} section={section} onOpen={openModal} />
           ))}
         </div>
       </div>
@@ -132,16 +149,20 @@ export default function StudioGallery() {
           }}
         >
           <div className="relative flex max-h-full w-full max-w-md items-center justify-center">
-            <button
-              ref={closeButtonRef}
+            <ProductButton
               type="button"
               onClick={closeModal}
               aria-label="Fechar vídeo"
-              className="absolute -top-2 right-0 z-10 flex h-11 w-11 -translate-y-full items-center justify-center rounded-full bg-white text-slate-950 shadow-xl transition hover:bg-cyan-50 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+              autoFocus
+              variant="secondary"
+              className="absolute -top-2 right-0 z-10 h-11 w-11 -translate-y-full rounded-full p-0 shadow-xl focus:ring-offset-slate-950"
             >
               <X className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <div className="max-h-[82vh] w-auto max-w-full overflow-hidden rounded-[2rem] border border-white/15 bg-black p-2 shadow-2xl">
+            </ProductButton>
+            <div
+              className="relative aspect-[9/16] h-auto max-w-full overflow-hidden rounded-[2rem] border border-white/15 bg-black shadow-2xl"
+              style={{ width: 'min(calc(100vw - 2rem), calc((100dvh - 8rem) * 0.5625), 427.5px)' }}
+            >
               <video
                 ref={modalVideoRef}
                 key={selectedVideo}
@@ -152,10 +173,11 @@ export default function StudioGallery() {
                 playsInline
                 muted={false}
                 preload="metadata"
-                controlsList="nodownload"
+                controlsList="nodownload noremoteplayback"
                 disablePictureInPicture
+                disableRemotePlayback
                 onContextMenu={(event) => event.preventDefault()}
-                className="max-h-[80vh] w-auto max-w-full rounded-[1.5rem] object-contain"
+                className="smart-presentation-media"
               />
             </div>
           </div>
@@ -166,42 +188,58 @@ export default function StudioGallery() {
 }
 
 function GallerySection({ section, onOpen }) {
-  const isViolet = section.accent === 'violet'
+  const accent = {
+    violet: {
+      section: 'bg-violet-50/30',
+      phone: 'bg-violet-50/60 ring-violet-100 focus:ring-violet-400',
+    },
+    emerald: {
+      section: 'bg-emerald-50/30',
+      phone: 'bg-emerald-50/60 ring-emerald-100 focus:ring-emerald-400',
+    },
+    cyan: {
+      section: 'bg-cyan-50/30',
+      phone: 'bg-cyan-50/60 ring-cyan-100 focus:ring-cyan-400',
+    },
+  }[section.accent] || {
+    section: 'bg-cyan-50/30',
+    phone: 'bg-cyan-50/60 ring-cyan-100 focus:ring-cyan-400',
+  }
 
   return (
-    <section className={`rounded-[2rem] border bg-white p-4 shadow-sm sm:p-6 ${isViolet ? 'border-violet-100' : 'border-cyan-100'}`}>
+    <ProductCard className={`p-4 sm:p-6 ${accent.section}`}>
       <div className="mb-6 sm:flex sm:items-end sm:justify-between sm:gap-6">
-        <div>
-          <p className={`text-xs font-black uppercase tracking-[0.18em] ${isViolet ? 'text-violet-700' : 'text-cyan-700'}`}>
-            {section.videos.length} exemplos reais
-          </p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">{section.title}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{section.description}</p>
-        </div>
+        <ProductSectionHeading
+          eyebrow={`${section.videos.length} ${section.videos.length === 1 ? 'exemplo real' : 'exemplos reais'}`}
+          title={section.title}
+          description={section.description}
+        />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 2xl:grid-cols-5">
         {section.videos.map((fileName, index) => (
           <GalleryPhone
             key={fileName}
             fileName={fileName}
             index={index}
             categoryTitle={section.title}
-            isViolet={isViolet}
+            accentClassName={accent.phone}
             onOpen={onOpen}
           />
         ))}
       </div>
-    </section>
+    </ProductCard>
   )
 }
 
-function GalleryPhone({ fileName, index, categoryTitle, isViolet, onOpen }) {
+function GalleryPhone({ fileName, index, categoryTitle, accentClassName, onOpen }) {
   return (
-    <button
+    <ProductCard
+      as="button"
+      variant="flat"
       type="button"
-      onClick={() => onOpen(fileName)}
-      className={`group min-w-0 rounded-[1.7rem] border p-2.5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 sm:rounded-[2rem] sm:p-3 ${isViolet ? 'border-violet-100 bg-violet-50/60 focus:ring-violet-400' : 'border-cyan-100 bg-cyan-50/60 focus:ring-cyan-400'}`}
+      onClick={(event) => onOpen(fileName, event.currentTarget)}
+      className={`group min-w-0 p-2.5 text-left transition hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 sm:p-3 ${accentClassName}`}
       aria-label={`Abrir exemplo ${index + 1} de ${categoryTitle}`}
     >
       <span className="relative block overflow-hidden rounded-[1.35rem] bg-slate-950 p-1.5 shadow-lg sm:rounded-[1.65rem] sm:p-2">
@@ -221,7 +259,7 @@ function GalleryPhone({ fileName, index, categoryTitle, isViolet, onOpen }) {
             }}
             onFocus={(event) => event.currentTarget.play().catch(() => {})}
             onContextMenu={(event) => event.preventDefault()}
-            className="absolute inset-0 h-full w-full object-cover object-center"
+            className="smart-phone-media absolute inset-0"
             aria-hidden="true"
           />
           <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent" />
@@ -233,6 +271,6 @@ function GalleryPhone({ fileName, index, categoryTitle, isViolet, onOpen }) {
       <span className="block px-1 pb-1 pt-3 text-xs font-black uppercase tracking-wide text-slate-600">
         Exemplo {index + 1}
       </span>
-    </button>
+    </ProductCard>
   )
 }
