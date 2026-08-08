@@ -56,19 +56,31 @@ const READY_MEDIA_STATUSES = new Set(['succeeded', 'completed', 'concluída'])
 const FAILED_MEDIA_STATUSES = new Set(['failed', 'error', 'canceled', 'timeout'])
 const normalizeMediaStatus = value => String(value || 'planned').toLocaleLowerCase('pt-BR')
 
-function VideoPreview({ src, renderId = '', videoRef, className = '', onRefresh }) {
+export function getVideoDownloadTelemetry({ src = '', downloadUrl = '', protectDownload = false } = {}) {
+  return {
+    player_download_control_enabled: !protectDownload,
+    explicit_download_available: Boolean(downloadUrl),
+    same_source_as_download: Boolean(downloadUrl) && src === downloadUrl,
+  }
+}
+
+export function blockVideoContextMenu(event) {
+  event.preventDefault()
+}
+
+function VideoPreview({ src, downloadUrl = '', renderId = '', videoRef, className = '', onRefresh, protectDownload = false }) {
   const [status, setStatus] = useState('loading')
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     setStatus('loading')
     videoRef?.current?.load?.()
-    console.info('[renders] preview load', { render_id: renderId || null, status: 'succeeded', at: new Date().toISOString(), download_enabled: true, same_source_as_download: true })
-  }, [src, attempt, renderId, videoRef])
+    console.info('[renders] preview load', { render_id: renderId || null, status: 'succeeded', at: new Date().toISOString(), ...getVideoDownloadTelemetry({ src, downloadUrl, protectDownload }) })
+  }, [src, downloadUrl, attempt, renderId, videoRef, protectDownload])
 
   return (
     <div className="relative flex h-full w-full items-center justify-center">
-      <video key={`${src}-${attempt}`} ref={videoRef} src={src} controls playsInline preload="metadata" onLoadedData={() => setStatus('ready')} onCanPlay={() => setStatus('ready')} onError={() => setStatus('error')} className={className} />
+      <video key={`${src}-${attempt}`} ref={videoRef} src={src} controls playsInline preload="metadata" controlsList={protectDownload ? 'nodownload noremoteplayback' : undefined} disablePictureInPicture={protectDownload} onContextMenu={protectDownload ? blockVideoContextMenu : undefined} onLoadedData={() => setStatus('ready')} onCanPlay={() => setStatus('ready')} onError={() => setStatus('error')} className={className} />
       {status === 'loading' && <span className="absolute rounded-full bg-slate-900/80 px-4 py-2 text-xs font-black text-white">Carregando prévia...</span>}
       {status === 'error' && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-4 text-center text-white"><p className="text-sm font-bold">Não foi possível carregar a prévia.</p><button type="button" onClick={async () => { try { await onRefresh?.(); setAttempt(value => value + 1) } catch { setStatus('error') } }} className="rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-950">Tentar novamente</button></div>}
     </div>
@@ -88,7 +100,7 @@ function ImagePreview({ src, alt, renderId = '', onRefresh, onOpen }) {
   return <button type="button" onClick={(event) => onOpen({ src, alt }, event.currentTarget)} className="block h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-primary-300" aria-label={`Ampliar ${alt}`}>{image}</button>
 }
 
-function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshMedia, onOpenImage }) {
+function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshMedia, onOpenImage, mediaPresentation, protectVideoDownload }) {
   if (campaign.mediaType === 'images') {
     if (!campaign.files.length) return null
     return (
@@ -108,7 +120,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
             return (
               <article key={file.id || `${file.name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                 <div className="flex aspect-video items-center justify-center overflow-hidden bg-slate-100">
-                  {ready && assetUrl ? (isVideo ? <VideoPreview src={assetUrl} renderId={file.renderId} onRefresh={refresh} className="h-full w-full object-contain" /> : <ImagePreview src={assetUrl} renderId={file.renderId} alt={file.name || `Arte ${index + 1}`} onRefresh={refresh} onOpen={onOpenImage} />) : <span className="px-4 text-center text-xs font-bold text-slate-400">{failed ? 'Arquivo indisponível' : status === 'planned' ? 'Aguardando renderização' : 'Renderizando...'}</span>}
+                  {ready && assetUrl ? (isVideo ? <VideoPreview src={assetUrl} downloadUrl={assetUrl} renderId={file.renderId} onRefresh={refresh} className="h-full w-full object-contain" /> : <ImagePreview src={assetUrl} renderId={file.renderId} alt={file.name || `Arte ${index + 1}`} onRefresh={refresh} onOpen={onOpenImage} />) : <span className="px-4 text-center text-xs font-bold text-slate-400">{failed ? 'Arquivo indisponível' : status === 'planned' ? 'Aguardando renderização' : 'Renderizando...'}</span>}
                 </div>
                 <div className="p-4">
                   <p className="truncate text-sm font-black text-slate-900">{file.name || `Arte ${index + 1}`}</p>
@@ -150,8 +162,8 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
         </div>
         <CheckCircle2 className="h-6 w-6 text-emerald-600" />
       </div>
-      <div className="mt-5 overflow-hidden rounded-[1.5rem] bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
-        <VideoPreview src={campaign.previewUrl} videoRef={videoRef} className="mx-auto max-h-[680px] w-full rounded-2xl object-contain" />
+      <div className={`mt-5 overflow-hidden rounded-[1.5rem] bg-slate-950 shadow-xl shadow-slate-200/60 ${mediaPresentation === 'mobile' ? 'mx-auto aspect-[9/16] max-h-[680px] w-full max-w-[383px]' : 'p-2'}`}>
+        <VideoPreview src={campaign.previewUrl} downloadUrl={campaign.downloadUrl} videoRef={videoRef} protectDownload={protectVideoDownload} className={mediaPresentation === 'mobile' ? 'smart-presentation-media' : 'mx-auto max-h-[680px] w-full rounded-2xl object-contain'} />
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={() => videoRef.current?.play?.()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800">
@@ -167,7 +179,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const [copiedKey, setCopiedKey] = useState('')
   const [downloadingKey, setDownloadingKey] = useState('')
@@ -217,7 +229,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         </div>
       </header>
 
-      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} />}
+      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} />}
 
       {downloadError && (
         <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
