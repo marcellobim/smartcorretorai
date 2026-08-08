@@ -142,6 +142,8 @@ test('habilita a geração integrada com uma a cinco imagens e respostas obrigat
 test('envia ao backend somente o contrato permitido do furnish-renovate', () => {
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
   assert.match(integration, /supabase\.auth\.getUser\(\)/)
+  assert.match(integration, /`\$\{authenticatedUser\.id\}\/virtual-staging-images\/inputs\/\$\{requestId\}\/\$\{String\(imageIndex \+ 1\)\.padStart\(2, '0'\)\}\.\$\{extension\}`/)
+  assert.doesNotMatch(integration, /`\$\{authenticatedUser\.id\}\/virtual-staging\/\$\{requestId\}/)
   assert.match(integration, /storage\.from\(BUCKET\)\.upload\(inputPath, file/)
   assert.match(integration, /functions\.invoke\('virtual-staging-image-test'/)
   for (const field of ['module:', 'input_path:', 'transformation_type:', 'decoration_style:']) assert.match(integration, new RegExp(field))
@@ -178,6 +180,7 @@ test('mantém resultado somente em memória e desativa recuperação antiga apen
   assert.match(page, /setTransformationType\(''\)[\s\S]*setDecorationStyle\(''\)[\s\S]*setImageDestinations\(\[\]\)/)
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
   assert.doesNotMatch(integration, /localStorage|sessionStorage|video_jobs|virtual-staging-status/)
+  assert.match(integration, /const outputPath = data\?\.result\?\.output_path/)
   assert.match(integration, /createSignedUrl\(outputPath, 600\)/)
   assert.match(page, /Criar novo projeto/)
   assert.match(page, /setFurnishResults\(\[\]\)/)

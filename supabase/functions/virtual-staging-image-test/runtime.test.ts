@@ -17,7 +17,8 @@ import {
 } from './runtime.ts'
 
 const userId = '11111111-1111-4111-8111-111111111111'
-const validPath = `${userId}/virtual-staging/test-request/input.png`
+const requestId = '33333333-3333-4333-8333-333333333333'
+const validPath = `${userId}/virtual-staging-images/inputs/${requestId}/01.png`
 const validBody = {
   module: 'furnish-renovate',
   input_path: validPath,
@@ -254,8 +255,13 @@ test('reforça a preservação da composição e dos elementos fixos', () => {
 test('rejeita caminho ausente, caminho de outro usuário e formato inválido', async () => {
   for (const [body, expectedCode] of [
     [{ ...validBody, input_path: undefined }, 'missing_input_path'],
-    [{ ...validBody, input_path: '99999999-9999-4999-8999-999999999999/input.png' }, 'invalid_image_owner'],
-    [{ ...validBody, input_path: `${userId}/input.gif` }, 'invalid_image_format'],
+    [{ ...validBody, input_path: `${userId}/virtual-staging/${requestId}/01.png` }, 'invalid_image_owner'],
+    [{ ...validBody, input_path: `99999999-9999-4999-8999-999999999999/virtual-staging-images/inputs/${requestId}/01.png` }, 'invalid_image_owner'],
+    [{ ...validBody, input_path: `${userId}/virtual-staging-images/${requestId}/01.png` }, 'invalid_image_owner'],
+    [{ ...validBody, input_path: `${userId}/virtual-staging-images/inputs/not-a-uuid/01.png` }, 'invalid_image_owner'],
+    [{ ...validBody, input_path: `${userId}/virtual-staging-images/inputs/${requestId}/01.gif` }, 'invalid_image_format'],
+    [{ ...validBody, input_path: `${userId}/virtual-staging-images/inputs/${requestId}/input.png` }, 'invalid_image_format'],
+    [{ ...validBody, input_path: `${userId}/virtual-staging-images/inputs/${requestId}/06.png` }, 'invalid_image_format'],
   ] as const) {
     const result = await json(await handleVirtualStagingImageTest(request(body), dependencies()))
     assert.equal(result.code, expectedCode)
@@ -333,7 +339,7 @@ test('salva uma saída JPEG privada e devolve somente metadados, caminho e uso n
   let uploads = 0
   const deps = dependencies({ upload: async (path) => { uploads += 1; uploadedPath = path } })
   const result = await json(await handleVirtualStagingImageTest(request(validBody), deps))
-  assert.equal(uploadedPath, `${userId}/22222222-2222-4222-8222-222222222222/generated-01.jpg`)
+  assert.equal(uploadedPath, `${userId}/virtual-staging-images/results/22222222-2222-4222-8222-222222222222/generated-01.jpg`)
   assert.equal(result.result.output_path, uploadedPath)
   assert.equal(result.result.width, 1536)
   assert.equal(result.result.height, 1024)

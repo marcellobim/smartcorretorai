@@ -89,7 +89,7 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
     const outputDimensions = resolveOutputDimensions(size)
     const prompt = buildVirtualStagingPrompt(transformationType, decorationStyle)
     const jobId = deps.createJobId()
-    const outputPath = `${user.id}/${jobId}/generated-01.jpg`
+    const outputPath = `${user.id}/virtual-staging-images/results/${jobId}/generated-01.jpg`
 
     let generated: ImageEditResult
     try {

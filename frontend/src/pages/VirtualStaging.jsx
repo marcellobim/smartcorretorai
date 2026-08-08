@@ -463,7 +463,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         }
 
         const extension = file.type === 'image/png' ? 'png' : 'jpg'
-        const inputPath = `${authenticatedUser.id}/virtual-staging/${requestId}/${String(imageIndex + 1).padStart(2, '0')}.${extension}`
+        const inputPath = `${authenticatedUser.id}/virtual-staging-images/inputs/${requestId}/${String(imageIndex + 1).padStart(2, '0')}.${extension}`
         updateResult(image.key, { status: 'uploading', inputPath })
         setStatus('uploading')
         const { error: uploadError } = await supabase.storage.from(BUCKET).upload(inputPath, file, { contentType: file.type, upsert: false })

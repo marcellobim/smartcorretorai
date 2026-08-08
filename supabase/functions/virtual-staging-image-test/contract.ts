@@ -258,18 +258,25 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
 }
 
 export function validateOwnedInputPath(inputPath: string, userId: string) {
+  const segments = inputPath.split('/')
+  const requestId = segments[3] || ''
+  const filename = segments[4] || ''
   if (
     inputPath.includes('\\')
     || inputPath.includes('\0')
     || inputPath.startsWith('/')
-    || inputPath.split('/').some((segment) => !segment || segment === '.' || segment === '..')
-    || !inputPath.startsWith(`${userId}/`)
+    || segments.some((segment) => !segment || segment === '.' || segment === '..')
+    || segments.length !== 5
+    || segments[0] !== userId
+    || segments[1] !== 'virtual-staging-images'
+    || segments[2] !== 'inputs'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
   ) {
     throw invalidInput('invalid_image_owner', 'A imagem informada não pertence à sua conta.')
   }
 
-  if (!/\.(?:jpe?g|png|webp)$/i.test(inputPath)) {
-    throw invalidInput('invalid_image_format', 'Use uma imagem JPEG, PNG ou WebP.')
+  if (!/^0[1-5]\.(?:jpg|png)$/i.test(filename)) {
+    throw invalidInput('invalid_image_format', 'Use uma imagem JPG ou PNG válida.')
   }
 }
 
