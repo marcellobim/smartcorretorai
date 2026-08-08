@@ -201,7 +201,7 @@ test('generator loads reference separately and sends property images only to sce
   assert.doesNotMatch(generator, /input_image_1_path:presenterReferencePath/)
 })
 
-test('Module 2 and original smart-tour contracts remain unchanged', () => {
+test('Module 2 and original smart-tour contracts remain unchanged outside text composition', () => {
   const lifeRequest = {
     ...baseRequest,
     generation: { ...baseRequest.generation, mode: 'narrated_tour', life_scene: 'adult_dog' },
@@ -212,6 +212,10 @@ test('Module 2 and original smart-tour contracts remain unchanged', () => {
   const virtualValidated = validateVirtualStagingRequest(baseRequest)
   assert.deepEqual(virtualValidated, originalValidated)
   const input = { generation: originalValidated.generation, property: originalValidated.property, selectedCta: originalValidated.selectedCta, imagePaths: originalValidated.imagePaths, language: originalValidated.language }
-  assert.deepEqual(buildVirtualStagingBriefing(input), buildOriginalSmartTourBriefing(input))
+  const { regrasObrigatorias: virtualRules, ...virtualContract } = buildVirtualStagingBriefing(input)
+  const { regrasObrigatorias: originalRules, ...originalContract } = buildOriginalSmartTourBriefing(input)
+  assert.deepEqual(virtualContract, originalContract)
+  assert.ok(originalRules.length > 0)
+  assert.match(virtualRules.map(rule => `${rule.codigo}: ${rule.valor}`).join('\n'), /legendas_aplicadas_por_compositor_deterministico/)
   assert.doesNotMatch(read('supabase/functions/smart-tour-generate/index.ts'), /presenter_reference|property_images|broker-presentation/)
 })

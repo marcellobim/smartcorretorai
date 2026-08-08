@@ -42,7 +42,7 @@ export function parseSmartTourStructuredBriefing(value: unknown): SmartTourStruc
     if (briefing.cenas.length !== briefing.configuracoes?.quantidadeImagens) throw new Error('invalid')
     if (briefing.timeline) {
       const blocks = [...briefing.timeline.legendas, ...briefing.timeline.narracao, briefing.timeline.cta]
-      const expectedCaptionCount = briefing.vidaNoImovel ? 5 : 4
+      const expectedCaptionCount = briefing.vidaNoImovel || briefing.referenciaApresentador ? 5 : 4
       const validBlock = (block: { inicioSegundos: number; fimSegundos: number }) =>
         Number.isFinite(block.inicioSegundos) && Number.isFinite(block.fimSegundos) &&
         block.inicioSegundos >= 0 && block.fimSegundos > block.inicioSegundos && block.fimSegundos <= 10

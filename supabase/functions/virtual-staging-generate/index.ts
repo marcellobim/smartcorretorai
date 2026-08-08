@@ -33,7 +33,8 @@ serve(withCors(async req => {
     try {
       const images = await prepareGeminiImages(supabase,'studio-videos',input.imagePaths)
       const presenterImages = presenterReferencePath ? await prepareGeminiImages(supabase,'studio-videos',[presenterReferencePath]) : []
-      const started = await startGeminiOmniVideo({prompt,images:[...presenterImages,...images]})
+      const activeVerticalVideo = Boolean(input.generation.life_scene) || input.module === 'broker-presentation'
+      const started = await startGeminiOmniVideo({prompt,images:[...presenterImages,...images],...(activeVerticalVideo ? {aspectRatio:'9:16' as const} : {})})
       const { error: providerIdError } = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
       if (providerIdError) throw new Error('provider_id_persist_failed')
       console.info('[virtual-staging-generate] provider_id_persisted', JSON.stringify({ providerIdSource: 'id' }))

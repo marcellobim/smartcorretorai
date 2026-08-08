@@ -626,6 +626,7 @@ export function buildSmartTourStructuredBriefing(input: {
       ...presenterRules,
       ...presenterReferenceRules,
       ...lifeSceneRules,
+      ...((hasLifeScene || Boolean(input.presenterReference)) ? [{ codigo: 'virtual_space_composicao_vertical_segura', valor: 'Criar a apresentação em composição vertical 9:16, preenchendo visualmente toda a tela sem faixas pretas e sem deformação. Manter o imóvel e, quando aplicável, a pessoa principal dentro da área segura vertical, evitando cortes inadequados.' }] : []),
       ...(input.presenterReference && config.narration === 'enabled' ? [{ codigo: 'finalidade_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve declarar obrigatoriamente a finalidade recebida: à venda para sale ou para locação para rent/rental. Não omitir nem inferir a finalidade.' }] : []),
       ...(input.presenterReference && config.captions === 'enabled' ? [{ codigo: 'finalidade_legenda_apresentacao_corretor', valor: 'A primeira legenda de timeline.legendas deve ser obrigatoriamente À VENDA para sale ou PARA LOCAÇÃO para rent/rental. Não omitir, inferir nem substituir pela localização, pelo tipo ou pelo estado do imóvel.' }] : []),
       { codigo: 'idioma', valor: input.language },
