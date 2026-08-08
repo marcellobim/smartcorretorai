@@ -23,6 +23,10 @@ const publicEntryPoints = [
   read('src/pages/Planos.jsx'),
 ]
 
+test('uses the approved Virtual Space description on the Home card', () => {
+  assert.ok(dashboard.includes('Transforme ambientes, crie novas possibilidades visuais e apresente seus imóveis com inteligência artificial.'))
+})
+
 test('uses the approved Banner Imobiliário communication on Dashboard', () => {
   assert.match(dashboard, /id: 'hero-ia'[\s\S]*?title: 'Banner Imobiliário'/)
   assert.ok(dashboard.includes(officialDescription))

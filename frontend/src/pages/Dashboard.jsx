@@ -63,7 +63,7 @@ const mainActions = [
     id: 'virtual-staging',
     icon: Home,
     title: 'Virtual Space',
-    description: 'Reimagine ambientes, crie experiências com pessoas e apresente seus imóveis utilizando sua própria imagem.',
+    description: 'Transforme ambientes, crie novas possibilidades visuais e apresente seus imóveis com inteligência artificial.',
     to: '/virtual-staging',
     label: 'Criar projeto',
     tone: 'soft',
