@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { SMART_TOUR_MAX_IMAGES } from '../src/config/smartTour.js'
-import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_PROPERTY_TYPES } from '../src/config/smartTourForm.js'
+import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_PROPERTY_TYPES, SMART_TOUR_RENTAL_STAGES } from '../src/config/smartTourForm.js'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../src/config/smartTourConversation.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -43,6 +43,17 @@ test('asks only compatible measures for each property type', () => {
   assert.deepEqual(getSmartTourMeasureFields('Casa'), ['bedrooms', 'suites', 'parkingSpaces', 'area'])
   assert.deepEqual(getSmartTourMeasureFields('Comercial'), ['parkingSpaces', 'area'])
   assert.deepEqual(getSmartTourMeasureFields('Terreno / Lote'), ['area'])
+})
+
+test('uses the approved rental states and removes land only from rental', () => {
+  const saleStages = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
+  assert.deepEqual(SMART_TOUR_RENTAL_STAGES, ['Pronto para morar', 'Disponível já', 'Vago'])
+  assert.deepEqual(getSmartTourStageOptions('rent', saleStages), SMART_TOUR_RENTAL_STAGES)
+  assert.deepEqual(getSmartTourStageOptions('sale', saleStages), saleStages)
+  assert.equal(getSmartTourPropertyTypes('rent').includes('Terreno / Lote'), false)
+  assert.equal(getSmartTourPropertyTypes('sale').includes('Terreno / Lote'), true)
+  assert.match(page, /getSmartTourStageOptions\(property\.purpose, STAGES\)/)
+  assert.match(page, /getSmartTourPropertyTypes\(property\.purpose, SMART_TOUR_PROPERTY_TYPES\)/)
 })
 
 test('removes Sobrado as a primary type and keeps it as a house highlight', () => {
