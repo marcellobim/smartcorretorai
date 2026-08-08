@@ -10,6 +10,7 @@ const read = (relativePath) => readFileSync(path.join(frontendRoot, relativePath
 const banner = read('src/pages/HeroNext.jsx')
 const location = read('src/components/location/SmartCarouselCitySelect.jsx')
 test('standardizes only the Banner location controls without replacing its conversation flow', () => {
+  assert.match(read('src/components/design-system/ProductButton.jsx'), /aria-busy=\{loading \? true : ariaBusy\}/)
   assert.match(location, /export function SmartLocationSelect/)
   assert.match(banner, /SmartLocationSelect, SmartLocationTextInput/)
   assert.match(banner, /if \(currentQuestion\.id === 'city'\)[\s\S]*?ariaLabel="Estado"[\s\S]*?setCityUf\(nextUf\)[\s\S]*?setCitySelection\(''\)/)

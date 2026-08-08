@@ -1,8 +1,12 @@
+import { Loader2 } from 'lucide-react'
 import { SMART_UI } from '../../design-system/tokens'
 
 const variants = {
   primary: 'border-primary-800 bg-primary-800 text-white shadow-lg shadow-primary-200 hover:border-primary-700 hover:bg-primary-700',
   secondary: 'border-primary-200 bg-white text-primary-800 hover:border-primary-400 hover:bg-primary-50',
+  success: 'border-emerald-700 bg-emerald-700 text-white shadow-lg shadow-emerald-200 hover:border-emerald-600 hover:bg-emerald-600',
+  danger: 'border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50',
+  inverse: 'border-white/20 bg-white/10 text-white hover:border-white/35 hover:bg-white/15',
   ghost: 'border-transparent bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950',
 }
 
@@ -12,6 +16,26 @@ const sizes = {
   lg: 'min-h-12 px-6 py-3 text-base',
 }
 
-export default function ProductButton({ as: Component = 'button', variant = 'primary', size = 'md', className = '', children, ...props }) {
-  return <Component className={`inline-flex items-center justify-center gap-2 rounded-smart-control border font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${SMART_UI.focus} ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`} {...props}>{children}</Component>
+export default function ProductButton({ as: Component = 'button', variant = 'primary', size = 'md', loading = false, className = '', children, disabled, onClick, tabIndex, 'aria-busy': ariaBusy, ...props }) {
+  const isLink = Component === 'a' || (Component !== 'button' && (props.href !== undefined || props.to !== undefined))
+  const isDisabled = Boolean(disabled || loading)
+  const handleLinkClick = event => {
+    if (isDisabled) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    onClick?.(event)
+  }
+
+  return <Component
+    className={`inline-flex items-center justify-center gap-2 rounded-smart-control border font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${isLink && isDisabled ? 'cursor-not-allowed opacity-50' : ''} ${SMART_UI.focus} ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`}
+    {...props}
+    {...(isLink ? { 'aria-disabled': isDisabled || undefined, tabIndex: isDisabled ? -1 : tabIndex } : { disabled: isDisabled, tabIndex })}
+    onClick={isLink ? handleLinkClick : onClick}
+    aria-busy={loading ? true : ariaBusy}
+  >
+    {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+    {children}
+  </Component>
 }
