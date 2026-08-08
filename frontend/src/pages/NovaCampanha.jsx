@@ -12,6 +12,8 @@ import { getProduct3Highlights, isProduct3CommercialType, PRODUCT_3_PROPERTY_TYP
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { formatBrazilianPhone, formatProduct3Price as formatCanonicalProduct3Price, formatProduct3PropertyTag, getProduct3PurposeBadge } from '../../../supabase/functions/_shared/product3-contract.ts'
+import { ProductCard } from '../components/design-system'
+import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -1531,18 +1533,20 @@ function BannerConversation({
   ].filter(item => item.value)
 
   return (
-    <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]">
+    <ProductCard data-smart-conversation className="overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6">
-        <div className="flex items-start gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><MessageCircle className="h-5 w-5" /></span>
-          <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">Etapa 2</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Converse com a IA</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Uma pergunta por vez para preparar seus banners.</p></div>
-        </div>
+        <ConversationHeader eyebrow="Etapa 2" title="Converse com a IA" description="Uma pergunta por vez para preparar seus banners." />
       </div>
       <div className="grid min-w-0 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
         <div className="min-w-0 space-y-4">
-          {history.map(item => <div key={item.key} className="space-y-2"><div className="max-w-[88%] rounded-2xl rounded-tl-md bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{item.question}</div><div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-md bg-primary-700 px-4 py-3 text-sm font-bold text-white">{item.answer}<button type="button" aria-label={`Editar ${item.question}`} disabled={!questionReady} onClick={() => editStep(item.key)} className="ml-3 text-xs font-black text-white/80 underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50">Editar</button></div><div className="max-w-[88%] rounded-2xl rounded-tl-md bg-primary-50 px-4 py-3 text-sm font-black text-primary-800">{item.confirmation}.</div></div>)}
-          <div ref={activeQuestionRef} aria-live="polite" aria-busy={!questionReady} className="scroll-mt-6 rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#ffffff,#f5f9ff)] p-5 shadow-sm sm:p-6">
-            <div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Sparkles className="h-5 w-5" /></span><div className="min-w-0 flex-1"><span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-primary-800">{step === 'done' ? 'Resumo concluído' : `Pergunta ${activeIndex + 1}`}</span><h3 className="mt-3 min-h-7 text-xl font-black leading-tight text-slate-950 sm:text-2xl"><Product3ProgressiveQuestion key={step} text={questionLabels[step] || questionLabels.done} onComplete={handleQuestionComplete} prefersReducedMotion={prefersReducedMotion} /></h3>{questionReady && <div className="mt-6 animate-fade-in motion-reduce:animate-none">{questionContent}</div>}</div></div>
+          {history.map(item => <div key={item.key} className="space-y-3"><ConversationAssistantBubble>{item.question}</ConversationAssistantBubble><ConversationUserBubble actions={<button type="button" aria-label={`Editar ${item.question}`} disabled={!questionReady} onClick={() => editStep(item.key)} className="ml-3 text-xs font-black text-cyan-200 underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50">Editar</button>}>{item.answer}</ConversationUserBubble><ConversationAssistantBubble confirmation>{item.confirmation}.</ConversationAssistantBubble></div>)}
+          <div ref={activeQuestionRef} aria-live="polite" aria-busy={!questionReady} className="scroll-mt-6">
+            <ConversationQuestionCard
+              label={step === 'done' ? 'Resumo concluído' : `Pergunta ${activeIndex + 1}`}
+              title={<span className="min-h-7"><Product3ProgressiveQuestion key={step} text={questionLabels[step] || questionLabels.done} onComplete={handleQuestionComplete} prefersReducedMotion={prefersReducedMotion} /></span>}
+            >
+              {questionReady && <div className="animate-fade-in motion-reduce:animate-none">{questionContent}</div>}
+            </ConversationQuestionCard>
           </div>
         </div>
         <aside className="min-w-0 rounded-3xl border border-primary-100 bg-[linear-gradient(145deg,#eff6ff,#ffffff)] p-5 lg:sticky lg:top-6 lg:self-start">
@@ -1552,7 +1556,7 @@ function BannerConversation({
           </div>
         </aside>
       </div>
-    </section>
+    </ProductCard>
   )
 }
 
