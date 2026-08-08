@@ -44,7 +44,7 @@ serve(withCors(async req => {
     log('job_lookup_started')
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final')
+      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final,marketing_hashtags')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .eq('mode', 'virtual_staging_gemini_omni')
@@ -61,7 +61,7 @@ serve(withCors(async req => {
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
       if (error) throw new Error('status_completed_url_failed')
       log('completed_url_completed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '' })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
     if (!job.provider_job_id) return json({ ok: true, status: 'generating', jobId, message: 'Preparando sua apresentação...' })
@@ -103,7 +103,7 @@ serve(withCors(async req => {
       if (updateError) throw new Error('status_completed_persist_failed')
       const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
       if (signedUrlError) throw new Error('status_result_url_failed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '' })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
     stage = 'interaction_poll'
@@ -133,8 +133,13 @@ serve(withCors(async req => {
       return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
     }
 
-    const briefing = parseSmartTourStructuredBriefing(job.prompt_final)
-    if (hasDeterministicSmartTourText(briefing)) {
+    let briefing = null
+    try {
+      briefing = parseSmartTourStructuredBriefing(job.prompt_final)
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'smart_tour_caption_briefing_invalid') throw error
+    }
+    if (briefing && hasDeterministicSmartTourText(briefing)) {
       stage = 'video_upload'
       const rawPath = `${user.id}/${jobId}/virtual-staging-gemini.mp4`
       const { error: rawUploadError } = await supabase.storage
@@ -179,7 +184,7 @@ serve(withCors(async req => {
     const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
     if (signedUrlError) throw new Error('status_result_url_failed')
     log('result_url_completed')
-    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '' })
+    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
   } catch (error) {
     const diagnostic = classifySmartTourStatusError(error, stage)
     const logger = diagnostic.retriable ? console.warn : console.error

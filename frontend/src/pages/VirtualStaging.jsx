@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
-import { buildVirtualStagingCampaignPackage } from '../components/campaign/buildVirtualStagingCampaignPackage'
+import { buildVirtualStagingCampaignPackage, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
@@ -396,7 +396,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           setMessage('Sua apresentação foi concluída, mas o vídeo está temporariamente indisponível. Consulte o resultado novamente.')
           return
         }
-        const campaignPackage = stored.campaignPackage || {}
+        const campaignPackage = mergeVirtualStagingCampaignHashtags(stored.campaignPackage || {}, data.hashtags)
         const completedResult = { ...data, campaignPackage }
         setResult(completedResult)
         setStatus('completed')
@@ -550,7 +550,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       const requestBody = { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR', ...brokerFiles }
       const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: requestBody })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '' })
+      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', hashtags:data.hashtags })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, status:'generating', campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }

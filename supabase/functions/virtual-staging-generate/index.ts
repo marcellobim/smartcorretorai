@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
 import { buildReimaginePrompt, buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/virtual-staging/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
+import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
+import { buildOfficialHashtags } from '../_shared/official-hashtags.ts'
 const safeError = (error: unknown) => error instanceof Error ? error.message.replace(/AIza[\w-]+/g,'[redacted]').slice(0,240) : 'unknown_error'
 
 serve(withCors(async req => {
@@ -21,24 +23,28 @@ serve(withCors(async req => {
     const {data:objects,error:objectsError} = await supabase.storage.from('studio-videos').list(`${user.id}/virtual-staging/${input.clientRequestId}`,{limit:10})
     const available = new Set((objects || []).map(item => `${user.id}/virtual-staging/${input.clientRequestId}/${item.name}`))
     if (objectsError || requestedPaths.some(path => !available.has(path))) throw new Error('image_unavailable')
-    const {data:existing} = await supabase.from('video_jobs').select('id,status').eq('id',input.clientRequestId).eq('user_id',user.id).maybeSingle()
-    if (existing) return json({ok:true,jobId:existing.id,status:existing.status,idempotent:true})
+    const {data:existing} = await supabase.from('video_jobs').select('id,status,marketing_hashtags').eq('id',input.clientRequestId).eq('user_id',user.id).maybeSingle()
+    if (existing) return json({ok:true,jobId:existing.id,status:existing.status,hashtags:existing.marketing_hashtags || [],idempotent:true})
     const {data:profile} = await supabase.from('profiles').select('whatsapp, telefone').eq('id',user.id).maybeSingle()
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
+    const activeVerticalVideo = Boolean(input.generation.life_scene) || input.module === 'broker-presentation'
+    const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
+    const fallbackHashtags = activeVerticalVideo ? buildOfficialHashtags(hashtagContext) : []
     const prompt = input.module === 'furnish-renovate'
       ? buildReimaginePrompt(input.property, input.imageOrder)
       : buildSmartTourVideoPrompt(buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language,presenterReference:input.presenter_reference}))
-    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'virtual_staging_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),tokens_reserved:0})
+    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'virtual_staging_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
+    const hashtags = activeVerticalVideo ? await generateStrategicHashtags({apiKey:Deno.env.get('OPENAI_API_KEY') || '',variationKey:input.clientRequestId,context:hashtagContext}) : []
+    if (hashtags.length) await supabase.from('video_jobs').update({marketing_hashtags:hashtags}).eq('id',input.clientRequestId).eq('user_id',user.id)
     try {
       const images = await prepareGeminiImages(supabase,'studio-videos',input.imagePaths)
       const presenterImages = presenterReferencePath ? await prepareGeminiImages(supabase,'studio-videos',[presenterReferencePath]) : []
-      const activeVerticalVideo = Boolean(input.generation.life_scene) || input.module === 'broker-presentation'
       const started = await startGeminiOmniVideo({prompt,images:[...presenterImages,...images],...(activeVerticalVideo ? {aspectRatio:'9:16' as const} : {})})
       const { error: providerIdError } = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
       if (providerIdError) throw new Error('provider_id_persist_failed')
       console.info('[virtual-staging-generate] provider_id_persisted', JSON.stringify({ providerIdSource: 'id' }))
-      return json({ok:true,jobId:input.clientRequestId,status:'generating'})
+      return json({ok:true,jobId:input.clientRequestId,status:'generating',hashtags})
     } catch (error) {
       await supabase.from('video_jobs').update({status:'failed',error_message:safeError(error)}).eq('id',input.clientRequestId).eq('user_id',user.id)
       throw error

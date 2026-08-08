@@ -2,11 +2,35 @@ import { normalizeOfficialHashtags } from '../../../../supabase/functions/_share
 
 const clean = value => String(value || '').trim()
 const location = property => [property.district, property.city, property.state].filter(Boolean).join(', ')
+const validGeneratedHashtags = hashtags => Array.isArray(hashtags)
+  ? hashtags.filter(value => typeof value === 'string' && /^#[\p{L}\p{N}_]+$/u.test(value.trim()))
+  : []
 const translations = {
   'pt-BR': { intro: 'Conheça', sale: 'à venda', rent: 'para locação', in: 'em', details: 'Destaques', contact: 'Entre em contato para saber mais.', bedrooms:'dormitórios',suites:'suítes',parking:'vagas' },
   'en-US': { intro: 'Discover', sale: 'for sale', rent: 'for rent', in: 'in', details: 'Highlights', contact: 'Get in touch to learn more.', bedrooms:'bedrooms',suites:'suites',parking:'parking spaces' },
   es: { intro: 'Descubre', sale: 'en venta', rent: 'en alquiler', in: 'en', details: 'Características', contact: 'Contáctanos para más información.', bedrooms:'dormitorios',suites:'suites',parking:'plazas de garaje' },
 }
+export function mergeVirtualStagingCampaignHashtags(campaignPackage, generatedHashtags) {
+  const validHashtags = validGeneratedHashtags(generatedHashtags)
+  if (!validHashtags.length) return campaignPackage
+  const hashtags = normalizeOfficialHashtags(validHashtags, {
+    purpose: campaignPackage?.purpose,
+    propertyType: campaignPackage?.propertyType,
+    city: campaignPackage?.city,
+    district: campaignPackage?.district,
+    state: campaignPackage?.state,
+    bedrooms: campaignPackage?.bedrooms,
+    suites: campaignPackage?.suites,
+    parkingSpaces: campaignPackage?.parkingSpaces,
+    highlights: campaignPackage?.highlights,
+    cta: campaignPackage?.cta,
+  })
+  return {
+    ...campaignPackage,
+    aiCampaigns: (campaignPackage?.aiCampaigns || []).map(campaign => ({ ...campaign, hashtags })),
+  }
+}
+
 export function buildVirtualStagingCampaignPackage({ property, language, cta, phone, videoUrl = '', hashtags: generatedHashtags = [] }) {
   const text = translations[language] || translations['pt-BR']
   const translatedTypes = { 'en-US':{Apartamento:'apartment',Casa:'house',Cobertura:'penthouse','Studio / Loft':'studio / loft',Sobrado:'townhouse','Terreno / Lote':'land',Comercial:'commercial property'}, es:{Apartamento:'apartamento',Casa:'casa',Cobertura:'ático','Studio / Loft':'estudio / loft',Sobrado:'casa adosada','Terreno / Lote':'terreno',Comercial:'inmueble comercial'} }
