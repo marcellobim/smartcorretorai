@@ -24,6 +24,8 @@ export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
   },
 ])
 
+const RECOVERABLE_LEGACY_JOURNEY_IDS = new Set(['life-in-property', 'broker-presentation'])
+
 export function getVirtualStagingJourney(journeyId) {
   return VIRTUAL_STAGING_JOURNEYS.find(journey => journey.id === journeyId) || null
 }
@@ -47,13 +49,27 @@ export function parseVirtualStagingJobRecord(value) {
 
 export function getRecoverableVirtualStagingJourneyId(storage) {
   const candidates = VIRTUAL_STAGING_JOURNEYS.flatMap((journey, index) => {
+    if (!RECOVERABLE_LEGACY_JOURNEY_IDS.has(journey.id)) return []
+    const storageKey = getVirtualStagingJourneySessionKey(journey.id)
+    let storedValue = null
     let record = null
     try {
-      record = parseVirtualStagingJobRecord(storage?.getItem?.(getVirtualStagingJourneySessionKey(journey.id)))
+      storedValue = storage?.getItem?.(storageKey)
+      record = parseVirtualStagingJobRecord(storedValue)
     } catch {
       return []
     }
-    if (!record) return []
+    if (!record) {
+      if (storedValue) {
+        try { storage?.removeItem?.(storageKey) } catch { /* storage indisponível: apenas ignora */ }
+      }
+      return []
+    }
+    const persistedStatus = String(record.result?.status || record.status || '').toLowerCase()
+    if (['completed', 'failed'].includes(persistedStatus)) {
+      try { storage?.removeItem?.(storageKey) } catch { /* storage indisponível: apenas ignora */ }
+      return []
+    }
     const updatedAt = Number(record.updatedAt)
     return [{ journeyId: journey.id, index, updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0 }]
   })

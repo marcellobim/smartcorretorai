@@ -214,6 +214,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const presenterInputRef = useRef(null)
   const presenterReferenceRef = useRef(null)
   const pollRef = useRef(null)
+  const activeJobIdRef = useRef('')
+  const recoveryStartedJobIdRef = useRef('')
   const reviewEditRef = useRef(null)
   const furnishGenerationInFlightRef = useRef(false)
   const [hasStartedFurnish, setHasStartedFurnish] = useState(false)
@@ -351,8 +353,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }, [])
   useEffect(() => {
     if (isFurnishRenovate) return
-    const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey))
-    if (!stored) return
+    const storedValue = sessionStorage.getItem(activeJobKey)
+    const stored = parseVirtualStagingJobRecord(storedValue)
+    if (!stored) {
+      if (storedValue) sessionStorage.removeItem(activeJobKey)
+      return
+    }
+    if (recoveryStartedJobIdRef.current === stored.jobId) return
+    recoveryStartedJobIdRef.current = stored.jobId
     setStatus('generating')
     setMessage('Retomando sua criação...')
     poll(stored.jobId)
@@ -376,11 +384,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const toggleHighlight = value => setPropertyField('highlights', property.highlights.includes(value) ? property.highlights.filter(item => item !== value) : property.highlights.length < 10 ? [...property.highlights, value] : property.highlights)
 
   async function poll(jobId) {
+    activeJobIdRef.current = jobId
     try {
       const { data, error } = await supabase.functions.invoke('virtual-staging-status', { body: { jobId } })
       if (error || !data?.ok) throw new Error(data?.error || 'Não foi possível consultar a criação.')
       if (data.status === 'completed') {
         const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey)) || { jobId }
+        sessionStorage.removeItem(activeJobKey)
         if (!isUsableVirtualStagingVideoUrl(data.signedVideoUrl)) {
           setStatus('result_unavailable')
           setMessage('Sua apresentação foi concluída, mas o vídeo está temporariamente indisponível. Consulte o resultado novamente.')
@@ -388,25 +398,22 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         }
         const campaignPackage = stored.campaignPackage || {}
         const completedResult = { ...data, campaignPackage }
-        sessionStorage.setItem(activeJobKey, JSON.stringify({
-          ...stored,
-          jobId,
-          campaignPackage,
-          result: { status: data.status, signedVideoUrl: data.signedVideoUrl },
-          updatedAt: Date.now(),
-        }))
         setResult(completedResult)
         setStatus('completed')
         return
       }
-      if (data.status === 'failed') throw new Error(data.error)
+      if (data.status === 'failed') {
+        sessionStorage.removeItem(activeJobKey)
+        throw new Error(data.error)
+      }
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
   }
 
   const retryResultStatus = () => {
     const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey))
-    if (!stored) {
+    const jobId = activeJobIdRef.current || stored?.jobId
+    if (!jobId) {
       setStatus('error')
       setMessage('Não foi possível recuperar esta criação.')
       return
@@ -414,7 +421,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (pollRef.current) clearTimeout(pollRef.current)
     setStatus('generating')
     setMessage('Consultando sua apresentação...')
-    poll(stored.jobId)
+    poll(jobId)
   }
 
   const createFurnishRenovateImage = async () => {
@@ -544,11 +551,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: requestBody })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '' })
-      sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
+      sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, status:'generating', campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
   if (isFurnishRenovate && !hasStartedFurnish) return <section aria-labelledby="virtual-staging-chat-intro-title" className="mt-10">
     <ProductCard className="p-6 sm:p-8">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">SmartCorretorAI</p>

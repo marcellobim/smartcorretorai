@@ -26,12 +26,14 @@ test('restores Module 3 from its known active-job key after reload', () => {
   const storage = memoryStorage({ [key]: JSON.stringify({ jobId: 'job-module-3', updatedAt: 30 }) })
 
   assert.equal(getRecoverableVirtualStagingJourneyId(storage), 'broker-presentation')
-  assert.match(page, /useState\(\(\) => getRecoverableVirtualStagingJourneyId\(globalThis\.sessionStorage\)\)/)
+  assert.match(page, /const recoveredJourneyId = getRecoverableVirtualStagingJourneyId\(globalThis\.sessionStorage\)/)
+  assert.match(page, /return recoveredJourneyId === FURNISH_RENOVATE_JOURNEY_ID \? '' : recoveredJourneyId/)
+  assert.match(page, /useState\(getInitialVirtualStagingJourneyId\)/)
 })
 
 test('restored journey mounts and resumes polling with the saved job id', () => {
   assert.match(page, /selectedJourney && <div[\s\S]*?<VirtualStagingJourney/)
-  assert.match(page, /parseVirtualStagingJobRecord\(sessionStorage\.getItem\(activeJobKey\)\)[\s\S]*?poll\(stored\.jobId\)/)
+  assert.match(page, /const storedValue = sessionStorage\.getItem\(activeJobKey\)[\s\S]*?parseVirtualStagingJobRecord\(storedValue\)[\s\S]*?poll\(stored\.jobId\)/)
 })
 
 test('completed accepts only an assignable signed video URL and renders CampaignPackage', () => {
@@ -42,7 +44,7 @@ test('completed accepts only an assignable signed video URL and renders Campaign
   assert.match(page, /previewUrl: result\.signedVideoUrl, downloadUrl: result\.signedVideoUrl/)
 })
 
-test('completed result remains recoverable across another reload', () => {
+test('completed result is not recoverable across another reload', () => {
   const stored = parseVirtualStagingJobRecord(JSON.stringify({
     jobId: 'completed-job',
     campaignPackage: { sourceProduct: 'Virtual Space' },
@@ -54,14 +56,15 @@ test('completed result remains recoverable across another reload', () => {
   assert.equal(stored.result.status, 'completed')
   assert.equal(getRecoverableVirtualStagingJourneyId(memoryStorage({
     [getVirtualStagingJourneySessionKey('broker-presentation')]: JSON.stringify(stored),
-  })), 'broker-presentation')
-  assert.match(page, /result: \{ status: data\.status, signedVideoUrl: data\.signedVideoUrl \}/)
+  })), null)
 })
 
-test('completed does not remove the job before Create new project', () => {
+test('completed clears recovery while preserving the result in current React state', () => {
   const completedBranch = page.slice(page.indexOf("if (data.status === 'completed')"), page.indexOf("if (data.status === 'failed')"))
-  assert.doesNotMatch(completedBranch, /sessionStorage\.removeItem/)
-  assert.match(completedBranch, /sessionStorage\.setItem\(activeJobKey/)
+  assert.match(completedBranch, /sessionStorage\.removeItem\(activeJobKey\)/)
+  assert.doesNotMatch(completedBranch, /sessionStorage\.setItem\(activeJobKey/)
+  assert.match(completedBranch, /setResult\(completedResult\)/)
+  assert.match(completedBranch, /setStatus\('completed'\)/)
 })
 
 test('Create new project clears the recoverable job explicitly', () => {
@@ -69,7 +72,7 @@ test('Create new project clears the recoverable job explicitly', () => {
   assert.match(page, /createNewLabel="Criar novo projeto"/)
 })
 
-test('completed without signedVideoUrl keeps the job and exposes a status-only retry', () => {
+test('completed without signedVideoUrl clears recovery and exposes a current-session status retry', () => {
   assert.equal(isUsableVirtualStagingVideoUrl(''), false)
   assert.equal(isUsableVirtualStagingVideoUrl('   '), false)
   assert.match(page, /setStatus\('result_unavailable'\)/)
@@ -77,14 +80,32 @@ test('completed without signedVideoUrl keeps the job and exposes a status-only r
   assert.match(page, /Consultar resultado novamente/)
   assert.match(page, /if \(status === 'result_unavailable'\) return <section role="alert"/)
   assert.match(page, /onClick=\{retryResultStatus\}>Consultar resultado novamente/)
+  assert.match(page, /activeJobIdRef\.current \|\| stored\?\.jobId/)
 })
 
-test('invalid URL never clears the recoverable job', () => {
+test('invalid URL cannot restore a completed job after reload', () => {
   assert.equal(isUsableVirtualStagingVideoUrl('not-a-url'), false)
   assert.equal(isUsableVirtualStagingVideoUrl('javascript:alert(1)'), false)
-  const invalidUrlBranch = page.slice(page.indexOf('if (!isUsableVirtualStagingVideoUrl'), page.indexOf('const campaignPackage = stored.campaignPackage'))
-  assert.doesNotMatch(invalidUrlBranch, /removeItem|createTour/)
-  assert.match(page, /const retryResultStatus = \(\) =>[\s\S]*?poll\(stored\.jobId\)/)
+  const invalidUrlBranch = page.slice(page.indexOf('if (!isUsableVirtualStagingVideoUrl'), page.indexOf('const campaignPackage = '))
+  assert.doesNotMatch(invalidUrlBranch, /createTour/)
+  assert.match(page, /const retryResultStatus = \(\) =>[\s\S]*?poll\(jobId\)/)
+})
+
+test('failed terminal jobs are not recoverable and clear their session key', () => {
+  const key = getVirtualStagingJourneySessionKey('life-in-property')
+  assert.equal(getRecoverableVirtualStagingJourneyId(memoryStorage({
+    [key]: JSON.stringify({ jobId: 'failed-job', status: 'failed', updatedAt: 60 }),
+  })), null)
+  assert.match(page, /if \(data\.status === 'failed'\) \{[\s\S]*?sessionStorage\.removeItem\(activeJobKey\)/)
+})
+
+test('legacy furnish processing jobs are ignored by recovery selection and by the page', () => {
+  const key = getVirtualStagingJourneySessionKey('furnish-renovate')
+  assert.equal(getRecoverableVirtualStagingJourneyId(memoryStorage({
+    [key]: JSON.stringify({ jobId: 'processing-job', status: 'generating', updatedAt: 70 }),
+  })), null)
+  assert.match(page, /return recoveredJourneyId === FURNISH_RENOVATE_JOURNEY_ID \? '' : recoveredJourneyId/)
+  assert.match(page, /useEffect\(\(\) => \{\s*if \(isFurnishRenovate\) return\s*const storedValue = sessionStorage\.getItem/)
 })
 
 test('secondary preview errors stay local and final video remains the primary result', () => {
