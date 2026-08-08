@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
-import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
 import { buildSmartTourCampaignPackage } from '../components/campaign/buildSmartTourCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
-import GuidedConversation from '../components/conversation/GuidedConversation'
+import GuidedConversation, { getConversationScrollBehavior } from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
@@ -339,6 +339,7 @@ export default function SmartTourAI() {
   const selectInputFlow = inputFlow => {
     if (activeInputFlow !== inputFlow) reset()
     setActiveInputFlow(inputFlow)
+    window.requestAnimationFrame(() => document.getElementById('smart-tour-creation')?.scrollIntoView({ behavior: getConversationScrollBehavior(), block: 'start' }))
   }
   if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
 
@@ -366,31 +367,23 @@ export default function SmartTourAI() {
   const visualStep = status === 'idle' ? question[1] : 5
   return <>
     <Header title={SMART_TOUR_PRODUCT_NAME} subtitle="O SmartCorretorAI organiza o contexto. A IA faz o trabalho pesado." />
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-7 lg:px-8">
-      <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#052e3b_0%,#0f172a_48%,#047857_100%)] px-6 py-9 text-white shadow-2xl shadow-emerald-950/20 sm:px-10 sm:py-11">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_10%,rgba(110,231,183,0.24),transparent_28%),radial-gradient(circle_at_88%_18%,rgba(34,211,238,0.16),transparent_30%)]" />
-        <div className="relative max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-100 ring-1 ring-white/10">
-            <Sparkles className="h-4 w-4" />
-            SmartCorretorAI
-          </div>
-          <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">Transforme as fotos dos seus imóveis em comerciais profissionais.</h1>
-          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-200 sm:text-base">
-            Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante.
-          </p>
-        </div>
-      </section>
+    <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
+      <ProductHero
+        id="smart-tour-title"
+        eyebrow="SmartCorretorAI"
+        productName="Vídeo Imobiliário"
+        headline="Transforme as fotos dos seus imóveis em comerciais profissionais."
+        description="Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante."
+      />
 
-      <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div className="mb-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Exemplos de experiências</p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">Escolha o resultado que você deseja</h2>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-            Estas são as combinações mais utilizadas. Durante a criação do vídeo você pode personalizar cada opção e criar a combinação que melhor atende à sua necessidade.
-          </p>
-        </div>
+      <ProductCard className="mt-8 p-5 sm:p-7">
+        <ProductSectionHeading
+          eyebrow="Exemplos de experiências"
+          title="Escolha o resultado que você deseja"
+          description="Estas são as combinações mais utilizadas. Durante a criação do vídeo você pode personalizar cada opção e criar a combinação que melhor atende à sua necessidade."
+        />
         <SmartTourShowcase />
-      </section>
+      </ProductCard>
 
       <SmartTourGuide />
 
@@ -399,11 +392,15 @@ export default function SmartTourAI() {
         onSelectShortVideos={() => selectInputFlow(SHORT_VIDEOS_MODULE_ID)}
       />
 
-      <div className="mb-5 mt-10">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Criação guiada</p>
-        <h2 className="mt-2 text-2xl font-black text-slate-950">Agora, conte como será o seu vídeo</h2>
-      </div>
-    <div className="mb-6 grid grid-cols-5 gap-2">{[isShortVideos ? 'Vídeo' : 'Fotos','Imóvel','Estilo','Revisão','Criar'].map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>
+      {activeInputFlow && <div id="smart-tour-creation" className="mt-10 space-y-8 scroll-mt-6">
+        <ProductSectionHeading eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'} title="Agora, conte como será o seu vídeo" />
+        <ProductSteps steps={[
+          { title: isShortVideos ? 'Vídeo' : 'Fotos', subtitle: 'Envio' },
+          { title: 'Imóvel', subtitle: 'Informações' },
+          { title: 'Estilo', subtitle: 'Apresentação' },
+          { title: 'Revisão', subtitle: 'Conferência' },
+          { title: 'Criar', subtitle: 'Vídeo' },
+        ]} activeStep={visualStep} />
     <GuidedConversation
       history={conversation.history}
       phase={conversation.phase}
@@ -415,38 +412,26 @@ export default function SmartTourAI() {
       summaryItems={summary}
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
+      designSystem
+      eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'}
     >
       <Question id={question[0]} {...{ images, shortVideo, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
+      </div>}
     </main>
   </>
-}
-
-function SmartTourStartChoice({ onSelectImages, onSelectShortVideos }) {
-  return <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-    <h2 className="text-xl font-black text-slate-950 sm:text-2xl">Como deseja começar?</h2>
-    <div className="mt-5 grid gap-4 md:grid-cols-2">
-      <article className="flex flex-col rounded-2xl border border-slate-200 p-5">
-        <h3 className="text-lg font-black text-slate-950">Criar um vídeo com fotos</h3>
-        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Utilize até 5 fotos do imóvel para criar uma apresentação profissional.</p>
-        <Button type="button" onClick={onSelectImages} className="mt-5 w-full sm:w-fit">Criar vídeo com fotos</Button>
-      </article>
-      <article className="flex flex-col rounded-2xl border border-slate-200 p-5">
-        <h3 className="text-lg font-black text-slate-950">Transformar um vídeo em Short</h3>
-        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo do imóvel e transforme-o em um Short automaticamente.</p>
-        <Button type="button" onClick={onSelectShortVideos} className="mt-5 w-full sm:w-fit">Criar Short com vídeo</Button>
-      </article>
-    </div>
-  </section>
 }
 
 function SmartTourGuide() {
   const [activeGuideId, setActiveGuideId] = useState(null)
   const [hoveredGuideId, setHoveredGuideId] = useState(null)
-  return <section className="mt-8 rounded-[2rem] border border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)] p-5 shadow-sm sm:p-6">
-    <h2 className="text-xl font-black text-slate-950 sm:text-2xl">Como criar cada tipo de vídeo</h2>
-    <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Passe o mouse ou toque em uma opção para ver como ela foi configurada.</p>
-    <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+  return <ProductCard className="mt-8 p-5 sm:p-7">
+    <ProductSectionHeading
+      eyebrow="Guia rápido"
+      title="Como criar cada tipo de vídeo"
+      description="Passe o mouse ou toque em uma opção para ver como ela foi configurada."
+    />
+    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
       {guideExamples.map((example, index) => {
         const isActive = activeGuideId === example.id || hoveredGuideId === example.id
         return <div key={example.id} className="relative" onMouseEnter={() => setHoveredGuideId(example.id)} onMouseLeave={() => setHoveredGuideId(current => current === example.id ? null : current)}>
@@ -455,19 +440,41 @@ function SmartTourGuide() {
             aria-expanded={isActive}
             aria-controls={`guide-${example.id}`}
             onClick={() => setActiveGuideId(current => current === example.id ? null : example.id)}
-            className="flex min-h-12 w-full items-center justify-center rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-center text-xs font-black text-slate-800 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:text-sm"
+            className={`flex min-h-12 w-full items-center justify-center rounded-smart-control border px-3 py-2 text-center text-xs font-black transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:text-sm ${isActive ? 'border-primary-300 bg-primary-50 text-primary-900 shadow-sm' : 'border-slate-200 bg-white text-slate-800 hover:border-primary-300 hover:bg-primary-50/60 hover:text-primary-900'}`}
           >
             {example.title}
           </button>
-          {isActive && <div id={`guide-${example.id}`} role="tooltip" className={`absolute top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-3rem))] rounded-2xl border border-emerald-100 bg-slate-950 p-4 text-xs font-bold text-white shadow-2xl ${index % 2 === 0 ? 'left-0' : 'right-0'} lg:left-1/2 lg:right-auto lg:-translate-x-1/2`}>
+          {isActive && <div id={`guide-${example.id}`} role="tooltip" className={`absolute top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-3rem))] rounded-2xl border border-white/10 bg-slate-950 p-4 text-xs font-bold text-white shadow-2xl ${index % 2 === 0 ? 'left-0' : 'right-0'} lg:left-1/2 lg:right-auto lg:-translate-x-1/2`}>
             <div className="space-y-2">
-              {[['Apresentador', example.presenter], ['Narração', example.narration], ['Textos', example.texts], ['CTA', example.cta]].map(([label, enabled]) => <p key={label} className="flex items-center justify-between gap-4"><span>{label}:</span><span className="text-emerald-300">{enabled ? 'Sim' : 'Não'}</span></p>)}
+              {[['Apresentador', example.presenter], ['Narração', example.narration], ['Textos', example.texts], ['CTA', example.cta]].map(([label, enabled]) => <p key={label} className="flex items-center justify-between gap-4"><span>{label}:</span><span className="text-cyan-200">{enabled ? 'Sim' : 'Não'}</span></p>)}
             </div>
           </div>}
         </div>
       })}
     </div>
-  </section>
+  </ProductCard>
+}
+
+function SmartTourStartChoice({ onSelectImages, onSelectShortVideos }) {
+  return <ProductCard className="mt-8 p-5 sm:p-7">
+    <ProductSectionHeading title="Como deseja começar?" />
+    <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <ProductCard as="article" variant="flat" className="flex h-full flex-col p-5 sm:p-6">
+        <h3 className="text-lg font-black text-slate-950">Criar um vídeo com fotos</h3>
+        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Utilize até 5 fotos do imóvel para criar uma apresentação profissional.</p>
+        <ProductButton type="button" onClick={onSelectImages} className="mt-5 w-full sm:w-fit">
+          Criar vídeo com fotos
+        </ProductButton>
+      </ProductCard>
+      <ProductCard as="article" variant="flat" className="flex h-full flex-col p-5 sm:p-6">
+        <h3 className="text-lg font-black text-slate-950">Transformar um vídeo em Short</h3>
+        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo do imóvel e transforme-o em um Short automaticamente.</p>
+        <ProductButton type="button" onClick={onSelectShortVideos} className="mt-5 w-full sm:w-fit">
+          Criar Short com vídeo
+        </ProductButton>
+      </ProductCard>
+    </div>
+  </ProductCard>
 }
 
 function SmartTourShowcase() {
@@ -500,16 +507,16 @@ function SmartTourShowcase() {
   }, [activeIndex])
 
   return <>
-    <div className="grid grid-flow-col auto-cols-[minmax(240px,82vw)] gap-4 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:thin] snap-x snap-mandatory sm:auto-cols-[280px] lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible lg:pb-0">
+    <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
       {visibleExamples.map((example, exampleIndex) => (
-        <article key={example.id} className="min-w-0 snap-center rounded-3xl border border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)] p-4 shadow-sm">
+        <ProductCard as="article" key={example.id} variant="flat" className="flex min-w-0 flex-col p-4">
           <button
             type="button"
             onClick={() => setActiveIndex(exampleIndex)}
-            className="group mx-auto block w-full max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 text-left shadow-xl shadow-slate-200/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            className="group mx-auto block w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 text-left shadow-xl shadow-slate-200/70 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
             aria-label={`Ampliar demonstração: ${example.title}`}
           >
-            <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#047857_100%)]">
+            <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
               {example.placeholder ? <ExamplePlaceholder example={example} /> : (
                 <video
                   src={example.video}
@@ -524,23 +531,25 @@ function SmartTourShowcase() {
                   disableRemotePlayback
                   controlsList="nodownload noremoteplayback"
                   onContextMenu={event => event.preventDefault()}
-                  className="absolute inset-0 h-full w-full bg-black object-contain"
+                  className="smart-phone-media absolute inset-0 bg-black"
                 />
               )}
-              <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-emerald-300/60" />
+              <span className="absolute inset-0 rounded-[1.45rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-primary-300/60" />
             </div>
           </button>
           <h3 className="mt-4 text-center text-base font-black text-slate-950">{example.title}</h3>
-          <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
-          <button
+          <p className="mt-2 flex-1 text-center text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
+          <ProductButton
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => setActiveIndex(exampleIndex)}
-            className="mx-auto mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            className="mx-auto mt-4"
           >
             <PlayCircle className="h-4 w-4" aria-hidden="true" />
             Ver exemplo
-          </button>
-        </article>
+          </ProductButton>
+        </ProductCard>
       ))}
     </div>
 
@@ -558,16 +567,16 @@ function SmartTourShowcase() {
               <p className="truncate text-lg font-black">{activeExample.title}</p>
               <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} de {SMART_TOUR_EXAMPLES.length}</p>
             </div>
-            <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Fechar demonstração">
+            <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950" aria-label="Fechar demonstração">
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-2 sm:gap-5">
-            <button type="button" onClick={showPrevious} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Demonstração anterior">
+          <div className="grid min-h-0 w-full max-w-[560px] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1 sm:gap-3">
+            <button type="button" onClick={showPrevious} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white" aria-label="Demonstração anterior">
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="flex aspect-[9/16] max-h-[calc(100vh-9rem)] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl sm:flex-none sm:w-[min(420px,70vw)]">
+            <div className="relative h-[min(calc(100dvh-9rem),calc(177.778vw-13.333rem),760px)] w-auto max-w-full justify-self-center aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl">
               {activeExample.placeholder ? <ExamplePlaceholder example={activeExample} large /> : (
                 <video
                   key={activeExample.id}
@@ -582,11 +591,11 @@ function SmartTourShowcase() {
                   disableRemotePlayback
                   controlsList="nodownload noremoteplayback"
                   onContextMenu={event => event.preventDefault()}
-                  className="h-full w-full bg-black object-contain"
+                  className="smart-presentation-media bg-black"
                 />
               )}
             </div>
-            <button type="button" onClick={showNext} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Próxima demonstração">
+            <button type="button" onClick={showNext} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white" aria-label="Próxima demonstração">
               <ArrowRight className="h-5 w-5" />
             </button>
           </div>
@@ -597,9 +606,9 @@ function SmartTourShowcase() {
 }
 
 function ExamplePlaceholder({ example, large = false }) {
-  return <div className="relative flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.22),transparent_42%),linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#064e3b_100%)] px-4 text-center text-white">
-    <PlayCircle className={large ? 'h-14 w-14 text-emerald-200' : 'h-9 w-9 text-emerald-200'} />
-    <p className={`${large ? 'mt-5 text-sm' : 'mt-4 text-[10px]'} font-black uppercase tracking-[0.2em] text-emerald-100`}>Vídeo pendente</p>
+  return <div className="relative flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.2),transparent_42%),linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#0f2742_100%)] px-4 text-center text-white">
+    <PlayCircle className={large ? 'h-14 w-14 text-cyan-200' : 'h-9 w-9 text-cyan-200'} />
+    <p className={`${large ? 'mt-5 text-sm' : 'mt-4 text-[10px]'} font-black uppercase tracking-[0.2em] text-cyan-100`}>Vídeo pendente</p>
     <p className={`${large ? 'mt-3 text-base' : 'mt-2 text-xs'} font-black`}>{example.title}</p>
     <p className={`${large ? 'mt-4 max-w-sm text-sm' : 'mt-3 text-[10px]'} break-all font-semibold leading-5 text-slate-300`}>{example.video}</p>
   </div>
@@ -607,17 +616,17 @@ function ExamplePlaceholder({ example, large = false }) {
 
 function Question(props) {
   const { id, images, shortVideo, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
-  const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-2xl border p-4 text-left ${value === item.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
+  const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === item.id ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
-  const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</Button>
+  const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
   if (id === 'images' && isShortVideos) return <>
     <input ref={inputRef} type="file" accept="video/mp4" hidden onChange={event => { addShortVideo(event.target.files); event.target.value = '' }} />
     <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo de até 5 minutos. A IA selecionará automaticamente os melhores momentos para criar um Short vertical.</p>
-    {!shortVideo ? <button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 text-center"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar vídeo</b><span className="text-xs text-slate-500">Um arquivo MP4 de até 5 minutos</span><span className="mt-1 text-xs text-slate-400">Máximo de 250 MB</span></button> : <div className="rounded-2xl border border-slate-200 bg-white p-4"><video src={shortVideo.preview} controls playsInline preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="mx-auto max-h-80 w-full rounded-2xl bg-slate-950 object-contain" aria-label="Prévia do vídeo original" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Video className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-900">{shortVideo.file.name}</p><p className="text-xs font-semibold text-slate-500">{formatShortVideoDuration(shortVideo.duration)} · {(shortVideo.file.size / 1024 / 1024).toFixed(1)} MB</p></div><Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>Substituir</Button><button type="button" onClick={() => setShortVideo(null)} aria-label="Remover vídeo" className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-black text-red-700"><Trash2 className="h-4 w-4" />Remover</button></div></div>}
+    {!shortVideo ? <button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 px-4 text-center transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar vídeo</b><span className="text-xs text-slate-500">Um arquivo MP4 de até 5 minutos</span><span className="mt-1 text-xs text-slate-400">Máximo de 250 MB</span></button> : <div className="rounded-smart-card border border-slate-200 bg-white p-4"><video src={shortVideo.preview} controls playsInline preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="mx-auto max-h-80 w-full rounded-2xl bg-slate-950 object-contain" aria-label="Prévia do vídeo original" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Video className="h-5 w-5 shrink-0 text-primary-700" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-900">{shortVideo.file.name}</p><p className="text-xs font-semibold text-slate-500">{formatShortVideoDuration(shortVideo.duration)} · {(shortVideo.file.size / 1024 / 1024).toFixed(1)} MB</p></div><ProductButton type="button" variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>Substituir</ProductButton><ProductButton type="button" variant="danger" size="sm" onClick={() => setShortVideo(null)} aria-label="Remover vídeo"><Trash2 className="h-4 w-4" />Remover</ProductButton></div></div>}
     {message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}
     {shortVideo && cont(false, shortVideo.file.name, 'purpose')}
   </>
-  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
+  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
   if (id === 'stage') { const stageOptions = isShortVideos ? getShortVideosStageOptions(property.purpose, STAGES) : getSmartTourStageOptions(property.purpose, STAGES); return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') { const propertyTypes = isShortVideos ? getShortVideosPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES) : getSmartTourPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES); return <>{choices(propertyTypes, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</> }
@@ -631,7 +640,7 @@ function Question(props) {
         {fields.map(field => field === 'area' ? (
           <label key={field} className="text-xs font-black">
             {fieldLabels[field]}
-            <div className="mt-1 flex items-center rounded-xl border bg-white focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100">
+            <div className="mt-1 flex items-center rounded-smart-control border bg-white focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100">
               <input
                 aria-label="Área do imóvel"
                 value={property.area}
@@ -647,7 +656,7 @@ function Question(props) {
           <fieldset key={field} className="min-w-0">
             <legend className="text-xs font-black">{fieldLabels[field]}</legend>
             <div className="mt-1 flex flex-wrap gap-2" aria-label={`Opções de ${fieldLabels[field].toLocaleLowerCase('pt-BR')}`}>
-              {SMART_TOUR_MEASURE_OPTIONS[field].map(option => <button key={option} type="button" onClick={() => setPropertyField(field, option)} className={`min-w-11 rounded-xl border px-3 py-2 text-sm font-black transition ${property[field] === option ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}>{option}</button>)}
+              {SMART_TOUR_MEASURE_OPTIONS[field].map(option => <button key={option} type="button" onClick={() => setPropertyField(field, option)} className={`min-w-11 rounded-smart-control border px-3 py-2 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${property[field] === option ? 'border-primary-500 bg-primary-50 text-primary-800 ring-2 ring-primary-100' : 'border-slate-200 bg-white text-slate-700 hover:border-primary-300'}`}>{option}</button>)}
             </div>
           </fieldset>
         ))}
@@ -657,7 +666,7 @@ function Question(props) {
   }
   if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
-  if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'presenter')}</> }
+  if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-primary-400 bg-primary-50 text-primary-900' : 'border-slate-200 bg-white hover:border-primary-300'}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'presenter')}</> }
   if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('presenterGender', value) }))
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices('As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa. Ao escolher ‘Não’, elas apenas deixarão de aparecer durante o vídeo.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
@@ -672,21 +681,21 @@ function Question(props) {
     ...(ctaEnabled === true ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
   ]
   return <>
-    <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">
+    <div className="rounded-2xl bg-primary-50 p-4 text-sm font-semibold leading-6 text-primary-950 ring-1 ring-primary-100">
       <p className="text-lg font-black">Revise suas escolhas</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {finalChoiceItems.map(item => <div key={item.label} className="rounded-2xl border border-emerald-100 bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{item.label}</p><p className="mt-1 text-sm font-black text-slate-800">{item.value}</p></div>)}
+        {finalChoiceItems.map(item => <div key={item.label} className="rounded-2xl border border-primary-100 bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{item.label}</p><p className="mt-1 text-sm font-black text-slate-800">{item.value}</p></div>)}
       </div>
       <p className="mt-4 font-black">Confirma suas escolhas?</p>
     </div>
     <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">Todas as escolhas</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id, isShortVideos)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
+      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{reviewLabel(item.id, isShortVideos)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500">Editar</button></div></div>)}
     </div>
-    {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
+    {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-primary-600" />}<b className="text-sm">{message}</b></div>}
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
-      <button type="button" disabled={['uploading','generating'].includes(status)} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Refazer criação</button>
+      <ProductButton type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</ProductButton>
+      <ProductButton type="button" variant="secondary" disabled={['uploading','generating'].includes(status)} onClick={resetCreation}>Refazer criação</ProductButton>
     </div>
   </>
 }
