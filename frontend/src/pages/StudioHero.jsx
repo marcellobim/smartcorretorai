@@ -16,12 +16,23 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
-import { Button } from '../components/ui/Button'
+import {
+  ProductButton,
+  ProductCard,
+  ProductFlowLayout,
+  ProductHero,
+  ProductSectionHeading,
+  ProductSteps,
+  ProductSummary,
+  SMART_UI,
+} from '../components/design-system'
 import { buildPublicationPackage } from '../../../core/copy-engine'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
+import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
 
 const BUCKET = 'studio-videos'
+const STUDIO_HERO_REPRESENTATIVE_VIDEO = '/showcase/studio/showcase-captacao-corretores.mp4'
 const MAX_DIFFERENTIALS = 1
 const MAX_CAPTURE_DIFFERENTIALS = 3
 const MAX_BROKER_BENEFITS = 3
@@ -32,10 +43,18 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
 const TYPEWRITER_FINAL_CURSOR_MS = 400
+const STUDIO_PRODUCT_STEPS = [
+  { title: 'Objetivo', subtitle: 'Defina a campanha' },
+  { title: 'Imóvel', subtitle: 'Organize o contexto' },
+  { title: 'Direção', subtitle: 'Escolha o estilo' },
+  { title: 'Revisão', subtitle: 'Confira as escolhas' },
+  { title: 'Criação', subtitle: 'Receba o vídeo' },
+]
 function logStudioHero(level, event, payload) {
   if (!IS_DEV) return
   console[level](event, payload)
 }
+
 function sanitizeStudioHeroDiagnostic(value) {
   if (value === null || value === undefined) return value
 
@@ -162,34 +181,34 @@ const STUDIO_MODE_EXAMPLES = [
     label: 'Apresentação imobiliária',
     accent: 'cyan',
     send: [
-      '📸 Até 5 fotos do imóvel',
+      'Até 5 fotos do imóvel',
     ],
     receive: [
-      '🎥 Apresentação profissional do imóvel',
-      '👤 Corretor(a) virtual opcional',
-      '🎙️ Narração profissional',
-      '🛋️ Sugestões de decoração para ambientes vazios com IA',
-      '📱 Campanha pronta para divulgação',
+      'Apresentação profissional do imóvel',
+      'Corretor(a) virtual opcional',
+      'Narração profissional',
+      'Sugestões de decoração para ambientes vazios com IA',
+      'Campanha pronta para divulgação',
     ],
   },
   {
     id: 'cinematic',
-    media: '/showcase/studio/showcase-venda0.mp4.mp4',
+    media: '/showcase/smart-studio-gallery/venda1lapa.mp4',
     title: 'Comercial Imobiliário',
     label: 'Comercial com imagem',
     accent: 'cyan',
     send: [
-      '📷 A imagem do seu imóvel',
+      'A imagem do seu imóvel',
     ],
     receive: [
-      '🎬 Comercial imobiliário',
-      '🎙️ Narração profissional',
-      '🎵 Trilha sonora sincronizada',
-      '✨ Efeitos cinematográficos',
-      '💡 Iluminação cinematográfica',
-      '🎥 Movimentos de câmera',
-      '📢 CTA para divulgação',
-      '📦 Campanha pronta para publicar',
+      'Comercial imobiliário',
+      'Narração profissional',
+      'Trilha sonora sincronizada',
+      'Efeitos cinematográficos',
+      'Iluminação cinematográfica',
+      'Movimentos de câmera',
+      'CTA para divulgação',
+      'Campanha pronta para publicar',
     ],
   },
   {
@@ -199,17 +218,17 @@ const STUDIO_MODE_EXAMPLES = [
     label: 'Criação por IA',
     accent: 'violet',
     send: [
-      '💡 Apenas sua ideia',
+      'Apenas sua ideia',
     ],
     receive: [
-      '🎬 Vídeo criativo',
-      '📝 Roteiro criado pela IA',
-      '🎙️ Narração profissional',
-      '🎵 Trilha sonora',
-      '✨ Efeitos cinematográficos',
-      '🎥 Movimentos de câmera',
-      '📢 CTA para divulgação',
-      '📦 Campanha pronta para publicar',
+      'Vídeo criativo',
+      'Roteiro criado pela IA',
+      'Narração profissional',
+      'Trilha sonora',
+      'Efeitos cinematográficos',
+      'Movimentos de câmera',
+      'CTA para divulgação',
+      'Campanha pronta para publicar',
     ],
   },
   {
@@ -219,16 +238,16 @@ const STUDIO_MODE_EXAMPLES = [
     label: 'Apresentação dinâmica',
     accent: 'green',
     send: [
-      '🖼️ As imagens do imóvel',
+      'As imagens do imóvel',
     ],
     receive: [
-      '🎬 Apresentação dinâmica',
-      '🔄 Movimentos inteligentes',
-      '✨ Transições profissionais',
-      '🎙️ Narração',
-      '🎵 Música',
-      '📢 CTA para divulgação',
-      '📦 Campanha pronta para publicar',
+      'Apresentação dinâmica',
+      'Movimentos inteligentes',
+      'Transições profissionais',
+      'Narração',
+      'Música',
+      'CTA para divulgação',
+      'Campanha pronta para publicar',
     ],
   },
   {
@@ -237,14 +256,14 @@ const STUDIO_MODE_EXAMPLES = [
     label: 'Acabamento final',
     accent: 'amber',
     send: [
-      '🎥 Seu vídeo',
+      'Seu vídeo',
     ],
     receive: [
-      '✨ Acabamento profissional',
-      '🎨 Identidade visual',
-      '🎵 Música',
-      '📢 CTA para divulgação',
-      '📦 Campanha pronta para publicar',
+      'Acabamento profissional',
+      'Identidade visual',
+      'Música',
+      'CTA para divulgação',
+      'Campanha pronta para publicar',
     ],
   },
 ]
@@ -256,25 +275,25 @@ const STUDIO_POSSIBILITY_EXAMPLES = [
   {
     id: 'sale',
     media: '/showcase/studio/showcase-venda.mp4',
-    title: '🏠 Vender um imóvel',
+    title: 'Vender um imóvel',
     description: 'Ideal para apresentar imóveis, destacar diferenciais e atrair compradores.',
   },
   {
     id: 'rent',
     media: '/showcase/studio/showcase-locacao.mp4',
-    title: '🔑 Alugar um imóvel',
+    title: 'Alugar um imóvel',
     description: 'Ideal para valorizar imóveis disponíveis para locação e aumentar o interesse de futuros inquilinos.',
   },
   {
     id: 'capture_property',
     media: '/showcase/studio/showcase-captacao-venda.mp4',
-    title: '📈 Captar imóveis',
+    title: 'Captar imóveis',
     description: 'Ideal para conquistar proprietários e ampliar sua carteira com apresentações profissionais.',
   },
   {
     id: 'capture_brokers',
     media: '/showcase/studio/showcase-captacao-corretores.mp4',
-    title: '🤝 Captar corretores',
+    title: 'Captar corretores',
     description: 'Ideal para divulgar oportunidades, fortalecer sua equipe e atrair novos profissionais.',
   },
 ]
@@ -378,10 +397,10 @@ const RESIDENTIAL_PROPERTY_TYPES = ['APARTAMENTO', 'CASA']
 const COMMERCIAL_PROPERTY_TYPES = ['SALA COMERCIAL', 'LOJA', 'LAJE CORPORATIVA', 'GALPAO']
 const LAND_PROPERTY_TYPES = ['LOTE', 'TERRENO']
 const LAND_CONSTRUCTION_OPTIONS = [
-  { value: 'Casa', label: 'Casa', icon: '🏡' },
-  { value: 'Pequeno edifício residencial', label: 'Pequeno edifício residencial', icon: '🏢' },
-  { value: 'Galpão', label: 'Galpão', icon: '🏭' },
-  { value: 'Pequeno prédio comercial', label: 'Pequeno prédio comercial', icon: '🏬' },
+  { value: 'Casa', label: 'Casa' },
+  { value: 'Pequeno edifício residencial', label: 'Pequeno edifício residencial' },
+  { value: 'Galpão', label: 'Galpão' },
+  { value: 'Pequeno prédio comercial', label: 'Pequeno prédio comercial' },
 ]
 const SALE_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES, ...LAND_PROPERTY_TYPES]
 const RENT_PROPERTY_TYPES = [...RESIDENTIAL_PROPERTY_TYPES, ...COMMERCIAL_PROPERTY_TYPES, ...LAND_PROPERTY_TYPES]
@@ -833,6 +852,25 @@ function isResidentialType(type) {
   return RESIDENTIAL_PROPERTY_TYPES.includes(type)
 }
 
+export function getStudioVisualStep({
+  studioMode,
+  step,
+  creativeStep,
+  reviewStep,
+  status,
+  hasResult,
+  hasRequiredUpload,
+}) {
+  if (!studioMode || step <= 1) return 1
+  if (step < creativeStep) return 2
+  if (step < reviewStep) return 3
+
+  const creationActive = hasResult || ['uploading', 'generating', 'processing', 'completed', 'failed'].includes(status)
+  if (creationActive) return 5
+  if (studioMode !== 'free_ai' && !hasRequiredUpload) return 2
+  return 4
+}
+
 function isLandType(type) {
   return LAND_PROPERTY_TYPES.includes(type)
 }
@@ -1201,6 +1239,19 @@ export default function StudioHero() {
         ? '1 imagem selecionada'
         : '',
   }
+  const studioVisualStep = getStudioVisualStep({
+    studioMode,
+    step,
+    creativeStep: differentialsStep,
+    reviewStep: uploadStep,
+    status,
+    hasResult: Boolean(videoUrl),
+    hasRequiredUpload: isFreeAiMode || IMAGE_SLOTS.every((slot) => files[slot.key]),
+  })
+  const studioSummaryItems = Object.entries(stepSummaries)
+    .filter(([, value]) => Boolean(value))
+    .sort(([left], [right]) => Number(left) - Number(right))
+    .map(([id, label]) => ({ id: Number(id), label }))
 
   const hasRequiredCinematicImage = IMAGE_SLOTS.every((slot) => files[slot.key])
   const hasRequiredFreeAiBriefing = Boolean(answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)
@@ -1868,66 +1919,40 @@ export default function StudioHero() {
 
   if (!studioMode) {
     return (
-      <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_42%,#f8fafc_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl space-y-8">
-          <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#082f49_0%,#0f172a_46%,#0e7490_100%)] text-white shadow-2xl shadow-cyan-950/20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(103,232,249,0.26),transparent_28%),radial-gradient(circle_at_86%_20%,rgba(125,211,252,0.18),transparent_30%)]" />
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/70 to-transparent" />
-            <div className="relative grid gap-8 p-8 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-100">
-                  <Film className="h-4 w-4" />
-                  Studio IA
-                </div>
-                <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                  Studio IA
-                </h1>
-                <p className="mt-4 max-w-2xl text-xl font-black leading-8 text-cyan-50">
-                  Seu estudio inteligente de criacao de videos imobiliarios.
-                </p>
-                <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
-                  Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em poucos minutos com IA.
-                </p>
-              </div>
-              <div className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-                <p className="text-sm font-black text-white">O que voce pode criar</p>
-                <ul className="mt-4 space-y-3 text-sm font-bold leading-6 text-slate-100">
-                  {[
-                    'Comercial Imobiliário',
-                    'Vídeo Criativo',
-                    'Carrossel de Anúncios',
-                  ].map((item) => (
-                    <li key={item} className="flex items-center gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-300/15 text-cyan-100 ring-1 ring-cyan-100/20">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+      <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_42%,#f8fafc_100%)] text-slate-900">
+        <div className={`${SMART_UI.page} space-y-8`}>
+          <section className="relative mb-10 overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#f0f7ff_52%,#ecfeff_100%)] text-slate-900 shadow-2xl shadow-blue-100/70 sm:mb-12">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
+            <ProductHero
+              id="studio-ia-title"
+              eyebrow="SmartCorretorAI"
+              productName={<span>Studio IA</span>}
+              headline="Seu estudio inteligente de criacao de videos imobiliarios."
+              description="Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em poucos minutos com IA."
+              visual={<StudioHeroRepresentativePhone />}
+              className="min-h-[440px] gap-8 px-7 py-12 sm:px-11 sm:py-14 lg:min-h-[440px] lg:grid-cols-[minmax(0,1.45fr)_minmax(190px,.55fr)] lg:gap-6 lg:px-12 lg:py-12 xl:grid-cols-[minmax(0,1.5fr)_minmax(220px,.5fr)] xl:gap-10 xl:px-14 [&>div.relative.z-10]:max-w-[52rem] [&_h1]:max-w-[52rem] [&_h2]:mt-5 [&_h2]:max-w-[52rem] [&_h2]:text-[2rem] [&_h2]:leading-[1.08] sm:[&_h2]:text-[2.75rem] lg:[&_h2]:text-[2.75rem] xl:[&_h2]:text-[3.25rem] lg:[&_h2]:leading-[1.04] [&_h2+p]:mt-6 [&_h2+p]:max-w-2xl"
+            />
           </section>
 
           {modeNotice && (
-            <div className="rounded-3xl border border-cyan-100 bg-cyan-50 p-5 text-sm font-bold text-primary-900">
+            <ProductCard variant="muted" className="border-cyan-100 bg-cyan-50 p-5 text-sm font-bold text-primary-900">
               {modeNotice}
-            </div>
+            </ProductCard>
           )}
 
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <ProductCard className="p-5 sm:p-6">
             <div className="mb-6">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Soluções Studio IA</p>
-              <h2 className="mt-2 text-2xl font-black text-slate-950">✨ Descubra o que você pode criar</h2>
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-                Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única.
-              </p>
+              <ProductSectionHeading
+                eyebrow="Soluções Studio IA"
+                title="Descubra o que você pode criar"
+                description="Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única."
+              />
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {VISIBLE_STUDIO_MODE_EXAMPLES.map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
                 return (
-                  <div key={example.id} className={`overflow-hidden rounded-3xl border p-4 ${accent.card}`}>
+                  <ProductCard key={example.id} variant="flat" className={`overflow-hidden p-4 ${accent.card}`}>
                     <div className="mx-auto max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
                       <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_48%,#0e7490_100%)]">
                         <div className={`absolute inset-0 bg-gradient-to-b ${accent.glow}`} />
@@ -1946,7 +1971,7 @@ export default function StudioHero() {
                             controls={false}
                             preload="metadata"
                             disablePictureInPicture
-                            className="absolute inset-0 h-full w-full object-cover object-center"
+                            className="smart-phone-media absolute inset-0"
                             onError={(event) => {
                               event.currentTarget.style.display = 'none'
                             }}
@@ -1959,31 +1984,41 @@ export default function StudioHero() {
                     </h3>
                     <div className="mt-3 space-y-3">
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
-                        <p className="text-xs font-black text-slate-950">💬 Você conversa com a IA e envia:</p>
+                        <p className="flex items-center gap-2 text-xs font-black text-slate-950">
+                          <span className="h-px w-4 bg-slate-400" aria-hidden="true" />
+                          Você conversa com a IA e envia:
+                        </p>
                         <ul className="mt-2 space-y-1.5">
                           {example.send.map((item) => (
-                            <li key={`${example.id}-${item}`} className="text-xs font-bold leading-5 text-slate-600">
-                              {item}
+                            <li key={`${example.id}-${item}`} className="flex gap-2 text-xs font-bold leading-5 text-slate-600">
+                              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" aria-hidden="true" />
+                              <span>{item}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
-                        <p className="text-xs font-black text-slate-950">✨ E recebe:</p>
+                        <p className="flex items-center gap-2 text-xs font-black text-slate-950">
+                          <span className="h-px w-4 bg-slate-400" aria-hidden="true" />
+                          E recebe:
+                        </p>
                         <ul className="mt-2 space-y-1.5">
                           {example.receive.map((item) => (
-                            <li key={`${example.id}-${item}`} className="text-xs font-bold leading-5 text-slate-600">
-                              {item}
+                            <li key={`${example.id}-${item}`} className="flex gap-2 text-xs font-bold leading-5 text-slate-600">
+                              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" aria-hidden="true" />
+                              <span>{item}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
                     </div>
-                  </div>
+                  </ProductCard>
                 )
               })}
             </div>
-          </section>
+          </ProductCard>
+
+          <StudioGalleryInvitation />
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
@@ -2010,24 +2045,27 @@ export default function StudioHero() {
 
               if (!mode.active) {
                 return (
-                  <div
+                  <ProductCard
                     key={mode.id}
-                    className={`relative flex min-h-[240px] flex-col overflow-hidden rounded-3xl border p-5 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${accent.card}`}
+                    variant="flat"
+                    className={`relative flex min-h-[240px] flex-col overflow-hidden p-5 text-left transition duration-300 hover:-translate-y-1 hover:shadow-xl ${accent.card}`}
                   >
                     {cardContent}
-                  </div>
+                  </ProductCard>
                 )
               }
 
               return (
-                <button
+                <ProductCard
+                  as="button"
                   key={mode.id}
                   type="button"
                   onClick={() => selectStudioMode(mode)}
-                  className={`relative flex min-h-[240px] cursor-pointer flex-col overflow-hidden rounded-3xl border p-5 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${accent.card}`}
+                  variant="flat"
+                  className={`relative flex min-h-[240px] cursor-pointer flex-col overflow-hidden p-5 text-left transition duration-300 hover:-translate-y-1 hover:shadow-xl ${accent.card}`}
                 >
                   {cardContent}
-                </button>
+                </ProductCard>
               )
             })}
           </section>
@@ -2037,85 +2075,53 @@ export default function StudioHero() {
   }
 
   return (
-    <main className={`min-h-screen px-4 py-8 text-slate-900 sm:px-6 lg:px-8 ${isFreeAiMode ? 'bg-[linear-gradient(180deg,#faf5ff_0%,#f8fafc_46%,#eef7fb_100%)]' : 'bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_38%,#f8fafc_100%)]'}`}>
-      <div className="mx-auto max-w-7xl space-y-8">
-        <section className={`relative overflow-hidden rounded-[2rem] text-white shadow-2xl ${isFreeAiMode ? 'bg-[linear-gradient(135deg,#4c1d95_0%,#111827_54%,#7c3aed_100%)] shadow-violet-950/20' : 'bg-[linear-gradient(135deg,#082f49_0%,#0f172a_48%,#0e7490_100%)] shadow-cyan-950/20'}`}>
-          <div className={`absolute inset-0 ${isFreeAiMode ? 'bg-[radial-gradient(circle_at_20%_0%,rgba(216,180,254,0.28),transparent_30%),radial-gradient(circle_at_85%_22%,rgba(167,139,250,0.22),transparent_34%)]' : 'bg-[radial-gradient(circle_at_20%_0%,rgba(103,232,249,0.24),transparent_30%),radial-gradient(circle_at_84%_28%,rgba(56,189,248,0.16),transparent_34%)]'}`} />
-          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${isFreeAiMode ? 'via-violet-200/70' : 'via-cyan-200/70'} to-transparent`} />
-          <div className="relative grid gap-8 p-8 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
-            <div>
-              <div className={`inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-100' : 'text-cyan-100'}`}>
-                {isFreeAiMode ? <MessageSquareText className="h-4 w-4" /> : <Film className="h-4 w-4" />}
-                {isFreeAiMode ? 'Vídeo Criativo' : 'Comercial Imobiliário'}
-              </div>
-              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-                Vamos criar seu comercial.
-              </h1>
-              <p className="mt-4 max-w-2xl text-xl font-black text-white">
-                {isFreeAiMode
-                  ? 'O Studio IA vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
-                  : 'O Studio IA vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
-              </p>
-              <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-200">
-                {isFreeAiMode
-                  ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
-                  : 'Um fluxo curto para transformar suas escolhas e sua imagem em uma peca de divulgacao mais cinematografica.'}
-              </p>
-              <p className={`mt-3 max-w-2xl text-base font-medium leading-7 ${isFreeAiMode ? 'text-violet-50' : 'text-cyan-50'}`}>
-                Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  resetFlow()
-                  setStudioMode('')
-                }}
-                className="mt-6 rounded-2xl border border-white/15 px-4 py-2 text-sm font-black text-cyan-100 transition hover:bg-white/10"
-              >
-                Escolher outro tipo de criacao
-              </button>
-            </div>
-            <div className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="h-5 w-5 text-cyan-200" />
-                <p className="font-black">Como vamos conduzir?</p>
-              </div>
-              <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-slate-100">
-                {guideItems.map((item) => (
-                  <li key={item} className="flex gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+    <main className={`min-h-screen text-slate-900 ${isFreeAiMode ? 'bg-[linear-gradient(180deg,#faf5ff_0%,#f8fafc_46%,#eef7fb_100%)]' : 'bg-[linear-gradient(180deg,#f8fafc_0%,#eef7fb_38%,#f8fafc_100%)]'}`}>
+      <div className={`${SMART_UI.page} space-y-8`}>
+        <section className={`relative overflow-hidden rounded-[2rem] text-slate-900 shadow-2xl ${isFreeAiMode ? 'bg-[linear-gradient(135deg,#ffffff_0%,#faf5ff_52%,#eef7ff_100%)] shadow-violet-100/70' : 'bg-[linear-gradient(135deg,#ffffff_0%,#f0f7ff_52%,#ecfeff_100%)] shadow-blue-100/70'}`}>
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${isFreeAiMode ? 'via-violet-200/70' : 'via-blue-200/70'} to-transparent`} />
+          <ProductHero
+            id="studio-ia-flow-title"
+            eyebrow={isFreeAiMode ? 'Vídeo Criativo' : 'Comercial Imobiliário'}
+            productName={isFreeAiMode ? 'Vamos transformar sua ideia em um vídeo.' : 'Vamos criar seu comercial.'}
+            description={isFreeAiMode
+              ? 'O Studio IA vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
+              : 'O Studio IA vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
+            secondaryDescription={`${isFreeAiMode
+              ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
+              : 'Um fluxo curto para transformar suas escolhas e sua imagem em uma peca de divulgacao mais cinematografica.'} Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.`}
+            actions={<ProductButton type="button" variant="secondary" onClick={() => {
+              resetFlow()
+              setStudioMode('')
+            }}>Escolher outro tipo de criacao</ProductButton>}
+            visual={<StudioHeroGuideCard title="Como vamos conduzir?" items={guideItems} icon={ShieldCheck} />}
+          />
         </section>
 
         <StudioPossibilitiesShowcase />
 
         <StudioGalleryInvitation />
 
-        <section className="space-y-5 pb-12">
-          <div className="rounded-3xl border border-cyan-100 bg-white/85 p-4 shadow-sm backdrop-blur">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-cyan-700">
-                  Direcao Criativa
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-600">{progressMessage}</p>
-              </div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800">
-                <MessageSquareText className="h-4 w-4" />
-                {progressPercent}%
-              </span>
-            </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+        <ProductSteps steps={STUDIO_PRODUCT_STEPS} activeStep={studioVisualStep} label="Etapas da criação no Studio IA" />
+
+        <ProductFlowLayout
+          className="pb-12"
+          main={<section data-smart-conversation className="space-y-5">
+          <div className="space-y-4">
+            <ConversationHeader
+              eyebrow="Direcao criativa"
+              title="Converse com a IA"
+              description={progressMessage}
+              accent="cyan"
+              trailing={<span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800"><MessageSquareText className="h-4 w-4" />{progressPercent}%</span>}
+            />
+            <ProductCard variant="flat" className="p-3 backdrop-blur">
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-label={`Progresso da conversa: ${progressPercent}%`}>
               <div
                 className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-primary-700 transition-all duration-500"
                 style={{ width: `${progressPercent}%` }}
               />
-            </div>
+              </div>
+            </ProductCard>
           </div>
 
           <AssistantStep number={1} currentStep={step} summary={stepSummaries[1]} onEdit={() => setStep(1)} message="O que voce deseja criar?">
@@ -2186,9 +2192,9 @@ export default function StudioHero() {
                     <span className="ml-2 text-sm font-black text-slate-500">m²</span>
                   </span>
                 </label>
-                <Button type="button" disabled={!hasValidLandArea(answers.area)} onClick={confirmLandArea}>
+                <ProductButton type="button" disabled={!hasValidLandArea(answers.area)} onClick={confirmLandArea}>
                   Confirmar metragem
-                </Button>
+                </ProductButton>
               </div>
             </AssistantStep>
           )}
@@ -2231,7 +2237,7 @@ export default function StudioHero() {
                   <ChoiceButton
                     key={option.value}
                     active={answers.imaginedConstructionType === option.value}
-                    title={`${option.icon} ${option.label}`}
+                    title={option.label}
                     onClick={() => updateImaginedConstructionType(option.value)}
                   />
                 ))}
@@ -2362,7 +2368,7 @@ export default function StudioHero() {
                           }}
                           placeholder="Digite a cidade"
                         />
-                        <Button
+                        <ProductButton
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -2374,7 +2380,7 @@ export default function StudioHero() {
                           }}
                         >
                           Voltar para a lista de cidades
-                        </Button>
+                        </ProductButton>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -2388,7 +2394,7 @@ export default function StudioHero() {
                             setAnswers((current) => changeStudioSelectedCity(current, option))
                           }}
                         />
-                        <Button
+                        <ProductButton
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -2401,7 +2407,7 @@ export default function StudioHero() {
                           }}
                         >
                           Não encontrou sua cidade? Digite manualmente.
-                        </Button>
+                        </ProductButton>
                       </div>
                     )}
                   </div>
@@ -2450,13 +2456,13 @@ export default function StudioHero() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button
+                  <ProductButton
                     type="button"
                     disabled={!answers.uf || !cityValue || (isCapture ? (!answers.captureHasDistrict || (answers.captureHasDistrict === 'yes' && !districtValue)) : !districtValue)}
                     onClick={() => setStep(isCapture ? captureTypeStep : differentialsStep)}
                   >
                     Confirmar localizacao
-                  </Button>
+                  </ProductButton>
                 </div>
               </div>
             </AssistantStep>
@@ -2527,13 +2533,13 @@ export default function StudioHero() {
                   <span className="text-sm font-bold text-slate-500">
                     {answers.differentials.length}/{MAX_DIFFERENTIALS} selecionado
                   </span>
-                  <Button
+                  <ProductButton
                     type="button"
                     disabled={answers.differentials.length === 0}
                     onClick={() => setStep(propertyFeaturesStep || ctaStep)}
                   >
                     Confirmar palavra
-                  </Button>
+                  </ProductButton>
                 </div>
               </div>
             </AssistantStep>
@@ -2600,13 +2606,13 @@ export default function StudioHero() {
                   onSelect={(value) => updatePropertyCharacteristic('parking', value)}
                 />
                 <div className="flex justify-end">
-                  <Button
+                  <ProductButton
                     type="button"
                     disabled={!hasRequiredFreeAiPropertyFeatures}
                     onClick={() => setStep(ctaStep)}
                   >
                     Confirmar caracteristicas
-                  </Button>
+                  </ProductButton>
                 </div>
               </div>
             </AssistantStep>
@@ -2674,9 +2680,9 @@ export default function StudioHero() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button type="button" onClick={() => setStep(ctaStep)}>
+                  <ProductButton type="button" onClick={() => setStep(ctaStep)}>
                     Continuar
-                  </Button>
+                  </ProductButton>
                 </div>
               </div>
             </AssistantStep>
@@ -2863,7 +2869,7 @@ export default function StudioHero() {
               onEdit={() => setStep(uploadStep)}
               message="Perfeito. O comercial livre ja esta preparado para a proxima etapa."
             >
-              <div className="rounded-3xl border border-violet-100 bg-white p-4 shadow-sm">
+              <ProductCard variant="flat" className="border-violet-100 p-4">
                 {isGenerating && !videoUrl ? (
                   <LoadingCard generationMessage={generationMessage} />
                 ) : videoUrl ? (
@@ -2895,7 +2901,7 @@ export default function StudioHero() {
                     mode="free_ai"
                   />
                 )}
-              </div>
+              </ProductCard>
             </AssistantStep>
           )}
 
@@ -2952,53 +2958,110 @@ export default function StudioHero() {
           )}
 
           <div className="flex justify-end">
-            <button
+            <ProductButton
               type="button"
               onClick={resetFlow}
-              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900"
+              variant="ghost"
+              size="sm"
             >
               <RotateCcw className="h-4 w-4" />
               Reiniciar conversa
-            </button>
+            </ProductButton>
           </div>
-        </section>
+        </section>}
+          aside={<ProductSummary
+            title="Resumo da criação"
+            items={studioSummaryItems}
+            emptyText="Suas escolhas aparecerão aqui durante a conversa."
+            onEdit={setStep}
+            editDisabled={isGenerating}
+          />}
+        />
       </div>
     </main>
   )
 }
 
+function StudioHeroGuideCard({ title, items, icon: Icon = Film }) {
+  return <ProductCard variant="flat" className="border-blue-100 bg-white/80 p-5 text-slate-950 shadow-2xl shadow-blue-100/50 ring-blue-100/70 backdrop-blur">
+    <div className="flex items-center gap-3">
+      <Icon className="h-5 w-5 text-primary-600" aria-hidden="true" />
+      <p className="font-black">{title}</p>
+    </div>
+    <ul className="mt-5 space-y-4 text-sm font-bold leading-6 text-slate-600">
+      {items.map((item) => <li key={item} className="flex gap-3">
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
+        <span>{item}</span>
+      </li>)}
+    </ul>
+  </ProductCard>
+}
+
+function StudioHeroRepresentativePhone() {
+  return (
+    <div
+      aria-label="Exemplo visual do Studio IA"
+      className="pointer-events-none relative flex min-h-[245px] items-center justify-center sm:min-h-[285px] lg:min-h-[310px]"
+    >
+      <div className="absolute h-52 w-52 rounded-full bg-cyan-300/15 blur-3xl sm:h-64 sm:w-64" aria-hidden="true" />
+      <div className="relative w-[132px] rounded-[1.8rem] border border-white/20 bg-slate-950 p-1.5 shadow-[0_30px_70px_-24px_rgba(34,211,238,0.55)] ring-1 ring-white/10 sm:w-[150px] sm:rounded-[2rem] sm:p-2 lg:w-[170px]">
+        <div className="relative aspect-[9/16] overflow-hidden rounded-[1.4rem] bg-slate-950 sm:rounded-[1.55rem]">
+          <video
+            src={STUDIO_HERO_REPRESENTATIVE_VIDEO}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls={false}
+            preload="metadata"
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture
+            disableRemotePlayback
+            tabIndex={-1}
+            aria-hidden="true"
+            onContextMenu={(event) => event.preventDefault()}
+            className="smart-phone-media absolute inset-0"
+          />
+          <span className="absolute left-1/2 top-1.5 h-1.5 w-10 -translate-x-1/2 rounded-full bg-slate-950/85 sm:top-2" aria-hidden="true" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StudioPossibilitiesShowcase() {
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-cyan-100 bg-white p-5 shadow-xl shadow-cyan-100/50 sm:p-6">
+    <ProductCard className="overflow-hidden p-5 sm:p-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-primary-700">Possibilidades Studio IA</p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">
-            ✨ Descubra o que você pode criar
-          </h2>
-          <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-600">
-            Cada conversa com a IA gera um resultado único.
-          </p>
+          <ProductSectionHeading
+            eyebrow="Possibilidades Studio IA"
+            title="Descubra o que você pode criar"
+            description="Cada conversa com a IA gera um resultado único."
+          />
           <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
             Escolha um objetivo e veja algumas das possibilidades que o Studio IA pode criar para você.
           </p>
           <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-slate-500">
             Os exemplos são demonstrações visuais. Cada campanha será criada exclusivamente para o imóvel e o objetivo informados por você.
           </p>
-          <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
+          <ProductCard variant="muted" className="mt-5 border-cyan-100 bg-cyan-50/70 p-4">
             <p className="text-sm font-black text-cyan-950">Nenhum vídeo é igual ao outro.</p>
             <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
               Cada criação é gerada exclusivamente a partir da conversa realizada com a IA.
             </p>
-            <p className="mt-4 text-sm font-black text-cyan-950">✨ Cada campanha é única.</p>
+            <p className="mt-4 flex items-center gap-2 text-sm font-black text-cyan-950">
+              <span className="h-px w-4 bg-cyan-600" aria-hidden="true" />
+              Cada campanha é única.
+            </p>
             <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
               A IA cria uma nova campanha a cada geração. As imagens são ilustrativas, criadas para chamar a atenção e representar o conceito da campanha, podendo ser diferentes do imóvel real.
             </p>
-          </div>
+          </ProductCard>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {STUDIO_POSSIBILITY_EXAMPLES.map((example, index) => (
-            <article key={example.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+            <ProductCard as="article" key={example.id} variant="muted" className="p-3">
               <div className="rounded-[1.6rem] border border-slate-200 bg-slate-950 p-2 shadow-lg shadow-slate-200/70">
                 <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.15rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#0e7490_100%)]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(103,232,249,0.22),transparent_36%)]" />
@@ -3018,7 +3081,7 @@ function StudioPossibilitiesShowcase() {
                     controls={false}
                     preload="metadata"
                     disablePictureInPicture
-                    className="absolute inset-0 h-full w-full object-cover object-center"
+                    className="smart-phone-media absolute inset-0"
                     onError={(event) => {
                       event.currentTarget.style.display = 'none'
                     }}
@@ -3030,11 +3093,11 @@ function StudioPossibilitiesShowcase() {
                 <h3 className="mt-2 text-base font-black leading-tight text-slate-950">{example.title}</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
               </div>
-            </article>
+            </ProductCard>
           ))}
         </div>
       </div>
-    </section>
+    </ProductCard>
   )
 }
 
@@ -3042,7 +3105,7 @@ function StudioGalleryInvitation() {
   const navigate = useNavigate()
 
   return (
-    <section className="rounded-[2rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_52%,#eff6ff_100%)] p-6 shadow-sm sm:p-8">
+    <ProductCard variant="muted" className="p-6 sm:p-8">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-black text-slate-950">Inspire-se com mais campanhas</h2>
@@ -3050,15 +3113,16 @@ function StudioGalleryInvitation() {
             Veja outros exemplos reais criados pelo Smart Studio.
           </p>
         </div>
-        <button
+        <ProductButton
           type="button"
           onClick={() => navigate('/studio-galeria')}
-          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-2xl bg-primary-800 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:bg-primary-900 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2"
+          size="lg"
+          className="shrink-0"
         >
           Ver Galeria de Exemplos
-        </button>
+        </ProductButton>
       </div>
-    </section>
+    </ProductCard>
   )
 }
 
@@ -3070,62 +3134,49 @@ function AssistantStep({ number, currentStep, summary, onEdit, message, children
 
   if (answered) {
     return (
-      <button
-        type="button"
-        onClick={onEdit}
-        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-cyan-100 bg-white/80 px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50/70"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-            <CheckCircle2 className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-black text-slate-950">{summary}</span>
-            <span className="block text-[11px] font-black uppercase tracking-wide text-slate-400">Etapa {number}</span>
-          </span>
-        </span>
-        <Pencil className="h-4 w-4 shrink-0 text-cyan-700" />
-      </button>
+      <div className="space-y-3">
+        <ConversationAssistantBubble accent="cyan">{message}</ConversationAssistantBubble>
+        <div className="flex justify-end">
+          <ConversationUserBubble
+            className="max-w-xl"
+            actions={<ProductButton type="button" onClick={onEdit} variant="ghost" size="sm" className="mt-2 min-h-0 border-0 p-0 text-xs uppercase tracking-wide text-cyan-200 hover:bg-transparent hover:text-white"><RotateCcw className="h-3.5 w-3.5" />Editar resposta</ProductButton>}
+          >
+            <p>{summary}</p>
+          </ConversationUserBubble>
+        </div>
+      </div>
     )
   }
 
-  return (
-    <section className="rounded-3xl border border-cyan-100 bg-white/95 p-4 shadow-sm transition duration-300 ease-out animate-in fade-in slide-in-from-bottom-2 sm:p-5">
-      <div className="flex gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
-          <MessageSquareText className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-cyan-800">
-              Etapa {number}
-            </span>
-            <span className="text-xs font-bold text-slate-400">Direcao criativa</span>
-          </div>
-          <h2 className="mt-2 text-xl font-black text-slate-950">
-            <TypewriterText text={message} active={active} />
-          </h2>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{getAssistantHint(number)}</p>
-          <div className="mt-5">{children}</div>
-        </div>
-      </div>
-    </section>
-  )
+  return <ConversationQuestionCard
+    accent="cyan"
+    className="transition duration-300 ease-out animate-in fade-in slide-in-from-bottom-2"
+    label={`Etapa ${number}`}
+    labelTrailing="Direcao criativa"
+    title={<TypewriterText text={message} active={active} />}
+    description={getAssistantHint(number)}
+  >
+    {children}
+  </ConversationQuestionCard>
 }
 
 function UserReply({ children, onEdit }) {
   return (
     <div className="flex justify-end">
-      <button
+      <ConversationUserBubble
+        className="max-w-xl"
+        actions={<ProductButton
         type="button"
         onClick={onEdit}
-        className="max-w-xl rounded-3xl border border-cyan-100 bg-cyan-50/90 px-4 py-3 text-left text-primary-950 shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50"
+        variant="ghost"
+        size="sm"
+        className={`mt-2 min-h-0 border-0 p-0 text-xs uppercase tracking-wide text-cyan-200 hover:bg-transparent hover:text-white ${SMART_UI.focus}`}
+      >Editar resposta</ProductButton>}
       >
         <div className="flex flex-col gap-1 text-sm leading-relaxed">
           {children}
-          <span className="mt-1 text-xs font-black uppercase tracking-wide text-cyan-700">Editar resposta</span>
         </div>
-      </button>
+      </ConversationUserBubble>
     </div>
   )
 }
@@ -3144,33 +3195,33 @@ function ChipGrid({ children, className = '' }) {
 
 function ChoiceButton({ active, title, description, onClick }) {
   return (
-    <button
+    <ProductCard
+      as="button"
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border p-4 text-left transition ${
+      variant="flat"
+      className={`p-4 text-left transition ${SMART_UI.focus} ${
         active ? 'border-cyan-700 bg-primary-950 text-white shadow-lg shadow-cyan-100' : 'border-slate-200 bg-white hover:border-cyan-300 hover:bg-cyan-50/40'
       }`}
     >
       <p className={`text-sm font-black ${active ? 'text-white' : 'text-slate-950'}`}>{title}</p>
       <p className={`mt-2 text-xs leading-relaxed ${active ? 'text-slate-200' : 'text-slate-500'}`}>{description}</p>
-    </button>
+    </ProductCard>
   )
 }
 
 function ChipButton({ active, disabled = false, children, onClick }) {
   return (
-    <button
+    <ProductButton
       type="button"
+      variant={active ? 'primary' : 'secondary'}
+      size="sm"
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-full border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${
-        active
-          ? 'border-cyan-700 bg-primary-950 text-white shadow-sm'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-cyan-50/50'
-      }`}
+      className={`rounded-full ${active ? 'border-cyan-700 bg-primary-950 shadow-sm hover:border-cyan-700 hover:bg-primary-950' : 'border-slate-200 text-slate-700 hover:border-cyan-300 hover:bg-cyan-50/50'}`}
     >
       {children}
-    </button>
+    </ProductButton>
   )
 }
 
@@ -3195,8 +3246,10 @@ function OptionGroup({ title, options, value, onSelect }) {
 
 function FilePicker({ slot, file, error = false, onChange }) {
   return (
-    <label
-      className={`group flex cursor-pointer flex-col gap-3 rounded-3xl border border-dashed p-4 shadow-sm transition ${
+    <ProductCard
+      as="label"
+      variant="flat"
+      className={`group flex cursor-pointer flex-col gap-3 border border-dashed p-4 transition ${
         error
           ? 'border-red-300 bg-red-50 hover:border-red-400'
           : 'border-primary-200 bg-white hover:border-primary-400 hover:bg-primary-50/40'
@@ -3247,7 +3300,7 @@ function FilePicker({ slot, file, error = false, onChange }) {
           </p>
         )}
       </div>
-    </label>
+    </ProductCard>
   )
 }
 
@@ -3276,7 +3329,7 @@ function UploadReadyPanel({
   ]
 
   return (
-    <div className="rounded-3xl border border-cyan-100 bg-white p-4 shadow-sm">
+    <ProductCard variant="flat" className="border-cyan-100 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black text-slate-950">
@@ -3305,10 +3358,10 @@ function UploadReadyPanel({
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {summaryItems.map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <ProductCard key={label} variant="muted" className="p-3">
                 <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
                 <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || 'Pendente'}</p>
-              </div>
+              </ProductCard>
             ))}
       </div>
 
@@ -3319,12 +3372,12 @@ function UploadReadyPanel({
       {ready && (
         <>
           {!studioHeroAccess?.canGenerate && (
-            <div className="mt-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
+            <ProductCard variant="muted" className="mt-3 border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
               Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja exemplos e ative quando quiser.
-            </div>
+            </ProductCard>
           )}
 
-          <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
+          <ProductButton type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -3336,10 +3389,10 @@ function UploadReadyPanel({
                 Criar comercial
               </>
             )}
-          </Button>
+          </ProductButton>
         </>
       )}
-    </div>
+    </ProductCard>
   )
 }
 
@@ -3475,7 +3528,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,#ffffff_0%,#ecfeff_100%)] p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <ProductCard variant="flat" className="flex flex-col gap-3 border-cyan-100 bg-[linear-gradient(135deg,#ffffff_0%,#ecfeff_100%)] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-black text-slate-950">
             {videoUrl ? 'Comercial criado com sucesso.' : 'Seu comercial sera criado com:'}
@@ -3493,43 +3546,43 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
               : 'Cada comercial e criado de forma unica. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.'}
           </p>
         </div>
-      </div>
+      </ProductCard>
 
       {status === 'failed' && message && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
+        <ProductCard variant="flat" className="flex flex-col gap-3 border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
           <span>{message}</span>
           {imageErrorTarget && (
-            <Button type="button" variant="secondary" onClick={onEditImages}>
+            <ProductButton type="button" variant="secondary" onClick={onEditImages}>
               Voltar para imagem
-            </Button>
+            </ProductButton>
           )}
-        </div>
+        </ProductCard>
       )}
 
       {!videoUrl && (
-        <div className="rounded-2xl border border-primary-100 bg-primary-50/70 p-4">
+        <ProductCard variant="muted" className="border-primary-100 bg-primary-50/70 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-primary-800">Textos conceituais do comercial</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {visibleTextPreview.map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-white/70 bg-white px-3 py-3">
+              <ProductCard key={label} variant="flat" className="border-white/70 px-3 py-3">
                 <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
                 <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
-              </div>
+              </ProductCard>
             ))}
           </div>
           <p className="mt-3 text-xs font-semibold leading-5 text-primary-900">
             O encerramento final e controlado pelo SmartCorretorAI para manter consistencia de campanha.
           </p>
-        </div>
+        </ProductCard>
       )}
 
       {!isFreeAiMode && !studioHeroAccess?.canGenerate && (
-        <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
+        <ProductCard variant="muted" className="border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
           Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja exemplos e ative quando quiser.
-        </div>
+        </ProductCard>
       )}
 
-      <div className={`rounded-2xl border p-4 ${isFreeAiMode ? 'border-violet-100 bg-violet-50/70' : 'border-cyan-100 bg-cyan-50/70'}`}>
+      <ProductCard variant="muted" className={`p-4 ${isFreeAiMode ? 'border-violet-100 bg-violet-50/70' : 'border-cyan-100 bg-cyan-50/70'}`}>
         <p className={`text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-800' : 'text-cyan-800'}`}>Pacote de entrega</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {DELIVERY_PACKAGE_ITEMS.map((item) => (
@@ -3538,15 +3591,17 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             </span>
           ))}
         </div>
-      </div>
+      </ProductCard>
 
       <div className="grid gap-2">
         {rows.map(([label, value, editStep]) => (
-          <button
+          <ProductCard
+            as="button"
             key={label}
             type="button"
+            variant="flat"
             onClick={() => (label.startsWith('Imagem') ? onEditImages() : onEdit(editStep))}
-            className="group rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50/50"
+            className={`group p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50/50 ${SMART_UI.focus}`}
           >
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
@@ -3561,12 +3616,12 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
                 </span>
               </span>
             </div>
-          </button>
+          </ProductCard>
         ))}
       </div>
 
       {!videoUrl && (
-        <div className="rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_100%)] p-4 shadow-sm">
+        <ProductCard variant="flat" className="border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_100%)] p-4">
           <p className="text-sm font-black text-slate-950">
             Tudo pronto.
           </p>
@@ -3575,7 +3630,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
               ? 'Revise o resumo e a direcao criativa. Quando estiver tudo certo, crie seu comercial livre.'
               : 'Revise o resumo e a imagem selecionada. Quando estiver tudo certo, crie seu comercial.'}
           </p>
-          <Button type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
+          <ProductButton type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -3587,8 +3642,8 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
                 {isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'}
               </>
             )}
-          </Button>
-        </div>
+          </ProductButton>
+        </ProductCard>
       )}
     </div>
   )
@@ -3599,7 +3654,7 @@ function LoadingCard({ generationMessage }) {
   const text = generationMessage?.text || 'Estamos criando seu comercial.'
 
   return (
-    <div className="rounded-3xl border border-cyan-100 bg-white p-5 shadow-sm">
+    <ProductCard variant="flat" className="border-cyan-100 p-5">
       <div className="flex items-start gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
           <Icon className="h-5 w-5" />
@@ -3614,20 +3669,20 @@ function LoadingCard({ generationMessage }) {
           </p>
         </div>
       </div>
-    </div>
+    </ProductCard>
   )
 }
 
 function ErrorCard({ message, imageErrorTarget, onEditImages }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
+    <ProductCard variant="flat" className="flex flex-col gap-3 border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
       <span>{message}</span>
       {imageErrorTarget && (
-        <Button type="button" variant="secondary" onClick={onEditImages}>
+        <ProductButton type="button" variant="secondary" onClick={onEditImages}>
           Voltar para imagem
-        </Button>
+        </ProductButton>
       )}
-    </div>
+    </ProductCard>
   )
 }
 
@@ -3660,6 +3715,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           contactAuthorized: false,
           existingTexts: deliveryTexts,
         }}
+        mediaPresentation="mobile"
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />
@@ -3690,6 +3746,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           contactAuthorized: false,
           existingTexts: deliveryTexts,
         }}
+        mediaPresentation="mobile"
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />
@@ -3697,7 +3754,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
   }
 
   return (
-    <section className={`rounded-3xl border border-cyan-100 bg-white shadow-xl shadow-cyan-100/40 ${compact ? 'p-4' : 'p-5'}`}>
+    <ProductCard className={`border-cyan-100 shadow-xl shadow-cyan-100/40 ${compact ? 'p-4' : 'p-5'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-cyan-700">Resultado</p>
@@ -3716,63 +3773,69 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
         <div className={`${compact ? 'mt-4' : 'mt-5'} overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-2xl shadow-slate-200/70`}>
           <div className={`mx-auto flex aspect-[9/16] w-full max-w-[560px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-slate-100 ${compact ? 'max-h-[72vh]' : 'max-h-[820px]'}`}>
             <div className="relative h-full w-full">
-              <video id="studio-hero-result-video" src={videoUrl} controls className="h-full w-full object-contain" />
+              <video id="studio-hero-result-video" src={videoUrl} controls className="smart-presentation-media" />
             </div>
           </div>
         </div>
       )}
       {completed && (
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <button
+          <ProductButton
             type="button"
             onClick={() => document.getElementById('studio-hero-result-video')?.play?.()}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-900"
+            className="w-full bg-primary-950 hover:bg-primary-900"
           >
             <PlayCircle className="h-4 w-4" />
             Assistir
-          </button>
-          <a
+          </ProductButton>
+          <ProductButton
+            as="a"
             href={videoUrl}
             download="studio-hero-video.mp4"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-800"
+            className="w-full bg-primary-700 hover:bg-primary-800"
           >
             <Download className="h-4 w-4" />
             Baixar
-          </a>
-          <button
+          </ProductButton>
+          <ProductButton
             type="button"
+            variant="secondary"
             onClick={onReset}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50"
+            className="w-full"
           >
             <RotateCcw className="h-4 w-4" />
             Criar nova versao
-          </button>
+          </ProductButton>
         </div>
       )}
       {completed && (
-        <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-primary-700">📦 CAMPANHA PRONTA PARA PUBLICAR</p>
+        <ProductCard variant="muted" className="mt-5 p-4">
+          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-primary-700">
+            <span className="h-px w-4 bg-primary-500" aria-hidden="true" />
+            CAMPANHA PRONTA PARA PUBLICAR
+          </p>
           <div className="mt-4 grid gap-3">
             {deliveryTexts.map((item) => (
-              <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <ProductCard key={item.label} variant="flat" className="p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-wide text-slate-400">{item.label}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.text}</p>
                   </div>
-                  <button
+                  <ProductButton
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => navigator.clipboard?.writeText(item.text)}
-                    className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                   >
-                    📋 Copiar
-                  </button>
+                    Copiar
+                  </ProductButton>
                 </div>
-              </div>
+              </ProductCard>
             ))}
           </div>
-        </div>
+        </ProductCard>
       )}
-    </section>
+    </ProductCard>
   )
 }
