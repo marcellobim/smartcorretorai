@@ -7,7 +7,6 @@ import {
   Image as ImageIcon,
   ImagePlus,
   Loader2,
-  PlayCircle,
   Plus,
   RotateCcw,
   Sparkles,
@@ -16,10 +15,17 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
-import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
-import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
+import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation from '../components/conversation/GuidedConversation'
+import {
+  ProductButton,
+  ProductCard,
+  ProductHero,
+  ProductSectionHeading,
+  ProductSteps,
+  SMART_UI,
+} from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
@@ -33,6 +39,13 @@ const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
 const SMART_CAROUSEL_MIN_IMAGES = 5
 const SMART_CAROUSEL_MAX_IMAGES = 20
 const SMART_CAROUSEL_MIN_IMAGES_MESSAGE = 'Selecione pelo menos 5 imagens para criar uma apresentação de qualidade.'
+const SMART_CAROUSEL_HERO_VIDEO = '/showcase/smartcarrossel/showcase-carrossel.mp4'
+const SMART_CAROUSEL_STEPS = [
+  { title: 'Fotos', subtitle: 'Selecione e organize' },
+  { title: 'Informações', subtitle: 'Preencha os dados' },
+  { title: 'Criar apresentação', subtitle: 'Prepare sua apresentação' },
+  { title: 'Preview', subtitle: 'Confira o resultado' },
+]
 
 function friendlyGenerationError(message, fallback = 'Não foi possível criar sua apresentação. Tente novamente.') {
   const rawMessage = String(message || '').trim()
@@ -346,48 +359,26 @@ export default function SmartCarrossel() {
   const currentStep = informationUnlocked ? Math.max(2, generationStage) : 1
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_38%,#eef7fb_100%)] px-4 py-6 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6 sm:space-y-8">
-        <section className="relative overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(115deg,#f0fdf8_0%,#f8fffc_54%,#ecfdf5_100%)] p-5 shadow-[0_24px_70px_-40px_rgba(6,78,59,0.35)] sm:rounded-[2rem] sm:p-8 lg:p-10">
-          <div className="absolute -left-20 -top-24 h-72 w-72 rounded-full bg-emerald-200/30 blur-3xl" />
-          <div className="absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-cyan-100/40 blur-3xl" />
-          <div className="relative grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-700"><Sparkles className="h-4 w-4" />Carrossel de Anúncios</div>
-              <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-[3.45rem]">Carrossel de Anúncios</h1>
-              <p className="mt-3 text-lg font-black text-emerald-700 sm:text-xl">Apresentação Profissional</p>
-              <p className="mt-5 max-w-lg text-base font-semibold leading-7 text-slate-600">Transforme as fotos do seu imóvel em uma apresentação elegante, dinâmica e pronta para divulgação.</p>
-              <button type="button" onClick={() => navigate('/studio-hero')} className="mt-6 w-fit rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-black text-slate-600 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700">Escolher outro tipo de criação</button>
-            </div>
-
-            <div className="relative mx-auto w-full max-w-xl py-5 lg:py-2" aria-hidden="true">
-              <div className="absolute inset-y-10 right-0 w-[82%] translate-x-3 rotate-2 rounded-3xl bg-emerald-200/40 shadow-xl" />
-              <div className="absolute inset-y-7 right-[5%] w-[84%] translate-x-1 rotate-1 overflow-hidden rounded-3xl border-4 border-white/70 opacity-55 shadow-xl"><img src="/banners-rapidos/hero-imovel.jpg" alt="" className="h-full w-full object-cover" /></div>
-              <div className="relative mr-[10%] min-h-[245px] overflow-hidden rounded-[1.6rem] border-4 border-white bg-slate-950 shadow-[0_28px_55px_-24px_rgba(15,23,42,0.6)] sm:min-h-[300px]">
-                <img src="/banners-rapidos/hero-imovel.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/25 to-transparent" />
-                <div className="absolute inset-y-0 left-0 flex w-[64%] flex-col justify-center p-5 text-white sm:p-8"><span className="w-fit rounded-full bg-slate-950/55 px-2.5 py-1 text-[10px] font-black tracking-wide">1 / 8</span><p className="mt-5 text-2xl font-black leading-none tracking-tight sm:text-4xl">Seu imóvel<br />em <span className="text-emerald-300">destaque</span></p><p className="mt-3 text-xs font-bold text-white/80 sm:text-sm">Uma apresentação que valoriza cada detalhe.</p></div>
-                <div className="absolute left-[60%] top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-slate-950/55 text-white shadow-2xl backdrop-blur sm:h-20 sm:w-20"><PlayCircle className="h-9 w-9 fill-white/15 sm:h-11 sm:w-11" /></div>
-                <div className="absolute bottom-4 right-5 flex gap-1.5"><span className="h-2 w-5 rounded-full bg-emerald-400" /><span className="h-2 w-2 rounded-full bg-white/55" /><span className="h-2 w-2 rounded-full bg-white/35" /></div>
-              </div>
-            </div>
-          </div>
-
-          <nav className="relative mt-8 overflow-x-auto rounded-2xl border border-emerald-100/80 bg-white/90 p-2 shadow-[0_18px_45px_-34px_rgba(15,23,42,0.5)] backdrop-blur" aria-label="Etapas do Carrossel de Anúncios">
-            <ol className="grid min-w-[650px] grid-cols-4 gap-2 sm:min-w-0">
-              {[
-                { number: 1, title: 'Fotos', subtitle: 'Selecione e organize' },
-                { number: 2, title: 'Informações', subtitle: 'Preencha os dados' },
-                { number: 3, title: 'Criar apresentação', subtitle: 'Prepare sua apresentação' },
-                { number: 4, title: 'Preview', subtitle: 'Confira o resultado' },
-              ].map((item) => {
-                const active = item.number === currentStep
-                const completed = item.number < currentStep
-                return <li key={item.number} className={`rounded-xl px-3 py-3 transition sm:px-4 ${active ? 'bg-white text-emerald-800 shadow-md ring-1 ring-emerald-100' : completed ? 'bg-emerald-50/80 text-emerald-800' : 'text-slate-500'}`}><div className="flex items-center gap-3"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{item.number}</span><div className="min-w-0"><p className="text-xs font-black text-slate-900 sm:text-sm">{item.title}</p><p className="mt-0.5 hidden text-[11px] font-semibold text-slate-400 sm:block">{item.subtitle}</p></div></div></li>
-              })}
-            </ol>
-          </nav>
+    <main className="min-h-screen bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_38%,#eef7fb_100%)] text-slate-900">
+      <div className={`${SMART_UI.page} space-y-8`}>
+        <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#ecfdf5_52%,#ecfeff_100%)] text-slate-900 shadow-2xl shadow-emerald-100/70">
+          <ProductHero
+            id="smart-carousel-title"
+            eyebrow="Carrossel de Anúncios"
+            productName="Carrossel de Anúncios"
+            headline="Apresentação Profissional"
+            description="Transforme as fotos do seu imóvel em uma apresentação elegante, dinâmica e pronta para divulgação."
+            actions={<ProductButton type="button" variant="secondary" onClick={() => navigate('/studio-hero')}>Escolher outro tipo de criação</ProductButton>}
+            visual={<SmartCarouselHeroPhone />}
+          />
         </section>
+
+        <ProductSteps
+          steps={SMART_CAROUSEL_STEPS}
+          activeStep={currentStep}
+          label="Etapas do Carrossel de Anúncios"
+          accent="emerald"
+        />
 
         <PhotoSection photos={photos} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />
         {informationUnlocked && (
@@ -403,14 +394,51 @@ export default function SmartCarrossel() {
   )
 }
 
+function SmartCarouselHeroPhone() {
+  return (
+    <div className="flex h-full min-h-[290px] items-center justify-center" aria-label="Exemplo do Carrossel de Anúncios">
+      <div className="w-full max-w-[190px] rounded-[2.2rem] bg-slate-950 p-2.5 shadow-2xl shadow-emerald-950/35 ring-1 ring-white/20">
+        <div className="relative aspect-[9/16] overflow-hidden rounded-[1.65rem] bg-slate-900">
+          <video
+            src={SMART_CAROUSEL_HERO_VIDEO}
+            aria-label="Demonstração do Carrossel de Anúncios"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls={false}
+            preload="metadata"
+            disablePictureInPicture
+            disableRemotePlayback
+            onContextMenu={(event) => event.preventDefault()}
+            className="smart-phone-media pointer-events-none absolute inset-0 select-none"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto, photoSelectionMessage, onContinue }) {
   const hasMinimumImages = photos.length >= SMART_CAROUSEL_MIN_IMAGES
   const missingImages = Math.max(SMART_CAROUSEL_MIN_IMAGES - photos.length, 0)
   const minimumImagesProgress = Math.min((photos.length / SMART_CAROUSEL_MIN_IMAGES) * 100, 100)
 
   return (
-    <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]">
-      <div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"><ImagePlus className="h-5 w-5" /></span><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Etapa 1</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">1. Selecione e organize suas fotos</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Adicione as fotos do imóvel e organize na ordem desejada para a apresentação.</p></div></div><div className="grid gap-2 sm:grid-cols-2"><div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /><span>A primeira foto será a <strong className="font-black text-emerald-700">CAPA</strong></span></div><div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg font-black text-emerald-600">↔</span><span>Você pode alterar a ordem a qualquer momento</span></div></div></div></div>
+    <ProductCard className="overflow-hidden">
+      <div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-end">
+          <ProductSectionHeading
+            eyebrow="Etapa 1"
+            title="1. Selecione e organize suas fotos"
+            description="Adicione as fotos do imóvel e organize na ordem desejada para a apresentação."
+          />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /><span>A primeira foto será a <strong className="font-black text-emerald-700">CAPA</strong></span></div>
+            <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg font-black text-emerald-600">↔</span><span>Você pode alterar a ordem a qualquer momento</span></div>
+          </div>
+        </div>
+      </div>
       <div className="p-5 sm:p-8">
         <p className="mb-3 text-sm font-black text-slate-700">Mínimo de {SMART_CAROUSEL_MIN_IMAGES} imagens e máximo de {SMART_CAROUSEL_MAX_IMAGES} imagens.</p>
         <div
@@ -442,7 +470,7 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
           <div onClick={() => inputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setIsDragActive(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setIsDragActive(false)} onDrop={(event) => { event.preventDefault(); setIsDragActive(false); addPhotos(event.dataTransfer.files) }} className={`group mt-7 flex min-h-[310px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border-2 border-dashed px-5 py-10 text-center outline-none transition sm:min-h-[340px] sm:px-8 ${isDragActive ? 'border-emerald-500 bg-emerald-100/70 shadow-inner' : 'border-emerald-200 bg-[linear-gradient(145deg,rgba(236,253,245,0.82),rgba(248,250,252,0.9))] hover:border-emerald-400 hover:bg-emerald-50/80 focus:ring-4 focus:ring-emerald-100'}`}>
             <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 shadow-[0_18px_40px_-24px_rgba(5,150,105,0.8)] transition group-hover:-translate-y-1 group-hover:shadow-[0_22px_45px_-22px_rgba(5,150,105,0.85)]"><ImageIcon className="h-8 w-8" /><span className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white ring-4 ring-emerald-50"><UploadCloud className="h-4 w-4" /></span></div>
             <p className="mt-7 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Arraste suas fotos aqui</p><p className="mt-2 text-sm font-semibold text-slate-500 sm:text-base">ou escolha as imagens do imóvel</p>
-            <button type="button" onClick={(event) => { event.stopPropagation(); inputRef.current?.click() }} className="mt-6 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-black text-white shadow-[0_14px_30px_-18px_rgba(5,150,105,0.95)] transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100">Selecionar fotos</button>
+            <ProductButton type="button" variant="success" onClick={(event) => { event.stopPropagation(); inputRef.current?.click() }} className="mt-6">Selecionar fotos</ProductButton>
             <p className="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">JPG ou PNG · seleção múltipla</p>
           </div>
         ) : (
@@ -450,25 +478,25 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
             <div className="mb-5 rounded-2xl border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.9),rgba(248,250,252,0.96))] p-4 shadow-[0_14px_30px_-28px_rgba(5,150,105,0.65)] sm:p-5"><div className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700 shadow-sm">↔ Ordem editável</div><h3 className="mt-3 text-lg font-black tracking-tight text-slate-950 sm:text-xl">Organize sua apresentação</h3><p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-slate-600">A apresentação será criada exatamente na ordem das fotos exibidas abaixo. Use as setas para reorganizar as imagens sempre que desejar. A primeira foto será utilizada como capa.</p></div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
               {photos.map((photo, index) => (
-                <article key={photo.id} className="group overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_14px_34px_-25px_rgba(15,23,42,0.55)] transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-[0_24px_44px_-24px_rgba(5,150,105,0.35)]">
-                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-100"><img src={photo.previewUrl} alt={`Foto ${index + 1} da apresentação`} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" /><div className="absolute left-2.5 top-2.5 flex items-center gap-1.5"><span className={`flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-black text-white shadow-lg backdrop-blur ${index === 0 ? 'bg-emerald-600' : 'bg-slate-950/80'}`}>{index + 1}</span>{index === 0 && <span className="rounded-xl bg-emerald-600 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-lg">Capa</span>}</div><button type="button" onClick={() => removePhoto(photo.id)} aria-label={`Remover foto ${index + 1}`} title="Remover foto" className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 text-slate-500 opacity-85 shadow-lg backdrop-blur transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300"><Trash2 className="h-4 w-4" /></button></div>
-                  <div className="p-2.5"><p className="truncate text-xs font-bold text-slate-500" title={photo.file.name}>{photo.file.name}</p>{photos.length > 1 && <div className="mt-2.5 grid grid-cols-[1fr_auto_1fr] items-center gap-1 rounded-xl bg-slate-50 p-1 ring-1 ring-slate-200/80"><button type="button" onClick={() => movePhoto(index, -1)} disabled={index === 0} aria-label={`Mover foto ${index + 1} para a esquerda`} title="Mover para a esquerda" className="flex h-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-emerald-700 hover:shadow-sm disabled:cursor-not-allowed disabled:text-slate-300"><ChevronLeft className="h-4 w-4" /></button><span className="px-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Mover</span><button type="button" onClick={() => movePhoto(index, 1)} disabled={index === photos.length - 1} aria-label={`Mover foto ${index + 1} para a direita`} title="Mover para a direita" className="flex h-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-emerald-700 hover:shadow-sm disabled:cursor-not-allowed disabled:text-slate-300"><ChevronRight className="h-4 w-4" /></button></div>}</div>
-                </article>
+                <ProductCard as="article" key={photo.id} variant="flat" className="group overflow-hidden transition duration-300 hover:-translate-y-1 hover:ring-emerald-200 hover:shadow-xl">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-100"><img src={photo.previewUrl} alt={`Foto ${index + 1} da apresentação`} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" /><div className="absolute left-2.5 top-2.5 flex items-center gap-1.5"><span className={`flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-black text-white shadow-lg backdrop-blur ${index === 0 ? 'bg-emerald-600' : 'bg-slate-950/80'}`}>{index + 1}</span>{index === 0 && <span className="rounded-xl bg-emerald-600 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-lg">Capa</span>}</div><ProductButton type="button" variant="danger" size="sm" onClick={() => removePhoto(photo.id)} aria-label={`Remover foto ${index + 1}`} title="Remover foto" className="absolute bottom-2.5 right-2.5 h-8 min-h-0 w-8 rounded-xl p-0 opacity-85 shadow-lg backdrop-blur group-hover:opacity-100"><Trash2 className="h-4 w-4" /></ProductButton></div>
+                  <div className="p-2.5"><p className="truncate text-xs font-bold text-slate-500" title={photo.file.name}>{photo.file.name}</p>{photos.length > 1 && <div className="mt-2.5 grid grid-cols-[1fr_auto_1fr] items-center gap-1 rounded-xl bg-slate-50 p-1 ring-1 ring-slate-200/80"><ProductButton type="button" variant="ghost" size="sm" onClick={() => movePhoto(index, -1)} disabled={index === 0} aria-label={`Mover foto ${index + 1} para a esquerda`} title="Mover para a esquerda" className="h-8 min-h-0 rounded-lg p-0 text-slate-500 hover:text-emerald-700"><ChevronLeft className="h-4 w-4" /></ProductButton><span className="px-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Mover</span><ProductButton type="button" variant="ghost" size="sm" onClick={() => movePhoto(index, 1)} disabled={index === photos.length - 1} aria-label={`Mover foto ${index + 1} para a direita`} title="Mover para a direita" className="h-8 min-h-0 rounded-lg p-0 text-slate-500 hover:text-emerald-700"><ChevronRight className="h-4 w-4" /></ProductButton></div>}</div>
+                </ProductCard>
               ))}
             </div>
-            <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-100 focus:outline-none focus:ring-4 focus:ring-emerald-100"><Plus className="h-4 w-4" />Adicionar mais fotos</button><button type="button" onClick={clearPhotos} className="inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-4 focus:ring-rose-100"><Trash2 className="h-4 w-4" />Limpar seleção</button></div>
+            <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between"><ProductButton type="button" variant="success" onClick={() => inputRef.current?.click()}><Plus className="h-4 w-4" />Adicionar mais fotos</ProductButton><ProductButton type="button" variant="ghost" onClick={clearPhotos}><Trash2 className="h-4 w-4" />Limpar seleção</ProductButton></div>
           </div>
         )}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:flex sm:items-center sm:justify-between sm:gap-5 sm:p-5">
           <p className="text-sm font-bold leading-6 text-slate-600">
             {hasMinimumImages ? 'Suas imagens estão prontas. Você ainda pode adicionar e organizar fotos depois.' : `Adicione mais ${missingImages} ${missingImages === 1 ? 'imagem' : 'imagens'} para continuar para as informações.`}
           </p>
-          <button type="button" disabled={!hasMinimumImages} onClick={onContinue} className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-black text-white shadow-[0_14px_30px_-18px_rgba(5,150,105,0.95)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:mt-0 sm:w-auto sm:shrink-0">
+          <ProductButton type="button" variant="success" disabled={!hasMinimumImages} onClick={onContinue} className="mt-4 w-full sm:mt-0 sm:w-auto sm:shrink-0">
             Continuar para informações
-          </button>
+          </ProductButton>
         </div>
       </div>
-    </section>
+    </ProductCard>
   )
 }
 
@@ -689,24 +717,26 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => submitCarouselAnswer({ setter, value: item, nextStep: step + 1 })}>{item}</ChipButton>)}</ChipGrid> }
   else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { if (nextUf && submitCarouselAnswer({ setter: setUf, value: nextUf, nextStep: 8 })) setCity('') }} />
   else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { if (nextCity) submitCarouselAnswer({ setter: setCity, value: nextCity, nextStep: 9 }) }} />
-  else if (step === 9) questionContent = <div><input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Digite o bairro" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><Button type="button" disabled={!district.trim()} onClick={() => submitCarouselAnswer({ setter: setDistrict, value: normalizedDistrict, answer: normalizedDistrict, nextStep: 10 })} className="mt-4">Continuar</Button></div>
-  else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Button type="button" disabled={!priceMode || !priceDigits} onClick={() => submitCarouselAnswer({ setter: () => {}, value: priceMode, answer: priceLabel, nextStep: 11 })}>Continuar</Button><button type="button" onClick={() => { if (submitCarouselAnswer({ setter: () => {}, value: '', answer: 'Sem preço', nextStep: 11 })) { setPriceMode(''); setPriceDigits('') } }} className="rounded-xl px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Continuar sem informar preço</button></div></div>
-  else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><Button type="button" disabled={!area} onClick={() => submitCarouselAnswer({ setter: () => {}, value: area, answer: `${area} m²`, nextStep: 12 })} className="mt-4">Continuar</Button></div>
-  else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <div key={group.title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></div>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS} selecionados</span><Button type="button" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: `${highlights.length} destaques`, nextStep: 13 })}>Continuar</Button></div></div>
+  else if (step === 9) questionContent = <div><SmartLocationTextInput value={district} onChange={(event) => setDistrict(event.target.value)} /><ProductButton type="button" variant="success" disabled={!district.trim()} onClick={() => submitCarouselAnswer({ setter: setDistrict, value: normalizedDistrict, answer: normalizedDistrict, nextStep: 10 })} className="mt-4">Continuar</ProductButton></div>
+  else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><ProductButton type="button" variant="success" disabled={!priceMode || !priceDigits} onClick={() => submitCarouselAnswer({ setter: () => {}, value: priceMode, answer: priceLabel, nextStep: 11 })}>Continuar</ProductButton><ProductButton type="button" variant="ghost" onClick={() => { if (submitCarouselAnswer({ setter: () => {}, value: '', answer: 'Sem preço', nextStep: 11 })) { setPriceMode(''); setPriceDigits('') } }}>Continuar sem informar preço</ProductButton></div></div>
+  else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><ProductButton type="button" variant="success" disabled={!area} onClick={() => submitCarouselAnswer({ setter: () => {}, value: area, answer: `${area} m²`, nextStep: 12 })} className="mt-4">Continuar</ProductButton></div>
+  else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <ProductCard as="section" key={group.title} variant="muted" className="p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></ProductCard>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS} selecionados</span><ProductButton type="button" variant="success" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: `${highlights.length} destaques`, nextStep: 13 })}>Continuar</ProductButton></div></div>
   else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, nextStep: 14 })}>{item}</ChipButton>)}</ChipGrid>
-  else if (step === 14) questionContent = <div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={!profilePhone} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: 'Telefone profissional', nextStep: 15 })} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-45"><span className="text-sm font-black text-slate-950">Sim</span><span className="mt-1 block text-xs font-semibold text-slate-500">{profilePhone || 'Cadastre um telefone no Perfil Profissional.'}</span></button><button type="button" onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: 'Sem telefone', nextStep: 15 })} className="rounded-2xl border border-emerald-100 bg-white p-4 text-left hover:border-emerald-300"><span className="text-sm font-black text-slate-950">Não</span><span className="mt-1 block text-xs font-semibold text-slate-500">Continuar sem divulgar telefone.</span></button></div>
+  else if (step === 14) questionContent = <OptionGrid><ChoiceButton disabled={!profilePhone} active={sharePhone === 'yes'} title="Sim" description={profilePhone || 'Cadastre um telefone no Perfil Profissional.'} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: 'Telefone profissional', nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title="Não" description="Continuar sem divulgar telefone." onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: 'Sem telefone', nextStep: 15 })} /></OptionGrid>
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
-      <button
+      <ProductButton
         type="button"
+        variant="success"
+        loading={isGenerating}
         disabled={isGenerating || !hasMinimumImages}
         onClick={createPresentation}
         aria-describedby={!hasMinimumImages ? 'smart-carousel-minimum-images-message' : undefined}
-        className="sticky bottom-3 z-10 flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4 text-base font-black text-white shadow-[0_20px_38px_-20px_rgba(5,150,105,0.95)] transition hover:from-emerald-700 hover:to-emerald-800 disabled:cursor-not-allowed disabled:opacity-55 sm:px-8 sm:py-5 sm:text-lg"
+        className="sticky bottom-3 z-10 w-full py-4 text-base sm:py-5 sm:text-lg"
       >
-        {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+        {!isGenerating && <Sparkles className="h-5 w-5" />}
         Criar apresentação
-      </button>
+      </ProductButton>
 
       {!hasMinimumImages && (
         <p id="smart-carousel-minimum-images-message" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
@@ -715,21 +745,22 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
       )}
 
       {isGenerating && (
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 text-left">
+        <ProductCard variant="muted" className="border-emerald-100 bg-emerald-50/70 p-5 text-left">
           <div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-emerald-700" /><p className="text-sm font-black text-emerald-900">{generationStatusMessage}</p></div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-100"><div className="h-full rounded-full bg-emerald-600 transition-all duration-700" style={{ width: `${generationProgress}%` }} /></div>
-        </div>
+        </ProductCard>
       )}
 
       {generationStatus === 'failed' && (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-5 text-left">
+        <ProductCard variant="flat" className="border-rose-100 bg-rose-50 p-5 text-left">
           <p className="text-sm font-bold leading-6 text-rose-800">{generationError}</p>
-          <button type="button" onClick={receipt ? resumeStatus : createPresentation} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-rose-700 shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-100"><RotateCcw className="h-4 w-4" />Tentar novamente</button>
-        </div>
+          <ProductButton type="button" variant="danger" onClick={receipt ? resumeStatus : createPresentation} className="mt-4"><RotateCcw className="h-4 w-4" />Tentar novamente</ProductButton>
+        </ProductCard>
       )}
 
       {generationStatus === 'succeeded' && videoUrl && (
         <CampaignPackage
+          mediaPresentation="mobile"
           data={{
             sourceProduct: 'Smart Carrossel',
             mediaType: 'video',
@@ -759,6 +790,8 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   )
 
   return <GuidedConversation
+    designSystem
+    accent="emerald"
     history={conversation.history}
     phase={conversation.phase}
     questionId={step}
@@ -777,5 +810,5 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
 
 function OptionGrid({ children, className = '' }) { return <div className={`grid gap-3 md:grid-cols-2 ${className}`}>{children}</div> }
 function ChipGrid({ children, className = '' }) { return <div className={`flex flex-wrap gap-2 ${className}`}>{children}</div> }
-function ChoiceButton({ active, title, description, onClick }) { return <button type="button" onClick={onClick} className={`rounded-2xl border p-4 text-left transition ${active ? 'border-cyan-700 bg-primary-950 text-white shadow-lg shadow-cyan-100' : 'border-slate-200 bg-white hover:border-cyan-300 hover:bg-cyan-50/40'}`}><p className={`text-sm font-black ${active ? 'text-white' : 'text-slate-950'}`}>{title}</p><p className={`mt-2 text-xs leading-relaxed ${active ? 'text-slate-200' : 'text-slate-500'}`}>{description}</p></button> }
-function ChipButton({ active, disabled = false, children, onClick }) { return <button type="button" disabled={disabled} onClick={onClick} className={`rounded-full border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${active ? 'border-cyan-700 bg-primary-950 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-cyan-50/50'}`}>{children}</button> }
+function ChoiceButton({ active, disabled = false, title, description, onClick }) { return <ProductCard as="button" type="button" variant="flat" disabled={disabled} onClick={onClick} className={`p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${SMART_UI.focus} ${active ? 'border-emerald-700 bg-emerald-950 text-white shadow-lg shadow-emerald-100' : 'hover:border-emerald-300 hover:bg-emerald-50/40'}`}><p className={`text-sm font-black ${active ? 'text-white' : 'text-slate-950'}`}>{title}</p><p className={`mt-2 text-xs leading-relaxed ${active ? 'text-emerald-100' : 'text-slate-500'}`}>{description}</p></ProductCard> }
+function ChipButton({ active, disabled = false, children, onClick }) { return <ProductButton type="button" variant={active ? 'success' : 'secondary'} size="sm" disabled={disabled} onClick={onClick} className={`rounded-full ${active ? 'border-emerald-700 bg-emerald-950 shadow-sm hover:border-emerald-700 hover:bg-emerald-950' : 'border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50'}`}>{children}</ProductButton> }
