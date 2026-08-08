@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.smart-tour-status]
 verify_jwt = false
+
+[functions.short-videos-cleanup]
+verify_jwt = true
