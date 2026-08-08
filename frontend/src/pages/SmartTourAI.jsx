@@ -9,13 +9,13 @@ import GuidedConversation from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
 
 const BUCKET = 'studio-videos'
-const ACTIVE_JOB_KEY = 'smartcorretorai:smart-tour:active-job'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
@@ -88,6 +88,7 @@ export default function SmartTourAI() {
   const { user } = useAuth()
   const inputRef = useRef(null)
   const pollRef = useRef(null)
+  const recoveryStartedRef = useRef(false)
   const reviewEditRef = useRef(null)
   const [images, setImages] = useState([])
   const [property, setProperty] = useState(initialProperty)
@@ -98,6 +99,7 @@ export default function SmartTourAI() {
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
+  const [activeInputFlow, setActiveInputFlow] = useState(null)
   const questions = useMemo(() => questionsFor(), [])
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatBrazilianPhone(rawPhone)
@@ -163,7 +165,20 @@ export default function SmartTourAI() {
   }
 
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current) }, [])
-  useEffect(() => { const stored = sessionStorage.getItem(ACTIVE_JOB_KEY); if (stored) { let jobId = stored; try { jobId = JSON.parse(stored).jobId || stored } catch { /* legacy value */ } setStatus('generating'); setMessage('Retomando sua criação...'); poll(jobId) } }, [])
+  useEffect(() => {
+    if (recoveryStartedRef.current) return
+    const { record: activeJob, invalid } = readSmartTourActiveJob(sessionStorage)
+    if (invalid) {
+      clearSmartTourActiveJob(sessionStorage)
+      return
+    }
+    if (!activeJob) return
+    recoveryStartedRef.current = true
+    setActiveInputFlow(activeJob.inputFlow)
+    setStatus('generating')
+    setMessage('Retomando sua criação...')
+    poll(activeJob.jobId)
+  }, [])
 
   const addImages = files => {
     const selectedInSystemOrder = Array.from(files)
@@ -181,11 +196,24 @@ export default function SmartTourAI() {
   const toggleHighlight = value => setPropertyField('highlights', property.highlights.includes(value) ? property.highlights.filter(item => item !== value) : property.highlights.length < 10 ? [...property.highlights, value] : property.highlights)
 
   async function poll(jobId) {
+    const { record: activeJob } = readSmartTourActiveJob(sessionStorage)
     try {
       const { data, error } = await supabase.functions.invoke('smart-tour-status', { body: { jobId } })
-      if (error || !data?.ok) throw new Error(data?.error || 'Não foi possível consultar a criação.')
-      if (data.status === 'completed') { let campaignPackage = {}; try { campaignPackage = JSON.parse(sessionStorage.getItem(ACTIVE_JOB_KEY) || '{}').campaignPackage || {} } catch { /* legacy value */ } sessionStorage.removeItem(ACTIVE_JOB_KEY); setResult({ ...data, campaignPackage }); setStatus('completed'); return }
-      if (data.status === 'failed') throw new Error(data.error)
+      if (error || !data?.ok) {
+        if (shouldRetryStartingJobNotFound(activeJob, error)) {
+          setStatus('generating')
+          setMessage('Retomando sua criação...')
+          pollRef.current = setTimeout(() => poll(jobId), 3000)
+          return
+        }
+        if (getSmartTourStatusHttpStatus(error) === 404) {
+          clearSmartTourActiveJob(sessionStorage)
+          throw new Error('Esta criação não está mais disponível. Inicie um novo projeto.')
+        }
+        throw new Error(data?.error || 'Não foi possível consultar a criação.')
+      }
+      if (data.status === 'completed') { clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: activeJob?.campaignPackage || {}, inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); return }
+      if (data.status === 'failed') { clearSmartTourActiveJob(sessionStorage); setStatus('error'); setMessage(data.error || 'Não foi possível concluir. Tente novamente.'); return }
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
   }
@@ -209,11 +237,11 @@ export default function SmartTourAI() {
       const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '' })
-      sessionStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId:data.jobId, campaignPackage })); poll(data.jobId)
+      writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
+  const reset = () => { clearSmartTourActiveJob(sessionStorage); images.forEach(item => URL.revokeObjectURL(item.preview)); reviewEditRef.current = null; setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null) }
   if (result) return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></>
 
   const measureFields = getSmartTourMeasureFields(property.type)
