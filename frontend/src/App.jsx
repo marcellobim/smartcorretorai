@@ -15,6 +15,7 @@ import SmartCarrossel from './pages/SmartCarrossel'
 import SmartTourAI from './pages/SmartTourAI'
 import VirtualStaging from './pages/VirtualStaging'
 import NovaCompanha from './pages/NovaCampanha'
+import TextCampaign from './pages/TextCampaign'
 import PacotesGerados from './pages/PacotesGerados'
 import Configuracoes from './pages/Configuracoes'
 import Planos from './pages/Planos'
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="/virtual-staging" element={<VirtualStaging />} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
         <Route path="/nova-campanha" element={<NovaCompanha />} />
+        <Route path="/campanha-de-textos" element={<TextCampaign />} />
         <Route path="/pacotes-gerados" element={<PacotesGerados />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
       </Route>

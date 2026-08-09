@@ -60,6 +60,16 @@ const mainActions = [
     ready: true,
   },
   {
+    id: 'campanha-de-textos',
+    icon: FileText,
+    title: 'Campanha de Textos',
+    description: 'Organize o briefing completo do imóvel e prepare textos para portais, redes sociais, WhatsApp e outros canais.',
+    to: '/campanha-de-textos',
+    label: 'Criar briefing',
+    tone: 'soft',
+    ready: true,
+  },
+  {
     id: 'virtual-staging',
     icon: Home,
     title: 'Virtual Space',
