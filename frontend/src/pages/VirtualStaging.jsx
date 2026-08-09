@@ -563,7 +563,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   </section>
   if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} />
   if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} />
-  if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
+  if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} mediaPresentation="mobile" onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>Consultar resultado novamente</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">Criar novo projeto</button></div></section>
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
@@ -601,27 +601,29 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'phone', label: isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
   ].filter(item => Boolean(item.label))
   const summary = isFurnishRenovate ? furnishSummary : standardSummary
-  const visualStep = status === 'idle' ? question[1] : 5
-  const chooseAnotherButton = isFurnishRenovate
-    ? <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>Escolher outro módulo</ProductButton>
-    : <button type="button" onClick={onChooseAnother} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-800 transition hover:border-emerald-400 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">Escolher outro módulo</button>
-  return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className={`mt-10 ${isFurnishRenovate ? 'space-y-8' : ''}`}>
-      {isFurnishRenovate ? <ProductSectionHeading
+  const visualStep = status === 'idle'
+    ? (isFurnishRenovate ? Math.min(question[1], 5) : question[1])
+    : 5
+  const chooseAnotherButton = <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>Escolher outro módulo</ProductButton>
+  const journeySteps = isFurnishRenovate
+    ? [
+        { title: 'Transformação', subtitle: 'Tipo' },
+        { title: 'Estilo', subtitle: 'Decoração' },
+        { title: 'Imagens', subtitle: 'Upload' },
+        { title: 'Destinos', subtitle: 'Canais' },
+        { title: 'Revisão', subtitle: 'Projeto' },
+      ]
+    : (isBrokerPresentation ? ['Referência', 'Imóvel', 'Estilo', 'Revisão', 'Criar'] : ['Fotos', 'Imóvel', 'Estilo', 'Revisão', 'Criar'])
+        .map(title => ({ title, subtitle: '' }))
+  return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className="mt-10 space-y-8">
+      <ProductSectionHeading
         id={`virtual-staging-chat-${journey.id}`}
         eyebrow={`Jornada selecionada · ${journey.title}`}
         title="Agora, conte como deseja transformar seu imóvel"
         description="Responda uma pergunta por vez. Suas escolhas ficam organizadas no resumo ao lado."
         action={chooseAnotherButton}
-      /> : <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Jornada selecionada · {journey.title}</p>
-          <h2 id={`virtual-staging-chat-${journey.id}`} className="mt-2 text-2xl font-black text-slate-950">Agora, conte como deseja transformar seu imóvel</h2>
-        </div>
-        {chooseAnotherButton}
-      </div>}
-    {isFurnishRenovate
-      ? <ProductSteps steps={journeySteps} activeStep={visualStep} accent="emerald" />
-      : <div className="mb-6 grid grid-cols-5 gap-2">{(isBrokerPresentation ? ['Referência','Imóvel','Estilo','Revisão','Criar'] : ['Fotos','Imóvel','Estilo','Revisão','Criar']).map((label, step) => <div key={label}><div className={`h-2 rounded-full ${step + 1 <= visualStep ? 'bg-emerald-500' : 'bg-slate-200'}`} /><p className="mt-2 truncate text-center text-xs font-black text-slate-600">{label}</p></div>)}</div>}
+      />
+    <ProductSteps steps={journeySteps} activeStep={visualStep} accent="emerald" />
     <GuidedConversation
       history={conversation.history}
       phase={conversation.phase}
@@ -633,7 +635,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       summaryItems={summary}
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating', 'preparing_result'].includes(status)}
-      designSystem={isFurnishRenovate}
+      designSystem
       accent="emerald"
     >
       <Question id={question[0]} {...{ journeyId: journey.id, lifeScene, transformationType, decorationStyle, imageDestinations, presenterReferenceDecision, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setImageDestinations, setPresenterReferenceDecision, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
