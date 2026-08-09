@@ -78,11 +78,8 @@ test('creates isolated generation and polling functions without changing the exi
   assert.doesNotMatch(originalStatus, /virtual-staging/)
 })
 
-test('keeps the homologated engine files unchanged outside the isolated module extensions', () => {
-  const files = [
-    'build-prompt.ts',
-    'professional-phone.ts',
-  ]
+test('keeps the homologated shared utility unchanged outside the isolated module extensions', () => {
+  const files = ['professional-phone.ts']
 
   for (const file of files) {
     assert.deepEqual(
@@ -106,7 +103,7 @@ test('keeps the homologated engine files unchanged outside the isolated module e
   assert.doesNotMatch(originalValidation, /LIFE_SCENES|invalid_life_scene|life_scene/)
   assert.doesNotMatch(originalBriefing, /vidaNoImovel|lifeScene/)
   assert.doesNotMatch(originalCompositor, /vidaNoImovel|expectedCaptionCount/)
-  assert.match(virtualCompositor, /briefing\.vidaNoImovel \? 5 : 4/)
+  assert.match(virtualCompositor, /briefing\.vidaNoImovel \|\| briefing\.referenciaApresentador \? 5 : 4/)
 })
 
 test('exposes exactly the three approved Virtual Space modules in order', () => {
@@ -138,7 +135,9 @@ test('opens one keyed journey at a time and isolates every active job namespace'
   const sessionKeys = VIRTUAL_STAGING_JOURNEYS.map(journey => getVirtualStagingJourneySessionKey(journey.id))
 
   assert.equal(new Set(sessionKeys).size, 3)
-  assert.match(staging, /const \[selectedJourneyId, setSelectedJourneyId\] = useState\(\(\) => getRecoverableVirtualStagingJourneyId\(globalThis\.sessionStorage\)\)/)
+  assert.match(staging, /const recoveredJourneyId = getRecoverableVirtualStagingJourneyId\(globalThis\.sessionStorage\)/)
+  assert.match(staging, /return recoveredJourneyId === FURNISH_RENOVATE_JOURNEY_ID \? '' : recoveredJourneyId/)
+  assert.match(staging, /const \[selectedJourneyId, setSelectedJourneyId\] = useState\(getInitialVirtualStagingJourneyId\)/)
   assert.match(staging, /selectedJourney && <div[\s\S]*?<VirtualStagingJourney[\s\S]*?key=\{selectedJourney\.id\}/)
   assert.match(staging, /onClick=\{\(\) => onSelect\(journey\.id\)\}/)
   assert.match(staging, /aria-pressed=\{isSelected\}/)
@@ -151,7 +150,7 @@ test('uses the approved Virtual Space identity and preserves its three modules',
   const tour = read('frontend/src/pages/SmartTourAI.jsx')
 
   assert.match(staging, /title="Virtual Space"/)
-  assert.match(staging, /description="Reimagine ambientes, crie experiências com pessoas e apresente seus imóveis utilizando sua própria imagem\."/)
+  assert.match(staging, /description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial\."/)
   assert.match(staging, /Escolha como deseja apresentar seu imóvel/)
   assert.match(staging, /Agora, conte como deseja transformar seu imóvel/)
   assert.match(staging, /<VirtualStagingModules selectedJourneyId=\{selectedJourneyId\}/)

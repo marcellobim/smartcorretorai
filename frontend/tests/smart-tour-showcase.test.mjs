@@ -8,18 +8,20 @@ import { SMART_TOUR_EXAMPLES } from '../src/config/smartTour.js'
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 'utf8')
 
-test('centralizes exactly the four approved Smart Tour families in order', () => {
+test('centralizes the five approved Smart Tour families in order', () => {
   assert.deepEqual(SMART_TOUR_EXAMPLES.map(example => example.id), [
     'animate-images',
     'campaign-video',
     'narrated-video',
     'virtual-agent',
+    'short-videos',
   ])
   assert.deepEqual(SMART_TOUR_EXAMPLES.map(example => example.title), [
     'Animar Imagens',
     'Vídeo para Campanha',
     'Vídeo Narrado',
     'Corretor Virtual',
+    'Short Videos',
   ])
   for (const example of SMART_TOUR_EXAMPLES) {
     assert.equal(typeof example.title, 'string')
@@ -47,11 +49,13 @@ test('keeps showcase playback silent and inline while enabling modal controls', 
   assert.doesNotMatch(page, /target="_blank"/)
 })
 
-test('uses a contained mobile carousel without page-wide horizontal overflow', () => {
-  assert.match(page, /overflow-x-auto overscroll-x-contain/)
-  assert.match(page, /auto-cols-\[minmax\(240px,82vw\)\]/)
-  assert.match(page, /lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible/)
-  assert.match(page, /object-contain/)
+test('uses responsive Design System cards without page-wide horizontal overflow', () => {
+  assert.match(page, /mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5/)
+  assert.match(page, /<ProductCard as="article"[\s\S]*className="flex min-w-0 flex-col p-4"/)
+  assert.match(page, /className="smart-phone-media absolute inset-0 bg-black"/)
+  assert.match(page, /className="smart-presentation-media bg-black"/)
+  assert.match(page, /aspect-\[9\/16\]/)
+  assert.doesNotMatch(page, /overflow-x-auto/)
 })
 
 test('uses the approved commercial-video communication and guide', () => {
@@ -66,7 +70,7 @@ test('uses the approved commercial-video communication and guide', () => {
   assert.doesNotMatch(page, /Quatro formas de apresentar seu imóvel/)
 })
 
-test('uses the approved visible copy for all four options without changing their technical configuration', () => {
+test('uses the approved visible copy for the original four options without changing their technical configuration', () => {
   for (const text of [
     "title: 'Fotos em Movimento'",
     'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
@@ -81,7 +85,7 @@ test('uses the approved visible copy for all four options without changing their
   assert.equal(SMART_TOUR_EXAMPLES[0].video, '/demos-videos/animar-imagens.mp4')
 })
 
-test('keeps the guide contextual and teaches only the four generation settings', () => {
+test('keeps the guide contextual and teaches only the four generation settings for each module', () => {
   assert.match(page, /role="tooltip"/)
   assert.match(page, /onMouseEnter=\{\(\) => setHoveredGuideId/)
   assert.match(page, /onClick=\{\(\) => setActiveGuideId/)

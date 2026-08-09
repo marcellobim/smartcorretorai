@@ -10,6 +10,7 @@ const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const read = relativePath => readFileSync(path.join(frontendRoot, relativePath), 'utf8')
 const hook = read('src/hooks/useGuidedConversation.js')
 const sharedUi = read('src/components/conversation/GuidedConversation.jsx')
+const conversationPrimitives = read('src/components/conversation/ConversationPrimitives.jsx')
 const smartTour = read('src/pages/SmartTourAI.jsx')
 const smartTourForm = read('src/config/smartTourForm.js')
 const smartCarousel = read('src/pages/SmartCarrossel.jsx')
@@ -116,6 +117,6 @@ test('shares the approved engine without changing product generation integration
 
 test('preserves desktop and 390px layouts without page-wide horizontal overflow', () => {
   assert.match(sharedUi, /p-4 sm:p-6 lg:grid-cols-\[minmax\(0,1fr\)_300px\] lg:p-8/)
-  assert.match(sharedUi, /max-w-\[88%\][\s\S]*?sm:max-w-\[78%\]/)
+  assert.match(conversationPrimitives, /max-w-\[88%\][\s\S]*?sm:max-w-\[78%\]/)
   assert.doesNotMatch(sharedUi, /min-w-\[390px\]/)
 })

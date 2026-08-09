@@ -108,11 +108,22 @@ test('legacy furnish processing jobs are ignored by recovery selection and by th
   assert.match(page, /useEffect\(\(\) => \{\s*if \(isFurnishRenovate\) return\s*const storedValue = sessionStorage\.getItem/)
 })
 
-test('secondary preview errors stay local and final video remains the primary result', () => {
+test('secondary preview errors stay local and video remains the result only for the other modules', () => {
   assert.match(campaignPackage, /onError=\{\(\) => setFailed\(true\)\}/)
   assert.match(campaignPackage, /onError=\{\(\) => setStatus\('error'\)\}/)
+  assert.match(page, /if \(isFurnishRenovate && status === 'completed' && furnishResults\.length > 0\) return <FurnishRenovateDelivery/)
   assert.match(page, /if \(result\) return <section[\s\S]*?<CampaignPackage/)
   assert.doesNotMatch(campaignPackage, /setResult|sessionStorage\.removeItem/)
+})
+
+test('furnish-renovate uses the private image result while other modules keep CampaignPackage', () => {
+  const delivery = page.slice(page.indexOf('function FurnishRenovateResultCard'), page.indexOf('function FurnishRenovateProcessing'))
+  assert.match(delivery, /label: 'Antes'[\s\S]*label: 'Depois'/)
+  assert.match(delivery, /downloadFileFromPrivateUrl\(result\.afterUrl, `virtual-staging-\$\{String\(result\.originalIndex \+ 1\)\.padStart\(2, '0'\)\}\.jpg`\)/)
+  assert.match(delivery, /Baixar imagem transformada/)
+  assert.match(delivery, /Criar novo projeto/)
+  assert.doesNotMatch(delivery, /CampaignPackage|Textos para divulgação|Hashtags|Instagram|WhatsApp|Facebook|LinkedIn|Próximos passos/)
+  assert.match(page, /if \(isFurnishRenovate && status === 'completed' && furnishResults\.length > 0\) return <FurnishRenovateDelivery[\s\S]*if \(result\) return <section[\s\S]*?<CampaignPackage/)
 })
 
 test('empty CampaignPackage preview displays a controlled unavailable result', () => {

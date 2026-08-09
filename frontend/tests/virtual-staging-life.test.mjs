@@ -74,11 +74,11 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| isBrokerPresentation \|\| ctaEnabled === true\) && includePhone === true/)
 })
 
-test('keeps the approved rental states shared by all Virtual Staging modules', () => {
+test('keeps the approved rental states shared by Virtual Staging and Video Imobiliario', () => {
   assert.deepEqual(LIFE_RENTAL_STAGE_OPTIONS, ['Pronto para morar', 'Disponível já', 'Vago'])
   assert.match(page, /property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS : STAGES/)
   assert.doesNotMatch(page, /Pronto para mudar/)
-  assert.doesNotMatch(smartTour, /LIFE_RENTAL_STAGE_OPTIONS|Disponível já|Vago/)
+  assert.match(smartTour, /getSmartTourStageOptions\(property\.purpose, STAGES\)/)
 })
 
 test('uses the official Vida no Imovel demo with the homologated protected modal', () => {

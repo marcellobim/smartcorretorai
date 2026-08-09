@@ -61,7 +61,7 @@ test('shows only the three approved Studio IA modules without changing internal 
   assert.match(studio, /title: 'Carrossel de Anúncios'[\s\S]*?Crie apresentações em formato de carrossel, prontas para redes sociais e campanhas imobiliárias\./)
   assert.match(studio, /'Comercial Imobiliário',[\s\S]*?'Vídeo Criativo',[\s\S]*?'Carrossel de Anúncios'/)
   assert.match(studio, />\s*Studio IA\s*</)
-  for (const benefit of ['📸 Até 5 fotos do imóvel', '🎥 Apresentação profissional do imóvel', '👤 Corretor(a) virtual opcional', '🎙️ Narração profissional', '🛋️ Sugestões de decoração para ambientes vazios com IA', '📱 Campanha pronta para divulgação']) {
+  for (const benefit of ['Até 5 fotos do imóvel', 'Apresentação profissional do imóvel', 'Corretor(a) virtual opcional', 'Narração profissional', 'Sugestões de decoração para ambientes vazios com IA', 'Campanha pronta para divulgação']) {
     assert.ok(studio.includes(benefit))
   }
   assert.match(studio, /onClick=\{\(\) => selectStudioMode\(mode\)\}[\s\S]*?cursor-pointer/)
@@ -84,8 +84,8 @@ test('updates public product names while preserving Smart Carousel technical con
   for (const source of [dashboard, landing, homeOpus, homeFrankenstein, plans]) {
     assert.doesNotMatch(source, /Studio Hero/)
   }
-  assert.match(smartCarousel, />Carrossel de Anúncios</)
-  assert.match(smartCarousel, /aria-label="Etapas do Carrossel de Anúncios"/)
+  assert.match(smartCarousel, /productName="Carrossel de Anúncios"/)
+  assert.match(smartCarousel, /label="Etapas do Carrossel de Anúncios"/)
   assert.match(smartCarousel, /\[Smart Carrossel\] Erro interno:/)
   assert.match(smartCarousel, /sourceProduct: 'Smart Carrossel'/)
 })

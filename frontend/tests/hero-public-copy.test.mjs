@@ -23,7 +23,8 @@ const publicEntryPoints = [
   read('src/pages/Planos.jsx'),
 ]
 
-test('uses the approved Virtual Space description on the Home card', () => {
+test('uses the approved Virtual Space descriptions on the hero and Home card', () => {
+  assert.ok(read('src/pages/VirtualStaging.jsx').includes('Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial.'))
   assert.ok(dashboard.includes('Transforme ambientes, crie novas possibilidades visuais e apresente seus imóveis com inteligência artificial.'))
 })
 

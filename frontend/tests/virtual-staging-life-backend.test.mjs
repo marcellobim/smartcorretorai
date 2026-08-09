@@ -102,6 +102,9 @@ test('structured generation payload includes the selected life profile and manda
   assert.match(prompt, /não autoriza modificar a arquitetura original, acabamentos, materiais/)
   assert.match(prompt, /Não reconstruir ambientes/)
   assert.match(prompt, /respeitar integralmente a ordem original das imagens/)
+  assert.match(prompt, /virtual_space_composicao_vertical_segura/)
+  assert.match(prompt, /composição vertical 9:16/)
+  assert.match(prompt, /sem faixas pretas e sem deformação/)
 })
 
 test('Vida no Imovel makes type, sale purpose, district and city mandatory in the narration opening', () => {

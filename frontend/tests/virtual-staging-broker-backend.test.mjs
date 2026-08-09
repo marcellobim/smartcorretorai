@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import {
   buildSmartTourStructuredBriefing as buildVirtualStagingBriefing,
+  parseSmartTourStructuredBriefing,
   validateSmartTourRequest as validateVirtualStagingRequest,
 } from '../../supabase/functions/_shared/virtual-staging/index.ts'
 import {
@@ -37,6 +38,31 @@ const brokerRequest = {
   presenter_reference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: presenterReferencePath },
   property_images: { image_paths: [...propertyImagePaths], image_order: [...propertyImagePaths] },
 }
+
+test('status validator accepts five captions only for life or presenter-reference briefings', () => {
+  const brokerValidated = validateVirtualStagingRequest(brokerRequest)
+  const brokerBriefing = buildVirtualStagingBriefing({
+    generation: brokerValidated.generation,
+    property: brokerValidated.property,
+    selectedCta: brokerValidated.selectedCta,
+    imagePaths: brokerValidated.imagePaths,
+    language: brokerValidated.language,
+    presenterReference: brokerValidated.presenter_reference,
+  })
+  assert.equal(brokerBriefing.timeline.legendas.length, 5)
+  assert.doesNotThrow(() => parseSmartTourStructuredBriefing(JSON.stringify(brokerBriefing)))
+
+  const standardValidated = validateVirtualStagingRequest(baseRequest)
+  const standardBriefing = buildVirtualStagingBriefing({
+    generation: standardValidated.generation,
+    property: standardValidated.property,
+    selectedCta: standardValidated.selectedCta,
+    imagePaths: standardValidated.imagePaths,
+    language: standardValidated.language,
+  })
+  assert.equal(standardBriefing.timeline.legendas.length, 4)
+  assert.doesNotThrow(() => parseSmartTourStructuredBriefing(JSON.stringify(standardBriefing)))
+})
 
 test('backend requires exactly one valid presenter_reference for broker-presentation', () => {
   assert.throws(() => validateVirtualStagingRequest({ ...brokerRequest, presenter_reference: undefined }), /invalid_presenter_reference/)
@@ -86,6 +112,9 @@ test('structured briefing receives identity reference without adding it to prope
     'Pequenas diferenças naturais podem ocorrer',
     'Não prometer fidelidade absoluta',
   ]) assert.match(rules, new RegExp(expected, 'i'))
+  assert.match(rules, /virtual_space_composicao_vertical_segura/i)
+  assert.match(rules, /composição vertical 9:16/i)
+  assert.match(rules, /pessoa principal dentro da área segura vertical/i)
   for (const forbidden of ['100% identical', 'exact clone', 'pixel perfect']) assert.doesNotMatch(rules, new RegExp(forbidden, 'i'))
 })
 
