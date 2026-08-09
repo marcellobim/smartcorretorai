@@ -227,3 +227,25 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '') 
         },
   }
 }
+
+export function isTextCampaignBriefingValid(briefing = {}) {
+  const required = ['purpose', 'stage', 'property_type', 'area', 'state', 'city', 'district', 'cta']
+  if (required.some(field => !briefing[field])) return false
+  if (!['sale', 'rent'].includes(briefing.purpose)) return false
+  if (briefing.purpose === 'rent' && briefing.property_type === 'Terreno / Lote') return false
+  if (!Array.isArray(briefing.highlights) || briefing.highlights.length > TEXT_CAMPAIGN_MAX_HIGHLIGHTS) return false
+  if (briefing.contact_authorized && !briefing.professional_phone) return false
+  const residential = !['Comercial', 'Terreno / Lote'].includes(briefing.property_type)
+  if (residential && (!briefing.bedrooms || !briefing.suites || !briefing.parking_spaces)) return false
+  if (briefing.property_type === 'Comercial' && !briefing.parking_spaces) return false
+  const commercial = briefing.commercial || {}
+  if (briefing.purpose === 'sale') {
+    if (!['price', 'conditions', 'hidden'].includes(commercial.mode)) return false
+    if (commercial.mode === 'price' && (!['fixed', 'starting_at'].includes(commercial.price_mode) || !commercial.price)) return false
+    if (commercial.mode === 'conditions' && !(commercial.conditions?.length || Object.keys(commercial.commercial_terms || {}).length)) return false
+  } else {
+    if (!['show', 'hidden'].includes(commercial.mode)) return false
+    if (commercial.mode === 'show' && (!commercial.rent || !commercial.guarantee)) return false
+  }
+  return true
+}

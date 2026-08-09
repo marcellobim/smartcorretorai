@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Check, Sparkles } from 'lucide-react'
 import Header from '../components/layout/Header'
 import GuidedConversation from '../components/conversation/GuidedConversation'
@@ -16,6 +16,9 @@ import {
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
+import { supabase } from '../lib/supabase'
+import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
+import TextCampaignResult from '../components/text-campaign/TextCampaignResult'
 import {
   buildTextCampaignBriefing,
   changeTextCampaignManualCity,
@@ -29,6 +32,7 @@ import {
   getTextCampaignPropertyTypes,
   getTextCampaignStageOptions,
   getTextCampaignVisualStep,
+  isTextCampaignBriefingValid,
   normalizeTextCampaignLocation,
   textCampaignCommercialTermsAvailable,
   EMPTY_TEXT_CAMPAIGN_COMMERCIAL_TERMS,
@@ -69,9 +73,13 @@ const emptyCommercial = () => ({
 })
 
 export default function TextCampaign() {
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
   const [answers, setAnswers] = useState(createEmptyTextCampaignAnswers)
   const [manualCityMode, setManualCityMode] = useState(false)
+  const [campaign, setCampaign] = useState(null)
+  const [generationStatus, setGenerationStatus] = useState('idle')
+  const [generationError, setGenerationError] = useState('')
+  const generationLockRef = useRef(false)
   const professionalPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const conversation = useGuidedConversation({
     initialQuestionId: 'purpose',
@@ -83,6 +91,7 @@ export default function TextCampaign() {
     () => buildTextCampaignBriefing(answers, professionalPhone),
     [answers, professionalPhone],
   )
+  const briefingValid = useMemo(() => isTextCampaignBriefingValid(briefing), [briefing])
   const summaryItems = useMemo(() => buildSummaryItems(answers), [answers])
 
   const commit = ({ id = questionId, answer, apply, nextQuestionId = getTextCampaignNextQuestion(id) }) => {
@@ -96,9 +105,46 @@ export default function TextCampaign() {
     if (accepted) apply?.()
   }
 
+  const generateCampaign = async () => {
+    if (generationLockRef.current || !briefingValid) return
+    generationLockRef.current = true
+    setGenerationStatus('loading')
+    setGenerationError('')
+    try {
+      if (!accessToken) throw new Error('Sua sessão expirou. Faça login novamente.')
+      const { data, error } = await supabase.functions.invoke('generate-text-campaign', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { briefing },
+      })
+      if (error) {
+        const body = await readTextCampaignFunctionError(error)
+        throw new Error(body?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
+      }
+      if (!data?.ok || !isCompleteTextCampaignResult(data.campaign)) throw new Error('A campanha retornou incompleta. Tente novamente.')
+      setCampaign(data.campaign)
+      setGenerationStatus('success')
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : 'Não foi possível criar a campanha agora. Tente novamente.')
+      setGenerationStatus('error')
+    } finally {
+      generationLockRef.current = false
+    }
+  }
+
+  const createNewCampaign = () => {
+    generationLockRef.current = false
+    setCampaign(null)
+    setGenerationStatus('idle')
+    setGenerationError('')
+    setManualCityMode(false)
+    setAnswers(createEmptyTextCampaignAnswers())
+    conversation.resetConversation()
+  }
+
   return <div className="min-h-screen bg-slate-50">
     <Header title="Campanha de Textos" subtitle="Briefing imobiliário completo" />
     <main className={`${SMART_UI.page} min-w-0 space-y-6`}>
+      {campaign ? <TextCampaignResult campaign={campaign} onNewCampaign={createNewCampaign} /> : <>
       <ProductCard className="overflow-hidden">
         <ProductHero
           id="text-campaign-title"
@@ -146,8 +192,15 @@ export default function TextCampaign() {
           commit={commit}
           onEdit={conversation.editAnswer}
           busy={conversation.isTransitioning}
+          briefingValid={briefingValid}
+          generationStatus={generationStatus}
+          generationError={generationError}
+          onGenerate={generateCampaign}
+          onRetry={generateCampaign}
+          onReview={() => setGenerationError('')}
         />
       </GuidedConversation>
+      </>}
     </main>
   </div>
 }
@@ -343,15 +396,28 @@ function PhoneQuestion({ answers, setAnswers, commit, professionalPhone }) {
   </div>
 }
 
-function ReviewQuestion({ answers, briefing, onEdit, busy }) {
+function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview }) {
   const groups = buildReviewGroups(answers, briefing)
-  return <div className="space-y-5" aria-busy={busy}>
+  const loading = generationStatus === 'loading'
+  return <div className="space-y-5" aria-busy={busy || loading}>
     <ProductSectionHeading eyebrow="Revisão final" title="Confira antes de criar" />
     <div className="grid gap-4 sm:grid-cols-2">{groups.map(group => <ProductCard key={group.id} variant="muted" className="p-4">
       <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black text-slate-900">{group.title}</p><p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-slate-600">{group.value}</p></div><ProductButton size="sm" variant="ghost" onClick={() => onEdit(group.editId)}>Editar</ProductButton></div>
     </ProductCard>)}</div>
-    <ProductButton disabled className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />Criar Campanha de Textos</ProductButton>
+    {generationError && <ProductCard role="alert" variant="muted" className="border-rose-200 p-4">
+      <p className="text-sm font-black text-rose-800">{generationError}</p>
+      <div className="mt-4 flex flex-wrap gap-3"><ProductButton variant="danger" disabled={loading} onClick={onRetry}>Tentar novamente</ProductButton><ProductButton variant="ghost" disabled={loading} onClick={onReview}>Voltar à revisão</ProductButton></div>
+    </ProductCard>}
+    <ProductButton disabled={!briefingValid || loading} loading={loading} onClick={onGenerate} className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />Criar Campanha de Textos</ProductButton>
   </div>
+}
+
+async function readTextCampaignFunctionError(error) {
+  try {
+    return await error?.context?.json?.()
+  } catch {
+    return null
+  }
 }
 
 function buildSummaryItems(answers) {

@@ -155,10 +155,10 @@ test('keeps edit actions connected to GuidedConversation', () => {
   assert.match(page, /resetAnswerForEdit/)
 })
 
-test('shows a disabled final action with no backend behavior', () => {
-  assert.match(page, /<ProductButton disabled className="w-full sm:w-auto">[\s\S]*?Criar Campanha de Textos/)
+test('enables the final action only for a valid briefing and keeps loading safe', () => {
+  assert.match(page, /<ProductButton disabled=\{!briefingValid \|\| loading\} loading=\{loading\} onClick=\{onGenerate\}/)
   assert.doesNotMatch(page, /OpenAI|Smart Tokens|próxima fase|geração ainda não está conectada/i)
-  assert.doesNotMatch(page, /supabase|fetch\(|invoke\(|onClick=\{[^}]*Criar Campanha/)
+  assert.match(page, /supabase\.functions\.invoke\('generate-text-campaign'/)
 })
 
 test('uses campaign-specific summary copy without changing the shared default', () => {
@@ -188,7 +188,7 @@ test('requires #SmartCorretorAI in the middle of future normalized hashtags', ()
 test('does not call OpenAI or any provider', () => {
   const combined = `${page}\n${read('src/config/textCampaign.js')}\n${read('src/config/textCampaignConversation.js')}`
   assert.doesNotMatch(combined, /from ['"][^'"]*(openai|gemini|veo|creatomate)|new OpenAI|chat\.completions|responses\.create/i)
-  assert.doesNotMatch(combined, /fetch\(|supabase|\.invoke\(/)
+  assert.doesNotMatch(combined, /fetch\(|api\.openai\.com|gemini|veo|creatomate/i)
 })
 
 test('does not persist a campaign or a result history', () => {
@@ -202,5 +202,5 @@ test('reuses the consolidated Design System and guided conversation', () => {
   assert.match(guidedConversation, /ConversationAssistantBubble/)
   assert.match(guidedConversation, /ProductSummary/)
   assert.match(page, /designSystem[\s\S]*?accent="primary"/)
-  assert.match(page, /aria-busy=\{busy\}/)
+  assert.match(page, /aria-busy=\{busy \|\| loading\}/)
 })

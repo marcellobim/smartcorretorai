@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.virtual-staging-images-cleanup]
 verify_jwt = true
+
+[functions.generate-text-campaign]
+verify_jwt = false
