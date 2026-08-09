@@ -5,8 +5,6 @@ export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
     id: FURNISH_RENOVATE_JOURNEY_ID,
     title: 'Virtual Staging',
     description: 'Transforme fotos de ambientes vazios, quase vazios ou já mobiliados em novas apresentações visuais criadas por inteligência artificial.',
-    demoVideo: '/demos-videos/reimagine-1.mp4',
-    demoAssetStatus: 'official',
   },
   {
     id: 'life-in-property',

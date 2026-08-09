@@ -210,7 +210,7 @@ test('uses the same real Before and After mini carousel in the two separate Virt
   assert.match(page, /alt: 'Ambiente antes do Virtual Staging'/)
   assert.match(page, /alt: 'Ambiente depois do Virtual Staging'/)
   assert.equal((page.match(/<VirtualStagingBeforeAfterPhone initialIndex=/g) || []).length, 2)
-  const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function FurnishReimagineComparison'))
+  const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function usePrefersReducedMotion'))
   const lowerPhone = page.slice(page.indexOf('function VirtualStagingModules'), page.indexOf('function DestinationBrandIcon'))
   assert.match(upperPhone, /journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone initialIndex=\{0\}/)
   assert.match(lowerPhone, /isVirtualStagingDemo = journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone initialIndex=\{1\}/)

@@ -95,7 +95,7 @@ test('keeps the homologated engine files unchanged outside the isolated module e
   const virtualIndex = read('supabase/functions/_shared/virtual-staging/index.ts')
   const smartTourIndex = read('supabase/functions/_shared/smart-tour/index.ts')
   for (const sharedExport of smartTourIndex.trim().split(/\r?\n/)) assert.ok(virtualIndex.includes(sharedExport), `${sharedExport} must remain exported`)
-  assert.match(virtualIndex, /export \* from '\.\/reimagine-prompt\.ts'/)
+  assert.doesNotMatch(virtualIndex, /reimagine-prompt|buildReimaginePrompt/)
 
   const originalTypes = read('supabase/functions/_shared/smart-tour/types.ts')
   const originalValidation = read('supabase/functions/_shared/smart-tour/validation.ts')
@@ -116,20 +116,20 @@ test('exposes exactly the three approved Virtual Space modules in order', () => 
     'broker-presentation',
   ])
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.title), [
-    'Reimagine AI',
+    'Virtual Staging',
     'Vida no Imóvel',
     'Apresentação pelo Corretor',
   ])
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.description), [
-    'Adicione móveis, substitua a decoração ou transforme completamente os ambientes preservando a estrutura original do imóvel.',
+    'Transforme fotos de ambientes vazios, quase vazios ou já mobiliados em novas apresentações visuais criadas por inteligência artificial.',
     'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
     'Utilize sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
   ])
-  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.demoAssetStatus), ['temporary', 'official', 'official'])
+  assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.demoAssetStatus), [undefined, 'official', 'official'])
+  assert.equal(getVirtualStagingJourney('furnish-renovate')?.demoVideo, undefined)
   assert.equal(getVirtualStagingJourney('life-in-property')?.demoVideo, '/demos-videos/vida-no-imovel.mp4')
   assert.equal(getVirtualStagingJourney('life-in-property')?.title, 'Vida no Imóvel')
   assert.equal(getVirtualStagingJourney('broker-presentation')?.demoVideo, '/demos-videos/apresentacao-pelo-proprio-corretor.mp4')
-  assert.equal(getVirtualStagingJourney('furnish-renovate')?.demoVideo, '/demos-videos/animar-imagens.mp4')
   assert.equal(getVirtualStagingJourney('unknown'), null)
 })
 

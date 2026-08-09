@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowRight, ArrowUp, Building2, ChevronLeft, ChevronRight, Download, Instagram, Loader2, MessageCircle, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Building2, Download, Instagram, Loader2, MessageCircle, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
@@ -24,12 +24,6 @@ import VIRTUAL_STAGING_BEFORE_IMAGE from '../../../assets-imoveis/apartamento-va
 import VIRTUAL_STAGING_AFTER_IMAGE from '../../../assets-imoveis/apartamento-vazio-02/virtual-staging-pos.png'
 
 const BUCKET = 'studio-videos'
-const REIMAGINE_BEFORE_IMAGES = [
-  '/demos-images/Screenshot_20260622_064406_Chrome(1).jpg',
-  '/demos-images/Screenshot_20260622_064329_Chrome(2).jpg',
-  '/demos-images/Screenshot_20260622_064358_Chrome.jpg',
-]
-const REIMAGINE_AFTER_VIDEO = '/demos-videos/reimagine-1.mp4'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', neighborhood: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
@@ -647,18 +641,6 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   </section>
 }
 
-function FurnishReimagineHero() {
-  return <ProductHero
-    id="reimagine-internal-title"
-    eyebrow="Reimagine AI"
-    title="Dê uma nova vida"
-    highlight="às fotos do seu imóvel."
-    description="Transforme ambientes vazios ou já mobiliados em uma apresentação visual mais atraente."
-    secondaryDescription="O Reimagine AI cria uma nova apresentação visual a partir das fotografias do imóvel. A inteligência artificial pode decorar ambientes vazios, renovar ambientes já mobiliados e reinterpretar parcialmente a composição para tornar a apresentação mais atraente."
-    visual={<FurnishReimagineComparison />}
-  />
-}
-
 function VirtualSpaceHeroVisual() {
   return <div aria-label="Os três módulos do Virtual Space" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
     <div className="absolute inset-y-2 right-0 w-[88%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
@@ -675,117 +657,6 @@ function VirtualSpaceHeroVisual() {
       </article>)}
     </div>
   </div>
-}
-
-function FurnishReimagineComparison() {
-  const [activeSlide, setActiveSlide] = useState(0)
-  const [activeMedia, setActiveMedia] = useState(null)
-  const prefersReducedMotion = usePrefersReducedMotion()
-  const dialogRef = useRef(null)
-  const closeButtonRef = useRef(null)
-  const modalVideoRef = useRef(null)
-  const lastTriggerRef = useRef(null)
-  const isComparisonOpen = Boolean(activeMedia)
-  const phoneClass = 'mx-auto block w-full max-w-[174px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 shadow-xl shadow-slate-300/70'
-  const expandedPhoneFrameClass = 'relative h-[min(calc(100dvh-8rem),calc(177.778vw-13.333rem),760px)] w-auto max-w-full aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl'
-
-  useEffect(() => {
-    if (prefersReducedMotion || isComparisonOpen) return undefined
-    const interval = window.setInterval(() => setActiveSlide(current => (current + 1) % REIMAGINE_BEFORE_IMAGES.length), 4500)
-    return () => window.clearInterval(interval)
-  }, [isComparisonOpen, prefersReducedMotion])
-
-  const closeComparison = useCallback(() => {
-    modalVideoRef.current?.pause()
-    setActiveMedia(null)
-    window.requestAnimationFrame(() => lastTriggerRef.current?.focus())
-  }, [])
-
-  useEffect(() => {
-    if (!isComparisonOpen) return undefined
-    const previousOverflow = document.body.style.overflow
-    const handleKeyDown = event => {
-      if (event.key === 'Escape') {
-        closeComparison()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const focusable = dialogRef.current?.querySelectorAll('button:not([disabled]), video[controls]')
-      if (!focusable?.length) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', handleKeyDown)
-    closeButtonRef.current?.focus()
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [closeComparison, isComparisonOpen])
-
-  const openBefore = event => {
-    lastTriggerRef.current = event.currentTarget
-    setActiveMedia({ type: 'before', index: activeSlide })
-  }
-  const openAfter = event => {
-    lastTriggerRef.current = event.currentTarget
-    setActiveMedia({ type: 'after' })
-  }
-  const changeExpandedImage = offset => setActiveMedia(current => ({
-    ...current,
-    index: (current.index + offset + REIMAGINE_BEFORE_IMAGES.length) % REIMAGINE_BEFORE_IMAGES.length,
-  }))
-
-  return <>
-    <div aria-label="Comparação antes e depois criada pelo Virtual Staging" className="relative overflow-hidden rounded-smart-card border border-smart-border bg-slate-50/75 p-4 sm:p-5">
-      <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.2px,transparent_1.2px)] [background-size:18px_18px]" aria-hidden="true" />
-      <div className="relative grid min-w-0 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)]">
-        <article className="min-w-0 text-center motion-safe:animate-slide-up">
-          <p className="mb-3 text-xs font-black text-slate-900"><span className="block text-sm text-primary-700">Antes</span>Fotografias originais</p>
-          <button type="button" onClick={openBefore} aria-label={`Ampliar fotografias originais. Imagem ${activeSlide + 1} de ${REIMAGINE_BEFORE_IMAGES.length}`} className="group mx-auto block w-full max-w-[174px] rounded-[2rem] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-            <span className={phoneClass}>
-              <span className="relative block aspect-[9/16] overflow-hidden rounded-[1.7rem] bg-slate-950">
-                {REIMAGINE_BEFORE_IMAGES.map((src, index) => <img key={src} src={src} alt={`Fotografia original do imóvel ${index + 1}`} draggable={false} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" className={`smart-phone-media absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${index === activeSlide ? 'opacity-100' : 'opacity-0'}`} />)}
-                <span className="absolute inset-0 rounded-[1.7rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-primary-300/60" aria-hidden="true" />
-              </span>
-            </span>
-          </button>
-          <div className="mt-3 flex justify-center gap-1.5" aria-hidden="true">{REIMAGINE_BEFORE_IMAGES.map((src, index) => <span key={src} className={`h-1.5 rounded-full transition-all motion-reduce:transition-none ${index === activeSlide ? 'w-5 bg-primary-600' : 'w-1.5 bg-slate-300'}`} />)}</div>
-        </article>
-        <div className="flex justify-center" aria-hidden="true"><span className="flex h-10 w-10 rotate-90 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg shadow-primary-200 sm:rotate-0"><ArrowRight className="h-5 w-5" /></span></div>
-        <article className="min-w-0 text-center motion-safe:animate-slide-up [animation-delay:120ms] [animation-fill-mode:both]">
-          <p className="mb-3 text-xs font-black text-slate-900"><span className="block text-sm text-primary-700">Depois</span>Apresentação criada pela IA</p>
-          <button type="button" onClick={openAfter} aria-label="Ampliar apresentação criada pelo Virtual Staging" className="group mx-auto block w-full max-w-[174px] rounded-[2rem] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-            <span className={phoneClass}><span className="relative block aspect-[9/16] overflow-hidden rounded-[1.7rem] bg-slate-950"><video src={REIMAGINE_AFTER_VIDEO} aria-label="Apresentação criada pelo Virtual Staging" autoPlay muted loop playsInline controls={false} preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-phone-media pointer-events-none absolute inset-0 bg-black" /><span className="absolute inset-0 rounded-[1.7rem] ring-1 ring-inset ring-white/10 transition group-hover:ring-primary-300/60" aria-hidden="true" /></span></span>
-          </button>
-          <p className="mt-3 text-[11px] font-bold text-slate-500">Toque para assistir em tela ampliada</p>
-        </article>
-      </div>
-      <p className="relative mt-4 text-center text-xs font-bold leading-5 text-slate-500">Das fotografias originais a uma apresentação criada pelo Virtual Staging.</p>
-    </div>
-
-    {activeMedia && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6" onMouseDown={event => { if (event.target === event.currentTarget) closeComparison() }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="reimagine-comparison-dialog-title" className="relative flex max-h-full w-full max-w-5xl flex-col items-center">
-        <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
-          <h2 id="reimagine-comparison-dialog-title" className="truncate text-base font-black sm:text-lg">{activeMedia.type === 'before' ? `Antes · Fotografia ${activeMedia.index + 1} de ${REIMAGINE_BEFORE_IMAGES.length}` : 'Depois · Apresentação criada pelo Virtual Staging'}</h2>
-          <button ref={closeButtonRef} type="button" onClick={closeComparison} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950" aria-label="Fechar visualização ampliada"><X className="h-5 w-5" aria-hidden="true" /></button>
-        </div>
-        {activeMedia.type === 'before' ? <div className="grid min-h-0 w-full max-w-[560px] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1 sm:gap-3">
-          <button type="button" onClick={() => changeExpandedImage(-1)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white" aria-label="Ver fotografia anterior"><ChevronLeft className="h-6 w-6" aria-hidden="true" /></button>
-          <div className={`${expandedPhoneFrameClass} justify-self-center`}><img key={activeMedia.index} src={REIMAGINE_BEFORE_IMAGES[activeMedia.index]} alt={`Fotografia original ampliada ${activeMedia.index + 1} de ${REIMAGINE_BEFORE_IMAGES.length}`} draggable={false} className="smart-phone-media motion-safe:animate-fade-in" /></div>
-          <button type="button" onClick={() => changeExpandedImage(1)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white" aria-label="Ver próxima fotografia"><ChevronRight className="h-6 w-6" aria-hidden="true" /></button>
-        </div> : <div className={expandedPhoneFrameClass}><video ref={modalVideoRef} src={REIMAGINE_AFTER_VIDEO} aria-label="Apresentação ampliada criada pelo Virtual Staging" autoPlay playsInline controls preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-phone-media bg-black" /></div>}
-      </div>
-    </div>}
-  </>
 }
 
 function usePrefersReducedMotion() {

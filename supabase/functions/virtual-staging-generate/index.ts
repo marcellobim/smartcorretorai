@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
-import { buildReimaginePrompt, buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/virtual-staging/index.ts'
+import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/virtual-staging/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
 import { buildOfficialHashtags } from '../_shared/official-hashtags.ts'
@@ -30,9 +30,7 @@ serve(withCors(async req => {
     const activeVerticalVideo = Boolean(input.generation.life_scene) || input.module === 'broker-presentation'
     const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = activeVerticalVideo ? buildOfficialHashtags(hashtagContext) : []
-    const prompt = input.module === 'furnish-renovate'
-      ? buildReimaginePrompt(input.property, input.imageOrder)
-      : buildSmartTourVideoPrompt(buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language,presenterReference:input.presenter_reference}))
+    const prompt = buildSmartTourVideoPrompt(buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language,presenterReference:input.presenter_reference}))
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'virtual_staging_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
     const hashtags = activeVerticalVideo ? await generateStrategicHashtags({apiKey:Deno.env.get('OPENAI_API_KEY') || '',variationKey:input.clientRequestId,context:hashtagContext}) : []
@@ -52,7 +50,7 @@ serve(withCors(async req => {
   } catch (error) {
     console.warn('[virtual-staging-generate]',safeError(error))
     const code = safeError(error)
-    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',invalid_life_scene:'A opção de Vida no Imóvel é inválida.',invalid_presenter_reference:'Envie exatamente uma foto válida do apresentador.',invalid_property_images:'As fotos do imóvel são inválidas.',invalid_furnish_property:'Informe somente os dados residenciais solicitados.',invalid_furnish_area:'Informe uma área válida em metros quadrados.',invalid_furnish_highlights:'Selecione no máximo três destaques.',invalid_furnish_output:'A solicitação contém campos antigos do módulo.',invalid_module:'O módulo informado é inválido.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
+    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',invalid_life_scene:'A opção de Vida no Imóvel é inválida.',invalid_presenter_reference:'Envie exatamente uma foto válida do apresentador.',invalid_property_images:'As fotos do imóvel são inválidas.',invalid_module:'O módulo informado é inválido.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
     return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
   }
 }))

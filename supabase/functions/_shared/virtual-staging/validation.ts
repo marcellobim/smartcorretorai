@@ -1,19 +1,9 @@
-import type { LifeScene, PresenterReference, PropertyContext, PropertyImages, SmartTourGenerationConfig, SmartTourRequest } from './types.ts'
+import type { LifeScene, PresenterReference, PropertyImages, SmartTourGenerationConfig, SmartTourRequest } from './types.ts'
 const MODES = new Set(['guided_tour','narrated_tour','smart_staging','cinematic_tour'])
 const LANGUAGES = new Set(['pt-BR','en-US','es'])
 const LIFE_SCENES = new Set<LifeScene>(['young','young_dog','young_cat','adult','adult_dog','adult_cat','senior','senior_dog','senior_cat'])
 const clean = (value: unknown, max = 160) => String(value ?? '').replace(/[{}<>]/g, '').replace(/\s+/g, ' ').trim().slice(0,max)
-const FURNISH_RENOVATE_MODULE = 'furnish-renovate'
 const BROKER_PRESENTATION_MODULE = 'broker-presentation'
-const FURNISH_PROPERTY_TYPES = new Set(['Apartamento', 'Casa', 'Sobrado', 'Studio', 'Loft', 'Cobertura', 'Kitnet'])
-const FURNISH_PURPOSES = new Set(['sale', 'rent'])
-const FURNISH_PROPERTY_FIELDS = new Set(['purpose', 'type', 'bedrooms', 'suites', 'parkingSpaces', 'area', 'state', 'city', 'neighborhood', 'highlights'])
-const FURNISH_MEASURES = {
-  bedrooms: new Set(['0', '1', '2', '3', '4', '5+']),
-  suites: new Set(['0', '1', '2', '3', '4+']),
-  parkingSpaces: new Set(['0', '1', '2', '3', '4+']),
-}
-const FURNISH_REMOVED_FIELDS = ['transformationStyle', 'videoMode', 'narrationEnabled', 'narratedCta', 'selectedCta', 'includeProfessionalPhone', 'phone', 'texts', 'captions', 'cta', 'music']
 
 function readPropertyImages(raw: Record<string, unknown>) {
   const value = raw.property_images && typeof raw.property_images === 'object' && !Array.isArray(raw.property_images) ? raw.property_images as Record<string, unknown> : null
@@ -25,7 +15,7 @@ function readPropertyImages(raw: Record<string, unknown>) {
 function validateBrokerFiles(raw: Record<string, unknown>, paths: string[], order: string[]) {
   if (raw.module !== BROKER_PRESENTATION_MODULE) {
     if (raw.presenter_reference !== undefined) throw new Error('invalid_presenter_reference')
-    if (raw.module !== FURNISH_RENOVATE_MODULE && raw.property_images !== undefined) throw new Error('invalid_property_images')
+    if (raw.property_images !== undefined) throw new Error('invalid_property_images')
     return {}
   }
   const referenceRaw = raw.presenter_reference && typeof raw.presenter_reference === 'object' && !Array.isArray(raw.presenter_reference) ? raw.presenter_reference as Record<string, unknown> : null
@@ -36,24 +26,6 @@ function validateBrokerFiles(raw: Record<string, unknown>, paths: string[], orde
   return {
     module: BROKER_PRESENTATION_MODULE as const,
     presenter_reference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: imagePath } as PresenterReference,
-    property_images: { image_paths: [...paths], image_order: [...order] } as PropertyImages,
-  }
-}
-
-function validateFurnishRenovate(raw: Record<string, unknown>, paths: string[], order: string[], property: PropertyContext) {
-  if (raw.module !== FURNISH_RENOVATE_MODULE) return null
-  const propertyImages = readPropertyImages(raw)
-  if (!propertyImages.value || propertyImages.imagePaths.length !== paths.length || propertyImages.imageOrder.length !== order.length || propertyImages.imagePaths.some((path,index) => path !== paths[index]) || propertyImages.imageOrder.some((path,index) => path !== order[index])) throw new Error('invalid_property_images')
-  if (raw.presenter_reference !== undefined) throw new Error('invalid_presenter_reference')
-  if (FURNISH_REMOVED_FIELDS.some(field => raw[field] !== undefined) || raw.generation !== undefined) throw new Error('invalid_furnish_output')
-  const propertyRaw = raw.property && typeof raw.property === 'object' && !Array.isArray(raw.property) ? raw.property as Record<string, unknown> : {}
-  if (Object.keys(propertyRaw).some(field => !FURNISH_PROPERTY_FIELDS.has(field))) throw new Error('invalid_furnish_property')
-  if (!FURNISH_PURPOSES.has(String(property.purpose)) || !FURNISH_PROPERTY_TYPES.has(String(property.type)) || !/^[A-Z]{2}$/.test(String(property.state)) || !property.city || !property.neighborhood) throw new Error('invalid_furnish_property')
-  if (!FURNISH_MEASURES.bedrooms.has(String(property.bedrooms)) || !FURNISH_MEASURES.suites.has(String(property.suites)) || !FURNISH_MEASURES.parkingSpaces.has(String(property.parkingSpaces))) throw new Error('invalid_furnish_property')
-  if (!/^\d{1,6}$/.test(String(property.area)) || Number(property.area) <= 0) throw new Error('invalid_furnish_area')
-  if ((property.highlights || []).length > 3) throw new Error('invalid_furnish_highlights')
-  return {
-    module: FURNISH_RENOVATE_MODULE as const,
     property_images: { image_paths: [...paths], image_order: [...order] } as PropertyImages,
   }
 }
@@ -78,23 +50,21 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
 export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   if (!input || typeof input !== 'object') throw new Error('invalid_request')
   const raw = input as Record<string, unknown>
-  const furnishImages = raw.module === FURNISH_RENOVATE_MODULE ? readPropertyImages(raw) : null
-  const paths = furnishImages ? furnishImages.imagePaths : Array.isArray(raw.imagePaths) ? raw.imagePaths.map(item => clean(item,300)).filter(Boolean) : []
-  const order = furnishImages ? furnishImages.imageOrder : Array.isArray(raw.imageOrder) ? raw.imageOrder.map(item => clean(item,300)).filter(Boolean) : []
+  if (raw.module !== undefined && raw.module !== BROKER_PRESENTATION_MODULE) throw new Error('invalid_module')
+  const paths = Array.isArray(raw.imagePaths) ? raw.imagePaths.map(item => clean(item,300)).filter(Boolean) : []
+  const order = Array.isArray(raw.imageOrder) ? raw.imageOrder.map(item => clean(item,300)).filter(Boolean) : []
   const maxImages = 5
   if (!paths.length || paths.length > maxImages || new Set(paths).size !== paths.length) throw new Error('invalid_image_count')
   if (order.length !== paths.length || order.some((path,index) => path !== paths[index])) throw new Error('invalid_image_order')
   const propertyRaw = raw.property && typeof raw.property === 'object' ? raw.property as Record<string, unknown> : {}
   const rawHighlights = Array.isArray(propertyRaw.highlights) ? propertyRaw.highlights.map(item => clean(item,80)).filter(Boolean) : []
-  const highlights = raw.module === FURNISH_RENOVATE_MODULE ? rawHighlights : rawHighlights.slice(0,10)
+  const highlights = rawHighlights.slice(0,10)
   const property = Object.fromEntries(Object.entries(propertyRaw).filter(([key]) => key !== 'highlights').map(([key,value]) => [key,clean(value,key === 'description' ? 1000 : 120)]))
   const generationInput = raw.generation && typeof raw.generation === 'object' && !Array.isArray(raw.generation) ? raw.generation as Partial<SmartTourGenerationConfig> : {}
-  const generation = normalizeGeneration(raw.module === FURNISH_RENOVATE_MODULE ? { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', language: raw.language as SmartTourGenerationConfig['language'] } : generationInput)
+  const generation = normalizeGeneration(generationInput)
   const brokerFiles = validateBrokerFiles(raw, paths, order)
-  const furnishContract = validateFurnishRenovate(raw, paths, order, { ...property, highlights })
   if (generation.mode === 'narrated_tour' && !generation.life_scene) throw new Error('invalid_life_scene')
-  if (raw.module !== undefined && ![FURNISH_RENOVATE_MODULE, BROKER_PRESENTATION_MODULE].includes(String(raw.module))) throw new Error('invalid_module')
-  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: raw.module === FURNISH_RENOVATE_MODULE ? '' : clean(raw.selectedCta,120), includeProfessionalPhone: raw.module === FURNISH_RENOVATE_MODULE ? false : raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR', ...(furnishContract || {}), ...brokerFiles }
+  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR', ...brokerFiles }
 }
 
 export const OFFICIAL_MATRIX: SmartTourGenerationConfig[] = [

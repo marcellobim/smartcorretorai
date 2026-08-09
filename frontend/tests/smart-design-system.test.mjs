@@ -30,19 +30,16 @@ test('provides reusable Hero, card, progress, grid, heading and summary componen
   assert.match(read('src/components/design-system/ProductSummary.jsx'), /Resumo da criação/)
 })
 
-test('applies the new foundation only to the Reimagine AI pilot', () => {
-  assert.match(virtualStaging, /<ProductHero[\s\S]*visual=\{<FurnishReimagineComparison \/>\}/)
-  assert.match(virtualStaging, /const journeySteps = isFurnishRenovate[\s\S]*\['Fotos', 'Imóvel', 'Estilo', 'Revisão', 'Criar'\][\s\S]*\.map\(title => \(\{ title, subtitle: '' \}\)\)/)
+test('applies the official foundation to Virtual Staging de imagens and Vídeo Imobiliário', () => {
+  assert.match(virtualStaging, /<ProductHero[\s\S]*visual=\{<VirtualSpaceHeroVisual \/>\}/)
   assert.match(virtualStaging, /designSystem=\{isFurnishRenovate\}/)
   assert.match(conversation, /designSystem = false/)
   assert.match(conversation, /designSystem \? <ProductFlowLayout/)
-  assert.doesNotMatch(read('src/pages/NovaCampanha.jsx'), /components\/design-system|<ProductHero|<ProductSteps/)
-  assert.doesNotMatch(read('src/pages/SmartTourAI.jsx'), /components\/design-system|<ProductHero|<ProductSteps/)
 })
 
-test('keeps the Reimagine visual demonstration integrated into the light Hero', () => {
-  assert.match(virtualStaging, /Fotografias originais[\s\S]*Antes/)
-  assert.match(virtualStaging, /Apresentação criada pela IA[\s\S]*Depois/)
-  assert.match(virtualStaging, /\/demos-videos\/animar-imagens\.mp4/)
+test('keeps the Virtual Staging image comparison integrated into the light Hero', () => {
+  assert.match(virtualStaging, /VIRTUAL_STAGING_COMPARISON_SLIDES/)
+  assert.match(virtualStaging, /VirtualStagingBeforeAfterPhone/)
+  assert.doesNotMatch(virtualStaging, /reimagine-1\.mp4/)
   assert.match(read('src/components/design-system/ProductHero.jsx'), /gap-10[\s\S]*leading-\[1\.06\][\s\S]*tracking-\[-0\.04em\]/)
 })
