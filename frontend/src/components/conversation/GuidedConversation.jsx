@@ -33,6 +33,7 @@ export default function GuidedConversation({
   eyebrow = 'Criação guiada',
   title = 'Converse com a IA',
   description = 'Uma pergunta por vez para construir sua apresentação.',
+  summaryTitle = 'Resumo da apresentação',
   review = false,
   editDisabled = false,
   designSystem = false,
@@ -79,7 +80,7 @@ export default function GuidedConversation({
     <div ref={anchorRef} />
   </div>
 
-  const summary = <ProductSummary title="Resumo da apresentação" items={summaryItems} onEdit={onEdit} editDisabled={editDisabled} emptyText="Suas escolhas aparecerão aqui durante a conversa." accent={isEmerald ? 'emerald' : 'primary'} />
+  const summary = <ProductSummary title={summaryTitle} items={summaryItems} onEdit={onEdit} editDisabled={editDisabled} emptyText="Suas escolhas aparecerão aqui durante a conversa." accent={isEmerald ? 'emerald' : 'primary'} />
 
   return <section data-smart-conversation className={designSystem ? 'overflow-visible' : 'overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-transparent shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]'}>
     <div className={designSystem ? 'mb-5' : 'border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6'}>
@@ -88,7 +89,7 @@ export default function GuidedConversation({
     {designSystem ? <ProductFlowLayout main={conversation} aside={summary} /> : <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
       {conversation}
       <aside className={`rounded-3xl border p-5 lg:sticky lg:top-6 lg:self-start ${isEmerald ? 'border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)]' : 'border-primary-100 bg-[linear-gradient(145deg,#eff6ff,#ffffff)]'}`}>
-        <p className={`text-xs font-black uppercase tracking-[0.16em] ${isEmerald ? 'text-emerald-700' : 'text-primary-700'}`}>Resumo da apresentação</p>
+        <p className={`text-xs font-black uppercase tracking-[0.16em] ${isEmerald ? 'text-emerald-700' : 'text-primary-700'}`}>{summaryTitle}</p>
         {summaryItems.length ? <div className="mt-4 space-y-2">{summaryItems.map(item => <button key={item.id} type="button" disabled={editDisabled} onClick={() => onEdit(item.id)} className="flex w-full items-start gap-2 rounded-xl px-2 py-1.5 text-left text-sm font-bold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"><CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${isEmerald ? 'text-emerald-600' : 'text-primary-600'}`} /><span>{item.label}</span></button>)}</div> : <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">Suas escolhas aparecerão aqui durante a conversa.</p>}
       </aside>
     </div>}

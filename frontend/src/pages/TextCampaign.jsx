@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Check, Sparkles } from 'lucide-react'
 import Header from '../components/layout/Header'
 import GuidedConversation from '../components/conversation/GuidedConversation'
-import { ConversationAssistantBubble } from '../components/conversation/ConversationPrimitives'
 import SmartCarouselCitySelect, {
   SmartCarouselStateSelect,
   SmartLocationTextInput,
@@ -118,10 +117,6 @@ export default function TextCampaign() {
         accent="primary"
       />
 
-      <ConversationAssistantBubble accent="primary">
-        A geração com OpenAI e o uso de Smart Tokens serão conectados em uma próxima fase. Nenhum conteúdo é gerado nesta tela.
-      </ConversationAssistantBubble>
-
       <GuidedConversation
         history={conversation.history}
         phase={conversation.phase}
@@ -134,6 +129,7 @@ export default function TextCampaign() {
         eyebrow="Briefing da campanha"
         title="Conte os fatos do imóvel"
         description="As perguntas adaptam o briefing à venda ou locação sem inventar informações."
+        summaryTitle="Resumo da campanha"
         review={questionId === 'review'}
         editDisabled={conversation.isTransitioning}
         designSystem
@@ -350,12 +346,11 @@ function PhoneQuestion({ answers, setAnswers, commit, professionalPhone }) {
 function ReviewQuestion({ answers, briefing, onEdit, busy }) {
   const groups = buildReviewGroups(answers, briefing)
   return <div className="space-y-5" aria-busy={busy}>
-    <ProductSectionHeading eyebrow="Revisão final" title="Confira antes de criar" description="Cada grupo pode ser revisado. A geração ainda não está conectada nesta fase." />
+    <ProductSectionHeading eyebrow="Revisão final" title="Confira antes de criar" />
     <div className="grid gap-4 sm:grid-cols-2">{groups.map(group => <ProductCard key={group.id} variant="muted" className="p-4">
       <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black text-slate-900">{group.title}</p><p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-slate-600">{group.value}</p></div><ProductButton size="sm" variant="ghost" onClick={() => onEdit(group.editId)}>Editar</ProductButton></div>
     </ProductCard>)}</div>
     <ProductButton disabled className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />Criar Campanha de Textos</ProductButton>
-    <p className="text-sm font-semibold text-slate-500">Integração com OpenAI e Smart Tokens será ativada na próxima fase.</p>
   </div>
 }
 

@@ -157,8 +157,14 @@ test('keeps edit actions connected to GuidedConversation', () => {
 
 test('shows a disabled final action with no backend behavior', () => {
   assert.match(page, /<ProductButton disabled className="w-full sm:w-auto">[\s\S]*?Criar Campanha de Textos/)
-  assert.match(page, /Integração com OpenAI e Smart Tokens será ativada na próxima fase\./)
+  assert.doesNotMatch(page, /OpenAI|Smart Tokens|próxima fase|geração ainda não está conectada/i)
   assert.doesNotMatch(page, /supabase|fetch\(|invoke\(|onClick=\{[^}]*Criar Campanha/)
+})
+
+test('uses campaign-specific summary copy without changing the shared default', () => {
+  assert.match(page, /summaryTitle="Resumo da campanha"/)
+  assert.match(guidedConversation, /summaryTitle = 'Resumo da apresentação'/)
+  assert.match(guidedConversation, /<ProductSummary title=\{summaryTitle\}/)
 })
 
 test('declares exactly the 16 approved future deliverables', () => {
@@ -192,7 +198,8 @@ test('does not persist a campaign or a result history', () => {
 })
 
 test('reuses the consolidated Design System and guided conversation', () => {
-  for (const component of ['ProductHero', 'ProductCard', 'ProductSteps', 'ProductButton', 'ProductSectionHeading', 'GuidedConversation', 'ConversationAssistantBubble', 'SMART_UI']) assert.ok(page.includes(component))
+  for (const component of ['ProductHero', 'ProductCard', 'ProductSteps', 'ProductButton', 'ProductSectionHeading', 'GuidedConversation', 'SMART_UI']) assert.ok(page.includes(component))
+  assert.match(guidedConversation, /ConversationAssistantBubble/)
   assert.match(guidedConversation, /ProductSummary/)
   assert.match(page, /designSystem[\s\S]*?accent="primary"/)
   assert.match(page, /aria-busy=\{busy\}/)
