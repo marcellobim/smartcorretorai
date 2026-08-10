@@ -3716,6 +3716,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           existingTexts: deliveryTexts,
         }}
         mediaPresentation="mobile"
+        sharePublish={{ enabled: true }}
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />
@@ -3747,6 +3748,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           existingTexts: deliveryTexts,
         }}
         mediaPresentation="mobile"
+        sharePublish={{ enabled: true }}
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />
