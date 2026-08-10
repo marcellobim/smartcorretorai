@@ -35,7 +35,7 @@ export default function TextCampaignResult({ campaign, onNewCampaign }) {
         headline="Sua comunicação multicanal está organizada."
         description="Copie cada peça separadamente ou leve a campanha completa de uma só vez."
         actions={<div className="flex flex-wrap gap-3">
-          <ProductButton onClick={() => copyValue('complete', formatCompleteTextCampaign(campaign))}><Copy className="h-4 w-4" />Copiar campanha completa</ProductButton>
+          <ProductButton onClick={() => copyValue('complete', formatCompleteTextCampaign(campaign))}>{copiedId === 'complete' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copiedId === 'complete' ? 'Copiado' : 'Copiar campanha completa'}</ProductButton>
           <ProductButton variant="secondary" onClick={onNewCampaign}><FilePlus2 className="h-4 w-4" />Criar nova campanha</ProductButton>
         </div>}
       />

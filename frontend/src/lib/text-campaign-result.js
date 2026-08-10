@@ -1,21 +1,24 @@
 export const TEXT_CAMPAIGN_RESULT_GROUPS = Object.freeze([
   { id: 'listing', title: 'Anúncio', pieces: ['listing_title', 'portal_description', 'short_listing'] },
-  { id: 'social', title: 'Redes sociais', pieces: ['instagram_commercial', 'instagram_emotional', 'instagram_opportunity', 'facebook', 'linkedin'] },
-  { id: 'contact', title: 'Contato', pieces: ['whatsapp_individual', 'whatsapp_list', 'whatsapp_short', 'email'] },
+  { id: 'instagram', title: 'Instagram', pieces: ['instagram_commercial', 'instagram_emotional', 'instagram_opportunity'] },
+  { id: 'facebook', title: 'Facebook', pieces: ['facebook_commercial', 'facebook_emotional', 'facebook_opportunity'] },
+  { id: 'whatsapp', title: 'WhatsApp', pieces: ['whatsapp_individual', 'whatsapp_list', 'whatsapp_short'] },
+  { id: 'professional', title: 'E-mail e LinkedIn', pieces: ['email', 'linkedin'] },
   { id: 'extra', title: 'Conteúdo extra', pieces: ['cta', 'hashtags', 'reels_script', 'text_carousel'] },
 ])
 
 export const TEXT_CAMPAIGN_RESULT_LABELS = Object.freeze({
   listing_title: 'Título do anúncio', portal_description: 'Descrição para portal', short_listing: 'Anúncio curto',
   instagram_commercial: 'Instagram — comercial', instagram_emotional: 'Instagram — emocional', instagram_opportunity: 'Instagram — curiosidade/oportunidade',
-  facebook: 'Facebook', linkedin: 'LinkedIn', whatsapp_individual: 'WhatsApp individual', whatsapp_list: 'WhatsApp carteira/lista', whatsapp_short: 'WhatsApp curto',
+  facebook_commercial: 'Facebook — comercial', facebook_emotional: 'Facebook — emocional', facebook_opportunity: 'Facebook — curiosidade/oportunidade',
+  linkedin: 'LinkedIn', whatsapp_individual: 'WhatsApp individual', whatsapp_list: 'WhatsApp carteira/lista', whatsapp_short: 'WhatsApp curto',
   email: 'E-mail', cta: 'CTA', hashtags: 'Hashtags estratégicas', reels_script: 'Roteiro para Reels', text_carousel: 'Carrossel textual — 5 slides',
 })
 
 export function isCompleteTextCampaignResult(campaign) {
   if (!campaign || typeof campaign !== 'object') return false
   const ids = TEXT_CAMPAIGN_RESULT_GROUPS.flatMap(group => group.pieces)
-  if (ids.length !== 16 || ids.some(id => !(id in campaign))) return false
+  if (ids.length !== 18 || ids.some(id => !(id in campaign))) return false
   return Array.isArray(campaign.hashtags)
     && campaign.hashtags.length >= 12
     && campaign.hashtags.length <= 15
@@ -33,7 +36,11 @@ export function formatTextCampaignPiece(campaign, id) {
 }
 
 export function formatCompleteTextCampaign(campaign) {
-  return TEXT_CAMPAIGN_RESULT_GROUPS.flatMap(group => group.pieces).map(id => `${TEXT_CAMPAIGN_RESULT_LABELS[id].toUpperCase()}\n${formatTextCampaignPiece(campaign, id)}`).join('\n\n────────────────────\n\n')
+  return TEXT_CAMPAIGN_RESULT_GROUPS
+    .flatMap(group => group.pieces)
+    .filter(id => id !== 'linkedin' || campaign?.linkedin?.applicable)
+    .map(id => `${TEXT_CAMPAIGN_RESULT_LABELS[id].toUpperCase()}\n${formatTextCampaignPiece(campaign, id)}`)
+    .join('\n\n────────────────────\n\n')
 }
 
 export async function copyTextCampaignValue(value, { navigatorRef = globalThis.navigator, documentRef = globalThis.document } = {}) {

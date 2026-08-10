@@ -25,7 +25,8 @@ before(async () => {
 after(async () => vite?.close())
 
 const result = () => ({
-  listing_title: 'Título', portal_description: 'Portal', short_listing: 'Curto', instagram_commercial: 'Instagram comercial', instagram_emotional: 'Instagram emocional', instagram_opportunity: 'Instagram oportunidade', facebook: 'Facebook',
+  listing_title: 'Título', portal_description: 'Portal', short_listing: 'Curto', instagram_commercial: 'Instagram comercial', instagram_emotional: 'Instagram emocional', instagram_opportunity: 'Instagram oportunidade',
+  facebook_commercial: 'Facebook comercial', facebook_emotional: 'Facebook emocional', facebook_opportunity: 'Facebook oportunidade',
   whatsapp_individual: 'WhatsApp individual', whatsapp_list: 'WhatsApp lista', whatsapp_short: 'WhatsApp curto', email: { subject: 'Assunto', body: 'Corpo' }, linkedin: { applicable: false, text: null, reason: 'Contexto não adequado.' },
   cta: 'Agende sua visita', hashtags: ['#A', '#B', '#C', '#D', '#E', '#F', '#SmartCorretorAI', '#G', '#H', '#I', '#J', '#K'], reels_script: 'Roteiro', text_carousel: { slides: [1, 2, 3, 4, 5].map(number => ({ title: `Slide ${number}`, text: `Texto ${number}` })) },
 })
@@ -64,11 +65,14 @@ test('preserves briefing on errors and offers manual review and retry', () => {
   assert.match(page, /onRetry=\{generateCampaign\}/)
 })
 
-test('renders all 16 deliveries in four scannable groups', () => {
+test('renders all 18 logical blocks in six scannable channel groups', () => {
   const ids = resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.flatMap(group => group.pieces)
-  assert.equal(ids.length, 16)
-  assert.equal(new Set(ids).size, 16)
-  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.map(group => group.title), ['Anúncio', 'Redes sociais', 'Contato', 'Conteúdo extra'])
+  assert.equal(ids.length, 18)
+  assert.equal(new Set(ids).size, 18)
+  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.map(group => group.title), ['Anúncio', 'Instagram', 'Facebook', 'WhatsApp', 'E-mail e LinkedIn', 'Conteúdo extra'])
+  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.find(group => group.id === 'instagram').pieces, ['instagram_commercial', 'instagram_emotional', 'instagram_opportunity'])
+  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.find(group => group.id === 'facebook').pieces, ['facebook_commercial', 'facebook_emotional', 'facebook_opportunity'])
+  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.find(group => group.id === 'whatsapp').pieces, ['whatsapp_individual', 'whatsapp_list', 'whatsapp_short'])
   assert.match(resultComponent, /group\.pieces\.map/)
   assert.equal(resultHelpers.isCompleteTextCampaignResult(result()), true)
 })
@@ -86,7 +90,14 @@ test('copies individual pieces and the complete campaign', async () => {
   assert.deepEqual(calls, ['texto'])
   const complete = resultHelpers.formatCompleteTextCampaign(result())
   assert.match(complete, /TÍTULO DO ANÚNCIO/)
+  assert.match(complete, /INSTAGRAM — COMERCIAL/)
+  assert.match(complete, /FACEBOOK — COMERCIAL/)
+  assert.doesNotMatch(complete, /LINKEDIN/)
   assert.match(complete, /CARROSSEL TEXTUAL — 5 SLIDES/)
+  const orderedHeadings = ['TÍTULO DO ANÚNCIO', 'INSTAGRAM — COMERCIAL', 'FACEBOOK — COMERCIAL', 'WHATSAPP INDIVIDUAL', 'E-MAIL', 'CTA', 'HASHTAGS ESTRATÉGICAS', 'ROTEIRO PARA REELS', 'CARROSSEL TEXTUAL — 5 SLIDES']
+  assert.ok(orderedHeadings.every((heading, index) => index === 0 || complete.indexOf(orderedHeadings[index - 1]) < complete.indexOf(heading)))
+  const applicableLinkedIn = { ...result(), linkedin: { applicable: true, text: 'LinkedIn aplicável', reason: '' } }
+  assert.match(resultHelpers.formatCompleteTextCampaign(applicableLinkedIn), /LINKEDIN[\s\S]*LinkedIn aplicável/)
   assert.match(resultComponent, /Copiar campanha completa/)
   assert.match(resultComponent, /onClick=\{\(\) => copyValue\(id, content\)\}/)
 })
@@ -103,6 +114,14 @@ test('uses a deterministic clipboard fallback without intrusive alerts', async (
 test('provides accessible copied feedback', () => {
   assert.match(resultComponent, /aria-live="polite"/)
   assert.match(resultComponent, /'Copiado'/)
+  assert.match(resultComponent, /copiedId === 'complete'[\s\S]*?'Copiado' : 'Copiar campanha completa'/)
+})
+
+test('widens only generated results and preserves responsive one/two-column layout', () => {
+  assert.match(page, /campaign \? 'mx-auto w-full max-w-\[96rem\] px-smart-page py-6 sm:py-8' : SMART_UI\.page/)
+  assert.match(resultComponent, /grid gap-4 lg:grid-cols-2/)
+  assert.match(resultComponent, /min-w-0 p-5 sm:p-6/)
+  assert.match(resultComponent, /whitespace-pre-line break-words/)
 })
 
 test('clears generated text and restarts the briefing for a new campaign', () => {
@@ -116,5 +135,6 @@ test('clears generated text and restarts the briefing for a new campaign', () =>
 test('keeps results in memory only with no gallery or browser persistence', () => {
   const combined = `${page}\n${resultComponent}\n${resultHelperSource}`
   assert.doesNotMatch(combined, /localStorage|sessionStorage|indexedDB|storage\.from|\.insert\(|\.upsert\(/)
+  assert.doesNotMatch(combined, /Smart Tokens|smart_tokens|token_balance/i)
   assert.doesNotMatch(combined, /histórico|galeria/i)
 })
