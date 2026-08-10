@@ -16,7 +16,9 @@ import {
   Share2,
 } from 'lucide-react'
 import { buildCampaignPackage } from './buildCampaignPackage'
+import { buildCampaignPackageShareProps } from './campaignPackageShare'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../../lib/download-file'
+import SharePublishActions from '../share/SharePublishActions'
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -179,8 +181,9 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, sharePublish, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
+  const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
   const [downloadingKey, setDownloadingKey] = useState('')
   const [downloadError, setDownloadError] = useState('')
@@ -216,6 +219,13 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     }
   }
 
+  const downloadSharedMedia = (item) => {
+    if (typeof sharePublish?.onDownload === 'function') return sharePublish.onDownload(item)
+    const url = item?.url || item?.downloadUrl
+    const filename = item?.filename || item?.downloadName || campaign.downloadName
+    return download(url, filename, `share-${item?.id || 'media'}`, item?.sourceFile || item)
+  }
+
   return (
     <section className={`space-y-5 ${className}`} aria-labelledby="campaign-package-title">
       <header className="overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_55%,#f0fdfa_100%)] p-5 shadow-sm sm:p-7">
@@ -230,6 +240,8 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       </header>
 
       {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} />}
+
+      {sharePublishProps && <SharePublishActions {...sharePublishProps} onDownload={downloadSharedMedia} />}
 
       {downloadError && (
         <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
