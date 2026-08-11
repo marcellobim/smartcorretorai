@@ -1,5 +1,6 @@
 import { validateGraphApiVersion, validatePublicUrl } from './oauth.ts'
 import {
+  getInstagramOAuthFailure,
   InstagramOAuthTelemetryError,
   type InstagramOAuthTelemetryInput,
 } from './telemetry.ts'
@@ -25,11 +26,12 @@ const requireText = (value: unknown, code: string) => {
 const requestJson = async (
   fetcher: FetchLike,
   url: URL,
-  stage: 'short_token' | 'long_token' | 'pages',
+  stage: 'short_token' | 'long_token' | 'permissions' | 'pages',
+  headers: Record<string, string> = {},
 ) => {
   let response: Response
   try {
-    response = await fetcher(url, { method: 'GET', headers: { Accept: 'application/json' } })
+    response = await fetcher(url, { method: 'GET', headers: { Accept: 'application/json', ...headers } })
   } catch {
     throw new InstagramOAuthTelemetryError({ stage })
   }
@@ -46,6 +48,60 @@ const requestJson = async (
     })
   }
   return body as Record<string, unknown>
+}
+
+const INSTAGRAM_PERMISSIONS = Object.freeze([
+  'instagram_basic',
+  'instagram_content_publish',
+  'pages_show_list',
+  'pages_read_engagement',
+] as const)
+
+const PAGE_PERMISSIONS = new Set(['pages_show_list', 'pages_read_engagement'])
+
+const inspectGrantedPermissions = async (
+  fetcher: FetchLike,
+  version: string,
+  appId: string,
+  appSecret: string,
+  userToken: string,
+): Promise<InstagramOAuthTelemetryInput> => {
+  const url = new URL(`https://graph.facebook.com/${version}/debug_token`)
+  url.searchParams.set('input_token', userToken)
+  const response = await requestJson(fetcher, url, 'permissions', {
+    Authorization: `Bearer ${appId}|${appSecret}`,
+  })
+  const data = response.data
+  if (!data || typeof data !== 'object') throw new InstagramOAuthTelemetryError({ stage: 'permissions' })
+
+  const record = data as Record<string, unknown>
+  const granted = new Set(
+    Array.isArray(record.scopes)
+      ? record.scopes.filter((scope): scope is string => typeof scope === 'string')
+      : [],
+  )
+  const pageTargets = new Set<string>()
+  const granularScopes = Array.isArray(record.granular_scopes) ? record.granular_scopes : []
+
+  for (const granularScope of granularScopes) {
+    if (!granularScope || typeof granularScope !== 'object') continue
+    const granular = granularScope as Record<string, unknown>
+    if (typeof granular.scope !== 'string') continue
+    granted.add(granular.scope)
+    if (!PAGE_PERMISSIONS.has(granular.scope) || !Array.isArray(granular.target_ids)) continue
+    for (const targetId of granular.target_ids) {
+      if (typeof targetId === 'string' && targetId) pageTargets.add(targetId)
+    }
+  }
+
+  return {
+    stage: 'permissions',
+    instagram_basic: granted.has(INSTAGRAM_PERMISSIONS[0]),
+    instagram_content_publish: granted.has(INSTAGRAM_PERMISSIONS[1]),
+    pages_show_list: granted.has(INSTAGRAM_PERMISSIONS[2]),
+    pages_read_engagement: granted.has(INSTAGRAM_PERMISSIONS[3]),
+    page_target_count: pageTargets.size,
+  }
 }
 
 const requireStageText = (value: unknown, stage: 'short_token' | 'long_token' | 'username') => {
@@ -94,6 +150,13 @@ export async function resolveInstagramConnection(input: {
   const longResponse = await requestJson(fetcher, longUrl, 'long_token')
   const userToken = requireStageText(longResponse.access_token, 'long_token')
   const expiresIn = Number(longResponse.expires_in)
+
+  try {
+    const permissions = await inspectGrantedPermissions(fetcher, version, input.appId, input.appSecret, userToken)
+    input.telemetry?.(permissions)
+  } catch (error) {
+    input.telemetry?.(getInstagramOAuthFailure(error, 'permissions'))
+  }
 
   const pagesUrl = new URL(`https://graph.facebook.com/${version}/me/accounts`)
   pagesUrl.searchParams.set('fields', 'id,name,access_token,instagram_business_account{id,username}')

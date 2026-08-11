@@ -161,6 +161,9 @@ test('Meta exchange is fully backend-side and selects exactly one linked profess
     if (url.pathname.endsWith('/oauth/access_token')) {
       return Response.json({ access_token: 'long-user-token', expires_in: 5_184_000 })
     }
+    if (url.pathname.endsWith('/debug_token')) {
+      return Response.json({ data: { scopes: [...INSTAGRAM_OAUTH_SCOPES], granular_scopes: [] } })
+    }
     return Response.json({ data: [{ id: 'page-1', name: 'Page', access_token: 'page-token', instagram_business_account: { id: 'ig-1', username: 'conta_profissional' } }] })
   }) as typeof fetch
 
@@ -168,14 +171,14 @@ test('Meta exchange is fully backend-side and selects exactly one linked profess
     code: 'private-code', userId: USER_ID, appId: '1166177798972049', appSecret: 'private-app-secret',
     redirectUri: 'https://project.supabase.co/functions/v1/instagram-callback', graphApiVersion: 'v99.0', fetcher, now: NOW,
   })
-  assert.equal(calls.length, 3)
+  assert.equal(calls.length, 4)
   assert.equal(connection.user_id, USER_ID)
   assert.equal(connection.page_id, 'page-1')
   assert.equal(connection.ig_user_id, 'ig-1')
   assert.equal(connection.ig_username, 'conta_profissional')
   assert.equal(connection.access_token, 'long-user-token')
   assert.equal(connection.page_access_token, 'page-token')
-  assert.ok(calls[2].searchParams.has('appsecret_proof'))
+  assert.ok(calls[3].searchParams.has('appsecret_proof'))
 })
 
 test('Meta exchange fails closed when no linked account or multiple accounts exist', async () => {
@@ -183,6 +186,7 @@ test('Meta exchange fails closed when no linked account or multiple accounts exi
     const url = new URL(String(input))
     if (url.pathname.endsWith('/oauth/access_token') && url.searchParams.has('code')) return Response.json({ access_token: 'short-token' })
     if (url.pathname.endsWith('/oauth/access_token')) return Response.json({ access_token: 'long-token', expires_in: 3600 })
+    if (url.pathname.endsWith('/debug_token')) return Response.json({ data: { scopes: [...INSTAGRAM_OAUTH_SCOPES], granular_scopes: [] } })
     return Response.json({ data: pages })
   }) as typeof fetch
   const base = { code: 'code', userId: USER_ID, appId: '1166177798972049', appSecret: 'app-secret', redirectUri: 'https://project.supabase.co/functions/v1/instagram-callback', graphApiVersion: 'v99.0', now: NOW }
