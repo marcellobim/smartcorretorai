@@ -1,8 +1,14 @@
+import {
+  createInstagramOAuthTelemetryEvent,
+  getInstagramOAuthFailure,
+  type InstagramOAuthTelemetryEvent,
+} from '../_shared/instagram/telemetry.ts'
+
 export type InstagramCallbackDependencies = {
   completeConnection: (code: string, state: string) => Promise<void>
   connectedRedirect: string
   errorRedirect: string
-  log?: (event: string, details: Record<string, unknown>) => void
+  log?: (event: InstagramOAuthTelemetryEvent) => void
 }
 
 export async function handleInstagramCallback(request: Request, dependencies: InstagramCallbackDependencies) {
@@ -11,16 +17,16 @@ export async function handleInstagramCallback(request: Request, dependencies: In
   const code = url.searchParams.get('code') || ''
   const state = url.searchParams.get('state') || ''
   if (!code || !state || url.searchParams.has('error')) {
-    dependencies.log?.('instagram_oauth_rejected', { reason: 'invalid_callback' })
+    dependencies.log?.(createInstagramOAuthTelemetryEvent({ stage: 'state' }))
     return Response.redirect(dependencies.errorRedirect, 303)
   }
 
   try {
     await dependencies.completeConnection(code, state)
-    dependencies.log?.('instagram_oauth_completed', { connected: true })
+    dependencies.log?.(createInstagramOAuthTelemetryEvent({ stage: 'success' }))
     return Response.redirect(dependencies.connectedRedirect, 303)
-  } catch {
-    dependencies.log?.('instagram_oauth_failed', { connected: false })
+  } catch (error) {
+    dependencies.log?.(getInstagramOAuthFailure(error))
     return Response.redirect(dependencies.errorRedirect, 303)
   }
 }

@@ -10,6 +10,7 @@ import {
   verifySignedOAuthState,
 } from '../oauth.ts'
 import { resolveInstagramConnection } from '../meta-client.ts'
+import type { InstagramOAuthTelemetryEvent } from '../telemetry.ts'
 import { handleInstagramConnection, type InstagramConnectionDependencies } from '../../../instagram-connection/runtime.ts'
 import { handleInstagramCallback, type InstagramCallbackDependencies } from '../../../instagram-callback/runtime.ts'
 
@@ -118,13 +119,13 @@ test('DELETE is idempotent and derives ownership only from the authenticated use
 test('callback rejects invalid and expired state without exposing code or token', async () => {
   const connectedRedirect = buildFrontendInstagramRedirect('https://app.smartcorretor.example', 'conectado')
   const errorRedirect = buildFrontendInstagramRedirect('https://app.smartcorretor.example', 'erro')
-  const events: Array<{ event: string; details: Record<string, unknown> }> = []
+  const events: InstagramOAuthTelemetryEvent[] = []
   const validState = await createSignedOAuthState({ userId: USER_ID, secret: STATE_SECRET, now: NOW, nonce: NONCE })
   const callbackDependencies = (now: number): InstagramCallbackDependencies => ({
     connectedRedirect,
     errorRedirect,
     completeConnection: async (_code, state) => { await verifySignedOAuthState(state, STATE_SECRET, now) },
-    log: (event, details) => events.push({ event, details }),
+    log: event => events.push(event),
   })
   const invalid = await handleInstagramCallback(new Request('https://local/callback?code=private-code&state=invalid'), callbackDependencies(NOW))
   assert.equal(invalid.status, 303)
@@ -185,9 +186,17 @@ test('Meta exchange fails closed when no linked account or multiple accounts exi
     return Response.json({ data: pages })
   }) as typeof fetch
   const base = { code: 'code', userId: USER_ID, appId: '1166177798972049', appSecret: 'app-secret', redirectUri: 'https://project.supabase.co/functions/v1/instagram-callback', graphApiVersion: 'v99.0', now: NOW }
-  await assert.rejects(() => resolveInstagramConnection({ ...base, fetcher: fetcherFor([]) }), /instagram_account_not_found/)
+  await assert.rejects(() => resolveInstagramConnection({ ...base, fetcher: fetcherFor([]) }), error => {
+    assert.equal((error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.stage, 'eligible_count')
+    assert.equal((error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.eligible_count, 0)
+    return true
+  })
   const page = (id: string) => ({ id: `page-${id}`, access_token: `page-token-${id}`, instagram_business_account: { id: `ig-${id}` } })
-  await assert.rejects(() => resolveInstagramConnection({ ...base, fetcher: fetcherFor([page('1'), page('2')]) }), /multiple_instagram_accounts/)
+  await assert.rejects(() => resolveInstagramConnection({ ...base, fetcher: fetcherFor([page('1'), page('2')]) }), error => {
+    assert.equal((error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.stage, 'eligible_count')
+    assert.equal((error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.eligible_count, 2)
+    return true
+  })
 })
 
 test('implementation contains no publishing endpoint, frontend secret or unsafe token response', () => {
