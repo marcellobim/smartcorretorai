@@ -25,6 +25,11 @@ import { Input, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+import {
+  deleteInstagramConnection,
+  getInstagramConnection,
+  startInstagramConnection,
+} from '../lib/instagram-connection'
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -298,6 +303,15 @@ export default function Configuracoes() {
   const { user, session, updateUser } = useAuth()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
+  const [instagramConnection, setInstagramConnection] = useState({
+    connected: false,
+    instagramUsername: '',
+    tokenExpiresAt: null,
+    status: 'disconnected',
+  })
+  const [instagramConnectionLoading, setInstagramConnectionLoading] = useState(false)
+  const [instagramConnectionAction, setInstagramConnectionAction] = useState('')
+  const [instagramConnectionFeedback, setInstagramConnectionFeedback] = useState(null)
   const [visualPreferences] = useState({
     primaryColor: '#0F2742',
     secondaryColor: '#0E7490',
@@ -351,18 +365,69 @@ export default function Configuracoes() {
 
   useEffect(() => {
     const igStatus = searchParams.get('instagram')
-    const motivo = searchParams.get('motivo')
 
     if (igStatus === 'conectado') {
       toast.success('Instagram conectado com sucesso.')
+      setInstagramConnectionFeedback({ type: 'success', message: 'Instagram conectado com sucesso.' })
       setActiveTab('redes')
-      setSearchParams({})
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('instagram')
+      nextParams.delete('motivo')
+      setSearchParams(nextParams, { replace: true })
     } else if (igStatus === 'erro') {
-      toast.error(motivo ? decodeURIComponent(motivo) : 'Erro ao conectar Instagram. Tente novamente.')
+      const message = 'Não foi possível conectar o Instagram. Verifique sua conta profissional e tente novamente.'
+      toast.error(message)
+      setInstagramConnectionFeedback({ type: 'error', message })
       setActiveTab('redes')
-      setSearchParams({})
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('instagram')
+      nextParams.delete('motivo')
+      setSearchParams(nextParams, { replace: true })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab !== 'redes' || !user?.id) return
+    let active = true
+    setInstagramConnectionLoading(true)
+    getInstagramConnection(supabase)
+      .then((connection) => {
+        if (active) setInstagramConnection(connection)
+      })
+      .catch((error) => {
+        if (active) setInstagramConnectionFeedback({ type: 'error', message: error.message })
+      })
+      .finally(() => {
+        if (active) setInstagramConnectionLoading(false)
+      })
+    return () => { active = false }
+  }, [activeTab, user?.id])
+
+  const handleConnectInstagram = async () => {
+    setInstagramConnectionAction('connecting')
+    setInstagramConnectionFeedback(null)
+    try {
+      await startInstagramConnection(supabase, (authorizationUrl) => window.location.assign(authorizationUrl))
+    } catch (error) {
+      setInstagramConnectionFeedback({ type: 'error', message: error.message })
+      setInstagramConnectionAction('')
+    }
+  }
+
+  const handleDisconnectInstagram = async () => {
+    if (!window.confirm('Desconectar o Instagram profissional do SmartCorretorAI?')) return
+    setInstagramConnectionAction('disconnecting')
+    setInstagramConnectionFeedback(null)
+    try {
+      const disconnected = await deleteInstagramConnection(supabase)
+      setInstagramConnection(disconnected)
+      setInstagramConnectionFeedback({ type: 'success', message: 'Instagram desconectado.' })
+    } catch (error) {
+      setInstagramConnectionFeedback({ type: 'error', message: error.message })
+    } finally {
+      setInstagramConnectionAction('')
+    }
+  }
 
   const watched = watch()
   const profileComplete = useMemo(() => Boolean(
@@ -630,7 +695,7 @@ export default function Configuracoes() {
                     <p className="text-xs font-black uppercase tracking-wide text-primary-700">Presença profissional</p>
                     <h2 className="mt-1 text-lg font-black text-gray-950">Redes sociais</h2>
                     <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-500">
-                      Cadastre apenas seus perfis públicos. O SmartCorretorAI nunca solicitará senhas ou acesso às suas redes sociais.
+                      Cadastre apenas seus perfis públicos. O SmartCorretorAI nunca solicitará suas senhas.
                     </p>
                   </div>
                 </div>
@@ -649,7 +714,7 @@ export default function Configuracoes() {
                 </div>
 
                 <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-xs font-semibold leading-relaxed text-emerald-800">
-                  Estes campos guardam somente links públicos opcionais. Nenhuma senha, conexão de conta ou permissão de publicação é solicitada.
+                  Estes campos guardam somente links públicos opcionais e permanecem independentes da conexão de publicação abaixo.
                 </div>
 
                 <div className="mt-6 flex justify-center sm:justify-end">
@@ -657,6 +722,66 @@ export default function Configuracoes() {
                     Salvar links públicos
                   </Button>
                 </div>
+
+                <section className="mt-8 border-t border-gray-100 pt-6" aria-labelledby="instagram-publishing-title">
+                  <div className="rounded-2xl border border-fuchsia-100 bg-fuchsia-50/50 p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-white">
+                        <Instagram className="h-5 w-5" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 id="instagram-publishing-title" className="font-black text-gray-950">Publicação no Instagram</h3>
+
+                        {instagramConnectionLoading ? (
+                          <p className="mt-2 text-sm text-gray-600" role="status">Consultando conexão...</p>
+                        ) : instagramConnection.connected ? (
+                          <div className="mt-2">
+                            <p className="flex items-center gap-2 text-sm font-bold text-emerald-700">
+                              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                              Instagram conectado
+                            </p>
+                            {instagramConnection.instagramUsername && (
+                              <p className="mt-1 text-sm font-semibold text-gray-700">@{instagramConnection.instagramUsername}</p>
+                            )}
+                            <p className="mt-1 text-xs font-semibold text-gray-500">Status: Conectado</p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              loading={instagramConnectionAction === 'disconnecting'}
+                              onClick={handleDisconnectInstagram}
+                              className="mt-4"
+                            >
+                              Desconectar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="mt-2">
+                            <p className="max-w-2xl text-sm leading-relaxed text-gray-600">
+                              Conecte seu Instagram profissional para publicar suas criações diretamente pelo SmartCorretorAI.
+                            </p>
+                            <p className="mt-2 text-xs font-semibold text-gray-500">A conexão acontece na interface oficial da Meta. Nunca pediremos sua senha.</p>
+                            <Button
+                              type="button"
+                              loading={instagramConnectionAction === 'connecting'}
+                              onClick={handleConnectInstagram}
+                              className="mt-4"
+                            >
+                              Conectar Instagram
+                            </Button>
+                          </div>
+                        )}
+
+                        <div aria-live="polite" aria-atomic="true">
+                          {instagramConnectionFeedback && (
+                            <p className={`mt-3 text-sm font-semibold ${instagramConnectionFeedback.type === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>
+                              {instagramConnectionFeedback.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </form>
             )}
 
