@@ -26,14 +26,15 @@ const requireText = (value: unknown, code: string) => {
 const requestJson = async (
   fetcher: FetchLike,
   url: URL,
-  stage: 'short_token' | 'long_token' | 'permissions' | 'pages',
+  stage: 'short_token' | 'long_token' | 'permissions' | 'page_target_probe' | 'pages',
   headers: Record<string, string> = {},
+  probe?: 'target' | 'user',
 ) => {
   let response: Response
   try {
     response = await fetcher(url, { method: 'GET', headers: { Accept: 'application/json', ...headers } })
   } catch {
-    throw new InstagramOAuthTelemetryError({ stage })
+    throw new InstagramOAuthTelemetryError({ stage, probe })
   }
   const body = await response.json().catch(() => null)
   if (!response.ok || !body || typeof body !== 'object' || 'error' in body) {
@@ -45,6 +46,7 @@ const requestJson = async (
       http_status: response.status,
       meta_code: metaError?.code,
       meta_subcode: metaError?.error_subcode,
+      probe,
     })
   }
   return body as Record<string, unknown>
@@ -65,7 +67,7 @@ const inspectGrantedPermissions = async (
   appId: string,
   appSecret: string,
   userToken: string,
-): Promise<InstagramOAuthTelemetryInput> => {
+): Promise<{ telemetry: InstagramOAuthTelemetryInput; pageTargets: string[] }> => {
   const url = new URL(`https://graph.facebook.com/${version}/debug_token`)
   url.searchParams.set('input_token', userToken)
   const response = await requestJson(fetcher, url, 'permissions', {
@@ -95,12 +97,15 @@ const inspectGrantedPermissions = async (
   }
 
   return {
-    stage: 'permissions',
-    instagram_basic: granted.has(INSTAGRAM_PERMISSIONS[0]),
-    instagram_content_publish: granted.has(INSTAGRAM_PERMISSIONS[1]),
-    pages_show_list: granted.has(INSTAGRAM_PERMISSIONS[2]),
-    pages_read_engagement: granted.has(INSTAGRAM_PERMISSIONS[3]),
-    page_target_count: pageTargets.size,
+    telemetry: {
+      stage: 'permissions',
+      instagram_basic: granted.has(INSTAGRAM_PERMISSIONS[0]),
+      instagram_content_publish: granted.has(INSTAGRAM_PERMISSIONS[1]),
+      pages_show_list: granted.has(INSTAGRAM_PERMISSIONS[2]),
+      pages_read_engagement: granted.has(INSTAGRAM_PERMISSIONS[3]),
+      page_target_count: pageTargets.size,
+    },
+    pageTargets: [...pageTargets],
   }
 }
 
@@ -116,6 +121,66 @@ const appSecretProof = async (token: string, appSecret: string) => {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(appSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(token)))
   return [...signature].map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+const probePageTarget = async (
+  fetcher: FetchLike,
+  version: string,
+  appSecret: string,
+  userToken: string,
+  pageTargets: string[],
+  telemetry?: (event: InstagramOAuthTelemetryInput) => void,
+) => {
+  if (pageTargets.length !== 1) {
+    telemetry?.({ stage: 'page_target_probe', target_count: pageTargets.length })
+    return
+  }
+
+  let proof: string
+  try {
+    proof = await appSecretProof(userToken, appSecret)
+  } catch {
+    telemetry?.({ stage: 'page_target_probe', probe: 'target' })
+    return
+  }
+
+  let targetResponse: Record<string, unknown> | null = null
+  let targetFailed = false
+  try {
+    const targetUrl = new URL(`https://graph.facebook.com/${version}/${pageTargets[0]}`)
+    targetUrl.searchParams.set('fields', 'id,instagram_business_account{id}')
+    targetUrl.searchParams.set('access_token', userToken)
+    targetUrl.searchParams.set('appsecret_proof', proof)
+    targetResponse = await requestJson(fetcher, targetUrl, 'page_target_probe', {}, 'target')
+  } catch (error) {
+    targetFailed = true
+    telemetry?.(getInstagramOAuthFailure(error, 'page_target_probe'))
+  }
+
+  let userResponse: Record<string, unknown> | null = null
+  let userFailed = false
+  try {
+    const userUrl = new URL(`https://graph.facebook.com/${version}/me`)
+    userUrl.searchParams.set('fields', 'id')
+    userUrl.searchParams.set('access_token', userToken)
+    userUrl.searchParams.set('appsecret_proof', proof)
+    userResponse = await requestJson(fetcher, userUrl, 'page_target_probe', {}, 'user')
+  } catch (error) {
+    userFailed = true
+    telemetry?.(getInstagramOAuthFailure(error, 'page_target_probe'))
+  }
+
+  if (targetFailed || userFailed) return
+  const instagram = targetResponse?.instagram_business_account
+  telemetry?.({
+    stage: 'page_target_probe',
+    target_count: 1,
+    token_user_resolved: typeof userResponse?.id === 'string' && Boolean(userResponse.id),
+    target_accessible: typeof targetResponse?.id === 'string' && Boolean(targetResponse.id),
+    has_instagram_business_account: Boolean(
+      instagram && typeof instagram === 'object' && typeof (instagram as Record<string, unknown>).id === 'string',
+    ),
+  })
 }
 
 export async function resolveInstagramConnection(input: {
@@ -151,12 +216,16 @@ export async function resolveInstagramConnection(input: {
   const userToken = requireStageText(longResponse.access_token, 'long_token')
   const expiresIn = Number(longResponse.expires_in)
 
+  let pageTargets: string[] | null = null
   try {
     const permissions = await inspectGrantedPermissions(fetcher, version, input.appId, input.appSecret, userToken)
-    input.telemetry?.(permissions)
+    pageTargets = permissions.pageTargets
+    input.telemetry?.(permissions.telemetry)
   } catch (error) {
     input.telemetry?.(getInstagramOAuthFailure(error, 'permissions'))
   }
+
+  if (pageTargets) await probePageTarget(fetcher, version, input.appSecret, userToken, pageTargets, input.telemetry)
 
   const pagesUrl = new URL(`https://graph.facebook.com/${version}/me/accounts`)
   pagesUrl.searchParams.set('fields', 'id,name,access_token,instagram_business_account{id,username}')

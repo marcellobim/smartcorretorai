@@ -3,6 +3,7 @@ export const INSTAGRAM_OAUTH_STAGES = Object.freeze([
   'short_token',
   'long_token',
   'permissions',
+  'page_target_probe',
   'pages',
   'eligible_count',
   'username',
@@ -22,6 +23,11 @@ export type InstagramOAuthTelemetryInput = {
   pages_show_list?: unknown
   pages_read_engagement?: unknown
   page_target_count?: unknown
+  probe?: unknown
+  target_count?: unknown
+  token_user_resolved?: unknown
+  target_accessible?: unknown
+  has_instagram_business_account?: unknown
   pages_count?: unknown
   eligible_count?: unknown
   supabase_code?: unknown
@@ -38,6 +44,11 @@ export type InstagramOAuthTelemetryEvent = {
   pages_show_list?: boolean
   pages_read_engagement?: boolean
   page_target_count?: number
+  probe?: 'target' | 'user'
+  target_count?: number
+  token_user_resolved?: boolean
+  target_accessible?: boolean
+  has_instagram_business_account?: boolean
   pages_count?: number
   eligible_count?: number
   supabase_code?: string
@@ -49,6 +60,8 @@ const safeInteger = (value: unknown, minimum = 0, maximum = Number.MAX_SAFE_INTE
 }
 
 const safeBoolean = (value: unknown) => typeof value === 'boolean' ? value : undefined
+
+const safeProbe = (value: unknown) => value === 'target' || value === 'user' ? value : undefined
 
 const safeSupabaseCode = (value: unknown) => {
   if (typeof value !== 'string') return undefined
@@ -66,6 +79,11 @@ export function createInstagramOAuthTelemetryEvent(input: InstagramOAuthTelemetr
   const pagesShowList = safeBoolean(input.pages_show_list)
   const pagesReadEngagement = safeBoolean(input.pages_read_engagement)
   const pageTargetCount = safeInteger(input.page_target_count)
+  const probe = safeProbe(input.probe)
+  const targetCount = safeInteger(input.target_count)
+  const tokenUserResolved = safeBoolean(input.token_user_resolved)
+  const targetAccessible = safeBoolean(input.target_accessible)
+  const hasInstagramBusinessAccount = safeBoolean(input.has_instagram_business_account)
   const pagesCount = safeInteger(input.pages_count)
   const eligibleCount = safeInteger(input.eligible_count)
   const supabaseCode = safeSupabaseCode(input.supabase_code)
@@ -78,6 +96,11 @@ export function createInstagramOAuthTelemetryEvent(input: InstagramOAuthTelemetr
   if (pagesShowList !== undefined) event.pages_show_list = pagesShowList
   if (pagesReadEngagement !== undefined) event.pages_read_engagement = pagesReadEngagement
   if (pageTargetCount !== undefined) event.page_target_count = pageTargetCount
+  if (probe !== undefined) event.probe = probe
+  if (targetCount !== undefined) event.target_count = targetCount
+  if (tokenUserResolved !== undefined) event.token_user_resolved = tokenUserResolved
+  if (targetAccessible !== undefined) event.target_accessible = targetAccessible
+  if (hasInstagramBusinessAccount !== undefined) event.has_instagram_business_account = hasInstagramBusinessAccount
   if (pagesCount !== undefined) event.pages_count = pagesCount
   if (eligibleCount !== undefined) event.eligible_count = eligibleCount
   if (supabaseCode !== undefined) event.supabase_code = supabaseCode
