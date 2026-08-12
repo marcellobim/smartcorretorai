@@ -1,121 +1,160 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   BadgeCheck,
+  Box,
   Coins,
+  FileText,
   Home,
+  Image,
+  LayoutTemplate,
   LogOut,
   Package,
   Settings,
   Shield,
   Sparkles,
   UserCircle2,
+  Video,
+  X,
   Zap,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
 
-const navItems = [
-  { to: '/dashboard', icon: Home, label: 'Home' },
-  { to: '/pacotes-gerados', icon: Package, label: 'Criações' },
-  { to: '/nova-campanha', icon: Sparkles, label: 'Banners Rápidos' },
-  { to: '/planos', icon: Coins, label: 'Smart Tokens' },
-  { to: '/configuracoes?tab=perfil', icon: BadgeCheck, label: 'Perfil Comercial', match: '/configuracoes', tab: 'perfil' },
-  { to: '/configuracoes?tab=senha', icon: Settings, label: 'Configurações', match: '/configuracoes', tab: 'senha' },
+const navigationGroups = [
+  {
+    label: 'Principal',
+    items: [
+      { to: '/dashboard', icon: Home, label: 'Home' },
+      { to: '/pacotes-gerados', icon: Package, label: 'Criações' },
+    ],
+  },
+  {
+    label: 'Criar',
+    items: [
+      { to: '/smart-tour-ai', icon: Video, label: 'Vídeo Imobiliário', tone: 'bg-violet-100 text-violet-700' },
+      { to: '/hero', icon: Image, label: 'Banner Imobiliário', tone: 'bg-emerald-100 text-emerald-700' },
+      { to: '/studio-hero', icon: Sparkles, label: 'Studio IA', tone: 'bg-blue-100 text-blue-700' },
+      { to: '/virtual-staging', icon: Box, label: 'Virtual Space', tone: 'bg-cyan-100 text-cyan-700' },
+      { to: '/nova-campanha', icon: LayoutTemplate, label: 'Banners Rápidos', tone: 'bg-orange-100 text-orange-700' },
+      { to: '/campanha-de-textos', icon: FileText, label: 'Campanha de Textos', tone: 'bg-amber-100 text-amber-700' },
+    ],
+  },
 ]
 
-const getTokenSnapshot = (user) => {
-  const total = Number(user?.smart_tokens_total ?? user?.tokens_total ?? user?.limite_mensal ?? user?.total_disponivel ?? 0)
-  const remaining = Number(user?.smart_tokens_saldo ?? user?.tokens_saldo ?? user?.restantes_mes ?? user?.total_disponivel ?? 0)
-  const safeTotal = Math.max(total, remaining, 0)
-  const used = Math.max(safeTotal - remaining, 0)
-  const percent = safeTotal > 0 ? Math.min(100, Math.round((used / safeTotal) * 100)) : 0
-  const renewal = user?.proxima_renovacao || user?.renovacao_tokens || user?.billing_cycle_anchor || null
+const accountItems = [
+  { to: '/configuracoes?tab=perfil', icon: BadgeCheck, label: 'Perfil Profissional', match: '/configuracoes', tab: 'perfil' },
+  { to: '/configuracoes?tab=senha', icon: Settings, label: 'Configurações', match: '/configuracoes', excludeTab: 'perfil' },
+]
 
-  return {
-    hasBalance: safeTotal > 0 || remaining > 0,
-    remaining,
-    percent,
-    renewalLabel: renewal
-      ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(renewal))
-      : 'Próximo ciclo',
-  }
-}
+const smartTokensItem = { to: '/planos', label: 'Smart Tokens' }
 
-function SidebarLink({ item }) {
+function SidebarLink({ item, onNavigate }) {
   const location = useLocation()
   const searchParams = new URLSearchParams(location.search)
+  const selectedTab = searchParams.get('tab')
   const activeByTab = item.match
     && location.pathname === item.match
-    && (!item.tab || searchParams.get('tab') === item.tab || (!searchParams.get('tab') && item.tab === 'perfil'))
+    && (
+      item.excludeTab
+        ? selectedTab !== item.excludeTab
+        : !item.tab || selectedTab === item.tab || (!selectedTab && item.tab === 'perfil')
+    )
   const Icon = item.icon
 
   return (
     <NavLink
       to={item.to}
+      onClick={onNavigate}
       className={({ isActive }) => {
         const active = item.match ? activeByTab : isActive
-        return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-150 ${
+        return `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition-all duration-150 ${
           active
             ? 'bg-primary-800 text-white shadow-sm'
             : 'text-slate-600 hover:bg-primary-50 hover:text-primary-800'
         }`
       }}
     >
-      <Icon className="h-4.5 w-4.5 shrink-0" />
-      {item.label}
+      {({ isActive }) => {
+        const active = item.match ? activeByTab : isActive
+        return (
+          <>
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              active ? 'bg-white/10 text-white' : item.tone || 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'
+            }`}>
+              <Icon className="h-4 w-4" />
+            </span>
+            <span>{item.label}</span>
+          </>
+        )
+      }}
     </NavLink>
   )
 }
 
-function SmartTokensPanel({ user }) {
-  const snapshot = getTokenSnapshot(user)
+function getTokenBalance(user) {
+  const candidates = [
+    user?.smart_tokens_saldo,
+    user?.tokens_saldo,
+    user?.restantes_mes,
+    user?.total_disponivel,
+  ]
+  const value = candidates.find(candidate => candidate !== undefined && candidate !== null && candidate !== '')
+  if (value === undefined) return null
+
+  const balance = Number(value)
+  return Number.isFinite(balance) ? Math.max(balance, 0) : null
+}
+
+function SmartTokensLink({ user, onNavigate }) {
+  const balance = getTokenBalance(user)
 
   return (
-    <div className="rounded-2xl border border-primary-700/30 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-4 text-white shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Smart Tokens</p>
-          <p className="mt-1 text-sm font-black">Saldo disponível</p>
-        </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-cyan-100">
-          <Zap className="h-4.5 w-4.5" />
-        </div>
-      </div>
-
-      <p className="mt-4 text-lg font-black">
-        {snapshot.hasBalance ? `${snapshot.remaining.toLocaleString('pt-BR')} tokens` : 'Informações do plano'}
-      </p>
-
-      <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-cyan-300"
-          style={{ width: `${snapshot.hasBalance ? snapshot.percent : 18}%` }}
-        />
-      </div>
-
-      <div className="mt-3 rounded-xl bg-white/5 px-3 py-2">
-        <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">Renovação</p>
-        <p className="mt-0.5 text-xs font-bold text-gray-200">{snapshot.renewalLabel}</p>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <NavLink
-          to="/planos"
-          className="rounded-xl border border-white/10 px-3 py-2 text-center text-xs font-black text-white hover:bg-white/10"
-        >
-          Ver detalhes
-        </NavLink>
-        <NavLink
-          to="/planos"
-          className="rounded-xl bg-cyan-100 px-3 py-2 text-center text-xs font-black text-primary-900 hover:bg-white"
-        >
-          Adicionar Smart Tokens
-        </NavLink>
-      </div>
-    </div>
+    <NavLink
+      to={smartTokensItem.to}
+      onClick={onNavigate}
+      className={({ isActive }) => `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition-all duration-150 ${
+        isActive
+          ? 'bg-primary-800 text-white shadow-sm'
+          : 'text-primary-900 hover:bg-primary-50'
+      }`}
+    >
+      {({ isActive }) => (
+        <>
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-primary-100 text-primary-700 group-hover:bg-white'}`}>
+            <Coins className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1 truncate">
+            <span>Smart Tokens</span>
+            {balance !== null && (
+              <span className={`ml-1.5 text-[10px] font-semibold ${isActive ? 'text-cyan-100' : 'text-slate-500'}`}>
+                {balance.toLocaleString('pt-BR')} disponíveis
+              </span>
+            )}
+          </span>
+          <span className={`text-[10px] font-black ${isActive ? 'text-white' : 'text-primary-700'}`}>
+            Adicionar
+          </span>
+        </>
+      )}
+    </NavLink>
   )
 }
 
-export default function Sidebar() {
+function NavigationGroup({ group, onNavigate }) {
+  return (
+    <section aria-labelledby={`sidebar-${group.label.toLowerCase()}`}>
+      <h2 id={`sidebar-${group.label.toLowerCase()}`} className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+        {group.label}
+      </h2>
+      <div className="mt-1.5 space-y-1">
+        {group.items.map(item => (
+          <SidebarLink key={item.label} item={item} onNavigate={onNavigate} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export default function Sidebar({ mobile = false, onClose }) {
   const { user, logout } = useAuth()
   const displayName =
     user?.displayName ||
@@ -124,41 +163,63 @@ export default function Sidebar() {
     (user?.email ? user.email.split('@')[0] : null) ||
     'Usuário'
 
+  const handleLogout = () => {
+    onClose?.()
+    logout()
+  }
+
   return (
-    <aside className="sticky top-0 z-30 flex min-h-screen w-64 flex-col border-r border-gray-200 bg-white">
-      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-800 shadow-md">
+    <aside className="flex h-dvh w-64 flex-col overflow-hidden border-r border-gray-200 bg-white" aria-label="Menu principal">
+      <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-800 shadow-md">
           <Zap className="h-5 w-5 text-cyan-100" />
         </div>
-        <div>
-          <p className="text-sm font-bold text-gray-900">SmartCorretorAI</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-gray-900">SmartCorretorAI</p>
           <p className="text-xs text-gray-400">Marketing com IA</p>
         </div>
+        {mobile && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => (
-          <SidebarLink key={item.label} item={item} />
+      <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
+        {navigationGroups.map(group => (
+          <NavigationGroup key={group.label} group={group} onNavigate={onClose} />
         ))}
 
+        <section aria-labelledby="sidebar-conta">
+          <h2 id="sidebar-conta" className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+            Conta
+          </h2>
+          <div className="mt-1.5 space-y-1">
+            <SmartTokensLink user={user} onNavigate={onClose} />
+            {accountItems.map(item => (
+              <SidebarLink key={item.label} item={item} onNavigate={onClose} />
+            ))}
+          </div>
+        </section>
+
         {user?.role === 'admin' && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-150 ${
-                isActive ? 'bg-primary-800 text-white shadow-sm' : 'text-slate-600 hover:bg-primary-50 hover:text-primary-800'
-              }`
-            }
-          >
-            <Shield className="h-4.5 w-4.5 shrink-0" />
-            Admin
-          </NavLink>
+          <section aria-labelledby="sidebar-administracao">
+            <h2 id="sidebar-administracao" className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+              Administração
+            </h2>
+            <div className="mt-1.5">
+              <SidebarLink item={{ to: '/admin', icon: Shield, label: 'Admin' }} onNavigate={onClose} />
+            </div>
+          </section>
         )}
       </nav>
 
-      <div className="space-y-3 border-t border-gray-100 px-3 py-4">
-        <SmartTokensPanel user={user} />
-
+      <div className="shrink-0 border-t border-gray-100 p-3">
         <div className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm">
             <UserCircle2 className="h-5 w-5" />
@@ -169,9 +230,10 @@ export default function Sidebar() {
           </div>
           <button
             type="button"
-            onClick={logout}
+            onClick={handleLogout}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
             title="Sair"
+            aria-label="Sair"
           >
             <LogOut className="h-4 w-4" />
           </button>
