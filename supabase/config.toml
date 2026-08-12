@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.instagram-publish]
 verify_jwt = false
+
+[functions.creation-download]
+verify_jwt = false

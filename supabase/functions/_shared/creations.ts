@@ -185,7 +185,11 @@ function validateFile(value: unknown, userId: string): CreationFile {
   }
 }
 
-function normalizeManifest(kind: CreationDeliveryKind, value: unknown, userId: string): CreationResultManifest {
+export function validateCreationResultManifest(
+  kind: CreationDeliveryKind,
+  value: unknown,
+  userId: string,
+): CreationResultManifest {
   if (!isRecord(value) || value.version !== 1) throw new CreationValidationError('invalid_result_manifest')
 
   if (kind === 'file' || kind === 'bundle') {
@@ -249,7 +253,7 @@ function normalizeInput(input: RegisterCompletedCreationInput): CreationInsert {
     source_ref: sourceRef,
     title,
     delivery_kind: input.delivery_kind,
-    result_manifest: normalizeManifest(input.delivery_kind, input.result_manifest, userId),
+    result_manifest: validateCreationResultManifest(input.delivery_kind, input.result_manifest, userId),
     completed_at: normalizeCompletedAt(input.completed_at),
   }
 }
