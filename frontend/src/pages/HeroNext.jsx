@@ -23,13 +23,6 @@ import HeroShowcase from '../components/hero/HeroShowcase'
 import { useAuth } from '../lib/auth-context'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
-import { getInstagramConnection } from '../lib/instagram-connection'
-import {
-  createInstagramPublishAttempt,
-  getInstagramPublishCandidate,
-  InstagramPublishClientError,
-  INSTAGRAM_PUBLISH_MESSAGES,
-} from '../lib/instagram-publish'
 import { supabase } from '../lib/supabase'
 import { buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
@@ -1551,9 +1544,6 @@ export default function HeroNext() {
   const [generationError, setGenerationError] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [downloadAllLoading, setDownloadAllLoading] = useState(false)
-  const [instagramConnectionStatus, setInstagramConnectionStatus] = useState('idle')
-  const [instagramPublishStatus, setInstagramPublishStatus] = useState('idle')
-  const [instagramPublishMessage, setInstagramPublishMessage] = useState('')
   const [goalNotice, setGoalNotice] = useState('')
   const [pieceLimitNotice, setPieceLimitNotice] = useState('')
   const [generationResult, setGenerationResult] = useState(() => readStoredHeroNextResult())
@@ -1571,7 +1561,6 @@ export default function HeroNext() {
   const expandedPreviewTriggerRef = useRef(null)
   const conversationPauseRef = useRef(null)
   const conversationBusyRef = useRef(false)
-  const instagramPublishAttemptRef = useRef(null)
 
   const isRentGoal = goal === 'rent'
   const isPropertyCaptureGoal = goal === 'property_capture'
@@ -2317,51 +2306,6 @@ export default function HeroNext() {
         : buildHeroNextCampaignCopy(goal, answers, valueCondition))
     : []
 
-  const instagramPublishJob = getInstagramPublishCandidate(generationResult)
-  const instagramPublishGenerationId = instagramPublishJob?.generationId || ''
-  const instagramPublishCaption = campaignCopy.find((item) => /instagram/i.test(item?.label || ''))?.text || ''
-
-  useEffect(() => {
-    instagramPublishAttemptRef.current = null
-    setInstagramPublishStatus('idle')
-    setInstagramPublishMessage('')
-    if (!instagramPublishGenerationId) {
-      setInstagramConnectionStatus('idle')
-      return undefined
-    }
-
-    let active = true
-    setInstagramConnectionStatus('checking')
-    getInstagramConnection(supabase)
-      .then((connection) => {
-        if (active) setInstagramConnectionStatus(connection.connected ? 'connected' : 'disconnected')
-      })
-      .catch(() => {
-        if (active) setInstagramConnectionStatus('error')
-      })
-    return () => { active = false }
-  }, [instagramPublishGenerationId])
-
-  const publishBannerOnInstagram = async () => {
-    if (!instagramPublishGenerationId || instagramConnectionStatus !== 'connected' || instagramPublishStatus !== 'idle') return
-    instagramPublishAttemptRef.current ||= createInstagramPublishAttempt({ client: supabase })
-    setInstagramPublishStatus('publishing')
-    setInstagramPublishMessage('')
-    try {
-      const result = await instagramPublishAttemptRef.current.publish({
-        generationId: instagramPublishGenerationId,
-        caption: instagramPublishCaption,
-      })
-      if (!result.started) return
-      setInstagramPublishStatus('published')
-      setInstagramPublishMessage('Banner publicado no Instagram com sucesso.')
-    } catch (error) {
-      const code = error instanceof InstagramPublishClientError ? error.code : 'instagram_publish_failed'
-      setInstagramPublishStatus(code === 'publish_in_progress' ? 'in_progress' : 'failed')
-      setInstagramPublishMessage(INSTAGRAM_PUBLISH_MESSAGES[code] || INSTAGRAM_PUBLISH_MESSAGES.instagram_publish_failed)
-    }
-  }
-
   const downloadTexts = () => {
     const content = buildCampaignTextFile(buildCampaignPackage(campaignPackageData))
     downloadPlainTextFile('campanha-hero-ia.txt', content)
@@ -2419,10 +2363,6 @@ export default function HeroNext() {
     setGenerationJobs([])
     setDownloadError('')
     setDownloadAllLoading(false)
-    setInstagramConnectionStatus('idle')
-    setInstagramPublishStatus('idle')
-    setInstagramPublishMessage('')
-    instagramPublishAttemptRef.current = null
   }
 
   const campaignPackageData = generationResult ? {
@@ -3491,43 +3431,6 @@ export default function HeroNext() {
               </div>
             </div>
             {downloadError && <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{downloadError}</p>}
-            {instagramPublishJob && instagramConnectionStatus === 'connected' && (
-              <section className="rounded-3xl border border-fuchsia-100 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="hero-instagram-publish-title">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <img src="/brand-icons/instagram.webp" alt="" aria-hidden="true" className="h-11 w-11 shrink-0 object-contain" />
-                    <div className="min-w-0">
-                      <h3 id="hero-instagram-publish-title" className="text-sm font-black text-slate-950">Publicação real no Instagram</h3>
-                      <p className="mt-1 truncate text-xs font-semibold text-slate-500">
-                        {instagramPublishJob.formatLabel || 'Banner Imobiliário'} · revise a arte antes de publicar.
-                      </p>
-                    </div>
-                  </div>
-                  <ProductButton
-                    type="button"
-                    variant="success"
-                    onClick={publishBannerOnInstagram}
-                    loading={instagramPublishStatus === 'publishing'}
-                    disabled={instagramPublishStatus !== 'idle'}
-                  >
-                    {instagramPublishStatus === 'publishing'
-                      ? 'Publicando...'
-                      : instagramPublishStatus === 'published'
-                        ? 'Publicado no Instagram'
-                        : instagramPublishStatus === 'in_progress'
-                          ? 'Publicação em processamento'
-                          : instagramPublishStatus === 'failed'
-                            ? 'Publicação não concluída'
-                            : 'Publicar no Instagram'}
-                  </ProductButton>
-                </div>
-                {instagramPublishMessage && (
-                  <p role={instagramPublishStatus === 'published' ? 'status' : 'alert'} aria-live="polite" className={`mt-4 rounded-2xl p-3 text-sm font-bold ${instagramPublishStatus === 'published' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>
-                    {instagramPublishMessage}
-                  </p>
-                )}
-              </section>
-            )}
             <CampaignPackage
               data={campaignPackageData}
               onCreateNew={resetCampaign}
