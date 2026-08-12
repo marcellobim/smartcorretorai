@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.instagram-callback]
 verify_jwt = false
+
+[functions.instagram-publish]
+verify_jwt = false
