@@ -4,6 +4,7 @@ export const INSTAGRAM_OAUTH_STAGES = Object.freeze([
   'long_token',
   'permissions',
   'page_target_probe',
+  'page_target_capabilities',
   'pages',
   'eligible_count',
   'username',
@@ -28,6 +29,9 @@ export type InstagramOAuthTelemetryInput = {
   token_user_resolved?: unknown
   target_accessible?: unknown
   has_instagram_business_account?: unknown
+  has_page_id?: unknown
+  has_page_access_token?: unknown
+  has_instagram_username?: unknown
   pages_count?: unknown
   eligible_count?: unknown
   supabase_code?: unknown
@@ -49,6 +53,9 @@ export type InstagramOAuthTelemetryEvent = {
   token_user_resolved?: boolean
   target_accessible?: boolean
   has_instagram_business_account?: boolean
+  has_page_id?: boolean
+  has_page_access_token?: boolean
+  has_instagram_username?: boolean
   pages_count?: number
   eligible_count?: number
   supabase_code?: string
@@ -84,6 +91,9 @@ export function createInstagramOAuthTelemetryEvent(input: InstagramOAuthTelemetr
   const tokenUserResolved = safeBoolean(input.token_user_resolved)
   const targetAccessible = safeBoolean(input.target_accessible)
   const hasInstagramBusinessAccount = safeBoolean(input.has_instagram_business_account)
+  const hasPageId = safeBoolean(input.has_page_id)
+  const hasPageAccessToken = safeBoolean(input.has_page_access_token)
+  const hasInstagramUsername = safeBoolean(input.has_instagram_username)
   const pagesCount = safeInteger(input.pages_count)
   const eligibleCount = safeInteger(input.eligible_count)
   const supabaseCode = safeSupabaseCode(input.supabase_code)
@@ -101,6 +111,9 @@ export function createInstagramOAuthTelemetryEvent(input: InstagramOAuthTelemetr
   if (tokenUserResolved !== undefined) event.token_user_resolved = tokenUserResolved
   if (targetAccessible !== undefined) event.target_accessible = targetAccessible
   if (hasInstagramBusinessAccount !== undefined) event.has_instagram_business_account = hasInstagramBusinessAccount
+  if (hasPageId !== undefined) event.has_page_id = hasPageId
+  if (hasPageAccessToken !== undefined) event.has_page_access_token = hasPageAccessToken
+  if (hasInstagramUsername !== undefined) event.has_instagram_username = hasInstagramUsername
   if (pagesCount !== undefined) event.pages_count = pagesCount
   if (eligibleCount !== undefined) event.eligible_count = eligibleCount
   if (supabaseCode !== undefined) event.supabase_code = supabaseCode

@@ -23,10 +23,12 @@ const requireText = (value: unknown, code: string) => {
   return value.trim()
 }
 
+const hasText = (value: unknown) => typeof value === 'string' && Boolean(value.trim())
+
 const requestJson = async (
   fetcher: FetchLike,
   url: URL,
-  stage: 'short_token' | 'long_token' | 'permissions' | 'page_target_probe' | 'pages',
+  stage: 'short_token' | 'long_token' | 'permissions' | 'page_target_probe' | 'page_target_capabilities' | 'pages',
   headers: Record<string, string> = {},
   probe?: 'target' | 'user',
 ) => {
@@ -148,13 +150,26 @@ const probePageTarget = async (
   let targetFailed = false
   try {
     const targetUrl = new URL(`https://graph.facebook.com/${version}/${pageTargets[0]}`)
-    targetUrl.searchParams.set('fields', 'id,instagram_business_account{id}')
+    targetUrl.searchParams.set('fields', 'id,access_token,instagram_business_account{id,username}')
     targetUrl.searchParams.set('access_token', userToken)
     targetUrl.searchParams.set('appsecret_proof', proof)
-    targetResponse = await requestJson(fetcher, targetUrl, 'page_target_probe', {}, 'target')
+    targetResponse = await requestJson(fetcher, targetUrl, 'page_target_capabilities')
+    const instagram = targetResponse.instagram_business_account
+    telemetry?.({
+      stage: 'page_target_capabilities',
+      target_count: 1,
+      has_page_id: hasText(targetResponse.id),
+      has_page_access_token: hasText(targetResponse.access_token),
+      has_instagram_business_account: Boolean(
+        instagram && typeof instagram === 'object' && hasText((instagram as Record<string, unknown>).id),
+      ),
+      has_instagram_username: Boolean(
+        instagram && typeof instagram === 'object' && hasText((instagram as Record<string, unknown>).username),
+      ),
+    })
   } catch (error) {
     targetFailed = true
-    telemetry?.(getInstagramOAuthFailure(error, 'page_target_probe'))
+    telemetry?.(getInstagramOAuthFailure(error, 'page_target_capabilities'))
   }
 
   let userResponse: Record<string, unknown> | null = null
