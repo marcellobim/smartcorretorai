@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Loader2, RotateCcw, Sparkles } from 'lucide-react'
+import { CheckCircle2, Loader2, RotateCcw } from 'lucide-react'
 import { CONVERSATION_PHASE } from './conversationFlow'
 import { ProductCard, ProductFlowLayout, ProductSummary } from '../design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from './ConversationPrimitives'
+import BrandMark from '../brand/BrandMark'
 
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
@@ -68,7 +69,7 @@ export default function GuidedConversation({
     ) : (
       <div className={`rounded-3xl border p-5 shadow-sm sm:p-6 ${isEmerald ? 'border-emerald-100 bg-[linear-gradient(145deg,#ffffff,#f8fffb)]' : 'border-primary-100 bg-[linear-gradient(145deg,#ffffff,#f8fafc)]'}`}>
         <div className="flex gap-3">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${isEmerald ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-primary-50 text-primary-700 ring-primary-100'}`}><Sparkles className="h-5 w-5" /></span>
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${isEmerald ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-primary-50 text-primary-700 ring-primary-100'}`}><BrandMark size={24} alt="SmartCorretorAI" /></span>
           <div className="min-w-0 flex-1">
             <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isEmerald ? 'bg-emerald-50 text-emerald-800' : 'bg-primary-50 text-primary-800'}`}>{review ? 'Revisão final' : `Pergunta ${questionNumber} de ${totalQuestions}`}</span>
             <h3 className="mt-3 text-xl font-black leading-tight text-slate-950 sm:text-2xl"><TypewriterText text={question} active /></h3>
@@ -107,7 +108,7 @@ function ConversationTurn({ turn, onEdit, editDisabled, isEmerald }) {
 }
 
 function TypingIndicator({ designSystem, isEmerald }) {
-  return <div className="flex items-center gap-3" aria-label="SmartCorretorAI está digitando"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${isEmerald ? 'bg-emerald-50 text-emerald-700' : 'bg-primary-50 text-primary-700'}`}><Sparkles className="h-4 w-4" /></span><div className={`flex items-center gap-1 rounded-2xl rounded-tl-md border bg-white px-4 py-3 shadow-sm ${isEmerald ? 'border-emerald-100' : designSystem ? 'border-smart-border' : 'border-primary-100'}`}><Loader2 className={`mr-1 h-4 w-4 animate-spin ${isEmerald ? 'text-emerald-600' : 'text-primary-600'}`} />{[0, 1, 2].map(index => <span key={index} className={`h-1.5 w-1.5 animate-pulse rounded-full ${isEmerald ? 'bg-emerald-500' : 'bg-primary-500'}`} style={{ animationDelay: `${index * 140}ms` }} />)}</div></div>
+  return <div className="flex items-center gap-3" aria-label="SmartCorretorAI está digitando"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${isEmerald ? 'bg-emerald-50 text-emerald-700' : 'bg-primary-50 text-primary-700'}`}><BrandMark size={20} decorative /></span><div className={`flex items-center gap-1 rounded-2xl rounded-tl-md border bg-white px-4 py-3 shadow-sm ${isEmerald ? 'border-emerald-100' : designSystem ? 'border-smart-border' : 'border-primary-100'}`}><Loader2 className={`mr-1 h-4 w-4 animate-spin ${isEmerald ? 'text-emerald-600' : 'text-primary-600'}`} />{[0, 1, 2].map(index => <span key={index} className={`h-1.5 w-1.5 animate-pulse rounded-full ${isEmerald ? 'bg-emerald-500' : 'bg-primary-500'}`} style={{ animationDelay: `${index * 140}ms` }} />)}</div></div>
 }
 
 function TypewriterText({ text, active, cursorClass = 'bg-cyan-700' }) {

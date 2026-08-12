@@ -18,6 +18,7 @@ import {
   Wand2,
 } from 'lucide-react'
 import Header from '../components/layout/Header'
+import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { useProperties } from '../hooks/useProperties'
@@ -873,7 +874,7 @@ export default function Hero() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100">
-                <Sparkles className="h-4 w-4 text-amber-300" />
+                <BrandMark size={18} decorative />
                 Smart Prompt Engine
               </div>
               <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">
@@ -2424,10 +2425,7 @@ function ResultPanel({ visible, primaryDestination, compatibleDestinations, gene
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
-          <div className={`${generationResult?.imageUrl ? 'hidden' : 'flex'} h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-400 shadow-sm`}>
-            <Sparkles className="h-7 w-7" />
-          </div>
-          <p className={`${generationResult?.imageUrl ? 'hidden' : 'block'} mt-4 text-sm font-black text-gray-950`}>
+          <p className={`${generationResult?.imageUrl ? 'hidden' : 'block'} text-sm font-black text-gray-950`}>
             {isPrepared ? 'Briefing salvo com sucesso' : visible ? 'Hero IA em preparação' : 'O resultado aparecerá aqui'}
           </p>
           <p className={`${generationResult?.imageUrl ? 'hidden' : 'block'} mt-2 max-w-xs text-xs font-semibold leading-relaxed text-gray-500`}>

@@ -9,6 +9,16 @@ const read = relativePath => readFileSync(path.join(frontendRoot, relativePath),
 const sidebar = read('src/components/layout/Sidebar.jsx')
 const layout = read('src/components/layout/AppLayout.jsx')
 const header = read('src/components/layout/Header.jsx')
+const brandMark = read('src/components/brand/BrandMark.jsx')
+
+test('uses the official SmartCorretorAI mark and signature without changing product icons', () => {
+  assert.match(sidebar, /<BrandMark size=\{36\} decorative \/>/)
+  assert.match(sidebar, /Inteligência que vende\./)
+  assert.doesNotMatch(sidebar, /Marketing com IA|<Zap/)
+  assert.match(sidebar, /icon: Sparkles, label: 'Studio IA'/)
+  assert.match(brandMark, /smartcorretorai-symbol-\$\{sourceSize\}\.png/)
+  assert.match(brandMark, /aria-hidden=\{decorative \|\| undefined\}/)
+})
 
 test('organizes the sidebar in the approved section order', () => {
   const principal = sidebar.indexOf("label: 'Principal'")

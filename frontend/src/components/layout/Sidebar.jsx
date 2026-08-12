@@ -15,9 +15,9 @@ import {
   UserCircle2,
   Video,
   X,
-  Zap,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
+import BrandMark from '../brand/BrandMark'
 
 const navigationGroups = [
   {
@@ -171,12 +171,10 @@ export default function Sidebar({ mobile = false, onClose }) {
   return (
     <aside className="flex h-dvh w-64 flex-col overflow-hidden border-r border-gray-200 bg-white" aria-label="Menu principal">
       <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-800 shadow-md">
-          <Zap className="h-5 w-5 text-cyan-100" />
-        </div>
+        <BrandMark size={36} decorative />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-gray-900">SmartCorretorAI</p>
-          <p className="text-xs text-gray-400">Marketing com IA</p>
+          <p className="text-xs text-gray-400">Inteligência que vende.</p>
         </div>
         {mobile && (
           <button

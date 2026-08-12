@@ -3630,14 +3630,9 @@ export default function NovaCampanha() {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-primary-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-base">Confirmar geração</h3>
-                <p className="text-xs text-gray-500">Sua campanha completa será gerada em um clique.</p>
-              </div>
+            <div className="mb-4">
+              <h3 className="font-bold text-gray-900 text-base">Confirmar geração</h3>
+              <p className="text-xs text-gray-500">Sua campanha completa será gerada em um clique.</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2 text-sm">
               <div className="flex justify-between gap-3">

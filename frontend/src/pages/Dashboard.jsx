@@ -131,6 +131,11 @@ const faqItems = [
     question: 'A inteligência artificial pode cometer erros ou alterar algum detalhe?',
     answer: 'Sim. Conteúdos gerados com IA podem apresentar erros, imprecisões ou variações. Revise as informações do imóvel, os textos e os elementos visuais antes de divulgar ou publicar o material.',
   },
+  {
+    question: 'Ainda ficou com alguma dúvida ou quer falar com a gente?',
+    answer: 'Se você tiver dúvidas, sugestões, precisar de ajuda ou quiser nos contar sobre algum problema, entre em contato com nossa equipe. Vamos analisar sua mensagem e responder assim que possível.',
+    link: { href: 'mailto:suporte@smartcorretorai.com.br', label: 'Falar com o SmartCorretorAI' },
+  },
 ]
 
 export default function Dashboard() {
@@ -220,7 +225,7 @@ function FaqItem({ item, defaultOpen = false }) {
       <div className="max-w-3xl pb-5 pr-8">
         <p className="text-sm font-medium leading-7 text-slate-600">{item.answer}</p>
         {item.link && (
-          <ProductButton as={Link} to={item.link.to} variant="ghost" size="sm" className="mt-3 -ml-3">
+          <ProductButton as={item.link.href ? 'a' : Link} href={item.link.href} to={item.link.to} variant="ghost" size="sm" className="mt-3 -ml-3">
             {item.link.label}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </ProductButton>

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Zap, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth-context'
 import { Input, Select } from '../components/ui/Input'
+import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 
 export default function RegisterPage() {
@@ -40,9 +41,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
+          <BrandMark size={32} decorative />
           <span className="font-bold text-gray-900">SmartCorretorAI</span>
         </div>
 

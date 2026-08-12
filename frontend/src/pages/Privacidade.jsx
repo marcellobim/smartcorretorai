@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Zap } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import BrandMark from '../components/brand/BrandMark'
 
 export default function Privacidade() {
   return (
@@ -11,9 +12,7 @@ export default function Privacidade() {
             Voltar
           </Link>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 gradient-primary rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
+            <BrandMark size={28} decorative />
             <span className="font-bold text-gray-900">SmartCorretorAI</span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Expand, Image as ImageIcon, Sparkles, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Expand, Image as ImageIcon, X } from 'lucide-react'
 import { ProductButton, ProductCard, SMART_UI } from '../design-system'
 
 const INITIAL_EXAMPLE_COUNT = 12
@@ -170,8 +170,7 @@ export default function HeroShowcase({ onStart }) {
           <p className="mx-auto mt-3 max-w-2xl text-base font-semibold leading-relaxed text-slate-600">
             Conheça alguns exemplos produzidos pelo Banner Imobiliário para diferentes tipos de imóveis e objetivos.
           </p>
-          <p className="mt-3 inline-flex items-center gap-2 text-sm font-black text-primary-700">
-            <Sparkles className="h-4 w-4" />
+          <p className="mt-3 text-sm font-black text-primary-700">
             Cada campanha é criada de forma exclusiva.
           </p>
           <p className="mx-auto mt-5 max-w-3xl rounded-2xl border border-smart-border bg-primary-50/70 px-5 py-4 text-sm font-semibold leading-relaxed text-slate-600">

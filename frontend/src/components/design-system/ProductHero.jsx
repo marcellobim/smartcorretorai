@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react'
 import { SMART_UI } from '../../design-system/tokens'
 
 export default function ProductHero({ id, eyebrow, productName, headline, title, highlight, description, secondaryDescription, actions, visual, tone = 'light', className = '' }) {
@@ -12,7 +11,7 @@ export default function ProductHero({ id, eyebrow, productName, headline, title,
     <div className={`absolute -left-24 -top-24 -z-10 h-64 w-64 rounded-full blur-3xl ${isDark ? 'bg-cyan-400/20' : 'bg-blue-100/60'}`} aria-hidden="true" />
     <div className={`absolute -right-20 bottom-0 -z-10 h-64 w-64 rounded-full blur-3xl ${isDark ? 'bg-blue-400/15' : 'bg-cyan-100/40'}`} aria-hidden="true" />
     <div className="relative z-10 max-w-2xl">
-      {eyebrow && <p className={`${eyebrowClass} inline-flex items-center gap-2`}><Sparkles className="h-4 w-4" />{eyebrow}</p>}
+      {eyebrow && <p className={eyebrowClass}>{eyebrow}</p>}
       <h1 id={id} className={`${eyebrow ? 'mt-4' : ''} ${titleClass}`}>
         {usesOfficialHierarchy ? productName : title}
         {!usesOfficialHierarchy && highlight && <span className={`mt-1 block ${isDark ? 'text-cyan-300' : 'text-primary-600'}`}>{highlight}</span>}

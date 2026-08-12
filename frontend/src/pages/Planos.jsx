@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, Coins, Mail, Sparkles, Zap } from 'lucide-react'
+import { ArrowLeft, Check, Coins, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth-context'
 import { SMART_TOKEN_RECHARGE_CONFIG, estimateSmartTokensFromAmount } from '../data/creditCosts'
+import BrandMark from '../components/brand/BrandMark'
 
 const PLANOS = [
   {
@@ -162,17 +163,14 @@ export default function Planos() {
             Voltar
           </Link>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-800 text-cyan-100">
-              <Zap className="h-4 w-4" />
-            </div>
+            <BrandMark size={32} decorative />
             <span className="font-black text-gray-950">SmartCorretorAI</span>
           </div>
         </div>
 
         <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-7 text-white shadow-xl shadow-primary-900/10 sm:p-10">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100/20 bg-cyan-100/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-50">
-              <Sparkles className="h-4 w-4 text-cyan-100" />
+            <div className="inline-flex items-center rounded-full border border-cyan-100/20 bg-cyan-100/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-50">
               Planos / Smart Tokens
             </div>
             <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-5xl">

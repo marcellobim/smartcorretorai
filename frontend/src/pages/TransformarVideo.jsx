@@ -8,12 +8,12 @@ import {
   Image,
   PlayCircle,
   RotateCcw,
-  Sparkles,
   Upload,
   Video,
   Wand2,
   X,
 } from 'lucide-react'
+import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 
 const MIN_VIDEO_PHOTOS = 5
@@ -1082,7 +1082,7 @@ function AssistantBubble({ children }) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100">
-        <Sparkles className="h-4 w-4" />
+        <BrandMark size={20} alt="SmartCorretorAI" />
       </div>
       <div className="max-w-3xl rounded-3xl rounded-tl-md border border-blue-100 bg-white px-5 py-4 shadow-sm">
         <p className="text-sm font-bold leading-relaxed text-slate-700">{children}</p>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, Building2, Download, Instagram, Loader2, MessageCircle, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
+import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import { buildVirtualStagingCampaignPackage, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
@@ -824,7 +825,7 @@ function Question(props) {
     const answer = FURNISH_RENOVATE_DESTINATION_OPTIONS.filter(option => imageDestinations.includes(option.id)).map(option => option.label).join(' · ')
     return <><p className="mb-4 text-sm font-semibold leading-6 text-slate-600">{FURNISH_RENOVATE_COPY.destinationsHint}</p><div className="grid gap-3 sm:grid-cols-2">{FURNISH_RENOVATE_DESTINATION_OPTIONS.map(option => { const selected = imageDestinations.includes(option.id); return <button key={option.id} type="button" aria-pressed={selected} onClick={() => toggleDestination(option.id)} className={`flex items-center gap-3 rounded-smart-control border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${selected ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><DestinationBrandIcon destination={option} /><span className="text-sm font-black text-slate-800">{option.label}</span></button> })}</div>{cont(imageDestinations.length === 0, answer)}</>
   }
-  if (id === 'ai_notice' && isFurnishRenovate) return <><div className="rounded-2xl border border-primary-100 bg-primary-50/70 p-5 text-sm font-semibold leading-6 text-primary-950"><Sparkles className="mb-3 h-5 w-5 text-primary-600" />{FURNISH_RENOVATE_AI_NOTICE}</div>{cont(false, 'Aviso compreendido')}</>
+  if (id === 'ai_notice' && isFurnishRenovate) return <><div className="rounded-2xl border border-primary-100 bg-primary-50/70 p-5 text-sm font-semibold leading-6 text-primary-950"><BrandMark size={24} alt="SmartCorretorAI" className="mb-3" />{FURNISH_RENOVATE_AI_NOTICE}</div>{cont(false, 'Aviso compreendido')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: isFurnishRenovate ? 'type' : 'stage', apply: () => setPropertyField('purpose', value) }))
   if (id === 'stage') { const stageOptions = property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : STAGES; return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') return <>{choices(VIRTUAL_STAGING_PROPERTY_TYPES, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</>

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Zap, Eye, EyeOff, Mail } from 'lucide-react'
+import { Eye, EyeOff, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+import BrandMark from '../components/brand/BrandMark'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 
@@ -62,9 +63,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-1 gradient-hero items-center justify-center p-12">
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
+            <BrandMark size={40} decorative />
             <span className="text-xl font-bold">SmartCorretorAI</span>
           </div>
           <h2 className="text-3xl font-extrabold leading-tight">
@@ -87,9 +86,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
+            <BrandMark size={32} decorative />
             <span className="font-bold text-gray-900">SmartCorretorAI</span>
           </div>
 

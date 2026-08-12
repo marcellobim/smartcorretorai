@@ -11,11 +11,10 @@ import {
   LayoutTemplate,
   Mail,
   ShieldCheck,
-  Sparkles,
   User,
   Video,
-  Zap,
 } from 'lucide-react'
+import BrandMark from '../components/brand/BrandMark'
 
 const products = [
   {
@@ -67,9 +66,7 @@ export default function LandingPage() {
       <header className="relative z-20 border-b border-white/10 bg-[#030d1b]/75 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link to="/" aria-label="SmartCorretorAI" className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-300/20 bg-gradient-to-br from-blue-400/20 to-cyan-300/10 text-blue-100 shadow-[0_14px_38px_-18px_rgba(59,130,246,0.8)]">
-              <Zap className="h-5 w-5" />
-            </span>
+            <BrandMark size={44} decorative />
             <span>
               <strong className="block text-base font-black tracking-[-0.025em]">SmartCorretorAI</strong>
               <small className="block text-[10px] font-bold uppercase tracking-[0.24em] text-blue-100/50">Inteligência que vende</small>
@@ -86,8 +83,7 @@ export default function LandingPage() {
       <main className="relative z-10">
         <section className="relative mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.78fr)] lg:gap-16 lg:py-24">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/15 bg-white/[0.045] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-blue-100/80 shadow-inner shadow-white/5">
-              <Sparkles className="h-4 w-4 text-blue-300" />
+            <div className="inline-flex items-center rounded-full border border-blue-300/15 bg-white/[0.045] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-blue-100/80 shadow-inner shadow-white/5">
               Inteligência que vende
             </div>
 
@@ -134,7 +130,7 @@ export default function LandingPage() {
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(3,13,27,0.98),rgba(3,13,27,0.7)_52%,rgba(3,13,27,0.2))]" />
                 <div className="absolute inset-0 flex flex-col justify-between p-5 sm:p-7">
-                  <div className="flex items-center gap-2 text-xs font-black"><Zap className="h-4 w-4 text-blue-400" />SmartCorretor<span className="text-blue-400">AI</span></div>
+                  <div className="flex items-center gap-2 text-xs font-black"><BrandMark size={20} decorative />SmartCorretor<span className="text-blue-400">AI</span></div>
                   <div className="max-w-[76%]">
                     <p className="text-xl font-black leading-tight sm:text-3xl">Crie campanhas imobiliárias completas com <span className="text-blue-400">Inteligência Artificial.</span></p>
                     <p className="mt-3 hidden text-xs font-semibold leading-5 text-slate-300 sm:block">Vídeos, banners, carrosséis e textos prontos para divulgar seus imóveis.</p>
@@ -179,8 +175,8 @@ export default function LandingPage() {
                     </div>
                     <h3 className="mt-7 text-xl font-black tracking-tight text-white">{name}</h3>
                     <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">{description}</p>
-                    <span className="mt-6 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-200">
-                      <Sparkles className="h-3.5 w-3.5" />Em preparação
+                    <span className="mt-6 inline-flex items-center text-xs font-black uppercase tracking-[0.14em] text-emerald-200">
+                      Em preparação
                     </span>
                   </div>
                 </article>
@@ -259,7 +255,7 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 text-sm font-semibold text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2.5 text-white">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200"><Zap className="h-4 w-4" /></span>
+            <BrandMark size={32} decorative />
             <span className="font-black">SmartCorretorAI</span>
           </div>
           <p>© 2026 SmartCorretorAI. A nova geração do marketing imobiliário.</p>

@@ -86,7 +86,7 @@ test('keeps the shared Design System throughout the Home', () => {
   assert.match(dashboard, /SMART_UI/)
 })
 
-test('adds the final twelve practical FAQ questions', () => {
+test('adds the thirteen practical FAQ questions with contact as the final item', () => {
   assert.match(dashboard, /Dúvidas frequentes e uso/)
   const literalQuestions = [
     'Qual produto devo usar para o que preciso criar?',
@@ -98,12 +98,16 @@ test('adds the final twelve practical FAQ questions', () => {
     'O SmartCorretorAI altera meus dados profissionais automaticamente?',
     'Quem é responsável pelas imagens, vídeos e materiais que eu envio?',
     'A inteligência artificial pode cometer erros ou alterar algum detalhe?',
+    'Ainda ficou com alguma dúvida ou quer falar com a gente?',
   ]
   for (const question of literalQuestions) assert.ok(faqSource.includes(`question: '${question}'`), question)
   assert.match(faqSource, /question: `Preciso assinar um plano ou posso comprar \$\{SMART_TOKENS_LABEL\}/)
   assert.match(faqSource, /question: `Como funcionam os \$\{SMART_TOKENS_LABEL\}\? E se uma geração der erro\?`/)
   assert.match(faqSource, /question: `Meus \$\{SMART_TOKENS_LABEL\} expiram\?`/)
-  assert.equal((faqSource.match(/question:/g) || []).length, 12)
+  assert.equal((faqSource.match(/question:/g) || []).length, 13)
+  assert.match(faqSource, /mailto:suporte@smartcorretorai\.com\.br/)
+  assert.match(faqSource, /Falar com o SmartCorretorAI/)
+  assert.ok(faqSource.lastIndexOf('Ainda ficou com alguma dúvida') > faqSource.lastIndexOf('A inteligência artificial pode cometer erros'))
 })
 
 test('answers product choice, plans and cancellation before offering shortcuts', () => {
@@ -136,6 +140,7 @@ test('keeps native keyboard-accessible FAQ disclosures with reduced motion', () 
   assert.match(dashboard, /<summary/)
   assert.match(dashboard, /SMART_UI\.focus/)
   assert.match(dashboard, /motion-reduce:transition-none/)
+  assert.match(dashboard, /as=\{item\.link\.href \? 'a' : Link\}/)
 })
 
 test('uses only real application routes in Home and footer shortcuts', () => {
