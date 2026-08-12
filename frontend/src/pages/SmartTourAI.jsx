@@ -370,7 +370,6 @@ export default function SmartTourAI() {
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="smart-tour-title"
-        eyebrow="SmartCorretorAI"
         productName="Vídeo Imobiliário"
         headline="Transforme as fotos dos seus imóveis em comerciais profissionais."
         description="Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante."

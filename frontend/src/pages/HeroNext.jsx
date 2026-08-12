@@ -2597,7 +2597,6 @@ export default function HeroNext() {
         {phase === 'intro' && (
           <ProductHero
             id="banner-imobiliario-title"
-            eyebrow="SmartCorretorAI"
             productName="Banner Imobiliário"
             headline="Sua campanha, criada com"
             highlight="direção profissional."

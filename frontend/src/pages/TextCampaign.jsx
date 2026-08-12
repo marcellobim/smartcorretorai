@@ -148,7 +148,6 @@ export default function TextCampaign() {
       <ProductCard className="overflow-hidden">
         <ProductHero
           id="text-campaign-title"
-          eyebrow="Comunicação imobiliária"
           productName="Campanha de Textos"
           headline="Um briefing. Todas as peças para divulgar seu imóvel."
           description="Organize fatos, diferenciais e condições do imóvel em uma conversa guiada e receba uma campanha completa para diferentes canais."

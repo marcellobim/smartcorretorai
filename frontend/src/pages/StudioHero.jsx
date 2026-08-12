@@ -1925,7 +1925,6 @@ export default function StudioHero() {
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
             <ProductHero
               id="studio-ia-title"
-              eyebrow="SmartCorretorAI"
               productName={<span>Studio IA</span>}
               headline="Seu estudio inteligente de criacao de videos imobiliarios."
               description="Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em poucos minutos com IA."

@@ -13,7 +13,7 @@ export default function ProductHero({ id, eyebrow, productName, headline, title,
     <div className={`absolute -right-20 bottom-0 -z-10 h-64 w-64 rounded-full blur-3xl ${isDark ? 'bg-blue-400/15' : 'bg-cyan-100/40'}`} aria-hidden="true" />
     <div className="relative z-10 max-w-2xl">
       {eyebrow && <p className={`${eyebrowClass} inline-flex items-center gap-2`}><Sparkles className="h-4 w-4" />{eyebrow}</p>}
-      <h1 id={id} className={`mt-4 ${titleClass}`}>
+      <h1 id={id} className={`${eyebrow ? 'mt-4' : ''} ${titleClass}`}>
         {usesOfficialHierarchy ? productName : title}
         {!usesOfficialHierarchy && highlight && <span className={`mt-1 block ${isDark ? 'text-cyan-300' : 'text-primary-600'}`}>{highlight}</span>}
       </h1>

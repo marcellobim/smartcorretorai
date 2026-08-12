@@ -175,7 +175,6 @@ export default function VirtualStagingAI() {
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="virtual-space-title"
-        eyebrow="SmartCorretorAI"
         title="Virtual Space"
         description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial."
         visual={<VirtualSpaceHeroVisual />}
