@@ -140,11 +140,11 @@ export default function Dashboard() {
 
       <main className={`${HOME_PAGE_CLASS} min-w-0`}>
         <ProductCard className="relative isolate overflow-hidden border-violet-200 bg-gradient-to-br from-violet-100 via-blue-50 to-cyan-100/90 p-6 shadow-violet-200/50 sm:p-8 lg:p-10">
-          <div className="max-w-4xl">
+          <div className="max-w-6xl">
             <h1 className="text-3xl font-black tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-5xl">
               O que vamos criar para o seu imóvel hoje?
             </h1>
-            <p className={`${SMART_UI.body} mt-4 max-w-3xl`}>
+            <p className={`${SMART_UI.body} mt-4 max-w-5xl`}>
               Escolha o que deseja criar. A IA guia você na criação de vídeos, imagens ou textos, do briefing ao material pronto, sem termos técnicos.
             </p>
           </div>
