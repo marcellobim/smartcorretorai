@@ -11,16 +11,7 @@ const legacyPage = read('src/pages/PacotesGerados.jsx')
 const app = read('src/App.jsx')
 const sidebar = read('src/components/layout/Sidebar.jsx')
 
-const expectedProducts = [
-  ['Vídeo Imobiliário', 'Apartamento em Moema'],
-  ['Banner Imobiliário', 'Lançamento Vila Mariana'],
-  ['Studio IA — Comercial Imobiliário', 'Casa em Alphaville'],
-  ['Virtual Staging', 'Apartamento Vila Madalena'],
-  ['Banners Rápidos', 'Lançamento Zona Sul'],
-  ['Campanha de Textos', 'Apartamento Vila Guimercindo'],
-]
-
-test('keeps the existing route and sidebar link while rendering the new visual page', () => {
+test('keeps the existing route and sidebar link while rendering the real page', () => {
   assert.match(app, /import Creations from '\.\/pages\/Creations'/)
   assert.match(app, /path="\/pacotes-gerados" element=\{<Creations \/>\}/)
   assert.match(sidebar, /to: '\/pacotes-gerados'[\s\S]*?label: 'Criações'/)
@@ -33,21 +24,23 @@ test('explains the temporary 24-hour availability without a countdown', () => {
   assert.doesNotMatch(page, /countdown|tempo restante|\d+h \d+m|setInterval/i)
 })
 
-test('renders exactly the six approved local visual mocks', () => {
-  for (const [product, title] of expectedProducts) {
-    assert.ok(page.includes(`product: '${product}'`), product)
-    assert.ok(page.includes(`title: '${title}'`), title)
-  }
-  assert.equal((page.match(/id: '/g) || []).length, expectedProducts.length)
-  assert.doesNotMatch(page, /useCampaigns|supabase|creation-download|public\.creations|fetch\(|axios/i)
+test('loads only the safe creation list fields and contains no visual mocks', () => {
+  assert.match(page, /CREATION_SELECT = 'id,product_key,title,delivery_kind,completed_at,expires_at'/)
+  assert.match(page, /supabase[\s\S]*?\.from\('creations'\)[\s\S]*?\.select\(CREATION_SELECT\)[\s\S]*?\.order\('completed_at', \{ ascending: false \}\)/)
+  assert.doesNotMatch(page, /result_manifest|CREATION_VISUAL_MOCKS|Apartamento em Moema|estado=vazio|useSearchParams/)
 })
 
-test('keeps cards concise with dates and a visual-only download action', () => {
+test('keeps cards concise with dates and a real prepare-download-confirm action', () => {
   assert.match(page, /<dt[^>]*>Criado<\/dt>/)
   assert.match(page, /<dt[^>]*>Expira<\/dt>/)
-  assert.match(page, /<ProductButton type="button" variant="secondary"/)
-  assert.match(page, />\s*Baixar\s*<\/ProductButton>/)
-  assert.doesNotMatch(page, /href=|URL\.createObjectURL|Blob\(|storage\.from|downloadCampaign|downloadAll/)
+  assert.match(page, /<ProductButton type="button" variant="secondary"[^>]*onClick=\{\(\) => onDownload\(creation\)\}/)
+  assert.match(page, /<ProductButton[^>]*>[\s\S]*?Baixar\s*<\/ProductButton>/)
+  assert.match(page, /body: \{ action: 'prepare', creation_id: creation\.id \}/)
+  assert.match(page, /startTextDownload\(formatCompleteTextCampaign\(campaign\), prepared\.download\.name\)/)
+  assert.match(page, /body: \{ action: 'confirm', creation_id: creation\.id \}/)
+  assert.match(page, /setCreations\(current => current\.filter\(item => item\.id !== creation\.id\)\)/)
+  assert.match(page, /toast\.success\('Criação baixada e removida da sua central\.'\)/)
+  assert.doesNotMatch(page, /storage\.from|downloadCampaign|downloadAll/)
 })
 
 test('removes every legacy campaign affordance from the active page', () => {
@@ -56,11 +49,19 @@ test('removes every legacy campaign affordance from the active page', () => {
   assert.doesNotMatch(app, /<PacotesGerados \/>/)
 })
 
-test('provides a modern empty state through an isolated local visual query', () => {
-  assert.match(page, /searchParams\.get\('estado'\) === 'vazio'/)
+test('provides the modern empty state from the real query result', () => {
+  assert.match(page, /creations\.length > 0/)
   assert.match(page, /Você ainda não tem criações disponíveis\./)
   assert.match(page, /Quando você criar um novo material, ele aparecerá aqui temporariamente para download\./)
   assert.match(page, /to="\/dashboard"[\s\S]*Criar novo material/)
+})
+
+test('keeps failed prepare or confirm attempts visible and reports errors without fake success', () => {
+  const removalIndex = page.indexOf('setCreations(current => current.filter')
+  const confirmIndex = page.indexOf("body: { action: 'confirm'")
+  assert.ok(confirmIndex > -1 && removalIndex > confirmIndex)
+  assert.match(page, /if \(confirmError \|\| !confirmed\?\.ok \|\| !confirmed\.confirmed\)/)
+  assert.match(page, /catch \(error\) \{[\s\S]*toast\.error/)
 })
 
 test('uses the current design system and a responsive overflow-safe grid', () => {

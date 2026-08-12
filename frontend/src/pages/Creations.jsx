@@ -1,105 +1,64 @@
-import { Link, useSearchParams } from 'react-router-dom'
-import {
-  Box,
-  Download,
-  FileText,
-  Image,
-  Info,
-  LayoutTemplate,
-  PackageOpen,
-  Sparkles,
-  Video,
-} from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { Download, FileText, Info, Loader2, PackageOpen } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { ProductButton, ProductCard, SMART_UI } from '../components/design-system'
+import { useAuth } from '../lib/auth-context'
+import { supabase } from '../lib/supabase'
+import { formatCompleteTextCampaign, isCompleteTextCampaignResult } from '../lib/text-campaign-result'
 
-const CREATION_VISUAL_MOCKS = [
-  {
-    id: 'video-imobiliario',
-    product: 'Vídeo Imobiliário',
-    title: 'Apartamento em Moema',
-    createdAt: '12/08/2026 às 14:20',
-    expiresAt: '13/08/2026 às 14:20',
-    icon: Video,
-    tone: 'violet',
-  },
-  {
-    id: 'banner-imobiliario',
-    product: 'Banner Imobiliário',
-    title: 'Lançamento Vila Mariana',
-    createdAt: '12/08/2026 às 13:45',
-    expiresAt: '13/08/2026 às 13:45',
-    icon: Image,
-    tone: 'mint',
-  },
-  {
-    id: 'comercial-imobiliario',
-    product: 'Studio IA — Comercial Imobiliário',
-    title: 'Casa em Alphaville',
-    createdAt: '12/08/2026 às 12:10',
-    expiresAt: '13/08/2026 às 12:10',
-    icon: Sparkles,
-    tone: 'blue',
-  },
-  {
-    id: 'virtual-staging',
-    product: 'Virtual Staging',
-    title: 'Apartamento Vila Madalena',
-    createdAt: '12/08/2026 às 11:30',
-    expiresAt: '13/08/2026 às 11:30',
-    icon: Box,
-    tone: 'cyan',
-  },
-  {
-    id: 'banners-rapidos',
-    product: 'Banners Rápidos',
-    title: 'Lançamento Zona Sul',
-    createdAt: '12/08/2026 às 10:15',
-    expiresAt: '13/08/2026 às 10:15',
-    icon: LayoutTemplate,
-    tone: 'peach',
-  },
-  {
-    id: 'campanha-de-textos',
-    product: 'Campanha de Textos',
-    title: 'Apartamento Vila Guimercindo',
-    createdAt: '12/08/2026 às 09:05',
-    expiresAt: '13/08/2026 às 09:05',
+const CREATION_SELECT = 'id,product_key,title,delivery_kind,completed_at,expires_at'
+
+const creationProducts = {
+  campanha_textos: {
+    label: 'Campanha de Textos',
     icon: FileText,
     tone: 'gold',
   },
-]
+}
 
 const creationTones = {
-  violet: {
-    accent: 'bg-violet-500',
-    icon: 'bg-violet-100 text-violet-700',
-  },
-  mint: {
-    accent: 'bg-emerald-500',
-    icon: 'bg-emerald-100 text-emerald-700',
-  },
-  blue: {
-    accent: 'bg-blue-500',
-    icon: 'bg-blue-100 text-blue-700',
-  },
-  cyan: {
-    accent: 'bg-cyan-500',
-    icon: 'bg-cyan-100 text-cyan-700',
-  },
-  peach: {
-    accent: 'bg-orange-500',
-    icon: 'bg-orange-100 text-orange-700',
-  },
   gold: {
     accent: 'bg-amber-500',
     icon: 'bg-amber-100 text-amber-700',
   },
 }
 
-function CreationCard({ creation }) {
-  const Icon = creation.icon
-  const tone = creationTones[creation.tone]
+const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
+
+function formatCreationDate(value) {
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? dateFormatter.format(date) : 'Indisponível'
+}
+
+async function readFunctionError(error) {
+  try {
+    return await error?.context?.json?.()
+  } catch {
+    return null
+  }
+}
+
+function startTextDownload(content, name) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function CreationCard({ creation, downloading, onDownload }) {
+  const product = creationProducts[creation.product_key] || creationProducts.campanha_textos
+  const Icon = product.icon
+  const tone = creationTones[product.tone]
 
   return (
     <ProductCard as="article" className="relative flex min-w-0 flex-col overflow-hidden p-5 sm:p-6">
@@ -110,7 +69,7 @@ function CreationCard({ creation }) {
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black leading-5 text-slate-950">{creation.product}</p>
+          <p className="text-sm font-black leading-5 text-slate-950">{product.label}</p>
           <h2 className="mt-1 break-words text-base font-semibold leading-6 text-slate-600">{creation.title}</h2>
         </div>
       </div>
@@ -118,17 +77,17 @@ function CreationCard({ creation }) {
       <dl className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
         <div className="min-w-0 rounded-2xl bg-slate-50 px-3.5 py-3 ring-1 ring-slate-200/70">
           <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Criado</dt>
-          <dd className="mt-1 break-words text-sm font-bold text-slate-700">{creation.createdAt}</dd>
+          <dd className="mt-1 break-words text-sm font-bold text-slate-700">{formatCreationDate(creation.completed_at)}</dd>
         </div>
         <div className="min-w-0 rounded-2xl bg-slate-50 px-3.5 py-3 ring-1 ring-slate-200/70">
           <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Expira</dt>
-          <dd className="mt-1 break-words text-sm font-bold text-slate-700">{creation.expiresAt}</dd>
+          <dd className="mt-1 break-words text-sm font-bold text-slate-700">{formatCreationDate(creation.expires_at)}</dd>
         </div>
       </dl>
 
       <div className="mt-5 flex flex-1 items-end justify-end">
-        <ProductButton type="button" variant="secondary" className="w-full sm:w-auto" aria-label={`Baixar ${creation.product}`}>
-          <Download className="h-4 w-4" aria-hidden="true" />
+        <ProductButton type="button" variant="secondary" className="w-full sm:w-auto" disabled={downloading} onClick={() => onDownload(creation)} aria-label={`Baixar ${product.label}`}>
+          {downloading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
           Baixar
         </ProductButton>
       </div>
@@ -152,8 +111,69 @@ function CreationsEmptyState() {
 }
 
 export default function Creations() {
-  const [searchParams] = useSearchParams()
-  const creations = searchParams.get('estado') === 'vazio' ? [] : CREATION_VISUAL_MOCKS
+  const { accessToken } = useAuth()
+  const [creations, setCreations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [downloadingId, setDownloadingId] = useState(null)
+
+  const loadCreations = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    const { data, error } = await supabase
+      .from('creations')
+      .select(CREATION_SELECT)
+      .order('completed_at', { ascending: false })
+    if (error) {
+      setLoadError('Não foi possível carregar suas criações agora.')
+      setLoading(false)
+      return
+    }
+    setCreations(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadCreations()
+  }, [loadCreations])
+
+  const downloadCreation = async creation => {
+    if (downloadingId || !accessToken) return
+    setDownloadingId(creation.id)
+    try {
+      const headers = { Authorization: `Bearer ${accessToken}` }
+      const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
+        headers,
+        body: { action: 'prepare', creation_id: creation.id },
+      })
+      if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'text') {
+        const body = await readFunctionError(prepareError)
+        throw new Error(body?.error || 'Não foi possível preparar o download.')
+      }
+      const campaign = prepared.download?.content?.campaign
+      if (!isCompleteTextCampaignResult(campaign) || !prepared.download?.name) {
+        throw new Error('O conteúdo desta criação está indisponível.')
+      }
+
+      startTextDownload(formatCompleteTextCampaign(campaign), prepared.download.name)
+
+      const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
+        headers,
+        body: { action: 'confirm', creation_id: creation.id },
+      })
+      if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
+        const body = await readFunctionError(confirmError)
+        throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
+      }
+
+      setCreations(current => current.filter(item => item.id !== creation.id))
+      toast.success('Criação baixada e removida da sua central.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível baixar esta criação.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   return (
     <>
@@ -169,10 +189,19 @@ export default function Creations() {
           </p>
         </ProductCard>
 
-        {creations.length > 0 ? (
+        {loadError ? (
+          <ProductCard role="alert" className="mt-6 p-5 text-center">
+            <p className="text-sm font-bold text-rose-700">{loadError}</p>
+            <ProductButton type="button" variant="secondary" className="mt-4" onClick={loadCreations}>Tentar novamente</ProductButton>
+          </ProductCard>
+        ) : loading ? (
+          <div className="flex min-h-56 items-center justify-center" aria-label="Carregando criações">
+            <Loader2 className="h-7 w-7 animate-spin text-primary-700" aria-hidden="true" />
+          </div>
+        ) : creations.length > 0 ? (
           <section className="mt-6 min-w-0" aria-label="Criações disponíveis">
             <div data-creations-grid className="grid min-w-0 auto-rows-fr grid-cols-1 gap-4 lg:grid-cols-2">
-              {creations.map(creation => <CreationCard key={creation.id} creation={creation} />)}
+              {creations.map(creation => <CreationCard key={creation.id} creation={creation} downloading={downloadingId === creation.id} onDownload={downloadCreation} />)}
             </div>
           </section>
         ) : (
