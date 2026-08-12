@@ -6,6 +6,7 @@ export const INSTAGRAM_OAUTH_STAGES = Object.freeze([
   'page_target_probe',
   'page_target_capabilities',
   'pages',
+  'pages_fallback',
   'eligible_count',
   'username',
   'database',
@@ -33,6 +34,7 @@ export type InstagramOAuthTelemetryInput = {
   has_page_access_token?: unknown
   has_instagram_username?: unknown
   pages_count?: unknown
+  used?: unknown
   eligible_count?: unknown
   supabase_code?: unknown
 }
@@ -57,6 +59,7 @@ export type InstagramOAuthTelemetryEvent = {
   has_page_access_token?: boolean
   has_instagram_username?: boolean
   pages_count?: number
+  used?: boolean
   eligible_count?: number
   supabase_code?: string
 }
@@ -95,6 +98,7 @@ export function createInstagramOAuthTelemetryEvent(input: InstagramOAuthTelemetr
   const hasPageAccessToken = safeBoolean(input.has_page_access_token)
   const hasInstagramUsername = safeBoolean(input.has_instagram_username)
   const pagesCount = safeInteger(input.pages_count)
+  const used = safeBoolean(input.used)
   const eligibleCount = safeInteger(input.eligible_count)
   const supabaseCode = safeSupabaseCode(input.supabase_code)
 
@@ -115,6 +119,7 @@ export function createInstagramOAuthTelemetryEvent(input: InstagramOAuthTelemetr
   if (hasPageAccessToken !== undefined) event.has_page_access_token = hasPageAccessToken
   if (hasInstagramUsername !== undefined) event.has_instagram_username = hasInstagramUsername
   if (pagesCount !== undefined) event.pages_count = pagesCount
+  if (used !== undefined) event.used = used
   if (eligibleCount !== undefined) event.eligible_count = eligibleCount
   if (supabaseCode !== undefined) event.supabase_code = supabaseCode
   return event

@@ -169,7 +169,7 @@ test('permissions telemetry reports missing grants and zero Page targets without
   ])
 })
 
-test('single Page target probe resolves user and target but never replaces empty /me/accounts', async () => {
+test('single complete Page target is used only when /me/accounts returns no pages', async () => {
   const telemetry: InstagramOAuthTelemetryInput[] = []
   const fetcher = (async (input: URL | RequestInfo) => {
     const url = new URL(String(input))
@@ -188,10 +188,7 @@ test('single Page target probe resolves user and target but never replaces empty
     })
   }) as typeof fetch
 
-  await assert.rejects(
-    () => resolveInstagramConnection({ ...baseInput, fetcher, telemetry: event => telemetry.push(event) }),
-    error => (error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.stage === 'eligible_count',
-  )
+  const connection = await resolveInstagramConnection({ ...baseInput, fetcher, telemetry: event => telemetry.push(event) })
   assert.deepEqual(telemetry, [
     {
       stage: 'permissions', instagram_basic: true, instagram_content_publish: true,
@@ -207,8 +204,40 @@ test('single Page target probe resolves user and target but never replaces empty
       target_accessible: true, has_instagram_business_account: true,
     },
     { stage: 'pages', pages_count: 0 },
+    { stage: 'pages_fallback', used: true },
+    { stage: 'eligible_count', eligible_count: 1 },
   ])
+  assert.equal(connection.page_id, 'page-private-target')
+  assert.equal(connection.page_access_token, 'target-page-sensitive-token')
+  assert.equal(connection.ig_user_id, 'ig-private')
+  assert.equal(connection.ig_username, 'private_target_username')
   assert.doesNotMatch(JSON.stringify(telemetry), /page-private|user-private|ig-private|private_target_username|sensitive-token/i)
+})
+
+test('/me/accounts remains authoritative when it returns an eligible page', async () => {
+  const telemetry: InstagramOAuthTelemetryInput[] = []
+  const fetcher = (async (input: URL | RequestInfo) => {
+    const url = new URL(String(input))
+    if (url.pathname.endsWith('/oauth/access_token') && url.searchParams.has('code')) return Response.json({ access_token: 'short-sensitive-token' })
+    if (url.pathname.endsWith('/oauth/access_token')) return Response.json({ access_token: 'long-sensitive-token', expires_in: 3600 })
+    if (url.pathname.endsWith('/debug_token')) return debugTokenResponse(ALL_PERMISSIONS, [{ scope: 'pages_show_list', target_ids: ['target-page-private'] }])
+    if (url.pathname.endsWith('/me/accounts')) return Response.json({ data: [{
+      id: 'accounts-page-private', access_token: 'accounts-page-sensitive-token',
+      instagram_business_account: { id: 'accounts-ig-private', username: 'accounts_private_username' },
+    }] })
+    if (url.pathname.endsWith('/me')) return Response.json({ id: 'user-private' })
+    return Response.json({
+      id: 'target-page-private', access_token: 'target-page-sensitive-token',
+      instagram_business_account: { id: 'target-ig-private', username: 'target_private_username' },
+    })
+  }) as typeof fetch
+
+  const connection = await resolveInstagramConnection({ ...baseInput, fetcher, telemetry: event => telemetry.push(event) })
+  assert.equal(connection.page_id, 'accounts-page-private')
+  assert.equal(connection.page_access_token, 'accounts-page-sensitive-token')
+  assert.equal(connection.ig_user_id, 'accounts-ig-private')
+  assert.equal(connection.ig_username, 'accounts_private_username')
+  assert.equal(telemetry.some(event => event.stage === 'pages_fallback'), false)
 })
 
 test('single Page target probe reports accessible target without Instagram account', async () => {
@@ -256,6 +285,7 @@ test('target probe failure logs only sanitized Meta fields and still calls user 
   })
   assert.equal(userProbeCalled, true)
   assert.equal(accountsCalled, true)
+  assert.equal(telemetry.some(event => event.stage === 'pages_fallback'), false)
   assert.doesNotMatch(JSON.stringify(telemetry), /raw target|page-private|user-private|sensitive-token/i)
 })
 
@@ -286,6 +316,7 @@ test('user probe failure logs only sanitized Meta fields and leaves /me/accounts
     http_status: 400, meta_code: 190, meta_subcode: 463,
   })
   assert.equal(accountsCalled, true)
+  assert.equal(telemetry.some(event => event.stage === 'pages_fallback'), false)
   assert.doesNotMatch(JSON.stringify(telemetry), /raw user|page-private|ig-private|private_target_username|sensitive-token/i)
 })
 
@@ -311,32 +342,50 @@ for (const scenario of [
     expected: { has_page_id: true, has_page_access_token: true, has_instagram_business_account: true, has_instagram_username: false },
   },
 ] as const) {
-  test(`target capabilities reports missing ${scenario.name} without using target as connection`, async () => {
+  test(`empty /me/accounts does not fall back when target is missing ${scenario.name}`, async () => {
     const telemetry: InstagramOAuthTelemetryInput[] = []
     const fetcher = (async (input: URL | RequestInfo) => {
       const url = new URL(String(input))
       if (url.pathname.endsWith('/oauth/access_token') && url.searchParams.has('code')) return Response.json({ access_token: 'short-sensitive-token' })
       if (url.pathname.endsWith('/oauth/access_token')) return Response.json({ access_token: 'long-sensitive-token', expires_in: 3600 })
       if (url.pathname.endsWith('/debug_token')) return debugTokenResponse(ALL_PERMISSIONS, [{ scope: 'pages_show_list', target_ids: ['target-page-private'] }])
-      if (url.pathname.endsWith('/me/accounts')) {
-        return Response.json({ data: [{
-          id: 'accounts-page-private', access_token: 'accounts-page-sensitive-token',
-          instagram_business_account: { id: 'accounts-ig-private', username: 'accounts_private_username' },
-        }] })
-      }
+      if (url.pathname.endsWith('/me/accounts')) return Response.json({ data: [] })
       if (url.pathname.endsWith('/me')) return Response.json({ id: 'user-private' })
       return Response.json(scenario.target)
     }) as typeof fetch
 
-    const connection = await resolveInstagramConnection({ ...baseInput, fetcher, telemetry: event => telemetry.push(event) })
+    await assert.rejects(
+      () => resolveInstagramConnection({ ...baseInput, fetcher, telemetry: event => telemetry.push(event) }),
+      error => (error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.stage === 'eligible_count',
+    )
     assert.deepEqual(telemetry[1], { stage: 'page_target_capabilities', target_count: 1, ...scenario.expected })
-    assert.equal(connection.page_id, 'accounts-page-private')
-    assert.equal(connection.page_access_token, 'accounts-page-sensitive-token')
-    assert.equal(connection.ig_user_id, 'accounts-ig-private')
-    assert.equal(connection.ig_username, 'accounts_private_username')
+    assert.equal(telemetry.some(event => event.stage === 'pages_fallback'), false)
     assert.doesNotMatch(JSON.stringify(telemetry), /target-page-private|target-ig-private|target_private_username|sensitive-token/i)
   })
 }
+
+test('empty /me/accounts does not choose among multiple granular targets', async () => {
+  const telemetry: InstagramOAuthTelemetryInput[] = []
+  let directTargetCalls = 0
+  const fetcher = (async (input: URL | RequestInfo) => {
+    const url = new URL(String(input))
+    if (url.pathname.endsWith('/oauth/access_token') && url.searchParams.has('code')) return Response.json({ access_token: 'short-sensitive-token' })
+    if (url.pathname.endsWith('/oauth/access_token')) return Response.json({ access_token: 'long-sensitive-token', expires_in: 3600 })
+    if (url.pathname.endsWith('/debug_token')) return debugTokenResponse(ALL_PERMISSIONS, [{
+      scope: 'pages_show_list', target_ids: ['target-page-private-a', 'target-page-private-b'],
+    }])
+    if (url.pathname.endsWith('/me/accounts')) return Response.json({ data: [] })
+    directTargetCalls += 1
+    return Response.json({})
+  }) as typeof fetch
+
+  await assert.rejects(
+    () => resolveInstagramConnection({ ...baseInput, fetcher, telemetry: event => telemetry.push(event) }),
+    error => (error as { telemetry?: InstagramOAuthTelemetryEvent }).telemetry?.stage === 'eligible_count',
+  )
+  assert.equal(directTargetCalls, 0)
+  assert.equal(telemetry.some(event => event.stage === 'pages_fallback'), false)
+})
 
 test('debug_token failure is sanitized and does not block the existing pages flow', async () => {
   const telemetry: InstagramOAuthTelemetryInput[] = []
@@ -393,7 +442,7 @@ test('success records stage=success and preserves the connected redirect', async
 test('central logger allowlists fields and never serializes raw OAuth data', () => {
   const messages: string[] = []
   logInstagramOAuthEvent(message => messages.push(message), {
-    stage: 'pages',
+    stage: 'pages_fallback',
     http_status: 400,
     meta_code: 190,
     meta_subcode: 460,
@@ -411,6 +460,7 @@ test('central logger allowlists fields and never serializes raw OAuth data', () 
     has_page_access_token: true,
     has_instagram_username: true,
     pages_count: 5,
+    used: true,
     eligible_count: 1,
     supabase_code: 'PGRST204',
     access_token: 'forbidden',
@@ -427,13 +477,13 @@ test('central logger allowlists fields and never serializes raw OAuth data', () 
   } as InstagramOAuthTelemetryInput)
 
   assert.deepEqual(JSON.parse(messages[0]), {
-    event: 'instagram_oauth', stage: 'pages', http_status: 400, meta_code: 190, meta_subcode: 460,
+    event: 'instagram_oauth', stage: 'pages_fallback', http_status: 400, meta_code: 190, meta_subcode: 460,
     instagram_basic: true, instagram_content_publish: true, pages_show_list: true,
     pages_read_engagement: true, page_target_count: 2,
     probe: 'target', target_count: 1, token_user_resolved: true,
     target_accessible: true, has_instagram_business_account: true,
     has_page_id: true, has_page_access_token: true, has_instagram_username: true,
-    pages_count: 5, eligible_count: 1, supabase_code: 'PGRST204',
+    pages_count: 5, used: true, eligible_count: 1, supabase_code: 'PGRST204',
   })
   assert.doesNotMatch(messages[0], /forbidden|"access_token":|"page_access_token":|code OAuth|state|"page_id":|ig_user_id|target_ids|Authorization|SECRET|raw_body/i)
 })

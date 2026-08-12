@@ -135,7 +135,7 @@ const probePageTarget = async (
 ) => {
   if (pageTargets.length !== 1) {
     telemetry?.({ stage: 'page_target_probe', target_count: pageTargets.length })
-    return
+    return null
   }
 
   let proof: string
@@ -143,7 +143,7 @@ const probePageTarget = async (
     proof = await appSecretProof(userToken, appSecret)
   } catch {
     telemetry?.({ stage: 'page_target_probe', probe: 'target' })
-    return
+    return null
   }
 
   let targetResponse: Record<string, unknown> | null = null
@@ -185,17 +185,25 @@ const probePageTarget = async (
     telemetry?.(getInstagramOAuthFailure(error, 'page_target_probe'))
   }
 
-  if (targetFailed || userFailed) return
+  if (targetFailed || userFailed) return null
   const instagram = targetResponse?.instagram_business_account
+  const tokenUserResolved = hasText(userResponse?.id)
+  const targetAccessible = hasText(targetResponse?.id)
   telemetry?.({
     stage: 'page_target_probe',
     target_count: 1,
-    token_user_resolved: typeof userResponse?.id === 'string' && Boolean(userResponse.id),
-    target_accessible: typeof targetResponse?.id === 'string' && Boolean(targetResponse.id),
+    token_user_resolved: tokenUserResolved,
+    target_accessible: targetAccessible,
     has_instagram_business_account: Boolean(
-      instagram && typeof instagram === 'object' && typeof (instagram as Record<string, unknown>).id === 'string',
+      instagram && typeof instagram === 'object' && hasText((instagram as Record<string, unknown>).id),
     ),
   })
+
+  if (!tokenUserResolved || !targetAccessible || !hasText(targetResponse?.access_token)) return null
+  if (!instagram || typeof instagram !== 'object') return null
+  const instagramRecord = instagram as Record<string, unknown>
+  if (!hasText(instagramRecord.id) || !hasText(instagramRecord.username)) return null
+  return targetResponse
 }
 
 export async function resolveInstagramConnection(input: {
@@ -240,7 +248,9 @@ export async function resolveInstagramConnection(input: {
     input.telemetry?.(getInstagramOAuthFailure(error, 'permissions'))
   }
 
-  if (pageTargets) await probePageTarget(fetcher, version, input.appSecret, userToken, pageTargets, input.telemetry)
+  const targetCandidate = pageTargets
+    ? await probePageTarget(fetcher, version, input.appSecret, userToken, pageTargets, input.telemetry)
+    : null
 
   const pagesUrl = new URL(`https://graph.facebook.com/${version}/me/accounts`)
   pagesUrl.searchParams.set('fields', 'id,name,access_token,instagram_business_account{id,username}')
@@ -254,7 +264,9 @@ export async function resolveInstagramConnection(input: {
   const pagesResponse = await requestJson(fetcher, pagesUrl, 'pages')
   const pages = Array.isArray(pagesResponse.data) ? pagesResponse.data : []
   input.telemetry?.({ stage: 'pages', pages_count: pages.length })
-  const eligible = pages.filter((page): page is Record<string, unknown> => {
+  const pageCandidates = pages.length === 0 && targetCandidate ? [targetCandidate] : pages
+  if (pages.length === 0 && targetCandidate) input.telemetry?.({ stage: 'pages_fallback', used: true })
+  const eligible = pageCandidates.filter((page): page is Record<string, unknown> => {
     if (!page || typeof page !== 'object') return false
     const candidate = page as Record<string, unknown>
     const instagram = candidate.instagram_business_account
