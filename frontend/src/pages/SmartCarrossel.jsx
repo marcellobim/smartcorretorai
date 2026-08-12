@@ -364,7 +364,6 @@ export default function SmartCarrossel() {
         <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#ecfdf5_52%,#ecfeff_100%)] text-slate-900 shadow-2xl shadow-emerald-100/70">
           <ProductHero
             id="smart-carousel-title"
-            eyebrow="Carrossel de Anúncios"
             productName="Carrossel de Anúncios"
             headline="Apresentação Profissional"
             description="Transforme as fotos do seu imóvel em uma apresentação elegante, dinâmica e pronta para divulgação."

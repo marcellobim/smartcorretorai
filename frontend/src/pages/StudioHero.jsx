@@ -126,7 +126,6 @@ const STUDIO_CREATION_MODES = [
     id: 'smart_tour',
     title: 'Vídeo Imobiliário',
     description: 'Transforme até 5 fotos em uma apresentação imobiliária profissional com narração, apresentador virtual, movimentos cinematográficos e sugestões realistas de mobiliário criadas por IA.',
-    status: 'Ativo agora',
     Icon: Sparkles,
     active: true,
     accent: 'cyan',
@@ -136,7 +135,6 @@ const STUDIO_CREATION_MODES = [
     id: 'cinematic',
     title: 'Comercial Imobiliário',
     description: 'Transforme uma imagem do imóvel em um comercial profissional, com movimentos, narração, música e chamada para divulgação.',
-    status: 'Ativo agora',
     Icon: Film,
     active: true,
     accent: 'cyan',
@@ -146,7 +144,6 @@ const STUDIO_CREATION_MODES = [
     id: 'free_ai',
     title: 'Vídeo Criativo',
     description: 'Descreva sua ideia e transforme-a em um vídeo criativo exclusivo, pronto para divulgação.',
-    status: 'Ativo agora',
     Icon: MessageSquareText,
     active: true,
     accent: 'violet',
@@ -156,7 +153,6 @@ const STUDIO_CREATION_MODES = [
     id: 'smart_carousel',
     title: 'Carrossel de Anúncios',
     description: 'Crie apresentações em formato de carrossel, prontas para redes sociais e campanhas imobiliárias.',
-    status: 'ATIVO AGORA',
     Icon: ImagePlus,
     active: true,
     accent: 'green',
@@ -2030,9 +2026,9 @@ export default function StudioHero() {
                     <span className={`relative flex h-12 w-12 items-center justify-center rounded-2xl ${accent.icon}`}>
                       <ModeIcon className="h-5 w-5" />
                     </span>
-                    <span className={`relative rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${accent.status}`}>
+                    {mode.status && <span className={`relative rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${accent.status}`}>
                       {mode.status}
-                    </span>
+                    </span>}
                   </div>
                   <h2 className="relative mt-5 text-xl font-black text-slate-950">{mode.title}</h2>
                   <p className="relative mt-3 flex-1 text-sm font-semibold leading-6 text-slate-600">{mode.description}</p>
@@ -2080,8 +2076,8 @@ export default function StudioHero() {
           <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${isFreeAiMode ? 'via-violet-200/70' : 'via-blue-200/70'} to-transparent`} />
           <ProductHero
             id="studio-ia-flow-title"
-            eyebrow={isFreeAiMode ? 'Vídeo Criativo' : 'Comercial Imobiliário'}
-            productName={isFreeAiMode ? 'Vamos transformar sua ideia em um vídeo.' : 'Vamos criar seu comercial.'}
+            productName={isFreeAiMode ? 'Vídeo Criativo' : 'Comercial Imobiliário'}
+            headline={isFreeAiMode ? 'Vamos transformar sua ideia em um vídeo.' : 'Vamos criar seu comercial.'}
             description={isFreeAiMode
               ? 'O Studio IA vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
               : 'O Studio IA vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
