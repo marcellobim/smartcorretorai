@@ -190,8 +190,8 @@ export default function Privacidade() {
               </ul>
               <p className="mt-2">
                 Para exercer seus direitos, entre em contato pelo e-mail{' '}
-                <a href="mailto:privacidade@smartcorretorai.com.br" className="text-primary-600 hover:underline">
-                  privacidade@smartcorretorai.com.br
+                <a href="mailto:suporte@smartcorretorai.com" className="text-primary-600 hover:underline">
+                  suporte@smartcorretorai.com
                 </a>.
               </p>
             </section>
@@ -226,14 +226,14 @@ export default function Privacidade() {
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>
                   E-mail geral:{' '}
-                  <a href="mailto:contato@smartcorretorai.com.br" className="text-primary-600 hover:underline">
-                    contato@smartcorretorai.com.br
+                  <a href="mailto:suporte@smartcorretorai.com" className="text-primary-600 hover:underline">
+                    suporte@smartcorretorai.com
                   </a>
                 </li>
                 <li>
                   E-mail privacidade:{' '}
-                  <a href="mailto:privacidade@smartcorretorai.com.br" className="text-primary-600 hover:underline">
-                    privacidade@smartcorretorai.com.br
+                  <a href="mailto:suporte@smartcorretorai.com" className="text-primary-600 hover:underline">
+                    suporte@smartcorretorai.com
                   </a>
                 </li>
               </ul>

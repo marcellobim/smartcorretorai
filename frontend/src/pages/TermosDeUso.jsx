@@ -267,8 +267,8 @@ export default function TermosDeUso() {
               <h2 className="text-lg font-bold text-gray-800 mb-2">18. Contato</h2>
               <p>
                 Dúvidas sobre estes Termos podem ser enviadas para:{' '}
-                <a href="mailto:contato@smartcorretorai.com.br" className="text-primary-600 hover:underline">
-                  contato@smartcorretorai.com.br
+                <a href="mailto:suporte@smartcorretorai.com" className="text-primary-600 hover:underline">
+                  suporte@smartcorretorai.com
                 </a>
               </p>
             </section>

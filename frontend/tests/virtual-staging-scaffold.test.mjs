@@ -19,14 +19,14 @@ test('registers Virtual Space on the preserved Virtual Staging technical route',
   assert.match(layout, /location\.pathname === '\/virtual-staging'/)
 })
 
-test('places Virtual Space beside Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
+test('places Virtual Space before Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const sidebar = read('frontend/src/components/layout/Sidebar.jsx')
   const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
   const bannersPosition = catalog.indexOf("id: 'banners-rapidos'")
   const stagingPosition = catalog.indexOf("id: 'virtual-staging'")
 
-  assert.ok(bannersPosition >= 0 && stagingPosition > bannersPosition)
+  assert.ok(stagingPosition >= 0 && bannersPosition > stagingPosition)
   assert.match(catalog, /id: 'virtual-staging'[\s\S]*?title: 'Virtual Space'[\s\S]*?to: '\/virtual-staging'[\s\S]*?label: 'Criar projeto'/)
   assert.doesNotMatch(catalog, /Smart Tokens|smart-tokens|to: '\/planos'/)
   assert.match(sidebar, /to: '\/planos'[\s\S]*?label: 'Smart Tokens'/)

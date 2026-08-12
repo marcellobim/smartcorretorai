@@ -28,7 +28,7 @@ test('keeps every baseline route and adds an isolated Smart Tour route', () => {
 test('uses the approved Video Imobiliario copy in the Dashboard and keeps its internal route', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
-  const ids = ['smart-tour-ai', 'hero-ia', 'studio-hero', 'banners-rapidos', 'virtual-staging']
+  const ids = ['smart-tour-ai', 'hero-ia', 'studio-hero', 'virtual-staging', 'banners-rapidos']
   const positions = ids.map(id => catalog.indexOf(`id: '${id}'`))
   assert.ok(positions.every(position => position >= 0))
   assert.deepEqual([...positions].sort((a, b) => a - b), positions)
