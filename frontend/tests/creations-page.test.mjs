@@ -13,6 +13,7 @@ const sidebar = read('src/components/layout/Sidebar.jsx')
 const smartTour = read('src/pages/SmartTourAI.jsx')
 const banner = read('src/pages/HeroNext.jsx')
 const campaignPackage = read('src/components/campaign/CampaignPackage.jsx')
+const quickBanners = read('src/pages/NovaCampanha.jsx')
 
 test('keeps the existing route and sidebar link while rendering the real page', () => {
   assert.match(app, /import Creations from '\.\/pages\/Creations'/)
@@ -108,4 +109,18 @@ test('uses the current design system and a responsive overflow-safe grid', () =>
   assert.match(page, /flex min-w-0 flex-col overflow-hidden/)
   assert.match(page, /break-words/)
   assert.doesNotMatch(page, /CampaignCard|Modal/)
+})
+
+test('maps Banners Rápidos with its product identity and no extra card affordances', () => {
+  assert.match(page, /banners_rapidos:[\s\S]*?label: 'Banners Rápidos'[\s\S]*?icon: Image[\s\S]*?tone: 'blue'/)
+  assert.match(page, /blue:[\s\S]*?bg-blue-500[\s\S]*?bg-blue-100 text-blue-700/)
+})
+
+test('withdraws associated Banners Rápidos through prepare-confirm and preserves legacy fallback', () => {
+  assert.match(quickBanners, /if \(render\?\.creation_id\) \{[\s\S]*body: \{ action: 'prepare', creation_id: render\.creation_id \}/)
+  assert.match(quickBanners, /prepared\.delivery_kind !== 'file'/)
+  assert.match(quickBanners, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name\)/)
+  assert.match(quickBanners, /body: \{ action: 'confirm', creation_id: render\.creation_id \}/)
+  assert.match(quickBanners, /else \{[\s\S]*downloadFileFromPrivateUrl\(finalUrl, getRenderDownloadName\(render, index\)\)/)
+  assert.match(quickBanners, /onWithdrawDownload=\{\(_filename, file\) => \{[\s\S]*baixarPecaVisual/)
 })

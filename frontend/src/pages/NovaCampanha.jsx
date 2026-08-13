@@ -2680,17 +2680,15 @@ export default function NovaCampanha() {
           setGenerationNotice('Textos IA gerados. Materiais visuais em preparação.')
           if (bData.warning) toast(bData.warning, { icon: '⚠️' })
           toast.success(`${rs.length} ${rs.length > 1 ? 'materiais em produção' : 'material em produção'}. Processando...`)
-          iniciarPollingRenders(rs, camp.id || null, selectedTemplates)
           // Linkar renders à campanha recém-criada (gerar-banners rodou sem campaign_id)
           if (camp.id) {
-            supabase
+            const { error: linkError } = await supabase
               .from('campaigns')
               .update({ banners: rs })
               .eq('id', camp.id)
-              .then(({ error: updErr }) => {
-                if (updErr && import.meta.env.DEV) console.warn('[link banners] falha controlada')
-              })
+            if (linkError && import.meta.env.DEV) console.warn('[link banners] falha controlada')
           }
+          iniciarPollingRenders(rs, camp.id || null, selectedTemplates)
         } else {
           if (import.meta.env.DEV) console.warn('[gerar-banners] retorno sem renders')
           setRenders(mergeRequestedVisualPieces(selectedTemplates, [], {
@@ -2819,7 +2817,28 @@ export default function NovaCampanha() {
 
     setDownloadingRenderKey(downloadKey)
     try {
-      await downloadFileFromPrivateUrl(finalUrl, getRenderDownloadName(render, index))
+      if (render?.creation_id) {
+        const headers = { Authorization: `Bearer ${accessToken}` }
+        const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
+          headers,
+          body: { action: 'prepare', creation_id: render.creation_id },
+        })
+        if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url || !prepared.download?.name) {
+          const body = await readFunctionErrorBody(prepareError)
+          throw new Error(body?.error || 'Não foi possível preparar o download desta criação.')
+        }
+        await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name)
+        const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
+          headers,
+          body: { action: 'confirm', creation_id: render.creation_id },
+        })
+        if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
+          const body = await readFunctionErrorBody(confirmError)
+          throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
+        }
+      } else {
+        await downloadFileFromPrivateUrl(finalUrl, getRenderDownloadName(render, index))
+      }
       toast.success('Download iniciado.')
     } catch (error) {
       const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
@@ -2858,7 +2877,28 @@ export default function NovaCampanha() {
     try {
       for (const [index, render] of readyPieces.entries()) {
         try {
-          await downloadFileFromPrivateUrl(getRenderFinalUrl(render), getRenderDownloadName(render, index))
+          if (render?.creation_id) {
+            const headers = { Authorization: `Bearer ${accessToken}` }
+            const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
+              headers,
+              body: { action: 'prepare', creation_id: render.creation_id },
+            })
+            if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url || !prepared.download?.name) {
+              const body = await readFunctionErrorBody(prepareError)
+              throw new Error(body?.error || 'Não foi possível preparar o download desta criação.')
+            }
+            await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name)
+            const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
+              headers,
+              body: { action: 'confirm', creation_id: render.creation_id },
+            })
+            if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
+              const body = await readFunctionErrorBody(confirmError)
+              throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
+            }
+          } else {
+            await downloadFileFromPrivateUrl(getRenderFinalUrl(render), getRenderDownloadName(render, index))
+          }
           completed += 1
         } catch (error) {
           const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
@@ -4180,6 +4220,11 @@ export default function NovaCampanha() {
                   }),
                 }}
                 onRefreshMedia={renovarUrlRender}
+                onWithdrawDownload={(_filename, file) => {
+                  const render = visualPieces.find(item => item?.render_id === file?.renderId)
+                  const index = visualPieces.indexOf(render)
+                  return baixarPecaVisual(render || file, index < 0 ? 0 : index)
+                }}
                 onCreateNew={() => resetCampaignState()}
                 createNewLabel="Criar banners para outro imóvel"
               />

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { registerBannersRapidosCreation } from './creation-runtime.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -174,10 +175,11 @@ serve(async (req) => {
     const markTimeout = payload.mark_timeout === true || payload.force_timeout === true
     const refreshUrls = payload.refresh_urls === true || payload.refreshUrls === true
     let campaignBanners: StoredRender[] = []
+    let campaignRecord: Record<string, unknown> | null = null
     if (campaignId) {
       const { data: campaign, error: campaignError } = await supabase
         .from('campaigns')
-        .select('id, banners')
+        .select('id, titulo, dados_imovel, banners')
         .eq('id', campaignId)
         .eq('user_id', user.id)
         .maybeSingle()
@@ -189,12 +191,13 @@ serve(async (req) => {
       if (!campaign) {
         return jsonResponse({ error: 'Campanha não encontrada' }, 404)
       }
+      campaignRecord = campaign as Record<string, unknown>
       campaignBanners = Array.isArray(campaign.banners) ? campaign.banners as StoredRender[] : []
     }
 
     console.log(`[${reqId}] get-render-status renders=${renderIds.length}`)
 
-    const renders = await Promise.all(renderIds.map(async (renderId) => {
+    let renders = await Promise.all(renderIds.map(async (renderId) => {
       const storedRender =
         campaignBanners.find(item => item?.render_id === renderId)
         || payloadRenders.find(item => item?.render_id === renderId)
@@ -346,13 +349,48 @@ serve(async (req) => {
       }
     }))
 
-    if (campaignId && campaignBanners.length > 0) {
+    if (campaignId && campaignRecord) {
+      const baseBanners = campaignBanners.length > 0 ? campaignBanners : payloadRenders
       const updatesById = new Map(renders.map(render => [render.render_id, render]))
-      const nextBanners = campaignBanners.map(item => {
+      let nextBanners = baseBanners.map(item => {
         const renderId = typeof item?.render_id === 'string' ? item.render_id : ''
         const update = updatesById.get(renderId)
         return update ? { ...item, ...update } : item
       })
+
+      const allRendersFinished = nextBanners.length > 0
+        && nextBanners.every(item => FINAL_STATUSES.has(normalizeStatus(item?.status)))
+      const canonicalRender = allRendersFinished
+        ? nextBanners.find(item => READY_STATUSES.has(normalizeStatus(item?.status)))
+        : undefined
+      const canonicalStatus = normalizeStatus(canonicalRender?.status)
+      if (canonicalRender && READY_STATUSES.has(canonicalStatus)) {
+        try {
+          const registration = await registerBannersRapidosCreation({
+            supabase,
+            userId: user.id,
+            campaign: campaignRecord,
+            render: canonicalRender,
+            completedAt: typeof canonicalRender.final_url_requested_at === 'string'
+              ? canonicalRender.final_url_requested_at
+              : new Date().toISOString(),
+          })
+          nextBanners = nextBanners.map((item, index) => index === 0
+            ? { ...item, creation_id: registration.creation.id }
+            : item)
+          renders = renders.map(item => item.render_id === canonicalRender.render_id
+            ? { ...item, creation_id: registration.creation.id }
+            : item)
+        } catch (creationError) {
+          console.warn(`[${reqId}] falha controlada ao registrar Criacao de Banners Rapidos`, {
+            campaign_id: campaignId,
+            render_id: canonicalRender.render_id || null,
+            code: creationError && typeof creationError === 'object' && 'code' in creationError
+              ? creationError.code
+              : 'creation_registration_failed',
+          })
+        }
+      }
 
       const { error: updateError } = await supabase
         .from('campaigns')

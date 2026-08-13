@@ -22,6 +22,11 @@ const creationProducts = {
     icon: Video,
     tone: 'violet',
   },
+  banners_rapidos: {
+    label: 'Banners Rápidos',
+    icon: Image,
+    tone: 'blue',
+  },
   campanha_textos: {
     label: 'Campanha de Textos',
     icon: FileText,
@@ -37,6 +42,10 @@ const creationTones = {
   violet: {
     accent: 'bg-violet-500',
     icon: 'bg-violet-100 text-violet-700',
+  },
+  blue: {
+    accent: 'bg-blue-500',
+    icon: 'bg-blue-100 text-blue-700',
   },
   gold: {
     accent: 'bg-amber-500',
