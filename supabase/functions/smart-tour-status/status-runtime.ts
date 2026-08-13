@@ -25,6 +25,68 @@ export type SmartTourStatusDiagnostic = {
   providerMessage: string
 }
 
+export type CompletedVideoImobiliarioJob = {
+  id?: unknown
+  user_id?: unknown
+  status?: unknown
+  mode?: unknown
+  prompt_final?: unknown
+  output_video_path?: unknown
+  completed_at?: unknown
+}
+
+function boundedText(value: unknown, maximum = 200) {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, maximum) : ''
+}
+
+export function buildVideoImobiliarioTitle(prompt: unknown) {
+  try {
+    const briefing = JSON.parse(String(prompt || '')) as {
+      versao?: unknown
+      imovel?: { tipo?: unknown; localizacao?: { bairro?: unknown; cidade?: unknown } }
+    }
+    if (briefing.versao !== 'smart-tour-structured-briefing-v1') return null
+    const propertyType = boundedText(briefing.imovel?.tipo)
+    const location = boundedText(briefing.imovel?.localizacao?.bairro) || boundedText(briefing.imovel?.localizacao?.cidade)
+    return propertyType && location ? `${propertyType} em ${location}`.slice(0, 200) : null
+  } catch {
+    return null
+  }
+}
+
+export function buildVideoImobiliarioCreationInput(job: CompletedVideoImobiliarioJob) {
+  const id = boundedText(job.id)
+  const userId = boundedText(job.user_id)
+  const outputPath = boundedText(job.output_video_path, 1024)
+  const completedAt = boundedText(job.completed_at)
+  if (
+    job.status !== 'completed' ||
+    job.mode !== 'smart_tour_gemini_omni' ||
+    !id ||
+    !userId ||
+    !outputPath ||
+    !completedAt
+  ) return null
+
+  return {
+    user_id: userId,
+    product_key: 'video_imobiliario' as const,
+    source_ref: id,
+    title: buildVideoImobiliarioTitle(job.prompt_final),
+    delivery_kind: 'file' as const,
+    result_manifest: {
+      version: 1 as const,
+      files: [{
+        bucket: 'studio-videos' as const,
+        path: outputPath,
+        name: 'smartcorretorai-video-imobiliario.mp4',
+        mime_type: 'video/mp4',
+      }],
+    },
+    completed_at: completedAt,
+  }
+}
+
 export function isShortVideoPreProviderStale(
   job: { mode?: unknown; status?: unknown; provider_job_id?: unknown; created_at?: unknown },
   nowMs = Date.now(),

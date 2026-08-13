@@ -7,6 +7,7 @@ import {
   encodeGeminiOmniStreamState,
 } from '../_shared/geminiOmniClient.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
+import { createSupabaseCreationStore, registerCompletedCreation } from '../_shared/creations.ts'
 import {
   checkSmartTourCaptionRender,
   buildShortVideosCaptionPlan,
@@ -19,6 +20,7 @@ import {
 } from '../_shared/smart-tour/index.ts'
 import {
   classifySmartTourStatusError,
+  buildVideoImobiliarioCreationInput,
   isShortVideoPreProviderStale,
   maskSmartTourInteractionId,
   type SmartTourStatusStage,
@@ -52,7 +54,7 @@ serve(withCors(async req => {
     log('job_lookup_started')
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final,mode,created_at,marketing_hashtags,input_image_1_path')
+      .select('id,user_id,status,provider_job_id,output_video_path,error_message,prompt_final,mode,created_at,completed_at,marketing_hashtags,input_image_1_path')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -68,6 +70,19 @@ serve(withCors(async req => {
     }
     log('job_lookup_completed', { jobStatus: job.status, providerIdPresent: Boolean(job.provider_job_id) })
 
+    const registerVideoImobiliarioCreation = async (completedJob: typeof job) => {
+      const input = buildVideoImobiliarioCreationInput(completedJob)
+      if (!input) return null
+      try {
+        const registered = await registerCompletedCreation(createSupabaseCreationStore(supabase), input)
+        log('creation_registration_completed', { product: 'video_imobiliario', created: registered.created })
+        return registered.creation.id
+      } catch {
+        console.warn('[smart-tour-status] creation_registration_failed', JSON.stringify({ traceId, product: 'video_imobiliario' }))
+        return null
+      }
+    }
+
     if (job.status === 'failed') return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
 
     if (job.status === 'completed' && job.output_video_path) {
@@ -75,8 +90,9 @@ serve(withCors(async req => {
       log('completed_url_started')
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
       if (error) throw new Error('status_completed_url_failed')
+      const creationId = await registerVideoImobiliarioCreation(job)
       log('completed_url_completed', { isShortVideos: job.mode === 'smart_tour_gemini_omni_short_video', totalProcessingDurationMs: Math.max(0, Date.now() - Date.parse(job.created_at)) })
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], ...(creationId ? { creationId } : {}) })
     }
 
     if (!job.provider_job_id) {
@@ -139,16 +155,18 @@ serve(withCors(async req => {
       if (uploadError) throw new Error('status_caption_video_upload_failed')
 
       stage = 'completed_persist'
+      const completedAt = new Date().toISOString()
       const { error: updateError } = await supabase
         .from('video_jobs')
-        .update({ status: 'completed', output_video_path: outputPath, completed_at: new Date().toISOString(), error_message: null })
+        .update({ status: 'completed', output_video_path: outputPath, completed_at: completedAt, error_message: null })
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (updateError) throw new Error('status_completed_persist_failed')
       await cleanupShortVideoRaw()
+      const creationId = await registerVideoImobiliarioCreation({ ...job, status: 'completed', output_video_path: outputPath, completed_at: completedAt })
       const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
       if (signedUrlError) throw new Error('status_result_url_failed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], ...(creationId ? { creationId } : {}) })
     }
 
     stage = 'interaction_poll'
@@ -251,20 +269,22 @@ serve(withCors(async req => {
 
     stage = 'completed_persist'
     log('completed_persist_started')
+    const completedAt = new Date().toISOString()
     const { error: updateError } = await supabase
       .from('video_jobs')
-      .update({ status: 'completed', output_video_path: outputPath, completed_at: new Date().toISOString(), error_message: null })
+      .update({ status: 'completed', output_video_path: outputPath, completed_at: completedAt, error_message: null })
       .eq('id', jobId)
       .eq('user_id', user.id)
     if (updateError) throw new Error('status_completed_persist_failed')
     log('completed_persist_completed')
+    const creationId = await registerVideoImobiliarioCreation({ ...job, status: 'completed', output_video_path: outputPath, completed_at: completedAt })
 
     stage = 'result_url'
     log('result_url_started')
     const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
     if (signedUrlError) throw new Error('status_result_url_failed')
     log('result_url_completed', { isShortVideos: job.mode === 'smart_tour_gemini_omni_short_video', totalProcessingDurationMs: Math.max(0, Date.now() - Date.parse(job.created_at)), resultFormat: remote.delivery })
-    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
+    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], ...(creationId ? { creationId } : {}) })
   } catch (error) {
     const diagnostic = classifySmartTourStatusError(error, stage)
     const logger = diagnostic.retriable ? console.warn : console.error

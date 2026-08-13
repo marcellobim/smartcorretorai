@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Download, FileText, Info, Loader2, PackageOpen } from 'lucide-react'
+import { Download, FileText, Info, Loader2, PackageOpen, Video } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { ProductButton, ProductCard, SMART_UI } from '../components/design-system'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { formatCompleteTextCampaign, isCompleteTextCampaignResult } from '../lib/text-campaign-result'
+import { downloadFileFromPrivateUrl } from '../lib/download-file'
 
 const CREATION_SELECT = 'id,product_key,title,delivery_kind,completed_at,expires_at'
 
 const creationProducts = {
+  video_imobiliario: {
+    label: 'Vídeo Imobiliário',
+    icon: Video,
+    tone: 'violet',
+  },
   campanha_textos: {
     label: 'Campanha de Textos',
     icon: FileText,
@@ -19,6 +25,10 @@ const creationProducts = {
 }
 
 const creationTones = {
+  violet: {
+    accent: 'bg-violet-500',
+    icon: 'bg-violet-100 text-violet-700',
+  },
   gold: {
     accent: 'bg-amber-500',
     icon: 'bg-amber-100 text-amber-700',
@@ -146,16 +156,20 @@ export default function Creations() {
         headers,
         body: { action: 'prepare', creation_id: creation.id },
       })
-      if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'text') {
+      if (prepareError || !prepared?.ok || !['text', 'file'].includes(prepared.delivery_kind)) {
         const body = await readFunctionError(prepareError)
         throw new Error(body?.error || 'Não foi possível preparar o download.')
       }
-      const campaign = prepared.download?.content?.campaign
-      if (!isCompleteTextCampaignResult(campaign) || !prepared.download?.name) {
-        throw new Error('O conteúdo desta criação está indisponível.')
+      if (prepared.delivery_kind === 'file') {
+        if (!prepared.download?.url || !prepared.download?.name) throw new Error('O arquivo desta criação está indisponível.')
+        await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name)
+      } else {
+        const campaign = prepared.download?.content?.campaign
+        if (!isCompleteTextCampaignResult(campaign) || !prepared.download?.name) {
+          throw new Error('O conteúdo desta criação está indisponível.')
+        }
+        startTextDownload(formatCompleteTextCampaign(campaign), prepared.download.name)
       }
-
-      startTextDownload(formatCompleteTextCampaign(campaign), prepared.download.name)
 
       const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
         headers,

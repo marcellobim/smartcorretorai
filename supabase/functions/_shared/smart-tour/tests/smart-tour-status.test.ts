@@ -6,6 +6,8 @@ import path from 'node:path'
 import {
   SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH,
   SHORT_VIDEO_PRE_PROVIDER_STALE_MS,
+  buildVideoImobiliarioCreationInput,
+  buildVideoImobiliarioTitle,
   classifySmartTourStatusError,
   isShortVideoPreProviderStale,
   maskSmartTourInteractionId,
@@ -15,6 +17,60 @@ import {
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..')
 const statusSource = readFileSync(path.join(repositoryRoot, 'supabase/functions/smart-tour-status/index.ts'), 'utf8')
+
+const videoJob = {
+  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  user_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  status: 'completed',
+  mode: 'smart_tour_gemini_omni',
+  output_video_path: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/smart-tour.mp4',
+  completed_at: '2026-08-12T18:00:00.000Z',
+  prompt_final: JSON.stringify({
+    versao: 'smart-tour-structured-briefing-v1',
+    imovel: { tipo: 'Apartamento', localizacao: { bairro: 'Vila Mariana', cidade: 'São Paulo' } },
+  }),
+}
+
+test('builds the single Video Imobiliário creation from the owned final file', () => {
+  assert.deepEqual(buildVideoImobiliarioCreationInput(videoJob), {
+    user_id: videoJob.user_id,
+    product_key: 'video_imobiliario',
+    source_ref: videoJob.id,
+    title: 'Apartamento em Vila Mariana',
+    delivery_kind: 'file',
+    result_manifest: {
+      version: 1,
+      files: [{
+        bucket: 'studio-videos',
+        path: videoJob.output_video_path,
+        name: 'smartcorretorai-video-imobiliario.mp4',
+        mime_type: 'video/mp4',
+      }],
+    },
+    completed_at: videoJob.completed_at,
+  })
+})
+
+test('never registers pending, failed or Short Videos jobs as Video Imobiliário', () => {
+  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, status: 'pending' }), null)
+  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, status: 'failed' }), null)
+  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, mode: 'smart_tour_gemini_omni_short_video' }), null)
+  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, output_video_path: null }), null)
+})
+
+test('uses only reliable structured property data for the creation title', () => {
+  assert.equal(buildVideoImobiliarioTitle(videoJob.prompt_final), 'Apartamento em Vila Mariana')
+  assert.equal(buildVideoImobiliarioTitle('{"versao":"unknown"}'), null)
+  assert.equal(buildVideoImobiliarioTitle('not-json'), null)
+})
+
+test('status registers completed Video Imobiliário jobs through the idempotent shared helper', () => {
+  assert.match(statusSource, /createSupabaseCreationStore, registerCompletedCreation/)
+  assert.match(statusSource, /buildVideoImobiliarioCreationInput\(completedJob\)/)
+  assert.match(statusSource, /product: 'video_imobiliario'/)
+  assert.match(statusSource, /\.\.\.\(creationId \? \{ creationId \} : \{\}\)/)
+  assert.doesNotMatch(statusSource, /product_key:\s*'short_videos'/)
+})
 
 test('keeps processing when the Interactions API is briefly not ready', () => {
   for (const status of [404, 408, 409, 425, 429, 500, 502, 503, 504]) {

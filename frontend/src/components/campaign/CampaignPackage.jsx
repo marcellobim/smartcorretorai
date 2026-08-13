@@ -181,7 +181,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, sharePublish, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, sharePublish, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
@@ -200,7 +200,11 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     setDownloadError('')
     setDownloadingKey(key)
     try {
-      await downloadFileFromPrivateUrl(url, filename)
+      if (typeof onWithdrawDownload === 'function' && campaign.mediaType === 'video' && key === 'video' && url === campaign.downloadUrl) {
+        await onWithdrawDownload(filename)
+      } else {
+        await downloadFileFromPrivateUrl(url, filename)
+      }
     } catch (error) {
       const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
       if (refreshable && onRefreshMedia) {
