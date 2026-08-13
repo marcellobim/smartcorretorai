@@ -83,6 +83,11 @@ function virtualStagingConfirmation(id, answer, journeyId) {
   return confirmations[id] || 'Perfeito! Informação registrada.'
 }
 
+async function downloadFurnishRenovateResult(result) {
+  const fallbackName = `virtual-staging-${String(result.originalIndex + 1).padStart(2, '0')}.jpg`
+  await downloadFileFromPrivateUrl(result.afterUrl, fallbackName)
+}
+
 function FurnishRenovateResultCard({ result }) {
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
@@ -91,7 +96,7 @@ function FurnishRenovateResultCard({ result }) {
     setDownloadError('')
     setDownloading(true)
     try {
-      await downloadFileFromPrivateUrl(result.afterUrl, `virtual-staging-${String(result.originalIndex + 1).padStart(2, '0')}.jpg`)
+      await downloadFurnishRenovateResult(result)
     } catch (error) {
       setDownloadError(getDownloadErrorMessage(error))
     } finally {
@@ -113,12 +118,11 @@ function FurnishRenovateResultCard({ result }) {
   </article>
 }
 
-function FurnishRenovateDelivery({ results, onCreateNew }) {
+function FurnishRenovateDelivery({ results, sessionCreationId, onCreateNew }) {
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
-
   return (
-    <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
+    <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title" data-creation-id={sessionCreationId || undefined}>
       <ProductCard className="p-5 sm:p-7">
         <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">Seu Virtual Staging está pronto</h2>
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">Algumas imagens não puderam ser concluídas.</p>}
@@ -230,6 +234,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
   const [furnishResults, setFurnishResults] = useState([])
+  const [furnishSessionCreationId, setFurnishSessionCreationId] = useState(null)
   const [hasAttemptedFurnishGeneration, setHasAttemptedFurnishGeneration] = useState(false)
   const activeJobKey = getVirtualStagingJourneySessionKey(journey.id)
   const isFurnishRenovate = journey.id === FURNISH_RENOVATE_JOURNEY_ID
@@ -429,6 +434,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     setHasAttemptedFurnishGeneration(true)
     setStatus('uploading')
     setMessage('')
+    setFurnishSessionCreationId(null)
 
     const orderedImages = images.slice()
     const initialResults = orderedImages.map((image, originalIndex) => ({
@@ -454,7 +460,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       const authenticatedUser = authData?.user
       if (authError || !authenticatedUser?.id) throw new Error('auth_required')
 
-      const requestId = crypto.randomUUID()
+      const sessionId = crypto.randomUUID()
+      let completedCount = 0
       for (let imageIndex = 0; imageIndex < orderedImages.length; imageIndex += 1) {
         const image = orderedImages[imageIndex]
         const file = image?.file
@@ -464,7 +471,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         }
 
         const extension = file.type === 'image/png' ? 'png' : 'jpg'
-        const inputPath = `${authenticatedUser.id}/virtual-staging-images/inputs/${requestId}/${String(imageIndex + 1).padStart(2, '0')}.${extension}`
+        const inputPath = `${authenticatedUser.id}/virtual-staging-images/inputs/${sessionId}/${String(imageIndex + 1).padStart(2, '0')}.${extension}`
         updateResult(image.key, { status: 'uploading', inputPath })
         setStatus('uploading')
         const { error: uploadError } = await supabase.storage.from(BUCKET).upload(inputPath, file, { contentType: file.type, upsert: false })
@@ -480,6 +487,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           input_path: inputPath,
           transformation_type: transformationType,
           decoration_style: decorationStyle,
+          expected_count: orderedImages.length,
         } })
         const outputPath = data?.result?.output_path
         if (error || !data?.ok || typeof outputPath !== 'string' || !outputPath) {
@@ -504,6 +512,21 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           sizeBytes: data.result.size_bytes ?? null,
           error: '',
         })
+        completedCount += 1
+      }
+      if (completedCount === orderedImages.length) {
+        const { data: finalized, error: finalizeError } = await supabase.functions.invoke('virtual-staging-image-test', {
+          body: {
+            action: 'finalize_session',
+            session_id: sessionId,
+            expected_count: orderedImages.length,
+          },
+        })
+        if (!finalizeError && finalized?.ok && typeof finalized.creation_id === 'string') {
+          setFurnishSessionCreationId(finalized.creation_id)
+        } else {
+          setMessage('As imagens ficaram prontas, mas não foi possível adicioná-las à central Criações agora.')
+        }
       }
       setStatus('completed')
     } catch {
@@ -549,7 +572,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setFurnishSessionCreationId(null); setHasAttemptedFurnishGeneration(false) }
   if (isFurnishRenovate && !hasStartedFurnish) return <section aria-labelledby="virtual-staging-chat-intro-title" className="mt-10">
     <ProductCard className="p-6 sm:p-8">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">SmartCorretorAI</p>
@@ -562,7 +585,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     </ProductCard>
   </section>
   if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} />
-  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} />
+  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} sessionCreationId={furnishSessionCreationId} onCreateNew={reset} />
   if (result) return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl }} mediaPresentation="mobile" sharePublish={{ enabled: true }} onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>Consultar resultado novamente</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">Criar novo projeto</button></div></section>
 

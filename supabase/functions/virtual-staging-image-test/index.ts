@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jsonResponse, withCors } from '../_shared/cors.ts'
+import { createSupabaseCreationStore } from '../_shared/creations.ts'
 import {
   VIRTUAL_STAGING_OPENAI_TIMEOUT_MS,
   VIRTUAL_STAGING_OUTPUT_MIME,
@@ -10,6 +11,11 @@ import {
   type ImageEditRequest,
   type SafeUsage,
 } from './runtime.ts'
+import {
+  createSupabaseVirtualStagingSessionOutputStore,
+  finalizeVirtualStagingSession,
+  recordVirtualStagingSessionOutput,
+} from './creation-runtime.ts'
 
 const STORAGE_BUCKET = 'studio-videos'
 const OPENAI_IMAGE_EDIT_URL = 'https://api.openai.com/v1/images/edits'
@@ -86,6 +92,8 @@ serve(withCors(async (request) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+  const creationStore = createSupabaseCreationStore(supabase)
+  const sessionOutputStore = createSupabaseVirtualStagingSessionOutputStore(supabase)
   return handleVirtualStagingImageTest(request, {
     authenticate: async (currentRequest) => {
       const token = (currentRequest.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
@@ -108,6 +116,18 @@ serve(withCors(async (request) => {
         upsert: false,
       })
       if (error) throw new Error('storage_upload_failed')
+    },
+    recordSessionOutput: async input => {
+      await recordVirtualStagingSessionOutput(sessionOutputStore, input)
+    },
+    finalizeSession: async input => {
+      const registration = await finalizeVirtualStagingSession(creationStore, sessionOutputStore, input)
+      return {
+        id: registration.creation.id,
+        deliveryKind: input.expectedCount === 1 ? 'file' : 'bundle',
+        fileCount: input.expectedCount,
+        created: registration.created,
+      }
     },
     createJobId: () => crypto.randomUUID(),
     now: () => Date.now(),

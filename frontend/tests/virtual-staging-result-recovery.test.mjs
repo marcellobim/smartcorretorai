@@ -119,7 +119,9 @@ test('secondary preview errors stay local and video remains the result only for 
 test('furnish-renovate uses the private image result while other modules keep CampaignPackage', () => {
   const delivery = page.slice(page.indexOf('function FurnishRenovateResultCard'), page.indexOf('function FurnishRenovateProcessing'))
   assert.match(delivery, /label: 'Antes'[\s\S]*label: 'Depois'/)
-  assert.match(delivery, /downloadFileFromPrivateUrl\(result\.afterUrl, `virtual-staging-\$\{String\(result\.originalIndex \+ 1\)\.padStart\(2, '0'\)\}\.jpg`\)/)
+  assert.match(page, /const fallbackName = `virtual-staging-\$\{String\(result\.originalIndex \+ 1\)\.padStart\(2, '0'\)\}\.jpg`/)
+  assert.match(page, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
+  assert.match(delivery, /downloadFurnishRenovateResult\(result\)/)
   assert.match(delivery, /Baixar imagem transformada/)
   assert.match(delivery, /Criar novo projeto/)
   assert.doesNotMatch(delivery, /CampaignPackage|Textos para divulgação|Hashtags|Instagram|WhatsApp|Facebook|LinkedIn|Próximos passos/)

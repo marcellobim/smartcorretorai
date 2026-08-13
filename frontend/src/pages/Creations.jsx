@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Download, FileText, Image, Info, Loader2, PackageOpen, Video } from 'lucide-react'
+import { Check, Download, FileText, Image, Info, Loader2, PackageOpen, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { ProductButton, ProductCard, SMART_UI } from '../components/design-system'
 import { useAuth } from '../lib/auth-context'
@@ -27,6 +27,11 @@ const creationProducts = {
     icon: Image,
     tone: 'blue',
   },
+  virtual_staging: {
+    label: 'Virtual Staging',
+    icon: Image,
+    tone: 'cyan',
+  },
   campanha_textos: {
     label: 'Campanha de Textos',
     icon: FileText,
@@ -46,6 +51,10 @@ const creationTones = {
   blue: {
     accent: 'bg-blue-500',
     icon: 'bg-blue-100 text-blue-700',
+  },
+  cyan: {
+    accent: 'bg-cyan-500',
+    icon: 'bg-cyan-100 text-cyan-700',
   },
   gold: {
     accent: 'bg-amber-500',
@@ -138,12 +147,60 @@ function CreationsEmptyState() {
   )
 }
 
+function BundleWithdrawalPanel({ withdrawal, downloadingIndex, confirming, confirmError, onClose, onDownload, onConfirm }) {
+  if (!withdrawal) return null
+  const completed = new Set(withdrawal.downloadedIndexes)
+  const allStarted = completed.size === withdrawal.files.length
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 sm:items-center sm:p-6" role="presentation">
+      <ProductCard as="section" role="dialog" aria-modal="true" aria-labelledby="bundle-withdrawal-title" className="w-full max-w-lg p-5 shadow-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="bundle-withdrawal-title" className="text-lg font-black text-slate-950">Baixar criação</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-600">Sua criação contém {withdrawal.files.length} imagens.</p>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100" aria-label="Fechar retirada">
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          {withdrawal.files.map((file, index) => {
+            const downloaded = completed.has(index)
+            const downloading = downloadingIndex === index
+            return (
+              <div key={`${file.name}-${index}`} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-3 ring-1 ring-slate-200/70">
+                <span className="min-w-0 truncate text-sm font-bold text-slate-700">Imagem {index + 1}</span>
+                <ProductButton type="button" size="sm" variant="secondary" disabled={downloaded || downloading || confirming} onClick={() => onDownload(index)}>
+                  {downloaded ? <Check className="h-4 w-4" aria-hidden="true" /> : downloading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
+                  {downloaded ? 'Baixada' : 'Baixar'}
+                </ProductButton>
+              </div>
+            )
+          })}
+        </div>
+
+        {confirmError && <div role="alert" className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-900">{confirmError}</div>}
+        {allStarted && confirmError && <ProductButton type="button" className="mt-4 w-full" disabled={confirming} onClick={onConfirm}>
+          {confirming && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          Concluir retirada
+        </ProductButton>}
+      </ProductCard>
+    </div>
+  )
+}
+
 export default function Creations() {
   const { accessToken } = useAuth()
   const [creations, setCreations] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [downloadingId, setDownloadingId] = useState(null)
+  const [bundleWithdrawal, setBundleWithdrawal] = useState(null)
+  const [bundleOpen, setBundleOpen] = useState(false)
+  const [bundleDownloadingIndex, setBundleDownloadingIndex] = useState(null)
+  const [bundleConfirming, setBundleConfirming] = useState(false)
+  const [bundleConfirmError, setBundleConfirmError] = useState('')
 
   const loadCreations = useCallback(async () => {
     setLoading(true)
@@ -165,6 +222,66 @@ export default function Creations() {
     void loadCreations()
   }, [loadCreations])
 
+  const confirmCreationWithdrawal = async creationId => {
+    const headers = { Authorization: `Bearer ${accessToken}` }
+    const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
+      headers,
+      body: { action: 'confirm', creation_id: creationId },
+    })
+    if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
+      const body = await readFunctionError(confirmError)
+      throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
+    }
+    setCreations(current => current.filter(item => item.id !== creationId))
+  }
+
+  const finishBundleWithdrawal = async () => {
+    if (!bundleWithdrawal || bundleConfirming || !accessToken) return
+    setBundleConfirming(true)
+    setBundleConfirmError('')
+    try {
+      await confirmCreationWithdrawal(bundleWithdrawal.creationId)
+      setBundleOpen(false)
+      setBundleWithdrawal(null)
+      toast.success('Criação baixada e removida da sua central.')
+    } catch (error) {
+      setBundleConfirmError(error instanceof Error ? error.message : 'Não foi possível confirmar a retirada.')
+    } finally {
+      setBundleConfirming(false)
+    }
+  }
+
+  const downloadBundleFile = async index => {
+    if (!bundleWithdrawal || bundleDownloadingIndex !== null || bundleConfirming) return
+    if (bundleWithdrawal.downloadedIndexes.includes(index)) return
+    const file = bundleWithdrawal.files[index]
+    if (!file?.url || !file?.name) return
+    setBundleDownloadingIndex(index)
+    setBundleConfirmError('')
+    try {
+      await downloadFileFromPrivateUrl(file.url, file.name)
+      const downloadedIndexes = [...bundleWithdrawal.downloadedIndexes, index].sort((left, right) => left - right)
+      setBundleWithdrawal(current => current ? { ...current, downloadedIndexes } : current)
+      if (downloadedIndexes.length === bundleWithdrawal.files.length) {
+        setBundleConfirming(true)
+        try {
+          await confirmCreationWithdrawal(bundleWithdrawal.creationId)
+          setBundleOpen(false)
+          setBundleWithdrawal(null)
+          toast.success('Criação baixada e removida da sua central.')
+        } catch (error) {
+          setBundleConfirmError(error instanceof Error ? error.message : 'Não foi possível confirmar a retirada.')
+        } finally {
+          setBundleConfirming(false)
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível baixar esta imagem.')
+    } finally {
+      setBundleDownloadingIndex(null)
+    }
+  }
+
   const downloadCreation = async creation => {
     if (downloadingId || !accessToken) return
     setDownloadingId(creation.id)
@@ -174,9 +291,22 @@ export default function Creations() {
         headers,
         body: { action: 'prepare', creation_id: creation.id },
       })
-      if (prepareError || !prepared?.ok || !['text', 'file'].includes(prepared.delivery_kind)) {
+      if (prepareError || !prepared?.ok || !['text', 'file', 'bundle'].includes(prepared.delivery_kind)) {
         const body = await readFunctionError(prepareError)
         throw new Error(body?.error || 'Não foi possível preparar o download.')
+      }
+      if (prepared.delivery_kind === 'bundle') {
+        if (!Array.isArray(prepared.files) || prepared.files.length < 2 || prepared.files.length > 5 || prepared.files.some(file => !file?.url || !file?.name)) {
+          throw new Error('As imagens desta criação estão indisponíveis.')
+        }
+        setBundleWithdrawal(current => ({
+          creationId: creation.id,
+          files: prepared.files,
+          downloadedIndexes: current?.creationId === creation.id ? current.downloadedIndexes : [],
+        }))
+        setBundleConfirmError('')
+        setBundleOpen(true)
+        return
       }
       if (prepared.delivery_kind === 'file') {
         if (!prepared.download?.url || !prepared.download?.name) throw new Error('O arquivo desta criação está indisponível.')
@@ -189,16 +319,7 @@ export default function Creations() {
         startTextDownload(formatCompleteTextCampaign(campaign), prepared.download.name)
       }
 
-      const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
-        headers,
-        body: { action: 'confirm', creation_id: creation.id },
-      })
-      if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
-        const body = await readFunctionError(confirmError)
-        throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
-      }
-
-      setCreations(current => current.filter(item => item.id !== creation.id))
+      await confirmCreationWithdrawal(creation.id)
       toast.success('Criação baixada e removida da sua central.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível baixar esta criação.')
@@ -240,6 +361,15 @@ export default function Creations() {
           <CreationsEmptyState />
         )}
       </main>
+      {bundleOpen && <BundleWithdrawalPanel
+        withdrawal={bundleWithdrawal}
+        downloadingIndex={bundleDownloadingIndex}
+        confirming={bundleConfirming}
+        confirmError={bundleConfirmError}
+        onClose={() => setBundleOpen(false)}
+        onDownload={downloadBundleFile}
+        onConfirm={finishBundleWithdrawal}
+      />}
     </>
   )
 }

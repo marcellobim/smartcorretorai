@@ -14,6 +14,7 @@ import {
   VirtualStagingTestError,
   type VirtualStagingOutputSize,
 } from './contract.ts'
+import { VirtualStagingSessionError } from './creation-runtime.ts'
 
 export type SafeUsage = {
   input_tokens?: number
@@ -43,6 +44,20 @@ export type RuntimeDependencies = {
   download(inputPath: string): Promise<{ bytes: Uint8Array; contentType: string }>
   openAI: { editImage(input: ImageEditRequest): Promise<ImageEditResult> }
   upload(outputPath: string, bytes: Uint8Array): Promise<void>
+  recordSessionOutput(input: {
+    userId: string
+    jobId: string
+    inputPath: string
+    outputPath: string
+    sizeBytes: number
+    completedAt: string
+  }): Promise<void>
+  finalizeSession(input: {
+    userId: string
+    sessionId: string
+    expectedCount: number
+    completedAt: string
+  }): Promise<{ id: string; deliveryKind: 'file' | 'bundle'; fileCount: number; created: boolean }>
   createJobId(): string
   now(): number
   log(event: string, details: Record<string, unknown>): void
@@ -65,6 +80,16 @@ function maskJobId(jobId: string) {
   return jobId.length >= 17 ? `${jobId.slice(0, 8)}…${jobId.slice(-8)}` : '[masked]'
 }
 
+function parseFinalizeSessionInput(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const input = value as Record<string, unknown>
+  if (Object.keys(input).sort().join(',') !== 'action,expected_count,session_id') return null
+  if (input.action !== 'finalize_session') return null
+  if (typeof input.session_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.session_id)) return null
+  if (!Number.isInteger(input.expected_count) || Number(input.expected_count) < 1 || Number(input.expected_count) > 5) return null
+  return { sessionId: input.session_id, expectedCount: Number(input.expected_count) }
+}
+
 export async function handleVirtualStagingImageTest(request: Request, deps: RuntimeDependencies) {
   const startedAt = deps.now()
   const user = await deps.authenticate(request).catch(() => null)
@@ -74,8 +99,35 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
     const rawInput = await request.json().catch(() => {
       throw new VirtualStagingTestError('invalid_json', 400, 'Envie uma solicitação válida.')
     })
-    const { inputPath, transformationType, decorationStyle } = parseSingleImageInput(rawInput)
-    validateOwnedInputPath(inputPath, user.id)
+    if ((rawInput as Record<string, unknown>)?.action === 'finalize_session') {
+      const finalizeInput = parseFinalizeSessionInput(rawInput)
+      if (!finalizeInput) throw new VirtualStagingTestError('invalid_finalize_request', 400, 'A sessão informada é inválida.')
+      try {
+        const finalized = await deps.finalizeSession({
+          userId: user.id,
+          ...finalizeInput,
+          completedAt: new Date(deps.now()).toISOString(),
+        })
+        return response({
+          ok: true,
+          creation_id: finalized.id,
+          delivery_kind: finalized.deliveryKind,
+          file_count: finalized.fileCount,
+          created: finalized.created,
+        })
+      } catch (error) {
+        if (error instanceof VirtualStagingSessionError && error.code === 'session_incomplete') {
+          throw new VirtualStagingTestError('session_incomplete', 409, 'A sessão ainda não possui todos os resultados esperados.')
+        }
+        throw new VirtualStagingTestError('session_finalize_failed', 500, 'Não foi possível concluir a sessão agora.')
+      }
+    }
+
+    const { inputPath, transformationType, decorationStyle, expectedCount } = parseSingleImageInput(rawInput)
+    const inputIdentity = validateOwnedInputPath(inputPath, user.id)
+    if (inputIdentity.position > expectedCount) {
+      throw new VirtualStagingTestError('invalid_expected_count', 400, 'A quantidade de imagens da sessão é inválida.')
+    }
 
     let source: { bytes: Uint8Array; contentType: string }
     try {
@@ -122,6 +174,22 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
       await deps.upload(outputPath, generated.bytes)
     } catch {
       throw new VirtualStagingTestError('output_upload_failed', 500, 'Não foi possível salvar a imagem editada.')
+    }
+
+    try {
+      await deps.recordSessionOutput({
+        userId: user.id,
+        jobId,
+        inputPath,
+        outputPath,
+        sizeBytes: generated.bytes.length,
+        completedAt: new Date(deps.now()).toISOString(),
+      })
+    } catch {
+      deps.log('session_output_registration_failed', {
+        jobIdMasked: maskJobId(jobId),
+      })
+      throw new VirtualStagingTestError('session_output_registration_failed', 500, 'Não foi possível registrar o resultado da sessão.')
     }
 
     const processingMs = deps.now() - startedAt

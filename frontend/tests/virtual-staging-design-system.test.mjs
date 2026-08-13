@@ -63,7 +63,7 @@ test('keeps the image result as Before and After with its private download', () 
   const imageDelivery = page.slice(page.indexOf('function FurnishRenovateResultCard'), page.indexOf('function FurnishRenovateProcessing'))
 
   assert.match(imageDelivery, /label: 'Antes'[\s\S]*label: 'Depois'/)
-  assert.match(imageDelivery, /downloadFileFromPrivateUrl\(result\.afterUrl/)
+  assert.match(imageDelivery, /downloadFurnishRenovateResult\(result\)/)
   assert.match(imageDelivery, /Baixar imagem transformada/)
   assert.doesNotMatch(imageDelivery, /CampaignPackage/)
 })

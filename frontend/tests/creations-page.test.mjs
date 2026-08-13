@@ -14,6 +14,7 @@ const smartTour = read('src/pages/SmartTourAI.jsx')
 const banner = read('src/pages/HeroNext.jsx')
 const campaignPackage = read('src/components/campaign/CampaignPackage.jsx')
 const quickBanners = read('src/pages/NovaCampanha.jsx')
+const virtualStaging = read('src/pages/VirtualStaging.jsx')
 
 test('keeps the existing route and sidebar link while rendering the real page', () => {
   assert.match(app, /import Creations from '\.\/pages\/Creations'/)
@@ -43,8 +44,8 @@ test('keeps cards concise with dates and a real prepare-download-confirm action'
   assert.match(page, /prepared\.delivery_kind === 'file'/)
   assert.match(page, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name\)/)
   assert.match(page, /startTextDownload\(formatCompleteTextCampaign\(campaign\), prepared\.download\.name\)/)
-  assert.match(page, /body: \{ action: 'confirm', creation_id: creation\.id \}/)
-  assert.match(page, /setCreations\(current => current\.filter\(item => item\.id !== creation\.id\)\)/)
+  assert.match(page, /body: \{ action: 'confirm', creation_id: creationId \}/)
+  assert.match(page, /setCreations\(current => current\.filter\(item => item\.id !== creationId\)\)/)
   assert.match(page, /toast\.success\('Criação baixada e removida da sua central\.'\)/)
   assert.doesNotMatch(page, /storage\.from|downloadCampaign|downloadAll/)
 })
@@ -123,4 +124,23 @@ test('withdraws associated Banners Rápidos through prepare-confirm and preserve
   assert.match(quickBanners, /body: \{ action: 'confirm', creation_id: render\.creation_id \}/)
   assert.match(quickBanners, /else \{[\s\S]*downloadFileFromPrivateUrl\(finalUrl, getRenderDownloadName\(render, index\)\)/)
   assert.match(quickBanners, /onWithdrawDownload=\{\(_filename, file\) => \{[\s\S]*baixarPecaVisual/)
+})
+
+test('maps Virtual Staging while preserving individual downloads on its original screen', () => {
+  assert.match(page, /virtual_staging:[\s\S]*?label: 'Virtual Staging'[\s\S]*?icon: Image[\s\S]*?tone: 'cyan'/)
+  assert.match(page, /cyan:[\s\S]*?bg-cyan-500[\s\S]*?bg-cyan-100 text-cyan-700/)
+  assert.match(virtualStaging, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
+  assert.doesNotMatch(virtualStaging, /creation_id: result\.creationId|creationId: data\.result\.creation_id/)
+  assert.match(virtualStaging, /action: 'finalize_session'[\s\S]*session_id: sessionId[\s\S]*expected_count: orderedImages\.length/)
+})
+
+test('withdraws bundles through explicit per-file actions and confirms only after all succeeded', () => {
+  assert.match(page, /prepared\.delivery_kind === 'bundle'/)
+  assert.match(page, /Sua criação contém \{withdrawal\.files\.length\} imagens\./)
+  assert.match(page, /withdrawal\.files\.map\(\(file, index\)/)
+  assert.match(page, /downloadFileFromPrivateUrl\(file\.url, file\.name\)/)
+  assert.match(page, /if \(downloadedIndexes\.length === bundleWithdrawal\.files\.length\)/)
+  assert.match(page, /await confirmCreationWithdrawal\(bundleWithdrawal\.creationId\)/)
+  assert.match(page, /catch \(error\) \{[\s\S]*toast\.error/)
+  assert.doesNotMatch(page, /Promise\.all\(.*download|\.zip|JSZip/i)
 })

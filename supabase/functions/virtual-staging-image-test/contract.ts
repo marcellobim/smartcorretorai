@@ -228,7 +228,7 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     throw invalidInput('invalid_image_count', 'Envie exatamente uma imagem.')
   }
 
-  const allowedFields = new Set(['module', 'input_path', 'transformation_type', 'decoration_style'])
+  const allowedFields = new Set(['module', 'input_path', 'transformation_type', 'decoration_style', 'expected_count'])
   if (Object.keys(input).some((field) => !allowedFields.has(field))) {
     throw invalidInput('unexpected_field', 'A solicitação contém campos não permitidos.')
   }
@@ -249,11 +249,16 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     throw invalidInput('invalid_decoration_style', 'O estilo de decoração é inválido.')
   }
 
+  if (!Number.isInteger(input.expected_count) || input.expected_count < 1 || input.expected_count > 5) {
+    throw invalidInput('invalid_expected_count', 'A quantidade de imagens da sessão é inválida.')
+  }
+
   return {
     module: 'furnish-renovate',
     inputPath: input.input_path.trim(),
     transformationType: input.transformation_type as VirtualStagingTransformationType,
     decorationStyle: input.decoration_style as VirtualStagingDecorationStyle,
+    expectedCount: input.expected_count as number,
   }
 }
 
@@ -277,6 +282,11 @@ export function validateOwnedInputPath(inputPath: string, userId: string) {
 
   if (!/^0[1-5]\.(?:jpg|png)$/i.test(filename)) {
     throw invalidInput('invalid_image_format', 'Use uma imagem JPG ou PNG válida.')
+  }
+
+  return {
+    sessionId: requestId,
+    position: Number.parseInt(filename.slice(0, 2), 10),
   }
 }
 
