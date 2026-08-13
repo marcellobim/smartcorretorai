@@ -135,8 +135,8 @@ test('prepare returns minimal signed descriptors for a bundle without creating Z
     result_manifest: {
       version: 1,
       files: [
-        { bucket: 'smartcorret-assets', path: `${USER_ID}/creations/one.jpg`, name: 'one.jpg', mime_type: 'image/jpeg' },
-        { bucket: 'smartcorret-assets', path: `${USER_ID}/creations/two.jpg`, name: 'two.jpg', mime_type: 'image/jpeg' },
+        { bucket: 'smartcorretor-assets', path: `${USER_ID}/creations/one.jpg`, name: 'one.jpg', mime_type: 'image/jpeg' },
+        { bucket: 'smartcorretor-assets', path: `${USER_ID}/creations/two.jpg`, name: 'two.jpg', mime_type: 'image/jpeg' },
       ],
     },
   }))

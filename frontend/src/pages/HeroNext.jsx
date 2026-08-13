@@ -1507,7 +1507,7 @@ const getConversationTransition = (question, index, total) => {
 }
 
 export default function HeroNext() {
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
   const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
   const startCampaign = () => setPhase('goal')
   const [goal, setGoal] = useState('')
@@ -2008,6 +2008,7 @@ export default function HeroNext() {
         setGenerationResult({
           ...data,
           imageUrl,
+          creationId: data.creation_id || null,
           texts: data.texts || {},
           campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition),
         })
@@ -2059,6 +2060,7 @@ export default function HeroNext() {
           ideaNumber: creativeIdea.number,
           creativeDirection: creativeIdea.title,
           generationId,
+          creationId: data.creation_id || null,
           status: 'completed',
           imageUrl,
           texts: data.texts || {},
@@ -2184,6 +2186,7 @@ export default function HeroNext() {
     const returnedImageUrl = data.image_url || data.imageUrl || ''
     updateGenerationJob(jobId, {
       generationId,
+      creationId: data.creation_id || null,
       status: data.status === 'processing' ? 'processing' : 'completed',
       texts: data.texts || {},
       imageUrl: returnedImageUrl || null,
@@ -2206,6 +2209,7 @@ export default function HeroNext() {
       ideaNumber: creativeIdea.number,
       creativeDirection: creativeIdea.title,
       generationId,
+      creationId: data.creation_id || null,
       status: 'completed',
       imageUrl: returnedImageUrl,
       texts: data.texts || {},
@@ -2311,15 +2315,45 @@ export default function HeroNext() {
     downloadPlainTextFile('campanha-hero-ia.txt', content)
   }
 
+  const withdrawBannerImage = async (filename, source) => {
+    const matchingJob = source?.generationId
+      ? source
+      : (generationResult?.jobs || []).find((job) => job.jobId === source?.id || job.imageUrl === source?.downloadUrl)
+    if (!matchingJob?.creationId) {
+      const fallbackUrl = matchingJob?.imageUrl || source?.downloadUrl
+      if (!fallbackUrl) throw new Error('A imagem desta criação está indisponível.')
+      await downloadImageFile(fallbackUrl, filename)
+      return
+    }
+    if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente para baixar a imagem.')
+
+    const headers = { Authorization: `Bearer ${accessToken}` }
+    const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
+      headers,
+      body: { action: 'prepare', creation_id: matchingJob.creationId },
+    })
+    if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url) {
+      throw new Error('Esta imagem não está mais disponível para retirada.')
+    }
+    await downloadImageFile(prepared.download.url, prepared.download.name || filename)
+    const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
+      headers,
+      body: { action: 'confirm', creation_id: matchingJob.creationId },
+    })
+    if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
+      throw new Error('A imagem foi baixada, mas não foi possível confirmar a retirada.')
+    }
+  }
+
   const downloadAllImages = async () => {
     const completedJobs = (generationResult.jobs || []).filter((job) => job.status === 'completed' && job.imageUrl)
     setDownloadError('')
     setDownloadAllLoading(true)
     try {
       for (const job of completedJobs) {
-        await downloadImageFile(
-          job.imageUrl,
+        await withdrawBannerImage(
           `smartcorretorai-hero-ia-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.png`,
+          job,
         )
       }
     } catch {
@@ -3435,6 +3469,7 @@ export default function HeroNext() {
               onCreateNew={resetCampaign}
               createNewLabel="Criar nova campanha"
               onOpenImage={openExpandedPreview}
+              onWithdrawDownload={withdrawBannerImage}
             />
             {expandedPreview && (
               <div

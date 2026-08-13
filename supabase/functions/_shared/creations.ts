@@ -13,7 +13,7 @@ export const CREATION_PRODUCT_KEYS = [
 ] as const
 
 export const CREATION_DELIVERY_KINDS = ['file', 'bundle', 'text'] as const
-export const CREATION_ALLOWED_BUCKETS = ['studio-videos', 'smartcorret-assets'] as const
+export const CREATION_ALLOWED_BUCKETS = ['studio-videos', 'smartcorretor-assets'] as const
 
 const MAX_SOURCE_REF_LENGTH = 200
 const MAX_TITLE_LENGTH = 200

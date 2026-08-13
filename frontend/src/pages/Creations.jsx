@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Download, FileText, Info, Loader2, PackageOpen, Video } from 'lucide-react'
+import { Download, FileText, Image, Info, Loader2, PackageOpen, Video } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { ProductButton, ProductCard, SMART_UI } from '../components/design-system'
 import { useAuth } from '../lib/auth-context'
@@ -12,6 +12,11 @@ import { downloadFileFromPrivateUrl } from '../lib/download-file'
 const CREATION_SELECT = 'id,product_key,title,delivery_kind,completed_at,expires_at'
 
 const creationProducts = {
+  banner_imobiliario: {
+    label: 'Banner Imobiliário',
+    icon: Image,
+    tone: 'emerald',
+  },
   video_imobiliario: {
     label: 'Vídeo Imobiliário',
     icon: Video,
@@ -25,6 +30,10 @@ const creationProducts = {
 }
 
 const creationTones = {
+  emerald: {
+    accent: 'bg-emerald-500',
+    icon: 'bg-emerald-100 text-emerald-700',
+  },
   violet: {
     accent: 'bg-violet-500',
     icon: 'bg-violet-100 text-violet-700',

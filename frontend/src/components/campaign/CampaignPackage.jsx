@@ -200,8 +200,10 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     setDownloadError('')
     setDownloadingKey(key)
     try {
-      if (typeof onWithdrawDownload === 'function' && campaign.mediaType === 'video' && key === 'video' && url === campaign.downloadUrl) {
-        await onWithdrawDownload(filename)
+      const withdrawsVideo = campaign.mediaType === 'video' && key === 'video' && url === campaign.downloadUrl
+      const withdrawsImage = campaign.mediaType === 'images' && key.startsWith('image-')
+      if (typeof onWithdrawDownload === 'function' && (withdrawsVideo || withdrawsImage)) {
+        await onWithdrawDownload(filename, file)
       } else {
         await downloadFileFromPrivateUrl(url, filename)
       }

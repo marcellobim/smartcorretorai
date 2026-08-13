@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
+import { createSupabaseCreationStore, registerCompletedCreation } from '../_shared/creations.ts'
+import { buildBannerImobiliarioCreationInput } from './creation-runtime.ts'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 
@@ -1743,6 +1745,25 @@ async function resolveRetentionDays(supabase: ReturnType<typeof createClient>, u
   return data ? 15 : 1
 }
 
+async function registerBannerImobiliarioCreation(
+  supabase: ReturnType<typeof createClient>,
+  generation: Parameters<typeof buildBannerImobiliarioCreationInput>[0],
+) {
+  const input = buildBannerImobiliarioCreationInput(generation)
+  if (!input) return null
+  try {
+    const registered = await registerCompletedCreation(createSupabaseCreationStore(supabase), input)
+    console.info('[gerar-hero-ia] creation_registration_completed', JSON.stringify({
+      product: 'banner_imobiliario',
+      created: registered.created,
+    }))
+    return registered.creation.id
+  } catch {
+    console.warn('[gerar-hero-ia] creation_registration_failed', JSON.stringify({ product: 'banner_imobiliario' }))
+    return null
+  }
+}
+
 async function handleHeroNextStatus(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -1755,7 +1776,7 @@ async function handleHeroNextStatus(
 
   const { data: generation, error: lookupError } = await supabase
     .from('hero_generations')
-    .select('id, user_id, status, prompt_briefing, deliverables, texts, image_storage_path, openai_response_id, provider_model, expires_at, created_at')
+    .select('id, user_id, status, prompt_briefing, deliverables, texts, image_storage_path, openai_response_id, provider_model, expires_at, created_at, completed_at')
     .eq('id', generationId)
     .eq('user_id', userId)
     .maybeSingle()
@@ -1770,6 +1791,7 @@ async function handleHeroNextStatus(
   }
 
   if (generation.status === 'completed' && generation.image_storage_path) {
+    const creationId = await registerBannerImobiliarioCreation(supabase, generation)
     const { data: signedImage, error: signedError } = await supabase.storage
       .from(HERO_IMAGE_BUCKET)
       .createSignedUrl(generation.image_storage_path, 60 * 60)
@@ -1787,6 +1809,7 @@ async function handleHeroNextStatus(
       image_url: signedImage.signedUrl,
       texts: generation.texts || {},
       expires_at: generation.expires_at,
+      ...(creationId ? { creation_id: creationId } : {}),
     })
   }
 
@@ -1906,6 +1929,7 @@ async function handleHeroNextStatus(
     : {}
   const texts = buildFallbackHeroTexts(promptBriefing)
 
+  const completedAt = new Date().toISOString()
   const { error: updateError } = await supabase
     .from('hero_generations')
     .update({
@@ -1920,10 +1944,10 @@ async function handleHeroNextStatus(
           content_type: 'image/jpeg',
           storage_path: storagePath,
           response_id: responseId,
-          generated_at: new Date().toISOString(),
+          generated_at: completedAt,
         },
       },
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt,
       error_message: null,
     })
     .eq('id', generation.id)
@@ -1933,6 +1957,13 @@ async function handleHeroNextStatus(
     console.warn('[gerar-hero-ia] hero next background update failed:', updateError.message)
     return jsonResponse({ error: 'Falha ao finalizar campanha.' }, 500)
   }
+
+  const creationId = await registerBannerImobiliarioCreation(supabase, {
+    ...generation,
+    status: 'completed',
+    image_storage_path: storagePath,
+    completed_at: completedAt,
+  })
 
   const { data: signedImage, error: signedError } = await supabase.storage
     .from(HERO_IMAGE_BUCKET)
@@ -1951,6 +1982,7 @@ async function handleHeroNextStatus(
     image_url: signedImage.signedUrl,
     texts,
     expires_at: generation.expires_at,
+    ...(creationId ? { creation_id: creationId } : {}),
   })
 }
 

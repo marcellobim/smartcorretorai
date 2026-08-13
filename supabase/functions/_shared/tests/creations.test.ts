@@ -132,6 +132,22 @@ test('rejects manifests that do not match their delivery kind', async () => {
 })
 
 test('rejects buckets outside the backend allowlist', async () => {
+  const allowedStore = new FakeCreationStore()
+  await registerCompletedCreation(allowedStore, validInput({
+    product_key: 'banner_imobiliario',
+    result_manifest: {
+      version: 1,
+      files: [{ ...file(`${USER_ID}/hero-ia-next/banner-1/hero-principal.jpg`), bucket: 'smartcorretor-assets', name: 'hero-principal.jpg', mime_type: 'image/jpeg' }],
+    },
+  }))
+  assert.equal(allowedStore.insertions.length, 1)
+
+  await assert.rejects(
+    () => registerCompletedCreation(new FakeCreationStore(), validInput({
+      result_manifest: { version: 1, files: [{ ...file(), bucket: 'smartcorret-assets' as never }] },
+    })),
+    (error: unknown) => error instanceof CreationValidationError && error.code === 'invalid_storage_bucket',
+  )
   await assert.rejects(
     () => registerCompletedCreation(new FakeCreationStore(), validInput({
       result_manifest: { version: 1, files: [{ ...file(), bucket: 'public-assets' as never }] },

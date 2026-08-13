@@ -11,6 +11,7 @@ const legacyPage = read('src/pages/PacotesGerados.jsx')
 const app = read('src/App.jsx')
 const sidebar = read('src/components/layout/Sidebar.jsx')
 const smartTour = read('src/pages/SmartTourAI.jsx')
+const banner = read('src/pages/HeroNext.jsx')
 const campaignPackage = read('src/components/campaign/CampaignPackage.jsx')
 
 test('keeps the existing route and sidebar link while rendering the real page', () => {
@@ -53,13 +54,30 @@ test('maps Video Imobiliário with its approved visual tone and no extra card af
   assert.doesNotMatch(page, /<video|thumbnail|Visualizar/)
 })
 
+test('maps Banner Imobiliário with its approved emerald tone and no extra card affordances', () => {
+  assert.match(page, /banner_imobiliario:[\s\S]*?label: 'Banner Imobiliário'[\s\S]*?icon: Image[\s\S]*?tone: 'emerald'/)
+  assert.match(page, /emerald:[\s\S]*?bg-emerald-500[\s\S]*?bg-emerald-100 text-emerald-700/)
+  assert.doesNotMatch(page, /<img|thumbnail|Visualizar/)
+})
+
 test('withdraws Video Imobiliário from its original result through the same prepare-confirm contract', () => {
   assert.match(smartTour, /body: \{ action: 'prepare', creation_id: result\.creationId \}/)
   assert.match(smartTour, /prepared\.delivery_kind !== 'file'/)
   assert.match(smartTour, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name \|\| filename\)/)
   assert.match(smartTour, /body: \{ action: 'confirm', creation_id: result\.creationId \}/)
   assert.match(smartTour, /onWithdrawDownload=\{isShortVideoResult \? undefined : withdrawVideoImobiliario\}/)
-  assert.match(campaignPackage, /typeof onWithdrawDownload === 'function'[\s\S]*?key === 'video'[\s\S]*?url === campaign\.downloadUrl[\s\S]*?await onWithdrawDownload\(filename\)/)
+  assert.match(campaignPackage, /withdrawsVideo = campaign\.mediaType === 'video'[\s\S]*?typeof onWithdrawDownload === 'function'[\s\S]*?await onWithdrawDownload\(filename, file\)/)
+})
+
+test('withdraws Banner Imobiliário from its original result through prepare-confirm', () => {
+  assert.match(banner, /creationId: data\.creation_id \|\| null/)
+  assert.match(banner, /body: \{ action: 'prepare', creation_id: matchingJob\.creationId \}/)
+  assert.match(banner, /prepared\.delivery_kind !== 'file'/)
+  assert.match(banner, /downloadImageFile\(prepared\.download\.url, prepared\.download\.name \|\| filename\)/)
+  assert.match(banner, /body: \{ action: 'confirm', creation_id: matchingJob\.creationId \}/)
+  assert.match(banner, /onWithdrawDownload=\{withdrawBannerImage\}/)
+  assert.match(banner, /await withdrawBannerImage\([\s\S]*?job,[\s\S]*?\)/)
+  assert.match(campaignPackage, /withdrawsImage = campaign\.mediaType === 'images'/)
 })
 
 test('removes every legacy campaign affordance from the active page', () => {
