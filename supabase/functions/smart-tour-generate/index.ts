@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
+import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
@@ -9,6 +9,7 @@ import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
 import { buildOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { runShortVideoPipeline } from './short-video-runtime.ts'
+import { persistSmartTourInlineVideo, resolveSmartTourInlineProviderTimeout } from './inline-video-runtime.ts'
 const safeError = (error: unknown) => error instanceof Error
   ? error.message
     .replace(/AIza[\w-]+/g,'[secret-redacted]')
@@ -21,6 +22,7 @@ const maskIdentifier = (value: unknown) => { const id = String(value || ''); ret
 const SHORT_VIDEOS_INPUT_BUCKET = 'short-videos-inputs'
 
 serve(withCors(async req => {
+  const requestStartedAt = Date.now()
   const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!url || !key) return json({ok:false,error:'Configuração indisponível.'},500)
   const supabase = createClient(url,key,{auth:{persistSession:false}})
@@ -124,11 +126,28 @@ serve(withCors(async req => {
       const {error:briefingUpdateError} = await supabase.from('video_jobs').update({prompt_final:prompt,marketing_hashtags:hashtags}).eq('id',input.clientRequestId).eq('user_id',user.id)
       if (briefingUpdateError) throw new Error('job_briefing_persist_failed')
       const images = await prepareGeminiImages(supabase,'studio-videos',input.imagePaths)
-      const started = await startGeminiOmniVideo({prompt,images})
-      const { error: providerIdError } = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
-      if (providerIdError) throw new Error('provider_id_persist_failed')
-      console.info('[smart-tour-generate] provider_id_persisted', JSON.stringify({ providerIdSource: 'id' }))
-      return json({ok:true,jobId:input.clientRequestId,status:'generating',hashtags})
+      const generated = await generateGeminiOmniVideoInline({
+        prompt,
+        images,
+        timeoutMs:resolveSmartTourInlineProviderTimeout(Date.now() - requestStartedAt,110_000),
+      })
+      const persisted = await persistSmartTourInlineVideo({userId:user.id,jobId:input.clientRequestId,...generated},{
+        upload: async (path,videoBytes,contentType) => {
+          const {error} = await supabase.storage.from('studio-videos').upload(path,videoBytes,{contentType,upsert:true})
+          if (error) throw new Error('video_upload_failed')
+        },
+        createSignedUrl: async (path,expiresInSeconds) => {
+          const {data,error} = await supabase.storage.from('studio-videos').createSignedUrl(path,expiresInSeconds)
+          if (error || !data?.signedUrl) throw new Error('result_url_failed')
+          return data.signedUrl
+        },
+        persistCompleted: async ({interactionId,outputPath,completedAt}) => {
+          const {error} = await supabase.from('video_jobs').update({status:'completed',provider_job_id:interactionId,output_video_path:outputPath,completed_at:completedAt,error_message:null}).eq('id',input.clientRequestId).eq('user_id',user.id)
+          if (error) throw new Error('job_completed_persist_failed')
+        },
+      })
+      console.info('[smart-tour-generate] inline_video_completed', JSON.stringify({delivery:'base64',outputBytes:generated.videoBytes.byteLength}))
+      return json({ok:true,jobId:input.clientRequestId,status:'completed',signedVideoUrl:persisted.signedVideoUrl,hashtags})
     } catch (error) {
       await supabase.from('video_jobs').update({status:'failed',error_message:safeError(error)}).eq('id',input.clientRequestId).eq('user_id',user.id)
       throw error

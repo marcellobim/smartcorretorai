@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildGeminiOmniRequestBody } from '../../geminiOmniClient.ts'
+import { buildGeminiOmniInlineRequestBody } from '../../geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, SMART_TOUR_GEMINI_MISSION, SMART_TOUR_PHRASE_LIBRARY } from '../index.ts'
 
 const property = {
@@ -284,9 +284,10 @@ test('Gemini Omni receives the exact JSON as the only briefing text and remains 
   assert.ok(prompt.startsWith('{') && prompt.endsWith('}'))
   assert.doesNotMatch(prompt, /BRIEFING BASE COMPILADO|FASE 1|FASE 2/)
   const images = imagePaths.map((_, index) => ({ type: 'image', data: `image-${index + 1}`, mime_type: 'image/jpeg' }))
-  const payload = buildGeminiOmniRequestBody(prompt, images)
+  const payload = buildGeminiOmniInlineRequestBody(prompt, images)
   assert.equal(payload.model, 'gemini-omni-flash-preview')
-  assert.deepEqual(payload.response_format, { type: 'video', duration: '10s', delivery: 'uri' })
+  assert.deepEqual(payload.response_format, { type: 'video', duration: '10s' })
+  assert.deepEqual(payload.response_modalities, ['video'])
   assert.deepEqual(payload.input.slice(0, 5), images)
   assert.deepEqual(payload.input.at(-1), { type: 'text', text: JSON.stringify(briefing) })
 })
@@ -294,10 +295,10 @@ test('Gemini Omni receives the exact JSON as the only briefing text and remains 
 test('active generation builds JSON locally and makes only the existing Gemini Omni video call', () => {
   const source = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
   assert.match(source, /buildSmartTourStructuredBriefing\(\{generation:input\.generation,property:input\.property,selectedCta:input\.selectedCta,phone,imagePaths:input\.imagePaths,language:input\.language\}\)/)
-  assert.match(source, /startGeminiOmniVideo\(\{prompt,images\}\)/)
+  assert.match(source, /generateGeminiOmniVideoInline\(\{[\s\S]{0,100}prompt,[\s\S]{0,100}images,[\s\S]{0,160}timeoutMs:/)
   assert.doesNotMatch(source, /credentialProfile|video-imobiliario|GEMINI_API_KEY_2/)
   assert.match(source, /startGeminiOmniShortVideo\(\{prompt:geminiPrompt,video:prepared\.video\}\)/)
   assert.doesNotMatch(source, /startGeminiOmniShortVideo\([^\n]*video-imobiliario/)
   assert.doesNotMatch(source, /orchestrateSmartTour|geminiSmartTourOrchestrator|buildSmartTourPrompt/)
-  assert.equal((source.match(/startGeminiOmniVideo/g) || []).length, 2)
+  assert.equal((source.match(/generateGeminiOmniVideoInline/g) || []).length, 2)
 })

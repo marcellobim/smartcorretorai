@@ -3,6 +3,7 @@ type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<
 export type GeminiInlineImage = { type: 'image'; data: string; mime_type: 'image/jpeg' | 'image/png' }
 type GeminiOmniAspectRatio = '9:16' | '16:9'
 type StartInput = { prompt: string; images: GeminiInlineImage[]; aspectRatio?: GeminiOmniAspectRatio }
+type InlineStartInput = StartInput & { fetchImpl?: FetchLike; timeoutMs?: number }
 export type GeminiVideoReference = { type: 'video'; uri: string; mime_type: 'video/mp4' }
 export type GeminiVideoRangeSource = {
   size: number
@@ -39,6 +40,8 @@ export const SMART_TOUR_GEMINI_OMNI_MODEL = 'gemini-omni-flash-preview'
 export const SMART_TOUR_GEMINI_OMNI_API_VERSION = 'v1beta'
 export const SMART_TOUR_GEMINI_OMNI_DURATION = '10s'
 export const SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL = 'high'
+export const SMART_TOUR_GEMINI_OMNI_MAX_OUTPUT_TOKENS = 65_536
+export const SMART_TOUR_GEMINI_OMNI_INLINE_TIMEOUT_MS = 110_000
 const API_BASE = `https://generativelanguage.googleapis.com/${SMART_TOUR_GEMINI_OMNI_API_VERSION}`
 const GEMINI_OMNI_SSE_RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504])
 const GEMINI_OMNI_HTTP_RETRYABLE_STATUSES = new Set([404, 408, 409, 425, 429, 500, 502, 503, 504])
@@ -62,6 +65,22 @@ export function prepareGeminiImages(supabase: StorageClient, bucket: string, ima
 
 export function buildGeminiOmniRequestBody(prompt: string, images: Array<{ type: string; data: string; mime_type: string }>, aspectRatio?: GeminiOmniAspectRatio) {
   return { model: SMART_TOUR_GEMINI_OMNI_MODEL, input: [...images, { type: 'text', text: prompt }], response_format: { type: 'video', duration: SMART_TOUR_GEMINI_OMNI_DURATION, delivery: 'uri', ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}) }, generation_config: { thinking_level: SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL }, background: true, store: true }
+}
+export function buildGeminiOmniInlineRequestBody(prompt: string, images: Array<{ type: string; data: string; mime_type: string }>, aspectRatio?: GeminiOmniAspectRatio) {
+  return {
+    model: SMART_TOUR_GEMINI_OMNI_MODEL,
+    input: [...images, { type: 'text', text: prompt }],
+    generation_config: {
+      max_output_tokens: SMART_TOUR_GEMINI_OMNI_MAX_OUTPUT_TOKENS,
+      thinking_level: SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL,
+    },
+    response_modalities: ['video'],
+    response_format: {
+      type: 'video',
+      duration: SMART_TOUR_GEMINI_OMNI_DURATION,
+      ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+    },
+  }
 }
 export function buildGeminiOmniShortVideoRequestBody(prompt: string, video: GeminiVideoReference) {
   return {
@@ -508,6 +527,87 @@ export function readGeminiOmniInteractionId(value: unknown) {
   if (!interactionId) throw new Error('gemini_omni_interaction_id_missing')
   if (interactionId.includes('/') || /[\u0000-\u0020\u007f]/.test(interactionId)) throw new Error('gemini_omni_interaction_id_invalid')
   return { interactionId, responseKeys: Object.keys(data).sort(), providerIdSource: 'id' as const }
+}
+
+function readGeminiOmniInlineVideo(value: unknown) {
+  const interaction = errorRecord(value)
+  const steps = Array.isArray(interaction.steps) ? interaction.steps : []
+  let videoPart: Record<string, unknown> | null = null
+  for (const rawStep of steps) {
+    const step = errorRecord(rawStep)
+    if (step.type !== 'model_output' || !Array.isArray(step.content)) continue
+    for (const rawPart of step.content) {
+      const part = errorRecord(rawPart)
+      if (part.type === 'video' && typeof part.data === 'string') {
+        if (videoPart) throw new Error('gemini_omni_inline_video_ambiguous')
+        videoPart = part
+      }
+    }
+  }
+  if (!videoPart) throw new Error('gemini_omni_inline_video_missing')
+  const contentType = String(videoPart.mime_type ?? videoPart.mimeType ?? 'video/mp4').split(';')[0].trim().toLowerCase()
+  if (contentType !== 'video/mp4') throw new Error('gemini_omni_inline_video_type_invalid')
+  const encoded = String(videoPart.data || '').trim()
+  if (!encoded || encoded.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) {
+    throw new Error('gemini_omni_inline_video_base64_invalid')
+  }
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0
+  const estimatedSize = (encoded.length / 4) * 3 - padding
+  validateGeminiVideoSize(estimatedSize)
+  let videoBytes: Uint8Array
+  try { videoBytes = base64ToBytes(encoded) } catch { throw new Error('gemini_omni_inline_video_base64_invalid') }
+  validateGeminiVideoSize(videoBytes.byteLength)
+  if (
+    videoBytes.byteLength < 12 ||
+    videoBytes[4] !== 0x66 ||
+    videoBytes[5] !== 0x74 ||
+    videoBytes[6] !== 0x79 ||
+    videoBytes[7] !== 0x70
+  ) throw new Error('gemini_omni_inline_video_mp4_invalid')
+  return { videoBytes, contentType: 'video/mp4' as const }
+}
+
+export async function generateGeminiOmniVideoInline(input: InlineStartInput): Promise<{
+  interactionId: string
+  videoBytes: Uint8Array
+  contentType: 'video/mp4'
+}> {
+  const fetchImpl = input.fetchImpl || fetch
+  const timeoutMs = input.timeoutMs ?? SMART_TOUR_GEMINI_OMNI_INLINE_TIMEOUT_MS
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > SMART_TOUR_GEMINI_OMNI_INLINE_TIMEOUT_MS) {
+    throw new Error('gemini_omni_inline_timeout_invalid')
+  }
+  const abortController = new AbortController()
+  const timeout = setTimeout(() => abortController.abort(), timeoutMs)
+  let response: Response
+  let payload: unknown
+  try {
+    response = await fetchImpl(`${API_BASE}/interactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': getEnvironment() },
+      body: JSON.stringify(buildGeminiOmniInlineRequestBody(input.prompt, input.images, input.aspectRatio)),
+      signal: abortController.signal,
+    })
+    if (!response.ok) {
+      const diagnostic = classifyGeminiOmniHttpError(response.status, await response.text())
+      throw new Error(`gemini_omni_api_failed:${response.status}:${diagnostic.message}`)
+    }
+    payload = await response.json()
+  } catch (error) {
+    if (abortController.signal.aborted) throw new Error('gemini_omni_inline_timeout')
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+  const interaction = readGeminiOmniInteractionId(payload)
+  const video = readGeminiOmniInlineVideo(payload)
+  console.info('[smart-tour-generate] inline_interaction_completed', JSON.stringify({
+    responseKeys: interaction.responseKeys,
+    providerIdSource: interaction.providerIdSource,
+    delivery: 'base64',
+    outputBytes: video.videoBytes.byteLength,
+  }))
+  return { interactionId: interaction.interactionId, ...video }
 }
 
 export async function startGeminiOmniVideo(input: StartInput): Promise<{ interactionId: string }> {

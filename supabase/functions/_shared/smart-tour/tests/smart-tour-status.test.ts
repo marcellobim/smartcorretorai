@@ -24,8 +24,8 @@ const geminiClientSource = readFileSync(path.join(repositoryRoot, 'supabase/func
 test('Video Imobiliario uses the original single-credential start contract', () => {
   assert.match(geminiClientSource, /Deno\.env\.get\('GEMINI_API_KEY'\)/)
   assert.doesNotMatch(geminiClientSource, /GEMINI_API_KEY_2|GeminiOmniCredentialProfile|credentialProfile|HMAC/)
-  assert.match(generateSource, /startGeminiOmniVideo\(\{prompt,images\}\)/)
-  assert.match(generateSource, /provider_job_id:started\.interactionId/)
+  assert.match(generateSource, /generateGeminiOmniVideoInline\(\{[\s\S]{0,100}prompt,[\s\S]{0,100}images,[\s\S]{0,160}timeoutMs:/)
+  assert.match(generateSource, /provider_job_id:interactionId/)
   assert.doesNotMatch(generateSource, /GEMINI_API_KEY_2|video-imobiliario|credentialProfile|encodeGeminiOmniStreamState/)
 })
 
