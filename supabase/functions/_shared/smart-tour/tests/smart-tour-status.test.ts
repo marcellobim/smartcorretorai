@@ -5,71 +5,34 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import {
   SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH,
+  SMART_TOUR_STATUS_TIMEOUT_MS,
   SHORT_VIDEO_PRE_PROVIDER_STALE_MS,
-  buildVideoImobiliarioCreationInput,
-  buildVideoImobiliarioTitle,
+  classifySmartTourProviderDiagnostic,
   classifySmartTourStatusError,
   isShortVideoPreProviderStale,
   maskSmartTourInteractionId,
   sanitizeSmartTourStatusProviderMessage,
+  serializeSmartTourStatusDiagnostic,
   withSmartTourStatusTimeout,
 } from '../../../smart-tour-status/status-runtime.ts'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..')
 const statusSource = readFileSync(path.join(repositoryRoot, 'supabase/functions/smart-tour-status/index.ts'), 'utf8')
+const generateSource = readFileSync(path.join(repositoryRoot, 'supabase/functions/smart-tour-generate/index.ts'), 'utf8')
+const geminiClientSource = readFileSync(path.join(repositoryRoot, 'supabase/functions/_shared/geminiOmniClient.ts'), 'utf8')
 
-const videoJob = {
-  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  user_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-  status: 'completed',
-  mode: 'smart_tour_gemini_omni',
-  output_video_path: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/smart-tour.mp4',
-  completed_at: '2026-08-12T18:00:00.000Z',
-  prompt_final: JSON.stringify({
-    versao: 'smart-tour-structured-briefing-v1',
-    imovel: { tipo: 'Apartamento', localizacao: { bairro: 'Vila Mariana', cidade: 'São Paulo' } },
-  }),
-}
-
-test('builds the single Video Imobiliário creation from the owned final file', () => {
-  assert.deepEqual(buildVideoImobiliarioCreationInput(videoJob), {
-    user_id: videoJob.user_id,
-    product_key: 'video_imobiliario',
-    source_ref: videoJob.id,
-    title: 'Apartamento em Vila Mariana',
-    delivery_kind: 'file',
-    result_manifest: {
-      version: 1,
-      files: [{
-        bucket: 'studio-videos',
-        path: videoJob.output_video_path,
-        name: 'smartcorretorai-video-imobiliario.mp4',
-        mime_type: 'video/mp4',
-      }],
-    },
-    completed_at: videoJob.completed_at,
-  })
+test('Video Imobiliario uses the original single-credential start contract', () => {
+  assert.match(geminiClientSource, /Deno\.env\.get\('GEMINI_API_KEY'\)/)
+  assert.doesNotMatch(geminiClientSource, /GEMINI_API_KEY_2|GeminiOmniCredentialProfile|credentialProfile|HMAC/)
+  assert.match(generateSource, /startGeminiOmniVideo\(\{prompt,images\}\)/)
+  assert.match(generateSource, /provider_job_id:started\.interactionId/)
+  assert.doesNotMatch(generateSource, /GEMINI_API_KEY_2|video-imobiliario|credentialProfile|encodeGeminiOmniStreamState/)
 })
 
-test('never registers pending, failed or Short Videos jobs as Video Imobiliário', () => {
-  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, status: 'pending' }), null)
-  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, status: 'failed' }), null)
-  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, mode: 'smart_tour_gemini_omni_short_video' }), null)
-  assert.equal(buildVideoImobiliarioCreationInput({ ...videoJob, output_video_path: null }), null)
-})
-
-test('uses only reliable structured property data for the creation title', () => {
-  assert.equal(buildVideoImobiliarioTitle(videoJob.prompt_final), 'Apartamento em Vila Mariana')
-  assert.equal(buildVideoImobiliarioTitle('{"versao":"unknown"}'), null)
-  assert.equal(buildVideoImobiliarioTitle('not-json'), null)
-})
-
-test('status registers completed Video Imobiliário jobs through the idempotent shared helper', () => {
-  assert.match(statusSource, /createSupabaseCreationStore, registerCompletedCreation/)
-  assert.match(statusSource, /buildVideoImobiliarioCreationInput\(completedJob\)/)
-  assert.match(statusSource, /product: 'video_imobiliario'/)
-  assert.match(statusSource, /\.\.\.\(creationId \? \{ creationId \} : \{\}\)/)
-  assert.doesNotMatch(statusSource, /product_key:\s*'short_videos'/)
+test('status returns completed and failed Video Imobiliário jobs without an active Creations hook', () => {
+  assert.match(statusSource, /status: 'completed', jobId, signedVideoUrl:/)
+  assert.match(statusSource, /status: 'failed', error:/)
+  assert.doesNotMatch(statusSource, /_shared\/creations|registerCompletedCreation|buildVideoImobiliarioCreationInput|creationId|product_key:\s*'video_imobiliario'/)
 })
 
 test('keeps processing when the Interactions API is briefly not ready', () => {
@@ -87,6 +50,10 @@ test('keeps processing when interaction polling reaches its local timeout', () =
   assert.deepEqual(diagnostic, {
     stage: 'interaction_poll',
     kind: 'interaction_timeout',
+    eventType: '',
+    providerCode: '',
+    providerErrorStatus: '',
+    providerErrorType: '',
     providerStatus: null,
     retriable: true,
     providerMessage: '',
@@ -122,15 +89,48 @@ test('makes only a sanitized and bounded Gemini message available to internal lo
   const message = sanitizeSmartTourStatusProviderMessage(error)
 
   assert.ok(message.length <= SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH)
-  assert.match(message, /^Request rejected at \[url-redacted\]/)
-  assert.doesNotMatch(message, /private\.example|AIza|eyJabcdefghij|private-token|corretor@example\.com|98765-4321/)
+  assert.equal(message, '[provider-detail-redacted]')
+  assert.doesNotMatch(message, /private\.example|AIza|secondary-test-key|eyJabcdefghij|private-token|corretor@example\.com|98765-4321/)
   assert.deepEqual(classifySmartTourStatusError(error, 'interaction_poll'), {
     stage: 'interaction_poll',
     kind: 'interaction_api_error',
+    eventType: 'http.error',
+    providerCode: '400',
+    providerErrorStatus: '',
+    providerErrorType: '',
     providerStatus: 400,
     retriable: false,
     providerMessage: message,
   })
+})
+
+test('preserves only the structured allowlisted provider diagnostic', () => {
+  const diagnostic = classifySmartTourProviderDiagnostic({
+    source: 'sse',
+    eventType: 'error',
+    code: 'permission_denied',
+    errorStatus: 'PERMISSION_DENIED',
+    errorType: 'invalid_request',
+    httpStatus: 403,
+    retryable: false,
+    message: `prompt=private property; https://private.example/file?token=secret Bearer private-token telefone (11) 98765-4321 ${'A'.repeat(120)}`,
+  })
+  const { providerMessage, ...allowlistedFields } = diagnostic
+  assert.deepEqual(allowlistedFields, {
+    stage: 'interaction_poll',
+    kind: 'interaction_api_error',
+    eventType: 'error',
+    providerCode: 'permission_denied',
+    providerErrorStatus: 'PERMISSION_DENIED',
+    providerErrorType: 'invalid_request',
+    providerStatus: 403,
+    retriable: false,
+  })
+  assert.equal(providerMessage, '[provider-detail-redacted]')
+  const serialized = serializeSmartTourStatusDiagnostic(diagnostic)
+  assert.match(serialized, /"event_type":"error"/)
+  assert.match(serialized, /"code":"permission_denied"/)
+  assert.doesNotMatch(serialized, /private property|private\.example|private-token|98765|AAAAA|prompt=/)
 })
 
 test('extracts a Gemini message from the client bounded truncated JSON fallback', () => {
@@ -161,10 +161,12 @@ test('does not treat storage or database failures as interaction processing', ()
 
 test('timeout wrapper returns completed operations and rejects stalled ones', async () => {
   assert.equal(await withSmartTourStatusTimeout(Promise.resolve('completed'), 50), 'completed')
+  let timeoutCallbackCalled = false
   await assert.rejects(
-    withSmartTourStatusTimeout(new Promise(() => undefined), 5),
+    withSmartTourStatusTimeout(new Promise(() => undefined), 5, () => { timeoutCallbackCalled = true }),
     /smart_tour_status_timeout/,
   )
+  assert.equal(timeoutCallbackCalled, true)
 })
 
 test('only stale Short Videos pending jobs without a provider are failed by status recovery', () => {
@@ -210,15 +212,46 @@ test('status function preserves the existing frontend response contract', () => 
   assert.doesNotMatch(statusSource, /error: diagnostic\.providerMessage|message: diagnostic\.providerMessage/)
 })
 
-test('status function uses resumable SSE URI recovery for images and Short Videos', () => {
+test('status performs one resumable SSE query per invocation for images and Short Videos', () => {
   assert.match(statusSource, /job\.mode === 'smart_tour_gemini_omni_short_video'/)
-  assert.match(statusSource, /checkGeminiOmniVideoStream\(interactionId, streamState\.lastEventId\)/)
+  assert.match(statusSource, /SMART_TOUR_STATUS_TIMEOUT_MS,[\s\S]*pollAbortController\.abort\(\)/)
   assert.match(statusSource, /decodeGeminiOmniStreamState\(job\.provider_job_id\)/)
+  assert.match(statusSource, /checkGeminiOmniVideoStream\(interactionId, streamState\.lastEventId, pollAbortController\.signal\)/)
+  assert.equal((statusSource.match(/checkGeminiOmniVideoStream\(/g) || []).length, 1)
   assert.match(statusSource, /interaction_cursor_persisted/)
   assert.match(statusSource, /interaction_output_uri_persisted/)
   assert.match(statusSource, /downloadGeminiOmniVideoFromUri\(remote\.videoUri, remote\.contentType\)/)
   assert.doesNotMatch(statusSource, /checkGeminiOmniVideo\(/)
   assert.doesNotMatch(statusSource, /Accept:\s*'application\/json'/)
+  assert.doesNotMatch(statusSource, /pollSmartTourInteractionWithRetry|retryable_error|credentialProfile|GEMINI_API_KEY_2|HMAC/)
+})
+
+test('status polling never starts a new interaction or reserves tokens', () => {
+  assert.doesNotMatch(statusSource, /startGeminiOmni(?:ShortVideo|Video)\(/)
+  assert.doesNotMatch(statusSource, /POST\s+\/v1beta\/interactions|createGeminiInteraction|tokens_reserved|smart_tokens|reserve|decrement/i)
+})
+
+test('keeps the legacy Short Videos terminal polling and composition behavior', () => {
+  assert.match(statusSource, /isShortVideos && remote\.status === 'failed' && !remote\.diagnostic\.eventType/)
+  assert.match(statusSource, /short_video_interaction_poll_error/)
+  assert.match(statusSource, /return json\(\{ ok: false, error: 'Não foi possível consultar sua apresentação\.' \}, 502\)/)
+})
+
+test('only reaches download and completed persistence after a completed MP4 result', () => {
+  const failedBranch = statusSource.indexOf("if (remote.status === 'failed')")
+  const completedBranch = statusSource.indexOf('const completedStreamState = encodeGeminiOmniStreamState', failedBranch)
+  const download = statusSource.indexOf('downloadGeminiOmniVideoFromUri(remote.videoUri', completedBranch)
+  const upload = statusSource.indexOf(".upload(outputPath, completedVideo.videoBytes", download)
+  const completedPersist = statusSource.indexOf(".update({ status: 'completed', output_video_path: outputPath", upload)
+  const resultUrl = statusSource.indexOf("stage = 'result_url'", completedPersist)
+  assert.ok(failedBranch >= 0)
+  assert.ok(failedBranch < completedBranch)
+  assert.ok(completedBranch < download)
+  assert.ok(download < upload)
+  assert.ok(upload < completedPersist)
+  assert.ok(completedPersist < resultUrl)
+  assert.match(statusSource, /if \(job\.status === 'completed' && job\.output_video_path\) \{[\s\S]*createSignedUrl\(job\.output_video_path, 3600\)/)
+  assert.doesNotMatch(statusSource, /registerVideoImobiliarioCreation|creationId/)
 })
 
 test('status function composes only Short Videos and never delivers its raw Gemini video', () => {

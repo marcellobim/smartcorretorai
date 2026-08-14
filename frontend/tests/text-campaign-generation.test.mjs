@@ -99,6 +99,9 @@ test('copies individual pieces and the complete campaign', async () => {
   const applicableLinkedIn = { ...result(), linkedin: { applicable: true, text: 'LinkedIn aplicável', reason: '' } }
   assert.match(resultHelpers.formatCompleteTextCampaign(applicableLinkedIn), /LINKEDIN[\s\S]*LinkedIn aplicável/)
   assert.match(resultComponent, /Copiar campanha completa/)
+  assert.match(resultComponent, /formatCompleteTextCampaign\(campaign\)[\s\S]*text\/plain;charset=utf-8/)
+  assert.match(resultComponent, /download: 'campanha-de-textos\.txt'/)
+  assert.match(resultComponent, /Baixar TXT/)
   assert.match(resultComponent, /onClick=\{\(\) => copyValue\(id, content\)\}/)
 })
 

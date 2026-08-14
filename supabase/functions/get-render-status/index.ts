@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { registerBannersRapidosCreation } from './creation-runtime.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -357,40 +356,6 @@ serve(async (req) => {
         const update = updatesById.get(renderId)
         return update ? { ...item, ...update } : item
       })
-
-      const allRendersFinished = nextBanners.length > 0
-        && nextBanners.every(item => FINAL_STATUSES.has(normalizeStatus(item?.status)))
-      const canonicalRender = allRendersFinished
-        ? nextBanners.find(item => READY_STATUSES.has(normalizeStatus(item?.status)))
-        : undefined
-      const canonicalStatus = normalizeStatus(canonicalRender?.status)
-      if (canonicalRender && READY_STATUSES.has(canonicalStatus)) {
-        try {
-          const registration = await registerBannersRapidosCreation({
-            supabase,
-            userId: user.id,
-            campaign: campaignRecord,
-            render: canonicalRender,
-            completedAt: typeof canonicalRender.final_url_requested_at === 'string'
-              ? canonicalRender.final_url_requested_at
-              : new Date().toISOString(),
-          })
-          nextBanners = nextBanners.map((item, index) => index === 0
-            ? { ...item, creation_id: registration.creation.id }
-            : item)
-          renders = renders.map(item => item.render_id === canonicalRender.render_id
-            ? { ...item, creation_id: registration.creation.id }
-            : item)
-        } catch (creationError) {
-          console.warn(`[${reqId}] falha controlada ao registrar Criacao de Banners Rapidos`, {
-            campaign_id: campaignId,
-            render_id: canonicalRender.render_id || null,
-            code: creationError && typeof creationError === 'object' && 'code' in creationError
-              ? creationError.code
-              : 'creation_registration_failed',
-          })
-        }
-      }
 
       const { error: updateError } = await supabase
         .from('campaigns')

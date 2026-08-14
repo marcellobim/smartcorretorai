@@ -8,7 +8,6 @@ import {
   Image,
   LayoutTemplate,
   LogOut,
-  Package,
   Settings,
   Shield,
   Sparkles,
@@ -24,7 +23,6 @@ const navigationGroups = [
     label: 'Principal',
     items: [
       { to: '/dashboard', icon: Home, label: 'Home' },
-      { to: '/pacotes-gerados', icon: Package, label: 'Criações' },
     ],
   },
   {

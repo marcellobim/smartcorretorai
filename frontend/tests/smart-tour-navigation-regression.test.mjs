@@ -19,10 +19,11 @@ function filesBelow(relativePath) {
 
 test('keeps every baseline route and adds an isolated Smart Tour route', () => {
   const app = read('frontend/src/App.jsx')
-  const expectedRoutes = ['/', '/home-frankenstein', '/home-opus', '/planos', '/termos', '/privacidade', '/login', '/cadastro', '/admin', '/dashboard', '/hero', '/studio-hero', '/studio-galeria', '/smart-carrossel', '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha', '/pacotes-gerados', '/configuracoes']
+  const expectedRoutes = ['/', '/home-frankenstein', '/home-opus', '/planos', '/termos', '/privacidade', '/login', '/cadastro', '/admin', '/dashboard', '/hero', '/studio-hero', '/studio-galeria', '/smart-carrossel', '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha', '/configuracoes']
   for (const route of expectedRoutes) assert.match(app, new RegExp(`path=["']${route.replace('/', '\\/')}["']`), `missing route ${route}`)
   assert.match(app, /import SmartTourAI from ['"]\.\/pages\/SmartTourAI['"]/)
   assert.match(app, /path="\/smart-tour-ai" element=\{<SmartTourAI \/>\}/)
+  assert.doesNotMatch(app, /pacotes-gerados|import Creations/)
 })
 
 test('uses the approved Video Imobiliario copy in the Dashboard and keeps its internal route', () => {

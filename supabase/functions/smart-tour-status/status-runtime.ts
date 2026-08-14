@@ -3,6 +3,8 @@ export const SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH = 180
 export const SHORT_VIDEO_PRE_PROVIDER_STALE_MS = 10 * 60 * 1000
 
 const RETRIABLE_HTTP_STATUSES = new Set([404, 408, 409, 425, 429, 500, 502, 503, 504])
+const RETRIABLE_SSE_STATUSES = new Set([408, 429, 500, 502, 503, 504])
+const RETRIABLE_SSE_CODES = new Set(['deadline_exceeded', 'internal', 'rate_limit_exceeded', 'request_timeout', 'resource_exhausted', 'service_unavailable', 'unavailable'])
 
 export type SmartTourStatusStage =
   | 'job_lookup'
@@ -20,71 +22,24 @@ export type SmartTourStatusStage =
 export type SmartTourStatusDiagnostic = {
   stage: SmartTourStatusStage
   kind: string
+  eventType: string
+  providerCode: string
+  providerErrorStatus: string
+  providerErrorType: string
   providerStatus: number | null
   retriable: boolean
   providerMessage: string
 }
 
-export type CompletedVideoImobiliarioJob = {
-  id?: unknown
-  user_id?: unknown
-  status?: unknown
-  mode?: unknown
-  prompt_final?: unknown
-  output_video_path?: unknown
-  completed_at?: unknown
-}
-
-function boundedText(value: unknown, maximum = 200) {
-  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, maximum) : ''
-}
-
-export function buildVideoImobiliarioTitle(prompt: unknown) {
-  try {
-    const briefing = JSON.parse(String(prompt || '')) as {
-      versao?: unknown
-      imovel?: { tipo?: unknown; localizacao?: { bairro?: unknown; cidade?: unknown } }
-    }
-    if (briefing.versao !== 'smart-tour-structured-briefing-v1') return null
-    const propertyType = boundedText(briefing.imovel?.tipo)
-    const location = boundedText(briefing.imovel?.localizacao?.bairro) || boundedText(briefing.imovel?.localizacao?.cidade)
-    return propertyType && location ? `${propertyType} em ${location}`.slice(0, 200) : null
-  } catch {
-    return null
-  }
-}
-
-export function buildVideoImobiliarioCreationInput(job: CompletedVideoImobiliarioJob) {
-  const id = boundedText(job.id)
-  const userId = boundedText(job.user_id)
-  const outputPath = boundedText(job.output_video_path, 1024)
-  const completedAt = boundedText(job.completed_at)
-  if (
-    job.status !== 'completed' ||
-    job.mode !== 'smart_tour_gemini_omni' ||
-    !id ||
-    !userId ||
-    !outputPath ||
-    !completedAt
-  ) return null
-
-  return {
-    user_id: userId,
-    product_key: 'video_imobiliario' as const,
-    source_ref: id,
-    title: buildVideoImobiliarioTitle(job.prompt_final),
-    delivery_kind: 'file' as const,
-    result_manifest: {
-      version: 1 as const,
-      files: [{
-        bucket: 'studio-videos' as const,
-        path: outputPath,
-        name: 'smartcorretorai-video-imobiliario.mp4',
-        mime_type: 'video/mp4',
-      }],
-    },
-    completed_at: completedAt,
-  }
+export type SmartTourProviderDiagnosticInput = {
+  source?: unknown
+  eventType?: unknown
+  code?: unknown
+  errorStatus?: unknown
+  errorType?: unknown
+  httpStatus?: unknown
+  message?: unknown
+  retryable?: unknown
 }
 
 export function isShortVideoPreProviderStale(
@@ -116,12 +71,13 @@ function extractProviderMessage(message: string) {
   return raw
 }
 
-export function sanitizeSmartTourStatusProviderMessage(error: unknown) {
-  const source = error instanceof Error ? error.message : String(error || '')
-  const providerMessage = extractProviderMessage(source)
-  if (!providerMessage) return ''
-  return providerMessage
+function sanitizeSmartTourStatusProviderText(value: unknown) {
+  const source = String(value || '')
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+  if (/\b(?:prompt|briefing|phone|telefone|image|images|image_url|base64|gemini_api_key|supabase_service_role_key|service[_-]?role|api[_-]?key|authorization|access[_-]?token|refresh[_-]?token|signed[_-]?url|credential|password|secret|token)\b["']?\s*[:=]/i.test(source)) {
+    return '[provider-detail-redacted]'
+  }
+  return source
     .replace(/https?:\/\/[^\s"']+/gi, '[url-redacted]')
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[email-redacted]')
     .replace(/\bAIza[A-Za-z0-9_-]{16,}\b/g, '[secret-redacted]')
@@ -129,9 +85,23 @@ export function sanitizeSmartTourStatusProviderMessage(error: unknown) {
     .replace(/\b(?:GEMINI_API_KEY|SUPABASE_SERVICE_ROLE_KEY|api[_-]?key|authorization)\s*[:=]\s*[^\s,;]+/gi, '[secret-redacted]')
     .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [secret-redacted]')
     .replace(/\+?\d[\d\s().-]{7,}\d/g, '[phone-redacted]')
+    .replace(/(?:data:[^;,\s]+;base64,)?[A-Za-z0-9+/_=-]{80,}/g, '[data-redacted]')
+    .replace(/\b(?:prompt|briefing)\s*[:=]\s*[^,;]+/gi, '[detail-redacted]')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, SMART_TOUR_STATUS_LOG_MESSAGE_MAX_LENGTH)
+}
+
+export function sanitizeSmartTourStatusProviderMessage(error: unknown) {
+  const source = error instanceof Error ? error.message : String(error || '')
+  return sanitizeSmartTourStatusProviderText(extractProviderMessage(source))
+}
+
+function sanitizeSmartTourDiagnosticToken(value: unknown) {
+  const token = String(value || '').trim()
+  if (!/^[a-z0-9_.:-]{1,64}$/i.test(token)) return ''
+  if (/^(?:AIza|eyJ)|(?:api[_-]?key|authorization|bearer|token)/i.test(token)) return ''
+  return token
 }
 
 export function maskSmartTourInteractionId(value: unknown) {
@@ -162,16 +132,82 @@ export function classifySmartTourStatusError(error: unknown, stage: SmartTourSta
   const retriableStage = stage === 'interaction_poll' || stage === 'caption_render_poll' || stage === 'caption_video_download'
   const retriable = retriableStage && (timedOut || (providerStatus !== null && RETRIABLE_HTTP_STATUSES.has(providerStatus)))
 
-  return { stage, kind, providerStatus, retriable, providerMessage: sanitizeSmartTourStatusProviderMessage(error) }
+  return {
+    stage,
+    kind,
+    eventType: providerMatch ? 'http.error' : '',
+    providerCode: providerStatus === null ? '' : String(providerStatus),
+    providerErrorStatus: '',
+    providerErrorType: '',
+    providerStatus,
+    retriable,
+    providerMessage: sanitizeSmartTourStatusProviderMessage(error),
+  }
 }
 
-export async function withSmartTourStatusTimeout<T>(operation: Promise<T>, timeoutMs = SMART_TOUR_STATUS_TIMEOUT_MS) {
+export function classifySmartTourProviderDiagnostic(
+  value: SmartTourProviderDiagnosticInput,
+  stage: SmartTourStatusStage = 'interaction_poll',
+): SmartTourStatusDiagnostic {
+  const eventType = sanitizeSmartTourDiagnosticToken(value.eventType)
+  const source = sanitizeSmartTourDiagnosticToken(value.source)
+  const providerStatus = Number.isInteger(value.httpStatus) && Number(value.httpStatus) >= 100 && Number(value.httpStatus) <= 599
+    ? Number(value.httpStatus)
+    : null
+  const terminalInteraction = eventType === 'interaction.failed' || eventType === 'interaction.completed'
+  const symbolicCodes = [value.code, value.errorStatus, value.errorType]
+    .map(candidate => sanitizeSmartTourDiagnosticToken(candidate).toLowerCase())
+    .filter(Boolean)
+  const retriable = !terminalInteraction && (
+    providerStatus !== null
+      ? source === 'http'
+        ? RETRIABLE_HTTP_STATUSES.has(providerStatus)
+        : source === 'sse' && eventType === 'error' && RETRIABLE_SSE_STATUSES.has(providerStatus)
+      : source === 'sse' && eventType === 'error' && symbolicCodes.some(candidate => RETRIABLE_SSE_CODES.has(candidate))
+  )
+  return {
+    stage,
+    kind: eventType === 'interaction.failed'
+      ? 'interaction_failed'
+      : eventType === 'interaction.completed'
+        ? 'interaction_video_missing'
+        : 'interaction_api_error',
+    eventType,
+    providerCode: sanitizeSmartTourDiagnosticToken(value.code),
+    providerErrorStatus: sanitizeSmartTourDiagnosticToken(value.errorStatus),
+    providerErrorType: sanitizeSmartTourDiagnosticToken(value.errorType),
+    providerStatus,
+    retriable,
+    providerMessage: sanitizeSmartTourStatusProviderText(value.message),
+  }
+}
+
+export function serializeSmartTourStatusDiagnostic(diagnostic: SmartTourStatusDiagnostic) {
+  return JSON.stringify({
+    event_type: diagnostic.eventType || null,
+    code: diagnostic.providerCode || null,
+    error_status: diagnostic.providerErrorStatus || null,
+    error_type: diagnostic.providerErrorType || null,
+    http_status: diagnostic.providerStatus,
+    retryable: diagnostic.retriable,
+    message: diagnostic.providerMessage.slice(0, 120) || null,
+  })
+}
+
+export async function withSmartTourStatusTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs = SMART_TOUR_STATUS_TIMEOUT_MS,
+  onTimeout: () => void = () => undefined,
+) {
   let timeout: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error('smart_tour_status_timeout')), timeoutMs)
+        timeout = setTimeout(() => {
+          try { onTimeout() } catch { /* timeout remains authoritative */ }
+          reject(new Error('smart_tour_status_timeout'))
+        }, timeoutMs)
       }),
     ])
   } finally {

@@ -17,10 +17,10 @@ const quickBanners = read('src/pages/NovaCampanha.jsx')
 const virtualStaging = read('src/pages/VirtualStaging.jsx')
 const studio = read('src/pages/StudioHero.jsx')
 
-test('keeps the existing route and sidebar link while rendering the real page', () => {
-  assert.match(app, /import Creations from '\.\/pages\/Creations'/)
-  assert.match(app, /path="\/pacotes-gerados" element=\{<Creations \/>\}/)
-  assert.match(sidebar, /to: '\/pacotes-gerados'[\s\S]*?label: 'Criações'/)
+test('keeps the creations implementation inactive and outside launch navigation', () => {
+  assert.doesNotMatch(app, /import Creations from '\.\/pages\/Creations'|path="\/pacotes-gerados"/)
+  assert.doesNotMatch(sidebar, /to: '\/pacotes-gerados'|label: 'Criações'/)
+  assert.doesNotMatch(quickBanners, /pacotes-gerados|Ver campanhas geradas/)
   assert.match(page, /<Header title="Criações" subtitle="Baixe e guarde os materiais que você criou\." \/>/)
 })
 
@@ -63,24 +63,15 @@ test('maps Banner Imobiliário with its approved emerald tone and no extra card 
   assert.doesNotMatch(page, /<img|thumbnail|Visualizar/)
 })
 
-test('withdraws Video Imobiliário from its original result through the same prepare-confirm contract', () => {
-  assert.match(smartTour, /body: \{ action: 'prepare', creation_id: result\.creationId \}/)
-  assert.match(smartTour, /prepared\.delivery_kind !== 'file'/)
-  assert.match(smartTour, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name \|\| filename\)/)
-  assert.match(smartTour, /body: \{ action: 'confirm', creation_id: result\.creationId \}/)
-  assert.match(smartTour, /onWithdrawDownload=\{isShortVideoResult \? undefined : withdrawVideoImobiliario\}/)
-  assert.match(campaignPackage, /withdrawsVideo = campaign\.mediaType === 'video'[\s\S]*?typeof onWithdrawDownload === 'function'[\s\S]*?await onWithdrawDownload\(filename, file\)/)
+test('downloads Video Imobiliário directly from its signed result URL', () => {
+  assert.match(smartTour, /previewUrl: result\.signedVideoUrl, downloadUrl: result\.signedVideoUrl/)
+  assert.doesNotMatch(smartTour, /creationId|creation-download|onWithdrawDownload|withdrawVideoImobiliario/)
+  assert.match(campaignPackage, /await downloadFileFromPrivateUrl\(url, filename\)/)
 })
 
-test('withdraws Banner Imobiliário from its original result through prepare-confirm', () => {
-  assert.match(banner, /creationId: data\.creation_id \|\| null/)
-  assert.match(banner, /body: \{ action: 'prepare', creation_id: matchingJob\.creationId \}/)
-  assert.match(banner, /prepared\.delivery_kind !== 'file'/)
-  assert.match(banner, /downloadImageFile\(prepared\.download\.url, prepared\.download\.name \|\| filename\)/)
-  assert.match(banner, /body: \{ action: 'confirm', creation_id: matchingJob\.creationId \}/)
-  assert.match(banner, /onWithdrawDownload=\{withdrawBannerImage\}/)
-  assert.match(banner, /await withdrawBannerImage\([\s\S]*?job,[\s\S]*?\)/)
-  assert.match(campaignPackage, /withdrawsImage = campaign\.mediaType === 'images'/)
+test('downloads Banner Imobiliário directly from each signed image URL', () => {
+  assert.match(banner, /await downloadImageFile\([\s\S]*?job\.imageUrl,[\s\S]*?smartcorretorai-hero-ia-/)
+  assert.doesNotMatch(banner, /creationId|creation_id|creation-download|onWithdrawDownload|withdrawBannerImage/)
 })
 
 test('removes every legacy campaign affordance from the active page', () => {
@@ -118,21 +109,17 @@ test('maps Banners Rápidos with its product identity and no extra card affordan
   assert.match(page, /blue:[\s\S]*?bg-blue-500[\s\S]*?bg-blue-100 text-blue-700/)
 })
 
-test('withdraws associated Banners Rápidos through prepare-confirm and preserves legacy fallback', () => {
-  assert.match(quickBanners, /if \(render\?\.creation_id\) \{[\s\S]*body: \{ action: 'prepare', creation_id: render\.creation_id \}/)
-  assert.match(quickBanners, /prepared\.delivery_kind !== 'file'/)
-  assert.match(quickBanners, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name\)/)
-  assert.match(quickBanners, /body: \{ action: 'confirm', creation_id: render\.creation_id \}/)
-  assert.match(quickBanners, /else \{[\s\S]*downloadFileFromPrivateUrl\(finalUrl, getRenderDownloadName\(render, index\)\)/)
-  assert.match(quickBanners, /onWithdrawDownload=\{\(_filename, file\) => \{[\s\S]*baixarPecaVisual/)
+test('downloads Banners Rápidos from the Creatomate result and preserves URL renewal', () => {
+  assert.match(quickBanners, /downloadFileFromPrivateUrl\(finalUrl, getRenderDownloadName\(render, index\)\)/)
+  assert.match(quickBanners, /const renewedUrl = await renovarUrlRender\(render\)[\s\S]*downloadFileFromPrivateUrl\(renewedUrl/)
+  assert.doesNotMatch(quickBanners, /creation_id|creation-download|onWithdrawDownload|SharePublishActions/)
 })
 
 test('maps Virtual Staging while preserving individual downloads on its original screen', () => {
   assert.match(page, /virtual_staging:[\s\S]*?label: 'Virtual Staging'[\s\S]*?icon: Image[\s\S]*?tone: 'cyan'/)
   assert.match(page, /cyan:[\s\S]*?bg-cyan-500[\s\S]*?bg-cyan-100 text-cyan-700/)
   assert.match(virtualStaging, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
-  assert.doesNotMatch(virtualStaging, /creation_id: result\.creationId|creationId: data\.result\.creation_id/)
-  assert.match(virtualStaging, /action: 'finalize_session'[\s\S]*session_id: sessionId[\s\S]*expected_count: orderedImages\.length/)
+  assert.doesNotMatch(virtualStaging, /creation_id|creationId|finalize_session|SharePublishActions|sharePublish\s*=/)
 })
 
 test('withdraws bundles through explicit per-file actions and confirms only after all succeeded', () => {
@@ -153,12 +140,8 @@ test('maps Comercial Imobiliário and Vídeo Criativo as separate Studio product
   assert.doesNotMatch(page, /short_videos:/)
 })
 
-test('withdraws Studio videos through prepare-confirm and preserves the legacy fallback', () => {
-  assert.match(studio, /setCreationId\(typeof data\.creationId === 'string' \? data\.creationId : null\)/)
-  assert.match(studio, /body: \{ action: 'prepare', creation_id: creationId \}/)
-  assert.match(studio, /prepared\.delivery_kind !== 'file'/)
-  assert.match(studio, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name \|\| filename\)/)
-  assert.match(studio, /body: \{ action: 'confirm', creation_id: creationId \}/)
-  assert.match(studio, /onWithdrawDownload=\{creationId \? onWithdrawDownload : undefined\}/)
+test('downloads Studio videos directly from the signed result URL', () => {
+  assert.doesNotMatch(studio, /creationId|creation-download|onWithdrawDownload|withdrawStudioVideo/)
+  assert.match(studio, /previewUrl: videoUrl/)
   assert.match(studio, /downloadUrl: videoUrl/)
 })

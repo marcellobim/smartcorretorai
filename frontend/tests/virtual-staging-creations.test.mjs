@@ -20,9 +20,9 @@ test('keeps Virtual Staging on the synchronous single-image OpenAI contract', ()
   assert.doesNotMatch(runtime, /virtual-staging-(?:generate|status)|Gemini|Veo/)
 })
 
-test('records each trusted JPEG and finalizes one creation with the session id', () => {
-  assert.match(runtime, /await deps\.upload\(outputPath, generated\.bytes\)[\s\S]*await deps\.recordSessionOutput/)
-  assert.match(runtime, /deps\.finalizeSession/)
+test('keeps the creation adapter dormant while the product ends after its trusted JPEG upload', () => {
+  assert.match(runtime, /await deps\.upload\(outputPath, generated\.bytes\)/)
+  assert.doesNotMatch(`${runtime}\n${edge}`, /recordSessionOutput|finalizeSession|finalize_session|creation_id|creation-runtime|_shared\/creations/)
   assert.match(creationRuntime, /product_key: 'virtual_staging'/)
   assert.match(creationRuntime, /source_ref: input\.sessionId/)
   assert.match(creationRuntime, /delivery_kind: outputs\.length === 1 \? 'file' : 'bundle'/)
@@ -31,12 +31,10 @@ test('records each trusted JPEG and finalizes one creation with the session id',
   assert.doesNotMatch(creationRuntime, /signed|https?:\/\//)
 })
 
-test('preserves Before/After, individual downloads and finalizes only after the complete loop', () => {
+test('preserves Before/After and individual downloads without frontend finalization', () => {
   assert.match(page, /label: 'Antes'[\s\S]*label: 'Depois'/)
   assert.match(page, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
   assert.match(page, /const sessionId = crypto\.randomUUID\(\)/)
   assert.match(page, /expected_count: orderedImages\.length/)
-  assert.match(page, /if \(completedCount === orderedImages\.length\)[\s\S]*action: 'finalize_session'/)
-  assert.match(page, /setFurnishSessionCreationId\(finalized\.creation_id\)/)
-  assert.doesNotMatch(page, /creationId: data\.result\.creation_id|action: 'confirm'[\s\S]*result\.creationId/)
+  assert.doesNotMatch(page, /finalize_session|creation_id|creationId|setFurnishSessionCreationId|SharePublishActions|sharePublish\s*=/)
 })

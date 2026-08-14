@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import {
   type CreationInsert,
   type CreationRecord,
@@ -10,6 +11,8 @@ import {
   registerStudioCreation,
   type StudioCreationJob,
 } from './creation-runtime.ts'
+
+const indexSource = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const jobId = '22222222-2222-4222-8222-222222222222'
@@ -129,4 +132,10 @@ test('frontend-controlled product or manifest fields are absent from the Studio 
   const input = buildStudioCreationInput(job({ mode: 'free_ai' }))
   assert.equal(input?.product_key, 'studio_video_criativo')
   assert.equal(input?.result_manifest.files?.[0]?.path, `${userId}/${jobId}/video.mp4`)
+})
+
+test('get-video-job-status returns the signed MP4 without an active Creations hook', () => {
+  assert.match(indexSource, /status: 'completed'[\s\S]*signedVideoUrl/)
+  assert.match(indexSource, /createSignedVideoUrl\(supabase, outputPath\)/)
+  assert.doesNotMatch(indexSource, /_shared\/creations|registerStudioCreation|ensureStudioCreation|creationId/)
 })

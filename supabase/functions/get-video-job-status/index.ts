@@ -1,8 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { createSupabaseCreationStore } from '../_shared/creations.ts'
 import { checkVeoVideoStatus } from '../_shared/veoClient.ts'
-import { registerStudioCreation, type StudioCreationJob } from './creation-runtime.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -92,26 +90,6 @@ async function createSignedVideoUrl(supabase: any, path: string) {
   return data.signedUrl
 }
 
-async function ensureStudioCreation(
-  supabase: any,
-  job: StudioCreationJob,
-) {
-  try {
-    const registration = await registerStudioCreation(createSupabaseCreationStore(supabase), job)
-    if (!registration) return null
-    console.info('[get-video-job-status] creation_registration_completed', JSON.stringify({
-      product: registration.creation.product_key,
-      created: registration.created,
-    }))
-    return registration.creation.id
-  } catch (error) {
-    console.warn('[get-video-job-status] creation_registration_failed', JSON.stringify({
-      code: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'unknown',
-    }))
-    return null
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -181,13 +159,11 @@ serve(async (req) => {
     if (job.status === 'completed') {
       const outputPath = String(job.output_video_path || '')
       const signedVideoUrl = outputPath ? await createSignedVideoUrl(supabase, outputPath) : ''
-      const creationId = await ensureStudioCreation(supabase, job as StudioCreationJob)
       return jsonResponse({
         ok: true,
         status: 'completed',
         jobId: job.id,
         signedVideoUrl,
-        ...(creationId ? { creationId } : {}),
       })
     }
 
@@ -217,17 +193,11 @@ serve(async (req) => {
       if (completedUpdateError) throw new Error('video_completed_persist_failed')
 
       const signedVideoUrl = await createSignedVideoUrl(supabase, existingOutputPath)
-      const creationId = await ensureStudioCreation(supabase, {
-        ...job,
-        status: 'completed',
-        completed_at: completedAt,
-      } as StudioCreationJob)
       return jsonResponse({
         ok: true,
         status: 'completed',
         jobId: job.id,
         signedVideoUrl,
-        ...(creationId ? { creationId } : {}),
       })
     }
 
@@ -305,18 +275,11 @@ serve(async (req) => {
     if (completedUpdateError) throw new Error('video_completed_persist_failed')
 
     const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
-    const creationId = await ensureStudioCreation(supabase, {
-      ...job,
-      status: 'completed',
-      output_video_path: outputPath,
-      completed_at: completedAt,
-    } as StudioCreationJob)
     return jsonResponse({
       ok: true,
       status: 'completed',
       jobId: job.id,
       signedVideoUrl,
-      ...(creationId ? { creationId } : {}),
     })
   } catch (error) {
     console.error(`[${reqId}] get-video-job-status erro:`, error instanceof Error ? error.message : String(error))

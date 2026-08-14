@@ -249,16 +249,11 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     throw invalidInput('invalid_decoration_style', 'O estilo de decoração é inválido.')
   }
 
-  if (!Number.isInteger(input.expected_count) || input.expected_count < 1 || input.expected_count > 5) {
-    throw invalidInput('invalid_expected_count', 'A quantidade de imagens da sessão é inválida.')
-  }
-
   return {
     module: 'furnish-renovate',
     inputPath: input.input_path.trim(),
     transformationType: input.transformation_type as VirtualStagingTransformationType,
     decorationStyle: input.decoration_style as VirtualStagingDecorationStyle,
-    expectedCount: input.expected_count as number,
   }
 }
 

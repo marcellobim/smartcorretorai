@@ -51,7 +51,6 @@ const dependencies = (overrides: Partial<TextCampaignRuntimeDependencies> = {}):
   authenticate: async () => ({ id: 'user-id' }),
   generate: async () => ({ campaign: validCampaign(), usage: { input_tokens: 100, output_tokens: 200, total_tokens: 300 } }),
   generateHashtags: async () => validCampaign().hashtags,
-  registerCreation: async () => {},
   ...overrides,
 })
 
@@ -135,39 +134,13 @@ test('falls back to official hashtags without failing the campaign', async () =>
   assert.deepEqual(data.campaign.hashtags, buildOfficialHashtags(buildTextCampaignHashtagContext(validBriefing())))
 })
 
-test('registers exactly one current text creation without changing the generation response', async () => {
-  const registrations: Parameters<TextCampaignRuntimeDependencies['registerCreation']>[0][] = []
-  const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
-    registerCreation: async input => { registrations.push(input) },
-  }))
+test('returns the generated campaign without registering a creation', async () => {
+  const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies())
   assert.equal(response.status, 200)
   const responseBody = await response.json()
   assert.equal(responseBody.ok, true)
-  assert.equal(registrations.length, 1)
-  assert.equal(registrations[0].product_key, 'campanha_textos')
-  assert.equal(registrations[0].delivery_kind, 'text')
-  assert.match(registrations[0].source_ref, /^text-campaign:[0-9a-f]{64}$/)
-  assert.equal(registrations[0].title, 'Apartamento em Vila Mariana')
-  assert.equal(registrations[0].result_manifest.download_name, 'campanha-de-textos-apartamento-em-vila-mariana.txt')
-  assert.deepEqual(registrations[0].result_manifest.content, { campaign: responseBody.campaign })
-  assert.ok(registrations[0].completed_at instanceof Date)
-})
-
-test('uses a deterministic source reference and does not break generation when registration fails', async () => {
-  const sourceRefs: string[] = []
-  const first = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
-    registerCreation: async input => { sourceRefs.push(input.source_ref) },
-  }))
-  const events: string[] = []
-  const second = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
-    registerCreation: async input => { sourceRefs.push(input.source_ref); throw new Error('database detail must stay private') },
-    log: event => events.push(event),
-  }))
-  assert.equal(first.status, 200)
-  assert.equal(second.status, 200)
-  assert.equal(sourceRefs[0], sourceRefs[1])
-  assert.ok(events.includes('creation_registration_failed'))
-  assert.equal((await second.json()).ok, true)
+  assert.equal(responseBody.campaign.listing_title, validCampaign().listing_title)
+  assert.deepEqual(Object.keys(responseBody).sort(), ['campaign', 'ok'])
 })
 
 test('truth prompt explicitly forbids invented facts and mixed purposes', () => {
@@ -189,7 +162,6 @@ test('logs only sanitized outcomes and keeps service credentials backend-only', 
   const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({ log: (event, details) => events.push({ event, details }) }))
   assert.equal(response.status, 200)
   assert.deepEqual(events, [
-    { event: 'creation_registered', details: { product: 'campanha_textos' } },
     { event: 'generation_completed', details: { model: 'gpt-4.1', usage: { input_tokens: 100, output_tokens: 200, total_tokens: 300 } } },
   ])
   const indexSource = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
@@ -198,6 +170,6 @@ test('logs only sanitized outcomes and keeps service credentials backend-only', 
   assert.doesNotMatch(runtimeSource, /service_role|openai_api_key/i)
   assert.match(indexSource, /supabase\.auth\.getUser\(token\)/)
   assert.match(indexSource, /Deno\.env\.get\('OPENAI_API_KEY'\)/)
-  assert.match(indexSource, /Deno\.env\.get\('SUPABASE_SERVICE_ROLE_KEY'\)/)
-  assert.match(indexSource, /registerCompletedCreation/)
+  assert.doesNotMatch(indexSource, /Deno\.env\.get\('SUPABASE_SERVICE_ROLE_KEY'\)/)
+  assert.doesNotMatch(`${indexSource}\n${runtimeSource}`, /_shared\/creations|registerCompletedCreation|registerCreation|creation_registered/)
 })

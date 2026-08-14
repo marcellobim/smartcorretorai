@@ -15,7 +15,6 @@ import {
   type ImageEditRequest,
   type RuntimeDependencies,
 } from './runtime.ts'
-import { VirtualStagingSessionError } from './creation-runtime.ts'
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const requestId = '33333333-3333-4333-8333-333333333333'
@@ -81,13 +80,6 @@ function dependencies(overrides: Partial<RuntimeDependencies> = {}) {
     download: async () => ({ bytes: png(), contentType: 'image/png' }),
     openAI: { editImage: async (input) => ({ bytes: jpegForSize(input.size), usage: { total_tokens: 321 } }) },
     upload: async () => undefined,
-    recordSessionOutput: async () => undefined,
-    finalizeSession: async input => ({
-      id: '44444444-4444-4444-8444-444444444444',
-      deliveryKind: input.expectedCount === 1 ? 'file' : 'bundle',
-      fileCount: input.expectedCount,
-      created: true,
-    }),
     createJobId: () => '22222222-2222-4222-8222-222222222222',
     now: () => { clock += 25; return clock },
     log: () => undefined,
@@ -363,81 +355,36 @@ test('salva uma saída JPEG privada e devolve somente metadados, caminho e uso n
   assert.equal('base64' in result, false)
 })
 
-test('registra o output técnico somente depois do upload final', async () => {
+test('conclui diretamente depois do upload final sem session output store', async () => {
   const events: string[] = []
   const successful = dependencies({
     upload: async () => { events.push('upload') },
-    recordSessionOutput: async input => {
-      events.push('record')
-      assert.equal(input.jobId, '22222222-2222-4222-8222-222222222222')
-      assert.equal(input.outputPath, `${userId}/virtual-staging-images/results/22222222-2222-4222-8222-222222222222/generated-01.jpg`)
-      assert.equal(input.inputPath, validPath)
-    },
   })
   const success = await json(await handleVirtualStagingImageTest(request(validBody), successful))
-  assert.deepEqual(events, ['upload', 'record'])
+  assert.deepEqual(events, ['upload'])
   assert.equal(success.ok, true)
   assert.equal('creation_id' in success.result, false)
-
-  const registrationFailure = dependencies({
-    recordSessionOutput: async () => { throw new Error('output_insert_failed') },
-  })
-  const rejected = await handleVirtualStagingImageTest(request(validBody), registrationFailure)
-  assert.equal(rejected.status, 500)
-  assert.equal((await json(rejected)).code, 'session_output_registration_failed')
 })
 
-test('não registra output pending ou failed: autenticação, provider e upload precisam concluir primeiro', async () => {
-  let registrations = 0
-  const recordSessionOutput = async () => { registrations += 1 }
-
-  await handleVirtualStagingImageTest(request(validBody, false), dependencies({ recordSessionOutput }))
-  await handleVirtualStagingImageTest(request(validBody), dependencies({
-    recordSessionOutput,
-    openAI: { editImage: async () => { throw new Error('provider_failed') } },
-  }))
-  await handleVirtualStagingImageTest(request(validBody), dependencies({
-    recordSessionOutput,
-    upload: async () => { throw new Error('upload_failed') },
-  }))
-
-  assert.equal(registrations, 0)
-})
-
-test('finaliza somente por session_id e expected_count sem aceitar manifesto do frontend', async () => {
-  const calls: Array<Record<string, unknown>> = []
-  const deps = dependencies({
-    finalizeSession: async input => {
-      calls.push(input)
-      return { id: '44444444-4444-4444-8444-444444444444', deliveryKind: 'bundle', fileCount: 2, created: true }
-    },
-  })
-  const response = await handleVirtualStagingImageTest(request({
+test('remove finalize_session e aceita expected_count somente como campo legado ignorado', async () => {
+  const finalized = await handleVirtualStagingImageTest(request({
     action: 'finalize_session', session_id: requestId, expected_count: 2,
-  }), deps)
-  const result = await json(response)
-  assert.equal(response.status, 200)
-  assert.equal(result.creation_id, '44444444-4444-4444-8444-444444444444')
-  assert.equal(result.delivery_kind, 'bundle')
-  assert.equal(result.file_count, 2)
-  assert.deepEqual(calls.map(call => ({ userId: call.userId, sessionId: call.sessionId, expectedCount: call.expectedCount })), [{
-    userId, sessionId: requestId, expectedCount: 2,
-  }])
+  }), dependencies())
+  assert.equal(finalized.status, 400)
+  assert.notEqual((await json(finalized)).code, 'session_incomplete')
 
-  for (const forbidden of ['user_id', 'bucket', 'output_path', 'mime_type', 'size_bytes', 'result_manifest']) {
-    const rejected = await json(await handleVirtualStagingImageTest(request({
-      action: 'finalize_session', session_id: requestId, expected_count: 2, [forbidden]: 'controlled',
-    }), deps))
-    assert.equal(rejected.code, 'invalid_finalize_request')
-  }
+  const withoutExpectedCount = { ...validBody }
+  delete (withoutExpectedCount as Partial<typeof validBody>).expected_count
+  assert.equal((await handleVirtualStagingImageTest(request(withoutExpectedCount), dependencies())).status, 200)
+  assert.equal((await handleVirtualStagingImageTest(request({ ...validBody, expected_count: 'legacy' }), dependencies())).status, 200)
 })
 
-test('sessão incompleta não finaliza', async () => {
-  const response = await handleVirtualStagingImageTest(request({
-    action: 'finalize_session', session_id: requestId, expected_count: 5,
-  }), dependencies({ finalizeSession: async () => { throw new VirtualStagingSessionError('session_incomplete') } }))
-  assert.equal(response.status, 409)
-  assert.equal((await json(response)).code, 'session_incomplete')
+test('mantém o fluxo individual para posições de 1 a 5', async () => {
+  for (let position = 1; position <= 5; position += 1) {
+    const inputPath = `${userId}/virtual-staging-images/inputs/${requestId}/${String(position).padStart(2, '0')}.png`
+    const response = await handleVirtualStagingImageTest(request({ ...validBody, input_path: inputPath }), dependencies())
+    assert.equal(response.status, 200, String(position))
+  }
 })
 
 test('devolve usage nulo quando a OpenAI não fornece métricas', async () => {
@@ -482,6 +429,7 @@ test('não desconta Smart Tokens, não importa backends atuais e o runtime não 
   const combined = `${runtimeSource}\n${indexSource}`
   assert.doesNotMatch(combined, /smart.?tokens?|reserve.?credit|consume.?credit|token_balance/i)
   assert.doesNotMatch(combined, /virtual-staging-(?:generate|status)|smart-tour|vida.no.im.vel|apresenta..o.pelo.corretor/i)
+  assert.doesNotMatch(combined, /_shared\/creations|creation-runtime|recordSessionOutput|finalizeSession|finalize_session|virtual_staging_session_outputs|creation_id/)
   assert.doesNotMatch(runtimeSource, /\bfetch\s*\(/)
   assert.doesNotMatch(runtimeSource, /api\.openai\.com/)
 })

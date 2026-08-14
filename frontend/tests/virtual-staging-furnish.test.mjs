@@ -156,9 +156,10 @@ test('processa a coleção sequencialmente, bloqueia clique duplicado e não exe
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
   assert.match(integration, /furnishGenerationInFlightRef\.current\) return/)
   assert.match(integration, /furnishGenerationInFlightRef\.current = true/)
-  assert.equal((integration.match(/functions\.invoke\('virtual-staging-image-test'/g) || []).length, 2)
+  assert.equal((integration.match(/functions\.invoke\('virtual-staging-image-test'/g) || []).length, 1)
   assert.match(integration, /for \(let imageIndex = 0; imageIndex < orderedImages\.length; imageIndex \+= 1\)/)
   assert.doesNotMatch(integration, /Promise\.all|setTimeout|setInterval|retry|while\s*\(/i)
+  assert.doesNotMatch(integration, /finalize_session|creation_id/)
 })
 
 test('mostra progresso real, resultado Antes e Depois e downloads individuais', () => {

@@ -111,9 +111,8 @@ test('repeated completion remains insert-once through the shared idempotent help
   assert.equal(store.insertions, 1)
 })
 
-test('status registers only after completed persistence and returns the creation id', () => {
-  assert.match(indexSource, /createSupabaseCreationStore, registerCompletedCreation/)
+test('status returns the signed completed image without an active Creations hook', () => {
   assert.match(indexSource, /status: 'completed',[\s\S]*?image_storage_path: storagePath,[\s\S]*?completed_at: completedAt/)
-  assert.match(indexSource, /registerBannerImobiliarioCreation\(supabase,[\s\S]*?creation_id: creationId/)
-  assert.doesNotMatch(indexSource, /product_key:\s*'short_videos'/)
+  assert.match(indexSource, /createSignedUrl\(storagePath, 60 \* 60\)/)
+  assert.doesNotMatch(indexSource, /_shared\/creations|registerCompletedCreation|registerBannerImobiliarioCreation|creation_id/)
 })

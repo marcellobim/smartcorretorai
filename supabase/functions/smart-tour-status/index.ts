@@ -7,7 +7,6 @@ import {
   encodeGeminiOmniStreamState,
 } from '../_shared/geminiOmniClient.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
-import { createSupabaseCreationStore, registerCompletedCreation } from '../_shared/creations.ts'
 import {
   checkSmartTourCaptionRender,
   buildShortVideosCaptionPlan,
@@ -19,10 +18,12 @@ import {
   validateShortVideosFinalMp4,
 } from '../_shared/smart-tour/index.ts'
 import {
+  SMART_TOUR_STATUS_TIMEOUT_MS,
   classifySmartTourStatusError,
-  buildVideoImobiliarioCreationInput,
+  classifySmartTourProviderDiagnostic,
   isShortVideoPreProviderStale,
   maskSmartTourInteractionId,
+  serializeSmartTourStatusDiagnostic,
   type SmartTourStatusStage,
   withSmartTourStatusTimeout,
 } from './status-runtime.ts'
@@ -70,19 +71,6 @@ serve(withCors(async req => {
     }
     log('job_lookup_completed', { jobStatus: job.status, providerIdPresent: Boolean(job.provider_job_id) })
 
-    const registerVideoImobiliarioCreation = async (completedJob: typeof job) => {
-      const input = buildVideoImobiliarioCreationInput(completedJob)
-      if (!input) return null
-      try {
-        const registered = await registerCompletedCreation(createSupabaseCreationStore(supabase), input)
-        log('creation_registration_completed', { product: 'video_imobiliario', created: registered.created })
-        return registered.creation.id
-      } catch {
-        console.warn('[smart-tour-status] creation_registration_failed', JSON.stringify({ traceId, product: 'video_imobiliario' }))
-        return null
-      }
-    }
-
     if (job.status === 'failed') return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
 
     if (job.status === 'completed' && job.output_video_path) {
@@ -90,9 +78,8 @@ serve(withCors(async req => {
       log('completed_url_started')
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
       if (error) throw new Error('status_completed_url_failed')
-      const creationId = await registerVideoImobiliarioCreation(job)
       log('completed_url_completed', { isShortVideos: job.mode === 'smart_tour_gemini_omni_short_video', totalProcessingDurationMs: Math.max(0, Date.now() - Date.parse(job.created_at)) })
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], ...(creationId ? { creationId } : {}) })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
     if (!job.provider_job_id) {
@@ -163,10 +150,9 @@ serve(withCors(async req => {
         .eq('user_id', user.id)
       if (updateError) throw new Error('status_completed_persist_failed')
       await cleanupShortVideoRaw()
-      const creationId = await registerVideoImobiliarioCreation({ ...job, status: 'completed', output_video_path: outputPath, completed_at: completedAt })
       const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
       if (signedUrlError) throw new Error('status_result_url_failed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], ...(creationId ? { creationId } : {}) })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
     stage = 'interaction_poll'
@@ -179,11 +165,24 @@ serve(withCors(async req => {
       cursorPresent: Boolean(streamState.lastEventId),
       outputUriPresent: Boolean(streamState.videoUri),
     }))
+    const pollAbortController = new AbortController()
     const remote = streamState.videoUri
       ? { status: 'completed' as const, videoUri: streamState.videoUri, contentType: streamState.contentType, delivery: 'uri' as const, lastEventId: streamState.lastEventId }
-      : await withSmartTourStatusTimeout(checkGeminiOmniVideoStream(interactionId, streamState.lastEventId))
-    log('interaction_poll_completed', { remoteStatus: remote.status, isShortVideos, ...(remote.status === 'completed' ? { resultFormat: remote.delivery } : {}) })
-
+      : await withSmartTourStatusTimeout(
+          checkGeminiOmniVideoStream(interactionId, streamState.lastEventId, pollAbortController.signal),
+          SMART_TOUR_STATUS_TIMEOUT_MS,
+          () => pollAbortController.abort(),
+        )
+    log('interaction_poll_completed', { remoteStatus: remote.status, pollAttempts: streamState.videoUri ? 0 : 1, isShortVideos, ...(remote.status === 'completed' ? { resultFormat: remote.delivery } : {}) })
+    if (isShortVideos && remote.status === 'failed' && !remote.diagnostic.eventType) {
+      const legacyDiagnostic = classifySmartTourProviderDiagnostic(remote.diagnostic)
+      log('short_video_interaction_poll_error', {
+        providerStatus: legacyDiagnostic.providerStatus,
+        providerMessage: legacyDiagnostic.providerMessage,
+        retriable: false,
+      })
+      return json({ ok: false, error: 'Não foi possível consultar sua apresentação.' }, 502)
+    }
     if (remote.status === 'processing') {
       if (remote.lastEventId && remote.lastEventId !== streamState.lastEventId) {
         const cursorState = encodeGeminiOmniStreamState({ ...streamState, lastEventId: remote.lastEventId })
@@ -200,10 +199,22 @@ serve(withCors(async req => {
 
     if (remote.status === 'failed') {
       stage = 'failed_persist'
-      log('failed_persist_started')
+      const classifiedDiagnostic = classifySmartTourProviderDiagnostic(remote.diagnostic)
+      const diagnostic = remote.diagnostic.source === 'sse' && remote.diagnostic.eventType === 'error'
+        ? { ...classifiedDiagnostic, retriable: false }
+        : classifiedDiagnostic
+      log('failed_persist_started', {
+        eventType: diagnostic.eventType,
+        providerCode: diagnostic.providerCode,
+        providerErrorStatus: diagnostic.providerErrorStatus,
+        providerErrorType: diagnostic.providerErrorType,
+        providerStatus: diagnostic.providerStatus,
+        providerMessage: diagnostic.providerMessage,
+        retriable: diagnostic.retriable,
+      })
       const { error } = await supabase
         .from('video_jobs')
-        .update({ status: 'failed', error_message: String(remote.errorMessage).slice(0, 400) })
+        .update({ status: 'failed', error_message: serializeSmartTourStatusDiagnostic(diagnostic) })
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (error) throw new Error('status_failed_persist_failed')
@@ -277,20 +288,22 @@ serve(withCors(async req => {
       .eq('user_id', user.id)
     if (updateError) throw new Error('status_completed_persist_failed')
     log('completed_persist_completed')
-    const creationId = await registerVideoImobiliarioCreation({ ...job, status: 'completed', output_video_path: outputPath, completed_at: completedAt })
-
     stage = 'result_url'
     log('result_url_started')
     const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
     if (signedUrlError) throw new Error('status_result_url_failed')
     log('result_url_completed', { isShortVideos: job.mode === 'smart_tour_gemini_omni_short_video', totalProcessingDurationMs: Math.max(0, Date.now() - Date.parse(job.created_at)), resultFormat: remote.delivery })
-    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], ...(creationId ? { creationId } : {}) })
+    return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
   } catch (error) {
     const diagnostic = classifySmartTourStatusError(error, stage)
     const logger = diagnostic.retriable ? console.warn : console.error
     logger('[smart-tour-status] status_error', JSON.stringify({
       stage: diagnostic.stage,
       kind: diagnostic.kind,
+      eventType: diagnostic.eventType,
+      providerCode: diagnostic.providerCode,
+      providerErrorStatus: diagnostic.providerErrorStatus,
+      providerErrorType: diagnostic.providerErrorType,
       providerStatus: diagnostic.providerStatus,
       retriable: diagnostic.retriable,
       providerMessage: diagnostic.providerMessage,

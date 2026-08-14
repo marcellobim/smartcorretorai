@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, FilePlus2 } from 'lucide-react'
+import { Check, Copy, Download, FilePlus2 } from 'lucide-react'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, SMART_UI } from '../design-system'
 import {
   copyTextCampaignValue,
@@ -26,6 +26,13 @@ export default function TextCampaignResult({ campaign, onNewCampaign }) {
     }
   }
 
+  const downloadCompleteCampaign = () => {
+    const url = URL.createObjectURL(new Blob([formatCompleteTextCampaign(campaign)], { type: 'text/plain;charset=utf-8' }))
+    const link = Object.assign(document.createElement('a'), { href: url, download: 'campanha-de-textos.txt' })
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
   return <div className="space-y-6">
     <ProductCard className="overflow-hidden">
       <ProductHero
@@ -36,6 +43,7 @@ export default function TextCampaignResult({ campaign, onNewCampaign }) {
         description="Copie cada peça separadamente ou leve a campanha completa de uma só vez."
         actions={<div className="flex flex-wrap gap-3">
           <ProductButton onClick={() => copyValue('complete', formatCompleteTextCampaign(campaign))}>{copiedId === 'complete' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copiedId === 'complete' ? 'Copiado' : 'Copiar campanha completa'}</ProductButton>
+          <ProductButton variant="secondary" onClick={downloadCompleteCampaign}><Download className="h-4 w-4" />Baixar TXT</ProductButton>
           <ProductButton variant="secondary" onClick={onNewCampaign}><FilePlus2 className="h-4 w-4" />Criar nova campanha</ProductButton>
         </div>}
       />

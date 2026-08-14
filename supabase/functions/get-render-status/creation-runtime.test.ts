@@ -212,11 +212,9 @@ test('duplicate owner-path upload can resume registration, while other Storage e
   assert.equal(failed.insertions, 0)
 })
 
-test('get-render-status waits for the batch and registers only its first successful render', () => {
+test('get-render-status preserves the Creatomate result without copying or registering a creation', () => {
   assert.match(indexSource, /select\('id, titulo, dados_imovel, banners'\)/)
-  assert.match(indexSource, /nextBanners\.every\(item => FINAL_STATUSES\.has/)
-  assert.match(indexSource, /nextBanners\.find\(item => READY_STATUSES\.has/)
-  assert.match(indexSource, /READY_STATUSES\.has\(canonicalStatus\)[\s\S]*registerBannersRapidosCreation/)
-  assert.match(indexSource, /creation_id: registration\.creation\.id/)
   assert.match(indexSource, /campaignBanners\.length > 0 \? campaignBanners : payloadRenders/)
+  assert.match(indexSource, /update \? \{ \.\.\.item, \.\.\.update \} : item/)
+  assert.doesNotMatch(indexSource, /registerBannersRapidosCreation|creation_id|creations\/banners-rapidos/)
 })

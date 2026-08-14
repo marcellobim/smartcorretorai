@@ -2726,8 +2726,6 @@ export default function NovaCampanha() {
     setCopiadoId(id); toast.success('Copiado!')
     setTimeout(() => setCopiadoId(null), 2000)
   }
-  const abrirWhatsApp = (texto) => window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
-
   const baixarTextosDaCampanha = () => {
     if (!resultado?.textos_gerados) return
     const REDES = {
@@ -2817,28 +2815,7 @@ export default function NovaCampanha() {
 
     setDownloadingRenderKey(downloadKey)
     try {
-      if (render?.creation_id) {
-        const headers = { Authorization: `Bearer ${accessToken}` }
-        const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
-          headers,
-          body: { action: 'prepare', creation_id: render.creation_id },
-        })
-        if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url || !prepared.download?.name) {
-          const body = await readFunctionErrorBody(prepareError)
-          throw new Error(body?.error || 'Não foi possível preparar o download desta criação.')
-        }
-        await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name)
-        const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
-          headers,
-          body: { action: 'confirm', creation_id: render.creation_id },
-        })
-        if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
-          const body = await readFunctionErrorBody(confirmError)
-          throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
-        }
-      } else {
-        await downloadFileFromPrivateUrl(finalUrl, getRenderDownloadName(render, index))
-      }
+      await downloadFileFromPrivateUrl(finalUrl, getRenderDownloadName(render, index))
       toast.success('Download iniciado.')
     } catch (error) {
       const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
@@ -2877,28 +2854,7 @@ export default function NovaCampanha() {
     try {
       for (const [index, render] of readyPieces.entries()) {
         try {
-          if (render?.creation_id) {
-            const headers = { Authorization: `Bearer ${accessToken}` }
-            const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
-              headers,
-              body: { action: 'prepare', creation_id: render.creation_id },
-            })
-            if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url || !prepared.download?.name) {
-              const body = await readFunctionErrorBody(prepareError)
-              throw new Error(body?.error || 'Não foi possível preparar o download desta criação.')
-            }
-            await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name)
-            const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
-              headers,
-              body: { action: 'confirm', creation_id: render.creation_id },
-            })
-            if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
-              const body = await readFunctionErrorBody(confirmError)
-              throw new Error(body?.error || 'O arquivo foi baixado, mas não foi possível confirmar a retirada.')
-            }
-          } else {
-            await downloadFileFromPrivateUrl(getRenderFinalUrl(render), getRenderDownloadName(render, index))
-          }
+          await downloadFileFromPrivateUrl(getRenderFinalUrl(render), getRenderDownloadName(render, index))
           completed += 1
         } catch (error) {
           const refreshable = ['download_url_expired', 'download_request_blocked', 'download_url_invalid'].includes(error?.code || error?.message)
@@ -4220,11 +4176,6 @@ export default function NovaCampanha() {
                   }),
                 }}
                 onRefreshMedia={renovarUrlRender}
-                onWithdrawDownload={(_filename, file) => {
-                  const render = visualPieces.find(item => item?.render_id === file?.renderId)
-                  const index = visualPieces.indexOf(render)
-                  return baixarPecaVisual(render || file, index < 0 ? 0 : index)
-                }}
                 onCreateNew={() => resetCampaignState()}
                 createNewLabel="Criar banners para outro imóvel"
               />
@@ -4271,7 +4222,7 @@ export default function NovaCampanha() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <button
                       type="button"
                       onClick={voltarResultadoParaCusto}
@@ -4293,13 +4244,6 @@ export default function NovaCampanha() {
                       className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                     >
                       Voltar para Home
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/pacotes-gerados')}
-                      className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
-                    >
-                      Ver campanhas geradas
                     </button>
                     <button
                       type="button"
@@ -4356,10 +4300,6 @@ export default function NovaCampanha() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                           {copiadoId === 'ig_feed' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
                         </button>
-                        <button onClick={() => abrirWhatsApp(removeHashtagsFromText(tg.instagram_feed.legenda || ''))}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-medium hover:bg-green-600">
-                          <MessageCircle className="w-3.5 h-3.5" />WhatsApp
-                        </button>
                       </div>
                     </div>
                     <InstagramFeedCard dados={tg.instagram_feed} gradiente={grad} />
@@ -4404,10 +4344,6 @@ export default function NovaCampanha() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                           {copiadoId === 'wa' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
                         </button>
-                        <button onClick={() => abrirWhatsApp(removeHashtagsFromText(tg.whatsapp.mensagem))}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-medium hover:bg-green-600">
-                          <MessageCircle className="w-3.5 h-3.5" />Enviar agora
-                        </button>
                       </div>
                     </div>
                     <WhatsAppCard dados={tg.whatsapp} />
@@ -4424,10 +4360,6 @@ export default function NovaCampanha() {
                         <button onClick={() => copiar(removeHashtagsFromText([tg.facebook.texto, tg.facebook.cta ? `👉 ${tg.facebook.cta}` : ''].filter(Boolean).join('\n\n')), 'fb')}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
                           {copiadoId === 'fb' ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />Copiado!</> : <><Copy className="w-3.5 h-3.5" />Copiar</>}
-                        </button>
-                        <button onClick={() => abrirWhatsApp(removeHashtagsFromText([tg.facebook.texto, tg.facebook.cta].filter(Boolean).join('\n\n')))}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-medium hover:bg-green-600">
-                          <MessageCircle className="w-3.5 h-3.5" />WhatsApp
                         </button>
                       </div>
                     </div>

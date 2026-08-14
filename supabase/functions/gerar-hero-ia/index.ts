@@ -1,8 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
-import { createSupabaseCreationStore, registerCompletedCreation } from '../_shared/creations.ts'
-import { buildBannerImobiliarioCreationInput } from './creation-runtime.ts'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 
@@ -1745,25 +1743,6 @@ async function resolveRetentionDays(supabase: ReturnType<typeof createClient>, u
   return data ? 15 : 1
 }
 
-async function registerBannerImobiliarioCreation(
-  supabase: ReturnType<typeof createClient>,
-  generation: Parameters<typeof buildBannerImobiliarioCreationInput>[0],
-) {
-  const input = buildBannerImobiliarioCreationInput(generation)
-  if (!input) return null
-  try {
-    const registered = await registerCompletedCreation(createSupabaseCreationStore(supabase), input)
-    console.info('[gerar-hero-ia] creation_registration_completed', JSON.stringify({
-      product: 'banner_imobiliario',
-      created: registered.created,
-    }))
-    return registered.creation.id
-  } catch {
-    console.warn('[gerar-hero-ia] creation_registration_failed', JSON.stringify({ product: 'banner_imobiliario' }))
-    return null
-  }
-}
-
 async function handleHeroNextStatus(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -1791,7 +1770,6 @@ async function handleHeroNextStatus(
   }
 
   if (generation.status === 'completed' && generation.image_storage_path) {
-    const creationId = await registerBannerImobiliarioCreation(supabase, generation)
     const { data: signedImage, error: signedError } = await supabase.storage
       .from(HERO_IMAGE_BUCKET)
       .createSignedUrl(generation.image_storage_path, 60 * 60)
@@ -1809,7 +1787,6 @@ async function handleHeroNextStatus(
       image_url: signedImage.signedUrl,
       texts: generation.texts || {},
       expires_at: generation.expires_at,
-      ...(creationId ? { creation_id: creationId } : {}),
     })
   }
 
@@ -1958,13 +1935,6 @@ async function handleHeroNextStatus(
     return jsonResponse({ error: 'Falha ao finalizar campanha.' }, 500)
   }
 
-  const creationId = await registerBannerImobiliarioCreation(supabase, {
-    ...generation,
-    status: 'completed',
-    image_storage_path: storagePath,
-    completed_at: completedAt,
-  })
-
   const { data: signedImage, error: signedError } = await supabase.storage
     .from(HERO_IMAGE_BUCKET)
     .createSignedUrl(storagePath, 60 * 60)
@@ -1982,7 +1952,6 @@ async function handleHeroNextStatus(
     image_url: signedImage.signedUrl,
     texts,
     expires_at: generation.expires_at,
-    ...(creationId ? { creation_id: creationId } : {}),
   })
 }
 

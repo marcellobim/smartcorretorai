@@ -19,10 +19,20 @@ export type ShortVideoRangeOptions = {
 }
 type ShortVideoStartInput = { prompt: string; video: GeminiVideoReference }
 type CheckResult = { status: 'processing' } | { status: 'completed'; videoBytes: Uint8Array; contentType: string; delivery: 'base64' | 'uri' } | { status: 'failed'; errorMessage: string }
+export type GeminiOmniErrorDiagnostic = {
+  source: 'sse' | 'http'
+  eventType: '' | 'error' | 'interaction.failed' | 'interaction.completed'
+  code: string
+  errorStatus: string
+  errorType: string
+  httpStatus: number | null
+  message: string
+  retryable: boolean
+}
 export type GeminiOmniStreamResult =
   | { status: 'processing'; lastEventId: string }
   | { status: 'completed'; videoUri: string; contentType: string; delivery: 'uri'; lastEventId: string }
-  | { status: 'failed'; errorMessage: string; lastEventId: string }
+  | { status: 'failed'; diagnostic: GeminiOmniErrorDiagnostic; lastEventId: string }
 export type GeminiOmniStreamState = { interactionId: string; lastEventId: string; videoUri: string; contentType: string }
 
 export const SMART_TOUR_GEMINI_OMNI_MODEL = 'gemini-omni-flash-preview'
@@ -30,6 +40,19 @@ export const SMART_TOUR_GEMINI_OMNI_API_VERSION = 'v1beta'
 export const SMART_TOUR_GEMINI_OMNI_DURATION = '10s'
 export const SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL = 'high'
 const API_BASE = `https://generativelanguage.googleapis.com/${SMART_TOUR_GEMINI_OMNI_API_VERSION}`
+const GEMINI_OMNI_SSE_RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504])
+const GEMINI_OMNI_HTTP_RETRYABLE_STATUSES = new Set([404, 408, 409, 425, 429, 500, 502, 503, 504])
+const GEMINI_OMNI_RETRYABLE_CODES = new Set([
+  'deadline_exceeded',
+  'internal',
+  'rate_limit_exceeded',
+  'request_timeout',
+  'resource_exhausted',
+  'service_unavailable',
+  'unavailable',
+])
+const GEMINI_OMNI_HTTP_ERROR_BODY_MAX_LENGTH = 64 * 1024
+const GEMINI_OMNI_VIDEO_ORIGIN = 'https://generativelanguage.googleapis.com'
 
 function bytesToBase64(bytes: Uint8Array) { let binary = ''; for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000)); return btoa(binary) }
 function base64ToBytes(value: string) { const binary = atob(value.includes(',') ? value.split(',').at(-1) || '' : value); return Uint8Array.from(binary, character => character.charCodeAt(0)) }
@@ -50,8 +73,135 @@ export function buildGeminiOmniShortVideoRequestBody(prompt: string, video: Gemi
     store: true,
   }
 }
-function getEnvironment() { const apiKey = Deno.env.get('GEMINI_API_KEY') || ''; if (!apiKey) throw new Error('gemini_omni_missing_environment'); return apiKey }
-async function apiFetch(path: string, init: RequestInit = {}) { const response = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), 'x-goog-api-key': getEnvironment(), ...(init.headers || {}) } }); if (!response.ok) { const body = await response.text(); throw new Error(`gemini_omni_api_failed:${response.status}:${body.slice(0, 180)}`) } return response }
+function getEnvironment() {
+  const apiKey = Deno.env.get('GEMINI_API_KEY') || ''
+  if (!apiKey) throw new Error('gemini_omni_missing_environment')
+  return apiKey
+}
+
+function errorRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function safeDiagnosticToken(value: unknown) {
+  const token = String(value ?? '').trim()
+  if (!/^[a-z0-9_.:-]{1,64}$/i.test(token)) return ''
+  if (/^(?:AIza|eyJ)|(?:api[_-]?key|authorization|bearer|token)/i.test(token)) return ''
+  return token
+}
+
+function safeHttpStatus(...values: unknown[]) {
+  for (const value of values) {
+    const status = typeof value === 'number' ? value : /^\d{3}$/.test(String(value || '')) ? Number(value) : NaN
+    if (Number.isInteger(status) && status >= 100 && status <= 599) return status
+  }
+  return null
+}
+
+function sanitizeGeminiOmniDiagnosticMessage(value: unknown) {
+  const source = String(value || '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+  if (/\b(?:prompt|briefing|phone|telefone|image|images|image_url|base64|gemini_api_key|supabase_service_role_key|service[_-]?role|api[_-]?key|authorization|access[_-]?token|refresh[_-]?token|signed[_-]?url|credential|password|secret|token)\b["']?\s*[:=]/i.test(source)) {
+    return '[provider-detail-redacted]'
+  }
+  return source
+    .replace(/https?:\/\/[^\s"']+/gi, '[url-redacted]')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[email-redacted]')
+    .replace(/\bAIza[A-Za-z0-9_-]{16,}\b/g, '[secret-redacted]')
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, '[secret-redacted]')
+    .replace(/\b(?:GEMINI_API_KEY|SUPABASE_SERVICE_ROLE_KEY|api[_-]?key|authorization|token)\s*[:=]\s*[^\s,;]+/gi, '[secret-redacted]')
+    .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [secret-redacted]')
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, '[phone-redacted]')
+    .replace(/(?:data:[^;,\s]+;base64,)?[A-Za-z0-9+/_=-]{80,}/g, '[data-redacted]')
+    .replace(/\b(?:prompt|briefing)\s*[:=]\s*[^,;]+/gi, '[detail-redacted]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180)
+}
+
+function findGeminiOmniError(payload: Record<string, unknown>) {
+  const interaction = errorRecord(payload.interaction)
+  const direct = errorRecord(payload.error)
+  const nested = errorRecord(interaction.error)
+  const errors = Array.isArray(payload.errors) ? payload.errors : Array.isArray(interaction.errors) ? interaction.errors : []
+  return Object.keys(direct).length ? direct : Object.keys(nested).length ? nested : errorRecord(errors[0])
+}
+
+function buildGeminiOmniDiagnostic(
+  source: 'sse' | 'http',
+  eventType: GeminiOmniErrorDiagnostic['eventType'],
+  payload: Record<string, unknown>,
+  explicitHttpStatus: number | null,
+) {
+  const interaction = errorRecord(payload.interaction)
+  const error = findGeminiOmniError(payload)
+  const code = safeDiagnosticToken(error.code ?? payload.code ?? interaction.code)
+  const errorStatus = safeDiagnosticToken(error.status ?? payload.status ?? interaction.status)
+  const errorType = safeDiagnosticToken(error.type ?? payload.type ?? interaction.type)
+  const httpStatus = safeHttpStatus(
+    explicitHttpStatus,
+    error.http_status,
+    error.status_code,
+    payload.http_status,
+    payload.status_code,
+    error.code,
+  )
+  const normalizedCodes = [code, errorStatus, errorType].map(value => value.toLowerCase()).filter(Boolean)
+  const retryable = eventType !== 'interaction.failed' && eventType !== 'interaction.completed' && (
+    httpStatus !== null
+      ? (source === 'http' ? GEMINI_OMNI_HTTP_RETRYABLE_STATUSES : GEMINI_OMNI_SSE_RETRYABLE_HTTP_STATUSES).has(httpStatus)
+      : source === 'sse' && eventType === 'error' && normalizedCodes.some(value => GEMINI_OMNI_RETRYABLE_CODES.has(value))
+  )
+  return {
+    source,
+    eventType,
+    code,
+    errorStatus,
+    errorType,
+    httpStatus,
+    message: sanitizeGeminiOmniDiagnosticMessage(error.message ?? payload.message ?? interaction.message),
+    retryable,
+  } satisfies GeminiOmniErrorDiagnostic
+}
+
+export function classifyGeminiOmniSseError(eventType: 'error' | 'interaction.failed', payload: Record<string, unknown>) {
+  return buildGeminiOmniDiagnostic('sse', eventType, payload, null)
+}
+
+export function classifyGeminiOmniHttpError(httpStatus: number, body: string) {
+  let payload: Record<string, unknown> = {}
+  const rawBody = String(body || '')
+  if (rawBody.length <= GEMINI_OMNI_HTTP_ERROR_BODY_MAX_LENGTH) {
+    try { payload = errorRecord(JSON.parse(rawBody)) } catch { payload = { message: rawBody.slice(0, 180) } }
+  }
+  return buildGeminiOmniDiagnostic('http', '', payload, httpStatus)
+}
+
+class GeminiOmniPollingHttpError extends Error {
+  readonly diagnostic: GeminiOmniErrorDiagnostic
+
+  constructor(diagnostic: GeminiOmniErrorDiagnostic) {
+    super(`gemini_omni_poll_http_error:${diagnostic.httpStatus || 'unknown'}`)
+    this.name = 'GeminiOmniPollingHttpError'
+    this.diagnostic = diagnostic
+  }
+}
+
+async function apiFetch(
+  path: string,
+  init: RequestInit = {},
+  options: { errorMode?: 'legacy' | 'polling' } = {},
+) {
+  const errorMode = options.errorMode || 'legacy'
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), 'x-goog-api-key': getEnvironment(), ...(init.headers || {}) } })
+  if (!response.ok) {
+    const body = await response.text()
+    if (errorMode === 'polling') throw new GeminiOmniPollingHttpError(classifyGeminiOmniHttpError(response.status, body))
+    const diagnostic = classifyGeminiOmniHttpError(response.status, body)
+    throw new Error(`gemini_omni_api_failed:${response.status}:${diagnostic.message}`)
+  }
+  return response
+}
 async function createGeminiInteraction(body: unknown) { const response = await apiFetch('/interactions', { method: 'POST', body: JSON.stringify(body) }); return response.json() }
 
 const GEMINI_FILE_NAME_PATTERN = /^files\/[a-z0-9-]{1,40}$/
@@ -170,7 +320,7 @@ export async function uploadGeminiVideoFileInChunks(
         'X-Goog-Upload-Command': isFinal ? 'upload, finalize' : 'upload',
         'Content-Type': 'video/mp4',
       },
-      body: chunk,
+      body: chunk as unknown as BodyInit,
     })
     if (!response.ok) throw new Error(`gemini_omni_file_upload_failed:${response.status}`)
     const receivedSize = response.headers.get('x-goog-upload-size-received')
@@ -301,7 +451,55 @@ export async function prepareGeminiVideo(
   }
 }
 function findVideo(value: unknown): { data?: string; uri?: string; mimeType?: string } | null { if (!value || typeof value !== 'object') return null; if (Array.isArray(value)) { for (const item of value) { const found = findVideo(item); if (found) return found } return null } const record = value as Record<string, unknown>; if (record.type === 'video') return { data: typeof record.data === 'string' ? record.data : undefined, uri: typeof record.uri === 'string' ? record.uri : undefined, mimeType: typeof record.mime_type === 'string' ? record.mime_type : 'video/mp4' }; for (const nested of Object.values(record)) { const found = findVideo(nested); if (found) return found } return null }
-async function downloadVideo(uri: string) { const response = await fetch(uri, { headers: { 'x-goog-api-key': getEnvironment() } }); if (!response.ok) throw new Error(`gemini_omni_video_download_failed:${response.status}`); return new Uint8Array(await response.arrayBuffer()) }
+
+export function validateGeminiOmniVideoUri(value: unknown) {
+  let uri: URL
+  try {
+    uri = new URL(String(value || ''))
+  } catch {
+    throw new Error('gemini_omni_video_uri_invalid')
+  }
+  const filePath = new RegExp(`^/${SMART_TOUR_GEMINI_OMNI_API_VERSION}/files/([a-z0-9-]{1,40}):download$`)
+  const fileMatch = uri.pathname.match(filePath)
+  if (
+    uri.origin !== GEMINI_OMNI_VIDEO_ORIGIN ||
+    uri.username ||
+    uri.password ||
+    uri.hash ||
+    !fileMatch ||
+    uri.search !== '?alt=media'
+  ) {
+    throw new Error('gemini_omni_video_uri_invalid')
+  }
+  return `${GEMINI_OMNI_VIDEO_ORIGIN}/${SMART_TOUR_GEMINI_OMNI_API_VERSION}/files/${fileMatch[1]}:download?alt=media`
+}
+
+function validateGeminiOmniVideoRedirectUri(value: string, baseUri: string) {
+  let uri: URL
+  try {
+    uri = new URL(value, baseUri)
+  } catch {
+    throw new Error('gemini_omni_video_redirect_invalid')
+  }
+  const googleOwnedHost = uri.hostname === 'googleapis.com' ||
+    uri.hostname.endsWith('.googleapis.com') ||
+    uri.hostname === 'googleusercontent.com' ||
+    uri.hostname.endsWith('.googleusercontent.com')
+  if (uri.protocol !== 'https:' || uri.username || uri.password || uri.port || uri.hash || !googleOwnedHost) {
+    throw new Error('gemini_omni_video_redirect_invalid')
+  }
+  return uri.toString()
+}
+
+async function downloadVideo(uri: string) {
+  const safeUri = validateGeminiOmniVideoUri(uri)
+  const initialResponse = await fetch(safeUri, { headers: { 'x-goog-api-key': getEnvironment() }, redirect: 'manual' })
+  const response = initialResponse.status >= 300 && initialResponse.status < 400
+    ? await fetch(validateGeminiOmniVideoRedirectUri(initialResponse.headers.get('location') || '', safeUri), { redirect: 'error' })
+    : initialResponse
+  if (!response.ok) throw new Error(`gemini_omni_video_download_failed:${response.status}`)
+  return new Uint8Array(await response.arrayBuffer())
+}
 
 export function readGeminiOmniInteractionId(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('gemini_omni_interaction_id_missing')
@@ -366,13 +564,17 @@ function validateGeminiOmniEventId(value: unknown) {
   return eventId
 }
 
-export function encodeGeminiOmniStreamState(state: GeminiOmniStreamState) {
+function normalizeGeminiOmniStreamState(state: GeminiOmniStreamState): GeminiOmniStreamState {
   const interactionId = buildGeminiOmniInteractionGetRequest(state.interactionId).interactionId
   const lastEventId = validateGeminiOmniEventId(state.lastEventId)
-  const videoUri = String(state.videoUri || '')
-  if (videoUri && !/^https:\/\//i.test(videoUri)) throw new Error('gemini_omni_video_uri_invalid')
+  const videoUri = state.videoUri ? validateGeminiOmniVideoUri(state.videoUri) : ''
   const contentType = String(state.contentType || 'video/mp4').slice(0, 100)
-  return `${GEMINI_OMNI_STREAM_STATE_PREFIX}${JSON.stringify({ interactionId, lastEventId, videoUri, contentType })}`
+  return { interactionId, lastEventId, videoUri, contentType }
+}
+
+export function encodeGeminiOmniStreamState(state: GeminiOmniStreamState) {
+  const normalized = normalizeGeminiOmniStreamState(state)
+  return `${GEMINI_OMNI_STREAM_STATE_PREFIX}${JSON.stringify(normalized)}`
 }
 
 export function decodeGeminiOmniStreamState(value: unknown): GeminiOmniStreamState {
@@ -391,11 +593,13 @@ export function decodeGeminiOmniStreamState(value: unknown): GeminiOmniStreamSta
   } catch {
     throw new Error('gemini_omni_stream_state_invalid')
   }
-  const interactionId = buildGeminiOmniInteractionGetRequest(String(parsed.interactionId || '')).interactionId
-  const lastEventId = validateGeminiOmniEventId(parsed.lastEventId)
-  const videoUri = String(parsed.videoUri || '')
-  if (videoUri && !/^https:\/\//i.test(videoUri)) throw new Error('gemini_omni_video_uri_invalid')
-  return { interactionId, lastEventId, videoUri, contentType: String(parsed.contentType || 'video/mp4').slice(0, 100) }
+  const state = normalizeGeminiOmniStreamState({
+    interactionId: String(parsed.interactionId || ''),
+    lastEventId: String(parsed.lastEventId || ''),
+    videoUri: String(parsed.videoUri || ''),
+    contentType: String(parsed.contentType || 'video/mp4'),
+  })
+  return state
 }
 
 export function parseGeminiOmniSseBlock(block: string) {
@@ -416,14 +620,45 @@ export function parseGeminiOmniSseBlock(block: string) {
   return { eventType: String(payload.event_type || eventType || ''), eventId, payload }
 }
 
-function getGeminiOmniSseError(payload: Record<string, unknown>) {
-  const interaction = payload.interaction && typeof payload.interaction === 'object' ? payload.interaction as Record<string, unknown> : {}
-  const error = payload.error && typeof payload.error === 'object'
-    ? payload.error as Record<string, unknown>
-    : interaction.error && typeof interaction.error === 'object'
-      ? interaction.error as Record<string, unknown>
-      : {}
-  return String(error.message || payload.message || interaction.message || 'gemini_omni_stream_failed').slice(0, 400)
+export function evaluateGeminiOmniSseEvent(
+  event: { eventType: string; eventId: string; payload: Record<string, unknown> },
+  currentEventId = '',
+): GeminiOmniStreamResult | null {
+  const lastEventId = event.eventId || currentEventId
+  if (event.eventType === 'error' || event.eventType === 'interaction.failed') {
+    const diagnostic = classifyGeminiOmniSseError(event.eventType, event.payload)
+    return { status: 'failed', diagnostic: { ...diagnostic, retryable: false }, lastEventId }
+  }
+  const video = findVideo(event.payload)
+  if (video?.uri) {
+    return {
+      status: 'completed',
+      videoUri: video.uri,
+      contentType: video.mimeType || 'video/mp4',
+      delivery: 'uri',
+      lastEventId,
+    }
+  }
+  if (event.eventType === 'interaction.completed') {
+    return {
+      status: 'failed',
+      diagnostic: buildGeminiOmniDiagnostic('sse', 'interaction.completed', {
+        error: { code: 'video_missing', message: 'gemini_omni_video_missing' },
+      }, null),
+      lastEventId,
+    }
+  }
+  return null
+}
+
+function geminiOmniContractFailure(code: string, lastEventId: string): GeminiOmniStreamResult {
+  return {
+    status: 'failed',
+    diagnostic: buildGeminiOmniDiagnostic('sse', '', {
+      error: { code, message: code },
+    }, null),
+    lastEventId,
+  }
 }
 
 const GEMINI_OMNI_SSE_WAIT_TIMEOUT_MS = 20_000
@@ -443,12 +678,24 @@ async function readGeminiOmniSseChunk(reader: ReadableStreamDefaultReader<Uint8A
   }
 }
 
-export async function checkGeminiOmniVideoStream(interactionId: string, lastEventId = ''): Promise<GeminiOmniStreamResult> {
+export async function checkGeminiOmniVideoStream(interactionId: string, lastEventId = '', signal?: AbortSignal): Promise<GeminiOmniStreamResult> {
+  if (signal?.aborted) throw new Error('smart_tour_status_timeout')
   const request = buildGeminiOmniInteractionStreamRequest(interactionId, lastEventId)
-  const response = await apiFetch(request.path, { method: request.method, headers: request.headers })
-  if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) throw new Error('gemini_omni_stream_content_type_invalid')
+  let response: Response
+  try {
+    response = await apiFetch(request.path, { method: request.method, headers: request.headers, signal }, { errorMode: 'polling' })
+  } catch (error) {
+    if (error instanceof GeminiOmniPollingHttpError) {
+      if (error.diagnostic.retryable) throw new Error(`gemini_omni_api_failed:${error.diagnostic.httpStatus || 500}:${error.diagnostic.message}`)
+      return { status: 'failed', diagnostic: { ...error.diagnostic, retryable: false }, lastEventId }
+    }
+    throw error
+  }
+  if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
+    return geminiOmniContractFailure('gemini_omni_stream_content_type_invalid', lastEventId)
+  }
   const reader = response.body?.getReader()
-  if (!reader) throw new Error('gemini_omni_stream_body_missing')
+  if (!reader) return geminiOmniContractFailure('gemini_omni_stream_body_missing', lastEventId)
   const decoder = new TextDecoder()
   let buffer = ''
   let currentEventId = lastEventId
@@ -461,18 +708,17 @@ export async function checkGeminiOmniVideoStream(interactionId: string, lastEven
       if ('waitComplete' in chunk) return { status: 'processing', lastEventId: currentEventId }
       if (chunk.done) break
       buffer += decoder.decode(chunk.value, { stream: true })
-      if (buffer.length > GEMINI_OMNI_SSE_MAX_BUFFER_BYTES) throw new Error('gemini_omni_stream_buffer_exceeded')
+      if (buffer.length > GEMINI_OMNI_SSE_MAX_BUFFER_BYTES) return geminiOmniContractFailure('gemini_omni_stream_buffer_exceeded', currentEventId)
       let boundary = buffer.match(/\r?\n\r?\n/)
       while (boundary?.index !== undefined) {
         const block = buffer.slice(0, boundary.index)
         buffer = buffer.slice(boundary.index + boundary[0].length)
-        const event = parseGeminiOmniSseBlock(block)
+        let event: ReturnType<typeof parseGeminiOmniSseBlock>
+        try { event = parseGeminiOmniSseBlock(block) } catch { return geminiOmniContractFailure('gemini_omni_stream_event_invalid', currentEventId) }
         if (event) {
           if (event.eventId) currentEventId = event.eventId
-          const video = findVideo(event.payload)
-          if (video?.uri) return { status: 'completed', videoUri: video.uri, contentType: video.mimeType || 'video/mp4', delivery: 'uri', lastEventId: currentEventId }
-          if (event.eventType === 'error' || event.eventType === 'interaction.failed') return { status: 'failed', errorMessage: getGeminiOmniSseError(event.payload), lastEventId: currentEventId }
-          if (event.eventType === 'interaction.completed') return { status: 'failed', errorMessage: 'gemini_omni_video_missing', lastEventId: currentEventId }
+          const result = evaluateGeminiOmniSseEvent(event, currentEventId)
+          if (result) return result
         }
         boundary = buffer.match(/\r?\n\r?\n/)
       }
@@ -484,7 +730,6 @@ export async function checkGeminiOmniVideoStream(interactionId: string, lastEven
 }
 
 export async function downloadGeminiOmniVideoFromUri(videoUri: string, contentType = 'video/mp4') {
-  if (!/^https:\/\//i.test(videoUri)) throw new Error('gemini_omni_video_uri_invalid')
   return { videoBytes: await downloadVideo(videoUri), contentType: String(contentType || 'video/mp4').slice(0, 100) }
 }
 

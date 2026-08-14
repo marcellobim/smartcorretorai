@@ -11,7 +11,6 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
-import { downloadFileFromPrivateUrl } from '../lib/download-file'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
@@ -89,7 +88,7 @@ function smartTourConfirmation(id, answer, isShortVideos = false) {
 }
 
 export default function SmartTourAI() {
-  const { user, accessToken } = useAuth()
+  const { user } = useAuth()
   const inputRef = useRef(null)
   const pollRef = useRef(null)
   const recoveryStartedRef = useRef(false)
@@ -338,31 +337,12 @@ export default function SmartTourAI() {
     setResult(null)
   }
 
-  const withdrawVideoImobiliario = async filename => {
-    if (!result?.creationId || !accessToken) throw new Error('Não foi possível preparar a retirada deste vídeo. Recarregue a página e tente novamente.')
-    const headers = { Authorization: `Bearer ${accessToken}` }
-    const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
-      headers,
-      body: { action: 'prepare', creation_id: result.creationId },
-    })
-    if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url) {
-      throw new Error('Este vídeo não está mais disponível para retirada.')
-    }
-    await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name || filename)
-    const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
-      headers,
-      body: { action: 'confirm', creation_id: result.creationId },
-    })
-    if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
-      throw new Error('O vídeo foi baixado, mas não foi possível confirmar a retirada.')
-    }
-  }
   const selectInputFlow = inputFlow => {
     if (activeInputFlow !== inputFlow) reset()
     setActiveInputFlow(inputFlow)
     window.requestAnimationFrame(() => document.getElementById('smart-tour-creation')?.scrollIntoView({ behavior: getConversationScrollBehavior(), block: 'start' }))
   }
-  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onWithdrawDownload={isShortVideoResult ? undefined : withdrawVideoImobiliario} sharePublish={{ enabled: true }} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
+  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
 
   const measureFields = getSmartTourMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
