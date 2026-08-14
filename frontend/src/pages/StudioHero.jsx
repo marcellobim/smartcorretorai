@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
+import { downloadFileFromPrivateUrl } from '../lib/download-file'
 import {
   ProductButton,
   ProductCard,
@@ -1126,6 +1127,7 @@ export default function StudioHero() {
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
+  const [creationId, setCreationId] = useState(null)
   const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
 
   const isSale = answers.objective === 'sale'
@@ -1619,6 +1621,7 @@ export default function StudioHero() {
     setStatus('idle')
     setMessage('')
     setVideoUrl('')
+    setCreationId(null)
   }
 
   const goToUploadStep = () => {
@@ -1694,6 +1697,7 @@ export default function StudioHero() {
         clearPolling()
         setStatus('completed')
         setVideoUrl(nextVideoUrl)
+        setCreationId(typeof data.creationId === 'string' ? data.creationId : null)
         setMessage('Seu comercial esta pronto.')
         return
       }
@@ -1743,6 +1747,7 @@ export default function StudioHero() {
     setStatus(isFreeAiMode ? 'generating' : 'uploading')
     setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Preparando seu comercial...')
     setVideoUrl('')
+    setCreationId(null)
 
     try {
       const draftId = crypto.randomUUID()
@@ -1889,7 +1894,30 @@ export default function StudioHero() {
     setStatus('idle')
     setMessage('')
     setVideoUrl('')
+    setCreationId(null)
     setStep(1)
+  }
+
+  const withdrawStudioVideo = async filename => {
+    if (!creationId || !accessToken) {
+      throw new Error('Não foi possível preparar a retirada deste vídeo. Recarregue a página e tente novamente.')
+    }
+    const headers = { Authorization: `Bearer ${accessToken}` }
+    const { data: prepared, error: prepareError } = await supabase.functions.invoke('creation-download', {
+      headers,
+      body: { action: 'prepare', creation_id: creationId },
+    })
+    if (prepareError || !prepared?.ok || prepared.delivery_kind !== 'file' || !prepared.download?.url) {
+      throw new Error('Este vídeo não está mais disponível para retirada.')
+    }
+    await downloadFileFromPrivateUrl(prepared.download.url, prepared.download.name || filename)
+    const { data: confirmed, error: confirmError } = await supabase.functions.invoke('creation-download', {
+      headers,
+      body: { action: 'confirm', creation_id: creationId },
+    })
+    if (confirmError || !confirmed?.ok || !confirmed.confirmed) {
+      throw new Error('O vídeo foi baixado, mas não foi possível confirmar a retirada.')
+    }
   }
 
   const selectStudioMode = (mode) => {
@@ -2870,9 +2898,11 @@ export default function StudioHero() {
                 ) : videoUrl ? (
                   <ResultPanel
                     videoUrl={videoUrl}
+                    creationId={creationId}
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
+                    onWithdrawDownload={withdrawStudioVideo}
                     onReset={resetFlow}
                   />
                 ) : (
@@ -2908,9 +2938,11 @@ export default function StudioHero() {
                 ) : videoUrl ? (
                   <ResultPanel
                     videoUrl={videoUrl}
+                    creationId={creationId}
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
+                    onWithdrawDownload={withdrawStudioVideo}
                     onReset={resetFlow}
                   />
                 ) : (
@@ -3681,7 +3713,7 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
   )
 }
 
-function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = false, onReset }) {
+function ResultPanel({ videoUrl, creationId, answers, cityValue, districtValue, compact = false, onWithdrawDownload, onReset }) {
   const completed = Boolean(videoUrl)
   const deliveryTexts = completed ? buildDeliveryTexts({ answers, districtValue, cityValue }) : []
   if (!completed) return null
@@ -3712,6 +3744,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
         }}
         mediaPresentation="mobile"
         sharePublish={{ enabled: true }}
+        onWithdrawDownload={creationId ? onWithdrawDownload : undefined}
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />
@@ -3744,6 +3777,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
         }}
         mediaPresentation="mobile"
         sharePublish={{ enabled: true }}
+        onWithdrawDownload={creationId ? onWithdrawDownload : undefined}
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />

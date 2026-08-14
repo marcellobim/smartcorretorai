@@ -32,6 +32,16 @@ const creationProducts = {
     icon: Image,
     tone: 'cyan',
   },
+  studio_comercial: {
+    label: 'Comercial Imobiliário',
+    icon: Video,
+    tone: 'cyan',
+  },
+  studio_video_criativo: {
+    label: 'Vídeo Criativo',
+    icon: Video,
+    tone: 'violet',
+  },
   campanha_textos: {
     label: 'Campanha de Textos',
     icon: FileText,

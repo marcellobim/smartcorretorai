@@ -15,6 +15,7 @@ const banner = read('src/pages/HeroNext.jsx')
 const campaignPackage = read('src/components/campaign/CampaignPackage.jsx')
 const quickBanners = read('src/pages/NovaCampanha.jsx')
 const virtualStaging = read('src/pages/VirtualStaging.jsx')
+const studio = read('src/pages/StudioHero.jsx')
 
 test('keeps the existing route and sidebar link while rendering the real page', () => {
   assert.match(app, /import Creations from '\.\/pages\/Creations'/)
@@ -143,4 +144,21 @@ test('withdraws bundles through explicit per-file actions and confirms only afte
   assert.match(page, /await confirmCreationWithdrawal\(bundleWithdrawal\.creationId\)/)
   assert.match(page, /catch \(error\) \{[\s\S]*toast\.error/)
   assert.doesNotMatch(page, /Promise\.all\(.*download|\.zip|JSZip/i)
+})
+
+test('maps Comercial Imobiliário and Vídeo Criativo as separate Studio products', () => {
+  assert.match(page, /studio_comercial:[\s\S]*?label: 'Comercial Imobiliário'[\s\S]*?icon: Video[\s\S]*?tone: 'cyan'/)
+  assert.match(page, /studio_video_criativo:[\s\S]*?label: 'Vídeo Criativo'[\s\S]*?icon: Video[\s\S]*?tone: 'violet'/)
+  assert.doesNotMatch(page, /studio_carrossel:/)
+  assert.doesNotMatch(page, /short_videos:/)
+})
+
+test('withdraws Studio videos through prepare-confirm and preserves the legacy fallback', () => {
+  assert.match(studio, /setCreationId\(typeof data\.creationId === 'string' \? data\.creationId : null\)/)
+  assert.match(studio, /body: \{ action: 'prepare', creation_id: creationId \}/)
+  assert.match(studio, /prepared\.delivery_kind !== 'file'/)
+  assert.match(studio, /downloadFileFromPrivateUrl\(prepared\.download\.url, prepared\.download\.name \|\| filename\)/)
+  assert.match(studio, /body: \{ action: 'confirm', creation_id: creationId \}/)
+  assert.match(studio, /onWithdrawDownload=\{creationId \? onWithdrawDownload : undefined\}/)
+  assert.match(studio, /downloadUrl: videoUrl/)
 })

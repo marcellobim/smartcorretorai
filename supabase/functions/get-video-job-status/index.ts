@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseCreationStore } from '../_shared/creations.ts'
 import { checkVeoVideoStatus } from '../_shared/veoClient.ts'
+import { registerStudioCreation, type StudioCreationJob } from './creation-runtime.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +63,7 @@ function buildFailedJobDebug(job: {
   }
 }
 
-async function cancelCredits(supabase: ReturnType<typeof createClient>, userId: string, idempotencyKey: string, reason: string) {
+async function cancelCredits(supabase: any, userId: string, idempotencyKey: string, reason: string) {
   if (!idempotencyKey) return
   const { error } = await supabase.rpc('cancel_credit_reservation', {
     p_user_id: userId,
@@ -71,7 +73,7 @@ async function cancelCredits(supabase: ReturnType<typeof createClient>, userId: 
   if (error) console.warn('[get-video-job-status] falha ao cancelar reserva:', error.message)
 }
 
-async function consumeCredits(supabase: ReturnType<typeof createClient>, userId: string, idempotencyKey: string) {
+async function consumeCredits(supabase: any, userId: string, idempotencyKey: string) {
   if (!idempotencyKey) return
   const { error } = await supabase.rpc('consume_reserved_credits', {
     p_user_id: userId,
@@ -82,12 +84,32 @@ async function consumeCredits(supabase: ReturnType<typeof createClient>, userId:
   if (error) throw new Error(error.message || 'credit_consume_failed')
 }
 
-async function createSignedVideoUrl(supabase: ReturnType<typeof createClient>, path: string) {
+async function createSignedVideoUrl(supabase: any, path: string) {
   const { data, error } = await supabase.storage
     .from(VIDEO_BUCKET)
     .createSignedUrl(path, 60 * 60)
   if (error || !data?.signedUrl) throw new Error('video_signed_url_failed')
   return data.signedUrl
+}
+
+async function ensureStudioCreation(
+  supabase: any,
+  job: StudioCreationJob,
+) {
+  try {
+    const registration = await registerStudioCreation(createSupabaseCreationStore(supabase), job)
+    if (!registration) return null
+    console.info('[get-video-job-status] creation_registration_completed', JSON.stringify({
+      product: registration.creation.product_key,
+      created: registration.created,
+    }))
+    return registration.creation.id
+  } catch (error) {
+    console.warn('[get-video-job-status] creation_registration_failed', JSON.stringify({
+      code: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'unknown',
+    }))
+    return null
+  }
 }
 
 serve(async (req) => {
@@ -147,7 +169,7 @@ serve(async (req) => {
 
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id, user_id, status, provider_job_id, output_video_path, credit_idempotency_key, error_message, model')
+      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, completed_at')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .single()
@@ -159,11 +181,13 @@ serve(async (req) => {
     if (job.status === 'completed') {
       const outputPath = String(job.output_video_path || '')
       const signedVideoUrl = outputPath ? await createSignedVideoUrl(supabase, outputPath) : ''
+      const creationId = await ensureStudioCreation(supabase, job as StudioCreationJob)
       return jsonResponse({
         ok: true,
         status: 'completed',
         jobId: job.id,
         signedVideoUrl,
+        ...(creationId ? { creationId } : {}),
       })
     }
 
@@ -181,21 +205,29 @@ serve(async (req) => {
 
     const existingOutputPath = String(job.output_video_path || '')
     if (existingOutputPath) {
-      await supabase
+      const completedAt = new Date().toISOString()
+      const { error: completedUpdateError } = await supabase
         .from('video_jobs')
         .update({
           status: 'completed',
-          completed_at: new Date().toISOString(),
+          completed_at: completedAt,
         })
         .eq('id', job.id)
         .eq('user_id', user.id)
+      if (completedUpdateError) throw new Error('video_completed_persist_failed')
 
       const signedVideoUrl = await createSignedVideoUrl(supabase, existingOutputPath)
+      const creationId = await ensureStudioCreation(supabase, {
+        ...job,
+        status: 'completed',
+        completed_at: completedAt,
+      } as StudioCreationJob)
       return jsonResponse({
         ok: true,
         status: 'completed',
         jobId: job.id,
         signedVideoUrl,
+        ...(creationId ? { creationId } : {}),
       })
     }
 
@@ -260,22 +292,31 @@ serve(async (req) => {
       await consumeCredits(supabase, user.id, String(job.credit_idempotency_key || ''))
     }
 
-    await supabase
+    const completedAt = new Date().toISOString()
+    const { error: completedUpdateError } = await supabase
       .from('video_jobs')
       .update({
         status: 'completed',
         output_video_path: outputPath,
-        completed_at: new Date().toISOString(),
+        completed_at: completedAt,
       })
       .eq('id', job.id)
       .eq('user_id', user.id)
+    if (completedUpdateError) throw new Error('video_completed_persist_failed')
 
     const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
+    const creationId = await ensureStudioCreation(supabase, {
+      ...job,
+      status: 'completed',
+      output_video_path: outputPath,
+      completed_at: completedAt,
+    } as StudioCreationJob)
     return jsonResponse({
       ok: true,
       status: 'completed',
       jobId: job.id,
       signedVideoUrl,
+      ...(creationId ? { creationId } : {}),
     })
   } catch (error) {
     console.error(`[${reqId}] get-video-job-status erro:`, error instanceof Error ? error.message : String(error))
