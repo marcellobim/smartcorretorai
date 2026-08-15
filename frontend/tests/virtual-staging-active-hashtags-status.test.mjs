@@ -33,7 +33,9 @@ const campaignPackage = {
 }
 
 test('hashtags ficam restritas a Vida no Imovel e Apresentacao pelo Corretor', () => {
-  assert.match(generateSource, /const activeVerticalVideo = Boolean\(input\.generation\.life_scene\) \|\| input\.module === 'broker-presentation'/)
+  assert.match(generateSource, /const isLifeInProperty = input\.generation\.mode === 'narrated_tour' && Boolean\(input\.generation\.life_scene\)/)
+  assert.match(generateSource, /const isBrokerPresentation = input\.module === 'broker-presentation'/)
+  assert.match(generateSource, /const activeVerticalVideo = isLifeInProperty \|\| isBrokerPresentation/)
   assert.match(generateSource, /const fallbackHashtags = activeVerticalVideo \? buildOfficialHashtags\(hashtagContext\) : \[\]/)
   assert.match(generateSource, /const hashtags = activeVerticalVideo \? await generateStrategicHashtags/)
 })
@@ -95,8 +97,8 @@ test('frontend usa hashtags da geracao e do status inclusive no recovery', () =>
   assert.match(pageSource, /parseVirtualStagingJobRecord\(sessionStorage\.getItem\(activeJobKey\)\)/)
 })
 
-test('provider de video permanece Gemini e isolado do produto novo de imagens', () => {
-  assert.match(generateSource, /startGeminiOmniVideo/)
+test('provider de video permanece Gemini inline e isolado do produto novo de imagens', () => {
+  assert.match(generateSource, /generateGeminiOmniVideoInline/)
   assert.match(generateSource, /mode:'virtual_staging_gemini_omni'/)
   assert.doesNotMatch(generateSource, alternateProviderPattern)
   assert.doesNotMatch(generateSource, imageProductPattern)

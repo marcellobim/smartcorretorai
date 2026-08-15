@@ -244,6 +244,14 @@ const LIFE_SCENE_CAPTION_TIMELINE = [
   { bloco: 5, inicioSegundos: 6.4, fimSegundos: 8 },
 ] as const
 
+const LIFE_SCENE_NARRATION_TIMELINE = [
+  { bloco: 1, inicioSegundos: 0.3, fimSegundos: 3.1, tipo: 'abertura' },
+  { bloco: 2, inicioSegundos: 3.1, fimSegundos: 6.7, tipo: 'caracteristicas' },
+  { bloco: 3, inicioSegundos: 6.7, fimSegundos: 8.1, tipo: 'localizacao' },
+  { bloco: 4, inicioSegundos: 8.1, fimSegundos: 8.4, tipo: 'diferencial' },
+  { bloco: 5, inicioSegundos: 8.4, fimSegundos: 9.6, tipo: 'encerramento' },
+] as const
+
 const LOCATION_HIGHLIGHTS = new Set([
   'Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a universidades',
   'Próximo a hospitais', 'Próximo a parques', 'Próximo ao shopping', 'Próximo à praia',
@@ -301,6 +309,20 @@ const LIFE_SCENE_PROPERTY_OPENINGS: Record<string, string> = {
   comercial: 'este excelente imóvel comercial',
 }
 
+const LIFE_SCENE_CONCISE_PROPERTY_NAMES: Record<string, string> = {
+  apartamento: 'Apartamento',
+  casa: 'Casa',
+  cobertura: 'Cobertura',
+  'studio / loft': 'Studio',
+  'terreno / lote': 'Terreno',
+  comercial: 'Imóvel comercial',
+}
+
+const narrationWordCount = (value: string) => value.trim().split(/\s+/).filter(Boolean).length
+
+const firstNarrationWithinLimit = (candidates: string[], maximumWords: number) =>
+  candidates.find(candidate => candidate && narrationWordCount(candidate) <= maximumWords) || ''
+
 const lifeScenePurpose = (value: unknown) => {
   const normalized = normalizeMatch(literal(value)).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   if (['sale', 'venda'].includes(normalized)) return { narration: 'à venda', caption: 'À VENDA' }
@@ -348,6 +370,54 @@ const lifeSceneNarration = (blockNumber: number, property: PropertyContext, lang
   if (blockNumber === 2) return { id: 'LIFE_PROPERTY_FACTS', texto: lifeSceneFactsNarration(property) }
   if (blockNumber === 3) return { id: 'LIFE_PROPERTY_STAGE', texto: lifeSceneStageNarration(property) }
   if (blockNumber === 5) return { id: 'LIFE_FINAL_INVITATION', texto: language === 'pt-BR' ? 'Agende sua visita.' : '' }
+  return { id: '', texto: '' }
+}
+
+const lifeInPropertyOpeningNarration = (property: PropertyContext, language: SupportedLanguage) => {
+  if (language !== 'pt-BR') return ''
+  const purposeLabel = lifeScenePurpose(property.purpose)
+  if (!purposeLabel) return ''
+  const propertyType = normalizeMatch(literal(property.type))
+  const subject = LIFE_SCENE_CONCISE_PROPERTY_NAMES[propertyType] || 'Imóvel'
+  const district = literal(property.district)
+  const city = literal(property.city)
+  return firstNarrationWithinLimit([
+    district && city ? `${subject} ${purposeLabel.narration} em ${district}, ${city}.` : '',
+    district ? `${subject} ${purposeLabel.narration} em ${district}.` : '',
+    city ? `${subject} ${purposeLabel.narration} em ${city}.` : '',
+    `${subject} ${purposeLabel.narration}.`,
+  ], 7)
+}
+
+const joinNarrationFacts = (facts: string[]) => {
+  if (facts.length <= 1) return facts[0] || ''
+  return `${facts.slice(0, -1).join(', ')} e ${facts.at(-1)}`
+}
+
+const lifeInPropertyFeatureNarration = (property: PropertyContext) => {
+  const facts = unique([
+    labelQuantity(property.bedrooms, 'dormitório', 'dormitórios'),
+    labelQuantity(property.suites, 'suíte', 'suítes'),
+    labelQuantity(property.parkingSpaces, 'vaga', 'vagas'),
+  ])
+  for (let count = facts.length; count > 0; count -= 1) {
+    const candidate = `${joinNarrationFacts(facts.slice(0, count))}.`
+    if (narrationWordCount(candidate) <= 8) return candidate
+  }
+  const highlight = literal(property.highlights?.[0])
+  return firstNarrationWithinLimit([highlight ? `${highlight}.` : ''], 8)
+}
+
+const lifeInPropertyStageNarration = (property: PropertyContext) => {
+  const stage = literal(property.stage)
+  return firstNarrationWithinLimit([stage ? `${stage}.` : ''], 4)
+}
+
+const lifeInPropertyNarration = (blockNumber: number, property: PropertyContext, language: SupportedLanguage) => {
+  if (blockNumber === 1) return { id: 'LIFE_CONCISE_OPENING', texto: lifeInPropertyOpeningNarration(property, language) }
+  if (blockNumber === 2) return { id: 'LIFE_CONCISE_FEATURE', texto: lifeInPropertyFeatureNarration(property) }
+  if (blockNumber === 3) return { id: 'LIFE_CONCISE_STAGE', texto: lifeInPropertyStageNarration(property) }
+  if (blockNumber === 5) return { id: 'LIFE_CONCISE_INVITATION', texto: language === 'pt-BR' ? 'Agende sua visita.' : '' }
   return { id: '', texto: '' }
 }
 
@@ -468,10 +538,13 @@ export function buildSmartTourStructuredBriefing(input: {
     ? purposePresentation(input.property.purpose)
     : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths, presenterReference: input.presenterReference })
-  const narrationTimeline = TEXT_TIMELINE.map(block => {
+  const narrationBlocks = lifeScene ? LIFE_SCENE_NARRATION_TIMELINE : TEXT_TIMELINE
+  const narrationTimeline = narrationBlocks.map(block => {
     const phrase = config.narration === 'enabled'
-      ? (requiresCommercialPurpose
-          ? lifeSceneNarration(block.bloco, input.property, input.language)
+      ? (lifeScene
+          ? lifeInPropertyNarration(block.bloco, input.property, input.language)
+          : input.presenterReference
+            ? lifeSceneNarration(block.bloco, input.property, input.language)
           : selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` }))
       : { id: '', texto: '' }
     const texto = !requiresCommercialPurpose && block.bloco === 1
@@ -503,9 +576,11 @@ export function buildSmartTourStructuredBriefing(input: {
     const sceneNumber = index + 1
     const tipo = types[index]
     const isLast = tipo === 'encerramento'
-    const phrase = config.narration === 'enabled'
+    const phrase = lifeScene
+      ? { id: '', texto: '' }
+      : config.narration === 'enabled'
       ? (tipo === 'abertura' && purposeOpening
-          ? { id: lifeScene ? 'LIFE_PURPOSE_OPENING' : 'BROKER_COMMERCIAL_OPENING', texto: purposeOpening }
+          ? { id: 'BROKER_COMMERCIAL_OPENING', texto: purposeOpening }
           : selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` }))
       : { id: '', texto: '' }
     const narration = !requiresCommercialPurpose && sceneNumber === 1
@@ -528,7 +603,7 @@ export function buildSmartTourStructuredBriefing(input: {
       movimento: MOVEMENTS[index % MOVEMENTS.length],
       legenda,
       narracao: narration,
-      duracaoNarracaoSegundos: config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
+      duracaoNarracaoSegundos: lifeScene ? 0 : config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
       tempoTelefoneVisivelAposNarracaoSegundos: isLast && Boolean(phone) ? 0.8 : 0,
     } as SmartTourStructuredBriefing['cenas'][number]
   })
@@ -561,6 +636,10 @@ export function buildSmartTourStructuredBriefing(input: {
     { codigo: 'vida_no_imovel_imovel_protagonista', valor: 'Utilizar as pessoas e, quando aplicável, o animal escolhido apenas para valorizar os ambientes. O imóvel deve permanecer como protagonista em todas as cenas.' },
     { codigo: 'vida_no_imovel_preservacao_total', valor: 'A inclusão do perfil escolhido não autoriza modificar a arquitetura original, acabamentos, materiais, móveis existentes, decoração, objetos, cores, iluminação arquitetônica, geometria, proporções, perspectiva ou enquadramento. Não reconstruir ambientes.' },
     { codigo: 'vida_no_imovel_ordem_das_imagens', valor: 'Manter todas as regras existentes desta apresentação e respeitar integralmente a ordem original das imagens.' },
+    ...(config.narration === 'enabled' ? [{
+      codigo: 'vida_no_imovel_narracao_natural',
+      valor: 'Narre o texto literal de timeline.narracao como uma única apresentação humana, natural e conversacional em Português do Brasil. Use ritmo calmo, entonação profissional imobiliária e pequenas pausas naturais entre os blocos, respeitando a pontuação e os tempos informados. Não leia palavras ou blocos como rótulos isolados. Não use dicção mecânica, tom de robô, GPS ou publicidade exagerada. Não acelere, não prolongue artificialmente e não altere nenhuma palavra.',
+    }] : []),
   ] : []
   return {
     versao: 'smart-tour-structured-briefing-v1',

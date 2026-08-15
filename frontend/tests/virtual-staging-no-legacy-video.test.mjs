@@ -26,8 +26,10 @@ test('backend de video nao aceita nem constroi o furnish antigo', () => {
 })
 
 test('Vida no Imovel e Apresentacao pelo Corretor continuam Gemini sem provider alternativo', () => {
+  assert.match(generate, /generateGeminiOmniVideoInline/)
   assert.match(generate, /startGeminiOmniVideo/)
-  assert.match(generate, /Boolean\(input\.generation\.life_scene\) \|\| input\.module === 'broker-presentation'/)
+  assert.match(generate, /input\.generation\.mode === 'narrated_tour' && Boolean\(input\.generation\.life_scene\)/)
+  assert.match(generate, /input\.module === 'broker-presentation'/)
   assert.match(generate, /aspectRatio:'9:16'/)
   assert.doesNotMatch(generate, alternateProviderPattern)
   assert.doesNotMatch(status, alternateProviderPattern)

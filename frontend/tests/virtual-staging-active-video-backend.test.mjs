@@ -9,7 +9,7 @@ import {
   parseSmartTourStructuredBriefing,
   validateSmartTourRequest,
 } from '../../supabase/functions/_shared/virtual-staging/index.ts'
-import { buildGeminiOmniRequestBody } from '../../supabase/functions/_shared/geminiOmniClient.ts'
+import { buildGeminiOmniInlineRequestBody } from '../../supabase/functions/_shared/geminiOmniClient.ts'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
@@ -70,19 +70,25 @@ test('Vida no Imóvel e Apresentação pelo Corretor permanecem no provider Gemi
   assert.match(generateSource, /from '\.\.\/_shared\/geminiOmniClient\.ts'/)
   assert.match(generateSource, /mode:'virtual_staging_gemini_omni'/)
   assert.match(generateSource, /model:SMART_TOUR_GEMINI_OMNI_MODEL/)
-  assert.match(generateSource, /const activeVerticalVideo = Boolean\(input\.generation\.life_scene\) \|\| input\.module === 'broker-presentation'/)
-  assert.match(generateSource, /startGeminiOmniVideo\(\{prompt,images:\[\.\.\.presenterImages,\.\.\.images\],\.\.\.\(activeVerticalVideo \? \{aspectRatio:'9:16' as const\} : \{\}\)\}\)/)
+  assert.match(generateSource, /const isLifeInProperty = input\.generation\.mode === 'narrated_tour' && Boolean\(input\.generation\.life_scene\)/)
+  assert.match(generateSource, /const isBrokerPresentation = input\.module === 'broker-presentation'/)
+  assert.match(generateSource, /if \(activeVerticalVideo\) \{[\s\S]*generateGeminiOmniVideoInline\(\{[\s\S]*images:\[\.\.\.presenterImages,\.\.\.images\],[\s\S]*aspectRatio:'9:16'/)
   assert.doesNotMatch(generateSource, alternateProviderPattern)
 })
 
 test('payload Gemini mantém saída física vertical 9:16', () => {
-  const body = buildGeminiOmniRequestBody('briefing controlado', [{
+  const body = buildGeminiOmniInlineRequestBody('briefing controlado', [{
     type: 'input_image',
     data: 'base64-controlado',
     mime_type: 'image/jpeg',
   }], '9:16')
   assert.equal(body.response_format.type, 'video')
   assert.equal(body.response_format.aspect_ratio, '9:16')
+  assert.deepEqual(body.response_modalities, ['video'])
+  assert.equal(body.generation_config.max_output_tokens, 65_536)
+  assert.equal('background' in body, false)
+  assert.equal('store' in body, false)
+  assert.equal('delivery' in body.response_format, false)
 })
 
 test('Vida no Imóvel usa cinco blocos e composição determinística vertical', () => {

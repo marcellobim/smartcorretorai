@@ -105,6 +105,12 @@ test('structured generation payload includes the selected life profile and manda
   assert.match(prompt, /virtual_space_composicao_vertical_segura/)
   assert.match(prompt, /composição vertical 9:16/)
   assert.match(prompt, /sem faixas pretas e sem deformação/)
+  assert.match(prompt, /vida_no_imovel_narracao_natural/)
+  assert.match(prompt, /uma única apresentação humana, natural e conversacional em Português do Brasil/)
+  assert.match(prompt, /ritmo calmo, entonação profissional imobiliária e pequenas pausas naturais/)
+  assert.match(prompt, /Não leia palavras ou blocos como rótulos isolados/)
+  assert.match(prompt, /Não use dicção mecânica, tom de robô, GPS ou publicidade exagerada/)
+  assert.match(prompt, /Não acelere, não prolongue artificialmente e não altere nenhuma palavra/)
 })
 
 test('Vida no Imovel makes type, sale purpose, district and city mandatory in the narration opening', () => {
@@ -117,10 +123,10 @@ test('Vida no Imovel makes type, sale purpose, district and city mandatory in th
     language: validated.language,
   })
 
-  assert.equal(briefing.timeline.narracao[0].texto, 'Conheça este excelente apartamento à venda no bairro Moema, em São Paulo.')
+  assert.equal(briefing.timeline.narracao[0].texto, 'Apartamento à venda em Moema, São Paulo.')
   assert.match(briefing.timeline.narracao[0].texto, /apartamento.*à venda.*Moema.*São Paulo/i)
-  assert.equal(briefing.timeline.narracao[1].texto, 'O imóvel possui 3 dormitórios, 1 suíte e 2 vagas de garagem.')
-  assert.equal(briefing.timeline.narracao[2].texto, 'O imóvel está pronto para morar.')
+  assert.equal(briefing.timeline.narracao[1].texto, '3 dormitórios, 1 suíte e 2 vagas.')
+  assert.equal(briefing.timeline.narracao[2].texto, 'Pronto para morar.')
   assert.equal(briefing.timeline.narracao[4].texto, 'Agende sua visita.')
   assert.equal(briefing.imovel.localizacao.bairro, 'Moema')
   assert.equal(briefing.imovel.localizacao.cidade, 'São Paulo')
@@ -146,12 +152,41 @@ test('Vida no Imovel makes rent and rental purpose mandatory as para locacao', (
       language: validated.language,
     })
 
-    assert.equal(briefing.timeline.narracao[0].texto, 'Conheça este excelente apartamento para locação no bairro Moema, em São Paulo.')
+    assert.equal(briefing.timeline.narracao[0].texto, 'Apartamento para locação em Moema, São Paulo.')
     assert.match(briefing.timeline.narracao[0].texto, /apartamento.*para locação.*Moema.*São Paulo/i)
     assert.equal(briefing.timeline.legendas[0].texto, 'PARA LOCAÇÃO')
     assert.equal(briefing.timeline.legendas[1].texto, 'Pronto para morar')
     assert.equal(briefing.timeline.legendas[2].texto, 'Moema, São Paulo')
   }
+})
+
+test('Vida no Imovel keeps one concise canonical narration inside the 10-second budget', () => {
+  const validated = validateVirtualStagingRequest(request('young_cat'))
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+  })
+  const wordCount = (value) => value.trim().split(/\s+/).filter(Boolean).length
+  const narration = briefing.timeline.narracao
+
+  assert.deepEqual(narration.map(block => [block.inicioSegundos, block.fimSegundos]), [
+    [0.3, 3.1],
+    [3.1, 6.7],
+    [6.7, 8.1],
+    [8.1, 8.4],
+    [8.4, 9.6],
+  ])
+  assert.deepEqual(narration.map(block => wordCount(block.texto)), [7, 7, 3, 0, 3])
+  assert.equal(narration.reduce((total, block) => total + wordCount(block.texto), 0), 20)
+  assert.ok(narration.every((block, index) => wordCount(block.texto) <= [7, 8, 4, 0, 3][index]))
+  assert.ok(briefing.cenas.every(scene => (
+    scene.narracao === '' &&
+    scene.frase_id === '' &&
+    scene.duracaoNarracaoSegundos === 0
+  )))
 })
 
 test('Vida no Imovel sends each approved rental state to the second caption', () => {
@@ -201,11 +236,15 @@ test('five commercial captions finish before the unchanged final CTA block', () 
   const parsed = parseSmartTourStructuredBriefing(JSON.stringify(briefing))
   const script = buildSmartTourCaptionRenderScript('https://example.com/video.mp4', parsed)
   const textElements = script.elements.filter(element => element.type === 'text')
+  const videoElement = script.elements.find(element => element.type === 'video')
 
   assert.equal(briefing.timeline.legendas.length, 5)
   assert.equal(briefing.timeline.legendas.at(-1).fimSegundos, 8)
   assert.deepEqual([briefing.timeline.cta.inicioSegundos, briefing.timeline.cta.fimSegundos], [8, 10])
   assert.equal(briefing.timeline.cta.texto, 'Agende sua visita')
+  assert.equal(videoElement?.time, 0)
+  assert.equal(videoElement?.duration, 10)
+  assert.equal(videoElement?.volume, '100%')
   assert.deepEqual(textElements.map(element => element.text), [
     'À VENDA',
     'Pronto para morar',
