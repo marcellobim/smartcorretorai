@@ -88,6 +88,7 @@ export const TEXT_CAMPAIGN_DELIVERABLES = Object.freeze([
   { id: 'hashtags', label: 'Hashtags estratégicas' },
   { id: 'reels_script', label: 'Roteiro curto para Reels' },
   { id: 'text_carousel', label: 'Carrossel textual', slides: 5 },
+  { id: 'google_ads', label: 'Google Ads', fields: Object.freeze(['headlines', 'long_headline', 'descriptions', 'cta', 'suggested_keywords']) },
 ])
 
 export const TEXT_CAMPAIGN_HASHTAG_CONTRACT = Object.freeze({

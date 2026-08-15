@@ -167,14 +167,15 @@ test('uses campaign-specific summary copy without changing the shared default', 
   assert.match(guidedConversation, /<ProductSummary title=\{summaryTitle\}/)
 })
 
-test('declares the complete multichannel contract with 18 logical blocks', () => {
-  assert.equal(config.TEXT_CAMPAIGN_DELIVERABLES.length, 18)
+test('declares the complete multichannel contract with 18 preserved blocks plus Google Ads', () => {
+  assert.equal(config.TEXT_CAMPAIGN_DELIVERABLES.length, 19)
   assert.deepEqual(config.TEXT_CAMPAIGN_DELIVERABLES.filter(item => item.id.startsWith('instagram_')).map(item => item.id), ['instagram_commercial', 'instagram_emotional', 'instagram_opportunity'])
   assert.deepEqual(config.TEXT_CAMPAIGN_DELIVERABLES.filter(item => item.id.startsWith('facebook_')).map(item => item.id), ['facebook_commercial', 'facebook_emotional', 'facebook_opportunity'])
   assert.deepEqual(config.TEXT_CAMPAIGN_DELIVERABLES.filter(item => item.id.startsWith('whatsapp_')).map(item => item.id), ['whatsapp_individual', 'whatsapp_list', 'whatsapp_short'])
   assert.deepEqual(config.TEXT_CAMPAIGN_DELIVERABLES.find(item => item.id === 'email').fields, ['subject', 'body'])
   assert.equal(config.TEXT_CAMPAIGN_DELIVERABLES.find(item => item.id === 'text_carousel').slides, 5)
   assert.equal(config.TEXT_CAMPAIGN_DELIVERABLES.find(item => item.id === 'linkedin').conditional, true)
+  assert.deepEqual(config.TEXT_CAMPAIGN_DELIVERABLES.at(-1), { id: 'google_ads', label: 'Google Ads', fields: ['headlines', 'long_headline', 'descriptions', 'cta', 'suggested_keywords'] })
 })
 
 test('presents a complete multichannel campaign without a fixed piece-count promise', () => {

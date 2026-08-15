@@ -1,3 +1,5 @@
+import { buildGoogleAdsDelivery, type GoogleAdsDelivery } from '../../supabase/functions/_shared/google-ads.ts'
+
 export type CopyEngineInput = {
   objective?: string
   objectiveLabel?: string
@@ -767,4 +769,17 @@ export function buildPublicationPackage(input: CopyEngineInput): CopyEngineOutpu
   if (kind === 'property_capture') return propertyCaptureCopy(input)
   if (kind === 'broker_capture') return brokerCaptureCopy(input)
   return propertyCopy(input, kind)
+}
+
+export function buildPublicationGoogleAds(input: CopyEngineInput): GoogleAdsDelivery {
+  return buildGoogleAdsDelivery({
+    purpose: input.objective || input.objectiveLabel,
+    propertyType: input.propertyType,
+    district: input.district,
+    city: input.city,
+    highlights: input.features,
+    bedrooms: input.bedrooms,
+    suites: input.suites,
+    cta: input.cta || 'Entre em contato',
+  })
 }

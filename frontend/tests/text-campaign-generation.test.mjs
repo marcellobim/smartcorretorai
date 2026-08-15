@@ -29,6 +29,7 @@ const result = () => ({
   facebook_commercial: 'Facebook comercial', facebook_emotional: 'Facebook emocional', facebook_opportunity: 'Facebook oportunidade',
   whatsapp_individual: 'WhatsApp individual', whatsapp_list: 'WhatsApp lista', whatsapp_short: 'WhatsApp curto', email: { subject: 'Assunto', body: 'Corpo' }, linkedin: { applicable: false, text: null, reason: 'Contexto não adequado.' },
   cta: 'Agende sua visita', hashtags: ['#A', '#B', '#C', '#D', '#E', '#F', '#SmartCorretorAI', '#G', '#H', '#I', '#J', '#K'], reels_script: 'Roteiro', text_carousel: { slides: [1, 2, 3, 4, 5].map(number => ({ title: `Slide ${number}`, text: `Texto ${number}` })) },
+  google_ads: { headlines: ['Apartamento no Centro', '3 dormitórios'], long_headline: 'Apartamento de 3 dormitórios pronto para morar no Centro', descriptions: ['Conheça este apartamento no Centro.', 'Agende sua visita.'], cta: 'Agende sua visita', suggested_keywords: ['apartamento à venda centro', 'apartamento 3 dormitórios centro', 'comprar apartamento centro'] },
 })
 
 const validBriefing = () => config.buildTextCampaignBriefing({
@@ -65,11 +66,13 @@ test('preserves briefing on errors and offers manual review and retry', () => {
   assert.match(page, /onRetry=\{generateCampaign\}/)
 })
 
-test('renders all 18 logical blocks in six scannable channel groups', () => {
+test('renders the 18 preserved blocks plus Google Ads as the final group', () => {
   const ids = resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.flatMap(group => group.pieces)
-  assert.equal(ids.length, 18)
-  assert.equal(new Set(ids).size, 18)
-  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.map(group => group.title), ['Anúncio', 'Instagram', 'Facebook', 'WhatsApp', 'E-mail e LinkedIn', 'Conteúdo extra'])
+  assert.equal(ids.length, 19)
+  assert.equal(new Set(ids).size, 19)
+  assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.map(group => group.title), ['Anúncio', 'Instagram', 'Facebook', 'WhatsApp', 'E-mail e LinkedIn', 'Conteúdo extra', 'Google Ads'])
+  assert.deepEqual(ids.slice(0, 18), ['listing_title', 'portal_description', 'short_listing', 'instagram_commercial', 'instagram_emotional', 'instagram_opportunity', 'facebook_commercial', 'facebook_emotional', 'facebook_opportunity', 'whatsapp_individual', 'whatsapp_list', 'whatsapp_short', 'email', 'linkedin', 'cta', 'hashtags', 'reels_script', 'text_carousel'])
+  assert.equal(ids.at(-1), 'google_ads')
   assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.find(group => group.id === 'instagram').pieces, ['instagram_commercial', 'instagram_emotional', 'instagram_opportunity'])
   assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.find(group => group.id === 'facebook').pieces, ['facebook_commercial', 'facebook_emotional', 'facebook_opportunity'])
   assert.deepEqual(resultHelpers.TEXT_CAMPAIGN_RESULT_GROUPS.find(group => group.id === 'whatsapp').pieces, ['whatsapp_individual', 'whatsapp_list', 'whatsapp_short'])
@@ -77,11 +80,17 @@ test('renders all 18 logical blocks in six scannable channel groups', () => {
   assert.equal(resultHelpers.isCompleteTextCampaignResult(result()), true)
 })
 
-test('formats individual pieces including email, LinkedIn, hashtags and five slides', () => {
+test('formats individual pieces including email, LinkedIn, hashtags, five slides and Google Ads', () => {
   assert.match(resultHelpers.formatTextCampaignPiece(result(), 'email'), /Assunto: Assunto[\s\S]*Corpo/)
   assert.match(resultHelpers.formatTextCampaignPiece(result(), 'linkedin'), /^Não aplicável:/)
   assert.match(resultHelpers.formatTextCampaignPiece(result(), 'hashtags'), /#SmartCorretorAI/)
   assert.equal((resultHelpers.formatTextCampaignPiece(result(), 'text_carousel').match(/Slide \d —/g) || []).length, 5)
+  const googleAds = resultHelpers.formatTextCampaignPiece(result(), 'google_ads')
+  assert.match(googleAds, /Títulos:[\s\S]*Apartamento no Centro/)
+  assert.match(googleAds, /Título longo:[\s\S]*Apartamento de 3 dormitórios/)
+  assert.match(googleAds, /Descrições:[\s\S]*Conheça este apartamento/)
+  assert.match(googleAds, /CTA sugerido:[\s\S]*Agende sua visita/)
+  assert.match(googleAds, /Palavras-chave sugeridas:[\s\S]*apartamento à venda centro/)
 })
 
 test('copies individual pieces and the complete campaign', async () => {
@@ -94,7 +103,8 @@ test('copies individual pieces and the complete campaign', async () => {
   assert.match(complete, /FACEBOOK — COMERCIAL/)
   assert.doesNotMatch(complete, /LINKEDIN/)
   assert.match(complete, /CARROSSEL TEXTUAL — 5 SLIDES/)
-  const orderedHeadings = ['TÍTULO DO ANÚNCIO', 'INSTAGRAM — COMERCIAL', 'FACEBOOK — COMERCIAL', 'WHATSAPP INDIVIDUAL', 'E-MAIL', 'CTA', 'HASHTAGS ESTRATÉGICAS', 'ROTEIRO PARA REELS', 'CARROSSEL TEXTUAL — 5 SLIDES']
+  assert.match(complete, /GOOGLE ADS[\s\S]*Títulos:[\s\S]*Palavras-chave sugeridas:/)
+  const orderedHeadings = ['TÍTULO DO ANÚNCIO', 'INSTAGRAM — COMERCIAL', 'FACEBOOK — COMERCIAL', 'WHATSAPP INDIVIDUAL', 'E-MAIL', 'CTA', 'HASHTAGS ESTRATÉGICAS', 'ROTEIRO PARA REELS', 'CARROSSEL TEXTUAL — 5 SLIDES', 'GOOGLE ADS']
   assert.ok(orderedHeadings.every((heading, index) => index === 0 || complete.indexOf(orderedHeadings[index - 1]) < complete.indexOf(heading)))
   const applicableLinkedIn = { ...result(), linkedin: { applicable: true, text: 'LinkedIn aplicável', reason: '' } }
   assert.match(resultHelpers.formatCompleteTextCampaign(applicableLinkedIn), /LINKEDIN[\s\S]*LinkedIn aplicável/)

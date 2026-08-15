@@ -1,4 +1,5 @@
 import { normalizeOfficialHashtags } from '../../../../supabase/functions/_shared/official-hashtags.ts'
+import { buildGoogleAdsDelivery } from '../../../../supabase/functions/_shared/google-ads.ts'
 
 const clean = value => String(value || '').trim()
 const location = property => [property.district, property.city, property.state].filter(Boolean).join(', ')
@@ -48,5 +49,6 @@ export function buildVirtualStagingCampaignPackage({ property, language, cta, ph
     `${subject}.\n\n${localizedHighlights.slice(0,3).join(' · ') || detail}\n\n${close}`,
   ]
   const hashtags = normalizeOfficialHashtags(generatedHashtags, { purpose:property.purpose, propertyType:property.type, propertyStage:property.stage, city:property.city, district:property.district, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, highlights:property.highlights, cta:localizedCta })
-  return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:language === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`virtual-staging-${index+1}`,name:`Opção ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})) }
+  const googleAds = buildGoogleAdsDelivery({ purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, highlights:localizedHighlights, cta:localizedCta })
+  return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:language === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`virtual-staging-${index+1}`,name:`Opção ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})), googleAds }
 }

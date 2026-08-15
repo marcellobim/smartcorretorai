@@ -1,4 +1,5 @@
 import type { OfficialHashtagContext } from '../_shared/official-hashtags.ts'
+import { GOOGLE_ADS_RESPONSE_SCHEMA } from '../_shared/google-ads.ts'
 
 export const TEXT_CAMPAIGN_MODEL = 'gpt-4.1'
 export const TEXT_CAMPAIGN_TIMEOUT_MS = 60_000
@@ -23,6 +24,7 @@ export const TEXT_CAMPAIGN_DELIVERY_KEYS = Object.freeze([
   'hashtags',
   'reels_script',
   'text_carousel',
+  'google_ads',
 ] as const)
 
 const SALE_STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
@@ -77,6 +79,13 @@ export type TextCampaignResult = {
   hashtags: string[]
   reels_script: string
   text_carousel: { slides: Array<{ title: string; text: string }> }
+  google_ads: {
+    headlines: string[]
+    long_headline: string
+    descriptions: string[]
+    cta: string
+    suggested_keywords: string[]
+  }
 }
 
 export type SafeUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number }
@@ -193,6 +202,7 @@ Facebook Comercial deve ser informativo e objetivo. Facebook Emocional deve ser 
 WhatsApp Individual deve soar como conversa pessoal. WhatsApp Carteira/Lista deve divulgar rapidamente para uma base de contatos. WhatsApp Curto deve ser enxuto para envio imediato.
 LinkedIn só é aplicável quando o contexto fornecido for coerente; caso contrário marque applicable=false, text=null e explique brevemente em reason sem inventar contexto corporativo.
 O carrossel deve ter exatamente 5 slides, textos curtos, progressão coerente e CTA no último slide. Reels é apenas roteiro textual.
+Google Ads deve conter uma única entrega estruturada: 2 a 6 headlines úteis com até 30 caracteres cada, um long_headline com até 90 caracteres, 2 a 4 descriptions independentes com até 90 caracteres cada, um CTA não vazio que preserve exatamente a chamada escolhida no briefing, sem criar CTA independente, e 3 a 8 suggested_keywords curtas e úteis. Não crie variações artificiais apenas para completar quantidade. Em suggested_keywords, priorize nesta ordem: (1) tipo + finalidade + localização; (2) intenção comercial + tipo + localização; (3) tipo + característica importante + localização; (4) tipo + dormitórios ou suítes + localização; (5) característica relevante + tipo + localização. Cada palavra-chave sugerida deve expressar intenção imobiliária clara e incluir o bairro ou, quando necessário, a cidade. Evite combinações genéricas formadas apenas por tipo + localização ou apenas por característica + localização. Adapte as combinações aos fatos do briefing, sem copiar exemplos de forma automática. Use somente tipo, finalidade, localização, dormitórios, diferenciais e condições comerciais realmente informados. Não invente urgência. Não informe volume de pesquisa, CPC, concorrência, ranking, previsão de tráfego ou "palavras mais buscadas"; não há integração com Keyword Planner.
 Responda exclusivamente conforme o JSON Schema fornecido.`
 
 export const TEXT_CAMPAIGN_RESPONSE_SCHEMA = {
@@ -210,6 +220,7 @@ export const TEXT_CAMPAIGN_RESPONSE_SCHEMA = {
     hashtags: { type: 'array', minItems: 12, maxItems: 15, items: { type: 'string' } },
     reels_script: { type: 'string' },
     text_carousel: { type: 'object', additionalProperties: false, required: ['slides'], properties: { slides: { type: 'array', minItems: 5, maxItems: 5, items: { type: 'object', additionalProperties: false, required: ['title', 'text'], properties: { title: { type: 'string' }, text: { type: 'string' } } } } } },
+    google_ads: GOOGLE_ADS_RESPONSE_SCHEMA,
   },
 } as const
 
@@ -231,6 +242,19 @@ function cleanGenerated(value: unknown, max: number, code: string) {
   return requiredText(value, max, code)
 }
 
+function boundedGeneratedText(value: unknown, max: number, code: string) {
+  const normalized = clean(value, max + 1)
+  if (!normalized || normalized.length > max) throw new TextCampaignValidationError(code)
+  return normalized
+}
+
+function boundedGeneratedList(value: unknown, minimum: number, maximum: number, itemMaximum: number, code: string) {
+  if (!Array.isArray(value) || value.length < minimum || value.length > maximum) throw new TextCampaignValidationError(code)
+  const items = value.map((item, index) => boundedGeneratedText(item, itemMaximum, `${code}_${index + 1}`))
+  if (new Set(items.map(item => item.toLocaleLowerCase('pt-BR'))).size !== items.length) throw new TextCampaignValidationError(`${code}_duplicate`)
+  return items
+}
+
 function assertDistinctGeneratedPieces(strings: Record<string, string>) {
   const groups = [
     ['instagram_commercial', 'instagram_emotional', 'instagram_opportunity'],
@@ -249,6 +273,7 @@ export function validateTextCampaignResult(value: unknown): TextCampaignResult {
   if (!isRecord(value.email) || !exactKeys(value.email, ['subject', 'body'])) throw new TextCampaignValidationError('invalid_email')
   if (!isRecord(value.linkedin) || !exactKeys(value.linkedin, ['applicable', 'text', 'reason']) || typeof value.linkedin.applicable !== 'boolean') throw new TextCampaignValidationError('invalid_linkedin')
   if (!isRecord(value.text_carousel) || !exactKeys(value.text_carousel, ['slides']) || !Array.isArray(value.text_carousel.slides) || value.text_carousel.slides.length !== 5) throw new TextCampaignValidationError('invalid_carousel')
+  if (!isRecord(value.google_ads) || !exactKeys(value.google_ads, ['headlines', 'long_headline', 'descriptions', 'cta', 'suggested_keywords'])) throw new TextCampaignValidationError('invalid_google_ads')
   const slides = value.text_carousel.slides.map((slide, index) => {
     if (!isRecord(slide) || !exactKeys(slide, ['title', 'text'])) throw new TextCampaignValidationError('invalid_carousel_slide')
     return { title: cleanGenerated(slide.title, 100, `invalid_slide_${index + 1}`), text: cleanGenerated(slide.text, 500, `invalid_slide_${index + 1}`) }
@@ -257,7 +282,18 @@ export function validateTextCampaignResult(value: unknown): TextCampaignResult {
   const linkedinText = value.linkedin.text === null ? null : cleanGenerated(value.linkedin.text, 2500, 'invalid_linkedin_text')
   if ((applicable && !linkedinText) || (!applicable && linkedinText !== null)) throw new TextCampaignValidationError('invalid_linkedin_state')
   if (!Array.isArray(value.hashtags) || value.hashtags.length < 12 || value.hashtags.length > 15) throw new TextCampaignValidationError('invalid_hashtags')
-  const strings = Object.fromEntries(TEXT_CAMPAIGN_DELIVERY_KEYS.filter(key => !['email', 'linkedin', 'hashtags', 'text_carousel'].includes(key)).map(key => [key, cleanGenerated(value[key], key === 'portal_description' ? 6000 : 3000, `invalid_${key}`)])) as Record<string, string>
+  const strings = Object.fromEntries(TEXT_CAMPAIGN_DELIVERY_KEYS.filter(key => !['email', 'linkedin', 'hashtags', 'text_carousel', 'google_ads'].includes(key)).map(key => [key, cleanGenerated(value[key], key === 'portal_description' ? 6000 : 3000, `invalid_${key}`)])) as Record<string, string>
+  const googleAds = {
+    headlines: boundedGeneratedList(value.google_ads.headlines, 2, 6, 30, 'invalid_google_ads_headlines'),
+    long_headline: boundedGeneratedText(value.google_ads.long_headline, 90, 'invalid_google_ads_long_headline'),
+    descriptions: boundedGeneratedList(value.google_ads.descriptions, 2, 4, 90, 'invalid_google_ads_descriptions'),
+    cta: boundedGeneratedText(value.google_ads.cta, 30, 'invalid_google_ads_cta'),
+    suggested_keywords: boundedGeneratedList(value.google_ads.suggested_keywords, 3, 8, 80, 'invalid_google_ads_keywords'),
+  }
+  const googleAdsCopy = [...googleAds.headlines, googleAds.long_headline, ...googleAds.descriptions, googleAds.cta, ...googleAds.suggested_keywords]
+  if (googleAdsCopy.some(text => /\b(cpc|volume de pesquisa|concorr[eê]ncia|ranking|previs[aã]o de tr[aá]fego|palavras mais buscadas)\b/i.test(text))) {
+    throw new TextCampaignValidationError('invalid_google_ads_keyword_metrics')
+  }
   assertDistinctGeneratedPieces(strings)
   return {
     listing_title: strings.listing_title, portal_description: strings.portal_description, short_listing: strings.short_listing,
@@ -270,6 +306,7 @@ export function validateTextCampaignResult(value: unknown): TextCampaignResult {
     hashtags: value.hashtags.map(item => cleanGenerated(item, 100, 'invalid_hashtag')),
     reels_script: strings.reels_script,
     text_carousel: { slides },
+    google_ads: googleAds,
   }
 }
 
@@ -286,5 +323,5 @@ export function applyFinalTextCampaignRules(result: TextCampaignResult, briefing
   const linkedin = isLinkedInContextApplicable(briefing)
     ? result.linkedin
     : { applicable: false, text: null, reason: 'Não aplicável ao contexto informado.' }
-  return validateTextCampaignResult({ ...result, linkedin, hashtags })
+  return validateTextCampaignResult({ ...result, linkedin, hashtags, google_ads: { ...result.google_ads, cta: briefing.cta } })
 }

@@ -5,6 +5,7 @@ export const TEXT_CAMPAIGN_RESULT_GROUPS = Object.freeze([
   { id: 'whatsapp', title: 'WhatsApp', pieces: ['whatsapp_individual', 'whatsapp_list', 'whatsapp_short'] },
   { id: 'professional', title: 'E-mail e LinkedIn', pieces: ['email', 'linkedin'] },
   { id: 'extra', title: 'Conteúdo extra', pieces: ['cta', 'hashtags', 'reels_script', 'text_carousel'] },
+  { id: 'google-ads', title: 'Google Ads', pieces: ['google_ads'] },
 ])
 
 export const TEXT_CAMPAIGN_RESULT_LABELS = Object.freeze({
@@ -12,18 +13,36 @@ export const TEXT_CAMPAIGN_RESULT_LABELS = Object.freeze({
   instagram_commercial: 'Instagram — comercial', instagram_emotional: 'Instagram — emocional', instagram_opportunity: 'Instagram — curiosidade/oportunidade',
   facebook_commercial: 'Facebook — comercial', facebook_emotional: 'Facebook — emocional', facebook_opportunity: 'Facebook — curiosidade/oportunidade',
   linkedin: 'LinkedIn', whatsapp_individual: 'WhatsApp individual', whatsapp_list: 'WhatsApp carteira/lista', whatsapp_short: 'WhatsApp curto',
-  email: 'E-mail', cta: 'CTA', hashtags: 'Hashtags estratégicas', reels_script: 'Roteiro para Reels', text_carousel: 'Carrossel textual — 5 slides',
+  email: 'E-mail', cta: 'CTA', hashtags: 'Hashtags estratégicas', reels_script: 'Roteiro para Reels', text_carousel: 'Carrossel textual — 5 slides', google_ads: 'Google Ads',
 })
 
 export function isCompleteTextCampaignResult(campaign) {
   if (!campaign || typeof campaign !== 'object') return false
   const ids = TEXT_CAMPAIGN_RESULT_GROUPS.flatMap(group => group.pieces)
-  if (ids.length !== 18 || ids.some(id => !(id in campaign))) return false
+  if (ids.length !== 19 || ids.some(id => !(id in campaign))) return false
   return Array.isArray(campaign.hashtags)
     && campaign.hashtags.length >= 12
     && campaign.hashtags.length <= 15
     && Array.isArray(campaign.text_carousel?.slides)
     && campaign.text_carousel.slides.length === 5
+    && Array.isArray(campaign.google_ads?.headlines)
+    && campaign.google_ads.headlines.length >= 2
+    && campaign.google_ads.headlines.length <= 6
+    && campaign.google_ads.headlines.every(value => typeof value === 'string' && value.length > 0 && value.length <= 30)
+    && typeof campaign.google_ads.long_headline === 'string'
+    && campaign.google_ads.long_headline.length > 0
+    && campaign.google_ads.long_headline.length <= 90
+    && Array.isArray(campaign.google_ads.descriptions)
+    && campaign.google_ads.descriptions.length >= 2
+    && campaign.google_ads.descriptions.length <= 4
+    && campaign.google_ads.descriptions.every(value => typeof value === 'string' && value.length > 0 && value.length <= 90)
+    && typeof campaign.google_ads.cta === 'string'
+    && campaign.google_ads.cta.length > 0
+    && campaign.google_ads.cta.length <= 30
+    && Array.isArray(campaign.google_ads.suggested_keywords)
+    && campaign.google_ads.suggested_keywords.length >= 3
+    && campaign.google_ads.suggested_keywords.length <= 8
+    && campaign.google_ads.suggested_keywords.every(value => typeof value === 'string' && value.length > 0 && value.length <= 80)
 }
 
 export function formatTextCampaignPiece(campaign, id) {
@@ -32,6 +51,13 @@ export function formatTextCampaignPiece(campaign, id) {
   if (id === 'linkedin') return value?.applicable ? String(value.text || '') : `Não aplicável: ${value?.reason || 'contexto não adequado.'}`
   if (id === 'hashtags') return Array.isArray(value) ? value.join(' ') : ''
   if (id === 'text_carousel') return (value?.slides || []).map((slide, index) => `Slide ${index + 1} — ${slide.title}\n${slide.text}`).join('\n\n')
+  if (id === 'google_ads') return [
+    `Títulos:\n${(value?.headlines || []).map(item => `- ${item}`).join('\n')}`,
+    `Título longo:\n${value?.long_headline || ''}`,
+    `Descrições:\n${(value?.descriptions || []).map(item => `- ${item}`).join('\n')}`,
+    `CTA sugerido:\n${value?.cta || ''}`,
+    `Palavras-chave sugeridas:\n${(value?.suggested_keywords || []).map(item => `- ${item}`).join('\n')}`,
+  ].join('\n\n')
   return String(value || '')
 }
 

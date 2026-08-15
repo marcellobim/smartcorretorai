@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
+import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
 import {
   SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS,
   SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS,
@@ -281,12 +282,13 @@ function sanitizeCampaign(value: unknown, index: number) {
   }
 }
 
-function validateMarketingIntelligence(value: unknown) {
+function validateMarketingIntelligence(value: unknown, expectedCta: string) {
   const result = asRecord(value)
   const narration = cleanText(result.narration, 2200)
   const campaigns = (Array.isArray(result.campaigns) ? result.campaigns : [])
     .slice(0, 3)
     .map(sanitizeCampaign)
+  const googleAds = validateGoogleAdsDelivery(result.google_ads, { expectedCta })
 
   if (!narration || campaigns.length !== 3) throw new Error('invalid_marketing_response')
   for (const campaign of campaigns) {
@@ -307,6 +309,7 @@ function validateMarketingIntelligence(value: unknown) {
     narration,
     narrationHighlights: sanitizeStringList(result.narration_highlights, 5, 80),
     campaigns,
+    googleAds,
   }
 }
 
@@ -383,6 +386,8 @@ CENTRAL DA CAMPANHA:
 - CTAs devem variar conforme a estrat\u00e9gia e soar humanos;
 - revise silenciosamente cada sa\u00edda com a pergunta: \"Eu publicaria exatamente assim?\". Se n\u00e3o, reescreva antes de responder.
 
+${GOOGLE_ADS_PROMPT_RULES}
+
 Responda somente com JSON v\u00e1lido neste formato:
 {
   \"narration\": \"texto final pronto para voz\",
@@ -400,7 +405,14 @@ Responda somente com JSON v\u00e1lido neste formato:
       \"hashtags\": [\"#SmartCorretorAI\", \"outras hashtags\"],
       \"cta\": \"CTA da estrat\u00e9gia\"
     }
-  ]
+  ],
+  \"google_ads\": {
+    \"headlines\": [\"titulo curto 1\", \"titulo curto 2\"],
+    \"long_headline\": \"titulo longo\",
+    \"descriptions\": [\"descricao 1\", \"descricao 2\"],
+    \"cta\": \"CTA exato do briefing\",
+    \"suggested_keywords\": [\"palavra-chave 1\", \"palavra-chave 2\", \"palavra-chave 3\"]
+  }
 }`
 
   const userPrompt = JSON.stringify({
@@ -447,7 +459,7 @@ Responda somente com JSON v\u00e1lido neste formato:
   if (!content) throw new Error('marketing_generation_failed')
 
   try {
-    const intelligence = validateMarketingIntelligence(JSON.parse(content))
+    const intelligence = validateMarketingIntelligence(JSON.parse(content), facts.cta)
     const resolvedNarration = await resolveNarrationTiming({
       initial: {
         narration: intelligence.narration,
@@ -749,6 +761,7 @@ async function buildPresentationPlan(
       voice,
     },
     campaigns: intelligence.campaigns,
+    googleAds: intelligence.googleAds,
   }
 }
 
@@ -845,6 +858,7 @@ async function handleCreate(
       receipt,
       campaign_package: {
         campaigns: presentationPlan.campaigns,
+        google_ads: presentationPlan.googleAds,
       },
     })
   } catch (error) {

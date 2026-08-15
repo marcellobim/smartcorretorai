@@ -12,6 +12,7 @@ import { getProduct3Highlights, isProduct3CommercialType, PRODUCT_3_PROPERTY_TYP
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { formatBrazilianPhone, formatProduct3Price as formatCanonicalProduct3Price, formatProduct3PropertyTag, getProduct3PurposeBadge } from '../../../supabase/functions/_shared/product3-contract.ts'
+import { formatGoogleAdsDelivery } from '../../../supabase/functions/_shared/google-ads.ts'
 import { ProductCard } from '../components/design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
 
@@ -2743,8 +2744,10 @@ export default function NovaCampanha() {
       tiktok: ['🎵 TIKTOK / REELS', 'roteiro'],
       youtube: ['▶️ YOUTUBE', 'descricao'],
       linkedin: ['💼 LINKEDIN', 'texto'],
+      google_ads: ['GOOGLE ADS', null],
     }
     const formatDownloadValue = (key, dados, campo) => {
+      if (key === 'google_ads') return formatGoogleAdsDelivery(dados)
       const value = campo && dados && typeof dados === 'object'
         ? dados[campo] || Object.values(dados)[0] || ''
         : dados
@@ -4174,6 +4177,7 @@ export default function NovaCampanha() {
                     property: packageProperty,
                     cta: packageProperty.cta || product3Cta,
                   }),
+                  googleAds: tg.google_ads,
                 }}
                 onRefreshMedia={renovarUrlRender}
                 onCreateNew={() => resetCampaignState()}
@@ -4202,6 +4206,7 @@ export default function NovaCampanha() {
                 highlights: packageProperty.destaques || todosDestaques,
                 contactAuthorized: false,
                 existingTexts: tg,
+                googleAds: tg.google_ads,
               }}
             >
               <div className="space-y-6">

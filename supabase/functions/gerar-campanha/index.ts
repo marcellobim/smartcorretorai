@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProduct3PurposeLabel, normalizeProduct3Purpose } from '../_shared/product3-contract.ts'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
+import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,10 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem texto fora do JSON
   ],
   "mensagem_whatsapp": "Texto curto e amigável para WhatsApp. Não inclua hashtags."
 }
+
+ENTREGA ADICIONAL OBRIGATORIA:
+${GOOGLE_ADS_PROMPT_RULES}
+Acrescente ao objeto raiz o campo "google_ads" com exatamente: headlines, long_headline, descriptions, cta e suggested_keywords.
 
 REGRAS PARA HASHTAGS:
 - Gere de 12 a 15 hashtags relevantes, prontas para copiar.
@@ -387,6 +392,14 @@ serve(async (req) => {
     } catch (e) {
       console.error(`[${reqId}] JSON parse error`, e, rawContent.slice(0, 300))
       return jsonResponse({ error: 'Resposta da OpenAI não é JSON válido' }, 502)
+    }
+
+    const campaignRecord = dadosObj as Record<string, unknown>
+    const campaignCta = String(campaignRecord.cta || campaignRecord.cta_text || '').trim()
+    try {
+      textos_gerados.google_ads = validateGoogleAdsDelivery(textos_gerados.google_ads, { expectedCta: campaignCta })
+    } catch {
+      return jsonResponse({ error: 'Resposta da OpenAI sem Google Ads valido' }, 502)
     }
 
     if (!Array.isArray(textos_gerados.hashtags)) {

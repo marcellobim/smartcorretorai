@@ -39,6 +39,13 @@ const validCampaign = (): TextCampaignResult => ({
   hashtags: ['#VilaMariana', '#SaoPaulo', '#ApartamentoAVenda', '#ImovelResidencial', '#TresDormitorios', '#VarandaGourmet', '#SmartCorretorAI', '#ProntoParaMorar', '#SeuNovoLar', '#MercadoImobiliarioSP', '#AgendeSuaVisita', '#ImoveisEmSaoPaulo'],
   reels_script: 'Mostre a sala, a varanda e finalize com o convite para visita.',
   text_carousel: { slides: [1, 2, 3, 4, 5].map(index => ({ title: `Slide ${index}`, text: index === 5 ? 'Agende sua visita.' : `Informação ${index}.` })) },
+  google_ads: {
+    headlines: ['Apartamento na Vila Mariana', '3 dormitórios e varanda'],
+    long_headline: 'Apartamento de 3 dormitórios com varanda gourmet na Vila Mariana',
+    descriptions: ['Conheça este apartamento de 120 m² pronto para morar.', 'Agende uma visita na Vila Mariana.'],
+    cta: 'Agende sua visita',
+    suggested_keywords: ['apartamento à venda vila mariana', 'apartamento 3 dormitórios vila mariana', 'apartamento com varanda vila mariana'],
+  },
 })
 
 const request = (body: unknown, method = 'POST', token = 'test-token') => new Request('http://local/generate-text-campaign', {
@@ -89,13 +96,64 @@ test('keeps sale and rental contracts separate', () => {
   assert.throws(() => validateTextCampaignRequest(rawRequest({ purpose: 'rent', stage: 'Vago', property_type: 'Terreno / Lote', bedrooms: '', suites: '', parking_spaces: '', commercial: { mode: 'hidden', rent: '', condominium: '', iptu: '', guarantee: '' } })), /invalid_rental_land/)
 })
 
-test('uses strict structured JSON with exactly 18 logical delivery contracts', () => {
+test('uses strict structured JSON with the 18 preserved contracts plus Google Ads', () => {
   const body = buildTextCampaignOpenAIRequest(validateTextCampaignRequest(rawRequest()))
   assert.equal(body.response_format.type, 'json_schema')
   assert.equal(body.response_format.json_schema.strict, true)
-  assert.equal(TEXT_CAMPAIGN_DELIVERY_KEYS.length, 18)
+  assert.equal(TEXT_CAMPAIGN_DELIVERY_KEYS.length, 19)
+  assert.deepEqual(TEXT_CAMPAIGN_DELIVERY_KEYS.slice(0, 18), [
+    'listing_title', 'portal_description', 'short_listing',
+    'instagram_commercial', 'instagram_emotional', 'instagram_opportunity',
+    'facebook_commercial', 'facebook_emotional', 'facebook_opportunity',
+    'whatsapp_individual', 'whatsapp_list', 'whatsapp_short',
+    'email', 'linkedin', 'cta', 'hashtags', 'reels_script', 'text_carousel',
+  ])
+  assert.equal(TEXT_CAMPAIGN_DELIVERY_KEYS.at(-1), 'google_ads')
   assert.deepEqual(Object.keys(validCampaign()), [...TEXT_CAMPAIGN_DELIVERY_KEYS])
   assert.deepEqual(Object.keys(validateTextCampaignResult(validCampaign())), [...TEXT_CAMPAIGN_DELIVERY_KEYS])
+})
+
+test('validates one useful Google Ads delivery without truncation or invented metrics', () => {
+  const googleAds = validateTextCampaignResult(validCampaign()).google_ads
+  assert.ok(googleAds.headlines.length >= 2 && googleAds.headlines.length <= 6)
+  assert.ok(googleAds.headlines.every(headline => headline.length <= 30))
+  assert.ok(googleAds.long_headline.length <= 90)
+  assert.ok(googleAds.descriptions.length >= 2 && googleAds.descriptions.length <= 4)
+  assert.ok(googleAds.descriptions.every(description => description.length <= 90))
+  assert.ok(googleAds.cta.length > 0)
+  assert.ok(googleAds.suggested_keywords.length >= 3 && googleAds.suggested_keywords.length <= 8)
+  assert.throws(() => validateTextCampaignResult({ ...validCampaign(), google_ads: { ...validCampaign().google_ads, headlines: ['x'.repeat(31), 'Título válido'] } }), /invalid_google_ads_headlines_1/)
+  assert.throws(() => validateTextCampaignResult({ ...validCampaign(), google_ads: { ...validCampaign().google_ads, long_headline: 'x'.repeat(91) } }), /invalid_google_ads_long_headline/)
+  assert.throws(() => validateTextCampaignResult({ ...validCampaign(), google_ads: { ...validCampaign().google_ads, descriptions: ['x'.repeat(91), 'Descrição válida'] } }), /invalid_google_ads_descriptions_1/)
+  assert.throws(() => validateTextCampaignResult({ ...validCampaign(), google_ads: { ...validCampaign().google_ads, cta: '' } }), /invalid_google_ads_cta/)
+  assert.throws(() => validateTextCampaignResult({ ...validCampaign(), google_ads: { ...validCampaign().google_ads, suggested_keywords: ['apartamento moema', 'CPC apartamento', 'comprar apartamento'] } }), /invalid_google_ads_keyword_metrics/)
+  for (const metric of ['volume de pesquisa', 'CPC', 'concorrência', 'ranking', 'previsão de tráfego', 'palavras mais buscadas']) {
+    assert.match(TEXT_CAMPAIGN_SYSTEM_PROMPT, new RegExp(metric, 'i'))
+  }
+})
+
+test('prioritizes real-estate intent and real location only in suggested Google Ads keywords', () => {
+  const priorities = [
+    'tipo + finalidade + localização',
+    'intenção comercial + tipo + localização',
+    'tipo + característica importante + localização',
+    'tipo + dormitórios ou suítes + localização',
+    'característica relevante + tipo + localização',
+  ]
+  assert.ok(priorities.every((priority, index) => index === 0 || TEXT_CAMPAIGN_SYSTEM_PROMPT.indexOf(priorities[index - 1]) < TEXT_CAMPAIGN_SYSTEM_PROMPT.indexOf(priority)))
+  assert.match(TEXT_CAMPAIGN_SYSTEM_PROMPT, /intenção imobiliária clara e incluir o bairro ou, quando necessário, a cidade/i)
+  assert.match(TEXT_CAMPAIGN_SYSTEM_PROMPT, /Evite combinações genéricas formadas apenas por tipo \+ localização ou apenas por característica \+ localização/i)
+  assert.match(TEXT_CAMPAIGN_SYSTEM_PROMPT, /sem copiar exemplos de forma automática/i)
+  assert.match(TEXT_CAMPAIGN_SYSTEM_PROMPT, /CTA não vazio que preserve exatamente a chamada escolhida no briefing, sem criar CTA independente/i)
+  const campaign = { ...validCampaign(), google_ads: { ...validCampaign().google_ads, cta: 'Saiba mais' } }
+  assert.deepEqual(campaign.google_ads.suggested_keywords, [
+    'apartamento à venda vila mariana',
+    'apartamento 3 dormitórios vila mariana',
+    'apartamento com varanda vila mariana',
+  ])
+  const final = applyFinalTextCampaignRules(campaign, validBriefing(), campaign.hashtags)
+  assert.equal(final.google_ads.cta, validBriefing().cta)
+  assert.equal(final.cta, campaign.cta)
 })
 
 test('requires distinct Instagram, Facebook and WhatsApp content without literal cross-channel reuse', () => {

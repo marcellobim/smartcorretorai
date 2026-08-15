@@ -26,7 +26,7 @@ import {
   ProductSummary,
   SMART_UI,
 } from '../components/design-system'
-import { buildPublicationPackage } from '../../../core/copy-engine'
+import { buildPublicationGoogleAds, buildPublicationPackage } from '../../../core/copy-engine'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
@@ -1033,8 +1033,8 @@ function getStudioCopyFeatures(answers) {
     .filter((item) => item && !STUDIO_COPY_INTERNAL_TERMS.has(item.toUpperCase()))
 }
 
-function buildDeliveryTexts({ answers, districtValue, cityValue }) {
-  return buildPublicationPackage({
+function buildDeliveryInput({ answers, districtValue, cityValue }) {
+  return {
     objective: answers.objective,
     objectiveLabel: getObjectiveSummaryLabel(answers.objective),
     propertyType: getStudioCopyPropertyType(answers),
@@ -1053,7 +1053,11 @@ function buildDeliveryTexts({ answers, districtValue, cityValue }) {
     parking: answers.parking,
     area: answers.area,
     cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta || 'Entre em contato',
-  })
+  }
+}
+
+function buildDeliveryTexts(input) {
+  return buildPublicationPackage(buildDeliveryInput(input))
 }
 
 async function invokeStudioFunction(name, body) {
@@ -3683,7 +3687,9 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
 
 function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = false, onReset }) {
   const completed = Boolean(videoUrl)
-  const deliveryTexts = completed ? buildDeliveryTexts({ answers, districtValue, cityValue }) : []
+  const deliveryInput = { answers, districtValue, cityValue }
+  const deliveryTexts = completed ? buildDeliveryTexts(deliveryInput) : []
+  const googleAds = completed ? buildPublicationGoogleAds(buildDeliveryInput(deliveryInput)) : null
   if (!completed) return null
 
   if (answers?.creativeMode !== 'free_ai') {
@@ -3709,6 +3715,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
           contactAuthorized: false,
           existingTexts: deliveryTexts,
+          googleAds,
         }}
         mediaPresentation="mobile"
         onCreateNew={onReset}
@@ -3740,6 +3747,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
           contactAuthorized: false,
           existingTexts: deliveryTexts,
+          googleAds,
         }}
         mediaPresentation="mobile"
         onCreateNew={onReset}

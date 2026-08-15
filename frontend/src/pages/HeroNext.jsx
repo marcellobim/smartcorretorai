@@ -24,7 +24,7 @@ import { useAuth } from '../lib/auth-context'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
-import { buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
+import { buildPublicationGoogleAds, buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
 const GOALS = [
   { id: 'sale', label: 'Venda de imóvel', description: 'Campanha para divulgar um imóvel à venda.' },
@@ -787,11 +787,11 @@ const getHeroNextDefaultCta = (goal) => (
   isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale comigo'
 )
 
-function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
+function buildHeroNextCopyInput(goal, answers, valueCondition) {
   const objectiveLabel = getHeroNextObjectiveLabel(goal)
   const features = getHeroNextCaptureFeatures(goal, answers)
 
-  return buildPublicationPackage({
+  return {
     objective: goal,
     objectiveLabel,
     propertyType: answers.propertyType || normalizeList(answers.propertyKinds)[0] || normalizeList(answers.professionalProfile)[0] || 'Imóvel',
@@ -810,7 +810,11 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
     contactPhone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(answers.contactPhone || '') : '',
     displayPhone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(answers.contactPhone || '') : '',
     cta: answers.cta || getHeroNextDefaultCta(goal),
-  })
+  }
+}
+
+function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
+  return buildPublicationPackage(buildHeroNextCopyInput(goal, answers, valueCondition))
 }
 
 const normalizeComparable = (value) => String(value || '')
@@ -2395,6 +2399,7 @@ export default function HeroNext() {
       label: item.label,
       text: item.text,
     })),
+    googleAds: buildPublicationGoogleAds(buildHeroNextCopyInput(goal, answers, valueCondition)),
   } : null
 
   const renderQuestionControls = () => {

@@ -1,4 +1,5 @@
 import { formatBrazilianPhone } from '../../../../supabase/functions/_shared/product3-contract.ts'
+import { validateGoogleAdsDelivery } from '../../../../supabase/functions/_shared/google-ads.ts'
 
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 
@@ -130,6 +131,27 @@ const normalizeAiCampaigns = (campaigns) => (Array.isArray(campaigns) ? campaign
   }))
   .filter((campaign) => campaign.name && campaign.instagram && campaign.whatsapp && campaign.facebook)
 
+const normalizeGoogleAds = (value, cta) => {
+  if (!value) return null
+  try {
+    return validateGoogleAdsDelivery(value, cta ? { expectedCta: cta } : {})
+  } catch {
+    return null
+  }
+}
+
+const buildGoogleAdsModule = (googleAds) => googleAds && ({
+  id: 'google-ads',
+  title: 'Google Ads',
+  fields: [
+    { id: 'google-ads-headlines', label: 'Títulos', text: googleAds.headlines.map(item => `- ${item}`).join('\n'), copyLabel: 'Copiar títulos' },
+    { id: 'google-ads-long-headline', label: 'Título longo', text: googleAds.long_headline, copyLabel: 'Copiar título longo' },
+    { id: 'google-ads-descriptions', label: 'Descrições', text: googleAds.descriptions.map(item => `- ${item}`).join('\n'), copyLabel: 'Copiar descrições' },
+    { id: 'google-ads-cta', label: 'CTA', text: googleAds.cta, copyLabel: 'Copiar CTA' },
+    { id: 'google-ads-keywords', label: 'Palavras-chave sugeridas', text: googleAds.suggested_keywords.map(item => `- ${item}`).join('\n'), copyLabel: 'Copiar palavras-chave' },
+  ],
+})
+
 const campaignOptions = (campaigns, channel, copyLabel, format = (value) => value) => campaigns
   .map((campaign) => {
     const text = withoutHashtags(format(campaign[channel], campaign))
@@ -200,6 +222,7 @@ export function normalizeCampaignPackageInput(input = {}) {
     }))
     : []
   const highlights = Array.isArray(input.highlights) ? compact(input.highlights) : []
+  const cta = clean(input.cta)
   return {
     sourceProduct: clean(input.sourceProduct),
     mediaType: input.mediaType === 'images' ? 'images' : 'video',
@@ -220,11 +243,12 @@ export function normalizeCampaignPackageInput(input = {}) {
     price: clean(input.price),
     description: clean(input.description),
     highlights,
-    cta: clean(input.cta),
+    cta,
     phone: input.contactAuthorized ? formatBrazilianPhone(input.phone) : '',
     contactAuthorized: Boolean(input.contactAuthorized && clean(input.phone)),
     existingTexts: input.existingTexts && typeof input.existingTexts === 'object' ? input.existingTexts : {},
     aiCampaigns: normalizeAiCampaigns(input.aiCampaigns),
+    googleAds: normalizeGoogleAds(input.googleAds || input.google_ads, cta),
   }
 }
 
@@ -234,9 +258,10 @@ export function buildCampaignPackage(input = {}) {
     ? buildAiCampaignModules(campaign.aiCampaigns)
     : []
   if (aiCampaignModules.length) {
+    const googleAdsModule = buildGoogleAdsModule(campaign.googleAds)
     return {
       ...campaign,
-      modules: aiCampaignModules,
+      modules: [...aiCampaignModules, ...(googleAdsModule ? [googleAdsModule] : [])],
       contact: [
         campaign.cta && { id: 'cta', label: 'CTA utilizado', value: campaign.cta, copyLabel: 'Copiar CTA' },
         campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
@@ -348,7 +373,8 @@ export function buildCampaignPackage(input = {}) {
     },
     hashtags && { id: 'hashtags', title: 'Hashtags', copyLabel: 'Copiar hashtags', text: hashtags },
   ].filter(Boolean)
-  const modules = fallbackModules
+  const googleAdsModule = buildGoogleAdsModule(campaign.googleAds)
+  const modules = [...fallbackModules, ...(googleAdsModule ? [googleAdsModule] : [])]
 
   return {
     ...campaign,

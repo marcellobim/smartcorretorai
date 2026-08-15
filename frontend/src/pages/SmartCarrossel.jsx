@@ -782,6 +782,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
             contactAuthorized: sharePhone === 'yes',
             phone: sharePhone === 'yes' ? profilePhone : '',
             aiCampaigns: campaignPackage?.campaigns || [],
+            googleAds: campaignPackage?.google_ads,
           }}
         />
       )}
