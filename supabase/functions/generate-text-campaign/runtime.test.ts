@@ -63,14 +63,14 @@ const dependencies = (overrides: Partial<TextCampaignRuntimeDependencies> = {}):
   authenticate: async () => ({ id: 'user-id' }),
   generate: async () => ({ campaign: validCampaign(), usage: { input_tokens: 100, output_tokens: 200, total_tokens: 300 } }),
   generateHashtags: async () => validCampaign().hashtags,
-  quote: () => ({ productCode: 'text_campaign', variant: 'standard', smartTokenCost: 100, providerCategory: 'openai_text', catalogVersion: '2026-08-16.phase1.v1' }),
+  quote: () => ({ productCode: 'text_campaign', variant: 'standard', smartTokenCost: 25, providerCategory: 'openai_text', catalogVersion: '2026-08-16.phase1.v1' }),
   getAvailableBalance: async () => 500,
   reserve: async ({ amount }) => ({ id: 'reservation-id', status: 'reserved', amount }),
   cleanupDeliveries: async () => {},
-  claimDelivery: async () => ({ id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }),
-  attachReservation: async () => ({ id: 'delivery-id', status: 'processing', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }),
-  completeDelivery: async ({ result }) => ({ id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }),
-  failDelivery: async () => ({ id: 'delivery-id', status: 'failed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 100 }),
+  claimDelivery: async () => ({ id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }),
+  attachReservation: async () => ({ id: 'delivery-id', status: 'processing', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }),
+  completeDelivery: async ({ result }) => ({ id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }),
+  failDelivery: async () => ({ id: 'delivery-id', status: 'failed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 25 }),
   ...overrides,
 })
 
@@ -205,19 +205,19 @@ test('falls back to official hashtags without failing the campaign', async () =>
   assert.deepEqual(data.campaign.hashtags, buildOfficialHashtags(buildTextCampaignHashtagContext(validBriefing())))
 })
 
-test('reserves the canonical 100 Smart Tokens before either provider and consumes only after final validation', async () => {
+test('reserves the canonical 25 Smart Tokens before either provider and consumes only after final validation', async () => {
   const order: string[] = []
   const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
     reserve: async ({ amount, quote }) => {
       order.push('reserve')
-      assert.equal(amount, 100)
+      assert.equal(amount, 25)
       assert.equal(quote.productCode, 'text_campaign')
       assert.equal(quote.variant, 'standard')
       return { id: 'reservation-id', status: 'reserved', amount }
     },
     generate: async () => { order.push('provider_main'); return { campaign: validCampaign() } },
     generateHashtags: async () => { order.push('provider_hashtags'); return validCampaign().hashtags },
-    completeDelivery: async ({ result }) => { order.push('complete'); return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+    completeDelivery: async ({ result }) => { order.push('complete'); return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 } },
   }))
   assert.equal(response.status, 200)
   assert.deepEqual(order, ['reserve', 'provider_main', 'provider_hashtags', 'complete'])
@@ -227,7 +227,7 @@ test('returns structured insufficient balance and never calls a provider or rese
   let providerCalls = 0
   let reservationCalls = 0
   const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
-    getAvailableBalance: async () => 50,
+    getAvailableBalance: async () => 24,
     reserve: async () => { reservationCalls += 1; throw new Error('unexpected') },
     generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
   }))
@@ -236,8 +236,8 @@ test('returns structured insufficient balance and never calls a provider or rese
     ok: false,
     error: 'Smart Tokens insuficientes para criar esta campanha.',
     code: 'INSUFFICIENT_SMART_TOKENS',
-    required_tokens: 100,
-    available_tokens: 50,
+    required_tokens: 25,
+    available_tokens: 24,
   })
   assert.equal(providerCalls, 0)
   assert.equal(reservationCalls, 0)
@@ -253,9 +253,9 @@ test('fails the delivery transaction after provider, parsing/finalization or com
       },
       completeDelivery: async ({ result }) => {
         if (failure === 'complete') throw new Error('persistence_failed')
-        return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+        return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
       },
-      failDelivery: async () => { cancels += 1; return { id: 'delivery-id', status: 'failed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 100 } },
+      failDelivery: async () => { cancels += 1; return { id: 'delivery-id', status: 'failed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 25 } },
     }))
     assert.equal(response.status, 502, failure)
     assert.equal(cancels, 1, failure)
@@ -270,14 +270,14 @@ test('an idempotent completed retry neither invokes the provider nor completes a
   let storedResult: TextCampaignResult | null = null
   const shared = dependencies({
     claimDelivery: async () => storedResult
-      ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: storedResult, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
-      : { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 },
+      ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: storedResult, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
+      : { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 },
     reserve: async ({ amount }) => {
       if (reservationStatus === 'missing') { reservationCreates += 1; reservationStatus = 'reserved' }
       return { id: 'reservation-id', status: 'reserved', amount }
     },
     generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
-    completeDelivery: async ({ result }) => { completions += 1; storedResult = result; return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+    completeDelivery: async ({ result }) => { completions += 1; storedResult = result; return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 } },
   })
   const first = await handleGenerateTextCampaign(request(rawRequest()), shared)
   const firstBody = await first.json()
@@ -304,11 +304,11 @@ test('two simultaneous requests claim once, return PROCESSING, and execute one p
     claimDelivery: async () => {
       if (state === 'missing') {
         state = 'processing'
-        return { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+        return { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }
       }
       return state === 'completed'
-        ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: storedResult, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
-        : { id: 'delivery-id', status: 'processing', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+        ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: storedResult, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
+        : { id: 'delivery-id', status: 'processing', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }
     },
     reserve: async ({ amount }) => { reserveCalls += 1; return { id: 'reservation-id', status: 'reserved', amount } },
     generate: async () => { providerCalls += 1; signalProvider(); await providerRelease; return { campaign: validCampaign() } },
@@ -316,7 +316,7 @@ test('two simultaneous requests claim once, return PROCESSING, and execute one p
       completions += 1
       state = 'completed'
       storedResult = result
-      return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+      return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
     },
   })
 
@@ -343,13 +343,13 @@ test('a failed request is terminal for the same id and a new id can try again', 
   const shared = dependencies({
     claimDelivery: async input => {
       const status = states.get(input.clientRequestId)
-      if (status) return { id: input.clientRequestId, status, claimed: false, claimToken: null, reservationId: status === 'processing' ? null : 'reservation-id', result: status === 'completed' ? validCampaign() : null, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+      if (status) return { id: input.clientRequestId, status, claimed: false, claimToken: null, reservationId: status === 'processing' ? null : 'reservation-id', result: status === 'completed' ? validCampaign() : null, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
       states.set(input.clientRequestId, 'processing')
-      return { id: input.clientRequestId, status: 'processing', claimed: true, claimToken: `claim-${input.clientRequestId}`, reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+      return { id: input.clientRequestId, status: 'processing', claimed: true, claimToken: `claim-${input.clientRequestId}`, reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }
     },
     generate: async () => { providerCalls += 1; if (providerCalls === 1) throw new Error('provider_failed'); return { campaign: validCampaign() } },
-    failDelivery: async input => { states.set(input.clientRequestId, 'failed'); return { id: input.clientRequestId, status: 'failed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 100 } },
-    completeDelivery: async input => { states.set(input.clientRequestId, 'completed'); return { id: input.clientRequestId, status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+    failDelivery: async input => { states.set(input.clientRequestId, 'failed'); return { id: input.clientRequestId, status: 'failed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 25 } },
+    completeDelivery: async input => { states.set(input.clientRequestId, 'completed'); return { id: input.clientRequestId, status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 } },
   })
   const firstId = '123e4567-e89b-42d3-a456-426614174011'
   const secondId = '123e4567-e89b-42d3-a456-426614174012'
@@ -366,11 +366,11 @@ test('another user cannot recover a completed result using the same client reque
     claimDelivery: async input => {
       const result = states.get(`${input.userId}:${input.clientRequestId}`)
       return result
-        ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
-        : { id: 'delivery-id', status: 'processing', claimed: true, claimToken: `claim-${input.userId}`, reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+        ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
+        : { id: 'delivery-id', status: 'processing', claimed: true, claimToken: `claim-${input.userId}`, reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }
     },
-    getAvailableBalance: async userId => userId === 'user-b' ? 50 : 500,
-    completeDelivery: async input => { states.set(`${input.userId}:${input.clientRequestId}`, input.result); return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+    getAvailableBalance: async userId => userId === 'user-b' ? 24 : 500,
+    completeDelivery: async input => { states.set(`${input.userId}:${input.clientRequestId}`, input.result); return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 } },
   })
   assert.equal((await handleGenerateTextCampaign(request(rawRequest(), 'POST', 'token-a'), shared)).status, 200)
   const userB = await handleGenerateTextCampaign(request(rawRequest(), 'POST', 'token-b'), shared)
@@ -381,7 +381,7 @@ test('another user cannot recover a completed result using the same client reque
 test('an expired result is not returned and never invokes the provider', async () => {
   let providerCalls = 0
   const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
-    claimDelivery: async () => ({ id: 'delivery-id', status: 'expired', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-16T12:00:00.000Z', smartTokenCost: 100 }),
+    claimDelivery: async () => ({ id: 'delivery-id', status: 'expired', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-16T12:00:00.000Z', smartTokenCost: 25 }),
     generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
   }))
   assert.equal(response.status, 409)
@@ -405,14 +405,14 @@ test('keeps the authenticated user as the owner of balance, reservation and cons
     authenticate: async () => ({ id: 'user-a' }),
     getAvailableBalance: async userId => { owners.push(userId); return 500 },
     reserve: async input => { owners.push(input.userId); return { id: 'reservation-a', status: 'reserved', amount: input.amount } },
-    completeDelivery: async input => { owners.push(input.userId); return { id: 'delivery-a', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-a', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+    completeDelivery: async input => { owners.push(input.userId); return { id: 'delivery-a', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-a', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 } },
   }))
   assert.equal(response.status, 200)
   assert.deepEqual(owners, ['user-a', 'user-a', 'user-a'])
 })
 
-test('simulates 500 to 400 to 300 and preserves 50 when insufficient', async () => {
-  let balance = 500
+test('simulates the approved 100, 50, 25 and 24 Smart Token balances', async () => {
+  let balance = 100
   let providerCalls = 0
   const run = (id: string) => handleGenerateTextCampaign(request({ ...rawRequest(), client_request_id: id }), dependencies({
     getAvailableBalance: async () => balance,
@@ -420,13 +420,17 @@ test('simulates 500 to 400 to 300 and preserves 50 when insufficient', async () 
     generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
   }))
   assert.equal((await run('123e4567-e89b-42d3-a456-426614174001')).status, 200)
-  assert.equal(balance, 400)
-  assert.equal((await run('123e4567-e89b-42d3-a456-426614174002')).status, 200)
-  assert.equal(balance, 300)
+  assert.equal(balance, 75)
   balance = 50
+  assert.equal((await run('123e4567-e89b-42d3-a456-426614174002')).status, 200)
+  assert.equal(balance, 25)
+  balance = 25
+  assert.equal((await run('123e4567-e89b-42d3-a456-426614174003')).status, 200)
+  assert.equal(balance, 0)
+  balance = 24
   const before = providerCalls
-  assert.equal((await run('123e4567-e89b-42d3-a456-426614174003')).status, 402)
-  assert.equal(balance, 50)
+  assert.equal((await run('123e4567-e89b-42d3-a456-426614174004')).status, 402)
+  assert.equal(balance, 24)
   assert.equal(providerCalls, before)
 })
 

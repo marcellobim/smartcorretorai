@@ -35,7 +35,7 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
       'short_videos:standard': 325,
       'real_estate_commercial:standard': 275,
       'creative_video:standard': 275,
-      'text_campaign:standard': 100,
+      'text_campaign:standard': 25,
       'real_estate_banner:item': 75,
       'quick_banners:item': 45,
       'virtual_staging:images_1': 200,
@@ -52,7 +52,7 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
 test('only migrated product SKUs can be quoted while global activation remains false', () => {
   assert.equal(ECONOMIC_CATALOG_ACTIVATED, false)
   assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['real_estate_video:standard', 'life_in_property:standard', 'broker_presentation:standard', 'short_videos:standard', 'text_campaign:standard', 'real_estate_banner:item', 'quick_banners:item'])
-  assert.equal(quoteEconomicSku('text_campaign', 'standard').smartTokenCost, 100)
+  assert.equal(quoteEconomicSku('text_campaign', 'standard').smartTokenCost, 25)
   assert.equal(quoteEconomicSku('real_estate_video', 'standard').smartTokenCost, 325)
   assert.equal(Object.isFrozen(ECONOMIC_SKUS), true)
   assert.equal(Object.isFrozen(getEconomicSku('text_campaign', 'standard')), true)

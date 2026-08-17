@@ -57,7 +57,7 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
   sku('real_estate_commercial', 'standard', 275, 'veo_video'),
   sku('creative_video', 'standard', 275, 'veo_video'),
   // Product 1 is activated explicitly while the global rollout remains off.
-  sku('text_campaign', 'standard', 100, 'openai_text', true, {}, true),
+  sku('text_campaign', 'standard', 25, 'openai_text', true, {}, true),
 
   // Product 3 has one canonical server-owned unit. References and formats do
   // not change the quote; the validated number of final pieces does.

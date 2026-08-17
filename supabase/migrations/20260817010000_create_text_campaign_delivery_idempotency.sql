@@ -7,7 +7,7 @@ CREATE TABLE public.text_campaign_delivery_requests (
   client_request_id UUID NOT NULL,
   product_code TEXT NOT NULL DEFAULT 'text_campaign' CHECK (product_code = 'text_campaign'),
   variant TEXT NOT NULL DEFAULT 'standard' CHECK (variant = 'standard'),
-  smart_token_cost BIGINT NOT NULL CHECK (smart_token_cost = 100),
+  smart_token_cost BIGINT NOT NULL CHECK (smart_token_cost = 25),
   catalog_version TEXT NOT NULL CHECK (pg_catalog.btrim(catalog_version) <> ''),
   idempotency_key TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('processing', 'completed', 'failed', 'expired')),
@@ -65,7 +65,7 @@ BEGIN
     RAISE EXCEPTION 'Nao autorizado a operar entrega idempotente' USING ERRCODE = '42501';
   END IF;
   IF p_user_id IS NULL OR p_client_request_id IS NULL THEN RAISE EXCEPTION 'identidade da solicitacao obrigatoria'; END IF;
-  IF p_smart_token_cost IS DISTINCT FROM 100 THEN RAISE EXCEPTION 'custo canonico invalido'; END IF;
+  IF p_smart_token_cost IS DISTINCT FROM 25 THEN RAISE EXCEPTION 'custo canonico invalido'; END IF;
   IF p_catalog_version IS NULL OR pg_catalog.btrim(p_catalog_version) = '' THEN RAISE EXCEPTION 'catalog_version obrigatoria'; END IF;
 
   v_idempotency_key := pg_catalog.format('text_campaign:standard:%s:%s', p_user_id, p_client_request_id);
