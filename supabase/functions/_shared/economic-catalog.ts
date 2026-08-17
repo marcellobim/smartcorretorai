@@ -1,4 +1,4 @@
-export const ECONOMIC_CATALOG_VERSION = '2026-08-17.veo-video-family.v1'
+export const ECONOMIC_CATALOG_VERSION = '2026-08-17.smart-carousel.v1'
 
 // Global rollout stays disabled. A product can opt in only after its provider
 // pipeline is migrated and its canonical SKU is explicitly enabled below.
@@ -98,9 +98,9 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
     telemetryRequired: true,
   }),
 
-  sku('smart_carousel', 'photos_5', 300, 'composite', false, { quantity: 5 }),
-  sku('smart_carousel', 'photos_10', 500, 'composite', false, { quantity: 10 }),
-  sku('smart_carousel', 'photos_20', 800, 'composite', false, { quantity: 20 }),
+  sku('smart_carousel', 'standard', 100, 'composite', false, {
+    pricingStatus: 'approved', telemetryRequired: true, minImages: 5, maxImages: 20,
+  }, true),
 ])
 
 const SKU_INDEX = new Map(ECONOMIC_SKUS.map(item => [`${item.productCode}:${item.variant}`, item]))

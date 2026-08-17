@@ -3,6 +3,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
 import {
+  SMART_CAROUSEL_MAX_IMAGES,
+  SMART_CAROUSEL_MIN_IMAGES,
+  claimSmartCarouselEconomy,
+  insufficientSmartCarouselTokensResponse,
+  recordSmartCarouselProvider,
+  recoverSmartCarouselEconomy,
+  settleSmartCarouselEconomy,
+} from '../_shared/smart-carousel-economy.ts'
+import {
   SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS,
   SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS,
   SMART_CAROUSEL_SCENE_DURATION_SECONDS,
@@ -20,7 +29,6 @@ const corsHeaders = {
 }
 
 const BUCKET = 'studio-videos'
-const MAX_IMAGES = 30
 const MAX_HIGHLIGHTS = 10
 const SIGNED_URL_TTL_SECONDS = 6 * 60 * 60
 const RECEIPT_TTL_SECONDS = 6 * 60 * 60
@@ -183,7 +191,7 @@ function assertOwnedJobPath(path: unknown, userId: string, jobId: string) {
 async function listJobObjects(supabase: ReturnType<typeof createClient>, userId: string, jobId: string) {
   const folder = `${userId}/smart-carousel/${jobId}`
   const { data, error } = await supabase.storage.from(BUCKET).list(folder, {
-    limit: MAX_IMAGES + 10,
+    limit: SMART_CAROUSEL_MAX_IMAGES + 10,
     offset: 0,
     sortBy: { column: 'name', order: 'asc' },
   })
@@ -195,7 +203,7 @@ async function cleanupJobFiles(supabase: ReturnType<typeof createClient>, userId
   if (!isUuid(userId) || !isUuid(jobId)) return
   const folder = `${userId}/smart-carousel/${jobId}`
   const { data, error } = await supabase.storage.from(BUCKET).list(folder, {
-    limit: MAX_IMAGES + 10,
+    limit: SMART_CAROUSEL_MAX_IMAGES + 10,
     offset: 0,
     sortBy: { column: 'name', order: 'asc' },
   })
@@ -780,8 +788,8 @@ async function handleCreate(
   const sharePhone = body.share_phone === true || body.share_phone === 'yes'
 
   if (!isUuid(jobId)) return jsonResponse({ ok: false, error: 'Apresentação inválida.' }, 400)
-  if (!imagePaths.length || imagePaths.length > MAX_IMAGES) {
-    return jsonResponse({ ok: false, error: 'Selecione entre 1 e 30 fotos.' }, 400)
+  if (imagePaths.length < SMART_CAROUSEL_MIN_IMAGES || imagePaths.length > SMART_CAROUSEL_MAX_IMAGES) {
+    return jsonResponse({ ok: false, error: 'Selecione entre 5 e 20 fotos.' }, 400)
   }
   if (!CTA_FILES[cta]) return jsonResponse({ ok: false, error: 'Chamada final inválida.' }, 400)
   if (!imagePaths.every((path) => assertOwnedJobPath(path, userId, jobId))) {
@@ -793,12 +801,48 @@ async function handleCreate(
   if (!assertOwnedJobPath(ctaPath, userId, jobId) || ctaPath.split('/').pop() !== CTA_FILES[cta]) {
     return jsonResponse({ ok: false, error: 'Chamada final inválida.' }, 400)
   }
+  let executionClaimed = false
   try {
     const existingNames = await listJobObjects(supabase, userId, jobId)
     const requestedNames = [...imagePaths, ctaPath].map((path) => path.split('/').pop() || '')
     if (!requestedNames.every((name) => existingNames.has(name))) {
       await cleanupJobFiles(supabase, userId, jobId)
       return jsonResponse({ ok: false, error: 'Não foi possível localizar todas as fotos.' }, 400)
+    }
+
+    const economyClaim = await claimSmartCarouselEconomy(supabase, {
+      userId,
+      clientRequestId: jobId,
+      imageCount: imagePaths.length,
+      metadata: {
+        primary_provider: 'creatomate',
+        openai_model: OPENAI_MARKETING_MODEL,
+        tts_model: OPENAI_TTS_MODEL,
+        image_count: imagePaths.length,
+        has_audio: true,
+      },
+    })
+    executionClaimed = economyClaim.executionClaimed
+    if (economyClaim.status === 'insufficient') {
+      await cleanupJobFiles(supabase, userId, jobId)
+      return jsonResponse(insufficientSmartCarouselTokensResponse(economyClaim), 402)
+    }
+    if (!economyClaim.executionClaimed) {
+      const recovered = await recoverSmartCarouselEconomy(supabase, { userId, clientRequestId: jobId })
+      if (recovered.status === 'succeeded' && /^https:\/\//i.test(recovered.videoUrl)) {
+        return jsonResponse({
+          ok: true, status: 'succeeded', job_id: jobId, video_url: recovered.videoUrl,
+          campaign_package: recovered.campaignPackage,
+        })
+      }
+      if (recovered.status === 'failed') {
+        return jsonResponse({ ok: true, status: 'failed', job_id: jobId, error: 'Não foi possível criar sua apresentação. Tente novamente.' })
+      }
+      return jsonResponse({
+        ok: true, status: 'processing', job_id: jobId,
+        ...(recovered.receipt ? { receipt: recovered.receipt } : {}),
+        ...(Object.keys(recovered.campaignPackage).length ? { campaign_package: recovered.campaignPackage } : {}),
+      }, 202)
     }
 
     const imageUrls: string[] = []
@@ -832,16 +876,12 @@ async function handleCreate(
       body: JSON.stringify(presentationPlan.renderScript),
     })
     const responseBody = await response.json().catch(() => null)
-    if (!response.ok) {
-      await cleanupJobFiles(supabase, userId, jobId)
-      return jsonResponse({ ok: false, error: 'Não foi possível iniciar sua apresentação.' }, 502)
-    }
+    if (!response.ok) throw new Error('creatomate_start_failed')
 
     const render = Array.isArray(responseBody) ? responseBody[0] : responseBody
     const renderId = render && typeof render === 'object' ? cleanText((render as JsonRecord).id, 64) : ''
     if (!isUuid(renderId)) {
-      await cleanupJobFiles(supabase, userId, jobId)
-      return jsonResponse({ ok: false, error: 'Não foi possível iniciar sua apresentação.' }, 502)
+      throw new Error('creatomate_start_failed')
     }
     const issuedAt = Math.floor(Date.now() / 1000)
     const receipt = await createReceipt(creatomateApiKey, {
@@ -852,19 +892,50 @@ async function handleCreate(
       i: issuedAt,
       e: issuedAt + RECEIPT_TTL_SECONDS,
     })
+    const campaignPackage = {
+      campaigns: presentationPlan.campaigns,
+      google_ads: presentationPlan.googleAds,
+    }
+    await recordSmartCarouselProvider(supabase, {
+      userId,
+      clientRequestId: jobId,
+      renderId,
+      receipt,
+      campaignPackage,
+      telemetry: {
+        provider_status: cleanText((render as JsonRecord).status, 32) || 'planned',
+        image_count: imagePaths.length,
+        duration_seconds: presentationPlan.renderScript.duration,
+        width: presentationPlan.renderScript.width,
+        height: presentationPlan.renderScript.height,
+        fps: presentationPlan.renderScript.frame_rate,
+        has_audio: true,
+      },
+    })
     return jsonResponse({
       ok: true,
       status: cleanText((render as JsonRecord).status, 32) || 'planned',
+      job_id: jobId,
       receipt,
-      campaign_package: {
-        campaigns: presentationPlan.campaigns,
-        google_ads: presentationPlan.googleAds,
-      },
+      campaign_package: campaignPackage,
     })
   } catch (error) {
+    if (executionClaimed) {
+      try {
+        await settleSmartCarouselEconomy(supabase, {
+          userId, clientRequestId: jobId, status: 'failed',
+          reason: error instanceof Error ? error.message : 'smart_carousel_create_failed',
+        })
+      } catch (settlementError) {
+        console.warn('[smart-carousel] liquidacao de falha pendente:', cleanText(settlementError instanceof Error ? settlementError.message : settlementError, 160))
+      }
+    }
     await cleanupJobFiles(supabase, userId, jobId)
     if (error instanceof Error && error.message === 'narration_duration_out_of_range') {
       return jsonResponse({ ok: false, error: 'narration_duration_out_of_range' }, 422)
+    }
+    if (error instanceof Error && error.message === 'creatomate_start_failed') {
+      return jsonResponse({ ok: false, error: 'Não foi possível iniciar sua apresentação.' }, 502)
     }
     return jsonResponse({ ok: false, error: 'Não foi possível preparar sua apresentação.' }, 500)
   }
@@ -876,19 +947,51 @@ async function handleStatus(
   supabase: ReturnType<typeof createClient>,
   creatomateApiKey: string,
 ) {
-  const payload = await verifyReceipt(creatomateApiKey, body.receipt)
-  if (!payload || payload.u !== userId) {
+  const payload = body.receipt ? await verifyReceipt(creatomateApiKey, body.receipt) : null
+  if (body.receipt && (!payload || payload.u !== userId)) {
     return jsonResponse({ ok: false, error: 'Acompanhamento inválido.' }, 401)
+  }
+  const jobId = payload?.j || cleanText(body.job_id, 64)
+  if (!isUuid(jobId)) return jsonResponse({ ok: false, error: 'Acompanhamento inválido.' }, 400)
+
+  const recovered = await recoverSmartCarouselEconomy(supabase, { userId, clientRequestId: jobId })
+  if (!recovered.found && !payload) return jsonResponse({ ok: false, error: 'Apresentação não encontrada.' }, 404)
+  if (recovered.status === 'succeeded' && /^https:\/\//i.test(recovered.videoUrl)) {
+    return jsonResponse({
+      ok: true, status: 'succeeded', job_id: jobId, video_url: recovered.videoUrl,
+      campaign_package: recovered.campaignPackage,
+    })
+  }
+  if (recovered.status === 'failed' || recovered.status === 'insufficient') {
+    return jsonResponse({ ok: true, status: 'failed', job_id: jobId, error: 'Não foi possível criar sua apresentação. Tente novamente.' })
   }
 
   const now = Math.floor(Date.now() / 1000)
-  if (payload.e <= now) {
-    await cleanupJobFiles(supabase, userId, payload.j)
+  if (payload && payload.e <= now) {
+    if (recovered.found) {
+      await settleSmartCarouselEconomy(supabase, {
+        userId, clientRequestId: jobId, status: 'failed', reason: 'smart_carousel_receipt_expired',
+      })
+    }
+    await cleanupJobFiles(supabase, userId, jobId)
     return jsonResponse({ ok: false, error: 'O acompanhamento expirou. Tente novamente.' }, 410)
   }
 
+  const renderId = payload?.r || recovered.renderId
+  if (!isUuid(renderId)) {
+    const providerStartedAt = Date.parse(recovered.providerStartedAt)
+    if (recovered.found && Number.isFinite(providerStartedAt) && Date.now() - providerStartedAt > 15 * 60 * 1000) {
+      await settleSmartCarouselEconomy(supabase, {
+        userId, clientRequestId: jobId, status: 'failed', reason: 'smart_carousel_provider_start_timeout',
+      })
+      await cleanupJobFiles(supabase, userId, jobId)
+      return jsonResponse({ ok: true, status: 'failed', job_id: jobId, error: 'Não foi possível criar sua apresentação. Tente novamente.' })
+    }
+    return jsonResponse({ ok: true, status: 'processing', job_id: jobId })
+  }
+
   try {
-    const response = await fetch(`https://api.creatomate.com/v2/renders/${encodeURIComponent(payload.r)}`, {
+    const response = await fetch(`https://api.creatomate.com/v2/renders/${encodeURIComponent(renderId)}`, {
       headers: { Authorization: `Bearer ${creatomateApiKey}` },
     })
     const render = await response.json().catch(() => null) as JsonRecord | null
@@ -899,15 +1002,37 @@ async function handleStatus(
     const status = cleanText(render.status, 32)
     if (status === 'succeeded') {
       const videoUrl = cleanText(render.url, 2048)
-      await cleanupJobFiles(supabase, userId, payload.j)
       if (!/^https:\/\//i.test(videoUrl)) {
+        if (recovered.found) {
+          await settleSmartCarouselEconomy(supabase, {
+            userId, clientRequestId: jobId, status: 'failed', reason: 'smart_carousel_output_missing',
+            telemetry: { provider_status: 'succeeded_without_output' },
+          })
+        }
+        await cleanupJobFiles(supabase, userId, jobId)
         return jsonResponse({ ok: false, error: 'A apresentação foi concluída sem arquivo disponível.' }, 502)
       }
-      return jsonResponse({ ok: true, status: 'succeeded', video_url: videoUrl })
+      if (recovered.found) {
+        await settleSmartCarouselEconomy(supabase, {
+          userId, clientRequestId: jobId, status: 'succeeded', videoUrl,
+          telemetry: { provider_status: 'succeeded', deliverable_persisted_before_consumption: true },
+        })
+      }
+      await cleanupJobFiles(supabase, userId, jobId)
+      return jsonResponse({
+        ok: true, status: 'succeeded', job_id: jobId, video_url: videoUrl,
+        campaign_package: recovered.campaignPackage,
+      })
     }
 
     if (status === 'failed') {
-      await cleanupJobFiles(supabase, userId, payload.j)
+      if (recovered.found) {
+        await settleSmartCarouselEconomy(supabase, {
+          userId, clientRequestId: jobId, status: 'failed', reason: 'smart_carousel_provider_failed',
+          telemetry: { provider_status: 'failed' },
+        })
+      }
+      await cleanupJobFiles(supabase, userId, jobId)
       return jsonResponse({ ok: true, status: 'failed', error: 'Não foi possível criar sua apresentação. Tente novamente.' })
     }
 

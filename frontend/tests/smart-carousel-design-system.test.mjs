@@ -40,13 +40,13 @@ test('preserves upload controls, loading lock and retry callbacks', () => {
   assert.match(carousel, /onDrop=\{\(event\) => \{ event\.preventDefault\(\); setIsDragActive\(false\); addPhotos\(event\.dataTransfer\.files\) \}\}/)
   assert.match(carousel, /onClick=\{\(event\) => \{ event\.stopPropagation\(\); inputRef\.current\?\.click\(\) \}\}/)
   assert.match(carousel, /loading=\{isGenerating\}[\s\S]*?disabled=\{isGenerating \|\| !hasMinimumImages\}[\s\S]*?onClick=\{createPresentation\}/)
-  assert.match(carousel, /onClick=\{receipt \? resumeStatus : createPresentation\}/)
+  assert.match(carousel, /onClick=\{receipt \|\| activeJobId \? resumeStatus : createPresentation\}/)
 })
 
 test('preserves generation, polling, receipt and download contracts', () => {
   assert.match(carousel, /SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'/)
   assert.match(carousel, /action: 'create'[\s\S]*?job_id: jobId[\s\S]*?image_paths: uploaded\.imagePaths[\s\S]*?cta_path: uploaded\.ctaPath[\s\S]*?answers: confirmedAnswers/)
-  assert.match(carousel, /setReceipt\(data\.receipt\)[\s\S]*?pollRenderStatus\(data\.receipt\)/)
-  assert.match(carousel, /const resumeStatus = \(\) => \{[\s\S]*?pollRenderStatus\(receipt\)/)
+  assert.match(carousel, /isValidSmartCarouselReceipt\(data\.receipt\)[\s\S]*?setReceipt\(data\.receipt\)[\s\S]*?pollRenderStatus\(data\.receipt \|\| '', jobId\)/)
+  assert.match(carousel, /const resumeStatus = \(\) => \{[\s\S]*?pollRenderStatus\(receipt, activeJobId\)/)
   assert.match(carousel, /previewUrl: videoUrl,[\s\S]*?downloadUrl: videoUrl,[\s\S]*?downloadName: 'smart-carrossel-apresentacao\.mp4'/)
 })

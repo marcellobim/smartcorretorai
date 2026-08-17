@@ -521,6 +521,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   const [generationStatus, setGenerationStatus] = useState('idle')
   const [generationError, setGenerationError] = useState('')
   const [receipt, setReceipt] = useState('')
+  const [activeJobId, setActiveJobId] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [campaignPackage, setCampaignPackage] = useState(null)
 
@@ -538,6 +539,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     setGenerationStatus('idle')
     setGenerationError('')
     setReceipt('')
+    setActiveJobId('')
     setVideoUrl('')
     setCampaignPackage(null)
     onGenerationStageChange(2)
@@ -591,25 +593,30 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     generationInFlightRef.current = false
     setGenerationStatus('failed')
     setGenerationError(friendlyGenerationError(message))
-    if (!keepReceipt) setReceipt('')
+    if (!keepReceipt) {
+      setReceipt('')
+      setActiveJobId('')
+    }
   }
 
-  const pollRenderStatus = async (signedReceipt) => {
+  const pollRenderStatus = async (signedReceipt, jobId = activeJobId) => {
     if (!mountedRef.current) return
-    if (!isValidSmartCarouselReceipt(signedReceipt)) {
+    if (!isValidSmartCarouselReceipt(signedReceipt) && !jobId) {
       stopWithError('Não foi possível acompanhar sua apresentação.')
       return
     }
     try {
       const data = await invokeSmartCarouselFunction(accessToken, {
         action: 'status',
-        receipt: signedReceipt,
+        ...(isValidSmartCarouselReceipt(signedReceipt) ? { receipt: signedReceipt } : { job_id: jobId }),
       })
       if (!mountedRef.current) return
 
       if (data.status === 'succeeded' && data.video_url) {
         generationInFlightRef.current = false
         setReceipt('')
+        setActiveJobId('')
+        if (Array.isArray(data?.campaign_package?.campaigns)) setCampaignPackage(data.campaign_package)
         setVideoUrl(data.video_url)
         setGenerationStatus('succeeded')
         setGenerationError('')
@@ -623,19 +630,19 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
       }
 
       setGenerationStatus('polling')
-      pollTimerRef.current = window.setTimeout(() => pollRenderStatus(signedReceipt), SMART_CAROUSEL_POLL_INTERVAL_MS)
+      pollTimerRef.current = window.setTimeout(() => pollRenderStatus(signedReceipt, jobId), SMART_CAROUSEL_POLL_INTERVAL_MS)
     } catch (error) {
       stopWithError(error instanceof Error ? error.message : 'Não foi possível acompanhar sua apresentação.', true)
     }
   }
 
   const resumeStatus = () => {
-    if (!receipt || generationInFlightRef.current) return
+    if ((!receipt && !activeJobId) || generationInFlightRef.current) return
     generationInFlightRef.current = true
     setGenerationStatus('polling')
     setGenerationError('')
     onGenerationStageChange(3)
-    pollRenderStatus(receipt)
+    pollRenderStatus(receipt, activeJobId)
   }
 
   const createPresentation = async () => {
@@ -665,6 +672,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     setCampaignPackage(null)
 
     const jobId = crypto.randomUUID()
+    setActiveJobId(jobId)
     let uploadedPaths = []
     try {
       const uploaded = await uploadSmartCarouselFilesWithTimeout({ photos, userId: user.id, jobId, cta })
@@ -682,21 +690,35 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
         share_phone: sharePhone === 'yes',
       })
       if (!mountedRef.current) return
-      if (!isValidSmartCarouselReceipt(data.receipt)) {
-        throw new Error('Não foi possível acompanhar sua apresentação.')
+      if (data.status === 'succeeded' && data.video_url) {
+        generationInFlightRef.current = false
+        setActiveJobId('')
+        setVideoUrl(data.video_url)
+        if (Array.isArray(data?.campaign_package?.campaigns)) setCampaignPackage(data.campaign_package)
+        setGenerationStatus('succeeded')
+        onGenerationStageChange(4)
+        return
       }
-      if (!Array.isArray(data?.campaign_package?.campaigns) || data.campaign_package.campaigns.length !== 3) {
+      if (data.campaign_package && (!Array.isArray(data.campaign_package.campaigns) || data.campaign_package.campaigns.length !== 3)) {
         throw new Error('Não foi possível preparar sua campanha completa.')
       }
 
-      setCampaignPackage(data.campaign_package)
-      setReceipt(data.receipt)
+      if (data.campaign_package) setCampaignPackage(data.campaign_package)
+      if (isValidSmartCarouselReceipt(data.receipt)) setReceipt(data.receipt)
       setGenerationStatus('polling')
       onGenerationStageChange(3)
-      pollRenderStatus(data.receipt)
+      pollRenderStatus(data.receipt || '', jobId)
     } catch (error) {
-      await removeUploadedJobFiles(uploadedPaths)
-      stopWithError(error instanceof Error ? error.message : 'Não foi possível criar sua apresentação.')
+      const message = error instanceof Error ? error.message : 'Não foi possível criar sua apresentação.'
+      if (/demorou mais que o esperado|failed to fetch|network/i.test(message)) {
+        setGenerationStatus('polling')
+        onGenerationStageChange(3)
+        pollRenderStatus('', jobId)
+      } else {
+        await removeUploadedJobFiles(uploadedPaths)
+        setActiveJobId('')
+        stopWithError(message)
+      }
     }
   }
 
@@ -753,7 +775,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
       {generationStatus === 'failed' && (
         <ProductCard variant="flat" className="border-rose-100 bg-rose-50 p-5 text-left">
           <p className="text-sm font-bold leading-6 text-rose-800">{generationError}</p>
-          <ProductButton type="button" variant="danger" onClick={receipt ? resumeStatus : createPresentation} className="mt-4"><RotateCcw className="h-4 w-4" />Tentar novamente</ProductButton>
+          <ProductButton type="button" variant="danger" onClick={receipt || activeJobId ? resumeStatus : createPresentation} className="mt-4"><RotateCcw className="h-4 w-4" />Tentar novamente</ProductButton>
         </ProductCard>
       )}
 
