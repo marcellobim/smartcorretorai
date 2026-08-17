@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  BadgeCheck,
   Box,
   Coins,
   FileText,
@@ -28,19 +27,18 @@ const navigationGroups = [
   {
     label: 'Criar',
     items: [
-      { to: '/smart-tour-ai', icon: Video, label: 'Vídeo Imobiliário', tone: 'bg-violet-100 text-violet-700' },
-      { to: '/hero', icon: Image, label: 'Banner Imobiliário', tone: 'bg-emerald-100 text-emerald-700' },
-      { to: '/studio-hero', icon: Sparkles, label: 'Studio IA', tone: 'bg-blue-100 text-blue-700' },
-      { to: '/virtual-staging', icon: Box, label: 'Virtual Space', tone: 'bg-cyan-100 text-cyan-700' },
-      { to: '/nova-campanha', icon: LayoutTemplate, label: 'Banners Rápidos', tone: 'bg-orange-100 text-orange-700' },
-      { to: '/campanha-de-textos', icon: FileText, label: 'Campanha de Textos', tone: 'bg-amber-100 text-amber-700' },
+      { to: '/smart-tour-ai', icon: Video, label: 'Vídeo Imobiliário' },
+      { to: '/hero', icon: Image, label: 'Banner Imobiliário' },
+      { to: '/studio-hero', icon: Sparkles, label: 'Studio IA' },
+      { to: '/virtual-staging', icon: Box, label: 'Virtual Space' },
+      { to: '/nova-campanha', icon: LayoutTemplate, label: 'Banners Rápidos' },
+      { to: '/campanha-de-textos', icon: FileText, label: 'Campanha de Textos' },
     ],
   },
 ]
 
 const accountItems = [
-  { to: '/configuracoes?tab=perfil', icon: BadgeCheck, label: 'Perfil Profissional', match: '/configuracoes', tab: 'perfil' },
-  { to: '/configuracoes?tab=senha', icon: Settings, label: 'Configurações', match: '/configuracoes', excludeTab: 'perfil' },
+  { to: '/configuracoes?tab=cadastro', icon: Settings, label: 'Configurações' },
 ]
 
 const smartTokensItem = { to: '/planos', label: 'Smart Tokens' }
@@ -76,7 +74,7 @@ function SidebarLink({ item, onNavigate }) {
         return (
           <>
             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-              active ? 'bg-white/10 text-white' : item.tone || 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'
+              active ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'
             }`}>
               <Icon className="h-4 w-4" />
             </span>
@@ -117,7 +115,7 @@ function SmartTokensLink({ user, onNavigate }) {
     >
       {({ isActive }) => (
         <>
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-primary-100 text-primary-700 group-hover:bg-white'}`}>
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'}`}>
             <Coins className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1 truncate">
@@ -153,7 +151,7 @@ function NavigationGroup({ group, onNavigate }) {
 }
 
 export default function Sidebar({ mobile = false, onClose }) {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const displayName =
     user?.displayName ||
     user?.full_name ||
@@ -203,7 +201,7 @@ export default function Sidebar({ mobile = false, onClose }) {
           </div>
         </section>
 
-        {user?.role === 'admin' && (
+        {isAdmin && (
           <section aria-labelledby="sidebar-administracao">
             <h2 id="sidebar-administracao" className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
               Administração

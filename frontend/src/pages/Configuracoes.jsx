@@ -1,20 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   AlertCircle,
-  Bell,
   Briefcase,
   CheckCircle2,
   CreditCard,
-  Facebook,
-  Globe2,
   Image,
-  Instagram,
-  Linkedin,
   Lock,
   Palette,
-  Share2,
   Upload,
   User,
   X,
@@ -32,45 +26,6 @@ const ESTADOS_BR = [
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-const VISUAL_STYLES = [
-  'Profissional e direto',
-  'Premium e sofisticado',
-  'Moderno e vibrante',
-  'Minimalista',
-  'Popular e acolhedor',
-]
-
-const SOCIAL_LINK_CONFIG = {
-  instagram: {
-    label: 'Instagram',
-    placeholder: 'https://instagram.com/seuperfil',
-    icon: Instagram,
-    iconClass: 'bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-white',
-    hosts: ['instagram.com'],
-  },
-  facebook: {
-    label: 'Facebook',
-    placeholder: 'https://facebook.com/seuperfil',
-    icon: Facebook,
-    iconClass: 'bg-[#1877F2] text-white',
-    hosts: ['facebook.com', 'fb.com'],
-  },
-  linkedin: {
-    label: 'LinkedIn',
-    placeholder: 'https://linkedin.com/in/seuperfil',
-    icon: Linkedin,
-    iconClass: 'bg-[#0A66C2] text-white',
-    hosts: ['linkedin.com'],
-  },
-  site: {
-    label: 'Site',
-    placeholder: 'https://seusite.com.br',
-    icon: Globe2,
-    iconClass: 'bg-primary-800 text-cyan-100',
-    hosts: null,
-  },
-}
-
 function formatBrazilianPhone(value = '') {
   const rawDigits = String(value).replace(/\D/g, '')
   const digits = (rawDigits.length > 11 && rawDigits.startsWith('55') ? rawDigits.slice(2) : rawDigits).slice(0, 11)
@@ -81,44 +36,22 @@ function formatBrazilianPhone(value = '') {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
-function normalizePublicLink(value = '', network = 'site') {
-  const trimmed = String(value).trim()
-  if (!trimmed) return ''
-
-  if (network === 'instagram' && trimmed.startsWith('@')) {
-    return `https://instagram.com/${trimmed.slice(1)}`
-  }
-
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
-}
-
-function validatePublicLink(value, network) {
-  if (!value?.trim()) return true
-
-  try {
-    const url = new URL(normalizePublicLink(value, network))
-    const host = url.hostname.toLowerCase().replace(/^www\./, '')
-    const config = SOCIAL_LINK_CONFIG[network]
-    const hasPublicHost = host.includes('.') && host !== 'localhost'
-    const hasValidProtocol = url.protocol === 'https:' || url.protocol === 'http:'
-    const matchesNetwork = !config.hosts || config.hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))
-
-    if (!hasValidProtocol || !hasPublicHost || !matchesNetwork) {
-      return `Informe um link público válido do ${config.label}.`
-    }
-    return true
-  } catch {
-    return `Informe um link público válido do ${SOCIAL_LINK_CONFIG[network].label}.`
-  }
-}
-
 const tabs = [
-  { id: 'perfil', label: 'Perfil e Marca', icon: User },
-  { id: 'senha', label: 'Conta e Senha', icon: Lock },
-  { id: 'redes', label: 'Redes Sociais', icon: Share2 },
-  { id: 'notificacoes', label: 'Notificações', icon: Bell },
-  { id: 'assinatura', label: 'Assinatura', icon: CreditCard },
+  { id: 'cadastro', label: 'Cadastro', icon: User },
+  { id: 'acesso', label: 'Acesso e Senha', icon: Lock },
+  { id: 'plano', label: 'Plano e Assinatura', icon: CreditCard },
 ]
+
+const SETTINGS_TAB_ALIASES = {
+  perfil: 'cadastro',
+  senha: 'acesso',
+  assinatura: 'plano',
+}
+
+function resolveSettingsTab(value) {
+  const resolved = SETTINGS_TAB_ALIASES[value] || value
+  return tabs.some(tab => tab.id === resolved) ? resolved : 'cadastro'
+}
 
 function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
   const inputRef = useRef(null)
@@ -248,61 +181,12 @@ function FieldNotice({ children }) {
   )
 }
 
-function SocialLinkField({ network, registration, error }) {
-  const config = SOCIAL_LINK_CONFIG[network]
-  const Icon = config.icon
-
-  return (
-    <div className={`rounded-2xl border bg-white p-4 transition focus-within:border-primary-300 focus-within:shadow-md ${error ? 'border-red-300' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
-      <div className="flex items-start gap-3">
-        <div
-          title={config.label}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm ${config.iconClass}`}
-        >
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <label htmlFor={`social-${network}`} className="block text-sm font-black text-gray-950">
-            {config.label}
-          </label>
-          <p className="mt-0.5 text-xs text-gray-500">Link público opcional</p>
-        </div>
-      </div>
-      <input
-        id={`social-${network}`}
-        type="url"
-        inputMode="url"
-        autoComplete="url"
-        placeholder={config.placeholder}
-        aria-invalid={Boolean(error)}
-        className={`input mt-4 ${error ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''}`}
-        {...registration}
-        onBlur={(event) => {
-          event.target.value = normalizePublicLink(event.target.value, network)
-          registration.onChange(event)
-          registration.onBlur(event)
-        }}
-      />
-      {error ? (
-        <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>
-      ) : (
-        <p className="mt-2 truncate text-xs text-gray-400">{config.placeholder}</p>
-      )}
-    </div>
-  )
-}
-
 export default function Configuracoes() {
-  const [searchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'perfil')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() => resolveSettingsTab(searchParams.get('tab')))
   const { user, session, updateUser } = useAuth()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
-  const [visualPreferences] = useState({
-    primaryColor: '#0F2742',
-    secondaryColor: '#0E7490',
-    visualStyle: VISUAL_STYLES[0],
-  })
 
   const {
     register: regPerfil,
@@ -321,14 +205,21 @@ export default function Configuracoes() {
       telefone: '',
       whatsapp: '',
       imobiliaria: '',
-      site: '',
-      instagram: '',
-      facebook: '',
-      linkedin: '',
     },
   })
 
-  const { register: regSenha, handleSubmit: handleSenha, reset: resetSenha, formState: { isSubmitting: savingSenha } } = useForm()
+  const {
+    register: regSenha,
+    handleSubmit: handleSenha,
+    reset: resetSenha,
+    clearErrors: clearPasswordErrors,
+    setError: setPasswordError,
+    formState: { errors: passwordErrors, isSubmitting: savingSenha },
+  } = useForm()
+
+  useEffect(() => {
+    setActiveTab(resolveSettingsTab(searchParams.get('tab')))
+  }, [searchParams])
 
   useEffect(() => {
     if (!user?.id) return
@@ -340,14 +231,10 @@ export default function Configuracoes() {
       telefone: user?.telefone || '',
       whatsapp: formatBrazilianPhone(user?.whatsapp || user?.telefone || ''),
       imobiliaria: user?.imobiliaria || '',
-      site: normalizePublicLink(user?.site || '', 'site'),
-      instagram: normalizePublicLink(user?.instagram || '', 'instagram'),
-      facebook: normalizePublicLink(user?.facebook || '', 'facebook'),
-      linkedin: normalizePublicLink(user?.linkedin || '', 'linkedin'),
     })
     setAvatarFile(undefined)
     setLogoFile(undefined)
-  }, [user?.id, user?.nome, user?.email, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.site, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
+  }, [user?.id, user?.nome, user?.email, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.estado, session?.user?.email, resetPerfil])
 
   const watched = watch()
   const profileComplete = useMemo(() => Boolean(
@@ -376,7 +263,7 @@ export default function Configuracoes() {
     return signed.signedUrl
   }
 
-  const onSavePerfil = async (data, successMessage = 'Perfil Comercial e Marca atualizados.') => {
+  const onSavePerfil = async (data, successMessage = 'Cadastro profissional atualizado.') => {
     try {
       let avatar_url = user?.avatar_url || null
       let logo_url = user?.logo_url || null
@@ -396,10 +283,6 @@ export default function Configuracoes() {
           estado: data.estado,
           whatsapp: formatBrazilianPhone(data.whatsapp || user?.telefone || ''),
           imobiliaria: data.imobiliaria,
-          site: normalizePublicLink(data.site, 'site'),
-          instagram: normalizePublicLink(data.instagram, 'instagram'),
-          facebook: normalizePublicLink(data.facebook, 'facebook'),
-          linkedin: normalizePublicLink(data.linkedin, 'linkedin'),
           avatar_url,
           logo_url,
         })
@@ -447,7 +330,9 @@ export default function Configuracoes() {
   }
 
   const onSaveSenha = async (data) => {
+    clearPasswordErrors()
     if (data.nova_senha !== data.confirmar_senha) {
+      setPasswordError('confirmar_senha', { type: 'validate', message: 'As senhas não conferem.' })
       toast.error('As senhas não conferem.')
       return
     }
@@ -457,13 +342,23 @@ export default function Configuracoes() {
       toast.success('Senha alterada.')
       resetSenha()
     } catch (err) {
-      toast.error(err.message || 'Erro ao alterar senha.')
+      const message = err.message || 'Não foi possível alterar a senha.'
+      setPasswordError('root', { type: 'auth', message })
+      toast.error(message)
     }
   }
 
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    setSearchParams({ tab: tabId })
+  }
+
+  const accessEmail = session?.user?.email || 'E-mail de acesso indisponível'
+  const subscriptionStatus = user?.subscription_status || user?.assinatura_status || null
+
   return (
     <div>
-      <Header title="Configurações" subtitle="Separe conta, perfil comercial e marca para reutilizar sua identidade nos produtos." />
+      <Header title="Configurações" subtitle="Gerencie seu cadastro, acesso, plano e assinatura em um só lugar." />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-7 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
@@ -472,7 +367,8 @@ export default function Configuracoes() {
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveTab(id)}
+                onClick={() => handleTabChange(id)}
+                aria-current={activeTab === id ? 'page' : undefined}
                 className={`flex w-full items-center gap-2.5 rounded-2xl px-3 py-3 text-left text-sm font-black transition ${
                   activeTab === id ? 'bg-primary-800 text-white shadow-sm' : 'text-slate-600 hover:bg-primary-50 hover:text-primary-800'
                 }`}
@@ -484,7 +380,7 @@ export default function Configuracoes() {
           </nav>
 
           <div className="min-w-0">
-            {activeTab === 'perfil' && (
+            {activeTab === 'cadastro' && (
               <form onSubmit={handlePerfil(onSaveBasicProfile)} className="space-y-6">
                 <div className="rounded-3xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-cyan-50 p-5 shadow-sm sm:p-6">
                   <div className="flex items-start gap-3">
@@ -492,16 +388,16 @@ export default function Configuracoes() {
                       <CheckCircle2 className="h-5 w-5" />
                     </div>
                     <p className="pt-1 text-sm font-semibold leading-6 text-slate-700">
-                      Preencha estas informações apenas uma vez. Sempre que necessário, o SmartCorretorAI utilizará automaticamente esses dados para agilizar a criação dos seus materiais.
+                      Mantenha seu cadastro profissional atualizado. Esses dados podem ser usados nos materiais somente quando o produto e o layout comportarem essa identificação.
                     </p>
                   </div>
                 </div>
 
                 <SectionCard
                   icon={Briefcase}
-                  eyebrow="Perfil profissional"
-                  title="Como você aparece nos materiais"
-                  description="Mantenha seus dados profissionais atualizados para que possam ser utilizados quando necessário."
+                  eyebrow="Cadastro"
+                  title="Dados profissionais"
+                  description="Seu e-mail profissional é um dado de divulgação e não altera o e-mail usado para acessar sua conta."
                   complete={profileComplete}
                 >
                   <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
@@ -521,7 +417,7 @@ export default function Configuracoes() {
                       />
                       <Input label="CRECI" placeholder="Ex: 12345-F" {...regPerfil('creci')} />
                       <Input
-                        label="Telefone"
+                        label="Telefone / WhatsApp"
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
@@ -539,6 +435,7 @@ export default function Configuracoes() {
                         label="E-mail profissional"
                         type="email"
                         placeholder="contato@seudominio.com.br"
+                        hint="Dado profissional para seus materiais. Não é o e-mail de acesso/login."
                         error={profileErrors.email?.message}
                         {...regPerfil('email')}
                       />
@@ -566,14 +463,7 @@ export default function Configuracoes() {
                       shape="square"
                     />
                     <div className="space-y-4">
-                      <Input label="Nome da empresa" placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
-                      <div
-                        className="hidden"
-                        aria-hidden="true"
-                        data-primary-color={visualPreferences.primaryColor}
-                        data-secondary-color={visualPreferences.secondaryColor}
-                        data-visual-style={visualPreferences.visualStyle}
-                      />
+                      <Input label="Imobiliária / empresa" placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
                       <FieldNotice>
                         Todos os dados desta seção são opcionais e nunca substituem automaticamente seus dados profissionais pessoais.
                       </FieldNotice>
@@ -583,99 +473,65 @@ export default function Configuracoes() {
 
                 <div className="flex justify-center sm:justify-end">
                   <Button type="submit" loading={savingPerfil} className="w-full px-8 shadow-lg shadow-primary-900/10 sm:w-auto">
-                    Salvar Perfil Comercial e Marca
+                    Salvar Cadastro
                   </Button>
                 </div>
               </form>
             )}
 
-            {activeTab === 'senha' && (
+            {activeTab === 'acesso' && (
               <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-gray-950">Conta e senha</h2>
-                <p className="mt-1 text-sm text-gray-500">Aqui ficam apenas dados de acesso. Não misture login com marca.</p>
+                <h2 className="text-lg font-black text-gray-950">Acesso e Senha</h2>
+                <p className="mt-1 text-sm text-gray-500">O e-mail abaixo identifica seu login. Ele é diferente do e-mail profissional informado no Cadastro.</p>
                 <form onSubmit={handleSenha(onSaveSenha)} className="mt-6 max-w-xl space-y-4">
-                  <Input label="Senha atual" type="password" placeholder="••••••••" {...regSenha('senha_atual', { required: 'Obrigatório' })} />
-                  <Input label="Nova senha" type="password" placeholder="Mínimo 8 caracteres" {...regSenha('nova_senha', { required: 'Obrigatório', minLength: { value: 8, message: 'Mínimo 8 caracteres' } })} />
-                  <Input label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" {...regSenha('confirmar_senha', { required: 'Obrigatório' })} />
+                  <Input
+                    label="E-mail de acesso/login"
+                    type="email"
+                    value={accessEmail}
+                    readOnly
+                    aria-readonly="true"
+                    className="cursor-not-allowed bg-slate-50 text-slate-600"
+                    hint="Este e-mail identifica sua conta e não pode ser alterado nesta tela."
+                  />
+                  <Input
+                    label="Nova senha"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Mínimo 8 caracteres"
+                    error={passwordErrors.nova_senha?.message}
+                    {...regSenha('nova_senha', { required: 'Informe a nova senha.', minLength: { value: 8, message: 'Use pelo menos 8 caracteres.' } })}
+                  />
+                  <Input
+                    label="Confirmar nova senha"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Repita a nova senha"
+                    error={passwordErrors.confirmar_senha?.message}
+                    {...regSenha('confirmar_senha', { required: 'Confirme a nova senha.' })}
+                  />
+                  {passwordErrors.root?.message && (
+                    <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                      {passwordErrors.root.message}
+                    </p>
+                  )}
                   <Button type="submit" loading={savingSenha}>Alterar senha</Button>
                 </form>
               </section>
             )}
 
-            {activeTab === 'redes' && (
-              <form
-                onSubmit={handlePerfil((data) => onSavePerfil(data, 'Links públicos atualizados.'))}
-                className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6"
-              >
-                <div className="flex items-start gap-3 border-b border-gray-100 pb-5">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100 shadow-sm">
-                    <Share2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-primary-700">Presença profissional</p>
-                    <h2 className="mt-1 text-lg font-black text-gray-950">Redes sociais</h2>
-                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-500">
-                      Cadastre apenas seus perfis públicos. O SmartCorretorAI nunca solicitará senhas ou acesso às suas redes sociais.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {Object.keys(SOCIAL_LINK_CONFIG).map((network) => (
-                    <SocialLinkField
-                      key={network}
-                      network={network}
-                      error={profileErrors[network]?.message}
-                      registration={regPerfil(network, {
-                        validate: (value) => validatePublicLink(value, network),
-                      })}
-                    />
-                  ))}
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-xs font-semibold leading-relaxed text-emerald-800">
-                  Estes campos guardam somente links públicos opcionais. Nenhuma senha, conexão de conta ou permissão de publicação é solicitada.
-                </div>
-
-                <div className="mt-6 flex justify-center sm:justify-end">
-                  <Button type="submit" loading={savingPerfil} className="w-full px-8 shadow-lg shadow-primary-900/10 sm:w-auto">
-                    Salvar links públicos
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            {activeTab === 'notificacoes' && (
+            {activeTab === 'plano' && (
               <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-gray-950">Notificações</h2>
-                <p className="mt-1 text-sm text-gray-500">Preferências simples para acompanhar seus materiais.</p>
-                <div className="mt-5 space-y-4">
-                  {[
-                    { id: 'campanha_concluida', label: 'Material concluído', desc: 'Avisar quando uma geração terminar.' },
-                    { id: 'dicas_semanais', label: 'Dicas semanais', desc: 'Receber sugestões práticas de marketing imobiliário.' },
-                    { id: 'novidades', label: 'Novidades da plataforma', desc: 'Atualizações importantes de produtos.' },
-                  ].map((notif) => (
-                    <label key={notif.id} className="flex cursor-pointer items-start gap-3">
-                      <input type="checkbox" defaultChecked className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                      <span>
-                        <span className="block text-sm font-black text-gray-900">{notif.label}</span>
-                        <span className="block text-xs text-gray-500">{notif.desc}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <Button className="mt-5">Salvar preferências</Button>
-              </section>
-            )}
-
-            {activeTab === 'assinatura' && (
-              <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-gray-950">Assinatura</h2>
-                <p className="mt-1 text-sm text-gray-500">Área de plano preservada. Pagamentos não foram alterados nesta fase.</p>
+                <h2 className="text-lg font-black text-gray-950">Plano e Assinatura</h2>
+                <p className="mt-1 text-sm text-gray-500">Consulte seu plano atual e as condições disponíveis. O cancelamento pela conta ainda não está disponível nesta tela.</p>
                 <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4">
                   <p className="text-sm font-black text-primary-800">Plano atual: {user?.plano || 'Starter'}</p>
-                  <p className="mt-1 text-xs font-semibold text-primary-600">Gerenciamento financeiro permanece no fluxo existente.</p>
+                  {subscriptionStatus && (
+                    <p className="mt-1 text-xs font-semibold text-primary-600">Status informado: {subscriptionStatus}</p>
+                  )}
                 </div>
+                <Link to="/planos" className="mt-5 inline-flex text-sm font-black text-primary-700 hover:text-primary-900 hover:underline">
+                  Ver planos e condições disponíveis
+                </Link>
               </section>
             )}
           </div>

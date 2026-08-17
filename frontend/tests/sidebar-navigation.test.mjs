@@ -51,10 +51,20 @@ test('keeps the six approved products in the same order as Home', () => {
   }
 })
 
-test('uses the approved account names and conditional administration section', () => {
-  assert.match(sidebar, /label: 'Perfil Profissional'/)
+test('uses one neutral linear icon treatment across every sidebar item', () => {
+  assert.doesNotMatch(sidebar, /tone:|bg-violet-100|bg-emerald-100|bg-blue-100|bg-cyan-100|bg-orange-100|bg-amber-100/)
+  assert.match(sidebar, /'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'/)
+  assert.equal((sidebar.match(/bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700/g) || []).length, 2)
+})
+
+test('keeps only Smart Tokens and Configurações in Conta with conditional administration', () => {
+  assert.match(sidebar, /label: 'Smart Tokens'/)
   assert.match(sidebar, /label: 'Configurações'/)
-  assert.match(sidebar, /user\?\.role === 'admin'/)
+  assert.doesNotMatch(sidebar, /label: 'Perfil Profissional'/)
+  assert.doesNotMatch(sidebar, /label: '(Cadastro|Acesso e Senha|Plano e Assinatura)'/)
+  assert.equal((sidebar.match(/label: 'Configurações'/g) || []).length, 1)
+  assert.match(sidebar, /\{isAdmin && \(/)
+  assert.doesNotMatch(sidebar, /user\?\.role/)
   assert.match(sidebar, />\s*Administração\s*</)
 })
 
@@ -80,4 +90,11 @@ test('provides one responsive drawer across standard and custom product headers'
   assert.match(layout, /event\.key === 'Escape'/)
   assert.match(layout, /<Sidebar mobile onClose=/)
   assert.match(layout, /usesStandaloneMobileMenuButton/)
+})
+
+test('keeps the authenticated Header compact without inactive Pro, notification or help UI', () => {
+  assert.match(header, /data-app-header/)
+  assert.match(header, /title/)
+  assert.match(header, /subtitle/)
+  assert.doesNotMatch(header, /useAuth|isPro|Badge|Bell|HelpCircle|✨ Pro|Notificações|Ajuda/)
 })

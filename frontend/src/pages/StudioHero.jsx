@@ -615,11 +615,9 @@ const initialAnswers = {
   creativeFreedom: '',
 }
 
-const getStudioHeroAccess = (user) => {
+const getStudioHeroAccess = (user, isAuthorizedAdmin = false) => {
   const plan = String(user?.plano || user?.plan || user?.subscription_plan || '').toLowerCase()
-  const role = String(user?.role || '').toLowerCase()
-  const email = String(user?.email || '').toLowerCase()
-  const isAdmin = role === 'admin' || email === 'riccieri68@gmail.com'
+  const isAdmin = isAuthorizedAdmin === true
   const isSubscriber = PREMIUM_PLAN_IDS.has(plan)
   const tokenBalance = Number(
     user?.smart_tokens_saldo
@@ -1117,7 +1115,7 @@ async function invokeStudioFunction(name, body) {
 }
 
 export default function StudioHero() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const pollTimerRef = useRef(null)
   const uploadSectionRef = useRef(null)
@@ -1194,7 +1192,7 @@ export default function StudioHero() {
   const imageCountStep = null
   const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + (hasCinematicPropertyPreparationStep ? 3 : 1)
   const imageErrorTarget = getImageErrorTarget(message)
-  const studioHeroAccess = getStudioHeroAccess(user)
+  const studioHeroAccess = getStudioHeroAccess(user, isAdmin)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
   const progressPercent = Math.min(100, Math.max(8, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
   const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode)

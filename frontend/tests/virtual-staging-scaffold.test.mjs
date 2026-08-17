@@ -22,7 +22,7 @@ test('registers Virtual Space on the preserved Virtual Staging technical route',
 test('places Virtual Space before Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const sidebar = read('frontend/src/components/layout/Sidebar.jsx')
-  const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
+  const catalog = dashboard.match(/const mainActions = \[([\s\S]*?)\n\]/)?.[0] || ''
   const bannersPosition = catalog.indexOf("id: 'banners-rapidos'")
   const stagingPosition = catalog.indexOf("id: 'virtual-staging'")
 

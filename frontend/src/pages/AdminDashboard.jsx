@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../lib/auth-context'
-import { supabase } from '../lib/supabase'
+import { adminRequest } from '../lib/admin-api'
 import {
   Users,
   TrendingUp,
@@ -20,7 +20,7 @@ import {
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAdmin } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
@@ -35,7 +35,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     // Verificar se o usuário é admin
-    if (!user || user.role !== 'admin') {
+    if (!user || !isAdmin) {
       navigate('/dashboard')
       return
     }
@@ -43,13 +43,10 @@ export default function AdminDashboard() {
     loadStats()
     loadUsers()
     loadCampaigns()
-  }, [user, navigate])
+  }, [user, isAdmin, navigate])
 
   const loadStats = async () => {
-    const [{ count: totalUsers }, { count: totalCampaigns }] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('campaigns').select('id', { count: 'exact', head: true }),
-    ])
+    const { totalUsers, totalCampaigns } = await adminRequest('overview')
     setStats({
       users: { total: totalUsers || 0, newToday: 0, online: 0, byPlan: {} },
       campaigns: { total: totalCampaigns || 0, today: 0 },
@@ -63,13 +60,8 @@ export default function AdminDashboard() {
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100)
-      if (error) throw error
-      setUsers((data || []).map((u) => ({ ...u, totalCampaigns: 0 })))
+      const { users: data } = await adminRequest('list_users')
+      setUsers(data || [])
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
     } finally {
@@ -79,12 +71,7 @@ export default function AdminDashboard() {
 
   const loadCampaigns = async () => {
     try {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select('*, profiles(nome, email)')
-        .order('created_at', { ascending: false })
-        .limit(50)
-      if (error) throw error
+      const { campaigns: data } = await adminRequest('list_campaigns')
       setCampaigns(data || [])
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error)
@@ -93,16 +80,8 @@ export default function AdminDashboard() {
 
   const handleViewUser = async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      if (error) throw error
-      setSelectedUser({
-        user: data,
-        stats: { totalCampaigns: 0, totalProperties: 0 },
-      })
+      const data = await adminRequest('get_user', { userId })
+      setSelectedUser(data)
       setShowUserModal(true)
     } catch (error) {
       console.error('Erro ao carregar detalhes do usuário:', error)
@@ -110,10 +89,9 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleUpdateUser = async (userId, updates) => {
+  const handleUpdateUser = async (userId, plan) => {
     try {
-      const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
-      if (error) throw error
+      await adminRequest('update_user_plan', { userId, plan })
       toast.success('Usuário atualizado')
       loadUsers()
       setShowUserModal(false)
@@ -523,20 +501,11 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Role</label>
-                    <select
-                      value={selectedUser.user.role || 'user'}
-                      onChange={(e) =>
-                        setSelectedUser({
-                          ...selectedUser,
-                          user: { ...selectedUser.user, role: e.target.value },
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                    <label className="block text-sm font-medium text-gray-700">Autorização</label>
+                    <p className="mt-2 text-sm font-semibold text-gray-900">
+                      {selectedUser.user.is_admin ? 'Admin oficial' : 'Usuário'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Gerenciada exclusivamente no backend.</p>
                   </div>
                 </div>
 
@@ -582,10 +551,7 @@ export default function AdminDashboard() {
                   </button>
                   <button
                     onClick={() =>
-                      handleUpdateUser(selectedUser.user.id, {
-                        plano: selectedUser.user.plano,
-                        role: selectedUser.user.role,
-                      })
+                      handleUpdateUser(selectedUser.user.id, selectedUser.user.plano)
                     }
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >

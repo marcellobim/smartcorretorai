@@ -1,10 +1,7 @@
-import { Bell, HelpCircle, Menu } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
-import { useAuth } from '../../lib/auth-context'
-import { Badge } from '../ui/Badge'
 
 export default function Header({ title, subtitle }) {
-  const { isPro } = useAuth()
   const { mobileMenuOpen = false, openMobileMenu } = useOutletContext() || {}
 
   return (
@@ -28,20 +25,6 @@ export default function Header({ title, subtitle }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        {isPro && (
-          <Badge variant="primary" className="hidden sm:flex">
-            ✨ Pro
-          </Badge>
-        )}
-        <button type="button" aria-label="Notificações" className="p-2 rounded-lg text-slate-500 hover:bg-primary-50 hover:text-primary-800 transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-primary-500 rounded-full" />
-        </button>
-        <button type="button" aria-label="Ajuda" className="p-2 rounded-lg text-slate-500 hover:bg-primary-50 hover:text-primary-800 transition-colors">
-          <HelpCircle className="w-5 h-5" />
-        </button>
-      </div>
     </header>
   )
 }

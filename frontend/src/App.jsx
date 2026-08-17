@@ -29,10 +29,10 @@ function PrivateRoute({ children }) {
 }
 
 function AdminRoute({ children }) {
-  const { user, loading } = useAuthStore()
+  const { user, loading, isAdmin } = useAuthStore()
   if (loading) return <RouteLoader />
   if (!user) return <Navigate to="/login" replace />
-  if (user.role !== 'admin') return <Navigate to="/dashboard" replace />
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
   return children
 }
 

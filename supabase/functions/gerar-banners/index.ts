@@ -8,6 +8,7 @@ import {
   getProduct3PurposeBadge,
   normalizeProduct3Purpose,
 } from '../_shared/product3-contract.ts'
+import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1573,13 +1574,12 @@ serve(async (req) => {
       avatar_url?: string
       logo_url?: string
       plano?: string
-      role?: string
     }
     let profileRow: ProfileRow | null = null
     if (profileId) {
       const { data, error: profileErr } = await supabase
         .from('profiles')
-        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url, plano, role')
+        .select('nome, email, creci, telefone, whatsapp, imobiliaria, site, instagram, avatar_url, logo_url, plano')
         .eq('id', profileId)
         .maybeSingle()
       if (profileErr) console.warn(`[${reqId}] profile fetch erro:`, profileErr.message)
@@ -1733,9 +1733,7 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
       ? generation_mode.trim()
       : 'manual'
     const videoIaPremium = video_ia_premium === true
-    const profileEmail = (profileRow?.email || authUser.email || '').toLowerCase()
-    const profileRole = String(profileRow?.role || authUser.user_metadata?.role || '').toLowerCase()
-    const isUnlimitedTestAdmin = profileRole === 'admin' || profileEmail === 'riccieri68@gmail.com'
+    const isUnlimitedTestAdmin = await isAuthorizedAdmin(supabase, authenticatedUserId)
     const isSmartCampaignCreditFlow = generationMode === 'smart_campaign'
 
     if (!isUnlimitedTestAdmin && isSmartCampaignCreditFlow) {

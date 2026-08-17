@@ -25,12 +25,12 @@ const publicEntryPoints = [
 
 test('uses the approved Virtual Space descriptions on the hero and Home card', () => {
   assert.ok(read('src/pages/VirtualStaging.jsx').includes('Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial.'))
-  assert.ok(dashboard.includes('Transforme ambientes, crie novas possibilidades visuais e apresente seus imóveis com inteligência artificial.'))
+  assert.ok(dashboard.includes('Transforme ambientes e apresente novas possibilidades para cada espaço do imóvel.'))
 })
 
 test('uses the approved Banner Imobiliário communication on Dashboard', () => {
   assert.match(dashboard, /id: 'hero-ia'[\s\S]*?title: 'Banner Imobiliário'/)
-  assert.ok(dashboard.includes(officialDescription))
+  assert.ok(dashboard.includes('Crie uma peça visual profissional para destacar o imóvel em anúncios e redes sociais.'))
   assert.match(dashboard, /to: '\/hero'/)
   assert.match(dashboard, /label: 'Criar Banner'/)
 })

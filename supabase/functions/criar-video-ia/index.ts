@@ -1,6 +1,7 @@
 ﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startVeoVideo } from '../_shared/veoClient.ts'
+import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,10 +18,6 @@ const PROMPT_TEST_MODE: 'controlled_narrative' | 'narrative' | 'legacy' = 'contr
 const DEFAULT_CREATIVE_PROMPT_MODEL = 'gpt-4o-mini'
 
 type JsonRecord = Record<string, unknown>
-type ProfileRow = {
-  email?: string | null
-  role?: string | null
-}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -3076,12 +3073,6 @@ function isUuid(value: unknown) {
     && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
-function isAdminBypassUser(profile: ProfileRow | null, user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
-  const role = String(profile?.role || user.user_metadata?.role || '').toLowerCase()
-  const email = String(profile?.email || user.email || '').toLowerCase()
-  return role === 'admin' || email === 'riccieri68@gmail.com'
-}
-
 function buildPromptFinal({ bairro, caracteristica, oferta, cta }: {
   bairro: string
   caracteristica: string
@@ -3449,17 +3440,7 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: 'Sessao invalida.' }, 401)
     }
 
-    const { data: profileRow, error: profileError } = await supabase
-      .from('profiles')
-      .select('email, role')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (profileError) {
-      console.warn(`[${reqId}] perfil nao carregado para bypass admin:`, profileError.message)
-    }
-
-    const isAdminBypass = isAdminBypassUser((profileRow as ProfileRow | null) || null, user)
+    const isAdminBypass = await isAuthorizedAdmin(supabase, user.id)
 
     const body = await req.json().catch(() => ({})) as JsonRecord
     const style = normalizeText(body.style, 40) || 'alto_padrao'

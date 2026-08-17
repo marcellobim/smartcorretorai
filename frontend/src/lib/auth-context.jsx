@@ -66,18 +66,34 @@ async function upsertProfileDirect(uid, email, accessToken) {
   }
 }
 
+async function fetchAdminStatusDirect(accessToken) {
+  if (!accessToken) return false
+  const res = await fetch(`${supabase.supabaseUrl}/rest/v1/rpc/is_authorized_admin`, {
+    method: 'POST',
+    headers: {
+      apikey: supabase.supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  if (!res.ok) return false
+  return (await res.json()) === true
+}
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [adminAuthorized, setAdminAuthorized] = useState(false)
   const [loading, setLoading] = useState(true)
   const initialResolvedRef = useRef(false)
   const profileInFlightRef = useRef(false)
 
   // ─── loadProfile ──────────────────────────────────────────────────────────
   // Busca a linha em `profiles` para o uid passado.
-  // - Schema: `profiles.nome` (full name), email, creci, telefone, whatsapp,
-  //   avatar_url, logo_url, imobiliaria, site, instagram, role, plano.
+  // - Schema de apresentação: nome, email, creci, telefone, whatsapp,
+  //   avatar_url, logo_url e imobiliaria. Campos privilegiados nunca autorizam UI.
   // - RLS: `auth.uid() = id` (migração 20260517).
   // - SELECT * para evitar drift quando colunas novas forem adicionadas.
   // - Timeout duro de 8s por tentativa + 1 retry com 600ms de espera.
@@ -180,9 +196,14 @@ export function AuthProvider({ children }) {
       if (sessionUser) {
         // Passa o access_token explicitamente — loadProfile usa direct fetch
         // pra evitar a race do estado interno do postgrest no F5.
-        await loadProfile(sessionUser.id, sessionUser.email, newSession?.access_token)
+        const [, trustedAdminStatus] = await Promise.all([
+          loadProfile(sessionUser.id, sessionUser.email, newSession?.access_token),
+          fetchAdminStatusDirect(newSession?.access_token).catch(() => false),
+        ])
+        if (mounted) setAdminAuthorized(trustedAdminStatus)
       } else {
         setProfile(null)
+        setAdminAuthorized(false)
       }
       if (mounted && !initialResolvedRef.current) {
         initialResolvedRef.current = true
@@ -281,6 +302,7 @@ export function AuthProvider({ children }) {
     setAuthUser(null)
     setSession(null)
     setProfile(null)
+    setAdminAuthorized(false)
     try { await supabase.auth.signOut() } catch { devAuthLog('error', 'sign out failed') }
   }
 
@@ -295,9 +317,6 @@ export function AuthProvider({ children }) {
   }
 
   // ─── Derivados ───────────────────────────────────────────────────────────
-  // role pode estar em `profiles.role` OU em `auth.users.user_metadata.role`.
-  const mergedRole = profile?.role || authUser?.user_metadata?.role || null
-
   // displayName: prioridade do schema real (`profiles.nome`), com fallback pra
   // metadata do JWT (preenchida no signUp via options.data) e por fim
   // 'Usuário'. NUNCA cai pro email — isso mascarava o problema antes.
@@ -309,12 +328,11 @@ export function AuthProvider({ children }) {
   const displayName = profile?.nome || profile?.full_name || metaName || 'Usuário'
 
   const user = authUser
-    ? { ...authUser, ...(profile || {}), role: mergedRole, displayName, nome: displayName }
+    ? { ...authUser, ...(profile || {}), role: undefined, displayName, nome: displayName }
     : null
-  const accountEmail = (profile?.email || authUser?.email || '').toLowerCase()
-  const isAdmin = String(mergedRole || '').toLowerCase() === 'admin'
-  const isUnlimitedTestAdmin = isAdmin || accountEmail === 'riccieri68@gmail.com'
-  const isPro = isUnlimitedTestAdmin || !!(profile?.plano && profile.plano !== 'starter')
+  const isAdmin = adminAuthorized
+  const isUnlimitedTestAdmin = adminAuthorized
+  const isPro = adminAuthorized || !!(profile?.plano && profile.plano !== 'starter')
   const isAuthenticated = !!authUser
 
   // JWT direto do contexto — consumidores leem sem chamar supabase.auth.*

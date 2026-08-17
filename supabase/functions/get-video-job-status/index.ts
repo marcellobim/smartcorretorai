@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkVeoVideoStatus } from '../_shared/veoClient.ts'
+import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,10 +13,6 @@ const corsHeaders = {
 const VIDEO_BUCKET = 'studio-videos'
 
 type JsonRecord = Record<string, unknown>
-type ProfileRow = {
-  email?: string | null
-  role?: string | null
-}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -27,12 +24,6 @@ function jsonResponse(body: unknown, status = 200) {
 function isUuid(value: unknown) {
   return typeof value === 'string'
     && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
-}
-
-function isAdminBypassUser(profile: ProfileRow | null, user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
-  const role = String(profile?.role || user.user_metadata?.role || '').toLowerCase()
-  const email = String(profile?.email || user.email || '').toLowerCase()
-  return role === 'admin' || email === 'riccieri68@gmail.com'
 }
 
 function sanitizeDebugText(value: unknown, maxLength = 500) {
@@ -124,17 +115,7 @@ serve(async (req) => {
       return jsonResponse({ ok: false, error: 'Sessao invalida.' }, 401)
     }
 
-    const { data: profileRow, error: profileError } = await supabase
-      .from('profiles')
-      .select('email, role')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (profileError) {
-      console.warn(`[${reqId}] perfil nao carregado para bypass admin:`, profileError.message)
-    }
-
-    const isAdminBypass = isAdminBypassUser((profileRow as ProfileRow | null) || null, user)
+    const isAdminBypass = await isAuthorizedAdmin(supabase, user.id)
 
     const body = await req.json().catch(() => ({})) as JsonRecord | string
     const rawJobId = typeof body === 'string'
