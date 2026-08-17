@@ -63,7 +63,7 @@ test('presents the Banner conversation with the approved shared visual grammar w
   assert.match(banner, /phase === 'chat'[\s\S]*?<section data-smart-conversation className="mt-6 overflow-visible">/)
   assert.match(banner, /<ConversationQuestionCard[\s\S]*?label=\{`\$\{Math\.min\(chatIndex \+ 1, chatFlow\.length\)\} de \$\{chatFlow\.length\}`\}[\s\S]*?title=\{currentQuestion\.question\}/)
   assert.match(banner, /<UserBubble actions=\{<button[\s\S]*?goToQuestion\(index\)[\s\S]*?>Editar<\/button>\}/)
-  assert.match(banner, /const startConversationSequence[\s\S]*?const commitAnswer[\s\S]*?const goToQuestion/)
+  assert.match(banner, /const commitAnswer[\s\S]*?setChatIndex\(nextMissingIndex\)[\s\S]*?const goToQuestion/)
   assert.match(banner, /activeQuestionRef\.current\?\.scrollIntoView\(\{ behavior: 'smooth', block: 'nearest' \}\)/)
   assert.doesNotMatch(banner, /import GuidedConversation|<GuidedConversation/)
 })
