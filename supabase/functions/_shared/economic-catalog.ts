@@ -1,7 +1,7 @@
 export const ECONOMIC_CATALOG_VERSION = '2026-08-16.phase1.v1'
 
-// Phase 1 only establishes the server-side source of truth. Product charging
-// remains disabled until each provider pipeline is migrated and validated.
+// Global rollout stays disabled. A product can opt in only after its provider
+// pipeline is migrated and its canonical SKU is explicitly enabled below.
 export const ECONOMIC_CATALOG_ACTIVATED = false
 
 export type ProviderCategory =
@@ -30,11 +30,12 @@ const sku = (
   providerCategory: ProviderCategory,
   trialEligible = false,
   metadata: Record<string, unknown> = {},
+  enabled = false,
 ): EconomicSku => Object.freeze({
   productCode,
   variant,
   smartTokenCost,
-  enabled: false,
+  enabled,
   trialEligible,
   providerCategory,
   catalogVersion: ECONOMIC_CATALOG_VERSION,
@@ -47,7 +48,8 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
   sku('short_videos', 'standard', 800, 'composite'),
   sku('real_estate_commercial', 'standard', 275, 'veo_video'),
   sku('creative_video', 'standard', 275, 'veo_video'),
-  sku('text_campaign', 'standard', 100, 'openai_text', true),
+  // Product 1 is the only SKU activated while the global rollout remains off.
+  sku('text_campaign', 'standard', 100, 'openai_text', true, {}, true),
 
   sku('real_estate_banner', 'pieces_1', 200, 'openai_image', true, {
     quantity: 1,
@@ -106,7 +108,7 @@ export function getEconomicSku(productCode: unknown, variant: unknown): Economic
 
 export function quoteEconomicSku(productCode: unknown, variant: unknown): EconomicSku {
   const item = getEconomicSku(productCode, variant)
-  if (!ECONOMIC_CATALOG_ACTIVATED || !item.enabled) throw new Error('economic_catalog_not_activated')
+  if (!ECONOMIC_CATALOG_ACTIVATED && !item.enabled) throw new Error('economic_catalog_not_activated')
   return item
 }
 

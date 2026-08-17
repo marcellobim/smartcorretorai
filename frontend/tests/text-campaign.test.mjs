@@ -159,6 +159,8 @@ test('enables the final action only for a valid briefing and keeps loading safe'
   assert.match(page, /<ProductButton disabled=\{!briefingValid \|\| loading\} loading=\{loading\} onClick=\{onGenerate\}/)
   assert.doesNotMatch(page, /OpenAI|Smart Tokens|próxima fase|geração ainda não está conectada/i)
   assert.match(page, /supabase\.functions\.invoke\('generate-text-campaign'/)
+  assert.match(page, /client_request_id: generationRequestRef\.current/)
+  assert.doesNotMatch(page, /token_cost|smart_token_cost|required_tokens/)
 })
 
 test('uses campaign-specific summary copy without changing the shared default', () => {
@@ -202,7 +204,8 @@ test('does not call OpenAI or any provider', () => {
 
 test('does not persist a campaign or a result history', () => {
   const combined = `${page}\n${read('src/config/textCampaign.js')}\n${read('src/config/textCampaignConversation.js')}`
-  assert.doesNotMatch(combined, /localStorage|sessionStorage|indexedDB|storage\.from|insert\(|upsert\(/)
+  assert.doesNotMatch(combined, /localStorage|indexedDB|storage\.from|insert\(|upsert\(/)
+  assert.doesNotMatch(page, /sessionStorage\.setItem\([^,]+,\s*(briefing|campaign|answers)/)
   assert.doesNotMatch(combined, /campaigns_generated|text_campaigns/)
 })
 

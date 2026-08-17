@@ -54,10 +54,11 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
   assert.equal(ECONOMIC_SKUS.some(item => /google.?ads/i.test(`${item.productCode}:${item.variant}`)), false)
 })
 
-test('phase 1 cannot quote an enabled charge controlled by the frontend', () => {
+test('only the migrated text campaign SKU can be quoted while global activation remains false', () => {
   assert.equal(ECONOMIC_CATALOG_ACTIVATED, false)
-  assert.ok(ECONOMIC_SKUS.every(item => item.enabled === false))
-  assert.throws(() => quoteEconomicSku('text_campaign', 'standard'), /economic_catalog_not_activated/)
+  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['text_campaign:standard'])
+  assert.equal(quoteEconomicSku('text_campaign', 'standard').smartTokenCost, 100)
+  assert.throws(() => quoteEconomicSku('real_estate_video', 'standard'), /economic_catalog_not_activated/)
   assert.equal(Object.isFrozen(ECONOMIC_SKUS), true)
   assert.equal(Object.isFrozen(getEconomicSku('text_campaign', 'standard')), true)
 })

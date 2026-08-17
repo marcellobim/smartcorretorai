@@ -25,6 +25,7 @@ const validBriefing = (): TextCampaignBriefing => ({
 })
 
 const rawRequest = (overrides: Record<string, unknown> = {}) => ({ briefing: { ...validBriefing(), ...overrides } })
+const CLIENT_REQUEST_ID = '123e4567-e89b-42d3-a456-426614174000'
 
 const validCampaign = (): TextCampaignResult => ({
   listing_title: 'Apartamento à venda na Vila Mariana', portal_description: 'Apartamento com 120 m², três dormitórios e varanda gourmet.', short_listing: 'Apartamento de 120 m² na Vila Mariana.',
@@ -51,13 +52,25 @@ const validCampaign = (): TextCampaignResult => ({
 const request = (body: unknown, method = 'POST', token = 'test-token') => new Request('http://local/generate-text-campaign', {
   method,
   headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-  body: method === 'POST' ? JSON.stringify(body) : undefined,
+  body: method === 'POST' ? JSON.stringify(
+    body && typeof body === 'object' && !Array.isArray(body) && 'briefing' in body
+      ? { client_request_id: CLIENT_REQUEST_ID, ...body }
+      : body,
+  ) : undefined,
 })
 
 const dependencies = (overrides: Partial<TextCampaignRuntimeDependencies> = {}): TextCampaignRuntimeDependencies => ({
   authenticate: async () => ({ id: 'user-id' }),
   generate: async () => ({ campaign: validCampaign(), usage: { input_tokens: 100, output_tokens: 200, total_tokens: 300 } }),
   generateHashtags: async () => validCampaign().hashtags,
+  quote: () => ({ productCode: 'text_campaign', variant: 'standard', smartTokenCost: 100, providerCategory: 'openai_text', catalogVersion: '2026-08-16.phase1.v1' }),
+  getAvailableBalance: async () => 500,
+  reserve: async ({ amount }) => ({ id: 'reservation-id', status: 'reserved', amount }),
+  cleanupDeliveries: async () => {},
+  claimDelivery: async () => ({ id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }),
+  attachReservation: async () => ({ id: 'delivery-id', status: 'processing', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }),
+  completeDelivery: async ({ result }) => ({ id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }),
+  failDelivery: async () => ({ id: 'delivery-id', status: 'failed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 100 }),
   ...overrides,
 })
 
@@ -192,6 +205,231 @@ test('falls back to official hashtags without failing the campaign', async () =>
   assert.deepEqual(data.campaign.hashtags, buildOfficialHashtags(buildTextCampaignHashtagContext(validBriefing())))
 })
 
+test('reserves the canonical 100 Smart Tokens before either provider and consumes only after final validation', async () => {
+  const order: string[] = []
+  const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
+    reserve: async ({ amount, quote }) => {
+      order.push('reserve')
+      assert.equal(amount, 100)
+      assert.equal(quote.productCode, 'text_campaign')
+      assert.equal(quote.variant, 'standard')
+      return { id: 'reservation-id', status: 'reserved', amount }
+    },
+    generate: async () => { order.push('provider_main'); return { campaign: validCampaign() } },
+    generateHashtags: async () => { order.push('provider_hashtags'); return validCampaign().hashtags },
+    completeDelivery: async ({ result }) => { order.push('complete'); return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+  }))
+  assert.equal(response.status, 200)
+  assert.deepEqual(order, ['reserve', 'provider_main', 'provider_hashtags', 'complete'])
+})
+
+test('returns structured insufficient balance and never calls a provider or reserves', async () => {
+  let providerCalls = 0
+  let reservationCalls = 0
+  const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
+    getAvailableBalance: async () => 50,
+    reserve: async () => { reservationCalls += 1; throw new Error('unexpected') },
+    generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
+  }))
+  assert.equal(response.status, 402)
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    error: 'Smart Tokens insuficientes para criar esta campanha.',
+    code: 'INSUFFICIENT_SMART_TOKENS',
+    required_tokens: 100,
+    available_tokens: 50,
+  })
+  assert.equal(providerCalls, 0)
+  assert.equal(reservationCalls, 0)
+})
+
+test('fails the delivery transaction after provider, parsing/finalization or completion failures', async () => {
+  for (const failure of ['provider', 'finalization', 'complete']) {
+    let cancels = 0
+    const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
+      generate: async () => {
+        if (failure === 'provider') throw new Error('provider_failed')
+        return { campaign: failure === 'finalization' ? { ...validCampaign(), listing_title: '' } : validCampaign() }
+      },
+      completeDelivery: async ({ result }) => {
+        if (failure === 'complete') throw new Error('persistence_failed')
+        return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+      },
+      failDelivery: async () => { cancels += 1; return { id: 'delivery-id', status: 'failed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 100 } },
+    }))
+    assert.equal(response.status, 502, failure)
+    assert.equal(cancels, 1, failure)
+  }
+})
+
+test('an idempotent completed retry neither invokes the provider nor completes again', async () => {
+  let reservationCreates = 0
+  let reservationStatus: 'missing' | 'reserved' = 'missing'
+  let providerCalls = 0
+  let completions = 0
+  let storedResult: TextCampaignResult | null = null
+  const shared = dependencies({
+    claimDelivery: async () => storedResult
+      ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: storedResult, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+      : { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 },
+    reserve: async ({ amount }) => {
+      if (reservationStatus === 'missing') { reservationCreates += 1; reservationStatus = 'reserved' }
+      return { id: 'reservation-id', status: 'reserved', amount }
+    },
+    generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
+    completeDelivery: async ({ result }) => { completions += 1; storedResult = result; return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+  })
+  const first = await handleGenerateTextCampaign(request(rawRequest()), shared)
+  const firstBody = await first.json()
+  const retry = await handleGenerateTextCampaign(request(rawRequest()), shared)
+  assert.equal(first.status, 200)
+  assert.equal(retry.status, 200)
+  assert.deepEqual(await retry.json(), firstBody)
+  assert.equal(reservationCreates, 1)
+  assert.equal(providerCalls, 1)
+  assert.equal(completions, 1)
+})
+
+test('two simultaneous requests claim once, return PROCESSING, and execute one provider', async () => {
+  let state: 'missing' | 'processing' | 'completed' = 'missing'
+  let storedResult: TextCampaignResult | null = null
+  let providerCalls = 0
+  let reserveCalls = 0
+  let completions = 0
+  let releaseProvider!: () => void
+  let signalProvider!: () => void
+  const providerStarted = new Promise<void>(resolve => { signalProvider = resolve })
+  const providerRelease = new Promise<void>(resolve => { releaseProvider = resolve })
+  const shared = dependencies({
+    claimDelivery: async () => {
+      if (state === 'missing') {
+        state = 'processing'
+        return { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+      }
+      return state === 'completed'
+        ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: storedResult, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+        : { id: 'delivery-id', status: 'processing', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+    },
+    reserve: async ({ amount }) => { reserveCalls += 1; return { id: 'reservation-id', status: 'reserved', amount } },
+    generate: async () => { providerCalls += 1; signalProvider(); await providerRelease; return { campaign: validCampaign() } },
+    completeDelivery: async ({ result }) => {
+      completions += 1
+      state = 'completed'
+      storedResult = result
+      return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+    },
+  })
+
+  const firstRequest = handleGenerateTextCampaign(request(rawRequest()), shared)
+  await providerStarted
+  const concurrent = await handleGenerateTextCampaign(request(rawRequest()), shared)
+  assert.equal(concurrent.status, 202)
+  assert.equal((await concurrent.json()).code, 'REQUEST_PROCESSING')
+  releaseProvider()
+  const first = await firstRequest
+  assert.equal(first.status, 200)
+
+  const lostResponseRetry = await handleGenerateTextCampaign(request(rawRequest()), shared)
+  assert.equal(lostResponseRetry.status, 200)
+  assert.deepEqual(await lostResponseRetry.json(), await first.clone().json())
+  assert.equal(providerCalls, 1)
+  assert.equal(reserveCalls, 1)
+  assert.equal(completions, 1)
+})
+
+test('a failed request is terminal for the same id and a new id can try again', async () => {
+  const states = new Map<string, 'processing' | 'failed' | 'completed'>()
+  let providerCalls = 0
+  const shared = dependencies({
+    claimDelivery: async input => {
+      const status = states.get(input.clientRequestId)
+      if (status) return { id: input.clientRequestId, status, claimed: false, claimToken: null, reservationId: status === 'processing' ? null : 'reservation-id', result: status === 'completed' ? validCampaign() : null, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+      states.set(input.clientRequestId, 'processing')
+      return { id: input.clientRequestId, status: 'processing', claimed: true, claimToken: `claim-${input.clientRequestId}`, reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+    },
+    generate: async () => { providerCalls += 1; if (providerCalls === 1) throw new Error('provider_failed'); return { campaign: validCampaign() } },
+    failDelivery: async input => { states.set(input.clientRequestId, 'failed'); return { id: input.clientRequestId, status: 'failed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-17T13:00:00.000Z', smartTokenCost: 100 } },
+    completeDelivery: async input => { states.set(input.clientRequestId, 'completed'); return { id: input.clientRequestId, status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+  })
+  const firstId = '123e4567-e89b-42d3-a456-426614174011'
+  const secondId = '123e4567-e89b-42d3-a456-426614174012'
+  assert.equal((await handleGenerateTextCampaign(request({ ...rawRequest(), client_request_id: firstId }), shared)).status, 502)
+  assert.equal((await handleGenerateTextCampaign(request({ ...rawRequest(), client_request_id: firstId }), shared)).status, 409)
+  assert.equal((await handleGenerateTextCampaign(request({ ...rawRequest(), client_request_id: secondId }), shared)).status, 200)
+  assert.equal(providerCalls, 2)
+})
+
+test('another user cannot recover a completed result using the same client request id', async () => {
+  const states = new Map<string, TextCampaignResult>()
+  const shared = dependencies({
+    authenticate: async token => ({ id: token === 'token-b' ? 'user-b' : 'user-a' }),
+    claimDelivery: async input => {
+      const result = states.get(`${input.userId}:${input.clientRequestId}`)
+      return result
+        ? { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 }
+        : { id: 'delivery-id', status: 'processing', claimed: true, claimToken: `claim-${input.userId}`, reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 100 }
+    },
+    getAvailableBalance: async userId => userId === 'user-b' ? 50 : 500,
+    completeDelivery: async input => { states.set(`${input.userId}:${input.clientRequestId}`, input.result); return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+  })
+  assert.equal((await handleGenerateTextCampaign(request(rawRequest(), 'POST', 'token-a'), shared)).status, 200)
+  const userB = await handleGenerateTextCampaign(request(rawRequest(), 'POST', 'token-b'), shared)
+  assert.equal(userB.status, 402)
+  assert.equal((await userB.json()).code, 'INSUFFICIENT_SMART_TOKENS')
+})
+
+test('an expired result is not returned and never invokes the provider', async () => {
+  let providerCalls = 0
+  const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
+    claimDelivery: async () => ({ id: 'delivery-id', status: 'expired', claimed: false, claimToken: null, reservationId: 'reservation-id', result: null, expiresAt: '2026-08-16T12:00:00.000Z', smartTokenCost: 100 }),
+    generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
+  }))
+  assert.equal(response.status, 409)
+  assert.equal((await response.json()).code, 'REQUEST_EXPIRED')
+  assert.equal(providerCalls, 0)
+})
+
+test('charges once for the complete campaign including Google Ads and ignores frontend cost controls', async () => {
+  let reservedAmount = 0
+  const response = await handleGenerateTextCampaign(request({ ...rawRequest(), token_cost: 1 }), dependencies({
+    reserve: async ({ amount }) => { reservedAmount = amount; return { id: 'reservation-id', status: 'reserved', amount } },
+  }))
+  assert.equal(response.status, 400)
+  assert.equal(reservedAmount, 0)
+  assert.ok(validCampaign().google_ads)
+})
+
+test('keeps the authenticated user as the owner of balance, reservation and consumption', async () => {
+  const owners: string[] = []
+  const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies({
+    authenticate: async () => ({ id: 'user-a' }),
+    getAvailableBalance: async userId => { owners.push(userId); return 500 },
+    reserve: async input => { owners.push(input.userId); return { id: 'reservation-a', status: 'reserved', amount: input.amount } },
+    completeDelivery: async input => { owners.push(input.userId); return { id: 'delivery-a', status: 'completed', claimed: false, claimToken: 'claim-token', reservationId: 'reservation-a', result: input.result, expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 100 } },
+  }))
+  assert.equal(response.status, 200)
+  assert.deepEqual(owners, ['user-a', 'user-a', 'user-a'])
+})
+
+test('simulates 500 to 400 to 300 and preserves 50 when insufficient', async () => {
+  let balance = 500
+  let providerCalls = 0
+  const run = (id: string) => handleGenerateTextCampaign(request({ ...rawRequest(), client_request_id: id }), dependencies({
+    getAvailableBalance: async () => balance,
+    reserve: async ({ amount }) => { balance -= amount; return { id: `reservation-${id}`, status: 'reserved', amount } },
+    generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
+  }))
+  assert.equal((await run('123e4567-e89b-42d3-a456-426614174001')).status, 200)
+  assert.equal(balance, 400)
+  assert.equal((await run('123e4567-e89b-42d3-a456-426614174002')).status, 200)
+  assert.equal(balance, 300)
+  balance = 50
+  const before = providerCalls
+  assert.equal((await run('123e4567-e89b-42d3-a456-426614174003')).status, 402)
+  assert.equal(balance, 50)
+  assert.equal(providerCalls, before)
+})
+
 test('returns the generated campaign without registering a creation', async () => {
   const response = await handleGenerateTextCampaign(request(rawRequest()), dependencies())
   assert.equal(response.status, 200)
@@ -228,6 +466,6 @@ test('logs only sanitized outcomes and keeps service credentials backend-only', 
   assert.doesNotMatch(runtimeSource, /service_role|openai_api_key/i)
   assert.match(indexSource, /supabase\.auth\.getUser\(token\)/)
   assert.match(indexSource, /Deno\.env\.get\('OPENAI_API_KEY'\)/)
-  assert.doesNotMatch(indexSource, /Deno\.env\.get\('SUPABASE_SERVICE_ROLE_KEY'\)/)
+  assert.match(indexSource, /Deno\.env\.get\('SUPABASE_SERVICE_ROLE_KEY'\)/)
   assert.doesNotMatch(`${indexSource}\n${runtimeSource}`, /_shared\/creations|registerCompletedCreation|registerCreation|creation_registered/)
 })

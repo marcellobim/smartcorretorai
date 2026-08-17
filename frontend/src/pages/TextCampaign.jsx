@@ -59,6 +59,25 @@ const fieldLabels = {
   area: 'Área',
 }
 
+const TEXT_CAMPAIGN_REQUEST_STORAGE_KEY = 'smartcorretor:text-campaign:client-request-id'
+const requestIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const getOrCreateTextCampaignRequestId = () => {
+  try {
+    const stored = sessionStorage.getItem(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY)
+    if (stored && requestIdPattern.test(stored)) return stored
+    const created = crypto.randomUUID()
+    sessionStorage.setItem(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY, created)
+    return created
+  } catch {
+    return crypto.randomUUID()
+  }
+}
+
+const clearTextCampaignRequestId = () => {
+  try { sessionStorage.removeItem(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY) } catch { /* storage is optional */ }
+}
+
 const emptyCommercial = () => ({
   saleValueMode: '',
   salePriceMode: '',
@@ -80,6 +99,7 @@ export default function TextCampaign() {
   const [generationStatus, setGenerationStatus] = useState('idle')
   const [generationError, setGenerationError] = useState('')
   const generationLockRef = useRef(false)
+  const generationRequestRef = useRef(null)
   const professionalPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const conversation = useGuidedConversation({
     initialQuestionId: 'purpose',
@@ -112,15 +132,22 @@ export default function TextCampaign() {
     setGenerationError('')
     try {
       if (!accessToken) throw new Error('Sua sessão expirou. Faça login novamente.')
+      generationRequestRef.current ||= getOrCreateTextCampaignRequestId()
       const { data, error } = await supabase.functions.invoke('generate-text-campaign', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { briefing },
+        body: { briefing, client_request_id: generationRequestRef.current },
       })
       if (error) {
         const body = await readTextCampaignFunctionError(error)
+        if (body) {
+          generationRequestRef.current = null
+          clearTextCampaignRequestId()
+        }
         throw new Error(body?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
       }
-      if (!data?.ok || !isCompleteTextCampaignResult(data.campaign)) throw new Error('A campanha retornou incompleta. Tente novamente.')
+      if (!data?.ok) throw new Error(data?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
+      if (!isCompleteTextCampaignResult(data.campaign)) throw new Error('A campanha retornou incompleta. Tente novamente.')
+      clearTextCampaignRequestId()
       setCampaign(data.campaign)
       setGenerationStatus('success')
     } catch (error) {
@@ -133,6 +160,8 @@ export default function TextCampaign() {
 
   const createNewCampaign = () => {
     generationLockRef.current = false
+    generationRequestRef.current = null
+    clearTextCampaignRequestId()
     setCampaign(null)
     setGenerationStatus('idle')
     setGenerationError('')

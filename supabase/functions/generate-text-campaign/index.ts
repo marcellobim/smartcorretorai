@@ -11,6 +11,8 @@ import {
   validateTextCampaignResult,
 } from './contract.ts'
 import { handleGenerateTextCampaign } from './runtime.ts'
+import { createTextCampaignEconomy } from './economy.ts'
+import { createTextCampaignDeliveryStore } from './delivery.ts'
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -29,12 +31,16 @@ function normalizeUsage(value: unknown): SafeUsage | undefined {
 serve(withCors(async (request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
-  if (!supabaseUrl || !anonKey || !openAIApiKey) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey || !openAIApiKey) {
     return new Response(JSON.stringify({ ok: false, error: 'Configuração indisponível.' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 
   const supabase = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } })
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+  const economy = createTextCampaignEconomy(serviceClient)
+  const delivery = createTextCampaignDeliveryStore(serviceClient)
   return handleGenerateTextCampaign(request, {
     authenticate: async (token) => {
       const { data: { user }, error } = await supabase.auth.getUser(token)
@@ -60,6 +66,8 @@ serve(withCors(async (request) => {
       variationKey: crypto.randomUUID(),
       model: TEXT_CAMPAIGN_MODEL,
     }),
+    ...economy,
+    ...delivery,
     log: (event, details) => console.info('[generate-text-campaign]', JSON.stringify({ event, ...details })),
   })
 }))

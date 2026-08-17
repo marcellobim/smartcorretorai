@@ -47,7 +47,7 @@ test('uses a synchronous double-click lock and a single authenticated Edge Funct
   assert.match(page, /if \(generationLockRef\.current \|\| !briefingValid\) return/)
   assert.match(page, /generationLockRef\.current = true/)
   assert.match(page, /finally \{[\s\S]*?generationLockRef\.current = false/)
-  assert.match(page, /supabase\.functions\.invoke\('generate-text-campaign',[\s\S]*?body: \{ briefing \}/)
+  assert.match(page, /supabase\.functions\.invoke\('generate-text-campaign',[\s\S]*?body: \{ briefing, client_request_id: generationRequestRef\.current \}/)
   assert.doesNotMatch(page, /model: ['"]gpt|provider:|system_prompt:/)
 })
 
@@ -145,9 +145,13 @@ test('clears generated text and restarts the briefing for a new campaign', () =>
   assert.match(resultComponent, /Criar nova campanha/)
 })
 
-test('keeps results in memory only with no gallery or browser persistence', () => {
+test('keeps results in memory and persists only the opaque retry id across reload', () => {
   const combined = `${page}\n${resultComponent}\n${resultHelperSource}`
-  assert.doesNotMatch(combined, /localStorage|sessionStorage|indexedDB|storage\.from|\.insert\(|\.upsert\(/)
+  assert.match(page, /sessionStorage\.getItem\(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY\)/)
+  assert.match(page, /sessionStorage\.setItem\(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY, created\)/)
+  assert.match(page, /sessionStorage\.removeItem\(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY\)/)
+  assert.doesNotMatch(combined, /localStorage|indexedDB|storage\.from|\.insert\(|\.upsert\(/)
+  assert.doesNotMatch(page, /sessionStorage\.setItem\([^,]+,\s*(briefing|campaign|answers)/)
   assert.doesNotMatch(combined, /Smart Tokens|smart_tokens|token_balance/i)
   assert.doesNotMatch(combined, /histórico|galeria/i)
 })
