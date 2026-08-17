@@ -1131,6 +1131,13 @@ const getTotalPieceCount = (destinations, ideaCount) => {
 }
 
 const createCampaignBatchId = () => `hero-next-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const getEconomicResolution = (destination) => (
+  destination.format_group === 'vertical'
+    ? '1024x1536'
+    : destination.format_group === 'landscape'
+      ? '1536x1024'
+      : '1024x1024'
+)
 
 const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeIdeaCount = 1) => {
   const isRent = goal === 'rent'
@@ -1464,6 +1471,7 @@ export default function HeroNext() {
   const [expandedPreview, setExpandedPreview] = useState(null)
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
   const activeQuestionRef = useRef(null)
+  const economicRequestIdRef = useRef(null)
   const expandedPreviewCloseRef = useRef(null)
   const expandedPreviewTriggerRef = useRef(null)
 
@@ -1888,7 +1896,7 @@ export default function HeroNext() {
     throw new Error(`${destination.label} ainda está em criação. Tente novamente em alguns instantes.`)
   }
 
-  const startGenerationJob = async (destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs) => {
+  const startGenerationJob = async (destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext) => {
     const formatId = destination.id
     const jobId = `idea-${creativeIdea.number}-${formatId}`
     const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
@@ -1982,6 +1990,9 @@ export default function HeroNext() {
         },
         format_strategy: formatStrategy,
         additional_info: '',
+        client_request_id: economicContext.clientRequestId,
+        economic_claim_token: economicContext.claimToken,
+        economic_item_id: economicContext.itemId,
       },
     })
 
@@ -2035,6 +2046,8 @@ export default function HeroNext() {
     setDownloadError('')
     setGenerationResult(null)
     const campaignBatchId = createCampaignBatchId()
+    const clientRequestId = economicRequestIdRef.current || crypto.randomUUID()
+    economicRequestIdRef.current = clientRequestId
     const selectedIdeas = CREATIVE_IDEAS.slice(0, creativeIdeaCount)
     const jobRequests = selectedIdeas.flatMap((creativeIdea) => (
       selectedDestinations.map((destination, destinationIndex) => ({
@@ -2066,9 +2079,40 @@ export default function HeroNext() {
 
     try {
       setProcessingMessage('Criando sua campanha...')
+      const economicItems = jobRequests.map(({ destination, creativeIdea }) => ({
+        piece_id: `idea-${creativeIdea.number}-${destination.id}`,
+        format_id: destination.id,
+        format_group: destination.format_group,
+        creation_option: creativeIdea.number,
+        resolution: getEconomicResolution(destination),
+        reference_count: Math.min(uploadedImages.length, MAX_HERO_NEXT_IMAGES),
+      }))
+      const { data: economicBatch, error: economicError } = await supabase.functions.invoke('gerar-hero-ia', {
+        body: {
+          action: 'prepare_batch',
+          client_request_id: clientRequestId,
+          selected_format_count: selectedDestinations.length,
+          creation_options: creativeIdeaCount,
+          items: economicItems,
+        },
+      })
+      if (economicError) throw new Error(await getEdgeFunctionErrorMessage(economicError, 'Não foi possível reservar os Smart Tokens.'))
+      if (!economicBatch?.success || !economicBatch?.claim_token) {
+        throw new Error(economicBatch?.code === 'INSUFFICIENT_SMART_TOKENS'
+          ? 'Smart Tokens insuficientes para esta criação.'
+          : economicBatch?.error || 'Não foi possível preparar a criação.')
+      }
+      const economicItemByPiece = new Map((economicBatch.items || []).map((item) => [item.piece_id, item]))
       const settledJobs = await Promise.all(jobRequests.map(async ({ destination, creativeIdea, formatIndex, totalFormats }, index) => {
         try {
-          return await startGenerationJob(destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, index + 1, jobRequests.length)
+          const pieceId = `idea-${creativeIdea.number}-${destination.id}`
+          const economicItem = economicItemByPiece.get(pieceId)
+          if (!economicItem?.id) throw new Error('A reserva econômica não contém esta peça.')
+          return await startGenerationJob(destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, index + 1, jobRequests.length, {
+            clientRequestId,
+            claimToken: economicBatch.claim_token,
+            itemId: economicItem.id,
+          })
         } catch (error) {
           const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
           const jobId = `idea-${creativeIdea.number}-${destination.id}`
@@ -2100,6 +2144,7 @@ export default function HeroNext() {
         texts: firstCompleted.texts || {},
         campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition),
       })
+      economicRequestIdRef.current = null
       setPhase('result')
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : 'Não foi possível gerar a campanha.')
@@ -2171,6 +2216,7 @@ export default function HeroNext() {
     setGenerationJobs([])
     setDownloadError('')
     setDownloadAllLoading(false)
+    economicRequestIdRef.current = null
   }
 
   const campaignPackageData = generationResult ? {

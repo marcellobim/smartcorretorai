@@ -1,4 +1,4 @@
-export const ECONOMIC_CATALOG_VERSION = '2026-08-17.quick-banners.v1'
+export const ECONOMIC_CATALOG_VERSION = '2026-08-17.real-estate-banner.v1'
 
 // Global rollout stays disabled. A product can opt in only after its provider
 // pipeline is migrated and its canonical SKU is explicitly enabled below.
@@ -48,29 +48,18 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
   sku('short_videos', 'standard', 800, 'composite'),
   sku('real_estate_commercial', 'standard', 275, 'veo_video'),
   sku('creative_video', 'standard', 275, 'veo_video'),
-  // Product 1 is the only SKU activated while the global rollout remains off.
+  // Product 1 is activated explicitly while the global rollout remains off.
   sku('text_campaign', 'standard', 100, 'openai_text', true, {}, true),
 
-  sku('real_estate_banner', 'pieces_1', 200, 'openai_image', true, {
+  // Product 3 has one canonical server-owned unit. References and formats do
+  // not change the quote; the validated number of final pieces does.
+  sku('real_estate_banner', 'item', 75, 'openai_image', false, {
     quantity: 1,
-    pricingStatus: 'provisional',
+    pricingStatus: 'approved',
     telemetryRequired: true,
-  }),
-  sku('real_estate_banner', 'pieces_3', 500, 'openai_image', false, {
-    quantity: 3,
-    pricingStatus: 'provisional',
-    telemetryRequired: true,
-  }),
-  sku('real_estate_banner', 'pieces_5', 800, 'openai_image', false, {
-    quantity: 5,
-    pricingStatus: 'provisional',
-    telemetryRequired: true,
-  }),
-  sku('real_estate_banner', 'pieces_6', 900, 'openai_image', false, {
-    quantity: 6,
-    pricingStatus: 'provisional',
-    telemetryRequired: true,
-  }),
+    maxItemsPerRequest: 6,
+    maxReferenceImages: 4,
+  }, true),
 
   // Product 2 is quoted server-side by multiplying this canonical unit.
   // Static and video deliveries intentionally have the same public weight.

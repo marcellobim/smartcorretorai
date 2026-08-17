@@ -1,6 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
+import {
+  createRealEstateBannerEconomy,
+  normalizeBannerClientRequestId,
+  quoteRealEstateBannerBatch,
+  RealEstateBannerEconomyValidationError,
+} from './economy.ts'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
 
@@ -1412,6 +1418,7 @@ async function createHeroNextBackgroundResponse(
   destinationLabel = '',
   formatStrategy: ReturnType<typeof normalizeFormatStrategy> = normalizeFormatStrategy({}),
   creativeIdea: ReturnType<typeof normalizeCreativeIdea> = normalizeCreativeIdea({}),
+  idempotencyKey = '',
 ) {
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const model = Deno.env.get('HERO_MULTIMODAL_MODEL') || Deno.env.get('HERO_IMAGE_CONTEXT_MODEL') || 'gpt-5'
@@ -1460,6 +1467,7 @@ async function createHeroNextBackgroundResponse(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     body: JSON.stringify({
       model,
@@ -1743,6 +1751,125 @@ async function resolveRetentionDays(supabase: ReturnType<typeof createClient>, u
   return data ? 15 : 1
 }
 
+function normalizeProviderUsage(value: unknown) {
+  const usage = value && typeof value === 'object' ? value as JsonRecord : {}
+  const inputDetails = usage.input_tokens_details && typeof usage.input_tokens_details === 'object'
+    ? usage.input_tokens_details as JsonRecord
+    : {}
+  const outputDetails = usage.output_tokens_details && typeof usage.output_tokens_details === 'object'
+    ? usage.output_tokens_details as JsonRecord
+    : {}
+  const safeInteger = (candidate: unknown) => Number.isSafeInteger(Number(candidate)) && Number(candidate) >= 0 ? Number(candidate) : 0
+  return {
+    input_tokens: safeInteger(usage.input_tokens),
+    output_tokens: safeInteger(usage.output_tokens),
+    total_tokens: safeInteger(usage.total_tokens),
+    cached_tokens: safeInteger(inputDetails.cached_tokens),
+    reasoning_tokens: safeInteger(outputDetails.reasoning_tokens),
+  }
+}
+
+async function getRealEstateBannerItemForGeneration(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  generationId: string,
+) {
+  const { data, error } = await supabase
+    .from('real_estate_banner_items')
+    .select('id, request_id, generation_id, status, provider_response_id, provider_model, real_estate_banner_requests!inner(client_request_id, user_id)')
+    .eq('generation_id', generationId)
+    .eq('real_estate_banner_requests.user_id', userId)
+    .maybeSingle()
+  if (error) throw new Error(error.message || 'Falha ao consultar economia do Banner Imobiliario.')
+  return data as (JsonRecord & { real_estate_banner_requests?: JsonRecord }) | null
+}
+
+async function finalizeRealEstateBannerEconomicItem(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  generationId: string,
+  status: 'completed' | 'failed',
+  result: JsonRecord = {},
+  usage: JsonRecord = {},
+) {
+  const item = await getRealEstateBannerItemForGeneration(supabase, userId, generationId)
+  if (!item || typeof item.id !== 'string') return
+  const request = item.real_estate_banner_requests && typeof item.real_estate_banner_requests === 'object'
+    ? item.real_estate_banner_requests as JsonRecord
+    : {}
+  const clientRequestId = normalizeText(request.client_request_id, 80)
+  if (!clientRequestId) throw new Error('Request economico nao encontrado.')
+  const economy = createRealEstateBannerEconomy(supabase)
+  await economy.finalizeItem({ userId, itemId: item.id, status, result, usage })
+  await economy.settle({ userId, clientRequestId })
+}
+
+async function handleRealEstateBannerPrepare(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  payload: JsonRecord,
+) {
+  try {
+    const clientRequestId = normalizeBannerClientRequestId(payload.client_request_id)
+    const quote = quoteRealEstateBannerBatch({
+      selectedFormatCount: payload.selected_format_count,
+      creationOptions: payload.creation_options,
+      items: payload.items,
+    })
+    const economy = createRealEstateBannerEconomy(supabase)
+    let claim = await economy.claim({ userId, clientRequestId, quote })
+
+    if (claim.status === 'completed' || claim.status === 'failed') {
+      return jsonResponse({
+        success: claim.status === 'completed', status: claim.status,
+        request_id: claim.requestId, client_request_id: clientRequestId,
+        claim_token: claim.claimToken,
+        required_tokens: claim.quotedTokens, reserved_tokens: claim.reservedTokens,
+        items: claim.items,
+      })
+    }
+
+    if (!claim.reservationId) {
+      const availableTokens = await economy.getAvailableBalance(userId)
+      if (availableTokens < quote.totalCost) {
+        await economy.failPrepared({ userId, clientRequestId, claimToken: claim.claimToken, reason: 'insufficient_smart_tokens' })
+        return jsonResponse({
+          success: false, code: 'INSUFFICIENT_SMART_TOKENS',
+          required_tokens: quote.totalCost, available_tokens: availableTokens,
+        }, 402)
+      }
+      try {
+        const reservation = await economy.reserve({ userId, clientRequestId, quote })
+        if (reservation.amount !== quote.totalCost || reservation.status !== 'reserved') throw new Error('reservation_mismatch')
+        await economy.attachReservation({
+          userId, clientRequestId, claimToken: claim.claimToken, reservationId: reservation.id,
+        })
+      } catch (error) {
+        const currentBalance = await economy.getAvailableBalance(userId).catch(() => null)
+        await economy.failPrepared({ userId, clientRequestId, claimToken: claim.claimToken, reason: 'reservation_failed' }).catch(() => null)
+        if (currentBalance !== null && currentBalance < quote.totalCost) {
+          return jsonResponse({ success: false, code: 'INSUFFICIENT_SMART_TOKENS', required_tokens: quote.totalCost, available_tokens: currentBalance }, 402)
+        }
+        throw error
+      }
+      claim = await economy.claim({ userId, clientRequestId, quote })
+    }
+
+    claim = await economy.begin({ userId, clientRequestId, claimToken: claim.claimToken })
+    return jsonResponse({
+      success: true, status: claim.status, request_id: claim.requestId,
+      client_request_id: clientRequestId, claim_token: claim.claimToken,
+      required_tokens: quote.totalCost, reserved_tokens: claim.reservedTokens,
+      unit_tokens: quote.unitCost, items: claim.items,
+    })
+  } catch (error) {
+    if (error instanceof RealEstateBannerEconomyValidationError) {
+      return jsonResponse({ success: false, code: error.code, error: 'Selecao de formatos invalida.' }, 400)
+    }
+    throw error
+  }
+}
+
 async function handleHeroNextStatus(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -1770,6 +1897,11 @@ async function handleHeroNextStatus(
   }
 
   if (generation.status === 'completed' && generation.image_storage_path) {
+    await finalizeRealEstateBannerEconomicItem(supabase, userId, generation.id, 'completed', {
+      generation_id: generation.id,
+      storage_path: generation.image_storage_path,
+      response_id: generation.openai_response_id,
+    })
     const { data: signedImage, error: signedError } = await supabase.storage
       .from(HERO_IMAGE_BUCKET)
       .createSignedUrl(generation.image_storage_path, 60 * 60)
@@ -1791,6 +1923,11 @@ async function handleHeroNextStatus(
   }
 
   if (generation.status === 'failed' || generation.status === 'cancelled') {
+    await finalizeRealEstateBannerEconomicItem(supabase, userId, generation.id, 'failed', {
+      generation_id: generation.id,
+      response_id: generation.openai_response_id,
+      reason: generation.status,
+    })
     return jsonResponse({
       success: false,
       status: generation.status,
@@ -1848,6 +1985,12 @@ async function handleHeroNextStatus(
       .eq('id', generation.id)
       .eq('user_id', userId)
 
+    await finalizeRealEstateBannerEconomicItem(supabase, userId, generation.id, 'failed', {
+      generation_id: generation.id,
+      response_id: responseId,
+      provider_status: remoteStatus,
+    }, normalizeProviderUsage(responseData.usage))
+
     return jsonResponse({
       success: false,
       status: 'failed',
@@ -1878,6 +2021,12 @@ async function handleHeroNextStatus(
       .eq('id', generation.id)
       .eq('user_id', userId)
 
+    await finalizeRealEstateBannerEconomicItem(supabase, userId, generation.id, 'failed', {
+      generation_id: generation.id,
+      response_id: responseId,
+      reason: 'missing_image_result',
+    }, normalizeProviderUsage(responseData.usage))
+
     return jsonResponse({
       success: false,
       status: 'failed',
@@ -1898,6 +2047,12 @@ async function handleHeroNextStatus(
 
   if (uploadError) {
     console.warn('[gerar-hero-ia] hero next background upload failed:', uploadError.message)
+    await supabase.from('hero_generations').update({ status: 'failed', error_message: 'Falha ao salvar imagem gerada.' }).eq('id', generation.id).eq('user_id', userId)
+    await finalizeRealEstateBannerEconomicItem(supabase, userId, generation.id, 'failed', {
+      generation_id: generation.id,
+      response_id: responseId,
+      reason: 'storage_upload_failed',
+    }, normalizeProviderUsage(responseData.usage))
     return jsonResponse({ error: 'Falha ao salvar imagem gerada.' }, 500)
   }
 
@@ -1934,6 +2089,12 @@ async function handleHeroNextStatus(
     console.warn('[gerar-hero-ia] hero next background update failed:', updateError.message)
     return jsonResponse({ error: 'Falha ao finalizar campanha.' }, 500)
   }
+
+  await finalizeRealEstateBannerEconomicItem(supabase, userId, generation.id, 'completed', {
+    generation_id: generation.id,
+    response_id: responseId,
+    storage_path: storagePath,
+  }, normalizeProviderUsage(responseData.usage))
 
   const { data: signedImage, error: signedError } = await supabase.storage
     .from(HERO_IMAGE_BUCKET)
@@ -1991,6 +2152,9 @@ serve(async (req) => {
     }
 
     const payload = await req.json().catch(() => ({})) as JsonRecord
+    if (normalizeId(payload.action) === 'prepare_batch') {
+      return await handleRealEstateBannerPrepare(supabase, user.id, payload)
+    }
     if (normalizeId(payload.action) === 'status') {
       return await handleHeroNextStatus(supabase, user.id, payload)
     }
@@ -2024,34 +2188,116 @@ serve(async (req) => {
         const destinationLabel = normalizeText(primaryDestination.label, 120)
         const formatStrategy = normalizeFormatStrategy((storedPromptBriefing.choices as JsonRecord | undefined).format_strategy)
         const creativeIdea = normalizeCreativeIdea((storedPromptBriefing.choices as JsonRecord | undefined).creative_idea)
+        let clientRequestId: string
+        try {
+          clientRequestId = normalizeBannerClientRequestId(payload.client_request_id)
+        } catch (error) {
+          const code = error instanceof RealEstateBannerEconomyValidationError ? error.code : 'INVALID_CLIENT_REQUEST_ID'
+          return jsonResponse({ success: false, code, error: 'client_request_id invalido.' }, 400)
+        }
+        const economicClaimToken = normalizeText(payload.economic_claim_token, 80)
+        const economicItemId = normalizeText(payload.economic_item_id, 80)
+        if (!isUuid(economicClaimToken) || !isUuid(economicItemId)) {
+          return jsonResponse({ success: false, code: 'ECONOMIC_CLAIM_REQUIRED', error: 'Claim economico obrigatorio.' }, 409)
+        }
+        const economy = createRealEstateBannerEconomy(supabase)
+        const claimedItemRow = await economy.claimItem({
+          userId: user.id, clientRequestId, claimToken: economicClaimToken, itemId: economicItemId,
+        })
+        const economicItem = claimedItemRow?.returned_item && typeof claimedItemRow.returned_item === 'object'
+          ? claimedItemRow.returned_item as JsonRecord
+          : {}
+        const expectedFormatId = normalizeText(primaryDestination.id, 80)
+        if (normalizeText(economicItem.format_id, 80) !== expectedFormatId || Number(economicItem.creation_option) !== creativeIdea.number) {
+          return jsonResponse({ success: false, code: 'ECONOMIC_ITEM_MISMATCH', error: 'Item economico diverge da peca.' }, 409)
+        }
+        if (claimedItemRow?.claimed !== true) {
+          const existingGenerationId = normalizeText(economicItem.generation_id, 80)
+          const existingStatus = normalizeText(economicItem.status, 40)
+          if (existingGenerationId) {
+            return jsonResponse({
+              success: existingStatus !== 'failed', status: existingStatus === 'failed' ? 'failed' : 'processing',
+              generation_id: existingGenerationId, hero_generation_id: existingGenerationId,
+              request_id: economicItem.request_id, economic_item_id: economicItem.id,
+              message: existingStatus === 'failed' ? 'A peca falhou. Use um retry isolado.' : 'Campanha em criacao',
+            }, existingStatus === 'failed' ? 409 : 202)
+          }
+          return jsonResponse({ success: false, status: 'processing', code: 'REQUEST_PROCESSING' }, 202)
+        }
 
-        const { data: generation, error: insertError } = await supabase
-          .from('hero_generations')
-          .insert({
+        const existingEconomicGenerationId = normalizeText(economicItem.generation_id, 80)
+        let generation: JsonRecord | null = null
+        let insertError: { message?: string } | null = null
+        if (existingEconomicGenerationId) {
+          const existing = await supabase
+            .from('hero_generations')
+            .select('id, status, expires_at, openai_response_id, provider_model')
+            .eq('id', existingEconomicGenerationId)
+            .eq('user_id', user.id)
+            .maybeSingle()
+          generation = existing.data as JsonRecord | null
+          insertError = existing.error
+        } else {
+          const inserted = await supabase
+            .from('hero_generations')
+            .insert({
             user_id: user.id,
             property_id: null,
             status: 'processing',
             prompt_briefing: storedPromptBriefing,
             deliverables,
             texts: {},
-            credit_amount: 0,
-            credit_status: 'not_required',
+            credit_amount: 75,
+            credit_status: 'reserved',
             provider: 'openai',
             provider_model: 'pending',
             destination: primaryDestination || {},
             started_at: new Date().toISOString(),
             expires_at: expiresAt,
-          })
-          .select('id, status, expires_at')
-          .single()
+            })
+            .select('id, status, expires_at, openai_response_id, provider_model')
+            .single()
+          generation = inserted.data as JsonRecord | null
+          insertError = inserted.error
+        }
 
         if (insertError || !generation) {
-          console.warn(`[${reqId}] hero next generation insert failed:`, insertError.message)
+          console.warn(`[${reqId}] hero next generation insert failed:`, insertError?.message)
+          await economy.finalizeItem({ userId: user.id, itemId: economicItemId, status: 'failed', result: { reason: 'generation_insert_failed' } }).catch(() => null)
+          await economy.settle({ userId: user.id, clientRequestId }).catch(() => null)
           return jsonResponse({ error: 'Falha ao preparar campanha.' }, 500)
         }
 
         try {
-          const background = await createHeroNextBackgroundResponse(finalPrompt, imageSize, inlineImages, destinationLabel, formatStrategy, creativeIdea)
+          if (!existingEconomicGenerationId) {
+            await economy.bindGeneration({ userId: user.id, itemId: economicItemId, generationId: String(generation.id) })
+          }
+        } catch (error) {
+          await supabase.from('hero_generations').update({ status: 'failed', error_message: 'Falha ao vincular economia.' }).eq('id', generation.id).eq('user_id', user.id)
+          await economy.finalizeItem({ userId: user.id, itemId: economicItemId, status: 'failed', result: { reason: 'generation_bind_failed' } }).catch(() => null)
+          await economy.settle({ userId: user.id, clientRequestId }).catch(() => null)
+          throw error
+        }
+
+        const persistedResponseId = normalizeText(generation.openai_response_id, 160)
+        if (persistedResponseId) {
+          await economy.updateProvider({
+            userId: user.id, itemId: economicItemId, responseId: persistedResponseId,
+            model: normalizeText(generation.provider_model, 120) || 'unknown',
+          })
+          return jsonResponse({
+            success: true, status: 'processing', generation_id: generation.id,
+            hero_generation_id: generation.id, openai_response_id: persistedResponseId,
+            request_id: economicItem.request_id, economic_item_id: economicItemId,
+            message: 'Campanha em criacao', expires_at: generation.expires_at,
+          })
+        }
+
+        try {
+          const background = await createHeroNextBackgroundResponse(
+            finalPrompt, imageSize, inlineImages, destinationLabel, formatStrategy, creativeIdea,
+            `real-estate-banner:${economicItemId}`,
+          )
           const { error: updateError } = await supabase
             .from('hero_generations')
             .update({
@@ -2074,6 +2320,10 @@ serve(async (req) => {
             console.warn(`[${reqId}] hero next response id update failed:`, updateError.message)
             return jsonResponse({ error: 'Falha ao registrar campanha em criacao.' }, 500)
           }
+          await economy.updateProvider({
+            userId: user.id, itemId: economicItemId,
+            responseId: background.responseId, model: background.model,
+          })
 
           return jsonResponse({
             success: true,
@@ -2083,6 +2333,8 @@ serve(async (req) => {
             openai_response_id: background.responseId,
             message: 'Campanha em criacao',
             expires_at: generation.expires_at,
+            request_id: economicItem.request_id,
+            economic_item_id: economicItemId,
           })
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Falha ao iniciar campanha em background.'
@@ -2094,6 +2346,11 @@ serve(async (req) => {
             })
             .eq('id', generation.id)
             .eq('user_id', user.id)
+          await economy.finalizeItem({
+            userId: user.id, itemId: economicItemId, status: 'failed',
+            result: { generation_id: generation.id, reason: 'provider_start_failed' },
+          }).catch(() => null)
+          await economy.settle({ userId: user.id, clientRequestId }).catch(() => null)
           return jsonResponse({ error: message }, 502)
         }
       }
