@@ -27,6 +27,7 @@ import {
   type SmartTourStatusStage,
   withSmartTourStatusTimeout,
 } from './status-runtime.ts'
+import { recordGeminiVideoJobTelemetry, settleGeminiVideoJobEconomy } from '../_shared/gemini-video-economy.ts'
 
 serve(withCors(async req => {
   const traceId = crypto.randomUUID().slice(0, 8)
@@ -61,6 +62,8 @@ serve(withCors(async req => {
       .maybeSingle()
     if (jobError) throw new Error('status_job_lookup_failed')
     if (!job) return json({ ok: false, error: 'Criação não encontrada.' }, 404)
+    const economyIdentity = [user.id, jobId] as const
+    const settleEconomy = (status: 'completed' | 'failed', details: { outputPath?: string; reason?: string; telemetry?: Record<string, unknown> } = {}) => settleGeminiVideoJobEconomy(supabase, economyIdentity, status, details)
     const isShortVideos = job.mode === 'smart_tour_gemini_omni_short_video'
     isShortVideoJob = isShortVideos
     const shortVideoRawPath = `${user.id}/${jobId}/smart-tour-gemini.mp4`
@@ -71,9 +74,10 @@ serve(withCors(async req => {
     }
     log('job_lookup_completed', { jobStatus: job.status, providerIdPresent: Boolean(job.provider_job_id) })
 
-    if (job.status === 'failed') return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
+    if (job.status === 'failed') { await settleEconomy('failed', { reason: job.error_message || 'video_job_failed' }); return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' }) }
 
     if (job.status === 'completed' && job.output_video_path) {
+      await settleEconomy('completed', { outputPath: job.output_video_path })
       stage = 'completed_url'
       log('completed_url_started')
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
@@ -83,6 +87,12 @@ serve(withCors(async req => {
     }
 
     if (!job.provider_job_id) {
+      if (!isShortVideos && Date.now() - Date.parse(job.created_at) > 300_000) {
+        const { error: staleError } = await supabase.from('video_jobs').update({ status: 'failed', error_message: 'video_stale_before_provider' }).eq('id', jobId).eq('user_id', user.id)
+        if (staleError) throw new Error('status_failed_persist_failed')
+        await settleEconomy('failed', { reason: 'video_stale_before_provider' })
+        return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
+      }
       if (isShortVideoPreProviderStale(job)) {
         const { error: staleError } = await supabase
           .from('video_jobs')
@@ -90,6 +100,7 @@ serve(withCors(async req => {
           .eq('id', jobId)
           .eq('user_id', user.id)
         if (staleError) throw new Error('status_failed_persist_failed')
+        await settleEconomy('failed', { reason: 'short_video_stale_before_provider' })
         const expectedInputPath = `${user.id}/short-videos/${jobId}/input.mp4`
         if (job.input_image_1_path === expectedInputPath) {
           const { error: cleanupError } = await supabase.storage.from('short-videos-inputs').remove([expectedInputPath])
@@ -116,6 +127,7 @@ serve(withCors(async req => {
           .eq('id', jobId)
           .eq('user_id', user.id)
         if (error) throw new Error('status_failed_persist_failed')
+        await settleEconomy('failed', { reason: captionRender.errorMessage })
         await cleanupShortVideoRaw()
         return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
       }
@@ -130,6 +142,7 @@ serve(withCors(async req => {
           const code = validationError instanceof Error ? validationError.message.slice(0, 160) : 'short_video_final_mp4_invalid'
           const { error } = await supabase.from('video_jobs').update({ status: 'failed', error_message: code }).eq('id', jobId).eq('user_id', user.id)
           if (error) throw new Error('status_failed_persist_failed')
+          await settleEconomy('failed', { reason: code })
           await cleanupShortVideoRaw()
           return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
         }
@@ -149,6 +162,7 @@ serve(withCors(async req => {
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (updateError) throw new Error('status_completed_persist_failed')
+      await settleEconomy('completed', { outputPath, telemetry: { resolution: '720x1280', fps: 24, output_duration_seconds: 10, audio: true } })
       await cleanupShortVideoRaw()
       const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
       if (signedUrlError) throw new Error('status_result_url_failed')
@@ -218,6 +232,7 @@ serve(withCors(async req => {
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (error) throw new Error('status_failed_persist_failed')
+      await settleEconomy('failed', { reason: serializeSmartTourStatusDiagnostic(diagnostic) })
       log('failed_persist_completed')
       return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
     }
@@ -264,6 +279,7 @@ serve(withCors(async req => {
         const code = compositionError instanceof Error ? compositionError.message.slice(0, 160) : 'short_video_composition_failed'
         const { error } = await supabase.from('video_jobs').update({ status: 'failed', error_message: code }).eq('id', jobId).eq('user_id', user.id)
         if (error) throw new Error('status_failed_persist_failed')
+        await settleEconomy('failed', { reason: code })
         await cleanupShortVideoRaw()
         return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
       }
@@ -287,6 +303,8 @@ serve(withCors(async req => {
       .eq('id', jobId)
       .eq('user_id', user.id)
     if (updateError) throw new Error('status_completed_persist_failed')
+    await recordGeminiVideoJobTelemetry(supabase,economyIdentity,interactionId,{output_bytes:completedVideo.videoBytes.byteLength}).catch(() => console.warn('[smart-tour-status] economy_telemetry_deferred'))
+    await settleEconomy('completed', { outputPath, telemetry: { output_bytes: completedVideo.videoBytes.byteLength, resolution: isShortVideos ? '720x1280' : '1280x720', fps: 24, output_duration_seconds: 10, audio: true } })
     log('completed_persist_completed')
     stage = 'result_url'
     log('result_url_started')
@@ -318,6 +336,7 @@ serve(withCors(async req => {
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (!failedError) {
+        await settleGeminiVideoJobEconomy(supabase,[user.id,jobId],'failed',{reason:`short_video_composition_${diagnostic.kind}`})
         const intermediatePath = `${user.id}/${jobId}/smart-tour-gemini.mp4`
         const failedOutputPath = `${user.id}/${jobId}/smart-tour.mp4`
         const { error: cleanupError } = await supabase.storage.from('studio-videos').remove([intermediatePath, failedOutputPath])

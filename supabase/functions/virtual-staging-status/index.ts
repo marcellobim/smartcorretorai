@@ -17,6 +17,7 @@ import {
   type SmartTourStatusStage,
   withSmartTourStatusTimeout,
 } from './status-runtime.ts'
+import { recordGeminiVideoJobTelemetry, settleGeminiVideoJobEconomy } from '../_shared/gemini-video-economy.ts'
 
 serve(withCors(async req => {
   const traceId = crypto.randomUUID().slice(0, 8)
@@ -44,18 +45,21 @@ serve(withCors(async req => {
     log('job_lookup_started')
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final,marketing_hashtags')
+      .select('id,status,provider_job_id,output_video_path,error_message,prompt_final,marketing_hashtags,created_at')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .eq('mode', 'virtual_staging_gemini_omni')
       .maybeSingle()
     if (jobError) throw new Error('status_job_lookup_failed')
     if (!job) return json({ ok: false, error: 'Criação não encontrada.' }, 404)
+    const economyIdentity = [user.id, jobId] as const
+    const settleEconomy = (status: 'completed' | 'failed', details: { outputPath?: string; reason?: string; telemetry?: Record<string, unknown> } = {}) => settleGeminiVideoJobEconomy(supabase, economyIdentity, status, details)
     log('job_lookup_completed', { jobStatus: job.status, providerIdPresent: Boolean(job.provider_job_id) })
 
-    if (job.status === 'failed') return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
+    if (job.status === 'failed') { await settleEconomy('failed', { reason: job.error_message || 'video_job_failed' }); return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' }) }
 
     if (job.status === 'completed' && job.output_video_path) {
+      await settleEconomy('completed', { outputPath: job.output_video_path })
       stage = 'completed_url'
       log('completed_url_started')
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
@@ -64,7 +68,15 @@ serve(withCors(async req => {
       return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
     }
 
-    if (!job.provider_job_id) return json({ ok: true, status: 'generating', jobId, message: 'Preparando sua apresentação...' })
+    if (!job.provider_job_id) {
+      if (Date.now() - Date.parse(job.created_at) > 300_000) {
+        const { error: staleError } = await supabase.from('video_jobs').update({ status: 'failed', error_message: 'video_stale_before_provider' }).eq('id', jobId).eq('user_id', user.id)
+        if (staleError) throw new Error('status_failed_persist_failed')
+        await settleEconomy('failed', { reason: 'video_stale_before_provider' })
+        return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
+      }
+      return json({ ok: true, status: 'generating', jobId, message: 'Preparando sua apresentação...' })
+    }
 
     const captionRenderId = decodeSmartTourCaptionRenderId(job.provider_job_id)
     if (captionRenderId) {
@@ -82,6 +94,7 @@ serve(withCors(async req => {
           .eq('id', jobId)
           .eq('user_id', user.id)
         if (error) throw new Error('status_failed_persist_failed')
+        await settleEconomy('failed', { reason: captionRender.errorMessage })
         return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
       }
 
@@ -101,6 +114,7 @@ serve(withCors(async req => {
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (updateError) throw new Error('status_completed_persist_failed')
+      await settleEconomy('completed', { outputPath, telemetry: { resolution: '720x1280', fps: 24, output_duration_seconds: 10, audio: true, output_bytes: rendered.videoBytes.byteLength } })
       const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(outputPath, 3600)
       if (signedUrlError) throw new Error('status_result_url_failed')
       return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
@@ -129,6 +143,7 @@ serve(withCors(async req => {
         .eq('id', jobId)
         .eq('user_id', user.id)
       if (error) throw new Error('status_failed_persist_failed')
+      await settleEconomy('failed', { reason: String(remote.errorMessage).slice(0, 240) })
       log('failed_persist_completed')
       return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' })
     }
@@ -177,6 +192,8 @@ serve(withCors(async req => {
       .eq('id', jobId)
       .eq('user_id', user.id)
     if (updateError) throw new Error('status_completed_persist_failed')
+    await recordGeminiVideoJobTelemetry(supabase,economyIdentity,interactionRequest.interactionId,{output_bytes:remote.videoBytes.byteLength}).catch(() => console.warn('[virtual-staging-status] economy_telemetry_deferred'))
+    await settleEconomy('completed', { outputPath, telemetry: { output_bytes: remote.videoBytes.byteLength, resolution: '720x1280', fps: 24, output_duration_seconds: 10, audio: true } })
     log('completed_persist_completed')
 
     stage = 'result_url'

@@ -1,4 +1,4 @@
-export const ECONOMIC_CATALOG_VERSION = '2026-08-17.real-estate-banner.v1'
+export const ECONOMIC_CATALOG_VERSION = '2026-08-17.gemini-video-family.v1'
 
 // Global rollout stays disabled. A product can opt in only after its provider
 // pipeline is migrated and its canonical SKU is explicitly enabled below.
@@ -42,10 +42,18 @@ const sku = (
   metadata: Object.freeze({ pricingStatus: 'modeled', ...metadata }),
 })
 export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
-  sku('real_estate_video', 'standard', 750, 'gemini_video'),
-  sku('life_in_property', 'standard', 800, 'composite'),
-  sku('broker_presentation', 'standard', 800, 'composite'),
-  sku('short_videos', 'standard', 800, 'composite'),
+  sku('real_estate_video', 'standard', 325, 'gemini_video', false, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
+  }, true),
+  sku('life_in_property', 'standard', 325, 'composite', false, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
+  }, true),
+  sku('broker_presentation', 'standard', 325, 'composite', false, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
+  }, true),
+  sku('short_videos', 'standard', 325, 'composite', false, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
+  }, true),
   sku('real_estate_commercial', 'standard', 275, 'veo_video'),
   sku('creative_video', 'standard', 275, 'veo_video'),
   // Product 1 is activated explicitly while the global rollout remains off.
