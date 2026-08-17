@@ -9,6 +9,12 @@ import {
   normalizeProduct3Purpose,
 } from '../_shared/product3-contract.ts'
 import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
+import {
+  createQuickBannerEconomy,
+  normalizeClientRequestId,
+  quoteQuickBannerItems,
+  QuickBannerEconomyValidationError,
+} from './economy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,6 +125,14 @@ const TEMPLATES: TemplateMeta[] = [
   { id: 'fa82c49d-39af-46e8-bc31-3649fff10cae', nome: 'Triple Slide Carousel 9x16', categoria: 'carousel', perfil: ['todos'], formato: 'vertical' },
   { id: '21c3ff4b-f632-405f-8ebf-369c1f7d4b10', nome: 'Triple Slide Carousel 16x9', categoria: 'carousel', perfil: ['todos'], formato: 'horizontal' },
 ]
+
+const QUICK_BANNER_ECONOMIC_TEMPLATES = new Map(TEMPLATES.map((template) => [
+  template.id,
+  {
+    templateId: template.id,
+    mediaClass: (template.categoria === 'video' || template.categoria === 'reels' ? 'video' : 'static') as 'video' | 'static',
+  },
+]))
 
 const TEMPLATE_MODEL_CREDIT_WEIGHTS = new Map<string, number>([
   ['Anuncio Premium', 20],
@@ -1388,6 +1402,7 @@ serve(async (req) => {
   let supabaseClient: ReturnType<typeof createClient> | null = null
   const pieceCreditReservations: PieceCreditReservation[] = []
   let cleanupUserId = ''
+  let cleanupEconomicRequest: (() => Promise<unknown>) | null = null
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -1448,10 +1463,12 @@ serve(async (req) => {
       corretor_nome,
       corretor_avatar_url,
       marca_imovel,
-      credit_cost,
       generation_mode,
       video_ia_premium,
       idempotency_key,
+      client_request_id,
+      economy_action,
+      economy_claim_token,
     } = payload as Record<string, unknown>
     const selectedTemplatesPayload =
       payload.selectedTemplates
@@ -1516,7 +1533,7 @@ serve(async (req) => {
                 ? record.pieceId.trim()
                 : `template:${templateId}:index:${index}`
             return {
-              piece_id: `${pieceId}:index:${index}`,
+              piece_id: pieceId,
               template_id: templateId,
               model_id: typeof record.model_id === 'string'
                 ? record.model_id
@@ -1701,10 +1718,23 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
       }, 400)
     }
 
+    if (selectedPiecesRaw.length > MAX_VISUAL_PIECES_PER_GENERATION) {
+      return jsonResponse({
+        error: `Selecione entre 1 e ${MAX_VISUAL_PIECES_PER_GENERATION} peças por lote.`,
+        code: 'INVALID_ITEM_COUNT',
+        max_pieces: MAX_VISUAL_PIECES_PER_GENERATION,
+        received_pieces: selectedPiecesRaw.length,
+      }, 400)
+    }
+
     const pickedPieces = selectedPiecesRaw.filter((piece) => validIds.has(piece.template_id))
     const invalidos = selectedPiecesRaw.filter((piece) => !validIds.has(piece.template_id))
     if (invalidos.length > 0) {
-      console.warn(`[${reqId}] selectedTemplates contem IDs invalidos (ignorados):`, invalidos.map(piece => piece.template_id))
+      return jsonResponse({
+        error: 'A seleção contém template inválido. Revise o lote inteiro.',
+        code: 'INVALID_TEMPLATE_ID',
+        invalid_ids: invalidos.map(piece => piece.template_id),
+      }, 400)
     }
     if (pickedPieces.length === 0) {
       return jsonResponse({
@@ -1724,11 +1754,8 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
     console.log(`[${reqId}] estagio 1 (user-only, sem cap): ${pickedPieces.length} pecas em lote | ${uniquePickedIds.length} templates tecnicos`)
 
     // === ESTÁGIO 2: GET de cada template para descobrir elementos reais ===
-    const frontendCreditCost = toPositiveInteger(credit_cost)
-    const serverTemplateCreditCost = pickedPieces.reduce(
-      (sum, piece) => sum + (piece.credit_cost || TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0),
-      0,
-    )
+    const frontendCreditCost = 0
+    const serverTemplateCreditCost = pickedPieces.length * 45
     const generationMode = typeof generation_mode === 'string' && generation_mode.trim()
       ? generation_mode.trim()
       : 'manual'
@@ -1748,11 +1775,116 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
       }
     }
 
-    const effectiveCreditCost = isUnlimitedTestAdmin
-      ? 0
-      : isSmartCampaignCreditFlow
-        ? SMART_CAMPAIGN_FIXED_CREDIT_COST
-        : Math.max(frontendCreditCost, serverTemplateCreditCost)
+    let economicQuote
+    let clientRequestId: string
+    try {
+      economicQuote = quoteQuickBannerItems(selectedTemplatesArray, QUICK_BANNER_ECONOMIC_TEMPLATES)
+      clientRequestId = normalizeClientRequestId(client_request_id)
+    } catch (error) {
+      const code = error instanceof QuickBannerEconomyValidationError ? error.code : 'INVALID_ECONOMIC_REQUEST'
+      return jsonResponse({ error: 'Solicitação econômica inválida.', code }, 400)
+    }
+    const economy = createQuickBannerEconomy(supabase)
+    let economicClaim
+    try {
+      economicClaim = await economy.claim({
+        userId: authenticatedUserId,
+        clientRequestId,
+        quote: economicQuote,
+        adminBypass: isUnlimitedTestAdmin,
+      })
+    } catch (error) {
+      console.warn(`[${reqId}] claim econômico falhou:`, error instanceof Error ? error.message : String(error))
+      return jsonResponse({ error: 'Não foi possível iniciar esta solicitação.', code: 'ECONOMIC_CLAIM_FAILED' }, 503)
+    }
+    const requestedAction = typeof economy_action === 'string' ? economy_action : 'execute'
+    const suppliedClaimToken = typeof economy_claim_token === 'string' ? economy_claim_token.trim() : ''
+
+    if (economicClaim.claimed) {
+      if (!isUnlimitedTestAdmin) {
+        let availableTokens = 0
+        try {
+          availableTokens = await economy.getAvailableBalance(authenticatedUserId)
+        } catch {
+          await economy.failPrepared({ userId: authenticatedUserId, clientRequestId, claimToken: economicClaim.claimToken!, reason: 'balance_unavailable' }).catch(() => null)
+          return jsonResponse({ error: 'Não foi possível consultar seu saldo.', code: 'BALANCE_UNAVAILABLE' }, 503)
+        }
+        if (availableTokens < economicQuote.totalCost) {
+          await economy.failPrepared({ userId: authenticatedUserId, clientRequestId, claimToken: economicClaim.claimToken!, reason: 'insufficient_smart_tokens' }).catch(() => null)
+          return jsonResponse({
+            error: 'Smart Tokens insuficientes.',
+            code: 'INSUFFICIENT_SMART_TOKENS',
+            required_tokens: economicQuote.totalCost,
+            available_tokens: availableTokens,
+          }, 402)
+        }
+        try {
+          const reservation = await economy.reserve({
+            userId: authenticatedUserId,
+            quote: economicQuote,
+            clientRequestId,
+            campaignId: hasCampaignId ? String(campaign_id) : null,
+          })
+          if (reservation.amount !== economicQuote.totalCost || reservation.status !== 'reserved') throw new Error('reservation_mismatch')
+          await economy.attachReservation({
+            userId: authenticatedUserId,
+            clientRequestId,
+            claimToken: economicClaim.claimToken!,
+            reservationId: reservation.id,
+          })
+        } catch (error) {
+          const currentBalance = await economy.getAvailableBalance(authenticatedUserId).catch(() => null)
+          await economy.failPrepared({ userId: authenticatedUserId, clientRequestId, claimToken: economicClaim.claimToken!, reason: 'reservation_failed' }).catch(() => null)
+          if (currentBalance !== null && currentBalance < economicQuote.totalCost) {
+            return jsonResponse({ error: 'Smart Tokens insuficientes.', code: 'INSUFFICIENT_SMART_TOKENS', required_tokens: economicQuote.totalCost, available_tokens: currentBalance }, 402)
+          }
+          return jsonResponse({ error: 'Não foi possível reservar Smart Tokens.', code: 'RESERVATION_FAILED' }, 503)
+        }
+      }
+      if (requestedAction === 'prepare') {
+        return jsonResponse({
+          success: true,
+          status: 'PREPARED',
+          client_request_id: clientRequestId,
+          economy_claim_token: economicClaim.claimToken,
+          item_count: economicQuote.itemCount,
+          required_tokens: isUnlimitedTestAdmin ? 0 : economicQuote.totalCost,
+          admin_bypass: isUnlimitedTestAdmin,
+        })
+      }
+    } else if (requestedAction === 'prepare') {
+      return jsonResponse({ success: false, status: economicClaim.status.toUpperCase(), code: 'REQUEST_PROCESSING' }, 202)
+    }
+
+    if (requestedAction === 'cancel_prepared') {
+      if (!suppliedClaimToken) return jsonResponse({ error: 'Claim obrigatório.', code: 'INVALID_CLAIM' }, 409)
+      const failed = await economy.failPrepared({ userId: authenticatedUserId, clientRequestId, claimToken: suppliedClaimToken, reason: 'campaign_generation_failed' })
+      return jsonResponse({ success: true, status: failed.status.toUpperCase() })
+    }
+    const executionToken = economicClaim.claimed ? economicClaim.claimToken || '' : suppliedClaimToken
+    if (!executionToken) return jsonResponse({ success: false, status: economicClaim.status.toUpperCase(), code: 'REQUEST_PROCESSING' }, 202)
+    const execution = await economy.beginExecution({ userId: authenticatedUserId, clientRequestId, claimToken: executionToken })
+    if (!execution.claimed) return jsonResponse({ success: false, status: execution.status.toUpperCase(), code: 'REQUEST_PROCESSING' }, 202)
+    economicClaim = execution
+    cleanupEconomicRequest = () => economy.failPrepared({
+      userId: authenticatedUserId,
+      clientRequestId,
+      claimToken: executionToken,
+      reason: 'unexpected_batch_failure',
+    })
+
+    const economicItemsByPiece = new Map(economicClaim.items.map(item => [String(item.piece_id), item]))
+    const economicItemFor = (piece: SelectedTemplatePiece) => economicItemsByPiece.get(piece.piece_id)
+    const finalizeEconomicPiece = async (piece: SelectedTemplatePiece, status: string, result: Record<string, unknown> = {}) => {
+      const item = economicItemFor(piece)
+      if (typeof item?.id !== 'string') return
+      await economy.finalizeItem({ userId: authenticatedUserId, itemId: item.id, status, result })
+      await economy.settle({ userId: authenticatedUserId, clientRequestId })
+    }
+
+    // The legacy per-piece ledger remains readable for historical renders, but
+    // every new request is settled exclusively by the batch reservation above.
+    const effectiveCreditCost = 0
     const idempotencyKey = typeof idempotency_key === 'string' ? idempotency_key.trim() : ''
     const creditMetadata = {
       campaign_id: hasCampaignId ? campaign_id : null,
@@ -1787,7 +1919,12 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
     ) => {
       const meta = validIds.get(piece.template_id)
       const amount = TEMPLATE_CREDIT_WEIGHTS.get(piece.template_id) || 0
+      const economicItem = economicItemFor(piece)
       return {
+        quick_banner_request_id: economicClaim.requestId,
+        quick_banner_item_id: typeof economicItem?.id === 'string' ? economicItem.id : null,
+        client_request_id: clientRequestId,
+        admin_bypass: isUnlimitedTestAdmin,
         piece_id: piece.piece_id,
         piece_index: index,
         model_id: piece.model_id || null,
@@ -1804,9 +1941,9 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
         error_stage: errorStage,
         error_code: errorCode,
         error_message: erro,
-        credit_amount: effectiveCreditCost > 0 ? (piece.credit_cost || amount) : 0,
+        credit_amount: isUnlimitedTestAdmin ? 0 : 45,
         credit_idempotency_key: null,
-        credit_status: effectiveCreditCost > 0 && amount > 0 ? 'cancelled' : 'not_required',
+        credit_status: isUnlimitedTestAdmin ? 'not_required' : 'reserved',
       }
     }
     const failedBeforeRender: Array<Record<string, unknown>> = []
@@ -1821,12 +1958,13 @@ DADOS DO CORRETOR (use exatamente esses; não invente nem use nomes/emails/telef
         'creatomate_elements',
         'creatomate_elements_failed',
       ))
+      await Promise.all(pickedPieces.map(piece => finalizeEconomicPiece(piece, 'failed', { error_stage: 'creatomate_elements' })))
       return jsonResponse({
         success: true,
         warning: 'Nenhuma peca visual foi criada. As pecas foram marcadas como falha.',
         renders,
         pick_source: 'user',
-        credit_cost: effectiveCreditCost,
+        credit_cost: economicQuote.totalCost,
         credit_reservation_status: 'cancelled',
       }, 200)
     }
@@ -2081,12 +2219,13 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         'openai_fill',
         'openai_fill_failed',
       ))
+      await Promise.all(pickedPieces.map(piece => finalizeEconomicPiece(piece, 'failed', { error_stage: 'openai_fill' })))
       return jsonResponse({
         success: true,
         warning: 'As pecas visuais falharam antes da criacao do render.',
         renders,
         pick_source: 'user',
-        credit_cost: effectiveCreditCost,
+        credit_cost: economicQuote.totalCost,
         credit_reservation_status: 'cancelled',
       }, 200)
     }
@@ -2230,12 +2369,13 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     }).filter((piece): piece is SelectedTemplatePiece & { modifications: Record<string, unknown> } => Boolean(piece))
 
     if (pecasAprovadas.length === 0) {
+      await Promise.all(pickedPieces.map(piece => finalizeEconomicPiece(piece, 'failed', { error_stage: 'modifications_build' })))
       return jsonResponse({
         success: true,
         warning: 'Nenhuma peca visual foi criada. As pecas foram marcadas como falha.',
         renders: failedBeforeRender,
         pick_source: 'user',
-        credit_cost: effectiveCreditCost,
+        credit_cost: economicQuote.totalCost,
         credit_reservation_status: 'cancelled',
       }, 200)
     }
@@ -2272,6 +2412,11 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
     }
 
     console.log(`[${reqId}] estagio 3: ${pecasAprovadas.length} pecas prontas para render | ${failedBeforeRender.length} falhas antes do render`)
+
+    const approvedPieceIds = new Set(pecasAprovadas.map(piece => piece.piece_id))
+    await Promise.all(pickedPieces.filter(piece => !approvedPieceIds.has(piece.piece_id)).map(piece => (
+      finalizeEconomicPiece(piece, 'failed', { error_stage: 'before_render' })
+    )))
 
     const blockedPieceIds = new Set<string>()
 
@@ -2423,6 +2568,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           if (reservation?.status === 'reserved') {
             await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_failed')
           }
+          await finalizeEconomicPiece(sel, 'failed', { error_stage: 'creatomate_render', http_status: createRes.status })
           renders.push({
             piece_id: sel.piece_id,
             piece_index: index,
@@ -2457,6 +2603,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           if (reservation?.status === 'reserved') {
             await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_empty_response')
           }
+          await finalizeEconomicPiece(sel, 'failed', { error_stage: 'creatomate_render', error_code: 'empty_response' })
           renders.push({
             piece_id: sel.piece_id,
             piece_index: index,
@@ -2488,6 +2635,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             if (reservation?.status === 'reserved') {
               await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_missing_render_id')
             }
+            await finalizeEconomicPiece(sel, 'failed', { error_stage: 'creatomate_render', error_code: 'missing_render_id' })
             renders.push({
               piece_id: sel.piece_id,
               piece_index: index,
@@ -2511,6 +2659,10 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             continue
           }
           renders.push({
+            quick_banner_request_id: economicClaim.requestId,
+            quick_banner_item_id: typeof economicItemFor(sel)?.id === 'string' ? economicItemFor(sel)?.id : null,
+            client_request_id: clientRequestId,
+            admin_bypass: isUnlimitedTestAdmin,
             piece_id: sel.piece_id,
             piece_index: index,
             model_id: sel.model_id || null,
@@ -2530,7 +2682,23 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
             snapshot_url: initialFinalUrl,
             payload_enviado: payloadEnviado,
             ...pieceCredit,
+            credit_amount: isUnlimitedTestAdmin ? 0 : 45,
+            credit_status: isUnlimitedTestAdmin ? 'not_required' : 'reserved',
           })
+          const economicItem = economicItemFor(sel)
+          if (typeof economicItem?.id === 'string') {
+            await economy.markRendering({
+              userId: authenticatedUserId,
+              clientRequestId,
+              claimToken: executionToken,
+              itemId: economicItem.id,
+              renderId: String(item.id),
+              metadata: { provider: 'creatomate', template_id: sel.template_id, media_class: validIds.get(sel.template_id)?.categoria || null },
+            })
+            if (initialReady || ['failed', 'error', 'canceled', 'timeout'].includes(initialStatus)) {
+              await finalizeEconomicPiece(sel, initialStatus, { render_id: item.id, url: initialFinalUrl })
+            }
+          }
         }
       } catch (err) {
         const serializedError = serializeErrorForLog(err)
@@ -2555,6 +2723,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         if (reservation?.status === 'reserved') {
           await cancelPieceReservations(supabase, reqId, authenticatedUserId, [reservation], 'creatomate_create_error')
         }
+        await finalizeEconomicPiece(sel, 'failed', { error_stage: 'creatomate_render', error_code: serializedError.code || 'create_error' })
         renders.push({
           piece_id: sel.piece_id,
           piece_index: index,
@@ -2584,6 +2753,20 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
       }
     }))
 
+    for (const render of renders) {
+      const piece = pickedPieces.find(item => item.piece_id === render.piece_id)
+      if (!piece) continue
+      const economicItem = economicItemFor(piece)
+      Object.assign(render, {
+        quick_banner_request_id: economicClaim.requestId,
+        quick_banner_item_id: typeof economicItem?.id === 'string' ? economicItem.id : null,
+        client_request_id: clientRequestId,
+        admin_bypass: isUnlimitedTestAdmin,
+        credit_amount: isUnlimitedTestAdmin ? 0 : 45,
+        credit_status: isUnlimitedTestAdmin ? 'not_required' : render.credit_status === 'cancelled' ? 'cancelled' : 'reserved',
+      })
+    }
+
     const successfulRenderCount = renders.filter((render) => typeof render.render_id === 'string').length
     if (effectiveCreditCost > 0 && successfulRenderCount === 0) {
       await cancelPieceReservations(supabase, reqId, authenticatedUserId, pieceCreditReservations, 'nenhum_render_criado')
@@ -2592,7 +2775,7 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
         warning: 'Nenhum render foi criado. As reservas de creditos foram canceladas.',
         renders,
         pick_source: 'user',
-        credit_cost: effectiveCreditCost,
+        credit_cost: economicQuote.totalCost,
         credit_reservation_status: 'cancelled',
       }, 200)
     }
@@ -2611,25 +2794,27 @@ Gere um objeto "modifications" usando APENAS os nomes de elementos listados acim
           warning: `Renders disparados, mas não foi possível salvar em campaigns.banners: ${updErr.message}`,
           renders,
           pick_source: 'user',
-          credit_cost: effectiveCreditCost,
-          credit_reservation_status: effectiveCreditCost > 0 ? 'reserved_per_piece' : 'not_required',
+          credit_cost: economicQuote.totalCost,
+          credit_reservation_status: isUnlimitedTestAdmin ? 'admin_bypass' : 'reserved_batch',
         }, 200)
       }
     }
 
     console.log(`[${reqId}] OK | ${renders.length} renders disparados | pick=user`)
+    cleanupEconomicRequest = null
     return jsonResponse({
       success: true,
       renders,
       pick_source: 'user',
-      credit_cost: effectiveCreditCost,
-      credit_reservation_status: effectiveCreditCost > 0 ? 'reserved_per_piece' : 'not_required',
+      credit_cost: economicQuote.totalCost,
+      credit_reservation_status: isUnlimitedTestAdmin ? 'admin_bypass' : 'reserved_batch',
       requested_count: pickedPieces.length,
       success_count: renders.filter((render) => typeof render.render_id === 'string').length,
       failed_count: renders.filter((render) => String(render.status || '').toLowerCase() === 'failed').length,
     }, 200)
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
+    if (cleanupEconomicRequest) await cleanupEconomicRequest().catch(() => null)
     if (pieceCreditReservations.length > 0 && supabaseClient && cleanupUserId) {
       await cancelPieceReservations(supabaseClient, reqId, cleanupUserId, pieceCreditReservations, 'erro_inesperado')
     }

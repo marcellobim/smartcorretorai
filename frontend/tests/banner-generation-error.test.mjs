@@ -28,17 +28,18 @@ test('falha de upload mantém o contrato existente de no máximo duas tentativas
   assert.match(gerarAnuncios, /if \(url\) fotos_urls\.push\(url\)/)
 })
 
-test('falha em gerar-campanha impede o início de gerar-banners', () => {
+test('falha em gerar-campanha impede a execução visual após a preparação econômica', () => {
+  const economicPreparation = gerarAnuncios.indexOf("invokeBanners('prepare')")
   const campaignInvoke = gerarAnuncios.indexOf("functions.invoke('gerar-campanha'")
   const campaignValidation = gerarAnuncios.indexOf("if (!campaignData) throw new Error")
-  const bannerExecution = gerarAnuncios.indexOf('await Promise.allSettled([invokeBanners()])')
-  assert.ok(campaignInvoke > -1 && campaignValidation > campaignInvoke)
+  const bannerExecution = gerarAnuncios.indexOf("await Promise.allSettled([invokeBanners('execute', economyClaimToken)])")
+  assert.ok(economicPreparation > -1 && campaignInvoke > economicPreparation && campaignValidation > campaignInvoke)
   assert.ok(bannerExecution > campaignValidation)
 })
 
 test('falha em gerar-banners preserva o resultado textual já exibido', () => {
   const result = gerarAnuncios.indexOf('setResultado(camp)')
-  const bannerExecution = gerarAnuncios.indexOf('await Promise.allSettled([invokeBanners()])')
+  const bannerExecution = gerarAnuncios.indexOf("await Promise.allSettled([invokeBanners('execute', economyClaimToken)])")
   const bannerFailureNotice = gerarAnuncios.indexOf('Textos IA gerados. Materiais visuais não foram iniciados agora')
   assert.ok(result > -1 && bannerExecution > result && bannerFailureNotice > bannerExecution)
 })

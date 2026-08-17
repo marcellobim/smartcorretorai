@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createQuickBannerEconomy } from '../gerar-banners/economy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,6 +72,34 @@ async function finalizePieceCredit(
   storedRender: StoredRender | undefined,
   status: string,
 ) {
+  const quickBannerItemId = typeof storedRender?.quick_banner_item_id === 'string' ? storedRender.quick_banner_item_id : ''
+  const clientRequestId = typeof storedRender?.client_request_id === 'string' ? storedRender.client_request_id : ''
+  const adminBypass = storedRender?.admin_bypass === true
+  if (quickBannerItemId && clientRequestId) {
+    if (!FINAL_STATUSES.has(status)) return 'reserved'
+    try {
+      const economy = createQuickBannerEconomy(supabase)
+      await economy.finalizeItem({
+        userId,
+        itemId: quickBannerItemId,
+        status,
+        result: {
+          render_id: storedRender?.render_id || null,
+          template_id: storedRender?.template_id || null,
+          render_status: status,
+          provider: 'creatomate',
+        },
+      })
+      const settlement = await economy.settle({ userId, clientRequestId })
+      const requestStatus = typeof settlement?.status === 'string' ? settlement.status : ''
+      if (requestStatus !== 'completed' && requestStatus !== 'failed') return 'reserved'
+      if (adminBypass) return 'not_required'
+      return READY_STATUSES.has(status) ? 'consumed' : 'cancelled'
+    } catch (error) {
+      console.warn(`[${reqId}] falha ao liquidar item econômico ${quickBannerItemId}:`, error instanceof Error ? error.message : String(error))
+      return 'reserved'
+    }
+  }
   const creditKey = typeof storedRender?.credit_idempotency_key === 'string'
     ? storedRender.credit_idempotency_key
     : ''

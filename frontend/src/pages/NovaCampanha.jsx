@@ -954,8 +954,11 @@ const getSuggestedHashtags = (...values) => {
 }
 
 const createGenerationIdempotencyKey = (userId) => {
-  const randomPart = window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
-  return `${userId || 'user'}:${Date.now()}:${randomPart}`
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+    const value = Math.floor(Math.random() * 16)
+    return (char === 'x' ? value : (value & 0x3) | 0x8).toString(16)
+  })
 }
 
 const SMART_CAMPAIGNS = [
@@ -2395,6 +2398,7 @@ export default function NovaCampanha() {
     setGenerationNotice('')
     setGenerationError('')
 
+    let cancelPreparedEconomy = null
     try {
       const todosDisferenciais = destaquesProduto3
 
@@ -2477,13 +2481,8 @@ export default function NovaCampanha() {
       // ── Templates escolhidos pelo usuário (somente os marcados) ──
       // Bloqueia qualquer geração automática de templates não escolhidos.
       const selectedTemplates = selectedTemplatePayload
-      const idempotencyKey = createGenerationIdempotencyKey(userId)
-      const creditPayload = {
-        credit_cost: generationCreditCost,
-        generation_mode: generationModeForCredits,
-        video_ia_premium: generationHasPremiumVideo,
-        idempotency_key: idempotencyKey,
-      }
+      const clientRequestId = createGenerationIdempotencyKey(userId)
+      const creditPayload = { client_request_id: clientRequestId }
       // Inputs derivados do formulário para o gerar-banners (não dependem do AI ainda)
       const enderecoCompleto = [bairroNormalizado, cidade].filter(Boolean).join(', ')
         + (estado ? ` - ${estado}` : '')
@@ -2528,7 +2527,7 @@ export default function NovaCampanha() {
       setRequestedVisualPieces(selectedTemplates)
 
       // A criação visual só é iniciada depois que a campanha indispensável é validada.
-      const invokeBanners = () => selectedTemplates.length > 0
+      const invokeBanners = (economyAction = 'execute', economyClaimToken = null) => selectedTemplates.length > 0
         ? supabase.functions.invoke('gerar-banners', {
             headers: { Authorization: `Bearer ${token}` },
             body: {
@@ -2560,10 +2559,27 @@ export default function NovaCampanha() {
               corretor_nome: authedUser?.displayName || authedUser?.full_name || authedUser?.nome || authedUser?.email?.split('@')[0] || '',
               corretor_avatar_url: corretorAvatarUrl,
               marca_imovel: authedUser?.imobiliaria || authedUser?.marca || authedUser?.nome_imobiliaria || '',
+              economy_action: economyAction,
+              economy_claim_token: economyClaimToken,
               ...creditPayload,
             },
           })
         : Promise.resolve({ data: { renders: [], skipped: true }, error: null })
+
+      let economyClaimToken = null
+      if (selectedTemplates.length > 0) {
+        const prepared = await invokeBanners('prepare')
+        if (prepared.error || prepared.data?.code === 'INSUFFICIENT_SMART_TOKENS') {
+          const body = prepared.data || await readFunctionErrorBody(prepared.error)
+          if (body?.code === 'INSUFFICIENT_SMART_TOKENS') {
+            throw new Error(`Saldo insuficiente: necessários ${body.required_tokens} Smart Tokens; disponíveis ${body.available_tokens}.`)
+          }
+          throw new Error(body?.error || prepared.error?.message || 'Não foi possível reservar Smart Tokens.')
+        }
+        economyClaimToken = prepared.data?.economy_claim_token || null
+        if (!economyClaimToken) throw new Error('A preparação econômica não retornou um claim válido.')
+        cancelPreparedEconomy = () => invokeBanners('cancel_prepared', economyClaimToken)
+      }
 
       const [campaignResult] = await Promise.allSettled([
         supabase.functions.invoke('gerar-campanha', {
@@ -2657,7 +2673,8 @@ export default function NovaCampanha() {
       setFase('resultado')
 
       setGerandoBanners(selectedTemplates.length > 0)
-      const [bannersResult] = await Promise.allSettled([invokeBanners()])
+      const [bannersResult] = await Promise.allSettled([invokeBanners('execute', economyClaimToken)])
+      cancelPreparedEconomy = null
 
       // ── Processar resultado dos BANNERS (renders) ──
       if (bannersResult.status === 'fulfilled') {
@@ -2712,6 +2729,7 @@ export default function NovaCampanha() {
       setTimeout(() => setShowAgendamento(true), 1800)
 
     } catch {
+      if (cancelPreparedEconomy) await cancelPreparedEconomy().catch(() => null)
       if (import.meta.env.DEV) console.error('[gerarAnuncios] falha controlada')
       setGenerationError(CAMPAIGN_GENERATION_ERROR)
       toast.error(CAMPAIGN_GENERATION_ERROR)
@@ -3027,7 +3045,22 @@ export default function NovaCampanha() {
       return
     }
 
-    const selectedTemplates = selectedTemplatePayload
+    const retryableRenders = Array.isArray(renders)
+      ? renders.filter(render => RENDER_ERROR_STATUSES.has(normalizeRenderStatus(render?.status)) && render?.quick_banner_item_id)
+      : []
+    const hasPriorRenders = Array.isArray(renders) && renders.length > 0
+    if (hasPriorRenders && retryableRenders.length === 0) {
+      toast.error('Não há peça falha persistida disponível para uma nova tentativa segura.')
+      return
+    }
+    const selectedTemplates = hasPriorRenders
+      ? retryableRenders.map(render => ({
+          ...(selectedTemplatePayload.find(item => item.piece_id === render.piece_id || item.template_id === render.template_id) || {}),
+          piece_id: render.piece_id,
+          template_id: render.template_id,
+          retry_of_item_id: render.quick_banner_item_id,
+        }))
+      : selectedTemplatePayload
     if (selectedTemplates.length === 0) {
       toast.error('Selecione ao menos um banner ou vídeo no formulário')
       return
@@ -3037,13 +3070,7 @@ export default function NovaCampanha() {
       return
     }
 
-    const idempotencyKey = createGenerationIdempotencyKey(authedUser?.id)
-    const creditPayload = {
-      credit_cost: generationCreditCost,
-      generation_mode: generationModeForCredits,
-      video_ia_premium: generationHasPremiumVideo,
-      idempotency_key: idempotencyKey,
-    }
+    const creditPayload = { client_request_id: createGenerationIdempotencyKey(authedUser?.id) }
 
     setGerandoBanners(true)
     setRenders(null)

@@ -1,4 +1,4 @@
-export const ECONOMIC_CATALOG_VERSION = '2026-08-16.phase1.v1'
+export const ECONOMIC_CATALOG_VERSION = '2026-08-17.quick-banners.v1'
 
 // Global rollout stays disabled. A product can opt in only after its provider
 // pipeline is migrated and its canonical SKU is explicitly enabled below.
@@ -72,9 +72,14 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
     telemetryRequired: true,
   }),
 
-  sku('quick_banners', 'static_pieces_1', 100, 'composite', true, { quantity: 1, media: 'static' }),
-  sku('quick_banners', 'static_pieces_3', 300, 'composite', true, { quantity: 3, media: 'static' }),
-  sku('quick_banners', 'static_pieces_5', 500, 'composite', false, { quantity: 5, media: 'static' }),
+  // Product 2 is quoted server-side by multiplying this canonical unit.
+  // Static and video deliveries intentionally have the same public weight.
+  sku('quick_banners', 'item', 45, 'composite', false, {
+    quantity: 1,
+    media: 'mixed',
+    pricingStatus: 'approved',
+    maxItemsPerRequest: 5,
+  }, true),
 
   sku('virtual_staging', 'images_1', 200, 'openai_image', true, {
     quantity: 1,

@@ -11,8 +11,8 @@ import {
 } from '../economic-catalog.ts'
 
 test('canonical catalog contains unique versioned server-side SKUs', () => {
-  assert.equal(ECONOMIC_CATALOG_VERSION, '2026-08-16.phase1.v1')
-  assert.equal(ECONOMIC_SKUS.length, 20)
+  assert.equal(ECONOMIC_CATALOG_VERSION, '2026-08-17.quick-banners.v1')
+  assert.equal(ECONOMIC_SKUS.length, 18)
   const keys = ECONOMIC_SKUS.map(item => `${item.productCode}:${item.variant}`)
   assert.equal(new Set(keys).size, keys.length)
   assert.ok(ECONOMIC_SKUS.every(item => item.catalogVersion === ECONOMIC_CATALOG_VERSION))
@@ -40,9 +40,7 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
       'real_estate_banner:pieces_3': 500,
       'real_estate_banner:pieces_5': 800,
       'real_estate_banner:pieces_6': 900,
-      'quick_banners:static_pieces_1': 100,
-      'quick_banners:static_pieces_3': 300,
-      'quick_banners:static_pieces_5': 500,
+      'quick_banners:item': 45,
       'virtual_staging:images_1': 200,
       'virtual_staging:images_3': 500,
       'virtual_staging:images_5': 800,
@@ -54,9 +52,9 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
   assert.equal(ECONOMIC_SKUS.some(item => /google.?ads/i.test(`${item.productCode}:${item.variant}`)), false)
 })
 
-test('only the migrated text campaign SKU can be quoted while global activation remains false', () => {
+test('only migrated product SKUs can be quoted while global activation remains false', () => {
   assert.equal(ECONOMIC_CATALOG_ACTIVATED, false)
-  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['text_campaign:standard'])
+  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['text_campaign:standard', 'quick_banners:item'])
   assert.equal(quoteEconomicSku('text_campaign', 'standard').smartTokenCost, 100)
   assert.throws(() => quoteEconomicSku('real_estate_video', 'standard'), /economic_catalog_not_activated/)
   assert.equal(Object.isFrozen(ECONOMIC_SKUS), true)
@@ -65,7 +63,8 @@ test('only the migrated text campaign SKU can be quoted while global activation 
 
 test('trial eligibility and provisional pricing follow the approved model', () => {
   assert.equal(getEconomicSku('text_campaign', 'standard').trialEligible, true)
-  assert.equal(getEconomicSku('quick_banners', 'static_pieces_3').trialEligible, true)
+  assert.equal(getEconomicSku('quick_banners', 'item').trialEligible, false)
+  assert.equal(quoteEconomicSku('quick_banners', 'item').smartTokenCost, 45)
   assert.equal(getEconomicSku('real_estate_banner', 'pieces_1').trialEligible, true)
   assert.equal(getEconomicSku('virtual_staging', 'images_1').trialEligible, true)
   assert.equal(getEconomicSku('smart_carousel', 'photos_5').trialEligible, false)
