@@ -11,7 +11,7 @@ import {
 } from '../economic-catalog.ts'
 
 test('canonical catalog contains unique versioned server-side SKUs', () => {
-  assert.equal(ECONOMIC_CATALOG_VERSION, '2026-08-17.gemini-video-family.v1')
+  assert.equal(ECONOMIC_CATALOG_VERSION, '2026-08-17.veo-video-family.v1')
   assert.equal(ECONOMIC_SKUS.length, 15)
   const keys = ECONOMIC_SKUS.map(item => `${item.productCode}:${item.variant}`)
   assert.equal(new Set(keys).size, keys.length)
@@ -33,8 +33,8 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
       'life_in_property:standard': 325,
       'broker_presentation:standard': 325,
       'short_videos:standard': 325,
-      'real_estate_commercial:standard': 275,
-      'creative_video:standard': 275,
+      'real_estate_commercial:standard': 120,
+      'creative_video:standard': 120,
       'text_campaign:standard': 25,
       'real_estate_banner:item': 75,
       'quick_banners:item': 45,
@@ -51,9 +51,11 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
 
 test('only migrated product SKUs can be quoted while global activation remains false', () => {
   assert.equal(ECONOMIC_CATALOG_ACTIVATED, false)
-  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['real_estate_video:standard', 'life_in_property:standard', 'broker_presentation:standard', 'short_videos:standard', 'text_campaign:standard', 'real_estate_banner:item', 'quick_banners:item'])
+  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['real_estate_video:standard', 'life_in_property:standard', 'broker_presentation:standard', 'short_videos:standard', 'real_estate_commercial:standard', 'creative_video:standard', 'text_campaign:standard', 'real_estate_banner:item', 'quick_banners:item'])
   assert.equal(quoteEconomicSku('text_campaign', 'standard').smartTokenCost, 25)
   assert.equal(quoteEconomicSku('real_estate_video', 'standard').smartTokenCost, 325)
+  assert.equal(quoteEconomicSku('real_estate_commercial', 'standard').smartTokenCost, 120)
+  assert.equal(quoteEconomicSku('creative_video', 'standard').smartTokenCost, 120)
   assert.equal(Object.isFrozen(ECONOMIC_SKUS), true)
   assert.equal(Object.isFrozen(getEconomicSku('text_campaign', 'standard')), true)
 })

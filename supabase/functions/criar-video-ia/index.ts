@@ -2,6 +2,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { startVeoVideo } from '../_shared/veoClient.ts'
 import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
+import {
+  claimVeoVideoEconomy,
+  insufficientVeoVideoTokensResponse,
+  productCodeForVeoMode,
+  settleVeoVideoEconomy,
+  updateVeoVideoEconomyTelemetry,
+} from '../_shared/veo-video-economy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +18,6 @@ const corsHeaders = {
 }
 
 const DEFAULT_MODEL = 'veo-3.1-lite-generate-preview'
-const DEFAULT_TOKEN_COST = 500
 const VIDEO_BUCKET = 'studio-videos'
 const STUDIO_HERO_CTA_LIBRARY_PREFIX = 'system/studio-hero/cta'
 const PROMPT_TEST_MODE: 'controlled_narrative' | 'narrative' | 'legacy' = 'controlled_narrative'
@@ -3350,49 +3356,6 @@ function buildActiveStudioHeroPrompt(input: {
   )
 }
 
-function getTokenCost() {
-  const configured = Number(Deno.env.get('STUDIO_HERO_TOKEN_COST') || '')
-  return Number.isFinite(configured) && configured > 0
-    ? Math.floor(configured)
-    : DEFAULT_TOKEN_COST
-}
-
-async function reserveCredits(supabase: ReturnType<typeof createClient>, userId: string, jobId: string, amount: number) {
-  const idempotencyKey = `studio-hero:${jobId}`
-  const { data, error } = await supabase.rpc('reserve_credits', {
-    p_user_id: userId,
-    p_amount: amount,
-    p_idempotency_key: idempotencyKey,
-    p_campaign_id: null,
-    p_reason: 'studio-hero-video',
-    p_metadata: {
-      product: 'studio_hero',
-      mode: 'dynamic_reel',
-      job_id: jobId,
-    },
-  })
-
-  if (error) throw new Error(error.message || 'credit_reservation_failed')
-  const [reservation] = Array.isArray(data) ? data : []
-  if (!reservation?.idempotency_key) throw new Error('credit_reservation_empty')
-  return {
-    id: reservation.id as string | undefined,
-    idempotencyKey: reservation.idempotency_key as string,
-    amount: Number(reservation.amount || amount),
-    status: String(reservation.status || 'reserved'),
-  }
-}
-
-async function cancelCredits(supabase: ReturnType<typeof createClient>, userId: string, idempotencyKey: string, reason: string) {
-  if (!idempotencyKey) return
-  const { error } = await supabase.rpc('cancel_credit_reservation', {
-    p_user_id: userId,
-    p_idempotency_key: idempotencyKey,
-    p_reason: reason,
-  })
-  if (error) console.warn('[criar-video-ia] falha ao cancelar reserva:', error.message)
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -3450,6 +3413,8 @@ serve(async (req) => {
       || normalizeText(body.creativeMode, 40).toLowerCase() === 'free_ai'
     const inputImage1Path = isFreeAiRequest ? '' : normalizeStoragePath(body.inputImage1Path, user.id)
     const requestedJobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
+    const jobMode = isFreeAiRequest ? 'free_ai' : 'dynamic_reel'
+    const productCode = productCodeForVeoMode(jobMode)
     markDiagnosticStage('LOG 1 OK - payload validado inicialmente', {
       userId: user.id,
       requestedJobId,
@@ -3481,6 +3446,27 @@ serve(async (req) => {
         success: false,
         error: 'Nao foi possivel validar a imagem enviada.',
       }, 400)
+    }
+
+    const { data: existingJob, error: existingJobError } = await supabase
+      .from('video_jobs')
+      .select('id, status, mode')
+      .eq('id', requestedJobId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (existingJobError) throw new Error(`video_job_lookup_failed:${existingJobError.message}`)
+    if (existingJob) {
+      if (String(existingJob.mode || '') !== jobMode) {
+        return jsonResponse({ success: false, error: 'client_request_id ja utilizado por outro produto.' }, 409)
+      }
+      return jsonResponse({
+        ok: true,
+        success: true,
+        jobId: existingJob.id,
+        job_id: existingJob.id,
+        status: existingJob.status === 'completed' ? 'completed' : existingJob.status === 'failed' ? 'failed' : 'generating',
+        message: existingJob.status === 'completed' ? 'Video pronto.' : 'Gerando seu video.',
+      })
     }
 
     if (isFreeAiRequest) {
@@ -3566,7 +3552,7 @@ serve(async (req) => {
         id: requestedJobId,
         user_id: user.id,
         status: 'pending',
-        mode: isFreeAiRequest ? 'free_ai' : 'dynamic_reel',
+        mode: jobMode,
         style,
         model,
         prompt_final: null,
@@ -3578,6 +3564,22 @@ serve(async (req) => {
       .single()
 
     if (insertError || !job?.id) {
+      const { data: concurrentJob } = await supabase
+        .from('video_jobs')
+        .select('id, status, mode')
+        .eq('id', requestedJobId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (concurrentJob && String(concurrentJob.mode || '') === jobMode) {
+        return jsonResponse({
+          ok: true,
+          success: true,
+          jobId: concurrentJob.id,
+          job_id: concurrentJob.id,
+          status: concurrentJob.status === 'completed' ? 'completed' : concurrentJob.status === 'failed' ? 'failed' : 'generating',
+          message: concurrentJob.status === 'completed' ? 'Video pronto.' : 'Gerando seu video.',
+        })
+      }
       markDiagnosticStage('LOG 7 ERRO - falha ao criar video_jobs', {
         requestedJobId,
         userId: user.id,
@@ -3619,48 +3621,68 @@ serve(async (req) => {
       }, 503)
     }
 
-    const tokenCost = isAdminBypass ? 0 : getTokenCost()
-    let creditIdempotencyKey = ''
+    let acceptedProviderJobId = ''
 
     try {
       markDiagnosticStage('LOG 7.1 - preparando Smart Tokens', {
         jobId: job.id,
         userId: user.id,
-        tokenCost,
+        productCode,
+        tokenCost: isAdminBypass ? 0 : 120,
         isAdminBypass,
       })
 
-      if (tokenCost > 0) {
-        const reservation = await reserveCredits(supabase, user.id, job.id, tokenCost)
-        creditIdempotencyKey = reservation.idempotencyKey
+      const economyClaim = await claimVeoVideoEconomy(supabase, {
+        userId: user.id,
+        clientRequestId: job.id,
+        productCode,
+        jobId: job.id,
+        adminBypass: isAdminBypass,
+        metadata: {
+          product_name: productCode === 'creative_video' ? 'Video Criativo' : 'Comercial Imobiliario',
+          duration_seconds: 8,
+          resolution: '720p',
+          fps: 24,
+          has_input_image: Boolean(inputImage1Path),
+          has_last_frame: Boolean(inputImage2Path),
+          audio_requested: true,
+        },
+      })
 
-        await supabase
-          .from('video_jobs')
-          .update({
-            status: 'generating',
-            tokens_reserved: reservation.amount,
-            credit_reservation_id: reservation.id || null,
-            credit_idempotency_key: reservation.idempotencyKey,
-          })
-          .eq('id', job.id)
-          .eq('user_id', user.id)
-      } else {
-        await supabase
-          .from('video_jobs')
-          .update({
-            status: 'generating',
-            tokens_reserved: 0,
-            credit_reservation_id: null,
-            credit_idempotency_key: null,
-          })
-          .eq('id', job.id)
-          .eq('user_id', user.id)
+      if (economyClaim.status === 'insufficient') {
+        await supabase.from('video_jobs').update({
+          status: 'failed', error_message: 'INSUFFICIENT_SMART_TOKENS', tokens_reserved: 0,
+        }).eq('id', job.id).eq('user_id', user.id)
+        return jsonResponse({
+          ...insufficientVeoVideoTokensResponse(economyClaim), jobId: job.id, job_id: job.id, status: 'failed',
+        }, 402)
       }
+
+      if (!economyClaim.executionClaimed) {
+        return jsonResponse({
+          ok: true, success: true, jobId: job.id, job_id: job.id,
+          status: economyClaim.status === 'completed' ? 'completed' : economyClaim.status === 'failed' ? 'failed' : 'generating',
+          message: economyClaim.status === 'completed' ? 'Video pronto.' : 'Gerando seu video.',
+        })
+      }
+
+      const { error: economyJobUpdateError } = await supabase
+        .from('video_jobs')
+        .update({
+          status: 'generating',
+          tokens_reserved: economyClaim.adminBypass ? 0 : economyClaim.requiredTokens,
+          credit_reservation_id: economyClaim.reservationId || null,
+          credit_idempotency_key: economyClaim.idempotencyKey || null,
+        })
+        .eq('id', job.id)
+        .eq('user_id', user.id)
+      if (economyJobUpdateError) throw new Error('video_economy_persist_failed')
 
       markDiagnosticStage('LOG 7.1 OK - Smart Tokens preparados', {
         jobId: job.id,
-        tokenCost,
-        hasCreditReservation: Boolean(creditIdempotencyKey),
+        productCode,
+        tokenCost: economyClaim.adminBypass ? 0 : economyClaim.requiredTokens,
+        hasCreditReservation: Boolean(economyClaim.reservationId),
         isAdminBypass,
       })
 
@@ -3854,20 +3876,39 @@ serve(async (req) => {
         bucket: VIDEO_BUCKET,
         supabase,
       })
+      acceptedProviderJobId = veoResult.providerJobId
+
+      await updateVeoVideoEconomyTelemetry(supabase, {
+        userId: user.id,
+        clientRequestId: job.id,
+        providerJobId: acceptedProviderJobId,
+        model,
+        telemetry: {
+          provider: 'google',
+          provider_accepted: true,
+          duration_seconds: 8,
+          resolution: '720p',
+          fps: 24,
+          has_input_image: Boolean(inputImage1Path),
+          has_last_frame: Boolean(inputImage2Path),
+          audio_requested: true,
+        },
+      })
 
       markDiagnosticStage('LOG 9 OK - Veo aceitou requisicao', {
         jobId: job.id,
         hasProviderJobId: Boolean(veoResult.providerJobId),
       })
 
-      await supabase
+      const { error: providerJobPersistError } = await supabase
         .from('video_jobs')
         .update({
           status: 'generating',
-          provider_job_id: veoResult.providerJobId,
+          provider_job_id: acceptedProviderJobId,
         })
         .eq('id', job.id)
         .eq('user_id', user.id)
+      if (providerJobPersistError) throw new Error('provider_job_persist_failed')
 
       return jsonResponse({
         ok: true,
@@ -3892,15 +3933,29 @@ serve(async (req) => {
         jobId: job.id,
       })
 
-      await cancelCredits(supabase, user.id, creditIdempotencyKey, 'studio_hero_failed')
-      await supabase
-        .from('video_jobs')
-        .update({
-          status: 'failed',
-          error_message: `${diagnosticStage}: ${safeDiagnosticMessage(error)}`.slice(0, 500),
+      if (acceptedProviderJobId) {
+        await supabase.from('video_jobs').update({
+          status: 'generating', provider_job_id: acceptedProviderJobId,
+          error_message: null,
+        }).eq('id', job.id).eq('user_id', user.id)
+        return jsonResponse({
+          success: false, job_id: job.id, jobId: job.id, status: 'generating',
+          error: 'A geracao foi aceita e pode ser recuperada pelo status.',
+        }, 503)
+      }
+
+      await supabase.from('video_jobs').update({
+        status: 'failed',
+        error_message: `${diagnosticStage}: ${safeDiagnosticMessage(error)}`.slice(0, 500),
+      }).eq('id', job.id).eq('user_id', user.id)
+      try {
+        await settleVeoVideoEconomy(supabase, {
+          userId: user.id, clientRequestId: job.id, status: 'failed',
+          reason: 'veo_video_start_failed', telemetry: { failed_before_provider_acceptance: true },
         })
-        .eq('id', job.id)
-        .eq('user_id', user.id)
+      } catch (settlementError) {
+        console.warn('[criar-video-ia] liquidacao de falha pendente:', safeDiagnosticMessage(settlementError))
+      }
 
       return jsonResponse({
         success: false,

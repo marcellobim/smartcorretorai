@@ -1,4 +1,4 @@
-export const ECONOMIC_CATALOG_VERSION = '2026-08-17.gemini-video-family.v1'
+export const ECONOMIC_CATALOG_VERSION = '2026-08-17.veo-video-family.v1'
 
 // Global rollout stays disabled. A product can opt in only after its provider
 // pipeline is migrated and its canonical SKU is explicitly enabled below.
@@ -54,8 +54,12 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
   sku('short_videos', 'standard', 325, 'composite', false, {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
-  sku('real_estate_commercial', 'standard', 275, 'veo_video'),
-  sku('creative_video', 'standard', 275, 'veo_video'),
+  sku('real_estate_commercial', 'standard', 120, 'veo_video', false, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
+  }, true),
+  sku('creative_video', 'standard', 120, 'veo_video', false, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
+  }, true),
   // Product 1 is activated explicitly while the global rollout remains off.
   sku('text_campaign', 'standard', 25, 'openai_text', true, {}, true),
 

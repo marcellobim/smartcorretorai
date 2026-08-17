@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkVeoVideoStatus } from '../_shared/veoClient.ts'
 import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
+import { settleVeoVideoEconomy, updateVeoVideoEconomyTelemetry } from '../_shared/veo-video-economy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,7 +53,7 @@ function buildFailedJobDebug(job: {
   }
 }
 
-async function cancelCredits(supabase: any, userId: string, idempotencyKey: string, reason: string) {
+async function cancelLegacyCredits(supabase: any, userId: string, idempotencyKey: string, reason: string) {
   if (!idempotencyKey) return
   const { error } = await supabase.rpc('cancel_credit_reservation', {
     p_user_id: userId,
@@ -62,7 +63,7 @@ async function cancelCredits(supabase: any, userId: string, idempotencyKey: stri
   if (error) console.warn('[get-video-job-status] falha ao cancelar reserva:', error.message)
 }
 
-async function consumeCredits(supabase: any, userId: string, idempotencyKey: string) {
+async function consumeLegacyCredits(supabase: any, userId: string, idempotencyKey: string) {
   if (!idempotencyKey) return
   const { error } = await supabase.rpc('consume_reserved_credits', {
     p_user_id: userId,
@@ -79,6 +80,35 @@ async function createSignedVideoUrl(supabase: any, path: string) {
     .createSignedUrl(path, 60 * 60)
   if (error || !data?.signedUrl) throw new Error('video_signed_url_failed')
   return data.signedUrl
+}
+
+async function settleJobEconomy(
+  supabase: any,
+  input: {
+    userId: string
+    jobId: string
+    finalStatus: 'completed' | 'failed'
+    isAdminBypass: boolean
+    legacyIdempotencyKey: string
+    outputPath?: string
+    reason?: string
+    telemetry?: Record<string, unknown>
+  },
+) {
+  const handled = await settleVeoVideoEconomy(supabase, {
+    userId: input.userId,
+    clientRequestId: input.jobId,
+    status: input.finalStatus,
+    result: input.outputPath ? { output_video_path: input.outputPath } : {},
+    telemetry: input.telemetry || {},
+    reason: input.reason,
+  })
+  if (handled || !input.legacyIdempotencyKey) return
+  if (input.finalStatus === 'completed' && !input.isAdminBypass) {
+    await consumeLegacyCredits(supabase, input.userId, input.legacyIdempotencyKey)
+  } else {
+    await cancelLegacyCredits(supabase, input.userId, input.legacyIdempotencyKey, input.reason || 'studio_hero_failed')
+  }
 }
 
 serve(async (req) => {
@@ -128,7 +158,7 @@ serve(async (req) => {
 
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, completed_at')
+      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, completed_at, created_at')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .single()
@@ -139,7 +169,23 @@ serve(async (req) => {
 
     if (job.status === 'completed') {
       const outputPath = String(job.output_video_path || '')
-      const signedVideoUrl = outputPath ? await createSignedVideoUrl(supabase, outputPath) : ''
+      if (!outputPath) {
+        const { error: missingOutputUpdateError } = await supabase.from('video_jobs').update({
+          status: 'failed', error_message: 'completed_video_output_missing',
+        }).eq('id', job.id).eq('user_id', user.id)
+        if (missingOutputUpdateError) throw new Error('video_failed_persist_failed')
+        await settleJobEconomy(supabase, {
+          userId: user.id, jobId: job.id, finalStatus: 'failed', isAdminBypass,
+          legacyIdempotencyKey: String(job.credit_idempotency_key || ''), reason: 'completed_video_output_missing',
+        })
+        return jsonResponse({ ok: true, status: 'failed', jobId: job.id, error: 'Nao foi possivel recuperar o video.' })
+      }
+      await settleJobEconomy(supabase, {
+        userId: user.id, jobId: job.id, finalStatus: 'completed', isAdminBypass,
+        legacyIdempotencyKey: String(job.credit_idempotency_key || ''), outputPath,
+        telemetry: { delivery_recovered_from_completed_job: true },
+      })
+      const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
       return jsonResponse({
         ok: true,
         status: 'completed',
@@ -149,6 +195,11 @@ serve(async (req) => {
     }
 
     if (job.status === 'failed') {
+      await settleJobEconomy(supabase, {
+        userId: user.id, jobId: job.id, finalStatus: 'failed', isAdminBypass,
+        legacyIdempotencyKey: String(job.credit_idempotency_key || ''),
+        reason: String(job.error_message || 'veo_video_failed'),
+      })
       const errorMessage = sanitizeDebugText(job.error_message, 500)
       return jsonResponse({
         ok: true,
@@ -173,6 +224,12 @@ serve(async (req) => {
         .eq('user_id', user.id)
       if (completedUpdateError) throw new Error('video_completed_persist_failed')
 
+      await settleJobEconomy(supabase, {
+        userId: user.id, jobId: job.id, finalStatus: 'completed', isAdminBypass,
+        legacyIdempotencyKey: String(job.credit_idempotency_key || ''), outputPath: existingOutputPath,
+        telemetry: { delivery_recovered_from_persisted_output: true },
+      })
+
       const signedVideoUrl = await createSignedVideoUrl(supabase, existingOutputPath)
       return jsonResponse({
         ok: true,
@@ -182,8 +239,29 @@ serve(async (req) => {
       })
     }
 
-    const providerJobId = String(job.provider_job_id || '')
+    let providerJobId = String(job.provider_job_id || '')
     if (!providerJobId) {
+      const { data: economyRequest } = await supabase.from('veo_video_economy_requests')
+        .select('provider_job_id, model').eq('user_id', user.id).eq('client_request_id', job.id).maybeSingle()
+      providerJobId = String(economyRequest?.provider_job_id || '')
+      if (providerJobId) {
+        await supabase.from('video_jobs').update({ status: 'generating', provider_job_id: providerJobId })
+          .eq('id', job.id).eq('user_id', user.id)
+      }
+    }
+    if (!providerJobId) {
+      const createdAt = Date.parse(String(job.created_at || ''))
+      if (Number.isFinite(createdAt) && Date.now() - createdAt > 15 * 60 * 1000) {
+        const { error: staleUpdateError } = await supabase.from('video_jobs').update({
+          status: 'failed', error_message: 'veo_video_start_timeout',
+        }).eq('id', job.id).eq('user_id', user.id)
+        if (staleUpdateError) throw new Error('video_failed_persist_failed')
+        await settleJobEconomy(supabase, {
+          userId: user.id, jobId: job.id, finalStatus: 'failed', isAdminBypass,
+          legacyIdempotencyKey: String(job.credit_idempotency_key || ''), reason: 'veo_video_start_timeout',
+        })
+        return jsonResponse({ ok: true, status: 'failed', jobId: job.id, error: 'Nao foi possivel gerar o video neste momento.' })
+      }
       return jsonResponse({
         ok: true,
         status: 'generating',
@@ -204,8 +282,7 @@ serve(async (req) => {
 
     if (providerStatus.status === 'failed') {
       const providerErrorMessage = sanitizeDebugText(providerStatus.errorMessage, 500)
-      await cancelCredits(supabase, user.id, String(job.credit_idempotency_key || ''), 'studio_hero_provider_failed')
-      await supabase
+      const { error: failedUpdateError } = await supabase
         .from('video_jobs')
         .update({
           status: 'failed',
@@ -213,6 +290,12 @@ serve(async (req) => {
         })
         .eq('id', job.id)
         .eq('user_id', user.id)
+      if (failedUpdateError) throw new Error('video_failed_persist_failed')
+      await settleJobEconomy(supabase, {
+        userId: user.id, jobId: job.id, finalStatus: 'failed', isAdminBypass,
+        legacyIdempotencyKey: String(job.credit_idempotency_key || ''),
+        reason: 'veo_video_provider_failed', telemetry: { provider_terminal_status: 'failed' },
+      })
 
       return jsonResponse({
         ok: true,
@@ -237,12 +320,6 @@ serve(async (req) => {
       })
     if (uploadError) throw new Error(`video_upload_failed:${uploadError.message}`)
 
-    if (isAdminBypass) {
-      await cancelCredits(supabase, user.id, String(job.credit_idempotency_key || ''), 'studio_hero_admin_bypass')
-    } else {
-      await consumeCredits(supabase, user.id, String(job.credit_idempotency_key || ''))
-    }
-
     const completedAt = new Date().toISOString()
     const { error: completedUpdateError } = await supabase
       .from('video_jobs')
@@ -254,6 +331,20 @@ serve(async (req) => {
       .eq('id', job.id)
       .eq('user_id', user.id)
     if (completedUpdateError) throw new Error('video_completed_persist_failed')
+
+    await updateVeoVideoEconomyTelemetry(supabase, {
+      userId: user.id, clientRequestId: job.id, providerJobId, model: String(job.model || ''),
+      telemetry: {
+        provider_terminal_status: 'completed',
+        output_content_type: providerStatus.contentType || 'video/mp4',
+        output_bytes: providerStatus.videoBytes.byteLength,
+      },
+    })
+    await settleJobEconomy(supabase, {
+      userId: user.id, jobId: job.id, finalStatus: 'completed', isAdminBypass,
+      legacyIdempotencyKey: String(job.credit_idempotency_key || ''), outputPath,
+      telemetry: { delivery_persisted_before_consumption: true },
+    })
 
     const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
     return jsonResponse({
