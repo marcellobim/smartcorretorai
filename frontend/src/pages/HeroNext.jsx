@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
 import { ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI } from '../components/design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
@@ -24,6 +25,7 @@ import { useAuth } from '../lib/auth-context'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { buildPublicationGoogleAds, buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
 const GOALS = [
@@ -1427,7 +1429,7 @@ function UserBubble({ children, actions }) {
 }
 
 export default function HeroNext() {
-  const { user } = useAuth()
+  const { user, reloadProfile } = useAuth()
   const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
   const startCampaign = () => setPhase('goal')
   const [goal, setGoal] = useState('')
@@ -2147,9 +2149,10 @@ export default function HeroNext() {
       economicRequestIdRef.current = null
       setPhase('result')
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : 'Não foi possível gerar a campanha.')
+      setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível gerar a campanha.'))
     } finally {
       setGenerationLoading(false)
+      await reloadProfile()
     }
   }
 
@@ -3170,7 +3173,12 @@ export default function HeroNext() {
               </p>
             )}
 
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <SmartTokenEstimate
+              cost={(totalPieceCount || 0) * SMART_TOKEN_COSTS.realEstateBannerItem}
+              quantityLabel={`${formatPieceCount(totalPieceCount || 0)} selecionada${totalPieceCount === 1 ? '' : 's'}`}
+              className="mt-6"
+            />
+            <div className="mt-4 flex flex-wrap justify-end gap-3">
               <ProductButton type="button" variant="secondary" onClick={() => setPhase('prompt')}>
                 Voltar
               </ProductButton>

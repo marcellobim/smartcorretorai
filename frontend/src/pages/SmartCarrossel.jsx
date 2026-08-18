@@ -16,6 +16,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import {
@@ -27,6 +28,7 @@ import {
   SMART_UI,
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
@@ -263,7 +265,7 @@ async function uploadSmartCarouselFilesWithTimeout(args) {
 
 export default function SmartCarrossel() {
   const navigate = useNavigate()
-  const { user, accessToken } = useAuth()
+  const { user, accessToken, reloadProfile } = useAuth()
   const photoInputRef = useRef(null)
   const photoIdRef = useRef(0)
   const photosRef = useRef([])
@@ -385,6 +387,7 @@ export default function SmartCarrossel() {
             user={user}
             accessToken={accessToken}
             photos={photos}
+            refreshBalance={reloadProfile}
             onGenerationStageChange={setGenerationStage}
           />
         )}
@@ -499,7 +502,7 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
   )
 }
 
-function SmartCarouselConversation({ user, accessToken, photos, onGenerationStageChange }) {
+function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, onGenerationStageChange }) {
   const [purpose, setPurpose] = useState('')
   const [propertyStage, setPropertyStage] = useState('')
   const [propertyType, setPropertyType] = useState('')
@@ -592,7 +595,8 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
     if (!mountedRef.current) return
     generationInFlightRef.current = false
     setGenerationStatus('failed')
-    setGenerationError(friendlyGenerationError(message))
+    setGenerationError(getSmartTokenErrorMessage(message, friendlyGenerationError(message)))
+    void refreshBalance()
     if (!keepReceipt) {
       setReceipt('')
       setActiveJobId('')
@@ -621,6 +625,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
         setGenerationStatus('succeeded')
         setGenerationError('')
         onGenerationStageChange(4)
+        void refreshBalance()
         return
       }
 
@@ -697,6 +702,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
         if (Array.isArray(data?.campaign_package?.campaigns)) setCampaignPackage(data.campaign_package)
         setGenerationStatus('succeeded')
         onGenerationStageChange(4)
+        void refreshBalance()
         return
       }
       if (data.campaign_package && (!Array.isArray(data.campaign_package.campaigns) || data.campaign_package.campaigns.length !== 3)) {
@@ -746,6 +752,7 @@ function SmartCarouselConversation({ user, accessToken, photos, onGenerationStag
   else if (step === 14) questionContent = <OptionGrid><ChoiceButton disabled={!profilePhone} active={sharePhone === 'yes'} title="Sim" description={profilePhone || 'Cadastre um telefone no Perfil Profissional.'} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: 'Telefone profissional', nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title="Não" description="Continuar sem divulgar telefone." onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: 'Sem telefone', nextStep: 15 })} /></OptionGrid>
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
+      <SmartTokenEstimate cost={SMART_TOKEN_COSTS.smartCarousel} quantityLabel={`${photos.length} imagens selecionadas · preço fixo`} />
       <ProductButton
         type="button"
         variant="success"

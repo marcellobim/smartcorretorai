@@ -28,8 +28,10 @@ import {
 } from '../components/design-system'
 import { buildPublicationGoogleAds, buildPublicationPackage } from '../../../core/copy-engine'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 
 const BUCKET = 'studio-videos'
 const STUDIO_HERO_REPRESENTATIVE_VIDEO = '/showcase/studio/showcase-captacao-corretores.mp4'
@@ -1115,7 +1117,7 @@ async function invokeStudioFunction(name, body) {
 }
 
 export default function StudioHero() {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, reloadProfile } = useAuth()
   const navigate = useNavigate()
   const pollTimerRef = useRef(null)
   const uploadSectionRef = useRef(null)
@@ -1697,6 +1699,7 @@ export default function StudioHero() {
         setStatus('completed')
         setVideoUrl(nextVideoUrl)
         setMessage('Seu comercial esta pronto.')
+        void reloadProfile()
         return
       }
 
@@ -1714,6 +1717,7 @@ export default function StudioHero() {
         setMessage(IS_DEV && diagnosticMessage
           ? `Erro tecnico da geracao: ${diagnosticMessage}`
           : 'Nao foi possivel criar o comercial neste momento.')
+        void reloadProfile()
         return
       }
 
@@ -1729,7 +1733,8 @@ export default function StudioHero() {
         message: error instanceof Error ? error.message : String(error),
       })
       setStatus('failed')
-      setMessage('Nao foi possivel preparar o comercial neste momento.')
+      setMessage(getSmartTokenErrorMessage(error, 'Nao foi possivel preparar o comercial neste momento.'))
+      void reloadProfile()
     }
   }
 
@@ -1873,10 +1878,10 @@ export default function StudioHero() {
         error: sanitizeStudioHeroDiagnostic(error),
       })
       setStatus('failed')
-      const friendlyMessage = error instanceof Error && /JPG|PNG|imagem|assinantes|Smart Tokens/i.test(error.message)
-        ? error.message
-        : 'No momento, o servico de criacao esta temporariamente limitado pelo provedor de video. Seus Smart Tokens nao serao consumidos se a criacao nao for concluida. Tente novamente mais tarde.'
+      const providerFallback = 'No momento, o servico de criacao esta temporariamente limitado pelo provedor de video. Seus Smart Tokens nao serao consumidos se a criacao nao for concluida. Tente novamente mais tarde.'
+      const friendlyMessage = getSmartTokenErrorMessage(error, error instanceof Error && /JPG|PNG|imagem|assinantes|Smart Tokens/i.test(error.message) ? error.message : providerFallback)
       setMessage(friendlyMessage)
+      void reloadProfile()
     }
   }
 
@@ -3374,6 +3379,7 @@ function UploadReadyPanel({
             </ProductCard>
           )}
 
+          <SmartTokenEstimate cost={SMART_TOKEN_COSTS.veoVideo} className="mt-4 text-left" />
           <ProductButton type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
               <>
@@ -3627,6 +3633,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
               ? 'Revise o resumo e a direcao criativa. Quando estiver tudo certo, crie seu comercial livre.'
               : 'Revise o resumo e a imagem selecionada. Quando estiver tudo certo, crie seu comercial.'}
           </p>
+          <SmartTokenEstimate cost={SMART_TOKEN_COSTS.veoVideo} className="mt-4" />
           <ProductButton type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
               <>

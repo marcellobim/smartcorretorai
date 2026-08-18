@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
+import { formatSmartTokens, getSmartTokenBalance, isTrialUser } from '../../lib/smart-tokens'
 import BrandMark from '../brand/BrandMark'
 
 const navigationGroups = [
@@ -86,22 +87,9 @@ function SidebarLink({ item, onNavigate }) {
   )
 }
 
-function getTokenBalance(user) {
-  const candidates = [
-    user?.smart_tokens_saldo,
-    user?.tokens_saldo,
-    user?.restantes_mes,
-    user?.total_disponivel,
-  ]
-  const value = candidates.find(candidate => candidate !== undefined && candidate !== null && candidate !== '')
-  if (value === undefined) return null
-
-  const balance = Number(value)
-  return Number.isFinite(balance) ? Math.max(balance, 0) : null
-}
-
 function SmartTokensLink({ user, onNavigate }) {
-  const balance = getTokenBalance(user)
+  const balance = getSmartTokenBalance(user)
+  const trial = isTrialUser(user)
 
   return (
     <NavLink
@@ -120,9 +108,9 @@ function SmartTokensLink({ user, onNavigate }) {
           </span>
           <span className="min-w-0 flex-1 truncate">
             <span>Smart Tokens</span>
-            {balance !== null && (
+            {!trial && balance !== null && (
               <span className={`ml-1.5 text-[10px] font-semibold ${isActive ? 'text-cyan-100' : 'text-slate-500'}`}>
-                {balance.toLocaleString('pt-BR')} disponíveis
+                {formatSmartTokens(balance)} ST
               </span>
             )}
           </span>

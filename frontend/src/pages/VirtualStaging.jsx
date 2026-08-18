@@ -5,6 +5,7 @@ import Header from '../components/layout/Header'
 import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildVirtualStagingCampaignPackage, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation from '../components/conversation/GuidedConversation'
@@ -13,6 +14,7 @@ import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, FURNISH_RENOVATE_AI_NOTICE, FURNISH_RENOVATE_COPY, FURNISH_RENOVATE_DESTINATION_OPTIONS, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, FURNISH_RENOVATE_STYLE_OPTIONS, FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, VIRTUAL_STAGING_CHAT_INTRO } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
@@ -207,7 +209,7 @@ export default function VirtualStagingAI() {
 }
 
 function VirtualStagingJourney({ journey, onChooseAnother }) {
-  const { user } = useAuth()
+  const { user, reloadProfile } = useAuth()
   const navigate = useNavigate()
   const inputRef = useRef(null)
   const presenterInputRef = useRef(null)
@@ -399,6 +401,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         const completedResult = { ...data, campaignPackage }
         setResult(completedResult)
         setStatus('completed')
+        void reloadProfile()
         return
       }
       if (data.status === 'failed') {
@@ -406,7 +409,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         throw new Error(data.error)
       }
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
-    } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
+    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile() }
   }
 
   const retryResultStatus = () => {
@@ -552,7 +555,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', hashtags:data.hashtags })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, status:'generating', campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
-    } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
+    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
 
   const reset = () => { sessionStorage.removeItem(activeJobKey); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
@@ -920,6 +923,7 @@ function Question(props) {
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
+    <SmartTokenEstimate cost={SMART_TOKEN_COSTS.geminiVideo} />
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <Button type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="mr-2 h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</Button>
       <button type="button" disabled={['uploading','generating'].includes(status)} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Refazer criação</button>

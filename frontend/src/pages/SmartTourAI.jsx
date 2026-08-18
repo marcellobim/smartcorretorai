@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
 import { buildSmartTourCampaignPackage } from '../components/campaign/buildSmartTourCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation, { getConversationScrollBehavior } from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useAuth } from '../lib/auth-context'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { supabase } from '../lib/supabase'
 import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
@@ -88,7 +90,7 @@ function smartTourConfirmation(id, answer, isShortVideos = false) {
 }
 
 export default function SmartTourAI() {
-  const { user } = useAuth()
+  const { user, reloadProfile } = useAuth()
   const inputRef = useRef(null)
   const pollRef = useRef(null)
   const recoveryStartedRef = useRef(false)
@@ -255,10 +257,10 @@ export default function SmartTourAI() {
         }
         throw new Error(data?.error || 'Não foi possível consultar a criação.')
       }
-      if (data.status === 'completed') { clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: mergeSmartTourCampaignHashtags(activeJob?.campaignPackage || {}, data.hashtags), inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); return }
-      if (data.status === 'failed') { clearSmartTourActiveJob(sessionStorage); if (getShortVideoTerminalActions(activeJob, 'failed').releaseLock) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(data.error || 'Não foi possível concluir. Tente novamente.'); return }
+      if (data.status === 'completed') { clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: mergeSmartTourCampaignHashtags(activeJob?.campaignPackage || {}, data.hashtags), inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); void reloadProfile(); return }
+      if (data.status === 'failed') { clearSmartTourActiveJob(sessionStorage); if (getShortVideoTerminalActions(activeJob, 'failed').releaseLock) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(data.error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile(); return }
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
-    } catch (error) { setStatus('error'); setMessage(error.message || 'Não foi possível concluir. Tente novamente.') }
+    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile() }
   }
 
   const createTour = async () => {
@@ -317,7 +319,7 @@ export default function SmartTourAI() {
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
-    } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(error.message || 'Não foi possível criar sua apresentação.') }
+    } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
 
   const reset = () => {
@@ -693,6 +695,7 @@ function Question(props) {
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{reviewLabel(item.id, isShortVideos)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-primary-600" />}<b className="text-sm">{message}</b></div>}
+    <SmartTokenEstimate cost={SMART_TOKEN_COSTS.geminiVideo} />
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <ProductButton type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</ProductButton>
       <ProductButton type="button" variant="secondary" disabled={['uploading','generating'].includes(status)} onClick={resetCreation}>Refazer criação</ProductButton>

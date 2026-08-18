@@ -71,7 +71,9 @@ test('keeps only Smart Tokens and Configurações in Conta with conditional admi
 test('shows only real Smart Tokens data in one compact account link', () => {
   assert.match(sidebar, /const smartTokensItem = \{ to: '\/planos', label: 'Smart Tokens' \}/)
   assert.match(sidebar, /balance !== null/)
-  assert.match(sidebar, /disponíveis/)
+  assert.match(sidebar, /formatSmartTokens\(balance\).*ST/s)
+  assert.match(sidebar, /!trial && balance !== null/)
+  assert.doesNotMatch(sidebar, /%|porcentagem|R\$/)
   assert.match(sidebar, /min-h-11 items-center gap-3 rounded-xl px-3 py-2/)
   assert.doesNotMatch(sidebar, /Ver plano e saldo|Próximo ciclo|Renovação|style=\{\{ width:|rounded-xl border px-3 py-2\.5/)
 })

@@ -19,6 +19,8 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
 import TextCampaignResult from '../components/text-campaign/TextCampaignResult'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import {
   buildTextCampaignBriefing,
   changeTextCampaignManualCity,
@@ -92,7 +94,7 @@ const emptyCommercial = () => ({
 })
 
 export default function TextCampaign() {
-  const { user, accessToken } = useAuth()
+  const { user, accessToken, reloadProfile } = useAuth()
   const [answers, setAnswers] = useState(createEmptyTextCampaignAnswers)
   const [manualCityMode, setManualCityMode] = useState(false)
   const [campaign, setCampaign] = useState(null)
@@ -151,10 +153,11 @@ export default function TextCampaign() {
       setCampaign(data.campaign)
       setGenerationStatus('success')
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : 'Não foi possível criar a campanha agora. Tente novamente.')
+      setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível criar a campanha agora. Tente novamente.'))
       setGenerationStatus('error')
     } finally {
       generationLockRef.current = false
+      await reloadProfile()
     }
   }
 
@@ -436,6 +439,7 @@ function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, genera
       <p className="text-sm font-black text-rose-800">{generationError}</p>
       <div className="mt-4 flex flex-wrap gap-3"><ProductButton variant="danger" disabled={loading} onClick={onRetry}>Tentar novamente</ProductButton><ProductButton variant="ghost" disabled={loading} onClick={onReview}>Voltar à revisão</ProductButton></div>
     </ProductCard>}
+    <SmartTokenEstimate cost={SMART_TOKEN_COSTS.textCampaign} quantityLabel="Google Ads incluído" />
     <ProductButton disabled={!briefingValid || loading} loading={loading} onClick={onGenerate} className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />Criar Campanha de Textos</ProductButton>
   </div>
 }

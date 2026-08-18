@@ -7,6 +7,7 @@ import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEW
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import CampaignPackage from '../components/campaign/CampaignPackage'
+import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildProduct3CampaignOptions, normalizeProduct3CampaignFiles } from '../components/campaign/buildProduct3CampaignPackage'
 import { getProduct3Highlights, isProduct3CommercialType, PRODUCT_3_PROPERTY_TYPES } from '../data/product3Campaign'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
@@ -15,6 +16,7 @@ import { formatBrazilianPhone, formatProduct3Price as formatCanonicalProduct3Pri
 import { formatGoogleAdsDelivery } from '../../../supabase/functions/_shared/google-ads.ts'
 import { ProductCard } from '../components/design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
+import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 
 // ═══════════════════════════════════════════════════════════════
 //  DADOS ESTÁTICOS
@@ -1977,7 +1979,7 @@ async function resizeFoto(file, maxPx = 1920) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function NovaCampanha() {
-  const { user: authedUser, accessToken, loading: authLoading } = useAuth()
+  const { user: authedUser, accessToken, loading: authLoading, reloadProfile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const produtoParamRaw = new URLSearchParams(location.search).get('produto') || location.state?.produto || ''
@@ -2728,15 +2730,17 @@ export default function NovaCampanha() {
       setGerandoBanners(false)
       setTimeout(() => setShowAgendamento(true), 1800)
 
-    } catch {
+    } catch (error) {
       if (cancelPreparedEconomy) await cancelPreparedEconomy().catch(() => null)
       if (import.meta.env.DEV) console.error('[gerarAnuncios] falha controlada')
-      setGenerationError(CAMPAIGN_GENERATION_ERROR)
-      toast.error(CAMPAIGN_GENERATION_ERROR)
+      const friendlyError = getSmartTokenErrorMessage(error, CAMPAIGN_GENERATION_ERROR)
+      setGenerationError(friendlyError)
+      toast.error(friendlyError)
     } finally {
       generationInFlightRef.current = false
       setGenerationInFlight(false)
       setGerandoBanners(false)
+      await reloadProfile()
     }
   }
 
@@ -3021,7 +3025,10 @@ export default function NovaCampanha() {
           return RENDER_ERROR_STATUSES.has(status)
             || (RENDER_READY_STATUSES.has(status) && Boolean(getRenderFinalUrl(update)))
         })
-        if (allDone) stopPolling()
+        if (allDone) {
+          stopPolling()
+          void reloadProfile()
+        }
       } catch (error) {
         console.warn('[renders] polling falhou:', error?.message || 'erro desconhecido')
       } finally {
@@ -4058,6 +4065,11 @@ export default function NovaCampanha() {
                       Cada modelo utiliza automaticamente apenas as informações compatíveis com seu layout. As demais informações serão utilizadas na criação completa da campanha.
                     </p>
                   </div>
+                  <SmartTokenEstimate
+                    cost={selectedCatalogItems.length * SMART_TOKEN_COSTS.quickBannerItem}
+                    quantityLabel={`${selectedCatalogItems.length} ${selectedCatalogItems.length === 1 ? 'entrega selecionada' : 'entregas selecionadas'}`}
+                    className="mt-4"
+                  />
                   <button
                     type="button"
                     onClick={confirmarGeracao}
