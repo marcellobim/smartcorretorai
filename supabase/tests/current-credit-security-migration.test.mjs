@@ -10,6 +10,11 @@ const migration = readFileSync(
   join(repositoryDir, 'supabase/migrations/20260815010000_harden_current_credit_rpcs.sql'),
   'utf8',
 )
+const creditLotsFoundation = read('supabase/migrations/20260816010000_create_credit_lots_foundation.sql')
+const veoEconomyMigration = read('supabase/migrations/20260817050000_create_veo_video_economy.sql')
+const veoCreator = read('supabase/functions/criar-video-ia/index.ts')
+const veoEconomyHelper = read('supabase/functions/_shared/veo-video-economy.ts')
+const economicCatalog = read('supabase/functions/_shared/economic-catalog.ts')
 
 const rpcSignatures = [
   'add_credits\\(UUID, BIGINT, TEXT, TEXT, JSONB, TIMESTAMPTZ\\)',
@@ -104,7 +109,6 @@ test('the browser application has no direct caller for current credit RPCs', () 
 test('all real reservation callers use service-role Edge clients and retain retry keys', () => {
   const callers = {
     'supabase/functions/gerar-banners/index.ts': ['reserve_credits', 'cancel_credit_reservation'],
-    'supabase/functions/criar-video-ia/index.ts': ['reserve_credits', 'cancel_credit_reservation'],
     'supabase/functions/get-render-status/index.ts': ['consume_reserved_credits', 'cancel_credit_reservation'],
     'supabase/functions/get-video-job-status/index.ts': ['consume_reserved_credits', 'cancel_credit_reservation'],
   }
@@ -117,7 +121,31 @@ test('all real reservation callers use service-role Edge clients and retain retr
   }
 
   assert.match(read('supabase/functions/gerar-banners/index.ts'), /p_idempotency_key:/)
-  assert.match(read('supabase/functions/criar-video-ia/index.ts'), /p_idempotency_key:/)
   assert.match(read('supabase/functions/get-render-status/index.ts'), /p_idempotency_key:/)
   assert.match(read('supabase/functions/get-video-job-status/index.ts'), /p_idempotency_key:/)
+
+  assert.match(veoCreator, /Deno\.env\.get\(['"]SUPABASE_SERVICE_ROLE_KEY['"]\)/)
+  assert.match(
+    veoCreator,
+    /claimVeoVideoEconomy[\s\S]*from ['"]\.\.\/_shared\/veo-video-economy\.ts['"]/,
+  )
+  assert.match(veoCreator, /settleVeoVideoEconomy/)
+  const claimAt = veoCreator.indexOf('await claimVeoVideoEconomy')
+  const providerAt = veoCreator.indexOf('await startVeoVideo')
+  assert.ok(claimAt > 0 && providerAt > claimAt)
+  const beforeProvider = veoCreator.slice(claimAt, providerAt)
+  assert.match(beforeProvider, /economyClaim\.status === 'insufficient'[\s\S]*INSUFFICIENT_SMART_TOKENS[\s\S]*402/)
+  assert.match(beforeProvider, /!economyClaim\.executionClaimed[\s\S]*return jsonResponse/)
+
+  assert.match(veoEconomyHelper, /quoteEconomicSku\(productCode, 'standard'\)/)
+  assert.match(veoEconomyHelper, /sku\.smartTokenCost !== 120/)
+  assert.match(economicCatalog, /sku\('real_estate_commercial', 'standard', 120, 'veo_video'/)
+  assert.match(economicCatalog, /sku\('creative_video', 'standard', 120, 'veo_video'/)
+  assert.match(veoEconomyMigration, /v_balance < 120[\s\S]*execution_claimed[\s\S]*false/i)
+  assert.match(veoEconomyMigration, /reserve_credits_from_lots\([\s\S]*p_user_id, 120/)
+  assert.match(creditLotsFoundation, /ORDER BY cl\.expires_at ASC NULLS LAST, cl\.created_at ASC, cl\.id ASC/)
+  assert.match(veoEconomyMigration, /consume_reserved_credits_from_lots/)
+  assert.match(veoEconomyMigration, /cancel_credit_reservation_from_lots/)
+  assert.match(veoEconomyMigration, /revoke all on function public\.claim_veo_video_economy_request[\s\S]*from public, anon, authenticated/i)
+  assert.match(veoEconomyMigration, /grant execute on function public\.settle_veo_video_economy_request[\s\S]*to service_role/i)
 })
