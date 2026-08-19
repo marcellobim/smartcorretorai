@@ -14,7 +14,7 @@ const PLANOS = [
     preco: '127',
     description: 'Acesso completo à plataforma.',
     capacityLabel: 'Capacidade inicial de criação',
-    capacityDetail: 'Smart Tokens inclusos',
+    capacityDetail: '6.350 Smart Tokens por mês',
     featured: false,
     cta: 'Assinar Start',
     bullets: [
@@ -29,7 +29,7 @@ const PLANOS = [
     preco: '217',
     description: 'Mais recomendado.',
     capacityLabel: 'Mais liberdade para criar com frequência',
-    capacityDetail: 'Smart Tokens inclusos',
+    capacityDetail: '10.850 Smart Tokens por mês',
     featured: true,
     badge: 'Mais recomendado',
     cta: 'Assinar Pro',
@@ -45,7 +45,7 @@ const PLANOS = [
     preco: '547',
     description: 'Maior capacidade para profissionais e equipes.',
     capacityLabel: 'Volume ampliado de criação',
-    capacityDetail: 'Smart Tokens inclusos',
+    capacityDetail: '26.350 Smart Tokens por mês',
     featured: false,
     cta: 'Assinar Elite',
     bullets: [
@@ -54,12 +54,6 @@ const PLANOS = [
       'Mais fôlego para campanhas, imagens, vídeos e landings',
     ],
   },
-]
-
-const CICLOS = [
-  { id: 'mensal', label: 'Mensal', status: 'ativo' },
-  { id: 'trimestral', label: 'Trimestral', status: 'em breve' },
-  { id: 'anual', label: 'Anual', status: 'em breve' },
 ]
 
 const RULES = [
@@ -176,24 +170,10 @@ export default function Planos() {
             <p className="max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
               Todos os planos incluem acesso completo à plataforma. A diferença está apenas na capacidade de criação disponível em cada ciclo.
             </p>
-            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[380px]">
-              {CICLOS.map((ciclo) => (
-                <div
-                  key={ciclo.id}
-                  className={`rounded-2xl border px-4 py-3 text-center ${
-                    ciclo.status === 'ativo'
-                      ? 'border-primary-800 bg-primary-800 text-white'
-                      : 'border-gray-200 bg-gray-50 text-gray-500'
-                  }`}
-                >
-                  <p className="text-sm font-black">{ciclo.label}</p>
-                  <p className={`mt-1 text-[11px] font-black uppercase tracking-wide ${
-                    ciclo.status === 'ativo' ? 'text-cyan-100' : 'text-gray-400'
-                  }`}>
-                    {ciclo.status}
-                  </p>
-                </div>
-              ))}
+            <div className="lg:min-w-[180px]">
+              <div className="rounded-2xl border border-primary-800 bg-primary-800 px-4 py-3 text-center text-white">
+                <p className="text-sm font-black">Mensal</p>
+              </div>
             </div>
           </div>
         </section>

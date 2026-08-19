@@ -11,10 +11,14 @@ const stripeCommerce = readFileSync(new URL('../../supabase/functions/_shared/st
 const economicCatalog = readFileSync(new URL('../../supabase/functions/_shared/economic-catalog.ts', import.meta.url), 'utf8')
 
 test('frontend plan cards keep final monthly prices, grants and operational economic keys', () => {
-  assert.match(planos, /id: 'start',[\s\S]*?preco: '127'/)
-  assert.match(planos, /id: 'pro',[\s\S]*?preco: '217'/)
-  assert.match(planos, /id: 'elite',[\s\S]*?preco: '547'/)
+  assert.equal((planos.match(/>Mensal</g) ?? []).length, 1)
+  assert.doesNotMatch(planos, /Trimestral|Anual|Em breve|em breve/)
+
+  assert.match(planos, /id: 'start',[\s\S]*?preco: '127',[\s\S]*?capacityDetail: '6\.350 Smart Tokens por mês'/)
+  assert.match(planos, /id: 'pro',[\s\S]*?preco: '217',[\s\S]*?capacityDetail: '10\.850 Smart Tokens por mês'/)
+  assert.match(planos, /id: 'elite',[\s\S]*?preco: '547',[\s\S]*?capacityDetail: '26\.350 Smart Tokens por mês'/)
   assert.doesNotMatch(planos, /preco: '(97|187|497)'/)
+  assert.doesNotMatch(planos, /Smart Tokens inclusos/)
 
   assert.match(economicCatalog, /start: Object\.freeze\(\{ smartTokens: 6_350 \}\)/)
   assert.match(economicCatalog, /pro: Object\.freeze\(\{ smartTokens: 10_850 \}\)/)
