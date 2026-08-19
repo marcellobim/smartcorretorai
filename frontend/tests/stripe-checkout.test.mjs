@@ -8,6 +8,22 @@ const terms = readFileSync(new URL('../src/pages/TermosDeUso.jsx', import.meta.u
 const checkout = readFileSync(new URL('../../supabase/functions/stripe-checkout/runtime.ts', import.meta.url), 'utf8')
 const webhook = readFileSync(new URL('../../supabase/functions/stripe-webhook/runtime.ts', import.meta.url), 'utf8')
 const stripeCommerce = readFileSync(new URL('../../supabase/functions/_shared/stripe-commerce.ts', import.meta.url), 'utf8')
+const economicCatalog = readFileSync(new URL('../../supabase/functions/_shared/economic-catalog.ts', import.meta.url), 'utf8')
+
+test('frontend plan cards keep final monthly prices, grants and operational economic keys', () => {
+  assert.match(planos, /id: 'start',[\s\S]*?preco: '127'/)
+  assert.match(planos, /id: 'pro',[\s\S]*?preco: '217'/)
+  assert.match(planos, /id: 'elite',[\s\S]*?preco: '547'/)
+  assert.doesNotMatch(planos, /preco: '(97|187|497)'/)
+
+  assert.match(economicCatalog, /start: Object\.freeze\(\{ smartTokens: 6_350 \}\)/)
+  assert.match(economicCatalog, /pro: Object\.freeze\(\{ smartTokens: 10_850 \}\)/)
+  assert.match(economicCatalog, /elite: Object\.freeze\(\{ smartTokens: 26_350 \}\)/)
+
+  assert.match(stripeCommerce, /start: Object\.freeze\(\{[\s\S]*?key: 'start',[\s\S]*?priceEnv: 'STRIPE_PRICE_START'/)
+  assert.match(stripeCommerce, /pro: Object\.freeze\(\{[\s\S]*?key: 'pro',[\s\S]*?priceEnv: 'STRIPE_PRICE_PRO'/)
+  assert.match(stripeCommerce, /elite: Object\.freeze\(\{[\s\S]*?key: 'elite',[\s\S]*?priceEnv: 'STRIPE_PRICE_ELITE'/)
+})
 
 test('Planos sends only the internal economic key to the authenticated checkout function', () => {
   assert.match(planos, /functions\.invoke\('stripe-checkout',[\s\S]*body: \{ economicKey \}/)

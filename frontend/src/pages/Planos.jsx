@@ -11,7 +11,7 @@ const PLANOS = [
   {
     id: 'start',
     nome: 'START',
-    preco: '97',
+    preco: '127',
     description: 'Acesso completo à plataforma.',
     capacityLabel: 'Capacidade inicial de criação',
     capacityDetail: 'Smart Tokens inclusos',
@@ -26,7 +26,7 @@ const PLANOS = [
   {
     id: 'pro',
     nome: 'PRO',
-    preco: '187',
+    preco: '217',
     description: 'Mais recomendado.',
     capacityLabel: 'Mais liberdade para criar com frequência',
     capacityDetail: 'Smart Tokens inclusos',
@@ -42,7 +42,7 @@ const PLANOS = [
   {
     id: 'elite',
     nome: 'ELITE',
-    preco: '497',
+    preco: '547',
     description: 'Maior capacidade para profissionais e equipes.',
     capacityLabel: 'Volume ampliado de criação',
     capacityDetail: 'Smart Tokens inclusos',
