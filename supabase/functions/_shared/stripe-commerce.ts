@@ -76,6 +76,7 @@ export function buildStripeCheckoutParams(input: {
   const metadata = checkoutMetadata(input.userId, input.item)
   const params = new URLSearchParams({
     mode: input.item.kind,
+    'adaptive_pricing[enabled]': 'false',
     'line_items[0][price]': input.item.priceId,
     'line_items[0][quantity]': '1',
     client_reference_id: input.userId,

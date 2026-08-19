@@ -20,6 +20,8 @@ const USER_ID = '11111111-1111-4111-8111-111111111111'
 const PERIOD_END = new Date(1_802_592_000 * 1000).toISOString()
 const env = new Map([
   ['STRIPE_PRICE_START', 'price_teststart'],
+  ['STRIPE_PRICE_PRO', 'price_testpro'],
+  ['STRIPE_PRICE_ELITE', 'price_testelite'],
   ['STRIPE_PRICE_RECHARGE_BRL_49_90', 'price_testrecharge'],
   ['STRIPE_PRICE_RECHARGE_BRL_97_90', 'price_testrechargelarge'],
   ['STRIPE_CHECKOUT_SUCCESS_URL', 'https://smartcorretor.example/planos?checkout=success'],
@@ -34,7 +36,7 @@ test('Stripe catalog rejects arbitrary keys and resolves prices only through ser
   }
   assert.equal(STRIPE_CHECKOUT_ITEMS.start.priceEnv, 'STRIPE_PRICE_START')
   assert.equal(resolveStripeCheckoutItem('start', readEnv).priceId, 'price_teststart')
-  assert.throws(() => resolveStripeCheckoutItem('pro', readEnv), /stripe_price_not_configured/)
+  assert.throws(() => resolveStripeCheckoutItem('start_promotional', readEnv), /stripe_price_not_configured/)
   const purchases = Object.values(STRIPE_CHECKOUT_ITEMS).filter(item => item.kind === 'payment')
   assert.deepEqual(purchases.map(item => item.key), ['brl_49_90', 'brl_97_90'])
   assert.deepEqual(purchases.map(item => item.priceEnv), [
@@ -43,24 +45,30 @@ test('Stripe catalog rejects arbitrary keys and resolves prices only through ser
   ])
 })
 
-test('checkout plans use subscription and purchases use payment without client amounts or token grants', () => {
-  const plan = buildStripeCheckoutParams({
-    userId: USER_ID,
-    item: resolveStripeCheckoutItem('start', readEnv),
-    successUrl: readEnv('STRIPE_CHECKOUT_SUCCESS_URL')!,
-    cancelUrl: readEnv('STRIPE_CHECKOUT_CANCEL_URL')!,
-  })
-  const purchase = buildStripeCheckoutParams({
-    userId: USER_ID,
-    item: resolveStripeCheckoutItem('brl_49_90', readEnv),
-    successUrl: readEnv('STRIPE_CHECKOUT_SUCCESS_URL')!,
-    cancelUrl: readEnv('STRIPE_CHECKOUT_CANCEL_URL')!,
-  })
-  assert.equal(plan.get('mode'), 'subscription')
-  assert.equal(purchase.get('mode'), 'payment')
-  assert.equal(plan.get('line_items[0][price]'), 'price_teststart')
-  assert.equal(purchase.get('line_items[0][price]'), 'price_testrecharge')
-  assert.doesNotMatch(`${plan.toString()}${purchase.toString()}`, /smart.?tokens|validity|amount/i)
+test('checkout keeps server prices and original currency by disabling Adaptive Pricing for every item', () => {
+  const expected = [
+    ['start', 'subscription', 'price_teststart'],
+    ['pro', 'subscription', 'price_testpro'],
+    ['elite', 'subscription', 'price_testelite'],
+    ['brl_49_90', 'payment', 'price_testrecharge'],
+    ['brl_97_90', 'payment', 'price_testrechargelarge'],
+  ] as const
+
+  for (const [economicKey, mode, priceId] of expected) {
+    const params = buildStripeCheckoutParams({
+      userId: USER_ID,
+      item: resolveStripeCheckoutItem(economicKey, readEnv),
+      successUrl: readEnv('STRIPE_CHECKOUT_SUCCESS_URL')!,
+      cancelUrl: readEnv('STRIPE_CHECKOUT_CANCEL_URL')!,
+    })
+    assert.equal(params.get('mode'), mode)
+    assert.equal(params.get('adaptive_pricing[enabled]'), 'false')
+    assert.equal(params.get('line_items[0][price]'), priceId)
+    assert.equal(params.has('currency'), false)
+    assert.equal(params.get('success_url'), readEnv('STRIPE_CHECKOUT_SUCCESS_URL'))
+    assert.equal(params.get('cancel_url'), readEnv('STRIPE_CHECKOUT_CANCEL_URL'))
+    assert.doesNotMatch(params.toString(), /smart.?tokens|validity|amount/i)
+  }
 })
 
 test('checkout endpoint accepts exactly one internal economic key', async () => {
