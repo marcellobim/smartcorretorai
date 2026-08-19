@@ -126,9 +126,6 @@ export const MONTHLY_PLAN_GRANTS = Object.freeze({
 })
 
 export const PURCHASE_GRANTS = Object.freeze({
-  brl_30: Object.freeze({ smartTokens: 1_200, validityDays: 30 }),
-  brl_50: Object.freeze({ smartTokens: 2_000, validityDays: 30 }),
-  brl_100: Object.freeze({ smartTokens: 4_000, validityDays: 30 }),
-  brl_250: Object.freeze({ smartTokens: 10_000, validityDays: 30 }),
-  brl_500: Object.freeze({ smartTokens: 20_000, validityDays: 30 }),
+  brl_49_90: Object.freeze({ smartTokens: 2_000, validityDays: 30 }),
+  brl_97_90: Object.freeze({ smartTokens: 4_000, validityDays: 30 }),
 })

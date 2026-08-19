@@ -80,10 +80,7 @@ test('plan and fixed purchase grants match the approved Scale A values', () => {
     elite: { smartTokens: 26_350 },
   })
   assert.deepEqual(PURCHASE_GRANTS, {
-    brl_30: { smartTokens: 1_200, validityDays: 30 },
-    brl_50: { smartTokens: 2_000, validityDays: 30 },
-    brl_100: { smartTokens: 4_000, validityDays: 30 },
-    brl_250: { smartTokens: 10_000, validityDays: 30 },
-    brl_500: { smartTokens: 20_000, validityDays: 30 },
+    brl_49_90: { smartTokens: 2_000, validityDays: 30 },
+    brl_97_90: { smartTokens: 4_000, validityDays: 30 },
   })
 })

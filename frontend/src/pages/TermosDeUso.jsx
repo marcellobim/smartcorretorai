@@ -98,9 +98,8 @@ export default function TermosDeUso() {
               </ul>
               <p className="mt-2">Também podem ser oferecidas recargas avulsas:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>500 créditos — R$ 59;</li>
-                <li>1.000 créditos — R$ 99;</li>
-                <li>2.000 créditos — R$ 179.</li>
+                <li>2.000 Smart Tokens — R$ 49,90;</li>
+                <li>4.000 Smart Tokens — R$ 97,90.</li>
               </ul>
               <p className="mt-2">
                 Textos gerados por IA podem ser gratuitos. Banners normalmente consomem menos créditos, enquanto
@@ -119,7 +118,7 @@ export default function TermosDeUso() {
               <h2 className="text-lg font-bold text-gray-800 mb-2">6. Validade, Renovação e Cancelamento</h2>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Créditos de assinatura renovam a cada ciclo contratado e podem não acumular para ciclos futuros.</li>
-                <li>Créditos avulsos comprados em recargas expiram em 180 dias após a compra, salvo condição diferente informada no momento da contratação.</li>
+                <li>Smart Tokens comprados em recargas expiram em 30 dias após a compra, salvo condição diferente informada no momento da contratação.</li>
                 <li>Assinaturas são recorrentes e podem renovar automaticamente até o cancelamento.</li>
                 <li>O cancelamento pode ser feito a qualquer momento, com efeito ao final do período vigente.</li>
                 <li>Não há reembolso proporcional por cancelamento antecipado, salvo obrigação legal ou política comercial expressa.</li>

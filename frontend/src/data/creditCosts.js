@@ -42,40 +42,25 @@ export const CREDIT_PLANS = {
 }
 
 export const CREDIT_RECHARGES = {
-  recharge_500: {
-    id: 'recharge_500',
-    credits: 500,
-    price: 59,
-    expiresInDays: 180,
-    expirationPolicy: 'recharge_credits_expire_after_180_days',
-  },
-  recharge_1000: {
-    id: 'recharge_1000',
-    credits: 1000,
-    price: 99,
-    expiresInDays: 180,
-    expirationPolicy: 'recharge_credits_expire_after_180_days',
-  },
-  recharge_2000: {
-    id: 'recharge_2000',
+  brl_49_90: {
+    id: 'brl_49_90',
     credits: 2000,
-    price: 179,
-    expiresInDays: 180,
-    expirationPolicy: 'recharge_credits_expire_after_180_days',
+    price: 49.9,
+    priceLabel: '49,90',
+    expiresInDays: 30,
+    expirationPolicy: 'recharge_credits_expire_after_30_days',
+  },
+  brl_97_90: {
+    id: 'brl_97_90',
+    credits: 4000,
+    price: 97.9,
+    priceLabel: '97,90',
+    expiresInDays: 30,
+    expirationPolicy: 'recharge_credits_expire_after_30_days',
   },
 }
 
-export const SMART_TOKEN_RECHARGE_CONFIG = {
-  quickAmounts: [30, 50, 100, 250, 500],
-  tokensPerReal: 10,
-  minAmount: 30,
-}
-
-export const estimateSmartTokensFromAmount = (amount) => {
-  const numericAmount = Number(amount)
-  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return 0
-  return Math.floor(numericAmount * SMART_TOKEN_RECHARGE_CONFIG.tokensPerReal)
-}
+export const SMART_TOKEN_RECHARGE_PACKAGES = Object.freeze(Object.values(CREDIT_RECHARGES))
 
 export const CREDIT_POLICIES = {
   multiplier: 10,
@@ -90,7 +75,7 @@ export const CREDIT_POLICIES = {
   rechargeCredits: {
     accumulate: true,
     expiration: 'parameterized_days_after_purchase',
-    defaultExpirationDays: 180,
+    defaultExpirationDays: 30,
   },
   textGeneration: {
     consumesCredits: false,

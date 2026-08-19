@@ -1,0 +1,54 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { grantFinancialLot } from '../_shared/stripe-commerce.ts'
+import { handleStripeWebhook, type SubscriptionSyncRecord } from './runtime.ts'
+
+const requiredEnv = (name: string) => {
+  const value = Deno.env.get(name)
+  if (!value) throw new Error('stripe_webhook_configuration_missing')
+  return value
+}
+
+const stripeGet = async (path: string) => {
+  const response = await fetch(`https://api.stripe.com/v1${path}`, {
+    headers: { Authorization: `Bearer ${requiredEnv('STRIPE_SECRET_KEY')}` },
+  })
+  if (!response.ok) throw new Error('stripe_resource_request_failed')
+  return await response.json() as Record<string, unknown>
+}
+
+serve(async (request) => {
+  try {
+    const supabase = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+      auth: { persistSession: false },
+    })
+    return await handleStripeWebhook(request, {
+      webhookSecret: requiredEnv('STRIPE_WEBHOOK_SECRET'),
+      retrieveSubscription: id => stripeGet(`/subscriptions/${encodeURIComponent(id)}`),
+      grant: request => grantFinancialLot(request, supabase),
+      syncSubscription: async (record: SubscriptionSyncRecord) => {
+        const { error: subscriptionError } = await supabase.from('subscriptions').upsert({
+          user_id: record.userId,
+          stripe_subscription_id: record.stripeSubscriptionId,
+          plan_id: record.planId,
+          status: record.status,
+          current_period_start: record.currentPeriodStart,
+          current_period_end: record.currentPeriodEnd,
+        }, { onConflict: 'stripe_subscription_id' })
+        if (subscriptionError) throw new Error('subscription_sync_failed')
+        if (record.stripeCustomerId) {
+          const { error: profileError } = await supabase.from('profiles')
+            .update({ stripe_customer_id: record.stripeCustomerId })
+            .eq('id', record.userId)
+          if (profileError) throw new Error('stripe_customer_sync_failed')
+        }
+      },
+    })
+  } catch (error) {
+    console.error('[stripe-webhook]', error instanceof Error ? error.message : 'unknown_failure')
+    return new Response(JSON.stringify({ ok: false, error: 'Falha ao processar webhook.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+})
