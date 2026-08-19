@@ -51,7 +51,7 @@ const PLANOS = [
     bullets: [
       'Acesso completo à plataforma',
       'Maior capacidade para profissionais e equipes',
-      'Mais fôlego para campanhas, imagens, vídeos e landings',
+      'Mais fôlego para campanhas, imagens e vídeos',
     ],
   },
 ]
@@ -59,10 +59,8 @@ const PLANOS = [
 const RULES = [
   'Todos os planos dão acesso à plataforma completa.',
   'Smart Tokens representam sua capacidade de criação.',
-  'Antes de cada criação, o sistema verifica se há capacidade disponível.',
-  'Materiais ficam disponíveis por 7 dias para download.',
-  'Landing IA publicada permanece ativa enquanto a assinatura estiver ativa.',
-  'Recargas adicionam capacidade extra ao ciclo.',
+  'Antes de cada criação, o sistema verifica seu saldo disponível.',
+  'Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.',
   'Cancelamento pode ser feito pela conta.',
 ]
 
@@ -245,7 +243,7 @@ export default function Planos() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-primary-700">Adicionar Smart Tokens</p>
-              <h2 className="mt-1 text-2xl font-black text-gray-950">Continue criando quando precisar</h2>
+              <h2 className="mt-1 text-2xl font-black text-gray-950">Continue ou comece a criar</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">
                 Use recargas para continuar criando quando precisar de mais capacidade antes da renovação do plano.
               </p>
@@ -264,10 +262,10 @@ export default function Planos() {
               </div>
 
               <h3 className="mt-5 text-xl font-black text-gray-950">
-                Escolha seu pacote
+                Escolha sua recarga
               </h3>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                Use em Banner Imobiliário, Studio IA, Landing IA, Banners e Textos.
+                Use em Banner Imobiliário, Studio IA, Banners e Textos.
               </p>
 
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -291,15 +289,15 @@ export default function Planos() {
               </div>
 
               <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-gray-600">
-                Pacote selecionado: <span className="font-black text-primary-800">{formatTokens(selectedRecharge.credits)} Smart Tokens por R$ {selectedRecharge.priceLabel}</span>
+                Recarga selecionada: <span className="font-black text-primary-800">{formatTokens(selectedRecharge.credits)} Smart Tokens por R$ {selectedRecharge.priceLabel}</span>
               </p>
             </div>
 
             <aside className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-wide text-primary-700">Capacidade extra</p>
-              <h3 className="mt-2 text-xl font-black text-gray-950">Recarga para qualquer conta</h3>
+              <h3 className="mt-2 text-xl font-black text-gray-950">Smart Tokens extras</h3>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
-                Assinantes e usuários em teste podem adicionar Smart Tokens quando quiserem continuar criando.
+                Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.
               </p>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
                 Recursos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.
@@ -332,9 +330,12 @@ export default function Planos() {
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-cyan-100">
               <Mail className="h-5 w-5" />
             </div>
-            <h2 className="mt-5 text-xl font-black">Suporte</h2>
+            <h2 className="mt-5 text-xl font-black">Contato</h2>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
-              Precisa de ajuda para escolher o plano ou adicionar capacidade?
+              Dúvidas ou sugestões? Fale com a gente.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-300">
+              Use este canal para suporte, sugestões ou qualquer assunto relacionado ao SmartCorretorAI.
             </p>
             <a
               href="mailto:suporte@smartcorretorai.com"
