@@ -120,12 +120,12 @@ export function quoteEconomicSku(productCode: unknown, variant: unknown): Econom
 
 export const MONTHLY_PLAN_GRANTS = Object.freeze({
   start_promotional: Object.freeze({ smartTokens: 5_350, months: 3 }),
-  start: Object.freeze({ smartTokens: 6_350 }),
-  pro: Object.freeze({ smartTokens: 10_850 }),
-  elite: Object.freeze({ smartTokens: 26_350 }),
+  start: Object.freeze({ smartTokens: 6_350, monthlyPriceBrlCents: 12_700, displayName: 'START' }),
+  pro: Object.freeze({ smartTokens: 10_850, monthlyPriceBrlCents: 21_700, displayName: 'PRO' }),
+  elite: Object.freeze({ smartTokens: 26_350, monthlyPriceBrlCents: 54_700, displayName: 'ELITE' }),
 })
 
 export const PURCHASE_GRANTS = Object.freeze({
-  brl_49_90: Object.freeze({ smartTokens: 2_000, validityDays: 30 }),
-  brl_97_90: Object.freeze({ smartTokens: 4_000, validityDays: 30 }),
+  brl_49_90: Object.freeze({ smartTokens: 2_000, validityDays: 30, priceBrlCents: 4_990 }),
+  brl_97_90: Object.freeze({ smartTokens: 4_000, validityDays: 30, priceBrlCents: 9_790 }),
 })

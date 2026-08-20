@@ -75,12 +75,12 @@ test('trial eligibility and provisional pricing follow the approved model', () =
 test('plan and fixed purchase grants match the approved Scale A values', () => {
   assert.deepEqual(MONTHLY_PLAN_GRANTS, {
     start_promotional: { smartTokens: 5_350, months: 3 },
-    start: { smartTokens: 6_350 },
-    pro: { smartTokens: 10_850 },
-    elite: { smartTokens: 26_350 },
+    start: { smartTokens: 6_350, monthlyPriceBrlCents: 12_700, displayName: 'START' },
+    pro: { smartTokens: 10_850, monthlyPriceBrlCents: 21_700, displayName: 'PRO' },
+    elite: { smartTokens: 26_350, monthlyPriceBrlCents: 54_700, displayName: 'ELITE' },
   })
   assert.deepEqual(PURCHASE_GRANTS, {
-    brl_49_90: { smartTokens: 2_000, validityDays: 30 },
-    brl_97_90: { smartTokens: 4_000, validityDays: 30 },
+    brl_49_90: { smartTokens: 2_000, validityDays: 30, priceBrlCents: 4_990 },
+    brl_97_90: { smartTokens: 4_000, validityDays: 30, priceBrlCents: 9_790 },
   })
 })

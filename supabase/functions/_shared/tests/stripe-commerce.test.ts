@@ -360,3 +360,92 @@ test('payment failure pauses and subscription deletion cancels without granting 
   assert.equal(Object.hasOwn(subscriptionPersistence(syncs[0]).profile, 'saldo_creditos'), false)
   assert.equal(grants.length, 0)
 })
+
+test('webhook schedules the five transactional emails only after financial work succeeds', async () => {
+  const grants: unknown[] = []
+  const syncs: unknown[] = []
+  const notifications: any[] = []
+  const dependencies: StripeWebhookDependencies = {
+    ...webhookDependencies(grants, syncs),
+    grant: async request => { grants.push(request); return 'created' },
+    notify: async request => { notifications.push(request) },
+  }
+
+  await processStripeEvent({
+    id: 'evt_purchase', type: 'checkout.session.completed',
+    data: { object: {
+      id: 'cs_purchase_email', mode: 'payment', payment_status: 'paid',
+      metadata: { user_id: USER_ID, economic_key: 'brl_49_90', purchase_type: 'payment' },
+    } },
+  }, dependencies)
+  await processStripeEvent({
+    id: 'evt_welcome', type: 'invoice.paid',
+    data: { object: { id: 'in_welcome', subscription: 'sub_test', billing_reason: 'subscription_create' } },
+  }, dependencies)
+  await processStripeEvent({
+    id: 'evt_renewal', type: 'invoice.paid',
+    data: { object: { id: 'in_renewal', subscription: 'sub_test', billing_reason: 'subscription_cycle' } },
+  }, dependencies)
+  await processStripeEvent({
+    id: 'evt_failed', type: 'invoice.payment_failed',
+    data: { object: { id: 'in_failed_email', subscription: 'sub_test' } },
+  }, dependencies)
+  await processStripeEvent({
+    id: 'evt_cancelled', type: 'customer.subscription.deleted', data: { object: subscription },
+  }, dependencies)
+
+  assert.deepEqual(notifications.map(item => item.kind), [
+    'purchase_confirmed',
+    'subscription_welcome',
+    'subscription_renewed',
+    'subscription_payment_failed',
+    'subscription_cancelled',
+  ])
+  assert.deepEqual(notifications.map(item => item.idempotencyKey), [
+    'stripe-email:purchase:cs_purchase_email',
+    'stripe-email:invoice:in_welcome',
+    'stripe-email:invoice:in_renewal',
+    'stripe-email:payment-failed:in_failed_email',
+    'stripe-email:subscription-cancelled:sub_test',
+  ])
+  assert.equal(grants.length, 3)
+  assert.equal(syncs.length, 4)
+})
+
+test('checkout subscription sends no email and Resend failure never breaks a completed grant', async () => {
+  const grants: unknown[] = []
+  const syncs: unknown[] = []
+  const failures: string[] = []
+  let notifyCalls = 0
+  const dependencies: StripeWebhookDependencies = {
+    ...webhookDependencies(grants, syncs),
+    grant: async request => { grants.push(request); return 'created' },
+    notify: async () => { notifyCalls += 1; throw new Error('provider detail') },
+    logEmailFailure: code => { failures.push(code) },
+  }
+  const linked = await processStripeEvent({
+    id: 'evt_checkout_subscription', type: 'checkout.session.completed',
+    data: { object: { id: 'cs_subscription', mode: 'subscription', subscription: 'sub_test', client_reference_id: USER_ID } },
+  }, dependencies)
+  assert.equal(linked, 'subscription_linked')
+  assert.equal(notifyCalls, 0)
+
+  const purchase = await processStripeEvent({
+    id: 'evt_purchase_failure', type: 'checkout.session.completed',
+    data: { object: {
+      id: 'cs_purchase_failure', mode: 'payment', payment_status: 'paid',
+      metadata: { user_id: USER_ID, economic_key: 'brl_97_90', purchase_type: 'payment' },
+    } },
+  }, dependencies)
+  assert.equal(purchase, 'purchase_granted')
+  assert.equal(grants.length, 1)
+  assert.equal(notifyCalls, 1)
+  assert.deepEqual(failures, ['transactional_email_failed'])
+})
+
+test('webhook implementation claims recipient and delivery idempotency server-side', () => {
+  assert.match(webhookIndex, /claim_stripe_transactional_email/)
+  assert.match(webhookIndex, /complete_stripe_transactional_email/)
+  assert.match(webhookIndex, /auth\.admin\.getUserById\(notification\.userId\)/)
+  assert.doesNotMatch(`${webhookIndex}\n${webhookRuntime}`, /notification\.(?:email|to)|p_email/)
+})

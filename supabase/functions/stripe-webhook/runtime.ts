@@ -6,6 +6,7 @@ import {
   verifyStripeSignature,
   type FinancialGrantRequest,
 } from '../_shared/stripe-commerce.ts'
+import type { TransactionalEmailTemplateInput } from '../_shared/transactional-email.ts'
 
 type StripeObject = Record<string, any>
 
@@ -39,8 +40,16 @@ export type StripeWebhookDependencies = {
   retrieveSubscription(id: string): Promise<StripeObject>
   syncSubscription(record: SubscriptionSyncRecord): Promise<void>
   grant(request: FinancialGrantRequest): Promise<unknown>
+  notify?(request: StripeEmailNotification): Promise<unknown>
+  logEmailFailure?(code: 'transactional_email_failed'): void
   nowSeconds?: number
 }
+
+export type StripeEmailNotification = TransactionalEmailTemplateInput & Readonly<{
+  userId: string
+  stripeEventId: string
+  idempotencyKey: string
+}>
 
 const json = (body: unknown, status: number) => new Response(JSON.stringify(body), {
   status,
@@ -75,6 +84,32 @@ function subscriptionPlans(economicKey: string) {
   if (economicKey === 'pro') return { subscriptionPlan: 'pro', profilePlan: 'pro' } as const
   if (economicKey === 'elite') return { subscriptionPlan: 'elite', profilePlan: 'imobiliaria' } as const
   throw new Error('stripe_subscription_plan_invalid')
+}
+
+function planEmailKey(economicKey: string): 'start' | 'pro' | 'elite' {
+  if (economicKey === 'start' || economicKey === 'pro' || economicKey === 'elite') return economicKey
+  throw new Error('transactional_email_plan_invalid')
+}
+
+function purchaseEmailKey(economicKey: string): 'brl_49_90' | 'brl_97_90' {
+  if (economicKey === 'brl_49_90' || economicKey === 'brl_97_90') return economicKey
+  throw new Error('transactional_email_purchase_invalid')
+}
+
+async function notifySafely(dependencies: StripeWebhookDependencies, notification: StripeEmailNotification) {
+  if (!dependencies.notify) return
+  try {
+    await dependencies.notify(notification)
+  } catch {
+    if (dependencies.logEmailFailure) dependencies.logEmailFailure('transactional_email_failed')
+    else console.error('[stripe-webhook-email] transactional_email_failed')
+  }
+}
+
+function stripeEventId(event: StripeObject) {
+  const eventId = stripeId(event.id)
+  if (!eventId) throw new Error('stripe_event_id_missing')
+  return eventId
 }
 
 export function normalizeStripeSubscription(
@@ -140,7 +175,15 @@ export async function processStripeEvent(event: StripeObject, dependencies: Stri
       }
       if (object.mode === 'payment' && object.payment_status === 'paid') {
         const nowMilliseconds = (dependencies.nowSeconds ?? Math.floor(Date.now() / 1000)) * 1000
-        await dependencies.grant(purchaseGrantRequest(stripeId(object.id), object.metadata, nowMilliseconds))
+        const grant = purchaseGrantRequest(stripeId(object.id), object.metadata, nowMilliseconds)
+        await dependencies.grant(grant)
+        if (dependencies.notify) await notifySafely(dependencies, {
+          kind: 'purchase_confirmed',
+          userId: grant.userId,
+          economicKey: purchaseEmailKey(grant.economicKey),
+          stripeEventId: stripeEventId(event),
+          idempotencyKey: `stripe-email:purchase:${grant.stripeCheckoutSessionId}`,
+        })
         return 'purchase_granted'
       }
       return 'checkout_ignored'
@@ -149,21 +192,47 @@ export async function processStripeEvent(event: StripeObject, dependencies: Stri
       const subscriptionId = invoiceSubscriptionId(object)
       if (!subscriptionId) return 'invoice_ignored'
       const { subscription, record } = await syncRetrievedSubscription(subscriptionId, dependencies)
-      await dependencies.grant(subscriptionGrantRequest(stripeId(object.id), subscription.metadata, record.currentPeriodEnd))
+      const grant = subscriptionGrantRequest(stripeId(object.id), subscription.metadata, record.currentPeriodEnd)
+      await dependencies.grant(grant)
+      if (dependencies.notify) await notifySafely(dependencies, {
+        kind: object.billing_reason === 'subscription_create' ? 'subscription_welcome' : 'subscription_renewed',
+        userId: grant.userId,
+        economicKey: planEmailKey(grant.economicKey),
+        stripeEventId: stripeEventId(event),
+        idempotencyKey: `stripe-email:invoice:${grant.stripeInvoiceId}`,
+      })
       return 'subscription_granted'
     }
     case 'invoice.payment_failed': {
       const subscriptionId = invoiceSubscriptionId(object)
       if (!subscriptionId) return 'invoice_ignored'
-      await syncRetrievedSubscription(subscriptionId, dependencies, 'pausado')
+      const { subscription, record } = await syncRetrievedSubscription(subscriptionId, dependencies, 'pausado')
+      const trusted = requireTrustedMetadata(subscription.metadata, 'subscription')
+      const invoiceId = stripeId(object.id)
+      if (!invoiceId) throw new Error('stripe_invoice_id_missing')
+      if (dependencies.notify) await notifySafely(dependencies, {
+        kind: 'subscription_payment_failed',
+        userId: record.userId,
+        economicKey: planEmailKey(trusted.economicKey),
+        stripeEventId: stripeEventId(event),
+        idempotencyKey: `stripe-email:payment-failed:${invoiceId}`,
+      })
       return 'subscription_paused'
     }
     case 'customer.subscription.updated':
       await dependencies.syncSubscription(normalizeStripeSubscription(object))
       return 'subscription_updated'
-    case 'customer.subscription.deleted':
-      await dependencies.syncSubscription(normalizeStripeSubscription(object, 'cancelado'))
+    case 'customer.subscription.deleted': {
+      const record = normalizeStripeSubscription(object, 'cancelado')
+      await dependencies.syncSubscription(record)
+      if (dependencies.notify) await notifySafely(dependencies, {
+        kind: 'subscription_cancelled',
+        userId: record.userId,
+        stripeEventId: stripeEventId(event),
+        idempotencyKey: `stripe-email:subscription-cancelled:${record.stripeSubscriptionId}`,
+      })
       return 'subscription_cancelled'
+    }
     default:
       return 'event_ignored'
   }

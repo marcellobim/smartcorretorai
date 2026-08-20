@@ -1,7 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { grantFinancialLot } from '../_shared/stripe-commerce.ts'
-import { handleStripeWebhook, subscriptionPersistence, type SubscriptionSyncRecord } from './runtime.ts'
+import { buildTransactionalEmail, sendTransactionalEmail } from '../_shared/transactional-email.ts'
+import {
+  handleStripeWebhook,
+  subscriptionPersistence,
+  type StripeEmailNotification,
+  type SubscriptionSyncRecord,
+} from './runtime.ts'
 
 const requiredEnv = (name: string) => {
   const value = Deno.env.get(name)
@@ -22,10 +28,57 @@ serve(async (request) => {
     const supabase = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
       auth: { persistSession: false },
     })
+    const notify = async (notification: StripeEmailNotification) => {
+      let claimed = false
+      try {
+        const { data: claim, error: claimError } = await supabase.rpc('claim_stripe_transactional_email', {
+          p_idempotency_key: notification.idempotencyKey,
+          p_stripe_event_id: notification.stripeEventId,
+          p_user_id: notification.userId,
+          p_template: notification.kind,
+        })
+        if (claimError) throw new Error('transactional_email_claim_failed')
+        claimed = claim === true
+        if (!claimed) return 'already_processed'
+
+        const { data: userData, error: userError } = await supabase.auth.admin.getUserById(notification.userId)
+        const recipient = String(userData?.user?.email ?? '').trim()
+        if (userError || !recipient) throw new Error('transactional_email_recipient_missing')
+
+        const content = buildTransactionalEmail(notification)
+        const providerMessageId = await sendTransactionalEmail({
+          ...content,
+          to: recipient,
+          idempotencyKey: notification.idempotencyKey,
+        })
+        const { error: completeError } = await supabase.rpc('complete_stripe_transactional_email', {
+          p_idempotency_key: notification.idempotencyKey,
+          p_succeeded: true,
+          p_provider_message_id: providerMessageId,
+        })
+        if (completeError) throw new Error('transactional_email_complete_failed')
+        return 'sent'
+      } catch {
+        if (claimed) {
+          try {
+            await supabase.rpc('complete_stripe_transactional_email', {
+              p_idempotency_key: notification.idempotencyKey,
+              p_succeeded: false,
+              p_provider_message_id: null,
+            })
+          } catch {
+            // The financial webhook must still finish even if delivery-state persistence is unavailable.
+          }
+        }
+        throw new Error('transactional_email_delivery_failed')
+      }
+    }
     return await handleStripeWebhook(request, {
       webhookSecret: requiredEnv('STRIPE_WEBHOOK_SECRET'),
       retrieveSubscription: id => stripeGet(`/subscriptions/${encodeURIComponent(id)}`),
       grant: request => grantFinancialLot(request, supabase),
+      notify,
+      logEmailFailure: code => console.error('[stripe-webhook-email]', code),
       syncSubscription: async (record: SubscriptionSyncRecord) => {
         const persistence = subscriptionPersistence(record)
         const { error: subscriptionError } = await supabase.from('subscriptions')
