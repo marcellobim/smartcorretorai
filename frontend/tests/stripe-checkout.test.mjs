@@ -41,6 +41,17 @@ test('Planos sends only the internal economic key to the authenticated checkout 
   assert.match(checkout, /Object\.keys\(body\)\.length !== 1/)
 })
 
+test('Planos presents SMART15 once above subscriptions without adding a coupon field or changing recharges', () => {
+  assert.equal((planos.match(/Oferta de lançamento/g) ?? []).length, 1)
+  assert.equal((planos.match(/SMART15/g) ?? []).length, 1)
+  assert.match(planos, /Use o código\{' '\}[\s\S]*?SMART15[\s\S]*?no checkout e ganhe 15% de desconto nos 3 primeiros meses\./)
+  assert.match(planos, /Oferta de lançamento[\s\S]*?SMART15[\s\S]*?<section className="mt-8 grid gap-5 lg:grid-cols-3">/)
+  assert.doesNotMatch(planos, /<input|aplicar cupom|preço promocional|precoPromocional/i)
+
+  const rechargeSection = planos.slice(planos.indexOf('<section className="mt-10 rounded-3xl'))
+  assert.doesNotMatch(rechargeSection, /SMART15|Oferta de lançamento|15%/)
+})
+
 test('purchased Smart Token balance remains visible without requiring a subscription', () => {
   assert.equal(getSmartTokenBalance({ plano: 'free', saldo_creditos: 2000 }), 2000)
   assert.equal(getSmartTokenBalance({ plano: 'pro', saldo_creditos: 10850 }), 10850)

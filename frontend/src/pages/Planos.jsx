@@ -184,6 +184,23 @@ export default function Planos() {
           </div>
         </section>
 
+        <section className="mt-6 rounded-3xl border border-primary-100 bg-gradient-to-r from-white via-primary-50 to-cyan-50 p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-primary-700">
+                Oferta de lançamento
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-700 sm:text-base">
+                Use o código{' '}
+                <span className="inline-flex rounded-lg border border-primary-200 bg-white px-2.5 py-1 font-black tracking-[0.12em] text-primary-900 shadow-sm">
+                  SMART15
+                </span>{' '}
+                no checkout e ganhe 15% de desconto nos 3 primeiros meses.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="mt-8 grid gap-5 lg:grid-cols-3">
           {PLANOS.map((plano) => {
             const atual = user?.plano === plano.id
