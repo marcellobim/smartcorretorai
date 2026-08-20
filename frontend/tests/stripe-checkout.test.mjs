@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { CREDIT_RECHARGES, SMART_TOKEN_RECHARGE_PACKAGES } from '../src/data/creditCosts.js'
+import { getSmartTokenBalance } from '../src/lib/smart-tokens.js'
 
 const planos = readFileSync(new URL('../src/pages/Planos.jsx', import.meta.url), 'utf8')
 const terms = readFileSync(new URL('../src/pages/TermosDeUso.jsx', import.meta.url), 'utf8')
@@ -9,6 +10,7 @@ const checkout = readFileSync(new URL('../../supabase/functions/stripe-checkout/
 const webhook = readFileSync(new URL('../../supabase/functions/stripe-webhook/runtime.ts', import.meta.url), 'utf8')
 const stripeCommerce = readFileSync(new URL('../../supabase/functions/_shared/stripe-commerce.ts', import.meta.url), 'utf8')
 const economicCatalog = readFileSync(new URL('../../supabase/functions/_shared/economic-catalog.ts', import.meta.url), 'utf8')
+const sidebar = readFileSync(new URL('../src/components/layout/Sidebar.jsx', import.meta.url), 'utf8')
 
 test('frontend plan cards keep final monthly prices, grants and operational economic keys', () => {
   assert.equal((planos.match(/>Mensal</g) ?? []).length, 1)
@@ -33,6 +35,24 @@ test('Planos sends only the internal economic key to the authenticated checkout 
   assert.match(planos, /functions\.invoke\('stripe-checkout',[\s\S]*body: \{ economicKey \}/)
   assert.doesNotMatch(planos, /body:\s*\{[^}]*smartTokens|body:\s*\{[^}]*priceId|body:\s*\{[^}]*validityDays/)
   assert.match(checkout, /Object\.keys\(body\)\.length !== 1/)
+})
+
+test('purchased Smart Token balance remains visible without requiring a subscription', () => {
+  assert.equal(getSmartTokenBalance({ plano: 'free', saldo_creditos: 2000 }), 2000)
+  assert.equal(getSmartTokenBalance({ plano: 'pro', saldo_creditos: 10850 }), 10850)
+  assert.equal(getSmartTokenBalance({ plano: 'free', saldo_creditos: 0 }), 0)
+
+  assert.match(sidebar, /getSmartTokenBalance\(\{ saldo_creditos: profile\?\.saldo_creditos \}\)/)
+  assert.match(sidebar, /const showBalance = balance !== null && \(!trial \|\| balance > 0\)/)
+  assert.match(sidebar, /Saldo: <span[^>]*>\{formatSmartTokens\(balance\)\} ST<\/span>/)
+  assert.match(sidebar, /Saldo:[\s\S]*?<NavLink[\s\S]*?Smart Tokens/)
+  assert.doesNotMatch(planos, /Saldo:|getSmartTokenBalance|formatSmartTokens/)
+})
+
+test('successful checkout return refreshes the authenticated profile once', () => {
+  assert.match(planos, /searchParams\.get\('checkout'\) !== 'success'/)
+  assert.match(planos, /checkoutRefreshHandledRef\.current = true[\s\S]*?void reloadProfile\(\)/)
+  assert.match(planos, /if \(!isAuthenticated \|\| loading[^\n]+checkoutRefreshHandledRef\.current\) return/)
 })
 
 test('Stripe integration never calls the legacy add_credits RPC', () => {

@@ -87,39 +87,40 @@ function SidebarLink({ item, onNavigate }) {
   )
 }
 
-function SmartTokensLink({ user, onNavigate }) {
-  const balance = getSmartTokenBalance(user)
-  const trial = isTrialUser(user)
+function SmartTokensLink({ profile, onNavigate }) {
+  const balance = getSmartTokenBalance({ saldo_creditos: profile?.saldo_creditos })
+  const trial = isTrialUser(profile)
+  const showBalance = balance !== null && (!trial || balance > 0)
 
   return (
-    <NavLink
-      to={smartTokensItem.to}
-      onClick={onNavigate}
-      className={({ isActive }) => `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition-all duration-150 ${
-        isActive
-          ? 'bg-primary-800 text-white shadow-sm'
-          : 'text-primary-900 hover:bg-primary-50'
-      }`}
-    >
-      {({ isActive }) => (
-        <>
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'}`}>
-            <Coins className="h-4 w-4" />
-          </span>
-          <span className="min-w-0 flex-1 truncate">
-            <span>Smart Tokens</span>
-            {!trial && balance !== null && (
-              <span className={`ml-1.5 text-[10px] font-semibold ${isActive ? 'text-cyan-100' : 'text-slate-500'}`}>
-                {formatSmartTokens(balance)} ST
-              </span>
-            )}
-          </span>
-          <span className={`text-[10px] font-black ${isActive ? 'text-white' : 'text-primary-700'}`}>
-            Adicionar
-          </span>
-        </>
+    <div>
+      {showBalance && (
+        <p className="px-3 pb-1 text-xs font-bold text-slate-500">
+          Saldo: <span className="font-black text-primary-800">{formatSmartTokens(balance)} ST</span>
+        </p>
       )}
-    </NavLink>
+      <NavLink
+        to={smartTokensItem.to}
+        onClick={onNavigate}
+        className={({ isActive }) => `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition-all duration-150 ${
+          isActive
+            ? 'bg-primary-800 text-white shadow-sm'
+            : 'text-primary-900 hover:bg-primary-50'
+        }`}
+      >
+        {({ isActive }) => (
+          <>
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'}`}>
+              <Coins className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">Smart Tokens</span>
+            <span className={`text-[10px] font-black ${isActive ? 'text-white' : 'text-primary-700'}`}>
+              Adicionar
+            </span>
+          </>
+        )}
+      </NavLink>
+    </div>
   )
 }
 
@@ -139,7 +140,7 @@ function NavigationGroup({ group, onNavigate }) {
 }
 
 export default function Sidebar({ mobile = false, onClose }) {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, profile, logout, isAdmin } = useAuth()
   const displayName =
     user?.displayName ||
     user?.full_name ||
@@ -182,7 +183,7 @@ export default function Sidebar({ mobile = false, onClose }) {
             Conta
           </h2>
           <div className="mt-1.5 space-y-1">
-            <SmartTokensLink user={user} onNavigate={onClose} />
+            <SmartTokensLink profile={profile} onNavigate={onClose} />
             {accountItems.map(item => (
               <SidebarLink key={item.label} item={item} onNavigate={onClose} />
             ))}

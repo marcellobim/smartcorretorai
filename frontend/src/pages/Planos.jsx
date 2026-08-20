@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Coins, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth-context'
@@ -67,10 +67,18 @@ const RULES = [
 const formatTokens = (value) => new Intl.NumberFormat('pt-BR').format(value)
 
 export default function Planos() {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, loading, reloadProfile } = useAuth()
+  const [searchParams] = useSearchParams()
   const [loadingItem, setLoadingItem] = useState(null)
   const [selectedRechargeKey, setSelectedRechargeKey] = useState(SMART_TOKEN_RECHARGE_PACKAGES[0].id)
+  const checkoutRefreshHandledRef = useRef(false)
   const selectedRecharge = SMART_TOKEN_RECHARGE_PACKAGES.find(item => item.id === selectedRechargeKey)
+
+  useEffect(() => {
+    if (!isAuthenticated || loading || searchParams.get('checkout') !== 'success' || checkoutRefreshHandledRef.current) return
+    checkoutRefreshHandledRef.current = true
+    void reloadProfile()
+  }, [isAuthenticated, loading, reloadProfile, searchParams])
 
   const iniciarCheckout = async (itemId) => {
     if (!isAuthenticated) return
