@@ -107,14 +107,14 @@ test('frontend exposes exactly the two approved recharge packages', () => {
     { id: 'brl_49_90', credits: 2000, price: 49.9, expiresInDays: 30 },
     { id: 'brl_97_90', credits: 4000, price: 97.9, expiresInDays: 30 },
   ])
-  assert.match(planos, /2 opções simples/)
   assert.match(planos, /Continue ou comece a criar/)
   assert.match(planos, /Escolha sua recarga/)
+  assert.match(planos, /Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar\./)
   assert.match(planos, /Recarga selecionada:/)
   assert.match(planos, /Smart Tokens extras/)
   assert.match(planos, /Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano\./)
   assert.match(planos, /Fazer upgrade do plano pode oferecer melhor custo-benefício/)
-  assert.doesNotMatch(planos, /pacote|Outro valor|quickAmounts|tokensPerReal/i)
+  assert.doesNotMatch(planos, /2 opções simples|Use em Banner Imobiliário, Studio IA, Banners e Textos\.|pacote|Outro valor|quickAmounts|tokensPerReal/i)
   assert.match(terms, /2\.000 Smart Tokens — R\$ 49,90/)
   assert.match(terms, /4\.000 Smart Tokens — R\$ 97,90/)
   assert.match(terms, /expiram em 30 dias/)

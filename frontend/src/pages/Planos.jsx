@@ -281,16 +281,13 @@ export default function Planos() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary-700 shadow-sm">
                   <Coins className="h-5 w-5" />
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-primary-800">
-                  2 opções simples
-                </span>
               </div>
 
               <h3 className="mt-5 text-xl font-black text-gray-950">
                 Escolha sua recarga
               </h3>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                Use em Banner Imobiliário, Studio IA, Banners e Textos.
+                Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar.
               </p>
 
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
