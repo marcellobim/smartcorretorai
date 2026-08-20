@@ -13,10 +13,25 @@ export type SubscriptionSyncRecord = Readonly<{
   userId: string
   stripeSubscriptionId: string
   stripeCustomerId: string | null
-  planId: string
+  subscriptionPlan: 'start' | 'pro' | 'elite'
+  profilePlan: 'start' | 'pro' | 'imobiliaria'
   status: 'ativo' | 'cancelado' | 'pausado'
-  currentPeriodStart: string | null
   currentPeriodEnd: string | null
+}>
+
+export type SubscriptionPersistence = Readonly<{
+  subscription: Readonly<{
+    user_id: string
+    stripe_customer_id: string | null
+    stripe_subscription_id: string
+    plano: 'start' | 'pro' | 'elite'
+    status: 'ativo' | 'cancelado' | 'pausado'
+    current_period_end: string | null
+  }>
+  profile: Readonly<{
+    plano: 'start' | 'pro' | 'imobiliaria' | 'free'
+    stripe_customer_id?: string
+  }>
 }>
 
 export type StripeWebhookDependencies = {
@@ -47,14 +62,19 @@ function unixDate(value: unknown) {
   return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : null
 }
 
-function subscriptionPeriods(subscription: StripeObject) {
+function subscriptionPeriodEnd(subscription: StripeObject) {
   const items = Array.isArray(subscription.items?.data) ? subscription.items.data : []
-  const starts = items.map((item: StripeObject) => Number(item.current_period_start)).filter(Number.isFinite)
   const ends = items.map((item: StripeObject) => Number(item.current_period_end)).filter(Number.isFinite)
-  return {
-    start: subscription.current_period_start ?? (starts.length ? Math.min(...starts) : null),
-    end: subscription.current_period_end ?? (ends.length ? Math.max(...ends) : null),
+  return subscription.current_period_end ?? (ends.length ? Math.max(...ends) : null)
+}
+
+function subscriptionPlans(economicKey: string) {
+  if (economicKey === 'start' || economicKey === 'start_promotional') {
+    return { subscriptionPlan: 'start', profilePlan: 'start' } as const
   }
+  if (economicKey === 'pro') return { subscriptionPlan: 'pro', profilePlan: 'pro' } as const
+  if (economicKey === 'elite') return { subscriptionPlan: 'elite', profilePlan: 'imobiliaria' } as const
+  throw new Error('stripe_subscription_plan_invalid')
 }
 
 export function normalizeStripeSubscription(
@@ -64,16 +84,32 @@ export function normalizeStripeSubscription(
   const trusted = requireTrustedMetadata(subscription.metadata, 'subscription')
   const subscriptionId = stripeId(subscription.id)
   if (!subscriptionId) throw new Error('stripe_subscription_id_missing')
-  const periods = subscriptionPeriods(subscription)
+  const plans = subscriptionPlans(trusted.economicKey)
   return Object.freeze({
     userId: trusted.userId,
     stripeSubscriptionId: subscriptionId,
     stripeCustomerId: stripeId(subscription.customer) || null,
-    planId: trusted.economicKey,
+    ...plans,
     status: statusOverride ?? mapStripeSubscriptionStatus(subscription.status),
-    currentPeriodStart: unixDate(periods.start),
-    currentPeriodEnd: unixDate(periods.end),
+    currentPeriodEnd: unixDate(subscriptionPeriodEnd(subscription)),
   })
+}
+
+export function subscriptionPersistence(record: SubscriptionSyncRecord): SubscriptionPersistence {
+  const profile = record.stripeCustomerId
+    ? { plano: record.status === 'ativo' ? record.profilePlan : 'free', stripe_customer_id: record.stripeCustomerId }
+    : { plano: record.status === 'ativo' ? record.profilePlan : 'free' }
+  return Object.freeze({
+    subscription: Object.freeze({
+      user_id: record.userId,
+      stripe_customer_id: record.stripeCustomerId,
+      stripe_subscription_id: record.stripeSubscriptionId,
+      plano: record.subscriptionPlan,
+      status: record.status,
+      current_period_end: record.currentPeriodEnd,
+    }),
+    profile: Object.freeze(profile),
+  }) as SubscriptionPersistence
 }
 
 async function syncRetrievedSubscription(

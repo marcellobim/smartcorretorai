@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { grantFinancialLot } from '../_shared/stripe-commerce.ts'
-import { handleStripeWebhook, type SubscriptionSyncRecord } from './runtime.ts'
+import { handleStripeWebhook, subscriptionPersistence, type SubscriptionSyncRecord } from './runtime.ts'
 
 const requiredEnv = (name: string) => {
   const value = Deno.env.get(name)
@@ -27,21 +27,14 @@ serve(async (request) => {
       retrieveSubscription: id => stripeGet(`/subscriptions/${encodeURIComponent(id)}`),
       grant: request => grantFinancialLot(request, supabase),
       syncSubscription: async (record: SubscriptionSyncRecord) => {
-        const { error: subscriptionError } = await supabase.from('subscriptions').upsert({
-          user_id: record.userId,
-          stripe_subscription_id: record.stripeSubscriptionId,
-          plan_id: record.planId,
-          status: record.status,
-          current_period_start: record.currentPeriodStart,
-          current_period_end: record.currentPeriodEnd,
-        }, { onConflict: 'stripe_subscription_id' })
+        const persistence = subscriptionPersistence(record)
+        const { error: subscriptionError } = await supabase.from('subscriptions')
+          .upsert(persistence.subscription, { onConflict: 'user_id' })
         if (subscriptionError) throw new Error('subscription_sync_failed')
-        if (record.stripeCustomerId) {
-          const { error: profileError } = await supabase.from('profiles')
-            .update({ stripe_customer_id: record.stripeCustomerId })
-            .eq('id', record.userId)
-          if (profileError) throw new Error('stripe_customer_sync_failed')
-        }
+        const { error: profileError } = await supabase.from('profiles')
+          .update(persistence.profile)
+          .eq('id', record.userId)
+        if (profileError) throw new Error('stripe_profile_sync_failed')
       },
     })
   } catch (error) {

@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   STRIPE_CHECKOUT_ITEMS,
   buildStripeCheckoutParams,
@@ -12,12 +13,16 @@ import {
 import { handleStripeCheckout } from '../../stripe-checkout/runtime.ts'
 import {
   handleStripeWebhook,
+  normalizeStripeSubscription,
   processStripeEvent,
+  subscriptionPersistence,
   type StripeWebhookDependencies,
 } from '../../stripe-webhook/runtime.ts'
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
 const PERIOD_END = new Date(1_802_592_000 * 1000).toISOString()
+const webhookIndex = readFileSync(new URL('../../stripe-webhook/index.ts', import.meta.url), 'utf8')
+const webhookRuntime = readFileSync(new URL('../../stripe-webhook/runtime.ts', import.meta.url), 'utf8')
 const env = new Map([
   ['STRIPE_PRICE_START', 'price_teststart'],
   ['STRIPE_PRICE_PRO', 'price_testpro'],
@@ -159,6 +164,66 @@ test('subscription checkout only links subscription; invoice.paid is monthly gra
   assert.deepEqual(grants[0], subscriptionGrantRequest('in_test_cycle', subscription.metadata, PERIOD_END))
 })
 
+test('subscription persistence uses only the remote schema and maps START, PRO and ELITE profiles', () => {
+  const expected = [
+    ['start', 'start', 'start'],
+    ['pro', 'pro', 'pro'],
+    ['elite', 'elite', 'imobiliaria'],
+  ] as const
+
+  for (const [economicKey, subscriptionPlan, profilePlan] of expected) {
+    const record = normalizeStripeSubscription({
+      ...subscription,
+      metadata: { ...subscription.metadata, economic_key: economicKey },
+    })
+    const persistence = subscriptionPersistence(record)
+    assert.equal(persistence.subscription.plano, subscriptionPlan)
+    assert.equal(persistence.profile.plano, profilePlan)
+    assert.deepEqual(Object.keys(persistence.subscription).sort(), [
+      'current_period_end',
+      'plano',
+      'status',
+      'stripe_customer_id',
+      'stripe_subscription_id',
+      'user_id',
+    ])
+  }
+})
+
+test('invoice.paid preserves monthly grants and invoice idempotency for START, PRO and ELITE', async () => {
+  const expected = [
+    ['start', 6_350],
+    ['pro', 10_850],
+    ['elite', 26_350],
+  ] as const
+
+  for (const [economicKey, smartTokens] of expected) {
+    const grants: any[] = []
+    const planSubscription = {
+      ...subscription,
+      metadata: { ...subscription.metadata, economic_key: economicKey },
+    }
+    const dependencies: StripeWebhookDependencies = {
+      webhookSecret: 'unused',
+      retrieveSubscription: async () => planSubscription,
+      syncSubscription: async () => undefined,
+      grant: async request => { grants.push(request) },
+    }
+    const invoice = { type: 'invoice.paid', data: { object: { id: `in_${economicKey}`, subscription: 'sub_test' } } }
+    await processStripeEvent(invoice, dependencies)
+    await processStripeEvent(invoice, dependencies)
+    assert.equal(grants[0].smartTokens, smartTokens)
+    assert.equal(grants[0].stripeInvoiceId, `in_${economicKey}`)
+    assert.equal(new Set(grants.map(grant => grant.idempotencyKey)).size, 1)
+  }
+})
+
+test('subscription persistence references no nonexistent columns or legacy credit mutation', () => {
+  assert.doesNotMatch(`${webhookIndex}\n${webhookRuntime}`, /\bplan_id\b|\bcurrent_period_start\b/)
+  assert.doesNotMatch(`${webhookIndex}\n${webhookRuntime}`, /add_credits|creditos_avulsos|saldo_creditos/)
+  assert.match(webhookIndex, /upsert\(persistence\.subscription, \{ onConflict: 'user_id' \}\)/)
+})
+
 test('purchase and subscription grants use different Stripe idempotency references', async () => {
   const purchase = purchaseGrantRequest('cs_purchase', {
     user_id: USER_ID,
@@ -230,5 +295,8 @@ test('payment failure pauses and subscription deletion cancels without granting 
   }, dependencies)
   assert.equal(syncs[0].status, 'pausado')
   assert.equal(syncs[1].status, 'cancelado')
+  assert.equal(subscriptionPersistence(syncs[0]).profile.plano, 'free')
+  assert.equal(subscriptionPersistence(syncs[1]).profile.plano, 'free')
+  assert.equal(Object.hasOwn(subscriptionPersistence(syncs[0]).profile, 'saldo_creditos'), false)
   assert.equal(grants.length, 0)
 })
