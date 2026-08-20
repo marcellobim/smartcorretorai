@@ -58,9 +58,13 @@ test('renders password validation and Auth errors visibly', () => {
   assert.match(settings, /role="alert"[\s\S]*passwordErrors\.root\.message/)
 })
 
-test('keeps Plano e Assinatura factual without an inactive cancellation control', () => {
+test('shows Stripe subscription management only for active plan profiles', () => {
   assert.match(settings, /Plano atual: \{user\?\.plano \|\| 'Starter'\}/)
-  assert.match(settings, /cancelamento pela conta ainda não está disponível nesta tela/)
+  assert.match(settings, /ACTIVE_SUBSCRIPTION_PLANS = new Set\(\['start', 'pro', 'elite', 'imobiliaria'\]\)/)
+  assert.match(settings, /hasActiveSubscription && \([\s\S]*?Gerenciar assinatura/)
+  assert.match(settings, /functions\.invoke\('stripe-customer-portal'\)/)
+  assert.match(settings, /Altere sua forma de pagamento ou cancele sua assinatura\./)
+  assert.doesNotMatch(settings, /functions\.invoke\('stripe-customer-portal',[\s\S]{0,120}customer/i)
+  assert.doesNotMatch(settings, /STRIPE_SECRET_KEY|customer_id/)
   assert.match(settings, /to="\/planos"/)
-  assert.doesNotMatch(settings, /<Button[^>]*>[\s\S]{0,80}Cancelar assinatura/)
 })

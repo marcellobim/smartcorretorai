@@ -48,6 +48,8 @@ const SETTINGS_TAB_ALIASES = {
   assinatura: 'plano',
 }
 
+const ACTIVE_SUBSCRIPTION_PLANS = new Set(['start', 'pro', 'elite', 'imobiliaria'])
+
 function resolveSettingsTab(value) {
   const resolved = SETTINGS_TAB_ALIASES[value] || value
   return tabs.some(tab => tab.id === resolved) ? resolved : 'cadastro'
@@ -187,6 +189,7 @@ export default function Configuracoes() {
   const { user, session, updateUser } = useAuth()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   const {
     register: regPerfil,
@@ -353,8 +356,25 @@ export default function Configuracoes() {
     setSearchParams({ tab: tabId })
   }
 
+  const openSubscriptionPortal = async () => {
+    setOpeningPortal(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-customer-portal')
+      if (error || !data?.url) throw new Error('portal_unavailable')
+      const portalUrl = new URL(data.url)
+      if (portalUrl.protocol !== 'https:' || portalUrl.hostname !== 'billing.stripe.com') {
+        throw new Error('invalid_portal_url')
+      }
+      window.location.assign(portalUrl.toString())
+    } catch {
+      toast.error('Não foi possível abrir o gerenciamento da assinatura. Tente novamente.')
+      setOpeningPortal(false)
+    }
+  }
+
   const accessEmail = session?.user?.email || 'E-mail de acesso indisponível'
   const subscriptionStatus = user?.subscription_status || user?.assinatura_status || null
+  const hasActiveSubscription = ACTIVE_SUBSCRIPTION_PLANS.has(String(user?.plano || '').trim().toLowerCase())
 
   return (
     <div>
@@ -522,13 +542,21 @@ export default function Configuracoes() {
             {activeTab === 'plano' && (
               <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h2 className="text-lg font-black text-gray-950">Plano e Assinatura</h2>
-                <p className="mt-1 text-sm text-gray-500">Consulte seu plano atual e as condições disponíveis. O cancelamento pela conta ainda não está disponível nesta tela.</p>
+                <p className="mt-1 text-sm text-gray-500">Consulte seu plano atual e gerencie sua assinatura com segurança pelo Stripe.</p>
                 <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4">
                   <p className="text-sm font-black text-primary-800">Plano atual: {user?.plano || 'Starter'}</p>
                   {subscriptionStatus && (
                     <p className="mt-1 text-xs font-semibold text-primary-600">Status informado: {subscriptionStatus}</p>
                   )}
                 </div>
+                {hasActiveSubscription && (
+                  <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-sm font-semibold text-gray-600">Altere sua forma de pagamento ou cancele sua assinatura.</p>
+                    <Button type="button" loading={openingPortal} onClick={openSubscriptionPortal} className="mt-3">
+                      Gerenciar assinatura
+                    </Button>
+                  </div>
+                )}
                 <Link to="/planos" className="mt-5 inline-flex text-sm font-black text-primary-700 hover:text-primary-900 hover:underline">
                   Ver planos e condições disponíveis
                 </Link>

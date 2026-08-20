@@ -11,6 +11,10 @@ const webhook = readFileSync(new URL('../../supabase/functions/stripe-webhook/ru
 const stripeCommerce = readFileSync(new URL('../../supabase/functions/_shared/stripe-commerce.ts', import.meta.url), 'utf8')
 const economicCatalog = readFileSync(new URL('../../supabase/functions/_shared/economic-catalog.ts', import.meta.url), 'utf8')
 const sidebar = readFileSync(new URL('../src/components/layout/Sidebar.jsx', import.meta.url), 'utf8')
+const settings = readFileSync(new URL('../src/pages/Configuracoes.jsx', import.meta.url), 'utf8')
+const dashboard = readFileSync(new URL('../src/pages/Dashboard.jsx', import.meta.url), 'utf8')
+const portalIndex = readFileSync(new URL('../../supabase/functions/stripe-customer-portal/index.ts', import.meta.url), 'utf8')
+const portalRuntime = readFileSync(new URL('../../supabase/functions/stripe-customer-portal/runtime.ts', import.meta.url), 'utf8')
 
 test('frontend plan cards keep final monthly prices, grants and operational economic keys', () => {
   assert.equal((planos.match(/>Mensal</g) ?? []).length, 1)
@@ -53,6 +57,25 @@ test('successful checkout return refreshes the authenticated profile once', () =
   assert.match(planos, /searchParams\.get\('checkout'\) !== 'success'/)
   assert.match(planos, /checkoutRefreshHandledRef\.current = true[\s\S]*?void reloadProfile\(\)/)
   assert.match(planos, /if \(!isAuthenticated \|\| loading[^\n]+checkoutRefreshHandledRef\.current\) return/)
+})
+
+test('active users manage subscriptions through a server-authoritative Stripe Customer Portal', () => {
+  assert.match(settings, /hasActiveSubscription && \([\s\S]*?Gerenciar assinatura/)
+  assert.match(settings, /functions\.invoke\('stripe-customer-portal'\)/)
+  assert.doesNotMatch(settings, /functions\.invoke\('stripe-customer-portal',[\s\S]{0,120}body:/)
+  assert.doesNotMatch(settings, /customer_id|STRIPE_SECRET_KEY|sk_live_|sk_test_/)
+  assert.match(portalIndex, /SUPABASE_SERVICE_ROLE_KEY/)
+  assert.match(portalIndex, /STRIPE_SECRET_KEY/)
+  assert.match(portalIndex, /from\('subscriptions'\)[\s\S]*?eq\('user_id', userId\)[\s\S]*?eq\('status', 'ativo'\)/)
+  assert.match(portalRuntime, /Object\.keys\(body\)\.length !== 0/)
+  assert.match(portalRuntime, /portalUrl\.hostname !== 'billing\.stripe\.com'/)
+  assert.match(dashboard, /Gerenciar assinatura[\s\S]*?cancelamento tem efeito ao final do período vigente/)
+})
+
+test('Customer Portal does not mutate credits and the webhook remains cancellation authority', () => {
+  assert.doesNotMatch(`${portalIndex}\n${portalRuntime}`, /credit_lots|saldo_creditos|add_credits|grant_stripe_credit_lot/)
+  assert.match(webhook, /customer\.subscription\.deleted[\s\S]*?subscription_cancelled/)
+  assert.match(webhook, /normalizeStripeSubscription\(object, 'cancelado'\)/)
 })
 
 test('Stripe integration never calls the legacy add_credits RPC', () => {

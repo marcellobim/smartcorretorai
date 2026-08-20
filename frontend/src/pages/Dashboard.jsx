@@ -179,7 +179,7 @@ const faqItems = [
   },
   {
     question: 'Posso cancelar minha assinatura quando quiser?',
-    answer: 'O cancelamento pode ser solicitado a qualquer momento, com efeito ao final do período vigente, conforme os Termos de Uso. Em Configurações → Plano e Assinatura você consulta o plano atual, mas o cancelamento direto pela conta ainda não está disponível nesta versão; para solicitar, fale com o suporte.',
+    answer: 'Sim. Em Configurações → Plano e Assinatura, use Gerenciar assinatura para abrir o portal seguro da Stripe. O cancelamento tem efeito ao final do período vigente, sem apagar Smart Tokens já concedidos.',
     link: { to: '/configuracoes?tab=plano', label: 'Ver Plano e Assinatura' },
   },
   {

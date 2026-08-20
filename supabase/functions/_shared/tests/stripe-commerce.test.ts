@@ -11,6 +11,7 @@ import {
   verifyStripeSignature,
 } from '../stripe-commerce.ts'
 import { handleStripeCheckout } from '../../stripe-checkout/runtime.ts'
+import { handleStripeCustomerPortal } from '../../stripe-customer-portal/runtime.ts'
 import {
   handleStripeWebhook,
   normalizeStripeSubscription,
@@ -23,6 +24,8 @@ const USER_ID = '11111111-1111-4111-8111-111111111111'
 const PERIOD_END = new Date(1_802_592_000 * 1000).toISOString()
 const webhookIndex = readFileSync(new URL('../../stripe-webhook/index.ts', import.meta.url), 'utf8')
 const webhookRuntime = readFileSync(new URL('../../stripe-webhook/runtime.ts', import.meta.url), 'utf8')
+const portalIndex = readFileSync(new URL('../../stripe-customer-portal/index.ts', import.meta.url), 'utf8')
+const portalRuntime = readFileSync(new URL('../../stripe-customer-portal/runtime.ts', import.meta.url), 'utf8')
 const env = new Map([
   ['STRIPE_PRICE_START', 'price_teststart'],
   ['STRIPE_PRICE_PRO', 'price_testpro'],
@@ -101,6 +104,63 @@ test('checkout endpoint accepts exactly one internal economic key', async () => 
   }), dependencies)
   assert.equal(valid.status, 200)
   assert.equal(captured?.get('mode'), 'subscription')
+})
+
+test('customer portal authenticates the user and resolves the active Stripe customer only server-side', async () => {
+  let captured: URLSearchParams | null = null
+  const dependencies = {
+    returnUrl: 'https://www.smartcorretorai.com/planos',
+    authenticate: async (token: string) => token === 'valid' ? { id: USER_ID } : null,
+    findActiveStripeCustomerId: async (userId: string) => userId === USER_ID ? 'cus_server_only' : null,
+    createPortalSession: async (params: URLSearchParams) => {
+      captured = params
+      return { url: 'https://billing.stripe.com/p/session/test' }
+    },
+  }
+
+  const unauthenticated = await handleStripeCustomerPortal(new Request('https://local/portal', { method: 'POST' }), dependencies)
+  assert.equal(unauthenticated.status, 401)
+
+  const arbitraryCustomer = await handleStripeCustomerPortal(new Request('https://local/portal', {
+    method: 'POST',
+    headers: { authorization: 'Bearer valid', 'content-type': 'application/json' },
+    body: JSON.stringify({ customer_id: 'cus_attacker_controlled' }),
+  }), dependencies)
+  assert.equal(arbitraryCustomer.status, 400)
+
+  const valid = await handleStripeCustomerPortal(new Request('https://local/portal', {
+    method: 'POST',
+    headers: { authorization: 'Bearer valid' },
+  }), dependencies)
+  assert.equal(valid.status, 200)
+  assert.equal(captured?.get('customer'), 'cus_server_only')
+  assert.equal(captured?.get('return_url'), 'https://www.smartcorretorai.com/planos')
+})
+
+test('customer portal requires an active subscription and accepts only Stripe Billing Portal URLs', async () => {
+  const base = {
+    returnUrl: 'https://www.smartcorretorai.com/planos',
+    authenticate: async () => ({ id: USER_ID }),
+  }
+  const noSubscription = await handleStripeCustomerPortal(new Request('https://local/portal', {
+    method: 'POST', headers: { authorization: 'Bearer valid' },
+  }), {
+    ...base,
+    findActiveStripeCustomerId: async () => null,
+    createPortalSession: async () => ({ url: 'https://billing.stripe.com/p/session/unused' }),
+  })
+  assert.equal(noSubscription.status, 403)
+
+  const invalidUrl = await handleStripeCustomerPortal(new Request('https://local/portal', {
+    method: 'POST', headers: { authorization: 'Bearer valid' },
+  }), {
+    ...base,
+    findActiveStripeCustomerId: async () => 'cus_server_only',
+    createPortalSession: async () => ({ url: 'https://example.com/not-stripe' }),
+  })
+  assert.equal(invalidUrl.status, 502)
+  assert.match(portalIndex, /from\('subscriptions'\)[\s\S]*?eq\('user_id', userId\)[\s\S]*?eq\('status', 'ativo'\)/)
+  assert.doesNotMatch(`${portalIndex}\n${portalRuntime}`, /add_credits|creditos_avulsos|grant_stripe_credit_lot/)
 })
 
 async function stripeSignature(rawBody: string, secret: string, timestamp: number) {
