@@ -10,9 +10,22 @@ const HOME_URL = 'https://www.smartcorretorai.com'
 type PlanKey = 'start' | 'pro' | 'elite'
 type PurchaseKey = keyof typeof PURCHASE_GRANTS
 
+export type AppliedInvoiceDiscount = Readonly<{
+  amountBrlCents: number
+  percentOff?: number
+  promotionCode?: string
+  durationMonths?: number
+}>
+
+export type InvoicePaymentEmailData = Readonly<{
+  amountPaidBrlCents: number
+  discount?: AppliedInvoiceDiscount
+}>
+
 export type TransactionalEmailTemplateInput =
-  | Readonly<{ kind: 'purchase_confirmed'; economicKey: PurchaseKey }>
-  | Readonly<{ kind: 'subscription_welcome' | 'subscription_renewed' | 'subscription_payment_failed'; economicKey: PlanKey }>
+  | Readonly<{ kind: 'purchase_confirmed'; economicKey: PurchaseKey; amountPaidBrlCents?: number }>
+  | Readonly<{ kind: 'subscription_welcome' | 'subscription_renewed'; economicKey: PlanKey; payment: InvoicePaymentEmailData }>
+  | Readonly<{ kind: 'subscription_payment_failed'; economicKey: PlanKey }>
   | Readonly<{ kind: 'subscription_cancelled' }>
 
 export type TransactionalEmailContent = Readonly<{
@@ -36,6 +49,9 @@ const formatInteger = (value: number) => new Intl.NumberFormat('pt-BR', { maximu
 const formatBrl = (cents: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', minimumFractionDigits: 2,
 }).format(cents / 100).replace(/\u00a0/g, ' ')
+const formatPercent = (value: number) => new Intl.NumberFormat('pt-BR', {
+  maximumFractionDigits: 2,
+}).format(value)
 
 const escapeHtml = (value: string) => value
   .replaceAll('&', '&amp;')
@@ -58,6 +74,17 @@ function content(subject: string, paragraphs: readonly string[], ctaLabel: strin
   })
 }
 
+function discountText(discount: AppliedInvoiceDiscount) {
+  const label = discount.promotionCode ? `Oferta ${discount.promotionCode}:` : 'Desconto aplicado:'
+  if (Number.isFinite(discount.percentOff) && Number(discount.percentOff) > 0) {
+    const duration = Number.isInteger(discount.durationMonths) && Number(discount.durationMonths) > 0
+      ? ` por ${discount.durationMonths} meses`
+      : ''
+    return `${label} ${formatPercent(Number(discount.percentOff))}% de desconto${duration}`
+  }
+  return `${label} ${formatBrl(discount.amountBrlCents)}`
+}
+
 export function buildTransactionalEmail(input: TransactionalEmailTemplateInput): TransactionalEmailContent {
   if (input.kind === 'purchase_confirmed') {
     const purchase = PURCHASE_GRANTS[input.economicKey]
@@ -66,8 +93,8 @@ export function buildTransactionalEmail(input: TransactionalEmailTemplateInput):
       'Olá,',
       'Sua recarga foi confirmada.',
       `${formatInteger(purchase.smartTokens)} Smart Tokens já estão disponíveis na sua conta.`,
-      `Valor pago: ${formatBrl(purchase.priceBrlCents)}`,
-      `Os Smart Tokens desta recarga são válidos por ${purchase.validityDays} dias.`,
+      `Valor pago: ${formatBrl(input.amountPaidBrlCents ?? purchase.priceBrlCents)}`,
+      `Validade: ${purchase.validityDays} dias`,
     ], 'Começar a criar', DASHBOARD_URL)
   }
 
@@ -75,9 +102,8 @@ export function buildTransactionalEmail(input: TransactionalEmailTemplateInput):
     return content('Sua assinatura foi cancelada', [
       'Olá,',
       'Sua assinatura do SmartCorretorAI foi cancelada e não haverá uma nova renovação.',
-      'Os Smart Tokens já concedidos não são apagados por este evento e seguem suas regras de validade.',
-      'Obrigado por ter usado o SmartCorretorAI.',
-      `Se precisar de ajuda ou quiser compartilhar uma sugestão: ${TRANSACTIONAL_EMAIL_REPLY_TO}`,
+      'Os Smart Tokens já disponíveis na sua conta continuam seguindo suas regras de validade.',
+      'Obrigado por usar o SmartCorretorAI. Esperamos ter você de volta.',
     ], 'Voltar ao SmartCorretorAI', HOME_URL)
   }
 
@@ -87,28 +113,39 @@ export function buildTransactionalEmail(input: TransactionalEmailTemplateInput):
   }
   const planName = plan.displayName
   if (input.kind === 'subscription_welcome') {
-    return content(`Bem-vindo ao plano ${planName}`, [
+    const paragraphs = [
       'Olá,',
       `Sua assinatura do plano ${planName} está ativa.`,
-      `Valor: ${formatBrl(plan.monthlyPriceBrlCents)}/mês`,
-      `Smart Tokens incluídos nesta competência: ${formatInteger(plan.smartTokens)} ST`,
+      `Valor pago: ${formatBrl(input.payment.amountPaidBrlCents)}`,
+    ]
+    if (input.payment.discount) {
+      paragraphs.push(discountText(input.payment.discount))
+      paragraphs.push(`Valor normal do plano: ${formatBrl(plan.monthlyPriceBrlCents)}/mês`)
+    }
+    paragraphs.push(
+      `Smart Tokens incluídos neste ciclo: ${formatInteger(plan.smartTokens)} ST`,
       'Eles já estão disponíveis na sua conta.',
-    ], 'Começar a criar', DASHBOARD_URL)
+    )
+    return content(`Bem-vindo ao plano ${planName}`, paragraphs, 'Começar a criar', DASHBOARD_URL)
   }
   if (input.kind === 'subscription_renewed') {
-    return content(`Seu plano ${planName} foi renovado`, [
+    const paragraphs = [
       'Olá,',
       `Sua renovação do plano ${planName} foi confirmada.`,
-      `Valor: ${formatBrl(plan.monthlyPriceBrlCents)}`,
-      `Novo saldo mensal concedido: ${formatInteger(plan.smartTokens)} Smart Tokens`,
+      `Valor pago: ${formatBrl(input.payment.amountPaidBrlCents)}`,
+    ]
+    if (input.payment.discount) paragraphs.push(discountText(input.payment.discount))
+    paragraphs.push(
+      `Smart Tokens adicionados neste ciclo: ${formatInteger(plan.smartTokens)} ST`,
       'Seu plano continua ativo.',
-    ], 'Acessar SmartCorretorAI', DASHBOARD_URL)
+    )
+    return content(`Seu plano ${planName} foi renovado`, paragraphs, 'Acessar SmartCorretorAI', DASHBOARD_URL)
   }
   return content('Não conseguimos renovar seu plano', [
     'Olá,',
     `Não conseguimos concluir a renovação do seu plano ${planName}.`,
-    'Nenhum novo Smart Token foi concedido para esta competência.',
-    'Você pode revisar sua forma de pagamento em Configurações → Plano e Assinatura → Gerenciar assinatura.',
+    'Nenhum novo Smart Token foi adicionado neste ciclo.',
+    'Você pode revisar sua forma de pagamento em Configurações → Plano e Assinatura.',
   ], 'Gerenciar assinatura', SETTINGS_URL)
 }
 

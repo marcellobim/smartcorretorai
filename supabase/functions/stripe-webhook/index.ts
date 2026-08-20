@@ -23,6 +23,15 @@ const stripeGet = async (path: string) => {
   return await response.json() as Record<string, unknown>
 }
 
+const retrieveInvoiceForEmail = (id: string) => {
+  const query = new URLSearchParams()
+  query.append('expand[]', 'discounts')
+  query.append('expand[]', 'discounts.promotion_code')
+  query.append('expand[]', 'discounts.promotion_code.promotion.coupon')
+  query.append('expand[]', 'discounts.source.coupon')
+  return stripeGet(`/invoices/${encodeURIComponent(id)}?${query.toString()}`)
+}
+
 serve(async (request) => {
   try {
     const supabase = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
@@ -76,6 +85,7 @@ serve(async (request) => {
     return await handleStripeWebhook(request, {
       webhookSecret: requiredEnv('STRIPE_WEBHOOK_SECRET'),
       retrieveSubscription: id => stripeGet(`/subscriptions/${encodeURIComponent(id)}`),
+      retrieveInvoice: retrieveInvoiceForEmail,
       grant: request => grantFinancialLot(request, supabase),
       notify,
       logEmailFailure: code => console.error('[stripe-webhook-email]', code),

@@ -14,6 +14,7 @@ import { handleStripeCheckout } from '../../stripe-checkout/runtime.ts'
 import { handleStripeCustomerPortal } from '../../stripe-customer-portal/runtime.ts'
 import {
   handleStripeWebhook,
+  invoicePaymentEmailData,
   normalizeStripeSubscription,
   processStripeEvent,
   subscriptionPersistence,
@@ -378,16 +379,23 @@ test('webhook schedules the five transactional emails only after financial work 
     id: 'evt_purchase', type: 'checkout.session.completed',
     data: { object: {
       id: 'cs_purchase_email', mode: 'payment', payment_status: 'paid',
+      amount_total: 4_990,
       metadata: { user_id: USER_ID, economic_key: 'brl_49_90', purchase_type: 'payment' },
     } },
   }, dependencies)
   await processStripeEvent({
     id: 'evt_welcome', type: 'invoice.paid',
-    data: { object: { id: 'in_welcome', subscription: 'sub_test', billing_reason: 'subscription_create' } },
+    data: { object: {
+      id: 'in_welcome', subscription: 'sub_test', billing_reason: 'subscription_create',
+      amount_paid: 12_700, total_discount_amounts: [],
+    } },
   }, dependencies)
   await processStripeEvent({
     id: 'evt_renewal', type: 'invoice.paid',
-    data: { object: { id: 'in_renewal', subscription: 'sub_test', billing_reason: 'subscription_cycle' } },
+    data: { object: {
+      id: 'in_renewal', subscription: 'sub_test', billing_reason: 'subscription_cycle',
+      amount_paid: 21_700, total_discount_amounts: [],
+    } },
   }, dependencies)
   await processStripeEvent({
     id: 'evt_failed', type: 'invoice.payment_failed',
@@ -413,6 +421,80 @@ test('webhook schedules the five transactional emails only after financial work 
   ])
   assert.equal(grants.length, 3)
   assert.equal(syncs.length, 4)
+  assert.equal(notifications[0].amountPaidBrlCents, 4_990)
+  assert.deepEqual(notifications[1].payment, { amountPaidBrlCents: 12_700 })
+  assert.deepEqual(notifications[2].payment, { amountPaidBrlCents: 21_700 })
+})
+
+test('invoice email data uses actual Stripe amount and expanded promotion details', async () => {
+  const grants: unknown[] = []
+  const syncs: unknown[] = []
+  const notifications: any[] = []
+  let retrievedInvoice = ''
+  const invoice = {
+    id: 'in_discounted', subscription: 'sub_test', billing_reason: 'subscription_create',
+    amount_paid: 10_795,
+    total_discount_amounts: [{ amount: 1_905 }],
+    discounts: ['di_discounted'],
+  }
+  const result = await processStripeEvent({
+    id: 'evt_discounted', type: 'invoice.paid', data: { object: invoice },
+  }, {
+    ...webhookDependencies(grants, syncs),
+    retrieveInvoice: async id => {
+      retrievedInvoice = id
+      return {
+        ...invoice,
+        discounts: [{
+          promotion_code: {
+            code: 'SMART15',
+            promotion: { coupon: { percent_off: 15, duration: 'repeating', duration_in_months: 3 } },
+          },
+        }],
+      }
+    },
+    notify: async request => { notifications.push(request) },
+  })
+  assert.equal(result, 'subscription_granted')
+  assert.equal(retrievedInvoice, 'in_discounted')
+  assert.equal(grants.length, 1)
+  assert.deepEqual(notifications[0].payment, {
+    amountPaidBrlCents: 10_795,
+    discount: {
+      amountBrlCents: 1_905,
+      percentOff: 15,
+      promotionCode: 'SMART15',
+      durationMonths: 3,
+    },
+  })
+})
+
+test('invoice enrichment failure keeps the financial grant and actual discounted amount', async () => {
+  const grants: unknown[] = []
+  const notifications: any[] = []
+  const result = await processStripeEvent({
+    id: 'evt_discount_fallback', type: 'invoice.paid', data: { object: {
+      id: 'in_discount_fallback', subscription: 'sub_test', billing_reason: 'subscription_cycle',
+      amount_paid: 10_795, total_discount_amounts: [{ amount: 1_905 }], discounts: ['di_test'],
+    } },
+  }, {
+    ...webhookDependencies(grants, []),
+    retrieveInvoice: async () => { throw new Error('provider detail') },
+    notify: async request => { notifications.push(request) },
+  })
+  assert.equal(result, 'subscription_granted')
+  assert.equal(grants.length, 1)
+  assert.deepEqual(notifications[0].payment, {
+    amountPaidBrlCents: 10_795,
+    discount: { amountBrlCents: 1_905 },
+  })
+})
+
+test('invoice parser never invents promotion data when Stripe reports no discount', () => {
+  assert.deepEqual(invoicePaymentEmailData({ amount_paid: 12_700, total_discount_amounts: [] }), {
+    amountPaidBrlCents: 12_700,
+  })
+  assert.equal(invoicePaymentEmailData({ amount_paid: null }), null)
 })
 
 test('checkout subscription sends no email and Resend failure never breaks a completed grant', async () => {

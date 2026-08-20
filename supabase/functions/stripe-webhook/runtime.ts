@@ -6,7 +6,10 @@ import {
   verifyStripeSignature,
   type FinancialGrantRequest,
 } from '../_shared/stripe-commerce.ts'
-import type { TransactionalEmailTemplateInput } from '../_shared/transactional-email.ts'
+import type {
+  InvoicePaymentEmailData,
+  TransactionalEmailTemplateInput,
+} from '../_shared/transactional-email.ts'
 
 type StripeObject = Record<string, any>
 
@@ -38,6 +41,7 @@ export type SubscriptionPersistence = Readonly<{
 export type StripeWebhookDependencies = {
   webhookSecret: string
   retrieveSubscription(id: string): Promise<StripeObject>
+  retrieveInvoice?(id: string): Promise<StripeObject>
   syncSubscription(record: SubscriptionSyncRecord): Promise<void>
   grant(request: FinancialGrantRequest): Promise<unknown>
   notify?(request: StripeEmailNotification): Promise<unknown>
@@ -96,14 +100,96 @@ function purchaseEmailKey(economicKey: string): 'brl_49_90' | 'brl_97_90' {
   throw new Error('transactional_email_purchase_invalid')
 }
 
+function nonNegativeInteger(value: unknown) {
+  if (value === null || value === undefined || typeof value === 'boolean' || value === '') return null
+  const number = Number(value)
+  return Number.isSafeInteger(number) && number >= 0 ? number : null
+}
+
+function invoiceDiscountAmount(invoice: StripeObject) {
+  const totals = Array.isArray(invoice.total_discount_amounts) ? invoice.total_discount_amounts : []
+  return totals.reduce((sum: number, item: StripeObject) => sum + (nonNegativeInteger(item?.amount) ?? 0), 0)
+}
+
+function objectValue(value: unknown): StripeObject | null {
+  return value && typeof value === 'object' ? value as StripeObject : null
+}
+
+function expandedInvoiceDiscounts(invoice: StripeObject) {
+  const discounts = Array.isArray(invoice.discounts)
+    ? invoice.discounts.map(objectValue).filter(Boolean) as StripeObject[]
+    : []
+  const legacyDiscount = objectValue(invoice.discount)
+  if (legacyDiscount) discounts.unshift(legacyDiscount)
+  return discounts
+}
+
+function discountCoupon(discount: StripeObject) {
+  const promotionCode = objectValue(discount.promotion_code)
+  return objectValue(discount.coupon)
+    ?? objectValue(discount.source?.coupon)
+    ?? objectValue(promotionCode?.coupon)
+    ?? objectValue(promotionCode?.promotion?.coupon)
+}
+
+export function invoicePaymentEmailData(
+  invoice: StripeObject,
+  enrichedInvoice: StripeObject = invoice,
+): InvoicePaymentEmailData | null {
+  const amountPaidBrlCents = nonNegativeInteger(invoice.amount_paid)
+  if (amountPaidBrlCents === null) return null
+
+  const discountAmount = invoiceDiscountAmount(enrichedInvoice) || invoiceDiscountAmount(invoice)
+  if (discountAmount <= 0) return Object.freeze({ amountPaidBrlCents })
+
+  const discount = expandedInvoiceDiscounts(enrichedInvoice)[0]
+    ?? expandedInvoiceDiscounts(invoice)[0]
+    ?? null
+  const promotionCode = objectValue(discount?.promotion_code)
+  const coupon = discount ? discountCoupon(discount) : null
+  const percentOff = Number(coupon?.percent_off)
+  const durationMonths = Number(coupon?.duration_in_months)
+
+  return Object.freeze({
+    amountPaidBrlCents,
+    discount: Object.freeze({
+      amountBrlCents: discountAmount,
+      ...(Number.isFinite(percentOff) && percentOff > 0 ? { percentOff } : {}),
+      ...(typeof promotionCode?.code === 'string' && promotionCode.code.trim()
+        ? { promotionCode: promotionCode.code.trim() }
+        : {}),
+      ...(coupon?.duration === 'repeating' && Number.isInteger(durationMonths) && durationMonths > 0
+        ? { durationMonths }
+        : {}),
+    }),
+  })
+}
+
+function reportEmailFailure(dependencies: StripeWebhookDependencies) {
+  if (dependencies.logEmailFailure) dependencies.logEmailFailure('transactional_email_failed')
+  else console.error('[stripe-webhook-email] transactional_email_failed')
+}
+
 async function notifySafely(dependencies: StripeWebhookDependencies, notification: StripeEmailNotification) {
   if (!dependencies.notify) return
   try {
     await dependencies.notify(notification)
   } catch {
-    if (dependencies.logEmailFailure) dependencies.logEmailFailure('transactional_email_failed')
-    else console.error('[stripe-webhook-email] transactional_email_failed')
+    reportEmailFailure(dependencies)
   }
+}
+
+async function paidInvoiceEmailData(invoice: StripeObject, dependencies: StripeWebhookDependencies) {
+  const invoiceId = stripeId(invoice.id)
+  let enrichedInvoice = invoice
+  if (invoiceDiscountAmount(invoice) > 0 && dependencies.retrieveInvoice && invoiceId) {
+    try {
+      enrichedInvoice = await dependencies.retrieveInvoice(invoiceId)
+    } catch {
+      // The webhook payload still provides the paid and discounted amounts.
+    }
+  }
+  return invoicePaymentEmailData(invoice, enrichedInvoice)
 }
 
 function stripeEventId(event: StripeObject) {
@@ -177,13 +263,17 @@ export async function processStripeEvent(event: StripeObject, dependencies: Stri
         const nowMilliseconds = (dependencies.nowSeconds ?? Math.floor(Date.now() / 1000)) * 1000
         const grant = purchaseGrantRequest(stripeId(object.id), object.metadata, nowMilliseconds)
         await dependencies.grant(grant)
-        if (dependencies.notify) await notifySafely(dependencies, {
-          kind: 'purchase_confirmed',
-          userId: grant.userId,
-          economicKey: purchaseEmailKey(grant.economicKey),
-          stripeEventId: stripeEventId(event),
-          idempotencyKey: `stripe-email:purchase:${grant.stripeCheckoutSessionId}`,
-        })
+        if (dependencies.notify) {
+          const amountPaidBrlCents = nonNegativeInteger(object.amount_total)
+          await notifySafely(dependencies, {
+            kind: 'purchase_confirmed',
+            userId: grant.userId,
+            economicKey: purchaseEmailKey(grant.economicKey),
+            ...(amountPaidBrlCents !== null ? { amountPaidBrlCents } : {}),
+            stripeEventId: stripeEventId(event),
+            idempotencyKey: `stripe-email:purchase:${grant.stripeCheckoutSessionId}`,
+          })
+        }
         return 'purchase_granted'
       }
       return 'checkout_ignored'
@@ -194,13 +284,21 @@ export async function processStripeEvent(event: StripeObject, dependencies: Stri
       const { subscription, record } = await syncRetrievedSubscription(subscriptionId, dependencies)
       const grant = subscriptionGrantRequest(stripeId(object.id), subscription.metadata, record.currentPeriodEnd)
       await dependencies.grant(grant)
-      if (dependencies.notify) await notifySafely(dependencies, {
-        kind: object.billing_reason === 'subscription_create' ? 'subscription_welcome' : 'subscription_renewed',
-        userId: grant.userId,
-        economicKey: planEmailKey(grant.economicKey),
-        stripeEventId: stripeEventId(event),
-        idempotencyKey: `stripe-email:invoice:${grant.stripeInvoiceId}`,
-      })
+      if (dependencies.notify) {
+        const payment = await paidInvoiceEmailData(object, dependencies)
+        if (payment) {
+          await notifySafely(dependencies, {
+            kind: object.billing_reason === 'subscription_create' ? 'subscription_welcome' : 'subscription_renewed',
+            userId: grant.userId,
+            economicKey: planEmailKey(grant.economicKey),
+            payment,
+            stripeEventId: stripeEventId(event),
+            idempotencyKey: `stripe-email:invoice:${grant.stripeInvoiceId}`,
+          })
+        } else {
+          reportEmailFailure(dependencies)
+        }
+      }
       return 'subscription_granted'
     }
     case 'invoice.payment_failed': {
