@@ -86,6 +86,7 @@ export function buildStripeCheckoutParams(input: {
   if (input.customerId) params.set('customer', input.customerId)
   for (const [key, value] of Object.entries(metadata)) params.set(`metadata[${key}]`, value)
   if (input.item.kind === 'subscription') {
+    params.set('allow_promotion_codes', 'true')
     for (const [key, value] of Object.entries(metadata)) params.set(`subscription_data[metadata][${key}]`, value)
   } else {
     for (const [key, value] of Object.entries(metadata)) params.set(`payment_intent_data[metadata][${key}]`, value)

@@ -26,9 +26,9 @@ test('frontend plan cards keep final monthly prices, grants and operational econ
   assert.doesNotMatch(planos, /preco: '(97|187|497)'/)
   assert.doesNotMatch(planos, /Smart Tokens inclusos/)
 
-  assert.match(economicCatalog, /start: Object\.freeze\(\{ smartTokens: 6_350 \}\)/)
-  assert.match(economicCatalog, /pro: Object\.freeze\(\{ smartTokens: 10_850 \}\)/)
-  assert.match(economicCatalog, /elite: Object\.freeze\(\{ smartTokens: 26_350 \}\)/)
+  assert.match(economicCatalog, /start: Object\.freeze\(\{ smartTokens: 6_350,/)
+  assert.match(economicCatalog, /pro: Object\.freeze\(\{ smartTokens: 10_850,/)
+  assert.match(economicCatalog, /elite: Object\.freeze\(\{ smartTokens: 26_350,/)
 
   assert.match(stripeCommerce, /start: Object\.freeze\(\{[\s\S]*?key: 'start',[\s\S]*?priceEnv: 'STRIPE_PRICE_START'/)
   assert.match(stripeCommerce, /pro: Object\.freeze\(\{[\s\S]*?key: 'pro',[\s\S]*?priceEnv: 'STRIPE_PRICE_PRO'/)
