@@ -17,6 +17,7 @@ const studioHero = read('frontend/src/pages/StudioHero.jsx')
 const adminDashboard = read('frontend/src/pages/AdminDashboard.jsx')
 const settings = read('frontend/src/pages/Configuracoes.jsx')
 const adminCreditMigration = read('supabase/migrations/20260820020000_create_admin_credit_operations.sql')
+const adminEmailMetricMigration = read('supabase/migrations/20260820030000_create_admin_transactional_email_metric.sql')
 
 const affectedFunctions = [
   'supabase/functions/gerar-banners/index.ts',
@@ -116,6 +117,17 @@ test('admin-api tolerates only known missing local admin schema during the rollo
   assert.match(adminApi, /optionalRpcData\(supabase, 'admin_client_credit_metrics'/)
   assert.match(adminApi, /adminCreditOperationsAvailable/)
   assert.doesNotMatch(adminApi, /if \(error\) return null/)
+})
+
+test('transactional email failures are aggregated through a private service-role RPC', () => {
+  assert.match(adminApi, /rpcData\(supabase, 'admin_transactional_email_failure_count', \{ p_since: since \}\)/)
+  assert.doesNotMatch(adminApi, /countRows\(supabase, 'stripe_transactional_email_deliveries'/)
+  assert.match(adminEmailMetricMigration, /SECURITY DEFINER/)
+  assert.match(adminEmailMetricMigration, /auth\.role\(\) IS DISTINCT FROM 'service_role'/)
+  assert.match(adminEmailMetricMigration, /FROM public\.stripe_transactional_email_deliveries/)
+  assert.match(adminEmailMetricMigration, /d\.status = 'failed'/)
+  assert.match(adminEmailMetricMigration, /REVOKE ALL ON FUNCTION public\.admin_transactional_email_failure_count[\s\S]*FROM PUBLIC, anon, authenticated/)
+  assert.match(adminEmailMetricMigration, /GRANT EXECUTE ON FUNCTION public\.admin_transactional_email_failure_count[\s\S]*TO service_role/)
 })
 
 test('primary admin provisioning is bound to one audited UUID only', () => {

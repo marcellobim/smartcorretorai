@@ -196,9 +196,7 @@ async function loadOverview(supabase: any, periodInput: unknown) {
       { column: 'status', operator: 'eq', value: 'ativo' },
       { column: 'plano', operator: 'eq', value: 'elite' },
     ]),
-    countRows(supabase, 'stripe_transactional_email_deliveries', [
-      { column: 'status', operator: 'eq', value: 'failed' },
-    ], since),
+    rpcData(supabase, 'admin_transactional_email_failure_count', { p_since: since }),
     countRows(supabase, 'video_jobs', [{ column: 'status', operator: 'eq', value: 'failed' }], since),
     productsPromise,
     creditsPromise,
@@ -260,7 +258,7 @@ async function loadOverview(supabase: any, periodInput: unknown) {
     products,
     attention: {
       pausedSubscriptions,
-      failedEmails,
+      failedEmails: Number(failedEmails ?? 0),
       failedJobs,
       failedGenerations: failures,
     },
