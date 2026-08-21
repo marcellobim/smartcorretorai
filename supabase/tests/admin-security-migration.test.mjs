@@ -16,6 +16,7 @@ const sidebar = read('frontend/src/components/layout/Sidebar.jsx')
 const studioHero = read('frontend/src/pages/StudioHero.jsx')
 const adminDashboard = read('frontend/src/pages/AdminDashboard.jsx')
 const settings = read('frontend/src/pages/Configuracoes.jsx')
+const adminCreditMigration = read('supabase/migrations/20260820020000_create_admin_credit_operations.sql')
 
 const affectedFunctions = [
   'supabase/functions/gerar-banners/index.ts',
@@ -95,8 +96,26 @@ test('admin-api authenticates and authorizes before dispatching any action', () 
   assert.ok(bodyPosition > authPosition)
   assert.match(adminApi, /error instanceof AdminAuthorizationError[\s\S]*error\.status/)
   assert.doesNotMatch(adminApi, /user_metadata|profiles\.role|riccieri68@gmail\.com/i)
-  assert.match(adminDashboard, /adminRequest\('overview'\)/)
+  assert.match(adminDashboard, /adminRequest\('overview', \{ period:/)
   assert.doesNotMatch(adminDashboard, /from\('profiles'\)|\.role\s*===?\s*'admin'/)
+  assert.ok(adminApi.indexOf("action === 'add_smart_tokens'") > authPosition)
+  assert.match(adminApi, /validateAdminCreditInput\(input\)/)
+  assert.match(adminApi, /rpc\('grant_admin_credit_lot'/)
+})
+
+test('economic admin mutation is private and verifies the responsible admin again in SQL', () => {
+  assert.match(adminCreditMigration, /auth\.role\(\) IS DISTINCT FROM 'service_role'/)
+  assert.match(adminCreditMigration, /public\.admin_users au WHERE au\.user_id = p_admin_user_id/)
+  assert.match(adminCreditMigration, /source, original_amount[\s\S]*'admin', p_amount/)
+  assert.match(adminCreditMigration, /sync_credit_balance_cache_from_lots\(p_user_id\)/)
+  assert.match(adminCreditMigration, /REVOKE ALL ON FUNCTION public\.grant_admin_credit_lot[\s\S]*FROM PUBLIC, anon, authenticated/)
+})
+
+test('admin-api tolerates only known missing local admin schema during the rollout', () => {
+  assert.match(adminApi, /\['42883', '42P01', 'PGRST202', 'PGRST205'\]/)
+  assert.match(adminApi, /optionalRpcData\(supabase, 'admin_client_credit_metrics'/)
+  assert.match(adminApi, /adminCreditOperationsAvailable/)
+  assert.doesNotMatch(adminApi, /if \(error\) return null/)
 })
 
 test('primary admin provisioning is bound to one audited UUID only', () => {

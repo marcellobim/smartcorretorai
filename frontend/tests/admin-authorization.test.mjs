@@ -19,15 +19,53 @@ test('frontend Admin state comes only from the protected self-status RPC', () =>
 test('AdminRoute and Sidebar use trusted presentation state', () => {
   assert.match(app, /const \{ user, loading, isAdmin \} = useAuthStore\(\)/)
   assert.match(app, /if \(!isAdmin\) return <Navigate to="\/dashboard" replace \/>/)
-  assert.match(sidebar, /const \{ user, logout, isAdmin \} = useAuth\(\)/)
+  assert.match(sidebar, /const \{ user, profile, logout, isAdmin \} = useAuth\(\)/)
   assert.match(sidebar, /\{isAdmin && \(/)
   assert.doesNotMatch(`${app}\n${sidebar}`, /user\?*\.role/)
 })
 
-test('Admin dashboard uses the protected backend and cannot edit membership', () => {
+test('Admin dashboard uses only the protected paginated backend', () => {
   assert.match(api, /supabase\.functions\.invoke\('admin-api'/)
-  assert.match(dashboard, /adminRequest\('list_users'\)/)
-  assert.match(dashboard, /Admin oficial/)
-  assert.match(dashboard, /Gerenciada exclusivamente no backend/)
+  assert.match(dashboard, /adminRequest\('overview'/)
+  assert.match(dashboard, /adminRequest\('list_clients'/)
+  assert.match(dashboard, /adminRequest\('get_client'/)
+  assert.match(dashboard, /adminRequest\('add_smart_tokens'/)
+  assert.match(dashboard, /Página \{pagination\.page\} de \{pagination\.totalPages\}/)
   assert.doesNotMatch(dashboard, /\.from\('profiles'\)|value=\{selectedUser\.user\.role/)
+  assert.doesNotMatch(dashboard, /update_user_plan|Ajustar Créditos|Deletar Usuário/)
+})
+
+test('client operations separate purchased and subscription ST without exposing Stripe IDs', () => {
+  assert.match(dashboard, /ST de assinatura/)
+  assert.match(dashboard, /ST extras comprados/)
+  assert.match(dashboard, /Valor bruto de catálogo/)
+  assert.match(dashboard, /Última geração/)
+  assert.match(dashboard, /Métricas de login e permanência ainda não são capturadas/)
+  assert.doesNotMatch(dashboard, /stripe_customer_id|creditos_avulsos|add_credits/)
+})
+
+test('admin support grant sends only bounded operational input to protected backend', () => {
+  assert.match(dashboard, /userId: clientDetail\.client\.id/)
+  assert.match(dashboard, /amount: Number\(grantAmount\)/)
+  assert.match(dashboard, /reason: grantReason/)
+  assert.match(dashboard, /requestId: grantRequestId/)
+  assert.match(dashboard, /max="10000"/)
+  assert.doesNotMatch(dashboard, /max="1000000"/)
+  assert.doesNotMatch(dashboard, /\.from\('credit_lots'\)|saldo_creditos\s*:/)
+})
+
+test('Admin dashboard has no placeholder business metrics or legacy packages', () => {
+  assert.doesNotMatch(dashboard, /Usuários Online|Últimos 5 min|avulso5|avulso10|Pacote 5 Créditos|Pacote 10 Créditos/)
+  assert.doesNotMatch(dashboard, /mrr:\s*0|today:\s*0|year:\s*0|totalCampaigns:\s*0/)
+  assert.match(dashboard, /não é receita real/)
+  assert.match(dashboard, /Custos reais por provider\/modelo ainda não possuem cobertura consistente/)
+})
+
+test('legacy or unavailable admin backend cannot leave the page blank', () => {
+  assert.match(dashboard, /isOperationalOverview\(response\)/)
+  assert.match(dashboard, /admin_overview_contract_mismatch/)
+  assert.match(dashboard, /<AdminUnavailable section=/)
+  assert.match(dashboard, /a ausência da migration não interrompe a renderização/i)
+  assert.match(dashboard, /Clientes temporariamente indisponíveis/)
+  assert.match(dashboard, /Requer atenção/)
 })

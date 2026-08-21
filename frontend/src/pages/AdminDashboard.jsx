@@ -1,654 +1,588 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { useAuthStore } from '../lib/auth-context'
-import { adminRequest } from '../lib/admin-api'
 import {
-  Users,
-  TrendingUp,
-  DollarSign,
   Activity,
-  Package,
-  Calendar,
-  Search,
-  Edit,
-  Trash2,
-  Plus,
-  Minus,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  CircleDollarSign,
+  CreditCard,
+  Database,
   Eye,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  ShoppingCart,
+  Users,
+  Zap,
+  X,
 } from 'lucide-react'
+import { adminRequest } from '../lib/admin-api'
 
-export default function AdminDashboard() {
-  const navigate = useNavigate()
-  const { user, isAdmin } = useAuthStore()
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState(null)
-  const [users, setUsers] = useState([])
-  const [campaigns, setCampaigns] = useState([])
-  const [activeTab, setActiveTab] = useState('overview') // overview, users, campaigns
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [showUserModal, setShowUserModal] = useState(false)
-  const [showCreditModal, setShowCreditModal] = useState(false)
-  const [creditAmount, setCreditAmount] = useState('')
-  const [creditOperation, setCreditOperation] = useState('add')
+const TABS = [
+  ['overview', 'Visão geral'],
+  ['products', 'Produtos'],
+  ['clients', 'Clientes'],
+  ['finance', 'Financeiro'],
+]
 
-  useEffect(() => {
-    // Verificar se o usuário é admin
-    if (!user || !isAdmin) {
-      navigate('/dashboard')
-      return
-    }
+const PERIODS = [
+  [7, '7 dias'],
+  [30, '30 dias'],
+  [0, 'Total'],
+]
 
-    loadStats()
-    loadUsers()
-    loadCampaigns()
-  }, [user, isAdmin, navigate])
+const PLAN_FILTERS = [
+  ['', 'Todos os planos'],
+  ['free', 'FREE'],
+  ['start', 'START'],
+  ['pro', 'PRO'],
+  ['elite', 'ELITE'],
+]
 
-  const loadStats = async () => {
-    const { totalUsers, totalCampaigns } = await adminRequest('overview')
-    setStats({
-      users: { total: totalUsers || 0, newToday: 0, online: 0, byPlan: {} },
-      campaigns: { total: totalCampaigns || 0, today: 0 },
-      revenue: {
-        today: 0, month: 0, year: 0, mrr: 0,
-        byPlan: { start: 0, pro: 0, imobiliaria: 0 },
-        avulsoSales: { avulso5: { count: 0, revenue: 0 }, avulso10: { count: 0, revenue: 0 } },
-      },
-    })
-  }
+const STATUS_FILTERS = [
+  ['', 'Todos os status'],
+  ['ativo', 'Ativa'],
+  ['pausado', 'Pausada'],
+  ['cancelado', 'Cancelada'],
+]
 
-  const loadUsers = async () => {
-    try {
-      const { users: data } = await adminRequest('list_users')
-      setUsers(data || [])
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+const integer = value => new Intl.NumberFormat('pt-BR').format(Number(value ?? 0))
+const integerOrUnavailable = value => value == null ? 'Indisponível' : integer(value)
+const brl = cents => new Intl.NumberFormat('pt-BR', {
+  style: 'currency', currency: 'BRL', minimumFractionDigits: 2,
+}).format(Number(cents ?? 0) / 100)
+const date = value => value
+  ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(value))
+  : '—'
+const dateTime = value => value
+  ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+  : '—'
+const lotSource = { subscription: 'Assinatura', purchase: 'Recarga', admin: 'Administrativo', trial: 'Trial', migration: 'Migração' }
+const lotStatus = lot => {
+  if (lot.status === 'active' && lot.expiresAt && new Date(lot.expiresAt) <= new Date()) return 'Expirado'
+  if (lot.status === 'active' && lot.remainingAmount < lot.originalAmount) return 'Parcialmente consumido'
+  return { active: 'Ativo', exhausted: 'Consumido', expired: 'Expirado', revoked: 'Revogado' }[lot.status] || lot.status
+}
 
-  const loadCampaigns = async () => {
-    try {
-      const { campaigns: data } = await adminRequest('list_campaigns')
-      setCampaigns(data || [])
-    } catch (error) {
-      console.error('Erro ao carregar campanhas:', error)
-    }
-  }
+const planTone = {
+  FREE: 'bg-slate-100 text-slate-700',
+  START: 'bg-blue-100 text-blue-800',
+  PRO: 'bg-violet-100 text-violet-800',
+  ELITE: 'bg-amber-100 text-amber-900',
+}
 
-  const handleViewUser = async (userId) => {
-    try {
-      const data = await adminRequest('get_user', { userId })
-      setSelectedUser(data)
-      setShowUserModal(true)
-    } catch (error) {
-      console.error('Erro ao carregar detalhes do usuário:', error)
-      toast.error('Erro ao carregar detalhes do usuário')
-    }
-  }
+const statusTone = {
+  ativo: 'bg-emerald-100 text-emerald-800',
+  pausado: 'bg-orange-100 text-orange-800',
+  cancelado: 'bg-slate-100 text-slate-700',
+  sem_assinatura: 'bg-slate-100 text-slate-600',
+}
 
-  const handleUpdateUser = async (userId, plan) => {
-    try {
-      await adminRequest('update_user_plan', { userId, plan })
-      toast.success('Usuário atualizado')
-      loadUsers()
-      setShowUserModal(false)
-    } catch (error) {
-      console.error('Erro ao atualizar usuário:', error)
-      toast.error('Erro ao atualizar usuário')
-    }
-  }
-
-  const handleDeleteUser = async () => {
-    toast('Exclusão de usuário chega em breve (precisa de Edge Function admin).', { icon: '🚧' })
-  }
-
-  const handleAdjustCredits = async () => {
-    toast('Ajuste de créditos chega em breve.', { icon: '🚧' })
-    setShowCreditModal(false)
-    setCreditAmount('')
-  }
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value)
-  }
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
-  const filteredUsers = users.filter(
-    (u) =>
-      u.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
+function MetricCard({ label, value, detail, icon: Icon }) {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Painel Administrativo</h1>
-          <p className="text-gray-600 mt-2">Visão geral e gerenciamento da plataforma</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
+          {detail && <p className="mt-2 text-xs text-slate-500">{detail}</p>}
         </div>
-
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'overview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Visão Geral
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'users'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Usuários
-            </button>
-            <button
-              onClick={() => setActiveTab('campaigns')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'campaigns'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Campanhas
-            </button>
-          </nav>
-        </div>
-
-        {/* Overview Tab */}
-        {activeTab === 'overview' && stats && (
-          <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total de Usuários</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.users.total}</p>
-                    <p className="text-sm text-green-600 mt-1">+{stats.users.newToday} hoje</p>
-                  </div>
-                  <Users className="w-12 h-12 text-blue-500" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Usuários Online</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.users.online}</p>
-                    <p className="text-sm text-gray-500 mt-1">Últimos 5 min</p>
-                  </div>
-                  <Activity className="w-12 h-12 text-green-500" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Campanhas Geradas</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.campaigns.total}</p>
-                    <p className="text-sm text-green-600 mt-1">+{stats.campaigns.today} hoje</p>
-                  </div>
-                  <Package className="w-12 h-12 text-purple-500" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">MRR</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {formatCurrency(stats.revenue.mrr)}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">Receita recorrente</p>
-                  </div>
-                  <DollarSign className="w-12 h-12 text-yellow-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Revenue Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Receita Hoje</h3>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(stats.revenue.today)}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Receita Este Mês</h3>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(stats.revenue.month)}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Receita Este Ano</h3>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(stats.revenue.year)}
-                </p>
-              </div>
-            </div>
-
-            {/* Users by Plan */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Usuários por Plano</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {Object.entries(stats.users.byPlan).map(([plan, count]) => (
-                  <div key={plan} className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 capitalize">{plan}</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">{count}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Revenue by Plan */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Receita por Plano</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Start</p>
-                  <p className="text-xl font-bold text-blue-600 mt-1">
-                    {formatCurrency(stats.revenue.byPlan.start)}
-                  </p>
-                </div>
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Pro</p>
-                  <p className="text-xl font-bold text-purple-600 mt-1">
-                    {formatCurrency(stats.revenue.byPlan.pro)}
-                  </p>
-                </div>
-                <div className="p-4 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Imobiliária</p>
-                  <p className="text-xl font-bold text-yellow-600 mt-1">
-                    {formatCurrency(stats.revenue.byPlan.imobiliaria)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Avulso Sales */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendas Avulsas</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Pacote 5 Créditos</p>
-                  <p className="text-xl font-bold text-green-600 mt-1">
-                    {stats.revenue.avulsoSales.avulso5.count} vendas
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {formatCurrency(stats.revenue.avulsoSales.avulso5.revenue)}
-                  </p>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Pacote 10 Créditos</p>
-                  <p className="text-xl font-bold text-green-600 mt-1">
-                    {stats.revenue.avulsoSales.avulso10.count} vendas
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {formatCurrency(stats.revenue.avulsoSales.avulso10.revenue)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="space-y-6">
-            {/* Search */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nome ou email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Users Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Usuário
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Plano
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Créditos
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Campanhas
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cadastro
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{user.nome}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                          {user.plano}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.creditos_avulsos || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.totalCampaigns}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(user.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleViewUser(user.id)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Campaigns Tab */}
-        {activeTab === 'campaigns' && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Título
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuário
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Data
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {campaigns.map((campaign) => (
-                  <tr key={campaign.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {campaign.titulo}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{campaign.profiles?.nome}</div>
-                      <div className="text-sm text-gray-500">{campaign.profiles?.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          campaign.status === 'concluido'
-                            ? 'bg-green-100 text-green-800'
-                            : campaign.status === 'gerando'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {campaign.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(campaign.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Icon className="h-5 w-5" /></span>
       </div>
+    </div>
+  )
+}
 
-      {/* User Details Modal */}
-      {showUserModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Detalhes do Usuário</h2>
+function Section({ title, description, children }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+        <h2 className="font-semibold text-slate-950">{title}</h2>
+        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+      </div>
+      <div className="p-5 sm:p-6">{children}</div>
+    </section>
+  )
+}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedUser.user.nome}</p>
-                </div>
+function Empty({ children }) {
+  return <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">{children}</div>
+}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedUser.user.email}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Plano</label>
-                    <select
-                      value={selectedUser.user.plano}
-                      onChange={(e) =>
-                        setSelectedUser({
-                          ...selectedUser,
-                          user: { ...selectedUser.user, plano: e.target.value },
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="starter">Starter</option>
-                      <option value="pro">Pro</option>
-                      <option value="imobiliaria">Imobiliária</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Autorização</label>
-                    <p className="mt-2 text-sm font-semibold text-gray-900">
-                      {selectedUser.user.is_admin ? 'Admin oficial' : 'Usuário'}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">Gerenciada exclusivamente no backend.</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Créditos Avulsos: {selectedUser.user.creditos_avulsos || 0}
-                  </label>
-                  <button
-                    onClick={() => setShowCreditModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Ajustar Créditos
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                  <div>
-                    <p className="text-sm text-gray-600">Total de Campanhas</p>
-                    <p className="text-lg font-semibold">{selectedUser.stats.totalCampaigns}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Total de Imóveis</p>
-                    <p className="text-lg font-semibold">{selectedUser.stats.totalProperties}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-between">
-                <button
-                  onClick={() => handleDeleteUser(selectedUser.user.id)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Deletar Usuário
-                </button>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowUserModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleUpdateUser(selectedUser.user.id, selectedUser.user.plano)
-                    }
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Salvar Alterações
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+function AdminUnavailable({ section }) {
+  return (
+    <div className="mt-6 space-y-6">
+      <Section title={section} description="A estrutura do Admin está disponível, mas os dados desta seção ainda não são compatíveis com o backend administrativo atual.">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Atualização administrativa pendente. Nenhum valor foi substituído por zero e a ausência da migration não interrompe a renderização.
         </div>
-      )}
-
-      {/* Credit Adjustment Modal */}
-      {showCreditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Ajustar Créditos</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Operação</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCreditOperation('add')}
-                    className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 ${
-                      creditOperation === 'add'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Adicionar
-                  </button>
-                  <button
-                    onClick={() => setCreditOperation('remove')}
-                    className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 ${
-                      creditOperation === 'remove'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <Minus className="w-4 h-4" />
-                    Remover
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={creditAmount}
-                  onChange={(e) => setCreditAmount(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Digite a quantidade"
-                />
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-sm text-gray-600">
-                  Créditos atuais: <span className="font-semibold">{selectedUser.user.creditos_avulsos || 0}</span>
-                </p>
-                {creditAmount && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Novos créditos:{' '}
-                    <span className="font-semibold">
-                      {creditOperation === 'add'
-                        ? (selectedUser.user.creditos_avulsos || 0) + parseInt(creditAmount)
-                        : Math.max(0, (selectedUser.user.creditos_avulsos || 0) - parseInt(creditAmount))}
-                    </span>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowCreditModal(false)
-                  setCreditAmount('')
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAdjustCredits}
-                disabled={!creditAmount}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
+      </Section>
+      {section === 'Visão geral' && (
+        <Section title="Requer atenção" description="Será preenchido somente quando o backend protegido fornecer eventos reais.">
+          <p className="text-sm text-slate-500">Dados operacionais temporariamente indisponíveis.</p>
+        </Section>
       )}
     </div>
+  )
+}
+
+function isOperationalOverview(value) {
+  return Boolean(
+    value?.users && value?.subscriptions && value?.smartTokens && value?.commerce
+    && value?.generation && Array.isArray(value?.products) && value?.attention && value?.availability,
+  )
+}
+
+export default function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState('overview')
+  const [period, setPeriod] = useState(30)
+  const [overview, setOverview] = useState(null)
+  const [overviewLoading, setOverviewLoading] = useState(true)
+  const [overviewError, setOverviewError] = useState(false)
+  const [clients, setClients] = useState([])
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 })
+  const [clientsLoading, setClientsLoading] = useState(true)
+  const [clientsError, setClientsError] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [plan, setPlan] = useState('')
+  const [status, setStatus] = useState('')
+  const [clientDetail, setClientDetail] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [grantAmount, setGrantAmount] = useState('')
+  const [grantReason, setGrantReason] = useState('')
+  const [grantRequestId, setGrantRequestId] = useState(() => crypto.randomUUID())
+  const [granting, setGranting] = useState(false)
+
+  const loadOverview = useCallback(async selectedPeriod => {
+    setOverviewLoading(true)
+    setOverviewError(false)
+    try {
+      const response = await adminRequest('overview', { period: selectedPeriod })
+      if (!isOperationalOverview(response)) throw new Error('admin_overview_contract_mismatch')
+      setOverview(response)
+    } catch {
+      setOverview(null)
+      setOverviewError(true)
+      toast.error('Não foi possível carregar os dados administrativos.')
+    } finally {
+      setOverviewLoading(false)
+    }
+  }, [])
+
+  const loadClients = useCallback(async page => {
+    setClientsLoading(true)
+    setClientsError(false)
+    try {
+      const response = await adminRequest('list_clients', { page, search, plan, status })
+      setClients(response.clients || [])
+      setPagination(response.pagination || { page: 1, total: 0, totalPages: 1 })
+    } catch {
+      setClients([])
+      setClientsError(true)
+      toast.error('Não foi possível carregar os clientes.')
+    } finally {
+      setClientsLoading(false)
+    }
+  }, [plan, search, status])
+
+  useEffect(() => { loadOverview(period) }, [loadOverview, period])
+  useEffect(() => { loadClients(1) }, [loadClients])
+
+  const submitSearch = event => {
+    event.preventDefault()
+    setSearch(searchInput.trim())
+  }
+
+  const openClient = async userId => {
+    setDetailLoading(true)
+    setClientDetail(null)
+    setGrantAmount('')
+    setGrantReason('')
+    setGrantRequestId(crypto.randomUUID())
+    try {
+      setClientDetail(await adminRequest('get_client', { userId }))
+    } catch {
+      toast.error('Não foi possível carregar o detalhe do cliente.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const submitGrant = async event => {
+    event.preventDefault()
+    if (!clientDetail?.client?.id || granting) return
+    setGranting(true)
+    try {
+      await adminRequest('add_smart_tokens', {
+        userId: clientDetail.client.id,
+        amount: Number(grantAmount),
+        reason: grantReason,
+        requestId: grantRequestId,
+      })
+      toast.success('Smart Tokens adicionados com lote administrativo auditado.')
+      setGrantAmount('')
+      setGrantReason('')
+      setGrantRequestId(crypto.randomUUID())
+      await Promise.all([openClient(clientDetail.client.id), loadClients(pagination.page), loadOverview(period)])
+    } catch (error) {
+      toast.error(error?.message || 'Não foi possível adicionar Smart Tokens.')
+    } finally {
+      setGranting(false)
+    }
+  }
+
+  const periodLabel = PERIODS.find(([value]) => value === period)?.[1] || '30 dias'
+  const products = overview?.products || []
+  const attentionTotal = overview
+    ? Number(overview.attention.pausedSubscriptions ?? 0) + Number(overview.attention.failedEmails ?? 0)
+      + Number(overview.attention.failedJobs ?? 0) + Number(overview.attention.failedGenerations ?? 0)
+    : 0
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px]">
+        <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">Operação</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Admin SmartCorretorAI</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">Dados operacionais reais, protegidos e consolidados no backend.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Período das métricas"
+              value={period}
+              onChange={event => setPeriod(Number(event.target.value))}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+            >
+              {PERIODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => loadOverview(period)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              <RefreshCw className="h-4 w-4" /> Atualizar
+            </button>
+          </div>
+        </header>
+
+        <nav className="mt-5 flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label="Seções administrativas">
+          {TABS.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === key ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {overviewLoading && activeTab !== 'clients' ? (
+          <div className="flex min-h-[420px] items-center justify-center"><RefreshCw className="h-7 w-7 animate-spin text-slate-500" /></div>
+        ) : overview ? (
+          <div className="mt-6">
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                  <MetricCard label="Usuários" value={integer(overview.users.total)} detail={`${integer(overview.users.newInPeriod)} novos em ${periodLabel}`} icon={Users} />
+                  <MetricCard label="Assinaturas ativas" value={integer(overview.subscriptions.active)} detail={`${integer(overview.subscriptions.paused)} pausadas`} icon={CreditCard} />
+                  <MetricCard label="Recargas vendidas" value={integer(overview.commerce.rechargesSold)} detail="Pagamentos com lote criado" icon={ShoppingCart} />
+                  <MetricCard label="Gerações no período" value={integer(overview.generation.total)} detail={`${integer(overview.generation.failures)} falhas`} icon={Activity} />
+                  <MetricCard label="Requer atenção" value={integer(attentionTotal)} detail="Falhas e assinaturas pausadas" icon={AlertTriangle} />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard label="ST de assinatura" value={integerOrUnavailable(overview.smartTokens.subscriptionGranted)} detail={`Concedidos em ${periodLabel}`} icon={Database} />
+                  <MetricCard label="ST extras vendidos" value={integerOrUnavailable(overview.smartTokens.purchaseGranted)} detail={overview.commerce.rechargeCustomers == null ? 'Compradores indisponíveis' : `${integer(overview.commerce.rechargeCustomers)} compradores em ${periodLabel}`} icon={ShoppingCart} />
+                  <MetricCard label="ST consumidos" value={integerOrUnavailable(overview.smartTokens.consumed)} detail={`Consumo confirmado em ${periodLabel}`} icon={Activity} />
+                  <MetricCard label="ST em circulação" value={integerOrUnavailable(overview.smartTokens.circulation)} detail="Saldo visível atual em lotes ativos" icon={Zap} />
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                  <Section title="Clientes por plano" description="Plano comercial atual registrado no perfil.">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {Object.entries(overview.users.byPlan).map(([key, value]) => (
+                        <div key={key} className="rounded-xl bg-slate-50 p-4">
+                          <p className="text-xs font-semibold uppercase text-slate-500">{key === 'elite' ? 'ELITE' : key}</p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-950">{integer(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
+
+                  <Section title="Requer atenção" description={`Estado atual das assinaturas e ocorrências reais em ${periodLabel}.`}>
+                    <div className="space-y-3">
+                      {[
+                        ['Assinaturas pausadas', overview.attention.pausedSubscriptions],
+                        ['E-mails transacionais com falha', overview.attention.failedEmails],
+                        ['Jobs de vídeo com falha', overview.attention.failedJobs],
+                        ['Gerações com falha', overview.attention.failedGenerations],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+                          <span className="text-sm text-slate-700">{label}</span>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${value > 0 ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>{integer(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
+                </div>
+
+                <Section title="Assinaturas" description="Estado sincronizado pelo webhook Stripe.">
+                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    {[
+                      ['Ativas', overview.subscriptions.active],
+                      ['Pausadas', overview.subscriptions.paused],
+                      ['Canceladas', overview.subscriptions.cancelled],
+                      ['START ativas', overview.subscriptions.activeByPlan.start],
+                      ['PRO ativas', overview.subscriptions.activeByPlan.pro],
+                      ['ELITE ativas', overview.subscriptions.activeByPlan.elite],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-slate-200 p-4">
+                        <p className="text-xs text-slate-500">{label}</p>
+                        <p className="mt-2 text-xl font-semibold text-slate-950">{integer(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+
+                <Section title="Atividade por geração" description="Clientes distintos com geração persistida; não representa login, sessão ou permanência no site.">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">Hoje</p><p className="mt-2 text-xl font-semibold">{integerOrUnavailable(overview.generation.activeUsersToday)}</p></div>
+                    <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">Últimos 7 dias</p><p className="mt-2 text-xl font-semibold">{integerOrUnavailable(overview.generation.activeUsers7Days)}</p></div>
+                    <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">Últimos 30 dias</p><p className="mt-2 text-xl font-semibold">{integerOrUnavailable(overview.generation.activeUsers30Days)}</p></div>
+                  </div>
+                </Section>
+              </div>
+            )}
+
+            {activeTab === 'products' && (
+              <Section title="Uso por produto" description={`Execuções persistidas no backend — ${periodLabel}.`}>
+                {products.length ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-3">Produto</th>
+                          <th className="px-3 py-3 text-right">Gerações</th>
+                          <th className="px-3 py-3 text-right">Sucesso</th>
+                          <th className="px-3 py-3 text-right">Falhas</th>
+                          <th className="px-3 py-3 text-right">ST consumidos</th>
+                          <th className="px-3 py-3 text-right">Participação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {products.map(product => (
+                          <tr key={product.key}>
+                            <td className="px-3 py-4 font-medium text-slate-900">{product.label}</td>
+                            <td className="px-3 py-4 text-right">{integer(product.generations)}</td>
+                            <td className="px-3 py-4 text-right text-emerald-700">{integer(product.success)}</td>
+                            <td className="px-3 py-4 text-right text-red-700">{integer(product.failures)}</td>
+                            <td className="px-3 py-4 text-right">{product.smartTokensConsumed === null ? '—' : integer(product.smartTokensConsumed)}</td>
+                            <td className="px-3 py-4 text-right">{product.participationPercent.toLocaleString('pt-BR')}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : <Empty>Nenhuma geração registrada no período.</Empty>}
+                {!overview.availability.virtualStagingUnifiedMetrics && (
+                  <p className="mt-4 text-xs text-slate-500">Virtual Staging ainda não possui registro econômico unificado de sucesso, falha e consumo; por isso não é exibido nesta consolidação.</p>
+                )}
+              </Section>
+            )}
+
+            {activeTab === 'finance' && (
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard label="Recargas vendidas" value={integer(overview.commerce.rechargesSold)} detail="Contagem financeira por lotes Stripe" icon={ShoppingCart} />
+                  <MetricCard label="ST de recargas concedidos" value={overview.smartTokens.purchaseGranted === null ? 'Indisponível' : integer(overview.smartTokens.purchaseGranted)} detail="Somente pacotes reconhecidos" icon={Zap} />
+                  <MetricCard label="ST de assinaturas concedidos" value={overview.smartTokens.subscriptionGranted === null ? 'Indisponível' : integer(overview.smartTokens.subscriptionGranted)} detail="Competências pagas reconhecidas" icon={Database} />
+                  <MetricCard label="Valor mensal teórico" value={brl(overview.commerce.theoreticalMonthlyBrlCents)} detail="Planos ativos × preço normal; não é receita real" icon={CircleDollarSign} />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard label="ST extras vendidos" value={integerOrUnavailable(overview.smartTokens.purchaseGranted)} detail={`No período: ${periodLabel}`} icon={ShoppingCart} />
+                  <MetricCard label="ST extras restantes" value={integerOrUnavailable(overview.smartTokens.purchaseRemaining)} detail="Remaining amount de recargas ativas" icon={Zap} />
+                  <MetricCard label="ST extras consumidos" value={integerOrUnavailable(overview.smartTokens.purchaseConsumed)} detail={`Consumo FEFO confirmado em ${periodLabel}`} icon={Activity} />
+                  <MetricCard label="Ticket médio de catálogo" value={overview.commerce.averageRechargeCatalogCents === null ? 'Indisponível' : brl(overview.commerce.averageRechargeCatalogCents)} detail="Não é receita conciliada" icon={CircleDollarSign} />
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Section title="Recargas" description="Contagem por pacote homologado.">
+                    <div className="space-y-3">
+                      <div className="flex justify-between rounded-xl bg-slate-50 p-4"><span>2.000 ST — R$49,90</span><strong>{integer(overview.commerce.rechargePackages.brl_49_90)}</strong></div>
+                      <div className="flex justify-between rounded-xl bg-slate-50 p-4"><span>4.000 ST — R$97,90</span><strong>{integer(overview.commerce.rechargePackages.brl_97_90)}</strong></div>
+                      <div className="flex justify-between border-t border-slate-200 pt-4 text-sm"><span>Valor bruto pelo catálogo</span><strong>{overview.commerce.catalogRechargeValueBrlCents === null ? 'Indisponível' : brl(overview.commerce.catalogRechargeValueBrlCents)}</strong></div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 text-xs text-slate-600 sm:grid-cols-4">
+                        <span>Ativos: <strong>{integerOrUnavailable(overview.commerce.purchaseLotsByStatus.active)}</strong></span>
+                        <span>Parciais: <strong>{integerOrUnavailable(overview.commerce.purchaseLotsByStatus.partial)}</strong></span>
+                        <span>Consumidos: <strong>{integerOrUnavailable(overview.commerce.purchaseLotsByStatus.exhausted)}</strong></span>
+                        <span>Expirados: <strong>{integerOrUnavailable(overview.commerce.purchaseLotsByStatus.expired)}</strong></span>
+                      </div>
+                      <p className="text-xs text-slate-500">Valor calculado pelos pacotes reconhecidos; não inclui conciliação Stripe nem taxas.</p>
+                    </div>
+                  </Section>
+
+                  <Section title="Equilíbrio financeiro" description="Sem números estimados apresentados como margem real.">
+                    <div className="space-y-3 text-sm text-slate-600">
+                      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">Receita efetivamente paga, taxas Stripe e uso de SMART15 não são persistidos de forma agregável no banco atual.</p>
+                      <p className="rounded-xl border border-slate-200 p-4">Custos reais por provider/modelo ainda não possuem cobertura consistente para todos os produtos.</p>
+                      <p className="text-xs text-slate-500">Próxima evolução: registrar valores financeiros liquidados e custo real por geração antes de calcular margem.</p>
+                    </div>
+                  </Section>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : overviewError && activeTab !== 'clients' ? (
+          <AdminUnavailable section={activeTab === 'products' ? 'Produtos' : activeTab === 'finance' ? 'Financeiro' : 'Visão geral'} />
+        ) : null}
+
+        {activeTab === 'clients' && (
+          <div className="mt-6">
+            {(detailLoading || clientDetail) && (
+              <div className="mb-6">
+                <Section title="Detalhe operacional do cliente" description="Dados financeiros e de uso persistidos no backend.">
+                  {detailLoading ? (
+                    <div className="flex min-h-48 items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-slate-500" /></div>
+                  ) : clientDetail && (
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-lg font-semibold text-slate-950">{clientDetail.client.name || 'Sem nome'}</p>
+                          <p className="text-sm text-slate-500">{clientDetail.client.email}</p>
+                        </div>
+                        <button type="button" onClick={() => setClientDetail(null)} className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-300 px-3 py-2 text-sm"><X className="h-4 w-4" /> Fechar</button>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                          ['Plano', clientDetail.client.plan],
+                          ['Assinatura', clientDetail.client.subscriptionStatus.replace('_', ' ')],
+                          ['Saldo atual', `${integer(clientDetail.client.smartTokenBalance)} ST`],
+                          ['Stripe', clientDetail.client.hasStripeCustomer ? 'Vinculado' : 'Não vinculado'],
+                          ['ST de assinatura', clientDetail.client.subscriptionGranted == null ? 'Indisponível' : `${integer(clientDetail.client.subscriptionGranted)} ST`],
+                          ['ST extras comprados', clientDetail.client.purchaseGranted == null ? 'Indisponível' : `${integer(clientDetail.client.purchaseGranted)} ST`],
+                          ['Recargas', integerOrUnavailable(clientDetail.client.rechargeCount)],
+                          ['Valor bruto de catálogo', clientDetail.client.rechargeCatalogCents === null ? 'Indisponível' : brl(clientDetail.client.rechargeCatalogCents)],
+                          ['Gerações', integerOrUnavailable(clientDetail.client.totalGenerations)],
+                          ['Falhas', integerOrUnavailable(clientDetail.client.failedGenerations)],
+                          ['Última geração', dateTime(clientDetail.client.lastGenerationAt)],
+                          ['Cadastro', date(clientDetail.client.createdAt)],
+                        ].map(([label, value]) => <div key={label} className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-2 font-semibold text-slate-900">{value}</p></div>)}
+                      </div>
+                      <p className="text-xs text-slate-500">{clientDetail.activityDefinition} Métricas de login e permanência ainda não são capturadas.</p>
+
+                      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900">Lotes de Smart Tokens</h3>
+                          <div className="mt-3 max-h-80 overflow-auto rounded-xl border border-slate-200">
+                            <table className="min-w-full text-left text-xs">
+                              <thead className="sticky top-0 bg-slate-50 text-slate-500"><tr><th className="p-3">Origem</th><th className="p-3 text-right">Original</th><th className="p-3 text-right">Restante</th><th className="p-3">Status</th><th className="p-3">Validade</th></tr></thead>
+                              <tbody className="divide-y divide-slate-100">{clientDetail.lots.map(lot => <tr key={lot.id}><td className="p-3">{lotSource[lot.source] || lot.source}</td><td className="p-3 text-right">{integer(lot.originalAmount)}</td><td className="p-3 text-right">{integer(lot.remainingAmount)}</td><td className="p-3">{lotStatus(lot)}</td><td className="p-3">{lot.expiresAt ? date(lot.expiresAt) : 'Sem vencimento'}</td></tr>)}</tbody>
+                            </table>
+                            {!clientDetail.lots.length && <div className="p-5 text-center text-slate-500">Nenhum lote.</div>}
+                          </div>
+                        </div>
+
+                        <form onSubmit={submitGrant} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                          <h3 className="font-semibold text-slate-950">Adicionar Smart Tokens</h3>
+                          <p className="mt-1 text-xs text-slate-500">Cria lote administrativo separado, sem vencimento, com auditoria obrigatória.</p>
+                          {!clientDetail.adminCreditOperationsAvailable && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Ação indisponível até a migration administrativa ser aplicada.</p>}
+                          <label className="mt-4 block text-xs font-medium text-slate-700">Quantidade
+                            <input type="number" min="1" max="10000" required disabled={!clientDetail.adminCreditOperationsAvailable} value={grantAmount} onChange={event => setGrantAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100" />
+                          </label>
+                          <label className="mt-3 block text-xs font-medium text-slate-700">Motivo
+                            <textarea minLength="10" maxLength="500" required disabled={!clientDetail.adminCreditOperationsAvailable} value={grantReason} onChange={event => setGrantReason(event.target.value)} className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100" placeholder="Descreva a compensação ou cortesia" />
+                          </label>
+                          <button disabled={granting || !clientDetail.adminCreditOperationsAvailable} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"><PlusCircle className="h-4 w-4" /> {granting ? 'Adicionando…' : 'Adicionar Smart Tokens'}</button>
+                        </form>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-900">Histórico administrativo</h3>
+                        <div className="mt-3 space-y-2">{clientDetail.adjustments.map(item => <div key={item.id} className="rounded-xl border border-slate-200 p-3 text-sm"><div className="flex flex-wrap justify-between gap-2"><strong>+{integer(item.amount)} ST</strong><span className="text-xs text-slate-500">{dateTime(item.createdAt)}</span></div><p className="mt-1 text-slate-700">{item.reason}</p><p className="mt-1 text-xs text-slate-500">Por {item.adminName}{item.adminEmail ? ` — ${item.adminEmail}` : ''}</p></div>)}</div>
+                        {!clientDetail.adjustments.length && <p className="mt-3 text-sm text-slate-500">Nenhum ajuste administrativo registrado.</p>}
+                      </div>
+                    </div>
+                  )}
+                </Section>
+              </div>
+            )}
+            <Section title="Clientes" description="Lista paginada; busca e filtros executados no backend protegido.">
+              <form onSubmit={submitSearch} className="grid gap-3 lg:grid-cols-[1fr_180px_190px_auto]">
+                <label className="relative">
+                  <span className="sr-only">Buscar cliente</span>
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    value={searchInput}
+                    onChange={event => setSearchInput(event.target.value)}
+                    placeholder="Buscar por nome ou e-mail"
+                    className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm"
+                  />
+                </label>
+                <select aria-label="Filtrar plano" value={plan} onChange={event => setPlan(event.target.value)} className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                  {PLAN_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <select aria-label="Filtrar assinatura" value={status} onChange={event => setStatus(event.target.value)} className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                  {STATUS_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <button className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">Buscar</button>
+              </form>
+
+              {clientsLoading ? (
+                <div className="flex min-h-64 items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-slate-500" /></div>
+              ) : clientsError ? (
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Clientes temporariamente indisponíveis no backend administrativo atual. A página permanece operacional e nenhum dado foi inventado.</div>
+              ) : clients.length ? (
+                <div className="mt-5 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Plano</th><th className="px-3 py-3">Assinatura</th>
+                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {clients.map(client => (
+                        <tr key={client.id}>
+                          <td className="px-3 py-4"><p className="font-medium text-slate-900">{client.name || 'Sem nome'}</p><p className="mt-1 text-xs text-slate-500">{client.email}</p></td>
+                          <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${planTone[client.plan]}`}>{client.plan}</span></td>
+                          <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[client.subscriptionStatus] || statusTone.sem_assinatura}`}>{client.subscriptionStatus.replace('_', ' ')}</span></td>
+                          <td className="px-3 py-4 text-right font-medium">{integer(client.smartTokenBalance)} ST</td>
+                          <td className="px-3 py-4 text-right">{integerOrUnavailable(client.subscriptionGranted)}</td>
+                          <td className="px-3 py-4 text-right">{integerOrUnavailable(client.purchaseGranted)}</td>
+                          <td className="px-3 py-4 text-right">{integerOrUnavailable(client.rechargeCount)}</td>
+                          <td className="px-3 py-4 text-right">{client.rechargeCatalogCents === null ? '—' : brl(client.rechargeCatalogCents)}</td>
+                          <td className="px-3 py-4 text-right">{integerOrUnavailable(client.totalGenerations)}</td>
+                          <td className="px-3 py-4 text-slate-600">{dateTime(client.lastGenerationAt)}</td>
+                          <td className="px-3 py-4 text-slate-600">{date(client.createdAt)}</td>
+                          <td className="px-3 py-4 text-slate-600">{date(client.currentPeriodEnd)}</td>
+                          <td className="px-3 py-4 text-slate-600">{client.hasStripeCustomer ? 'Vinculado' : 'Não vinculado'}</td>
+                          <td className="px-3 py-4"><button type="button" onClick={() => openClient(client.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium"><Eye className="h-3.5 w-3.5" /> Abrir</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <div className="mt-5"><Empty>Nenhum cliente encontrado.</Empty></div>}
+
+              <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                <span>{integer(pagination.total)} clientes</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" disabled={pagination.page <= 1} onClick={() => loadClients(pagination.page - 1)} className="rounded-lg border border-slate-300 p-2 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+                  <span>Página {pagination.page} de {pagination.totalPages}</span>
+                  <button type="button" disabled={pagination.page >= pagination.totalPages} onClick={() => loadClients(pagination.page + 1)} className="rounded-lg border border-slate-300 p-2 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </Section>
+          </div>
+        )}
+      </div>
+    </main>
   )
 }
