@@ -1,5 +1,3 @@
-import { getEconomicSku } from '../_shared/economic-catalog.ts'
-
 export const ADMIN_PERIODS = Object.freeze([7, 30, 0] as const)
 
 export type AdminPeriod = typeof ADMIN_PERIODS[number]
@@ -7,48 +5,88 @@ export type AdminPeriod = typeof ADMIN_PERIODS[number]
 export type ProductMetricDefinition = Readonly<{
   key: string
   label: string
+  sources: readonly ProductMetricSource[]
+  modules?: readonly ProductModuleMetricDefinition[]
+}>
+
+export type ProductMetricSource = Readonly<{
   table: string
-  productCodes?: readonly string[]
+  filters?: readonly Readonly<{ column: string; value: string | readonly string[] }>[]
   includedStatuses: readonly string[]
   successStatus: string
   failureStatus: string
-  smartTokensPerSuccess: number
-  billableFilter?: Readonly<{ column: string; value: string }>
-  tokenConsumptionAvailable?: boolean
+  tokenColumn?: string
+  tokenTable?: string
+  tokenFilters?: readonly Readonly<{ column: string; value: string | readonly string[] }>[]
+  tokenPerSuccess?: number
+  provider?: string
+  model?: string
+  providerColumn?: string
+  modelColumn?: string
 }>
+
+export type ProductModuleMetricDefinition = Readonly<{
+  key: string
+  label: string
+  sources: readonly ProductMetricSource[]
+  historicalCoverage: 'complete' | 'partial' | 'new_only'
+}>
+
+const source = (value: ProductMetricSource) => Object.freeze(value)
+const module = (value: ProductModuleMetricDefinition) => Object.freeze(value)
+
+const gemini = (productCode: string, extraFilters: ProductMetricSource['filters'] = [], tokenColumn: string | null = 'smart_tokens_consumed') => source({
+  table: 'gemini_video_economy_requests',
+  filters: [{ column: 'product_code', value: productCode }, ...extraFilters],
+  includedStatuses: ['processing', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed',
+  tokenColumn: tokenColumn ?? undefined, provider: 'Google', model: 'gemini-omni-flash-preview', providerColumn: 'provider', modelColumn: 'model',
+})
+
+const veo = (productCode: string) => source({
+  table: 'veo_video_economy_requests',
+  filters: [{ column: 'product_code', value: productCode }, { column: 'admin_bypass', value: 'false' }],
+  includedStatuses: ['processing', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed',
+  tokenColumn: 'smart_tokens_consumed', provider: 'Google', providerColumn: 'provider', modelColumn: 'model',
+})
 
 export const PRODUCT_METRIC_DEFINITIONS: readonly ProductMetricDefinition[] = Object.freeze([
   Object.freeze({
-    key: 'video_imobiliario', label: 'Vídeo Imobiliário', table: 'gemini_video_economy_requests',
-    productCodes: ['real_estate_video'], includedStatuses: ['processing', 'completed', 'failed'],
-    successStatus: 'completed', failureStatus: 'failed', smartTokensPerSuccess: getEconomicSku('real_estate_video', 'standard').smartTokenCost,
+    key: 'video_imobiliario', label: 'Vídeo Imobiliário',
+    sources: [gemini('real_estate_video'), gemini('short_videos')],
+    modules: [
+      module({ key: 'moving_photos', label: 'Fotos em Movimento', sources: [gemini('real_estate_video')], historicalCoverage: 'complete' }),
+      module({ key: 'captions', label: 'Legendas na Tela', sources: [gemini('real_estate_video', [{ column: 'metadata->>captions', value: 'true' }], null), gemini('short_videos', [{ column: 'metadata->>captions', value: 'true' }], null)], historicalCoverage: 'new_only' }),
+      module({ key: 'narration', label: 'Narração Profissional', sources: [gemini('real_estate_video', [{ column: 'metadata->>audio', value: 'true' }], null), gemini('short_videos', [{ column: 'metadata->>audio', value: 'true' }], null)], historicalCoverage: 'complete' }),
+      module({ key: 'virtual_broker', label: 'Corretor Virtual IA', sources: [gemini('real_estate_video', [{ column: 'metadata->>presenter', value: 'true' }], null)], historicalCoverage: 'new_only' }),
+      module({ key: 'short_videos', label: 'Short Videos', sources: [gemini('short_videos')], historicalCoverage: 'complete' }),
+    ],
   }),
   Object.freeze({
-    key: 'studio_ia', label: 'Studio IA', table: 'veo_video_economy_requests',
-    productCodes: ['real_estate_commercial', 'creative_video'], includedStatuses: ['processing', 'completed', 'failed'],
-    successStatus: 'completed', failureStatus: 'failed', smartTokensPerSuccess: getEconomicSku('real_estate_commercial', 'standard').smartTokenCost,
-    billableFilter: { column: 'admin_bypass', value: 'false' },
+    key: 'studio_ia', label: 'Studio IA',
+    sources: [veo('real_estate_commercial'), veo('creative_video'), source({ table: 'smart_carousel_economy_requests', includedStatuses: ['processing', 'succeeded', 'failed'], successStatus: 'succeeded', failureStatus: 'failed', tokenColumn: 'smart_tokens_consumed', provider: 'Creatomate + OpenAI', model: 'Creatomate / gpt-4.1 / tts-1' })],
+    modules: [
+      module({ key: 'real_estate_commercial', label: 'Comercial Imobiliário', sources: [veo('real_estate_commercial')], historicalCoverage: 'complete' }),
+      module({ key: 'creative_video', label: 'Vídeo Criativo', sources: [veo('creative_video')], historicalCoverage: 'complete' }),
+      module({ key: 'smart_carousel', label: 'Carrossel de Anúncios', sources: [source({ table: 'smart_carousel_economy_requests', includedStatuses: ['processing', 'succeeded', 'failed'], successStatus: 'succeeded', failureStatus: 'failed', tokenColumn: 'smart_tokens_consumed', provider: 'Creatomate + OpenAI', model: 'Creatomate / gpt-4.1 / tts-1' })], historicalCoverage: 'complete' }),
+    ],
   }),
   Object.freeze({
-    key: 'banner_imobiliario', label: 'Banner Imobiliário', table: 'real_estate_banner_items',
-    includedStatuses: ['pending', 'processing', 'completed', 'failed'],
-    successStatus: 'completed', failureStatus: 'failed', smartTokensPerSuccess: getEconomicSku('real_estate_banner', 'item').smartTokenCost,
+    key: 'virtual_space', label: 'Virtual Space',
+    sources: [source({ table: 'economic_generation_events', filters: [{ column: 'product_code', value: 'virtual_staging' }, { column: 'variant', value: 'image' }], includedStatuses: ['started', 'delivered', 'failed'], successStatus: 'delivered', failureStatus: 'failed', provider: 'OpenAI', model: 'gpt-image-2', providerColumn: 'provider', modelColumn: 'model' }), gemini('life_in_property'), gemini('broker_presentation')],
+    modules: [
+      module({ key: 'virtual_staging', label: 'Virtual Staging', sources: [source({ table: 'economic_generation_events', filters: [{ column: 'product_code', value: 'virtual_staging' }, { column: 'variant', value: 'image' }], includedStatuses: ['started', 'delivered', 'failed'], successStatus: 'delivered', failureStatus: 'failed', provider: 'OpenAI', model: 'gpt-image-2', providerColumn: 'provider', modelColumn: 'model' })], historicalCoverage: 'new_only' }),
+      module({ key: 'life_in_property', label: 'Vida no Imóvel', sources: [gemini('life_in_property')], historicalCoverage: 'complete' }),
+      module({ key: 'broker_presentation', label: 'Apresentação pelo Corretor', sources: [gemini('broker_presentation')], historicalCoverage: 'complete' }),
+    ],
   }),
   Object.freeze({
-    key: 'banners_rapidos', label: 'Banners Rápidos', table: 'quick_banner_delivery_items',
-    includedStatuses: ['pending', 'rendering', 'completed', 'failed'],
-    successStatus: 'completed', failureStatus: 'failed', smartTokensPerSuccess: getEconomicSku('quick_banners', 'item').smartTokenCost,
-    tokenConsumptionAvailable: false,
+    key: 'banner_imobiliario', label: 'Banner Imobiliário', sources: [source({ table: 'real_estate_banner_items', includedStatuses: ['pending', 'processing', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed', tokenColumn: 'smart_tokens_consumed', tokenTable: 'real_estate_banner_requests', provider: 'OpenAI', modelColumn: 'provider_model' })],
   }),
   Object.freeze({
-    key: 'campanha_textos', label: 'Campanha de Textos', table: 'text_campaign_delivery_requests',
-    includedStatuses: ['processing', 'completed', 'failed'],
-    successStatus: 'completed', failureStatus: 'failed', smartTokensPerSuccess: getEconomicSku('text_campaign', 'standard').smartTokenCost,
+    key: 'banners_rapidos', label: 'Banners Rápidos', sources: [source({ table: 'quick_banner_delivery_items', includedStatuses: ['pending', 'rendering', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed', tokenColumn: 'smart_tokens_consumed', tokenTable: 'quick_banner_delivery_requests', provider: 'Creatomate' })],
   }),
   Object.freeze({
-    key: 'smart_carrossel', label: 'Smart Carrossel', table: 'smart_carousel_economy_requests',
-    includedStatuses: ['processing', 'succeeded', 'failed'],
-    successStatus: 'succeeded', failureStatus: 'failed', smartTokensPerSuccess: getEconomicSku('smart_carousel', 'standard').smartTokenCost,
+    key: 'campanha_textos', label: 'Campanha de Textos', sources: [source({ table: 'text_campaign_delivery_requests', includedStatuses: ['processing', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed', tokenPerSuccess: 25, provider: 'OpenAI', model: 'gpt-4.1' })],
   }),
 ])
 
@@ -95,6 +133,10 @@ export type RawProductMetric = Readonly<{
   success: number
   failures: number
   smartTokensConsumed: number | null
+  modules?: readonly RawProductMetric[]
+  providers?: readonly string[]
+  models?: readonly string[]
+  historicalCoverage?: string
 }>
 
 export function finalizeProductMetrics(rows: readonly RawProductMetric[]) {
@@ -108,6 +150,13 @@ export function finalizeProductMetrics(rows: readonly RawProductMetric[]) {
       failures: row.failures,
       smartTokensConsumed: row.smartTokensConsumed,
       participationPercent: totalUsage > 0 ? Number(((row.total / totalUsage) * 100).toFixed(1)) : 0,
+      providers: row.providers ?? [], models: row.models ?? [], historicalCoverage: row.historicalCoverage ?? 'complete',
+      modules: (row.modules ?? []).map(item => Object.freeze({
+        key: item.key, label: item.label, generations: item.total, success: item.success, failures: item.failures,
+        smartTokensConsumed: item.smartTokensConsumed, providers: item.providers ?? [], models: item.models ?? [],
+        historicalCoverage: item.historicalCoverage ?? 'complete',
+        participationPercent: row.total > 0 ? Number(((item.total / row.total) * 100).toFixed(1)) : 0,
+      })),
     }))
     .sort((a, b) => b.generations - a.generations || a.label.localeCompare(b.label, 'pt-BR'))
 }

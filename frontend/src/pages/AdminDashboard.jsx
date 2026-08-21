@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Activity,
   AlertTriangle,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   CreditCard,
@@ -137,6 +138,7 @@ function isOperationalOverview(value) {
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [period, setPeriod] = useState(30)
+  const [expandedProducts, setExpandedProducts] = useState(() => new Set())
   const [overview, setOverview] = useState(null)
   const [overviewLoading, setOverviewLoading] = useState(true)
   const [overviewError, setOverviewError] = useState(false)
@@ -372,26 +374,44 @@ export default function AdminDashboard() {
                           <th className="px-3 py-3 text-right">Falhas</th>
                           <th className="px-3 py-3 text-right">ST consumidos</th>
                           <th className="px-3 py-3 text-right">Participação</th>
+                          <th className="px-3 py-3">Provider</th>
+                          <th className="px-3 py-3">Modelo/Motor</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {products.map(product => (
-                          <tr key={product.key}>
-                            <td className="px-3 py-4 font-medium text-slate-900">{product.label}</td>
+                        {products.map(product => (<Fragment key={product.key}>
+                          <tr>
+                            <td className="px-3 py-4 font-medium text-slate-900">
+                              {product.modules?.length ? <button type="button" className="flex items-center gap-2 text-left" onClick={() => setExpandedProducts(current => { const next = new Set(current); next.has(product.key) ? next.delete(product.key) : next.add(product.key); return next })} aria-expanded={expandedProducts.has(product.key)}>
+                                <ChevronDown className={`h-4 w-4 transition ${expandedProducts.has(product.key) ? 'rotate-180' : ''}`} />{product.label}
+                              </button> : product.label}
+                            </td>
                             <td className="px-3 py-4 text-right">{integer(product.generations)}</td>
                             <td className="px-3 py-4 text-right text-emerald-700">{integer(product.success)}</td>
                             <td className="px-3 py-4 text-right text-red-700">{integer(product.failures)}</td>
                             <td className="px-3 py-4 text-right">{product.smartTokensConsumed === null ? '—' : integer(product.smartTokensConsumed)}</td>
                             <td className="px-3 py-4 text-right">{product.participationPercent.toLocaleString('pt-BR')}%</td>
+                            <td className="px-3 py-4">{product.providers?.join(', ') || '—'}</td>
+                            <td className="px-3 py-4">{product.models?.join(', ') || '—'}</td>
                           </tr>
-                        ))}
+                          {expandedProducts.has(product.key) && product.modules?.map(module => (
+                            <tr key={`${product.key}:${module.key}`} className="bg-slate-50/70">
+                              <td className="px-3 py-3 pl-10 text-slate-700"><span className="font-medium">{module.label}</span>{module.historicalCoverage !== 'complete' && <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700">{module.historicalCoverage === 'new_only' ? 'novos registros' : 'histórico parcial'}</span>}</td>
+                              <td className="px-3 py-3 text-right">{module.historicalCoverage === 'new_only' && module.generations === 0 ? '—' : integer(module.generations)}</td>
+                              <td className="px-3 py-3 text-right text-emerald-700">{module.historicalCoverage === 'new_only' && module.generations === 0 ? '—' : integer(module.success)}</td>
+                              <td className="px-3 py-3 text-right text-red-700">{module.historicalCoverage === 'new_only' && module.generations === 0 ? '—' : integer(module.failures)}</td>
+                              <td className="px-3 py-3 text-right">{module.smartTokensConsumed == null ? '—' : integer(module.smartTokensConsumed)}</td>
+                              <td className="px-3 py-3 text-right">{module.participationPercent.toLocaleString('pt-BR')}%</td>
+                              <td className="px-3 py-3">{module.providers?.join(', ') || '—'}</td>
+                              <td className="px-3 py-3">{module.models?.join(', ') || '—'}</td>
+                            </tr>
+                          ))}
+                        </Fragment>))}
                       </tbody>
                     </table>
                   </div>
                 ) : <Empty>Nenhuma geração registrada no período.</Empty>}
-                {!overview.availability.virtualStagingUnifiedMetrics && (
-                  <p className="mt-4 text-xs text-slate-500">Virtual Staging ainda não possui registro econômico unificado de sucesso, falha e consumo; por isso não é exibido nesta consolidação.</p>
-                )}
+                <p className="mt-4 text-xs text-slate-500">Campos não determináveis aparecem como “—”. Módulos com cobertura parcial contabilizam somente registros identificáveis com segurança.</p>
               </Section>
             )}
 

@@ -447,3 +447,35 @@ test('o adaptador isolado usa Image API multipart no backend, autenticação e S
   assert.match(indexSource, /STORAGE_BUCKET = 'studio-videos'/)
   assert.doesNotMatch(indexSource, /createSignedUrl|getPublicUrl/)
 })
+
+test('registra telemetria administrativa sem alterar o fluxo econômico', async () => {
+  const statuses: string[] = []
+  const deps = dependencies({
+    openAI: { editImage: async () => ({ bytes: jpeg(1536, 1024), usage: { total_tokens: 12 } }) },
+    recordTelemetry: async input => { statuses.push(input.status) },
+  })
+  const response = await handleVirtualStagingImageTest(request(validBody), deps)
+  assert.equal(response.status, 200)
+  assert.deepEqual(statuses, ['started', 'delivered'])
+})
+
+test('terminaliza como failed toda falha posterior ao started', async () => {
+  for (const bytes of [new Uint8Array(), new Uint8Array([1, 2, 3]), jpeg(1024, 1536)]) {
+    const statuses: string[] = []
+    const deps = dependencies({
+      openAI: { editImage: async () => ({ bytes }) },
+      recordTelemetry: async input => { statuses.push(input.status) },
+    })
+    const response = await handleVirtualStagingImageTest(request(validBody), deps)
+    assert.equal(response.status, 502)
+    assert.deepEqual(statuses, ['started', 'failed'])
+  }
+
+  const uploadStatuses: string[] = []
+  const uploadResponse = await handleVirtualStagingImageTest(request(validBody), dependencies({
+    upload: async () => { throw new Error('upload_failed') },
+    recordTelemetry: async input => { uploadStatuses.push(input.status) },
+  }))
+  assert.equal(uploadResponse.status, 500)
+  assert.deepEqual(uploadStatuses, ['started', 'failed'])
+})

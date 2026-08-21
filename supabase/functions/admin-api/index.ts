@@ -74,6 +74,36 @@ async function countRows(
   return Number(count ?? 0)
 }
 
+async function sumRows(supabase: any, table: string, column: string, filters: readonly Filter[], since: string | null) {
+  let total = 0
+  const pageSize = 1000
+  for (let from = 0; ; from += pageSize) {
+    const query = applyFilters(supabase.from(table).select(column).range(from, from + pageSize - 1), filters, since)
+    const { data, error } = await query
+    if (error) throw new Error(`Falha ao somar ${table}.`)
+    const rows = Array.isArray(data) ? data : []
+    total += rows.reduce((sum, row) => sum + Number(row?.[column] ?? 0), 0)
+    if (rows.length < pageSize) return total
+  }
+}
+
+async function distinctValues(supabase: any, table: string, columns: readonly string[], filters: readonly Filter[], since: string | null) {
+  if (!columns.length) return {} as Record<string, string[]>
+  const values = Object.fromEntries(columns.map(column => [column, new Set<string>()])) as Record<string, Set<string>>
+  const pageSize = 1000
+  for (let from = 0; ; from += pageSize) {
+    const query = applyFilters(supabase.from(table).select(columns.join(',')).range(from, from + pageSize - 1), filters, since)
+    const { data, error } = await query
+    if (error) throw new Error(`Falha ao identificar provider/modelo de ${table}.`)
+    const rows = Array.isArray(data) ? data : []
+    for (const row of rows) for (const column of columns) {
+      const value = String(row?.[column] ?? '').trim()
+      if (value) values[column].add(value)
+    }
+    if (rows.length < pageSize) return Object.fromEntries(columns.map(column => [column, [...values[column]].sort()]))
+  }
+}
+
 async function rpcData(supabase: any, name: string, args: Record<string, unknown>) {
   const { data, error } = await supabase.rpc(name, args)
   if (error) throw new Error(`Falha ao agregar ${name}.`)
@@ -119,44 +149,53 @@ async function loadCreditOverview(supabase: any, since: string | null) {
 }
 
 async function loadProductMetrics(supabase: any, since: string | null) {
-  const raw = await Promise.all(PRODUCT_METRIC_DEFINITIONS.map(async definition => {
-    const baseFilters: Filter[] = []
-    if (definition.productCodes?.length) {
-      baseFilters.push({ column: 'product_code', operator: 'in', value: definition.productCodes })
-    }
-    const [total, success, failures, billableSuccess] = await Promise.all([
-      countRows(supabase, definition.table, [
-        ...baseFilters,
-        { column: 'status', operator: 'in', value: definition.includedStatuses },
-      ], since),
-      countRows(supabase, definition.table, [
-        ...baseFilters,
-        { column: 'status', operator: 'eq', value: definition.successStatus },
-      ], since),
-      countRows(supabase, definition.table, [
-        ...baseFilters,
-        { column: 'status', operator: 'eq', value: definition.failureStatus },
-      ], since),
-      definition.tokenConsumptionAvailable === false
-        ? Promise.resolve(null)
-        : countRows(supabase, definition.table, [
-          ...baseFilters,
-          { column: 'status', operator: 'eq', value: definition.successStatus },
-          ...(definition.billableFilter
-            ? [{ column: definition.billableFilter.column, operator: 'eq' as const, value: definition.billableFilter.value }]
-            : []),
-        ], since),
-    ])
+  const providerLabel = (value: string) => ({ google: 'Google', openai: 'OpenAI', creatomate: 'Creatomate' }[value.toLowerCase()] ?? value)
+  const sourceCache = new Map<string, Promise<any>>()
+  const loadSource = (source: any) => {
+    const cacheKey = JSON.stringify(source)
+    const cached = sourceCache.get(cacheKey)
+    if (cached) return cached
+    const pending = (async () => {
+      const base = (source.filters ?? []).map((filter: any) => ({ column: filter.column, operator: Array.isArray(filter.value) ? 'in' : 'eq', value: filter.value })) as Filter[]
+      const tokenFilters = source.tokenFilters
+        ? source.tokenFilters.map((filter: any) => ({ column: filter.column, operator: Array.isArray(filter.value) ? 'in' : 'eq', value: filter.value })) as Filter[]
+        : source.tokenTable && source.tokenTable !== source.table ? [] : base
+      const statusFilters = [...base, { column: 'status', operator: 'in' as const, value: source.includedStatuses }]
+      const [total, success, failures, consumed, identities] = await Promise.all([
+        countRows(supabase, source.table, statusFilters, since),
+        countRows(supabase, source.table, [...base, { column: 'status', operator: 'eq', value: source.successStatus }], since),
+        countRows(supabase, source.table, [...base, { column: 'status', operator: 'eq', value: source.failureStatus }], since),
+        source.tokenColumn ? sumRows(supabase, source.tokenTable ?? source.table, source.tokenColumn, tokenFilters, since) : Promise.resolve(null),
+        distinctValues(supabase, source.table, [source.providerColumn, source.modelColumn].filter(Boolean), statusFilters, since),
+      ])
+      const recordedProviders = (identities[source.providerColumn] ?? []).map(providerLabel)
+      const recordedModels = identities[source.modelColumn] ?? []
+      return {
+        total, success, failures, consumed: consumed ?? (source.tokenPerSuccess ? success * source.tokenPerSuccess : null),
+        providers: [...new Set((recordedProviders.length ? recordedProviders : [source.provider]).filter(Boolean))],
+        models: [...new Set((recordedModels.length ? recordedModels : [source.model]).filter(Boolean))],
+      }
+    })()
+    sourceCache.set(cacheKey, pending)
+    return pending
+  }
+  const loadSources = async (sources: readonly any[]) => {
+    const rows = await Promise.all(sources.map(loadSource))
     return {
-      key: definition.key,
-      label: definition.label,
-      total,
-      success,
-      failures,
-      smartTokensConsumed: billableSuccess === null
+      total: rows.reduce((sum, row) => sum + row.total, 0), success: rows.reduce((sum, row) => sum + row.success, 0), failures: rows.reduce((sum, row) => sum + row.failures, 0),
+      consumed: rows.some(row => row.consumed === null && row.total > 0)
         ? null
-        : billableSuccess * definition.smartTokensPerSuccess,
+        : rows.every(row => row.consumed === null) ? null : rows.reduce((sum, row) => sum + Number(row.consumed ?? 0), 0),
+      providers: [...new Set(rows.flatMap(row => row.providers))], models: [...new Set(rows.flatMap(row => row.models))],
     }
+  }
+  const raw = await Promise.all(PRODUCT_METRIC_DEFINITIONS.map(async definition => {
+    const aggregate = await loadSources(definition.sources)
+    const modules = await Promise.all((definition.modules ?? []).map(async item => {
+      const metric = await loadSources(item.sources)
+      return { key: item.key, label: item.label, total: metric.total, success: metric.success, failures: metric.failures, smartTokensConsumed: metric.consumed, providers: metric.providers, models: metric.models, historicalCoverage: item.historicalCoverage }
+    }))
+    return { key: definition.key, label: definition.label, total: aggregate.total, success: aggregate.success, failures: aggregate.failures, smartTokensConsumed: aggregate.consumed, providers: aggregate.providers, models: aggregate.models, modules }
   }))
   return finalizeProductMetrics(raw)
 }
@@ -269,7 +308,7 @@ async function loadOverview(supabase: any, periodInput: unknown) {
       smart15Usage: false,
       lastAccess: false,
       totalSmartTokensInCirculation: true,
-      virtualStagingUnifiedMetrics: false,
+      virtualStagingUnifiedMetrics: true,
       adminCreditOperations: credits.schemaAvailable,
       generationActivity: Boolean(activity),
     },

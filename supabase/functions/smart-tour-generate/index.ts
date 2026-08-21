@@ -57,7 +57,7 @@ serve(withCors(async req => {
       const fallbackPrompt = JSON.stringify(fallbackBriefing)
       const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni_short_video',style:'short-videos',model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.videoPath,input_image_2_path:null,marketing_hashtags:fallbackHashtags,tokens_reserved:0,error_message:'stage:storage_validated'})
       if (insertError) throw new Error('job_create_failed')
-      const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode:'short_videos',metadata:{image_count:0,input_duration_seconds:input.videoMetadata.durationSeconds,input_bytes:videoSize,input_mime_type:'video/mp4',output_duration_seconds:10,resolution:'720x1280',fps:24,audio:input.generation.narration === 'enabled'}})
+      const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode:'short_videos',metadata:{image_count:0,input_duration_seconds:input.videoMetadata.durationSeconds,input_bytes:videoSize,input_mime_type:'video/mp4',output_duration_seconds:10,resolution:'720x1280',fps:24,audio:input.generation.narration === 'enabled',captions:input.generation.captions === 'enabled'}})
       if (!economy.executionClaimed) {
         if (economy.status === 'insufficient') {
           await supabase.from('video_jobs').update({status:'failed',error_message:'INSUFFICIENT_SMART_TOKENS'}).eq('id',input.clientRequestId).eq('user_id',user.id)
@@ -134,7 +134,7 @@ serve(withCors(async req => {
     const fallbackPrompt = buildSmartTourVideoPrompt(fallbackBriefing)
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
-    const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode:'real_estate_video',metadata:{image_count:input.imagePaths.length,output_duration_seconds:10,resolution:'1280x720',fps:24,audio:input.generation.narration === 'enabled'}})
+    const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode:'real_estate_video',metadata:{image_count:input.imagePaths.length,output_duration_seconds:10,resolution:'1280x720',fps:24,audio:input.generation.narration === 'enabled',captions:input.generation.captions === 'enabled',presenter:['female','male'].includes(input.generation.presenterGender)}})
     if (!economy.executionClaimed) {
       if (economy.status === 'insufficient') {
         await supabase.from('video_jobs').update({status:'failed',error_message:'INSUFFICIENT_SMART_TOKENS'}).eq('id',input.clientRequestId).eq('user_id',user.id)

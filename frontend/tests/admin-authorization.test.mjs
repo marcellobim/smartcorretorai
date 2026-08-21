@@ -8,6 +8,9 @@ const app = read('../src/App.jsx')
 const sidebar = read('../src/components/layout/Sidebar.jsx')
 const dashboard = read('../src/pages/AdminDashboard.jsx')
 const api = read('../src/lib/admin-api.js')
+const adminRuntime = read('../../supabase/functions/admin-api/runtime.ts')
+const smartTourGenerate = read('../../supabase/functions/smart-tour-generate/index.ts')
+const virtualStagingImage = read('../../supabase/functions/virtual-staging-image-test/index.ts')
 
 test('frontend Admin state comes only from the protected self-status RPC', () => {
   assert.match(auth, /fetchAdminStatusDirect/)
@@ -68,4 +71,21 @@ test('legacy or unavailable admin backend cannot leave the page blank', () => {
   assert.match(dashboard, /a ausência da migration não interrompe a renderização/i)
   assert.match(dashboard, /Clientes temporariamente indisponíveis/)
   assert.match(dashboard, /Requer atenção/)
+})
+
+test('Produtos exposes exactly the official module hierarchy without invented Google Ads split', () => {
+  for (const label of ['Fotos em Movimento', 'Legendas na Tela', 'Narração Profissional', 'Corretor Virtual IA', 'Short Videos', 'Comercial Imobiliário', 'Vídeo Criativo', 'Carrossel de Anúncios', 'Virtual Staging', 'Vida no Imóvel', 'Apresentação pelo Corretor']) {
+    assert.match(adminRuntime, new RegExp(label))
+  }
+  assert.match(dashboard, /Provider/)
+  assert.match(dashboard, /Modelo\/Motor/)
+  assert.doesNotMatch(dashboard, /módulo Google Ads|module.*google_ads/i)
+})
+
+test('new ambiguous flows persist only safe module telemetry in existing private structures', () => {
+  assert.match(smartTourGenerate, /captions:input\.generation\.captions === 'enabled'/)
+  assert.match(smartTourGenerate, /presenter:\['female','male'\]\.includes\(input\.generation\.presenterGender\)/)
+  assert.match(virtualStagingImage, /from\('economic_generation_events'\)/)
+  assert.match(virtualStagingImage, /product_code: 'virtual_staging'/)
+  assert.doesNotMatch(virtualStagingImage, /reserve_credits|consume_reserved_credits/)
 })

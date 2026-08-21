@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jsonResponse, withCors } from '../_shared/cors.ts'
+import { ECONOMIC_CATALOG_VERSION } from '../_shared/economic-catalog.ts'
 import {
   VIRTUAL_STAGING_OPENAI_TIMEOUT_MS,
   VIRTUAL_STAGING_OUTPUT_MIME,
@@ -111,6 +112,20 @@ serve(withCors(async (request) => {
     },
     createJobId: () => crypto.randomUUID(),
     now: () => Date.now(),
+    recordTelemetry: async ({ userId, jobId, status, usage }) => {
+      const idempotencyKey = `virtual_staging:image:${jobId}`
+      if (status === 'started') {
+        const { error } = await supabase.from('economic_generation_events').insert({
+          user_id: userId, product_code: 'virtual_staging', variant: 'image', provider: 'openai',
+          model: 'gpt-image-2', quantity: 1, usage: {}, catalog_version: ECONOMIC_CATALOG_VERSION, status,
+          idempotency_key: idempotencyKey, metadata: { attribution: 'unavailable' },
+        })
+        if (error) throw new Error('telemetry_insert_failed')
+        return
+      }
+      const { error } = await supabase.from('economic_generation_events').update({ status, usage: usage || {} }).eq('idempotency_key', idempotencyKey)
+      if (error) throw new Error('telemetry_update_failed')
+    },
     log: (event, details) => console.info('[virtual-staging-image-test]', JSON.stringify({ event, ...details })),
   })
 }))

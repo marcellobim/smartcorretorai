@@ -45,8 +45,24 @@ test('product metrics are derived from persisted counts and canonical ST costs',
   assert.equal(metrics[0].participationPercent, 57.1)
   assert.equal(metrics[1].smartTokensConsumed, 325)
   assert.equal(metrics[2].smartTokensConsumed, null)
-  assert.equal(PRODUCT_METRIC_DEFINITIONS.find(item => item.key === 'banners_rapidos')?.tokenConsumptionAvailable, false)
-  assert.equal(PRODUCT_METRIC_DEFINITIONS.some(item => item.key === 'virtual_staging'), false)
+  const officialModules = Object.fromEntries(PRODUCT_METRIC_DEFINITIONS.filter(item => item.modules).map(item => [item.key, item.modules?.map(module => module.label)]))
+  assert.deepEqual(officialModules.video_imobiliario, ['Fotos em Movimento', 'Legendas na Tela', 'Narração Profissional', 'Corretor Virtual IA', 'Short Videos'])
+  assert.deepEqual(officialModules.studio_ia, ['Comercial Imobiliário', 'Vídeo Criativo', 'Carrossel de Anúncios'])
+  assert.deepEqual(officialModules.virtual_space, ['Virtual Staging', 'Vida no Imóvel', 'Apresentação pelo Corretor'])
+  assert.equal(PRODUCT_METRIC_DEFINITIONS.find(item => item.key === 'banner_imobiliario')?.modules, undefined)
+  assert.equal(PRODUCT_METRIC_DEFINITIONS.find(item => item.key === 'banners_rapidos')?.modules, undefined)
+  assert.equal(PRODUCT_METRIC_DEFINITIONS.find(item => item.key === 'campanha_textos')?.modules, undefined)
+  assert.equal(JSON.stringify(PRODUCT_METRIC_DEFINITIONS).includes('Google Ads'), false)
+})
+
+test('ambiguous module history is explicitly marked and does not receive invented ST attribution', () => {
+  const video = PRODUCT_METRIC_DEFINITIONS.find(item => item.key === 'video_imobiliario')
+  const captions = video?.modules?.find(item => item.key === 'captions')
+  const presenter = video?.modules?.find(item => item.key === 'virtual_broker')
+  assert.equal(captions?.historicalCoverage, 'new_only')
+  assert.equal(presenter?.historicalCoverage, 'new_only')
+  assert.equal(captions?.sources[0].tokenColumn, undefined)
+  assert.equal(presenter?.sources[0].tokenColumn, undefined)
 })
 
 test('theoretical monthly value is explicit catalog math, not real revenue', () => {

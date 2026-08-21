@@ -46,6 +46,7 @@ export type RuntimeDependencies = {
   createJobId(): string
   now(): number
   log(event: string, details: Record<string, unknown>): void
+  recordTelemetry?(input: { userId: string; jobId: string; status: 'started' | 'delivered' | 'failed'; usage?: SafeUsage }): Promise<void>
 }
 
 function response(body: unknown, status = 200) {
@@ -90,61 +91,69 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
     const prompt = buildVirtualStagingPrompt(transformationType, decorationStyle)
     const jobId = deps.createJobId()
     const outputPath = `${user.id}/virtual-staging-images/results/${jobId}/generated-01.jpg`
+    await deps.recordTelemetry?.({ userId: user.id, jobId, status: 'started' }).catch(() => undefined)
 
-    let generated: ImageEditResult
     try {
-      generated = await deps.openAI.editImage({
-        bytes: source.bytes,
-        inputMimeType: inspected.mimeType,
-        model: VIRTUAL_STAGING_IMAGE_MODEL,
-        prompt,
-        quality: VIRTUAL_STAGING_IMAGE_QUALITY,
-        size,
-        outputFormat: VIRTUAL_STAGING_OUTPUT_FORMAT,
-        background: VIRTUAL_STAGING_BACKGROUND,
-        count: 1,
-      })
-    } catch {
-      deps.log('openai_edit_failed', {
+      let generated: ImageEditResult
+      try {
+        generated = await deps.openAI.editImage({
+          bytes: source.bytes,
+          inputMimeType: inspected.mimeType,
+          model: VIRTUAL_STAGING_IMAGE_MODEL,
+          prompt,
+          quality: VIRTUAL_STAGING_IMAGE_QUALITY,
+          size,
+          outputFormat: VIRTUAL_STAGING_OUTPUT_FORMAT,
+          background: VIRTUAL_STAGING_BACKGROUND,
+          count: 1,
+        })
+      } catch {
+        deps.log('openai_edit_failed', {
+          jobIdMasked: maskJobId(jobId),
+          processingMs: deps.now() - startedAt,
+        })
+        throw new VirtualStagingTestError('openai_edit_failed', 502, 'Não foi possível editar a imagem agora.')
+      }
+
+      if (!generated.bytes.length) {
+        throw new VirtualStagingTestError('openai_empty_output', 502, 'A edição não retornou uma imagem válida.')
+      }
+
+      const validatedOutputDimensions = validateGeneratedJpeg(generated.bytes, outputDimensions)
+
+      try {
+        await deps.upload(outputPath, generated.bytes)
+      } catch {
+        throw new VirtualStagingTestError('output_upload_failed', 500, 'Não foi possível salvar a imagem editada.')
+      }
+
+      await deps.recordTelemetry?.({ userId: user.id, jobId, status: 'delivered', usage: generated.usage }).catch(() => undefined)
+
+      const processingMs = deps.now() - startedAt
+      deps.log('completed', {
         jobIdMasked: maskJobId(jobId),
-        processingMs: deps.now() - startedAt,
-      })
-      throw new VirtualStagingTestError('openai_edit_failed', 502, 'Não foi possível editar a imagem agora.')
-    }
-
-    if (!generated.bytes.length) {
-      throw new VirtualStagingTestError('openai_empty_output', 502, 'A edição não retornou uma imagem válida.')
-    }
-
-    const validatedOutputDimensions = validateGeneratedJpeg(generated.bytes, outputDimensions)
-
-    try {
-      await deps.upload(outputPath, generated.bytes)
-    } catch {
-      throw new VirtualStagingTestError('output_upload_failed', 500, 'Não foi possível salvar a imagem editada.')
-    }
-
-    const processingMs = deps.now() - startedAt
-    deps.log('completed', {
-      jobIdMasked: maskJobId(jobId),
-      processingMs,
-      outputBytes: generated.bytes.length,
-      model: VIRTUAL_STAGING_IMAGE_MODEL,
-    })
-
-    return response({
-      ok: true,
-      result: {
-        output_path: outputPath,
-        width: validatedOutputDimensions.width,
-        height: validatedOutputDimensions.height,
-        mime_type: VIRTUAL_STAGING_OUTPUT_MIME,
-        size_bytes: generated.bytes.length,
+        processingMs,
+        outputBytes: generated.bytes.length,
         model: VIRTUAL_STAGING_IMAGE_MODEL,
-        quality: VIRTUAL_STAGING_IMAGE_QUALITY,
-      },
-      usage: safeUsage(generated.usage) ?? null,
-    })
+      })
+
+      return response({
+        ok: true,
+        result: {
+          output_path: outputPath,
+          width: validatedOutputDimensions.width,
+          height: validatedOutputDimensions.height,
+          mime_type: VIRTUAL_STAGING_OUTPUT_MIME,
+          size_bytes: generated.bytes.length,
+          model: VIRTUAL_STAGING_IMAGE_MODEL,
+          quality: VIRTUAL_STAGING_IMAGE_QUALITY,
+        },
+        usage: safeUsage(generated.usage) ?? null,
+      })
+    } catch (error) {
+      await deps.recordTelemetry?.({ userId: user.id, jobId, status: 'failed' }).catch(() => undefined)
+      throw error
+    }
   } catch (error) {
     if (error instanceof VirtualStagingTestError) {
       deps.log('request_failed', {
