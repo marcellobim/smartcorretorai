@@ -85,7 +85,7 @@ test('Produtos exposes exactly the official module hierarchy without invented Go
 test('new ambiguous flows persist only safe module telemetry in existing private structures', () => {
   assert.match(smartTourGenerate, /captions:input\.generation\.captions === 'enabled'/)
   assert.match(smartTourGenerate, /presenter:\['female','male'\]\.includes\(input\.generation\.presenterGender\)/)
-  assert.match(virtualStagingImage, /from\('economic_generation_events'\)/)
-  assert.match(virtualStagingImage, /product_code: 'virtual_staging'/)
+  assert.match(adminRuntime, /table: 'virtual_staging_image_items'/)
+  assert.match(adminRuntime, /tokenColumn: 'smart_tokens_consumed'/)
   assert.doesNotMatch(virtualStagingImage, /reserve_credits|consume_reserved_credits/)
 })

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jsonResponse, withCors } from '../_shared/cors.ts'
-import { ECONOMIC_CATALOG_VERSION } from '../_shared/economic-catalog.ts'
+import { ECONOMIC_CATALOG_VERSION, quoteEconomicSku } from '../_shared/economic-catalog.ts'
 import {
   VIRTUAL_STAGING_OPENAI_TIMEOUT_MS,
   VIRTUAL_STAGING_OUTPUT_MIME,
@@ -28,6 +28,14 @@ function normalizeUsage(value: unknown): SafeUsage | undefined {
   const normalized: SafeUsage = {}
   for (const key of ['input_tokens', 'output_tokens', 'total_tokens'] as const) {
     if (Number.isFinite(usage[key]) && Number(usage[key]) >= 0) normalized[key] = Number(usage[key])
+  }
+  if (usage.input_tokens_details && typeof usage.input_tokens_details === 'object') {
+    const source = usage.input_tokens_details as Record<string, unknown>
+    const details: NonNullable<SafeUsage['input_tokens_details']> = {}
+    for (const key of ['image_tokens', 'text_tokens'] as const) {
+      if (Number.isFinite(source[key]) && Number(source[key]) >= 0) details[key] = Number(source[key])
+    }
+    if (Object.keys(details).length) normalized.input_tokens_details = details
   }
   return Object.keys(normalized).length ? normalized : undefined
 }
@@ -110,21 +118,31 @@ serve(withCors(async (request) => {
       })
       if (error) throw new Error('storage_upload_failed')
     },
-    createJobId: () => crypto.randomUUID(),
     now: () => Date.now(),
-    recordTelemetry: async ({ userId, jobId, status, usage }) => {
-      const idempotencyKey = `virtual_staging:image:${jobId}`
-      if (status === 'started') {
-        const { error } = await supabase.from('economic_generation_events').insert({
-          user_id: userId, product_code: 'virtual_staging', variant: 'image', provider: 'openai',
-          model: 'gpt-image-2', quantity: 1, usage: {}, catalog_version: ECONOMIC_CATALOG_VERSION, status,
-          idempotency_key: idempotencyKey, metadata: { attribution: 'unavailable' },
-        })
-        if (error) throw new Error('telemetry_insert_failed')
-        return
-      }
-      const { error } = await supabase.from('economic_generation_events').update({ status, usage: usage || {} }).eq('idempotency_key', idempotencyKey)
-      if (error) throw new Error('telemetry_update_failed')
+    prepareEconomy: async ({ userId, clientRequestId, imageCount }) => {
+      const sku = quoteEconomicSku('virtual_staging', 'image')
+      if (sku.smartTokenCost !== 30) throw new Error('virtual_staging_catalog_mismatch')
+      const { data, error } = await supabase.rpc('prepare_virtual_staging_image_request', {
+        p_user_id: userId, p_client_request_id: clientRequestId, p_image_count: imageCount, p_catalog_version: ECONOMIC_CATALOG_VERSION,
+      })
+      if (error) throw new Error(error.message)
+      return Array.isArray(data) ? data[0] : data
+    },
+    claimEconomy: async ({ userId, clientRequestId, itemIndex }) => {
+      const { data, error } = await supabase.rpc('claim_virtual_staging_image_item', {
+        p_user_id: userId, p_client_request_id: clientRequestId, p_item_index: itemIndex,
+      })
+      if (error) throw new Error(error.message)
+      const row = Array.isArray(data) ? data[0] : data
+      return { item: row?.returned_item ?? {}, claimed: row?.claimed === true }
+    },
+    finalizeEconomy: async ({ userId, clientRequestId, itemIndex, status, result, usage, outputSize, estimatedCostUsdMicros, failureReason }) => {
+      const { error } = await supabase.rpc('finalize_virtual_staging_image_item', {
+        p_user_id: userId, p_client_request_id: clientRequestId, p_item_index: itemIndex, p_final_status: status,
+        p_result: result ?? {}, p_usage: usage ?? {}, p_output_size: outputSize ?? null,
+        p_estimated_cost_usd_micros: estimatedCostUsdMicros ?? null, p_failure_reason: failureReason ?? null,
+      })
+      if (error) throw new Error(error.message)
     },
     log: (event, details) => console.info('[virtual-staging-image-test]', JSON.stringify({ event, ...details })),
   })

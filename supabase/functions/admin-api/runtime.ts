@@ -72,9 +72,9 @@ export const PRODUCT_METRIC_DEFINITIONS: readonly ProductMetricDefinition[] = Ob
   }),
   Object.freeze({
     key: 'virtual_space', label: 'Virtual Space',
-    sources: [source({ table: 'economic_generation_events', filters: [{ column: 'product_code', value: 'virtual_staging' }, { column: 'variant', value: 'image' }], includedStatuses: ['started', 'delivered', 'failed'], successStatus: 'delivered', failureStatus: 'failed', provider: 'OpenAI', model: 'gpt-image-2', providerColumn: 'provider', modelColumn: 'model' }), gemini('life_in_property'), gemini('broker_presentation')],
+    sources: [source({ table: 'virtual_staging_image_items', includedStatuses: ['pending', 'processing', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed', tokenColumn: 'smart_tokens_consumed', provider: 'OpenAI', model: 'gpt-image-2', providerColumn: 'provider', modelColumn: 'model' }), gemini('life_in_property'), gemini('broker_presentation')],
     modules: [
-      module({ key: 'virtual_staging', label: 'Virtual Staging', sources: [source({ table: 'economic_generation_events', filters: [{ column: 'product_code', value: 'virtual_staging' }, { column: 'variant', value: 'image' }], includedStatuses: ['started', 'delivered', 'failed'], successStatus: 'delivered', failureStatus: 'failed', provider: 'OpenAI', model: 'gpt-image-2', providerColumn: 'provider', modelColumn: 'model' })], historicalCoverage: 'new_only' }),
+      module({ key: 'virtual_staging', label: 'Virtual Staging', sources: [source({ table: 'virtual_staging_image_items', includedStatuses: ['pending', 'processing', 'completed', 'failed'], successStatus: 'completed', failureStatus: 'failed', tokenColumn: 'smart_tokens_consumed', provider: 'OpenAI', model: 'gpt-image-2', providerColumn: 'provider', modelColumn: 'model' })], historicalCoverage: 'new_only' }),
       module({ key: 'life_in_property', label: 'Vida no Imóvel', sources: [gemini('life_in_property')], historicalCoverage: 'complete' }),
       module({ key: 'broker_presentation', label: 'Apresentação pelo Corretor', sources: [gemini('broker_presentation')], historicalCoverage: 'complete' }),
     ],

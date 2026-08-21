@@ -456,18 +456,33 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     }))
     setFurnishResults(initialResults)
     const updateResult = (id, changes) => setFurnishResults(current => current.map(result => result.id === id ? { ...result, ...changes } : result))
+    let sessionId = ''
+    let economyPrepared = false
 
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser()
       const authenticatedUser = authData?.user
       if (authError || !authenticatedUser?.id) throw new Error('auth_required')
 
-      const sessionId = crypto.randomUUID()
+      sessionId = crypto.randomUUID()
+      const { data: prepared, error: prepareError } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
+        action: 'prepare',
+        client_request_id: sessionId,
+        image_count: orderedImages.length,
+      } })
+      if (prepareError || !prepared?.ok) throw new Error(prepared?.error || 'Não foi possível reservar os Smart Tokens desta criação.')
+      economyPrepared = true
+      const failReservedItem = async (itemIndex, reason) => {
+        await supabase.functions.invoke('virtual-staging-image-test', { body: {
+          action: 'fail_item', client_request_id: sessionId, item_index: itemIndex, reason,
+        } })
+      }
       for (let imageIndex = 0; imageIndex < orderedImages.length; imageIndex += 1) {
         const image = orderedImages[imageIndex]
         const file = image?.file
         if (!file || !['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024) {
           updateResult(image.key, { status: 'failed', error: 'invalid_image' })
+          await failReservedItem(imageIndex, 'invalid_image')
           continue
         }
 
@@ -478,12 +493,16 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         const { error: uploadError } = await supabase.storage.from(BUCKET).upload(inputPath, file, { contentType: file.type, upsert: false })
         if (uploadError) {
           updateResult(image.key, { status: 'failed', error: 'upload_failed' })
+          await failReservedItem(imageIndex, 'input_upload_failed')
           continue
         }
 
         updateResult(image.key, { status: 'generating' })
         setStatus('generating')
         const { data, error } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
+          action: 'generate',
+          client_request_id: sessionId,
+          item_index: imageIndex,
           module: FURNISH_RENOVATE_JOURNEY_ID,
           input_path: inputPath,
           transformation_type: transformationType,
@@ -515,9 +534,16 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         })
       }
       setStatus('completed')
-    } catch {
+      await reloadProfile()
+    } catch (error) {
+      if (economyPrepared && sessionId) {
+        await Promise.allSettled(orderedImages.map((_, itemIndex) => supabase.functions.invoke('virtual-staging-image-test', { body: {
+          action: 'fail_item', client_request_id: sessionId, item_index: itemIndex, reason: 'client_operation_aborted',
+        } })))
+      }
       setStatus('error')
-      setMessage('Não foi possível iniciar seu Virtual Staging. Crie um novo projeto para tentar novamente.')
+      setMessage(getSmartTokenErrorMessage(error, 'Não foi possível iniciar seu Virtual Staging. Crie um novo projeto para tentar novamente.'))
+      await reloadProfile()
     }
   }
 
@@ -892,6 +918,7 @@ function Question(props) {
         <p className="text-lg font-black">Revise seu projeto</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">{reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-primary-100 bg-white px-4 py-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{item.displayLabel || reviewLabel(item.id)}</p><p className="mt-1 text-sm font-black text-slate-800">{item.label}</p>{item.id === 'images' && <div className="mt-3 flex flex-wrap gap-2">{images.map((image, index) => <img key={image.key} src={image.preview} alt={`Imagem ${index + 1} na ordem do projeto`} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />)}</div>}{item.id === 'image_destinations' && <div className="mt-3 flex flex-wrap gap-2">{FURNISH_RENOVATE_DESTINATION_OPTIONS.filter(option => imageDestinations.includes(option.id)).map(option => <span key={option.id} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2"><DestinationBrandIcon destination={option} compact /><span className="text-xs font-black">{option.label}</span></span>)}</div>}</div><button type="button" onClick={() => onReviewEdit(item.id)} className="rounded-xl px-3 py-2 text-xs font-black text-primary-700 hover:bg-primary-50">Editar</button></div></div>)}</div>
         <p className="mt-5 rounded-2xl border border-primary-100 bg-white/80 p-4 font-bold">{FURNISH_RENOVATE_COPY.reviewNotice}</p>
+        <p className="mt-3 text-sm font-black text-primary-900">{SMART_TOKEN_COSTS.virtualStagingImage} ST por imagem · Total da seleção: {images.length * SMART_TOKEN_COSTS.virtualStagingImage} ST</p>
       </div>
       {status === 'error' && message && <p role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{message}</p>}
       <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Gerar Virtual Staging</Button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Refazer projeto</button></div>

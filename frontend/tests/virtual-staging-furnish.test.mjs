@@ -146,9 +146,9 @@ test('envia ao backend somente o contrato permitido do furnish-renovate', () => 
   assert.doesNotMatch(integration, /`\$\{authenticatedUser\.id\}\/virtual-staging\/\$\{sessionId\}/)
   assert.match(integration, /storage\.from\(BUCKET\)\.upload\(inputPath, file/)
   assert.match(integration, /functions\.invoke\('virtual-staging-image-test'/)
-  for (const field of ['module:', 'input_path:', 'transformation_type:', 'decoration_style:', 'expected_count:']) assert.match(integration, new RegExp(field))
+  for (const field of ['module:', 'input_path:', 'transformation_type:', 'decoration_style:', 'expected_count:', "action: 'prepare'", "action: 'generate'", 'client_request_id:', 'item_index:']) assert.match(integration, new RegExp(field))
   for (const forbidden of ['prompt:', 'model:', 'quality:', 'size:', 'output_format:', 'image_destinations:']) assert.doesNotMatch(integration, new RegExp(forbidden))
-  assert.doesNotMatch(integration, /service.?role|smart.?tokens?/i)
+  assert.doesNotMatch(integration, /service.?role|unit_cost:|quoted_tokens:/i)
   assert.doesNotMatch(read('frontend/src/config/virtualStagingFurnish.js'), /supabase|fetch\(|invoke\(/)
 })
 
@@ -156,10 +156,19 @@ test('processa a coleção sequencialmente, bloqueia clique duplicado e não exe
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
   assert.match(integration, /furnishGenerationInFlightRef\.current\) return/)
   assert.match(integration, /furnishGenerationInFlightRef\.current = true/)
-  assert.equal((integration.match(/functions\.invoke\('virtual-staging-image-test'/g) || []).length, 1)
+  assert.ok((integration.match(/functions\.invoke\('virtual-staging-image-test'/g) || []).length >= 3)
   assert.match(integration, /for \(let imageIndex = 0; imageIndex < orderedImages\.length; imageIndex \+= 1\)/)
-  assert.doesNotMatch(integration, /Promise\.all|setTimeout|setInterval|retry|while\s*\(/i)
+  assert.doesNotMatch(integration, /Promise\.all\(|setTimeout|setInterval|retry|while\s*\(/i)
   assert.doesNotMatch(integration, /finalize_session|creation_id/)
+})
+
+test('reserva e liquida 30 ST por imagem e atualiza o perfil ao concluir', () => {
+  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
+  assert.match(integration, /action: 'prepare'[\s\S]*image_count: orderedImages\.length/)
+  assert.match(integration, /action: 'generate'[\s\S]*client_request_id: sessionId[\s\S]*item_index: imageIndex/)
+  assert.match(integration, /action: 'fail_item'/)
+  assert.match(integration, /await reloadProfile\(\)/)
+  assert.match(page, /\{SMART_TOKEN_COSTS\.virtualStagingImage\} ST por imagem · Total da seleção: \{images\.length \* SMART_TOKEN_COSTS\.virtualStagingImage\} ST/)
 })
 
 test('mostra progresso real, resultado Antes e Depois e downloads individuais', () => {
@@ -196,7 +205,7 @@ test('preserva contrato singular, ordem explícita, falha parcial e metadados so
   for (const status of ['pending', 'uploading', 'generating', 'completed', 'failed']) assert.match(page, new RegExp(`'${status}'`))
   assert.match(integration, /current\.map\(result => result\.id === id/)
   assert.match(integration, /continue/)
-  assert.doesNotMatch(integration, /input_paths|image_destinations|localStorage|sessionStorage|video_jobs|smart.?tokens?/i)
+  assert.doesNotMatch(integration, /input_paths|image_destinations|localStorage|sessionStorage|video_jobs/i)
 })
 
 test('keeps Vida no Imóvel and Apresentação pelo Corretor isolated', () => {

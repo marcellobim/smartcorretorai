@@ -1,4 +1,4 @@
-export const ECONOMIC_CATALOG_VERSION = '2026-08-17.smart-carousel.v1'
+export const ECONOMIC_CATALOG_VERSION = '2026-08-20.virtual-staging.v1'
 
 // Global rollout stays disabled. A product can opt in only after its provider
 // pipeline is migrated and its canonical SKU is explicitly enabled below.
@@ -82,21 +82,15 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
     maxItemsPerRequest: 5,
   }, true),
 
-  sku('virtual_staging', 'images_1', 200, 'openai_image', true, {
+  // Virtual Staging is charged per image actually delivered. The request
+  // reserves imageCount * 30 before the first provider call and settles each
+  // image independently.
+  sku('virtual_staging', 'image', 30, 'openai_image', false, {
     quantity: 1,
-    pricingStatus: 'provisional',
+    pricingStatus: 'approved',
     telemetryRequired: true,
-  }),
-  sku('virtual_staging', 'images_3', 500, 'openai_image', false, {
-    quantity: 3,
-    pricingStatus: 'provisional',
-    telemetryRequired: true,
-  }),
-  sku('virtual_staging', 'images_5', 800, 'openai_image', false, {
-    quantity: 5,
-    pricingStatus: 'provisional',
-    telemetryRequired: true,
-  }),
+    maxImagesPerRequest: 5,
+  }, true),
 
   sku('smart_carousel', 'standard', 100, 'composite', false, {
     pricingStatus: 'approved', telemetryRequired: true, minImages: 5, maxImages: 20,

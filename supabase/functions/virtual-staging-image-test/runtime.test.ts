@@ -11,6 +11,7 @@ import {
   VIRTUAL_STAGING_TRANSFORMATION_TYPES,
 } from './contract.ts'
 import {
+  estimateGptImage2CostUsdMicros,
   handleVirtualStagingImageTest,
   type ImageEditRequest,
   type RuntimeDependencies,
@@ -20,6 +21,9 @@ const userId = '11111111-1111-4111-8111-111111111111'
 const requestId = '33333333-3333-4333-8333-333333333333'
 const validPath = `${userId}/virtual-staging-images/inputs/${requestId}/01.png`
 const validBody = {
+  action: 'generate',
+  client_request_id: requestId,
+  item_index: 0,
   module: 'furnish-renovate',
   input_path: validPath,
   transformation_type: 'empty_or_nearly_empty',
@@ -80,9 +84,11 @@ function dependencies(overrides: Partial<RuntimeDependencies> = {}) {
     download: async () => ({ bytes: png(), contentType: 'image/png' }),
     openAI: { editImage: async (input) => ({ bytes: jpegForSize(input.size), usage: { total_tokens: 321 } }) },
     upload: async () => undefined,
-    createJobId: () => '22222222-2222-4222-8222-222222222222',
     now: () => { clock += 25; return clock },
     log: () => undefined,
+    prepareEconomy: async ({ imageCount }) => ({ image_count: imageCount, smart_tokens_reserved: imageCount * 30 }),
+    claimEconomy: async () => ({ item: { id: '22222222-2222-4222-8222-222222222222', status: 'processing' }, claimed: true }),
+    finalizeEconomy: async () => undefined,
     ...overrides,
   }
   return deps
@@ -423,11 +429,12 @@ test('rejeita JPEG com dimensões diferentes das solicitadas antes do upload', a
   assert.equal(edits, 1)
 })
 
-test('não desconta Smart Tokens, não importa backends atuais e o runtime não faz request real', () => {
+test('reserva e liquida Smart Tokens sem expor provider ao runtime', () => {
   const runtimeSource = readFileSync(new URL('./runtime.ts', import.meta.url), 'utf8')
   const indexSource = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
   const combined = `${runtimeSource}\n${indexSource}`
-  assert.doesNotMatch(combined, /smart.?tokens?|reserve.?credit|consume.?credit|token_balance/i)
+  assert.match(combined, /prepare_virtual_staging_image_request/)
+  assert.match(combined, /finalize_virtual_staging_image_item/)
   assert.doesNotMatch(combined, /virtual-staging-(?:generate|status)|smart-tour|vida.no.im.vel|apresenta..o.pelo.corretor/i)
   assert.doesNotMatch(combined, /_shared\/creations|creation-runtime|recordSessionOutput|finalizeSession|finalize_session|virtual_staging_session_outputs|creation_id/)
   assert.doesNotMatch(runtimeSource, /\bfetch\s*\(/)
@@ -448,34 +455,67 @@ test('o adaptador isolado usa Image API multipart no backend, autenticação e S
   assert.doesNotMatch(indexSource, /createSignedUrl|getPublicUrl/)
 })
 
-test('registra telemetria administrativa sem alterar o fluxo econômico', async () => {
+test('terminaliza economicamente uma imagem entregue com uso real', async () => {
   const statuses: string[] = []
   const deps = dependencies({
-    openAI: { editImage: async () => ({ bytes: jpeg(1536, 1024), usage: { total_tokens: 12 } }) },
-    recordTelemetry: async input => { statuses.push(input.status) },
+    openAI: { editImage: async () => ({ bytes: jpeg(1536, 1024), usage: { input_tokens: 10, output_tokens: 12, total_tokens: 22, input_tokens_details: { image_tokens: 8, text_tokens: 2 } } }) },
+    finalizeEconomy: async input => { statuses.push(input.status) },
   })
   const response = await handleVirtualStagingImageTest(request(validBody), deps)
   assert.equal(response.status, 200)
-  assert.deepEqual(statuses, ['started', 'delivered'])
+  assert.deepEqual(statuses, ['completed'])
+  assert.equal(estimateGptImage2CostUsdMicros({ input_tokens_details: { image_tokens: 8, text_tokens: 2 }, output_tokens: 12 }), 434)
+  assert.equal(estimateGptImage2CostUsdMicros({ total_tokens: 12 }), undefined)
 })
 
-test('terminaliza como failed toda falha posterior ao started', async () => {
+test('terminaliza como failed toda falha posterior ao claim econômico', async () => {
   for (const bytes of [new Uint8Array(), new Uint8Array([1, 2, 3]), jpeg(1024, 1536)]) {
     const statuses: string[] = []
     const deps = dependencies({
       openAI: { editImage: async () => ({ bytes }) },
-      recordTelemetry: async input => { statuses.push(input.status) },
+      finalizeEconomy: async input => { statuses.push(input.status) },
     })
     const response = await handleVirtualStagingImageTest(request(validBody), deps)
     assert.equal(response.status, 502)
-    assert.deepEqual(statuses, ['started', 'failed'])
+    assert.ok(statuses.includes('failed'))
   }
 
   const uploadStatuses: string[] = []
   const uploadResponse = await handleVirtualStagingImageTest(request(validBody), dependencies({
     upload: async () => { throw new Error('upload_failed') },
-    recordTelemetry: async input => { uploadStatuses.push(input.status) },
+    finalizeEconomy: async input => { uploadStatuses.push(input.status) },
   }))
   assert.equal(uploadResponse.status, 500)
-  assert.deepEqual(uploadStatuses, ['started', 'failed'])
+  assert.ok(uploadStatuses.includes('failed'))
+})
+
+test('reserva 30 ST por imagem antes da primeira chamada paga e bloqueia saldo insuficiente', async () => {
+  let edits = 0
+  const prepared = await json(await handleVirtualStagingImageTest(request({ action: 'prepare', client_request_id: requestId, image_count: 5 }), dependencies({
+    prepareEconomy: async ({ imageCount }) => ({ smart_tokens_reserved: imageCount * 30 }),
+    openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
+  })))
+  assert.equal(prepared.quoted_tokens, 150)
+  assert.equal(edits, 0)
+
+  const insufficient = await handleVirtualStagingImageTest(request({ action: 'prepare', client_request_id: requestId, image_count: 1 }), dependencies({
+    prepareEconomy: async () => { throw new Error('Creditos insuficientes para esta geracao.') },
+  }))
+  assert.equal(insufficient.status, 402)
+  assert.equal(edits, 0)
+})
+
+test('replay de item terminal não chama OpenAI nem debita novamente', async () => {
+  let edits = 0
+  let finalizations = 0
+  const result = { output_path: `${userId}/virtual-staging-images/results/item/generated-01.jpg` }
+  const response = await handleVirtualStagingImageTest(request(validBody), dependencies({
+    claimEconomy: async () => ({ item: { id: 'item', status: 'completed', result, provider_usage: {} }, claimed: false }),
+    openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
+    finalizeEconomy: async () => { finalizations += 1 },
+  }))
+  assert.equal(response.status, 200)
+  assert.equal(edits, 0)
+  assert.equal(finalizations, 0)
+  assert.equal((await json(response)).replay, true)
 })

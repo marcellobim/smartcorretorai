@@ -2,6 +2,7 @@ export const SMART_TOKEN_COSTS = Object.freeze({
   textCampaign: 25,
   quickBannerItem: 45,
   realEstateBannerItem: 75,
+  virtualStagingImage: 30,
   smartCarousel: 100,
   veoVideo: 120,
   geminiVideo: 325,

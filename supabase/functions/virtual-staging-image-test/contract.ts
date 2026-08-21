@@ -181,6 +181,7 @@ export const ALLOWED_INPUT_MIME_TYPES = new Set([
   'image/png',
   'image/webp',
 ])
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export type ImageDimensions = { width: number; height: number }
 export type VirtualStagingOutputSize = '1024x1024' | '1536x1024' | '1024x1536'
@@ -189,6 +190,8 @@ export type VirtualStagingImageInput = {
   inputPath: string
   transformationType: VirtualStagingTransformationType
   decorationStyle: VirtualStagingDecorationStyle
+  clientRequestId: string
+  itemIndex: number
 }
 
 export class VirtualStagingTestError extends Error {
@@ -228,13 +231,20 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     throw invalidInput('invalid_image_count', 'Envie exatamente uma imagem.')
   }
 
-  const allowedFields = new Set(['module', 'input_path', 'transformation_type', 'decoration_style', 'expected_count'])
+  const allowedFields = new Set(['action', 'module', 'input_path', 'transformation_type', 'decoration_style', 'expected_count', 'client_request_id', 'item_index'])
   if (Object.keys(input).some((field) => !allowedFields.has(field))) {
     throw invalidInput('unexpected_field', 'A solicitação contém campos não permitidos.')
   }
 
   if (input.module !== 'furnish-renovate') {
     throw invalidInput('invalid_module', 'O módulo informado é inválido.')
+  }
+  if (input.action !== 'generate') throw invalidInput('invalid_action', 'A ação informada é inválida.')
+  if (typeof input.client_request_id !== 'string' || !UUID_PATTERN.test(input.client_request_id)) {
+    throw invalidInput('invalid_client_request_id', 'Identificador da operação inválido.')
+  }
+  if (!Number.isInteger(input.item_index) || Number(input.item_index) < 0 || Number(input.item_index) > 4) {
+    throw invalidInput('invalid_item_index', 'Posição da imagem inválida.')
   }
 
   if (typeof input.input_path !== 'string' || !input.input_path.trim()) {
@@ -254,6 +264,8 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     inputPath: input.input_path.trim(),
     transformationType: input.transformation_type as VirtualStagingTransformationType,
     decorationStyle: input.decoration_style as VirtualStagingDecorationStyle,
+    clientRequestId: input.client_request_id,
+    itemIndex: Number(input.item_index),
   }
 }
 
