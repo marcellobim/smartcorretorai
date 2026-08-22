@@ -154,12 +154,14 @@ test('keeps the endpoint service-role-only, path-independent and restricted to S
   assert.match(configSource, /\[functions\.virtual-staging-images-cleanup\]\s+verify_jwt = true/)
 })
 
-test('schedules the function hourly at minute 27 using only Vault credentials', () => {
+test('keeps the retired scheduling migration as a documented no-op', () => {
   const migration = readFileSync(pathModule.resolve(testDirectory, '../../../../migrations/20260808020000_schedule_virtual_staging_image_cleanup.sql'), 'utf8')
-  assert.match(migration, /'27 \* \* \* \*'/)
-  assert.match(migration, /vault\.decrypted_secrets/)
-  assert.match(migration, /WHERE name = 'project_url'/)
-  assert.match(migration, /WHERE name = 'service_role_key'/)
-  assert.match(migration, /\/functions\/v1\/virtual-staging-images-cleanup/)
-  assert.doesNotMatch(migration, /https:\/\/[^']+\.supabase\.co|eyJ[A-Za-z0-9_-]{20,}/)
+  const executableLines = migration.split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('--'))
+  assert.match(migration, /intentionally retired before production/i)
+  assert.match(migration, /No extensions, Vault integration or\s*\n?-- cron job are required/i)
+  assert.deepEqual(executableLines, [])
+  assert.doesNotMatch(migration, /CREATE\s+EXTENSION|pg_cron|pg_net|cron\.schedule/i)
+  assert.doesNotMatch(migration, /\/functions\/v1\/virtual-staging-images-cleanup/)
 })
