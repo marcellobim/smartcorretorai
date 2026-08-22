@@ -13,6 +13,7 @@ const heroSource = slice('function Hero()', 'function PositioningStrip')
 const videoGroup = slice("id: 'videos'", "id: 'imagens-campanhas'")
 const imageGroup = slice("id: 'imagens-campanhas'", "id: 'textos-campanhas'")
 const textPreview = slice('function TextCampaignPreview()', 'function ProductMedia')
+const virtualStagingSpotlight = slice('function VirtualStagingPhone', 'function HowItWorks')
 const usesSource = slice('function BenefitsSection()', 'function TokensSection')
 const howSource = slice('function HowItWorks()', 'function BenefitsSection')
 const faqSource = landing.match(/const FAQ_ITEMS = \[([\s\S]*?)\n\]/)?.[1] || ''
@@ -69,6 +70,26 @@ test('shows exactly the three approved image creations without decorative croppi
   assert.doesNotMatch(slice('function ImagePreviewCard', 'function ImageShowcase'), /border-\[6px\]|h-7 items-center justify-center/)
   assert.match(landing, /md:hidden/)
   assert.doesNotMatch(landing, /Inclui materiais para apoiar a divulgação/i)
+})
+
+test('highlights seven real Virtual Staging pairs across three independently rotating phones', () => {
+  assert.match(virtualStagingSpotlight, /data-virtual-staging-phone=\{slot \+ 1\}/)
+  assert.match(virtualStagingSpotlight, /VIRTUAL_STAGING_PHONE_SEQUENCES\.map/)
+  assert.equal((landing.match(/before: '\/virtual-staging\//g) || []).length, 7)
+  assert.equal((landing.match(/after: '\/virtual-staging\//g) || []).length, 7)
+  for (const asset of [
+    'virtual-staging-before.jpg', 'virtual-staging-after.png',
+    ...Array.from({ length: 6 }, (_, index) => `example-${String(index + 1).padStart(2, '0')}-before.jpg`),
+    ...Array.from({ length: 6 }, (_, index) => `example-${String(index + 1).padStart(2, '0')}-after.jpg`),
+  ]) assert.equal(existsSync(path.join(frontendRoot, 'public/virtual-staging', asset)), true, asset)
+  assert.match(virtualStagingSpotlight, /Pare de anunciar ambientes sem graça\./)
+  assert.match(virtualStagingSpotlight, /Mostre o potencial do seu imóvel\./)
+  assert.match(virtualStagingSpotlight, /to="\/virtual-staging"/)
+  assert.match(virtualStagingSpotlight, /Experimentar Virtual Staging/)
+  assert.match(virtualStagingSpotlight, /Imagens geradas com inteligência artificial\. O resultado representa uma possibilidade visual de ambientação\./)
+  assert.match(virtualStagingSpotlight, /3600 \+ slot \* 650/)
+  assert.match(virtualStagingSpotlight, /reducedMotion \? <>/)
+  assert.match(virtualStagingSpotlight, /loading=\{slot === 0 && frame === 0 \? 'eager' : 'lazy'\}/)
 })
 
 test('implements the clean five-channel text campaign with Hashtags first and production-shaped previews', () => {

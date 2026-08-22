@@ -8,6 +8,20 @@ import {
 import BrandMark from '../components/brand/BrandMark'
 const VIRTUAL_STAGING_BEFORE_IMAGE = '/landing/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/landing/virtual-staging-after.webp'
+const VIRTUAL_STAGING_SPOTLIGHT_PAIRS = {
+  living: { id: 'living', label: 'Sala integrada', before: '/virtual-staging/virtual-staging-before.jpg', after: '/virtual-staging/virtual-staging-after.png' },
+  balcony: { id: 'balcony', label: 'Varanda', before: '/virtual-staging/example-01-before.jpg', after: '/virtual-staging/example-01-after.jpg' },
+  bathroom: { id: 'bathroom', label: 'Banheiro', before: '/virtual-staging/example-02-before.jpg', after: '/virtual-staging/example-02-after.jpg' },
+  bedroom: { id: 'bedroom', label: 'Quarto e home office', before: '/virtual-staging/example-03-before.jpg', after: '/virtual-staging/example-03-after.jpg' },
+  dining: { id: 'dining', label: 'Sala de jantar', before: '/virtual-staging/example-04-before.jpg', after: '/virtual-staging/example-04-after.jpg' },
+  kitchen: { id: 'kitchen', label: 'Cozinha integrada', before: '/virtual-staging/example-05-before.jpg', after: '/virtual-staging/example-05-after.jpg' },
+  office: { id: 'office', label: 'Escritório', before: '/virtual-staging/example-06-before.jpg', after: '/virtual-staging/example-06-after.jpg' },
+}
+const VIRTUAL_STAGING_PHONE_SEQUENCES = [
+  [VIRTUAL_STAGING_SPOTLIGHT_PAIRS.bedroom, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.bathroom, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.living],
+  [VIRTUAL_STAGING_SPOTLIGHT_PAIRS.kitchen, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.dining],
+  [VIRTUAL_STAGING_SPOTLIGHT_PAIRS.balcony, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.office],
+]
 const NAV_ITEMS = [
   { label: 'Produtos', href: '#produtos' },
   { label: 'Como funciona', href: '#como-funciona' },
@@ -477,6 +491,61 @@ function ProductShowcase() {
   return <section id="produtos" className="scroll-mt-20 bg-[#f4f3f8] py-20 text-slate-950 sm:py-28"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><div className="max-w-4xl"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Produtos</p><h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-[-.05em] sm:text-6xl">Crie do seu jeito.<br />Divulgue em qualquer canal.</h2><p className="mt-5 max-w-2xl text-base font-medium leading-7 text-slate-600">Seis soluções conectadas por uma experiência guiada e feita para o mercado imobiliário.</p></div><div className="mt-12 grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_35px_100px_-60px_rgba(15,23,42,.45)] lg:grid-cols-[310px_minmax(0,1fr)]"><div role="tablist" aria-label="Produtos do SmartCorretorAI" onKeyDown={handleTabs} className="flex gap-2 overflow-x-auto border-b border-slate-200 p-3 lg:block lg:overflow-visible lg:border-b-0 lg:border-r lg:p-4">{PRODUCT_FAMILIES.map((entry, index) => { const Icon = entry.icon; const selected = productIndex === index; return <button ref={node => { tabRefs.current[index] = node }} key={entry.id} id={`product-tab-${entry.id}`} type="button" role="tab" aria-selected={selected} aria-controls="product-panel" tabIndex={selected ? 0 : -1} onClick={() => selectProduct(index)} className={`min-w-[220px] rounded-2xl p-4 text-left transition lg:min-w-0 lg:w-full ${selected ? 'bg-[#0b1022] text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'} ${focusRing}`}><span className="flex items-center gap-3"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${selected ? 'bg-violet-500 text-white' : 'bg-violet-50 text-violet-700'}`}><Icon className="h-4 w-4" /></span><span><span className="block text-[10px] font-black text-violet-400">{entry.number}</span><span className="block text-sm font-black">{entry.name}</span></span></span></button> })}</div><div id="product-panel" role="tabpanel" aria-labelledby={`product-tab-${product.id}`} className="min-w-0 bg-[#080c19] text-white"><div className="grid min-h-[650px] lg:grid-cols-[minmax(300px,.72fr)_minmax(0,1.28fr)]"><div className="flex flex-col justify-between p-6 sm:p-9 lg:p-10"><div><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{product.number} · {product.name}</p><h3 className="mt-5 text-3xl font-black leading-[1.06] tracking-[-.045em] sm:text-4xl">{product.headline}</h3><p className="mt-5 text-sm font-medium leading-7 text-slate-300 sm:text-base">{product.description}</p></div><div className="mt-9"><p className="text-[10px] font-black uppercase tracking-[.16em] text-slate-500">Explore as entregas</p><div className="mt-3 flex flex-wrap gap-2">{product.items.map((entry, index) => <button key={entry.id} type="button" onClick={() => setItemIndex(index)} aria-pressed={itemIndex === index} className={`rounded-full border px-3.5 py-2 text-xs font-black ${itemIndex === index ? 'border-violet-400 bg-violet-500 text-white' : 'border-white/15 bg-white/[.04] text-slate-300'} ${focusRing}`}>{entry.title}</button>)}</div><Link to="/cadastro" className={`mt-7 inline-flex items-center gap-2 text-sm font-black text-violet-300 ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link></div></div><div className="min-h-[430px] border-t border-white/10 p-3 sm:p-5 lg:border-l lg:border-t-0"><div className="h-full overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#050816]"><ProductMedia item={item} active /></div></div></div></div></div></div></section>
 }
 
+function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
+  const [frame, setFrame] = useState(0)
+  useEffect(() => {
+    setFrame(0)
+    if (reducedMotion) return undefined
+    let rotationTimer
+    const startTimer = window.setTimeout(() => {
+      setFrame(1)
+      rotationTimer = window.setInterval(() => setFrame(current => current + 1), 3600 + slot * 650)
+    }, 1000 + slot * 700)
+    return () => {
+      window.clearTimeout(startTimer)
+      if (rotationTimer) window.clearInterval(rotationTimer)
+    }
+  }, [reducedMotion, sequence.length, slot])
+  const pair = sequence[Math.floor(frame / 2) % sequence.length]
+  const showAfter = frame % 2 === 1
+  const shellPosition = slot === 0 ? 'col-span-2 mx-auto max-w-[230px] lg:col-span-1 lg:translate-y-6 lg:-rotate-3' : slot === 1 ? 'max-w-[170px] lg:max-w-[230px] lg:scale-[1.04]' : 'max-w-[170px] lg:max-w-[230px] lg:translate-y-6 lg:rotate-3'
+  return <article data-virtual-staging-phone={slot + 1} className={`w-full transition-transform duration-700 motion-reduce:transform-none motion-reduce:transition-none ${shellPosition}`} aria-label={`${pair.label}: comparação antes e depois`}>
+    <div className="relative aspect-[9/18.5] overflow-hidden rounded-[2.35rem] border-[7px] border-[#111528] bg-[#050816] shadow-[0_35px_80px_-28px_rgba(15,23,42,.85)] sm:border-[8px]">
+      <span className="absolute left-1/2 top-2 z-30 h-4 w-16 -translate-x-1/2 rounded-full bg-[#070a13]" aria-hidden="true" />
+      <div className="absolute inset-[2px] overflow-hidden rounded-[1.82rem] bg-slate-200">
+        {reducedMotion ? <>
+          <img src={pair.after} alt={`${pair.label} depois do Virtual Staging`} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r border-white"><img src={pair.before} alt={`${pair.label} antes do Virtual Staging`} loading="lazy" className="h-full w-[200%] max-w-none object-cover" /></div>
+          <span className="absolute left-3 top-9 rounded-full bg-slate-950/80 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-white">ANTES</span>
+          <span className="absolute right-3 top-9 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-slate-950">DEPOIS</span>
+        </> : <>
+          <img key={`${pair.id}-before`} src={pair.before} alt={`${pair.label} antes do Virtual Staging`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className="absolute inset-0 h-full w-full object-cover" />
+          <img key={`${pair.id}-after`} src={pair.after} alt={`${pair.label} depois do Virtual Staging`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${showAfter ? 'opacity-100' : 'opacity-0'}`} />
+          <span className={`absolute left-1/2 top-9 -translate-x-1/2 rounded-full px-3 py-1 text-[9px] font-black tracking-[.14em] shadow-lg backdrop-blur transition-colors duration-700 ${showAfter ? 'bg-white/90 text-slate-950' : 'bg-slate-950/80 text-white'}`}>{showAfter ? 'DEPOIS' : 'ANTES'}</span>
+        </>}
+        <span className="absolute inset-x-3 bottom-3 rounded-xl border border-white/20 bg-[#050816]/75 px-3 py-2 text-center text-[10px] font-black text-white backdrop-blur">{pair.label}</span>
+      </div>
+    </div>
+  </article>
+}
+
+function VirtualStagingSpotlight() {
+  const reducedMotion = useReducedMotion()
+  return <section id="virtual-staging-destaque" className="scroll-mt-20 overflow-hidden bg-white py-20 text-slate-950 sm:py-28">
+    <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:items-end">
+        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Virtual Staging</p><p className="mt-3 text-sm font-black text-slate-500">Antes e depois com inteligência artificial</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">Pare de anunciar ambientes sem graça.<br /><span className="text-violet-700">Mostre o potencial do seu imóvel.</span></h2></div>
+        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">Transforme ambientes vazios ou sem destaque em imagens mais atraentes para seus anúncios, preservando a estrutura real do imóvel.</p><Link to="/virtual-staging" className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>Experimentar Virtual Staging<ArrowRight className="h-4 w-4" /></Link></div>
+      </div>
+      <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">
+        <div className="pointer-events-none absolute inset-x-1/4 top-0 h-40 rounded-full bg-violet-500/20 blur-[70px]" />
+        <div className="relative grid grid-cols-2 items-end justify-items-center gap-4 sm:gap-7 lg:flex lg:justify-center lg:gap-10 xl:gap-14">{VIRTUAL_STAGING_PHONE_SEQUENCES.map((sequence, slot) => <VirtualStagingPhone key={sequence[0].id} sequence={sequence} slot={slot} reducedMotion={reducedMotion} />)}</div>
+        <p className="relative mx-auto mt-10 max-w-3xl text-center text-xs font-semibold leading-5 text-slate-400 lg:mt-16">Imagens geradas com inteligência artificial. O resultado representa uma possibilidade visual de ambientação.</p>
+      </div>
+    </div>
+  </section>
+}
+
 function HowItWorks() {
   const steps = [['01', 'Escolha', 'Defina o que vamos criar juntos.'], ['02', 'Informe', 'Converse com nossa IA e vamos montar sua campanha.'], ['03', 'Receba', 'O SmartCorretorAI prepara sua criação e entrega o material pronto para você divulgar.']]
   return <section id="como-funciona" className="scroll-mt-20 bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Como funciona</p><h2 className="mt-4 max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">Você escolhe o que precisa. A gente simplifica o caminho.</h2><p className="mt-5 max-w-3xl text-base font-medium leading-7 text-slate-600">Sem prompts complicados, sem escolher modelos e sem descobrir qual ferramenta usar.</p><div className="mt-12 grid border-y border-slate-200 md:grid-cols-3">{steps.map(([number, title, description], index) => <article key={number} className={`py-8 md:px-8 md:py-10 ${index > 0 ? 'border-t border-slate-200 md:border-l md:border-t-0' : ''}`}><span className="text-sm font-black text-violet-600">{number}</span><h3 className="mt-10 text-2xl font-black text-slate-950">{title}</h3><p className="mt-3 text-sm font-medium leading-6 text-slate-600">{description}</p></article>)}</div><div className="mt-8 flex flex-col justify-between gap-6 rounded-2xl bg-[#f4f3f8] p-6 sm:flex-row sm:items-center"><p className="max-w-3xl text-sm font-bold leading-6 text-slate-700">Tem imagens? Ótimo. Ainda não tem? Alguns produtos permitem começar apenas com as informações da campanha.</p><Link to="/cadastro" className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link></div></div></section>
@@ -520,5 +589,5 @@ function LandingFooter() {
 }
 
 export default function LandingPage() {
-  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><Hero /><PositioningStrip /><DeliveryShowcase /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
+  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><Hero /><PositioningStrip /><DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
 }
