@@ -23,8 +23,8 @@ import { BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, buildBrokerPr
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
-import VIRTUAL_STAGING_BEFORE_IMAGE from '../../../assets-imoveis/apartamento-vazio-02/virtual-staging-antes.jpg'
-import VIRTUAL_STAGING_AFTER_IMAGE from '../../../assets-imoveis/apartamento-vazio-02/virtual-staging-pos.png'
+const VIRTUAL_STAGING_BEFORE_IMAGE = '/virtual-staging/virtual-staging-before.jpg'
+const VIRTUAL_STAGING_AFTER_IMAGE = '/virtual-staging/virtual-staging-after.png'
 
 const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']

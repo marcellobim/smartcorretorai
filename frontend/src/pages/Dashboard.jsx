@@ -27,8 +27,8 @@ import {
   ProductSectionHeading,
   SMART_UI,
 } from '../components/design-system'
-import VIRTUAL_STAGING_BEFORE_IMAGE from '../../../assets-imoveis/apartamento-vazio-02/virtual-staging-antes.jpg'
-import VIRTUAL_STAGING_AFTER_IMAGE from '../../../assets-imoveis/apartamento-vazio-02/virtual-staging-pos.png'
+const VIRTUAL_STAGING_BEFORE_IMAGE = '/virtual-staging/virtual-staging-before.jpg'
+const VIRTUAL_STAGING_AFTER_IMAGE = '/virtual-staging/virtual-staging-after.png'
 
 const PLANS_ROUTE = '/planos'
 const SMART_TOKENS_LABEL = ['Smart', 'Tokens'].join(' ')

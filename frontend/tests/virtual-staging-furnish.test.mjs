@@ -216,8 +216,8 @@ test('keeps Vida no Imóvel and Apresentação pelo Corretor isolated', () => {
 })
 
 test('uses the same real Before and After mini carousel in the two separate Virtual Staging phones', () => {
-  assert.match(page, /import VIRTUAL_STAGING_BEFORE_IMAGE from '\.\.\/\.\.\/\.\.\/assets-imoveis\/apartamento-vazio-02\/virtual-staging-antes\.jpg'/)
-  assert.match(page, /import VIRTUAL_STAGING_AFTER_IMAGE from '\.\.\/\.\.\/\.\.\/assets-imoveis\/apartamento-vazio-02\/virtual-staging-pos\.png'/)
+  assert.match(page, /const VIRTUAL_STAGING_BEFORE_IMAGE = '\/virtual-staging\/virtual-staging-before\.jpg'/)
+  assert.match(page, /const VIRTUAL_STAGING_AFTER_IMAGE = '\/virtual-staging\/virtual-staging-after\.png'/)
   assert.match(page, /alt: 'Ambiente antes do Virtual Staging'/)
   assert.match(page, /alt: 'Ambiente depois do Virtual Staging'/)
   assert.equal((page.match(/<VirtualStagingBeforeAfterPhone initialIndex=/g) || []).length, 2)

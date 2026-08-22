@@ -292,8 +292,8 @@ test('Vida no Imóvel e Apresentação pelo Corretor permanecem fora da função
 
 test('mini carrossel mantém os assets Antes/Depois e continua interativo', async ({ page }) => {
   const sources = await page.locator('img[alt="Ambiente antes do Virtual Staging"], img[alt="Ambiente depois do Virtual Staging"]').evaluateAll(images => images.map(image => image.getAttribute('src')))
-  expect(sources.some(source => source.includes('virtual-staging-antes'))).toBe(true)
-  expect(sources.some(source => source.includes('virtual-staging-pos'))).toBe(true)
+  expect(sources.some(source => source.includes('virtual-staging-before'))).toBe(true)
+  expect(sources.some(source => source.includes('virtual-staging-after'))).toBe(true)
   const carousel = page.getByRole('button', { name: 'Exibir Depois no Virtual Staging' }).first()
   await carousel.click()
   await expect(page.getByRole('button', { name: 'Exibir Antes no Virtual Staging' }).first()).toBeVisible()
