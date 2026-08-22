@@ -27,6 +27,8 @@ export type TransactionalEmailTemplateInput =
   | Readonly<{ kind: 'subscription_welcome' | 'subscription_renewed'; economicKey: PlanKey; payment: InvoicePaymentEmailData }>
   | Readonly<{ kind: 'subscription_payment_failed'; economicKey: PlanKey }>
   | Readonly<{ kind: 'subscription_cancelled' }>
+  | Readonly<{ kind: 'testimonial_received' }>
+  | Readonly<{ kind: 'testimonial_bonus_granted'; smartTokenBalance?: number }>
 
 export type TransactionalEmailContent = Readonly<{
   subject: string
@@ -86,6 +88,28 @@ function discountText(discount: AppliedInvoiceDiscount) {
 }
 
 export function buildTransactionalEmail(input: TransactionalEmailTemplateInput): TransactionalEmailContent {
+  if (input.kind === 'testimonial_received') {
+    return content('Recebemos seu depoimento', [
+      'Olá,',
+      'Obrigado por compartilhar sua experiência com o SmartCorretorAI. Seu depoimento foi recebido e será analisado.',
+      'Se ele for aprovado conforme as regras da campanha, você poderá receber 500 Smart Tokens.',
+      'Avisaremos você por e-mail caso o bônus seja concedido.',
+    ], 'Acessar SmartCorretorAI', DASHBOARD_URL)
+  }
+
+  if (input.kind === 'testimonial_bonus_granted') {
+    const paragraphs = [
+      'Olá,',
+      'Seu depoimento foi aprovado para a campanha.',
+      'Concedemos 500 Smart Tokens à sua conta pela participação.',
+    ]
+    if (Number.isSafeInteger(input.smartTokenBalance) && Number(input.smartTokenBalance) >= 0) {
+      paragraphs.push(`Saldo confirmado: ${formatInteger(Number(input.smartTokenBalance))} ST`)
+    }
+    paragraphs.push('Obrigado por participar e compartilhar sua experiência.')
+    return content('Você ganhou 500 Smart Tokens', paragraphs, 'Usar meus Smart Tokens', DASHBOARD_URL)
+  }
+
   if (input.kind === 'purchase_confirmed') {
     const purchase = PURCHASE_GRANTS[input.economicKey]
     if (!purchase) throw new Error('transactional_email_catalog_item_invalid')

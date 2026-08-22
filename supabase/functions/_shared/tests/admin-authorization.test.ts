@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import {
   AdminAuthorizationError,
   isAuthorizedAdmin,
@@ -62,4 +63,12 @@ test('requireAuthorizedAdmin rejects non-admin callers with a safe 403 error', a
     requireAuthorizedAdmin(client({ data: null, error: null }), adminId),
     (error: unknown) => error instanceof AdminAuthorizationError && error.status === 403,
   )
+})
+
+test('testimonial bonus action remains behind the mandatory admin gate', () => {
+  const source = readFileSync(new URL('../../admin-api/index.ts', import.meta.url), 'utf8')
+  const gate = source.indexOf('await requireAuthorizedAdmin(supabase, user.id)')
+  const action = source.indexOf("action === 'approve_testimonial_and_grant_bonus'")
+  assert.ok(gate >= 0)
+  assert.ok(action > gate)
 })

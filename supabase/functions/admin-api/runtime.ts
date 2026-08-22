@@ -187,6 +187,60 @@ export function validateAdminCreditInput(input: Record<string, unknown>) {
   return Object.freeze({ userId, requestId, amount, reason })
 }
 
+export function validateTestimonialBonusInput(input: Record<string, unknown>) {
+  const testimonialId = String(input.testimonialId ?? '').trim()
+  const requestId = String(input.requestId ?? '').trim()
+  if (!UUID_PATTERN.test(testimonialId)) throw new AdminInputError('Depoimento inválido.')
+  if (!UUID_PATTERN.test(requestId)) throw new AdminInputError('Identificador da operação inválido.')
+  return Object.freeze({ testimonialId, requestId })
+}
+
+type TestimonialBonusDependencies = Readonly<{
+  grant(input: Readonly<{ testimonialId: string; adminUserId: string; requestId: string }>): Promise<Record<string, unknown>>
+  loadTestimonial(testimonialId: string): Promise<Readonly<{ userId: string; bonusAdjustmentId: string | null }>>
+  notify(input: Readonly<{ testimonialId: string; userId: string; smartTokenBalance: number }>): Promise<'sent' | 'already_processed' | 'failed'>
+}>
+
+export async function executeTestimonialBonus(
+  input: Record<string, unknown>,
+  adminUserId: string,
+  dependencies: TestimonialBonusDependencies,
+) {
+  const validated = validateTestimonialBonusInput(input)
+  const economic = await dependencies.grant({ ...validated, adminUserId })
+  const result = String(economic.result ?? '')
+  if (!['created', 'already_processed', 'bonus_already_granted'].includes(result)) {
+    throw new Error('testimonial_bonus_result_invalid')
+  }
+  const smartTokenBalance = Number(economic.saldo_creditos ?? 0)
+  let notification: 'sent' | 'already_processed' | 'failed' | 'not_applicable' = 'not_applicable'
+
+  if (result === 'created' || result === 'already_processed') {
+    const testimonial = await dependencies.loadTestimonial(validated.testimonialId)
+    if (!testimonial.bonusAdjustmentId
+        || testimonial.bonusAdjustmentId !== String(economic.adjustment_id ?? '')) {
+      throw new Error('testimonial_bonus_confirmation_failed')
+    }
+    try {
+      notification = await dependencies.notify({
+        testimonialId: validated.testimonialId,
+        userId: testimonial.userId,
+        smartTokenBalance,
+      })
+    } catch {
+      notification = 'failed'
+    }
+  }
+
+  return Object.freeze({
+    result,
+    testimonialId: String(economic.testimonial_id ?? validated.testimonialId),
+    adjustmentId: economic.adjustment_id ?? null,
+    smartTokenBalance,
+    notificationSent: notification === 'sent',
+  })
+}
+
 export function publicAdminClient(profile: Record<string, any>, credit: Record<string, any> = {}, activity: Record<string, any> = {}) {
   const subscriptions = Array.isArray(profile.subscriptions)
     ? profile.subscriptions

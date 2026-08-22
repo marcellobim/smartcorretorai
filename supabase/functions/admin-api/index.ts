@@ -4,6 +4,7 @@ import {
   AdminAuthorizationError,
   requireAuthorizedAdmin,
 } from '../_shared/admin-authorization.ts'
+import { deliverTestimonialEmail } from '../_shared/testimonial-email.ts'
 import {
   AdminInputError,
   PRODUCT_METRIC_DEFINITIONS,
@@ -17,6 +18,7 @@ import {
   sanitizeAdminSearch,
   theoreticalMonthlyBrlCents,
   validateAdminCreditInput,
+  executeTestimonialBonus,
 } from './runtime.ts'
 
 const corsHeaders = {
@@ -421,6 +423,36 @@ async function addSmartTokens(supabase: any, adminUserId: string, input: Record<
   }
 }
 
+async function approveTestimonialAndGrantBonus(
+  supabase: any,
+  adminUserId: string,
+  input: Record<string, unknown>,
+) {
+  return executeTestimonialBonus(input, adminUserId, {
+    grant: async validated => {
+      const { data, error } = await supabase.rpc('approve_testimonial_and_grant_bonus', {
+        p_testimonial_id: validated.testimonialId,
+        p_admin_user_id: validated.adminUserId,
+        p_idempotency_key: validated.requestId,
+      })
+      if (error) throw new Error('Não foi possível conceder o bônus do depoimento.')
+      return (Array.isArray(data) ? data[0] : data) ?? {}
+    },
+    loadTestimonial: async testimonialId => {
+      const { data, error } = await supabase.from('testimonials')
+        .select('user_id,bonus_adjustment_id')
+        .eq('id', testimonialId)
+        .single()
+      if (error || !data?.user_id) throw new Error('Não foi possível confirmar o bônus do depoimento.')
+      return { userId: data.user_id, bonusAdjustmentId: data.bonus_adjustment_id }
+    },
+    notify: email => deliverTestimonialEmail(supabase, {
+      ...email,
+      template: 'bonus_granted',
+    }),
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return jsonResponse({ error: 'Metodo nao permitido.' }, 405)
@@ -447,6 +479,9 @@ serve(async (req) => {
     if (action === 'list_clients') return jsonResponse(await loadClients(supabase, body))
     if (action === 'get_client') return jsonResponse(await loadClientDetail(supabase, body))
     if (action === 'add_smart_tokens') return jsonResponse(await addSmartTokens(supabase, user.id, body))
+    if (action === 'approve_testimonial_and_grant_bonus') {
+      return jsonResponse(await approveTestimonialAndGrantBonus(supabase, user.id, body))
+    }
     return jsonResponse({ error: 'Acao administrativa invalida.' }, 400)
   } catch (error) {
     if (error instanceof AdminAuthorizationError) return jsonResponse({ error: error.message }, error.status)

@@ -13,6 +13,8 @@ import {
   sanitizeAdminSearch,
   theoreticalMonthlyBrlCents,
   validateAdminCreditInput,
+  executeTestimonialBonus,
+  validateTestimonialBonusInput,
 } from './runtime.ts'
 
 test('Admin plan mapping uses the current commercial labels', () => {
@@ -125,4 +127,97 @@ test('missing optional admin migration metrics remain unavailable instead of bec
   assert.equal(client.subscriptionGranted, null)
   assert.equal(client.purchaseGranted, null)
   assert.equal(client.totalGenerations, null)
+})
+
+test('testimonial bonus input accepts only valid operation identifiers', () => {
+  const valid = validateTestimonialBonusInput({
+    testimonialId: '11111111-1111-4111-8111-111111111111',
+    requestId: '22222222-2222-4222-8222-222222222222',
+  })
+  assert.equal(valid.testimonialId, '11111111-1111-4111-8111-111111111111')
+  assert.throws(() => validateTestimonialBonusInput({ ...valid, testimonialId: 'invalid' }), AdminInputError)
+  assert.throws(() => validateTestimonialBonusInput({ ...valid, requestId: 'invalid' }), AdminInputError)
+})
+
+test('testimonial bonus email runs only after confirmed economic success', async () => {
+  const events: string[] = []
+  const response = await executeTestimonialBonus({
+    testimonialId: '11111111-1111-4111-8111-111111111111',
+    requestId: '22222222-2222-4222-8222-222222222222',
+  }, '33333333-3333-4333-8333-333333333333', {
+    grant: async () => {
+      events.push('grant')
+      return {
+        result: 'created', testimonial_id: '11111111-1111-4111-8111-111111111111',
+        adjustment_id: 'adjustment-1', saldo_creditos: 1500,
+      }
+    },
+    loadTestimonial: async () => {
+      events.push('confirm')
+      return { userId: 'auth-user-1', bonusAdjustmentId: 'adjustment-1' }
+    },
+    notify: async input => {
+      events.push('notify')
+      assert.equal(input.smartTokenBalance, 1500)
+      return 'sent'
+    },
+  })
+  assert.deepEqual(events, ['grant', 'confirm', 'notify'])
+  assert.equal(response.notificationSent, true)
+  assert.equal(response.smartTokenBalance, 1500)
+})
+
+test('failed economic operation never attempts bonus email', async () => {
+  let notified = false
+  await assert.rejects(() => executeTestimonialBonus({
+    testimonialId: '11111111-1111-4111-8111-111111111111',
+    requestId: '22222222-2222-4222-8222-222222222222',
+  }, '33333333-3333-4333-8333-333333333333', {
+    grant: async () => { throw new Error('economic failure') },
+    loadTestimonial: async () => { throw new Error('unexpected') },
+    notify: async () => { notified = true; return 'sent' },
+  }), /economic failure/)
+  assert.equal(notified, false)
+})
+
+test('email failure leaves confirmed bonus result successful', async () => {
+  let grants = 0
+  const dependencies = {
+    grant: async () => {
+      grants += 1
+      return {
+        result: grants === 1 ? 'created' : 'already_processed',
+        testimonial_id: '11111111-1111-4111-8111-111111111111',
+        adjustment_id: 'adjustment-1', saldo_creditos: 500,
+      }
+    },
+    loadTestimonial: async () => ({ userId: 'auth-user-1', bonusAdjustmentId: 'adjustment-1' }),
+    notify: async () => 'failed' as const,
+  }
+  const input = {
+    testimonialId: '11111111-1111-4111-8111-111111111111',
+    requestId: '22222222-2222-4222-8222-222222222222',
+  }
+  const first = await executeTestimonialBonus(input, '33333333-3333-4333-8333-333333333333', dependencies)
+  const repeated = await executeTestimonialBonus(input, '33333333-3333-4333-8333-333333333333', dependencies)
+  assert.equal(first.result, 'created')
+  assert.equal(repeated.result, 'already_processed')
+  assert.equal(first.smartTokenBalance, 500)
+  assert.equal(first.notificationSent, false)
+  assert.equal(grants, 2)
+})
+
+test('a different testimonial with an account bonus does not send another email', async () => {
+  let notified = false
+  const response = await executeTestimonialBonus({
+    testimonialId: '11111111-1111-4111-8111-111111111111',
+    requestId: '22222222-2222-4222-8222-222222222222',
+  }, '33333333-3333-4333-8333-333333333333', {
+    grant: async () => ({ result: 'bonus_already_granted', saldo_creditos: 500 }),
+    loadTestimonial: async () => { throw new Error('unexpected') },
+    notify: async () => { notified = true; return 'sent' },
+  })
+  assert.equal(response.result, 'bonus_already_granted')
+  assert.equal(response.notificationSent, false)
+  assert.equal(notified, false)
 })
