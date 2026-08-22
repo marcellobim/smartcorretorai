@@ -6,8 +6,7 @@ import {
   Play, Route, UploadCloud, Video, Wand2, X,
 } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
-import VIRTUAL_STAGING_BEFORE_IMAGE from '../../../assets-imoveis/apartamento-vazio-02/virtual-staging-antes.jpg'
-
+const VIRTUAL_STAGING_BEFORE_IMAGE = '/landing/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/landing/virtual-staging-after.webp'
 const NAV_ITEMS = [
   { label: 'Produtos', href: '#produtos' },
