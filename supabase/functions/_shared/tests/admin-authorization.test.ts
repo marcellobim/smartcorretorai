@@ -68,7 +68,14 @@ test('requireAuthorizedAdmin rejects non-admin callers with a safe 403 error', a
 test('testimonial bonus action remains behind the mandatory admin gate', () => {
   const source = readFileSync(new URL('../../admin-api/index.ts', import.meta.url), 'utf8')
   const gate = source.indexOf('await requireAuthorizedAdmin(supabase, user.id)')
-  const action = source.indexOf("action === 'approve_testimonial_and_grant_bonus'")
   assert.ok(gate >= 0)
-  assert.ok(action > gate)
+  for (const action of [
+    'list_testimonials', 'get_testimonial', 'approve_testimonial',
+    'approve_testimonial_and_grant_bonus', 'reject_testimonial', 'publish_testimonial',
+  ]) {
+    assert.ok(source.indexOf(`action === '${action}'`) > gate)
+  }
+  assert.match(source, /\.eq\('publication_consent', true\)/)
+  assert.match(source, /\.eq\('status', 'approved'\)/)
+  assert.match(source, /\.is\('bonus_adjustment_id', null\)/)
 })

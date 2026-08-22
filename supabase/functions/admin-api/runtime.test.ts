@@ -15,6 +15,14 @@ import {
   validateAdminCreditInput,
   executeTestimonialBonus,
   validateTestimonialBonusInput,
+  publicAdminTestimonial,
+  publicAdminTestimonialDetail,
+  validateTestimonialIdInput,
+  validateTestimonialListInput,
+  validateTestimonialRejectionInput,
+  assertTestimonialCanBeRejected,
+  testimonialApprovalTransition,
+  testimonialPublicationTransition,
 } from './runtime.ts'
 
 test('Admin plan mapping uses the current commercial labels', () => {
@@ -220,4 +228,67 @@ test('a different testimonial with an account bonus does not send another email'
   assert.equal(response.result, 'bonus_already_granted')
   assert.equal(response.notificationSent, false)
   assert.equal(notified, false)
+})
+
+test('testimonial list filters accept only canonical states and bounded pages', () => {
+  assert.deepEqual(validateTestimonialListInput({ status: 'pending', page: 2 }), { status: 'pending', page: 2 })
+  assert.deepEqual(validateTestimonialListInput({ status: '', page: -8 }), { status: '', page: 1 })
+  assert.throws(() => validateTestimonialListInput({ status: 'deleted' }), AdminInputError)
+  assert.equal(validateTestimonialIdInput({ testimonialId: '11111111-1111-4111-8111-111111111111' }).testimonialId, '11111111-1111-4111-8111-111111111111')
+  assert.throws(() => validateTestimonialIdInput({ testimonialId: 'invalid' }), AdminInputError)
+})
+
+test('testimonial rejection requires a non-empty bounded reason', () => {
+  const testimonialId = '11111111-1111-4111-8111-111111111111'
+  assert.equal(validateTestimonialRejectionInput({ testimonialId, reason: '  Fora dos critérios  ' }).reason, 'Fora dos critérios')
+  assert.throws(() => validateTestimonialRejectionInput({ testimonialId, reason: '   ' }), AdminInputError)
+  assert.throws(() => validateTestimonialRejectionInput({ testimonialId, reason: 'x'.repeat(1001) }), AdminInputError)
+})
+
+test('testimonial admin responses expose an explicit sanitized allowlist', () => {
+  const row = {
+    id: 'testimonial-1', user_id: 'private-user-id', body: 'Texto completo', profession_label: 'Corretora',
+    publication_consent: true, attribution_consent: false, status: 'approved', submitted_at: 'now',
+    approved_at: 'later', approved_by: 'private-admin-id', bonus_adjustment_id: 'private-adjustment-id',
+    internal_secret: 'never',
+  }
+  const summary = publicAdminTestimonial(row, { nome: 'Cliente', plano: 'pro', email: 'professional@example.test' }, 'login@example.test')
+  assert.deepEqual(Object.keys(summary), ['id', 'client', 'excerpt', 'submittedAt', 'status', 'publicationConsent', 'attributionConsent', 'bonusGranted', 'bonusLinkedToTestimonial', 'emailStatusAvailable'])
+  assert.equal(summary.client.email, 'login@example.test')
+  assert.equal(JSON.stringify(summary).includes('professional@example.test'), false)
+  assert.equal(JSON.stringify(summary).includes('private-user-id'), false)
+  assert.equal(JSON.stringify(summary).includes('private-adjustment-id'), false)
+
+  const detail = publicAdminTestimonialDetail(row, { nome: 'Cliente', plano: 'pro' }, 'login@example.test', { approvedBy: 'Admin' }, { amount: 500, reason: 'Campanha', created_at: 'now', id: 'private-adjustment-id' })
+  assert.equal(detail.body, 'Texto completo')
+  assert.equal(detail.professionLabel, 'Corretora')
+  assert.equal(detail.approvedBy, 'Admin')
+  assert.equal(detail.adjustment?.amount, 500)
+  assert.equal(detail.emailDeliveries.available, false)
+  assert.equal(JSON.stringify(detail).includes('private-adjustment-id'), false)
+
+  const accountBonus = publicAdminTestimonial({ ...row, bonus_adjustment_id: null }, {}, '', true)
+  assert.equal(accountBonus.bonusGranted, true)
+  assert.equal(accountBonus.bonusLinkedToTestimonial, false)
+})
+
+test('approval without bonus accepts pending, is idempotent for approved and rejects terminal states', () => {
+  assert.equal(testimonialApprovalTransition({ status: 'pending' }), 'approve')
+  assert.equal(testimonialApprovalTransition({ status: 'approved' }), 'unchanged')
+  assert.throws(() => testimonialApprovalTransition({ status: 'published' }), AdminInputError)
+  assert.throws(() => testimonialApprovalTransition({ status: 'rejected' }), AdminInputError)
+})
+
+test('rejection permits pending or approved only when no bonus exists', () => {
+  assert.doesNotThrow(() => assertTestimonialCanBeRejected({ status: 'pending', bonus_adjustment_id: null }))
+  assert.doesNotThrow(() => assertTestimonialCanBeRejected({ status: 'approved', bonus_adjustment_id: null }))
+  assert.throws(() => assertTestimonialCanBeRejected({ status: 'approved', bonus_adjustment_id: 'adjustment' }), AdminInputError)
+  assert.throws(() => assertTestimonialCanBeRejected({ status: 'published', bonus_adjustment_id: null }), AdminInputError)
+})
+
+test('publication requires explicit consent and approved state', () => {
+  assert.equal(testimonialPublicationTransition({ status: 'approved', publication_consent: true }), 'publish')
+  assert.equal(testimonialPublicationTransition({ status: 'published', publication_consent: true }), 'unchanged')
+  assert.throws(() => testimonialPublicationTransition({ status: 'approved', publication_consent: false }), AdminInputError)
+  assert.throws(() => testimonialPublicationTransition({ status: 'pending', publication_consent: true }), AdminInputError)
 })

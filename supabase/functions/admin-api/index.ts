@@ -19,6 +19,14 @@ import {
   theoreticalMonthlyBrlCents,
   validateAdminCreditInput,
   executeTestimonialBonus,
+  publicAdminTestimonial,
+  publicAdminTestimonialDetail,
+  validateTestimonialIdInput,
+  validateTestimonialListInput,
+  validateTestimonialRejectionInput,
+  assertTestimonialCanBeRejected,
+  testimonialApprovalTransition,
+  testimonialPublicationTransition,
 } from './runtime.ts'
 
 const corsHeaders = {
@@ -29,6 +37,8 @@ const corsHeaders = {
 
 const SUBSCRIPTION_STATUSES = new Set(['ativo', 'pausado', 'cancelado'])
 const CLIENT_PAGE_SIZE = 25
+const TESTIMONIAL_PAGE_SIZE = 25
+const TESTIMONIAL_FIELDS = 'id,user_id,body,profession_label,publication_consent,attribution_consent,status,submitted_at,approved_at,approved_by,rejected_at,rejected_by,rejection_reason,published_at,published_by,bonus_adjustment_id'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -423,6 +433,147 @@ async function addSmartTokens(supabase: any, adminUserId: string, input: Record<
   }
 }
 
+async function loginEmailsByUserId(supabase: any, userIds: readonly string[]) {
+  const entries = await Promise.all(userIds.map(async userId => {
+    const result = await supabase.auth.admin.getUserById(userId)
+    return [userId, result.error ? '' : String(result.data.user?.email ?? '')] as const
+  }))
+  return new Map(entries)
+}
+
+async function loadTestimonialProfiles(supabase: any, userIds: readonly string[]) {
+  if (!userIds.length) return new Map<string, any>()
+  const { data, error } = await supabase.from('profiles').select('id,nome,plano').in('id', userIds)
+  if (error) throw new Error('Falha ao carregar clientes dos depoimentos.')
+  return new Map((data ?? []).map((profile: any) => [profile.id, profile]))
+}
+
+async function loadTestimonialBonusUsers(supabase: any, userIds: readonly string[]) {
+  if (!userIds.length) return new Set<string>()
+  const { data, error } = await supabase.from('credit_lots').select('user_id')
+    .in('user_id', userIds).eq('source', 'admin').eq('catalog_version', 'testimonial-marketing-v1')
+  if (error) throw new Error('Falha ao carregar bônus dos depoimentos.')
+  return new Set((data ?? []).map((lot: any) => lot.user_id))
+}
+
+async function listTestimonials(supabase: any, input: Record<string, unknown>) {
+  const validated = validateTestimonialListInput(input)
+  const from = (validated.page - 1) * TESTIMONIAL_PAGE_SIZE
+  let query = supabase.from('testimonials')
+    .select(TESTIMONIAL_FIELDS, { count: 'exact' })
+    .order('submitted_at', { ascending: false })
+    .range(from, from + TESTIMONIAL_PAGE_SIZE - 1)
+  if (validated.status) query = query.eq('status', validated.status)
+  const { data, error, count } = await query
+  if (error) throw new Error('Falha ao carregar depoimentos.')
+
+  const userIds = [...new Set((data ?? []).map((row: any) => row.user_id))] as string[]
+  const [profiles, loginEmails, bonusUsers] = await Promise.all([
+    loadTestimonialProfiles(supabase, userIds),
+    loginEmailsByUserId(supabase, userIds),
+    loadTestimonialBonusUsers(supabase, userIds),
+  ])
+  return {
+    testimonials: (data ?? []).map((row: any) => publicAdminTestimonial(
+      row,
+      profiles.get(row.user_id),
+      loginEmails.get(row.user_id),
+      bonusUsers.has(row.user_id),
+    )),
+    pagination: {
+      page: validated.page,
+      pageSize: TESTIMONIAL_PAGE_SIZE,
+      total: Number(count ?? 0),
+      totalPages: Math.max(1, Math.ceil(Number(count ?? 0) / TESTIMONIAL_PAGE_SIZE)),
+    },
+  }
+}
+
+async function loadAdminTestimonialDetail(supabase: any, testimonialId: string) {
+  const { data: row, error } = await supabase.from('testimonials')
+    .select(TESTIMONIAL_FIELDS).eq('id', testimonialId).maybeSingle()
+  if (error) throw new Error('Falha ao carregar depoimento.')
+  if (!row) throw new AdminInputError('Depoimento não encontrado.')
+
+  const adminIds = [...new Set([row.approved_by, row.rejected_by, row.published_by].filter(Boolean))] as string[]
+  const [profiles, loginEmails, bonusUsers, adminsResult, adjustmentResult] = await Promise.all([
+    loadTestimonialProfiles(supabase, [row.user_id]),
+    loginEmailsByUserId(supabase, [row.user_id]),
+    loadTestimonialBonusUsers(supabase, [row.user_id]),
+    adminIds.length
+      ? supabase.from('profiles').select('id,nome').in('id', adminIds)
+      : Promise.resolve({ data: [], error: null }),
+    row.bonus_adjustment_id
+      ? supabase.from('admin_credit_adjustments').select('id,amount,reason,created_at')
+        .eq('id', row.bonus_adjustment_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+  if (adminsResult.error || adjustmentResult.error) throw new Error('Falha ao carregar auditoria do depoimento.')
+  const admins = new Map((adminsResult.data ?? []).map((admin: any) => [admin.id, admin.nome || 'Administrador']))
+  return publicAdminTestimonialDetail(
+    row,
+    profiles.get(row.user_id),
+    loginEmails.get(row.user_id),
+    {
+      approvedBy: admins.get(row.approved_by),
+      rejectedBy: admins.get(row.rejected_by),
+      publishedBy: admins.get(row.published_by),
+    },
+    adjustmentResult.data,
+    bonusUsers.has(row.user_id),
+  )
+}
+
+async function getTestimonial(supabase: any, input: Record<string, unknown>) {
+  const { testimonialId } = validateTestimonialIdInput(input)
+  return { testimonial: await loadAdminTestimonialDetail(supabase, testimonialId) }
+}
+
+async function loadTestimonialForMutation(supabase: any, testimonialId: string) {
+  const { data, error } = await supabase.from('testimonials')
+    .select('id,status,publication_consent,bonus_adjustment_id')
+    .eq('id', testimonialId).maybeSingle()
+  if (error) throw new Error('Falha ao validar depoimento.')
+  if (!data) throw new AdminInputError('Depoimento não encontrado.')
+  return data
+}
+
+async function approveTestimonial(supabase: any, adminUserId: string, input: Record<string, unknown>) {
+  const { testimonialId } = validateTestimonialIdInput(input)
+  const current = await loadTestimonialForMutation(supabase, testimonialId)
+  if (testimonialApprovalTransition(current) === 'unchanged') return getTestimonial(supabase, { testimonialId })
+  const { data, error } = await supabase.from('testimonials').update({
+    status: 'approved', approved_at: new Date().toISOString(), approved_by: adminUserId,
+  }).eq('id', testimonialId).eq('status', 'pending').select('id').maybeSingle()
+  if (error || !data) throw new Error('Não foi possível aprovar o depoimento.')
+  return getTestimonial(supabase, { testimonialId })
+}
+
+async function rejectTestimonial(supabase: any, adminUserId: string, input: Record<string, unknown>) {
+  const { testimonialId, reason } = validateTestimonialRejectionInput(input)
+  const current = await loadTestimonialForMutation(supabase, testimonialId)
+  assertTestimonialCanBeRejected(current)
+  const { data, error } = await supabase.from('testimonials').update({
+    status: 'rejected', rejected_at: new Date().toISOString(), rejected_by: adminUserId,
+    rejection_reason: reason,
+  }).eq('id', testimonialId).eq('status', current.status).is('bonus_adjustment_id', null)
+    .select('id').maybeSingle()
+  if (error || !data) throw new Error('Não foi possível recusar o depoimento.')
+  return getTestimonial(supabase, { testimonialId })
+}
+
+async function publishTestimonial(supabase: any, adminUserId: string, input: Record<string, unknown>) {
+  const { testimonialId } = validateTestimonialIdInput(input)
+  const current = await loadTestimonialForMutation(supabase, testimonialId)
+  if (testimonialPublicationTransition(current) === 'unchanged') return getTestimonial(supabase, { testimonialId })
+  const { data, error } = await supabase.from('testimonials').update({
+    status: 'published', published_at: new Date().toISOString(), published_by: adminUserId,
+  }).eq('id', testimonialId).eq('status', 'approved').eq('publication_consent', true)
+    .select('id').maybeSingle()
+  if (error || !data) throw new Error('Não foi possível publicar o depoimento.')
+  return getTestimonial(supabase, { testimonialId })
+}
+
 async function approveTestimonialAndGrantBonus(
   supabase: any,
   adminUserId: string,
@@ -479,6 +630,11 @@ serve(async (req) => {
     if (action === 'list_clients') return jsonResponse(await loadClients(supabase, body))
     if (action === 'get_client') return jsonResponse(await loadClientDetail(supabase, body))
     if (action === 'add_smart_tokens') return jsonResponse(await addSmartTokens(supabase, user.id, body))
+    if (action === 'list_testimonials') return jsonResponse(await listTestimonials(supabase, body))
+    if (action === 'get_testimonial') return jsonResponse(await getTestimonial(supabase, body))
+    if (action === 'approve_testimonial') return jsonResponse(await approveTestimonial(supabase, user.id, body))
+    if (action === 'reject_testimonial') return jsonResponse(await rejectTestimonial(supabase, user.id, body))
+    if (action === 'publish_testimonial') return jsonResponse(await publishTestimonial(supabase, user.id, body))
     if (action === 'approve_testimonial_and_grant_bonus') {
       return jsonResponse(await approveTestimonialAndGrantBonus(supabase, user.id, body))
     }

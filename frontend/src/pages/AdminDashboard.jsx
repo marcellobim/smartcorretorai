@@ -10,6 +10,8 @@ import {
   CreditCard,
   Database,
   Eye,
+  Gift,
+  MessageSquareQuote,
   PlusCircle,
   RefreshCw,
   Search,
@@ -25,6 +27,7 @@ const TABS = [
   ['products', 'Produtos'],
   ['clients', 'Clientes'],
   ['finance', 'Financeiro'],
+  ['testimonials', 'Depoimentos'],
 ]
 
 const PERIODS = [
@@ -47,6 +50,25 @@ const STATUS_FILTERS = [
   ['pausado', 'Pausada'],
   ['cancelado', 'Cancelada'],
 ]
+
+const TESTIMONIAL_STATUS_FILTERS = [
+  ['', 'Todos'],
+  ['pending', 'Pendentes'],
+  ['approved', 'Aprovados'],
+  ['published', 'Publicados'],
+  ['rejected', 'Recusados'],
+]
+
+const testimonialStatusLabel = {
+  pending: 'Pendente', approved: 'Aprovado', published: 'Publicado', rejected: 'Recusado',
+}
+
+const testimonialStatusTone = {
+  pending: 'bg-amber-100 text-amber-900',
+  approved: 'bg-blue-100 text-blue-800',
+  published: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-800',
+}
 
 const integer = value => new Intl.NumberFormat('pt-BR').format(Number(value ?? 0))
 const integerOrUnavailable = value => value == null ? 'Indisponível' : integer(value)
@@ -156,6 +178,16 @@ export default function AdminDashboard() {
   const [grantReason, setGrantReason] = useState('')
   const [grantRequestId, setGrantRequestId] = useState(() => crypto.randomUUID())
   const [granting, setGranting] = useState(false)
+  const [testimonials, setTestimonials] = useState([])
+  const [testimonialPagination, setTestimonialPagination] = useState({ page: 1, total: 0, totalPages: 1 })
+  const [testimonialStatus, setTestimonialStatus] = useState('')
+  const [testimonialsLoading, setTestimonialsLoading] = useState(false)
+  const [testimonialsError, setTestimonialsError] = useState(false)
+  const [testimonialDetail, setTestimonialDetail] = useState(null)
+  const [testimonialDetailLoading, setTestimonialDetailLoading] = useState(false)
+  const [testimonialAction, setTestimonialAction] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [lastBonusOperation, setLastBonusOperation] = useState(null)
 
   const loadOverview = useCallback(async selectedPeriod => {
     setOverviewLoading(true)
@@ -191,6 +223,26 @@ export default function AdminDashboard() {
 
   useEffect(() => { loadOverview(period) }, [loadOverview, period])
   useEffect(() => { loadClients(1) }, [loadClients])
+
+  const loadTestimonials = useCallback(async page => {
+    setTestimonialsLoading(true)
+    setTestimonialsError(false)
+    try {
+      const response = await adminRequest('list_testimonials', { page, status: testimonialStatus })
+      setTestimonials(response.testimonials || [])
+      setTestimonialPagination(response.pagination || { page: 1, total: 0, totalPages: 1 })
+    } catch {
+      setTestimonials([])
+      setTestimonialsError(true)
+      toast.error('Não foi possível carregar os depoimentos.')
+    } finally {
+      setTestimonialsLoading(false)
+    }
+  }, [testimonialStatus])
+
+  useEffect(() => {
+    if (activeTab === 'testimonials') loadTestimonials(1)
+  }, [activeTab, loadTestimonials])
 
   const submitSearch = event => {
     event.preventDefault()
@@ -232,6 +284,67 @@ export default function AdminDashboard() {
       toast.error(error?.message || 'Não foi possível adicionar Smart Tokens.')
     } finally {
       setGranting(false)
+    }
+  }
+
+  const openTestimonial = async testimonialId => {
+    setTestimonialDetailLoading(true)
+    setTestimonialDetail(null)
+    setRejectionReason('')
+    setLastBonusOperation(null)
+    try {
+      const response = await adminRequest('get_testimonial', { testimonialId })
+      setTestimonialDetail(response.testimonial || null)
+    } catch (error) {
+      toast.error(error?.message || 'Não foi possível carregar o depoimento.')
+    } finally {
+      setTestimonialDetailLoading(false)
+    }
+  }
+
+  const refreshTestimonial = async testimonialId => {
+    const response = await adminRequest('get_testimonial', { testimonialId })
+    setTestimonialDetail(response.testimonial || null)
+    await loadTestimonials(testimonialPagination.page)
+  }
+
+  const runTestimonialAction = async (action, payload, successMessage) => {
+    if (!testimonialDetail?.id || testimonialAction) return
+    setTestimonialAction(action)
+    try {
+      await adminRequest(action, { testimonialId: testimonialDetail.id, ...payload })
+      toast.success(successMessage)
+      setRejectionReason('')
+      await refreshTestimonial(testimonialDetail.id)
+    } catch (error) {
+      toast.error(error?.message || 'Não foi possível atualizar o depoimento.')
+    } finally {
+      setTestimonialAction('')
+    }
+  }
+
+  const approveWithBonus = async () => {
+    if (!testimonialDetail?.id || testimonialAction) return
+    if (!window.confirm('Conceder 500 Smart Tokens para esta conta?')) return
+    setTestimonialAction('approve_testimonial_and_grant_bonus')
+    try {
+      const result = await adminRequest('approve_testimonial_and_grant_bonus', {
+        testimonialId: testimonialDetail.id,
+        requestId: crypto.randomUUID(),
+      })
+      setLastBonusOperation(result)
+      if (result.result === 'bonus_already_granted') {
+        toast('Esta conta já recebeu o bônus da campanha.', { icon: 'ℹ️' })
+      } else if (result.notificationSent) {
+        toast.success('500 ST concedidos e notificação enviada.')
+      } else {
+        toast('Crédito confirmado; a notificação por e-mail falhou ou já foi processada.', { icon: '⚠️' })
+      }
+      await refreshTestimonial(testimonialDetail.id)
+    } catch (error) {
+      toast.error(error?.message || 'Não foi possível conceder o bônus.')
+    } finally {
+      setTestimonialAction('')
     }
   }
 
@@ -283,7 +396,7 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        {overviewLoading && activeTab !== 'clients' ? (
+        {overviewLoading && !['clients', 'testimonials'].includes(activeTab) ? (
           <div className="flex min-h-[420px] items-center justify-center"><RefreshCw className="h-7 w-7 animate-spin text-slate-500" /></div>
         ) : overview ? (
           <div className="mt-6">
@@ -458,7 +571,7 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
-        ) : overviewError && activeTab !== 'clients' ? (
+        ) : overviewError && !['clients', 'testimonials'].includes(activeTab) ? (
           <AdminUnavailable section={activeTab === 'products' ? 'Produtos' : activeTab === 'finance' ? 'Financeiro' : 'Visão geral'} />
         ) : null}
 
@@ -597,6 +710,129 @@ export default function AdminDashboard() {
                   <button type="button" disabled={pagination.page <= 1} onClick={() => loadClients(pagination.page - 1)} className="rounded-lg border border-slate-300 p-2 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
                   <span>Página {pagination.page} de {pagination.totalPages}</span>
                   <button type="button" disabled={pagination.page >= pagination.totalPages} onClick={() => loadClients(pagination.page + 1)} className="rounded-lg border border-slate-300 p-2 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </Section>
+          </div>
+        )}
+
+        {activeTab === 'testimonials' && (
+          <div className="mt-6 space-y-6">
+            {(testimonialDetailLoading || testimonialDetail) && (
+              <Section title="Detalhe do depoimento" description="Auditoria, consentimentos e ações protegidas pelo backend administrativo.">
+                {testimonialDetailLoading ? (
+                  <div className="flex min-h-48 items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-slate-500" /></div>
+                ) : testimonialDetail && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-lg font-semibold text-slate-950">{testimonialDetail.client.name}</p>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${planTone[testimonialDetail.client.plan] || planTone.FREE}`}>{testimonialDetail.client.plan}</span>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${testimonialStatusTone[testimonialDetail.status]}`}>{testimonialStatusLabel[testimonialDetail.status]}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500">{testimonialDetail.client.email || 'E-mail de login indisponível'}</p>
+                        {testimonialDetail.professionLabel && <p className="mt-1 text-sm text-slate-600">{testimonialDetail.professionLabel}</p>}
+                      </div>
+                      <button type="button" onClick={() => setTestimonialDetail(null)} className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-300 px-3 py-2 text-sm"><X className="h-4 w-4" /> Fechar</button>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="whitespace-pre-wrap text-sm leading-7 text-slate-800">{testimonialDetail.body}</p>
+                      <p className="mt-4 text-xs text-slate-500">Enviado em {dateTime(testimonialDetail.submittedAt)}</p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">Publicação</p><p className="mt-2 font-semibold">{testimonialDetail.publicationConsent ? 'Autorizada' : 'Não autorizada'}</p></div>
+                      <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">Nome/profissão</p><p className="mt-2 font-semibold">{testimonialDetail.attributionConsent ? 'Autorizados' : 'Manter anônimo'}</p></div>
+                      <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">Bônus da conta</p><p className="mt-2 font-semibold">{testimonialDetail.bonusGranted ? '500 ST já concedidos' : 'Não concedido'}</p>{testimonialDetail.bonusGranted && !testimonialDetail.bonusLinkedToTestimonial && <p className="mt-1 text-xs text-slate-500">Concedido por outro depoimento.</p>}</div>
+                      <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-500">E-mails persistidos</p><p className="mt-2 font-semibold">Indisponível nesta etapa</p></div>
+                    </div>
+
+                    {(testimonialDetail.approvedAt || testimonialDetail.rejectedAt || testimonialDetail.publishedAt) && (
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {testimonialDetail.approvedAt && <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900"><strong>Aprovado</strong><p className="mt-1">{dateTime(testimonialDetail.approvedAt)}{testimonialDetail.approvedBy ? ` por ${testimonialDetail.approvedBy}` : ''}</p></div>}
+                        {testimonialDetail.rejectedAt && <div className="rounded-xl bg-red-50 p-4 text-sm text-red-900"><strong>Recusado</strong><p className="mt-1">{dateTime(testimonialDetail.rejectedAt)}{testimonialDetail.rejectedBy ? ` por ${testimonialDetail.rejectedBy}` : ''}</p><p className="mt-2">{testimonialDetail.rejectionReason}</p></div>}
+                        {testimonialDetail.publishedAt && <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><strong>Publicado</strong><p className="mt-1">{dateTime(testimonialDetail.publishedAt)}{testimonialDetail.publishedBy ? ` por ${testimonialDetail.publishedBy}` : ''}</p></div>}
+                      </div>
+                    )}
+
+                    {testimonialDetail.adjustment && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                        <strong>Concessão auditada: +{integer(testimonialDetail.adjustment.amount)} ST</strong>
+                        <p className="mt-1">{testimonialDetail.adjustment.reason}</p>
+                        <p className="mt-1 text-xs">{dateTime(testimonialDetail.adjustment.createdAt)}</p>
+                      </div>
+                    )}
+
+                    {lastBonusOperation && (
+                      <div className={`rounded-xl border p-4 text-sm ${lastBonusOperation.notificationSent ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+                        <strong>{lastBonusOperation.result === 'bonus_already_granted' ? 'Esta conta já recebeu o bônus.' : `Saldo confirmado: ${integer(lastBonusOperation.smartTokenBalance)} ST`}</strong>
+                        <p className="mt-1">{lastBonusOperation.notificationSent ? 'E-mail de bônus enviado.' : 'Crédito preservado; notificação não enviada ou já processada.'}</p>
+                      </div>
+                    )}
+
+                    <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+                      <div className="rounded-xl border border-slate-200 p-4">
+                        <h3 className="font-semibold text-slate-950">Ações de aprovação</h3>
+                        <p className="mt-1 text-xs text-slate-500">O valor do bônus e a conta são definidos exclusivamente no servidor.</p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button type="button" disabled={testimonialAction || testimonialDetail.status !== 'pending'} onClick={() => runTestimonialAction('approve_testimonial', {}, 'Depoimento aprovado sem bônus.')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium disabled:opacity-40">Aprovar sem bônus</button>
+                          <button type="button" disabled={testimonialAction || testimonialDetail.bonusGranted || !['pending', 'approved'].includes(testimonialDetail.status)} onClick={approveWithBonus} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"><Gift className="h-4 w-4" /> Aprovar + conceder 500 ST</button>
+                          <button type="button" disabled={testimonialAction || testimonialDetail.status !== 'approved' || !testimonialDetail.publicationConsent} onClick={() => runTestimonialAction('publish_testimonial', {}, 'Depoimento marcado como publicado.')} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">Marcar como publicado</button>
+                        </div>
+                        {!testimonialDetail.publicationConsent && <p className="mt-3 text-xs text-amber-700">Publicação bloqueada: o cliente não autorizou.</p>}
+                      </div>
+
+                      <form onSubmit={event => { event.preventDefault(); runTestimonialAction('reject_testimonial', { reason: rejectionReason }, 'Depoimento recusado.') }} className="rounded-xl border border-red-200 bg-red-50 p-4">
+                        <h3 className="font-semibold text-red-950">Recusar depoimento</h3>
+                        <p className="mt-1 text-xs text-red-800">Não altera Smart Tokens e exige motivo auditável.</p>
+                        <textarea required maxLength="1000" disabled={testimonialAction || testimonialDetail.bonusGranted || !['pending', 'approved'].includes(testimonialDetail.status)} value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} placeholder="Motivo da recusa" className="mt-3 min-h-20 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm disabled:bg-slate-100" />
+                        <button disabled={testimonialAction || !rejectionReason.trim() || testimonialDetail.bonusGranted || !['pending', 'approved'].includes(testimonialDetail.status)} className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-40">Recusar</button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </Section>
+            )}
+
+            <Section title="Depoimentos" description="Lista protegida e filtrada pelo backend administrativo.">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Filtrar depoimentos por status">
+                  {TESTIMONIAL_STATUS_FILTERS.map(([value, label]) => <button key={value} type="button" onClick={() => setTestimonialStatus(value)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${testimonialStatus === value ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>{label}</button>)}
+                </div>
+                <button type="button" onClick={() => loadTestimonials(testimonialPagination.page)} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"><RefreshCw className="h-4 w-4" /> Atualizar</button>
+              </div>
+
+              {testimonialsLoading ? (
+                <div className="flex min-h-64 items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-slate-500" /></div>
+              ) : testimonialsError ? (
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Depoimentos temporariamente indisponíveis. Confirme a aplicação das etapas de banco antes de usar esta área.</div>
+              ) : testimonials.length ? (
+                <div className="mt-5 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Depoimento</th><th className="px-3 py-3">Envio</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Consentimentos</th><th className="px-3 py-3">Bônus</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {testimonials.map(testimonial => <tr key={testimonial.id}>
+                        <td className="px-3 py-4"><p className="font-medium text-slate-900">{testimonial.client.name}</p><p className="mt-1 text-xs text-slate-500">{testimonial.client.email || 'E-mail indisponível'} · {testimonial.client.plan}</p></td>
+                        <td className="max-w-md px-3 py-4 text-slate-700"><p className="line-clamp-2">{testimonial.excerpt}</p></td>
+                        <td className="px-3 py-4 text-slate-600">{dateTime(testimonial.submittedAt)}</td>
+                        <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${testimonialStatusTone[testimonial.status]}`}>{testimonialStatusLabel[testimonial.status]}</span></td>
+                        <td className="px-3 py-4 text-xs text-slate-600"><p>Publicação: {testimonial.publicationConsent ? 'sim' : 'não'}</p><p className="mt-1">Atribuição: {testimonial.attributionConsent ? 'sim' : 'não'}</p></td>
+                        <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${testimonial.bonusGranted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>{testimonial.bonusGranted ? 'Concedido' : 'Não'}</span></td>
+                        <td className="px-3 py-4"><button type="button" onClick={() => openTestimonial(testimonial.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium"><Eye className="h-3.5 w-3.5" /> Abrir</button></td>
+                      </tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <div className="mt-5"><Empty><MessageSquareQuote className="mx-auto mb-2 h-5 w-5" />Nenhum depoimento encontrado.</Empty></div>}
+
+              <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                <span>{integer(testimonialPagination.total)} depoimentos</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" disabled={testimonialPagination.page <= 1} onClick={() => loadTestimonials(testimonialPagination.page - 1)} className="rounded-lg border border-slate-300 p-2 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+                  <span>Página {testimonialPagination.page} de {testimonialPagination.totalPages}</span>
+                  <button type="button" disabled={testimonialPagination.page >= testimonialPagination.totalPages} onClick={() => loadTestimonials(testimonialPagination.page + 1)} className="rounded-lg border border-slate-300 p-2 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
                 </div>
               </div>
             </Section>

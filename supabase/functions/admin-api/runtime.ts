@@ -168,6 +168,7 @@ export function theoreticalMonthlyBrlCents(activeByPlan: Readonly<Record<string,
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+export const TESTIMONIAL_ADMIN_STATUSES = Object.freeze(['pending', 'approved', 'published', 'rejected'] as const)
 
 export class AdminInputError extends Error {}
 
@@ -193,6 +194,100 @@ export function validateTestimonialBonusInput(input: Record<string, unknown>) {
   if (!UUID_PATTERN.test(testimonialId)) throw new AdminInputError('Depoimento inválido.')
   if (!UUID_PATTERN.test(requestId)) throw new AdminInputError('Identificador da operação inválido.')
   return Object.freeze({ testimonialId, requestId })
+}
+
+export function validateTestimonialListInput(input: Record<string, unknown>) {
+  const status = String(input.status ?? '').trim()
+  const page = Math.max(1, Number.parseInt(String(input.page ?? '1'), 10) || 1)
+  if (status && !TESTIMONIAL_ADMIN_STATUSES.includes(status as typeof TESTIMONIAL_ADMIN_STATUSES[number])) {
+    throw new AdminInputError('Status de depoimento inválido.')
+  }
+  return Object.freeze({ status, page })
+}
+
+export function validateTestimonialIdInput(input: Record<string, unknown>) {
+  const testimonialId = String(input.testimonialId ?? '').trim()
+  if (!UUID_PATTERN.test(testimonialId)) throw new AdminInputError('Depoimento inválido.')
+  return Object.freeze({ testimonialId })
+}
+
+export function validateTestimonialRejectionInput(input: Record<string, unknown>) {
+  const { testimonialId } = validateTestimonialIdInput(input)
+  const reason = typeof input.reason === 'string' ? input.reason.trim().replace(/\s+/g, ' ') : ''
+  if (!reason || reason.length > 1000) throw new AdminInputError('Informe um motivo de recusa válido.')
+  return Object.freeze({ testimonialId, reason })
+}
+
+export function testimonialApprovalTransition(current: Record<string, unknown>) {
+  if (current.status === 'approved') return 'unchanged' as const
+  if (current.status !== 'pending') throw new AdminInputError('Somente depoimentos pendentes podem ser aprovados.')
+  return 'approve' as const
+}
+
+export function assertTestimonialCanBeRejected(current: Record<string, unknown>) {
+  if (current.bonus_adjustment_id) throw new AdminInputError('Depoimento com bônus concedido não pode ser recusado.')
+  if (!['pending', 'approved'].includes(String(current.status ?? ''))) {
+    throw new AdminInputError('Este depoimento não pode ser recusado no estado atual.')
+  }
+}
+
+export function testimonialPublicationTransition(current: Record<string, unknown>) {
+  if (current.publication_consent !== true) throw new AdminInputError('Publicação não autorizada pelo cliente.')
+  if (current.status === 'published') return 'unchanged' as const
+  if (current.status !== 'approved') throw new AdminInputError('Somente depoimentos aprovados podem ser publicados.')
+  return 'publish' as const
+}
+
+export function publicAdminTestimonial(
+  row: Record<string, any>,
+  profile: Record<string, any> = {},
+  loginEmail = '',
+  accountBonusGranted = false,
+) {
+  return Object.freeze({
+    id: row.id,
+    client: Object.freeze({
+      name: profile.nome || 'Sem nome',
+      email: loginEmail,
+      plan: adminPlanLabel(profile.plano),
+    }),
+    excerpt: String(row.body ?? '').slice(0, 180),
+    submittedAt: row.submitted_at,
+    status: row.status,
+    publicationConsent: row.publication_consent === true,
+    attributionConsent: row.attribution_consent === true,
+    bonusGranted: Boolean(row.bonus_adjustment_id) || accountBonusGranted,
+    bonusLinkedToTestimonial: Boolean(row.bonus_adjustment_id),
+    emailStatusAvailable: false,
+  })
+}
+
+export function publicAdminTestimonialDetail(
+  row: Record<string, any>,
+  profile: Record<string, any> = {},
+  loginEmail = '',
+  audit: Readonly<{ approvedBy?: string; rejectedBy?: string; publishedBy?: string }> = {},
+  adjustment: Record<string, any> | null = null,
+  accountBonusGranted = false,
+) {
+  return Object.freeze({
+    ...publicAdminTestimonial(row, profile, loginEmail, accountBonusGranted),
+    body: row.body,
+    professionLabel: row.profession_label ?? null,
+    approvedAt: row.approved_at ?? null,
+    approvedBy: audit.approvedBy ?? null,
+    rejectedAt: row.rejected_at ?? null,
+    rejectedBy: audit.rejectedBy ?? null,
+    rejectionReason: row.rejection_reason ?? null,
+    publishedAt: row.published_at ?? null,
+    publishedBy: audit.publishedBy ?? null,
+    adjustment: adjustment ? Object.freeze({
+      amount: Number(adjustment.amount ?? 0),
+      reason: adjustment.reason,
+      createdAt: adjustment.created_at,
+    }) : null,
+    emailDeliveries: Object.freeze({ available: false, received: null, bonusGranted: null }),
+  })
 }
 
 type TestimonialBonusDependencies = Readonly<{
