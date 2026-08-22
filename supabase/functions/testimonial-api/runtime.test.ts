@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   TestimonialRequestError,
   handleTestimonialSubmission,
+  handleTestimonialStatusRequest,
   validateTestimonialSubmission,
 } from './runtime.ts'
 
@@ -106,4 +107,28 @@ test('same user and idempotency key reuse one persisted testimonial', async () =
   assert.equal(inserts, 1)
   assert.equal(first.testimonial_id, second.testimonial_id)
   assert.equal(second.testimonialCreated, false)
+})
+
+test('authenticated status lookup returns only the latest submission summary', async () => {
+  const response = await handleTestimonialStatusRequest('Bearer valid-token', {
+    authenticate: async token => token === 'valid-token' ? { id: 'server-auth-user' } : null,
+    loadLatest: async userId => {
+      assert.equal(userId, 'server-auth-user')
+      return { status: 'pending', submittedAt: '2026-08-22T12:00:00Z' }
+    },
+  })
+  assert.deepEqual(response, { hasSubmitted: true, status: 'pending', submittedAt: '2026-08-22T12:00:00Z' })
+  assert.deepEqual(Object.keys(response), ['hasSubmitted', 'status', 'submittedAt'])
+})
+
+test('status lookup rejects anonymous users and reports no submission safely', async () => {
+  await assert.rejects(() => handleTestimonialStatusRequest('', {
+    authenticate: async () => null,
+    loadLatest: async () => null,
+  }), (error: unknown) => error instanceof TestimonialRequestError && error.status === 401)
+  const response = await handleTestimonialStatusRequest('Bearer valid-token', {
+    authenticate: async () => ({ id: 'server-auth-user' }),
+    loadLatest: async () => null,
+  })
+  assert.deepEqual(response, { hasSubmitted: false, status: null, submittedAt: null })
 })

@@ -5,6 +5,7 @@ import { deliverTestimonialEmail } from '../_shared/testimonial-email.ts'
 import {
   TestimonialRequestError,
   handleTestimonialSubmission,
+  handleTestimonialStatusRequest,
   type ValidTestimonialSubmission,
 } from './runtime.ts'
 
@@ -29,14 +30,36 @@ serve(withCors(async request => {
       { auth: { persistSession: false } },
     )
     const payload = await request.json().catch(() => null)
+    const authenticate = async (token: string) => {
+      const result = await client.auth.getUser(token)
+      return result.error || !result.data.user?.id ? null : { id: result.data.user.id }
+    }
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)
+        && (payload as Record<string, unknown>).action === 'status') {
+      if (Object.keys(payload as Record<string, unknown>).some(key => key !== 'action')) {
+        throw new TestimonialRequestError('Consulta de depoimento inválida.', 400)
+      }
+      const response = await handleTestimonialStatusRequest(
+        request.headers.get('authorization') ?? '',
+        {
+          authenticate,
+          loadLatest: async userId => {
+            const result = await client.from('testimonials').select('status,submitted_at')
+              .eq('user_id', userId).order('submitted_at', { ascending: false }).limit(1).maybeSingle()
+            if (result.error) throw new Error('testimonial_status_lookup_failed')
+            return result.data
+              ? { status: result.data.status, submittedAt: result.data.submitted_at }
+              : null
+          },
+        },
+      )
+      return jsonResponse(response)
+    }
     const response = await handleTestimonialSubmission(
       request.headers.get('authorization') ?? '',
       payload,
       {
-        authenticate: async token => {
-          const result = await client.auth.getUser(token)
-          return result.error || !result.data.user?.id ? null : { id: result.data.user.id }
-        },
+        authenticate,
         persist: async (userId, input) => {
           const values = {
             user_id: userId,

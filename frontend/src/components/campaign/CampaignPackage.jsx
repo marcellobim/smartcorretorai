@@ -19,6 +19,7 @@ import { buildCampaignPackage } from './buildCampaignPackage'
 import { buildCampaignPackageShareProps } from './campaignPackageShare'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../../lib/download-file'
 import SharePublishActions from '../share/SharePublishActions'
+import TestimonialInvite from '../testimonials/TestimonialInvite'
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -297,6 +298,8 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         <h3 id="campaign-strategy-title" className="mt-1 text-lg font-black text-slate-950">Próximos passos</h3>
         <ol className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.strategy.map((item, index) => <li key={item} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">{index + 1}</span>{item}</li>)}</ol>
       </section>
+
+      <TestimonialInvite />
 
       {onCreateNew && <button type="button" onClick={onCreateNew} className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50">{createNewLabel}</button>}
     </section>

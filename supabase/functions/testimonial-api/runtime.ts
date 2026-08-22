@@ -82,15 +82,36 @@ type SubmissionDependencies = Readonly<{
   notify(testimonialId: string, userId: string): Promise<'sent' | 'already_processed' | 'failed'>
 }>
 
+type StatusDependencies = Readonly<{
+  authenticate(token: string): Promise<{ id: string } | null>
+  loadLatest(userId: string): Promise<Readonly<{ status: string; submittedAt: string }> | null>
+}>
+
+function bearerToken(authorization: string) {
+  if (!/^Bearer\s+\S+/i.test(authorization)) {
+    throw new TestimonialRequestError('Sessão inválida.', 401)
+  }
+  return authorization.replace(/^Bearer\s+/i, '').trim()
+}
+
+export async function handleTestimonialStatusRequest(
+  authorization: string,
+  dependencies: StatusDependencies,
+) {
+  const user = await dependencies.authenticate(bearerToken(authorization))
+  if (!user?.id) throw new TestimonialRequestError('Sessão inválida.', 401)
+  const latest = await dependencies.loadLatest(user.id)
+  return Object.freeze(latest
+    ? { hasSubmitted: true, status: latest.status, submittedAt: latest.submittedAt }
+    : { hasSubmitted: false, status: null, submittedAt: null })
+}
+
 export async function handleTestimonialSubmission(
   authorization: string,
   input: unknown,
   dependencies: SubmissionDependencies,
 ) {
-  if (!/^Bearer\s+\S+/i.test(authorization)) {
-    throw new TestimonialRequestError('Sessão inválida.', 401)
-  }
-  const token = authorization.replace(/^Bearer\s+/i, '').trim()
+  const token = bearerToken(authorization)
   const user = await dependencies.authenticate(token)
   if (!user?.id) throw new TestimonialRequestError('Sessão inválida.', 401)
 

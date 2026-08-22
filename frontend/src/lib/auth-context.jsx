@@ -365,6 +365,10 @@ export function useAuth() {
   return ctx
 }
 
+export function useOptionalAuth() {
+  return useContext(AuthContext)
+}
+
 export function useAuthStore(selector) {
   const state = useAuth()
   return typeof selector === 'function' ? selector(state) : state
