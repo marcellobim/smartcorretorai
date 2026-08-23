@@ -31,7 +31,7 @@ CREATE TABLE public.quick_banner_delivery_requests (
   UNIQUE (user_id, client_request_id)
 );
 
-\ir ../migrations/20260823010000_harden_quick_banner_campaign_provider_gate.sql
+\ir ../migrations/20260823020000_harden_quick_banner_campaign_provider_gate.sql
 
 SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', FALSE);
 

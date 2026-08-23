@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('./index.ts', import.meta.url), 'utf8')
-const migration = await readFile(new URL('../../migrations/20260823010000_harden_quick_banner_campaign_provider_gate.sql', import.meta.url), 'utf8')
+const migration = await readFile(new URL('../../migrations/20260823020000_harden_quick_banner_campaign_provider_gate.sql', import.meta.url), 'utf8')
 
 test('JWT and server-derived user identity precede the economic claim and provider', () => {
   const getUser = source.indexOf('supabase.auth.getUser(token)')
