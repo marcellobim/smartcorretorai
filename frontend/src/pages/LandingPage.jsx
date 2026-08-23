@@ -147,7 +147,6 @@ const DELIVERY_GROUPS = [
     ctaTitle: 'Faça mais com as imagens que você já tem.',
     ctaLabel: 'Começar a criar',
     items: [
-      { id: 'virtual-staging', title: 'Virtual Staging', description: 'Mostre o que um ambiente vazio pode se tornar com uma comparação interativa.', type: 'comparison', beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE, src: VIRTUAL_STAGING_AFTER_IMAGE },
       { id: 'banner-imobiliario', title: 'Banner Imobiliário', description: 'Prepare uma campanha visual profissional em diferentes formatos de divulgação.', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', campaignIncluded: true },
       { id: 'banners-rapidos', title: 'Banners Rápidos', description: 'Escolha o formato, informe os dados e prepare peças para divulgar em poucos passos.', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', campaignIncluded: true },
     ],
@@ -456,7 +455,7 @@ function ImageShowcase({ group }) {
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{group.eyebrow}</p>
       <h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{group.title}</h2>
-      <div className="mt-7 hidden grid-cols-3 gap-6 md:grid">{group.items.map(item => <ImagePreviewCard key={item.id} item={item} />)}</div>
+      <div className="mx-auto mt-7 hidden max-w-5xl grid-cols-2 gap-6 md:grid">{group.items.map(item => <ImagePreviewCard key={item.id} item={item} />)}</div>
       <div className="mt-8 md:hidden"><div className="flex flex-wrap gap-2 pb-4">{group.items.map((item, index) => <button key={item.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`rounded-full border px-4 py-2 text-xs font-black ${activeIndex === index ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-300 bg-white text-slate-600'} ${focusRing}`}>{item.title}</button>)}</div><ImagePreviewCard item={group.items[activeIndex]} /></div>
       <div className="mt-8 flex flex-col justify-between gap-4 border-t border-slate-300 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{group.ctaLabel}<ArrowRight className="h-4 w-4" /></Link></div>
     </div>
@@ -508,11 +507,11 @@ function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
   }, [reducedMotion, sequence.length, slot])
   const pair = sequence[Math.floor(frame / 2) % sequence.length]
   const showAfter = frame % 2 === 1
-  const shellPosition = slot === 0 ? 'col-span-2 mx-auto max-w-[230px] lg:col-span-1 lg:translate-y-6 lg:-rotate-3' : slot === 1 ? 'max-w-[170px] lg:max-w-[230px] lg:scale-[1.04]' : 'max-w-[170px] lg:max-w-[230px] lg:translate-y-6 lg:rotate-3'
-  return <article data-virtual-staging-phone={slot + 1} className={`w-full transition-transform duration-700 motion-reduce:transform-none motion-reduce:transition-none ${shellPosition}`} aria-label={`${pair.label}: comparação antes e depois`}>
-    <div className="relative aspect-[9/18.5] overflow-hidden rounded-[2.35rem] border-[7px] border-[#111528] bg-[#050816] shadow-[0_35px_80px_-28px_rgba(15,23,42,.85)] sm:border-[8px]">
-      <span className="absolute left-1/2 top-2 z-30 h-4 w-16 -translate-x-1/2 rounded-full bg-[#070a13]" aria-hidden="true" />
-      <div className="absolute inset-[2px] overflow-hidden rounded-[1.82rem] bg-slate-200">
+  const shellPosition = slot === 0 ? 'col-span-2 mx-auto max-w-[280px] lg:col-span-1 lg:max-w-[300px]' : 'max-w-[170px] sm:max-w-[210px] lg:max-w-[300px]'
+  return <article data-virtual-staging-phone={slot + 1} className={`w-full ${shellPosition}`} aria-label={`${pair.label}: comparação antes e depois`}>
+    <div className="relative aspect-[9/18.5] overflow-hidden rounded-[2rem] border-[5px] border-[#111528] bg-[#050816] shadow-[0_28px_65px_-30px_rgba(15,23,42,.8)] sm:border-[6px]">
+      <span className="absolute left-1/2 top-2 z-30 h-3.5 w-14 -translate-x-1/2 rounded-full bg-[#070a13]" aria-hidden="true" />
+      <div className="absolute inset-px overflow-hidden rounded-[1.55rem] bg-slate-200">
         {reducedMotion ? <>
           <img src={pair.after} alt={`${pair.label} depois do Virtual Staging`} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r border-white"><img src={pair.before} alt={`${pair.label} antes do Virtual Staging`} loading="lazy" className="h-full w-[200%] max-w-none object-cover" /></div>
@@ -539,8 +538,8 @@ function VirtualStagingSpotlight() {
       </div>
       <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">
         <div className="pointer-events-none absolute inset-x-1/4 top-0 h-40 rounded-full bg-violet-500/20 blur-[70px]" />
-        <div className="relative grid grid-cols-2 items-end justify-items-center gap-4 sm:gap-7 lg:flex lg:justify-center lg:gap-10 xl:gap-14">{VIRTUAL_STAGING_PHONE_SEQUENCES.map((sequence, slot) => <VirtualStagingPhone key={sequence[0].id} sequence={sequence} slot={slot} reducedMotion={reducedMotion} />)}</div>
-        <p className="relative mx-auto mt-10 max-w-3xl text-center text-xs font-semibold leading-5 text-slate-400 lg:mt-16">Imagens geradas com inteligência artificial. O resultado representa uma possibilidade visual de ambientação.</p>
+        <div className="relative mx-auto grid max-w-5xl grid-cols-2 items-start justify-items-center gap-5 sm:gap-8 lg:grid-cols-3 lg:gap-10">{VIRTUAL_STAGING_PHONE_SEQUENCES.map((sequence, slot) => <VirtualStagingPhone key={sequence[0].id} sequence={sequence} slot={slot} reducedMotion={reducedMotion} />)}</div>
+        <p className="relative mx-auto mt-10 max-w-3xl text-center text-xs font-semibold leading-5 text-slate-400 lg:mt-12">Imagens geradas com inteligência artificial. O resultado representa uma possibilidade visual de ambientação.</p>
       </div>
     </div>
   </section>

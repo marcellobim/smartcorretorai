@@ -56,11 +56,13 @@ test('presents two independent internal-style video previews with five options e
   assert.ok(videoGroup.indexOf('Apresentação pelo Corretor') < videoGroup.indexOf('Carrossel de Anúncios'))
 })
 
-test('shows exactly the three approved image creations without decorative cropping', () => {
+test('shows only the two approved image creations without duplicating Virtual Staging', () => {
   assert.match(imageGroup, /eyebrow: 'Criações em imagens'/)
   assert.match(imageGroup, /title: 'Veja tudo o que você pode criar\.'/)
-  for (const module of ['Virtual Staging', 'Banner Imobiliário', 'Banners Rápidos']) assert.ok(imageGroup.includes(module), module)
+  for (const module of ['Banner Imobiliário', 'Banners Rápidos']) assert.ok(imageGroup.includes(module), module)
+  assert.doesNotMatch(imageGroup, /Virtual Staging|id: 'virtual-staging'/)
   assert.doesNotMatch(imageGroup, /Carrossel de Anúncios/)
+  assert.match(slice('function ImageShowcase', 'function TextCampaignSection'), /max-w-5xl grid-cols-2/)
   assert.match(landing, /function ImagePreviewCard/)
   assert.match(landing, /BeforeAfter beforeSrc=\{item\.beforeSrc\} afterSrc=\{item\.src\} compact contain/)
   assert.match(slice('function ImagePreviewCard', 'function ImageShowcase'), /object-contain/)
@@ -90,6 +92,9 @@ test('highlights seven real Virtual Staging pairs across three independently rot
   assert.match(virtualStagingSpotlight, /3600 \+ slot \* 650/)
   assert.match(virtualStagingSpotlight, /reducedMotion \? <>/)
   assert.match(virtualStagingSpotlight, /loading=\{slot === 0 && frame === 0 \? 'eager' : 'lazy'\}/)
+  assert.match(virtualStagingSpotlight, /lg:max-w-\[300px\]/)
+  assert.match(virtualStagingSpotlight, /border-\[5px\]/)
+  assert.doesNotMatch(virtualStagingSpotlight, /(?:^|:)rotate-|translate-y-|scale-\[/)
 })
 
 test('implements the clean five-channel text campaign with Hashtags first and production-shaped previews', () => {
@@ -109,8 +114,7 @@ test('keeps campaign eligibility internal without rendering promotional badges',
   assert.match(videoGroup, /campaignIncluded: true/)
   assert.match(imageGroup, /banner-imobiliario[\s\S]*?campaignIncluded: true/)
   assert.match(imageGroup, /banners-rapidos[\s\S]*?campaignIncluded: true/)
-  const virtualStaging = imageGroup.match(/id: 'virtual-staging'[^\n]+/)?.[0] || ''
-  assert.doesNotMatch(virtualStaging, /campaignIncluded/)
+  assert.doesNotMatch(imageGroup, /id: 'virtual-staging'/)
   assert.doesNotMatch(landing, /Inclui materiais para apoiar a divulgação/i)
 })
 
