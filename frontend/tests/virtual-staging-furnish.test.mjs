@@ -49,21 +49,19 @@ test('defines only the approved local Virtual Staging conversation sequence', ()
   assert.match(page, /const furnishProject = useMemo\(\(\) => \(\{[\s\S]*transformation_type: transformationType,[\s\S]*decoration_style: decorationStyle,[\s\S]*property_images: images,[\s\S]*image_destinations: imageDestinations/)
 })
 
-test('offers three required single-choice transformation modes with approved copy', () => {
+test('offers only the two approved single-choice transformation modes', () => {
   assert.deepEqual(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, [
     { id: 'empty_or_nearly_empty', label: 'Mobiliar ambientes vazios ou quase vazios', description: 'Completa os espaços com móveis, eletrodomésticos e decoração.' },
-    { id: 'furnished', label: 'Criar uma nova decoração em ambientes já mobiliados', description: 'Moderniza os móveis soltos e os elementos decorativos no mesmo ambiente.' },
     { id: 'mixed', label: 'Tenho ambientes vazios e mobiliados', description: 'A inteligência artificial analisa cada imagem e aplica o tratamento mais adequado.' },
   ])
   assert.match(page, /if \(id === 'transformation_type' && isFurnishRenovate\) return choices/)
   assert.doesNotMatch(JSON.stringify(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS), /Deixar a IA decidir/)
 })
 
-test('offers Moderno, Escandinavo and Sofisticado as explained single-choice styles', () => {
+test('offers only Aconchegante and Contemporâneo as explained single-choice styles', () => {
   assert.deepEqual(FURNISH_RENOVATE_STYLE_OPTIONS, [
-    { id: 'modern', label: 'Moderno', description: 'Linhas limpas, móveis atuais, cores neutras e sensação de amplitude.' },
-    { id: 'scandinavian', label: 'Escandinavo', description: 'Madeira clara, tons suaves, iluminação natural e ambiente acolhedor.' },
-    { id: 'sophisticated', label: 'Sofisticado', description: 'Mobiliário elegante, materiais refinados e composição mais premium.' },
+    { id: 'cozy', label: 'Aconchegante', description: 'Ambientes acolhedores, claros e convidativos.' },
+    { id: 'contemporary', label: 'Contemporâneo', description: 'Visual atual, elegante e com presença mais marcante.' },
   ])
   assert.match(page, /if \(id === 'decoration_style' && isFurnishRenovate\) return choices/)
   assert.doesNotMatch(page, /style_gallery|Selecionar estilo/)
@@ -116,12 +114,12 @@ test('reviews transformation, style, ordered thumbnails and branded destinations
   const review = buildFurnishRenovateReviewItems({
     imagesCount: 3,
     transformationType: 'mixed',
-    decorationStyle: 'scandinavian',
+    decorationStyle: 'cozy',
     imageDestinations: ['instagram', 'real_estate_portals', 'meta_ads'],
   })
   assert.deepEqual(review.map(item => item.id), ['transformation_type', 'decoration_style', 'images', 'image_destinations'])
   assert.equal(review[0].label, 'Tenho ambientes vazios e mobiliados')
-  assert.equal(review[1].label, 'Escandinavo')
+  assert.equal(review[1].label, 'Aconchegante')
   assert.equal(review[2].label, '3 imagens')
   assert.equal(review[3].label, 'Instagram · Portais imobiliários · Meta Ads')
   assert.match(page, /Revise seu projeto/)
@@ -130,6 +128,19 @@ test('reviews transformation, style, ordered thumbnails and branded destinations
   for (const id of ['transformation_type', 'decoration_style', 'images', 'image_destinations']) {
     assert.equal(getVirtualStagingReviewEditNext({ originQuestionId: id, questionId: id, journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
   }
+})
+
+test('keeps legacy transformation and style labels readable without exposing them as new choices', () => {
+  const review = buildFurnishRenovateReviewItems({
+    imagesCount: 1,
+    transformationType: 'furnished',
+    decorationStyle: 'scandinavian',
+    imageDestinations: ['instagram'],
+  })
+  assert.equal(review[0].label, 'Criar uma nova decoração em ambientes já mobiliados')
+  assert.equal(review[1].label, 'Escandinavo')
+  assert.equal(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS.some(option => option.id === 'furnished'), false)
+  assert.equal(FURNISH_RENOVATE_STYLE_OPTIONS.some(option => ['modern', 'scandinavian', 'sophisticated'].includes(option.id)), false)
 })
 
 test('habilita a geração integrada com uma a cinco imagens e respostas obrigatórias', () => {

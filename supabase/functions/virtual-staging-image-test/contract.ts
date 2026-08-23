@@ -26,7 +26,7 @@ Mantenha inalterados:
 
 Em todos os casos, a intervenção deve acontecer dentro do mesmo ambiente original, sem criar outro ambiente, outro ângulo, outra perspectiva ou outra versão arquitetônica do imóvel. Preserve integralmente a geometria, a estrutura física, os elementos fixos, o enquadramento e a posição da câmera.
 
-Altere SOMENTE os móveis soltos, eletrodomésticos, eletrônicos e elementos decorativos que possam ser inseridos em espaços fisicamente livres e reais. Mantenha todo o restante inalterado.
+Altere SOMENTE os móveis soltos, eletrodomésticos, eletrônicos e elementos decorativos que possam ser inseridos em espaços fisicamente livres e reais. Quando a regra de transformação autorizar completar um ambiente vazio, também são permitidas novas propostas visuais de armazenamento em áreas livres, sem apagar, mover ou redesenhar qualquer elemento fixo real. Mantenha todo o restante inalterado.
 
 A saída deve manter exatamente a mesma orientação, composição, proporção visual, perspectiva, posição da câmera, distância focal, enquadramento e campo de visão da fotografia de entrada.
 
@@ -40,6 +40,8 @@ Se um objeto não couber de forma realista sem alterar a arquitetura, não o adi
 
 O resultado deve parecer a mesma fotografia original após a colocação ou substituição pontual de mobiliário e decoração, e nunca uma nova composição arquitetônica.
 
+O tipo de transformação determina O QUE pode ser alterado e o grau da intervenção. O estilo determina apenas COMO os elementos adicionados ou refinados devem parecer. O estilo nunca justifica deixar um ambiente funcionalmente incompleto.
+
 [REGRA DA TRANSFORMAÇÃO]
 
 [REGRA DO ESTILO]
@@ -50,21 +52,24 @@ O resultado deve permanecer claramente reconhecível como a mesma fotografia e o
 
 export const VIRTUAL_STAGING_TRANSFORMATION_TYPES = [
   'empty_or_nearly_empty',
-  'furnished',
   'mixed',
 ] as const
 
 export const VIRTUAL_STAGING_DECORATION_STYLES = [
-  'modern',
-  'scandinavian',
-  'sophisticated',
+  'cozy',
+  'contemporary',
 ] as const
 
-export type VirtualStagingTransformationType = typeof VIRTUAL_STAGING_TRANSFORMATION_TYPES[number]
-export type VirtualStagingDecorationStyle = typeof VIRTUAL_STAGING_DECORATION_STYLES[number]
+const VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES = ['furnished'] as const
+const VIRTUAL_STAGING_LEGACY_DECORATION_STYLES = ['modern', 'scandinavian', 'sophisticated'] as const
+const VIRTUAL_STAGING_ACCEPTED_TRANSFORMATION_TYPES = [...VIRTUAL_STAGING_TRANSFORMATION_TYPES, ...VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES] as const
+const VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES = [...VIRTUAL_STAGING_DECORATION_STYLES, ...VIRTUAL_STAGING_LEGACY_DECORATION_STYLES] as const
+
+export type VirtualStagingTransformationType = typeof VIRTUAL_STAGING_ACCEPTED_TRANSFORMATION_TYPES[number]
+export type VirtualStagingDecorationStyle = typeof VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES[number]
 
 export const VIRTUAL_STAGING_TRANSFORMATION_RULES: Record<VirtualStagingTransformationType, string> = {
-  empty_or_nearly_empty: `Se o ambiente estiver vazio ou quase vazio, complete o ambiente com mobiliário de forma funcional e realista, incluindo móveis, eletrodomésticos e eletrônicos adequados ao cômodo, quando houver espaço disponível.
+  empty_or_nearly_empty: `Se o ambiente estiver vazio ou quase vazio, realize uma composição completa, funcional, realista e pronta para morar, incluindo os móveis, eletrodomésticos, eletrônicos, iluminação de apoio, armazenamento e decoração adequados ao cômodo sempre que houver espaço real. Não deixe grandes áreas vazias nem entregue apenas uma decoração superficial quando faltarem itens essenciais.
 
 Analise o tipo de ambiente e use somente elementos compatíveis e proporcionais.
 
@@ -79,8 +84,8 @@ Evite ambientes vazios demais, mas também não sobrecarregue a circulação.
 Exemplos:
 
 - sala: em salas de estar, complete o ambiente com sofá proporcional, poltrona quando houver espaço, mesa de centro ou apoio, tapete, televisão, rack ou painel leve e iluminação decorativa coerente. Quando o ambiente também comportar jantar, inclua mesa e cadeiras proporcionais sem bloquear circulação, portas, janelas ou acessos. Não deixe a sala apenas com sofá e plantas quando houver espaço funcional para uma composição mais completa;
-- quarto: em quartos, complete o ambiente com cama proporcional, mesas laterais, iluminação de apoio, roupa de cama, tapete ou apoio decorativo e, quando houver espaço real, escrivaninha, cadeira, televisão ou móvel de apoio. Preserve armários planejados, portas, janelas e circulação. Não adicione móveis que bloqueiem acesso ao armário, janela ou passagem. Não deixe o quarto apenas com cama quando houver espaço funcional para uma composição mais completa;
-- sala de jantar: mesa e cadeiras proporcionais;
+- quarto: em quartos, complete o ambiente com cama proporcional, mesas laterais, iluminação de apoio, roupa de cama, tapete ou apoio decorativo e, quando houver espaço real, escrivaninha, cadeira, televisão, guarda-roupa ou móvel de apoio. Preserve armários planejados, portas, janelas e circulação. Não adicione móveis que bloqueiem acesso ao armário, janela ou passagem. Não deixe o quarto apenas com cama quando houver espaço funcional para uma composição mais completa;
+- sala de jantar: mesa e cadeiras proporcionais, iluminação de apoio, aparador ou armazenamento solto quando houver espaço real;
 - cozinha: Em cozinhas vazias, quase vazias ou parcialmente equipadas, priorize primeiro a funcionalidade do ambiente e somente depois acrescente decoração leve.
 
 Analise cuidadosamente:
@@ -107,6 +112,8 @@ Considere, quando houver espaço funcional:
 - coifa somente quando houver posição compatível sobre fogão ou cooktop;
 - pequenos eletrodomésticos em bancadas livres, sem sobrecarregar o ambiente.
 
+Quando houver área livre real, também podem ser adicionados armários, gabinetes, módulos de armazenamento, prateleiras, estantes e uma ilha móvel ou bancada complementar proporcional como proposta visual de ambientação. Em uma cozinha realmente vazia, apresente uma possibilidade completa de uso nos espaços livres. Esses elementos novos são somente uma proposta visual gerada pela IA, nunca autorização para apagar, mover ou redesenhar a cozinha fixa real, executar obra, ampliar o ambiente ou alterar sua estrutura. Preserve rigorosamente toda bancada, pia, armário planejado e marcenaria fixa já presentes.
+
 Não deixe vãos funcionais evidentes vazios quando for possível preenchê-los com segurança e sem alterar a arquitetura.
 
 Plantas, cestos, vasos, quadros e pequenos objetos decorativos não substituem os eletrodomésticos essenciais quando a cozinha ainda estiver funcionalmente incompleta.
@@ -125,7 +132,7 @@ Não adicione todos os itens obrigatoriamente quando não houver espaço.
 
 Não invente nichos.
 
-Não crie novas bancadas.
+Não crie nem altere bancadas fixas. Somente adicione uma ilha móvel ou bancada complementar visual quando houver espaço livre real e ela não modificar a estrutura.
 
 Não mova a pia.
 
@@ -138,9 +145,13 @@ Não coloque eletrodomésticos em posições impossíveis ou incompatíveis com 
 Se um equipamento não couber sem alterar a arquitetura, não o adicione.
 
 O resultado deve parecer a mesma cozinha original, apenas funcionalmente completada com eletrodomésticos compatíveis com os espaços já existentes;
-- banheiro: decoração leve;
-- varanda: móveis externos e plantas;
-- escritório: mesa, cadeira, monitor e elementos de organização.
+- banheiro: decoração leve, armazenamento solto proporcional e acessórios funcionais sem alterar louças, metais ou revestimentos;
+- varanda: móveis externos, iluminação de apoio e plantas;
+- escritório: mesa, cadeira, monitor, iluminação de tarefa, armazenamento solto e elementos de organização;
+- lavanderia ou área de serviço: máquina de lavar, secadora quando houver espaço, eletrodomésticos e módulos de armazenamento apenas nos vãos reais e compatíveis, preservando tanques, pontos e armários fixos;
+- área gourmet: equipamentos, mesa, assentos e armazenamento coerentes com o espaço real e com a função observada.
+
+Adicione cortinas somente quando forem visualmente apropriadas e puderem ser inseridas sem ocultar, redimensionar ou alterar portas, janelas e aberturas. Inclua utensílios e elementos funcionais quando ajudarem a comunicar claramente o uso do ambiente. A composição deve ser COMPLETA, não EXAGERADA.
 
 Não force objetos quando não houver espaço real ou posição funcional adequada.`,
   furnished: `Se o ambiente já estiver mobiliado, remova visualmente toda a mobília solta e toda a decoração existentes e substitua tudo por uma composição completamente nova no estilo selecionado.
@@ -154,25 +165,31 @@ Crie uma decoração realmente nova, coerente, funcional, realista e compatível
 Preserve integralmente e não remova nem substitua armários planejados ou embutidos, cozinha planejada, bancadas, painéis fixos, louças sanitárias, metais, eletrodomésticos embutidos, luminárias embutidas, marcenaria fixa, revestimentos, portas, janelas, paredes, pisos, tetos ou qualquer outro elemento arquitetônico ou fixo.`,
   mixed: `Analise a fotografia e determine se o ambiente está vazio, quase vazio ou já mobiliado.
 
-Se estiver vazio ou quase vazio, complete o ambiente com mobiliário funcional e realista, incluindo móveis, eletrodomésticos e eletrônicos adequados quando houver espaço.
+Se estiver vazio ou quase vazio, aplique a mesma intensidade de mobiliário completo, funcional, realista e pronto para morar exigida para ambientes vazios: inclua os móveis essenciais e, quando compatíveis com os espaços reais, eletrodomésticos, eletrônicos, iluminação de apoio, armazenamento solto e decoração. Não deixe grandes áreas vazias e não substitua itens funcionais por meros objetos decorativos. Em cozinhas, complete os vãos reais com equipamentos essenciais e armazenamento solto plausível, sem criar obra, nichos, novas estruturas ou alterar bancadas, pias e armários fixos.
 
-Se já estiver mobiliado, remova visualmente toda a mobília solta e toda a decoração existentes e substitua tudo por uma composição completamente nova no estilo selecionado. Substitua integralmente, quando presentes: sofás, poltronas, mesas, cadeiras, camas, criados-mudos, racks, estantes soltas, aparadores, tapetes, cortinas decorativas, luminárias não fixas, quadros, objetos decorativos, plantas, eletrônicos, almofadas, roupas de cama e quaisquer outros elementos móveis ou decorativos. Não apenas reorganize, retoque, altere cores ou faça pequenas mudanças nos itens existentes. A transformação deve ser claramente visível e não pode resultar em uma imagem praticamente igual à original. Crie uma decoração realmente nova, coerente, funcional, realista e compatível com o estilo escolhido. Preserve integralmente e não remova nem substitua armários planejados ou embutidos, cozinha planejada, bancadas, painéis fixos, louças sanitárias, metais, eletrodomésticos embutidos, luminárias embutidas, marcenaria fixa, revestimentos, portas, janelas, paredes, pisos, tetos ou qualquer outro elemento arquitetônico ou fixo.
+Se já estiver mobiliado, seja conservador. Preserve a composição e os móveis existentes quando estiverem funcionais e coerentes. Faça somente adições, substituições ou refinamentos pontuais de elementos soltos quando houver ganho visual claro, mantendo proporções, circulação e uso do ambiente. O estilo escolhido orienta esses refinamentos, mas não exige nem promete uma reformulação completa. Não remova integralmente a mobília e não force mudanças apenas para tornar a transformação mais visível.
 
-Nunca altere elementos arquitetônicos ou fixos.`,
+Preserve integralmente armários planejados ou embutidos, cozinha planejada, bancadas, painéis fixos, louças sanitárias, metais, eletrodomésticos embutidos, luminárias embutidas, marcenaria fixa, revestimentos, portas, janelas, paredes, pisos, tetos e qualquer outro elemento arquitetônico ou fixo.`,
 }
 
 export const VIRTUAL_STAGING_STYLE_RULES: Record<VirtualStagingDecorationStyle, string> = {
-  modern: 'Aplique estilo moderno, com linhas limpas, móveis atuais, cores neutras e sensação de amplitude.',
-  scandinavian: 'Aplique estilo escandinavo, com madeira clara, tons suaves, iluminação natural e composição acolhedora.',
-  sophisticated: 'Aplique estilo sofisticado, com mobiliário elegante, materiais refinados e composição premium, sem exageros.',
+  cozy: 'Aplique a direção ACONCHEGANTE: crie um ambiente residencial claro, acolhedor e convidativo, com neutros quentes, madeira clara ou média, tecidos e texturas táteis, tapetes, móveis confortáveis, iluminação suave em camadas, plantas e composição leve e equilibrada. O resultado deve parecer vivido, confortável e pronto para morar, com elegância discreta e sem aparência fria.',
+  contemporary: 'Aplique a direção CONTEMPORÂNEA, visualmente distinta da Aconchegante: use linhas definidas e limpas, mobiliário atual de desenho arquitetônico, contraste mais marcante e coerente, acabamentos refinados e combinações equilibradas de madeira, pedra, metal ou vidro quando fizerem sentido. Use iluminação de destaque e peças de design para criar presença elegante, premium e editorial, sem ostentação artificial.',
+  modern: 'Compatibilidade legada: aplique a direção CONTEMPORÂNEA, com linhas definidas e limpas, mobiliário atual, contraste coerente, acabamentos refinados e presença elegante, sem ostentação artificial.',
+  scandinavian: 'Compatibilidade legada: aplique a direção ACONCHEGANTE, com neutros quentes, madeira clara, tecidos e texturas táteis, móveis confortáveis, iluminação suave e composição convidativa.',
+  sophisticated: 'Compatibilidade legada: aplique a direção CONTEMPORÂNEA, com mobiliário atual de desenho arquitetônico, materiais refinados, iluminação de destaque e composição premium equilibrada.',
 }
 
 export function buildVirtualStagingPrompt(
   transformationType: VirtualStagingTransformationType,
   decorationStyle: VirtualStagingDecorationStyle,
 ) {
+  const transformationRule = transformationType === 'mixed'
+    ? `${VIRTUAL_STAGING_TRANSFORMATION_RULES.mixed}\n\nPara qualquer imagem vazia ou quase vazia identificada no modo misto, siga integralmente esta mesma regra de completude:\n\n${VIRTUAL_STAGING_TRANSFORMATION_RULES.empty_or_nearly_empty}`
+    : VIRTUAL_STAGING_TRANSFORMATION_RULES[transformationType]
+
   return VIRTUAL_STAGING_PROMPT_BASE
-    .replace('[REGRA DA TRANSFORMAÇÃO]', VIRTUAL_STAGING_TRANSFORMATION_RULES[transformationType])
+    .replace('[REGRA DA TRANSFORMAÇÃO]', transformationRule)
     .replace('[REGRA DO ESTILO]', VIRTUAL_STAGING_STYLE_RULES[decorationStyle])
 }
 
@@ -251,11 +268,11 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     throw invalidInput('missing_input_path', 'Informe o caminho privado da imagem.')
   }
 
-  if (!VIRTUAL_STAGING_TRANSFORMATION_TYPES.includes(input.transformation_type as VirtualStagingTransformationType)) {
+  if (!VIRTUAL_STAGING_ACCEPTED_TRANSFORMATION_TYPES.includes(input.transformation_type as VirtualStagingTransformationType)) {
     throw invalidInput('invalid_transformation_type', 'O tipo de transformação é inválido.')
   }
 
-  if (!VIRTUAL_STAGING_DECORATION_STYLES.includes(input.decoration_style as VirtualStagingDecorationStyle)) {
+  if (!VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES.includes(input.decoration_style as VirtualStagingDecorationStyle)) {
     throw invalidInput('invalid_decoration_style', 'O estilo de decoração é inválido.')
   }
 

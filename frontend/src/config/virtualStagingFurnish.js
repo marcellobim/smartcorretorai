@@ -9,15 +9,23 @@ export const VIRTUAL_STAGING_CHAT_INTRO = Object.freeze({
 
 export const FURNISH_RENOVATE_TRANSFORMATION_OPTIONS = Object.freeze([
   Object.freeze({ id: 'empty_or_nearly_empty', label: 'Mobiliar ambientes vazios ou quase vazios', description: 'Completa os espaços com móveis, eletrodomésticos e decoração.' }),
-  Object.freeze({ id: 'furnished', label: 'Criar uma nova decoração em ambientes já mobiliados', description: 'Moderniza os móveis soltos e os elementos decorativos no mesmo ambiente.' }),
   Object.freeze({ id: 'mixed', label: 'Tenho ambientes vazios e mobiliados', description: 'A inteligência artificial analisa cada imagem e aplica o tratamento mais adequado.' }),
 ])
 
 export const FURNISH_RENOVATE_STYLE_OPTIONS = Object.freeze([
-  Object.freeze({ id: 'modern', label: 'Moderno', description: 'Linhas limpas, móveis atuais, cores neutras e sensação de amplitude.' }),
-  Object.freeze({ id: 'scandinavian', label: 'Escandinavo', description: 'Madeira clara, tons suaves, iluminação natural e ambiente acolhedor.' }),
-  Object.freeze({ id: 'sophisticated', label: 'Sofisticado', description: 'Mobiliário elegante, materiais refinados e composição mais premium.' }),
+  Object.freeze({ id: 'cozy', label: 'Aconchegante', description: 'Ambientes acolhedores, claros e convidativos.' }),
+  Object.freeze({ id: 'contemporary', label: 'Contemporâneo', description: 'Visual atual, elegante e com presença mais marcante.' }),
 ])
+
+const FURNISH_RENOVATE_LEGACY_TRANSFORMATION_LABELS = Object.freeze({
+  furnished: 'Criar uma nova decoração em ambientes já mobiliados',
+})
+
+const FURNISH_RENOVATE_LEGACY_STYLE_LABELS = Object.freeze({
+  modern: 'Moderno',
+  scandinavian: 'Escandinavo',
+  sophisticated: 'Sofisticado',
+})
 
 export const FURNISH_RENOVATE_DESTINATION_OPTIONS = Object.freeze([
   Object.freeze({ id: 'instagram', label: 'Instagram', brand: 'instagram' }),
@@ -55,10 +63,18 @@ export function getFurnishRenovateOptionLabel(options, value) {
   return options.find(option => option.id === value)?.label || ''
 }
 
+export function getFurnishRenovateTransformationLabel(value) {
+  return getFurnishRenovateOptionLabel(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, value) || FURNISH_RENOVATE_LEGACY_TRANSFORMATION_LABELS[value] || ''
+}
+
+export function getFurnishRenovateStyleLabel(value) {
+  return getFurnishRenovateOptionLabel(FURNISH_RENOVATE_STYLE_OPTIONS, value) || FURNISH_RENOVATE_LEGACY_STYLE_LABELS[value] || ''
+}
+
 export function buildFurnishRenovateReviewItems({ imagesCount, transformationType, decorationStyle, imageDestinations }) {
   return [
-    { id: 'transformation_type', displayLabel: 'Tipo de transformação', label: getFurnishRenovateOptionLabel(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, transformationType) },
-    { id: 'decoration_style', displayLabel: 'Estilo', label: getFurnishRenovateOptionLabel(FURNISH_RENOVATE_STYLE_OPTIONS, decorationStyle) },
+    { id: 'transformation_type', displayLabel: 'Tipo de transformação', label: getFurnishRenovateTransformationLabel(transformationType) },
+    { id: 'decoration_style', displayLabel: 'Estilo', label: getFurnishRenovateStyleLabel(decorationStyle) },
     { id: 'images', displayLabel: 'Imagens', label: imagesCount === 1 ? '1 imagem' : imagesCount > 1 ? `${imagesCount} imagens` : '' },
     { id: 'image_destinations', displayLabel: 'Destino das imagens', label: FURNISH_RENOVATE_DESTINATION_OPTIONS.filter(option => imageDestinations.includes(option.id)).map(option => option.label).join(' · ') },
   ].filter(item => Boolean(item.label))

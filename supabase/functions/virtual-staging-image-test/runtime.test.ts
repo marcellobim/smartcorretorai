@@ -27,7 +27,7 @@ const validBody = {
   module: 'furnish-renovate',
   input_path: validPath,
   transformation_type: 'empty_or_nearly_empty',
-  decoration_style: 'scandinavian',
+  decoration_style: 'cozy',
   expected_count: 1,
 }
 
@@ -120,8 +120,8 @@ test('exige o módulo furnish-renovate e rejeita outros módulos', async () => {
 })
 
 test('valida tipo de transformação e estilo por allowlist', async () => {
-  assert.deepEqual(VIRTUAL_STAGING_TRANSFORMATION_TYPES, ['empty_or_nearly_empty', 'furnished', 'mixed'])
-  assert.deepEqual(VIRTUAL_STAGING_DECORATION_STYLES, ['modern', 'scandinavian', 'sophisticated'])
+  assert.deepEqual(VIRTUAL_STAGING_TRANSFORMATION_TYPES, ['empty_or_nearly_empty', 'mixed'])
+  assert.deepEqual(VIRTUAL_STAGING_DECORATION_STYLES, ['cozy', 'contemporary'])
   const invalidTransformation = await json(await handleVirtualStagingImageTest(request({ ...validBody, transformation_type: 'free' }), dependencies()))
   const invalidStyle = await json(await handleVirtualStagingImageTest(request({ ...validBody, decoration_style: 'industrial' }), dependencies()))
   assert.equal(invalidTransformation.code, 'invalid_transformation_type')
@@ -146,32 +146,22 @@ test('rejeita prompt e parâmetros internos enviados pelo cliente', async () => 
   }
 })
 
-test('monta internamente as três regras de transformação', () => {
-  assert.match(buildVirtualStagingPrompt('empty_or_nearly_empty', 'modern'), /complete o ambiente com mobiliário de forma funcional e realista/)
-  assert.match(buildVirtualStagingPrompt('furnished', 'modern'), /composição completamente nova no estilo selecionado/)
-  assert.match(buildVirtualStagingPrompt('mixed', 'modern'), /determine se o ambiente está vazio, quase vazio ou já mobiliado/)
+test('monta internamente as duas regras de transformação da criação nova', () => {
+  assert.match(buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy'), /composição completa, funcional, realista e pronta para morar/)
+  assert.match(buildVirtualStagingPrompt('mixed', 'contemporary'), /determine se o ambiente está vazio, quase vazio ou já mobiliado/)
 })
 
-test('substitui integralmente móveis soltos e decoração em ambientes mobiliados sem alterar elementos fixos', () => {
-  for (const transformationType of ['furnished', 'mixed'] as const) {
-    const prompt = buildVirtualStagingPrompt(transformationType, 'modern')
-
-    assert.match(prompt, /remova visualmente toda a mobília solta e toda a decoração existentes/)
-    assert.match(prompt, /substitua tudo por uma composição completamente nova no estilo selecionado/)
-    assert.match(prompt, /sofás, poltronas, mesas, cadeiras, camas, criados-mudos, racks, estantes soltas, aparadores, tapetes/)
-    assert.match(prompt, /cortinas decorativas, luminárias não fixas, quadros, objetos decorativos, plantas, eletrônicos, almofadas, roupas de cama/)
-    assert.match(prompt, /Não apenas reorganize, retoque, altere cores ou faça pequenas mudanças/)
-    assert.match(prompt, /A transformação deve ser claramente visível/)
-    assert.match(prompt, /não pode resultar em uma imagem praticamente igual à original/)
-    assert.match(prompt, /decoração realmente nova, coerente, funcional, realista e compatível com o estilo escolhido/)
-    assert.match(prompt, /não remova nem substitua armários planejados ou embutidos, cozinha planejada, bancadas, painéis fixos/)
-    assert.match(prompt, /louças sanitárias, metais, eletrodomésticos embutidos, luminárias embutidas, marcenaria fixa/)
-    assert.match(prompt, /qualquer outro elemento arquitetônico ou fixo/)
-  }
+test('trata ambientes mobiliados de modo conservador no modo misto', () => {
+  const prompt = buildVirtualStagingPrompt('mixed', 'contemporary')
+  assert.match(prompt, /Se já estiver mobiliado, seja conservador/)
+  assert.match(prompt, /Faça somente adições, substituições ou refinamentos pontuais de elementos soltos quando houver ganho visual claro/)
+  assert.match(prompt, /não exige nem promete uma reformulação completa/)
+  assert.match(prompt, /Não remova integralmente a mobília/)
+  assert.doesNotMatch(prompt, /remova visualmente toda a mobília solta e toda a decoração existentes/)
 })
 
 test('preserva as regras aprovadas de salas e quartos antes de acrescentar decoração', () => {
-  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'scandinavian')
+  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy')
 
   assert.doesNotMatch(prompt, /remova visualmente toda a mobília solta e toda a decoração existentes/)
   assert.doesNotMatch(prompt, /Não apenas reorganize, retoque, altere cores ou faça pequenas mudanças/)
@@ -180,18 +170,18 @@ test('preserva as regras aprovadas de salas e quartos antes de acrescentar decor
   assert.match(prompt, /televisão, rack ou painel leve/)
   assert.match(prompt, /comportar jantar, inclua mesa e cadeiras proporcionais/)
   assert.match(prompt, /mesas laterais, iluminação de apoio/)
-  assert.match(prompt, /quando houver espaço real, escrivaninha, cadeira, televisão ou móvel de apoio/)
+  assert.match(prompt, /quando houver espaço real, escrivaninha, cadeira, televisão, guarda-roupa ou móvel de apoio/)
   assert.match(prompt, /não sobrecarregue a circulação/)
   assert.match(prompt, /sem bloquear circulação, portas, janelas ou acessos/)
   assert.match(prompt, /Não adicione móveis que bloqueiem acesso ao armário, janela ou passagem/)
   assert.match(prompt, /- sala de jantar: mesa e cadeiras proporcionais/)
   assert.match(prompt, /- banheiro: decoração leve/)
-  assert.match(prompt, /- varanda: móveis externos e plantas/)
-  assert.match(prompt, /- escritório: mesa, cadeira, monitor e elementos de organização/)
+  assert.match(prompt, /- varanda: móveis externos, iluminação de apoio e plantas/)
+  assert.match(prompt, /- escritório: mesa, cadeira, monitor, iluminação de tarefa, armazenamento solto e elementos de organização/)
 })
 
 test('prioriza a completude funcional da cozinha no prompt final sem alterar a arquitetura', () => {
-  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'scandinavian')
+  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy')
   const kitchenStart = prompt.indexOf('- cozinha:')
   const kitchenEnd = prompt.indexOf('- banheiro:', kitchenStart)
   assert.ok(kitchenStart >= 0)
@@ -205,6 +195,8 @@ test('prioriza a completude funcional da cozinha no prompt final sem alterar a a
   assert.match(kitchenRule, /Quando existir espaço livre real e compatível com dimensões usuais/)
   assert.match(kitchenRule, /Não deixe vãos funcionais evidentes vazios quando for possível preenchê-los com segurança e sem alterar a arquitetura/)
   assert.match(kitchenRule, /Plantas, cestos, vasos, quadros e pequenos objetos decorativos não substituem os eletrodomésticos essenciais/)
+  assert.match(kitchenRule, /armários, gabinetes, módulos de armazenamento/)
+  assert.match(kitchenRule, /somente uma proposta visual gerada pela IA/)
 
   const priorityStart = kitchenRule.indexOf('Priorize, nesta ordem:')
   const priorityEnd = kitchenRule.indexOf('Não adicione todos os itens obrigatoriamente', priorityStart)
@@ -228,7 +220,8 @@ test('prioriza a completude funcional da cozinha no prompt final sem alterar a a
   }
 
   assert.match(kitchenRule, /Não invente nichos/)
-  assert.match(kitchenRule, /Não crie novas bancadas/)
+  assert.match(kitchenRule, /Não crie nem altere bancadas fixas/)
+  assert.match(kitchenRule, /ilha móvel ou bancada complementar visual/)
   assert.match(kitchenRule, /Não mova a pia/)
   assert.match(kitchenRule, /Não altere armários planejados/)
   assert.match(kitchenRule, /Não bloqueie portas, janelas, corredores ou circulação/)
@@ -239,20 +232,45 @@ test('prioriza a completude funcional da cozinha no prompt final sem alterar a a
   assert.match(prompt, /Não mova, remova, amplie, reduza ou reconstrua paredes[\s\S]*bancada, pia/)
 })
 
-test('monta internamente as três regras de estilo sem placeholders', () => {
+test('monta duas direções de estilo claramente distintas sem mudar a intensidade de mobiliário', () => {
   const prompts = [
-    buildVirtualStagingPrompt('mixed', 'modern'),
-    buildVirtualStagingPrompt('mixed', 'scandinavian'),
-    buildVirtualStagingPrompt('mixed', 'sophisticated'),
+    buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy'),
+    buildVirtualStagingPrompt('empty_or_nearly_empty', 'contemporary'),
   ]
-  assert.match(prompts[0], /estilo moderno, com linhas limpas/)
-  assert.match(prompts[1], /estilo escandinavo, com madeira clara/)
-  assert.match(prompts[2], /estilo sofisticado, com mobiliário elegante/)
+  assert.match(prompts[0], /direção ACONCHEGANTE/)
+  assert.match(prompts[0], /neutros quentes, madeira clara ou média, tecidos e texturas táteis/)
+  assert.match(prompts[1], /direção CONTEMPORÂNEA/)
+  assert.match(prompts[1], /contraste mais marcante e coerente, acabamentos refinados/)
+  for (const prompt of prompts) assert.match(prompt, /composição completa, funcional, realista e pronta para morar/)
   for (const prompt of prompts) assert.doesNotMatch(prompt, /\[REGRA (?:DA TRANSFORMAÇÃO|DO ESTILO)\]/)
 })
 
+test('inclui ambientação, armazenamento e equipamentos funcionais sem economizar nem exagerar', () => {
+  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy')
+  assert.match(prompt, /guarda-roupa ou móvel de apoio/)
+  assert.match(prompt, /máquina de lavar, secadora quando houver espaço/)
+  assert.match(prompt, /área gourmet: equipamentos/)
+  assert.match(prompt, /Adicione cortinas somente quando forem visualmente apropriadas/)
+  assert.match(prompt, /A composição deve ser COMPLETA, não EXAGERADA/)
+  assert.match(prompt, /novas propostas visuais de armazenamento em áreas livres/)
+  assert.match(prompt, /sem apagar, mover ou redesenhar qualquer elemento fixo real/)
+})
+
+test('aplica no vazio do modo misto a mesma regra completa do modo vazio', () => {
+  const prompt = buildVirtualStagingPrompt('mixed', 'contemporary')
+  assert.match(prompt, /siga integralmente esta mesma regra de completude/)
+  assert.match(prompt, /composição completa, funcional, realista e pronta para morar/)
+  assert.match(prompt, /armários, gabinetes, módulos de armazenamento/)
+  assert.match(prompt, /A composição deve ser COMPLETA, não EXAGERADA/)
+})
+
+test('aceita valores legados para leitura e repetição segura sem expô-los na criação nova', () => {
+  assert.match(buildVirtualStagingPrompt('furnished', 'scandinavian'), /Compatibilidade legada/)
+  assert.match(buildVirtualStagingPrompt('mixed', 'modern'), /Compatibilidade legada/)
+})
+
 test('reforça a preservação da composição e dos elementos fixos', () => {
-  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'scandinavian')
+  const prompt = buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy')
   assert.match(prompt, /mesma orientação, composição, proporção visual, perspectiva/)
   assert.match(prompt, /Não mova a câmera e não expanda a cena/)
   assert.match(prompt, /Não mova, remova, amplie, reduza ou reconstrua paredes[\s\S]*bancada, pia/)
@@ -314,7 +332,7 @@ test('envia ao cliente OpenAI mockado o contrato oficial fixo sem 4K ou máscara
   assert.equal(captured?.count, 1)
   assert.equal(captured?.size, '1536x1024')
   assert.doesNotMatch(captured?.size || '', /3840|2160|4k/i)
-  assert.equal(captured?.prompt, buildVirtualStagingPrompt('empty_or_nearly_empty', 'scandinavian'))
+  assert.equal(captured?.prompt, buildVirtualStagingPrompt('empty_or_nearly_empty', 'cozy'))
   assert.match(captured?.prompt || '', /mesma fotografia e o mesmo imóvel/)
   assert.equal('mask' in (captured || {}), false)
   assert.equal('inputFidelity' in (captured || {}), false)

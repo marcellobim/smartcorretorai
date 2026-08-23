@@ -58,7 +58,7 @@ async function openFurnishFlow(page) {
   await chooseModule(page, 0)
   await page.getByRole('button', { name: 'Começar' }).click()
   await page.getByRole('button', { name: 'Mobiliar ambientes vazios ou quase vazios' }).click()
-  await page.getByRole('button', { name: 'Escandinavo' }).click()
+  await page.getByRole('button', { name: 'Aconchegante' }).click()
 }
 
 function imageFile(name = 'ambiente.jpg') {
@@ -120,13 +120,18 @@ test('clique duplo gera um upload, uma invocação e payload mínimo', async ({ 
   expect(state.uploads[0].path).toMatch(/^11111111-1111-4111-8111-111111111111\/virtual-staging-images\/inputs\/[0-9a-f-]{36}\/01\.jpg$/)
   expect(state.uploads[0].path).not.toContain('/virtual-staging/')
   expect(state.invocations[0].name).toBe('virtual-staging-image-test')
+  const clientRequestId = state.uploads[0].path.split('/')[3]
   expect(state.invocations[0].options.body).toEqual({
+    action: 'generate',
+    client_request_id: clientRequestId,
+    item_index: 0,
     module: 'furnish-renovate',
     input_path: state.uploads[0].path,
     transformation_type: 'empty_or_nearly_empty',
-    decoration_style: 'scandinavian',
+    decoration_style: 'cozy',
+    expected_count: 1,
   })
-  expect(Object.keys(state.invocations[0].options.body).sort()).toEqual(['decoration_style', 'input_path', 'module', 'transformation_type'])
+  expect(Object.keys(state.invocations[0].options.body).sort()).toEqual(['action', 'client_request_id', 'decoration_style', 'expected_count', 'input_path', 'item_index', 'module', 'transformation_type'])
 })
 
 test('sucesso cria URL temporária, mostra Antes/Depois, baixa somente a transformada e limpa o projeto', async ({ page }) => {
@@ -192,7 +197,7 @@ test('três imagens geram três uploads e três invocações estritamente sequen
   expect(state.invocations.map(item => item.options.body.input_path.match(/\/(\d{2})\./)[1])).toEqual(['01', '02', '03'])
   for (const invocation of state.invocations) {
     expect(invocation.name).toBe('virtual-staging-image-test')
-    expect(Object.keys(invocation.options.body).sort()).toEqual(['decoration_style', 'input_path', 'module', 'transformation_type'])
+    expect(Object.keys(invocation.options.body).sort()).toEqual(['action', 'client_request_id', 'decoration_style', 'expected_count', 'input_path', 'item_index', 'module', 'transformation_type'])
   }
 })
 

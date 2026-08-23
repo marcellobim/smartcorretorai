@@ -80,6 +80,12 @@ export const supabase = {
   },
   functions: {
     async invoke(name, options) {
+      if (options.body.action === 'prepare') {
+        return { data: { ok: true, client_request_id: options.body.client_request_id }, error: null }
+      }
+      if (options.body.action === 'fail_item') {
+        return { data: { ok: true }, error: null }
+      }
       state.invocations.push({ name, options })
       const imageNumber = imageNumberFromPath(options.body.input_path)
       const invocationIndex = Number(imageNumber)

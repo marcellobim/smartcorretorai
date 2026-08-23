@@ -4,7 +4,11 @@ const user = Object.freeze({
 })
 
 export function useAuth() {
-  return { user, isPro: false }
+  return { user, isPro: false, reloadProfile: async () => {} }
+}
+
+export function useOptionalAuth() {
+  return null
 }
 
 export function AuthProvider({ children }) {
