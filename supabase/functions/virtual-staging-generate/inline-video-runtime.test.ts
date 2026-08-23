@@ -100,8 +100,10 @@ test('conecta inline somente a Vida no Imóvel e Apresentação pelo Corretor', 
   const smartTourGenerator = readFileSync(new URL('../smart-tour-generate/index.ts', import.meta.url), 'utf8')
   const imageRuntime = readFileSync(new URL('../virtual-staging-image-test/runtime.ts', import.meta.url), 'utf8')
 
+  assert.match(generator, /const productCode = resolveVirtualStagingVideoProductCode\(input\.journeyId\)/)
   assert.match(generator, /const isLifeInProperty = input\.generation\.mode === 'narrated_tour' && Boolean\(input\.generation\.life_scene\)/)
   assert.match(generator, /const isBrokerPresentation = input\.module === 'broker-presentation'/)
+  assert.match(generator, /if \(\(productCode === 'life_in_property'\) !== isLifeInProperty \|\| \(productCode === 'broker_presentation'\) !== isBrokerPresentation\) throw new Error\('invalid_economic_product'\)/)
   assert.match(generator, /if \(activeVerticalVideo\) \{[\s\S]*generateGeminiOmniVideoInline\(\{[\s\S]*images:\[\.\.\.presenterImages,\.\.\.images\],[\s\S]*aspectRatio:'9:16'/)
   assert.match(generator, /requiresCaptionRender:hasDeterministicSmartTourText\(briefing\)/)
   assert.match(generator, /startGeminiOmniVideo\(\{prompt,images:\[\.\.\.presenterImages,\.\.\.images\]/)

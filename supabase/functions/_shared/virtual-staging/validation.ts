@@ -4,6 +4,7 @@ const LANGUAGES = new Set(['pt-BR','en-US','es'])
 const LIFE_SCENES = new Set<LifeScene>(['young','young_dog','young_cat','adult','adult_dog','adult_cat','senior','senior_dog','senior_cat'])
 const clean = (value: unknown, max = 160) => String(value ?? '').replace(/[{}<>]/g, '').replace(/\s+/g, ' ').trim().slice(0,max)
 const BROKER_PRESENTATION_MODULE = 'broker-presentation'
+const PAID_VIDEO_JOURNEYS = new Set(['life-in-property', 'broker-presentation'])
 
 function readPropertyImages(raw: Record<string, unknown>) {
   const value = raw.property_images && typeof raw.property_images === 'object' && !Array.isArray(raw.property_images) ? raw.property_images as Record<string, unknown> : null
@@ -50,6 +51,8 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
 export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   if (!input || typeof input !== 'object') throw new Error('invalid_request')
   const raw = input as Record<string, unknown>
+  const suppliedJourneyId = clean(raw.journeyId, 80)
+  if (Object.prototype.hasOwnProperty.call(raw, 'journeyId') && !PAID_VIDEO_JOURNEYS.has(suppliedJourneyId)) throw new Error('invalid_economic_product')
   if (raw.module !== undefined && raw.module !== BROKER_PRESENTATION_MODULE) throw new Error('invalid_module')
   const paths = Array.isArray(raw.imagePaths) ? raw.imagePaths.map(item => clean(item,300)).filter(Boolean) : []
   const order = Array.isArray(raw.imageOrder) ? raw.imageOrder.map(item => clean(item,300)).filter(Boolean) : []
@@ -64,7 +67,16 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   const generation = normalizeGeneration(generationInput)
   const brokerFiles = validateBrokerFiles(raw, paths, order)
   if (generation.mode === 'narrated_tour' && !generation.life_scene) throw new Error('invalid_life_scene')
-  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR', ...brokerFiles }
+  const derivedJourneyId = raw.module === BROKER_PRESENTATION_MODULE
+    ? 'broker-presentation'
+    : generation.mode === 'narrated_tour' && generation.life_scene
+      ? 'life-in-property'
+      : ''
+  const journeyId = suppliedJourneyId || derivedJourneyId
+  if (journeyId && !PAID_VIDEO_JOURNEYS.has(journeyId)) throw new Error('invalid_economic_product')
+  if (journeyId === 'life-in-property' && (generation.mode !== 'narrated_tour' || !generation.life_scene || raw.module !== undefined)) throw new Error('invalid_life_scene')
+  if (journeyId === 'broker-presentation' && (generation.mode !== 'guided_tour' || raw.module !== BROKER_PRESENTATION_MODULE)) throw new Error('invalid_presenter_reference')
+  return { ...(journeyId ? { journeyId: journeyId as SmartTourRequest['journeyId'] } : {}), clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR', ...brokerFiles }
 }
 
 export const OFFICIAL_MATRIX: SmartTourGenerationConfig[] = [

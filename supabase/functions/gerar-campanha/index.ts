@@ -3,6 +3,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProduct3PurposeLabel, normalizeProduct3Purpose } from '../_shared/product3-contract.ts'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
+import {
+  callProviderOnlyAfterEconomicClaim,
+  createQuickBannerCampaignGate,
+  normalizeQuickBannerCampaignGateIdentity,
+} from './economy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -276,6 +281,7 @@ function validateGeneratedPurpose(texts: Record<string, unknown>, dados: Record<
 
 serve(async (req) => {
   const reqId = crypto.randomUUID().slice(0, 8)
+  let failClaimOnUnhandled: null | (() => Promise<void>) = null
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -308,6 +314,8 @@ serve(async (req) => {
       dados,
       fotos_urls,
       redes_sociais,
+      client_request_id,
+      economy_claim_token,
     } = payload as Record<string, unknown>
 
     // JWT obrigatório: a identidade nunca vem do payload.
@@ -325,6 +333,13 @@ serve(async (req) => {
 
     if (!tipo) {
       return jsonResponse({ error: 'Payload inválido: `tipo` é obrigatório' }, 400)
+    }
+
+    let economicIdentity: Readonly<{ clientRequestId: string; claimToken: string }>
+    try {
+      economicIdentity = normalizeQuickBannerCampaignGateIdentity(client_request_id, economy_claim_token)
+    } catch {
+      return jsonResponse({ error: 'Autorização econômica obrigatória.', code: 'INVALID_ECONOMIC_CLAIM' }, 409)
     }
 
     console.log(`[${reqId}] gerar-campanha autenticada | tipo=${tipo} categoria=${categoria}`)
@@ -358,28 +373,63 @@ serve(async (req) => {
 - Diferenciais: ${diferenciaisStr || 'nenhum informado'}
 - Dados: ${JSON.stringify(dadosSemDif, null, 2)}`
 
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: `${SYSTEM_PROMPT}\n${PRODUCT_3_PURPOSE_PROMPT}` },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 1500,
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(45000),
-    })
+    const campaignGate = createQuickBannerCampaignGate(supabase)
+    let economicClaim
+    try {
+      economicClaim = await campaignGate.claim({ userId, ...economicIdentity })
+    } catch (error) {
+      console.warn(`[${reqId}] internal_code=CAMPAIGN_ECONOMIC_CLAIM_FAILED`, error instanceof Error ? error.message : String(error))
+      return jsonResponse({ error: 'Não foi possível autorizar esta geração.', code: 'ECONOMIC_CLAIM_FAILED' }, 409)
+    }
+    if (!economicClaim.executionClaimed) {
+      if (economicClaim.status === 'completed' && economicClaim.result) {
+        const storedStatus = Number(economicClaim.result.status)
+        const storedBody = economicClaim.result.body
+        return jsonResponse(storedBody && typeof storedBody === 'object' ? storedBody : { success: true }, Number.isInteger(storedStatus) ? storedStatus : 200)
+      }
+      return jsonResponse({ success: false, status: economicClaim.status.toUpperCase(), code: 'REQUEST_PROCESSING' }, 202)
+    }
+
+    const failEconomicGate = async (reason: string) => {
+      await campaignGate.fail({ userId, ...economicIdentity, reason }).catch(() => null)
+      failClaimOnUnhandled = null
+    }
+    failClaimOnUnhandled = () => failEconomicGate('campaign_generation_unhandled_error')
+
+    let openaiRes: Response | null = null
+    try {
+      openaiRes = await callProviderOnlyAfterEconomicClaim(economicClaim, () => fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: `${SYSTEM_PROMPT}\n${PRODUCT_3_PURPOSE_PROMPT}` },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 1500,
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(45000),
+      }))
+    } catch (error) {
+      console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_REQUEST_FAILED`, error instanceof Error ? error.message : String(error))
+      await failEconomicGate('campaign_provider_request_failed')
+      return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
+    }
+    if (!openaiRes) {
+      await failEconomicGate('campaign_provider_without_claim')
+      return jsonResponse({ error: 'Autorização econômica obrigatória.', code: 'INVALID_ECONOMIC_CLAIM' }, 409)
+    }
 
     if (!openaiRes.ok) {
       const errBody = await openaiRes.text()
       console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_HTTP_ERROR status=${openaiRes.status}`, errBody.slice(0, 300))
+      await failEconomicGate('campaign_provider_http_error')
       return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
@@ -387,6 +437,7 @@ serve(async (req) => {
     const rawContent = openaiData?.choices?.[0]?.message?.content
     if (!rawContent) {
       console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_EMPTY_RESPONSE`)
+      await failEconomicGate('campaign_provider_empty_response')
       return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
@@ -395,6 +446,7 @@ serve(async (req) => {
       textos_gerados = JSON.parse(rawContent)
     } catch (e) {
       console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_JSON_PARSE_ERROR`, e, rawContent.slice(0, 300))
+      await failEconomicGate('campaign_provider_json_parse_error')
       return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
@@ -404,6 +456,7 @@ serve(async (req) => {
       textos_gerados.google_ads = validateGoogleAdsDelivery(textos_gerados.google_ads, { expectedCta: campaignCta })
     } catch (error) {
       console.error(`[${reqId}] internal_code=CAMPAIGN_GOOGLE_ADS_INVALID_RESPONSE`, error instanceof Error ? error.message : String(error))
+      await failEconomicGate('campaign_provider_contract_error')
       return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
@@ -450,16 +503,23 @@ serve(async (req) => {
     if (dbError) {
       console.error(`[${reqId}] insert error`, dbError.code, dbError.message)
       // Devolve os textos mesmo com falha de DB para o frontend não perder o trabalho da OpenAI
-      return jsonResponse({
+      const responseBody = {
         error: CAMPAIGN_SAVE_WARNING,
         textos: textos_gerados,
-      }, 500)
+      }
+      await campaignGate.complete({ userId, ...economicIdentity, result: { status: 500, body: responseBody } })
+      failClaimOnUnhandled = null
+      return jsonResponse(responseBody, 500)
     }
 
     console.log(`[${reqId}] OK`)
-    return jsonResponse({ success: true, campanha, textos: textos_gerados }, 200)
+    const responseBody = { success: true, campanha, textos: textos_gerados }
+    await campaignGate.complete({ userId, ...economicIdentity, result: { status: 200, body: responseBody } })
+    failClaimOnUnhandled = null
+    return jsonResponse(responseBody, 200)
 
   } catch (error) {
+    if (failClaimOnUnhandled) await failClaimOnUnhandled().catch(() => null)
     console.error(`[${reqId}] unhandled`, error)
     return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 500)
   }

@@ -6,7 +6,8 @@ import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
 import { buildOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { persistVirtualSpaceInlineVideo, resolveVirtualSpaceInlineProviderTimeout } from './inline-video-runtime.ts'
-import { claimGeminiVideoEconomy, insufficientGeminiVideoTokensResponse, settleGeminiVideoEconomy, updateGeminiVideoEconomyTelemetry, type GeminiVideoProductCode } from '../_shared/gemini-video-economy.ts'
+import { claimGeminiVideoEconomy, insufficientGeminiVideoTokensResponse, settleGeminiVideoEconomy, updateGeminiVideoEconomyTelemetry } from '../_shared/gemini-video-economy.ts'
+import { resolveVirtualStagingVideoProductCode } from './economy.ts'
 const safeError = (error: unknown) => error instanceof Error ? error.message.replace(/AIza[\w-]+/g,'[redacted]').slice(0,240) : 'unknown_error'
 
 serve(withCors(async req => {
@@ -21,10 +22,13 @@ serve(withCors(async req => {
     const input = validateSmartTourRequest(await req.json())
     if (!/^[0-9a-f-]{36}$/i.test(input.clientRequestId)) throw new Error('invalid_request_id')
     const presenterReferencePath = input.presenter_reference?.image_path
+    const productCode = resolveVirtualStagingVideoProductCode(input.journeyId)
     const isLifeInProperty = input.generation.mode === 'narrated_tour' && Boolean(input.generation.life_scene)
     const isBrokerPresentation = input.module === 'broker-presentation'
     const activeVerticalVideo = isLifeInProperty || isBrokerPresentation
-    const productCode: GeminiVideoProductCode | null = isBrokerPresentation ? 'broker_presentation' : isLifeInProperty ? 'life_in_property' : null
+    if ((productCode === 'life_in_property') !== isLifeInProperty || (productCode === 'broker_presentation') !== isBrokerPresentation) throw new Error('invalid_economic_product')
+    if (isLifeInProperty && (input.generation.mode !== 'narrated_tour' || !input.generation.life_scene)) throw new Error('invalid_life_scene')
+    if (isBrokerPresentation && (input.module !== 'broker-presentation' || !presenterReferencePath)) throw new Error('invalid_presenter_reference')
     const requestedPaths = presenterReferencePath ? [presenterReferencePath, ...input.imagePaths] : input.imagePaths
     if (requestedPaths.some(path => !path.startsWith(`${user.id}/virtual-staging/${input.clientRequestId}/`) || !/\.(jpg|jpeg|png)$/i.test(path))) throw new Error('invalid_image_owner')
     const {data:objects,error:objectsError} = await supabase.storage.from('studio-videos').list(`${user.id}/virtual-staging/${input.clientRequestId}`,{limit:10})
@@ -43,17 +47,15 @@ serve(withCors(async req => {
     const prompt = buildSmartTourVideoPrompt(briefing)
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'virtual_staging_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
-    if (productCode) {
-      const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode,metadata:{image_count:input.imagePaths.length + (presenterReferencePath ? 1 : 0),output_duration_seconds:10,resolution:'720x1280',fps:24,audio:true,presenter_reference:Boolean(presenterReferencePath)}})
-      if (!economy.executionClaimed) {
-        if (economy.status === 'insufficient') {
-          await supabase.from('video_jobs').update({status:'failed',error_message:'INSUFFICIENT_SMART_TOKENS'}).eq('id',input.clientRequestId).eq('user_id',user.id)
-          return json(insufficientGeminiVideoTokensResponse(economy),402)
-        }
-        return json({ok:true,jobId:input.clientRequestId,status:economy.status,idempotent:true})
+    const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode,metadata:{image_count:input.imagePaths.length + (presenterReferencePath ? 1 : 0),output_duration_seconds:10,resolution:'720x1280',fps:24,audio:true,presenter_reference:Boolean(presenterReferencePath)}})
+    if (!economy.executionClaimed) {
+      if (economy.status === 'insufficient') {
+        await supabase.from('video_jobs').update({status:'failed',error_message:'INSUFFICIENT_SMART_TOKENS'}).eq('id',input.clientRequestId).eq('user_id',user.id)
+        return json(insufficientGeminiVideoTokensResponse(economy),402)
       }
-      await supabase.from('video_jobs').update({tokens_reserved:325}).eq('id',input.clientRequestId).eq('user_id',user.id)
+      return json({ok:true,jobId:input.clientRequestId,status:economy.status,idempotent:true})
     }
+    await supabase.from('video_jobs').update({tokens_reserved:325}).eq('id',input.clientRequestId).eq('user_id',user.id)
     let hashtags: string[] = []
     let deliveryPersisted = false
     try {
@@ -118,7 +120,7 @@ serve(withCors(async req => {
   } catch (error) {
     console.warn('[virtual-staging-generate]',safeError(error))
     const code = safeError(error)
-    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',invalid_life_scene:'A opção de Vida no Imóvel é inválida.',invalid_presenter_reference:'Envie exatamente uma foto válida do apresentador.',invalid_property_images:'As fotos do imóvel são inválidas.',invalid_module:'O módulo informado é inválido.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
+    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',invalid_economic_product:'Esta modalidade não possui configuração econômica válida.',invalid_life_scene:'A opção de Vida no Imóvel é inválida.',invalid_presenter_reference:'Envie exatamente uma foto válida do apresentador.',invalid_property_images:'As fotos do imóvel são inválidas.',invalid_module:'O módulo informado é inválido.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
     return json({ok:false,error:messages[code] || 'Não foi possível iniciar sua apresentação.'},400)
   }
 }))

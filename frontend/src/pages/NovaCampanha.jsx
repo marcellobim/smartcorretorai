@@ -2588,6 +2588,8 @@ export default function NovaCampanha() {
           headers: { Authorization: `Bearer ${token}` },
           body: {
             user_id: userId,
+            client_request_id: clientRequestId,
+            economy_claim_token: economyClaimToken,
             categoria,
             tipo,
             dados: {
