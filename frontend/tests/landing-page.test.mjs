@@ -23,8 +23,40 @@ test('preserves SEO, the approved Hero and removes every visual overlay', () => 
   assert.match(html, /rel="canonical" href="https:\/\/www\.smartcorretorai\.com\/"/)
   assert.match(heroSource, /Crie vídeos, imagens e campanhas para/)
   assert.match(heroSource, /vender, alugar e captar\./)
-  assert.match(heroSource, /HeroMedia slide=\{HERO_PRIMARY_MEDIA\}/)
+  assert.match(heroSource, /HERO_PRODUCT_SLIDES\.map/)
   assert.doesNotMatch(heroSource, /BeforeAfter|accentBanner|HERO_BANNERS|Campanha de Textos/)
+})
+
+test('rotates the approved Hero products automatically with synchronized media', () => {
+  const heroSlides = slice('const HERO_PRODUCT_SLIDES', 'const PRODUCT_FAMILIES')
+  const expectedProducts = ['Vídeo Imobiliário', 'Virtual Staging', 'Banner Imobiliário', 'Banners Rápidos', 'Studio IA']
+  for (const product of expectedProducts) assert.ok(heroSlides.includes(`name: '${product}'`), product)
+  assert.equal((heroSlides.match(/ id: '/g) || []).length, expectedProducts.length)
+  assert.match(landing, /const HERO_ROTATION_INTERVAL_MS = 5200/)
+  assert.match(heroSource, /setActiveIndex\(index => \(index \+ 1\) % HERO_PRODUCT_SLIDES\.length\)/)
+  assert.match(heroSource, /activeSlide = HERO_PRODUCT_SLIDES\[activeIndex\]/)
+  assert.match(heroSource, /\{activeSlide\.name\}/)
+  assert.match(heroSource, /HERO_PRODUCT_SLIDES\.map\(\(slide, index\)/)
+  assert.match(heroSource, /const active = activeIndex === index/)
+  assert.match(heroSource, /<HeroMedia slide=\{slide\} active=\{active\}/)
+  assert.match(heroSource, /if \(reducedMotion \|\| HERO_PRODUCT_SLIDES\.length < 2\) return undefined/)
+  assert.match(heroSource, /transition-opacity duration-700 motion-reduce:transition-none/)
+  assert.doesNotMatch(heroSource, /matchMedia\('\(min-width|innerWidth/)
+})
+
+test('keeps inactive Hero videos unloaded and uses only approved local assets', () => {
+  const heroMedia = slice('function HeroMedia', 'function Hero()')
+  assert.match(heroMedia, /preload=\{active \? 'metadata' : 'none'\}/)
+  assert.match(heroMedia, /if \(active\) void video\.play\(\)\.catch/)
+  assert.match(heroMedia, /else video\.pause\(\)/)
+  assert.match(heroMedia, /loading=\{active \? 'eager' : 'lazy'\}/)
+  for (const source of [
+    'demos-videos/video-campanha.mp4',
+    'landing/virtual-staging-after.webp',
+    'showcase/hero/hero-18semimagem.jpg',
+    'previews/produto3/anuncio-premium-preview-1x1.jpg',
+    'showcase/smart-studio-gallery/venda1lapa.mp4',
+  ]) assert.equal(existsSync(path.join(frontendRoot, 'public', source)), true, source)
 })
 
 test('uses the final starting scenarios and tighter platform transition', () => {

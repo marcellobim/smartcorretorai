@@ -43,15 +43,13 @@ const VIDEO_POSTERS = Object.freeze({
   '/previews/produto3/story-premium-preview-1x1.mp4': '/landing/posters/banner-story.webp',
   '/previews/produto3/card-imobiliario-premium-preview-1x1.mp4': '/landing/posters/banner-card.webp',
 })
-const HERO_PRIMARY_MEDIA = {
-  name: 'Vídeo Imobiliário',
-  type: 'video',
-  src: '/demos-videos/video-campanha.mp4',
-  label: 'Vídeo imobiliário criado no SmartCorretorAI',
-}
-const HERO_BANNERS = [
-  { src: '/showcase/hero/hero-18semimagem.jpg', label: 'Banner imobiliário vertical criado no SmartCorretorAI' },
-  { src: '/showcase/hero/hero-captacao3.jpg', label: 'Banner imobiliário quadrado criado no SmartCorretorAI' },
+const HERO_ROTATION_INTERVAL_MS = 5200
+const HERO_PRODUCT_SLIDES = [
+  { id: 'video-imobiliario', name: 'Vídeo Imobiliário', type: 'video', src: '/demos-videos/video-campanha.mp4', label: 'Vídeo imobiliário criado no SmartCorretorAI' },
+  { id: 'virtual-staging', name: 'Virtual Staging', type: 'image', src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Ambiente criado com Virtual Staging no SmartCorretorAI' },
+  { id: 'banner-imobiliario', name: 'Banner Imobiliário', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', label: 'Banner imobiliário criado no SmartCorretorAI' },
+  { id: 'banners-rapidos', name: 'Banners Rápidos', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', label: 'Banner rápido criado no SmartCorretorAI' },
+  { id: 'studio-ia', name: 'Studio IA', type: 'video', src: '/showcase/smart-studio-gallery/venda1lapa.mp4', label: 'Comercial imobiliário criado no Studio IA' },
 ]
 const PRODUCT_FAMILIES = [
   {
@@ -342,13 +340,33 @@ function LandingHeader() {
   return <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/90 text-white backdrop-blur-xl"><div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10"><Link to="/" aria-label="SmartCorretorAI — início" className={`flex items-center gap-2.5 rounded-xl ${focusRing}`}><BrandMark size={38} decorative /><span className="text-sm font-black sm:text-base">SmartCorretorAI</span></Link><nav aria-label="Navegação principal" className="hidden items-center gap-1 lg:flex">{NAV_ITEMS.map(item => item.to ? <Link key={item.label} to={item.to} className={navClass}>{item.label}</Link> : <a key={item.label} href={item.href} className={navClass}>{item.label}</a>)}</nav><div className="flex items-center gap-2"><Link to="/login" className={`hidden rounded-xl px-3 py-2 text-sm font-black text-slate-200 sm:inline-flex ${focusRing}`}>Entrar</Link><Link to="/cadastro" className={`inline-flex whitespace-nowrap rounded-xl bg-violet-600 px-3 py-2.5 text-[11px] font-black text-white shadow-lg hover:bg-violet-500 sm:px-4 sm:text-sm ${focusRing}`}>Experimentar grátis</Link><button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="landing-mobile-menu" aria-label={open ? 'Fechar menu' : 'Abrir menu'} className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 lg:hidden ${focusRing}`}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></div></div>{open && <nav id="landing-mobile-menu" aria-label="Navegação mobile" className="border-t border-white/10 bg-[#080c19] px-4 py-4 lg:hidden"><div className="grid gap-1">{NAV_ITEMS.map(item => item.to ? <Link key={item.label} to={item.to} onClick={() => setOpen(false)} className={navClass}>{item.label}</Link> : <a key={item.label} href={item.href} onClick={() => setOpen(false)} className={navClass}>{item.label}</a>)}<Link to="/login" onClick={() => setOpen(false)} className={`${navClass} sm:hidden`}>Entrar</Link></div></nav>}</header>
 }
 
-function HeroMedia({ slide }) {
+function HeroMedia({ slide, active }) {
+  const videoRef = useRef(null)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    if (active) void video.play().catch(() => {})
+    else video.pause()
+  }, [active])
+
   if (slide.type === 'comparison') return <BeforeAfter beforeSrc={slide.beforeSrc} afterSrc={slide.src} compact />
-  if (slide.type === 'video') return <video key={slide.src} src={slide.src} poster={VIDEO_POSTERS[slide.src]} autoPlay muted playsInline loop preload="metadata" aria-label={slide.label} className="h-full w-full object-cover" />
-  return <img src={slide.src} alt={slide.label} loading="eager" className="h-full w-full object-cover" />
+  if (slide.type === 'video') return <video ref={videoRef} src={slide.src} poster={VIDEO_POSTERS[slide.src]} autoPlay={active} muted playsInline loop preload={active ? 'metadata' : 'none'} aria-label={slide.label} className="h-full w-full object-cover" />
+  return <img src={slide.src} alt={slide.label} loading={active ? 'eager' : 'lazy'} className="h-full w-full object-contain" />
 }
 
 function Hero() {
+  const reducedMotion = useReducedMotion()
+  const [activeIndex, setActiveIndex] = useState(0)
+  const activeSlide = HERO_PRODUCT_SLIDES[activeIndex]
+
+  useEffect(() => {
+    if (reducedMotion || HERO_PRODUCT_SLIDES.length < 2) return undefined
+    const timer = window.setInterval(() => {
+      setActiveIndex(index => (index + 1) % HERO_PRODUCT_SLIDES.length)
+    }, HERO_ROTATION_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [reducedMotion])
+
   return (
     <section className="relative overflow-hidden bg-[#050816] text-white">
       <div className="pointer-events-none absolute left-1/2 top-1/3 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-violet-700/20 blur-[110px]" />
@@ -367,10 +385,13 @@ function Hero() {
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
           <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#0b1022] shadow-[0_50px_100px_-35px_rgba(76,29,149,.8)]">
             <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-white/10 bg-[#080b16]/85 px-4 py-3 backdrop-blur">
-              <span className="text-xs font-black">{HERO_PRIMARY_MEDIA.name}</span>
+              <span className="text-xs font-black" data-hero-product-title>{activeSlide.name}</span>
               <span className="flex gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-400" /><i className="h-2 w-2 rounded-full bg-amber-300" /><i className="h-2 w-2 rounded-full bg-emerald-400" /></span>
             </div>
-            <div className="h-full pt-10"><HeroMedia slide={HERO_PRIMARY_MEDIA} /></div>
+            <div className="h-full pt-10"><div className="relative h-full overflow-hidden bg-[#050816]">{HERO_PRODUCT_SLIDES.map((slide, index) => {
+              const active = activeIndex === index
+              return <div key={slide.id} aria-hidden={!active} className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${active ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><HeroMedia slide={slide} active={active} /></div>
+            })}</div></div>
           </div>
         </div>
       </div>
