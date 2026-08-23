@@ -731,7 +731,7 @@ const normalizeRenderStatus = (status) => String(status || 'planned').toLowerCas
 const getRenderStatusLabel = (status) => RENDER_STATUS_LABELS[normalizeRenderStatus(status)] || 'Processando'
 const MISSING_RENDER_ERROR = 'Não foi possível iniciar esta peça. Tente novamente.'
 const BANNER_BATCH_ERROR = 'Materiais visuais não foram iniciados agora. Tente gerar novamente em alguns instantes.'
-const CAMPAIGN_GENERATION_ERROR = 'Não foi possível concluir a geração agora. Revise os dados e tente novamente.'
+const CAMPAIGN_GENERATION_ERROR = 'Não foi possível concluir esta criação. Revise os dados ou tente novamente em alguns instantes.'
 const hasRenderProcessingEvidence = (render) => Boolean(
   render?.render_id
   || render?.render_job_id
@@ -3176,7 +3176,7 @@ export default function NovaCampanha() {
           missingErrorMessage: BANNER_BATCH_ERROR,
         })))
       setGenerationNotice('Materiais visuais não foram iniciados agora. As peças solicitadas aparecem como pendentes para nova tentativa.')
-      toast.error(err.message || 'Falha ao gerar banners')
+      toast.error(getSmartTokenErrorMessage(err, BANNER_BATCH_ERROR))
     } finally {
       setGerandoBanners(false)
     }

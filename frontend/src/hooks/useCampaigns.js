@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import toast from 'react-hot-toast'
+import { getSmartTokenErrorMessage } from '../lib/smart-tokens'
 
 export function useCampaigns() {
   const { user, accessToken } = useAuth()
@@ -42,7 +43,7 @@ export function useCampaigns() {
       toast.success('Campanha gerada com sucesso!')
       return data
     } catch (err) {
-      toast.error(err.message || 'Erro ao gerar campanha')
+      toast.error(getSmartTokenErrorMessage(err, 'Não foi possível gerar a campanha agora. Tente novamente.'))
       throw err
     } finally {
       setGenerating(false)

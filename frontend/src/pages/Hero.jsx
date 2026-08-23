@@ -24,6 +24,7 @@ import { useAuth } from '../lib/auth-context'
 import { useProperties } from '../hooks/useProperties'
 import { formatArea, formatCurrency } from '../utils/formatters'
 import { supabase } from '../lib/supabase'
+import { getSmartTokenErrorMessage } from '../lib/smart-tokens'
 import { buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
 const MASTER_MARKER = '[[SMARTCORRETORAI_MASTER_PROPERTY_V1]]'
@@ -851,7 +852,7 @@ export default function Hero() {
       setResultVisible(true)
     } catch (error) {
       setResultVisible(false)
-      setGenerationError(error instanceof Error ? error.message : 'Não foi possível preparar o Hero IA.')
+      setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível preparar o Hero IA.'))
     } finally {
       setGenerationLoading(false)
     }

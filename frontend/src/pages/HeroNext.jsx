@@ -1798,7 +1798,7 @@ export default function HeroNext() {
       setUploadedImages(parsed)
       setGenerationError('')
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : 'Não foi possível carregar as imagens.')
+      setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível carregar as imagens.'))
     }
   }
 

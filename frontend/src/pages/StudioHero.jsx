@@ -1878,8 +1878,8 @@ export default function StudioHero() {
         error: sanitizeStudioHeroDiagnostic(error),
       })
       setStatus('failed')
-      const providerFallback = 'No momento, o servico de criacao esta temporariamente limitado pelo provedor de video. Seus Smart Tokens nao serao consumidos se a criacao nao for concluida. Tente novamente mais tarde.'
-      const friendlyMessage = getSmartTokenErrorMessage(error, error instanceof Error && /JPG|PNG|imagem|assinantes|Smart Tokens/i.test(error.message) ? error.message : providerFallback)
+      const publicFallback = 'Não foi possível concluir seu comercial neste momento. Seus Smart Tokens não serão consumidos se a criação não for concluída. Tente novamente mais tarde.'
+      const friendlyMessage = getSmartTokenErrorMessage(error, publicFallback)
       setMessage(friendlyMessage)
       void reloadProfile()
     }

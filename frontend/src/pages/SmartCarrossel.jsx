@@ -49,16 +49,6 @@ const SMART_CAROUSEL_STEPS = [
   { title: 'Preview', subtitle: 'Confira o resultado' },
 ]
 
-function friendlyGenerationError(message, fallback = 'Não foi possível criar sua apresentação. Tente novamente.') {
-  const rawMessage = String(message || '').trim()
-  if (!rawMessage) return fallback
-  if (/^[a-z][a-z0-9_.:-]*$/i.test(rawMessage)) {
-    console.error('[Smart Carrossel] Erro interno:', rawMessage)
-    return fallback
-  }
-  return rawMessage
-}
-
 function normalizeDistrictName(value) {
   return value
     .trim()
@@ -595,7 +585,7 @@ function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, 
     if (!mountedRef.current) return
     generationInFlightRef.current = false
     setGenerationStatus('failed')
-    setGenerationError(getSmartTokenErrorMessage(message, friendlyGenerationError(message)))
+    setGenerationError(getSmartTokenErrorMessage(message, 'Não foi possível criar sua apresentação. Tente novamente.'))
     void refreshBalance()
     if (!keepReceipt) {
       setReceipt('')

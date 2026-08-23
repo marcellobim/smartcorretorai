@@ -67,7 +67,8 @@ test('estorno usa a RPC de cancelamento e sucesso usa consumo da reserva', () =>
 
 test('erro de geração preserva dados preenchidos e imagens selecionadas', () => {
   assert.doesNotMatch(generationCatch, /setFotos\(|resetCampaignState\(|setResultado\(null\)/)
-  assert.match(generationCatch, /setGenerationError\(CAMPAIGN_GENERATION_ERROR\)/)
+  assert.match(generationCatch, /getSmartTokenErrorMessage\(error, CAMPAIGN_GENERATION_ERROR\)/)
+  assert.match(generationCatch, /setGenerationError\(friendlyError\)/)
 })
 
 test('erro de geração não retorna automaticamente para fase form', () => {

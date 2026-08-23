@@ -220,7 +220,7 @@ export default function SmartTourAI() {
       setShortVideo({ file, duration, preview: URL.createObjectURL(file) })
       setMessage('')
     } catch (error) {
-      setMessage(error.message || 'Não foi possível validar o vídeo.')
+      setMessage(getSmartTokenErrorMessage(error, 'Não foi possível validar o vídeo.'))
     }
   }
   const move = (position, offset) => setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages })

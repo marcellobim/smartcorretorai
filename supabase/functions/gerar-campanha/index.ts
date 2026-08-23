@@ -190,6 +190,9 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
   return normalized.slice(0, 15)
 }
 
+const CAMPAIGN_PUBLIC_ERROR = 'Não foi possível concluir esta criação. Revise os dados ou tente novamente em alguns instantes.'
+const CAMPAIGN_SAVE_WARNING = 'Os textos foram gerados, mas a campanha não foi salva automaticamente.'
+
 function buildWhatsappFallback(dados: Record<string, unknown>, tipo: unknown) {
   const tipoImovel = String(tipo || dados.tipo || 'imóvel').toLowerCase()
   const acao = normalizeProduct3Purpose(dados.finalidade ?? dados.negocio) === 'rental' ? 'para locação' : 'à venda'
@@ -376,30 +379,32 @@ serve(async (req) => {
 
     if (!openaiRes.ok) {
       const errBody = await openaiRes.text()
-      console.error(`[${reqId}] OpenAI ${openaiRes.status}:`, errBody.slice(0, 300))
-      return jsonResponse({ error: `OpenAI retornou ${openaiRes.status}` }, 502)
+      console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_HTTP_ERROR status=${openaiRes.status}`, errBody.slice(0, 300))
+      return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
     const openaiData = await openaiRes.json()
     const rawContent = openaiData?.choices?.[0]?.message?.content
     if (!rawContent) {
-      return jsonResponse({ error: 'OpenAI retornou resposta sem conteúdo' }, 502)
+      console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_EMPTY_RESPONSE`)
+      return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
     let textos_gerados: Record<string, unknown>
     try {
       textos_gerados = JSON.parse(rawContent)
     } catch (e) {
-      console.error(`[${reqId}] JSON parse error`, e, rawContent.slice(0, 300))
-      return jsonResponse({ error: 'Resposta da OpenAI não é JSON válido' }, 502)
+      console.error(`[${reqId}] internal_code=CAMPAIGN_PROVIDER_JSON_PARSE_ERROR`, e, rawContent.slice(0, 300))
+      return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
     const campaignRecord = dadosObj as Record<string, unknown>
     const campaignCta = String(campaignRecord.cta || campaignRecord.cta_text || '').trim()
     try {
       textos_gerados.google_ads = validateGoogleAdsDelivery(textos_gerados.google_ads, { expectedCta: campaignCta })
-    } catch {
-      return jsonResponse({ error: 'Resposta da OpenAI sem Google Ads valido' }, 502)
+    } catch (error) {
+      console.error(`[${reqId}] internal_code=CAMPAIGN_GOOGLE_ADS_INVALID_RESPONSE`, error instanceof Error ? error.message : String(error))
+      return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 502)
     }
 
     if (!Array.isArray(textos_gerados.hashtags)) {
@@ -446,9 +451,7 @@ serve(async (req) => {
       console.error(`[${reqId}] insert error`, dbError.code, dbError.message)
       // Devolve os textos mesmo com falha de DB para o frontend não perder o trabalho da OpenAI
       return jsonResponse({
-        error: `Erro ao salvar campanha: ${dbError.message}`,
-        code: dbError.code,
-        hint: dbError.hint,
+        error: CAMPAIGN_SAVE_WARNING,
         textos: textos_gerados,
       }, 500)
     }
@@ -458,7 +461,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error(`[${reqId}] unhandled`, error)
-    const msg = error instanceof Error ? error.message : String(error)
-    return jsonResponse({ error: msg }, 500)
+    return jsonResponse({ error: CAMPAIGN_PUBLIC_ERROR }, 500)
   }
 })
