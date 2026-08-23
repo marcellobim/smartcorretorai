@@ -52,7 +52,7 @@ export default function RegisterPage() {
 
         <h1 className="text-2xl font-bold text-gray-900">Crie sua conta grátis</h1>
         <p className="mt-1 text-sm text-gray-500">
-          1 campanha demonstrativa gratuita, sem cartão de crédito. Já tem conta?{' '}
+          1 Campanha de Textos demonstrativa após confirmar seu e-mail, sem cartão. Já tem conta?{' '}
           <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">
             Entrar
           </Link>

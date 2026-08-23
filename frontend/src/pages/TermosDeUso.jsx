@@ -69,22 +69,23 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Campanha Demonstrativa Gratuita</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Campanha de Textos Demonstrativa Gratuita</h2>
               <p>
-                A oferta gratuita da SmartCorretorAI corresponde a 1 campanha demonstrativa gratuita, única e
-                limitada, destinada a apresentar o funcionamento do produto.
+                Após confirmar o e-mail, cada conta elegível recebe uma única Campanha de Textos demonstrativa,
+                sem necessidade de cartão. O benefício corresponde a 25 Smart Tokens e pode ser usado somente
+                na Campanha de Textos padrão, que atualmente consome 25 Smart Tokens.
               </p>
-              <p className="mt-2">No plano demonstrativo, podem ficar bloqueados:</p>
+              <p className="mt-2">Enquanto a conta possuir apenas o benefício demonstrativo, ficam bloqueados:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>vídeos premium, narrados ou cinematográficos;</li>
-                <li>banners premium;</li>
-                <li>catálogo completo;</li>
-                <li>campanhas avançadas;</li>
-                <li>downloads ou usos comerciais não liberados pela oferta demonstrativa.</li>
+                <li>vídeos e apresentações;</li>
+                <li>banners e imagens geradas por IA;</li>
+                <li>Virtual Staging, Studio IA, Smart Carrossel e demais produtos fora da Campanha de Textos padrão.</li>
               </ul>
               <p className="mt-2">
-                Após utilizar a campanha demonstrativa, novas gerações, recursos premium ou downloads podem exigir
-                contratação de plano pago ou compra de créditos, conforme as regras comerciais vigentes.
+                A campanha entregue pode ser copiada, baixada e utilizada normalmente, sob responsabilidade do
+                usuário e conforme estes Termos. Após a primeira assinatura ou recarga confirmada, eventual saldo
+                demonstrativo não utilizado permanece como bônus comum da conta. O benefício não expira, não é
+                concedido novamente em novos acessos e não pode ser transferido entre contas.
               </p>
             </section>
 
@@ -92,9 +93,9 @@ export default function TermosDeUso() {
               <h2 className="text-lg font-bold text-gray-800 mb-2">5. Planos, Créditos e Recargas</h2>
               <p>A Plataforma trabalha com créditos de marketing. Os planos comerciais atuais são:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li><strong>START:</strong> 1.000 créditos por ciclo;</li>
-                <li><strong>PRO:</strong> 2.500 créditos por ciclo;</li>
-                <li><strong>ELITE:</strong> 6.000 créditos por ciclo.</li>
+                <li><strong>START:</strong> 6.350 Smart Tokens por ciclo;</li>
+                <li><strong>PRO:</strong> 10.850 Smart Tokens por ciclo;</li>
+                <li><strong>ELITE:</strong> 26.350 Smart Tokens por ciclo.</li>
               </ul>
               <p className="mt-2">Também podem ser oferecidas recargas avulsas:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
@@ -102,9 +103,9 @@ export default function TermosDeUso() {
                 <li>4.000 Smart Tokens — R$ 97,90.</li>
               </ul>
               <p className="mt-2">
-                Textos gerados por IA podem ser gratuitos. Banners normalmente consomem menos créditos, enquanto
-                vídeos e recursos premium consomem mais créditos. A quantidade debitada pode variar conforme os
-                formatos escolhidos, pacote, campanha, custo operacional e regras comerciais vigentes.
+                Cada produto informa a quantidade de Smart Tokens necessária antes da criação. A oferta gratuita
+                descrita na seção 4 é específica da Campanha de Textos; os demais produtos seguem o saldo de
+                assinatura, recarga ou bônus disponível e as regras comerciais vigentes.
               </p>
               <p className="mt-2">
                 Créditos não possuem valor monetário fora da Plataforma, não são moeda, não são transferíveis entre

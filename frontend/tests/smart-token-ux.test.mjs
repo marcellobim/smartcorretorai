@@ -33,14 +33,14 @@ test('reuses profiles saldo_creditos and reloadProfile without a parallel balanc
 })
 
 test('shows an integer ST balance in Sidebar with no percentage or BRL equivalent', () => {
-  assert.match(sidebar, /getSmartTokenBalance\(user\)/)
+  assert.match(sidebar, /getSmartTokenBalance\(\{ saldo_creditos: profile\?\.saldo_creditos \}\)/)
   assert.match(sidebar, /formatSmartTokens\(balance\).*ST/s)
   assert.doesNotMatch(sidebar, /%|porcentagem|R\$/)
 })
 
-test('hides both balance and creation estimate during trial', () => {
+test('uses one combined wallet while retaining the legacy trial display guard', () => {
   assert.match(economy, /trial_ends_at/)
-  assert.match(sidebar, /!trial && balance !== null/)
+  assert.match(sidebar, /showBalance = balance !== null && \(!trial \|\| balance > 0\)/)
   assert.match(estimate, /if \(trial\) return null/)
 })
 
@@ -50,6 +50,12 @@ test('renders a compact insufficient-balance warning and existing recharge route
   assert.match(estimate, /to="\/planos"/)
   assert.match(economy, /INSUFFICIENT_SMART_TOKENS/)
   assert.doesNotMatch(estimate, /required_tokens|available_tokens|JSON/)
+})
+
+test('turns the server trial allowlist rejection into a clear commercial next step', () => {
+  assert.match(economy, /TRIAL_PRODUCT_NOT_ALLOWED/)
+  assert.match(economy, /Seu teste grátis inclui uma Campanha de Textos/)
+  assert.match(economy, /adicione Smart Tokens em Planos/)
 })
 
 test('quotes Textos 25, Carrossel 100, Veo 120 and Gemini 325 at the final CTA', () => {

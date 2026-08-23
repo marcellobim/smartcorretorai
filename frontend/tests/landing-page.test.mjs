@@ -24,7 +24,7 @@ test('preserves SEO, the approved Hero and removes every visual overlay', () => 
   assert.match(heroSource, /Crie vídeos, imagens e campanhas para/)
   assert.match(heroSource, /vender, alugar e captar\./)
   assert.match(heroSource, /HERO_PRODUCT_SLIDES\.map/)
-  assert.doesNotMatch(heroSource, /BeforeAfter|accentBanner|HERO_BANNERS|Campanha de Textos/)
+  assert.doesNotMatch(heroSource, /BeforeAfter|accentBanner|HERO_BANNERS/)
 })
 
 test('rotates the approved Hero products automatically with synchronized media', () => {
@@ -205,7 +205,8 @@ test('preserves the approved FAQ and adds transparent review guidance', () => {
 })
 
 test('contains no unsupported offer, price, payment, timing or result claims', () => {
-  for (const forbidden of ['SMART15', '24 horas', 'Pix', 'Boleto', 'cartão', 'Apple Pay', 'Google Pay', 'venda garantida', 'mais vendas', 'mais clientes', 'mais leads', 'fechamento garantido']) assert.doesNotMatch(landing, new RegExp(forbidden, 'i'), forbidden)
+  for (const forbidden of ['SMART15', '24 horas', 'Pix', 'Boleto', 'Apple Pay', 'Google Pay', 'venda garantida', 'mais vendas', 'mais clientes', 'mais leads', 'fechamento garantido']) assert.doesNotMatch(landing, new RegExp(forbidden, 'i'), forbidden)
+  assert.match(landing, /Campanha de Textos demonstrativa[^.]*Sem cartão/i)
   assert.doesNotMatch(landing, /R\$|6\.350|10\.850|26\.350/)
 })
 

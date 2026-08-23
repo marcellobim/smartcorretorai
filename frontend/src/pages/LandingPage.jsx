@@ -254,7 +254,7 @@ const FAQ_ITEMS = [
   ['O que são Smart Tokens?', 'Smart Tokens representam sua capacidade de criação dentro do SmartCorretorAI. Cada recurso informa a quantidade necessária antes de iniciar.'],
   ['Preciso ter assinatura?', 'Não. Os planos são indicados para quem cria com frequência, mas também é possível adquirir Smart Tokens separadamente.'],
   ['Posso comprar Smart Tokens separadamente?', 'Sim. As recargas podem ser usadas para começar sem assinatura ou complementar um plano.'],
-  ['Como funciona o teste grátis?', 'Você pode experimentar gratuitamente por tempo limitado. As condições e a capacidade disponíveis aparecem na sua conta.'],
+  ['Como funciona o teste grátis?', 'Após confirmar seu e-mail, você recebe uma única Campanha de Textos demonstrativa, sem cartão. Os demais produtos exigem Smart Tokens de assinatura ou recarga.'],
   ['O que acontece se uma geração falhar?', 'Quando uma geração falha e não conclui a entrega correspondente, a reserva de Smart Tokens é liberada conforme o fluxo do produto.'],
   ['Posso cancelar minha assinatura?', 'Sim. O cancelamento pode ser solicitado pelo portal seguro de assinatura e ocorre ao final do período já pago.'],
   ['Como gerencio minha assinatura?', 'Acesse Configurações → Plano e Assinatura e selecione “Gerenciar assinatura” para abrir o portal seguro da Stripe.'],
@@ -380,7 +380,7 @@ function Hero() {
             <Link to="/cadastro" className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link>
             <a href="#formas-de-criar" className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />Ver tudo o que posso criar</a>
           </div>
-          <p className="mt-5 text-xs font-bold text-slate-400">Experimente grátis por tempo limitado.</p>
+          <p className="mt-5 text-xs font-bold text-slate-400">1 Campanha de Textos demonstrativa após confirmar seu e-mail. Sem cartão.</p>
         </div>
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
           <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#0b1022] shadow-[0_50px_100px_-35px_rgba(76,29,149,.8)]">
@@ -580,7 +580,7 @@ function BenefitsSection() {
 
 function TokensSection() {
   const facts = [
-    ['Teste grátis', 'Experimente antes de decidir. Conheça o SmartCorretorAI e veja o que você consegue criar.'],
+    ['Teste grátis', 'Confirme seu e-mail e crie uma Campanha de Textos demonstrativa, sem cartão.'],
     ['Sem precisar assinar', 'Crie também sem plano mensal. Quando precisar, adicione Smart Tokens e continue criando.'],
     ['Tudo em um só lugar', 'Menos ferramentas para aprender e administrar. Vídeos, imagens e campanhas reunidos no mesmo ambiente.'],
   ]
@@ -597,7 +597,7 @@ function FaqSection() {
 }
 
 function FinalCta() {
-  return <section className="bg-[#050816] px-4 py-20 text-white sm:px-6 sm:py-28"><div className="mx-auto max-w-[92rem] rounded-[2rem] border border-white/10 bg-gradient-to-br from-violet-700/25 to-white/[.03] px-6 py-14 text-center sm:px-10 sm:py-20"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">Comece agora</p><h2 className="mx-auto mt-5 max-w-5xl text-4xl font-black leading-[1.03] tracking-[-.055em] sm:text-6xl">Divulgue mais. Divulgue diferente.</h2><p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300">Venda, locação, lançamento ou captação. Crie novas formas de apresentar suas oportunidades com o SmartCorretorAI.</p><Link to="/cadastro" className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link><p className="mt-4 text-xs font-bold text-slate-400">Experimente grátis por tempo limitado.</p></div></section>
+  return <section className="bg-[#050816] px-4 py-20 text-white sm:px-6 sm:py-28"><div className="mx-auto max-w-[92rem] rounded-[2rem] border border-white/10 bg-gradient-to-br from-violet-700/25 to-white/[.03] px-6 py-14 text-center sm:px-10 sm:py-20"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">Comece agora</p><h2 className="mx-auto mt-5 max-w-5xl text-4xl font-black leading-[1.03] tracking-[-.055em] sm:text-6xl">Divulgue mais. Divulgue diferente.</h2><p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300">Venda, locação, lançamento ou captação. Crie novas formas de apresentar suas oportunidades com o SmartCorretorAI.</p><Link to="/cadastro" className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link><p className="mt-4 text-xs font-bold text-slate-400">1 Campanha de Textos demonstrativa após confirmar seu e-mail. Sem cartão.</p></div></section>
 }
 
 function LandingFooter() {

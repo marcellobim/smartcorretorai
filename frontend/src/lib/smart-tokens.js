@@ -42,6 +42,9 @@ export function formatSmartTokens(value) {
 export function getSmartTokenErrorMessage(error, fallback = 'Não foi possível concluir esta criação.') {
   const code = String(error?.code || error?.context?.code || '').toUpperCase()
   const message = String(error?.message || error || '').trim()
+  if (code === 'TRIAL_PRODUCT_NOT_ALLOWED' || /TRIAL_PRODUCT_NOT_ALLOWED/i.test(message)) {
+    return 'Seu teste grátis inclui uma Campanha de Textos. Para usar este produto, adicione Smart Tokens em Planos.'
+  }
   if (code === 'INSUFFICIENT_SMART_TOKENS' || /INSUFFICIENT_SMART_TOKENS|Smart Tokens.{0,20}insuficient|saldo.{0,30}insuficient/i.test(message)) {
     return 'Você precisa de mais Smart Tokens para esta criação.'
   }
