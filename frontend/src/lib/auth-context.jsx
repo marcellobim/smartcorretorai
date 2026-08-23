@@ -284,15 +284,21 @@ export function AuthProvider({ children }) {
   }, [authUser?.id, authUser?.email, session?.access_token, profile, loadProfile])
 
   // ─── Ações de auth ───────────────────────────────────────────────────────
-  const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const signIn = async (email, password, captchaToken) => {
+    if (!captchaToken) throw new Error('captcha_required')
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    })
     if (error) throw error
     return data
   }
 
-  const signUp = async (email, password, metadata = {}) => {
+  const signUp = async (email, password, metadata = {}, captchaToken) => {
+    if (!captchaToken) throw new Error('captcha_required')
     const { data, error } = await supabase.auth.signUp({
-      email, password, options: { data: metadata },
+      email, password, options: { data: metadata, captchaToken },
     })
     if (error) throw error
     return data

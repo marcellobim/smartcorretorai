@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, Mail } from 'lucide-react'
@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import BrandMark from '../components/brand/BrandMark'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import TurnstileWidget from '../components/auth/TurnstileWidget'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -15,15 +16,22 @@ export default function LoginPage() {
   const [resendingEmail, setResendingEmail] = useState(false)
   const [userEmail, setUserEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaRef = useRef(null)
+  const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signIn } = useAuth()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
+    if (!captchaToken) {
+      toast.error('Conclua a verificação de segurança para continuar.')
+      return
+    }
     setLoading(true)
     try {
       setUserEmail(data.email)
-      await signIn(data.email, data.senha)
+      await signIn(data.email, data.senha, captchaToken)
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
     } catch (err) {
@@ -36,6 +44,7 @@ export default function LoginPage() {
         toast.error('Não foi possível entrar. Tente novamente mais tarde.')
       }
     } finally {
+      captchaRef.current?.reset()
       setLoading(false)
     }
   }
@@ -45,15 +54,24 @@ export default function LoginPage() {
       toast.error('Por favor, insira seu e-mail primeiro')
       return
     }
+    if (!captchaToken) {
+      toast.error('Conclua uma nova verificação de segurança para continuar.')
+      return
+    }
     setResendingEmail(true)
     try {
-      const { error } = await supabase.auth.resend({ type: 'signup', email: userEmail })
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: userEmail,
+        options: { captchaToken },
+      })
       if (error) throw error
       toast.success('E-mail de confirmação reenviado! Verifique sua caixa de entrada.')
       setShowResendButton(false)
     } catch {
       toast.success('Se houver um cadastro pendente para este e-mail, enviaremos novas instruções.')
     } finally {
+      captchaRef.current?.reset()
       setResendingEmail(false)
     }
   }
@@ -133,7 +151,9 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button type="submit" loading={loading} className="w-full mt-2">
+            <TurnstileWidget ref={captchaRef} onTokenChange={handleCaptchaToken} />
+
+            <Button type="submit" loading={loading} disabled={!captchaToken} className="w-full mt-2">
               Entrar
             </Button>
 
@@ -152,6 +172,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={handleResendConfirmation}
                       loading={resendingEmail}
+                      disabled={!captchaToken}
                       variant="outline"
                       className="w-full text-sm"
                     >

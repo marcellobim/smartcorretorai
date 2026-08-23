@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
@@ -19,6 +19,7 @@ import { Input, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+import TurnstileWidget from '../components/auth/TurnstileWidget'
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -191,6 +192,9 @@ export default function Configuracoes() {
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
   const [openingPortal, setOpeningPortal] = useState(false)
+  const [passwordCaptchaToken, setPasswordCaptchaToken] = useState('')
+  const passwordCaptchaRef = useRef(null)
+  const handlePasswordCaptchaToken = useCallback(token => setPasswordCaptchaToken(token), [])
 
   const {
     register: regPerfil,
@@ -340,13 +344,19 @@ export default function Configuracoes() {
       toast.error('As senhas não conferem.')
       return
     }
+    if (!passwordCaptchaToken) {
+      setPasswordError('root', { type: 'captcha', message: 'Conclua a verificação de segurança para continuar.' })
+      return
+    }
     try {
       const accessEmailValue = session?.user?.email
       if (!accessEmailValue) throw new Error('Sessão inválida. Entre novamente.')
       const { error: reauthError } = await supabase.auth.signInWithPassword({
         email: accessEmailValue,
         password: data.senha_atual,
+        options: { captchaToken: passwordCaptchaToken },
       })
+      passwordCaptchaRef.current?.reset()
       if (reauthError) {
         setPasswordError('senha_atual', { type: 'auth', message: 'Senha atual incorreta.' })
         toast.error('Não foi possível confirmar sua identidade.')
@@ -365,6 +375,8 @@ export default function Configuracoes() {
         : 'Não foi possível alterar a senha com segurança. Tente novamente.'
       setPasswordError('root', { type: 'auth', message })
       toast.error(message)
+    } finally {
+      passwordCaptchaRef.current?.reset()
     }
   }
 
@@ -558,7 +570,8 @@ export default function Configuracoes() {
                       {passwordErrors.root.message}
                     </p>
                   )}
-                  <Button type="submit" loading={savingSenha}>Alterar senha</Button>
+                  <TurnstileWidget ref={passwordCaptchaRef} onTokenChange={handlePasswordCaptchaToken} />
+                  <Button type="submit" loading={savingSenha} disabled={!passwordCaptchaToken}>Alterar senha</Button>
                 </form>
               </section>
             )}

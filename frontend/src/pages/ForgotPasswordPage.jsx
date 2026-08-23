@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Mail } from 'lucide-react'
@@ -6,18 +6,35 @@ import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { supabase } from '../lib/supabase'
+import toast from 'react-hot-toast'
+import TurnstileWidget from '../components/auth/TurnstileWidget'
 
 const GENERIC_MESSAGE = 'Se existir uma conta para este e-mail, enviaremos as instruções de recuperação.'
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaRef = useRef(null)
+  const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm()
 
   const onSubmit = async ({ email }) => {
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    }).catch(() => null)
-    setSent(true)
+    if (!captchaToken) {
+      toast.error('Conclua a verificação de segurança para continuar.')
+      return
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+        captchaToken,
+      })
+      if (error) throw error
+      setSent(true)
+    } catch {
+      toast.error('Não foi possível concluir a verificação. Tente novamente.')
+    } finally {
+      captchaRef.current?.reset()
+    }
   }
 
   return (
@@ -33,7 +50,8 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <Input label="E-mail" type="email" autoComplete="email" error={errors.email?.message} {...register('email', { required: 'Informe seu e-mail.', pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Informe um e-mail válido.' } })} />
-            <Button type="submit" loading={isSubmitting} className="w-full">Enviar instruções</Button>
+            <TurnstileWidget ref={captchaRef} onTokenChange={handleCaptchaToken} />
+            <Button type="submit" loading={isSubmitting} disabled={!captchaToken} className="w-full">Enviar instruções</Button>
           </form>
         )}
         <Link to="/login" className="mt-6 inline-block text-sm font-bold text-primary-700 hover:underline">Voltar para o login</Link>

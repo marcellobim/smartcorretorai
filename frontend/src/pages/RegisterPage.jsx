@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff } from 'lucide-react'
@@ -7,15 +7,23 @@ import { useAuth } from '../lib/auth-context'
 import { Input, Select } from '../components/ui/Input'
 import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
+import TurnstileWidget from '../components/auth/TurnstileWidget'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaRef = useRef(null)
+  const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signUp } = useAuth()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
+    if (!captchaToken) {
+      toast.error('Conclua a verificação de segurança para continuar.')
+      return
+    }
     setLoading(true)
     try {
       await signUp(data.email, data.senha, {
@@ -23,12 +31,13 @@ export default function RegisterPage() {
         telefone: data.telefone,
         creci: data.creci,
         estado: data.estado,
-      })
+      }, captchaToken)
       toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
     } catch {
       toast.error('Não foi possível concluir o cadastro. Verifique os dados ou tente novamente mais tarde.')
     } finally {
+      captchaRef.current?.reset()
       setLoading(false)
     }
   }
@@ -134,7 +143,9 @@ export default function RegisterPage() {
           </div>
           {errors.termos && <p className="text-xs text-red-500">{errors.termos.message}</p>}
 
-          <Button type="submit" loading={loading} className="w-full mt-2">
+          <TurnstileWidget ref={captchaRef} onTokenChange={handleCaptchaToken} />
+
+          <Button type="submit" loading={loading} disabled={!captchaToken} className="w-full mt-2">
             Criar conta grátis
           </Button>
         </form>
