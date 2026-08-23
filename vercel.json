@@ -4,6 +4,37 @@
   "installCommand": "npm --prefix frontend ci",
   "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "base-uri 'self'; object-src 'none'; frame-ancestors 'none'"
+        },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://servicodados.ibge.gov.br; media-src 'self' blob: https:; worker-src 'self' blob:; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com; manifest-src 'self'"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
