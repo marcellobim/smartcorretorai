@@ -6,6 +6,8 @@ import HomeFrankenstein from './pages/HomeFrankenstein'
 import HomeOpusExperiment from './pages/HomeOpusExperiment'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import Dashboard from './pages/Dashboard'
 import HeroNext from './pages/HeroNext'
 import TransformarVideo from './pages/TransformarVideo'
@@ -21,6 +23,7 @@ import Planos from './pages/Planos'
 import TermosDeUso from './pages/TermosDeUso'
 import Privacidade from './pages/Privacidade'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminMfaGate from './components/auth/AdminMfaGate'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuthStore()
@@ -33,7 +36,7 @@ function AdminRoute({ children }) {
   if (loading) return <RouteLoader />
   if (!user) return <Navigate to="/login" replace />
   if (!isAdmin) return <Navigate to="/dashboard" replace />
-  return children
+  return <AdminMfaGate>{children}</AdminMfaGate>
 }
 
 function PublicRoute({ children }) {
@@ -70,6 +73,11 @@ export default function App() {
         path="/cadastro"
         element={<PublicRoute><RegisterPage /></PublicRoute>}
       />
+      <Route
+        path="/esqueci-senha"
+        element={<PublicRoute><ForgotPasswordPage /></PublicRoute>}
+      />
+      <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route
         path="/admin"
         element={<AdminRoute><AdminDashboard /></AdminRoute>}

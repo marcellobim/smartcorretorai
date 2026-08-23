@@ -3,7 +3,9 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import {
   AdminAuthorizationError,
+  AdminMfaRequiredError,
   isAuthorizedAdmin,
+  requireAdminAal2,
   requireAuthorizedAdmin,
 } from '../admin-authorization.ts'
 
@@ -65,15 +67,32 @@ test('requireAuthorizedAdmin rejects non-admin callers with a safe 403 error', a
   )
 })
 
+test('admin MFA gate accepts only a validated AAL2 access token', async () => {
+  const mfaClient = (currentLevel: string | null, error: { message: string } | null = null) => ({
+    auth: { mfa: { getAuthenticatorAssuranceLevel: async (jwt: string) => ({
+      data: { currentLevel, nextLevel: currentLevel }, error, jwt,
+    }) } },
+  })
+  await requireAdminAal2(mfaClient('aal2'), 'valid-token')
+  await assert.rejects(
+    requireAdminAal2(mfaClient('aal1'), 'valid-token'),
+    (error: unknown) => error instanceof AdminMfaRequiredError && error.status === 403,
+  )
+  await assert.rejects(requireAdminAal2(mfaClient(null, { message: 'invalid' }), 'invalid-token'), AdminMfaRequiredError)
+  await assert.rejects(requireAdminAal2(mfaClient('aal2'), ''), AdminMfaRequiredError)
+})
+
 test('testimonial bonus action remains behind the mandatory admin gate', () => {
   const source = readFileSync(new URL('../../admin-api/index.ts', import.meta.url), 'utf8')
   const gate = source.indexOf('await requireAuthorizedAdmin(supabase, user.id)')
+  const mfaGate = source.indexOf('await requireAdminAal2(supabase, token)')
   assert.ok(gate >= 0)
+  assert.ok(mfaGate > gate)
   for (const action of [
     'list_testimonials', 'get_testimonial', 'approve_testimonial',
     'approve_testimonial_and_grant_bonus', 'reject_testimonial', 'publish_testimonial',
   ]) {
-    assert.ok(source.indexOf(`action === '${action}'`) > gate)
+    assert.ok(source.indexOf(`action === '${action}'`) > mfaGate)
   }
   assert.match(source, /\.eq\('publication_consent', true\)/)
   assert.match(source, /\.eq\('status', 'approved'\)/)

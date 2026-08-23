@@ -33,7 +33,7 @@ export default function LoginPage() {
       } else if (err.message?.includes('Invalid login credentials')) {
         toast.error('Email ou senha incorretos.')
       } else {
-        toast.error(err.message || 'Erro ao fazer login')
+        toast.error('Não foi possível entrar. Tente novamente mais tarde.')
       }
     } finally {
       setLoading(false)
@@ -51,8 +51,8 @@ export default function LoginPage() {
       if (error) throw error
       toast.success('E-mail de confirmação reenviado! Verifique sua caixa de entrada.')
       setShowResendButton(false)
-    } catch (err) {
-      toast.error(err.message || 'Erro ao reenviar e-mail de confirmação')
+    } catch {
+      toast.success('Se houver um cadastro pendente para este e-mail, enviaremos novas instruções.')
     } finally {
       setResendingEmail(false)
     }

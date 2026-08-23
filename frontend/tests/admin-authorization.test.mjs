@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = relative => readFileSync(new URL(relative, import.meta.url), 'utf8')
 const auth = read('../src/lib/auth-context.jsx')
 const app = read('../src/App.jsx')
+const mfaGate = read('../src/components/auth/AdminMfaGate.jsx')
 const sidebar = read('../src/components/layout/Sidebar.jsx')
 const dashboard = read('../src/pages/AdminDashboard.jsx')
 const api = read('../src/lib/admin-api.js')
@@ -22,9 +23,20 @@ test('frontend Admin state comes only from the protected self-status RPC', () =>
 test('AdminRoute and Sidebar use trusted presentation state', () => {
   assert.match(app, /const \{ user, loading, isAdmin \} = useAuthStore\(\)/)
   assert.match(app, /if \(!isAdmin\) return <Navigate to="\/dashboard" replace \/>/)
+  assert.match(app, /<AdminMfaGate>\{children\}<\/AdminMfaGate>/)
   assert.match(sidebar, /const \{ user, profile, logout, isAdmin \} = useAuth\(\)/)
   assert.match(sidebar, /\{isAdmin && \(/)
   assert.doesNotMatch(`${app}\n${sidebar}`, /user\?*\.role/)
+})
+
+test('Admin route requires a real TOTP challenge and AAL2', () => {
+  assert.match(mfaGate, /mfa\.getAuthenticatorAssuranceLevel\(\)/)
+  assert.match(mfaGate, /mfa\.listFactors\(\)/)
+  assert.match(mfaGate, /mfa\.enroll\(\{[\s\S]*factorType: 'totp'/)
+  assert.match(mfaGate, /mfa\.challenge\(\{ factorId: factor\.id \}\)/)
+  assert.match(mfaGate, /mfa\.verify\(\{/)
+  assert.match(mfaGate, /currentLevel !== 'aal2'/)
+  assert.doesNotMatch(mfaGate, /user_metadata|localStorage|role\s*===\s*['"]admin/)
 })
 
 test('Admin dashboard uses only the protected paginated backend', () => {

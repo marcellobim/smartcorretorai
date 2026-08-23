@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   AlertCircle,
@@ -185,6 +185,7 @@ function FieldNotice({ children }) {
 
 export default function Configuracoes() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(() => resolveSettingsTab(searchParams.get('tab')))
   const { user, session, updateUser } = useAuth()
   const [avatarFile, setAvatarFile] = useState(undefined)
@@ -340,12 +341,28 @@ export default function Configuracoes() {
       return
     }
     try {
+      const accessEmailValue = session?.user?.email
+      if (!accessEmailValue) throw new Error('Sessão inválida. Entre novamente.')
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: accessEmailValue,
+        password: data.senha_atual,
+      })
+      if (reauthError) {
+        setPasswordError('senha_atual', { type: 'auth', message: 'Senha atual incorreta.' })
+        toast.error('Não foi possível confirmar sua identidade.')
+        return
+      }
       const { error } = await supabase.auth.updateUser({ password: data.nova_senha })
       if (error) throw error
-      toast.success('Senha alterada.')
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
+      if (signOutError) throw new Error('Senha alterada, mas não foi possível encerrar todas as sessões. Contate o suporte.')
+      toast.success('Senha alterada. Entre novamente em todos os dispositivos.')
       resetSenha()
+      navigate('/login', { replace: true })
     } catch (err) {
-      const message = err.message || 'Não foi possível alterar a senha.'
+      const message = err.message?.startsWith('Senha alterada,')
+        ? err.message
+        : 'Não foi possível alterar a senha com segurança. Tente novamente.'
       setPasswordError('root', { type: 'auth', message })
       toast.error(message)
     }
@@ -514,12 +531,19 @@ export default function Configuracoes() {
                     hint="Este e-mail identifica sua conta e não pode ser alterado nesta tela."
                   />
                   <Input
+                    label="Senha atual"
+                    type="password"
+                    autoComplete="current-password"
+                    error={passwordErrors.senha_atual?.message}
+                    {...regSenha('senha_atual', { required: 'Informe sua senha atual.' })}
+                  />
+                  <Input
                     label="Nova senha"
                     type="password"
                     autoComplete="new-password"
-                    placeholder="Mínimo 8 caracteres"
+                    placeholder="Mínimo 12 caracteres"
                     error={passwordErrors.nova_senha?.message}
-                    {...regSenha('nova_senha', { required: 'Informe a nova senha.', minLength: { value: 8, message: 'Use pelo menos 8 caracteres.' } })}
+                    {...regSenha('nova_senha', { required: 'Informe a nova senha.', minLength: { value: 12, message: 'Use pelo menos 12 caracteres.' } })}
                   />
                   <Input
                     label="Confirmar nova senha"

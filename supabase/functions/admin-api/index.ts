@@ -2,6 +2,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   AdminAuthorizationError,
+  AdminMfaRequiredError,
+  requireAdminAal2,
   requireAuthorizedAdmin,
 } from '../_shared/admin-authorization.ts'
 import { deliverTestimonialEmail } from '../_shared/testimonial-email.ts'
@@ -623,6 +625,7 @@ serve(async (req) => {
 
     // Mandatory server-side gate before parsing actions or querying administrative data.
     await requireAuthorizedAdmin(supabase, user.id)
+    await requireAdminAal2(supabase, token)
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const action = String(body.action || '')
@@ -641,6 +644,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'Acao administrativa invalida.' }, 400)
   } catch (error) {
     if (error instanceof AdminAuthorizationError) return jsonResponse({ error: error.message }, error.status)
+    if (error instanceof AdminMfaRequiredError) return jsonResponse({ error: error.message }, error.status)
     if (error instanceof AdminInputError) return jsonResponse({ error: error.message }, 400)
     console.error('admin-api failure', error instanceof Error ? error.message : 'unknown')
     return jsonResponse({ error: 'Operacao administrativa indisponivel.' }, 500)

@@ -214,6 +214,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
+        if (event === 'PASSWORD_RECOVERY') sessionStorage.setItem('smartcorretor_password_recovery', 'pending')
         // INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED.
         // Pra todos eles tratamos a sessão de forma uniforme — assim o profile
         // é re-checado após token refresh e USER_UPDATED também.
@@ -298,12 +299,14 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
-    // Limpa estado local IMEDIATAMENTE pra UI redirecionar sem esperar rede.
+    const { error } = await supabase.auth.signOut({ scope: 'global' })
+    if (error) throw error
+    const { data, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || data?.session) throw new Error('Nao foi possivel encerrar a sessao com seguranca.')
     setAuthUser(null)
     setSession(null)
     setProfile(null)
     setAdminAuthorized(false)
-    try { await supabase.auth.signOut() } catch { devAuthLog('error', 'sign out failed') }
   }
 
   const reloadProfile = useCallback(async () => {

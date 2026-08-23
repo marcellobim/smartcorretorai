@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
+import toast from 'react-hot-toast'
 import { formatSmartTokens, getSmartTokenBalance, isTrialUser } from '../../lib/smart-tokens'
 import BrandMark from '../brand/BrandMark'
 
@@ -148,9 +149,13 @@ export default function Sidebar({ mobile = false, onClose }) {
     (user?.email ? user.email.split('@')[0] : null) ||
     'Usuário'
 
-  const handleLogout = () => {
-    onClose?.()
-    logout()
+  const handleLogout = async () => {
+    try {
+      await logout()
+      onClose?.()
+    } catch {
+      toast.error('Não foi possível encerrar sua sessão. Tente novamente.')
+    }
   }
 
   return (

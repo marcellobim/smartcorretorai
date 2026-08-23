@@ -26,12 +26,8 @@ export default function RegisterPage() {
       })
       toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
-    } catch (err) {
-      if (err.message?.includes('User already registered')) {
-        toast.error('Este email já está cadastrado.')
-      } else {
-        toast.error(err.message || 'Erro ao criar conta')
-      }
+    } catch {
+      toast.error('Não foi possível concluir o cadastro. Verifique os dados ou tente novamente mais tarde.')
     } finally {
       setLoading(false)
     }
@@ -106,11 +102,11 @@ export default function RegisterPage() {
             <Input
               label="Senha"
               type={showPassword ? 'text' : 'password'}
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Mínimo 12 caracteres"
               error={errors.senha?.message}
               {...register('senha', {
                 required: 'Senha obrigatória',
-                minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+                minLength: { value: 12, message: 'Mínimo 12 caracteres' },
               })}
             />
             <button

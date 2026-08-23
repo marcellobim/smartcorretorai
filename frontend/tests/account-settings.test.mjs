@@ -43,17 +43,20 @@ test('saves only real profile columns used by Cadastro', () => {
   assert.match(updatePayload, /whatsapp: formatBrazilianPhone\(data\.whatsapp \|\| user\?\.telefone \|\| ''\)/)
 })
 
-test('shows the real access email and only the new-password fields', () => {
+test('shows the real access email and requires current password before changing it', () => {
   assert.match(settings, /accessEmail = session\?\.user\?\.email/)
   assert.match(settings, /label="E-mail de acesso\/login"[\s\S]*readOnly/)
   assert.match(settings, /label="Nova senha"/)
   assert.match(settings, /label="Confirmar nova senha"/)
-  assert.doesNotMatch(settings, /label="Senha atual"|regSenha\('senha_atual'/)
+  assert.match(settings, /label="Senha atual"/)
+  assert.match(settings, /regSenha\('senha_atual'/)
+  assert.match(settings, /signInWithPassword\(\{[\s\S]*password: data\.senha_atual/)
+  assert.match(settings, /signOut\(\{ scope: 'global' \}\)/)
 })
 
 test('renders password validation and Auth errors visibly', () => {
   assert.match(settings, /setPasswordError\('confirmar_senha'[\s\S]*As senhas não conferem/)
-  assert.match(settings, /minLength: \{ value: 8, message: 'Use pelo menos 8 caracteres\.'/)
+  assert.match(settings, /minLength: \{ value: 12, message: 'Use pelo menos 12 caracteres\.'/)
   assert.match(settings, /setPasswordError\('root', \{ type: 'auth', message \}\)/)
   assert.match(settings, /role="alert"[\s\S]*passwordErrors\.root\.message/)
 })
