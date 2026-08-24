@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
+import { stripProviderTokens } from './auth-storage'
 
 const AuthContext = createContext(null)
 
@@ -81,11 +82,28 @@ async function fetchAdminStatusDirect(accessToken) {
   return (await res.json()) === true
 }
 
+async function fetchAuthOnboardingStateDirect(accessToken) {
+  if (!accessToken) return 'not_authenticated'
+  const res = await fetch(`${supabase.supabaseUrl}/rest/v1/rpc/get_auth_onboarding_state`, {
+    method: 'POST',
+    headers: {
+      apikey: supabase.supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  if (!res.ok) throw new Error('auth_onboarding_unavailable')
+  const state = await res.json()
+  return typeof state === 'string' ? state : 'error'
+}
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [adminAuthorized, setAdminAuthorized] = useState(false)
+  const [onboardingState, setOnboardingState] = useState('checking')
   const [loading, setLoading] = useState(true)
   const initialResolvedRef = useRef(false)
   const profileInFlightRef = useRef(false)
@@ -190,20 +208,27 @@ export function AuthProvider({ children }) {
     const resolveSession = async (newSession, source) => {
       if (!mounted) return
       const sessionUser = newSession?.user ?? null
+      const safeSession = stripProviderTokens(newSession)
       devAuthLog('log', `event received; session present: ${!!newSession}`)
-      setSession(newSession ?? null)
+      setSession(safeSession ?? null)
       setAuthUser(sessionUser)
       if (sessionUser) {
+        setOnboardingState('checking')
         // Passa o access_token explicitamente — loadProfile usa direct fetch
         // pra evitar a race do estado interno do postgrest no F5.
-        const [, trustedAdminStatus] = await Promise.all([
+        const [, trustedAdminStatus, trustedOnboardingState] = await Promise.all([
           loadProfile(sessionUser.id, sessionUser.email, newSession?.access_token),
           fetchAdminStatusDirect(newSession?.access_token).catch(() => false),
+          fetchAuthOnboardingStateDirect(newSession?.access_token).catch(() => 'error'),
         ])
-        if (mounted) setAdminAuthorized(trustedAdminStatus)
+        if (mounted) {
+          setAdminAuthorized(trustedAdminStatus)
+          setOnboardingState(trustedOnboardingState)
+        }
       } else {
         setProfile(null)
         setAdminAuthorized(false)
+        setOnboardingState('not_authenticated')
       }
       if (mounted && !initialResolvedRef.current) {
         initialResolvedRef.current = true
@@ -298,10 +323,49 @@ export function AuthProvider({ children }) {
   const signUp = async (email, password, metadata = {}, captchaToken) => {
     if (!captchaToken) throw new Error('captcha_required')
     const { data, error } = await supabase.auth.signUp({
-      email, password, options: { data: metadata, captchaToken },
+      email,
+      password,
+      options: {
+        data: metadata,
+        captchaToken,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     })
     if (error) throw error
     return data
+  }
+
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'openid email profile',
+      },
+    })
+    if (error) throw error
+  }
+
+  const refreshOnboardingState = useCallback(async (token = session?.access_token) => {
+    if (!token) {
+      setOnboardingState('not_authenticated')
+      return 'not_authenticated'
+    }
+    setOnboardingState('checking')
+    try {
+      const nextState = await fetchAuthOnboardingStateDirect(token)
+      setOnboardingState(nextState)
+      return nextState
+    } catch {
+      setOnboardingState('error')
+      return 'error'
+    }
+  }, [session?.access_token])
+
+  const acceptOAuthLegal = async () => {
+    const { data, error } = await supabase.rpc('accept_current_legal_documents')
+    if (error || data !== true) throw new Error('legal_acceptance_failed')
+    await refreshOnboardingState()
   }
 
   const signOut = async () => {
@@ -313,6 +377,7 @@ export function AuthProvider({ children }) {
     setSession(null)
     setProfile(null)
     setAdminAuthorized(false)
+    setOnboardingState('not_authenticated')
   }
 
   const reloadProfile = useCallback(async () => {
@@ -356,6 +421,7 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     logout: signOut,
     reloadProfile,
@@ -363,6 +429,9 @@ export function AuthProvider({ children }) {
     isPro,
     isAdmin,
     isUnlimitedTestAdmin,
+    onboardingState,
+    refreshOnboardingState,
+    acceptOAuthLegal,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -21,7 +21,7 @@ test('frontend Admin state comes only from the protected self-status RPC', () =>
 })
 
 test('AdminRoute and Sidebar use trusted presentation state', () => {
-  assert.match(app, /const \{ user, loading, isAdmin \} = useAuthStore\(\)/)
+  assert.match(app, /const \{ user, loading, isAdmin, onboardingState \} = useAuthStore\(\)/)
   assert.match(app, /if \(!isAdmin\) return <Navigate to="\/dashboard" replace \/>/)
   assert.match(app, /<AdminMfaGate>\{children\}<\/AdminMfaGate>/)
   assert.match(sidebar, /const \{ user, profile, logout, isAdmin \} = useAuth\(\)/)

@@ -40,6 +40,7 @@ export default function Privacidade() {
               <p>Podemos coletar os seguintes dados:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li><strong>Dados de cadastro:</strong> nome, e-mail, telefone, WhatsApp, CRECI, estado e dados de login;</li>
+                <li><strong>Autenticação com Google, quando escolhida:</strong> identificador da conta, e-mail e seu estado de verificação, nome e foto de perfil quando disponibilizados pelo Google;</li>
                 <li><strong>Dados de perfil profissional:</strong> nome profissional, telefone, WhatsApp, CRECI, estado, empresa, logotipo, foto e preferências de marca;</li>
                 <li><strong>Dados de imóveis:</strong> tipo, finalidade, preço, endereço, bairro, cidade, características, diferenciais e descrição;</li>
                 <li><strong>Fotos e arquivos:</strong> imagens do imóvel, fachada, áreas internas, lazer, planta, bairro e materiais enviados pelo usuário;</li>
@@ -117,6 +118,7 @@ export default function Privacidade() {
               <p>Não vendemos seus dados pessoais. Podemos compartilhar dados apenas quando necessário com:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li><strong>Supabase:</strong> autenticação, banco de dados, armazenamento e infraestrutura;</li>
+                <li><strong>Google OAuth:</strong> autenticação opcional da conta, sem acesso a Gmail, Drive, contatos ou Calendar;</li>
                 <li><strong>Stripe ou gateways de pagamento:</strong> processamento de pagamentos, assinaturas e recargas;</li>
                 <li><strong>provedores de inteligência artificial:</strong> geração de textos, imagens, vídeos e outros materiais solicitados;</li>
                 <li><strong>provedores de renderização e mídia:</strong> criação de banners, vídeos e arquivos finais;</li>
@@ -169,8 +171,9 @@ export default function Privacidade() {
                 essenciais. A preferência pode ser alterada a qualquer momento pelo controle “Cookies” exibido na
                 Plataforma. Quando autorizados, os cookies próprios do GA4 podem permanecer por até dois anos, conforme a
                 configuração padrão do Google, e são removidos localmente quando a autorização é revogada. Não utilizamos
-                Google Tag Manager, Google Signals, remarketing ou personalização de anúncios nesta implementação, e o
-                login com Google permanece indisponível.
+                Google Tag Manager, Google Signals, remarketing ou personalização de anúncios nesta implementação.
+                O Google OAuth, quando habilitado, é usado somente para autenticação e é distinto do Google Analytics 4
+                e dos provedores de inteligência artificial, como Gemini ou Veo.
               </p>
             </section>
 

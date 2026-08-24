@@ -14,7 +14,7 @@ test('signup keeps checkbox and Turnstile mandatory before sending legal version
   assert.match(register, /if \(!captchaToken\)[\s\S]*return/)
   assert.match(register, /disabled=\{!captchaToken\}/)
   assert.match(auth, /if \(!captchaToken\) throw new Error\('captcha_required'\)/)
-  assert.match(auth, /options: \{ data: metadata, captchaToken \}/)
+  assert.match(auth, /options: \{[\s\S]*data: metadata,[\s\S]*captchaToken,[\s\S]*emailRedirectTo:/)
 })
 
 test('frontend sends the exact published versions without client timestamps or user ids', () => {

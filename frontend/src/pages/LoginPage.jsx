@@ -9,6 +9,7 @@ import BrandMark from '../components/brand/BrandMark'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
+import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
 export default function LoginPage() {
@@ -17,13 +18,24 @@ export default function LoginPage() {
   const [resendingEmail, setResendingEmail] = useState(false)
   const [userEmail, setUserEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
-  const { signIn } = useAuth()
+  const { signIn, signInWithGoogle } = useAuth()
   const { trackEvent } = useAnalytics()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true)
+    try {
+      await signInWithGoogle()
+    } catch {
+      toast.error('Não foi possível entrar com Google. Tente novamente ou entre com e-mail e senha.')
+      setGoogleLoading(false)
+    }
+  }
 
   const onSubmit = async (data) => {
     if (!captchaToken) {
@@ -119,7 +131,16 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
+          <div className="mt-8">
+            <GoogleAuthButton onClick={handleGoogle} loading={googleLoading} />
+            <div className="my-6 flex items-center gap-3" aria-hidden="true">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">ou</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
               label="E-mail"
               type="email"

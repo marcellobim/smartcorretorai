@@ -13,13 +13,26 @@ export default function ResetPasswordPage() {
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm()
 
   useEffect(() => {
+    let active = true
     const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
       if (event === 'PASSWORD_RECOVERY') {
         sessionStorage.setItem('smartcorretor_password_recovery', 'pending')
         setRecoveryReady(true)
       }
     })
-    return () => subscription.unsubscribe()
+
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        window.history.replaceState({}, document.title, '/redefinir-senha')
+        if (error && active) setRecoveryReady(false)
+      })
+    }
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const onSubmit = async data => {

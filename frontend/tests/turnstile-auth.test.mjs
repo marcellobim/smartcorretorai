@@ -39,7 +39,7 @@ test('missing site key fails closed and protected submits require a token', () =
 
 test('password login and signup send captchaToken through the installed Supabase contract', () => {
   assert.match(auth, /signInWithPassword\(\{[\s\S]*options: \{ captchaToken \}/)
-  assert.match(auth, /signUp\(\{[\s\S]*options: \{ data: metadata, captchaToken \}/)
+  assert.match(auth, /signUp\(\{[\s\S]*options: \{[\s\S]*data: metadata,[\s\S]*captchaToken,[\s\S]*emailRedirectTo:/)
   assert.match(login, /signIn\(data\.email, data\.senha, captchaToken\)/)
   assert.match(register, /\}, captchaToken\)/)
 })

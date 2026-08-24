@@ -8,20 +8,32 @@ import { Input, Select } from '../components/ui/Input'
 import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
+import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { LEGAL_ACCEPTANCE_CONTEXT, LEGAL_DOCUMENT_VERSIONS } from '../config/legalDocuments'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
   const signupStartedRef = useRef(false)
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
-  const { signUp } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
   const { trackEvent } = useAnalytics()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true)
+    try {
+      await signInWithGoogle()
+    } catch {
+      toast.error('Não foi possível entrar com Google. Tente novamente ou entre com e-mail e senha.')
+      setGoogleLoading(false)
+    }
+  }
 
   const onSubmit = async (data) => {
     if (!data.termos) {
@@ -73,13 +85,22 @@ export default function RegisterPage() {
           </Link>
         </p>
 
+        <div className="mt-8">
+          <GoogleAuthButton onClick={handleGoogle} loading={googleLoading} />
+          <div className="my-6 flex items-center gap-3" aria-hidden="true">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">ou</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+        </div>
+
         <form
           onSubmit={handleSubmit(onSubmit)}
           onFocusCapture={() => {
             if (signupStartedRef.current) return
             signupStartedRef.current = trackEvent('sign_up_started')
           }}
-          className="mt-8 space-y-4"
+          className="space-y-4"
         >
           <Input
             label="Nome completo"

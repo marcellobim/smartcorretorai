@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { providerTokenSafeStorage } from './auth-storage'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -11,6 +12,8 @@ export const supabase = createClient(url, anonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false,
+    flowType: 'pkce',
+    storage: providerTokenSafeStorage,
   },
 })
