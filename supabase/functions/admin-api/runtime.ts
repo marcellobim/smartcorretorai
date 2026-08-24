@@ -188,6 +188,20 @@ export function validateAdminCreditInput(input: Record<string, unknown>) {
   return Object.freeze({ userId, requestId, amount, reason })
 }
 
+export function validateAdminCourtesyInput(input: Record<string, unknown>) {
+  const userId = String(input.userId ?? '').trim()
+  const requestId = String(input.requestId ?? '').trim()
+  const active = input.active
+  const reason = String(input.reason ?? '').trim().replace(/\s+/g, ' ')
+  if (!UUID_PATTERN.test(userId)) throw new AdminInputError('Cliente inválido.')
+  if (!UUID_PATTERN.test(requestId)) throw new AdminInputError('Identificador da operação inválido.')
+  if (typeof active !== 'boolean') throw new AdminInputError('Estado de cortesia inválido.')
+  if (active && (reason.length < 10 || reason.length > 500)) {
+    throw new AdminInputError('Informe um motivo entre 10 e 500 caracteres.')
+  }
+  return Object.freeze({ userId, requestId, active, reason: active ? reason : '' })
+}
+
 export function validateTestimonialBonusInput(input: Record<string, unknown>) {
   const testimonialId = String(input.testimonialId ?? '').trim()
   const requestId = String(input.requestId ?? '').trim()
@@ -336,13 +350,21 @@ export async function executeTestimonialBonus(
   })
 }
 
-export function publicAdminClient(profile: Record<string, any>, credit: Record<string, any> = {}, activity: Record<string, any> = {}) {
+export function publicAdminClient(
+  profile: Record<string, any>,
+  credit: Record<string, any> = {},
+  activity: Record<string, any> = {},
+  courtesy: Record<string, any> = {},
+) {
   const subscriptions = Array.isArray(profile.subscriptions)
     ? profile.subscriptions
     : profile.subscriptions ? [profile.subscriptions] : []
   const subscription = subscriptions.find((item: any) => item.status === 'ativo') ?? subscriptions[0] ?? null
   const creditMetricsAvailable = Boolean(credit && Object.keys(credit).length)
   const activityMetricsAvailable = Boolean(activity && Object.keys(activity).length)
+  const courtesyActive = courtesy?.action === 'granted'
+  const paidAccess = subscription?.status === 'ativo'
+    || (creditMetricsAvailable && (Number(credit.subscription_granted ?? 0) > 0 || Number(credit.purchase_granted ?? 0) > 0))
   return Object.freeze({
     id: profile.id,
     name: profile.nome || '',
@@ -362,6 +384,8 @@ export function publicAdminClient(profile: Record<string, any>, credit: Record<s
     totalGenerations: activityMetricsAvailable ? Number(activity.generations ?? 0) : null,
     failedGenerations: activityMetricsAvailable ? Number(activity.failures ?? 0) : null,
     lastGenerationAt: activityMetricsAvailable ? activity.last_generation_at ?? null : null,
+    courtesyActive,
+    catalogAccess: courtesyActive ? 'courtesy' : paidAccess ? 'paid' : 'trial',
   })
 }
 
@@ -381,6 +405,17 @@ export function publicAdminAdjustment(row: Record<string, any>, admin: Record<st
   return Object.freeze({
     id: row.id,
     amount: Number(row.amount ?? 0),
+    reason: row.reason,
+    createdAt: row.created_at,
+    adminName: admin.nome || 'Administrador',
+    adminEmail: admin.email || '',
+  })
+}
+
+export function publicAdminCourtesyEvent(row: Record<string, any>, admin: Record<string, any> = {}) {
+  return Object.freeze({
+    id: row.id,
+    action: row.action,
     reason: row.reason,
     createdAt: row.created_at,
     adminName: admin.nome || 'Administrador',

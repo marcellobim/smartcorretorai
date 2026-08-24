@@ -16,10 +16,12 @@ import {
   profilePlanValues,
   publicAdminAdjustment,
   publicAdminClient,
+  publicAdminCourtesyEvent,
   publicCreditLot,
   sanitizeAdminSearch,
   theoreticalMonthlyBrlCents,
   validateAdminCreditInput,
+  validateAdminCourtesyInput,
   executeTestimonialBonus,
   publicAdminTestimonial,
   publicAdminTestimonialDetail,
@@ -133,6 +135,25 @@ async function optionalRpcData(supabase: any, name: string, args: Record<string,
   if (!error) return data
   if (isPendingAdminSchemaError(error)) return null
   throw new Error(`Falha ao agregar ${name}.`)
+}
+
+async function loadCourtesyEvents(supabase: any, userIds: readonly string[], limit = 100) {
+  if (!userIds.length) return { available: true, rows: [] as any[] }
+  const { data, error } = await supabase
+    .from('admin_catalog_access_events')
+    .select('id,user_id,admin_user_id,action,reason,created_at')
+    .in('user_id', userIds)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit)
+  if (!error) return { available: true, rows: data ?? [] }
+  if (isPendingAdminSchemaError(error)) return { available: false, rows: [] as any[] }
+  throw new Error('Falha ao carregar acessos de cortesia.')
+}
+
+async function loadCourtesyStates(supabase: any, userIds: readonly string[]) {
+  if (!userIds.length) return []
+  return await optionalRpcData(supabase, 'admin_catalog_access_state', { p_user_ids: userIds }) ?? []
 }
 
 async function loadCreditOverview(supabase: any, since: string | null) {
@@ -353,16 +374,20 @@ async function loadClients(supabase: any, input: Record<string, unknown>) {
   if (error) throw new Error('Falha ao carregar clientes.')
 
   const userIds = (data ?? []).map((profile: any) => profile.id)
-  const [creditRows, activityRows] = userIds.length ? await Promise.all([
+  const [creditRows, activityRows, courtesyRows] = userIds.length ? await Promise.all([
     optionalRpcData(supabase, 'admin_client_credit_metrics', { p_user_ids: userIds }),
     optionalRpcData(supabase, 'admin_client_activity_metrics', { p_user_ids: userIds }),
-  ]) : [[], []]
+    loadCourtesyStates(supabase, userIds),
+  ]) : [[], [], []]
   const creditsByUser = new Map((creditRows ?? []).map((row: any) => [row.user_id, row]))
   const activityByUser = new Map((activityRows ?? []).map((row: any) => [row.user_id, row]))
+  const courtesyByUser = new Map<string, any>()
+  for (const row of courtesyRows ?? []) courtesyByUser.set(row.user_id, row)
   const clients = (data ?? []).map((profile: any) => publicAdminClient(
     profile,
     creditsByUser.get(profile.id),
     activityByUser.get(profile.id),
+    courtesyByUser.get(profile.id),
   ))
 
   return {
@@ -387,7 +412,7 @@ async function loadClientDetail(supabase: any, input: Record<string, unknown>) {
   if (profileError) throw new Error('Falha ao carregar cliente.')
   if (!profile) throw new AdminInputError('Cliente não encontrado.')
 
-  const [creditRows, activityRows, lotsResult, adjustmentsResult] = await Promise.all([
+  const [creditRows, activityRows, lotsResult, adjustmentsResult, courtesyEvents] = await Promise.all([
     optionalRpcData(supabase, 'admin_client_credit_metrics', { p_user_ids: [userId] }),
     optionalRpcData(supabase, 'admin_client_activity_metrics', { p_user_ids: [userId] }),
     supabase.from('credit_lots')
@@ -396,11 +421,15 @@ async function loadClientDetail(supabase: any, input: Record<string, unknown>) {
     supabase.from('admin_credit_adjustments')
       .select('id,amount,reason,created_at,admin_user_id')
       .eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
+    loadCourtesyEvents(supabase, [userId], 50),
   ])
   if (lotsResult.error) throw new Error('Falha ao carregar histórico do cliente.')
   const adjustmentsMissing = isPendingAdminSchemaError(adjustmentsResult.error)
   if (adjustmentsResult.error && !adjustmentsMissing) throw new Error('Falha ao carregar histórico do cliente.')
-  const adminIds = [...new Set((adjustmentsMissing ? [] : adjustmentsResult.data ?? []).map((row: any) => row.admin_user_id))]
+  const adminIds = [...new Set([
+    ...(adjustmentsMissing ? [] : adjustmentsResult.data ?? []).map((row: any) => row.admin_user_id),
+    ...courtesyEvents.rows.map((row: any) => row.admin_user_id),
+  ])]
   let adminsById = new Map<string, any>()
   if (adminIds.length) {
     const { data: admins, error: adminsError } = await supabase
@@ -410,11 +439,13 @@ async function loadClientDetail(supabase: any, input: Record<string, unknown>) {
   }
 
   return {
-    client: publicAdminClient(profile, creditRows?.[0], activityRows?.[0]),
+    client: publicAdminClient(profile, creditRows?.[0], activityRows?.[0], courtesyEvents.rows[0]),
     lots: (lotsResult.data ?? []).map(publicCreditLot),
     adjustments: (adjustmentsMissing ? [] : adjustmentsResult.data ?? []).map((row: any) => publicAdminAdjustment(row, adminsById.get(row.admin_user_id))),
+    courtesyHistory: courtesyEvents.rows.map((row: any) => publicAdminCourtesyEvent(row, adminsById.get(row.admin_user_id))),
     activityDefinition: 'Gerações persistidas; não representa login ou permanência no site.',
     adminCreditOperationsAvailable: Boolean(creditRows) && !adjustmentsMissing,
+    adminCourtesyOperationsAvailable: courtesyEvents.available,
   }
 }
 
@@ -432,6 +463,29 @@ async function addSmartTokens(supabase: any, adminUserId: string, input: Record<
   return {
     result: result?.result,
     smartTokenBalance: Number(result?.saldo_creditos ?? 0),
+  }
+}
+
+async function setCatalogCourtesy(supabase: any, adminUserId: string, input: Record<string, unknown>) {
+  const validated = validateAdminCourtesyInput(input)
+  const { data, error } = await supabase.rpc('set_admin_catalog_courtesy', {
+    p_admin_user_id: adminUserId,
+    p_user_id: validated.userId,
+    p_active: validated.active,
+    p_reason: validated.reason || null,
+    p_idempotency_key: validated.requestId,
+  })
+  if (error) throw new Error(validated.active
+    ? 'Não foi possível liberar o acesso completo.'
+    : 'Não foi possível revogar o acesso completo.')
+  const result = Array.isArray(data) ? data[0] : data
+  if (!['created', 'already_processed', 'already_active', 'already_inactive'].includes(String(result?.result ?? ''))) {
+    throw new Error('Resultado administrativo inválido.')
+  }
+  return {
+    result: result.result,
+    active: Boolean(result.active),
+    effectiveAt: result.effective_at ?? null,
   }
 }
 
@@ -633,6 +687,7 @@ serve(async (req) => {
     if (action === 'list_clients') return jsonResponse(await loadClients(supabase, body))
     if (action === 'get_client') return jsonResponse(await loadClientDetail(supabase, body))
     if (action === 'add_smart_tokens') return jsonResponse(await addSmartTokens(supabase, user.id, body))
+    if (action === 'set_catalog_courtesy') return jsonResponse(await setCatalogCourtesy(supabase, user.id, body))
     if (action === 'list_testimonials') return jsonResponse(await listTestimonials(supabase, body))
     if (action === 'get_testimonial') return jsonResponse(await getTestimonial(supabase, body))
     if (action === 'approve_testimonial') return jsonResponse(await approveTestimonial(supabase, user.id, body))

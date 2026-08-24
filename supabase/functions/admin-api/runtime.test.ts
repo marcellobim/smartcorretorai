@@ -13,6 +13,8 @@ import {
   sanitizeAdminSearch,
   theoreticalMonthlyBrlCents,
   validateAdminCreditInput,
+  validateAdminCourtesyInput,
+  publicAdminCourtesyEvent,
   executeTestimonialBonus,
   validateTestimonialBonusInput,
   publicAdminTestimonial,
@@ -91,6 +93,7 @@ test('client response exposes only the operational allowlist', () => {
     'createdAt', 'currentPeriodEnd', 'hasStripeCustomer', 'subscriptionGranted',
     'purchaseGranted', 'adminGranted', 'purchaseRemaining', 'rechargeCount',
     'rechargeCatalogCents', 'totalGenerations', 'failedGenerations', 'lastGenerationAt',
+    'courtesyActive', 'catalogAccess',
   ])
   assert.equal(client.plan, 'ELITE')
   assert.equal(client.smartTokenBalance, 2_000)
@@ -98,6 +101,7 @@ test('client response exposes only the operational allowlist', () => {
   assert.equal(client.subscriptionGranted, 6350)
   assert.equal(client.purchaseGranted, 2000)
   assert.equal(client.totalGenerations, 3)
+  assert.equal(client.catalogAccess, 'paid')
   assert.equal(JSON.stringify(client).includes('cus_private'), false)
   assert.equal(JSON.stringify(client).includes('senha_hash'), false)
 })
@@ -118,6 +122,20 @@ test('admin credit input is strictly bounded and requires an auditable reason', 
   assert.throws(() => validateAdminCreditInput({ ...valid, userId: 'invalid' }), AdminInputError)
 })
 
+test('admin courtesy input requires canonical identity, explicit state and reason only for grant', () => {
+  const base = {
+    userId: '11111111-1111-4111-8111-111111111111',
+    requestId: '22222222-2222-4222-8222-222222222222',
+  }
+  assert.deepEqual(validateAdminCourtesyInput({ ...base, active: true, reason: 'Parceiro de lançamento' }), {
+    ...base, active: true, reason: 'Parceiro de lançamento',
+  })
+  assert.equal(validateAdminCourtesyInput({ ...base, active: false, reason: 'ignorado' }).reason, '')
+  assert.throws(() => validateAdminCourtesyInput({ ...base, active: true, reason: 'curto' }), AdminInputError)
+  assert.throws(() => validateAdminCourtesyInput({ ...base, active: 'true', reason: 'Parceiro de lançamento' }), AdminInputError)
+  assert.throws(() => validateAdminCourtesyInput({ ...base, userId: 'invalid', active: false }), AdminInputError)
+})
+
 test('lot and audit responses expose only operational fields', () => {
   const lot = publicCreditLot({ id: 'lot', source: 'admin', original_amount: 500, remaining_amount: 500, status: 'active', created_at: 'now', metadata: { secret: true } })
   const adjustment = publicAdminAdjustment({ id: 'adj', amount: 500, reason: 'Motivo suficiente', created_at: 'now', admin_user_id: 'admin', idempotency_key: 'private' }, { nome: 'Suporte', email: 'suporte@example.test' })
@@ -125,6 +143,28 @@ test('lot and audit responses expose only operational fields', () => {
   assert.equal(lot.source, 'admin')
   assert.equal(lot.expiresAt, null)
   assert.equal(JSON.stringify(adjustment).includes('idempotency_key'), false)
+  const courtesy = publicAdminCourtesyEvent({
+    id: 'event', action: 'granted', reason: 'Parceiro de lançamento', created_at: 'now',
+    user_id: 'private-user', admin_user_id: 'private-admin', idempotency_key: 'private-key',
+  }, { nome: 'Suporte', email: 'suporte@example.test' })
+  assert.equal(courtesy.action, 'granted')
+  assert.equal(JSON.stringify(courtesy).includes('private-user'), false)
+  assert.equal(JSON.stringify(courtesy).includes('private-key'), false)
+})
+
+test('courtesy state is independent from plan, subscription and Smart Token balance', () => {
+  const profile = {
+    id: 'user-id', nome: 'Cliente', email: 'cliente@example.test', plano: 'free',
+    saldo_creditos: 200, created_at: '2026-08-24T00:00:00Z', subscriptions: [],
+  }
+  const trial = publicAdminClient(profile, { subscription_granted: 0, purchase_granted: 0 })
+  const courtesy = publicAdminClient(profile, { subscription_granted: 0, purchase_granted: 0 }, {}, { action: 'granted' })
+  assert.equal(trial.plan, 'FREE')
+  assert.equal(trial.catalogAccess, 'trial')
+  assert.equal(courtesy.plan, 'FREE')
+  assert.equal(courtesy.smartTokenBalance, 200)
+  assert.equal(courtesy.catalogAccess, 'courtesy')
+  assert.equal(courtesy.courtesyActive, true)
 })
 
 test('missing optional admin migration metrics remain unavailable instead of becoming fake zeros', () => {

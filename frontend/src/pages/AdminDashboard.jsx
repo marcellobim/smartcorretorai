@@ -11,12 +11,14 @@ import {
   Database,
   Eye,
   Gift,
+  Lock,
   MessageSquareQuote,
   PlusCircle,
   RefreshCw,
   Search,
   ShoppingCart,
   Users,
+  Unlock,
   Zap,
   X,
 } from 'lucide-react'
@@ -102,6 +104,13 @@ const statusTone = {
   sem_assinatura: 'bg-slate-100 text-slate-600',
 }
 
+const catalogAccessLabel = { trial: 'Trial', paid: 'Pago', courtesy: 'Cortesia' }
+const catalogAccessTone = {
+  trial: 'bg-slate-100 text-slate-700',
+  paid: 'bg-emerald-100 text-emerald-800',
+  courtesy: 'bg-violet-100 text-violet-800',
+}
+
 function MetricCard({ label, value, detail, icon: Icon }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -178,6 +187,9 @@ export default function AdminDashboard() {
   const [grantReason, setGrantReason] = useState('')
   const [grantRequestId, setGrantRequestId] = useState(() => crypto.randomUUID())
   const [granting, setGranting] = useState(false)
+  const [courtesyReason, setCourtesyReason] = useState('')
+  const [courtesyRequestId, setCourtesyRequestId] = useState(() => crypto.randomUUID())
+  const [changingCourtesy, setChangingCourtesy] = useState(false)
   const [testimonials, setTestimonials] = useState([])
   const [testimonialPagination, setTestimonialPagination] = useState({ page: 1, total: 0, totalPages: 1 })
   const [testimonialStatus, setTestimonialStatus] = useState('')
@@ -255,6 +267,8 @@ export default function AdminDashboard() {
     setGrantAmount('')
     setGrantReason('')
     setGrantRequestId(crypto.randomUUID())
+    setCourtesyReason('')
+    setCourtesyRequestId(crypto.randomUUID())
     try {
       setClientDetail(await adminRequest('get_client', { userId }))
     } catch {
@@ -284,6 +298,36 @@ export default function AdminDashboard() {
       toast.error(error?.message || 'Não foi possível adicionar Smart Tokens.')
     } finally {
       setGranting(false)
+    }
+  }
+
+  const changeCourtesy = async active => {
+    if (!clientDetail?.client?.id || changingCourtesy) return
+    const reason = courtesyReason.trim()
+    if (active && (reason.length < 10 || reason.length > 500)) {
+      toast.error('Informe um motivo entre 10 e 500 caracteres.')
+      return
+    }
+    const confirmed = window.confirm(active
+      ? 'Liberar acesso completo por cortesia? Isso não altera plano, assinatura ou saldo de Smart Tokens.'
+      : 'Revogar o acesso completo por cortesia? O saldo de Smart Tokens será preservado.')
+    if (!confirmed) return
+    setChangingCourtesy(true)
+    try {
+      await adminRequest('set_catalog_courtesy', {
+        userId: clientDetail.client.id,
+        active,
+        reason: active ? reason : '',
+        requestId: courtesyRequestId,
+      })
+      toast.success(active ? 'Acesso completo por cortesia liberado.' : 'Acesso completo por cortesia revogado.')
+      setCourtesyReason('')
+      setCourtesyRequestId(crypto.randomUUID())
+      await Promise.all([openClient(clientDetail.client.id), loadClients(pagination.page)])
+    } catch (error) {
+      toast.error(error?.message || 'Não foi possível alterar o acesso aos produtos.')
+    } finally {
+      setChangingCourtesy(false)
     }
   }
 
@@ -610,6 +654,60 @@ export default function AdminDashboard() {
                       </div>
                       <p className="text-xs text-slate-500">{clientDetail.activityDefinition} Métricas de login e permanência ainda não são capturadas.</p>
 
+                      <div className={`rounded-xl border p-5 ${clientDetail.client.courtesyActive ? 'border-violet-200 bg-violet-50' : 'border-slate-200 bg-slate-50'}`}>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              {clientDetail.client.courtesyActive ? <Unlock className="h-5 w-5 text-violet-700" /> : <Lock className="h-5 w-5 text-slate-600" />}
+                              <h3 className="font-semibold text-slate-950">Acesso aos produtos</h3>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {clientDetail.client.courtesyActive ? 'Completo por cortesia' : clientDetail.client.catalogAccess === 'paid' ? 'Completo por pagamento confirmado' : 'Trial'}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {clientDetail.client.courtesyActive
+                                ? 'Acesso completo enquanto houver saldo disponível.'
+                                : clientDetail.client.catalogAccess === 'paid'
+                                  ? 'Acesso completo preservado pela evidência server-side de pagamento.'
+                                  : 'Acesso limitado aos produtos disponíveis no teste grátis.'}
+                            </p>
+                            <p className="mt-2 text-xs font-medium text-slate-700">Esta autorização não altera plano, assinatura, Stripe ou saldo de Smart Tokens.</p>
+                          </div>
+
+                          <div className="w-full max-w-lg">
+                            {!clientDetail.adminCourtesyOperationsAvailable && (
+                              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Ação indisponível até a migration de cortesia ser aplicada.</p>
+                            )}
+                            {!clientDetail.client.courtesyActive && (
+                              <label className="block text-xs font-medium text-slate-700">Motivo da cortesia
+                                <textarea minLength="10" maxLength="500" required disabled={!clientDetail.adminCourtesyOperationsAvailable || changingCourtesy} value={courtesyReason} onChange={event => setCourtesyReason(event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100" placeholder="Ex.: Parceiro de lançamento" />
+                              </label>
+                            )}
+                            <button
+                              type="button"
+                              disabled={changingCourtesy || !clientDetail.adminCourtesyOperationsAvailable || (!clientDetail.client.courtesyActive && courtesyReason.trim().length < 10)}
+                              onClick={() => changeCourtesy(!clientDetail.client.courtesyActive)}
+                              className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 ${clientDetail.client.courtesyActive ? 'bg-red-700 hover:bg-red-800' : 'bg-violet-700 hover:bg-violet-800'}`}
+                            >
+                              {clientDetail.client.courtesyActive ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                              {changingCourtesy ? 'Atualizando…' : clientDetail.client.courtesyActive ? 'Revogar acesso completo' : 'Liberar acesso completo'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 border-t border-slate-200 pt-4">
+                          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Histórico de acesso</h4>
+                          <div className="mt-3 space-y-2">
+                            {clientDetail.courtesyHistory.map(event => <div key={event.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                              <div className="flex flex-wrap justify-between gap-2"><strong>{event.action === 'granted' ? 'ACESSO COMPLETO LIBERADO' : 'ACESSO COMPLETO REVOGADO'}</strong><span className="text-xs text-slate-500">{dateTime(event.createdAt)}</span></div>
+                              <p className="mt-1 text-slate-700">Motivo: {event.reason}</p>
+                              <p className="mt-1 text-xs text-slate-500">Por {event.adminName}{event.adminEmail ? ` — ${event.adminEmail}` : ''}</p>
+                            </div>)}
+                          </div>
+                          {!clientDetail.courtesyHistory.length && <p className="mt-3 text-sm text-slate-500">Nenhuma cortesia registrada.</p>}
+                        </div>
+                      </div>
+
                       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
                         <div>
                           <h3 className="text-sm font-semibold text-slate-900">Lotes de Smart Tokens</h3>
@@ -676,7 +774,7 @@ export default function AdminDashboard() {
                   <table className="min-w-full text-left text-sm">
                     <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                       <tr>
-                        <th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Plano</th><th className="px-3 py-3">Assinatura</th>
+                        <th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Plano</th><th className="px-3 py-3">Assinatura</th><th className="px-3 py-3">Acesso</th>
                         <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th>
                       </tr>
                     </thead>
@@ -686,6 +784,7 @@ export default function AdminDashboard() {
                           <td className="px-3 py-4"><p className="font-medium text-slate-900">{client.name || 'Sem nome'}</p><p className="mt-1 text-xs text-slate-500">{client.email}</p></td>
                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${planTone[client.plan]}`}>{client.plan}</span></td>
                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[client.subscriptionStatus] || statusTone.sem_assinatura}`}>{client.subscriptionStatus.replace('_', ' ')}</span></td>
+                          <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${catalogAccessTone[client.catalogAccess] || catalogAccessTone.trial}`}>{catalogAccessLabel[client.catalogAccess] || 'Trial'}</span></td>
                           <td className="px-3 py-4 text-right font-medium">{integer(client.smartTokenBalance)} ST</td>
                           <td className="px-3 py-4 text-right">{integerOrUnavailable(client.subscriptionGranted)}</td>
                           <td className="px-3 py-4 text-right">{integerOrUnavailable(client.purchaseGranted)}</td>
