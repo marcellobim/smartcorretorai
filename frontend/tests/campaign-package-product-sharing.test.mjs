@@ -31,7 +31,7 @@ test('keeps both completed Studio video modes without public sharing activation'
   assert.match(source, /existingTexts: deliveryTexts/)
 })
 
-test('keeps active Virtual Space results without public sharing activation', async () => {
+test('keeps active Virtual Staging results without public sharing activation', async () => {
   const source = await readSource('src/pages/VirtualStaging.jsx')
   assert.equal(source.match(optInPattern)?.length || 0, 0)
   assert.match(source, /isLifeInProperty = journey\.id === LIFE_IN_PROPERTY_JOURNEY_ID/)

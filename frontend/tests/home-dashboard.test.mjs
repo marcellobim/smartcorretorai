@@ -24,7 +24,7 @@ const expectedProducts = [
   ['smart-tour-ai', 'Vídeo Imobiliário', '/smart-tour-ai'],
   ['hero-ia', 'Banner Imobiliário', '/hero'],
   ['studio-hero', 'Studio IA', '/studio-hero'],
-  ['virtual-staging', 'Virtual Space', '/virtual-staging'],
+  ['virtual-staging', 'Virtual Staging', '/virtual-staging'],
   ['banners-rapidos', 'Banners Rápidos', '/nova-campanha'],
   ['campanha-de-textos', 'Campanha de Textos', '/campanha-de-textos'],
 ]
@@ -99,7 +99,7 @@ test('renders exactly the six approved primary product cards and routes', () => 
   for (const [id, title, route] of expectedProducts) {
     assert.match(actionSource, new RegExp(`id: '${id}'[\\s\\S]*?title: '${title}'[\\s\\S]*?to: '${route}'`))
   }
-  assert.doesNotMatch(actionSource, /id: 'short-videos'|title: 'Short Videos'|title: 'Virtual Staging'/)
+  assert.doesNotMatch(actionSource, /id: 'short-videos'|title: 'Short Videos'/)
   assert.deepEqual([...actionSource.matchAll(/icon: ([A-Za-z0-9]+)/g)].map(match => match[1]), [
     'Video', 'ImageIcon', 'Wand2', 'Box', 'Zap', 'FileText',
   ])
@@ -178,22 +178,22 @@ test('adds the thirteen practical FAQ questions with contact as the final item',
   assert.match(faqSource, /question: `Como funcionam os \$\{SMART_TOKENS_LABEL\}\? E se uma geração der erro\?`/)
   assert.match(faqSource, /question: `Meus \$\{SMART_TOKENS_LABEL\} expiram\?`/)
   assert.equal((faqSource.match(/question:/g) || []).length, 13)
-  assert.match(faqSource, /mailto:suporte@smartcorretorai\.com\.br/)
+  assert.match(faqSource, /mailto:suporte@smartcorretorai\.com/)
   assert.match(faqSource, /Falar com o SmartCorretorAI/)
   assert.ok(faqSource.lastIndexOf('Ainda ficou com alguma dúvida') > faqSource.lastIndexOf('A inteligência artificial pode cometer erros'))
 })
 
 test('answers product choice, plans and cancellation before offering shortcuts', () => {
-  assert.match(faqSource, /Para vídeos do imóvel, use Vídeo Imobiliário[\s\S]*Banner Imobiliário[\s\S]*Banners Rápidos[\s\S]*Studio IA[\s\S]*Virtual Space[\s\S]*Campanha de Textos/)
+  assert.match(faqSource, /Para vídeos do imóvel, use Vídeo Imobiliário[\s\S]*Banner Imobiliário[\s\S]*Banners Rápidos[\s\S]*Studio IA[\s\S]*Virtual Staging[\s\S]*Campanha de Textos/)
   assert.match(faqSource, /conteúdo textual preparado para uso manual no Google Ads/)
   assert.match(faqSource, /planos são indicados principalmente para quem cria com frequência/)
-  assert.match(faqSource, /cancelamento pode ser solicitado a qualquer momento, com efeito ao final do período vigente/)
-  assert.match(faqSource, /cancelamento direto pela conta ainda não está disponível/)
+  assert.match(faqSource, /Gerenciar assinatura[\s\S]*portal seguro da Stripe/)
+  assert.match(faqSource, /cancelamento tem efeito ao final do período vigente/)
 })
 
 test('documents confirmed Smart Token behavior for failures and separate purchases', () => {
   assert.match(faqSource, /geração falha ou não é concluída corretamente[\s\S]*reserva é cancelada[\s\S]*não são consumidos/)
-  assert.match(faqSource, /comprados separadamente, fora do plano, não expiram/)
+  assert.match(faqSource, /comprados em recargas têm validade de 30 dias/)
   assert.match(faqSource, /incluídos em assinaturas seguem as condições do ciclo e da oferta contratada/)
 })
 

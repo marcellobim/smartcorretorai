@@ -89,7 +89,7 @@ const PRODUCT_FAMILIES = [
     ],
   },
   {
-    id: 'virtual-space', name: 'Virtual Space', number: '04',
+    id: 'virtual-staging', name: 'Virtual Staging', number: '04',
     headline: 'Mostre o que aquele espaço pode se tornar.',
     description: 'Transforme ambientes vazios, represente cenas de uso ou apresente o imóvel com sua própria imagem.',
     icon: Layers3,
@@ -254,7 +254,7 @@ const FAQ_ITEMS = [
   ['O que são Smart Tokens?', 'Smart Tokens representam sua capacidade de criação dentro do SmartCorretorAI. Cada recurso informa a quantidade necessária antes de iniciar.'],
   ['Preciso ter assinatura?', 'Não. Os planos são indicados para quem cria com frequência, mas também é possível adquirir Smart Tokens separadamente.'],
   ['Posso comprar Smart Tokens separadamente?', 'Sim. As recargas podem ser usadas para começar sem assinatura ou complementar um plano.'],
-  ['Como funciona o teste grátis?', 'Após confirmar seu e-mail, você recebe 200 Smart Tokens, sem cartão, para experimentar recursos selecionados.'],
+  ['Como funciona o teste grátis?', 'Após confirmar seu e-mail, você recebe uma única concessão de 200 Smart Tokens, sem cartão e sem prazo de expiração, para usar em Campanha de Textos, Banners Rápidos e Smart Carrossel. Os demais produtos podem exigir assinatura ou compra de Smart Tokens.'],
   ['O que acontece se uma geração falhar?', 'Quando uma geração falha e não conclui a entrega correspondente, a reserva de Smart Tokens é liberada conforme o fluxo do produto.'],
   ['Posso cancelar minha assinatura?', 'Sim. O cancelamento pode ser solicitado pelo portal seguro de assinatura e ocorre ao final do período já pago.'],
   ['Como gerencio minha assinatura?', 'Acesse Configurações → Plano e Assinatura e selecione “Gerenciar assinatura” para abrir o portal seguro da Stripe.'],

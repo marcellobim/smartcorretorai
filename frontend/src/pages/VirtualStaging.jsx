@@ -183,7 +183,7 @@ export default function VirtualStagingAI() {
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="virtual-space-title"
-        title="Virtual Space"
+        title="Virtual Staging"
         description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial."
         visual={<VirtualSpaceHeroVisual />}
       />
@@ -679,7 +679,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 }
 
 function VirtualSpaceHeroVisual() {
-  return <div aria-label="Os três módulos do Virtual Space" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
+  return <div aria-label="Os três módulos do Virtual Staging" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
     <div className="absolute inset-y-2 right-0 w-[88%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
     <div className="relative grid w-full grid-cols-3 items-end gap-2 px-1 sm:gap-3 sm:px-4">
       {VIRTUAL_STAGING_JOURNEYS.map((journey, index) => <article key={journey.id} className={`min-w-0 ${index === 1 ? '-translate-y-4' : ''}`}>

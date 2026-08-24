@@ -19,7 +19,7 @@ export default function Privacidade() {
 
         <div className="card p-8">
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Política de Privacidade</h1>
-          <p className="text-sm text-gray-400 mb-8">Última atualização: maio de 2026</p>
+          <p className="text-sm text-gray-400 mb-8">Última atualização: agosto de 2026</p>
 
           <div className="prose prose-gray max-w-none space-y-6 text-sm text-gray-600 leading-relaxed">
             <section>
@@ -30,7 +30,7 @@ export default function Privacidade() {
                 e quais direitos você possui.
               </p>
               <p className="mt-2">
-                Ao criar conta, usar a Plataforma, gerar campanhas, contratar planos ou comprar créditos, você declara
+                Ao criar conta, usar a Plataforma, gerar campanhas, contratar planos ou comprar Smart Tokens, você declara
                 ciência e concordância com esta Política e com os Termos de Uso.
               </p>
             </section>
@@ -40,13 +40,13 @@ export default function Privacidade() {
               <p>Podemos coletar os seguintes dados:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li><strong>Dados de cadastro:</strong> nome, e-mail, telefone, WhatsApp, CRECI, estado e dados de login;</li>
-                <li><strong>Dados de perfil profissional:</strong> empresa, site, redes sociais, logotipo, foto e preferências de marca;</li>
+                <li><strong>Dados de perfil profissional:</strong> nome profissional, telefone, WhatsApp, CRECI, estado, empresa, logotipo, foto e preferências de marca;</li>
                 <li><strong>Dados de imóveis:</strong> tipo, finalidade, preço, endereço, bairro, cidade, características, diferenciais e descrição;</li>
                 <li><strong>Fotos e arquivos:</strong> imagens do imóvel, fachada, áreas internas, lazer, planta, bairro e materiais enviados pelo usuário;</li>
-                <li><strong>Dados de geração:</strong> campanhas criadas, formatos escolhidos, créditos, histórico de uso e materiais produzidos;</li>
+                <li><strong>Dados de geração:</strong> campanhas criadas, formatos escolhidos, Smart Tokens, histórico de uso e resultados produzidos;</li>
                 <li><strong>Dados de pagamento:</strong> informações necessárias para cobrança, processadas por gateway seguro;</li>
-                <li><strong>Dados técnicos:</strong> IP, navegador, dispositivo, sistema operacional, logs, páginas acessadas e horários de uso;</li>
-                <li><strong>Dados de integrações:</strong> tokens e identificadores necessários quando o usuário conecta redes sociais ou serviços externos.</li>
+                <li><strong>Dados técnicos e de segurança:</strong> IP, navegador, dispositivo, sistema operacional, logs, horários de uso e dados necessários à autenticação, prevenção de abuso e proteção da conta;</li>
+                <li><strong>Dados de depoimentos:</strong> texto enviado voluntariamente, profissão informada, consentimentos de publicação e identificação e registros de análise da campanha.</li>
               </ul>
             </section>
 
@@ -57,10 +57,11 @@ export default function Privacidade() {
                 <li>criar, autenticar e proteger sua conta;</li>
                 <li>gerar campanhas imobiliárias, textos, imagens, banners, vídeos e materiais promocionais;</li>
                 <li>personalizar conteúdos com dados reais do imóvel e do corretor;</li>
-                <li>calcular, exibir e controlar planos, créditos, recargas e consumo;</li>
+                <li>calcular, exibir e controlar planos, Smart Tokens, recargas e consumo;</li>
                 <li>processar pagamentos, renovações, cancelamentos e suporte financeiro;</li>
                 <li>melhorar a Plataforma, corrigir erros e prevenir fraudes;</li>
                 <li>enviar comunicações sobre conta, suporte, segurança, produto e novidades;</li>
+                <li>receber, analisar e, quando autorizado, publicar depoimentos de usuários;</li>
                 <li>cumprir obrigações legais, regulatórias e ordens de autoridades competentes.</li>
               </ul>
             </section>
@@ -77,9 +78,8 @@ export default function Privacidade() {
                 omissões ou informações desatualizadas.
               </p>
               <p className="mt-2">
-                Esses provedores atuam como operadores ou subprocessadores, usando os dados apenas para executar,
-                proteger e melhorar os serviços contratados pela SmartCorretorAI, conforme contratos e políticas
-                aplicáveis.
+                Esses provedores podem atuar como operadores ou subprocessadores para executar e proteger os serviços
+                necessários à geração, conforme contratos e políticas aplicáveis.
               </p>
             </section>
 
@@ -118,10 +118,9 @@ export default function Privacidade() {
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li><strong>Supabase:</strong> autenticação, banco de dados, armazenamento e infraestrutura;</li>
                 <li><strong>Stripe ou gateways de pagamento:</strong> processamento de pagamentos, assinaturas e recargas;</li>
-                <li><strong>provedores de inteligência artificial:</strong> geração e melhoria de textos, instruções e materiais;</li>
+                <li><strong>provedores de inteligência artificial:</strong> geração de textos, imagens, vídeos e outros materiais solicitados;</li>
                 <li><strong>provedores de renderização e mídia:</strong> criação de banners, vídeos e arquivos finais;</li>
-                <li><strong>Meta, Google e redes sociais:</strong> integrações autorizadas pelo usuário;</li>
-                <li><strong>ferramentas de analytics e suporte:</strong> análise de uso, atendimento e melhoria do produto;</li>
+                <li><strong>provedores de hospedagem, e-mail, segurança e suporte:</strong> operação da Plataforma, comunicações transacionais, prevenção de abuso e atendimento;</li>
                 <li><strong>autoridades públicas:</strong> quando exigido por lei, ordem judicial ou obrigação regulatória.</li>
               </ul>
               <p className="mt-2">
@@ -130,34 +129,39 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Pagamentos e Créditos</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Pagamentos e Smart Tokens</h2>
               <p>
                 Dados financeiros são processados por provedores de pagamento seguros. A SmartCorretorAI não armazena
-                dados completos de cartão. Podemos armazenar registros de plano, assinatura, recargas, créditos,
+                dados completos de cartão. Podemos armazenar registros de plano, assinatura, recargas, Smart Tokens,
                 consumo, vencimentos, notas fiscais e histórico necessário para suporte, auditoria e obrigações legais.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Integrações com Redes Sociais</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Depoimentos e Compartilhamento</h2>
               <p>
-                Quando o usuário conectar Instagram, Facebook ou outras redes sociais, poderemos tratar tokens,
-                identificadores de páginas, permissões e dados necessários para a funcionalidade autorizada.
+                O envio de depoimento é voluntário. Antes de qualquer publicação, o depoimento passa por análise e
+                somente poderá ser publicado quando houver consentimento específico do usuário.
               </p>
-              <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>solicitamos apenas permissões necessárias;</li>
-                <li>não acessamos mensagens privadas fora do escopo autorizado;</li>
-                <li>o usuário pode revogar permissões nas configurações da própria rede social;</li>
-                <li>conteúdos só serão publicados quando houver autorização ou ação do usuário.</li>
-              </ul>
+              <p className="mt-2">
+                A autorização para publicar o texto é separada da autorização para exibir nome e profissão. O usuário
+                pode enviar um depoimento sem autorizar sua publicação ou identificação. Depoimentos enviados podem
+                participar de campanha com benefício de 500 Smart Tokens, conforme análise e regras vigentes, sem que
+                o benefício dependa de avaliação positiva e sem obrigação de publicação.
+              </p>
+              <p className="mt-2">
+                A publicação em redes sociais é realizada atualmente pelo próprio usuário, que baixa o material ou
+                copia o texto e escolhe o canal em que deseja compartilhá-lo.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Cookies e Analytics</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Tecnologias Essenciais</h2>
               <p>
-                Podemos utilizar cookies essenciais para funcionamento da Plataforma e ferramentas de analytics para
-                entender uso, melhorar desempenho e corrigir problemas. Você pode ajustar permissões de cookies no seu
-                navegador, mas algumas funcionalidades podem ser afetadas.
+                Utilizamos tecnologias essenciais para funcionamento, autenticação e segurança da Plataforma, incluindo
+                mecanismos de sessão e verificação antiabuso. O SmartCorretorAI não utiliza Google Analytics, GA4 ou
+                Google Tag Manager e não oferece login com Google nesta versão. Você pode ajustar permissões no
+                navegador, mas algumas funcionalidades essenciais podem ser afetadas.
               </p>
             </section>
 
@@ -175,6 +179,12 @@ export default function Privacidade() {
                 <li>resolver disputas, prevenir fraude e proteger direitos;</li>
                 <li>atender solicitações de suporte e auditoria.</li>
               </ul>
+              <p className="mt-2">
+                A SmartCorretorAI não oferece galeria ou armazenamento permanente das criações. O usuário deve baixar
+                e guardar os resultados que desejar conservar. Isso não impede a manutenção, pelo período necessário,
+                de registros de conta, pagamentos, Smart Tokens, consentimentos, segurança e auditoria conforme suas
+                finalidades e obrigações aplicáveis.
+              </p>
             </section>
 
             <section>

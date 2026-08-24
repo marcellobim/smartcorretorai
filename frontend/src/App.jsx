@@ -2,8 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './lib/auth-context'
 import AppLayout from './components/layout/AppLayout'
 import LandingPage from './pages/LandingPage'
-import HomeFrankenstein from './pages/HomeFrankenstein'
-import HomeOpusExperiment from './pages/HomeOpusExperiment'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -60,8 +58,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/home-frankenstein" element={<HomeFrankenstein />} />
-      <Route path="/home-opus" element={<HomeOpusExperiment />} />
       <Route path="/planos" element={<Planos />} />
       <Route path="/termos" element={<TermosDeUso />} />
       <Route path="/privacidade" element={<Privacidade />} />

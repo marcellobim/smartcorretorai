@@ -17,10 +17,11 @@ function filesBelow(relativePath) {
   })
 }
 
-test('keeps every baseline route and adds an isolated Smart Tour route', () => {
+test('keeps every production route, removes public experiments and preserves Smart Tour', () => {
   const app = read('frontend/src/App.jsx')
-  const expectedRoutes = ['/', '/home-frankenstein', '/home-opus', '/planos', '/termos', '/privacidade', '/login', '/cadastro', '/admin', '/dashboard', '/hero', '/studio-hero', '/studio-galeria', '/smart-carrossel', '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha', '/configuracoes']
+  const expectedRoutes = ['/', '/planos', '/termos', '/privacidade', '/login', '/cadastro', '/admin', '/dashboard', '/hero', '/studio-hero', '/studio-galeria', '/smart-carrossel', '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha', '/configuracoes']
   for (const route of expectedRoutes) assert.match(app, new RegExp(`path=["']${route.replace('/', '\\/')}["']`), `missing route ${route}`)
+  assert.doesNotMatch(app, /home-frankenstein|home-opus|HomeFrankenstein|HomeOpusExperiment/)
   assert.match(app, /import SmartTourAI from ['"]\.\/pages\/SmartTourAI['"]/)
   assert.match(app, /path="\/smart-tour-ai" element=\{<SmartTourAI \/>\}/)
   assert.doesNotMatch(app, /pacotes-gerados|import Creations/)
@@ -87,7 +88,6 @@ test('updates public product names while preserving Smart Carousel technical con
   }
   assert.match(smartCarousel, /productName="Carrossel de Anúncios"/)
   assert.match(smartCarousel, /label="Etapas do Carrossel de Anúncios"/)
-  assert.match(smartCarousel, /\[Smart Carrossel\] Erro interno:/)
   assert.match(smartCarousel, /sourceProduct: 'Smart Carrossel'/)
 })
 

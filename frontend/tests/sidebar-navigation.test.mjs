@@ -37,7 +37,7 @@ test('keeps the six approved products in the same order as Home', () => {
     ["'/smart-tour-ai'", "'Vídeo Imobiliário'"],
     ["'/hero'", "'Banner Imobiliário'"],
     ["'/studio-hero'", "'Studio IA'"],
-    ["'/virtual-staging'", "'Virtual Space'"],
+    ["'/virtual-staging'", "'Virtual Staging'"],
     ["'/nova-campanha'", "'Banners Rápidos'"],
     ["'/campanha-de-textos'", "'Campanha de Textos'"],
   ]
@@ -72,7 +72,7 @@ test('shows only real Smart Tokens data in one compact account link', () => {
   assert.match(sidebar, /const smartTokensItem = \{ to: '\/planos', label: 'Smart Tokens' \}/)
   assert.match(sidebar, /balance !== null/)
   assert.match(sidebar, /formatSmartTokens\(balance\).*ST/s)
-  assert.match(sidebar, /!trial && balance !== null/)
+  assert.match(sidebar, /showBalance = balance !== null && \(!trial \|\| balance > 0\)/)
   assert.doesNotMatch(sidebar, /%|porcentagem|R\$/)
   assert.match(sidebar, /min-h-11 items-center gap-3 rounded-xl px-3 py-2/)
   assert.doesNotMatch(sidebar, /Ver plano e saldo|Próximo ciclo|Renovação|style=\{\{ width:|rounded-xl border px-3 py-2\.5/)

@@ -19,14 +19,14 @@ export default function TermosDeUso() {
 
         <div className="card p-8">
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Termos de Uso</h1>
-          <p className="text-sm text-gray-400 mb-8">Última atualização: maio de 2026</p>
+          <p className="text-sm text-gray-400 mb-8">Última atualização: agosto de 2026</p>
 
           <div className="prose prose-gray max-w-none space-y-6 text-sm text-gray-600 leading-relaxed">
             <section>
               <h2 className="text-lg font-bold text-gray-800 mb-2">1. Aceitação dos Termos</h2>
               <p>
                 Ao criar conta, acessar a plataforma, enviar dados ou fotos, gerar campanhas, contratar planos,
-                comprar recargas de créditos ou utilizar materiais gerados, você declara que leu, compreendeu e
+                comprar recargas de Smart Tokens ou utilizar materiais gerados, você declara que leu, compreendeu e
                 aceita integralmente estes Termos de Uso e a Política de Privacidade.
               </p>
               <p className="mt-2">
@@ -40,11 +40,11 @@ export default function TermosDeUso() {
                 A SmartCorretorAI é uma plataforma de inteligência artificial para marketing imobiliário. A partir
                 dos dados do imóvel e dos materiais enviados pelo usuário, o sistema pode gerar textos, hashtags,
                 descrições para portais, posts, roteiros, banners, stories, carrosséis, vídeos e outros materiais
-                promocionais, conforme o plano, saldo de créditos e formatos selecionados.
+                promocionais, conforme o plano, saldo de Smart Tokens e formatos selecionados.
               </p>
               <p className="mt-2">
                 Recursos premium, vídeos, banners avançados, catálogo completo e campanhas avançadas podem depender
-                de plano pago, créditos disponíveis ou regras específicas da oferta vigente.
+                de plano pago, Smart Tokens disponíveis ou regras específicas da oferta vigente.
               </p>
               <p className="mt-2">
                 A SmartCorretorAI poderá adicionar, remover, substituir ou aperfeiçoar campanhas, formatos, templates,
@@ -74,11 +74,11 @@ export default function TermosDeUso() {
                 Após confirmar o e-mail, cada conta elegível recebe uma única concessão de 200 Smart Tokens,
                 sem necessidade de cartão, para experimentar recursos selecionados da Plataforma.
               </p>
-              <p className="mt-2">Enquanto a conta possuir apenas o benefício demonstrativo, ficam bloqueados:</p>
+              <p className="mt-2">O teste gratuito permite utilizar os seguintes produtos:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>vídeos e apresentações;</li>
-                <li>banners e imagens geradas por IA;</li>
-                <li>Virtual Staging, Studio IA e demais produtos não incluídos no teste gratuito.</li>
+                <li>Campanha de Textos;</li>
+                <li>Banners Rápidos;</li>
+                <li>Smart Carrossel.</li>
               </ul>
               <p className="mt-2">
                 Os resultados entregues podem ser copiados, baixados e utilizados normalmente, sob responsabilidade
@@ -86,11 +86,15 @@ export default function TermosDeUso() {
                 demonstrativo não utilizado permanece como bônus comum da conta. O benefício não expira, não é
                 concedido novamente em novos acessos e não pode ser transferido entre contas.
               </p>
+              <p className="mt-2">
+                Os demais produtos podem exigir assinatura ou compra de Smart Tokens, conforme a oferta apresentada
+                na Plataforma.
+              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">5. Planos, Créditos e Recargas</h2>
-              <p>A Plataforma trabalha com créditos de marketing. Os planos comerciais atuais são:</p>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">5. Planos, Smart Tokens e Recargas</h2>
+              <p>A Plataforma utiliza Smart Tokens como capacidade de criação. Os planos comerciais atuais são:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li><strong>START:</strong> 6.350 Smart Tokens por ciclo;</li>
                 <li><strong>PRO:</strong> 10.850 Smart Tokens por ciclo;</li>
@@ -107,25 +111,25 @@ export default function TermosDeUso() {
                 assinatura, recarga ou bônus disponível e as regras comerciais vigentes.
               </p>
               <p className="mt-2">
-                Créditos não possuem valor monetário fora da Plataforma, não são moeda, não são transferíveis entre
-                contas e não podem ser convertidos em dinheiro. Créditos consumidos na geração, renderização ou
+                Smart Tokens não possuem valor monetário fora da Plataforma, não são moeda, não são transferíveis entre
+                contas e não podem ser convertidos em dinheiro. Smart Tokens consumidos na geração, renderização ou
                 liberação de materiais não são reembolsáveis, salvo obrigação legal ou decisão expressa da
-                SmartCorretorAI. Créditos avulsos expiram conforme a política vigente informada na contratação.
+                SmartCorretorAI. Smart Tokens de recargas expiram conforme a política informada na contratação.
               </p>
             </section>
 
             <section>
               <h2 className="text-lg font-bold text-gray-800 mb-2">6. Validade, Renovação e Cancelamento</h2>
               <ul className="list-disc pl-5 space-y-1">
-                <li>Créditos de assinatura renovam a cada ciclo contratado e podem não acumular para ciclos futuros.</li>
+                <li>Smart Tokens de assinatura renovam a cada ciclo contratado e podem não acumular para ciclos futuros.</li>
                 <li>Smart Tokens comprados em recargas expiram em 30 dias após a compra, salvo condição diferente informada no momento da contratação.</li>
                 <li>Assinaturas são recorrentes e podem renovar automaticamente até o cancelamento.</li>
                 <li>O cancelamento pode ser feito a qualquer momento, com efeito ao final do período vigente.</li>
                 <li>Não há reembolso proporcional por cancelamento antecipado, salvo obrigação legal ou política comercial expressa.</li>
-                <li>Créditos não utilizados podem expirar conforme o tipo de crédito, ciclo contratado ou regra da oferta.</li>
+                <li>Smart Tokens não utilizados podem expirar conforme sua origem, ciclo contratado ou regra da oferta.</li>
               </ul>
               <p className="mt-2">
-                Valores, planos, benefícios e custos em créditos podem ser alterados mediante comunicação ou
+                Valores, planos, benefícios e custos em Smart Tokens podem ser alterados mediante comunicação ou
                 atualização da página de planos.
               </p>
             </section>
@@ -136,6 +140,7 @@ export default function TermosDeUso() {
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>informar dados falsos ou enganosos sobre imóveis;</li>
                 <li>violar direitos de imagem, privacidade ou propriedade intelectual de terceiros;</li>
+                <li>enviar imagens, vídeos, marcas, textos ou outros materiais sem possuir os direitos, licenças ou autorizações necessários;</li>
                 <li>usar a Plataforma para fraude, spam ou publicidade ilícita;</li>
                 <li>tentar acessar contas, dados ou sistemas de outros usuários;</li>
                 <li>copiar, revender, explorar ou fazer engenharia reversa da Plataforma sem autorização.</li>
@@ -182,12 +187,16 @@ export default function TermosDeUso() {
             <section>
               <h2 className="text-lg font-bold text-gray-800 mb-2">10. Uso dos Materiais pelo Usuário</h2>
               <p>
-                Após a geração e observadas as regras do plano, pagamento, créditos e downloads liberados, o usuário
+                Após a geração e observadas as regras do plano, pagamento e Smart Tokens, o usuário
                 pode utilizar os materiais gerados em suas campanhas imobiliárias.
               </p>
               <p className="mt-2">
-                Materiais gerados no plano demonstrativo podem ter uso limitado e não devem ser tratados como liberação
-                irrestrita para uso comercial quando a interface ou oferta indicar bloqueio de download ou uso premium.
+                A SmartCorretorAI não oferece galeria ou armazenamento permanente das criações. O usuário deve baixar
+                e conservar em seu computador ou celular os resultados que desejar guardar.
+              </p>
+              <p className="mt-2">
+                Todo resultado deve ser revisado pelo usuário antes da publicação ou uso, inclusive quanto à exatidão
+                das informações, aos elementos visuais e aos direitos de terceiros.
               </p>
             </section>
 

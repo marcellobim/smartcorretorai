@@ -32,7 +32,7 @@ const navigationGroups = [
       { to: '/smart-tour-ai', icon: Video, label: 'Vídeo Imobiliário' },
       { to: '/hero', icon: Image, label: 'Banner Imobiliário' },
       { to: '/studio-hero', icon: Sparkles, label: 'Studio IA' },
-      { to: '/virtual-staging', icon: Box, label: 'Virtual Space' },
+      { to: '/virtual-staging', icon: Box, label: 'Virtual Staging' },
       { to: '/nova-campanha', icon: LayoutTemplate, label: 'Banners Rápidos' },
       { to: '/campanha-de-textos', icon: FileText, label: 'Campanha de Textos' },
     ],

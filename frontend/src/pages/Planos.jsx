@@ -61,6 +61,7 @@ const RULES = [
   'Smart Tokens representam sua capacidade de criação.',
   'Antes de cada criação, o sistema verifica seu saldo disponível.',
   'Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.',
+  'Smart Tokens de recargas têm validade de 30 dias.',
   'Cancelamento pode ser feito pela conta.',
 ]
 
@@ -306,6 +307,9 @@ export default function Planos() {
                     <span className={`mt-1 block text-sm font-bold ${selectedRechargeKey === item.id ? 'text-blue-100' : 'text-gray-500'}`}>
                       R$ {item.priceLabel}
                     </span>
+                    <span className={`mt-2 block text-xs font-bold ${selectedRechargeKey === item.id ? 'text-blue-100' : 'text-gray-500'}`}>
+                      Validade: 30 dias
+                    </span>
                   </button>
                 ))}
               </div>
@@ -320,6 +324,9 @@ export default function Planos() {
               <h3 className="mt-2 text-xl font-black text-gray-950">Smart Tokens extras</h3>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
                 Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.
+              </p>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
+                Cada recarga tem validade de 30 dias a partir da compra.
               </p>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
                 Recursos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.

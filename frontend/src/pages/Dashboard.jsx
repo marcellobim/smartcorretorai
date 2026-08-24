@@ -64,7 +64,7 @@ const mainActions = [
   },
   {
     id: 'virtual-staging',
-    title: 'Virtual Space',
+    title: 'Virtual Staging',
     description: 'Transforme ambientes e apresente novas possibilidades para cada espaço do imóvel.',
     to: '/virtual-staging',
     label: 'Criar projeto',
@@ -115,7 +115,7 @@ const heroMediaItems = [
   },
   {
     id: 'virtual-space',
-    label: 'Virtual Space',
+    label: 'Virtual Staging',
     beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE,
     src: VIRTUAL_STAGING_AFTER_IMAGE,
     type: 'comparison',
@@ -160,7 +160,7 @@ const benefits = [
 const faqItems = [
   {
     question: 'Qual produto devo usar para o que preciso criar?',
-    answer: 'Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, enquanto Banners Rápidos parte de modelos profissionais. Studio IA atende produções visuais e criativas, Virtual Space transforma e apresenta ambientes, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.',
+    answer: 'Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, enquanto Banners Rápidos parte de modelos profissionais. Studio IA atende produções visuais e criativas, Virtual Staging transforma e apresenta ambientes, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.',
   },
   {
     question: `Preciso assinar um plano ou posso comprar ${SMART_TOKENS_LABEL} quando precisar?`,
@@ -184,7 +184,7 @@ const faqItems = [
   },
   {
     question: `Meus ${SMART_TOKENS_LABEL} expiram?`,
-    answer: `${SMART_TOKENS_LABEL} comprados separadamente, fora do plano, não expiram. Os tokens incluídos em assinaturas seguem as condições do ciclo e da oferta contratada.`,
+    answer: `${SMART_TOKENS_LABEL} comprados em recargas têm validade de 30 dias. Os tokens incluídos em assinaturas seguem as condições do ciclo e da oferta contratada.`,
     link: { to: PLANS_ROUTE, label: `Ir para ${SMART_TOKENS_LABEL}` },
   },
   {
@@ -217,7 +217,7 @@ const faqItems = [
   {
     question: 'Ainda ficou com alguma dúvida ou quer falar com a gente?',
     answer: 'Se você tiver dúvidas, sugestões, precisar de ajuda ou quiser nos contar sobre algum problema, entre em contato com nossa equipe. Vamos analisar sua mensagem e responder assim que possível.',
-    link: { href: 'mailto:suporte@smartcorretorai.com.br', label: 'Falar com o SmartCorretorAI' },
+    link: { href: 'mailto:suporte@smartcorretorai.com', label: 'Falar com o SmartCorretorAI' },
   },
 ]
 

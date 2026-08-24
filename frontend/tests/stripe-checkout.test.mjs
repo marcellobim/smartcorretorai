@@ -118,6 +118,8 @@ test('frontend exposes exactly the two approved recharge packages', () => {
   assert.match(terms, /2\.000 Smart Tokens — R\$ 49,90/)
   assert.match(terms, /4\.000 Smart Tokens — R\$ 97,90/)
   assert.match(terms, /expiram em 30 dias/)
+  assert.match(planos, /Validade: 30 dias/)
+  assert.match(planos, /Cada recarga tem validade de 30 dias a partir da compra/)
   assert.doesNotMatch(terms, /500 créditos — R\$ 59|1\.000 créditos — R\$ 99|2\.000 créditos — R\$ 179|expiram em 180 dias/)
 })
 
