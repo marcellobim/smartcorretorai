@@ -54,7 +54,7 @@ test('renders a compact insufficient-balance warning and existing recharge route
 
 test('turns the server trial allowlist rejection into a clear commercial next step', () => {
   assert.match(economy, /TRIAL_PRODUCT_NOT_ALLOWED/)
-  assert.match(economy, /Seu teste grátis inclui uma Campanha de Textos/)
+  assert.match(economy, /Este produto não está incluído no teste grátis/)
   assert.match(economy, /adicione Smart Tokens em Planos/)
 })
 

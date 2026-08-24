@@ -75,7 +75,7 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
 
   // Product 2 is quoted server-side by multiplying this canonical unit.
   // Static and video deliveries intentionally have the same public weight.
-  sku('quick_banners', 'item', 45, 'composite', false, {
+  sku('quick_banners', 'item', 45, 'composite', true, {
     quantity: 1,
     media: 'mixed',
     pricingStatus: 'approved',
@@ -92,7 +92,7 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
     maxImagesPerRequest: 5,
   }, true),
 
-  sku('smart_carousel', 'standard', 100, 'composite', false, {
+  sku('smart_carousel', 'standard', 100, 'composite', true, {
     pricingStatus: 'approved', telemetryRequired: true, minImages: 5, maxImages: 20,
   }, true),
 ])

@@ -206,7 +206,7 @@ test('preserves the approved FAQ and adds transparent review guidance', () => {
 
 test('contains no unsupported offer, price, payment, timing or result claims', () => {
   for (const forbidden of ['SMART15', '24 horas', 'Pix', 'Boleto', 'Apple Pay', 'Google Pay', 'venda garantida', 'mais vendas', 'mais clientes', 'mais leads', 'fechamento garantido']) assert.doesNotMatch(landing, new RegExp(forbidden, 'i'), forbidden)
-  assert.match(landing, /Campanha de Textos demonstrativa[^.]*Sem cartão/i)
+  assert.match(landing, /200 Smart Tokens[^.]*Sem cartão/i)
   assert.doesNotMatch(landing, /R\$|6\.350|10\.850|26\.350/)
 })
 

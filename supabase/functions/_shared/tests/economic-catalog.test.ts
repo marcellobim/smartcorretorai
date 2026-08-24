@@ -60,12 +60,12 @@ test('only migrated product SKUs can be quoted while global activation remains f
 
 test('trial eligibility and approved Virtual Staging unit follow the approved model', () => {
   assert.equal(getEconomicSku('text_campaign', 'standard').trialEligible, true)
-  assert.equal(getEconomicSku('quick_banners', 'item').trialEligible, false)
+  assert.equal(getEconomicSku('quick_banners', 'item').trialEligible, true)
   assert.equal(quoteEconomicSku('quick_banners', 'item').smartTokenCost, 45)
   assert.equal(getEconomicSku('real_estate_banner', 'item').trialEligible, false)
   assert.equal(quoteEconomicSku('real_estate_banner', 'item').smartTokenCost, 75)
   assert.equal(getEconomicSku('virtual_staging', 'image').trialEligible, false)
-  assert.equal(getEconomicSku('smart_carousel', 'standard').trialEligible, false)
+  assert.equal(getEconomicSku('smart_carousel', 'standard').trialEligible, true)
   assert.equal(getEconomicSku('real_estate_video', 'standard').trialEligible, false)
   assert.equal(getEconomicSku('real_estate_banner', 'item').metadata.pricingStatus, 'approved')
   assert.equal(getEconomicSku('virtual_staging', 'image').metadata.telemetryRequired, true)

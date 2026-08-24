@@ -84,20 +84,24 @@ test('Gemini and Veo cannot be reached before their economic claim', () => {
   assert.ok(veoClaim > 0 && veoProvider > veoClaim)
 })
 
-test('catalog keeps exactly one trial-eligible SKU at the fixed cost', () => {
+test('catalog keeps exactly the three approved trial-eligible SKUs at canonical costs', () => {
   assert.match(catalog, /sku\('text_campaign', 'standard', 25, 'openai_text', true, \{\}, true\)/)
+  assert.match(catalog, /sku\('quick_banners', 'item', 45, 'composite', true,/)
+  assert.match(catalog, /sku\('smart_carousel', 'standard', 100, 'composite', true,/)
   assert.deepEqual(catalog.match(/sku\('[^']+', '[^']+', \d+, '[^']+', true,/g), [
     "sku('text_campaign', 'standard', 25, 'openai_text', true,",
+    "sku('quick_banners', 'item', 45, 'composite', true,",
+    "sku('smart_carousel', 'standard', 100, 'composite', true,",
   ])
 })
 
-test('public and legal copy describe the exact benefit without the internal BRL ceiling', () => {
+test('public and legal copy describe the current benefit without the internal BRL ceiling', () => {
   const copy = `${register}\n${landing}\n${terms}`
-  assert.match(register, /1 Campanha de Textos demonstrativa após confirmar seu e-mail, sem cartão/)
-  assert.match(landing, /uma única Campanha de Textos demonstrativa, sem cartão/)
+  assert.match(register, /200 Smart Tokens após confirmar seu e-mail, sem cartão/)
+  assert.match(landing, /200 Smart Tokens, sem cartão, para experimentar recursos selecionados/)
   assert.doesNotMatch(landing, /grátis por tempo limitado|gratuitamente por tempo limitado/i)
-  assert.match(terms, /25 Smart Tokens[\s\S]*Campanha de Textos padrão/)
-  assert.match(terms, /copiada, baixada e utilizada normalmente/)
+  assert.match(terms, /200 Smart Tokens[\s\S]*recursos selecionados/)
+  assert.match(terms, /copiados, baixados e utilizados normalmente/)
   assert.match(terms, /START:<\/strong> 6\.350 Smart Tokens/)
   assert.match(terms, /PRO:<\/strong> 10\.850 Smart Tokens/)
   assert.match(terms, /ELITE:<\/strong> 26\.350 Smart Tokens/)

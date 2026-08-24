@@ -69,21 +69,20 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Campanha de Textos Demonstrativa Gratuita</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Teste Gratuito</h2>
               <p>
-                Após confirmar o e-mail, cada conta elegível recebe uma única Campanha de Textos demonstrativa,
-                sem necessidade de cartão. O benefício corresponde a 25 Smart Tokens e pode ser usado somente
-                na Campanha de Textos padrão, que atualmente consome 25 Smart Tokens.
+                Após confirmar o e-mail, cada conta elegível recebe uma única concessão de 200 Smart Tokens,
+                sem necessidade de cartão, para experimentar recursos selecionados da Plataforma.
               </p>
               <p className="mt-2">Enquanto a conta possuir apenas o benefício demonstrativo, ficam bloqueados:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>vídeos e apresentações;</li>
                 <li>banners e imagens geradas por IA;</li>
-                <li>Virtual Staging, Studio IA, Smart Carrossel e demais produtos fora da Campanha de Textos padrão.</li>
+                <li>Virtual Staging, Studio IA e demais produtos não incluídos no teste gratuito.</li>
               </ul>
               <p className="mt-2">
-                A campanha entregue pode ser copiada, baixada e utilizada normalmente, sob responsabilidade do
-                usuário e conforme estes Termos. Após a primeira assinatura ou recarga confirmada, eventual saldo
+                Os resultados entregues podem ser copiados, baixados e utilizados normalmente, sob responsabilidade
+                do usuário e conforme estes Termos. Após a primeira assinatura ou recarga confirmada, eventual saldo
                 demonstrativo não utilizado permanece como bônus comum da conta. O benefício não expira, não é
                 concedido novamente em novos acessos e não pode ser transferido entre contas.
               </p>
@@ -104,7 +103,7 @@ export default function TermosDeUso() {
               </ul>
               <p className="mt-2">
                 Cada produto informa a quantidade de Smart Tokens necessária antes da criação. A oferta gratuita
-                descrita na seção 4 é específica da Campanha de Textos; os demais produtos seguem o saldo de
+                descrita na seção 4 se aplica somente a recursos selecionados; os demais produtos seguem o saldo de
                 assinatura, recarga ou bônus disponível e as regras comerciais vigentes.
               </p>
               <p className="mt-2">
