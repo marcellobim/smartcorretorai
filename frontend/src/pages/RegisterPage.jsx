@@ -8,6 +8,7 @@ import { Input, Select } from '../components/ui/Input'
 import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
+import { LEGAL_ACCEPTANCE_CONTEXT, LEGAL_DOCUMENT_VERSIONS } from '../config/legalDocuments'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -20,6 +21,10 @@ export default function RegisterPage() {
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
+    if (!data.termos) {
+      toast.error('Aceite os termos para continuar.')
+      return
+    }
     if (!captchaToken) {
       toast.error('Conclua a verificação de segurança para continuar.')
       return
@@ -31,6 +36,12 @@ export default function RegisterPage() {
         telefone: data.telefone,
         creci: data.creci,
         estado: data.estado,
+        legal_acceptance: {
+          accepted: true,
+          terms_version: LEGAL_DOCUMENT_VERSIONS.terms,
+          privacy_version: LEGAL_DOCUMENT_VERSIONS.privacy,
+          context: LEGAL_ACCEPTANCE_CONTEXT,
+        },
       }, captchaToken)
       toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
