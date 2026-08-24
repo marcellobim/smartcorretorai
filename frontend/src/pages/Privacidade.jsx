@@ -156,12 +156,21 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Tecnologias Essenciais</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Cookies e Analytics</h2>
               <p>
                 Utilizamos tecnologias essenciais para funcionamento, autenticação e segurança da Plataforma, incluindo
-                mecanismos de sessão e verificação antiabuso. O SmartCorretorAI não utiliza Google Analytics, GA4 ou
-                Google Tag Manager e não oferece login com Google nesta versão. Você pode ajustar permissões no
-                navegador, mas algumas funcionalidades essenciais podem ser afetadas.
+                mecanismos de sessão e verificação antiabuso. Com seu consentimento, utilizamos Google Analytics 4 para
+                medir páginas visitadas, origem do tráfego e interações agregadas, com a finalidade de melhorar o produto
+                e apoiar ações de marketing. Não enviamos ao Analytics dados de cadastro, conteúdos privados, uploads,
+                informações de pagamento ou identificadores internos de usuários.
+              </p>
+              <p className="mt-2">
+                Cookies analíticos permanecem desativados até sua autorização e podem ser recusados sem afetar as funções
+                essenciais. A preferência pode ser alterada a qualquer momento pelo controle “Cookies” exibido na
+                Plataforma. Quando autorizados, os cookies próprios do GA4 podem permanecer por até dois anos, conforme a
+                configuração padrão do Google, e são removidos localmente quando a autorização é revogada. Não utilizamos
+                Google Tag Manager, Google Signals, remarketing ou personalização de anúncios nesta implementação, e o
+                login com Google permanece indisponível.
               </p>
             </section>
 

@@ -9,14 +9,17 @@ import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
 import { LEGAL_ACCEPTANCE_CONTEXT, LEGAL_DOCUMENT_VERSIONS } from '../config/legalDocuments'
+import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
+  const signupStartedRef = useRef(false)
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signUp } = useAuth()
+  const { trackEvent } = useAnalytics()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -31,7 +34,7 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      await signUp(data.email, data.senha, {
+      const signupResult = await signUp(data.email, data.senha, {
         nome: data.nome,
         telefone: data.telefone,
         creci: data.creci,
@@ -43,6 +46,7 @@ export default function RegisterPage() {
           context: LEGAL_ACCEPTANCE_CONTEXT,
         },
       }, captchaToken)
+      if (signupResult?.user?.identities?.length > 0) trackEvent('sign_up_completed')
       toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
     } catch {
@@ -69,7 +73,14 @@ export default function RegisterPage() {
           </Link>
         </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          onFocusCapture={() => {
+            if (signupStartedRef.current) return
+            signupStartedRef.current = trackEvent('sign_up_started')
+          }}
+          className="mt-8 space-y-4"
+        >
           <Input
             label="Nome completo"
             placeholder="Seu nome"

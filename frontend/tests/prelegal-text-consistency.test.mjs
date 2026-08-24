@@ -45,8 +45,9 @@ test('uses the current download-and-save policy without a public 24-hour promise
 })
 
 test('describes current privacy, testimonials and manual social sharing', () => {
-  assert.match(privacy, /não utiliza Google Analytics, GA4 ou[\s\S]*Google Tag Manager/)
-  assert.match(privacy, /não oferece login com Google nesta versão/)
+  assert.match(privacy, /Google Analytics 4[\s\S]*Cookies analíticos permanecem desativados até sua autorização/)
+  assert.match(privacy, /Não utilizamos[\s\S]*Google Tag Manager, Google Signals, remarketing ou personalização de anúncios/)
+  assert.match(privacy, /login com Google permanece indisponível/)
   assert.match(privacy, /envio de depoimento é voluntário/)
   assert.match(privacy, /autorização para publicar o texto é separada da autorização para exibir nome e profissão/)
   assert.match(privacy, /500 Smart Tokens/)

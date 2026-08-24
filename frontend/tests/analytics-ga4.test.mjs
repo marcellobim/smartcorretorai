@@ -1,0 +1,67 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+
+const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+const analytics = read('src/lib/analytics.js')
+const provider = read('src/components/analytics/AnalyticsProvider.jsx')
+const main = read('src/main.jsx')
+const register = read('src/pages/RegisterPage.jsx')
+const login = read('src/pages/LoginPage.jsx')
+const plans = read('src/pages/Planos.jsx')
+const privacy = read('src/pages/Privacidade.jsx')
+const vercel = read('../vercel.json')
+
+test('uses only the public Vite Measurement ID and disables safely when absent or invalid', () => {
+  assert.match(analytics, /import\.meta\.env\.VITE_GA_MEASUREMENT_ID/)
+  assert.match(analytics, /\^G-\[A-Z0-9\]\+\$/)
+  assert.match(analytics, /if \(!isAnalyticsConfigured\(\)[\s\S]*return false/)
+  assert.match(analytics, /localStorage\.getItem\(ANALYTICS_CONSENT_KEY\)[\s\S]*catch[\s\S]*return null/)
+  assert.doesNotMatch(`${analytics}\n${provider}`, /G-DK8DY2EELL/)
+})
+
+test('basic consent blocks the Google tag until an explicit grant and keeps ads denied', () => {
+  assert.match(provider, /consent !== 'granted'[\s\S]*setReady\(false\)/)
+  assert.match(provider, /chooseConsent\('denied'\)/)
+  assert.match(provider, /chooseConsent\('granted'\)/)
+  assert.match(analytics, /analytics_storage: 'denied'/)
+  assert.match(analytics, /ad_storage: 'denied'/)
+  assert.match(analytics, /ad_user_data: 'denied'/)
+  assert.match(analytics, /ad_personalization: 'denied'/)
+  assert.match(analytics, /allow_google_signals: false/)
+  assert.match(analytics, /allow_ad_personalization_signals: false/)
+  assert.match(analytics, /if \(!document\.getElementById\(GOOGLE_TAG_SCRIPT_ID\)\)[\s\S]*createElement\('script'\)/)
+  assert.match(provider, /Alterar preferências de cookies/)
+})
+
+test('SPA page views are explicit, route-only and deduplicated', () => {
+  assert.match(main, /<AnalyticsProvider>/)
+  assert.match(analytics, /send_page_view: false/)
+  assert.match(provider, /safePath === lastPathRef\.current/)
+  assert.match(provider, /trackPageView\(safePath, lastPathRef\.current\)/)
+  assert.match(analytics, /page_path: path/)
+  assert.match(analytics, /page_location: safeAbsoluteUrl\(path\)/)
+  assert.match(analytics, /Object\.prototype\.hasOwnProperty\.call\(SAFE_ROUTE_TITLES, normalized\)/)
+  assert.doesNotMatch(analytics, /location\.href|location\.search/)
+})
+
+test('funnel events fire only after reliable milestones and never carry form or economic payloads', () => {
+  assert.match(register, /onFocusCapture=[\s\S]*trackEvent\('sign_up_started'\)/)
+  assert.match(register, /signupResult\?\.user\?\.identities\?\.length > 0[\s\S]*trackEvent\('sign_up_completed'\)/)
+  assert.match(login, /await signIn\([\s\S]*trackEvent\('login_completed'\)/)
+  assert.match(plans, /trackEvent\('view_plans'\)/)
+  assert.match(plans, /checkoutUrl\.hostname !== 'checkout\.stripe\.com'[\s\S]*trackEvent\('checkout_started'\)[\s\S]*location\.assign/)
+  assert.doesNotMatch(`${register}\n${login}\n${plans}`, /trackEvent\([^)]*,/)
+  assert.doesNotMatch(`${analytics}\n${provider}`, /email|telefone|whatsapp|creci|user_id|saldo|filename|jwt|token/i)
+  assert.doesNotMatch(`${analytics}\n${provider}`, /purchase|trial_started/)
+})
+
+test('Privacy and CSP describe and allow only consented analytics endpoints', () => {
+  assert.match(privacy, /Google Analytics 4/)
+  assert.match(privacy, /Cookies analíticos permanecem desativados até sua autorização/)
+  assert.match(privacy, /cookies próprios do GA4 podem permanecer por até dois anos/)
+  assert.match(privacy, /Não utilizamos[\s\S]*Google Tag Manager, Google Signals, remarketing ou personalização de anúncios/)
+  assert.match(vercel, /script-src 'self' https:\/\/challenges\.cloudflare\.com https:\/\/www\.googletagmanager\.com/)
+  assert.match(vercel, /connect-src[^;]+https:\/\/\*\.google-analytics\.com https:\/\/\*\.analytics\.google\.com https:\/\/www\.googletagmanager\.com/)
+  assert.doesNotMatch(vercel, /doubleclick|googlesyndication|googleadservices/)
+})

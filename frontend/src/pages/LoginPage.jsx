@@ -9,6 +9,7 @@ import BrandMark from '../components/brand/BrandMark'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
+import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const captchaRef = useRef(null)
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signIn } = useAuth()
+  const { trackEvent } = useAnalytics()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -32,6 +34,7 @@ export default function LoginPage() {
     try {
       setUserEmail(data.email)
       await signIn(data.email, data.senha, captchaToken)
+      trackEvent('login_completed')
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
     } catch (err) {

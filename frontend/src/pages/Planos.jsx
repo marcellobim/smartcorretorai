@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { SMART_TOKEN_RECHARGE_PACKAGES } from '../data/creditCosts'
 import BrandMark from '../components/brand/BrandMark'
+import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
 const PLANOS = [
   {
@@ -73,6 +74,8 @@ export default function Planos() {
   const [loadingItem, setLoadingItem] = useState(null)
   const [selectedRechargeKey, setSelectedRechargeKey] = useState(SMART_TOKEN_RECHARGE_PACKAGES[0].id)
   const checkoutRefreshHandledRef = useRef(false)
+  const plansViewTrackedRef = useRef(false)
+  const { trackEvent } = useAnalytics()
   const selectedRecharge = SMART_TOKEN_RECHARGE_PACKAGES.find(item => item.id === selectedRechargeKey)
 
   useEffect(() => {
@@ -80,6 +83,11 @@ export default function Planos() {
     checkoutRefreshHandledRef.current = true
     void reloadProfile()
   }, [isAuthenticated, loading, reloadProfile, searchParams])
+
+  useEffect(() => {
+    if (plansViewTrackedRef.current) return
+    plansViewTrackedRef.current = trackEvent('view_plans')
+  }, [trackEvent])
 
   const iniciarCheckout = async (itemId) => {
     if (!isAuthenticated) return
@@ -96,6 +104,7 @@ export default function Planos() {
       if (checkoutUrl.protocol !== 'https:' || checkoutUrl.hostname !== 'checkout.stripe.com') {
         throw new Error('invalid_checkout_url')
       }
+      trackEvent('checkout_started')
       window.location.assign(checkoutUrl.toString())
     } catch {
       toast.error('Não foi possível iniciar o checkout. Tente novamente.')
