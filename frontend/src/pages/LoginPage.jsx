@@ -12,6 +12,9 @@ import TurnstileWidget from '../components/auth/TurnstileWidget'
 import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
+const GENERIC_LOGIN_ERROR = 'Não foi possível entrar. Verifique os dados informados ou tente novamente mais tarde.'
+const GENERIC_RESEND_MESSAGE = 'Se houver um cadastro pendente para este e-mail, enviaremos novas instruções quando o envio estiver disponível.'
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showResendButton, setShowResendButton] = useState(false)
@@ -49,15 +52,9 @@ export default function LoginPage() {
       trackEvent('login_completed')
       toast.success('Bem-vindo de volta!')
       navigate('/dashboard')
-    } catch (err) {
-      if (err.message?.includes('Email not confirmed')) {
-        setShowResendButton(true)
-        toast.error('Confirme seu email antes de fazer login.')
-      } else if (err.message?.includes('Invalid login credentials')) {
-        toast.error('Email ou senha incorretos.')
-      } else {
-        toast.error('Não foi possível entrar. Tente novamente mais tarde.')
-      }
+    } catch {
+      setShowResendButton(true)
+      toast.error(GENERIC_LOGIN_ERROR)
     } finally {
       captchaRef.current?.reset()
       setLoading(false)
@@ -81,11 +78,10 @@ export default function LoginPage() {
         options: { captchaToken },
       })
       if (error) throw error
-      toast.success('E-mail de confirmação reenviado! Verifique sua caixa de entrada.')
-      setShowResendButton(false)
     } catch {
-      toast.success('Se houver um cadastro pendente para este e-mail, enviaremos novas instruções.')
+      // A resposta pública não revela se o e-mail existe, está pendente ou foi limitado.
     } finally {
+      toast.success(GENERIC_RESEND_MESSAGE)
       captchaRef.current?.reset()
       setResendingEmail(false)
     }
@@ -187,10 +183,10 @@ export default function LoginPage() {
                   <Mail className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm text-amber-800 font-medium mb-2">
-                      Email não confirmado
+                      Ainda não confirmou seu e-mail?
                     </p>
                     <p className="text-xs text-amber-700 mb-3">
-                      Você precisa confirmar seu email antes de fazer login. Não recebeu o email?
+                      Você pode solicitar novas instruções. A resposta será a mesma independentemente do estado da conta.
                     </p>
                     <Button
                       type="button"

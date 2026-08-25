@@ -22,6 +22,7 @@ test('password recovery routes exist and use a fixed same-origin callback', () =
 test('recovery avoids account enumeration and globally revokes sessions after reset', () => {
   assert.match(forgot, /Se existir uma conta para este e-mail/)
   assert.doesNotMatch(forgot, /Usuário não encontrado|não existe|já cadastrado/i)
+  assert.match(forgot, /catch \{[\s\S]*resposta pública não revela[\s\S]*finally \{[\s\S]*setSent\(true\)/)
   assert.match(reset, /event === 'PASSWORD_RECOVERY'/)
   assert.match(reset, /minLength: \{ value: 12/)
   assert.match(reset, /signOut\(\{ scope: 'global' \}\)/)
@@ -41,6 +42,7 @@ test('logout is fail-closed and the UI does not pretend success on failure', () 
 test('public auth errors do not disclose registration state or raw provider errors', () => {
   assert.doesNotMatch(register, /Este email já está cadastrado|User already registered/)
   assert.match(register, /Não foi possível concluir o cadastro/)
-  assert.doesNotMatch(login, /toast\.error\(err\.message/)
-  assert.doesNotMatch(login, /toast\.error\(err\.message/)
+  assert.match(login, /catch \{[\s\S]*setShowResendButton\(true\)[\s\S]*toast\.error\(GENERIC_LOGIN_ERROR\)/)
+  assert.match(login, /catch \{[\s\S]*resposta pública não revela[\s\S]*finally \{[\s\S]*toast\.success\(GENERIC_RESEND_MESSAGE\)/)
+  assert.doesNotMatch(login, /Email not confirmed|Invalid login credentials|err\.message|Email não confirmado/)
 })

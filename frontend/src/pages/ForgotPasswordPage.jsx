@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
 
-const GENERIC_MESSAGE = 'Se existir uma conta para este e-mail, enviaremos as instruções de recuperação.'
+const GENERIC_MESSAGE = 'Se existir uma conta para este e-mail, enviaremos as instruções de recuperação quando o envio estiver disponível.'
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
@@ -29,10 +29,10 @@ export default function ForgotPasswordPage() {
         captchaToken,
       })
       if (error) throw error
-      setSent(true)
     } catch {
-      toast.error('Não foi possível concluir a verificação. Tente novamente.')
+      // A resposta pública não revela se a conta existe ou se o envio foi limitado.
     } finally {
+      setSent(true)
       captchaRef.current?.reset()
     }
   }
