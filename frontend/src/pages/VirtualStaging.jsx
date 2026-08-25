@@ -11,7 +11,9 @@ import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
+import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
+import { toFileMetadata } from '../lib/product-draft'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
@@ -164,6 +166,8 @@ function getInitialVirtualStagingJourneyId() {
 }
 
 export default function VirtualStagingAI() {
+  const { user } = useAuth()
+  const selectionDraft = useProductDraft({ productKey: 'virtual-staging:selection', schemaVersion: 1, userId: user?.id })
   const [selectedJourneyId, setSelectedJourneyId] = useState(getInitialVirtualStagingJourneyId)
   const modulesRef = useRef(null)
   const chatRef = useRef(null)
@@ -173,7 +177,19 @@ export default function VirtualStagingAI() {
     if (selectedJourney) chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [selectedJourney])
 
+  useEffect(() => {
+    if (selectedJourneyId) selectionDraft.save({ selectedJourneyId })
+    else selectionDraft.clear()
+  }, [selectedJourneyId, selectionDraft])
+
+  useEffect(() => {
+    if (!selectedJourneyId && selectionDraft.restoredDraft?.selectedJourneyId) {
+      setSelectedJourneyId(selectionDraft.restoredDraft.selectedJourneyId)
+    }
+  }, [selectedJourneyId, selectionDraft.restoredDraft])
+
   const chooseAnotherJourney = () => {
+    selectionDraft.clear()
     setSelectedJourneyId(null)
     requestAnimationFrame(() => modulesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
@@ -210,6 +226,8 @@ export default function VirtualStagingAI() {
 
 function VirtualStagingJourney({ journey, onChooseAnother }) {
   const { user, reloadProfile } = useAuth()
+  const journeyDraft = useProductDraft({ productKey: `virtual-staging:${journey.id}`, schemaVersion: 1, userId: user?.id })
+  const restoredJourneyDraft = journeyDraft.restoredDraft || {}
   const navigate = useNavigate()
   const inputRef = useRef(null)
   const presenterInputRef = useRef(null)
@@ -219,25 +237,28 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const recoveryStartedJobIdRef = useRef('')
   const reviewEditRef = useRef(null)
   const furnishGenerationInFlightRef = useRef(false)
-  const [hasStartedFurnish, setHasStartedFurnish] = useState(false)
+  const [hasStartedFurnish, setHasStartedFurnish] = useState(() => restoredJourneyDraft.hasStartedFurnish === true)
   const [images, setImages] = useState([])
-  const [property, setProperty] = useState(initialProperty)
-  const [generation, setGeneration] = useState(initialGeneration)
-  const [lifeScene, setLifeScene] = useState('')
-  const [transformationType, setTransformationType] = useState('')
-  const [decorationStyle, setDecorationStyle] = useState('')
-  const [imageDestinations, setImageDestinations] = useState([])
-  const [presenterReferenceDecision, setPresenterReferenceDecision] = useState(null)
+  const [missingImageMetadata, setMissingImageMetadata] = useState(() => restoredJourneyDraft.imageMetadata || [])
+  const [property, setProperty] = useState(() => restoredJourneyDraft.property || initialProperty)
+  const [generation, setGeneration] = useState(() => restoredJourneyDraft.generation || initialGeneration)
+  const [lifeScene, setLifeScene] = useState(() => restoredJourneyDraft.lifeScene || '')
+  const [transformationType, setTransformationType] = useState(() => restoredJourneyDraft.transformationType || '')
+  const [decorationStyle, setDecorationStyle] = useState(() => restoredJourneyDraft.decorationStyle || '')
+  const [imageDestinations, setImageDestinations] = useState(() => restoredJourneyDraft.imageDestinations || [])
+  const [presenterReferenceDecision, setPresenterReferenceDecision] = useState(() => restoredJourneyDraft.presenterReferenceDecision ?? null)
   const [presenterReference, setPresenterReference] = useState(null)
-  const [presenterReferenceMessage, setPresenterReferenceMessage] = useState('')
-  const [ctaEnabled, setCtaEnabled] = useState(null)
-  const [cta, setCta] = useState('')
-  const [includePhone, setIncludePhone] = useState(null)
+  const [missingPresenterMetadata, setMissingPresenterMetadata] = useState(() => restoredJourneyDraft.presenterMetadata || null)
+  const [presenterReferenceMessage, setPresenterReferenceMessage] = useState(() => restoredJourneyDraft.presenterMetadata ? 'Rascunho restaurado. Selecione novamente a foto do apresentador.' : '')
+  const [ctaEnabled, setCtaEnabled] = useState(() => restoredJourneyDraft.ctaEnabled ?? null)
+  const [cta, setCta] = useState(() => restoredJourneyDraft.cta || '')
+  const [includePhone, setIncludePhone] = useState(() => restoredJourneyDraft.includePhone ?? null)
   const [status, setStatus] = useState('idle')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(() => restoredJourneyDraft.imageMetadata?.length ? `Rascunho restaurado. Selecione novamente ${restoredJourneyDraft.imageMetadata.length} ${restoredJourneyDraft.imageMetadata.length === 1 ? 'imagem' : 'imagens'} para continuar.` : '')
   const [result, setResult] = useState(null)
   const [furnishResults, setFurnishResults] = useState([])
   const [hasAttemptedFurnishGeneration, setHasAttemptedFurnishGeneration] = useState(false)
+  const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredJourneyDraft.conversation || null)
   const activeJobKey = getVirtualStagingJourneySessionKey(journey.id)
   const isFurnishRenovate = journey.id === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID
@@ -267,6 +288,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (presenterReferenceRef.current?.preview) URL.revokeObjectURL(presenterReferenceRef.current.preview)
     presenterReferenceRef.current = null
     setPresenterReference(null)
+    setMissingPresenterMetadata(null)
     setPresenterReferenceMessage('')
   }
   const addPresenterReference = files => {
@@ -276,6 +298,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     const nextReference = { file, preview: URL.createObjectURL(file) }
     presenterReferenceRef.current = nextReference
     setPresenterReference(nextReference)
+    setMissingPresenterMetadata(null)
     setPresenterReferenceMessage('')
   }
 
@@ -330,8 +353,22 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     setMessage('')
     setResult(null)
   }
-  const conversation = useGuidedConversation({ initialQuestionId: isBrokerPresentation ? 'presenter_reference' : isFurnishRenovate ? 'transformation_type' : 'images', onEdit: resetTourFromQuestion })
+  const conversation = useGuidedConversation({ initialQuestionId: isBrokerPresentation ? 'presenter_reference' : isFurnishRenovate ? 'transformation_type' : 'images', initialState: restoredJourneyDraft.conversation, onEdit: resetTourFromQuestion, onStateChange: setConversationSnapshot })
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
+
+  useEffect(() => {
+    if (!['idle', 'error'].includes(status)) return
+    const imageMetadata = images.length
+      ? images.map((item, order) => ({ ...toFileMetadata(item.file, order) })).filter(item => item.name)
+      : missingImageMetadata
+    const presenterMetadata = presenterReference?.file
+      ? toFileMetadata(presenterReference.file, 0)
+      : missingPresenterMetadata
+    const draft = { hasStartedFurnish, property, generation, lifeScene, transformationType, decorationStyle, imageDestinations, presenterReferenceDecision, ctaEnabled, cta, includePhone, imageMetadata, presenterMetadata, conversation: conversationSnapshot }
+    const meaningful = conversationSnapshot?.history?.length || hasStartedFurnish || imageMetadata.length || presenterMetadata || transformationType || decorationStyle || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
+    if (!meaningful) { journeyDraft.clear(); return }
+    journeyDraft.save(draft)
+  }, [conversationSnapshot, cta, ctaEnabled, decorationStyle, generation, hasStartedFurnish, imageDestinations, images, includePhone, journeyDraft, lifeScene, missingImageMetadata, missingPresenterMetadata, presenterReference, presenterReferenceDecision, property, status, transformationType])
   const question = questions[questionIndex] || questions[0]
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getVirtualStagingNextQuestion({ questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
@@ -379,6 +416,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       setMessage('')
       return [...current, ...uniqueInSystemOrder.map(file => ({ file, key: `${file.name}:${file.size}:${file.lastModified}`, preview: URL.createObjectURL(file) }))]
     })
+    setMissingImageMetadata([])
   }
   const move = (position, offset) => setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages })
   const remove = position => setImages(current => current.filter((item, itemIndex) => { if (itemIndex === position) URL.revokeObjectURL(item.preview); return itemIndex !== position }))
@@ -456,7 +494,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     }))
     setFurnishResults(initialResults)
     const updateResult = (id, changes) => setFurnishResults(current => current.map(result => result.id === id ? { ...result, ...changes } : result))
-    let sessionId = ''
+    let preparedSessionId = ''
     let economyPrepared = false
 
     try {
@@ -464,7 +502,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       const authenticatedUser = authData?.user
       if (authError || !authenticatedUser?.id) throw new Error('auth_required')
 
-      sessionId = crypto.randomUUID()
+      const sessionId = crypto.randomUUID()
+      preparedSessionId = sessionId
       const { data: prepared, error: prepareError } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
         action: 'prepare',
         client_request_id: sessionId,
@@ -536,9 +575,9 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       setStatus('completed')
       await reloadProfile()
     } catch (error) {
-      if (economyPrepared && sessionId) {
+      if (economyPrepared && preparedSessionId) {
         await Promise.allSettled(orderedImages.map((_, itemIndex) => supabase.functions.invoke('virtual-staging-image-test', { body: {
-          action: 'fail_item', client_request_id: sessionId, item_index: itemIndex, reason: 'client_operation_aborted',
+          action: 'fail_item', client_request_id: preparedSessionId, item_index: itemIndex, reason: 'client_operation_aborted',
         } })))
       }
       setStatus('error')
@@ -584,7 +623,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setImageDestinations([]); setPresenterReferenceDecision(null); setCtaEnabled(null); setCta(''); setIncludePhone(null); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
   if (isFurnishRenovate && !hasStartedFurnish) return <section aria-labelledby="virtual-staging-chat-intro-title" className="mt-10">
     <ProductCard className="p-6 sm:p-8">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">SmartCorretorAI</p>

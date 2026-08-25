@@ -21,6 +21,7 @@ import { ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI } from 
 import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
 import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import HeroShowcase from '../components/hero/HeroShowcase'
+import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
@@ -1430,38 +1431,41 @@ function UserBubble({ children, actions }) {
 
 export default function HeroNext() {
   const { user, reloadProfile } = useAuth()
-  const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : 'intro'))
+  const bannerDraft = useProductDraft({ productKey: 'banner-imobiliario', schemaVersion: 1, userId: user?.id })
+  const restoredBannerDraft = bannerDraft.restoredDraft || {}
+  const [phase, setPhase] = useState(() => (readStoredHeroNextResult() ? 'result' : restoredBannerDraft.phase || 'intro'))
   const startCampaign = () => setPhase('goal')
-  const [goal, setGoal] = useState('')
-  const [answers, setAnswers] = useState({})
-  const [chatIndex, setChatIndex] = useState(0)
-  const [textDraft, setTextDraft] = useState('')
-  const [multiDraft, setMultiDraft] = useState([])
-  const [customDifferential, setCustomDifferential] = useState('')
-  const [cityUf, setCityUf] = useState('')
-  const [citySelection, setCitySelection] = useState('')
+  const [goal, setGoal] = useState(() => restoredBannerDraft.goal || '')
+  const [answers, setAnswers] = useState(() => restoredBannerDraft.answers || {})
+  const [chatIndex, setChatIndex] = useState(() => restoredBannerDraft.chatIndex || 0)
+  const [textDraft, setTextDraft] = useState(() => restoredBannerDraft.textDraft || '')
+  const [multiDraft, setMultiDraft] = useState(() => restoredBannerDraft.multiDraft || [])
+  const [customDifferential, setCustomDifferential] = useState(() => restoredBannerDraft.customDifferential || '')
+  const [cityUf, setCityUf] = useState(() => restoredBannerDraft.cityUf || '')
+  const [citySelection, setCitySelection] = useState(() => restoredBannerDraft.citySelection || '')
   const [cities, setCities] = useState([])
   const [citiesLoading, setCitiesLoading] = useState(false)
-  const [saleValueMode, setSaleValueMode] = useState('')
-  const [salePrice, setSalePrice] = useState('')
-  const [salePricePresentationMode, setSalePricePresentationMode] = useState('')
-  const [salePriceDigits, setSalePriceDigits] = useState('')
-  const [saleConditions, setSaleConditions] = useState([])
-  const [commercialTermsChoice, setCommercialTermsChoice] = useState('')
-  const [commercialTerms, setCommercialTerms] = useState(EMPTY_COMMERCIAL_TERMS)
-  const [rentMode, setRentMode] = useState('')
-  const [rentPrice, setRentPrice] = useState('')
-  const [condoMode, setCondoMode] = useState('')
-  const [condoFee, setCondoFee] = useState('')
-  const [iptuMode, setIptuMode] = useState('')
-  const [iptuValue, setIptuValue] = useState('')
-  const [rentGuarantee, setRentGuarantee] = useState('')
-  const [promptTouched, setPromptTouched] = useState(false)
-  const [humanPrompt, setHumanPrompt] = useState('')
-  const [destinationIds, setDestinationIds] = useState([])
-  const [creativeIdeaCount, setCreativeIdeaCount] = useState(1)
-  const [imageChoice, setImageChoice] = useState('')
+  const [saleValueMode, setSaleValueMode] = useState(() => restoredBannerDraft.saleValueMode || '')
+  const [salePrice, setSalePrice] = useState(() => restoredBannerDraft.salePrice || '')
+  const [salePricePresentationMode, setSalePricePresentationMode] = useState(() => restoredBannerDraft.salePricePresentationMode || '')
+  const [salePriceDigits, setSalePriceDigits] = useState(() => restoredBannerDraft.salePriceDigits || '')
+  const [saleConditions, setSaleConditions] = useState(() => restoredBannerDraft.saleConditions || [])
+  const [commercialTermsChoice, setCommercialTermsChoice] = useState(() => restoredBannerDraft.commercialTermsChoice || '')
+  const [commercialTerms, setCommercialTerms] = useState(() => restoredBannerDraft.commercialTerms || EMPTY_COMMERCIAL_TERMS)
+  const [rentMode, setRentMode] = useState(() => restoredBannerDraft.rentMode || '')
+  const [rentPrice, setRentPrice] = useState(() => restoredBannerDraft.rentPrice || '')
+  const [condoMode, setCondoMode] = useState(() => restoredBannerDraft.condoMode || '')
+  const [condoFee, setCondoFee] = useState(() => restoredBannerDraft.condoFee || '')
+  const [iptuMode, setIptuMode] = useState(() => restoredBannerDraft.iptuMode || '')
+  const [iptuValue, setIptuValue] = useState(() => restoredBannerDraft.iptuValue || '')
+  const [rentGuarantee, setRentGuarantee] = useState(() => restoredBannerDraft.rentGuarantee || '')
+  const [promptTouched, setPromptTouched] = useState(() => restoredBannerDraft.promptTouched === true)
+  const [humanPrompt, setHumanPrompt] = useState(() => restoredBannerDraft.humanPrompt || '')
+  const [destinationIds, setDestinationIds] = useState(() => restoredBannerDraft.destinationIds || [])
+  const [creativeIdeaCount, setCreativeIdeaCount] = useState(() => restoredBannerDraft.creativeIdeaCount || 1)
+  const [imageChoice, setImageChoice] = useState(() => restoredBannerDraft.imageChoice || '')
   const [uploadedImages, setUploadedImages] = useState([])
+  const [missingImageMetadata, setMissingImageMetadata] = useState(() => restoredBannerDraft.imageMetadata || [])
   const [generationLoading, setGenerationLoading] = useState(false)
   const [generationError, setGenerationError] = useState('')
   const [downloadError, setDownloadError] = useState('')
@@ -1487,6 +1491,16 @@ export default function HeroNext() {
   useEffect(() => {
     writeStoredHeroNextResult(generationResult)
   }, [generationResult])
+
+  useEffect(() => {
+    if (phase === 'result' || generationResult) return
+    const imageMetadata = uploadedImages.length
+      ? uploadedImages.map(({ name, size, contentType, lastModified }, order) => ({ name, size, type: contentType, lastModified, order }))
+      : missingImageMetadata
+    const draft = { phase, goal, answers, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
+    if (phase === 'intro' && !goal && !imageMetadata.length) { bannerDraft.clear(); return }
+    bannerDraft.save(draft)
+  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, textDraft, uploadedImages])
 
   const closeExpandedPreview = () => {
     setExpandedPreview(null)
@@ -1606,6 +1620,7 @@ export default function HeroNext() {
   )
 
   const resetForGoal = (nextGoal) => {
+    bannerDraft.clear()
     setGoalNotice('')
     setGoal(nextGoal)
     setAnswers({})
@@ -1793,9 +1808,11 @@ export default function HeroNext() {
         name: file.name,
         size: file.size,
         contentType: file.type || 'image/jpeg',
+        lastModified: file.lastModified,
         data: await fileToDataUrl(file),
       })))
       setUploadedImages(parsed)
+      setMissingImageMetadata([])
       setGenerationError('')
     } catch (error) {
       setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível carregar as imagens.'))
@@ -2186,6 +2203,7 @@ export default function HeroNext() {
   }
 
   const resetCampaign = () => {
+    bannerDraft.clear()
     setPhase('intro')
     setGoal('')
     setAnswers({})
@@ -2213,6 +2231,7 @@ export default function HeroNext() {
     setHumanPrompt('')
     setImageChoice('')
     setUploadedImages([])
+    setMissingImageMetadata([])
     setGoalNotice('')
     setPieceLimitNotice('')
     setGenerationResult(null)
@@ -3111,6 +3130,7 @@ export default function HeroNext() {
                 onClick={() => {
                   setImageChoice('no')
                   setUploadedImages([])
+                  setMissingImageMetadata([])
                 }}
                 className={`rounded-3xl border p-6 text-left transition ${
                   imageChoice === 'no' ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
@@ -3142,6 +3162,9 @@ export default function HeroNext() {
                     onChange={(event) => handleFiles(event.target.files)}
                   />
                 </label>
+                {missingImageMetadata.length > 0 && uploadedImages.length === 0 && (
+                  <p role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente {missingImageMetadata.length} {missingImageMetadata.length === 1 ? 'imagem' : 'imagens'}; os arquivos físicos não são armazenados.</p>
+                )}
                 {uploadedImages.length > 0 && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {uploadedImages.map((item, index) => (

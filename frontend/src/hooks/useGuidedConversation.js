@@ -4,15 +4,22 @@ import { appendConversationTurn, CONVERSATION_PHASE, createConversationTurn, tru
 const DEFAULT_CONFIRMATION_MS = 650
 const DEFAULT_TYPING_MS = 700
 
-export function useGuidedConversation({ initialQuestionId, onEdit, confirmationMs = DEFAULT_CONFIRMATION_MS, typingMs = DEFAULT_TYPING_MS }) {
-  const [activeQuestionId, setActiveQuestionId] = useState(initialQuestionId)
-  const [history, setHistory] = useState([])
+export function useGuidedConversation({ initialQuestionId, initialState = null, onEdit, onStateChange, confirmationMs = DEFAULT_CONFIRMATION_MS, typingMs = DEFAULT_TYPING_MS }) {
+  const safeInitialHistory = Array.isArray(initialState?.history) ? initialState.history : []
+  const [activeQuestionId, setActiveQuestionId] = useState(initialState?.activeQuestionId ?? initialQuestionId)
+  const [history, setHistory] = useState(safeInitialHistory)
   const [phase, setPhase] = useState(CONVERSATION_PHASE.QUESTION)
   const lockedRef = useRef(false)
   const timersRef = useRef([])
   const onEditRef = useRef(onEdit)
+  const onStateChangeRef = useRef(onStateChange)
 
   useEffect(() => { onEditRef.current = onEdit }, [onEdit])
+  useEffect(() => { onStateChangeRef.current = onStateChange }, [onStateChange])
+  useEffect(() => {
+    if (phase !== CONVERSATION_PHASE.QUESTION) return
+    onStateChangeRef.current?.({ activeQuestionId, history, phase })
+  }, [activeQuestionId, history, phase])
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(timer => window.clearTimeout(timer))
     timersRef.current = []

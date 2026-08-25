@@ -28,6 +28,8 @@ import {
   SMART_UI,
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
+import { useProductDraft } from '../hooks/useProductDraft'
+import { toFileMetadata } from '../lib/product-draft'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
@@ -256,6 +258,8 @@ async function uploadSmartCarouselFilesWithTimeout(args) {
 export default function SmartCarrossel() {
   const navigate = useNavigate()
   const { user, accessToken, reloadProfile } = useAuth()
+  const mediaDraft = useProductDraft({ productKey: 'smart-carousel:media', schemaVersion: 1, userId: user?.id })
+  const restoredMediaDraft = mediaDraft.restoredDraft
   const photoInputRef = useRef(null)
   const photoIdRef = useRef(0)
   const photosRef = useRef([])
@@ -264,6 +268,15 @@ export default function SmartCarrossel() {
   const [generationStage, setGenerationStage] = useState(1)
   const [informationStarted, setInformationStarted] = useState(false)
   const [photoSelectionMessage, setPhotoSelectionMessage] = useState('')
+  const [missingPhotoMetadata, setMissingPhotoMetadata] = useState(() => restoredMediaDraft?.photoMetadata || [])
+
+  useEffect(() => {
+    const photoMetadata = photos.length
+      ? photos.map((photo, index) => toFileMetadata(photo.file, index)).filter(Boolean)
+      : missingPhotoMetadata
+    if (!photoMetadata.length) { mediaDraft.clear(); return }
+    mediaDraft.save({ photoMetadata, informationStarted, generationStage })
+  }, [generationStage, informationStarted, mediaDraft, missingPhotoMetadata, photos])
 
   useEffect(() => {
     photosRef.current = photos
@@ -305,6 +318,7 @@ export default function SmartCarrossel() {
 
     photosRef.current = nextPhotos
     setPhotos(nextPhotos)
+    setMissingPhotoMetadata([])
     setPhotoSelectionMessage(rejectedCount > 0
       ? `O limite é de ${SMART_CAROUSEL_MAX_IMAGES} imagens. ${rejectedCount === 1 ? 'A imagem excedente não foi adicionada.' : `${rejectedCount} imagens excedentes não foram adicionadas.`}`
       : '')
@@ -332,6 +346,8 @@ export default function SmartCarrossel() {
     setGenerationStage(1)
     setInformationStarted(false)
     setPhotoSelectionMessage('')
+    setMissingPhotoMetadata([])
+    mediaDraft.clear()
   }
 
   const movePhoto = (index, direction) => {
@@ -371,7 +387,7 @@ export default function SmartCarrossel() {
           accent="emerald"
         />
 
-        <PhotoSection photos={photos} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />
+        <PhotoSection photos={photos} missingPhotoMetadata={missingPhotoMetadata} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />
         {informationUnlocked && (
           <SmartCarouselConversation
             user={user}
@@ -379,6 +395,7 @@ export default function SmartCarrossel() {
             photos={photos}
             refreshBalance={reloadProfile}
             onGenerationStageChange={setGenerationStage}
+            onCreateNew={clearPhotos}
           />
         )}
       </div>
@@ -411,7 +428,7 @@ function SmartCarouselHeroPhone() {
   )
 }
 
-function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto, photoSelectionMessage, onContinue }) {
+function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto, photoSelectionMessage, onContinue }) {
   const hasMinimumImages = photos.length >= SMART_CAROUSEL_MIN_IMAGES
   const missingImages = Math.max(SMART_CAROUSEL_MIN_IMAGES - photos.length, 0)
   const minimumImagesProgress = Math.min((photos.length / SMART_CAROUSEL_MIN_IMAGES) * 100, 100)
@@ -456,6 +473,7 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
             />
           </div>
         </div>
+        {missingPhotoMetadata.length > 0 && <p role="status" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">Seu rascunho foi restaurado. Selecione novamente {missingPhotoMetadata.length} {missingPhotoMetadata.length === 1 ? 'arquivo' : 'arquivos'} para continuar; as imagens físicas não ficam salvas no navegador.</p>}
         {photoSelectionMessage && <p role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{photoSelectionMessage}</p>}
         <input ref={inputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handlePhotoInput} className="sr-only" />
         {photos.length === 0 ? (
@@ -492,22 +510,25 @@ function PhotoSection({ photos, inputRef, isDragActive, setIsDragActive, addPhot
   )
 }
 
-function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, onGenerationStageChange }) {
-  const [purpose, setPurpose] = useState('')
-  const [propertyStage, setPropertyStage] = useState('')
-  const [propertyType, setPropertyType] = useState('')
-  const [bedrooms, setBedrooms] = useState('')
-  const [suites, setSuites] = useState('')
-  const [parkingSpaces, setParkingSpaces] = useState('')
-  const [uf, setUf] = useState('')
-  const [city, setCity] = useState('')
-  const [district, setDistrict] = useState('')
-  const [priceMode, setPriceMode] = useState('')
-  const [priceDigits, setPriceDigits] = useState('')
-  const [area, setArea] = useState('')
-  const [highlights, setHighlights] = useState([])
-  const [cta, setCta] = useState('')
-  const [sharePhone, setSharePhone] = useState('')
+function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, onGenerationStageChange, onCreateNew }) {
+  const flowDraft = useProductDraft({ productKey: 'smart-carousel:flow', schemaVersion: 1, userId: user?.id })
+  const restoredFlow = flowDraft.restoredDraft || {}
+  const [purpose, setPurpose] = useState(() => restoredFlow.purpose || '')
+  const [propertyStage, setPropertyStage] = useState(() => restoredFlow.propertyStage || '')
+  const [propertyType, setPropertyType] = useState(() => restoredFlow.propertyType || '')
+  const [bedrooms, setBedrooms] = useState(() => restoredFlow.bedrooms || '')
+  const [suites, setSuites] = useState(() => restoredFlow.suites || '')
+  const [parkingSpaces, setParkingSpaces] = useState(() => restoredFlow.parkingSpaces || '')
+  const [uf, setUf] = useState(() => restoredFlow.uf || '')
+  const [city, setCity] = useState(() => restoredFlow.city || '')
+  const [district, setDistrict] = useState(() => restoredFlow.district || '')
+  const [priceMode, setPriceMode] = useState(() => restoredFlow.priceMode || '')
+  const [priceDigits, setPriceDigits] = useState(() => restoredFlow.priceDigits || '')
+  const [area, setArea] = useState(() => restoredFlow.area || '')
+  const [highlights, setHighlights] = useState(() => restoredFlow.highlights || [])
+  const [cta, setCta] = useState(() => restoredFlow.cta || '')
+  const [sharePhone, setSharePhone] = useState(() => restoredFlow.sharePhone || '')
+  const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredFlow.conversation || null)
   const pollTimerRef = useRef(null)
   const mountedRef = useRef(true)
   const generationInFlightRef = useRef(false)
@@ -537,8 +558,23 @@ function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, 
     setCampaignPackage(null)
     onGenerationStageChange(2)
   }
-  const conversation = useGuidedConversation({ initialQuestionId: 1, onEdit: resetCarouselFromStep })
+  const conversation = useGuidedConversation({ initialQuestionId: 1, initialState: restoredFlow.conversation, onEdit: resetCarouselFromStep, onStateChange: setConversationSnapshot })
   const step = Number(conversation.activeQuestionId)
+
+  useEffect(() => {
+    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot }
+    if (!conversationSnapshot?.history?.length && !Object.values(draft).some(value => typeof value === 'string' ? value : Array.isArray(value) ? value.length : false)) {
+      flowDraft.clear()
+      return
+    }
+    flowDraft.save(draft)
+  }, [area, bedrooms, city, conversationSnapshot, cta, district, flowDraft, highlights, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, sharePhone, suites, uf])
+
+  const createNewPresentation = () => {
+    flowDraft.clear()
+    conversation.resetConversation()
+    onCreateNew()
+  }
 
   const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const formatPrice = (digits) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
@@ -803,6 +839,8 @@ function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, 
             aiCampaigns: campaignPackage?.campaigns || [],
             googleAds: campaignPackage?.google_ads,
           }}
+          onCreateNew={createNewPresentation}
+          createNewLabel="Criar nova apresentação"
         />
       )}
     </div>

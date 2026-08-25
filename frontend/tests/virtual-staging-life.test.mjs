@@ -31,7 +31,7 @@ test('Vida no Imovel has the nine approved single-choice profiles', () => {
   ])
   assert.equal(getLifeSceneLabel('adult_dog'), 'Adultos com cachorro')
   assert.equal(LIFE_SCENE_OPTIONS.some(({ label }) => /nenhum|sem pessoas|não incluir pessoas/i.test(label)), false)
-  assert.match(page, /const \[lifeScene, setLifeScene\] = useState\(''\)/)
+  assert.match(page, /const \[lifeScene, setLifeScene\] = useState\(\(\) => restoredJourneyDraft\.lifeScene \|\| ''\)/)
   assert.match(page, /choices\(LIFE_SCENE_OPTIONS, lifeScene/)
   assert.doesNotMatch(page, /setLifeScene\(current => \[/)
 })

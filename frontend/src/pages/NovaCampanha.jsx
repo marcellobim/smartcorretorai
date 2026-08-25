@@ -6,6 +6,7 @@ import Header from '../components/layout/Header'
 import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEWS } from '../data/templateCatalog'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
+import { useProductDraft } from '../hooks/useProductDraft'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildProduct3CampaignOptions, normalizeProduct3CampaignFiles } from '../components/campaign/buildProduct3CampaignPackage'
@@ -1991,32 +1992,36 @@ export default function NovaCampanha() {
   const defaultCampaignStep = isProductEntry ? 'property' : 'manual-catalog'
   const defaultCampaignFlowType = isProductEntry ? null : 'manual'
   const defaultCampaignObjective = ''
-  const [fase, setFase] = useState('form')
+  const quickBannerDraft = useProductDraft({ productKey: 'banners-rapidos', schemaVersion: 1, userId: authedUser?.id, enabled: !isProductEntry })
+  const restoredQuickBannerDraft = quickBannerDraft.restoredDraft || {}
+  const [fase, setFase] = useState(() => restoredQuickBannerDraft.fase || 'form')
 
-  const [categoria, setCategoria] = useState(null)
-  const [tipo, setTipo] = useState('')
-  const [finalidade, setFinalidade] = useState(MVP_FINALIDADE)
-  const [situacao, setSituacao] = useState('')
-  const [quartos, setQuartos] = useState(2)
-  const [banheiros, setBanheiros] = useState(1)
-  const [suites, setSuites] = useState(0)
-  const [vagas, setVagas] = useState(1)
-  const [area, setArea] = useState('')
-  const [preco, setPreco] = useState('')
-  const [precoModo, setPrecoModo] = useState('')
-  const [condominio, setCondominio] = useState('')
-  const [iptu, setIptu] = useState('')
-  const [bairro, setBairro] = useState('')
-  const [cidade, setCidade] = useState('')
-  const [estado, setEstado] = useState('')
+  const [categoria, setCategoria] = useState(() => restoredQuickBannerDraft.categoria || null)
+  const [tipo, setTipo] = useState(() => restoredQuickBannerDraft.tipo || '')
+  const [finalidade, setFinalidade] = useState(() => restoredQuickBannerDraft.finalidade || MVP_FINALIDADE)
+  const [situacao, setSituacao] = useState(() => restoredQuickBannerDraft.situacao || '')
+  const [quartos, setQuartos] = useState(() => restoredQuickBannerDraft.quartos ?? 2)
+  const [banheiros, setBanheiros] = useState(() => restoredQuickBannerDraft.banheiros ?? 1)
+  const [suites, setSuites] = useState(() => restoredQuickBannerDraft.suites ?? 0)
+  const [vagas, setVagas] = useState(() => restoredQuickBannerDraft.vagas ?? 1)
+  const [area, setArea] = useState(() => restoredQuickBannerDraft.area || '')
+  const [preco, setPreco] = useState(() => restoredQuickBannerDraft.preco || '')
+  const [precoModo, setPrecoModo] = useState(() => restoredQuickBannerDraft.precoModo || '')
+  const [condominio, setCondominio] = useState(() => restoredQuickBannerDraft.condominio || '')
+  const [iptu, setIptu] = useState(() => restoredQuickBannerDraft.iptu || '')
+  const [bairro, setBairro] = useState(() => restoredQuickBannerDraft.bairro || '')
+  const [cidade, setCidade] = useState(() => restoredQuickBannerDraft.cidade || '')
+  const [estado, setEstado] = useState(() => restoredQuickBannerDraft.estado || '')
   const [cidades, setCidades] = useState([])
   const [carregandoCidades, setCarregandoCidades] = useState(false)
-  const [diferenciais, setDiferenciais] = useState([])
-  const [difCustom, setDifCustom] = useState('')
-  const [product3Cta, setProduct3Cta] = useState('')
-  const [product3UseProfessionalPhone, setProduct3UseProfessionalPhone] = useState('')
+  const [diferenciais, setDiferenciais] = useState(() => restoredQuickBannerDraft.diferenciais || [])
+  const [difCustom, setDifCustom] = useState(() => restoredQuickBannerDraft.difCustom || '')
+  const [product3Cta, setProduct3Cta] = useState(() => restoredQuickBannerDraft.product3Cta || '')
+  const [product3UseProfessionalPhone, setProduct3UseProfessionalPhone] = useState(() => restoredQuickBannerDraft.product3UseProfessionalPhone || '')
   const [fotos, setFotos] = useState([])
   const [videoArquivo, setVideoArquivo] = useState(null)
+  const [missingPhotoMetadata, setMissingPhotoMetadata] = useState(() => restoredQuickBannerDraft.photoMetadata || [])
+  const [missingVideoMetadata, setMissingVideoMetadata] = useState(() => restoredQuickBannerDraft.videoMetadata || null)
   const [msgIdx, setMsgIdx] = useState(0)
   const [resultado, setResultado] = useState(null)
   const [campanhaId, setCampanhaId] = useState(null)
@@ -2071,11 +2076,25 @@ export default function NovaCampanha() {
 
   const [creditos, setCreditos] = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [productFlowStep, setProductFlowStep] = useState(defaultCampaignStep)
-  const [bannerChatStep, setBannerChatStep] = useState('purpose')
-  const [activeCampaignModelId, setActiveCampaignModelId] = useState(null)
-  const [selectedModelUses, setSelectedModelUses] = useState({})
-  const [campaignObjective, setCampaignObjective] = useState(defaultCampaignObjective)
+  const [productFlowStep, setProductFlowStep] = useState(() => restoredQuickBannerDraft.productFlowStep || defaultCampaignStep)
+  const [bannerChatStep, setBannerChatStep] = useState(() => restoredQuickBannerDraft.bannerChatStep || 'purpose')
+  const [activeCampaignModelId, setActiveCampaignModelId] = useState(() => restoredQuickBannerDraft.activeCampaignModelId || null)
+  const [selectedModelUses, setSelectedModelUses] = useState(() => restoredQuickBannerDraft.selectedModelUses || {})
+  const [campaignObjective, setCampaignObjective] = useState(() => restoredQuickBannerDraft.campaignObjective || defaultCampaignObjective)
+
+  useEffect(() => {
+    if (isProductEntry || fase !== 'form') return
+    const photoMetadata = fotos.length
+      ? fotos.map(({ name, size, type, lastModified }, order) => ({ name, size, type, lastModified, order }))
+      : missingPhotoMetadata
+    const videoMetadata = videoArquivo
+      ? { name: videoArquivo.name, size: videoArquivo.size, type: videoArquivo.file?.type || '', lastModified: videoArquivo.file?.lastModified || 0, order: 0 }
+      : missingVideoMetadata
+    const draft = { fase, categoria, tipo, finalidade, situacao, quartos, banheiros, suites, vagas, area, preco, precoModo, condominio, iptu, bairro, cidade, estado, diferenciais, difCustom, product3Cta, product3UseProfessionalPhone, productFlowStep, bannerChatStep, activeCampaignModelId, selectedModelUses, campaignObjective, photoMetadata, videoMetadata }
+    const meaningful = categoria || tipo || situacao || area || preco || bairro || cidade || diferenciais.length || product3Cta || Object.keys(selectedModelUses).length || photoMetadata.length || videoMetadata
+    if (!meaningful && productFlowStep === defaultCampaignStep) { quickBannerDraft.clear(); return }
+    quickBannerDraft.save(draft)
+  }, [activeCampaignModelId, area, banheiros, bannerChatStep, bairro, campaignObjective, categoria, cidade, condominio, defaultCampaignStep, difCustom, diferenciais, estado, fase, finalidade, fotos, iptu, isProductEntry, missingPhotoMetadata, missingVideoMetadata, preco, precoModo, product3Cta, product3UseProfessionalPhone, productFlowStep, quartos, quickBannerDraft, selectedModelUses, situacao, suites, tipo, vagas, videoArquivo])
 
   useEffect(() => {
     setIgConectado(false)
@@ -2230,9 +2249,14 @@ export default function NovaCampanha() {
     }
     const processadas = await Promise.all(novos.map(async f => ({
       preview: URL.createObjectURL(f),
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      lastModified: f.lastModified,
       ...(await resizeFoto(f)),
     })))
     setFotos(prev => [...prev, ...processadas].slice(0, maxFotosImovel))
+    setMissingPhotoMetadata([])
   }
 
   const removerFoto = (idx) => setFotos(prev => prev.filter((_, i) => i !== idx))
@@ -2248,8 +2272,9 @@ export default function NovaCampanha() {
       size: file.size,
       preview: URL.createObjectURL(file),
     })
+    setMissingVideoMetadata(null)
   }
-  const removerVideo = () => setVideoArquivo(null)
+  const removerVideo = () => { setVideoArquivo(null); setMissingVideoMetadata(null) }
 
   const precoParaPayload = normalizePrecoPayload(preco)
   const bairroNormalizado = normalizeBairro(bairro)
@@ -2340,9 +2365,10 @@ export default function NovaCampanha() {
   })
 
   const resetCampaignState = (targetStep = defaultCampaignStep) => {
+    if (!isProductEntry) quickBannerDraft.clear()
     setFase('form'); setCategoria(null); setTipo(''); setFinalidade(MVP_FINALIDADE); setSituacao('')
     setQuartos(2); setBanheiros(1); setSuites(0); setVagas(1); setArea(''); setPreco(''); setPrecoModo(''); setCondominio(''); setIptu('')
-    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setProduct3UseProfessionalPhone(''); setFotos([]); setVideoArquivo(null)
+    setBairro(''); setCidade(''); setEstado(''); setDiferenciais([]); setDifCustom(''); setProduct3Cta(''); setProduct3UseProfessionalPhone(''); setFotos([]); setVideoArquivo(null); setMissingPhotoMetadata([]); setMissingVideoMetadata(null)
     setResultado(null); setCampanhaId(null); setIgPostado(false)
     setShowAgendamento(false)
     setRenders(null); setRequestedVisualPieces([]); setGerandoBanners(false); setGenerationNotice(''); setGenerationError(''); setProductFlowStep(targetStep); setBannerChatStep('purpose'); setActiveCampaignModelId(null); setSelectedModelUses({}); setCampaignObjective(defaultCampaignObjective)
@@ -2350,6 +2376,7 @@ export default function NovaCampanha() {
   }
 
   const startAnotherBannerGeneration = () => {
+    quickBannerDraft.clear()
     setFase('form')
     setProductFlowStep('manual-catalog')
     setBannerChatStep('done')
@@ -3505,6 +3532,10 @@ export default function NovaCampanha() {
             </p>
           )}
         </div>
+
+        {!isProductEntry && (missingPhotoMetadata.length > 0 || missingVideoMetadata) && fotos.length === 0 && !videoArquivo && (
+          <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente os arquivos indicados; fotos e vídeos físicos não são armazenados no navegador.</p>
+        )}
 
         {productContext.allowVideo && (
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
