@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { stripProviderTokens } from './auth-storage'
+import {
+  AUTH_SESSION_TRANSITION,
+  blocksAuthenticatedTree,
+  classifyAuthSessionTransition,
+} from './auth-session-policy'
 
 const AuthContext = createContext(null)
 
@@ -78,7 +83,11 @@ async function fetchAdminStatusDirect(accessToken) {
     },
     body: '{}',
   })
-  if (!res.ok) return false
+  if (!res.ok) {
+    const error = new Error('admin_authorization_unavailable')
+    error.status = res.status
+    throw error
+  }
   return (await res.json()) === true
 }
 
@@ -93,7 +102,11 @@ async function fetchAuthOnboardingStateDirect(accessToken) {
     },
     body: '{}',
   })
-  if (!res.ok) throw new Error('auth_onboarding_unavailable')
+  if (!res.ok) {
+    const error = new Error('auth_onboarding_unavailable')
+    error.status = res.status
+    throw error
+  }
   const state = await res.json()
   return typeof state === 'string' ? state : 'error'
 }
@@ -106,7 +119,10 @@ export function AuthProvider({ children }) {
   const [onboardingState, setOnboardingState] = useState('checking')
   const [loading, setLoading] = useState(true)
   const initialResolvedRef = useRef(false)
-  const profileInFlightRef = useRef(false)
+  const activeUserIdRef = useRef(null)
+  const trustedUserIdRef = useRef(null)
+  const authResolutionRef = useRef(0)
+  const profileInFlightRef = useRef(null)
 
   // ─── loadProfile ──────────────────────────────────────────────────────────
   // Busca a linha em `profiles` para o uid passado.
@@ -121,12 +137,15 @@ export function AuthProvider({ children }) {
   // - Lock via ref evita chamadas concorrentes que poderiam intercalar
   //   setProfile(null) com setProfile(data) e zerar a UI.
   const loadProfile = useCallback(async (uid, email, accessToken) => {
-    if (!uid) { setProfile(null); return null }
-    if (profileInFlightRef.current) {
+    if (!uid) {
+      if (!activeUserIdRef.current) setProfile(null)
+      return null
+    }
+    if (profileInFlightRef.current === uid) {
       devAuthLog('log', 'profile load already in progress')
       return null
     }
-    profileInFlightRef.current = true
+    profileInFlightRef.current = uid
 
     try {
       devAuthLog('log', `profile load started; token present: ${!!accessToken}`)
@@ -164,7 +183,7 @@ export function AuthProvider({ children }) {
           data = await fetchOnce()
         } catch {
           devAuthLog('error', 'profile load failed')
-          setProfile(null)
+          if (activeUserIdRef.current === uid) setProfile(null)
           return null
         }
       }
@@ -182,7 +201,7 @@ export function AuthProvider({ children }) {
 
       if (!data) {
         devAuthLog('warn', 'profile unavailable after retries')
-        setProfile(null)
+        if (activeUserIdRef.current === uid) setProfile(null)
         return null
       }
 
@@ -191,10 +210,10 @@ export function AuthProvider({ children }) {
       } else {
         devAuthLog('log', 'profile load success')
       }
-      setProfile(data)
+      if (activeUserIdRef.current === uid) setProfile(data)
       return data
     } finally {
-      profileInFlightRef.current = false
+      if (profileInFlightRef.current === uid) profileInFlightRef.current = null
     }
   }, [])
 
@@ -208,30 +227,63 @@ export function AuthProvider({ children }) {
     const resolveSession = async (newSession, source) => {
       if (!mounted) return
       const sessionUser = newSession?.user ?? null
+      const nextUserId = sessionUser?.id ?? null
+      const transition = classifyAuthSessionTransition({
+        event: source,
+        initialResolved: initialResolvedRef.current,
+        currentUserId: trustedUserIdRef.current,
+        nextUserId,
+      })
+      const resolution = ++authResolutionRef.current
       const safeSession = stripProviderTokens(newSession)
       devAuthLog('log', `event received; session present: ${!!newSession}`)
+      activeUserIdRef.current = nextUserId
       setSession(safeSession ?? null)
       setAuthUser(sessionUser)
       if (sessionUser) {
-        setOnboardingState('checking')
+        // A hidratação inicial e uma troca real de identidade continuam
+        // bloqueantes. Uma renovação do JWT do mesmo usuário mantém a árvore
+        // montada enquanto os estados protegidos são revalidados no backend.
+        if (blocksAuthenticatedTree(transition)) {
+          setLoading(true)
+          setProfile(null)
+          setAdminAuthorized(false)
+          setOnboardingState('checking')
+        }
         // Passa o access_token explicitamente — loadProfile usa direct fetch
         // pra evitar a race do estado interno do postgrest no F5.
+        const blockingTransition = blocksAuthenticatedTree(transition)
+        const rejectInvalidSession = error => error?.status === 401 || error?.status === 403
         const [, trustedAdminStatus, trustedOnboardingState] = await Promise.all([
           loadProfile(sessionUser.id, sessionUser.email, newSession?.access_token),
-          fetchAdminStatusDirect(newSession?.access_token).catch(() => false),
-          fetchAuthOnboardingStateDirect(newSession?.access_token).catch(() => 'error'),
+          fetchAdminStatusDirect(newSession?.access_token).catch(error =>
+            blockingTransition || rejectInvalidSession(error) ? false : null
+          ),
+          fetchAuthOnboardingStateDirect(newSession?.access_token).catch(error =>
+            blockingTransition || rejectInvalidSession(error) ? 'error' : null
+          ),
         ])
-        if (mounted) {
-          setAdminAuthorized(trustedAdminStatus)
-          setOnboardingState(trustedOnboardingState)
+        if (mounted && resolution === authResolutionRef.current && activeUserIdRef.current === nextUserId) {
+          // Em refresh silencioso, indisponibilidade transitória não equivale a
+          // revogação. Um resultado autoritativo false/needs_acceptance ainda
+          // bloqueia imediatamente; somente null preserva o último estado bom.
+          if (trustedAdminStatus !== null) setAdminAuthorized(trustedAdminStatus)
+          if (trustedOnboardingState !== null) setOnboardingState(trustedOnboardingState)
+          if (blockingTransition) trustedUserIdRef.current = nextUserId
         }
       } else {
+        trustedUserIdRef.current = null
         setProfile(null)
         setAdminAuthorized(false)
         setOnboardingState('not_authenticated')
       }
-      if (mounted && !initialResolvedRef.current) {
+      if (mounted && resolution === authResolutionRef.current && !initialResolvedRef.current) {
         initialResolvedRef.current = true
+        setLoading(false)
+      } else if (mounted && resolution === authResolutionRef.current && (
+        transition === AUTH_SESSION_TRANSITION.IDENTITY_CHANGE
+        || transition === AUTH_SESSION_TRANSITION.SIGNED_OUT
+      )) {
         setLoading(false)
       }
     }
@@ -240,9 +292,9 @@ export function AuthProvider({ children }) {
       async (event, session) => {
         if (!mounted) return
         if (event === 'PASSWORD_RECOVERY') sessionStorage.setItem('smartcorretor_password_recovery', 'pending')
-        // INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED.
-        // Pra todos eles tratamos a sessão de forma uniforme — assim o profile
-        // é re-checado após token refresh e USER_UPDATED também.
+        // TOKEN_REFRESHED do mesmo usuário é revalidado sem trocar a aplicação
+        // por um loader. Saída, sessão inválida e troca de usuário permanecem
+        // transições destrutivas e fail-closed.
         await resolveSession(session, event)
       }
     )

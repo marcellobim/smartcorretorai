@@ -6,16 +6,24 @@ import BrandMark from '../brand/BrandMark'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../lib/auth-context'
+import { readJwtAssuranceLevel } from '../../lib/auth-session-policy'
 
 export default function AdminMfaGate({ children }) {
+  const { accessToken } = useAuth()
   const [status, setStatus] = useState('loading')
   const [factor, setFactor] = useState(null)
   const [enrollment, setEnrollment] = useState(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const refreshedAal = readJwtAssuranceLevel(accessToken)
 
   useEffect(() => {
     let active = true
+    // Um refresh AAL2 legítimo não desmonta o painel já verificado. Se o novo
+    // JWT perder AAL2 (ou não puder ser lido), o conteúdo é ocultado antes da
+    // revalidação autoritativa pelo Supabase MFA.
+    setStatus(current => current === 'verified' && refreshedAal === 'aal2' ? current : 'loading')
     Promise.all([
       supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
       supabase.auth.mfa.listFactors(),
@@ -28,7 +36,7 @@ export default function AdminMfaGate({ children }) {
       setStatus(verifiedTotp ? 'challenge' : 'enroll')
     }).catch(() => active && setStatus('error'))
     return () => { active = false }
-  }, [])
+  }, [accessToken, refreshedAal])
 
   const beginEnrollment = async () => {
     setBusy(true)
@@ -74,7 +82,7 @@ export default function AdminMfaGate({ children }) {
     }
   }
 
-  if (status === 'verified') return children
+  if (status === 'verified' && refreshedAal === 'aal2') return children
   if (status === 'error') return <Navigate to="/dashboard" replace />
 
   return (
