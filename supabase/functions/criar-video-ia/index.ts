@@ -9,6 +9,10 @@ import {
   settleVeoVideoEconomy,
   updateVeoVideoEconomyTelemetry,
 } from '../_shared/veo-video-economy.ts'
+import {
+  buildFreeAiSpokenCtaInstruction,
+  withFreeAiSpokenCta,
+} from './free-ai-spoken-cta.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3789,6 +3793,13 @@ serve(async (req) => {
       }
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
+      if (isFreeAiRequest) {
+        promptFinal = withFreeAiSpokenCta(promptFinal, metadataChat.cta, promptMode === 'json')
+        const spokenCtaInstruction = buildFreeAiSpokenCtaInstruction(metadataChat.cta)
+        if (spokenCtaInstruction) {
+          voiceoverPromptForDebug = [voiceoverPromptForDebug, spokenCtaInstruction].filter(Boolean).join('\n\n')
+        }
+      }
       promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json')
       visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json')
       voiceoverPromptForDebug = voiceoverPromptForDebug
