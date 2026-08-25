@@ -10,7 +10,7 @@ Tela validada:
 
 Usuário autenticado:
 
-- `bbqbim@gmail.com`
+- `usuario@example.com`
 
 Estado do usuário durante a validação:
 

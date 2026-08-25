@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { extname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const read = relative => readFileSync(new URL(relative, import.meta.url), 'utf8')
 const auth = read('../src/lib/auth-context.jsx')
@@ -13,11 +15,49 @@ const adminRuntime = read('../../supabase/functions/admin-api/runtime.ts')
 const smartTourGenerate = read('../../supabase/functions/smart-tour-generate/index.ts')
 const virtualStagingImage = read('../../supabase/functions/virtual-staging-image-test/index.ts')
 
+const executableExtensions = new Set(['.js', '.jsx', '.ts', '.tsx'])
+const activeCodeRoots = [
+  fileURLToPath(new URL('../src/', import.meta.url)),
+  fileURLToPath(new URL('../../supabase/functions/', import.meta.url)),
+]
+
+function listActiveCodeFiles(root) {
+  return readdirSync(root, { withFileTypes: true }).flatMap(entry => {
+    const path = join(root, entry.name)
+    if (entry.isDirectory()) return entry.name === 'tests' ? [] : listActiveCodeFiles(path)
+    if (!executableExtensions.has(extname(entry.name)) || /\.test\.[cm]?[jt]sx?$/.test(entry.name)) return []
+    return [path]
+  })
+}
+
+const forbiddenAdminEmailPatterns = [
+  { name: 'ADMIN_EMAIL constant', pattern: /\bADMIN_EMAILS?\b/ },
+  {
+    name: 'email literal grants identity-dependent behavior',
+    pattern: /(?:\b(?:user|profile|account|authUser|sessionUser)\??\.email|\b(?:profileEmail|accountEmail|email))\s*={2,3}\s*['"`][^'"`\r\n]+@/i,
+  },
+  {
+    name: 'reversed email literal grants identity-dependent behavior',
+    pattern: /['"`][^'"`\r\n]+@[^'"`\r\n]+['"`]\s*={2,3}\s*(?:\b(?:user|profile|account|authUser|sessionUser)\??\.email|\b(?:profileEmail|accountEmail|email))/i,
+  },
+]
+
+test('active executable code has no Admin authorization fallback by email', () => {
+  const violations = activeCodeRoots.flatMap(listActiveCodeFiles).flatMap(path => {
+    const source = readFileSync(path, 'utf8')
+    return forbiddenAdminEmailPatterns
+      .filter(({ pattern }) => pattern.test(source))
+      .map(({ name }) => `${path}: ${name}`)
+  })
+
+  assert.deepEqual(violations, [])
+})
+
 test('frontend Admin state comes only from the protected self-status RPC', () => {
   assert.match(auth, /fetchAdminStatusDirect/)
   assert.match(auth, /rest\/v1\/rpc\/is_authorized_admin/)
   assert.match(auth, /const isAdmin = adminAuthorized/)
-  assert.doesNotMatch(auth, /user_metadata\?*\.role|riccieri68@gmail\.com/i)
+  assert.doesNotMatch(auth, /user_metadata\?*\.role|\bADMIN_EMAILS?\b/)
 })
 
 test('AdminRoute and Sidebar use trusted presentation state', () => {

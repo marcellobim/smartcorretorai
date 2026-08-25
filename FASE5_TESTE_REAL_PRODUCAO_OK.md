@@ -18,8 +18,8 @@ Nao houve nova migration aplicada durante este teste.
 ## Usuario testado
 
 ```text
-email: riccieri68@gmail.com
-user_id: 653b5a06-9b7a-4009-9a8c-6e3ea701460c
+email: teste@example.com
+user_id: 00000000-0000-4000-8000-000000000001
 ```
 
 ## Estado inicial

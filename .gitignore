@@ -7,6 +7,7 @@ build/
 *.log
 .vercel
 .netlify
+.codex/
 coverage/
 .claude/settings.local.json
 # Supabase CLI scratch metadata (regenerated automatically)

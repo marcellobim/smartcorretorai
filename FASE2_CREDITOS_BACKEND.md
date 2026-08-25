@@ -258,7 +258,7 @@ Executar somente apos aprovacao explicita para aplicar a migration.
 ```sql
 select id, email
 from auth.users
-where email = 'bbqbim@gmail.com';
+where email = 'usuario@example.com';
 ```
 
 ### 2. Consultar saldo inicial
