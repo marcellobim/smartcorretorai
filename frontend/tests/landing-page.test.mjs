@@ -200,8 +200,10 @@ test('preserves the approved FAQ and adds transparent review guidance', () => {
   assert.doesNotMatch(faqSource, /a IA pode errar/i)
   assert.match(landing, />Redes sociais<\/h2>/)
   assert.equal((landing.match(/Inteligência que vende/g) || []).length, 1)
-  assert.match(landing, /Instagram — perfil oficial ainda não configurado/)
-  assert.match(landing, /Facebook — perfil oficial ainda não configurado/)
+  assert.match(landing, /href="https:\/\/www\.instagram\.com\/smartcorretorai\/" target="_blank" rel="noopener noreferrer" aria-label="Instagram oficial do SmartCorretorAI"/)
+  assert.doesNotMatch(landing, /Instagram — perfil oficial ainda não configurado/)
+  assert.match(landing, /href="https:\/\/www\.facebook\.com\/profile\.php\?id=61589717755129" target="_blank" rel="noopener noreferrer" aria-label="Facebook oficial do SmartCorretorAI"/)
+  assert.doesNotMatch(landing, /Facebook — perfil oficial ainda não configurado/)
 })
 
 test('contains no unsupported offer, price, payment, timing or result claims', () => {
