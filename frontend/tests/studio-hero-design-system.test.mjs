@@ -86,7 +86,7 @@ test('preserves upload, edit, generation, retry and reset callbacks', () => {
   assert.match(studio, /function StudioChecklist\([\s\S]*onClick=\{\(\) => \(label\.startsWith\('Imagem'\) \? onEditImages\(\) : onEdit\(editStep\)\)\}/)
   assert.match(studio, /<ProductButton type="button" onClick=\{onGenerate\} disabled=\{!canGenerate \|\| isGenerating\} loading=\{isGenerating\}/)
   assert.match(studio, /status === 'failed'[\s\S]*<ErrorCard[\s\S]*onEditImages=\{goToUploadStep\}/)
-  assert.match(studio, /<ResultPanel[\s\S]*onReset=\{resetFlow\}/)
+  assert.match(studio, /<ResultPanel[\s\S]*onReset=\{createNewStudioVersion\}/)
   assert.match(studio, /const resetFlow = \(nextMode = studioMode\) => \{/)
 })
 

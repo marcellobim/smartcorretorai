@@ -1742,8 +1742,6 @@ export default function StudioHero() {
           throw new Error('completed_without_video_url')
         }
         clearPolling()
-        clearStudioActiveJob(window.sessionStorage, normalizedJobId)
-        activeJobRef.current = null
         setStatus('completed')
         setVideoUrl(nextVideoUrl)
         setMessage('Seu comercial esta pronto.')
@@ -1967,6 +1965,16 @@ export default function StudioHero() {
     setStep(1)
   }
 
+  const createNewStudioVersion = (nextMode = studioMode) => {
+    clearPolling()
+    const recoverableJobId = activeJobRef.current?.jobId || ''
+    if (recoverableJobId) {
+      clearStudioActiveJob(window.sessionStorage, recoverableJobId)
+    }
+    activeJobRef.current = null
+    resetFlow(nextMode)
+  }
+
   const selectStudioMode = (mode) => {
     if (!mode.active) {
       setModeNotice('Este modo estara disponivel em breve.')
@@ -2160,7 +2168,7 @@ export default function StudioHero() {
               ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
               : 'Um fluxo curto para transformar suas escolhas e sua imagem em uma peca de divulgacao mais cinematografica.'} Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.`}
             actions={<ProductButton type="button" variant="secondary" disabled={isGenerating} onClick={() => {
-              resetFlow()
+              createNewStudioVersion()
               setStudioMode('')
             }}>Escolher outro tipo de criacao</ProductButton>}
             visual={<StudioHeroGuideCard title="Como vamos conduzir?" items={guideItems} icon={ShieldCheck} />}
@@ -2182,7 +2190,7 @@ export default function StudioHero() {
               message={message}
               videoUrl={videoUrl}
               generationMessage={generationMessage}
-              onReset={resetFlow}
+              onReset={createNewStudioVersion}
             />
           )}
           <div className={isRecoveredJob ? 'hidden' : 'contents'}>
@@ -2958,7 +2966,7 @@ export default function StudioHero() {
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
-                    onReset={resetFlow}
+                    onReset={createNewStudioVersion}
                   />
                 ) : (
                   <StudioChecklist
@@ -2996,7 +3004,7 @@ export default function StudioHero() {
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
-                    onReset={resetFlow}
+                    onReset={createNewStudioVersion}
                   />
                 ) : (
                   <>
@@ -3040,7 +3048,7 @@ export default function StudioHero() {
           <div className="flex justify-end">
             <ProductButton
               type="button"
-              onClick={resetFlow}
+              onClick={status === 'completed' ? createNewStudioVersion : resetFlow}
               variant="ghost"
               size="sm"
             >

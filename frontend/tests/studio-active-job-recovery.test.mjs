@@ -90,14 +90,19 @@ test('only one timer and one in-flight request are allowed for the active job', 
   assert.match(page, /if \(activeJobRef\.current\?\.jobId !== normalizedJobId\) return/)
 })
 
-test('completed and failed terminal statuses stop polling and clear only their job', () => {
+test('completed stops polling but preserves its recoverable reference', () => {
   const completed = page.slice(page.indexOf("if (data.status === 'completed')"), page.indexOf("if (['failed'"))
+  assert.match(completed, /clearPolling\(\)/)
+  assert.match(completed, /setStatus\('completed'\)/)
+  assert.match(completed, /setVideoUrl\(nextVideoUrl\)/)
+  assert.doesNotMatch(completed, /clearStudioActiveJob|activeJobRef\.current = null/)
+})
+
+test('failed and cancelled terminal statuses clear only their job', () => {
   const failed = page.slice(page.indexOf("if (['failed'"), page.indexOf("setStatus('generating')", page.indexOf("if (['failed'")))
-  for (const block of [completed, failed]) {
-    assert.match(block, /clearPolling\(\)/)
-    assert.match(block, /clearStudioActiveJob\(window\.sessionStorage, normalizedJobId\)/)
-    assert.match(block, /activeJobRef\.current = null/)
-  }
+  assert.match(failed, /clearPolling\(\)/)
+  assert.match(failed, /clearStudioActiveJob\(window\.sessionStorage, normalizedJobId\)/)
+  assert.match(failed, /activeJobRef\.current = null/)
 
   const storage = new MemoryStorage()
   writeStudioActiveJob(storage, { jobId, mode: 'dynamic_reel' })
@@ -105,6 +110,24 @@ test('completed and failed terminal statuses stop polling and clear only their j
   assert.notEqual(storage.getItem(STUDIO_ACTIVE_JOB_KEY), null)
   assert.equal(clearStudioActiveJob(storage, jobId), true)
   assert.equal(storage.getItem(STUDIO_ACTIVE_JOB_KEY), null)
+})
+
+test('reload after completed restores the result without generation or economic side effects', () => {
+  const mountRecovery = page.slice(page.indexOf('const activeJob = initialActiveJobRef.current'), page.indexOf('return () => {', page.indexOf('const activeJob = initialActiveJobRef.current')))
+  const completed = page.slice(page.indexOf("if (data.status === 'completed')"), page.indexOf("if (['failed'"))
+  assert.match(mountRecovery, /scheduleVideoPoll\(activeJob\.jobId, 0, \{ mode: 'recovery' \}\)/)
+  assert.match(completed, /setVideoUrl\(nextVideoUrl\)/)
+  assert.doesNotMatch(mountRecovery, /criar-video-ia|reserve|consume|registerStudioCreation/)
+  assert.doesNotMatch(completed, /criar-video-ia|reserve|consume/)
+})
+
+test('Create new explicitly clears the completed reference before resetting the flow', () => {
+  const createNew = page.slice(page.indexOf('const createNewStudioVersion ='), page.indexOf('const selectStudioMode'))
+  assert.match(createNew, /clearStudioActiveJob\(window\.sessionStorage, recoverableJobId\)/)
+  assert.match(createNew, /activeJobRef\.current = null/)
+  assert.match(createNew, /resetFlow\(nextMode\)/)
+  assert.match(page, /onReset=\{createNewStudioVersion\}/)
+  assert.match(page, /onClick=\{status === 'completed' \? createNewStudioVersion : resetFlow\}/)
 })
 
 test('a transient polling error preserves the job and schedules another poll', () => {
