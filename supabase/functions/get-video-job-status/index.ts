@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkVeoVideoStatus } from '../_shared/veoClient.ts'
 import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
 import { settleVeoVideoEconomy, updateVeoVideoEconomyTelemetry } from '../_shared/veo-video-economy.ts'
+import { createSupabaseCreationStore } from '../_shared/creations.ts'
+import { registerStudioCreation, type StudioCreationJob } from './creation-runtime.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -111,6 +113,10 @@ async function settleJobEconomy(
   }
 }
 
+async function ensureStudioCreation(supabase: any, job: StudioCreationJob) {
+  await registerStudioCreation(createSupabaseCreationStore(supabase), job)
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -185,6 +191,7 @@ serve(async (req) => {
         legacyIdempotencyKey: String(job.credit_idempotency_key || ''), outputPath,
         telemetry: { delivery_recovered_from_completed_job: true },
       })
+      await ensureStudioCreation(supabase, job as StudioCreationJob)
       const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
       return jsonResponse({
         ok: true,
@@ -229,6 +236,12 @@ serve(async (req) => {
         legacyIdempotencyKey: String(job.credit_idempotency_key || ''), outputPath: existingOutputPath,
         telemetry: { delivery_recovered_from_persisted_output: true },
       })
+      await ensureStudioCreation(supabase, {
+        ...job,
+        status: 'completed',
+        output_video_path: existingOutputPath,
+        completed_at: completedAt,
+      } as StudioCreationJob)
 
       const signedVideoUrl = await createSignedVideoUrl(supabase, existingOutputPath)
       return jsonResponse({
@@ -345,6 +358,12 @@ serve(async (req) => {
       legacyIdempotencyKey: String(job.credit_idempotency_key || ''), outputPath,
       telemetry: { delivery_persisted_before_consumption: true },
     })
+    await ensureStudioCreation(supabase, {
+      ...job,
+      status: 'completed',
+      output_video_path: outputPath,
+      completed_at: completedAt,
+    } as StudioCreationJob)
 
     const signedVideoUrl = await createSignedVideoUrl(supabase, outputPath)
     return jsonResponse({

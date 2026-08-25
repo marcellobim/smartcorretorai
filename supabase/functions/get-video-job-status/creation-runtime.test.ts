@@ -134,8 +134,12 @@ test('frontend-controlled product or manifest fields are absent from the Studio 
   assert.equal(input?.result_manifest.files?.[0]?.path, `${userId}/${jobId}/video.mp4`)
 })
 
-test('get-video-job-status returns the signed MP4 without an active Creations hook', () => {
+test('get-video-job-status registers completed paths through the idempotent Creations hook', () => {
   assert.match(indexSource, /status: 'completed'[\s\S]*signedVideoUrl/)
   assert.match(indexSource, /createSignedVideoUrl\(supabase, outputPath\)/)
-  assert.doesNotMatch(indexSource, /_shared\/creations|registerStudioCreation|ensureStudioCreation|creationId/)
+  assert.match(indexSource, /createSupabaseCreationStore/)
+  assert.match(indexSource, /registerStudioCreation/)
+  assert.equal((indexSource.match(/await ensureStudioCreation\(supabase,/g) || []).length, 3)
+  const failedBranch = indexSource.slice(indexSource.indexOf("if (job.status === 'failed')"), indexSource.indexOf('const existingOutputPath'))
+  assert.doesNotMatch(failedBranch, /ensureStudioCreation/)
 })

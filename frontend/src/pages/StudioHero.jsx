@@ -32,6 +32,13 @@ import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
+import {
+  clearStudioActiveJob,
+  getStudioActiveMode,
+  getStudioUiMode,
+  readStudioActiveJob,
+  writeStudioActiveJob,
+} from '../lib/studio-active-job'
 
 const BUCKET = 'studio-videos'
 const STUDIO_HERO_REPRESENTATIVE_VIDEO = '/showcase/studio/showcase-captacao-corretores.mp4'
@@ -1120,16 +1127,28 @@ export default function StudioHero() {
   const { user, isAdmin, reloadProfile } = useAuth()
   const navigate = useNavigate()
   const pollTimerRef = useRef(null)
+  const pollInFlightRef = useRef('')
+  const componentMountedRef = useRef(false)
+  const initialActiveJobRef = useRef(undefined)
+  if (initialActiveJobRef.current === undefined) {
+    initialActiveJobRef.current = typeof window === 'undefined'
+      ? null
+      : readStudioActiveJob(window.sessionStorage).record
+  }
+  const activeJobRef = useRef(initialActiveJobRef.current)
   const uploadSectionRef = useRef(null)
-  const [studioMode, setStudioMode] = useState('')
+  const [studioMode, setStudioMode] = useState(() => initialActiveJobRef.current
+    ? getStudioUiMode(initialActiveJobRef.current.mode)
+    : '')
   const [modeNotice, setModeNotice] = useState('')
   const [step, setStep] = useState(1)
   const [answers, setAnswers] = useState(initialAnswers)
   const [manualCityMode, setManualCityMode] = useState(() => Boolean(formatDisplayText(initialAnswers.cityOther)))
   const [files, setFiles] = useState({ image1: null })
-  const [status, setStatus] = useState('idle')
-  const [message, setMessage] = useState('')
+  const [status, setStatus] = useState(() => initialActiveJobRef.current ? 'generating' : 'idle')
+  const [message, setMessage] = useState(() => initialActiveJobRef.current ? 'Retomando sua criação...' : '')
   const [videoUrl, setVideoUrl] = useState('')
+  const [isRecoveredJob, setIsRecoveredJob] = useState(() => Boolean(initialActiveJobRef.current))
   const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
 
   const isSale = answers.objective === 'sale'
@@ -1605,7 +1624,29 @@ export default function StudioHero() {
     }
   }
 
-  useEffect(() => () => clearPolling(), [])
+  const scheduleVideoPoll = (jobId, delay = 9000, options = {}) => {
+    if (!componentMountedRef.current || activeJobRef.current?.jobId !== jobId) return
+    clearPolling()
+    pollTimerRef.current = window.setTimeout(() => {
+      pollTimerRef.current = null
+      void pollVideoStatus(jobId, options)
+    }, delay)
+  }
+
+  useEffect(() => {
+    componentMountedRef.current = true
+    const activeJob = initialActiveJobRef.current
+    if (activeJob) {
+      setStudioMode(getStudioUiMode(activeJob.mode))
+      setStatus('generating')
+      setMessage('Retomando sua criação...')
+      scheduleVideoPoll(activeJob.jobId, 0, { mode: 'recovery' })
+    }
+    return () => {
+      componentMountedRef.current = false
+      clearPolling()
+    }
+  }, [])
 
   useEffect(() => {
     if (!isGenerating) {
@@ -1668,6 +1709,10 @@ export default function StudioHero() {
       return
     }
 
+    if (pollInFlightRef.current === normalizedJobId) return
+    if (activeJobRef.current?.jobId !== normalizedJobId) return
+    pollInFlightRef.current = normalizedJobId
+
     try {
       const result = await invokeStudioFunction('get-video-job-status', { jobId: normalizedJobId })
       const data = result.body
@@ -1685,6 +1730,7 @@ export default function StudioHero() {
 
       if (!result.ok) throw new Error(data?.error || 'Falha ao consultar comercial.')
       if (!data?.ok) throw new Error(data?.error || 'Comercial ainda nao disponivel.')
+      if (!componentMountedRef.current || activeJobRef.current?.jobId !== normalizedJobId) return
 
       if (data.status === 'completed') {
         const nextVideoUrl = data.signedVideoUrl || data.signedUrl || data.videoUrl || ''
@@ -1696,6 +1742,8 @@ export default function StudioHero() {
           throw new Error('completed_without_video_url')
         }
         clearPolling()
+        clearStudioActiveJob(window.sessionStorage, normalizedJobId)
+        activeJobRef.current = null
         setStatus('completed')
         setVideoUrl(nextVideoUrl)
         setMessage('Seu comercial esta pronto.')
@@ -1703,7 +1751,7 @@ export default function StudioHero() {
         return
       }
 
-      if (data.status === 'failed') {
+      if (['failed', 'cancelled', 'canceled'].includes(data.status)) {
         const diagnosticMessage = String(data.errorMessage || data.error || '').trim()
         logStudioHero('error', 'studio_hero_poll_failed_job', {
           jobId: normalizedJobId,
@@ -1713,6 +1761,8 @@ export default function StudioHero() {
           responseBody: sanitizeStudioHeroDiagnostic(data),
         })
         clearPolling()
+        clearStudioActiveJob(window.sessionStorage, normalizedJobId)
+        activeJobRef.current = null
         setStatus('failed')
         setMessage(IS_DEV && diagnosticMessage
           ? `Erro tecnico da geracao: ${diagnosticMessage}`
@@ -1722,24 +1772,35 @@ export default function StudioHero() {
       }
 
       setStatus('generating')
-      setMessage(isRecovery ? 'Comercial ainda em preparacao. Tente novamente em alguns segundos.' : (data.message || 'Criando seu comercial...'))
-      if (!isRecovery) {
-        pollTimerRef.current = setTimeout(() => pollVideoStatus(normalizedJobId), 9000)
-      }
+      setMessage(isRecovery ? 'Retomamos sua criação. Ela ainda está em processamento...' : (data.message || 'Criando seu comercial...'))
+      scheduleVideoPoll(normalizedJobId)
     } catch (error) {
-      clearPolling()
       logStudioHero('error', 'studio_hero_status_error', {
         jobId: normalizedJobId,
         message: error instanceof Error ? error.message : String(error),
       })
-      setStatus('failed')
-      setMessage(getSmartTokenErrorMessage(error, 'Nao foi possivel preparar o comercial neste momento.'))
-      void reloadProfile()
+      if (componentMountedRef.current && activeJobRef.current?.jobId === normalizedJobId) {
+        setStatus('generating')
+        setMessage('Não foi possível atualizar o andamento agora. Continuaremos tentando automaticamente.')
+        scheduleVideoPoll(normalizedJobId)
+      }
+    } finally {
+      if (pollInFlightRef.current === normalizedJobId) pollInFlightRef.current = ''
     }
   }
 
   const handleGenerate = async () => {
     if (!user?.id || !canGenerateBriefing) return
+    const storedActiveJob = readStudioActiveJob(window.sessionStorage).record
+    if (storedActiveJob) {
+      activeJobRef.current = storedActiveJob
+      setIsRecoveredJob(true)
+      setStudioMode(getStudioUiMode(storedActiveJob.mode))
+      setStatus('generating')
+      setMessage('Retomando sua criação...')
+      scheduleVideoPoll(storedActiveJob.jobId, 0, { mode: 'recovery' })
+      return
+    }
     if (!isFreeAiMode && !studioHeroAccess.canGenerate) {
       setStatus('failed')
       setMessage('Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja o exemplo e ative quando quiser.')
@@ -1868,10 +1929,15 @@ export default function StudioHero() {
       if (!nextJobId) {
         throw new Error('invalid_job_id')
       }
+      const activeJob = writeStudioActiveJob(window.sessionStorage, {
+        jobId: nextJobId,
+        mode: getStudioActiveMode(studioMode),
+      })
+      activeJobRef.current = activeJob
       setVideoUrl('')
       setStatus('generating')
       setMessage(data.message || 'Criando seu comercial...')
-      pollTimerRef.current = setTimeout(() => pollVideoStatus(nextJobId), 9000)
+      scheduleVideoPoll(nextJobId)
     } catch (error) {
       logStudioHero('error', 'studio_hero_generate_error', {
         message: error instanceof Error ? error.message : String(error),
@@ -1886,7 +1952,9 @@ export default function StudioHero() {
   }
 
   const resetFlow = (nextMode = studioMode) => {
+    if (activeJobRef.current) return
     clearPolling()
+    setIsRecoveredJob(false)
     setManualCityMode(false)
     setAnswers({
       ...initialAnswers,
@@ -2091,7 +2159,7 @@ export default function StudioHero() {
             secondaryDescription={`${isFreeAiMode
               ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
               : 'Um fluxo curto para transformar suas escolhas e sua imagem em uma peca de divulgacao mais cinematografica.'} Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.`}
-            actions={<ProductButton type="button" variant="secondary" onClick={() => {
+            actions={<ProductButton type="button" variant="secondary" disabled={isGenerating} onClick={() => {
               resetFlow()
               setStudioMode('')
             }}>Escolher outro tipo de criacao</ProductButton>}
@@ -2108,6 +2176,16 @@ export default function StudioHero() {
         <ProductFlowLayout
           className="pb-12"
           main={<section data-smart-conversation className="space-y-5">
+          {isRecoveredJob && (
+            <RecoveredStudioJobPanel
+              status={status}
+              message={message}
+              videoUrl={videoUrl}
+              generationMessage={generationMessage}
+              onReset={resetFlow}
+            />
+          )}
+          <div className={isRecoveredJob ? 'hidden' : 'contents'}>
           <div className="space-y-4">
             <ConversationHeader
               eyebrow="Direcao criativa"
@@ -2970,6 +3048,7 @@ export default function StudioHero() {
               Reiniciar conversa
             </ProductButton>
           </div>
+          </div>
         </section>}
           aside={<ProductSummary
             title="Resumo da criação"
@@ -2981,6 +3060,45 @@ export default function StudioHero() {
         />
       </div>
     </main>
+  )
+}
+
+function RecoveredStudioJobPanel({ status, message, videoUrl, generationMessage, onReset }) {
+  if (videoUrl) {
+    return (
+      <ProductCard className="space-y-5 p-5 sm:p-6">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Criação recuperada</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Seu vídeo está pronto.</h2>
+        </div>
+        <div className="mx-auto aspect-[9/16] max-h-[70vh] w-full max-w-sm overflow-hidden rounded-3xl bg-slate-950">
+          <video src={videoUrl} controls playsInline className="smart-presentation-media" />
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <a href={videoUrl} download="studio-ia-video.mp4" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-950 px-5 py-3 text-sm font-black text-white transition hover:bg-primary-900">
+            <Download className="h-4 w-4" />
+            Baixar vídeo
+          </a>
+          <ProductButton type="button" variant="secondary" onClick={onReset}>Criar nova versão</ProductButton>
+        </div>
+      </ProductCard>
+    )
+  }
+
+  if (status === 'failed') {
+    return (
+      <ProductCard className="space-y-4 border-red-100 bg-red-50 p-5 text-red-800">
+        <p className="font-bold">{message || 'Não foi possível concluir esta criação.'}</p>
+        <ProductButton type="button" variant="secondary" onClick={onReset}>Iniciar outra criação</ProductButton>
+      </ProductCard>
+    )
+  }
+
+  return (
+    <ProductCard className="space-y-4 p-5 sm:p-6">
+      <LoadingCard generationMessage={generationMessage} />
+      <p className="text-center text-sm font-semibold text-slate-600">{message}</p>
+    </ProductCard>
   )
 }
 

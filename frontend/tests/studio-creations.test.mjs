@@ -12,7 +12,7 @@ const runtime = read('supabase/functions/get-video-job-status/creation-runtime.t
 const veo = read('supabase/functions/_shared/veoClient.ts')
 const carousel = read('frontend/src/pages/SmartCarrossel.jsx')
 
-test('preserves the dormant Studio creation adapter without calling it from production status', () => {
+test('uses the existing Studio creation adapter from production status', () => {
   assert.match(runtime, /dynamic_reel:[\s\S]*productKey: 'studio_comercial'/)
   assert.match(runtime, /free_ai:[\s\S]*productKey: 'studio_video_criativo'/)
   assert.match(runtime, /if \(job\.status !== 'completed'\) return null/)
@@ -20,14 +20,18 @@ test('preserves the dormant Studio creation adapter without calling it from prod
   assert.match(runtime, /delivery_kind: 'file'/)
   assert.match(runtime, /title: null/)
   assert.doesNotMatch(runtime, /smart_carousel|short_videos|smart_tour_gemini_omni/)
-  assert.doesNotMatch(status, /registerStudioCreation|createSupabaseCreationStore|ensureStudioCreation|creationId/)
+  assert.match(status, /createSupabaseCreationStore/)
+  assert.match(status, /registerStudioCreation/)
+  assert.match(status, /async function ensureStudioCreation/)
 })
 
-test('completes and returns the original signed MP4 without a creation registration', () => {
+test('registers the canonical completed MP4 before returning its signed URL', () => {
   assert.match(status, /if \(job\.status === 'completed'\)[\s\S]*createSignedVideoUrl/)
   assert.match(status, /status: 'completed',[\s\S]*output_video_path: outputPath,[\s\S]*completed_at: completedAt/)
   assert.match(status, /if \(completedUpdateError\) throw new Error\('video_completed_persist_failed'\)[\s\S]*createSignedVideoUrl/)
-  assert.doesNotMatch(status, /_shared\/creations|registerStudioCreation|ensureStudioCreation|creationId/)
+  assert.equal((status.match(/await ensureStudioCreation\(supabase,/g) || []).length, 3)
+  assert.match(status, /output_video_path: existingOutputPath,[\s\S]*completed_at: completedAt/)
+  assert.match(status, /output_video_path: outputPath,[\s\S]*completed_at: completedAt/)
 })
 
 test('frontend ignores creation metadata and keeps product choice on the backend', () => {
@@ -46,7 +50,8 @@ test('does not integrate Smart Carrossel or Short Videos', () => {
   assert.doesNotMatch(carousel, /creation-download|creation_id|registerCompletedCreation/)
   assert.doesNotMatch(carousel, /sharePublish\s*=/)
   assert.doesNotMatch(runtime, /studio_carrossel|short_videos/)
-  assert.doesNotMatch(status, /registerStudioCreation|creationId/)
+  assert.doesNotMatch(status, /smart_carousel|short_videos/)
+  assert.doesNotMatch(status, /creationId/)
 })
 
 test('does not alter the Veo provider contract', () => {
