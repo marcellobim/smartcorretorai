@@ -10,6 +10,8 @@ const register = read('src/pages/RegisterPage.jsx')
 const login = read('src/pages/LoginPage.jsx')
 const plans = read('src/pages/Planos.jsx')
 const privacy = read('src/pages/Privacidade.jsx')
+const landing = read('src/pages/LandingPage.jsx')
+const footer = read('src/components/layout/AppFooter.jsx')
 const vercel = read('../vercel.json')
 
 test('uses only the public Vite Measurement ID and disables safely when absent or invalid', () => {
@@ -31,7 +33,16 @@ test('basic consent blocks the Google tag until an explicit grant and keeps ads 
   assert.match(analytics, /allow_google_signals: false/)
   assert.match(analytics, /allow_ad_personalization_signals: false/)
   assert.match(analytics, /if \(!document\.getElementById\(GOOGLE_TAG_SCRIPT_ID\)\)[\s\S]*createElement\('script'\)/)
-  assert.match(provider, /Alterar preferências de cookies/)
+  assert.match(provider, /Somente necessários/)
+  assert.match(provider, /Aceitar cookies/)
+  assert.match(provider, /Usamos cookies necessários para o funcionamento do site/)
+  assert.doesNotMatch(provider, /Aceitar Analytics|Recusar Analytics|Google Analytics 4/)
+  assert.doesNotMatch(provider, />\s*Cookies\s*<\/button>/)
+  assert.match(provider, /openCookiePreferences[\s\S]*setShowPreferences\(true\)/)
+  assert.match(landing, /Preferências de cookies/)
+  assert.match(landing, /onClick=\{openCookiePreferences\}/)
+  assert.match(footer, /Preferências de cookies/)
+  assert.match(footer, /onClick=\{openCookiePreferences\}/)
 })
 
 test('SPA page views are explicit, route-only and deduplicated', () => {

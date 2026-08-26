@@ -168,8 +168,8 @@ export default function Privacidade() {
               </p>
               <p className="mt-2">
                 Cookies analíticos permanecem desativados até sua autorização e podem ser recusados sem afetar as funções
-                essenciais. A preferência pode ser alterada a qualquer momento pelo controle “Cookies” exibido na
-                Plataforma. Quando autorizados, os cookies próprios do GA4 podem permanecer por até dois anos, conforme a
+                essenciais. A preferência pode ser alterada a qualquer momento pelo link “Preferências de cookies” no
+                rodapé da Plataforma. Quando autorizados, os cookies próprios do GA4 podem permanecer por até dois anos, conforme a
                 configuração padrão do Google, e são removidos localmente quando a autorização é revogada. Não utilizamos
                 Google Tag Manager, Google Signals, remarketing ou personalização de anúncios nesta implementação.
                 O Google OAuth, quando habilitado, é usado somente para autenticação e é distinto do Google Analytics 4
