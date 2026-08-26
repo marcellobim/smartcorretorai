@@ -49,6 +49,18 @@ export function sanitizeProductDraftValue(value, depth = 0) {
   return result
 }
 
+export function restoreProductDraftShape(defaultValue, storedValue) {
+  if (Array.isArray(defaultValue)) return Array.isArray(storedValue) ? storedValue : defaultValue
+  if (isPlainObject(defaultValue)) {
+    const storedObject = isPlainObject(storedValue) ? storedValue : {}
+    return Object.fromEntries(Object.entries(defaultValue).map(([key, fallback]) => (
+      [key, restoreProductDraftShape(fallback, storedObject[key])]
+    )))
+  }
+  if (defaultValue === null) return storedValue === null ? storedValue : defaultValue
+  return typeof storedValue === typeof defaultValue ? storedValue : defaultValue
+}
+
 export function readProductDraft(storage, { productKey, schemaVersion, userId, now = Date.now() }) {
   if (!storage || !userId) return null
   const key = getProductDraftStorageKey(productKey, schemaVersion)

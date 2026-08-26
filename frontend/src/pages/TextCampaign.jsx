@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Sparkles } from 'lucide-react'
 import Header from '../components/layout/Header'
 import GuidedConversation from '../components/conversation/GuidedConversation'
@@ -15,7 +15,9 @@ import {
   SMART_UI,
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
+import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
+import { restoreProductDraftShape } from '../lib/product-draft'
 import { supabase } from '../lib/supabase'
 import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
 import TextCampaignResult from '../components/text-campaign/TextCampaignResult'
@@ -95,17 +97,22 @@ const emptyCommercial = () => ({
 
 export default function TextCampaign() {
   const { user, accessToken, reloadProfile } = useAuth()
-  const [answers, setAnswers] = useState(createEmptyTextCampaignAnswers)
-  const [manualCityMode, setManualCityMode] = useState(false)
+  const textDraft = useProductDraft({ productKey: 'campanha-de-textos', schemaVersion: 1, userId: user?.id })
+  const restoredTextDraft = textDraft.restoredDraft || {}
+  const [answers, setAnswers] = useState(() => restoreProductDraftShape(createEmptyTextCampaignAnswers(), restoredTextDraft.answers))
+  const [manualCityMode, setManualCityMode] = useState(() => restoredTextDraft.manualCityMode === true)
   const [campaign, setCampaign] = useState(null)
   const [generationStatus, setGenerationStatus] = useState('idle')
   const [generationError, setGenerationError] = useState('')
   const generationLockRef = useRef(false)
   const generationRequestRef = useRef(null)
+  const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTextDraft.conversation || null)
   const professionalPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const conversation = useGuidedConversation({
     initialQuestionId: 'purpose',
+    initialState: restoredTextDraft.conversation,
     onEdit: questionId => resetAnswerForEdit(questionId, setAnswers, setManualCityMode),
+    onStateChange: setConversationSnapshot,
   })
   const questionId = conversation.activeQuestionId
   const questionNumber = TEXT_CAMPAIGN_QUESTION_ORDER.indexOf(questionId) + 1
@@ -115,6 +122,13 @@ export default function TextCampaign() {
   )
   const briefingValid = useMemo(() => isTextCampaignBriefingValid(briefing), [briefing])
   const summaryItems = useMemo(() => buildSummaryItems(answers), [answers])
+
+  useEffect(() => {
+    if (campaign || generationStatus === 'loading') return
+    const meaningful = conversationSnapshot?.history?.length || Object.values(answers).some(value => Array.isArray(value) ? value.length : value && typeof value === 'object' ? Object.values(value).some(Boolean) : Boolean(value))
+    if (!meaningful) { textDraft.clear(); return }
+    textDraft.save({ answers, manualCityMode, conversation: conversationSnapshot })
+  }, [answers, campaign, conversationSnapshot, generationStatus, manualCityMode, textDraft])
 
   const commit = ({ id = questionId, answer, apply, nextQuestionId = getTextCampaignNextQuestion(id) }) => {
     const accepted = conversation.submitAnswer({
@@ -150,6 +164,7 @@ export default function TextCampaign() {
       if (!data?.ok) throw new Error(data?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
       if (!isCompleteTextCampaignResult(data.campaign)) throw new Error('A campanha retornou incompleta. Tente novamente.')
       clearTextCampaignRequestId()
+      textDraft.clear()
       setCampaign(data.campaign)
       setGenerationStatus('success')
     } catch (error) {
@@ -162,6 +177,7 @@ export default function TextCampaign() {
   }
 
   const createNewCampaign = () => {
+    textDraft.clear()
     generationLockRef.current = false
     generationRequestRef.current = null
     clearTextCampaignRequestId()

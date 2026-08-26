@@ -8,7 +8,9 @@ import { buildSmartTourCampaignPackage } from '../components/campaign/buildSmart
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation, { getConversationScrollBehavior } from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
+import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
+import { restoreProductDraftShape, toFileMetadata } from '../lib/product-draft'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { supabase } from '../lib/supabase'
 import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
@@ -48,6 +50,7 @@ const guideExamples = visibleExamples.map(example => ({
   cta: example.id !== 'animate-images',
 }))
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
+const emptyFileMetadata = { name: '', size: 0, type: '', lastModified: 0, order: 0 }
 const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
 
 function normalizeGeneration(input) {
@@ -91,22 +94,34 @@ function smartTourConfirmation(id, answer, isShortVideos = false) {
 
 export default function SmartTourAI() {
   const { user, reloadProfile } = useAuth()
+  const tourDraft = useProductDraft({ productKey: 'video-imobiliario', schemaVersion: 1, userId: user?.id })
+  const restoredTourDraft = tourDraft.restoredDraft || {}
+  const restoredInputFlow = ['images', SHORT_VIDEOS_MODULE_ID].includes(restoredTourDraft.activeInputFlow) ? restoredTourDraft.activeInputFlow : null
+  const restoredImageMetadata = Array.isArray(restoredTourDraft.imageMetadata)
+    ? restoredTourDraft.imageMetadata.map(item => restoreProductDraftShape(emptyFileMetadata, item)).filter(item => item.name && item.size > 0)
+    : []
+  const restoredShortVideoMetadata = restoredTourDraft.shortVideoMetadata
+    ? restoreProductDraftShape({ ...emptyFileMetadata, duration: 0 }, restoredTourDraft.shortVideoMetadata)
+    : null
   const inputRef = useRef(null)
   const pollRef = useRef(null)
   const recoveryStartedRef = useRef(false)
   const reviewEditRef = useRef(null)
   const shortVideoGenerationLockRef = useRef(false)
   const [images, setImages] = useState([])
+  const [missingImageMetadata, setMissingImageMetadata] = useState(restoredImageMetadata)
   const [shortVideo, setShortVideo] = useState(null)
-  const [property, setProperty] = useState(initialProperty)
-  const [generation, setGeneration] = useState(initialGeneration)
-  const [ctaEnabled, setCtaEnabled] = useState(null)
-  const [cta, setCta] = useState('')
-  const [includePhone, setIncludePhone] = useState(null)
+  const [missingShortVideoMetadata, setMissingShortVideoMetadata] = useState(restoredShortVideoMetadata?.name && restoredShortVideoMetadata.size > 0 ? restoredShortVideoMetadata : null)
+  const [property, setProperty] = useState(() => restoreProductDraftShape(initialProperty, restoredTourDraft.property))
+  const [generation, setGeneration] = useState(() => restoreProductDraftShape(initialGeneration, restoredTourDraft.generation))
+  const [ctaEnabled, setCtaEnabled] = useState(() => typeof restoredTourDraft.ctaEnabled === 'boolean' ? restoredTourDraft.ctaEnabled : null)
+  const [cta, setCta] = useState(() => typeof restoredTourDraft.cta === 'string' ? restoredTourDraft.cta : '')
+  const [includePhone, setIncludePhone] = useState(() => typeof restoredTourDraft.includePhone === 'boolean' ? restoredTourDraft.includePhone : null)
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
-  const [activeInputFlow, setActiveInputFlow] = useState(null)
+  const [activeInputFlow, setActiveInputFlow] = useState(restoredInputFlow)
+  const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTourDraft.conversation || null)
   const isShortVideos = activeInputFlow === SHORT_VIDEOS_MODULE_ID
   const questions = useMemo(() => questionsFor(isShortVideos), [isShortVideos])
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
@@ -116,6 +131,8 @@ export default function SmartTourAI() {
   const clearInputMedia = () => {
     setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
     setShortVideo(null)
+    setMissingImageMetadata([])
+    setMissingShortVideoMetadata(null)
   }
 
   useEffect(() => () => {
@@ -162,9 +179,24 @@ export default function SmartTourAI() {
     setMessage('')
     setResult(null)
   }
-  const conversation = useGuidedConversation({ initialQuestionId: 'images', onEdit: resetTourFromQuestion })
+  const conversation = useGuidedConversation({ initialQuestionId: 'images', initialState: restoredTourDraft.conversation, onEdit: resetTourFromQuestion, onStateChange: setConversationSnapshot })
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
   const question = questions[questionIndex] || questions[0]
+
+  useEffect(() => {
+    if (!['idle', 'error'].includes(status)) return
+    if (readSmartTourActiveJob(sessionStorage).record) return
+    const imageMetadata = images.length
+      ? images.map((item, order) => toFileMetadata(item.file, order)).filter(Boolean)
+      : missingImageMetadata
+    const shortVideoMetadata = shortVideo?.file
+      ? { ...toFileMetadata(shortVideo.file, 0), duration: shortVideo.duration }
+      : missingShortVideoMetadata
+    const draft = { activeInputFlow, property, generation, ctaEnabled, cta, includePhone, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot }
+    const meaningful = activeInputFlow || conversationSnapshot?.history?.length || imageMetadata.length || shortVideoMetadata || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
+    if (!meaningful) { tourDraft.clear(); return }
+    tourDraft.save(draft)
+  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, property, shortVideo, status, tourDraft])
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getSmartTourNextQuestion({ questionId: question[0], answerId, mode: generation.mode }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
     if (reviewEditRef.current) {
@@ -205,6 +237,7 @@ export default function SmartTourAI() {
       const uniqueInSystemOrder = selectedInSystemOrder.filter(file => !known.has(`${file.name}:${file.size}:${file.lastModified}`))
       if (current.length + uniqueInSystemOrder.length > SMART_TOUR_MAX_IMAGES) { setMessage(`Você pode enviar no máximo ${SMART_TOUR_MAX_IMAGES} imagens.`); return current }
       setMessage('')
+      setMissingImageMetadata([])
       return [...current, ...uniqueInSystemOrder.map(file => ({ file, key: `${file.name}:${file.size}:${file.lastModified}`, preview: URL.createObjectURL(file) }))]
     })
   }
@@ -218,6 +251,7 @@ export default function SmartTourAI() {
       const durationError = validateShortVideoDuration(duration)
       if (durationError) return setMessage(durationError)
       setShortVideo({ file, duration, preview: URL.createObjectURL(file) })
+      setMissingShortVideoMetadata(null)
       setMessage('')
     } catch (error) {
       setMessage(getSmartTokenErrorMessage(error, 'Não foi possível validar o vídeo.'))
@@ -284,6 +318,7 @@ export default function SmartTourAI() {
         setStatus('generating'); setMessage('A IA está selecionando os melhores momentos do seu vídeo...')
         let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '' })
         writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'starting', updatedAt:Date.now() })
+        tourDraft.clear()
         const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: {
           inputFlow: SHORT_VIDEOS_MODULE_ID,
           clientRequestId: requestId,
@@ -319,10 +354,12 @@ export default function SmartTourAI() {
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
+      tourDraft.clear()
     } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
 
   const reset = () => {
+    tourDraft.clear()
     clearSmartTourActiveJob(sessionStorage)
     shortVideoGenerationLockRef.current = false
     clearInputMedia()
@@ -417,7 +454,7 @@ export default function SmartTourAI() {
       designSystem
       eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'}
     >
-      <Question id={question[0]} {...{ images, shortVideo, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
       </div>}
     </main>
@@ -617,18 +654,19 @@ function ExamplePlaceholder({ example, large = false }) {
 }
 
 function Question(props) {
-  const { id, images, shortVideo, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
+  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === item.id ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
   if (id === 'images' && isShortVideos) return <>
     <input ref={inputRef} type="file" accept="video/mp4" hidden onChange={event => { addShortVideo(event.target.files); event.target.value = '' }} />
     <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo de até 5 minutos. A IA selecionará automaticamente os melhores momentos para criar um Short vertical.</p>
+    {missingShortVideoMetadata && !shortVideo && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente o vídeo “{missingShortVideoMetadata.name}”; o arquivo físico não é armazenado.</p>}
     {!shortVideo ? <button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 px-4 text-center transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar vídeo</b><span className="text-xs text-slate-500">Um arquivo MP4 de até 5 minutos</span><span className="mt-1 text-xs text-slate-400">Máximo de 250 MB</span></button> : <div className="rounded-smart-card border border-slate-200 bg-white p-4"><video src={shortVideo.preview} controls playsInline preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="mx-auto max-h-80 w-full rounded-2xl bg-slate-950 object-contain" aria-label="Prévia do vídeo original" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Video className="h-5 w-5 shrink-0 text-primary-700" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-900">{shortVideo.file.name}</p><p className="text-xs font-semibold text-slate-500">{formatShortVideoDuration(shortVideo.duration)} · {(shortVideo.file.size / 1024 / 1024).toFixed(1)} MB</p></div><ProductButton type="button" variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>Substituir</ProductButton><ProductButton type="button" variant="danger" size="sm" onClick={() => setShortVideo(null)} aria-label="Remover vídeo"><Trash2 className="h-4 w-4" />Remover</ProductButton></div></div>}
     {message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}
     {shortVideo && cont(false, shortVideo.file.name, 'purpose')}
   </>
-  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
+  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} />{missingImageMetadata.length > 0 && images.length === 0 && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente {missingImageMetadata.length} {missingImageMetadata.length === 1 ? 'imagem' : 'imagens'} na ordem indicada; os arquivos físicos não são armazenados.</p>}<button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
   if (id === 'stage') { const stageOptions = isShortVideos ? getShortVideosStageOptions(property.purpose, STAGES) : getSmartTourStageOptions(property.purpose, STAGES); return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') { const propertyTypes = isShortVideos ? getShortVideosPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES) : getSmartTourPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES); return <>{choices(propertyTypes, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</> }
