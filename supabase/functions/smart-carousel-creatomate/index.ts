@@ -18,6 +18,7 @@ import {
   SMART_CAROUSEL_TRANSITION_DURATION_SECONDS,
   calculateNarrationWordTargets,
   calculateSmartCarouselTiming,
+  countNarrationWords,
   resolveNarrationTiming,
 } from './narration-timing.ts'
 import {
