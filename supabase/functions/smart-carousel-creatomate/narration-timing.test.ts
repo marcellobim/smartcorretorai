@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
+  SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS,
+  SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS,
   calculateNarrationWordTargets,
   calculateSmartCarouselTiming,
   countNarrationWords,
@@ -28,6 +30,28 @@ test('calcula duracao e faixa para todas as quantidades normais de 5 a 20 imagen
     assert.equal(targets.maximumWords, Math.floor(timing.narrationSeconds * 2.20))
     assert.equal(targets.targetWords, Math.round((targets.minimumWords + targets.maximumWords) / 2))
   }
+})
+
+test('script posiciona o CTA exatamente depois das fotos para 5, 12 e 20 imagens', () => {
+  for (const imageCount of [5, 12, 20]) {
+    const timing = calculateSmartCarouselTiming(imageCount)
+    const renderScript = {
+      duration: timing.totalSeconds,
+      narrationDuration: timing.narrationSeconds,
+      elements: [
+        ...Array.from({ length: imageCount }, (_, index) => ({ type: 'image', track: 1, index })),
+        { type: 'image', track: 3, role: 'cta', time: timing.photoSequenceSeconds },
+      ],
+    }
+    const ctaElement = renderScript.elements.find(element => element.role === 'cta')
+
+    assert.equal(ctaElement?.time, timing.photoSequenceSeconds)
+    assert.equal(renderScript.duration, timing.photoSequenceSeconds + SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS)
+    assert.equal(renderScript.narrationDuration, timing.photoSequenceSeconds - SMART_CAROUSEL_NARRATION_CTA_GAP_SECONDS)
+  }
+
+  assert.match(indexSource, /const ctaTime = timing\.photoSequenceSeconds/)
+  assert.doesNotMatch(indexSource, /\bphotoSequenceDuration\b/)
 })
 
 test('calcula alvo central de 28 palavras para a faixa de 25 a 31', () => {

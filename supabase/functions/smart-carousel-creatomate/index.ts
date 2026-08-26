@@ -670,7 +670,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     },
   ] : []
 
-  const ctaTime = photoSequenceDuration
+  const ctaTime = timing.photoSequenceSeconds
   const finalElements: JsonRecord[] = [
     {
       type: 'image',
