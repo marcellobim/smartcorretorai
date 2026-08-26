@@ -59,6 +59,10 @@ function normalizeDistrictName(value) {
     .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator, letter) => `${separator}${letter.toLocaleUpperCase('pt-BR')}`)
 }
 
+function getRecoveredPhotosMessage(count) {
+  return `Seu progresso foi recuperado. Selecione novamente ${count} ${count === 1 ? 'foto' : 'fotos'} para continuar.`
+}
+
 function smartCarouselConfirmation(step, answer) {
   if (step === 1) return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
   const confirmations = {
@@ -259,6 +263,7 @@ export default function SmartCarrossel() {
   const navigate = useNavigate()
   const { user, accessToken, reloadProfile } = useAuth()
   const mediaDraft = useProductDraft({ productKey: 'smart-carousel:media', schemaVersion: 1, userId: user?.id })
+  const flowDraft = useProductDraft({ productKey: 'smart-carousel:flow', schemaVersion: 1, userId: user?.id })
   const restoredMediaDraft = mediaDraft.restoredDraft
   const photoInputRef = useRef(null)
   const photoIdRef = useRef(0)
@@ -269,6 +274,7 @@ export default function SmartCarrossel() {
   const [informationStarted, setInformationStarted] = useState(false)
   const [photoSelectionMessage, setPhotoSelectionMessage] = useState('')
   const [missingPhotoMetadata, setMissingPhotoMetadata] = useState(() => restoredMediaDraft?.photoMetadata || [])
+  const [conversationGenerationStatus, setConversationGenerationStatus] = useState('idle')
 
   useEffect(() => {
     const photoMetadata = photos.length
@@ -350,6 +356,24 @@ export default function SmartCarrossel() {
     mediaDraft.clear()
   }
 
+  const createNewPresentation = () => {
+    if (['uploading', 'creating', 'polling'].includes(conversationGenerationStatus)) return
+
+    const currentPhotos = photosRef.current
+    photosRef.current = []
+    currentPhotos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl))
+    photoIdRef.current = 0
+    setPhotos([])
+    setIsDragActive(false)
+    setGenerationStage(1)
+    setInformationStarted(false)
+    setPhotoSelectionMessage('')
+    setMissingPhotoMetadata([])
+    setConversationGenerationStatus('idle')
+    mediaDraft.clear()
+    flowDraft.clear()
+  }
+
   const movePhoto = (index, direction) => {
     setPhotos((current) => {
       const targetIndex = index + direction
@@ -365,6 +389,11 @@ export default function SmartCarrossel() {
 
   const informationUnlocked = informationStarted && photos.length >= SMART_CAROUSEL_MIN_IMAGES
   const currentStep = informationUnlocked ? Math.max(2, generationStage) : 1
+  const hasPresentationState = photos.length > 0
+    || missingPhotoMetadata.length > 0
+    || Boolean(restoredMediaDraft)
+    || Boolean(flowDraft.restoredDraft)
+  const isGenerationActive = ['uploading', 'creating', 'polling'].includes(conversationGenerationStatus)
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_38%,#eef7fb_100%)] text-slate-900">
@@ -375,7 +404,16 @@ export default function SmartCarrossel() {
             productName="Carrossel de Anúncios"
             headline="Apresentação Profissional"
             description="Transforme as fotos do seu imóvel em uma apresentação elegante, dinâmica e pronta para divulgação."
-            actions={<ProductButton type="button" variant="secondary" onClick={() => navigate('/studio-hero')}>Escolher outro tipo de criação</ProductButton>}
+            actions={(
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                {hasPresentationState && conversationGenerationStatus !== 'succeeded' && (
+                  <ProductButton type="button" variant="ghost" disabled={isGenerationActive} onClick={createNewPresentation}>
+                    <RotateCcw className="h-4 w-4" />Nova apresentação
+                  </ProductButton>
+                )}
+                <ProductButton type="button" variant="secondary" onClick={() => navigate('/studio-hero')}>Escolher outro tipo de criação</ProductButton>
+              </div>
+            )}
             visual={<SmartCarouselHeroPhone />}
           />
         </section>
@@ -393,9 +431,11 @@ export default function SmartCarrossel() {
             user={user}
             accessToken={accessToken}
             photos={photos}
+            flowDraft={flowDraft}
             refreshBalance={reloadProfile}
             onGenerationStageChange={setGenerationStage}
-            onCreateNew={clearPhotos}
+            onGenerationStatusChange={setConversationGenerationStatus}
+            onCreateNew={createNewPresentation}
           />
         )}
       </div>
@@ -473,7 +513,7 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
             />
           </div>
         </div>
-        {missingPhotoMetadata.length > 0 && <p role="status" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">Seu rascunho foi restaurado. Selecione novamente {missingPhotoMetadata.length} {missingPhotoMetadata.length === 1 ? 'arquivo' : 'arquivos'} para continuar; as imagens físicas não ficam salvas no navegador.</p>}
+        {missingPhotoMetadata.length > 0 && <p role="status" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">{getRecoveredPhotosMessage(missingPhotoMetadata.length)}</p>}
         {photoSelectionMessage && <p role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{photoSelectionMessage}</p>}
         <input ref={inputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handlePhotoInput} className="sr-only" />
         {photos.length === 0 ? (
@@ -510,8 +550,7 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
   )
 }
 
-function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, onGenerationStageChange, onCreateNew }) {
-  const flowDraft = useProductDraft({ productKey: 'smart-carousel:flow', schemaVersion: 1, userId: user?.id })
+function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refreshBalance, onGenerationStageChange, onGenerationStatusChange, onCreateNew }) {
   const restoredFlow = flowDraft.restoredDraft || {}
   const [purpose, setPurpose] = useState(() => restoredFlow.purpose || '')
   const [propertyStage, setPropertyStage] = useState(() => restoredFlow.propertyStage || '')
@@ -591,6 +630,12 @@ function SmartCarouselConversation({ user, accessToken, photos, refreshBalance, 
       if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    onGenerationStatusChange(generationStatus)
+  }, [generationStatus, onGenerationStatusChange])
+
+  useEffect(() => () => onGenerationStatusChange('idle'), [onGenerationStatusChange])
 
   const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS ? current : [...current, item])
   const messages = ['', 'Qual é a finalidade do imóvel?', 'Qual é o estado atual do imóvel?', 'Que tipo de imóvel será apresentado?', 'Quantos dormitórios o imóvel possui?', 'Quantas suítes?', 'Quantas vagas estão disponíveis?', 'Em qual estado fica o imóvel?', 'Agora escolha a cidade.', 'Em qual bairro ele está localizado?', 'Como deseja apresentar o preço?', 'Qual é a área do imóvel?', 'Quais são os principais destaques?', 'Qual chamada deseja usar no final?', 'Deseja divulgar seu telefone profissional?', 'Tudo pronto. Revise suas escolhas antes de criar.']
