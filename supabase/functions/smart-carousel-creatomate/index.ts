@@ -20,6 +20,12 @@ import {
   calculateSmartCarouselTiming,
   resolveNarrationTiming,
 } from './narration-timing.ts'
+import {
+  MarketingOpenAIError,
+  createMarketingOpenAICallBudget,
+  logMarketingLocalFailure,
+  requestMarketingOpenAIJson,
+} from './marketing-openai.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -334,6 +340,7 @@ function validateNarrationRevision(value: unknown) {
 
 async function generateMarketingIntelligence(
   apiKey: string,
+  jobId: string,
   answers: JsonRecord,
   cta: string,
   phone: string,
@@ -439,35 +446,34 @@ Responda somente com JSON v\u00e1lido neste formato:
     },
   })
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  const callBudget = createMarketingOpenAICallBudget()
+  const intelligence = await requestMarketingOpenAIJson({
+    jobId,
+    stage: 'initial',
+    budget: callBudget,
+    url: 'https://api.openai.com/v1/chat/completions',
+    timeoutMs: OPENAI_MARKETING_TIMEOUT_MS,
+    init: {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: OPENAI_MARKETING_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.8,
+        max_tokens: 6500,
+      }),
     },
-    body: JSON.stringify({
-      model: OPENAI_MARKETING_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.8,
-      max_tokens: 6500,
-    }),
-    signal: AbortSignal.timeout(OPENAI_MARKETING_TIMEOUT_MS),
+    validate: value => validateMarketingIntelligence(value, facts.cta),
   })
-  const responseBody = await response.json().catch(() => null) as JsonRecord | null
-  if (!response.ok || !responseBody) throw new Error('marketing_generation_failed')
-
-  const choices = Array.isArray(responseBody.choices) ? responseBody.choices : []
-  const firstChoice = asRecord(choices[0])
-  const message = asRecord(firstChoice.message)
-  const content = cleanText(message.content, 40_000)
-  if (!content) throw new Error('marketing_generation_failed')
 
   try {
-    const intelligence = validateMarketingIntelligence(JSON.parse(content), facts.cta)
     const resolvedNarration = await resolveNarrationTiming({
       initial: {
         narration: intelligence.narration,
@@ -477,18 +483,24 @@ Responda somente com JSON v\u00e1lido neste formato:
       maximumWords: maxNarrationWords,
       fallbackInvitation: cta,
       reviseOnce: async (targetNarrationWords) => {
-        const revisionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: OPENAI_MARKETING_MODEL,
-            messages: [
-              {
-                role: 'system',
-                content: `Voce e um revisor de narracao imobiliaria para voz brasileira.
+        return requestMarketingOpenAIJson({
+          jobId,
+          stage: 'revision',
+          budget: callBudget,
+          url: 'https://api.openai.com/v1/chat/completions',
+          timeoutMs: OPENAI_MARKETING_TIMEOUT_MS,
+          init: {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: OPENAI_MARKETING_MODEL,
+              messages: [
+                {
+                  role: 'system',
+                  content: `Voce e um revisor de narracao imobiliaria para voz brasileira.
 Revise uma unica vez a narracao recebida para caber rigorosamente na faixa informada.
 Entregue exatamente a contagem-alvo informada sempre que semanticamente possivel.
 Preserve os fatos confirmados, o gancho e o convite natural.
@@ -496,36 +508,27 @@ Nao adicione informacoes, nao invente fatos e nao faca corte mecanico.
 Use frases curtas, pausas naturais e ritmo comercial.
 Responda somente com JSON valido no formato:
 {"narration":"texto revisado","narration_highlights":["destaques efetivamente usados"]}`,
-              },
-              {
-                role: 'user',
-                content: JSON.stringify({
-                  confirmed_facts: facts,
-                  original_narration: intelligence.narration,
-                  original_narration_highlights: intelligence.narrationHighlights,
-                  available_seconds: availableSeconds,
-                  minimum_words: minNarrationWords,
-                  maximum_words: maxNarrationWords,
-                  target_words: targetNarrationWords,
-                }),
-              },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0,
-            max_tokens: 1200,
-          }),
-          signal: AbortSignal.timeout(OPENAI_MARKETING_TIMEOUT_MS),
+                },
+                {
+                  role: 'user',
+                  content: JSON.stringify({
+                    confirmed_facts: facts,
+                    original_narration: intelligence.narration,
+                    original_narration_highlights: intelligence.narrationHighlights,
+                    available_seconds: availableSeconds,
+                    minimum_words: minNarrationWords,
+                    maximum_words: maxNarrationWords,
+                    target_words: targetNarrationWords,
+                  }),
+                },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0,
+              max_tokens: 1200,
+            }),
+          },
+          validate: validateNarrationRevision,
         })
-        const revisionBody = await revisionResponse.json().catch(() => null) as JsonRecord | null
-        if (!revisionResponse.ok || !revisionBody) throw new Error('marketing_generation_failed')
-
-        const revisionChoices = Array.isArray(revisionBody.choices) ? revisionBody.choices : []
-        const revisionChoice = asRecord(revisionChoices[0])
-        const revisionMessage = asRecord(revisionChoice.message)
-        const revisionContent = cleanText(revisionMessage.content, 10_000)
-        if (!revisionContent) throw new Error('marketing_generation_failed')
-
-        return validateNarrationRevision(JSON.parse(revisionContent))
       },
     })
 
@@ -544,8 +547,23 @@ Responda somente com JSON valido no formato:
       narrationHighlights: resolvedNarration.narrationHighlights,
     }
   } catch (error) {
-    if (error instanceof Error && error.message === 'narration_duration_out_of_range') throw error
-    throw new Error('marketing_generation_failed')
+    if (error instanceof MarketingOpenAIError) throw error
+    if (error instanceof Error && error.message === 'narration_duration_out_of_range') {
+      throw logMarketingLocalFailure({
+        jobId,
+        stage: 'revision',
+        code: 'marketing_revision_invalid',
+        attempt: callBudget.calls,
+        failureType: 'narration_duration_out_of_range',
+      })
+    }
+    throw logMarketingLocalFailure({
+      jobId,
+      stage: 'revision',
+      code: 'marketing_local_deterministic_error',
+      attempt: callBudget.calls,
+      failureType: 'local_deterministic',
+    })
   }
 }
 
@@ -743,11 +761,13 @@ async function buildPresentationPlan(
   phone: string,
   cta: string,
   openaiApiKey: string,
+  jobId: string,
 ) {
   const timing = calculateSmartCarouselTiming(imageUrls.length)
   const availableSeconds = timing.narrationSeconds
   const intelligence = await generateMarketingIntelligence(
     openaiApiKey,
+    jobId,
     answers,
     cta,
     phone,
@@ -866,6 +886,7 @@ async function handleCreate(
       phone,
       cta,
       openaiApiKey,
+      jobId,
     )
     const response = await fetch('https://api.creatomate.com/v2/renders', {
       method: 'POST',
@@ -931,7 +952,7 @@ async function handleCreate(
       }
     }
     await cleanupJobFiles(supabase, userId, jobId)
-    if (error instanceof Error && error.message === 'narration_duration_out_of_range') {
+    if (error instanceof MarketingOpenAIError && error.publicErrorCode === 'narration_duration_out_of_range') {
       return jsonResponse({ ok: false, error: 'narration_duration_out_of_range' }, 422)
     }
     if (error instanceof Error && error.message === 'creatomate_start_failed') {
