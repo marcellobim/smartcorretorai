@@ -214,7 +214,7 @@ test('keeps the proven images briefing structurally unchanged', () => {
   assert.equal(briefing.regrasPreservacao.respeitarOrdemDasImagens, true)
 })
 
-test('sends the uploaded Files API URI as a document and fixes the Gemini output at ten seconds', () => {
+test('sends the uploaded Files API URI as a document, fixes output at ten seconds, and lets Gemini infer the task', () => {
   const video = { type: 'document', uri: 'https://generativelanguage.googleapis.com/v1beta/files/example' } as const
   const body = buildGeminiOmniShortVideoRequestBody('{"versao":"short-videos-structured-briefing-v1"}', video)
   assert.equal(body.model, 'gemini-omni-flash-preview')
@@ -223,7 +223,9 @@ test('sends the uploaded Files API URI as a document and fixes the Gemini output
   assert.equal(SMART_TOUR_GEMINI_OMNI_DURATION, '10s')
   assert.deepEqual(body.response_format, { type: 'video', duration: '10s', delivery: 'uri' })
   assert.equal('aspect_ratio' in body.response_format, false)
-  assert.deepEqual(body.generation_config, { thinking_level: 'high', video_config: { task: 'edit' } })
+  assert.deepEqual(body.generation_config, { thinking_level: 'high' })
+  assert.equal('video_config' in body.generation_config, false)
+  assert.equal(JSON.stringify(body).includes('"task":"edit"'), false)
   assert.deepEqual(Object.keys(body).sort(), ['background', 'generation_config', 'input', 'model', 'response_format', 'store'])
   assert.equal(body.background, true)
   assert.equal(body.store, true)

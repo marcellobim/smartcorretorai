@@ -87,7 +87,7 @@ export function buildGeminiOmniShortVideoRequestBody(prompt: string, video: Gemi
     model: SMART_TOUR_GEMINI_OMNI_MODEL,
     input: [video, { type: 'text', text: prompt }],
     response_format: { type: 'video', duration: SMART_TOUR_GEMINI_OMNI_DURATION, delivery: 'uri' },
-    generation_config: { thinking_level: SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL, video_config: { task: 'edit' } },
+    generation_config: { thinking_level: SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL },
     background: true,
     store: true,
   }
