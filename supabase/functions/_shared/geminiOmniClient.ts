@@ -4,7 +4,7 @@ export type GeminiInlineImage = { type: 'image'; data: string; mime_type: 'image
 type GeminiOmniAspectRatio = '9:16' | '16:9'
 type StartInput = { prompt: string; images: GeminiInlineImage[]; aspectRatio?: GeminiOmniAspectRatio }
 type InlineStartInput = StartInput & { fetchImpl?: FetchLike; timeoutMs?: number }
-export type GeminiVideoReference = { type: 'video'; uri: string; mime_type: 'video/mp4' }
+export type GeminiVideoReference = { type: 'document'; uri: string }
 export type GeminiVideoRangeSource = {
   size: number
   mimeType: 'video/mp4'
@@ -86,7 +86,7 @@ export function buildGeminiOmniShortVideoRequestBody(prompt: string, video: Gemi
   return {
     model: SMART_TOUR_GEMINI_OMNI_MODEL,
     input: [video, { type: 'text', text: prompt }],
-    response_format: { type: 'video', delivery: 'uri' },
+    response_format: { type: 'video', duration: SMART_TOUR_GEMINI_OMNI_DURATION, delivery: 'uri' },
     generation_config: { thinking_level: SMART_TOUR_GEMINI_OMNI_THINKING_LEVEL, video_config: { task: 'edit' } },
     background: true,
     store: true,
@@ -452,7 +452,7 @@ export async function prepareGeminiVideo(
     const uploaded = await uploadGeminiVideoFileInChunks(source, { fetchImpl: shortVideoRange.fetchImpl, apiKey: shortVideoRange.googleApiKey })
     const active = await waitForGeminiFile(uploaded, { fetchImpl: shortVideoRange.fetchImpl, apiKey: shortVideoRange.googleApiKey })
     return {
-      video: { type: 'video', uri: active.uri, mime_type: 'video/mp4' } as GeminiVideoReference,
+      video: { type: 'document', uri: active.uri } as GeminiVideoReference,
       uploadDurationMs: uploaded.uploadDurationMs,
       fileProcessingDurationMs: active.fileProcessingDurationMs,
     }
@@ -464,7 +464,7 @@ export async function prepareGeminiVideo(
   const uploaded = await uploadGeminiVideoFile(data)
   const active = await waitForGeminiFile(uploaded)
   return {
-    video: { type: 'video', uri: active.uri, mime_type: 'video/mp4' } as GeminiVideoReference,
+    video: { type: 'document', uri: active.uri } as GeminiVideoReference,
     uploadDurationMs: uploaded.uploadDurationMs,
     fileProcessingDurationMs: active.fileProcessingDurationMs,
   }

@@ -73,7 +73,10 @@ test('Short Videos transfers private Storage ranges to Google in bounded sequent
   ])
   assert.deepEqual(googleOffsets, ['0', String(GEMINI_VIDEO_UPLOAD_CHUNK_BYTES)])
   assert.deepEqual(googleCommands, ['upload', 'upload, finalize'])
-  assert.equal(result.video.uri, 'https://generativelanguage.googleapis.com/v1beta/files/mock-video')
+  assert.deepEqual(result.video, {
+    type: 'document',
+    uri: 'https://generativelanguage.googleapis.com/v1beta/files/mock-video',
+  })
 })
 
 test('Short Videos rejects a Storage server that ignores a partial Range before reading the full body', async () => {

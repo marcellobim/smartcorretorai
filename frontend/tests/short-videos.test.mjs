@@ -22,6 +22,7 @@ import { parseSmartTourActiveJob } from '../src/lib/smart-tour-job-recovery.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 'utf8')
+const shortVideosConfig = readFileSync(path.join(frontendRoot, 'src/config/shortVideos.js'), 'utf8')
 const campaignPackage = readFileSync(path.join(frontendRoot, 'src/components/campaign/CampaignPackage.jsx'), 'utf8')
 const userId = '123e4567-e89b-42d3-a456-426614174000'
 const requestId = '223e4567-e89b-42d3-a456-426614174000'
@@ -46,6 +47,16 @@ test('accepts only a non-empty MP4 up to 250 MiB and 300 seconds', () => {
   assert.equal(validateShortVideoDuration(300), '')
   assert.match(validateShortVideoDuration(300.01), /5 minutos/)
   assert.match(validateShortVideoDuration(Number.NaN), /duração/)
+})
+
+test('accepts long Short Videos inputs without treating the ten-second output as an upload limit', () => {
+  for (const durationSeconds of [30, 60, 161.1741]) {
+    assert.equal(validateShortVideoDuration(durationSeconds), '')
+  }
+
+  assert.doesNotMatch(shortVideosConfig, /durationSeconds\s*>\s*10\b/)
+  assert.doesNotMatch(shortVideosConfig, /(?:máximo|limite|até)[^\n]{0,30}10\s*(?:s|segundos?)\b/i)
+  assert.doesNotMatch(page, /(?:upload|entrada|arquivo enviado|vídeo enviado)[^\n]{0,80}(?:máximo|limite|até)[^\n]{0,30}10\s*(?:s|segundos?)\b/i)
 })
 
 test('keeps Short Videos independent from photos and removes the presenter question', () => {

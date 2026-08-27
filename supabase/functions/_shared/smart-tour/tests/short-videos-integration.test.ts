@@ -1,9 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   buildGeminiOmniShortVideoRequestBody,
   GEMINI_VIDEO_DEFAULT_MAX_BYTES,
   GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES,
+  SMART_TOUR_GEMINI_OMNI_DURATION,
   resolveGeminiVideoMaxBytes,
   validateGeminiVideoSize,
 } from '../../geminiOmniClient.ts'
@@ -39,6 +41,9 @@ const rawRequest = {
   language: 'pt-BR',
 }
 
+const validationSource = readFileSync(new URL('../validation.ts', import.meta.url), 'utf8')
+const generateSource = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
+
 test('validates one MP4 and preserves the five-minute product contract', () => {
   const input = validateShortVideosRequest(rawRequest)
   assert.equal(input.inputFlow, 'short-videos')
@@ -47,6 +52,18 @@ test('validates one MP4 and preserves the five-minute product contract', () => {
   assert.equal(input.generation.presenterGender, 'none')
   assert.throws(() => validateShortVideosRequest({ ...rawRequest, videoMetadata: { durationSeconds: 300.01, mimeType: 'video/mp4' } }), /invalid_video_duration/)
   assert.throws(() => validateShortVideosRequest({ ...rawRequest, videoMetadata: { durationSeconds: 10, mimeType: 'video\/quicktime' } }), /invalid_video_type/)
+})
+
+test('accepts 30-second and 60-second inputs and keeps long input metadata in the Gemini path', () => {
+  for (const durationSeconds of [30, 60, 161.1741]) {
+    const input = validateShortVideosRequest({ ...rawRequest, videoMetadata: { durationSeconds, mimeType: 'video/mp4' } })
+    assert.equal(input.videoMetadata.durationSeconds, durationSeconds)
+  }
+
+  assert.doesNotMatch(validationSource, /durationSeconds\s*>\s*10\b/)
+  assert.match(generateSource, /sourceDurationSeconds:input\.videoMetadata\.durationSeconds/)
+  assert.match(generateSource, /prepareGeminiVideo\([^;]+?'short-videos'/s)
+  assert.match(generateSource, /startGeminiOmniShortVideo\(\{prompt:geminiPrompt,video:prepared\.video\}\)/)
 })
 
 test('allows 250 MiB only through the internal Short Videos Gemini size profile', () => {
@@ -197,13 +214,14 @@ test('keeps the proven images briefing structurally unchanged', () => {
   assert.equal(briefing.regrasPreservacao.respeitarOrdemDasImagens, true)
 })
 
-test('sends the uploaded video URI before the prompt and preserves the isolated Omni contract', () => {
-  const video = { type: 'video', uri: 'https://generativelanguage.googleapis.com/v1beta/files/example', mime_type: 'video/mp4' } as const
+test('sends the uploaded Files API URI as a document and fixes the Gemini output at ten seconds', () => {
+  const video = { type: 'document', uri: 'https://generativelanguage.googleapis.com/v1beta/files/example' } as const
   const body = buildGeminiOmniShortVideoRequestBody('{"versao":"short-videos-structured-briefing-v1"}', video)
   assert.equal(body.model, 'gemini-omni-flash-preview')
   assert.deepEqual(body.input, [video, { type: 'text', text: '{"versao":"short-videos-structured-briefing-v1"}' }])
-  assert.deepEqual(body.response_format, { type: 'video', delivery: 'uri' })
-  assert.equal('duration' in body.response_format, false)
+  assert.equal(body.input.some(part => part.type === 'video' && 'uri' in part), false)
+  assert.equal(SMART_TOUR_GEMINI_OMNI_DURATION, '10s')
+  assert.deepEqual(body.response_format, { type: 'video', duration: '10s', delivery: 'uri' })
   assert.equal('aspect_ratio' in body.response_format, false)
   assert.deepEqual(body.generation_config, { thinking_level: 'high', video_config: { task: 'edit' } })
   assert.deepEqual(Object.keys(body).sort(), ['background', 'generation_config', 'input', 'model', 'response_format', 'store'])
