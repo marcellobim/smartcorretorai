@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import {
   createInstagramImageContainer,
   publishInstagramContainer,
@@ -34,7 +35,7 @@ const safeLog = (
 }
 
 serve(request => {
-  const client = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+  const client = createClient(requiredEnv('SUPABASE_URL'), resolveSupabaseAdminCredential().key, {
     auth: { persistSession: false },
   })
   const graphApiVersion = requiredEnv('META_GRAPH_API_VERSION')

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { withCors } from '../_shared/cors.ts'
 import { handleCreationDownload } from './runtime.ts'
 
@@ -12,7 +13,7 @@ const requiredEnv = (name: string) => {
 serve(withCors(request => {
   const client = createClient(
     requiredEnv('SUPABASE_URL'),
-    requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
+    resolveSupabaseAdminCredential().key,
     { auth: { persistSession: false } },
   )
 

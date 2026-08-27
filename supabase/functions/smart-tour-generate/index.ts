@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
@@ -24,7 +25,7 @@ const SHORT_VIDEOS_INPUT_BUCKET = 'short-videos-inputs'
 
 serve(withCors(async req => {
   const requestStartedAt = Date.now()
-  const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const url = Deno.env.get('SUPABASE_URL'), key = resolveSupabaseAdminCredential().key
   if (!url || !key) return json({ok:false,error:'Configuração indisponível.'},500)
   const supabase = createClient(url,key,{auth:{persistSession:false}})
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i,'')

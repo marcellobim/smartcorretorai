@@ -327,7 +327,7 @@ test('telemetria e respostas nunca incluem URL assinada, caption, token ou IDs',
 test('index restringe bucket/path final e usa auth.getUser/service role', () => {
   const source = readFileSync(new URL('../../../instagram-publish/index.ts', import.meta.url), 'utf8')
   assert.match(source, /auth\.getUser\(token\)/)
-  assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/)
+  assert.match(source, /resolveSupabaseAdminCredential\(\)\.key/)
   assert.match(source, /smartcorretor-assets/)
   assert.match(source, /hero-ia-next/)
   assert.match(source, /hero-principal/)

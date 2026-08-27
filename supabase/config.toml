@@ -31,10 +31,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.short-videos-cleanup]
-verify_jwt = true
+verify_jwt = false
 
 [functions.virtual-staging-images-cleanup]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-text-campaign]
 verify_jwt = false

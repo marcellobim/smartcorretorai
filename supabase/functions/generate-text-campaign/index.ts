@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
 import {
@@ -31,7 +32,7 @@ function normalizeUsage(value: unknown): SafeUsage | undefined {
 serve(withCors(async (request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const serviceRoleKey = resolveSupabaseAdminCredential().key
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
   if (!supabaseUrl || !anonKey || !serviceRoleKey || !openAIApiKey) {
     return new Response(JSON.stringify({ ok: false, error: 'Configuração indisponível.' }), { status: 500, headers: { 'Content-Type': 'application/json' } })

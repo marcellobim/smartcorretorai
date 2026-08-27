@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/virtual-staging/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
@@ -12,7 +13,7 @@ const safeError = (error: unknown) => error instanceof Error ? error.message.rep
 
 serve(withCors(async req => {
   const requestStartedAt = Date.now()
-  const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const url = Deno.env.get('SUPABASE_URL'), key = resolveSupabaseAdminCredential().key
   if (!url || !key) return json({ok:false,error:'Configuração indisponível.'},500)
   const supabase = createClient(url,key,{auth:{persistSession:false}})
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i,'')

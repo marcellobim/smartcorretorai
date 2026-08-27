@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { getProduct3PurposeLabel, normalizeProduct3Purpose } from '../_shared/product3-contract.ts'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
@@ -289,17 +290,17 @@ serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const SERVICE_ROLE_KEY = resolveSupabaseAdminCredential().key
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 
     console.log(`[${reqId}] ENV check:`, {
       SUPABASE_URL: !!SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: !!SERVICE_ROLE_KEY,
+      SUPABASE_ADMIN_CREDENTIAL: true,
       OPENAI_API_KEY: !!OPENAI_API_KEY,
     })
 
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-      return jsonResponse({ error: 'Variáveis SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes' }, 500)
+      return jsonResponse({ error: 'Configuração administrativa indisponível' }, 500)
     }
     if (!OPENAI_API_KEY) {
       return jsonResponse({ error: 'OPENAI_API_KEY não configurada' }, 500)

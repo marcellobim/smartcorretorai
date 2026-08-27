@@ -75,7 +75,7 @@ test('active users manage subscriptions through a server-authoritative Stripe Cu
   assert.match(settings, /functions\.invoke\('stripe-customer-portal'\)/)
   assert.doesNotMatch(settings, /functions\.invoke\('stripe-customer-portal',[\s\S]{0,120}body:/)
   assert.doesNotMatch(settings, /customer_id|STRIPE_SECRET_KEY|sk_live_|sk_test_/)
-  assert.match(portalIndex, /SUPABASE_SERVICE_ROLE_KEY/)
+  assert.match(portalIndex, /resolveSupabaseAdminCredential\(\)\.key/)
   assert.match(portalIndex, /STRIPE_SECRET_KEY/)
   assert.match(portalIndex, /from\('subscriptions'\)[\s\S]*?eq\('user_id', userId\)[\s\S]*?eq\('status', 'ativo'\)/)
   assert.match(portalRuntime, /Object\.keys\(body\)\.length !== 0/)

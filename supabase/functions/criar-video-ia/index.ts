@@ -1,5 +1,6 @@
 ﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { startVeoVideo } from '../_shared/veoClient.ts'
 import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
 import {
@@ -3386,7 +3387,7 @@ serve(async (req) => {
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const SERVICE_ROLE_KEY = resolveSupabaseAdminCredential().key
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       return jsonResponse({ success: false, error: 'Configuracao indisponivel.' }, 500)
     }

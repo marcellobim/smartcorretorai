@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
 import {
@@ -1071,7 +1072,7 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const serviceRoleKey = resolveSupabaseAdminCredential().key
     const creatomateApiKey = Deno.env.get('CREATOMATE_API_KEY')
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!supabaseUrl || !serviceRoleKey || !creatomateApiKey || !openaiApiKey) {

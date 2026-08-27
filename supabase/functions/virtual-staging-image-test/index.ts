@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { jsonResponse, withCors } from '../_shared/cors.ts'
 import { ECONOMIC_CATALOG_VERSION, quoteEconomicSku } from '../_shared/economic-catalog.ts'
 import {
@@ -89,7 +90,7 @@ async function editImageWithOpenAI(input: ImageEditRequest) {
 
 serve(withCors(async (request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const serviceRoleKey = resolveSupabaseAdminCredential().key
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse({ ok: false, error: 'Configuração indisponível.' }, 500)
   }

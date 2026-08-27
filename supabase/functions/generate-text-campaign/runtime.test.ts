@@ -470,6 +470,6 @@ test('logs only sanitized outcomes and keeps service credentials backend-only', 
   assert.doesNotMatch(runtimeSource, /service_role|openai_api_key/i)
   assert.match(indexSource, /supabase\.auth\.getUser\(token\)/)
   assert.match(indexSource, /Deno\.env\.get\('OPENAI_API_KEY'\)/)
-  assert.match(indexSource, /Deno\.env\.get\('SUPABASE_SERVICE_ROLE_KEY'\)/)
+  assert.match(indexSource, /resolveSupabaseAdminCredential\(\)\.key/)
   assert.doesNotMatch(`${indexSource}\n${runtimeSource}`, /_shared\/creations|registerCompletedCreation|registerCreation|creation_registered/)
 })

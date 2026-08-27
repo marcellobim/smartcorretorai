@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { grantFinancialLot } from '../_shared/stripe-commerce.ts'
 import { buildTransactionalEmail, sendTransactionalEmail } from '../_shared/transactional-email.ts'
 import {
@@ -34,7 +35,7 @@ const retrieveInvoiceForEmail = (id: string) => {
 
 serve(async (request) => {
   try {
-    const supabase = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+    const supabase = createClient(requiredEnv('SUPABASE_URL'), resolveSupabaseAdminCredential().key, {
       auth: { persistSession: false },
     })
     const notify = async (notification: StripeEmailNotification) => {

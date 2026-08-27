@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import {
   AdminAuthorizationError,
   AdminMfaRequiredError,
@@ -667,7 +668,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       requiredEnv('SUPABASE_URL'),
-      requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
+      resolveSupabaseAdminCredential().key,
       { auth: { persistSession: false } },
     )
 

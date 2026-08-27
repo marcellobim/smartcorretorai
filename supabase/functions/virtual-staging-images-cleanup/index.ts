@@ -1,6 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  authorizeSupabaseAdminRequest,
+  resolveSupabaseAdminCredential,
+} from '../_shared/supabase-admin-credential.ts'
+import {
   isVirtualStagingImageUuid,
   parseVirtualStagingImagePath,
   runVirtualStagingImageCleanup,
@@ -20,27 +24,24 @@ function json(body: unknown, status = 200) {
   })
 }
 
-function readJwtRole(authorization: string | null) {
-  try {
-    const token = String(authorization || '').replace(/^Bearer\s+/i, '')
-    const encodedPayload = token.split('.')[1]
-    if (!encodedPayload) return ''
-    const normalized = encodedPayload.replace(/-/g, '+').replace(/_/g, '/')
-      .padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=')
-    return String(JSON.parse(atob(normalized))?.role || '')
-  } catch {
-    return ''
-  }
-}
-
 serve(async req => {
   if (req.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405)
-  if (readJwtRole(req.headers.get('authorization')) !== 'service_role') {
+  let credential
+  try {
+    credential = resolveSupabaseAdminCredential()
+  } catch {
+    return json({ ok: false, error: 'configuration_unavailable' }, 500)
+  }
+  const authorizedSource = authorizeSupabaseAdminRequest(req.headers, credential)
+  if (!authorizedSource) {
     return json({ ok: false, error: 'forbidden' }, 403)
+  }
+  if (new URL(req.url).searchParams.get('probe') === 'credential') {
+    return json({ ok: true, credentialSource: authorizedSource })
   }
 
   const url = Deno.env.get('SUPABASE_URL')
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const key = credential.key
   if (!url || !key) return json({ ok: false, error: 'configuration_unavailable' }, 500)
 
   const supabase = createClient(url, key, { auth: { persistSession: false } })

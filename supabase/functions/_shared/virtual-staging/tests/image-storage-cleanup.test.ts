@@ -147,11 +147,12 @@ test('keeps the endpoint service-role-only, path-independent and restricted to S
   const functionSource = readFileSync(pathModule.resolve(testDirectory, '../../../virtual-staging-images-cleanup/index.ts'), 'utf8')
   const configSource = readFileSync(pathModule.resolve(testDirectory, '../../../../config.toml'), 'utf8')
   assert.match(functionSource, /req\.method !== 'POST'/)
-  assert.match(functionSource, /readJwtRole\(req\.headers\.get\('authorization'\)\) !== 'service_role'/)
+  assert.match(functionSource, /authorizeSupabaseAdminRequest\(req\.headers, credential\)/)
+  assert.match(functionSource, /searchParams\.get\('probe'\) === 'credential'/)
   assert.match(functionSource, /from\(VIRTUAL_STAGING_IMAGE_BUCKET\)\.remove\(\[name\]\)/)
   assert.doesNotMatch(functionSource, /req\.json\(/)
   assert.doesNotMatch(functionSource, /storage\.objects|from\(['"]objects['"]\)/)
-  assert.match(configSource, /\[functions\.virtual-staging-images-cleanup\]\s+verify_jwt = true/)
+  assert.match(configSource, /\[functions\.virtual-staging-images-cleanup\]\s+verify_jwt = false/)
 })
 
 test('keeps the retired scheduling migration as a documented no-op', () => {

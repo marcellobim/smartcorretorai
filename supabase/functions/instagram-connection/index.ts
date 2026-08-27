@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { buildFacebookOAuthUrl, createSignedOAuthState } from '../_shared/instagram/oauth.ts'
 import { handleInstagramConnection } from './runtime.ts'
 
@@ -11,7 +12,7 @@ const requiredEnv = (name: string) => {
 
 serve(async request => {
   try {
-    const client = () => createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
+    const client = () => createClient(requiredEnv('SUPABASE_URL'), resolveSupabaseAdminCredential().key, { auth: { persistSession: false } })
 
     return await handleInstagramConnection(request, {
       authenticate: async token => {

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { buildGeminiOmniInteractionGetRequest, checkGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import {
@@ -26,7 +27,7 @@ serve(withCors(async req => {
   }
 
   const url = Deno.env.get('SUPABASE_URL')
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const key = resolveSupabaseAdminCredential().key
   const creatomateKey = Deno.env.get('CREATOMATE_API_KEY') || ''
   if (!url || !key) return json({ ok: false, error: 'Configuração indisponível.' }, 500)
 

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { buildFrontendInstagramRedirect, verifySignedOAuthState } from '../_shared/instagram/oauth.ts'
 import { resolveInstagramConnection } from '../_shared/instagram/meta-client.ts'
 import {
@@ -19,7 +20,7 @@ serve(async request => {
   const frontendUrl = requiredEnv('FRONTEND_URL')
   const connectedRedirect = buildFrontendInstagramRedirect(frontendUrl, 'conectado')
   const errorRedirect = buildFrontendInstagramRedirect(frontendUrl, 'erro')
-  const client = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
+  const client = createClient(requiredEnv('SUPABASE_URL'), resolveSupabaseAdminCredential().key, { auth: { persistSession: false } })
   const log = (event: InstagramOAuthTelemetryEvent) => logInstagramOAuthEvent(message => console.info(message), event)
 
   return handleInstagramCallback(request, {

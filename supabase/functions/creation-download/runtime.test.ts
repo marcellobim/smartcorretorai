@@ -221,7 +221,7 @@ test('Edge entrypoint keeps service credentials backend-only and performs no phy
   const source = readFileSync(path.join(directory, 'index.ts'), 'utf8')
   const config = readFileSync(path.join(directory, '../../config.toml'), 'utf8')
   assert.match(source, /Deno\.env\.get\(name\)/)
-  assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/)
+  assert.match(source, /resolveSupabaseAdminCredential\(\)\.key/)
   assert.match(source, /auth\.getUser\(token\)/)
   assert.match(source, /createSignedUrl\(path, expiresInSeconds\)/)
   assert.doesNotMatch(source, /storage[\s\S]*\.remove\(/)

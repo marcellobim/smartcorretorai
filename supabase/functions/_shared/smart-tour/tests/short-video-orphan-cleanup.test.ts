@@ -104,8 +104,9 @@ test('records a removal failure and continues processing other objects', async (
 test('keeps the scheduled endpoint service-role-only and path-independent', () => {
   const functionSource = readFileSync(pathModule.resolve(testDirectory, '../../../short-videos-cleanup/index.ts'), 'utf8')
   const configSource = readFileSync(pathModule.resolve(testDirectory, '../../../../config.toml'), 'utf8')
-  assert.match(functionSource, /readJwtRole\(req\.headers\.get\('authorization'\)\) !== 'service_role'/)
+  assert.match(functionSource, /authorizeSupabaseAdminRequest\(req\.headers, credential\)/)
+  assert.match(functionSource, /searchParams\.get\('probe'\) === 'credential'/)
   assert.match(functionSource, /from\(SHORT_VIDEOS_INPUT_BUCKET\)\.remove\(\[name\]\)/)
   assert.doesNotMatch(functionSource, /req\.json\(/)
-  assert.match(configSource, /\[functions\.short-videos-cleanup\]\s+verify_jwt = true/)
+  assert.match(configSource, /\[functions\.short-videos-cleanup\]\s+verify_jwt = false/)
 })
