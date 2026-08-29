@@ -7,6 +7,7 @@ import {
   Image,
   LayoutTemplate,
   LogOut,
+  Radar,
   Settings,
   Shield,
   Sparkles,
@@ -24,6 +25,7 @@ const navigationGroups = [
     label: 'Principal',
     items: [
       { to: '/dashboard', icon: Home, label: 'Home' },
+      { to: '/raio-x-anuncio', icon: Radar, label: 'Raio-X' },
     ],
   },
   {

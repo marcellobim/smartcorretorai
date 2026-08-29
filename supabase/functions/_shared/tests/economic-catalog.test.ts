@@ -12,7 +12,7 @@ import {
 
 test('canonical catalog contains unique versioned server-side SKUs', () => {
   assert.equal(ECONOMIC_CATALOG_VERSION, '2026-08-20.virtual-staging.v1')
-  assert.equal(ECONOMIC_SKUS.length, 11)
+  assert.equal(ECONOMIC_SKUS.length, 12)
   const keys = ECONOMIC_SKUS.map(item => `${item.productCode}:${item.variant}`)
   assert.equal(new Set(keys).size, keys.length)
   assert.ok(ECONOMIC_SKUS.every(item => item.catalogVersion === ECONOMIC_CATALOG_VERSION))
@@ -36,6 +36,7 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
       'real_estate_commercial:standard': 120,
       'creative_video:standard': 120,
       'text_campaign:standard': 25,
+      'listing_xray:analysis': 10,
       'real_estate_banner:item': 75,
       'quick_banners:item': 45,
       'virtual_staging:image': 30,
@@ -47,19 +48,21 @@ test('all approved phase 1 Smart Token values are registered without a Google Ad
 
 test('only migrated product SKUs can be quoted while global activation remains false', () => {
   assert.equal(ECONOMIC_CATALOG_ACTIVATED, false)
-  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['real_estate_video:standard', 'life_in_property:standard', 'broker_presentation:standard', 'short_videos:standard', 'real_estate_commercial:standard', 'creative_video:standard', 'text_campaign:standard', 'real_estate_banner:item', 'quick_banners:item', 'virtual_staging:image', 'smart_carousel:standard'])
+  assert.deepEqual(ECONOMIC_SKUS.filter(item => item.enabled).map(item => `${item.productCode}:${item.variant}`), ['real_estate_video:standard', 'life_in_property:standard', 'broker_presentation:standard', 'short_videos:standard', 'real_estate_commercial:standard', 'creative_video:standard', 'text_campaign:standard', 'listing_xray:analysis', 'real_estate_banner:item', 'quick_banners:item', 'virtual_staging:image', 'smart_carousel:standard'])
   assert.equal(quoteEconomicSku('text_campaign', 'standard').smartTokenCost, 25)
   assert.equal(quoteEconomicSku('real_estate_video', 'standard').smartTokenCost, 325)
   assert.equal(quoteEconomicSku('real_estate_commercial', 'standard').smartTokenCost, 120)
   assert.equal(quoteEconomicSku('creative_video', 'standard').smartTokenCost, 120)
   assert.equal(quoteEconomicSku('smart_carousel', 'standard').smartTokenCost, 100)
   assert.equal(quoteEconomicSku('virtual_staging', 'image').smartTokenCost, 30)
+  assert.equal(quoteEconomicSku('listing_xray', 'analysis').smartTokenCost, 10)
   assert.equal(Object.isFrozen(ECONOMIC_SKUS), true)
   assert.equal(Object.isFrozen(getEconomicSku('text_campaign', 'standard')), true)
 })
 
 test('trial eligibility and approved Virtual Staging unit follow the approved model', () => {
   assert.equal(getEconomicSku('text_campaign', 'standard').trialEligible, true)
+  assert.equal(getEconomicSku('listing_xray', 'analysis').trialEligible, true)
   assert.equal(getEconomicSku('quick_banners', 'item').trialEligible, true)
   assert.equal(quoteEconomicSku('quick_banners', 'item').smartTokenCost, 45)
   assert.equal(getEconomicSku('real_estate_banner', 'item').trialEligible, false)

@@ -14,6 +14,7 @@ import {
   Pause,
   Play,
   Plus,
+  Radar,
   ShieldCheck,
   Video,
   Wand2,
@@ -239,6 +240,32 @@ export default function Dashboard() {
             </div>
 
             <HeroMediaShowcase />
+          </div>
+        </ProductCard>
+
+        <ProductCard data-home-product="raio-x-anuncio" className="mt-8 overflow-hidden border-cyan-200 bg-gradient-to-br from-primary-950 via-primary-900 to-cyan-800 p-0 text-white shadow-[0_30px_80px_-50px_rgba(8,145,178,0.8)]">
+          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:p-10">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/20">
+                  <Radar className="h-6 w-6 text-cyan-200" aria-hidden="true" />
+                </span>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Raio-X</p>
+              </div>
+              <h2 className="mt-5 text-2xl font-black tracking-[-0.035em] sm:text-3xl">
+                Descubra o que pode melhorar na divulgação do seu imóvel.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-cyan-50/90 sm:text-base">
+                Envie o link ou capturas do anúncio e receba uma análise com sugestões práticas para melhorar o anúncio e ampliar sua divulgação.
+              </p>
+            </div>
+            <Link
+              to="/raio-x-anuncio"
+              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-black text-primary-950 shadow-lg transition hover:bg-cyan-50 ${SMART_UI.focus}`}
+            >
+              Analisar meu anúncio
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
           </div>
         </ProductCard>
 

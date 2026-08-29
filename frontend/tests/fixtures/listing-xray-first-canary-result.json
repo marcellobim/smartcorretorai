@@ -1,0 +1,77 @@
+{
+  "schema_version": "listing_xray.v2",
+  "status": "completed",
+  "input_kind": "images",
+  "content_type": "PROPERTY_LISTING",
+  "overall_score": 18,
+  "overall_label": "Precisa de atenção",
+  "summary": "O anúncio apresenta um apartamento com informações consistentes, mas há ambiguidade em relação à descrição e detalhes do imóvel.",
+  "fields": {
+    "area": { "state": "CONFIRMED", "value": "93m²" },
+    "city": { "state": "CONFIRMED", "value": "Lapa" },
+    "price": { "state": "CONFIRMED", "value": "R$ 1.550.000" },
+    "stage": { "state": "NOT_FOUND", "value": null },
+    "state": { "state": "CONFIRMED", "value": "São Paulo" },
+    "title": { "state": "CONFIRMED", "value": "Apartamento 2 quartos, 1 suite no Alto da Lapa" },
+    "suites": { "state": "CONFIRMED", "value": "1" },
+    "address": { "state": "CONFIRMED", "value": "Rua Camburiú 437" },
+    "builder": { "state": "NOT_FOUND", "value": null },
+    "purpose": { "state": "NOT_FOUND", "value": null },
+    "bedrooms": { "state": "CONFIRMED", "value": "2" },
+    "district": { "state": "NOT_FOUND", "value": null },
+    "amenities": { "state": "CONFIRMED", "value": "Churrasqueira, Elevador, Lavanderia, Piscina, Quadra poliesportiva" },
+    "bathrooms": { "state": "CONFIRMED", "value": "2" },
+    "highlights": { "state": "NOT_FOUND", "value": null },
+    "description": { "state": "CONFIRMED", "value": "Oportunidade no Alto da Lapa! Este surpreendente apartamento de 93m², com 2 quartos, 1 suíte e 2 vagas cobertas, na Vila Ipojuca foi totalmente" },
+    "propertyTax": { "state": "CONFIRMED", "value": "R$ 550" },
+    "propertyType": { "state": "NOT_FOUND", "value": null },
+    "parkingSpaces": { "state": "CONFIRMED", "value": "2" },
+    "condominiumFee": { "state": "CONFIRMED", "value": "R$ 980" },
+    "developmentName": { "state": "NOT_FOUND", "value": null }
+  },
+  "inconsistencies": [],
+  "sections": {
+    "title": {
+      "score": 22,
+      "label": "Precisa de atenção",
+      "components": { "clarity": 4, "correctness": 5, "readability": 5, "specificity": 4, "informativeness": 4 },
+      "analysis": "O título é claro e informativo, mas poderia ser mais específico sobre a localização exata.",
+      "suggestion_mode": "none",
+      "suggestion": null,
+      "copy_text": null,
+      "issue_codes": []
+    },
+    "description": {
+      "score": 20,
+      "label": "Precisa de atenção",
+      "components": { "clarity": 4, "benefits": 4, "correctness": 4, "naturalness": 4, "useful_coverage": 4 },
+      "analysis": "A descrição é boa, mas a repetição de informações pode ser evitada para maior clareza.",
+      "suggestion_mode": "none",
+      "suggestion": null,
+      "copy_text": null,
+      "issue_codes": []
+    },
+    "information": {
+      "score": 12,
+      "label": "Precisa de atenção",
+      "components": { "coherence": 4, "consistency": 4, "completeness": 4 },
+      "analysis": "As informações são consistentes, mas a apresentação poderia ser mais organizada.",
+      "suggestion_mode": "none",
+      "suggestion": null,
+      "copy_text": null,
+      "issue_codes": []
+    },
+    "persuasion": {
+      "score": 20,
+      "label": "Precisa de atenção",
+      "components": { "cta": 5, "clarity": 4, "benefits": 4, "differentiators": 3, "feature_to_benefit": 4 },
+      "analysis": "O poder de convencimento é bom, mas poderia destacar mais os diferenciais do imóvel.",
+      "suggestion_mode": "none",
+      "suggestion": null,
+      "copy_text": null,
+      "issue_codes": []
+    }
+  },
+  "priorities": [],
+  "recommendations": []
+}

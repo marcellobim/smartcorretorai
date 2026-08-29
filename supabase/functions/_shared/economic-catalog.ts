@@ -63,6 +63,12 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
   // Product 1 is activated explicitly while the global rollout remains off.
   sku('text_campaign', 'standard', 25, 'openai_text', true, {}, true),
 
+  // Raio-X charges one fixed analysis unit regardless of URL/image input or
+  // the number of screenshots accepted by the request.
+  sku('listing_xray', 'analysis', 10, 'openai_text', true, {
+    pricingStatus: 'approved', telemetryRequired: true, quantity: 1, maxImagesPerRequest: 5,
+  }, true),
+
   // Product 3 has one canonical server-owned unit. References and formats do
   // not change the quote; the validated number of final pieces does.
   sku('real_estate_banner', 'item', 75, 'openai_image', false, {

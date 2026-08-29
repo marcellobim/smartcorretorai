@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight, ChevronDown, Download, Facebook, FileText, Gauge,
   Image as ImageIcon, Instagram, Layers3, LayoutTemplate, Menu,
-  Play, Route, UploadCloud, Video, Wand2, X,
+  Play, Radar, Route, UploadCloud, Video, Wand2, X,
 } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
@@ -431,6 +431,36 @@ function PositioningStrip() {
   </>
 }
 
+function ListingXraySpotlight() {
+  const capabilities = [
+    'Análise pelo link ou por capturas',
+    'Qualidade do Anúncio',
+    'Potencial de Atração',
+    'Sugestões prontas para melhorar',
+    'Recomendações para ampliar a divulgação',
+  ]
+
+  return <section id="raio-x" className="bg-[#07111f] py-16 text-white sm:py-20">
+    <div className="mx-auto grid max-w-[92rem] gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)] lg:items-center lg:px-10">
+      <div>
+        <div className="flex items-center gap-3 text-cyan-300">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-cyan-300/10 ring-1 ring-cyan-200/20"><Radar className="h-6 w-6" aria-hidden="true" /></span>
+          <p className="text-xs font-black uppercase tracking-[.2em]">Raio-X</p>
+        </div>
+        <h2 className="mt-6 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] sm:text-5xl">Seu anúncio está publicado, mas poderia chamar mais atenção?</h2>
+        <p className="mt-6 max-w-3xl text-base font-medium leading-8 text-slate-300">Envie o link ou capturas. O SmartCorretorAI analisa a qualidade do anúncio, o potencial de atração, mostra o que pode melhorar e entrega sugestões prontas para usar.</p>
+        <Link to="/raio-x-anuncio" className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-200 ${focusRing}`}>Experimentar o Raio-X<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+      </div>
+      <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[.06] p-6 shadow-[0_35px_80px_-45px_rgba(34,211,238,.55)] sm:p-8">
+        <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-300">Analisar → Melhorar → Criar → Divulgar</p>
+        <ul className="mt-6 space-y-3">
+          {capabilities.map(capability => <li key={capability} className="flex items-start gap-3 rounded-2xl bg-white/[.05] px-4 py-3 text-sm font-bold leading-6 text-slate-100"><span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-cyan-300" />{capability}</li>)}
+        </ul>
+      </div>
+    </div>
+  </section>
+}
+
 function DeliveryPanel({ group }) {
   const playingVideoRef = useRef(null)
   const handlePlay = video => {
@@ -611,5 +641,5 @@ function LandingFooter() {
 }
 
 export default function LandingPage() {
-  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><Hero /><PositioningStrip /><DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
+  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><Hero /><PositioningStrip /><ListingXraySpotlight /><DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
 }

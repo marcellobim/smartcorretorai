@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.generate-text-campaign]
 verify_jwt = false
 
+[functions.raio-x-anuncio]
+verify_jwt = false
+
 [functions.instagram-connection]
 verify_jwt = false
 
