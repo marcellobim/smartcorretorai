@@ -8,14 +8,18 @@ import {
   ChevronRight,
   Coins,
   FileText,
+  Film,
   Gauge,
+  Heart,
   Image as ImageIcon,
+  ImagePlus,
   Minus,
   Pause,
   Play,
   Plus,
   Radar,
   ShieldCheck,
+  UserRound,
   Video,
   Wand2,
   Zap,
@@ -55,22 +59,31 @@ const mainActions = [
     icon: ImageIcon,
   },
   {
-    id: 'studio-hero',
-    title: 'Studio IA',
-    description: 'Produza comerciais, vídeos criativos e carrosséis para campanhas com mais presença.',
+    id: 'comercial-imobiliario',
+    title: 'Comercial Imobiliário',
+    description: 'Transforme uma imagem do imóvel em um comercial profissional para divulgação.',
     to: '/studio-hero',
-    label: 'Abrir Studio IA',
+    label: 'Criar comercial',
     tone: 'blue',
+    icon: Film,
+  },
+  {
+    id: 'video-criativo',
+    title: 'Vídeo Criativo',
+    description: 'Transforme uma ideia em um vídeo criativo exclusivo, pronto para divulgação.',
+    to: '/studio-hero',
+    label: 'Criar vídeo criativo',
+    tone: 'cyan',
     icon: Wand2,
   },
   {
-    id: 'virtual-staging',
-    title: 'Virtual Staging',
-    description: 'Transforme ambientes e apresente novas possibilidades para cada espaço do imóvel.',
-    to: '/virtual-staging',
-    label: 'Criar projeto',
-    tone: 'cyan',
-    icon: Box,
+    id: 'smart-carrossel',
+    title: 'Smart Carrossel',
+    description: 'Organize suas imagens em uma apresentação dinâmica para redes sociais e campanhas.',
+    to: '/smart-carrossel',
+    label: 'Criar carrossel',
+    tone: 'violet',
+    icon: ImagePlus,
   },
   {
     id: 'banners-rapidos',
@@ -89,6 +102,33 @@ const mainActions = [
     label: 'Criar campanha',
     tone: 'gold',
     icon: FileText,
+  },
+  {
+    id: 'apresentacao-corretor',
+    title: 'Apresentação pelo Corretor',
+    description: 'Use sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
+    to: '/virtual-staging',
+    label: 'Criar apresentação',
+    tone: 'blue',
+    icon: UserRound,
+  },
+  {
+    id: 'vida-no-imovel',
+    title: 'Vida no Imóvel',
+    description: 'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
+    to: '/virtual-staging',
+    label: 'Dar vida ao imóvel',
+    tone: 'peach',
+    icon: Heart,
+  },
+  {
+    id: 'smart-space',
+    title: 'Smart Space',
+    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
+    to: '/virtual-staging',
+    label: 'Transformar espaço',
+    tone: 'cyan',
+    icon: Box,
   },
 ]
 
@@ -116,7 +156,7 @@ const heroMediaItems = [
   },
   {
     id: 'virtual-space',
-    label: 'Virtual Staging',
+    label: 'Smart Space',
     beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE,
     src: VIRTUAL_STAGING_AFTER_IMAGE,
     type: 'comparison',
@@ -161,7 +201,7 @@ const benefits = [
 const faqItems = [
   {
     question: 'Qual produto devo usar para o que preciso criar?',
-    answer: 'Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, enquanto Banners Rápidos parte de modelos profissionais. Studio IA atende produções visuais e criativas, Virtual Staging transforma e apresenta ambientes, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.',
+    answer: 'Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, enquanto Banners Rápidos parte de modelos profissionais. Comercial Imobiliário, Vídeo Criativo e Smart Carrossel atendem diferentes formatos de campanha. Smart Space transforma ambientes, Vida no Imóvel e Apresentação pelo Corretor criam novas formas de apresentar, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.',
   },
   {
     question: `Preciso assinar um plano ou posso comprar ${SMART_TOKENS_LABEL} quando precisar?`,
@@ -256,7 +296,7 @@ export default function Dashboard() {
                 Descubra o que pode melhorar na divulgação do seu imóvel.
               </h2>
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-cyan-50/90 sm:text-base">
-                Envie o link ou capturas do anúncio e receba uma análise com sugestões práticas para melhorar o anúncio e ampliar sua divulgação.
+                Analise seu anúncio, veja onde existe oportunidade e receba sugestões práticas para melhorar e ampliar sua divulgação.
               </p>
             </div>
             <Link

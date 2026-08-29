@@ -32,12 +32,12 @@ test('organizes the sidebar in the approved section order', () => {
   assert.ok(administration > account)
 })
 
-test('keeps the six approved products in the same order as Home', () => {
+test('keeps the approved sidebar products and the Smart Space public name', () => {
   const expectedProducts = [
     ["'/smart-tour-ai'", "'Vídeo Imobiliário'"],
     ["'/hero'", "'Banner Imobiliário'"],
     ["'/studio-hero'", "'Studio IA'"],
-    ["'/virtual-staging'", "'Virtual Staging'"],
+    ["'/virtual-staging'", "'Smart Space'"],
     ["'/nova-campanha'", "'Banners Rápidos'"],
     ["'/campanha-de-textos'", "'Campanha de Textos'"],
   ]

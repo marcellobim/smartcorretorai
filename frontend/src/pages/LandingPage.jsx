@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight, ChevronDown, Download, Facebook, FileText, Gauge,
@@ -47,7 +47,7 @@ const VIDEO_POSTERS = Object.freeze({
 const HERO_ROTATION_INTERVAL_MS = 5200
 const HERO_PRODUCT_SLIDES = [
   { id: 'video-imobiliario', name: 'Vídeo Imobiliário', type: 'video', src: '/demos-videos/video-campanha.mp4', label: 'Vídeo imobiliário criado no SmartCorretorAI' },
-  { id: 'virtual-staging', name: 'Virtual Staging', type: 'image', src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Ambiente criado com Virtual Staging no SmartCorretorAI' },
+  { id: 'virtual-staging', name: 'Smart Space', type: 'image', src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Ambiente criado com Smart Space no SmartCorretorAI' },
   { id: 'banner-imobiliario', name: 'Banner Imobiliário', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', label: 'Banner imobiliário criado no SmartCorretorAI' },
   { id: 'banners-rapidos', name: 'Banners Rápidos', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', label: 'Banner rápido criado no SmartCorretorAI' },
   { id: 'studio-ia', name: 'Studio IA', type: 'video', src: '/showcase/smart-studio-gallery/venda1lapa.mp4', label: 'Comercial imobiliário criado no Studio IA' },
@@ -90,12 +90,12 @@ const PRODUCT_FAMILIES = [
     ],
   },
   {
-    id: 'virtual-staging', name: 'Virtual Staging', number: '04',
+    id: 'virtual-staging', name: 'Smart Space', number: '04',
     headline: 'Mostre o que aquele espaço pode se tornar.',
     description: 'Transforme ambientes vazios, represente cenas de uso ou apresente o imóvel com sua própria imagem.',
     icon: Layers3,
     items: [
-      { id: 'staging', title: 'Virtual Staging', type: 'comparison', beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE, src: VIRTUAL_STAGING_AFTER_IMAGE },
+      { id: 'staging', title: 'Smart Space', type: 'comparison', beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE, src: VIRTUAL_STAGING_AFTER_IMAGE },
       { id: 'vida', title: 'Vida no Imóvel', type: 'video', src: '/demos-videos/vida-no-imovel.mp4' },
       { id: 'apresentacao', title: 'Apresentação pelo Corretor', type: 'video', src: '/demos-videos/apresentacao-pelo-proprio-corretor.mp4' },
     ],
@@ -249,7 +249,7 @@ const FAQ_ITEMS = [
   ['Posso usar para venda e locação?', 'Sim. Você pode criar materiais para apresentar oportunidades de venda e locação em diferentes formatos.'],
   ['Posso usar para captação de imóveis?', 'Sim. Os materiais podem apoiar a apresentação da sua estratégia de divulgação ao proprietário.'],
   ['Posso criar campanhas para captação de profissionais?', 'Sim. A Campanha de Textos permite preparar mensagens para apresentar oportunidades e atrair profissionais para equipes e imobiliárias.'],
-  ['As imagens e vídeos gerados são sempre fiéis ao imóvel?', 'O SmartCorretorAI foi desenvolvido para preservar ao máximo as características do material enviado. Como algumas criações utilizam inteligência artificial, podem ocorrer adaptações, variações ou pequenas alterações para compor o resultado. Revise sempre o material antes de divulgar, especialmente características do imóvel que possam influenciar a decisão de um interessado. Quando se tratar de Virtual Staging, a imagem representa uma proposta visual do ambiente e pode incluir mobiliário, decoração ou elementos que não existem fisicamente no imóvel.'],
+  ['As imagens e vídeos gerados são sempre fiéis ao imóvel?', 'O SmartCorretorAI foi desenvolvido para preservar ao máximo as características do material enviado. Como algumas criações utilizam inteligência artificial, podem ocorrer adaptações, variações ou pequenas alterações para compor o resultado. Revise sempre o material antes de divulgar, especialmente características do imóvel que possam influenciar a decisão de um interessado. Quando se tratar de Smart Space, a imagem representa uma proposta visual do ambiente e pode incluir mobiliário, decoração ou elementos que não existem fisicamente no imóvel.'],
   ['Quem é responsável pelas informações e materiais divulgados?', 'O usuário é responsável por revisar e confirmar as informações, imagens, vídeos e textos antes da publicação. Preço, metragem, localização, características, condições comerciais e demais informações do imóvel devem estar corretos e atualizados antes da divulgação.'],
   ['Preciso revisar o conteúdo antes de publicar?', 'Sim. A inteligência artificial ajuda na criação, mas a revisão final continua sendo importante. Confira textos, informações comerciais e materiais visuais antes de utilizá-los em anúncios, campanhas ou outros canais de divulgação.'],
   ['O que são Smart Tokens?', 'Smart Tokens representam sua capacidade de criação dentro do SmartCorretorAI. Cada recurso informa a quantidade necessária antes de iniciar.'],
@@ -276,12 +276,20 @@ function useReducedMotion() {
   return reduced
 }
 
+function useLandingCtaTracking(ctaLocation) {
+  const { trackEvent } = useAnalytics()
+  return useCallback(ctaName => trackEvent('landing_cta_click', {
+    cta_name: ctaName,
+    cta_location: ctaLocation,
+  }), [ctaLocation, trackEvent])
+}
+
 function BeforeAfter({ beforeSrc, afterSrc, compact = false, contain = false }) {
   const [position, setPosition] = useState(52)
   return (
     <div className="relative h-full min-h-[300px] overflow-hidden bg-slate-200" aria-label="Comparação interativa antes e depois">
-      <img src={afterSrc} alt="Ambiente mobiliado depois do Virtual Staging" loading="lazy" className={`absolute inset-0 h-full w-full ${contain ? 'object-contain' : 'object-cover'}`} />
-      {contain ? <img src={beforeSrc} alt="Ambiente vazio antes do Virtual Staging" loading="lazy" className="absolute inset-0 h-full w-full object-contain" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }} /> : <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${position}%` }}><img src={beforeSrc} alt="Ambiente vazio antes do Virtual Staging" loading="lazy" className="h-full max-w-none object-cover" style={{ width: compact ? '560px' : '900px' }} /></div>}
+      <img src={afterSrc} alt="Ambiente mobiliado depois do Smart Space" loading="lazy" className={`absolute inset-0 h-full w-full ${contain ? 'object-contain' : 'object-cover'}`} />
+      {contain ? <img src={beforeSrc} alt="Ambiente vazio antes do Smart Space" loading="lazy" className="absolute inset-0 h-full w-full object-contain" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }} /> : <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${position}%` }}><img src={beforeSrc} alt="Ambiente vazio antes do Smart Space" loading="lazy" className="h-full max-w-none object-cover" style={{ width: compact ? '560px' : '900px' }} /></div>}
       <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-white" style={{ left: `${position}%` }}><span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-sm font-black text-slate-950 shadow-xl">↔</span></div>
       <span className="absolute left-4 top-4 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-black text-white backdrop-blur">Antes</span>
       <span className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950 backdrop-blur">Depois</span>
@@ -447,7 +455,8 @@ function ListingXraySpotlight() {
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-cyan-300/10 ring-1 ring-cyan-200/20"><Radar className="h-6 w-6" aria-hidden="true" /></span>
           <p className="text-xs font-black uppercase tracking-[.2em]">Raio-X</p>
         </div>
-        <h2 className="mt-6 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] sm:text-5xl">Seu anúncio está publicado, mas poderia chamar mais atenção?</h2>
+        <p className="mt-5 text-sm font-black text-cyan-100">Não sabe por onde começar?</p>
+        <h2 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] sm:text-5xl">Seu anúncio está publicado, mas poderia chamar mais atenção?</h2>
         <p className="mt-6 max-w-3xl text-base font-medium leading-8 text-slate-300">Envie o link ou capturas. O SmartCorretorAI analisa a qualidade do anúncio, o potencial de atração, mostra o que pode melhorar e entrega sugestões prontas para usar.</p>
         <Link to="/raio-x-anuncio" className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-200 ${focusRing}`}>Experimentar o Raio-X<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
       </div>
@@ -565,13 +574,13 @@ function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
       <span className="absolute left-1/2 top-2 z-30 h-3.5 w-14 -translate-x-1/2 rounded-full bg-[#070a13]" aria-hidden="true" />
       <div className="absolute inset-px overflow-hidden rounded-[1.55rem] bg-slate-200">
         {reducedMotion ? <>
-          <img src={pair.after} alt={`${pair.label} depois do Virtual Staging`} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r border-white"><img src={pair.before} alt={`${pair.label} antes do Virtual Staging`} loading="lazy" className="h-full w-[200%] max-w-none object-cover" /></div>
+          <img src={pair.after} alt={`${pair.label} depois do Smart Space`} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r border-white"><img src={pair.before} alt={`${pair.label} antes do Smart Space`} loading="lazy" className="h-full w-[200%] max-w-none object-cover" /></div>
           <span className="absolute left-3 top-9 rounded-full bg-slate-950/80 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-white">ANTES</span>
           <span className="absolute right-3 top-9 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-slate-950">DEPOIS</span>
         </> : <>
-          <img key={`${pair.id}-before`} src={pair.before} alt={`${pair.label} antes do Virtual Staging`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className="absolute inset-0 h-full w-full object-cover" />
-          <img key={`${pair.id}-after`} src={pair.after} alt={`${pair.label} depois do Virtual Staging`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${showAfter ? 'opacity-100' : 'opacity-0'}`} />
+          <img key={`${pair.id}-before`} src={pair.before} alt={`${pair.label} antes do Smart Space`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className="absolute inset-0 h-full w-full object-cover" />
+          <img key={`${pair.id}-after`} src={pair.after} alt={`${pair.label} depois do Smart Space`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${showAfter ? 'opacity-100' : 'opacity-0'}`} />
           <span className={`absolute left-1/2 top-9 -translate-x-1/2 rounded-full px-3 py-1 text-[9px] font-black tracking-[.14em] shadow-lg backdrop-blur transition-colors duration-700 ${showAfter ? 'bg-white/90 text-slate-950' : 'bg-slate-950/80 text-white'}`}>{showAfter ? 'DEPOIS' : 'ANTES'}</span>
         </>}
         <span className="absolute inset-x-3 bottom-3 rounded-xl border border-white/20 bg-[#050816]/75 px-3 py-2 text-center text-[10px] font-black text-white backdrop-blur">{pair.label}</span>
@@ -582,11 +591,12 @@ function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
 
 function VirtualStagingSpotlight() {
   const reducedMotion = useReducedMotion()
+  const trackCta = useLandingCtaTracking('product_section')
   return <section id="virtual-staging-destaque" className="scroll-mt-20 overflow-hidden bg-white py-20 text-slate-950 sm:py-28">
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:items-end">
-        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Virtual Staging</p><p className="mt-3 text-sm font-black text-slate-500">Antes e depois com inteligência artificial</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">Pare de anunciar ambientes sem graça.<br /><span className="text-violet-700">Mostre o potencial do seu imóvel.</span></h2></div>
-        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">Transforme ambientes vazios ou sem destaque em imagens mais atraentes para seus anúncios, preservando a estrutura real do imóvel.</p><Link to="/virtual-staging" className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>Experimentar Virtual Staging<ArrowRight className="h-4 w-4" /></Link></div>
+        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Smart Space</p><p className="mt-3 text-sm font-black text-slate-500">Antes e depois com inteligência artificial</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">Pare de anunciar ambientes sem graça.<br /><span className="text-violet-700">Mostre o potencial do seu imóvel.</span></h2></div>
+        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">Transforme ambientes e mostre novas possibilidades para cada espaço.</p><Link to="/virtual-staging" onClick={() => trackCta('explore_products')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>Transformar espaço<ArrowRight className="h-4 w-4" /></Link></div>
       </div>
       <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">
         <div className="pointer-events-none absolute inset-x-1/4 top-0 h-40 rounded-full bg-violet-500/20 blur-[70px]" />

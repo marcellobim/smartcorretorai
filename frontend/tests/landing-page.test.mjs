@@ -29,7 +29,7 @@ test('preserves SEO, the approved Hero and removes every visual overlay', () => 
 
 test('rotates the approved Hero products automatically with synchronized media', () => {
   const heroSlides = slice('const HERO_PRODUCT_SLIDES', 'const PRODUCT_FAMILIES')
-  const expectedProducts = ['Vídeo Imobiliário', 'Virtual Staging', 'Banner Imobiliário', 'Banners Rápidos', 'Studio IA']
+  const expectedProducts = ['Vídeo Imobiliário', 'Smart Space', 'Banner Imobiliário', 'Banners Rápidos', 'Studio IA']
   for (const product of expectedProducts) assert.ok(heroSlides.includes(`name: '${product}'`), product)
   assert.equal((heroSlides.match(/ id: '/g) || []).length, expectedProducts.length)
   assert.match(landing, /const HERO_ROTATION_INTERVAL_MS = 5200/)
@@ -42,6 +42,13 @@ test('rotates the approved Hero products automatically with synchronized media',
   assert.match(heroSource, /if \(reducedMotion \|\| HERO_PRODUCT_SLIDES\.length < 2\) return undefined/)
   assert.match(heroSource, /transition-opacity duration-700 motion-reduce:transition-none/)
   assert.doesNotMatch(heroSource, /matchMedia\('\(min-width|innerWidth/)
+})
+
+test('positions the Raio-X as the strategic starting point and uses only Smart Space publicly', () => {
+  assert.match(landing, /Não sabe por onde começar\?/)
+  assert.match(landing, /to="\/raio-x-anuncio"/)
+  assert.match(landing, /Smart Space/)
+  assert.doesNotMatch(landing, /Virtual Staging/)
 })
 
 test('keeps inactive Hero videos unloaded and uses only approved local assets', () => {
@@ -69,7 +76,7 @@ test('uses the final starting scenarios and tighter platform transition', () => 
   ]) assert.ok(landing.includes(copy), copy)
 })
 
-test('presents two independent internal-style video previews with five options each', () => {
+test('presents two independent internal-style video previews after hidden entries are filtered', () => {
   assert.match(videoGroup, /eyebrow: 'Criações em vídeo'/)
   assert.match(videoGroup, /title: 'Veja tudo o que você pode criar\.'/)
   assert.match(videoGroup, /Carrossel de Anúncios/)
@@ -78,7 +85,8 @@ test('presents two independent internal-style video previews with five options e
   assert.match(landing, /function DeliveryVideo/)
   assert.match(landing, /function VideoCreationGroup/)
   assert.match(landing, /aspect-\[9\/16\]/)
-  assert.match(landing, /const groups = \[group\.items\.slice\(0, 5\), group\.items\.slice\(5\)\]/)
+  assert.match(landing, /const visibleItems = group\.items\.filter\(item => !item\.hidden\)/)
+  assert.match(landing, /const groups = \[visibleItems\.slice\(0, 5\), visibleItems\.slice\(5\)\]/)
   assert.match(landing, /groups\.map\(\(items, index\) => <VideoCreationGroup/)
   assert.match(landing, /playingVideoRef\.current[\s\S]*?\.pause\(\)/)
   assert.match(landing, /onPlay=\{event => onPlay\(event\.currentTarget\)\}/)
@@ -88,11 +96,18 @@ test('presents two independent internal-style video previews with five options e
   assert.ok(videoGroup.indexOf('Apresentação pelo Corretor') < videoGroup.indexOf('Carrossel de Anúncios'))
 })
 
-test('shows only the two approved image creations without duplicating Virtual Staging', () => {
+test('retains the Short Videos source data but filters it completely from the rendered landing', () => {
+  assert.match(landing, /id: 'shorts'[\s\S]*?title: 'Short Videos'[\s\S]*?hidden: true/)
+  assert.match(videoGroup, /id: 'short-videos'[\s\S]*?description: SHORT_VIDEOS_AVAILABILITY_MESSAGE[\s\S]*?hidden: true/)
+  assert.match(landing, /const visibleItems = group\.items\.filter\(item => !item\.hidden\)/)
+  assert.match(landing, /const groups = \[visibleItems\.slice\(0, 5\), visibleItems\.slice\(5\)\]/)
+})
+
+test('shows only the two approved image creations without duplicating Smart Space', () => {
   assert.match(imageGroup, /eyebrow: 'Criações em imagens'/)
   assert.match(imageGroup, /title: 'Veja tudo o que você pode criar\.'/)
   for (const module of ['Banner Imobiliário', 'Banners Rápidos']) assert.ok(imageGroup.includes(module), module)
-  assert.doesNotMatch(imageGroup, /Virtual Staging|id: 'virtual-staging'/)
+  assert.doesNotMatch(imageGroup, /Smart Space|id: 'virtual-staging'/)
   assert.doesNotMatch(imageGroup, /Carrossel de Anúncios/)
   assert.match(slice('function ImageShowcase', 'function TextCampaignSection'), /max-w-5xl grid-cols-2/)
   assert.match(landing, /function ImagePreviewCard/)
@@ -106,7 +121,7 @@ test('shows only the two approved image creations without duplicating Virtual St
   assert.doesNotMatch(landing, /Inclui materiais para apoiar a divulgação/i)
 })
 
-test('highlights seven real Virtual Staging pairs across three independently rotating phones', () => {
+test('highlights seven real Smart Space pairs across three independently rotating phones', () => {
   assert.match(virtualStagingSpotlight, /data-virtual-staging-phone=\{slot \+ 1\}/)
   assert.match(virtualStagingSpotlight, /VIRTUAL_STAGING_PHONE_SEQUENCES\.map/)
   assert.equal((landing.match(/before: '\/virtual-staging\//g) || []).length, 7)
@@ -119,7 +134,7 @@ test('highlights seven real Virtual Staging pairs across three independently rot
   assert.match(virtualStagingSpotlight, /Pare de anunciar ambientes sem graça\./)
   assert.match(virtualStagingSpotlight, /Mostre o potencial do seu imóvel\./)
   assert.match(virtualStagingSpotlight, /to="\/virtual-staging"/)
-  assert.match(virtualStagingSpotlight, /Experimentar Virtual Staging/)
+  assert.match(virtualStagingSpotlight, /Transformar espaço/)
   assert.match(virtualStagingSpotlight, /Imagens geradas com inteligência artificial\. O resultado representa uma possibilidade visual de ambientação\./)
   assert.match(virtualStagingSpotlight, /3600 \+ slot \* 650/)
   assert.match(virtualStagingSpotlight, /reducedMotion \? <>/)
@@ -194,7 +209,7 @@ test('preserves the approved FAQ and adds transparent review guidance', () => {
   assert.equal((faqSource.match(/^\s*\['/gm) || []).length, 17)
   assert.match(landing, /Perguntas frequentes/)
   for (const question of ['As imagens e vídeos gerados são sempre fiéis ao imóvel?', 'Quem é responsável pelas informações e materiais divulgados?', 'Preciso revisar o conteúdo antes de publicar?']) assert.ok(faqSource.includes(question), question)
-  assert.match(faqSource, /Virtual Staging, a imagem representa uma proposta visual do ambiente e pode incluir mobiliário, decoração ou elementos que não existem fisicamente no imóvel/)
+  assert.match(faqSource, /Smart Space, a imagem representa uma proposta visual do ambiente e pode incluir mobiliário, decoração ou elementos que não existem fisicamente no imóvel/)
   assert.match(faqSource, /O usuário é responsável por revisar e confirmar as informações, imagens, vídeos e textos antes da publicação/)
   assert.match(faqSource, /a revisão final continua sendo importante/)
   assert.doesNotMatch(faqSource, /a IA pode errar/i)

@@ -3,8 +3,8 @@ import { FURNISH_RENOVATE_JOURNEY_ID } from './virtualStagingFurnish.js'
 export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
   {
     id: FURNISH_RENOVATE_JOURNEY_ID,
-    title: 'Virtual Staging',
-    description: 'Transforme fotos de ambientes vazios, quase vazios ou já mobiliados em novas apresentações visuais criadas por inteligência artificial.',
+    title: 'Smart Space',
+    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
   },
   {
     id: 'life-in-property',

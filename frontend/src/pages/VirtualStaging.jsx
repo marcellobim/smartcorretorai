@@ -129,7 +129,7 @@ function FurnishRenovateDelivery({ results, onCreateNew }) {
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
       <ProductCard className="p-5 sm:p-7">
-        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">Seu Virtual Staging está pronto</h2>
+        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">Seu Smart Space está pronto</h2>
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">Algumas imagens não puderam ser concluídas.</p>}
         <div className="mt-6 space-y-6">
           {results.map(result => result.status === 'completed'
@@ -150,7 +150,7 @@ function FurnishRenovateProcessing({ results }) {
   return <section className="mt-10" aria-labelledby="virtual-staging-processing-title">
     <ProductCard className="p-6 sm:p-8">
       <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">Criando seu Virtual Staging</h2>
+      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">Criando seu Smart Space</h2>
       <p className="mt-3 text-base font-semibold text-slate-600">Estamos analisando e transformando cada ambiente.</p>
       <p className="mt-2 text-sm font-black text-primary-800">Processando imagem {Math.min(activeIndex + 1, results.length)} de {results.length}</p>
       <ol className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -195,11 +195,11 @@ export default function VirtualStagingAI() {
   }
 
   return <>
-    <Header title={selectedJourneyId === FURNISH_RENOVATE_JOURNEY_ID ? 'Virtual Staging' : VIRTUAL_STAGING_PRODUCT_NAME} subtitle="Experiências imobiliárias com inteligência artificial." />
+    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle="Experiências imobiliárias com inteligência artificial." />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="virtual-space-title"
-        title="Virtual Staging"
+        title="Smart Space"
         description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial."
         visual={<VirtualSpaceHeroVisual />}
       />
@@ -581,7 +581,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         } })))
       }
       setStatus('error')
-      setMessage(getSmartTokenErrorMessage(error, 'Não foi possível iniciar seu Virtual Staging. Crie um novo projeto para tentar novamente.'))
+      setMessage(getSmartTokenErrorMessage(error, 'Não foi possível iniciar seu Smart Space. Crie um novo projeto para tentar novamente.'))
       await reloadProfile()
     }
   }
@@ -718,7 +718,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 }
 
 function VirtualSpaceHeroVisual() {
-  return <div aria-label="Os três módulos do Virtual Staging" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
+  return <div aria-label="Os três módulos do Smart Space" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
     <div className="absolute inset-y-2 right-0 w-[88%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
     <div className="relative grid w-full grid-cols-3 items-end gap-2 px-1 sm:gap-3 sm:px-4">
       {VIRTUAL_STAGING_JOURNEYS.map((journey, index) => <article key={journey.id} className={`min-w-0 ${index === 1 ? '-translate-y-4' : ''}`}>
@@ -753,8 +753,8 @@ function usePrefersReducedMotion() {
 }
 
 const VIRTUAL_STAGING_COMPARISON_SLIDES = Object.freeze([
-  Object.freeze({ src: VIRTUAL_STAGING_BEFORE_IMAGE, label: 'Antes', alt: 'Ambiente antes do Virtual Staging' }),
-  Object.freeze({ src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Depois', alt: 'Ambiente depois do Virtual Staging' }),
+  Object.freeze({ src: VIRTUAL_STAGING_BEFORE_IMAGE, label: 'Antes', alt: 'Ambiente antes do Smart Space' }),
+  Object.freeze({ src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Depois', alt: 'Ambiente depois do Smart Space' }),
 ])
 
 function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass }) {
@@ -769,7 +769,7 @@ function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass }) {
   }, [advance, prefersReducedMotion])
 
   const activeSlide = VIRTUAL_STAGING_COMPARISON_SLIDES[activeIndex]
-  return <button type="button" onClick={advance} aria-label={`Exibir ${activeIndex === 0 ? 'Depois' : 'Antes'} no Virtual Staging`} className={`group absolute inset-0 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${roundedClass}`}>
+  return <button type="button" onClick={advance} aria-label={`Exibir ${activeIndex === 0 ? 'Depois' : 'Antes'} no Smart Space`} className={`group absolute inset-0 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${roundedClass}`}>
     {VIRTUAL_STAGING_COMPARISON_SLIDES.map((slide, index) => <img key={slide.label} src={slide.src} alt={slide.alt} draggable={false} loading="eager" decoding="async" className={`absolute inset-0 h-full w-full object-cover object-center ${prefersReducedMotion ? 'transition-none' : 'transition-opacity duration-500 ease-out'} ${index === activeIndex ? 'opacity-100' : 'opacity-0'}`} />)}
     <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:text-[10px]">{activeSlide.label}</span>
     <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-slate-950/50 px-2 py-1 backdrop-blur-sm" aria-hidden="true">{VIRTUAL_STAGING_COMPARISON_SLIDES.map((slide, index) => <span key={slide.label} className={`h-1.5 w-1.5 rounded-full ${index === activeIndex ? 'bg-white' : 'bg-white/45'}`} />)}</span>
@@ -960,7 +960,7 @@ function Question(props) {
         <p className="mt-3 text-sm font-black text-primary-900">{SMART_TOKEN_COSTS.virtualStagingImage} ST por imagem · Total da seleção: {images.length * SMART_TOKEN_COSTS.virtualStagingImage} ST</p>
       </div>
       {status === 'error' && message && <p role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{message}</p>}
-      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Gerar Virtual Staging</Button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Refazer projeto</button></div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Transformar espaço</Button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Refazer projeto</button></div>
     </>
   }
   const finalChoiceItems = [

@@ -1,4 +1,4 @@
-export const VIRTUAL_STAGING_PRODUCT_NAME = 'Virtual Staging'
+export const VIRTUAL_STAGING_PRODUCT_NAME = 'Smart Space'
 export const VIRTUAL_STAGING_ROUTE = '/virtual-staging'
 export const VIRTUAL_STAGING_MAX_IMAGES = 5
 export const VIRTUAL_STAGING_LANGUAGES = [

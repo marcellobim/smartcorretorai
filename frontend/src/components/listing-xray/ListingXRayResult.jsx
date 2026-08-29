@@ -8,7 +8,7 @@ const LISTING_LABELS = { title: 'Título', description: 'Descrição', informati
 const SOCIAL_LABELS = { hook: 'Mensagem / Gancho', clarity: 'Clareza', visual_communication: 'Comunicação visual', cta: 'CTA', conversion: 'Poder de interesse / conversão' }
 const FIELD_LABELS = { purpose: 'Finalidade', propertyType: 'Tipo', price: 'Preço', condominiumFee: 'Condomínio', propertyTax: 'IPTU', area: 'Área', bedrooms: 'Dormitórios', suites: 'Suítes', bathrooms: 'Banheiros', parkingSpaces: 'Vagas', state: 'Estado', city: 'Cidade', district: 'Bairro', address: 'Endereço', developmentName: 'Empreendimento', builder: 'Construtora', stage: 'Estágio' }
 const PRODUCTS = {
-  virtual_staging: ['Virtual Staging', '/virtual-staging'], life_in_property: ['Vida no Imóvel', '/virtual-staging'], broker_presentation: ['Apresentação pelo Corretor', '/virtual-staging'],
+  virtual_staging: ['Smart Space', '/virtual-staging'], life_in_property: ['Vida no Imóvel', '/virtual-staging'], broker_presentation: ['Apresentação pelo Corretor', '/virtual-staging'],
   real_estate_video: ['Vídeo Imobiliário', '/smart-tour-ai'], commercial_real_estate: ['Comercial Imobiliário', '/studio-hero'], quick_banners: ['Banners Rápidos', '/nova-campanha'], real_estate_banner: ['Banner Imobiliário', '/hero'], text_campaign: ['Campanha de Textos', '/campanha-de-textos'],
   smart_carousel: ['Smart Carrossel', '/smart-carrossel'],
 }

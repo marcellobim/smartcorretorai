@@ -19,15 +19,15 @@ test('registers Virtual Staging on its preserved technical route', () => {
   assert.match(layout, /location\.pathname === '\/virtual-staging'/)
 })
 
-test('places Virtual Staging before Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
+test('places Smart Space before Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const sidebar = read('frontend/src/components/layout/Sidebar.jsx')
   const catalog = dashboard.match(/const mainActions = \[([\s\S]*?)\n\]/)?.[0] || ''
   const bannersPosition = catalog.indexOf("id: 'banners-rapidos'")
-  const stagingPosition = catalog.indexOf("id: 'virtual-staging'")
+  const stagingPosition = catalog.indexOf("id: 'smart-space'")
 
-  assert.ok(stagingPosition >= 0 && bannersPosition > stagingPosition)
-  assert.match(catalog, /id: 'virtual-staging'[\s\S]*?title: 'Virtual Staging'[\s\S]*?to: '\/virtual-staging'[\s\S]*?label: 'Criar projeto'/)
+  assert.ok(stagingPosition > bannersPosition)
+  assert.match(catalog, /id: 'smart-space'[\s\S]*?title: 'Smart Space'[\s\S]*?to: '\/virtual-staging'[\s\S]*?label: 'Transformar espaço'/)
   assert.doesNotMatch(catalog, /Smart Tokens|smart-tokens|to: '\/planos'/)
   assert.match(sidebar, /to: '\/planos'[\s\S]*?label: 'Smart Tokens'/)
   assert.match(sidebar, />Smart Tokens</)
@@ -113,12 +113,12 @@ test('exposes exactly the three approved Virtual Staging modules in order', () =
     'broker-presentation',
   ])
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.title), [
-    'Virtual Staging',
+    'Smart Space',
     'Vida no Imóvel',
     'Apresentação pelo Corretor',
   ])
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.description), [
-    'Transforme fotos de ambientes vazios, quase vazios ou já mobiliados em novas apresentações visuais criadas por inteligência artificial.',
+    'Transforme ambientes e mostre novas possibilidades para cada espaço.',
     'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
     'Utilize sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
   ])
@@ -145,11 +145,11 @@ test('opens one keyed journey at a time and isolates every active job namespace'
   assert.match(staging, />\s*Escolher outro módulo\s*</)
 })
 
-test('uses the approved Virtual Staging identity and preserves its three modules', () => {
+test('uses the approved Smart Space identity and preserves its three modules', () => {
   const staging = read('frontend/src/pages/VirtualStaging.jsx')
   const tour = read('frontend/src/pages/SmartTourAI.jsx')
 
-  assert.match(staging, /title="Virtual Staging"/)
+  assert.match(staging, /title="Smart Space"/)
   assert.match(staging, /description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial\."/)
   assert.match(staging, /Escolha como deseja apresentar seu imóvel/)
   assert.match(staging, /Agora, conte como deseja transformar seu imóvel/)

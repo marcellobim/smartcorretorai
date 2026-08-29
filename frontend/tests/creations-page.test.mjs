@@ -115,8 +115,8 @@ test('downloads Banners Rápidos from the Creatomate result and preserves URL re
   assert.doesNotMatch(quickBanners, /creation_id|creation-download|onWithdrawDownload|SharePublishActions/)
 })
 
-test('maps Virtual Staging while preserving individual downloads on its original screen', () => {
-  assert.match(page, /virtual_staging:[\s\S]*?label: 'Virtual Staging'[\s\S]*?icon: Image[\s\S]*?tone: 'cyan'/)
+test('maps Smart Space while preserving individual downloads on its original screen', () => {
+  assert.match(page, /virtual_staging:[\s\S]*?label: 'Smart Space'[\s\S]*?icon: Image[\s\S]*?tone: 'cyan'/)
   assert.match(page, /cyan:[\s\S]*?bg-cyan-500[\s\S]*?bg-cyan-100 text-cyan-700/)
   assert.match(virtualStaging, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
   assert.doesNotMatch(virtualStaging, /creation_id|creationId|finalize_session|SharePublishActions|sharePublish\s*=/)

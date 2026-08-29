@@ -5,7 +5,7 @@ const SECTION_WEIGHTS = {
   SOCIAL_PUBLICATION: { hook: 0.20, clarity: 0.20, visual_communication: 0.20, cta: 0.20, conversion: 0.20 },
 }
 const OPPORTUNITY_PRODUCTS = {
-  virtual_staging: ['Mostre o potencial deste ambiente', 'Conhecer Virtual Staging', '/virtual-staging'],
+  virtual_staging: ['Mostre o potencial deste ambiente', 'Conhecer Smart Space', '/virtual-staging'],
   life_in_property: ['Dê vida às suas melhores imagens', 'Conhecer Vida no Imóvel', '/virtual-staging'],
   broker_presentation: ['Apresente você mesmo este imóvel', 'Conhecer Apresentação pelo Corretor', '/virtual-staging'],
   real_estate_video: ['Transforme suas fotos em uma apresentação completa', 'Criar Vídeo Imobiliário', '/smart-tour-ai'],

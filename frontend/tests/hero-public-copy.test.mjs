@@ -23,9 +23,9 @@ const publicEntryPoints = [
   read('src/pages/Planos.jsx'),
 ]
 
-test('uses the approved Virtual Staging descriptions on the hero and Home card', () => {
+test('uses the approved Smart Space descriptions on the hero and Home card', () => {
   assert.ok(read('src/pages/VirtualStaging.jsx').includes('Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial.'))
-  assert.ok(dashboard.includes('Transforme ambientes e apresente novas possibilidades para cada espaço do imóvel.'))
+  assert.ok(dashboard.includes('Transforme ambientes e mostre novas possibilidades para cada espaço.'))
 })
 
 test('uses the approved Banner Imobiliário communication on Dashboard', () => {

@@ -2,8 +2,8 @@ export const FURNISH_RENOVATE_JOURNEY_ID = 'furnish-renovate'
 export const FURNISH_RENOVATE_MAX_IMAGES = 5
 
 export const VIRTUAL_STAGING_CHAT_INTRO = Object.freeze({
-  title: 'Virtual Staging',
-  description: 'Transforme fotos de ambientes vazios, quase vazios ou já mobiliados em novas apresentações visuais criadas por inteligência artificial.',
+  title: 'Smart Space',
+  description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
   action: 'Começar',
 })
 

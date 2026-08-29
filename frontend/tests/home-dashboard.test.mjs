@@ -23,10 +23,14 @@ const faqSource = dashboard.match(/const faqItems = \[([\s\S]*?)\n\]/)?.[1] || '
 const expectedProducts = [
   ['smart-tour-ai', 'Vídeo Imobiliário', '/smart-tour-ai'],
   ['hero-ia', 'Banner Imobiliário', '/hero'],
-  ['studio-hero', 'Studio IA', '/studio-hero'],
-  ['virtual-staging', 'Virtual Staging', '/virtual-staging'],
+  ['comercial-imobiliario', 'Comercial Imobiliário', '/studio-hero'],
+  ['video-criativo', 'Vídeo Criativo', '/studio-hero'],
+  ['smart-carrossel', 'Smart Carrossel', '/smart-carrossel'],
   ['banners-rapidos', 'Banners Rápidos', '/nova-campanha'],
   ['campanha-de-textos', 'Campanha de Textos', '/campanha-de-textos'],
+  ['apresentacao-corretor', 'Apresentação pelo Corretor', '/virtual-staging'],
+  ['vida-no-imovel', 'Vida no Imóvel', '/virtual-staging'],
+  ['smart-space', 'Smart Space', '/virtual-staging'],
 ]
 
 test('removes the old Home history, resume and profile blocks', () => {
@@ -92,7 +96,7 @@ test('keeps one featured medium and partially visible neighbors without turning 
   assert.doesNotMatch(dashboard.match(/function HeroMediaShowcase\(\) \{([\s\S]*?)\n\}\n\nconst carouselPositionClasses/)?.[1] || '', /<Link|<ProductButton|Criar agora/)
 })
 
-test('renders exactly the six approved primary product cards and routes', () => {
+test('renders all ten active product options without inventing unavailable products', () => {
   const ids = [...actionSource.matchAll(/id: '([^']+)'/g)].map(match => match[1])
   assert.deepEqual(ids, expectedProducts.map(([id]) => id))
 
@@ -100,12 +104,21 @@ test('renders exactly the six approved primary product cards and routes', () => 
     assert.match(actionSource, new RegExp(`id: '${id}'[\\s\\S]*?title: '${title}'[\\s\\S]*?to: '${route}'`))
   }
   assert.doesNotMatch(actionSource, /id: 'short-videos'|title: 'Short Videos'/)
+  assert.doesNotMatch(actionSource, /Virtual Staging/)
   assert.deepEqual([...actionSource.matchAll(/icon: ([A-Za-z0-9]+)/g)].map(match => match[1]), [
-    'Video', 'ImageIcon', 'Wand2', 'Box', 'Zap', 'FileText',
+    'Video', 'ImageIcon', 'Film', 'Wand2', 'ImagePlus', 'Zap', 'FileText', 'UserRound', 'Heart', 'Box',
   ])
 })
 
-test('uses the scannable three-by-two desktop product grid from the premium reference', () => {
+test('puts the Raio-X in a wide strategic card before the product grid', () => {
+  const xrayPosition = dashboard.indexOf('Descubra o que pode melhorar na divulgação do seu imóvel.')
+  const gridPosition = dashboard.indexOf('data-home-product-grid')
+  assert.ok(xrayPosition >= 0 && gridPosition > xrayPosition)
+  assert.match(dashboard, /Analise seu anúncio, veja onde existe oportunidade e receba sugestões práticas para melhorar e ampliar sua divulgação\./)
+  assert.match(dashboard, /to="\/raio-x-anuncio"[\s\S]*Analisar meu anúncio/)
+})
+
+test('uses a scannable three-column desktop grid across four rows', () => {
   assert.match(dashboard, /data-home-product-grid[\s\S]*auto-rows-fr[\s\S]*sm:grid-cols-2[\s\S]*lg:grid-cols-3/)
   assert.doesNotMatch(dashboard, /xl:grid-cols-6/)
   assert.match(dashboard, /mainActions\.map/)
@@ -114,13 +127,13 @@ test('uses the scannable three-by-two desktop product grid from the premium refe
   assert.doesNotMatch(dashboard, /overflow-x-auto|min-w-\[[4-9][0-9]{2}px\]/)
 })
 
-test('restores only the six subtle product accents on otherwise neutral white cards', () => {
+test('uses subtle product accents on otherwise neutral white cards', () => {
   assert.match(actionSource, /icon: Video/)
   assert.match(dashboard, /const Icon = action\.icon/)
   assert.match(dashboard, /min-h-\[250px\][\s\S]*border border-slate-200 bg-white p-5/)
   assert.match(dashboard, /<Icon className="h-8 w-8 stroke-\[1\.65\]/)
   assert.deepEqual([...actionSource.matchAll(/tone: '([^']+)'/g)].map(match => match[1]), [
-    'violet', 'mint', 'blue', 'cyan', 'peach', 'gold',
+    'violet', 'mint', 'blue', 'cyan', 'violet', 'peach', 'gold', 'blue', 'peach', 'cyan',
   ])
   assert.match(dashboard, /absolute inset-x-0 bottom-0 h-1/)
   assert.match(dashboard, /productTones\[action\.tone\]/)
@@ -184,7 +197,7 @@ test('adds the thirteen practical FAQ questions with contact as the final item',
 })
 
 test('answers product choice, plans and cancellation before offering shortcuts', () => {
-  assert.match(faqSource, /Para vídeos do imóvel, use Vídeo Imobiliário[\s\S]*Banner Imobiliário[\s\S]*Banners Rápidos[\s\S]*Studio IA[\s\S]*Virtual Staging[\s\S]*Campanha de Textos/)
+  assert.match(faqSource, /Para vídeos do imóvel, use Vídeo Imobiliário[\s\S]*Banner Imobiliário[\s\S]*Banners Rápidos[\s\S]*Comercial Imobiliário[\s\S]*Vídeo Criativo[\s\S]*Smart Carrossel[\s\S]*Smart Space[\s\S]*Campanha de Textos/)
   assert.match(faqSource, /conteúdo textual preparado para uso manual no Google Ads/)
   assert.match(faqSource, /planos são indicados principalmente para quem cria com frequência/)
   assert.match(faqSource, /Gerenciar assinatura[\s\S]*portal seguro da Stripe/)

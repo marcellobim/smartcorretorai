@@ -28,7 +28,7 @@ const creationProducts = {
     tone: 'blue',
   },
   virtual_staging: {
-    label: 'Virtual Staging',
+    label: 'Smart Space',
     icon: Image,
     tone: 'cyan',
   },

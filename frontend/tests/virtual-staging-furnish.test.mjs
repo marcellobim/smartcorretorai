@@ -24,15 +24,15 @@ const repositoryRoot = path.resolve(frontendRoot, '..')
 const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 const page = read('frontend/src/pages/VirtualStaging.jsx')
 
-test('uses Virtual Staging as the public name while preserving the internal id', () => {
+test('uses Smart Space as the public name while preserving the internal id', () => {
   assert.equal(FURNISH_RENOVATE_JOURNEY_ID, 'furnish-renovate')
-  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Virtual Staging')
+  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Smart Space')
   assert.deepEqual(VIRTUAL_STAGING_CHAT_INTRO, {
-    title: 'Virtual Staging',
-    description: 'Transforme fotos de ambientes vazios, quase vazios ou já mobiliados em novas apresentações visuais criadas por inteligência artificial.',
+    title: 'Smart Space',
+    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
     action: 'Começar',
   })
-  assert.match(page, /selectedJourneyId === FURNISH_RENOVATE_JOURNEY_ID \? 'Virtual Staging'/)
+  assert.match(page, /<Header title=\{VIRTUAL_STAGING_PRODUCT_NAME\}/)
   assert.doesNotMatch(read('frontend/src/config/virtualStagingJourneys.js'), /Reimagine AI/)
 })
 
@@ -183,11 +183,11 @@ test('reserva e liquida 30 ST por imagem e atualiza o perfil ao concluir', () =>
 })
 
 test('mostra progresso real, resultado Antes e Depois e downloads individuais', () => {
-  assert.match(page, /Criando seu Virtual Staging/)
+  assert.match(page, /Criando seu Smart Space/)
   assert.match(page, /Estamos analisando e transformando cada ambiente\./)
   assert.match(page, /Processando imagem \{Math\.min\(activeIndex \+ 1, results\.length\)\} de \{results\.length\}/)
   for (const stage of ['Aguardando', 'Enviando', 'Criando', 'Pronta', 'Não concluída']) assert.match(page, new RegExp(stage))
-  assert.match(page, /Seu Virtual Staging está pronto/)
+  assert.match(page, /Seu Smart Space está pronto/)
   assert.match(page, /label: 'Antes'[\s\S]*label: 'Depois'/)
   assert.match(page, /const fallbackName = `virtual-staging-\$\{String\(result\.originalIndex \+ 1\)\.padStart\(2, '0'\)\}\.jpg`/)
   assert.match(page, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
@@ -229,8 +229,8 @@ test('keeps Vida no Imóvel and Apresentação pelo Corretor isolated', () => {
 test('uses the same real Before and After mini carousel in the two separate Virtual Staging phones', () => {
   assert.match(page, /const VIRTUAL_STAGING_BEFORE_IMAGE = '\/virtual-staging\/virtual-staging-before\.jpg'/)
   assert.match(page, /const VIRTUAL_STAGING_AFTER_IMAGE = '\/virtual-staging\/virtual-staging-after\.png'/)
-  assert.match(page, /alt: 'Ambiente antes do Virtual Staging'/)
-  assert.match(page, /alt: 'Ambiente depois do Virtual Staging'/)
+  assert.match(page, /alt: 'Ambiente antes do Smart Space'/)
+  assert.match(page, /alt: 'Ambiente depois do Smart Space'/)
   assert.equal((page.match(/<VirtualStagingBeforeAfterPhone initialIndex=/g) || []).length, 2)
   const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function usePrefersReducedMotion'))
   const lowerPhone = page.slice(page.indexOf('function VirtualStagingModules'), page.indexOf('function DestinationBrandIcon'))

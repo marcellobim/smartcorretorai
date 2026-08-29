@@ -17,7 +17,7 @@ const SAFE_ROUTE_TITLES = Object.freeze({
   '/studio-galeria': 'Studio IA',
   '/smart-carrossel': 'Smart Carrossel',
   '/smart-tour-ai': 'Vídeo Imobiliário',
-  '/virtual-staging': 'Virtual Staging',
+  '/virtual-staging': 'Smart Space',
   '/transformar-video': 'Vídeos Curtos',
   '/nova-campanha': 'Banners Rápidos',
   '/campanha-de-textos': 'Campanha de Textos',
