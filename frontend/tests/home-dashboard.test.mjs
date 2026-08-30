@@ -17,20 +17,20 @@ const studio = read('src/pages/StudioHero.jsx')
 const virtualSpace = read('src/pages/VirtualStaging.jsx')
 const quickBanners = read('src/data/templateCatalog.js')
 const actionSource = dashboard.match(/const mainActions = \[([\s\S]*?)\n\]/)?.[1] || ''
+const textCampaignSource = dashboard.match(/const textCampaignAction = Object\.freeze\(\{([\s\S]*?)\n\}\)/)?.[1] || ''
 const benefitsSource = dashboard.match(/const benefits = \[([\s\S]*?)\n\]/)?.[1] || ''
 const faqSource = dashboard.match(/const faqItems = \[([\s\S]*?)\n\]/)?.[1] || ''
 
-const expectedProducts = [
+const expectedGridProducts = [
   ['smart-tour-ai', 'Vídeo Imobiliário', '/smart-tour-ai'],
   ['hero-ia', 'Banner Imobiliário', '/hero'],
   ['comercial-imobiliario', 'Comercial Imobiliário', '/studio-hero'],
   ['video-criativo', 'Vídeo Criativo', '/studio-hero'],
   ['smart-carrossel', 'Smart Carrossel', '/smart-carrossel'],
-  ['banners-rapidos', 'Banners Rápidos', '/nova-campanha'],
-  ['campanha-de-textos', 'Campanha de Textos', '/campanha-de-textos'],
-  ['apresentacao-corretor', 'Apresentação pelo Corretor', '/virtual-staging'],
-  ['vida-no-imovel', 'Vida no Imóvel', '/virtual-staging'],
   ['smart-space', 'Smart Space', '/virtual-staging'],
+  ['vida-no-imovel', 'Vida no Imóvel', '/virtual-staging'],
+  ['apresentacao-corretor', 'Apresentação pelo Corretor', '/virtual-staging'],
+  ['banners-rapidos', 'Banners Rápidos', '/nova-campanha'],
 ]
 
 test('removes the old Home history, resume and profile blocks', () => {
@@ -96,17 +96,17 @@ test('keeps one featured medium and partially visible neighbors without turning 
   assert.doesNotMatch(dashboard.match(/function HeroMediaShowcase\(\) \{([\s\S]*?)\n\}\n\nconst carouselPositionClasses/)?.[1] || '', /<Link|<ProductButton|Criar agora/)
 })
 
-test('renders all ten active product options without inventing unavailable products', () => {
+test('renders exactly nine central product cards in the approved three-by-three order', () => {
   const ids = [...actionSource.matchAll(/id: '([^']+)'/g)].map(match => match[1])
-  assert.deepEqual(ids, expectedProducts.map(([id]) => id))
+  assert.deepEqual(ids, expectedGridProducts.map(([id]) => id))
 
-  for (const [id, title, route] of expectedProducts) {
+  for (const [id, title, route] of expectedGridProducts) {
     assert.match(actionSource, new RegExp(`id: '${id}'[\\s\\S]*?title: '${title}'[\\s\\S]*?to: '${route}'`))
   }
-  assert.doesNotMatch(actionSource, /id: 'short-videos'|title: 'Short Videos'/)
+  assert.doesNotMatch(actionSource, /id: 'short-videos'|title: 'Short Videos'|id: 'campanha-de-textos'/)
   assert.doesNotMatch(actionSource, /Virtual Staging/)
   assert.deepEqual([...actionSource.matchAll(/icon: ([A-Za-z0-9]+)/g)].map(match => match[1]), [
-    'Video', 'ImageIcon', 'Film', 'Wand2', 'ImagePlus', 'Zap', 'FileText', 'UserRound', 'Heart', 'Box',
+    'Video', 'ImageIcon', 'Film', 'Wand2', 'ImagePlus', 'Box', 'Heart', 'UserRound', 'Zap',
   ])
 })
 
@@ -114,17 +114,28 @@ test('puts the Raio-X in a wide strategic card before the product grid', () => {
   const xrayPosition = dashboard.indexOf('Descubra o que pode melhorar na divulgação do seu imóvel.')
   const gridPosition = dashboard.indexOf('data-home-product-grid')
   assert.ok(xrayPosition >= 0 && gridPosition > xrayPosition)
-  assert.match(dashboard, /Analise seu anúncio, veja onde existe oportunidade e receba sugestões práticas para melhorar e ampliar sua divulgação\./)
+  assert.match(dashboard, /Analise seu anúncio, descubra oportunidades e veja o que você pode fazer para chamar mais atenção\./)
   assert.match(dashboard, /to="\/raio-x-anuncio"[\s\S]*Analisar meu anúncio/)
 })
 
-test('uses a scannable three-column desktop grid across four rows', () => {
+test('uses a scannable three-column desktop grid with exactly three rows', () => {
   assert.match(dashboard, /data-home-product-grid[\s\S]*auto-rows-fr[\s\S]*sm:grid-cols-2[\s\S]*lg:grid-cols-3/)
   assert.doesNotMatch(dashboard, /xl:grid-cols-6/)
   assert.match(dashboard, /mainActions\.map/)
+  assert.equal((actionSource.match(/id: '/g) || []).length, 9)
   assert.match(dashboard, /O que você quer criar hoje\?/)
   assert.match(dashboard, /min-w-0/)
   assert.doesNotMatch(dashboard, /overflow-x-auto|min-w-\[[4-9][0-9]{2}px\]/)
+})
+
+test('closes the product composition with a full-width Campanha de Textos card', () => {
+  assert.match(textCampaignSource, /id: 'campanha-de-textos'/)
+  assert.match(textCampaignSource, /title: 'Campanha de Textos'/)
+  assert.match(textCampaignSource, /Transforme as informações do imóvel em textos prontos para divulgar em diferentes canais\./)
+  assert.match(textCampaignSource, /to: '\/campanha-de-textos'/)
+  assert.match(textCampaignSource, /label: 'Criar campanha'/)
+  assert.ok(dashboard.indexOf('data-home-product-grid') < dashboard.lastIndexOf('data-home-product="campanha-de-textos"'))
+  assert.equal(2 + (actionSource.match(/id: '/g) || []).length, 11)
 })
 
 test('uses subtle product accents on otherwise neutral white cards', () => {
@@ -133,7 +144,7 @@ test('uses subtle product accents on otherwise neutral white cards', () => {
   assert.match(dashboard, /min-h-\[250px\][\s\S]*border border-slate-200 bg-white p-5/)
   assert.match(dashboard, /<Icon className="h-8 w-8 stroke-\[1\.65\]/)
   assert.deepEqual([...actionSource.matchAll(/tone: '([^']+)'/g)].map(match => match[1]), [
-    'violet', 'mint', 'blue', 'cyan', 'violet', 'peach', 'gold', 'blue', 'peach', 'cyan',
+    'violet', 'mint', 'blue', 'cyan', 'violet', 'cyan', 'peach', 'blue', 'peach',
   ])
   assert.match(dashboard, /absolute inset-x-0 bottom-0 h-1/)
   assert.match(dashboard, /productTones\[action\.tone\]/)
@@ -302,7 +313,8 @@ test('does not reintroduce automatic Instagram publishing', () => {
 })
 
 test('preserves every approved product route in the application router', () => {
-  for (const [, , route] of expectedProducts) {
+  const approvedRoutes = [...expectedGridProducts.map(([, , route]) => route), '/raio-x-anuncio', '/campanha-de-textos']
+  for (const route of new Set(approvedRoutes)) {
     assert.match(app, new RegExp(`path=["']${route.replaceAll('/', '\\/')}["']`), route)
   }
 })

@@ -86,31 +86,13 @@ const mainActions = [
     icon: ImagePlus,
   },
   {
-    id: 'banners-rapidos',
-    title: 'Banners Rápidos',
-    description: 'Monte materiais consistentes a partir de modelos profissionais.',
-    to: '/nova-campanha',
-    label: 'Criar banners',
-    tone: 'peach',
-    icon: Zap,
-  },
-  {
-    id: 'campanha-de-textos',
-    title: 'Campanha de Textos',
-    description: 'Prepare textos para portais, redes sociais, WhatsApp e outros canais.',
-    to: '/campanha-de-textos',
-    label: 'Criar campanha',
-    tone: 'gold',
-    icon: FileText,
-  },
-  {
-    id: 'apresentacao-corretor',
-    title: 'Apresentação pelo Corretor',
-    description: 'Use sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
+    id: 'smart-space',
+    title: 'Smart Space',
+    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
     to: '/virtual-staging',
-    label: 'Criar apresentação',
-    tone: 'blue',
-    icon: UserRound,
+    label: 'Transformar espaço',
+    tone: 'cyan',
+    icon: Box,
   },
   {
     id: 'vida-no-imovel',
@@ -122,15 +104,32 @@ const mainActions = [
     icon: Heart,
   },
   {
-    id: 'smart-space',
-    title: 'Smart Space',
-    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
+    id: 'apresentacao-corretor',
+    title: 'Apresentação pelo Corretor',
+    description: 'Use sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
     to: '/virtual-staging',
-    label: 'Transformar espaço',
-    tone: 'cyan',
-    icon: Box,
+    label: 'Criar apresentação',
+    tone: 'blue',
+    icon: UserRound,
+  },
+  {
+    id: 'banners-rapidos',
+    title: 'Banners Rápidos',
+    description: 'Monte materiais consistentes a partir de modelos profissionais.',
+    to: '/nova-campanha',
+    label: 'Criar banners',
+    tone: 'peach',
+    icon: Zap,
   },
 ]
+
+const textCampaignAction = Object.freeze({
+  id: 'campanha-de-textos',
+  title: 'Campanha de Textos',
+  description: 'Transforme as informações do imóvel em textos prontos para divulgar em diferentes canais.',
+  to: '/campanha-de-textos',
+  label: 'Criar campanha',
+})
 
 const productTones = Object.freeze({
   violet: 'bg-violet-500',
@@ -296,7 +295,7 @@ export default function Dashboard() {
                 Descubra o que pode melhorar na divulgação do seu imóvel.
               </h2>
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-cyan-50/90 sm:text-base">
-                Analise seu anúncio, veja onde existe oportunidade e receba sugestões práticas para melhorar e ampliar sua divulgação.
+                Analise seu anúncio, descubra oportunidades e veja o que você pode fazer para chamar mais atenção.
               </p>
             </div>
             <Link
@@ -320,6 +319,27 @@ export default function Dashboard() {
               <ActionCard key={action.id} action={action} />
             ))}
           </div>
+
+          <ProductCard data-home-product="campanha-de-textos" className="mt-3 overflow-hidden border-amber-200 bg-gradient-to-br from-white via-amber-50/70 to-orange-50 p-0">
+            <div className="grid min-w-0 gap-5 p-6 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="flex min-w-0 items-start gap-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-800 ring-1 ring-amber-200">
+                  <FileText className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-black tracking-[-0.025em] text-slate-950">{textCampaignAction.title}</h2>
+                  <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600">{textCampaignAction.description}</p>
+                </div>
+              </div>
+              <Link
+                to={textCampaignAction.to}
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-950 px-5 py-3 text-sm font-black text-white transition hover:bg-primary-900 ${SMART_UI.focus}`}
+              >
+                {textCampaignAction.label}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </ProductCard>
         </section>
 
         <ProductCard data-home-benefits className="mt-8 grid overflow-hidden border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
