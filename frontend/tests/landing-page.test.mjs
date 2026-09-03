@@ -77,7 +77,7 @@ test('uses the final starting scenarios and tighter platform transition', () => 
   ]) assert.ok(landing.includes(copy), copy)
 })
 
-test('presents two independent internal-style video previews after hidden entries are filtered', () => {
+test('presents two independent internal-style video previews with the original item ordering', () => {
   assert.match(videoGroup, /eyebrow: 'Criações em vídeo'/)
   assert.match(videoGroup, /title: 'Veja tudo o que você pode criar\.'/)
   assert.match(videoGroup, /Carrossel de Anúncios/)
@@ -86,8 +86,7 @@ test('presents two independent internal-style video previews after hidden entrie
   assert.match(landing, /function DeliveryVideo/)
   assert.match(landing, /function VideoCreationGroup/)
   assert.match(landing, /aspect-\[9\/16\]/)
-  assert.match(landing, /const visibleItems = group\.items\.filter\(item => !item\.hidden\)/)
-  assert.match(landing, /const groups = \[visibleItems\.slice\(0, 5\), visibleItems\.slice\(5\)\]/)
+  assert.match(landing, /const groups = \[group\.items\.slice\(0, 5\), group\.items\.slice\(5\)\]/)
   assert.match(landing, /groups\.map\(\(items, index\) => <VideoCreationGroup/)
   assert.match(landing, /playingVideoRef\.current[\s\S]*?\.pause\(\)/)
   assert.match(landing, /onPlay=\{event => onPlay\(event\.currentTarget\)\}/)
@@ -97,11 +96,11 @@ test('presents two independent internal-style video previews after hidden entrie
   assert.ok(videoGroup.indexOf('Apresentação pelo Corretor') < videoGroup.indexOf('Carrossel de Anúncios'))
 })
 
-test('retains the Short Videos source data but filters it completely from the rendered landing', () => {
-  assert.match(landing, /id: 'shorts'[\s\S]*?title: 'Short Videos'[\s\S]*?hidden: true/)
-  assert.match(videoGroup, /id: 'short-videos'[\s\S]*?description: SHORT_VIDEOS_AVAILABILITY_MESSAGE[\s\S]*?hidden: true/)
-  assert.match(landing, /const visibleItems = group\.items\.filter\(item => !item\.hidden\)/)
-  assert.match(landing, /const groups = \[visibleItems\.slice\(0, 5\), visibleItems\.slice\(5\)\]/)
+test('keeps Short Videos presentation exactly as it was before this package', () => {
+  assert.match(landing, /id: 'shorts'[\s\S]*?title: 'Short Videos'[\s\S]*?src: '\/demos-videos\/short-video-1\.mp4'/)
+  assert.match(videoGroup, /id: 'short-videos'[\s\S]*?description: 'Crie vídeos curtos para manter seus imóveis presentes em formatos rápidos de divulgação\.'/)
+  assert.doesNotMatch(landing, /SHORT_VIDEOS_AVAILABILITY|comingSoon|hidden: true|EM BREVE|Conhecer a plataforma/)
+  assert.match(landing, /const groups = \[group\.items\.slice\(0, 5\), group\.items\.slice\(5\)\]/)
 })
 
 test('shows only the two approved image creations without duplicating Smart Space', () => {

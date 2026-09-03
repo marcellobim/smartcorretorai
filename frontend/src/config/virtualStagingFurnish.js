@@ -71,6 +71,18 @@ export function getFurnishRenovateStyleLabel(value) {
   return getFurnishRenovateOptionLabel(FURNISH_RENOVATE_STYLE_OPTIONS, value) || FURNISH_RENOVATE_LEGACY_STYLE_LABELS[value] || ''
 }
 
+export function furnishRenovateRequiresStyle(value) {
+  return ['empty_or_nearly_empty', 'mixed', 'furnished'].includes(value)
+}
+
+export function getSmartSpaceUnitCost() {
+  return 30
+}
+
+export function getSmartSpaceQuote(value, imageCount) {
+  return getSmartSpaceUnitCost(value) * Math.max(0, Number(imageCount) || 0)
+}
+
 export function buildFurnishRenovateReviewItems({ imagesCount, transformationType, decorationStyle, imageDestinations }) {
   return [
     { id: 'transformation_type', displayLabel: 'Tipo de transformação', label: getFurnishRenovateTransformationLabel(transformationType) },
