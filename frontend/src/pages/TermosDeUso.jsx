@@ -40,7 +40,8 @@ export default function TermosDeUso() {
                 A SmartCorretorAI é uma plataforma de inteligência artificial para marketing imobiliário. A partir
                 dos dados do imóvel e dos materiais enviados pelo usuário, o sistema pode gerar textos, hashtags,
                 descrições para portais, posts, roteiros, banners, stories, carrosséis, vídeos e outros materiais
-                promocionais, conforme o plano, saldo de Smart Tokens e formatos selecionados.
+                promocionais e, nos recursos compatíveis, permitir sua publicação direta no Instagram ou Facebook,
+                conforme o plano, saldo de Smart Tokens, formatos selecionados e disponibilidade da integração.
               </p>
               <p className="mt-2">
                 Recursos premium, vídeos, banners avançados, catálogo completo e campanhas avançadas podem depender
@@ -54,7 +55,30 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">3. Cadastro e Conta</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">3. Publicação direta em redes sociais</h2>
+              <p>
+                Em recursos compatíveis, o usuário pode conectar contas do Instagram ou Facebook e solicitar a
+                publicação direta de uma criação. A simples conexão da conta não inicia nem autoriza qualquer
+                publicação. Cada publicação depende da escolha do conteúdo e do destino e da confirmação do usuário,
+                que pode revisar, editar, substituir ou apagar a legenda antes do envio.
+              </p>
+              <p className="mt-2">
+                O usuário é responsável pelo conteúdo final confirmado, pela veracidade das informações, pela
+                conformidade da publicação com a legislação e pelas autorizações e direitos necessários sobre imagens,
+                vídeos, textos, marcas e demais materiais. O usuário também declara possuir autorização para conectar,
+                administrar e publicar nas contas e Páginas selecionadas.
+              </p>
+              <p className="mt-2">
+                A função depende das APIs, permissões, regras e disponibilidade da Meta, do Instagram e do Facebook.
+                Esses terceiros podem alterar requisitos, limitar ou interromper funcionalidades, exigir nova
+                autorização, atrasar ou rejeitar publicações e remover conteúdos. A SmartCorretorAI não garante a
+                disponibilidade contínua da integração, a aprovação do conteúdo nem a permanência da publicação nas
+                plataformas externas, e a continuidade do uso pode exigir reconexão.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Cadastro e Conta</h2>
               <p>Para utilizar a Plataforma, o usuário deve:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>ter no mínimo 18 anos;</li>
@@ -69,7 +93,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">4. Teste Gratuito</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">5. Teste Gratuito</h2>
               <p>
                 Após confirmar o e-mail, cada conta elegível recebe uma única concessão de 200 Smart Tokens,
                 sem necessidade de cartão, para experimentar recursos selecionados da Plataforma.
@@ -93,7 +117,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">5. Planos, Smart Tokens e Recargas</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">6. Planos, Smart Tokens e Recargas</h2>
               <p>A Plataforma utiliza Smart Tokens como capacidade de criação. Os planos comerciais atuais são:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li><strong>START:</strong> 6.350 Smart Tokens por ciclo;</li>
@@ -107,7 +131,7 @@ export default function TermosDeUso() {
               </ul>
               <p className="mt-2">
                 Cada produto informa a quantidade de Smart Tokens necessária antes da criação. A oferta gratuita
-                descrita na seção 4 se aplica somente a recursos selecionados; os demais produtos seguem o saldo de
+                descrita na seção 5 se aplica somente a recursos selecionados; os demais produtos seguem o saldo de
                 assinatura, recarga ou bônus disponível e as regras comerciais vigentes.
               </p>
               <p className="mt-2">
@@ -119,7 +143,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">6. Validade, Renovação e Cancelamento</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">7. Validade, Renovação e Cancelamento</h2>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Smart Tokens de assinatura renovam a cada ciclo contratado e podem não acumular para ciclos futuros.</li>
                 <li>Smart Tokens comprados em recargas expiram em 30 dias após a compra, salvo condição diferente informada no momento da contratação.</li>
@@ -135,7 +159,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">7. Uso Adequado</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Uso Adequado</h2>
               <p>O usuário concorda em utilizar a Plataforma apenas para fins lícitos. É proibido:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>informar dados falsos ou enganosos sobre imóveis;</li>
@@ -148,7 +172,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Conteúdo Gerado por IA</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Conteúdo Gerado por IA</h2>
               <p>
                 Os materiais gerados pela Plataforma são produzidos com apoio de inteligência artificial e automações
                 de mídia. A IA pode cometer erros, omitir informações ou gerar textos que precisem de revisão.
@@ -168,7 +192,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Informações de Mercado e Ferramentas de Apoio</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Informações de Mercado e Ferramentas de Apoio</h2>
               <p>
                 A Plataforma pode utilizar dados públicos, pesquisas automatizadas, inteligência artificial e outras
                 ferramentas de apoio para sugerir textos, argumentos, contexto de bairro, referências comerciais e
@@ -185,7 +209,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Uso dos Materiais pelo Usuário</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Uso dos Materiais pelo Usuário</h2>
               <p>
                 Após a geração e observadas as regras do plano, pagamento e Smart Tokens, o usuário
                 pode utilizar os materiais gerados em suas campanhas imobiliárias.
@@ -201,7 +225,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Uso Promocional pela SmartCorretorAI</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">12. Uso Promocional pela SmartCorretorAI</h2>
               <p>
                 O usuário autoriza a SmartCorretorAI a utilizar exemplos de campanhas, artes, imagens geradas, layouts,
                 textos e demais materiais produzidos pela Plataforma para fins de demonstração, portfólio, divulgação,
@@ -216,7 +240,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">12. Propriedade Intelectual</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">13. Propriedade Intelectual</h2>
               <p>
                 A Plataforma, marca, layout, tecnologia, código, fluxos, catálogos, templates internos e sistemas de
                 automação pertencem à SmartCorretorAI ou a seus licenciantes. O usuário não recebe licença para copiar
@@ -225,7 +249,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">13. Ausência de Garantia de Resultado Comercial</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">14. Ausência de Garantia de Resultado Comercial</h2>
               <p>
                 A SmartCorretorAI não garante venda, locação, captação de clientes, leads, cliques, visualizações,
                 aprovação em plataformas externas, valorização do imóvel ou qualquer resultado financeiro ou
@@ -234,7 +258,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">14. Limitação de Responsabilidade</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">15. Limitação de Responsabilidade</h2>
               <p>A SmartCorretorAI não se responsabiliza por:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>uso indevido dos materiais pelo usuário;</li>
@@ -246,7 +270,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">15. Privacidade e Dados</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">16. Privacidade e Dados</h2>
               <p>
                 O tratamento de dados pessoais, dados de imóveis, imagens, arquivos enviados e materiais gerados é
                 descrito na <Link to="/privacidade" className="text-primary-600 hover:underline">Política de Privacidade</Link>.
@@ -254,7 +278,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">16. Alterações dos Termos</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">17. Alterações dos Termos</h2>
               <p>
                 A SmartCorretorAI pode atualizar estes Termos a qualquer momento. Alterações relevantes poderão ser
                 comunicadas por e-mail, aviso na Plataforma ou atualização desta página. O uso continuado após a
@@ -263,7 +287,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">17. Foro e Lei Aplicável</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">18. Foro e Lei Aplicável</h2>
               <p>
                 Estes Termos são regidos pelas leis brasileiras. Fica eleito o foro da comarca de São Paulo/SP, salvo
                 disposição legal obrigatória em sentido diverso.
@@ -271,7 +295,7 @@ export default function TermosDeUso() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">18. Contato</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">19. Contato</h2>
               <p>
                 Dúvidas sobre estes Termos podem ser enviadas para:{' '}
                 <a href="mailto:suporte@smartcorretorai.com" className="text-primary-600 hover:underline">

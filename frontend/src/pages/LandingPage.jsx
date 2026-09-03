@@ -259,7 +259,7 @@ const FAQ_ITEMS = [
   ['O que acontece se uma geração falhar?', 'Quando uma geração falha e não conclui a entrega correspondente, a reserva de Smart Tokens é liberada conforme o fluxo do produto.'],
   ['Posso cancelar minha assinatura?', 'Sim. O cancelamento pode ser solicitado pelo portal seguro de assinatura e ocorre ao final do período já pago.'],
   ['Como gerencio minha assinatura?', 'Acesse Configurações → Plano e Assinatura e selecione “Gerenciar assinatura” para abrir o portal seguro da Stripe.'],
-  ['O SmartCorretorAI publica automaticamente nas redes sociais?', 'Não. Você revisa e baixa o material ou copia os textos preparados e realiza a publicação manualmente no canal desejado.'],
+  ['Como funciona a publicação direta em redes sociais?', 'Nos produtos compatíveis, você pode conectar uma conta do Instagram ou Facebook e publicar diretamente pelo SmartCorretorAI. Cada publicação depende da sua escolha e confirmação: antes do envio, você pode revisar a legenda, editar parte do texto, substituí-lo ou apagá-lo. Se preferir, também pode baixar o material e fazer a publicação manualmente no canal desejado.'],
   ['Como falar com o suporte?', 'Envie sua mensagem para suporte@smartcorretorai.com.', 'mailto:suporte@smartcorretorai.com'],
 ]
 const focusRing = 'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/45'

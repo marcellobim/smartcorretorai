@@ -45,6 +45,8 @@ export default function Privacidade() {
                 <li><strong>Dados de imóveis:</strong> tipo, finalidade, preço, endereço, bairro, cidade, características, diferenciais e descrição;</li>
                 <li><strong>Fotos e arquivos:</strong> imagens do imóvel, fachada, áreas internas, lazer, planta, bairro e materiais enviados pelo usuário;</li>
                 <li><strong>Dados de geração:</strong> campanhas criadas, formatos escolhidos, Smart Tokens, histórico de uso e resultados produzidos;</li>
+                <li><strong>Dados de integração social, quando escolhida:</strong> provedor, contas e Páginas conectadas, identificadores, nome de exibição, nome de usuário, permissões concedidas, estado e validade da conexão e autorizações ou tokens necessários;</li>
+                <li><strong>Dados de publicação:</strong> imagem ou vídeo selecionado, legenda final confirmada, inclusive quando vazia, rede e conta de destino, estado da publicação, tentativas, identificadores e endereço da publicação externa, quando disponibilizados;</li>
                 <li><strong>Dados de pagamento:</strong> informações necessárias para cobrança, processadas por gateway seguro;</li>
                 <li><strong>Dados técnicos e de segurança:</strong> IP, navegador, dispositivo, sistema operacional, logs, horários de uso e dados necessários à autenticação, prevenção de abuso e proteção da conta;</li>
                 <li><strong>Dados de depoimentos:</strong> texto enviado voluntariamente, profissão informada, consentimentos de publicação e identificação e registros de análise da campanha.</li>
@@ -58,6 +60,8 @@ export default function Privacidade() {
                 <li>criar, autenticar e proteger sua conta;</li>
                 <li>gerar campanhas imobiliárias, textos, imagens, banners, vídeos e materiais promocionais;</li>
                 <li>personalizar conteúdos com dados reais do imóvel e do corretor;</li>
+                <li>conectar contas compatíveis, apresentar destinos disponíveis e realizar publicações diretas confirmadas pelo usuário no Instagram ou Facebook;</li>
+                <li>acompanhar o processamento das publicações, prevenir operações duplicadas, proteger as conexões e prestar suporte;</li>
                 <li>calcular, exibir e controlar planos, Smart Tokens, recargas e consumo;</li>
                 <li>processar pagamentos, renovações, cancelamentos e suporte financeiro;</li>
                 <li>melhorar a Plataforma, corrigir erros e prevenir fraudes;</li>
@@ -131,7 +135,38 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Pagamentos e Smart Tokens</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">8. Integração e publicação em redes sociais</h2>
+              <p>
+                A conexão com contas compatíveis do Instagram ou Facebook é opcional e ocorre pelo fluxo oficial da
+                Meta. A simples conexão não inicia nem autoriza uma publicação. Cada publicação direta depende da
+                escolha do conteúdo, da conta de destino e da confirmação do usuário.
+              </p>
+              <p className="mt-2">
+                Para disponibilizar essa função, podemos tratar as permissões necessárias para identificar as Páginas
+                e contas profissionais autorizadas, consultar os dados básicos indispensáveis à conexão e publicar
+                imagens ou vídeos nas contas escolhidas. Também podemos tratar identificadores da conta e da Página,
+                nome de exibição, nome de usuário, estado da conexão, autorizações ou tokens de acesso protegidos,
+                prazo de validade e registros de validação.
+              </p>
+              <p className="mt-2">
+                Quando o usuário confirma uma publicação, tratamos e compartilhamos tecnicamente com a Meta apenas os
+                dados necessários para executar a solicitação, como a mídia selecionada, a legenda final — inclusive
+                quando editada, substituída ou apagada —, o destino escolhido e os identificadores relacionados. Também
+                mantemos registros técnicos de estado, tentativas, prevenção de duplicidade, segurança e suporte, além
+                dos identificadores e do endereço da publicação externa quando disponibilizados pela plataforma.
+              </p>
+              <p className="mt-2">
+                A Meta, o Instagram e o Facebook tratam os dados recebidos conforme seus próprios termos e políticas.
+                O usuário pode revogar as permissões nas configurações disponibilizadas pela Meta ou solicitar a
+                desconexão à SmartCorretorAI. A revogação, expiração ou desconexão impede novas publicações e pode exigir
+                uma reconexão posterior. Credenciais deixam de ser utilizadas após a desconexão, sem prejuízo da
+                conservação de registros mínimos quando necessária para segurança, auditoria, cumprimento legal ou
+                defesa de direitos.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Pagamentos e Smart Tokens</h2>
               <p>
                 Dados financeiros são processados por provedores de pagamento seguros. A SmartCorretorAI não armazena
                 dados completos de cartão. Podemos armazenar registros de plano, assinatura, recargas, Smart Tokens,
@@ -140,7 +175,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">9. Depoimentos e Compartilhamento</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Depoimentos e Compartilhamento</h2>
               <p>
                 O envio de depoimento é voluntário. Antes de qualquer publicação, o depoimento passa por análise e
                 somente poderá ser publicado quando houver consentimento específico do usuário.
@@ -151,14 +186,10 @@ export default function Privacidade() {
                 participar de campanha com benefício de 500 Smart Tokens, conforme análise e regras vigentes, sem que
                 o benefício dependa de avaliação positiva e sem obrigação de publicação.
               </p>
-              <p className="mt-2">
-                A publicação em redes sociais é realizada atualmente pelo próprio usuário, que baixa o material ou
-                copia o texto e escolhe o canal em que deseja compartilhá-lo.
-              </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">10. Cookies e Analytics</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Cookies e Analytics</h2>
               <p>
                 Utilizamos tecnologias essenciais para funcionamento, autenticação e segurança da Plataforma, incluindo
                 mecanismos de sessão e verificação antiabuso. Com seu consentimento, utilizamos Google Analytics 4 para
@@ -178,7 +209,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Armazenamento, Segurança e Retenção</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">12. Armazenamento, Segurança e Retenção</h2>
               <p>
                 Usamos medidas técnicas e organizacionais para proteger dados contra acesso não autorizado, perda,
                 alteração, divulgação ou destruição. Nenhum sistema é totalmente imune a riscos, mas buscamos aplicar
@@ -200,7 +231,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">12. Direitos do Titular</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">13. Direitos do Titular</h2>
               <p>Nos termos da LGPD, você pode solicitar:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>confirmação da existência de tratamento;</li>
@@ -218,7 +249,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">13. Exclusão de Dados</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">14. Exclusão de Dados</h2>
               <p>
                 Você pode solicitar a exclusão de seus dados. Alguns registros poderão ser mantidos pelo prazo necessário
                 para obrigações legais, fiscais, prevenção de fraude, defesa de direitos ou cumprimento de contratos.
@@ -226,7 +257,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">14. Menores de Idade</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">15. Menores de Idade</h2>
               <p>
                 A Plataforma não é destinada a menores de 18 anos. Caso identifiquemos uso por menor de idade, a conta
                 poderá ser encerrada e os dados excluídos conforme a lei.
@@ -234,7 +265,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">15. Alterações nesta Política</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">16. Alterações nesta Política</h2>
               <p>
                 Podemos atualizar esta Política periodicamente. Alterações relevantes poderão ser comunicadas por e-mail,
                 aviso na Plataforma ou atualização desta página.
@@ -242,7 +273,7 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">16. Contato</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">17. Contato</h2>
               <p>Para questões sobre privacidade e proteção de dados:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>

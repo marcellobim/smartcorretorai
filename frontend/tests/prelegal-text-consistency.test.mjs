@@ -44,16 +44,37 @@ test('uses the current download-and-save policy without a public 24-hour promise
   assert.match(privacy, /baixar[\s\S]*guardar os resultados/)
 })
 
-test('describes current privacy, testimonials and manual social sharing', () => {
+test('describes privacy, testimonials and optional direct social publishing', () => {
   assert.match(privacy, /Google Analytics 4[\s\S]*Cookies analíticos permanecem desativados até sua autorização/)
   assert.match(privacy, /Não utilizamos[\s\S]*Google Tag Manager, Google Signals, remarketing ou personalização de anúncios/)
-  assert.match(privacy, /login com Google permanece indisponível/)
+  assert.match(privacy, /Autenticação com Google, quando escolhida/)
+  assert.match(privacy, /Google OAuth, quando habilitado, é usado somente para autenticação/)
   assert.match(privacy, /envio de depoimento é voluntário/)
   assert.match(privacy, /autorização para publicar o texto é separada da autorização para exibir nome e profissão/)
   assert.match(privacy, /500 Smart Tokens/)
   assert.match(privacy, /sem que[\s\S]*o benefício dependa de avaliação positiva e sem obrigação de publicação/)
-  assert.match(privacy, /publicação em redes sociais é realizada atualmente pelo próprio usuário/)
-  assert.doesNotMatch(privacy, /Integrações com Redes Sociais|ferramentas de analytics|Meta, Google e redes sociais/)
+  assert.match(privacy, /Integração e publicação em redes sociais/)
+  assert.match(privacy, /conexão com contas compatíveis do Instagram ou Facebook é opcional/)
+  assert.match(privacy, /simples conexão não inicia nem autoriza uma publicação/)
+  assert.match(privacy, /identificadores da conta e da Página[\s\S]*autorizações ou tokens de acesso protegidos/)
+  assert.match(privacy, /mídia selecionada[\s\S]*legenda final[\s\S]*destino escolhido/)
+  assert.match(privacy, /prevenção de duplicidade, segurança e suporte/)
+  assert.match(privacy, /compartilhamos[\s\S]*tecnicamente com a Meta apenas os[\s\S]*dados necessários/)
+  assert.match(privacy, /revogar as permissões[\s\S]*solicitar a[\s\S]*desconexão[\s\S]*exigir[\s\S]*uma reconexão posterior/)
+  assert.doesNotMatch(privacy, /publicação em redes sociais é realizada atualmente pelo próprio usuário/)
+})
+
+test('terms govern direct publishing, user responsibility and third-party dependency', () => {
+  assert.match(terms, /permitir sua publicação direta no Instagram ou Facebook/)
+  assert.match(terms, /Publicação direta em redes sociais/)
+  assert.match(terms, /simples conexão da conta não inicia nem autoriza qualquer[\s\S]*publicação/i)
+  assert.match(terms, /Cada publicação depende da escolha do conteúdo e do destino e da confirmação do usuário/)
+  assert.match(terms, /revisar, editar, substituir ou apagar a legenda/)
+  assert.match(terms, /responsável pelo conteúdo final confirmado/)
+  assert.match(terms, /autorização para conectar,[\s\S]*contas e Páginas selecionadas/)
+  assert.match(terms, /APIs, permissões, regras e disponibilidade da Meta/)
+  assert.match(terms, /alterar requisitos[\s\S]*atrasar ou rejeitar publicações[\s\S]*exigir reconexão/)
+  assert.match(terms, /não garante a[\s\S]*disponibilidade contínua da integração[\s\S]*permanência da publicação/)
 })
 
 test('keeps age, rights, review and acceptance protections explicit', () => {

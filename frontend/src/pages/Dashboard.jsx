@@ -229,7 +229,7 @@ const faqItems = [
   },
   {
     question: 'Como publico minhas criações nas redes sociais?',
-    answer: 'Finalize e revise a criação, baixe o material e copie o texto preparado, quando houver. Depois, abra o canal desejado, anexe a imagem ou o vídeo, cole o texto, revise novamente e publique manualmente.',
+    answer: 'Nos produtos compatíveis, você pode conectar uma conta do Instagram ou Facebook e publicar diretamente pelo SmartCorretorAI. Cada publicação depende da sua escolha e confirmação: antes do envio, você pode revisar a legenda, editar parte do texto, substituí-lo ou apagá-lo. Se preferir, também pode baixar o material e fazer a publicação manualmente no canal desejado.',
   },
   {
     question: 'Onde altero meu e-mail de acesso ou minha senha?',

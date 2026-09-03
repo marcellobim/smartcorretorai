@@ -221,9 +221,12 @@ test('documents confirmed Smart Token behavior for failures and separate purchas
   assert.match(faqSource, /incluídos em assinaturas seguem as condições do ciclo e da oferta contratada/)
 })
 
-test('documents manual publishing and requires immediate local download without a public retention promise', () => {
-  assert.match(faqSource, /baixe o material[\s\S]*copie o texto preparado[\s\S]*anexe a imagem ou o vídeo[\s\S]*publique manualmente/i)
-  assert.doesNotMatch(faqSource, /compartilhamento nativo|publica(?:ção|r) automática|OAuth/i)
+test('documents user-confirmed direct publishing and preserves the manual option', () => {
+  assert.match(faqSource, /produtos compatíveis[\s\S]*conectar uma conta do Instagram ou Facebook/)
+  assert.match(faqSource, /Cada publicação depende da sua escolha e confirmação/)
+  assert.match(faqSource, /revisar a legenda[\s\S]*editar parte do texto[\s\S]*substituí-lo ou apagá-lo/)
+  assert.match(faqSource, /baixar o material[\s\S]*publicação manualmente/i)
+  assert.doesNotMatch(faqSource, /Finalize e revise a criação[\s\S]*publique manualmente/)
   assert.match(faqSource, /não oferece galeria ou armazenamento permanente/)
   assert.match(faqSource, /Baixe e salve sua criação assim que ela estiver pronta/)
   assert.match(faqSource, /não há promessa de recuperação posterior pela interface/)
@@ -308,8 +311,10 @@ test('uses the single official support email across active frontend legal conten
   assert.doesNotMatch(activeContactContent, /(?:contato|privacidade|financeiro|legal)@smartcorretorai\.com\.br/i)
 })
 
-test('does not reintroduce automatic Instagram publishing', () => {
-  assert.doesNotMatch(`${dashboard}\n${footer}`, /instagram-publish|instagram-connection|Conectar Instagram|Publicar no Instagram|OAuth/)
+test('presents social publishing as an explicit user-confirmed action', () => {
+  assert.match(faqSource, /publicar diretamente pelo SmartCorretorAI/)
+  assert.match(faqSource, /escolha e confirmação/)
+  assert.doesNotMatch(`${dashboard}\n${footer}`, /instagram-publish|instagram-connection|OAuth/)
 })
 
 test('preserves every approved product route in the application router', () => {

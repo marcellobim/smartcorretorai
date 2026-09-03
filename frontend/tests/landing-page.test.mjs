@@ -205,13 +205,18 @@ test('keeps social proof internally demo while removing technical labels from th
   assert.equal((socialSource.match(/<blockquote/g) || []).length, 1)
 })
 
-test('preserves the approved FAQ and adds transparent review guidance', () => {
+test('preserves the approved FAQ and explains user-confirmed direct publishing', () => {
   assert.equal((faqSource.match(/^\s*\['/gm) || []).length, 17)
   assert.match(landing, /Perguntas frequentes/)
-  for (const question of ['As imagens e vídeos gerados são sempre fiéis ao imóvel?', 'Quem é responsável pelas informações e materiais divulgados?', 'Preciso revisar o conteúdo antes de publicar?']) assert.ok(faqSource.includes(question), question)
+  for (const question of ['As imagens e vídeos gerados são sempre fiéis ao imóvel?', 'Quem é responsável pelas informações e materiais divulgados?', 'Preciso revisar o conteúdo antes de publicar?', 'Como funciona a publicação direta em redes sociais?']) assert.ok(faqSource.includes(question), question)
   assert.match(faqSource, /Smart Space, a imagem representa uma proposta visual do ambiente e pode incluir mobiliário, decoração ou elementos que não existem fisicamente no imóvel/)
   assert.match(faqSource, /O usuário é responsável por revisar e confirmar as informações, imagens, vídeos e textos antes da publicação/)
   assert.match(faqSource, /a revisão final continua sendo importante/)
+  assert.match(faqSource, /produtos compatíveis[\s\S]*conectar uma conta do Instagram ou Facebook/)
+  assert.match(faqSource, /Cada publicação depende da sua escolha e confirmação/)
+  assert.match(faqSource, /revisar a legenda[\s\S]*editar parte do texto[\s\S]*substituí-lo ou apagá-lo/)
+  assert.match(faqSource, /baixar o material[\s\S]*publicação manualmente/)
+  assert.doesNotMatch(faqSource, /realiza a publicação manualmente no canal desejado/)
   assert.doesNotMatch(faqSource, /a IA pode errar/i)
   assert.match(landing, />Redes sociais<\/h2>/)
   assert.equal((landing.match(/Inteligência que vende/g) || []).length, 1)
