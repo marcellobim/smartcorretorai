@@ -1,6 +1,6 @@
 import { LIFE_IN_PROPERTY_JOURNEY_ID } from './virtualStagingLife.js'
 import { BROKER_PRESENTATION_JOURNEY_ID } from './virtualStagingBroker.js'
-import { FURNISH_RENOVATE_JOURNEY_ID } from './virtualStagingFurnish.js'
+import { FURNISH_RENOVATE_JOURNEY_ID, furnishRenovateRequiresStyle } from './virtualStagingFurnish.js'
 
 const LINEAR_NEXT_QUESTION = Object.freeze({
   images: 'purpose',
@@ -52,12 +52,12 @@ const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
   transformation_type: 'decoration_style',
   decoration_style: 'images',
   images: 'image_destinations',
-  image_destinations: 'ai_notice',
-  ai_notice: 'review',
+  image_destinations: 'review',
 })
 
 export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '' }) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
+    if (questionId === 'transformation_type') return furnishRenovateRequiresStyle(answerId) ? 'decoration_style' : 'images'
     return FURNISH_RENOVATE_NEXT_QUESTION[questionId] || 'review'
   }
   if (journeyId === LIFE_IN_PROPERTY_JOURNEY_ID) return LIFE_IN_PROPERTY_NEXT_QUESTION[questionId] || 'review'

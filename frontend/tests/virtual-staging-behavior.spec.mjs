@@ -57,7 +57,7 @@ async function chooseModule(page, position) {
 async function openFurnishFlow(page) {
   await chooseModule(page, 0)
   await page.getByRole('button', { name: 'Começar' }).click()
-  await page.getByRole('button', { name: 'Mobiliar ambientes vazios ou quase vazios' }).click()
+  await page.getByRole('button', { name: 'Mobiliar um espaço vazio com móveis e uma nova decoração' }).click()
   await page.getByRole('button', { name: 'Aconchegante' }).click()
 }
 
@@ -71,9 +71,39 @@ async function reachReview(page, files = [imageFile()]) {
   await page.getByRole('button', { name: 'Continuar' }).click()
   await page.getByRole('button', { name: 'Instagram' }).click()
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByRole('button', { name: 'Continuar' }).click()
   await expect(page.getByText('Revise seu projeto')).toBeVisible()
 }
+
+test('exibe as quatro ações oficiais na pergunta inicial do Smart Space', async ({ page }) => {
+  await chooseModule(page, 0)
+  await page.getByRole('button', { name: 'Começar' }).click()
+
+  await expect(page.getByText('O que você quer fazer com o espaço destas imagens?')).toBeVisible()
+  for (const action of [
+    'Mobiliar um espaço vazio com móveis e uma nova decoração',
+    'Remover os móveis e criar uma decoração completamente nova',
+    'Remover os móveis para visualizar o espaço livre',
+    'Limpar um terreno ou uma área para visualizar melhor o espaço',
+  ]) await expect(page.getByRole('button', { name: action })).toBeVisible()
+
+  await expect(page.getByRole('button', { name: 'Mobiliar ambientes vazios ou quase vazios' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Tenho ambientes vazios e mobiliados' })).toHaveCount(0)
+})
+
+test('mantém a pergunta de estilo para a ação de mobiliar', async ({ page }) => {
+  await chooseModule(page, 0)
+  await page.getByRole('button', { name: 'Começar' }).click()
+  await page.getByRole('button', { name: 'Mobiliar um espaço vazio com móveis e uma nova decoração' }).click()
+  await expect(page.getByText('Qual estilo você prefere para os ambientes?')).toBeVisible()
+})
+
+test('pula a pergunta de estilo para a ação de remover móveis', async ({ page }) => {
+  await chooseModule(page, 0)
+  await page.getByRole('button', { name: 'Começar' }).click()
+  await page.getByRole('button', { name: 'Remover os móveis para visualizar o espaço livre' }).click()
+  await expect(page.getByText('Envie as fotos do imóvel')).toBeVisible()
+  await expect(page.getByText('Qual estilo você prefere para os ambientes?')).toHaveCount(0)
+})
 
 async function mockCounts(page) {
   return await page.evaluate(() => ({
@@ -127,7 +157,7 @@ test('clique duplo gera um upload, uma invocação e payload mínimo', async ({ 
     item_index: 0,
     module: 'furnish-renovate',
     input_path: state.uploads[0].path,
-    transformation_type: 'empty_or_nearly_empty',
+    transformation_type: 'furnish',
     decoration_style: 'cozy',
     expected_count: 1,
   })
