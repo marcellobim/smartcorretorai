@@ -27,6 +27,9 @@ import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
+import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
+import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
+import { buildHeroNextCampaignPackageData } from '../lib/hero-next-recovery'
 import { buildPublicationGoogleAds, buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
 const GOALS = [
@@ -1842,6 +1845,7 @@ export default function HeroNext() {
 
         setGenerationResult({
           ...data,
+          sourceId: economicRequestIdRef.current || '',
           imageUrl,
           texts: data.texts || {},
           campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition),
@@ -1922,6 +1926,11 @@ export default function HeroNext() {
     const promptForFormat = promptTouched
        ? buildFormatSpecificPrompt(effectivePrompt, destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
       : buildFormatSpecificPrompt(buildHumanPrompt(goal, answers, [destination], valueCondition, creativeIdeaCount), destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
+    const publicationOptions = buildHeroNextCampaignCopy(goal, answers, valueCondition).slice(0, 3).map((item, index) => ({
+      id: `banner-caption-option-${index + 1}`,
+      label: item.label || `Texto ${index + 1}`,
+      text: item.text,
+    }))
 
     updateGenerationJob(jobId, {
       status: 'starting',
@@ -1957,6 +1966,7 @@ export default function HeroNext() {
         })),
         hero_next_experimental: true,
         campaign_objective: getHeroNextCampaignObjective(goal),
+        publication_options: publicationOptions,
         property_type: answers.propertyType || normalizeList(answers.propertyKinds).join(', '),
         property_profile: answers.profile || (goal === 'rent' ? 'Locação' : goal === 'property_capture' ? 'Captação de Imóveis' : goal === 'broker_capture' ? 'Captação de Corretores' : ''),
         property_stage: answers.stage || '',
@@ -2241,38 +2251,28 @@ export default function HeroNext() {
     economicRequestIdRef.current = null
   }
 
-  const campaignPackageData = generationResult ? {
-    sourceProduct: 'Banner Imobiliário',
-    mediaType: 'images',
-    files: (generationResult.jobs || [])
-      .filter((job) => job.status === 'completed' && job.imageUrl)
-      .map((job, index) => ({
-        id: job.jobId || `${job.formatId || 'hero'}-${index}`,
-        name: `${job.formatLabel || `Arte ${index + 1}`}${job.ideaNumber ? ` · ${getCreationOptionLabel(job.ideaNumber)}` : ''}`,
-        type: 'image',
-        status: 'Concluída',
-        previewUrl: job.imageUrl,
-        downloadUrl: job.imageUrl,
-      })),
-    purpose: getGoalLabel(goal),
-    propertyType: isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType,
-    neighborhood: answers.neighborhood || answers.neighborhoods,
-    city: answers.city,
-    bedrooms: answers.bedrooms,
-    suites: answers.suites,
-    parking: answers.parking,
-    area: answers.area,
-    highlights: isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials,
-    cta: answers.cta,
-    contactAuthorized: answers.contactPhoneChoice === 'Sim, quero divulgar' && Boolean(profilePhone),
-    phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? profilePhone : '',
-    existingTexts: campaignCopy.map((item, index) => ({
-      id: `hero-ia-${index}`,
-      label: item.label,
-      text: item.text,
-    })),
-    googleAds: buildPublicationGoogleAds(buildHeroNextCopyInput(goal, answers, valueCondition)),
-  } : null
+  const campaignPackageBuild = generationResult ? buildHeroNextCampaignPackageData({
+    result: generationResult,
+    campaignCopy,
+    context: {
+      purpose: getGoalLabel(goal),
+      propertyType: isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType,
+      neighborhood: answers.neighborhood || answers.neighborhoods,
+      city: answers.city,
+      bedrooms: answers.bedrooms,
+      suites: answers.suites,
+      parking: answers.parking,
+      area: answers.area,
+      highlights: isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials,
+      cta: answers.cta,
+      contactAuthorized: answers.contactPhoneChoice === 'Sim, quero divulgar' && Boolean(profilePhone),
+      phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? profilePhone : '',
+    },
+    buildGoogleAds: buildPublicationGoogleAds,
+    googleAdsInput: buildHeroNextCopyInput(goal, answers, valueCondition),
+    creationOptionLabel: getCreationOptionLabel,
+  }) : { data: null, error: null, warning: '' }
+  const campaignPackageData = campaignPackageBuild.data
 
   const renderQuestionControls = () => {
     if (!currentQuestion) return null
@@ -3287,6 +3287,19 @@ export default function HeroNext() {
               onCreateNew={resetCampaign}
               createNewLabel="Criar nova campanha"
               onOpenImage={openExpandedPreview}
+              bannerPublish={{
+                enabled: true,
+                captionEditable: true,
+                loadConnection: () => getMetaConnectionStatus(supabase),
+                resumeIntent: user?.id ? readPendingBannerPublication(window.sessionStorage, user.id) : null,
+                onPublish: (intent, destinations) => publishBannerPublication(supabase, intent, destinations),
+                onRecover: (intent, destinations) => recoverBannerPublication(supabase, intent, destinations),
+                onResumed: () => clearPendingBannerPublication(window.sessionStorage, user?.id),
+                onConnect: async (intent) => {
+                  if (!preservePendingBannerPublication(window.sessionStorage, user?.id, intent)) throw new Error('banner_publication_pending_not_saved')
+                  await redirectToMetaOAuth(supabase, url => window.location.assign(url))
+                },
+              }}
             />
             {expandedPreview && (
               <div

@@ -32,6 +32,8 @@ import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
+import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
+import { clearPendingStudioPublication, preservePendingStudioPublication, publishStudioPublication, readPendingStudioPublication, recoverStudioPublication } from '../lib/studio-social-publish'
 import {
   clearStudioActiveJob,
   getStudioActiveMode,
@@ -1148,12 +1150,27 @@ export default function StudioHero() {
   const [status, setStatus] = useState(() => initialActiveJobRef.current ? 'generating' : 'idle')
   const [message, setMessage] = useState(() => initialActiveJobRef.current ? 'Retomando sua criação...' : '')
   const [videoUrl, setVideoUrl] = useState('')
+  const [publicationOptions, setPublicationOptions] = useState([])
   const [isRecoveredJob, setIsRecoveredJob] = useState(() => Boolean(initialActiveJobRef.current))
   const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
 
   const isSale = answers.objective === 'sale'
   const isRent = answers.objective === 'rent'
   const isFreeAiMode = studioMode === 'free_ai'
+  const studioSourceType = isFreeAiMode ? 'studio_ia_creative' : 'studio_ia_commercial'
+  const studioPublish = activeJobRef.current?.jobId ? {
+    enabled: true,
+    captionEditable: true,
+    loadConnection: () => getMetaConnectionStatus(supabase),
+    resumeIntent: user?.id ? readPendingStudioPublication(window.sessionStorage, user.id) : null,
+    onPublish: (intent, destinations) => publishStudioPublication(supabase, intent, destinations),
+    onRecover: (intent, destinations) => recoverStudioPublication(supabase, intent, destinations),
+    onResumed: () => clearPendingStudioPublication(window.sessionStorage, user?.id),
+    onConnect: async intent => {
+      if (!preservePendingStudioPublication(window.sessionStorage, user?.id, intent)) throw new Error('studio_publication_pending_not_saved')
+      await redirectToMetaOAuth(supabase, url => window.location.assign(url))
+    },
+  } : undefined
   const guideItems = STUDIO_GUIDE_ITEMS_BY_MODE[studioMode] || STUDIO_GUIDE_ITEMS_BY_MODE.cinematic
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
   const isPropertyCapture = answers.objective === 'property_capture'
@@ -1744,6 +1761,7 @@ export default function StudioHero() {
         clearPolling()
         setStatus('completed')
         setVideoUrl(nextVideoUrl)
+        setPublicationOptions(Array.isArray(data.publicationOptions) ? data.publicationOptions : [])
         setMessage('Seu comercial esta pronto.')
         void reloadProfile()
         return
@@ -1878,6 +1896,10 @@ export default function StudioHero() {
           creativeFreedom: answers.creativeFreedom,
         },
         jobId: draftId,
+        publicationOptions: buildDeliveryTexts({ answers, districtValue, cityValue })
+          .filter(item => /instagram|facebook/i.test(item.label))
+          .slice(0, 3)
+          .map((item, index) => ({ id: `studio-caption-option-${index + 1}`, label: item.label, text: item.text })),
         ...(requiresImages ? { inputImage1Path } : {}),
       }
 
@@ -1962,6 +1984,7 @@ export default function StudioHero() {
     setStatus('idle')
     setMessage('')
     setVideoUrl('')
+    setPublicationOptions([])
     setStep(1)
   }
 
@@ -2189,6 +2212,13 @@ export default function StudioHero() {
               status={status}
               message={message}
               videoUrl={videoUrl}
+              sourceId={activeJobRef.current?.jobId || ''}
+              sourceType={studioSourceType}
+              publicationOptions={publicationOptions}
+              studioPublish={studioPublish}
+              answers={answers}
+              cityValue={cityValue}
+              districtValue={districtValue}
               generationMessage={generationMessage}
               onReset={createNewStudioVersion}
             />
@@ -2963,6 +2993,10 @@ export default function StudioHero() {
                 ) : videoUrl ? (
                   <ResultPanel
                     videoUrl={videoUrl}
+                    sourceId={activeJobRef.current?.jobId || ''}
+                    sourceType={studioSourceType}
+                    publicationOptions={publicationOptions}
+                    studioPublish={studioPublish}
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
@@ -3001,6 +3035,10 @@ export default function StudioHero() {
                 ) : videoUrl ? (
                   <ResultPanel
                     videoUrl={videoUrl}
+                    sourceId={activeJobRef.current?.jobId || ''}
+                    sourceType={studioSourceType}
+                    publicationOptions={publicationOptions}
+                    studioPublish={studioPublish}
                     answers={answers}
                     cityValue={cityValue}
                     districtValue={districtValue}
@@ -3071,25 +3109,20 @@ export default function StudioHero() {
   )
 }
 
-function RecoveredStudioJobPanel({ status, message, videoUrl, generationMessage, onReset }) {
+function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceType, publicationOptions, studioPublish, answers, cityValue, districtValue, generationMessage, onReset }) {
   if (videoUrl) {
     return (
-      <ProductCard className="space-y-5 p-5 sm:p-6">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Criação recuperada</p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">Seu vídeo está pronto.</h2>
-        </div>
-        <div className="mx-auto aspect-[9/16] max-h-[70vh] w-full max-w-sm overflow-hidden rounded-3xl bg-slate-950">
-          <video src={videoUrl} controls playsInline className="smart-presentation-media" />
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <a href={videoUrl} download="studio-ia-video.mp4" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-950 px-5 py-3 text-sm font-black text-white transition hover:bg-primary-900">
-            <Download className="h-4 w-4" />
-            Baixar vídeo
-          </a>
-          <ProductButton type="button" variant="secondary" onClick={onReset}>Criar nova versão</ProductButton>
-        </div>
-      </ProductCard>
+      <ResultPanel
+        videoUrl={videoUrl}
+        sourceId={sourceId}
+        sourceType={sourceType}
+        publicationOptions={publicationOptions}
+        studioPublish={studioPublish}
+        answers={answers}
+        cityValue={cityValue}
+        districtValue={districtValue}
+        onReset={onReset}
+      />
     )
   }
 
@@ -3816,11 +3849,15 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
   )
 }
 
-function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = false, onReset }) {
+function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, onReset }) {
   const completed = Boolean(videoUrl)
   const deliveryInput = { answers, districtValue, cityValue }
-  const deliveryTexts = completed ? buildDeliveryTexts(deliveryInput) : []
-  const googleAds = completed ? buildPublicationGoogleAds(buildDeliveryInput(deliveryInput)) : null
+  const deliveryTexts = completed
+    ? (publicationOptions.length === 3 ? publicationOptions : buildDeliveryTexts(deliveryInput))
+    : []
+  const googleAds = completed && answers?.objective
+    ? buildPublicationGoogleAds(buildDeliveryInput(deliveryInput))
+    : null
   if (!completed) return null
 
   if (answers?.creativeMode !== 'free_ai') {
@@ -3828,6 +3865,9 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
       <CampaignPackage
         data={{
           sourceProduct: 'Studio Hero Cinematográfico',
+          sourceType,
+          sourceId,
+          mediaAssetId: sourceId,
           mediaType: 'video',
           previewUrl: videoUrl,
           downloadUrl: videoUrl,
@@ -3849,6 +3889,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           googleAds,
         }}
         mediaPresentation="mobile"
+        studioPublish={studioPublish}
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />
@@ -3860,6 +3901,9 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
       <CampaignPackage
         data={{
           sourceProduct: 'IA Livre',
+          sourceType,
+          sourceId,
+          mediaAssetId: sourceId,
           mediaType: 'video',
           previewUrl: videoUrl,
           downloadUrl: videoUrl,
@@ -3881,6 +3925,7 @@ function ResultPanel({ videoUrl, answers, cityValue, districtValue, compact = fa
           googleAds,
         }}
         mediaPresentation="mobile"
+        studioPublish={studioPublish}
         onCreateNew={onReset}
         createNewLabel="Criar nova versão"
       />

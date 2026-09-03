@@ -87,6 +87,16 @@ function cleanText(value: unknown, maxLength: number) {
     .slice(0, maxLength)
 }
 
+function socialCaption(value: unknown) {
+  return String(value ?? '')
+    .replace(/#[\p{L}\p{N}_]+/gu, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 function normalizeDistrictName(value: unknown) {
   return cleanText(value, 60)
     .toLocaleLowerCase('pt-BR')
@@ -918,6 +928,11 @@ async function handleCreate(
     const campaignPackage = {
       campaigns: presentationPlan.campaigns,
       google_ads: presentationPlan.googleAds,
+      publication_options: presentationPlan.campaigns.map((campaign, index) => ({
+        id: `studio-caption-option-${index + 1}`,
+        label: `Texto ${index + 1}`,
+        text: socialCaption(campaign.instagram),
+      })),
     }
     await recordSmartCarouselProvider(supabase, {
       userId,
@@ -1066,6 +1081,41 @@ async function handleStatus(
   }
 }
 
+async function handleDiscoverLatest(
+  userId: string,
+  supabase: any,
+) {
+  const { data, error } = await supabase
+    .from('smart_carousel_economy_requests')
+    .select('client_request_id,status,video_url,campaign_package,completed_at,created_at')
+    .eq('user_id', userId)
+    .eq('status', 'succeeded')
+    .order('completed_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return jsonResponse({ ok: false, error: 'Não foi possível recuperar sua apresentação.' }, 500)
+  if (!data) return jsonResponse({ ok: true, found: false })
+
+  const row = asRecord(data)
+  const sourceId = cleanText(row.client_request_id, 64)
+  const videoUrl = cleanText(row.video_url, 2048)
+  const campaignPackage = asRecord(row.campaign_package)
+  if (!isUuid(sourceId) || !/^https:\/\//i.test(videoUrl) || !Array.isArray(campaignPackage.campaigns)) {
+    return jsonResponse({ ok: true, found: false })
+  }
+
+  return jsonResponse({
+    ok: true,
+    found: true,
+    status: 'succeeded',
+    job_id: sourceId,
+    video_url: videoUrl,
+    campaign_package: campaignPackage,
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return jsonResponse({ ok: false, error: 'Método não permitido.' }, 405)
@@ -1093,6 +1143,7 @@ serve(async (req) => {
     const action = cleanText(body.action, 20)
     if (action === 'create') return handleCreate(body, user.id, supabase, creatomateApiKey, openaiApiKey)
     if (action === 'status') return handleStatus(body, user.id, supabase, creatomateApiKey)
+    if (action === 'discover_latest') return handleDiscoverLatest(user.id, supabase)
     return jsonResponse({ ok: false, error: 'Ação inválida.' }, 400)
   } catch {
     return jsonResponse({ ok: false, error: 'Não foi possível concluir a solicitação.' }, 500)

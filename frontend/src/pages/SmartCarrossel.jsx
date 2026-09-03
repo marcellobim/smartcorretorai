@@ -31,6 +31,8 @@ import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { toFileMetadata } from '../lib/product-draft'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
+import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
+import { clearPendingStudioPublication, preservePendingStudioPublication, publishStudioPublication, readPendingStudioPublication, recoverStudioPublication } from '../lib/studio-social-publish'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
@@ -275,6 +277,28 @@ export default function SmartCarrossel() {
   const [photoSelectionMessage, setPhotoSelectionMessage] = useState('')
   const [missingPhotoMetadata, setMissingPhotoMetadata] = useState(() => restoredMediaDraft?.photoMetadata || [])
   const [conversationGenerationStatus, setConversationGenerationStatus] = useState('idle')
+  const [recoveredCreation, setRecoveredCreation] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    if (!user?.id || flowDraft.restoredDraft?.completedJobId) return () => { active = false }
+
+    supabase.functions.invoke(SMART_CAROUSEL_FUNCTION, { body: { action: 'discover_latest' } })
+      .then(({ data, error }) => {
+        if (!active || error || data?.ok !== true || data?.found !== true || data?.status !== 'succeeded') return
+        if (!data.job_id || !data.video_url || !Array.isArray(data.campaign_package?.campaigns)) return
+        setRecoveredCreation({
+          jobId: data.job_id,
+          videoUrl: data.video_url,
+          campaignPackage: data.campaign_package,
+        })
+        setGenerationStage(4)
+        setConversationGenerationStatus('succeeded')
+      })
+      .catch(() => {})
+
+    return () => { active = false }
+  }, [flowDraft.restoredDraft?.completedJobId, user?.id])
 
   useEffect(() => {
     const photoMetadata = photos.length
@@ -370,6 +394,7 @@ export default function SmartCarrossel() {
     setPhotoSelectionMessage('')
     setMissingPhotoMetadata([])
     setConversationGenerationStatus('idle')
+    setRecoveredCreation(null)
     mediaDraft.clear()
     flowDraft.clear()
   }
@@ -394,6 +419,19 @@ export default function SmartCarrossel() {
     || Boolean(restoredMediaDraft)
     || Boolean(flowDraft.restoredDraft)
   const isGenerationActive = ['uploading', 'creating', 'polling'].includes(conversationGenerationStatus)
+  const recoveredStudioPublish = recoveredCreation ? {
+    enabled: true,
+    captionEditable: true,
+    loadConnection: () => getMetaConnectionStatus(supabase),
+    resumeIntent: user?.id ? readPendingStudioPublication(window.sessionStorage, user.id) : null,
+    onPublish: (intent, destinations) => publishStudioPublication(supabase, intent, destinations),
+    onRecover: (intent, destinations) => recoverStudioPublication(supabase, intent, destinations),
+    onResumed: () => clearPendingStudioPublication(window.sessionStorage, user?.id),
+    onConnect: async intent => {
+      if (!preservePendingStudioPublication(window.sessionStorage, user?.id, intent)) throw new Error('studio_publication_pending_not_saved')
+      await redirectToMetaOAuth(supabase, url => window.location.assign(url))
+    },
+  } : undefined
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_38%,#eef7fb_100%)] text-slate-900">
@@ -425,7 +463,29 @@ export default function SmartCarrossel() {
           accent="emerald"
         />
 
-        <PhotoSection photos={photos} missingPhotoMetadata={missingPhotoMetadata} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />
+        {recoveredCreation && (
+          <CampaignPackage
+            mediaPresentation="mobile"
+            data={{
+              sourceProduct: 'Smart Carrossel',
+              sourceType: 'studio_ia_carousel',
+              sourceId: recoveredCreation.jobId,
+              mediaAssetId: recoveredCreation.jobId,
+              unifiedSocialPublishing: true,
+              mediaType: 'video',
+              previewUrl: recoveredCreation.videoUrl,
+              downloadUrl: recoveredCreation.videoUrl,
+              downloadName: 'smart-carrossel-apresentacao.mp4',
+              cta: recoveredCreation.campaignPackage.campaigns?.[0]?.cta || '',
+              aiCampaigns: recoveredCreation.campaignPackage.campaigns || [],
+              googleAds: recoveredCreation.campaignPackage.google_ads,
+            }}
+            studioPublish={recoveredStudioPublish}
+            onCreateNew={createNewPresentation}
+            createNewLabel="Criar nova apresentação"
+          />
+        )}
+        {!recoveredCreation && <PhotoSection photos={photos} missingPhotoMetadata={missingPhotoMetadata} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />}
         {informationUnlocked && (
           <SmartCarouselConversation
             user={user}
@@ -571,12 +631,13 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   const pollTimerRef = useRef(null)
   const mountedRef = useRef(true)
   const generationInFlightRef = useRef(false)
-  const [generationStatus, setGenerationStatus] = useState('idle')
+  const [generationStatus, setGenerationStatus] = useState(() => restoredFlow.completedJobId && restoredFlow.videoUrl ? 'succeeded' : 'idle')
   const [generationError, setGenerationError] = useState('')
-  const [receipt, setReceipt] = useState('')
-  const [activeJobId, setActiveJobId] = useState('')
-  const [videoUrl, setVideoUrl] = useState('')
-  const [campaignPackage, setCampaignPackage] = useState(null)
+  const [receipt, setReceipt] = useState(() => restoredFlow.receipt || '')
+  const [activeJobId, setActiveJobId] = useState(() => restoredFlow.activeJobId || '')
+  const [completedJobId, setCompletedJobId] = useState(() => restoredFlow.completedJobId || '')
+  const [videoUrl, setVideoUrl] = useState(() => restoredFlow.videoUrl || '')
+  const [campaignPackage, setCampaignPackage] = useState(() => restoredFlow.campaignPackage || null)
 
   const resetCarouselFromStep = (targetStep) => {
     const resetters = [
@@ -593,6 +654,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     setGenerationError('')
     setReceipt('')
     setActiveJobId('')
+    setCompletedJobId('')
     setVideoUrl('')
     setCampaignPackage(null)
     onGenerationStageChange(2)
@@ -601,13 +663,13 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   const step = Number(conversation.activeQuestionId)
 
   useEffect(() => {
-    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot }
+    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage }
     if (!conversationSnapshot?.history?.length && !Object.values(draft).some(value => typeof value === 'string' ? value : Array.isArray(value) ? value.length : false)) {
       flowDraft.clear()
       return
     }
     flowDraft.save(draft)
-  }, [area, bedrooms, city, conversationSnapshot, cta, district, flowDraft, highlights, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, sharePhone, suites, uf])
+  }, [activeJobId, area, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, cta, district, flowDraft, highlights, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl])
 
   const createNewPresentation = () => {
     flowDraft.clear()
@@ -691,6 +753,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
         generationInFlightRef.current = false
         setReceipt('')
         setActiveJobId('')
+        setCompletedJobId(jobId)
         if (Array.isArray(data?.campaign_package?.campaigns)) setCampaignPackage(data.campaign_package)
         setVideoUrl(data.video_url)
         setGenerationStatus('succeeded')
@@ -769,6 +832,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
       if (data.status === 'succeeded' && data.video_url) {
         generationInFlightRef.current = false
         setActiveJobId('')
+        setCompletedJobId(jobId)
         setVideoUrl(data.video_url)
         if (Array.isArray(data?.campaign_package?.campaigns)) setCampaignPackage(data.campaign_package)
         setGenerationStatus('succeeded')
@@ -800,6 +864,19 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   }
 
   const isGenerating = ['uploading', 'creating', 'polling'].includes(generationStatus)
+  const studioPublish = completedJobId ? {
+    enabled: true,
+    captionEditable: true,
+    loadConnection: () => getMetaConnectionStatus(supabase),
+    resumeIntent: user?.id ? readPendingStudioPublication(window.sessionStorage, user.id) : null,
+    onPublish: (intent, destinations) => publishStudioPublication(supabase, intent, destinations),
+    onRecover: (intent, destinations) => recoverStudioPublication(supabase, intent, destinations),
+    onResumed: () => clearPendingStudioPublication(window.sessionStorage, user?.id),
+    onConnect: async intent => {
+      if (!preservePendingStudioPublication(window.sessionStorage, user?.id, intent)) throw new Error('studio_publication_pending_not_saved')
+      await redirectToMetaOAuth(supabase, url => window.location.assign(url))
+    },
+  } : undefined
   const hasMinimumImages = photos.length >= SMART_CAROUSEL_MIN_IMAGES
   const generationStatusMessage = generationStatus === 'uploading'
     ? 'Enviando fotos...'
@@ -862,6 +939,10 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
           mediaPresentation="mobile"
           data={{
             sourceProduct: 'Smart Carrossel',
+            sourceType: 'studio_ia_carousel',
+            sourceId: completedJobId,
+            mediaAssetId: completedJobId,
+            unifiedSocialPublishing: true,
             mediaType: 'video',
             previewUrl: videoUrl,
             downloadUrl: videoUrl,
@@ -884,6 +965,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
             aiCampaigns: campaignPackage?.campaigns || [],
             googleAds: campaignPackage?.google_ads,
           }}
+          studioPublish={studioPublish}
           onCreateNew={createNewPresentation}
           createNewLabel="Criar nova apresentação"
         />

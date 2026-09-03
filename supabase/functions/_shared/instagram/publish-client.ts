@@ -79,6 +79,29 @@ export async function createInstagramImageContainer(input: {
   return requireMetaId(payload.id)
 }
 
+export async function createInstagramVideoContainer(input: {
+  fetcher?: FetchLike
+  graphApiVersion: string
+  instagramUserId: string
+  pageAccessToken: string
+  videoUrl: string
+  caption?: string
+}) {
+  const version = validateGraphApiVersion(input.graphApiVersion)
+  const instagramUserId = requireMetaId(input.instagramUserId)
+  const videoUrl = new URL(input.videoUrl)
+  if (videoUrl.protocol !== 'https:') throw new InstagramPublishError({ publicCode: 'instagram_publish_failed' })
+
+  const body = new URLSearchParams({
+    media_type: 'REELS',
+    video_url: videoUrl.toString(),
+    access_token: input.pageAccessToken,
+  })
+  if (input.caption) body.set('caption', input.caption)
+  const payload = await requestMeta(input.fetcher || fetch, new URL(`https://graph.facebook.com/${version}/${instagramUserId}/media`), body)
+  return requireMetaId(payload.id)
+}
+
 export async function publishInstagramContainer(input: {
   fetcher?: FetchLike
   graphApiVersion: string

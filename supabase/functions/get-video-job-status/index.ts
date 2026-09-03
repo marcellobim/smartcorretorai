@@ -165,9 +165,9 @@ serve(async (req) => {
 
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, completed_at, created_at')
-      .eq('id', jobId)
+      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, publication_options, completed_at, created_at')
       .eq('user_id', user.id)
+      .eq('id', jobId)
       .single()
 
     if (jobError || !job) {
@@ -199,6 +199,7 @@ serve(async (req) => {
         status: 'completed',
         jobId: job.id,
         signedVideoUrl,
+        publicationOptions: job.publication_options,
       })
     }
 
@@ -250,6 +251,7 @@ serve(async (req) => {
         status: 'completed',
         jobId: job.id,
         signedVideoUrl,
+        publicationOptions: job.publication_options,
       })
     }
 
@@ -372,6 +374,7 @@ serve(async (req) => {
       status: 'completed',
       jobId: job.id,
       signedVideoUrl,
+      publicationOptions: job.publication_options,
     })
   } catch (error) {
     console.error(`[${reqId}] get-video-job-status erro:`, error instanceof Error ? error.message : String(error))

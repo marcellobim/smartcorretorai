@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
+import { normalizeBannerPublicationOptions } from '../_shared/banner-publication-options.ts'
 import {
   createRealEstateBannerEconomy,
   normalizeBannerClientRequestId,
@@ -1676,6 +1677,7 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
   const compatibleDestinations = normalizeLabeledItems(payload.compatible_destinations, 6)
   const campaignObjective = normalizeId(payload.campaign_objective) === 'locacao' ? 'locacao' : 'venda'
   const highlights = normalizeTextArray(payload.highlights, 12, 120)
+  const publicationOptions = normalizeBannerPublicationOptions(payload.publication_options)
 
   return {
     schema_version: 'hero_prompt_briefing_v1',
@@ -1731,6 +1733,7 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       format_strategy: normalizeFormatStrategy(payload.format_strategy),
       additional_info: normalizeText(payload.additional_info, 400),
       campaign_objective: campaignObjective,
+      publication_options: publicationOptions,
     },
   }
 }
@@ -2060,7 +2063,11 @@ async function handleHeroNextStatus(
   const promptBriefing = generation.prompt_briefing && typeof generation.prompt_briefing === 'object'
      ? generation.prompt_briefing as JsonRecord
     : {}
-  const texts = buildFallbackHeroTexts(promptBriefing)
+  const publicationOptions = normalizeBannerPublicationOptions((promptBriefing.choices as JsonRecord | undefined)?.publication_options)
+  const texts = {
+    ...buildFallbackHeroTexts(promptBriefing),
+    ...(publicationOptions.length === 3 ? { publication_options: publicationOptions } : {}),
+  }
 
   const completedAt = new Date().toISOString()
   const { error: updateError } = await supabase
@@ -2406,7 +2413,10 @@ serve(async (req) => {
         status: 'completed',
         message: 'Campanha IA gerada com sucesso.',
         image_url: signedImage.signedUrl,
-        texts: generatedTexts,
+        texts: {
+          ...generatedTexts,
+          publication_options: normalizeBannerPublicationOptions((promptBriefing.choices as JsonRecord | undefined)?.publication_options),
+        },
         expires_at: expiresAt,
       })
     }
@@ -2501,6 +2511,7 @@ serve(async (req) => {
 
     const texts = {
       ...generatedTexts,
+      publication_options: normalizeBannerPublicationOptions((promptBriefing.choices as JsonRecord | undefined)?.publication_options),
       hero_image: {
         status: 'completed',
         prompt_version: HERO_PROMPT_VERSION,
@@ -2546,7 +2557,7 @@ serve(async (req) => {
       status: updatedGeneration.status,
       message: 'Hero IA gerado com sucesso.',
       image_url: signedImage.signedUrl,
-      texts: generatedTexts,
+      texts,
       expires_at: updatedGeneration.expires_at,
     })
   } catch (error) {

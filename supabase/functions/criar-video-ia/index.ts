@@ -1623,6 +1623,16 @@ function getBriefingValue(briefing: JsonRecord, key: string, fallback: unknown =
   return normalizeText(briefing?.[key] ?? fallback, 180)
 }
 
+function normalizeStudioPublicationOptions(value: unknown) {
+  if (!Array.isArray(value) || value.length !== 3) return []
+  const options = value.map((item, index) => {
+    const record = item && typeof item === 'object' && !Array.isArray(item) ? item as JsonRecord : {}
+    const text = typeof record.text === 'string' ? record.text.trim() : ''
+    return { id: `studio-caption-option-${index + 1}`, label: normalizeText(record.label, 80) || `Texto ${index + 1}`, text }
+  })
+  return options.every((option, index) => option.id === `studio-caption-option-${index + 1}` && option.text.length > 0 && option.text.length <= 2200) ? options : []
+}
+
 function withStudioHeroFinalVisualQualityLock(prompt: string, isFreeAi: boolean, isJsonMode = false) {
   const cleanPrompt = prompt.trim()
   if (!cleanPrompt) return cleanPrompt
@@ -3419,6 +3429,7 @@ serve(async (req) => {
     const inputImage1Path = isFreeAiRequest ? '' : normalizeStoragePath(body.inputImage1Path, user.id)
     const requestedJobId = isUuid(body.jobId) ? String(body.jobId) : crypto.randomUUID()
     const jobMode = isFreeAiRequest ? 'free_ai' : 'dynamic_reel'
+    const publicationOptions = normalizeStudioPublicationOptions(body.publicationOptions)
     const productCode = productCodeForVeoMode(jobMode)
     markDiagnosticStage('LOG 1 OK - payload validado inicialmente', {
       userId: user.id,
@@ -3562,8 +3573,9 @@ serve(async (req) => {
         model,
         prompt_final: null,
         input_image_1_path: inputImage1Path || null,
-        input_image_2_path: inputImage2Path || null,
-        tokens_reserved: 0,
+         input_image_2_path: inputImage2Path || null,
+         publication_options: publicationOptions,
+         tokens_reserved: 0,
       })
       .select('id')
       .single()

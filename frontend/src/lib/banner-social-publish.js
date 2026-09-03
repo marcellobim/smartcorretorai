@@ -1,8 +1,11 @@
 const PENDING_BANNER_PUBLICATION_PREFIX = 'smartcorretorai:banner-publication:v1'
 const BANNER_SOCIAL_PUBLISH_FUNCTION = 'social-publish-banner'
 const VALID_DESTINATIONS = new Set(['instagram', 'facebook'])
+const MAX_CAPTION_LENGTH = 2200
 
 const text = value => typeof value === 'string' ? value.trim() : ''
+const caption = value => typeof value === 'string' ? value : ''
+const captionLength = value => Array.from(caption(value)).length
 const optionNumber = optionId => Number(text(optionId).match(/(\d+)$/)?.[1] || 0)
 
 const pendingKey = userId => `${PENDING_BANNER_PUBLICATION_PREFIX}:${text(userId)}`
@@ -23,7 +26,7 @@ export function buildBannerPublicationIntent({ campaign, field, optionIndex = 0 
   const sourceId = text(campaign?.sourceId)
   const media = selectBannerMediaForOption(campaign?.files, optionId)
   const mediaAssetId = text(media?.assetId || media?.id)
-  if (!optionId || !captionSnapshot || !sourceType || !sourceId || !mediaAssetId || !media?.previewUrl) {
+  if (!optionId || captionLength(captionSnapshot) > MAX_CAPTION_LENGTH || !sourceType || !sourceId || !mediaAssetId || !media?.previewUrl) {
     throw new Error('banner_publication_identity_incomplete')
   }
   return {
@@ -53,7 +56,7 @@ export function toPendingBannerPublication(intent) {
 export function preservePendingBannerPublication(storage, userId, intent) {
   if (!storage || !text(userId)) return false
   const pending = toPendingBannerPublication(intent)
-  if (!pending.sourceType || !pending.sourceId || !pending.mediaAssetId || !pending.optionId || !pending.captionSnapshot) return false
+  if (!pending.sourceType || !pending.sourceId || !pending.mediaAssetId || !pending.optionId || captionLength(pending.captionSnapshot) > MAX_CAPTION_LENGTH) return false
   try {
     storage.setItem(pendingKey(userId), JSON.stringify(pending))
     return true
@@ -66,7 +69,7 @@ export function readPendingBannerPublication(storage, userId) {
   if (!storage || !text(userId)) return null
   try {
     const pending = toPendingBannerPublication(JSON.parse(storage.getItem(pendingKey(userId)) || 'null'))
-    return pending.sourceType && pending.sourceId && pending.mediaAssetId && pending.optionId && pending.captionSnapshot ? pending : null
+    return pending.sourceType && pending.sourceId && pending.mediaAssetId && pending.optionId && captionLength(pending.captionSnapshot) <= MAX_CAPTION_LENGTH ? pending : null
   } catch {
     return null
   }
@@ -92,8 +95,8 @@ export function restorePendingBannerPublication({ campaign, pending } = {}) {
       && restored.sourceId === pending.sourceId
       && restored.mediaAssetId === pending.mediaAssetId
       && restored.optionId === pending.optionId
-      && restored.captionSnapshot === pending.captionSnapshot
-      ? restored
+      && captionLength(pending.captionSnapshot) <= MAX_CAPTION_LENGTH
+      ? { ...restored, captionSnapshot: pending.captionSnapshot }
       : null
   } catch {
     return null
@@ -110,7 +113,9 @@ const normalizeDestinations = destinations => {
 
 export function buildBannerPublicationRequest(intent, destinations, action = 'publish') {
   const normalizedDestinations = normalizeDestinations(destinations)
-  if (intent?.sourceType !== BANNER_PUBLICATION_SOURCE_TYPE || !text(intent?.sourceId) || !text(intent?.mediaAssetId) || !text(intent?.optionId)) {
+  const captionSnapshot = caption(intent?.captionSnapshot)
+  if (intent?.sourceType !== BANNER_PUBLICATION_SOURCE_TYPE || !text(intent?.sourceId) || !text(intent?.mediaAssetId) || !text(intent?.optionId)
+      || captionLength(captionSnapshot) > MAX_CAPTION_LENGTH) {
     throw new Error('banner_publication_identity_incomplete')
   }
   return {
@@ -118,6 +123,7 @@ export function buildBannerPublicationRequest(intent, destinations, action = 'pu
     source: { type: BANNER_PUBLICATION_SOURCE_TYPE, id: text(intent.sourceId) },
     media_asset_id: text(intent.mediaAssetId),
     option_id: text(intent.optionId),
+    caption_snapshot: captionSnapshot,
     destinations: normalizedDestinations,
   }
 }

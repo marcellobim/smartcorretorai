@@ -54,6 +54,30 @@ verify_jwt = false
 [functions.creation-download]
 verify_jwt = false
 
+[functions.social-media-lease]
+verify_jwt = false
+
+[functions.social-publish-instagram-job]
+verify_jwt = false
+
+[functions.social-publish-facebook-job]
+verify_jwt = false
+
+[functions.social-publish-banner]
+verify_jwt = false
+
+[functions.social-publish-video]
+verify_jwt = false
+
+[functions.social-publish-instagram-video-job]
+verify_jwt = false
+
+[functions.social-publish-facebook-video-job]
+verify_jwt = false
+
+[functions.social-publish-worker]
+verify_jwt = false
+
 [functions.stripe-checkout]
 verify_jwt = false
 
