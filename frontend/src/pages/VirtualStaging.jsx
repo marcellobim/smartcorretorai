@@ -29,6 +29,7 @@ import { formatBrazilianPhone } from '../../../supabase/functions/_shared/produc
 import { buildSmartSpaceRecovery, getSmartSpaceRecoveryKey, normalizeSmartSpaceResult, normalizeSmartSpaceVideo, parseSmartSpaceRecovery, readSmartSpaceRecoveryClientRequestId, resolveSmartSpaceRecoveryInputs } from '../lib/smart-space-results'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { buildSmartSpaceImagePublicationIntent, buildSmartSpaceVideoPublicationIntent, clearPendingSmartSpacePublication, preservePendingSmartSpacePublication, publishSmartSpacePublication, readPendingSmartSpacePublication, recoverSmartSpacePublication, restorePendingSmartSpacePublication } from '../lib/smart-space-social-publish'
+import { runVirtualStagingInitialDiscovery, VIRTUAL_STAGING_DISCOVERY_FAILURE_MESSAGE } from '../lib/virtual-staging-discovery'
 const VIRTUAL_STAGING_BEFORE_IMAGE = '/virtual-staging/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/virtual-staging/virtual-staging-after.png'
 
@@ -538,26 +539,37 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       setStatus('generating')
       setMessage('Procurando sua criação mais recente...')
       void (async () => {
-        const { data, error } = await supabase.functions.invoke('virtual-staging-status', { body: { action: 'discover_latest', style: discoveryStyle } })
-        if (error || !data?.ok) {
-          recoveryStartedJobIdRef.current = ''
-          setStatus('idle')
-          setMessage('')
-          return
+        let recoveryStarted = false
+        let recoveryMessage = ''
+        try {
+          const outcome = await runVirtualStagingInitialDiscovery({
+            style: discoveryStyle,
+            invokeDiscovery: (body, signal) => supabase.functions.invoke('virtual-staging-status', { body, signal }),
+            buildRecovery: data => {
+              const selectedCta = isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : ''
+              const includeProfessionalPhone = (isLifeInProperty || isBrokerPresentation || ctaEnabled === true) && includePhone === true
+              const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: 'pt-BR', cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [] })
+              return { jobId: data.jobId, status: data.status || 'generating', campaignPackage, updatedAt: Date.now() }
+            },
+            persistRecovery: recovery => sessionStorage.setItem(activeJobKey, JSON.stringify(recovery)),
+            clearRecovery: () => sessionStorage.removeItem(activeJobKey),
+            startPolling: jobId => {
+              recoveryStartedJobIdRef.current = jobId
+              setMessage('Retomando sua criação...')
+              poll(jobId)
+            },
+          })
+          recoveryStarted = outcome.state === 'started'
+          recoveryMessage = outcome.state === 'failed' ? VIRTUAL_STAGING_DISCOVERY_FAILURE_MESSAGE : ''
+        } catch {
+          recoveryMessage = VIRTUAL_STAGING_DISCOVERY_FAILURE_MESSAGE
+        } finally {
+          if (!recoveryStarted) {
+            recoveryStartedJobIdRef.current = ''
+            setStatus('idle')
+            setMessage(recoveryMessage)
+          }
         }
-        if (!data?.jobId) {
-          recoveryStartedJobIdRef.current = ''
-          setStatus('idle')
-          setMessage('')
-          return
-        }
-        const selectedCta = isLifeInProperty || isBrokerPresentation || ctaEnabled === true ? cta : ''
-        const includeProfessionalPhone = (isLifeInProperty || isBrokerPresentation || ctaEnabled === true) && includePhone === true
-        const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: 'pt-BR', cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [] })
-        sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId: data.jobId, status: data.status || 'generating', campaignPackage, updatedAt: Date.now() }))
-        recoveryStartedJobIdRef.current = data.jobId
-        setMessage('Retomando sua criação...')
-        poll(data.jobId)
       })()
       return
     }
