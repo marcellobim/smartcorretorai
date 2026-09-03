@@ -87,8 +87,13 @@ function dependencies(overrides: Partial<RuntimeDependencies> = {}) {
     now: () => { clock += 25; return clock },
     log: () => undefined,
     prepareEconomy: async ({ imageCount }) => ({ image_count: imageCount, smart_tokens_reserved: imageCount * 30 }),
-    claimEconomy: async () => ({ item: { id: '22222222-2222-4222-8222-222222222222', status: 'processing' }, claimed: true }),
+    recoverEconomy: async () => ({ request: null, items: [] }),
+    claimStage: async ({ stage }) => ({ item: { id: '22222222-2222-4222-8222-222222222222', status: 'processing', stage_state: stage === 'redecorate' ? 'redecorating' : 'removing' }, claimed: true, claimToken: crypto.randomUUID() }),
+    checkpointEconomy: async () => undefined,
+    checkpointFinalEconomy: async () => undefined,
+    reconcileFinalEconomy: async () => ({}),
     finalizeEconomy: async () => undefined,
+    failBeforeProvider: async () => undefined,
     ...overrides,
   }
   return deps
@@ -120,12 +125,22 @@ test('exige o módulo furnish-renovate e rejeita outros módulos', async () => {
 })
 
 test('valida tipo de transformação e estilo por allowlist', async () => {
-  assert.deepEqual(VIRTUAL_STAGING_TRANSFORMATION_TYPES, ['empty_or_nearly_empty', 'mixed'])
+  assert.deepEqual(VIRTUAL_STAGING_TRANSFORMATION_TYPES, ['furnish', 'remove_furniture', 'remove_and_redecorate', 'clear_area'])
   assert.deepEqual(VIRTUAL_STAGING_DECORATION_STYLES, ['cozy', 'contemporary'])
   const invalidTransformation = await json(await handleVirtualStagingImageTest(request({ ...validBody, transformation_type: 'free' }), dependencies()))
   const invalidStyle = await json(await handleVirtualStagingImageTest(request({ ...validBody, decoration_style: 'industrial' }), dependencies()))
   assert.equal(invalidTransformation.code, 'invalid_transformation_type')
   assert.equal(invalidStyle.code, 'invalid_decoration_style')
+})
+
+test('não exige nem aceita estilo nas ações de remoção e limpeza', async () => {
+  for (const transformation_type of ['remove_furniture', 'clear_area']) {
+    const withoutStyle = { ...validBody, transformation_type }
+    delete (withoutStyle as Partial<typeof validBody>).decoration_style
+    assert.equal((await handleVirtualStagingImageTest(request(withoutStyle), dependencies())).status, 200)
+    const withStyle = await json(await handleVirtualStagingImageTest(request({ ...withoutStyle, decoration_style: 'cozy' }), dependencies()))
+    assert.equal(withStyle.code, 'unexpected_decoration_style')
+  }
 })
 
 test('rejeita prompt e parâmetros internos enviados pelo cliente', async () => {
@@ -451,8 +466,10 @@ test('reserva e liquida Smart Tokens sem expor provider ao runtime', () => {
   const runtimeSource = readFileSync(new URL('./runtime.ts', import.meta.url), 'utf8')
   const indexSource = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
   const combined = `${runtimeSource}\n${indexSource}`
-  assert.match(combined, /prepare_virtual_staging_image_request/)
-  assert.match(combined, /finalize_virtual_staging_image_item/)
+  assert.match(combined, /prepare_smart_space_request/)
+  assert.match(combined, /claim_smart_space_stage/)
+  assert.match(combined, /checkpoint_smart_space_free_space/)
+  assert.match(combined, /finalize_smart_space_item/)
   assert.doesNotMatch(combined, /virtual-staging-(?:generate|status)|smart-tour|vida.no.im.vel|apresenta..o.pelo.corretor/i)
   assert.doesNotMatch(combined, /_shared\/creations|creation-runtime|recordSessionOutput|finalizeSession|finalize_session|virtual_staging_session_outputs|creation_id/)
   assert.doesNotMatch(runtimeSource, /\bfetch\s*\(/)
@@ -470,14 +487,15 @@ test('o adaptador isolado usa Image API multipart no backend, autenticação e S
   assert.match(indexSource, /form\.append\('background', input\.background\)/)
   assert.match(indexSource, /supabase\.auth\.getUser\(token\)/)
   assert.match(indexSource, /STORAGE_BUCKET = 'studio-videos'/)
-  assert.doesNotMatch(indexSource, /createSignedUrl|getPublicUrl/)
+  assert.doesNotMatch(indexSource.slice(0, indexSource.indexOf('video: {')), /createSignedUrl|getPublicUrl/)
+  assert.doesNotMatch(indexSource, /getPublicUrl/)
 })
 
 test('terminaliza economicamente uma imagem entregue com uso real', async () => {
   const statuses: string[] = []
   const deps = dependencies({
     openAI: { editImage: async () => ({ bytes: jpeg(1536, 1024), usage: { input_tokens: 10, output_tokens: 12, total_tokens: 22, input_tokens_details: { image_tokens: 8, text_tokens: 2 } } }) },
-    finalizeEconomy: async input => { statuses.push(input.status) },
+    finalizeEconomy: async input => { statuses.push(input.outcome) },
   })
   const response = await handleVirtualStagingImageTest(request(validBody), deps)
   assert.equal(response.status, 200)
@@ -491,7 +509,7 @@ test('terminaliza como failed toda falha posterior ao claim econômico', async (
     const statuses: string[] = []
     const deps = dependencies({
       openAI: { editImage: async () => ({ bytes }) },
-      finalizeEconomy: async input => { statuses.push(input.status) },
+      finalizeEconomy: async input => { statuses.push(input.outcome) },
     })
     const response = await handleVirtualStagingImageTest(request(validBody), deps)
     assert.equal(response.status, 502)
@@ -501,7 +519,7 @@ test('terminaliza como failed toda falha posterior ao claim econômico', async (
   const uploadStatuses: string[] = []
   const uploadResponse = await handleVirtualStagingImageTest(request(validBody), dependencies({
     upload: async () => { throw new Error('upload_failed') },
-    finalizeEconomy: async input => { uploadStatuses.push(input.status) },
+    finalizeEconomy: async input => { uploadStatuses.push(input.outcome) },
   }))
   assert.equal(uploadResponse.status, 500)
   assert.ok(uploadStatuses.includes('failed'))
@@ -509,18 +527,31 @@ test('terminaliza como failed toda falha posterior ao claim econômico', async (
 
 test('reserva 30 ST por imagem antes da primeira chamada paga e bloqueia saldo insuficiente', async () => {
   let edits = 0
-  const prepared = await json(await handleVirtualStagingImageTest(request({ action: 'prepare', client_request_id: requestId, image_count: 5 }), dependencies({
+  const prepared = await json(await handleVirtualStagingImageTest(request({ action: 'prepare', client_request_id: requestId, image_count: 5, transformation_type: 'furnish', decoration_style: 'cozy' }), dependencies({
     prepareEconomy: async ({ imageCount }) => ({ smart_tokens_reserved: imageCount * 30 }),
     openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
   })))
   assert.equal(prepared.quoted_tokens, 150)
   assert.equal(edits, 0)
 
-  const insufficient = await handleVirtualStagingImageTest(request({ action: 'prepare', client_request_id: requestId, image_count: 1 }), dependencies({
+  const insufficient = await handleVirtualStagingImageTest(request({ action: 'prepare', client_request_id: requestId, image_count: 1, transformation_type: 'furnish', decoration_style: 'cozy' }), dependencies({
     prepareEconomy: async () => { throw new Error('Creditos insuficientes para esta geracao.') },
   }))
   assert.equal(insufficient.status, 402)
   assert.equal(edits, 0)
+})
+
+test('reserva 60 ST por imagem somente em remover e redecorar', async () => {
+  let preparedInput: Record<string, unknown> | undefined
+  const prepared = await json(await handleVirtualStagingImageTest(request({
+    action: 'prepare', client_request_id: requestId, image_count: 3,
+    transformation_type: 'remove_and_redecorate', decoration_style: 'contemporary',
+  }), dependencies({
+    prepareEconomy: async input => { preparedInput = input; return { status: 'processing' } },
+  })))
+  assert.equal(prepared.unit_cost, 60)
+  assert.equal(prepared.quoted_tokens, 180)
+  assert.equal(preparedInput?.transformationType, 'remove_and_redecorate')
 })
 
 test('replay de item terminal não chama OpenAI nem debita novamente', async () => {
@@ -528,7 +559,7 @@ test('replay de item terminal não chama OpenAI nem debita novamente', async () 
   let finalizations = 0
   const result = { output_path: `${userId}/virtual-staging-images/results/item/generated-01.jpg` }
   const response = await handleVirtualStagingImageTest(request(validBody), dependencies({
-    claimEconomy: async () => ({ item: { id: 'item', status: 'completed', result, provider_usage: {} }, claimed: false }),
+    claimStage: async () => ({ item: { id: 'item', status: 'completed', stage_state: 'completed', result, provider_usage: {} }, claimed: false, claimToken: null }),
     openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
     finalizeEconomy: async () => { finalizations += 1 },
   }))
@@ -536,4 +567,182 @@ test('replay de item terminal não chama OpenAI nem debita novamente', async () 
   assert.equal(edits, 0)
   assert.equal(finalizations, 0)
   assert.equal((await json(response)).replay, true)
+})
+
+test('Remover e redecorar usa exatamente a saída da etapa 1 como entrada da etapa 2', async () => {
+  const firstBytes = jpeg(1536, 1024)
+  const secondBytes = jpeg(1536, 1024)
+  const inputs: Uint8Array[] = []
+  const prompts: string[] = []
+  const uploads: string[] = []
+  const events: string[] = []
+  let call = 0
+  const body = { ...validBody, transformation_type: 'remove_and_redecorate', decoration_style: 'contemporary' }
+  const result = await json(await handleVirtualStagingImageTest(request(body), dependencies({
+    openAI: { editImage: async input => {
+      events.push(call === 0 ? 'edit_stage_1' : 'edit_stage_2')
+      inputs.push(input.bytes)
+      prompts.push(input.prompt)
+      call += 1
+      return { bytes: call === 1 ? firstBytes : secondBytes, usage: { total_tokens: call * 10 } }
+    } },
+    upload: async path => { uploads.push(path); events.push(path.endsWith('free-space.jpg') ? 'upload_stage_1' : 'upload_stage_2') },
+    checkpointEconomy: async input => {
+      assert.equal(input.result.delivery_status, 'stage_1_completed')
+      assert.equal(input.result.output_path, `${userId}/virtual-staging-images/results/22222222-2222-4222-8222-222222222222/free-space.jpg`)
+      assert.equal(input.result.free_space_path, input.result.output_path)
+      events.push('checkpoint_stage_1')
+    },
+  })))
+  assert.equal(result.ok, true)
+  assert.equal(call, 2)
+  assert.deepEqual(inputs[1], firstBytes)
+  assert.match(prompts[0], /ESPAÇO LIVRE/)
+  assert.match(prompts[1], /composição completa, funcional, realista e pronta para morar/)
+  assert.deepEqual(uploads.map(path => path.split('/').at(-1)), ['free-space.jpg', 'new-decoration.jpg'])
+  assert.deepEqual(events, ['edit_stage_1', 'upload_stage_1', 'checkpoint_stage_1', 'edit_stage_2', 'upload_stage_2'])
+  assert.deepEqual(result.result.stages.map((stage: Record<string, unknown>) => stage.kind), ['free_space', 'new_decoration'])
+})
+
+test('checkpoint do espaço livre define output_path uma única vez e sem spread ambíguo', () => {
+  const runtimeSource = readFileSync(new URL('./runtime.ts', import.meta.url), 'utf8')
+  const checkpointStart = runtimeSource.indexOf('const checkpointResult = {')
+  const checkpointEnd = runtimeSource.indexOf('const checkpointClaim =', checkpointStart)
+  assert.ok(checkpointStart >= 0 && checkpointEnd > checkpointStart)
+  const checkpointSource = runtimeSource.slice(checkpointStart, checkpointEnd)
+  assert.equal(checkpointSource.match(/\boutput_path\s*:/g)?.length, 1)
+  assert.doesNotMatch(checkpointSource, /\.\.\.freeSpace\.result/)
+  assert.match(checkpointSource, /output_path: freeSpacePath/)
+})
+
+test('falha na etapa 2 preserva Espaço livre como entrega parcial e não liquida duas vezes', async () => {
+  let edits = 0
+  const finalizations: Array<Record<string, any>> = []
+  const body = { ...validBody, transformation_type: 'remove_and_redecorate', decoration_style: 'cozy' }
+  const response = await handleVirtualStagingImageTest(request(body), dependencies({
+    openAI: { editImage: async input => {
+      edits += 1
+      if (edits === 2) throw new Error('stage_two_failed')
+      return { bytes: jpegForSize(input.size), usage: { total_tokens: 11 } }
+    } },
+    finalizeEconomy: async input => { finalizations.push(input) },
+  }))
+  const result = await json(response)
+  assert.equal(response.status, 200)
+  assert.equal(result.partial, true)
+  assert.equal(result.result.delivery_status, 'partial')
+  assert.equal(result.result.stages.length, 1)
+  assert.equal(result.result.stages[0].kind, 'free_space')
+  assert.equal(finalizations.length, 1)
+  assert.equal(finalizations[0].outcome, 'partial')
+})
+
+test('recovery read-only devolve estados e resultados sem claim, provider ou settlement', async () => {
+  let claims = 0
+  let edits = 0
+  let finalizations = 0
+  const response = await handleVirtualStagingImageTest(request({ action: 'recover', client_request_id: requestId }), dependencies({
+    recoverEconomy: async () => ({
+      request: { status: 'completed', image_count: 1, completed_count: 1, failed_count: 0 },
+      items: [{ item_index: 0, status: 'completed', result: { output_path: 'private/result.jpg' } }],
+    }),
+    claimStage: async () => { claims += 1; throw new Error('unexpected') },
+    openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
+    finalizeEconomy: async () => { finalizations += 1 },
+  }))
+  const result = await json(response)
+  assert.equal(response.status, 200)
+  assert.equal(result.items[0].result.output_path, 'private/result.jpg')
+  assert.deepEqual([claims, edits, finalizations], [0, 0, 0])
+})
+
+test('recovery após etapa 1 expõe o checkpoint sem repetir nenhuma geração', async () => {
+  let edits = 0
+  const response = await handleVirtualStagingImageTest(request({ action: 'recover', client_request_id: requestId }), dependencies({
+    recoverEconomy: async () => ({
+      request: { status: 'processing', image_count: 1, completed_count: 0, failed_count: 0 },
+      items: [{ item_index: 0, status: 'processing', result: { delivery_status: 'stage_1_completed', stages: [{ kind: 'free_space', output_path: 'private/free-space.jpg' }] } }],
+    }),
+    openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
+  }))
+  const result = await json(response)
+  assert.equal(result.request.status, 'processing')
+  assert.equal(result.items[0].result.delivery_status, 'stage_1_completed')
+  assert.equal(edits, 0)
+})
+
+test('retomada reconcilia output final persistido sem nova chamada ao provider', async () => {
+  let claims = 0
+  let edits = 0
+  let reconciliations = 0
+  const finalResult = { delivery_status: 'completed', final_output_path: 'private/new-decoration.jpg', output_path: 'private/new-decoration.jpg' }
+  const response = await handleVirtualStagingImageTest(request({ action: 'resume', client_request_id: requestId, item_index: 0 }), dependencies({
+    recoverEconomy: async () => ({
+      request: { transformation_type: 'remove_and_redecorate', decoration_style: 'cozy' },
+      items: [{ item_index: 0, stage_state: 'redecorating', result: finalResult }],
+    }),
+    claimStage: async () => { claims += 1; throw new Error('unexpected') },
+    openAI: { editImage: async () => { edits += 1; throw new Error('unexpected') } },
+    reconcileFinalEconomy: async () => { reconciliations += 1; return { result: finalResult, provider_usage: { total_tokens: 22 } } },
+  }))
+  const result = await json(response)
+  assert.equal(response.status, 200)
+  assert.equal(result.replay, true)
+  assert.equal(result.result.output_path, finalResult.output_path)
+  assert.deepEqual([claims, edits, reconciliations], [0, 0, 1])
+})
+
+test('duas retomadas concorrentes da etapa 2 permitem somente uma chamada ao provider', async () => {
+  let claimed = false
+  let edits = 0
+  const checkpoint = {
+    action: 'remove_and_redecorate', delivery_status: 'stage_1_completed', free_space_path: 'private/free-space.jpg',
+    stages: [{ kind: 'free_space', label: 'Espaço livre', output_path: 'private/free-space.jpg', width: 1536, height: 1024, mime_type: 'image/jpeg', size_bytes: 100 }],
+  }
+  const shared = dependencies({
+    recoverEconomy: async () => ({
+      request: { transformation_type: 'remove_and_redecorate', decoration_style: 'cozy' },
+      items: [{ item_index: 0, stage_state: 'free_space_completed', result: checkpoint }],
+    }),
+    claimStage: async ({ stage }) => {
+      assert.equal(stage, 'redecorate')
+      if (claimed) return { item: { id: 'item', status: 'processing', stage_state: 'redecorating', result: checkpoint }, claimed: false, claimToken: null }
+      claimed = true
+      return { item: { id: 'item', status: 'processing', stage_state: 'redecorating', result: checkpoint, transformation_type: 'remove_and_redecorate', decoration_style: 'cozy', stage1_usage: { total_tokens: 10 } }, claimed: true, claimToken: '44444444-4444-4444-8444-444444444444' }
+    },
+    download: async () => ({ bytes: png(), contentType: 'image/png' }),
+    openAI: { editImage: async input => { edits += 1; return { bytes: jpegForSize(input.size), usage: { total_tokens: 12 } } } },
+  })
+  const resumeBody = { action: 'resume', client_request_id: requestId, item_index: 0 }
+  const [first, second] = await Promise.all([
+    handleVirtualStagingImageTest(request(resumeBody), shared),
+    handleVirtualStagingImageTest(request(resumeBody), shared),
+  ])
+  assert.equal(edits, 1)
+  assert.deepEqual([first.status, second.status].sort(), [200, 202])
+})
+
+test('refresh antes da etapa 1 retoma usando o input persistido sem duplicar claim', async () => {
+  let claimed = false
+  let edits = 0
+  const deps = dependencies({
+    recoverEconomy: async () => ({
+      request: { transformation_type: 'furnish', decoration_style: 'cozy' },
+      items: [{ item_index: 0, stage_state: 'awaiting_processing', result: {} }],
+    }),
+    claimStage: async ({ stage }) => {
+      assert.equal(stage, 'single')
+      if (claimed) return { item: { id: 'item', status: 'processing', stage_state: 'removing', result: {} }, claimed: false, claimToken: null }
+      claimed = true
+      return { item: { id: 'item', status: 'processing', stage_state: 'removing', transformation_type: 'furnish', decoration_style: 'cozy', result: {} }, claimed: true, claimToken: '55555555-5555-4555-8555-555555555555' }
+    },
+    openAI: { editImage: async input => { edits += 1; return { bytes: jpegForSize(input.size) } } },
+  })
+  const body = { action: 'resume', client_request_id: requestId, item_index: 0, input_path: validPath }
+  const [first, second] = await Promise.all([
+    handleVirtualStagingImageTest(request(body), deps),
+    handleVirtualStagingImageTest(request(body), deps),
+  ])
+  assert.equal(edits, 1)
+  assert.deepEqual([first.status, second.status].sort(), [200, 202])
 })

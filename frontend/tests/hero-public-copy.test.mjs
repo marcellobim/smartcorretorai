@@ -10,7 +10,10 @@ const officialDescription = 'Nossa IA transforma as fotos e informações do im�
 
 const dashboard = read('src/pages/Dashboard.jsx')
 const product = read('src/pages/HeroNext.jsx')
+const recovery = read('src/lib/hero-next-recovery.js')
 const showcase = read('src/components/hero/HeroShowcase.jsx')
+const landing = read('src/pages/LandingPage.jsx')
+const landingHero = landing.slice(landing.indexOf('function Hero()'), landing.indexOf('function PositioningStrip()'))
 const publicEntryPoints = [
   dashboard,
   product,
@@ -38,7 +41,7 @@ test('uses the approved Banner Imobiliário communication on Dashboard', () => {
 test('uses the approved name and description throughout the active product', () => {
   assert.match(product, /<Header title="Banner Imobiliário"/)
   assert.ok(product.includes(officialDescription))
-  assert.match(product, /sourceProduct: 'Banner Imobiliário'/)
+  assert.match(recovery, /sourceProduct: 'Banner Imobiliário'/)
   assert.match(showcase, /produzidos pelo Banner Imobiliário/)
 })
 
@@ -46,4 +49,24 @@ test('removes legacy Hero IA communication from every public entry point in scop
   for (const source of publicEntryPoints) {
     assert.doesNotMatch(source, /\bHero IA\b|Criar Hero/)
   }
+})
+
+test('landing hero comunica publicação direta somente no Instagram e Facebook', () => {
+  assert.ok(landingHero.includes('Crie vídeos, imagens e campanhas para vender, alugar e captar imóveis ou profissionais.'))
+  assert.ok(landingHero.includes('publique diretamente'))
+  assert.ok(landingHero.includes('no Instagram e Facebook, em poucos passos.'))
+  assert.ok(landingHero.includes('Crie, revise e publique sem sair do SmartCorretorAI.'))
+  assert.doesNotMatch(landingHero, /publicação automática|agendamento|TikTok|LinkedIn|YouTube/i)
+})
+
+test('landing hero preserva estrutura responsiva, CTAs, trial e mídia', () => {
+  assert.match(landingHero, /\[text-wrap:balance\]/)
+  assert.match(landingHero, /sm:text-5xl/)
+  assert.match(landingHero, /sm:flex-row/)
+  assert.match(landingHero, /bg-gradient-to-r from-violet-400 to-fuchsia-400[\s\S]*?publique diretamente/)
+  assert.ok(landingHero.includes('Experimentar grátis'))
+  assert.ok(landingHero.includes('Ver tudo o que posso criar'))
+  assert.ok(landingHero.includes('Comece grátis com 200 Smart Tokens após confirmar seu e-mail. Sem cartão.'))
+  assert.match(landingHero, /HERO_PRODUCT_SLIDES\.map/)
+  assert.match(landingHero, /<HeroMedia slide=\{slide\} active=\{active\} \/>/)
 })

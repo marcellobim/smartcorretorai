@@ -13,6 +13,7 @@ import {
   Linkedin,
   Mail,
   PlayCircle,
+  Send,
   Share2,
 } from 'lucide-react'
 import { buildCampaignPackage } from './buildCampaignPackage'
@@ -20,6 +21,11 @@ import { buildCampaignPackageShareProps } from './campaignPackageShare'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../../lib/download-file'
 import SharePublishActions from '../share/SharePublishActions'
 import TestimonialInvite from '../testimonials/TestimonialInvite'
+import BannerPublishDialog from './BannerPublishDialog'
+import { buildBannerPublicationIntent, restorePendingBannerPublication } from '../../lib/banner-social-publish'
+import { buildSmartTourPublicationIntent, restorePendingSmartTourPublication } from '../../lib/smart-tour-social-publish'
+import { buildStudioPublicationIntent, restorePendingStudioPublication } from '../../lib/studio-social-publish'
+import { buildSmartSpaceCampaignPublicationIntent, restorePendingSmartSpaceCampaignPublication } from '../../lib/smart-space-social-publish'
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -182,13 +188,59 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, sharePublish, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
   const [downloadingKey, setDownloadingKey] = useState('')
   const [downloadError, setDownloadError] = useState('')
+  const [bannerPublishIntent, setBannerPublishIntent] = useState(null)
+  const resumedBannerPublishRef = useRef('')
   const videoRef = useRef(null)
+
+  useEffect(() => {
+    if (bannerPublishIntent || !bannerPublish?.resumeIntent) return
+    const resumeKey = `${bannerPublish.resumeIntent.sourceId}:${bannerPublish.resumeIntent.mediaAssetId}:${bannerPublish.resumeIntent.optionId}`
+    if (resumedBannerPublishRef.current === resumeKey) return
+    const restored = restorePendingBannerPublication({ campaign, pending: bannerPublish.resumeIntent })
+    if (!restored) return
+    resumedBannerPublishRef.current = resumeKey
+    setBannerPublishIntent(restored)
+    bannerPublish.onResumed?.(restored)
+  }, [bannerPublish, bannerPublishIntent, campaign])
+
+  useEffect(() => {
+    if (bannerPublishIntent || !videoPublish?.resumeIntent) return
+    const resumeKey = `${videoPublish.resumeIntent.sourceId}:${videoPublish.resumeIntent.mediaAssetId}:${videoPublish.resumeIntent.optionId}`
+    if (resumedBannerPublishRef.current === resumeKey) return
+    const restored = restorePendingSmartTourPublication({ campaign, pending: videoPublish.resumeIntent })
+    if (!restored) return
+    resumedBannerPublishRef.current = resumeKey
+    setBannerPublishIntent(restored)
+    videoPublish.onResumed?.(restored)
+  }, [bannerPublishIntent, campaign, videoPublish])
+
+  useEffect(() => {
+    if (bannerPublishIntent || !studioPublish?.resumeIntent) return
+    const resumeKey = `${studioPublish.resumeIntent.sourceId}:${studioPublish.resumeIntent.mediaAssetId}:${studioPublish.resumeIntent.optionId}`
+    if (resumedBannerPublishRef.current === resumeKey) return
+    const restored = restorePendingStudioPublication({ campaign, pending: studioPublish.resumeIntent })
+    if (!restored) return
+    resumedBannerPublishRef.current = resumeKey
+    setBannerPublishIntent(restored)
+    studioPublish.onResumed?.(restored)
+  }, [bannerPublishIntent, campaign, studioPublish])
+
+  useEffect(() => {
+    if (bannerPublishIntent || !smartSpacePublish?.resumeIntent) return
+    const resumeKey = `${smartSpacePublish.resumeIntent.sourceId}:${smartSpacePublish.resumeIntent.mediaAssetId}`
+    if (resumedBannerPublishRef.current === resumeKey) return
+    const restored = restorePendingSmartSpaceCampaignPublication({ campaign, pending: smartSpacePublish.resumeIntent })
+    if (!restored) return
+    resumedBannerPublishRef.current = resumeKey
+    setBannerPublishIntent(restored)
+    smartSpacePublish.onResumed?.(restored)
+  }, [bannerPublishIntent, campaign, smartSpacePublish])
 
   const copy = async (value, key) => {
     if (!value) return
@@ -233,6 +285,20 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
     return download(url, filename, `share-${item?.id || 'media'}`, item?.sourceFile || item)
   }
 
+  const openBannerPublish = (field, optionIndex) => {
+    try {
+      setBannerPublishIntent(smartSpacePublish?.enabled
+        ? buildSmartSpaceCampaignPublicationIntent({ campaign, field })
+        : studioPublish?.enabled
+        ? buildStudioPublicationIntent({ campaign, field, optionIndex })
+        : campaign.sourceType === 'video_imobiliario'
+        ? buildSmartTourPublicationIntent({ campaign, field, optionIndex })
+        : buildBannerPublicationIntent({ campaign, field, optionIndex }))
+    } catch {
+      setDownloadError('Não foi possível identificar a criação e o texto selecionado com segurança.')
+    }
+  }
+
   return (
     <section className={`space-y-5 ${className}`} aria-labelledby="campaign-package-title">
       <header className="overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_55%,#f0fdfa_100%)] p-5 shadow-sm sm:p-7">
@@ -273,7 +339,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
                   </summary>
                   <div className="border-t border-slate-100 p-4">
                     {module.fields ? (
-                      <div className="space-y-4">{module.fields.map((field) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{field.label}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4"><CopyButton value={field.text} label={field.copyLabel} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
+                      <div className="space-y-4">{module.fields.map((field, fieldIndex) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{field.label}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4 flex flex-wrap gap-2"><CopyButton value={field.text} label={field.copyLabel} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} />{((bannerPublish?.enabled && campaign.sourceProduct === 'Banner Imobiliário') || (videoPublish?.enabled && campaign.sourceType === 'video_imobiliario') || studioPublish?.enabled || smartSpacePublish?.enabled) && module.id === 'social' && <button type="button" onClick={() => openBannerPublish(field, fieldIndex)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"><Send className="h-4 w-4" />Publicar</button>}</div></div>)}</div>
                     ) : (
                       <><p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{module.text}</p><div className="mt-4"><CopyButton value={module.text} label={module.copyLabel} copyKey={module.id} copiedKey={copiedKey} onCopy={copy} /></div></>
                     )}
@@ -302,6 +368,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       <TestimonialInvite />
 
       {onCreateNew && <button type="button" onClick={onCreateNew} className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50">{createNewLabel}</button>}
+      {bannerPublishIntent && <BannerPublishDialog intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} captionEditable={smartSpacePublish?.enabled === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
     </section>
   )
 }

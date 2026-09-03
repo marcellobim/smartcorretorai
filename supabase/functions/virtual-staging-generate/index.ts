@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL, startGeminiOmniVideo } from '../_shared/geminiOmniClient.ts'
-import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/virtual-staging/index.ts'
+import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, buildVirtualSpaceProviderBriefing, encodeSmartTourCaptionRenderId, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/virtual-staging/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
 import { buildOfficialHashtags } from '../_shared/official-hashtags.ts'
@@ -46,6 +46,7 @@ serve(withCors(async req => {
     const fallbackHashtags = activeVerticalVideo ? buildOfficialHashtags(hashtagContext) : []
     const briefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language,presenterReference:input.presenter_reference})
     const prompt = buildSmartTourVideoPrompt(briefing)
+    const providerPrompt = buildSmartTourVideoPrompt(buildVirtualSpaceProviderBriefing(briefing))
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'virtual_staging_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:prompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
     const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode,metadata:{image_count:input.imagePaths.length + (presenterReferencePath ? 1 : 0),output_duration_seconds:10,resolution:'720x1280',fps:24,audio:true,presenter_reference:Boolean(presenterReferencePath)}})
@@ -66,7 +67,7 @@ serve(withCors(async req => {
       const presenterImages = presenterReferencePath ? await prepareGeminiImages(supabase,'studio-videos',[presenterReferencePath]) : []
       if (activeVerticalVideo) {
         const generated = await generateGeminiOmniVideoInline({
-          prompt,
+          prompt:providerPrompt,
           images:[...presenterImages,...images],
           aspectRatio:'9:16',
           timeoutMs:resolveVirtualSpaceInlineProviderTimeout(Date.now() - requestStartedAt,110_000),
@@ -105,7 +106,7 @@ serve(withCors(async req => {
           ? json({ok:true,jobId:input.clientRequestId,status:'completed',signedVideoUrl:persisted.signedVideoUrl,hashtags})
           : json({ok:true,jobId:input.clientRequestId,status:'generating',hashtags})
       }
-      const started = await startGeminiOmniVideo({prompt,images:[...presenterImages,...images],...(activeVerticalVideo ? {aspectRatio:'9:16' as const} : {})})
+      const started = await startGeminiOmniVideo({prompt:providerPrompt,images:[...presenterImages,...images],...(activeVerticalVideo ? {aspectRatio:'9:16' as const} : {})})
       const { error: providerIdError } = await supabase.from('video_jobs').update({status:'generating',provider_job_id:started.interactionId}).eq('id',input.clientRequestId).eq('user_id',user.id)
       if (providerIdError) throw new Error('provider_id_persist_failed')
       await updateGeminiVideoEconomyTelemetry(supabase,{userId:user.id,clientRequestId:input.clientRequestId,providerJobId:started.interactionId,model:SMART_TOUR_GEMINI_OMNI_MODEL}).catch(() => console.warn('[virtual-staging-generate] economy_telemetry_deferred'))

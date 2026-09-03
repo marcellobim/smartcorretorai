@@ -50,9 +50,23 @@ Não inclua pessoas, textos, logotipos, marcas-d’água ou elementos publicitá
 
 O resultado deve permanecer claramente reconhecível como a mesma fotografia e o mesmo imóvel, apenas mobiliado ou redecorado profissionalmente.`
 
+export const VIRTUAL_STAGING_REMOVAL_PROMPT_BASE = `Edite esta fotografia imobiliária de forma estritamente conservadora.
+
+Use a fotografia original como base visual e arquitetônica obrigatória. Preserve integralmente geometria, dimensões aparentes, paredes, teto, piso, portas, janelas, esquadrias, passagens, corredores, tomadas, interruptores, pilares, bancadas, armários planejados ou embutidos, louças, metais, marcenaria fixa, posição da câmera, perspectiva, lente, enquadramento, campo de visão, iluminação natural e contexto do imóvel.
+
+Não crie outro imóvel, outro ambiente, outro ângulo, outra perspectiva, novas áreas ou uma nova versão arquitetônica. Não mova a câmera e não expanda nem recorte a cena.
+
+[REGRA DA TRANSFORMAÇÃO]
+
+[REGRA DO ESTILO]
+
+Não inclua pessoas, textos, logotipos, marcas-d'água ou elementos publicitários. A saída deve permanecer claramente reconhecível como a mesma fotografia e o mesmo imóvel.`
+
 export const VIRTUAL_STAGING_TRANSFORMATION_TYPES = [
-  'empty_or_nearly_empty',
-  'mixed',
+  'furnish',
+  'remove_furniture',
+  'remove_and_redecorate',
+  'clear_area',
 ] as const
 
 export const VIRTUAL_STAGING_DECORATION_STYLES = [
@@ -60,7 +74,7 @@ export const VIRTUAL_STAGING_DECORATION_STYLES = [
   'contemporary',
 ] as const
 
-const VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES = ['furnished'] as const
+const VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES = ['empty_or_nearly_empty', 'mixed', 'furnished'] as const
 const VIRTUAL_STAGING_LEGACY_DECORATION_STYLES = ['modern', 'scandinavian', 'sophisticated'] as const
 const VIRTUAL_STAGING_ACCEPTED_TRANSFORMATION_TYPES = [...VIRTUAL_STAGING_TRANSFORMATION_TYPES, ...VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES] as const
 const VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES = [...VIRTUAL_STAGING_DECORATION_STYLES, ...VIRTUAL_STAGING_LEGACY_DECORATION_STYLES] as const
@@ -68,7 +82,25 @@ const VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES = [...VIRTUAL_STAGING_DECORATIO
 export type VirtualStagingTransformationType = typeof VIRTUAL_STAGING_ACCEPTED_TRANSFORMATION_TYPES[number]
 export type VirtualStagingDecorationStyle = typeof VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES[number]
 
+export function virtualStagingRequiresStyle(value: string) {
+  return ['furnish', 'remove_and_redecorate', 'empty_or_nearly_empty', 'mixed', 'furnished'].includes(value)
+}
+
+export function getVirtualStagingUnitCost(value: string) {
+  return value === 'remove_and_redecorate' ? 60 : 30
+}
+
 export const VIRTUAL_STAGING_TRANSFORMATION_RULES: Record<VirtualStagingTransformationType, string> = {
+  furnish: `Use a regra de mobiliário completo abaixo. O ambiente está vazio ou quase vazio e deve receber uma composição funcional, realista e proporcional, preservando integralmente o imóvel.`,
+  remove_furniture: `Remova visualmente somente móveis soltos e objetos removíveis, incluindo sofás, mesas, cadeiras, camas, racks, armários soltos, tapetes, quadros, objetos decorativos e plantas decorativas.
+
+Entregue o mesmo ambiente como ESPAÇO LIVRE. Preserve rigorosamente paredes, piso, teto, portas, janelas, esquadrias, tomadas, interruptores, bancadas fixas, armários planejados ou embutidos, louças, metais, eletrodomésticos embutidos, marcenaria fixa, estrutura, perspectiva, geometria, enquadramento e iluminação natural.
+
+Reconstrua de forma visualmente plausível apenas as superfícies que estavam ocultas pelos objetos removidos, sem inventar arquitetura, ampliar o ambiente ou alterar seus limites físicos. Não adicione móveis, decoração, pessoas, textos ou elementos novos.`,
+  remove_and_redecorate: `Esta ação é executada em duas etapas independentes. Na primeira etapa, remova os móveis seguindo integralmente a regra de REMOVER MÓVEIS. Na segunda etapa, use exclusivamente a imagem de espaço livre produzida na primeira etapa e aplique a regra de MOBILIAR, criando uma composição realmente nova.`,
+  clear_area: `Limpe visualmente a área removendo somente entulho, objetos soltos, resíduos, vegetação invasiva ou claramente removível e estruturas provisórias não permanentes que dificultem a leitura do espaço disponível.
+
+Preserve rigorosamente limites físicos, muros, cercas permanentes, construções estruturais, topografia, solo, árvores consolidadas, vizinhança, vias, perspectiva, geometria, enquadramento e contexto real. Não aumente o terreno, não altere divisas, não crie área inexistente e não faça demolições ambíguas. Não adicione mobiliário, paisagismo novo, edificações ou elementos publicitários.`,
   empty_or_nearly_empty: `Se o ambiente estiver vazio ou quase vazio, realize uma composição completa, funcional, realista e pronta para morar, incluindo os móveis, eletrodomésticos, eletrônicos, iluminação de apoio, armazenamento e decoração adequados ao cômodo sempre que houver espaço real. Não deixe grandes áreas vazias nem entregue apenas uma decoração superficial quando faltarem itens essenciais.
 
 Analise o tipo de ambiente e use somente elementos compatíveis e proporcionais.
@@ -182,15 +214,29 @@ export const VIRTUAL_STAGING_STYLE_RULES: Record<VirtualStagingDecorationStyle, 
 
 export function buildVirtualStagingPrompt(
   transformationType: VirtualStagingTransformationType,
-  decorationStyle: VirtualStagingDecorationStyle,
+  decorationStyle: VirtualStagingDecorationStyle | null,
+  stage: 'single' | 'remove' | 'redecorate' = 'single',
 ) {
-  const transformationRule = transformationType === 'mixed'
+  const resolvedTransformationType = transformationType === 'furnish'
+    ? 'empty_or_nearly_empty'
+    : transformationType === 'remove_and_redecorate' && stage === 'remove'
+      ? 'remove_furniture'
+      : transformationType === 'remove_and_redecorate' && stage === 'redecorate'
+        ? 'empty_or_nearly_empty'
+        : transformationType
+  const transformationRule = resolvedTransformationType === 'mixed'
     ? `${VIRTUAL_STAGING_TRANSFORMATION_RULES.mixed}\n\nPara qualquer imagem vazia ou quase vazia identificada no modo misto, siga integralmente esta mesma regra de completude:\n\n${VIRTUAL_STAGING_TRANSFORMATION_RULES.empty_or_nearly_empty}`
-    : VIRTUAL_STAGING_TRANSFORMATION_RULES[transformationType]
+    : VIRTUAL_STAGING_TRANSFORMATION_RULES[resolvedTransformationType]
+  const styleRule = decorationStyle
+    ? VIRTUAL_STAGING_STYLE_RULES[decorationStyle]
+    : 'Nenhum estilo decorativo deve ser aplicado nesta transformação.'
 
-  return VIRTUAL_STAGING_PROMPT_BASE
+  const promptBase = ['remove_furniture', 'clear_area'].includes(resolvedTransformationType)
+    ? VIRTUAL_STAGING_REMOVAL_PROMPT_BASE
+    : VIRTUAL_STAGING_PROMPT_BASE
+  return promptBase
     .replace('[REGRA DA TRANSFORMAÇÃO]', transformationRule)
-    .replace('[REGRA DO ESTILO]', VIRTUAL_STAGING_STYLE_RULES[decorationStyle])
+    .replace('[REGRA DO ESTILO]', styleRule)
 }
 
 export const ALLOWED_INPUT_MIME_TYPES = new Set([
@@ -206,7 +252,7 @@ export type VirtualStagingImageInput = {
   module: 'furnish-renovate'
   inputPath: string
   transformationType: VirtualStagingTransformationType
-  decorationStyle: VirtualStagingDecorationStyle
+  decorationStyle: VirtualStagingDecorationStyle | null
   clientRequestId: string
   itemIndex: number
 }
@@ -272,15 +318,19 @@ export function parseSingleImageInput(value: unknown): VirtualStagingImageInput 
     throw invalidInput('invalid_transformation_type', 'O tipo de transformação é inválido.')
   }
 
-  if (!VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES.includes(input.decoration_style as VirtualStagingDecorationStyle)) {
+  const requiresDecorationStyle = virtualStagingRequiresStyle(String(input.transformation_type))
+  if (requiresDecorationStyle && !VIRTUAL_STAGING_ACCEPTED_DECORATION_STYLES.includes(input.decoration_style as VirtualStagingDecorationStyle)) {
     throw invalidInput('invalid_decoration_style', 'O estilo de decoração é inválido.')
+  }
+  if (!requiresDecorationStyle && input.decoration_style !== undefined && input.decoration_style !== null && input.decoration_style !== '') {
+    throw invalidInput('unexpected_decoration_style', 'Esta transformação não utiliza estilo de decoração.')
   }
 
   return {
     module: 'furnish-renovate',
     inputPath: input.input_path.trim(),
     transformationType: input.transformation_type as VirtualStagingTransformationType,
-    decorationStyle: input.decoration_style as VirtualStagingDecorationStyle,
+    decorationStyle: requiresDecorationStyle ? input.decoration_style as VirtualStagingDecorationStyle : null,
     clientRequestId: input.client_request_id,
     itemIndex: Number(input.item_index),
   }

@@ -1,6 +1,7 @@
 import type { LifeScene, PresenterReference, PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
+import { composePtBrPropertySpeechFacts } from '../pt-br-speech.ts'
 
 export const SMART_TOUR_GEMINI_MISSION = `MISSÃO PRINCIPAL
 Você é um cinegrafista profissional especializado em imóveis.
@@ -191,6 +192,37 @@ export type SmartTourStructuredBriefing = {
   regrasObrigatorias: Array<{ codigo: string; valor: string | boolean | number }>
 }
 
+const LIFE_PROVIDER_VISUAL_RULES = new Set([
+  'legendas_obrigatorias_quando_ativas',
+  'timeline_temporal_fonte_efetiva',
+  'sequencia_comercial_vida_no_imovel',
+  'cta_deterministico',
+  'ultima_narracao_curta',
+])
+
+export function buildVirtualSpaceProviderBriefing(briefing: SmartTourStructuredBriefing) {
+  if (!briefing.vidaNoImovel) return briefing
+  return {
+    ...briefing,
+    configuracoes: { ...briefing.configuracoes, legendasAtivas: false, ctaAtivo: false },
+    cenas: briefing.cenas.map(scene => ({ ...scene, legenda: '' })),
+    timeline: {
+      ...briefing.timeline,
+      legendas: briefing.timeline.legendas.map(block => ({ ...block, texto: '' })),
+      cta: { ...briefing.timeline.cta, texto: '', titulo: '', telefone: '' },
+    },
+    legendas: { ativas: false },
+    cta: { titulo: '', telefone: '' },
+    regrasObrigatorias: [
+      ...briefing.regrasObrigatorias.filter(rule => !LIFE_PROVIDER_VISUAL_RULES.has(rule.codigo)),
+      {
+        codigo: 'vida_no_imovel_sem_texto_nativo',
+        valor: 'Não produzir, desenhar, gerar ou animar letras, palavras, legendas, subtítulos, preços, placas, logotipos, localização, destaque, CTA, telefone, selo, tipografia ou qualquer outro texto visual no vídeo-base. Preserve integralmente pessoas, imóvel, movimentos, áudio, duração e sincronização da narração. Toda apresentação visual de texto será aplicada uma única vez pelo compositor determinístico após a geração.',
+      },
+    ],
+  } satisfies SmartTourStructuredBriefing
+}
+
 const ANY = '*'
 
 export const SMART_TOUR_PHRASE_LIBRARY: readonly PhraseDefinition[] = [
@@ -349,14 +381,13 @@ const lifeSceneOpeningNarration = (property: PropertyContext, language: Supporte
 }
 
 const lifeSceneFactsNarration = (property: PropertyContext) => {
-  const facts = unique([
-    labelQuantity(property.bedrooms, 'dormitório', 'dormitórios'),
-    labelQuantity(property.suites, 'suíte', 'suítes'),
-    labelQuantity(property.parkingSpaces, 'vaga de garagem', 'vagas de garagem'),
-  ])
-  if (!facts.length) return ''
-  const list = facts.length === 1 ? facts[0] : `${facts.slice(0, -1).join(', ')} e ${facts.at(-1)}`
-  return `O imóvel possui ${list}.`
+  const facts = composePtBrPropertySpeechFacts({
+    bedrooms: property.bedrooms,
+    suites: property.suites,
+    parkingSpaces: property.parkingSpaces,
+    variant: 'concise',
+  })
+  return facts ? `O imóvel possui ${facts}.` : ''
 }
 
 const lifeSceneStageNarration = (property: PropertyContext) => {
@@ -395,11 +426,13 @@ const joinNarrationFacts = (facts: string[]) => {
 }
 
 const lifeInPropertyFeatureNarration = (property: PropertyContext) => {
-  const facts = unique([
-    labelQuantity(property.bedrooms, 'dormitório', 'dormitórios'),
-    labelQuantity(property.suites, 'suíte', 'suítes'),
-    labelQuantity(property.parkingSpaces, 'vaga', 'vagas'),
-  ])
+  const factsText = composePtBrPropertySpeechFacts({
+    bedrooms: property.bedrooms,
+    suites: property.suites,
+    parkingSpaces: property.parkingSpaces,
+    variant: 'concise',
+  })
+  const facts = factsText ? factsText.split(/, | e /).filter(Boolean) : []
   for (let count = facts.length; count > 0; count -= 1) {
     const candidate = `${joinNarrationFacts(facts.slice(0, count))}.`
     if (narrationWordCount(candidate) <= 8) return candidate

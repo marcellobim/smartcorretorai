@@ -1,0 +1,138 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  buildSmartSpaceRenderScript,
+  buildSmartSpaceVideoPlan,
+  estimateSmartSpaceCreatomateCredits,
+  SMART_SPACE_VIDEO_HEIGHT,
+  SMART_SPACE_VIDEO_WIDTH,
+} from './video-contract.ts'
+import { handleSmartSpaceVideoAction, type SmartSpaceVideoDependencies } from './video-runtime.ts'
+
+const userId = '11111111-1111-4111-8111-111111111111'
+const clientRequestId = '33333333-3333-4333-8333-333333333333'
+const itemId = '22222222-2222-4222-8222-222222222222'
+
+function completedResult(action: string, stages: Array<[string, string]>) {
+  return {
+    action,
+    delivery_status: 'completed',
+    input_path: `${userId}/virtual-staging-images/inputs/${clientRequestId}/01.jpg`,
+    stages: stages.map(([kind, output_path]) => ({ kind, output_path })),
+  }
+}
+
+test('as quatro ações geram sequências determinísticas de dois ou três estados', () => {
+  const cases = [
+    ['furnish', [['furnish', 'out/furnished.jpg']], ['Antes', 'Depois']],
+    ['remove_furniture', [['free_space', 'out/free.jpg']], ['Antes', 'Espaço livre']],
+    ['remove_and_redecorate', [['free_space', 'out/free.jpg'], ['new_decoration', 'out/new.jpg']], ['Antes', 'Espaço livre', 'Nova decoração']],
+    ['clear_area', [['clear_area', 'out/clean.jpg']], ['Antes', 'Depois']],
+  ] as const
+  for (const [action, stages, labels] of cases) {
+    const plan = buildSmartSpaceVideoPlan(completedResult(action, [...stages]))
+    assert.ok(plan)
+    assert.deepEqual(plan.scenes.map(scene => scene.label), labels)
+    assert.equal(plan.durationSeconds, labels.length === 3 ? 8 : 6)
+    const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/${index}.jpg`))
+    assert.equal(script.width, SMART_SPACE_VIDEO_WIDTH)
+    assert.equal(script.height, SMART_SPACE_VIDEO_HEIGHT)
+    assert.equal(script.output_format, 'mp4')
+    const images = script.elements.filter(element => element.type === 'image')
+    const backgrounds = images.filter(element => element.track === 1)
+    const foregrounds = images.filter(element => element.track === 2)
+    const labelElements = script.elements.filter(element => element.type === 'text' && element.track === 4)
+    assert.equal(backgrounds.length, plan.scenes.length)
+    assert.equal(backgrounds.every(element => element.fit === 'cover' && element.blur_radius === 34 && element.color_overlay === 'rgba(15,23,42,0.42)'), true)
+    assert.equal(foregrounds.length, plan.scenes.length)
+    assert.equal(foregrounds.every(element => element.fit === 'contain' && element.width === '92%' && element.height === '76%'), true)
+    assert.equal(labelElements.every(element => element.y === '88%' && element.width === '72%'), true)
+    assert.deepEqual(backgrounds.map(element => element.time), foregrounds.map(element => element.time))
+    assert.deepEqual(foregrounds.map(element => element.time), labelElements.map(element => element.time))
+    assert.equal(JSON.stringify(script).includes('audio'), false)
+  }
+})
+
+test('render 720x1280 curto custa dois créditos e não altera preço de imagem', () => {
+  const two = buildSmartSpaceVideoPlan(completedResult('furnish', [['furnish', 'out.jpg']]))!
+  const three = buildSmartSpaceVideoPlan(completedResult('remove_and_redecorate', [['free_space', 'free.jpg'], ['new_decoration', 'new.jpg']]))!
+  assert.equal(estimateSmartSpaceCreatomateCredits(two), 2)
+  assert.equal(estimateSmartSpaceCreatomateCredits(three), 2)
+})
+
+function dependencies(itemOverrides: Record<string, unknown> = {}) {
+  let item: Record<string, any> = {
+    id: itemId,
+    status: 'completed',
+    stage_state: 'completed',
+    result: completedResult('furnish', [['furnish', 'out/furnished.jpg']]),
+    video_state: 'not_requested',
+    ...itemOverrides,
+  }
+  let starts = 0
+  let uploads = 0
+  const deps: SmartSpaceVideoDependencies = {
+    recoverItem: async () => item,
+    claimVideo: async ({ idempotencyKey }) => {
+      if (item.video_state !== 'not_requested') return { item, claimed: false, claimToken: null }
+      item = { ...item, video_state: 'submitting', video_idempotency_key: idempotencyKey, video_claim_token: '44444444-4444-4444-8444-444444444444' }
+      return { item, claimed: true, claimToken: item.video_claim_token }
+    },
+    registerVideo: async ({ renderId }) => { item = { ...item, video_state: 'rendering', video_render_id: renderId } },
+    completeVideo: async ({ outputPath }) => { item = { ...item, video_state: 'completed', video_output_path: outputPath } },
+    failVideo: async ({ retryable }) => { item = { ...item, video_state: retryable ? 'failed_retryable' : 'failed_unknown' } },
+    signSources: async paths => paths.map((_, index) => `https://storage.test/${index}.jpg`),
+    startRender: async () => { starts += 1; return { id: 'render-1', status: 'planned' } },
+    getRender: async () => ({ id: 'render-1', status: 'succeeded', url: 'https://renderer.test/result.mp4' }),
+    downloadRender: async () => new Uint8Array([0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 1, 2, 3, 4]),
+    uploadVideo: async () => { uploads += 1 },
+    signVideo: async () => 'https://storage.test/signed-result.mp4',
+    log: () => undefined,
+  }
+  return { deps, starts: () => starts, uploads: () => uploads, item: () => item }
+}
+
+test('start é idempotente e recovery não cria segundo render nem chama OpenAI', async () => {
+  const state = dependencies()
+  const input = { action: 'start_video', client_request_id: clientRequestId, item_index: 0 }
+  assert.equal((await handleSmartSpaceVideoAction(userId, input, state.deps)).status, 202)
+  assert.equal((await handleSmartSpaceVideoAction(userId, input, state.deps)).status, 202)
+  assert.equal(state.starts(), 1)
+  assert.equal('openAI' in state.deps, false)
+})
+
+test('status concluído persiste MP4 e entrega URL assinada sem nova geração de imagem', async () => {
+  const state = dependencies({ video_state: 'rendering', video_render_id: 'render-1', video_claim_token: '44444444-4444-4444-8444-444444444444' })
+  const response = await handleSmartSpaceVideoAction(userId, { action: 'video_status', client_request_id: clientRequestId, item_index: 0 }, state.deps)
+  const body = await response.json()
+  assert.equal(response.status, 200)
+  assert.equal(body.video.state, 'completed')
+  assert.match(body.video.signed_url, /^https:\/\//)
+  assert.equal(state.uploads(), 1)
+})
+
+test('recovery de vídeo já concluído apenas renova a URL e não cria render nem upload', async () => {
+  const state = dependencies({
+    video_state: 'completed',
+    video_render_id: 'render-1',
+    video_output_path: `${userId}/virtual-staging-images/outputs/${clientRequestId}/01-transformation.mp4`,
+  })
+  const response = await handleSmartSpaceVideoAction(userId, { action: 'video_status', client_request_id: clientRequestId, item_index: 0 }, state.deps)
+  const body = await response.json()
+  assert.equal(response.status, 200)
+  assert.equal(body.video.state, 'completed')
+  assert.match(body.video.signed_url, /^https:\/\//)
+  assert.equal(state.starts(), 0)
+  assert.equal(state.uploads(), 0)
+})
+
+test('resultado parcial preserva Espaço livre e não tenta produzir vídeo completo', async () => {
+  const state = dependencies({
+    stage_state: 'partial',
+    result: { ...completedResult('remove_and_redecorate', [['free_space', 'out/free.jpg']]), delivery_status: 'partial' },
+  })
+  const response = await handleSmartSpaceVideoAction(userId, { action: 'start_video', client_request_id: clientRequestId, item_index: 0 }, state.deps)
+  const body = await response.json()
+  assert.equal(body.skipped, true)
+  assert.equal(state.starts(), 0)
+})
