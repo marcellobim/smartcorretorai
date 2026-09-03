@@ -99,7 +99,7 @@ const normalizeExistingTextItems = (existingTexts) => {
       .map((item, index) => ({
         id: clean(item?.id) || `existing-${index}`,
         label: clean(item?.label) || `Texto ${index + 1}`,
-        text: clean(item?.text),
+        text: typeof item?.text === 'string' ? item.text.trim() : '',
       }))
       .filter((item) => item.text)
   }
@@ -174,11 +174,24 @@ const mergeCampaignHashtags = (campaigns) => normalizeHashtagBlock(campaigns.fla
   campaign.linkedin,
 ]))
 
-const buildAiCampaignModules = (campaigns) => {
+const buildAiCampaignModules = (campaigns, unifiedSocialPublishing = false) => {
+  const unifiedSocial = unifiedSocialPublishing
+    ? [{
+        id: 'social',
+        title: 'Instagram e Facebook',
+        fields: campaigns.map((campaign, index) => ({
+          id: campaign.id,
+          label: `Texto ${index + 1}`,
+          text: withoutHashtags(campaign.instagram),
+          copyLabel: 'Copiar',
+        })),
+      }]
+    : []
   const modules = [
-    { id: 'instagram', title: 'Instagram', fields: campaignOptions(campaigns, 'instagram', 'Copiar') },
+    ...unifiedSocial,
+    !unifiedSocialPublishing && { id: 'instagram', title: 'Instagram', fields: campaignOptions(campaigns, 'instagram', 'Copiar') },
     { id: 'whatsapp', title: 'WhatsApp', fields: campaignOptions(campaigns, 'whatsapp', 'Copiar') },
-    { id: 'facebook', title: 'Facebook', fields: campaignOptions(campaigns, 'facebook', 'Copiar') },
+    !unifiedSocialPublishing && { id: 'facebook', title: 'Facebook', fields: campaignOptions(campaigns, 'facebook', 'Copiar') },
     {
       id: 'email',
       title: 'Email',
@@ -188,7 +201,7 @@ const buildAiCampaignModules = (campaigns) => {
       ]).join('\n\n')),
     },
     { id: 'linkedin', title: 'LinkedIn', fields: campaignOptions(campaigns, 'linkedin', 'Copiar') },
-  ].filter((module) => module.fields.length)
+  ].filter((module) => module?.fields?.length)
   const hashtags = mergeCampaignHashtags(campaigns)
 
   if (hashtags) {
@@ -219,12 +232,19 @@ export function normalizeCampaignPackageInput(input = {}) {
       url: clean(file?.url),
       previewUrl: clean(file?.previewUrl || file?.snapshot_url),
       downloadUrl: clean(file?.downloadUrl || file?.url),
+      assetId: clean(file?.assetId || file?.asset_id || file?.id || file?.piece_id),
+      optionId: clean(file?.optionId || file?.option_id),
+      optionNumber: Number(file?.optionNumber || file?.option_number) || 0,
     }))
     : []
   const highlights = Array.isArray(input.highlights) ? compact(input.highlights) : []
   const cta = clean(input.cta)
   return {
     sourceProduct: clean(input.sourceProduct),
+    sourceType: clean(input.sourceType || input.source_type),
+    sourceId: clean(input.sourceId || input.source_id),
+    mediaAssetId: clean(input.mediaAssetId || input.media_asset_id),
+    unifiedSocialPublishing: input.unifiedSocialPublishing === true,
     mediaType: input.mediaType === 'images' ? 'images' : 'video',
     files,
     previewUrl: clean(input.previewUrl),
@@ -255,7 +275,7 @@ export function normalizeCampaignPackageInput(input = {}) {
 export function buildCampaignPackage(input = {}) {
   const campaign = normalizeCampaignPackageInput(input)
   const aiCampaignModules = campaign.aiCampaigns.length === 3
-    ? buildAiCampaignModules(campaign.aiCampaigns)
+    ? buildAiCampaignModules(campaign.aiCampaigns, campaign.unifiedSocialPublishing)
     : []
   if (aiCampaignModules.length) {
     const googleAdsModule = buildGoogleAdsModule(campaign.googleAds)

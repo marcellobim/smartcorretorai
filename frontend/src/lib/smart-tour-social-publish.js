@@ -1,8 +1,11 @@
 const PENDING_VIDEO_PUBLICATION_PREFIX = 'smartcorretorai:video-publication:v1'
 const VIDEO_SOCIAL_PUBLISH_FUNCTION = 'social-publish-video'
 const VALID_DESTINATIONS = new Set(['instagram', 'facebook'])
+const MAX_CAPTION_LENGTH = 2200
 
 const text = value => typeof value === 'string' ? value.trim() : ''
+const caption = value => typeof value === 'string' ? value : ''
+const captionLength = value => Array.from(caption(value)).length
 const pendingKey = userId => `${PENDING_VIDEO_PUBLICATION_PREFIX}:${text(userId)}`
 
 export const VIDEO_PUBLICATION_SOURCE_TYPE = 'video_imobiliario'
@@ -14,7 +17,7 @@ export function buildSmartTourPublicationIntent({ campaign, field, optionIndex =
   const sourceId = text(campaign?.sourceId)
   const mediaAssetId = text(campaign?.mediaAssetId)
   if (sourceType !== VIDEO_PUBLICATION_SOURCE_TYPE || !sourceId || mediaAssetId !== sourceId
-      || !/^smart-tour-caption-option-[1-3]$/.test(optionId) || !captionSnapshot || !campaign?.previewUrl) {
+      || !/^smart-tour-caption-option-[1-3]$/.test(optionId) || captionLength(captionSnapshot) > MAX_CAPTION_LENGTH || !campaign?.previewUrl) {
     throw new Error('video_publication_identity_incomplete')
   }
   return {
@@ -43,7 +46,7 @@ const toPending = intent => ({
 export function preservePendingSmartTourPublication(storage, userId, intent) {
   if (!storage || !text(userId)) return false
   const pending = toPending(intent)
-  if (!pending.sourceType || !pending.sourceId || !pending.mediaAssetId || !pending.optionId || !pending.captionSnapshot) return false
+  if (!pending.sourceType || !pending.sourceId || !pending.mediaAssetId || !pending.optionId || captionLength(pending.captionSnapshot) > MAX_CAPTION_LENGTH) return false
   try { storage.setItem(pendingKey(userId), JSON.stringify(pending)); return true } catch { return false }
 }
 
@@ -51,7 +54,7 @@ export function readPendingSmartTourPublication(storage, userId) {
   if (!storage || !text(userId)) return null
   try {
     const pending = toPending(JSON.parse(storage.getItem(pendingKey(userId)) || 'null'))
-    return pending.sourceType && pending.sourceId && pending.mediaAssetId && pending.optionId && pending.captionSnapshot ? pending : null
+    return pending.sourceType && pending.sourceId && pending.mediaAssetId && pending.optionId && captionLength(pending.captionSnapshot) <= MAX_CAPTION_LENGTH ? pending : null
   } catch { return null }
 }
 
@@ -68,7 +71,7 @@ export function restorePendingSmartTourPublication({ campaign, pending } = {}) {
     const restored = buildSmartTourPublicationIntent({ campaign, field, optionIndex: Math.max(0, Number(pending.optionNumber) - 1) })
     return restored.sourceType === pending.sourceType && restored.sourceId === pending.sourceId
       && restored.mediaAssetId === pending.mediaAssetId && restored.optionId === pending.optionId
-      && restored.captionSnapshot === pending.captionSnapshot ? restored : null
+      && captionLength(pending.captionSnapshot) <= MAX_CAPTION_LENGTH ? { ...restored, captionSnapshot: pending.captionSnapshot } : null
   } catch { return null }
 }
 
@@ -79,8 +82,10 @@ const normalizeDestinations = destinations => {
 }
 
 export function buildSmartTourPublicationRequest(intent, destinations, action = 'publish') {
+  const captionSnapshot = caption(intent?.captionSnapshot)
   if (intent?.sourceType !== VIDEO_PUBLICATION_SOURCE_TYPE || !text(intent?.sourceId)
-      || text(intent?.mediaAssetId) !== text(intent?.sourceId) || !/^smart-tour-caption-option-[1-3]$/.test(text(intent?.optionId))) {
+      || text(intent?.mediaAssetId) !== text(intent?.sourceId) || !/^smart-tour-caption-option-[1-3]$/.test(text(intent?.optionId))
+      || captionLength(captionSnapshot) > MAX_CAPTION_LENGTH) {
     throw new Error('video_publication_identity_incomplete')
   }
   return {
@@ -88,6 +93,7 @@ export function buildSmartTourPublicationRequest(intent, destinations, action = 
     source: { type: VIDEO_PUBLICATION_SOURCE_TYPE, id: text(intent.sourceId) },
     media_asset_id: text(intent.mediaAssetId),
     option_id: text(intent.optionId),
+    caption_snapshot: captionSnapshot,
     destinations: normalizeDestinations(destinations),
   }
 }

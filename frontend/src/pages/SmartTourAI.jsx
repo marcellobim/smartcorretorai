@@ -13,6 +13,8 @@ import { useAuth } from '../lib/auth-context'
 import { restoreProductDraftShape, toFileMetadata } from '../lib/product-draft'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { supabase } from '../lib/supabase'
+import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
+import { clearPendingSmartTourPublication, preservePendingSmartTourPublication, publishSmartTourPublication, readPendingSmartTourPublication, recoverSmartTourPublication } from '../lib/smart-tour-social-publish'
 import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
@@ -352,7 +354,7 @@ export default function SmartTourAI() {
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
       const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags })
+      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
       tourDraft.clear()
     } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
@@ -381,7 +383,7 @@ export default function SmartTourAI() {
     setActiveInputFlow(inputFlow)
     window.requestAnimationFrame(() => document.getElementById('smart-tour-creation')?.scrollIntoView({ behavior: getConversationScrollBehavior(), block: 'start' }))
   }
-  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
+  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, ...(!isShortVideoResult ? { sourceType:'video_imobiliario', sourceId:result.jobId, mediaAssetId:result.jobId } : {}), mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} videoPublish={!isShortVideoResult ? { enabled:true, captionEditable:true, loadConnection:() => getMetaConnectionStatus(supabase), resumeIntent:user?.id ? readPendingSmartTourPublication(window.sessionStorage,user.id) : null, onPublish:(intent,destinations) => publishSmartTourPublication(supabase,intent,destinations), onRecover:(intent,destinations) => recoverSmartTourPublication(supabase,intent,destinations), onResumed:() => clearPendingSmartTourPublication(window.sessionStorage,user?.id), onConnect:async intent => { if (!preservePendingSmartTourPublication(window.sessionStorage,user?.id,intent)) throw new Error('video_publication_pending_not_saved'); await redirectToMetaOAuth(supabase,url => window.location.assign(url)) } } : undefined} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
 
   const measureFields = getSmartTourMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
