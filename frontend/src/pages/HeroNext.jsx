@@ -486,6 +486,11 @@ const MARKET_EXPERIENCE_OPTIONS = [
   'Mais de 30 anos',
 ]
 
+const BROKER_CAPTURE_EXPERIENCE_OPTIONS = [
+  ...MARKET_EXPERIENCE_OPTIONS,
+  'Com ou sem experiência',
+]
+
 const PROPERTY_CAPTURE_SPECIALTIES = [
   'Venda de imóveis',
   'Locação',
@@ -653,12 +658,19 @@ const BROKER_CAPTURE_CHAT_FLOW = [
     customPlaceholder: 'Outro perfil profissional',
   },
   { id: 'city', question: 'Em qual cidade deseja recrutar profissionais?', type: 'text', placeholder: 'Ex: São Paulo' },
-  { id: 'neighborhoods', question: 'Quais regiões ou bairros deseja atender?', type: 'text', placeholder: 'Ex: Moema, Vila Mariana e Brooklin' },
+  {
+    id: 'neighborhoods',
+    question: 'Quais regiões ou bairros deseja atender?',
+    type: 'text',
+    placeholder: 'Ex: Moema, Vila Mariana e Brooklin',
+    optional: true,
+    optionalLabel: 'Continuar somente com a cidade',
+  },
   {
     id: 'marketExperience',
     question: 'Qual experiência deseja priorizar?',
     type: 'chips',
-    options: MARKET_EXPERIENCE_OPTIONS,
+    options: BROKER_CAPTURE_EXPERIENCE_OPTIONS,
   },
   {
     id: 'businessDifferentials',
@@ -1666,9 +1678,13 @@ export default function HeroNext() {
 
   const commitAnswer = (questionId, value) => {
     const normalizedValue = normalizeAnswerValue(questionId, value)
-    if (!normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)) return
+    const isEmpty = !normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)
+    const allowsEmpty = baseChatFlow.find((question) => question.id === questionId)?.optional === true
+    if (isEmpty && !allowsEmpty) return
 
-    const updatedAnswers = { ...answers, [questionId]: normalizedValue }
+    const updatedAnswers = { ...answers }
+    if (isEmpty) delete updatedAnswers[questionId]
+    else updatedAnswers[questionId] = normalizedValue
     if (questionId === 'contactPhoneChoice') {
       if (normalizedValue === 'Sim, quero divulgar' && profilePhone) {
         updatedAnswers.contactPhone = profilePhoneRaw
@@ -2377,7 +2393,7 @@ export default function HeroNext() {
             Enviar
           </ProductButton>
           {currentQuestion.optionalLabel && (
-            <ProductButton type="button" variant="secondary" onClick={() => commitAnswer(currentQuestion.id, 'Não informar')}>
+            <ProductButton type="button" variant="secondary" onClick={() => commitAnswer(currentQuestion.id, '')}>
               {currentQuestion.optionalLabel}
             </ProductButton>
           )}

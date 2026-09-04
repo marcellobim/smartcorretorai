@@ -45,6 +45,33 @@ test('preserves every guided-question id and its order', () => {
   ])
 })
 
+test('keeps city required and makes only the broker-capture neighborhood optional', () => {
+  const propertyCaptureFlow = sliceBetween('const PROPERTY_CAPTURE_CHAT_FLOW = [', 'const BROKER_CAPTURE_CHAT_FLOW')
+  const brokerCaptureFlow = sliceBetween('const BROKER_CAPTURE_CHAT_FLOW = [', 'const PROCESSING_STEPS')
+  const brokerCity = brokerCaptureFlow.slice(brokerCaptureFlow.indexOf("id: 'city'"), brokerCaptureFlow.indexOf("id: 'neighborhoods'"))
+  const brokerNeighborhood = brokerCaptureFlow.slice(brokerCaptureFlow.indexOf("id: 'neighborhoods'"), brokerCaptureFlow.indexOf("id: 'marketExperience'"))
+  const commitAnswer = sliceBetween('const commitAnswer', 'const goToQuestion')
+
+  assert.doesNotMatch(brokerCity, /optional: true/)
+  assert.match(brokerNeighborhood, /optional: true/)
+  assert.match(brokerNeighborhood, /optionalLabel: 'Continuar somente com a cidade'/)
+  assert.doesNotMatch(propertyCaptureFlow, /optionalLabel: 'Continuar somente com a cidade'/)
+  assert.match(commitAnswer, /allowsEmpty = baseChatFlow\.find[\s\S]*?\.optional === true/)
+  assert.match(commitAnswer, /if \(isEmpty\) delete updatedAnswers\[questionId\]/)
+  assert.match(banner, /currentQuestion\.optionalLabel[\s\S]*?commitAnswer\(currentQuestion\.id, ''\)/)
+  assert.match(banner, /answers\.city \? `Cidade: \$\{answers\.city\}` : ''[\s\S]*?answers\.neighborhoods \? `Regiões\/bairros: \$\{answers\.neighborhoods\}` : ''/)
+})
+
+test('adds the inclusive experience choice only to broker capture', () => {
+  const experienceOptions = sliceBetween('const MARKET_EXPERIENCE_OPTIONS = [', 'const PROPERTY_CAPTURE_SPECIALTIES')
+  const propertyCaptureFlow = sliceBetween('const PROPERTY_CAPTURE_CHAT_FLOW = [', 'const BROKER_CAPTURE_CHAT_FLOW')
+  const brokerCaptureFlow = sliceBetween('const BROKER_CAPTURE_CHAT_FLOW = [', 'const PROCESSING_STEPS')
+
+  assert.match(experienceOptions, /const BROKER_CAPTURE_EXPERIENCE_OPTIONS = \[[\s\S]*?\.\.\.MARKET_EXPERIENCE_OPTIONS,[\s\S]*?'Com ou sem experiência'/)
+  assert.match(propertyCaptureFlow, /question: 'Qual sua experiência no mercado\?'[\s\S]*?options: MARKET_EXPERIENCE_OPTIONS/)
+  assert.match(brokerCaptureFlow, /question: 'Qual experiência deseja priorizar\?'[\s\S]*?options: BROKER_CAPTURE_EXPERIENCE_OPTIONS/)
+})
+
 test('keeps history editing and the live summary wired to the same answers', () => {
   assert.match(banner, /chatFlow\.slice\(0, chatIndex\)\.map\(\(question, index\)[\s\S]*?formatAnswer\(answers\[question\.id\]\)[\s\S]*?goToQuestion\(index\)/)
   assert.match(banner, /Resumo ao vivo[\s\S]*?chatFlow\.slice\(0, chatIndex\)\.map[\s\S]*?formatAnswer\(answers\[question\.id\]\)[\s\S]*?goToQuestion\(index\)/)
