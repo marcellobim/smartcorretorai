@@ -18,6 +18,17 @@ export function selectBannerMediaForOption(files, optionId) {
   return media.find(file => Number(file.optionNumber) === number) || null
 }
 
+export function canBuildBannerPublicationIntent({ campaign, field } = {}) {
+  const optionId = text(field?.id)
+  const captionSnapshot = typeof field?.text === 'string' ? field.text : ''
+  const media = selectBannerMediaForOption(campaign?.files, optionId)
+  return campaign?.sourceProduct === 'Banner Imobiliário'
+    && text(campaign?.sourceType) === 'banner_imobiliario'
+    && Boolean(text(campaign?.sourceId) && optionId)
+    && captionLength(captionSnapshot) <= MAX_CAPTION_LENGTH
+    && Boolean(text(media?.assetId || media?.id) && media?.previewUrl)
+}
+
 export function buildBannerPublicationIntent({ campaign, field, optionIndex = 0 } = {}) {
   if (campaign?.sourceProduct !== 'Banner Imobiliário') throw new Error('banner_publication_product_invalid')
   const optionId = text(field?.id)
@@ -26,7 +37,7 @@ export function buildBannerPublicationIntent({ campaign, field, optionIndex = 0 
   const sourceId = text(campaign?.sourceId)
   const media = selectBannerMediaForOption(campaign?.files, optionId)
   const mediaAssetId = text(media?.assetId || media?.id)
-  if (!optionId || captionLength(captionSnapshot) > MAX_CAPTION_LENGTH || !sourceType || !sourceId || !mediaAssetId || !media?.previewUrl) {
+  if (!canBuildBannerPublicationIntent({ campaign, field }) || !optionId || !sourceType || !sourceId || !mediaAssetId || !media?.previewUrl) {
     throw new Error('banner_publication_identity_incomplete')
   }
   return {

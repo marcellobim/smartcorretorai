@@ -2167,12 +2167,15 @@ export default function HeroNext() {
         const firstError = settledJobs.find((job) => job.status === 'failed')?.error
         throw new Error(firstError || 'Não foi possível gerar nenhuma imagem do Banner Imobiliário.')
       }
-      setGenerationResult({
+      const completedResult = {
+        sourceId: clientRequestId,
         jobs: settledJobs,
         imageUrl: firstCompleted.imageUrl || '',
         texts: firstCompleted.texts || {},
         campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition),
-      })
+      }
+      setGenerationResult(completedResult)
+      writeStoredHeroNextResult(completedResult)
       economicRequestIdRef.current = null
       setPhase('result')
     } catch (error) {

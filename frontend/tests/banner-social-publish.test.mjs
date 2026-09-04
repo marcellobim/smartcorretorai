@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import {
   buildBannerPublicationIntent,
   buildBannerPublicationRequest,
+  canBuildBannerPublicationIntent,
   clearPendingBannerPublication,
   getBannerConnectionDestinations,
   publishBannerPublication,
@@ -13,6 +14,8 @@ import {
   restorePendingBannerPublication,
   selectBannerMediaForOption,
 } from '../src/lib/banner-social-publish.js'
+import { buildCampaignPackage } from '../src/components/campaign/buildCampaignPackage.js'
+import { buildHeroNextCampaignPackageData } from '../src/lib/hero-next-recovery.js'
 
 const sourceId = '6b66b517-8fea-4b62-a180-89f64c418cba'
 const captions = [
@@ -38,6 +41,78 @@ const memoryStorage = () => {
   const values = new Map()
   return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) }
 }
+
+const buildBatchCampaign = (creativeOptionCount) => {
+  const result = {
+    sourceId,
+    jobs: Array.from({ length: creativeOptionCount }, (_, index) => ({
+      jobId: `idea-${index + 1}-instagram-feed`,
+      formatId: 'instagram-feed',
+      formatLabel: 'Feed Instagram',
+      ideaNumber: index + 1,
+      status: 'completed',
+      imageUrl: `https://private-preview.invalid/${index + 1}`,
+    })),
+  }
+  const built = buildHeroNextCampaignPackageData({
+    result,
+    campaignCopy: captions.map((item, index) => ({ label: `Instagram/Facebook Texto ${index + 1}`, text: item })),
+  })
+  assert.equal(built.error, null)
+  return buildCampaignPackage(built.data)
+}
+
+for (const creativeOptionCount of [1, 2, 3]) {
+  test(`resultado batch com ${creativeOptionCount} opção(ões) preserva identidade e publica somente textos com mídia`, () => {
+    const batchCampaign = buildBatchCampaign(creativeOptionCount)
+    const socialFields = batchCampaign.modules.find(module => module.id === 'social')?.fields || []
+    assert.equal(batchCampaign.sourceType, 'banner_imobiliario')
+    assert.equal(batchCampaign.sourceId, sourceId)
+    assert.notEqual(batchCampaign.sourceId, '')
+    assert.equal(socialFields.length, 3)
+
+    socialFields.forEach((field, index) => {
+      const canPublish = canBuildBannerPublicationIntent({ campaign: batchCampaign, field })
+      assert.equal(canPublish, index < creativeOptionCount)
+      if (!canPublish) return
+      const intent = buildBannerPublicationIntent({ campaign: batchCampaign, field, optionIndex: index })
+      assert.deepEqual({
+        sourceType: intent.sourceType,
+        sourceId: intent.sourceId,
+        mediaAssetId: intent.mediaAssetId,
+        optionId: intent.optionId,
+        captionSnapshot: intent.captionSnapshot,
+      }, {
+        sourceType: 'banner_imobiliario',
+        sourceId,
+        mediaAssetId: `idea-${index + 1}-instagram-feed`,
+        optionId: `banner-caption-option-${index + 1}`,
+        captionSnapshot: captions[index],
+      })
+    })
+  })
+}
+
+test('intent integrado do batch preserva legenda original, editada e vazia', () => {
+  const batchCampaign = buildBatchCampaign(1)
+  const field = batchCampaign.modules.find(module => module.id === 'social').fields[0]
+  const intent = buildBannerPublicationIntent({ campaign: batchCampaign, field, optionIndex: 0 })
+  for (const captionSnapshot of [field.text, 'Legenda editada livremente.', '']) {
+    const body = buildBannerPublicationRequest({ ...intent, captionSnapshot }, ['instagram'])
+    assert.equal(body.source.id, sourceId)
+    assert.equal(body.media_asset_id, 'idea-1-instagram-feed')
+    assert.equal(body.option_id, 'banner-caption-option-1')
+    assert.equal(body.caption_snapshot, captionSnapshot)
+  }
+})
+
+test('fluxo batch monta e salva o resultado completo antes de liberar o identificador em memória', () => {
+  const page = readFileSync(new URL('../src/pages/HeroNext.jsx', import.meta.url), 'utf8')
+  assert.match(page, /const completedResult = \{[\s\S]*sourceId: clientRequestId,[\s\S]*jobs: settledJobs/)
+  assert.match(page, /setGenerationResult\(completedResult\)[\s\S]*writeStoredHeroNextResult\(completedResult\)[\s\S]*economicRequestIdRef\.current = null/)
+  assert.match(page, /window\.sessionStorage\.setItem\(HERO_NEXT_RESULT_STORAGE_KEY, JSON\.stringify\(result\)\)/)
+  assert.match(page, /return hasImage \? parsed : null/)
+})
 
 for (const index of [0, 1, 2]) {
   test(`Texto ${index + 1} mantém legenda e mídia correspondentes na confirmação`, () => {
@@ -143,6 +218,7 @@ test('fluxo é opt-in somente no Banner, sem acesso direto ao banco ou chamada M
   const helperSource = readFileSync(new URL('../src/lib/banner-social-publish.js', import.meta.url), 'utf8')
   const source = `${packageSource}\n${dialogSource}\n${helperSource}`
   assert.match(packageSource, /campaign\.sourceProduct === 'Banner Imobiliário'/)
+  assert.match(packageSource, /campaign\.sourceProduct === 'Banner Imobiliário' && canBuildBannerPublicationIntent\(\{ campaign, field \}\)/)
   assert.match(helperSource, /Instagram @\$\{text\(connection\.username\)\}/)
   assert.match(helperSource, /Facebook \$\{text\(connection\.pageName\)\}/)
   assert.match(dialogSource, /Publicar agora/)
