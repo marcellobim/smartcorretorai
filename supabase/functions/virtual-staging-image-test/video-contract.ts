@@ -1,4 +1,4 @@
-export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 3
+export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 4
 export const SMART_SPACE_VIDEO_WIDTH = 720
 export const SMART_SPACE_VIDEO_HEIGHT = 1280
 export const SMART_SPACE_VIDEO_FRAME_RATE = 25
@@ -20,7 +20,7 @@ export type SmartSpaceVideoScene = {
 }
 
 export type SmartSpaceVideoPlan = {
-  version: 3
+  version: 4
   action: string
   durationSeconds: number
   scenes: SmartSpaceVideoScene[]
@@ -82,8 +82,7 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
   plan.scenes.forEach((scene, index) => {
     const time = index * sceneDuration
     const transition = [{ time: 0, duration: index === 0 ? 0.3 : 0.45, easing: 'cubic-in-out', type: 'fade', ...(index > 0 ? { transition: true } : {}) }]
-    // The cover layer fills the vertical canvas with colors from the approved photo.
-    // The contain layer remains untouched and fully visible above that ambient background.
+    // A single centered cover layer fills the vertical canvas without distortion.
     elements.push({
       type: 'image',
       track: 1,
@@ -91,18 +90,6 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
       duration: sceneDuration,
       source: sourceUrls[index],
       fit: 'cover',
-      blur_radius: 10,
-      blur_mode: 'box-2',
-      color_overlay: 'rgba(15,23,42,0.16)',
-      animations: transition,
-    })
-    elements.push({
-      type: 'image',
-      track: 2,
-      time,
-      duration: sceneDuration,
-      source: sourceUrls[index],
-      fit: 'contain',
       x: '50%',
       y: '50%',
       width: '100%',
