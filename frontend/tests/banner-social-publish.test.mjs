@@ -130,9 +130,10 @@ test('usuário sem sessão não inicia publicação', async () => {
   assert.equal(invoked, 0)
 })
 
-test('Cancelar fecha o modal sem acionar o backend', () => {
+test('Cancelar usa o fechamento centralizado sem acionar o backend', () => {
   const dialogSource = readFileSync(new URL('../src/components/campaign/BannerPublishDialog.jsx', import.meta.url), 'utf8')
-  assert.match(dialogSource, /onClick=\{onClose\}[\s\S]{0,240}>Cancelar<\/button>/)
+  assert.match(dialogSource, /onClick=\{close\}[\s\S]{0,240}>Cancelar<\/button>/)
+  assert.match(dialogSource, /shouldClearSocialPublishRecoveryOnClose\(results\)[\s\S]{0,120}onTerminalClose\?\.\(\)[\s\S]{0,120}onClose\?\.\(\)/)
   assert.equal((dialogSource.match(/onPublish\?\./g) || []).length, 1)
 })
 

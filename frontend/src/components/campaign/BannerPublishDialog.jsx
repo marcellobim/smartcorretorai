@@ -5,6 +5,7 @@ import {
   getSocialPublishNotice,
   getSocialPublishResultLabel,
   isSocialPublishSubmissionLocked,
+  shouldClearSocialPublishRecoveryOnClose,
   shouldPollSocialPublishRecovery,
 } from './socialPublishUiState'
 import SocialCaptionEditor from './SocialCaptionEditor'
@@ -17,7 +18,7 @@ export function SocialPublishProgress({ results, submissionStarted = false, conf
   return <>{notice && <p role="status" className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{notice}</p>}{results.length > 0 && <div className="mt-4 grid gap-2" aria-label="Resultado por destino">{results.map(result => <p key={result.destination} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700"><span className="capitalize">{result.destination}</span>: {getSocialPublishResultLabel(result.status)}</p>)}</div>}</>
 }
 
-export default function BannerPublishDialog({ intent, loadConnection, onConnect, onClose, onPublish, onRecover, onConfirmed, captionEditable = false, captionPlaceholder = '' }) {
+export default function BannerPublishDialog({ intent, loadConnection, onConnect, onClose, onPublish, onRecover, onConfirmed, onTerminalClose, captionEditable = false, captionPlaceholder = '' }) {
   const [connection, setConnection] = useState({ ...unavailableConnection, status: 'loading' })
   const [selected, setSelected] = useState([])
   const [results, setResults] = useState([])
@@ -85,6 +86,10 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
   }, [destinations, intent, onRecover, results, submissionStarted, usable])
 
   const submissionLocked = isSocialPublishSubmissionLocked({ submissionStarted, results })
+  const close = () => {
+    if (shouldClearSocialPublishRecoveryOnClose(results)) onTerminalClose?.()
+    onClose?.()
+  }
   const toggle = id => {
     if (submissionLockRef.current || submissionLocked) return
     setSelected(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
@@ -109,11 +114,11 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.() }}>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) close() }}>
       <section role="dialog" aria-modal="true" aria-labelledby="banner-publish-title" className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div><p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Publicação gratuita</p><h2 id="banner-publish-title" className="mt-1 text-xl font-black text-slate-950">Confirmar publicação</h2></div>
-          <button type="button" onClick={onClose} aria-label="Cancelar publicação" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={close} aria-label="Cancelar publicação" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="mt-5 grid gap-5 sm:grid-cols-[180px_1fr]">
@@ -132,7 +137,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
         </div>
 
         <SocialPublishProgress results={results} submissionStarted={submissionStarted} confirmationPending={confirmationPending} />
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700">Cancelar</button>{!submissionLocked && <button type="button" disabled={!usable || selected.length === 0 || publishing} onClick={publish} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />Publicar agora</button>}</div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={close} className="min-h-12 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700">Cancelar</button>{!submissionLocked && <button type="button" disabled={!usable || selected.length === 0 || publishing} onClick={publish} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />Publicar agora</button>}</div>
       </section>
     </div>
   )

@@ -1,10 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   buildSmartSpacePublicationRequest,
   buildSmartSpaceImagePublicationIntent,
   buildSmartSpaceCampaignPublicationIntent,
   buildSmartSpaceVideoPublicationIntent,
+  clearPendingSmartSpacePublication,
   preservePendingSmartSpacePublication,
   readPendingSmartSpacePublication,
   restorePendingSmartSpaceCampaignPublication,
@@ -71,6 +73,8 @@ test('recovery persiste somente identidade owner-scoped, nunca URL assinada', ()
   assert.deepEqual(pending, { sourceType: 'smart_space_transform', sourceId, mediaAssetId: '0:transformation_video', captionSnapshot: '' })
   assert.doesNotMatch(JSON.stringify(pending), /https?:|signed|token/i)
   assert.equal(restorePendingSmartSpacePublication({ result: { clientRequestId: sourceId, originalIndex: 0, video: { signedUrl: previewUrl } }, pending })?.mediaPreviewUrl, previewUrl)
+  assert.equal(clearPendingSmartSpacePublication(storage, 'owner-1'), true)
+  assert.equal(readPendingSmartSpacePublication(storage, 'owner-1'), null)
 })
 
 test('recovery/F5 preserva exatamente a legenda confirmada, inclusive vazia', () => {
@@ -97,4 +101,16 @@ test('recovery/F5 restaura a legenda congelada também em Vida no Imóvel e Apre
     const pending = { sourceType, sourceId, mediaAssetId: sourceId, captionSnapshot: 'Texto confirmado ✅\nPersistido.' }
     assert.equal(restorePendingSmartSpaceCampaignPublication({ campaign, pending })?.captionSnapshot, pending.captionSnapshot)
   }
+})
+
+test('fechamento terminal limpa somente o recovery transitório do Smart Space', () => {
+  const page = readFileSync(new URL('../src/pages/VirtualStaging.jsx', import.meta.url), 'utf8')
+  const campaignPackage = readFileSync(new URL('../src/components/campaign/CampaignPackage.jsx', import.meta.url), 'utf8')
+  const dialog = readFileSync(new URL('../src/components/campaign/BannerPublishDialog.jsx', import.meta.url), 'utf8')
+
+  assert.match(page, /onTerminalClose: \(\) => clearPendingSmartSpacePublication\(window\.sessionStorage, user\.id\)/)
+  assert.match(page, /dismissedPublicationRef\.current = `\$\{publishIntent\.sourceId\}:\$\{publishIntent\.mediaAssetId\}`/)
+  assert.match(campaignPackage, /onTerminalClose=\{smartSpacePublish\?\.onTerminalClose\}/)
+  assert.match(dialog, /shouldClearSocialPublishRecoveryOnClose\(results\)[\s\S]{0,120}onTerminalClose\?\.\(\)/)
+  assert.doesNotMatch(dialog, /clearPendingSmartSpacePublication|sessionStorage|localStorage/)
 })

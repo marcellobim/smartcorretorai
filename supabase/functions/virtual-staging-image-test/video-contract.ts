@@ -1,4 +1,4 @@
-export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 2
+export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 3
 export const SMART_SPACE_VIDEO_WIDTH = 720
 export const SMART_SPACE_VIDEO_HEIGHT = 1280
 export const SMART_SPACE_VIDEO_FRAME_RATE = 25
@@ -20,7 +20,7 @@ export type SmartSpaceVideoScene = {
 }
 
 export type SmartSpaceVideoPlan = {
-  version: 2
+  version: 3
   action: string
   durationSeconds: number
   scenes: SmartSpaceVideoScene[]
@@ -91,11 +91,9 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
       duration: sceneDuration,
       source: sourceUrls[index],
       fit: 'cover',
-      x_scale: '112%',
-      y_scale: '112%',
-      blur_radius: 34,
+      blur_radius: 10,
       blur_mode: 'box-2',
-      color_overlay: 'rgba(15,23,42,0.42)',
+      color_overlay: 'rgba(15,23,42,0.16)',
       animations: transition,
     })
     elements.push({
@@ -106,55 +104,9 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
       source: sourceUrls[index],
       fit: 'contain',
       x: '50%',
-      y: '47%',
-      width: '92%',
-      height: '76%',
-      border_radius: '2.2 vmin',
-      shadow_color: 'rgba(2,6,23,0.48)',
-      shadow_blur: '3.5 vmin',
-      shadow_y: '1.2 vmin',
-      animations: transition,
-    })
-    elements.push({
-      type: 'text',
-      track: 3,
-      time,
-      duration: sceneDuration,
-      text: 'SMART SPACE',
-      x: '50%',
-      y: '8%',
-      width: '70%',
-      height: '4%',
-      x_alignment: '50%',
-      y_alignment: '50%',
-      fill_color: '#a7f3d0',
-      font_family: 'Inter',
-      font_weight: '700',
-      font_size: '2.6 vmin',
-      animations: transition,
-    })
-    elements.push({
-      type: 'text',
-      track: 4,
-      time,
-      duration: sceneDuration,
-      text: scene.label,
-      x: '50%',
-      y: '88%',
-      width: '72%',
-      height: '7%',
-      x_alignment: '50%',
-      y_alignment: '50%',
-      fill_color: '#ffffff',
-      font_family: 'Inter',
-      font_weight: '700',
-      font_size: '4.6 vmin',
-      background_color: 'rgba(15,23,42,0.88)',
-      background_x_padding: '11%',
-      background_y_padding: '12%',
-      background_border_radius: '28%',
-      stroke_color: 'rgba(52,211,153,0.72)',
-      stroke_width: '0.22 vmin',
+      y: '50%',
+      width: '100%',
+      height: '100%',
       animations: transition,
     })
   })

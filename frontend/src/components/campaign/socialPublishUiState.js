@@ -1,4 +1,5 @@
 export const ACTIVE_SOCIAL_PUBLISH_STATUSES = new Set(['queued', 'processing', 'publishing'])
+export const TERMINAL_SOCIAL_PUBLISH_STATUSES = new Set(['published', 'completed', 'failed', 'cancelled'])
 
 export const hasExistingSocialPublishJob = results => (
   Array.isArray(results) && results.some(result => Boolean(result?.job_id))
@@ -16,13 +17,19 @@ export const shouldPollSocialPublishRecovery = results => (
   hasActiveSocialPublishJob(results) || hasReconciliationSocialPublishJob(results)
 )
 
+export const shouldClearSocialPublishRecoveryOnClose = results => (
+  Array.isArray(results)
+  && results.length > 0
+  && results.every(result => Boolean(result?.job_id) && TERMINAL_SOCIAL_PUBLISH_STATUSES.has(result?.status))
+)
+
 export const isSocialPublishSubmissionLocked = ({ submissionStarted = false, results = [] } = {}) => (
   submissionStarted || hasExistingSocialPublishJob(results)
 )
 
 export function getSocialPublishResultLabel(status) {
   if (ACTIVE_SOCIAL_PUBLISH_STATUSES.has(status)) return 'Publicando...'
-  if (status === 'published') return 'Publicado'
+  if (status === 'published' || status === 'completed') return 'Publicado'
   if (status === 'reconciliation_required') return 'Confirmando publicação...'
   if (status === 'failed') return 'Não foi possível publicar'
   if (status === 'cancelled') return 'Cancelado'
@@ -35,7 +42,7 @@ export function getSocialPublishNotice(results, { submissionStarted = false, con
     return 'Estamos finalizando sua publicação. Você pode sair desta tela.'
   }
 
-  const published = items.filter(result => result?.status === 'published').length
+  const published = items.filter(result => ['published', 'completed'].includes(result?.status)).length
   const active = items.filter(result => ACTIVE_SOCIAL_PUBLISH_STATUSES.has(result?.status)).length
   const failed = items.filter(result => result?.status === 'failed').length
 

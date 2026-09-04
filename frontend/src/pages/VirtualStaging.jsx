@@ -131,9 +131,12 @@ function FurnishRenovateResultCard({ result, publication }) {
   const [downloading, setDownloading] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [publishIntent, setPublishIntent] = useState(null)
+  const dismissedPublicationRef = useRef('')
 
   useEffect(() => {
     if (publishIntent || !publication?.resumeIntent) return
+    const resumeKey = `${publication.resumeIntent.sourceId}:${publication.resumeIntent.mediaAssetId}`
+    if (dismissedPublicationRef.current === resumeKey) return
     const restored = restorePendingSmartSpacePublication({ result, pending: publication.resumeIntent })
     if (!restored) return
     setPublishIntent(restored)
@@ -217,7 +220,7 @@ function FurnishRenovateResultCard({ result, publication }) {
     {['submitting', 'rendering'].includes(result.video?.state) && <p role="status" className="mt-4 rounded-2xl border border-primary-200 bg-primary-50 p-3 text-sm font-bold text-primary-900">Suas imagens estão prontas. Estamos finalizando o vídeo da transformação.</p>}
     {['failed_retryable', 'failed_unknown'].includes(result.video?.state) && <p role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">As imagens estão disponíveis, mas o vídeo da transformação não pôde ser concluído.</p>}
     {downloadError && <p role="alert" className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{downloadError}</p>}
-    {publishIntent && <BannerPublishDialog intent={publishIntent} loadConnection={publication?.loadConnection} onConnect={publication?.onConnect} onPublish={publication?.onPublish} onRecover={publication?.onRecover} onConfirmed={publication?.onConfirmed} captionEditable captionPlaceholder={publishIntent.captionPlaceholder} onClose={() => setPublishIntent(null)} />}
+    {publishIntent && <BannerPublishDialog intent={publishIntent} loadConnection={publication?.loadConnection} onConnect={publication?.onConnect} onPublish={publication?.onPublish} onRecover={publication?.onRecover} onConfirmed={publication?.onConfirmed} onTerminalClose={publication?.onTerminalClose} captionEditable captionPlaceholder={publishIntent.captionPlaceholder} onClose={() => { dismissedPublicationRef.current = `${publishIntent.sourceId}:${publishIntent.mediaAssetId}`; setPublishIntent(null) }} />}
   </article>
 }
 
@@ -888,6 +891,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     onConfirmed: intent => {
       if (!preservePendingSmartSpacePublication(window.sessionStorage, user.id, intent)) throw new Error('smart_space_publication_pending_not_saved')
     },
+    onTerminalClose: () => clearPendingSmartSpacePublication(window.sessionStorage, user.id),
     onConnect: async intent => {
       if (!preservePendingSmartSpacePublication(window.sessionStorage, user.id, intent)) throw new Error('smart_space_publication_pending_not_saved')
       await redirectToMetaOAuth(supabase, url => window.location.assign(url))
