@@ -46,3 +46,19 @@ test('public auth errors do not disclose registration state or raw provider erro
   assert.match(login, /catch \{[\s\S]*resposta pública não revela[\s\S]*finally \{[\s\S]*toast\.success\(GENERIC_RESEND_MESSAGE\)/)
   assert.doesNotMatch(login, /Email not confirmed|Invalid login credentials|err\.message|Email não confirmado/)
 })
+
+test('new email identity keeps the successful registration flow', () => {
+  assert.match(register, /if \(signupResult\?\.user\?\.identities\?\.length > 0\) \{[\s\S]*trackRegistration\(\)[\s\S]*toast\.success\('Conta criada! Verifique seu email para confirmar o cadastro\.'\)[\s\S]*\} else \{/)
+})
+
+test('empty identity uses a neutral message without claiming account creation', () => {
+  const obfuscatedResponseBranch = register.match(/\} else \{\n([\s\S]*?)\n      \}\n      navigate\('\/login'\)/)?.[1] || ''
+
+  assert.match(obfuscatedResponseBranch, /Não foi possível concluir um novo cadastro com esses dados/)
+  assert.match(obfuscatedResponseBranch, /Se você já possui uma conta, entre normalmente ou use “Esqueci minha senha”/)
+  assert.doesNotMatch(obfuscatedResponseBranch, /Conta criada|e-mail já está cadastrado|email já está cadastrado/i)
+})
+
+test('real signup errors keep the generic non-enumerating failure message', () => {
+  assert.match(register, /const signupResult = await signUp\([\s\S]*?\} catch \{\r?\n      toast\.error\('Não foi possível concluir o cadastro\. Verifique os dados ou tente novamente mais tarde\.'\)/)
+})

@@ -67,8 +67,10 @@ export default function RegisterPage() {
         if (!registrationTrackedRef.current) {
           registrationTrackedRef.current = trackRegistration()
         }
+        toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
+      } else {
+        toast.error('Não foi possível concluir um novo cadastro com esses dados. Se você já possui uma conta, entre normalmente ou use “Esqueci minha senha”.')
       }
-      toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
     } catch {
       toast.error('Não foi possível concluir o cadastro. Verifique os dados ou tente novamente mais tarde.')
