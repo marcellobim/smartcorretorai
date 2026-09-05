@@ -1,6 +1,7 @@
 export const SHORT_VIDEOS_MODULE_ID = 'short-videos'
 export const SHORT_VIDEOS_EXAMPLE_PATH = '/demos-videos/short-video-1.mp4'
 export const SHORT_VIDEOS_INPUT_BUCKET = 'short-videos-inputs'
+export const SHORT_VIDEOS_VISIBLE = false
 export const SHORT_VIDEO_ACCEPTED_MIME_TYPES = Object.freeze(['video/mp4'])
 export const SHORT_VIDEO_MAX_BYTES = 250 * 1024 * 1024
 export const SHORT_VIDEO_MAX_DURATION_SECONDS = 5 * 60

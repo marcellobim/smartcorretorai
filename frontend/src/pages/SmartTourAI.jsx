@@ -21,13 +21,13 @@ import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } f
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
-import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
+import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, SHORT_VIDEOS_VISIBLE, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
 
 const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
-const visibleExamples = SMART_TOUR_EXAMPLES.map(example => ({
+const visibleExamples = SMART_TOUR_EXAMPLES.filter(example => SHORT_VIDEOS_VISIBLE || example.id !== SHORT_VIDEOS_MODULE_ID).map(example => ({
   ...example,
   ...(example.id === 'animate-images' ? {
     title: 'Fotos em Movimento',
@@ -98,7 +98,7 @@ export default function SmartTourAI() {
   const { user, reloadProfile } = useAuth()
   const tourDraft = useProductDraft({ productKey: 'video-imobiliario', schemaVersion: 1, userId: user?.id })
   const restoredTourDraft = tourDraft.restoredDraft || {}
-  const restoredInputFlow = ['images', SHORT_VIDEOS_MODULE_ID].includes(restoredTourDraft.activeInputFlow) ? restoredTourDraft.activeInputFlow : null
+  const restoredInputFlow = restoredTourDraft.activeInputFlow === 'images' || (SHORT_VIDEOS_VISIBLE && restoredTourDraft.activeInputFlow === SHORT_VIDEOS_MODULE_ID) ? restoredTourDraft.activeInputFlow : null
   const restoredImageMetadata = Array.isArray(restoredTourDraft.imageMetadata)
     ? restoredTourDraft.imageMetadata.map(item => restoreProductDraftShape(emptyFileMetadata, item)).filter(item => item.name && item.size > 0)
     : []
@@ -379,6 +379,7 @@ export default function SmartTourAI() {
   }
 
   const selectInputFlow = inputFlow => {
+    if (inputFlow === SHORT_VIDEOS_MODULE_ID && !SHORT_VIDEOS_VISIBLE) return
     if (activeInputFlow !== inputFlow) reset()
     setActiveInputFlow(inputFlow)
     window.requestAnimationFrame(() => document.getElementById('smart-tour-creation')?.scrollIntoView({ behavior: getConversationScrollBehavior(), block: 'start' }))
@@ -431,6 +432,7 @@ export default function SmartTourAI() {
       <SmartTourStartChoice
         onSelectImages={() => selectInputFlow('images')}
         onSelectShortVideos={() => selectInputFlow(SHORT_VIDEOS_MODULE_ID)}
+        shortVideosVisible={SHORT_VIDEOS_VISIBLE}
       />
 
       {activeInputFlow && <div id="smart-tour-creation" className="mt-10 space-y-8 scroll-mt-6">
@@ -496,7 +498,7 @@ function SmartTourGuide() {
   </ProductCard>
 }
 
-function SmartTourStartChoice({ onSelectImages, onSelectShortVideos }) {
+function SmartTourStartChoice({ onSelectImages, onSelectShortVideos, shortVideosVisible }) {
   return <ProductCard className="mt-8 p-5 sm:p-7">
     <ProductSectionHeading title="Como deseja começar?" />
     <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -507,13 +509,13 @@ function SmartTourStartChoice({ onSelectImages, onSelectShortVideos }) {
           Criar vídeo com fotos
         </ProductButton>
       </ProductCard>
-      <ProductCard as="article" variant="flat" className="flex h-full flex-col p-5 sm:p-6">
+      {shortVideosVisible && <ProductCard as="article" variant="flat" className="flex h-full flex-col p-5 sm:p-6">
         <h3 className="text-lg font-black text-slate-950">Transformar um vídeo em Short</h3>
         <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo do imóvel e transforme-o em um Short automaticamente.</p>
         <ProductButton type="button" onClick={onSelectShortVideos} className="mt-5 w-full sm:w-fit">
           Criar Short com vídeo
         </ProductButton>
-      </ProductCard>
+      </ProductCard>}
     </div>
   </ProductCard>
 }

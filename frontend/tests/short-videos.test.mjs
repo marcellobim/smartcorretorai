@@ -10,6 +10,7 @@ import {
   SHORT_VIDEOS_EXAMPLE_PATH,
   SHORT_VIDEOS_INPUT_BUCKET,
   SHORT_VIDEOS_MODULE_ID,
+  SHORT_VIDEOS_VISIBLE,
   adaptQuestionsForShortVideos,
   buildShortVideoInputPath,
   cleanupShortVideoInput,
@@ -37,6 +38,18 @@ test('defines the functional Short Videos product without an unused engine varia
   assert.equal(SMART_TOUR_EXAMPLES.at(-1).video, SHORT_VIDEOS_EXAMPLE_PATH)
   assert.ok(statSync(path.join(frontendRoot, 'public', SHORT_VIDEOS_EXAMPLE_PATH.replace(/^\//, ''))).size > 0)
   assert.doesNotMatch(readFileSync(path.join(frontendRoot, 'src/config/shortVideos.js'), 'utf8'), /SHORT_VIDEOS_ENGINE_VARIATION/)
+})
+
+test('keeps Short Videos frozen and inaccessible without removing its internal implementation', () => {
+  assert.equal(SHORT_VIDEOS_VISIBLE, false)
+  assert.match(page, /SMART_TOUR_EXAMPLES\.filter\(example => SHORT_VIDEOS_VISIBLE \|\| example\.id !== SHORT_VIDEOS_MODULE_ID\)/)
+  assert.match(page, /restoredTourDraft\.activeInputFlow === 'images' \|\| \(SHORT_VIDEOS_VISIBLE && restoredTourDraft\.activeInputFlow === SHORT_VIDEOS_MODULE_ID\)/)
+  assert.match(page, /if \(inputFlow === SHORT_VIDEOS_MODULE_ID && !SHORT_VIDEOS_VISIBLE\) return/)
+  assert.match(page, /shortVideosVisible=\{SHORT_VIDEOS_VISIBLE\}/)
+  assert.match(page, /\{shortVideosVisible && <ProductCard[\s\S]*?Transformar um vídeo em Short[\s\S]*?Criar Short com vídeo[\s\S]*?<\/ProductCard>\}/)
+  assert.match(page, /onSelectImages=\{\(\) => selectInputFlow\('images'\)\}/)
+  assert.match(page, /const addShortVideo = async files =>/)
+  assert.match(page, /storage\.from\(SHORT_VIDEOS_INPUT_BUCKET\)\.upload/)
 })
 
 test('accepts only a non-empty MP4 up to 250 MiB and 300 seconds', () => {

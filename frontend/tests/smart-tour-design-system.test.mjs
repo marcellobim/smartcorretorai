@@ -34,12 +34,13 @@ test('uses only the consolidated Design System APIs for the Smart Tour visual hi
   assert.match(page, /<GuidedConversation[\s\S]*?designSystem[\s\S]*?eyebrow=\{isShortVideos/)
 })
 
-test('keeps the approved flow gate and original selection callbacks', () => {
+test('keeps the approved photo flow and guards the frozen Short Videos entry point', () => {
   assert.match(page, /\{activeInputFlow && <div id="smart-tour-creation"/)
   assert.match(page, /onSelectImages=\{\(\) => selectInputFlow\('images'\)\}/)
   assert.match(page, /onSelectShortVideos=\{\(\) => selectInputFlow\(SHORT_VIDEOS_MODULE_ID\)\}/)
+  assert.match(page, /shortVideosVisible=\{SHORT_VIDEOS_VISIBLE\}/)
   assert.match(page, /<ProductButton type="button" onClick=\{onSelectImages\}/)
-  assert.match(page, /<ProductButton type="button" onClick=\{onSelectShortVideos\}/)
+  assert.match(page, /\{shortVideosVisible && <ProductCard[\s\S]*?<ProductButton type="button" onClick=\{onSelectShortVideos\}/)
 })
 
 test('scrolls to the creation flow while honoring reduced motion safely', () => {
