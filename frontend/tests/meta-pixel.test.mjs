@@ -77,6 +77,7 @@ test('runtime initializes once, emits only parameterless approved events, and re
   assert.equal(queue.filter(call => call[0] === 'init').length, 1)
   assert.deepEqual(queue.find(call => call[0] === 'init'), ['init', '28002127666076015'])
   assert.deepEqual(queue.find(call => call[0] === 'set'), ['set', 'autoConfig', false, '28002127666076015'])
+  assert.ok(queue.findIndex(call => call[0] === 'set' && call[1] === 'autoConfig') < queue.findIndex(call => call[0] === 'init'))
   assert.equal(queue.filter(call => call[0] === 'consent' && call[1] === 'grant').length, 1)
 
   assert.equal(meta.trackMetaPageView('/auth/callback'), false)

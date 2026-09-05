@@ -45,10 +45,10 @@ export async function initializeMetaPixel(options) {
   const pixelId = options?.pixelId || META_PIXEL_ID
   const fbq = ensureFbq()
   if (!metaPixelInitialized) {
-    // Sem objeto de dados do usuário: Advanced Matching permanece desativado.
-    fbq('init', pixelId)
     // Impede a detecção/configuração automática de eventos pelo Pixel.
     fbq('set', 'autoConfig', false, pixelId)
+    // Sem objeto de dados do usuário: Advanced Matching permanece desativado.
+    fbq('init', pixelId)
 
     if (!document.getElementById(META_PIXEL_SCRIPT_ID)) {
       const script = document.createElement('script')
