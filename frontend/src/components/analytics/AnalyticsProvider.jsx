@@ -1,18 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  getAnalyticsConsent,
+  getTrackingConsent,
   initializeAnalytics,
   isAnalyticsConfigured,
   revokeAnalyticsConsent,
   sanitizeAnalyticsPath,
-  storeAnalyticsConsent,
+  storeTrackingConsent,
   trackFunnelEvent,
   trackPageView,
 } from '../../lib/analytics'
+import {
+  initializeMetaPixel,
+  isMetaPixelConfigured,
+  revokeMetaConsent,
+  trackMetaCompleteRegistration,
+  trackMetaPageView,
+} from '../../lib/meta-pixel'
 
 const AnalyticsContext = createContext({
   openCookiePreferences: () => {},
+  trackRegistration: () => false,
   trackEvent: () => false,
 })
 
@@ -22,56 +30,91 @@ export function useAnalytics() {
 
 export default function AnalyticsProvider({ children }) {
   const location = useLocation()
-  const configured = isAnalyticsConfigured()
-  const [consent, setConsent] = useState(() => configured ? getAnalyticsConsent() : null)
-  const [ready, setReady] = useState(false)
-  const [showPreferences, setShowPreferences] = useState(() => configured && !getAnalyticsConsent())
-  const lastPathRef = useRef(null)
+  const analyticsConfigured = isAnalyticsConfigured()
+  const metaConfigured = isMetaPixelConfigured()
+  const configured = analyticsConfigured || metaConfigured
+  const [consent, setConsent] = useState(() => configured ? getTrackingConsent() : null)
+  const [analyticsReady, setAnalyticsReady] = useState(false)
+  const [metaReady, setMetaReady] = useState(false)
+  const [showPreferences, setShowPreferences] = useState(() => configured && !getTrackingConsent())
+  const lastAnalyticsPathRef = useRef(null)
+  const lastMetaPathRef = useRef(null)
 
   useEffect(() => {
-    if (consent !== 'granted') {
-      setReady(false)
+    if (!analyticsConfigured || consent?.analytics !== 'granted') {
+      setAnalyticsReady(false)
       return
     }
     let active = true
     void initializeAnalytics().then(initialized => {
-      if (active) setReady(initialized)
+      if (active) setAnalyticsReady(initialized)
     })
     return () => { active = false }
-  }, [consent])
+  }, [analyticsConfigured, consent?.analytics])
 
   useEffect(() => {
-    if (!ready || consent !== 'granted') return
+    if (!metaConfigured || consent?.marketing !== 'granted') {
+      setMetaReady(false)
+      return
+    }
+    let active = true
+    void initializeMetaPixel().then(initialized => {
+      if (active) setMetaReady(initialized)
+    })
+    return () => { active = false }
+  }, [consent?.marketing, metaConfigured])
+
+  useEffect(() => {
+    if (!analyticsReady || consent?.analytics !== 'granted') return
     const safePath = sanitizeAnalyticsPath(location.pathname)
-    if (!safePath || safePath === lastPathRef.current) return
-    trackPageView(safePath, lastPathRef.current)
-    lastPathRef.current = safePath
-  }, [consent, location.pathname, ready])
+    if (!safePath || safePath === lastAnalyticsPathRef.current) return
+    trackPageView(safePath, lastAnalyticsPathRef.current)
+    lastAnalyticsPathRef.current = safePath
+  }, [analyticsReady, consent?.analytics, location.pathname])
+
+  useEffect(() => {
+    if (!metaReady || consent?.marketing !== 'granted') return
+    const safePath = sanitizeAnalyticsPath(location.pathname)
+    if (!safePath || safePath === lastMetaPathRef.current) return
+    if (trackMetaPageView(safePath)) lastMetaPathRef.current = safePath
+  }, [consent?.marketing, location.pathname, metaReady])
 
   const trackEvent = useCallback(eventName => {
-    if (!ready || consent !== 'granted') return false
+    if (!analyticsReady || consent?.analytics !== 'granted') return false
     return trackFunnelEvent(eventName)
-  }, [consent, ready])
+  }, [analyticsReady, consent?.analytics])
+
+  const trackRegistration = useCallback(() => {
+    if (!metaReady || consent?.marketing !== 'granted') return false
+    return trackMetaCompleteRegistration()
+  }, [consent?.marketing, metaReady])
 
   const openCookiePreferences = useCallback(() => {
     if (configured) setShowPreferences(true)
   }, [configured])
 
   const chooseConsent = useCallback(async value => {
-    storeAnalyticsConsent(value)
+    storeTrackingConsent(value)
     setConsent(value)
     setShowPreferences(false)
-    if (value === 'granted') {
-      setReady(await initializeAnalytics())
+    if (value.analytics === 'granted' && analyticsConfigured) {
+      setAnalyticsReady(await initializeAnalytics())
     } else {
       revokeAnalyticsConsent()
-      setReady(false)
-      lastPathRef.current = null
+      setAnalyticsReady(false)
+      lastAnalyticsPathRef.current = null
     }
-  }, [])
+    if (value.marketing === 'granted' && metaConfigured) {
+      setMetaReady(await initializeMetaPixel())
+    } else {
+      revokeMetaConsent()
+      setMetaReady(false)
+      lastMetaPathRef.current = null
+    }
+  }, [analyticsConfigured, metaConfigured])
 
   return (
-    <AnalyticsContext.Provider value={{ openCookiePreferences, trackEvent }}>
+    <AnalyticsContext.Provider value={{ openCookiePreferences, trackEvent, trackRegistration }}>
       {children}
       {configured && showPreferences && (
         <section
@@ -80,15 +123,18 @@ export default function AnalyticsProvider({ children }) {
         >
           <h2 className="text-base font-black text-slate-950">Cookies</h2>
           <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
-            Usamos cookies necessários para o funcionamento do site e, com sua autorização, cookies de análise para entender como o SmartCorretorAI é utilizado e melhorar sua experiência. Você pode aceitar todos ou continuar apenas com os necessários.{' '}
+            Usamos cookies necessários para o site e, somente com sua autorização, cookies de análise (GA4) e de medição de marketing (Meta Pixel). Você pode escolher apenas análise, aceitar ambos ou continuar somente com os necessários.{' '}
             <Link to="/privacidade" className="font-bold text-primary-700 hover:underline">Saiba mais</Link>.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => chooseConsent('denied')} className="min-h-12 rounded-xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-800 hover:bg-slate-50">
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <button type="button" onClick={() => chooseConsent({ analytics: 'denied', marketing: 'denied' })} className="min-h-12 rounded-xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-800 hover:bg-slate-50">
               Somente necessários
             </button>
-            <button type="button" onClick={() => chooseConsent('granted')} className="min-h-12 rounded-xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700">
-              Aceitar cookies
+            <button type="button" onClick={() => chooseConsent({ analytics: 'granted', marketing: 'denied' })} className="min-h-12 rounded-xl border border-primary-300 px-4 py-3 text-sm font-black text-primary-800 hover:bg-primary-50">
+              Aceitar somente análise
+            </button>
+            <button type="button" onClick={() => chooseConsent({ analytics: 'granted', marketing: 'granted' })} className="min-h-12 rounded-xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700">
+              Aceitar análise e marketing
             </button>
           </div>
         </section>

@@ -19,9 +19,11 @@ export default function RegisterPage() {
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
   const signupStartedRef = useRef(false)
+  const signupSubmissionRef = useRef(false)
+  const registrationTrackedRef = useRef(false)
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signUp, signInWithGoogle } = useAuth()
-  const { trackEvent } = useAnalytics()
+  const { trackEvent, trackRegistration } = useAnalytics()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -36,6 +38,7 @@ export default function RegisterPage() {
   }
 
   const onSubmit = async (data) => {
+    if (signupSubmissionRef.current) return
     if (!data.termos) {
       toast.error('Aceite os termos para continuar.')
       return
@@ -44,6 +47,7 @@ export default function RegisterPage() {
       toast.error('Conclua a verificação de segurança para continuar.')
       return
     }
+    signupSubmissionRef.current = true
     setLoading(true)
     try {
       const signupResult = await signUp(data.email, data.senha, {
@@ -58,12 +62,18 @@ export default function RegisterPage() {
           context: LEGAL_ACCEPTANCE_CONTEXT,
         },
       }, captchaToken)
-      if (signupResult?.user?.identities?.length > 0) trackEvent('sign_up_completed')
+      if (signupResult?.user?.identities?.length > 0) {
+        trackEvent('sign_up_completed')
+        if (!registrationTrackedRef.current) {
+          registrationTrackedRef.current = trackRegistration()
+        }
+      }
       toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
       navigate('/login')
     } catch {
       toast.error('Não foi possível concluir o cadastro. Verifique os dados ou tente novamente mais tarde.')
     } finally {
+      signupSubmissionRef.current = false
       captchaRef.current?.reset()
       setLoading(false)
     }

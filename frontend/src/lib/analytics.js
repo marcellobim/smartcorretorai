@@ -1,4 +1,5 @@
-const ANALYTICS_CONSENT_KEY = 'smartcorretor_analytics_consent'
+const TRACKING_CONSENT_KEY = 'smartcorretor_tracking_consent_v2'
+const TRACKING_CONSENT_VERSION = 2
 const GOOGLE_TAG_SCRIPT_ID = 'smartcorretor-ga4'
 
 const SAFE_ROUTE_TITLES = Object.freeze({
@@ -35,26 +36,42 @@ const ALLOWED_FUNNEL_EVENTS = new Set([
 const recentEvents = new Map()
 let analyticsInitialized = false
 
-export const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() || ''
+export const GA_MEASUREMENT_ID = import.meta.env?.VITE_GA_MEASUREMENT_ID?.trim() || ''
 
 export function isAnalyticsConfigured() {
   return /^G-[A-Z0-9]+$/.test(GA_MEASUREMENT_ID)
 }
 
-export function getAnalyticsConsent() {
+export function getTrackingConsent() {
   if (typeof window === 'undefined') return null
   try {
-    const value = window.localStorage.getItem(ANALYTICS_CONSENT_KEY)
-    return value === 'granted' || value === 'denied' ? value : null
+    const value = JSON.parse(window.localStorage.getItem(TRACKING_CONSENT_KEY) || 'null')
+    if (value?.version !== TRACKING_CONSENT_VERSION) return null
+    if (!['granted', 'denied'].includes(value.analytics)) return null
+    if (!['granted', 'denied'].includes(value.marketing)) return null
+    return value
   } catch {
     return null
   }
 }
 
-export function storeAnalyticsConsent(value) {
-  if (typeof window === 'undefined' || !['granted', 'denied'].includes(value)) return
+export function getAnalyticsConsent() {
+  return getTrackingConsent()?.analytics || null
+}
+
+export function getMarketingConsent() {
+  return getTrackingConsent()?.marketing || null
+}
+
+export function storeTrackingConsent({ analytics, marketing }) {
+  if (typeof window === 'undefined') return
+  if (!['granted', 'denied'].includes(analytics) || !['granted', 'denied'].includes(marketing)) return
   try {
-    window.localStorage.setItem(ANALYTICS_CONSENT_KEY, value)
+    window.localStorage.setItem(TRACKING_CONSENT_KEY, JSON.stringify({
+      version: TRACKING_CONSENT_VERSION,
+      analytics,
+      marketing,
+    }))
   } catch {
     // Storage indisponível: mantém a escolha somente nesta sessão React.
   }

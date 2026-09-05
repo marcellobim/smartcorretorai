@@ -19,7 +19,7 @@ export default function Privacidade() {
 
         <div className="card p-8">
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Política de Privacidade</h1>
-          <p className="text-sm text-gray-400 mb-8">Última atualização: agosto de 2026</p>
+          <p className="text-sm text-gray-400 mb-8">Última atualização: setembro de 2026</p>
 
           <div className="prose prose-gray max-w-none space-y-6 text-sm text-gray-600 leading-relaxed">
             <section>
@@ -189,13 +189,20 @@ export default function Privacidade() {
             </section>
 
             <section>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Cookies e Analytics</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">11. Cookies, Analytics e medição de campanhas</h2>
               <p>
                 Utilizamos tecnologias essenciais para funcionamento, autenticação e segurança da Plataforma, incluindo
                 mecanismos de sessão e verificação antiabuso. Com seu consentimento, utilizamos Google Analytics 4 para
                 medir páginas visitadas, origem do tráfego e interações agregadas, com a finalidade de melhorar o produto
                 e apoiar ações de marketing. Não enviamos ao Analytics dados de cadastro, conteúdos privados, uploads,
                 informações de pagamento ou identificadores internos de usuários.
+              </p>
+              <p className="mt-2">
+                Com consentimento específico para medição de marketing, utilizamos o Meta Pixel para medir visitas e
+                cadastros concluídos por e-mail relacionados às nossas campanhas. A Meta pode tratar categorias gerais
+                de dados técnicos, como página visitada, origem da navegação, endereço IP, navegador, dispositivo,
+                sistema operacional, horários e identificadores de cookies. Não enviamos ao Meta Pixel nome, e-mail,
+                telefone, CRECI, conteúdo de formulários, dados de imóveis, pagamentos ou identificadores internos de usuários.
               </p>
               <p className="mt-2">
                 Cookies analíticos permanecem desativados até sua autorização e podem ser recusados sem afetar as funções
@@ -205,6 +212,12 @@ export default function Privacidade() {
                 Google Tag Manager, Google Signals, remarketing ou personalização de anúncios nesta implementação.
                 O Google OAuth, quando habilitado, é usado somente para autenticação e é distinto do Google Analytics 4
                 e dos provedores de inteligência artificial, como Gemini ou Veo.
+              </p>
+              <p className="mt-2">
+                A autorização para análise e a autorização para medição de marketing são apresentadas de forma explícita
+                e podem ser recusadas sem impedir as funções essenciais. Ambas podem ser alteradas ou revogadas a qualquer
+                momento em “Preferências de cookies”. Após a revogação da medição de marketing, deixamos de enviar novos
+                eventos ao Meta Pixel e removemos localmente os cookies Meta aplicáveis quando presentes.
               </p>
             </section>
 

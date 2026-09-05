@@ -21,7 +21,9 @@ test('clickjacking is blocked by modern CSP and legacy compatibility header', ()
 test('compatibility CSP is report-only, explicit and contains no unsafe eval', () => {
   const policy = headers['content-security-policy-report-only']
   assert.match(policy, /script-src 'self' https:\/\/challenges\.cloudflare\.com/)
+  assert.match(policy, /script-src[^;]+https:\/\/connect\.facebook\.net/)
   assert.match(policy, /connect-src 'self' https:\/\/\*\.supabase\.co wss:\/\/\*\.supabase\.co https:\/\/servicodados\.ibge\.gov\.br/)
+  assert.match(policy, /connect-src[^;]+https:\/\/www\.facebook\.com/)
   assert.match(policy, /img-src 'self' data: blob: https:/)
   assert.match(policy, /media-src 'self' blob: https:/)
   assert.match(policy, /frame-src https:\/\/challenges\.cloudflare\.com https:\/\/js\.stripe\.com https:\/\/hooks\.stripe\.com https:\/\/checkout\.stripe\.com/)
