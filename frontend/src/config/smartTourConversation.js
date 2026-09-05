@@ -7,7 +7,7 @@ const LINEAR_NEXT_QUESTION = Object.freeze({
   location: 'commercial',
   commercial: 'highlights',
   highlights: 'presenter',
-  presenter_custom_speech: 'captions',
+  presenter_custom_speech: 'review',
   narration: 'captions',
   captions: 'cta_enabled',
   cta: 'phone',

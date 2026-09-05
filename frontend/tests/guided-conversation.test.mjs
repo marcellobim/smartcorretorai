@@ -66,7 +66,7 @@ test('keeps all Smart Tour conditional paths coherent through review', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'male' }), 'presenter_speech_mode')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'automatic' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'custom' }), 'presenter_custom_speech')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'captions')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'review')
   assert.equal(getSmartTourNextQuestion({ questionId: 'narration', answerId: 'disabled' }), 'captions')
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'disabled' }), 'cta_enabled')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
@@ -77,8 +77,8 @@ test('keeps all Smart Tour conditional paths coherent through review', () => {
 
 test('asks CTA yes or no and omits phone when CTA is disabled', () => {
   assert.match(smartTour, /\['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo\?'\]/)
-  assert.match(smartTour, /includeProfessionalPhone: ctaEnabled === true && includePhone === true/)
-  assert.match(smartTour, /phone:ctaEnabled === true && includePhone \? phone : ''/)
+  assert.match(smartTour, /includeProfessionalPhone: videoCtaEnabled && includePhone === true/)
+  assert.match(smartTour, /phone:videoCtaEnabled && includePhone \? phone : ''/)
   assert.match(smartTour, /O vídeo terminará naturalmente na última cena, sem chamada final/)
 })
 
@@ -105,6 +105,25 @@ test('supports literal custom Corretor Virtual speech with a 25-word client limi
   assert.match(smartTour, /\{wordCount\} \/ 25 palavras/)
   assert.match(smartTour, /presenterSpeechMode === 'custom' \? 'enabled'/)
   assert.match(smartTour, /presenterSpeechMode === 'custom' \? 'Sim \(implícita\)'/)
+})
+
+test('custom presenter speech skips narration, visual highlights and final CTA without clearing property highlights', () => {
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'custom' }), 'presenter_custom_speech')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'review')
+  assert.match(smartTour, /const applyCustomPresenterVideoChoices = \(\) => \{[\s\S]*?narration: 'enabled', captions: 'disabled'[\s\S]*?setCtaEnabled\(false\)[\s\S]*?setCta\(''\)[\s\S]*?setIncludePhone\(false\)[\s\S]*?\}/)
+  assert.match(smartTour, /cont\(invalid, generation\.presenterCustomSpeech, 'review', applyCustomPresenterVideoChoices\)/)
+  assert.match(smartTour, /captions: presenterSpeechMode === 'custom' \? 'disabled'/)
+  assert.match(smartTour, /const videoCtaEnabled = ctaEnabled === true && !customPresenterSpeech/)
+  const customChoices = smartTour.match(/const applyCustomPresenterVideoChoices = \(\) => \{([\s\S]*?)\n  \}/)?.[1] || ''
+  assert.doesNotMatch(customChoices, /setProperty|highlights/)
+  assert.match(smartTour, /const draft = \{ activeInputFlow, property, generation, ctaEnabled, cta, includePhone/)
+})
+
+test('automatic presenter speech and no presenter keep the current narration, highlights and CTA path', () => {
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'automatic' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'narration', answerId: 'enabled' }), 'captions')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'enabled' }), 'cta_enabled')
 })
 
 test('removes staging and furniture questions from the active Smart Tour chat', () => {

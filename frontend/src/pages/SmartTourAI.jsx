@@ -59,7 +59,7 @@ function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
   const presenterGender = ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none'
   const presenterSpeechMode = presenterGender !== 'none' && value.presenterSpeechMode === 'custom' ? 'custom' : 'automatic'
-  return { ...value, mode: 'guided_tour', presenterGender, presenterSpeechMode, presenterCustomSpeech: presenterSpeechMode === 'custom' ? String(value.presenterCustomSpeech ?? '') : '', narration: presenterSpeechMode === 'custom' ? 'enabled' : value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
+  return { ...value, mode: 'guided_tour', presenterGender, presenterSpeechMode, presenterCustomSpeech: presenterSpeechMode === 'custom' ? String(value.presenterCustomSpeech ?? '') : '', narration: presenterSpeechMode === 'custom' ? 'enabled' : value.narration === 'disabled' ? 'disabled' : 'enabled', captions: presenterSpeechMode === 'custom' ? 'disabled' : value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 }
 
 const countWords = value => String(value ?? '').trim().split(/\s+/).filter(Boolean).length
@@ -330,13 +330,15 @@ export default function SmartTourAI() {
     try {
       const requestId = crypto.randomUUID()
       const apiGeneration = normalizeGeneration(generation)
-      const selectedCta = ctaEnabled === true ? cta : ''
+      const customPresenterSpeech = !isShortVideos && apiGeneration.presenterSpeechMode === 'custom'
+      const videoCtaEnabled = ctaEnabled === true && !customPresenterSpeech
+      const selectedCta = videoCtaEnabled ? cta : ''
       if (isShortVideos) {
         const videoPath = buildShortVideoInputPath(user.id, requestId)
         const { error: uploadError } = await supabase.storage.from(SHORT_VIDEOS_INPUT_BUCKET).upload(videoPath, shortVideo.file, { contentType: 'video/mp4' })
         if (uploadError) throw new Error('O vídeo não pôde ser enviado. Tente novamente.')
         setStatus('generating'); setMessage('A IA está selecionando os melhores momentos do seu vídeo...')
-        let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '' })
+        let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '' })
         writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'starting', updatedAt:Date.now() })
         tourDraft.clear()
         const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: {
@@ -347,7 +349,7 @@ export default function SmartTourAI() {
           property,
           generation: { ...apiGeneration, presenterGender: 'none' },
           selectedCta,
-          includeProfessionalPhone: ctaEnabled === true && includePhone === true,
+          includeProfessionalPhone: videoCtaEnabled && includePhone === true,
           language: 'pt-BR',
         } })
         if (error || !data?.ok || !data?.jobId) {
@@ -356,7 +358,7 @@ export default function SmartTourAI() {
           poll(requestId)
           return
         }
-        campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags })
+        campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags })
         writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'active', updatedAt:Date.now() }); poll(data.jobId)
         return
       }
@@ -370,10 +372,10 @@ export default function SmartTourAI() {
         imagePaths[imageIndex] = path
       }
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
-      let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', unifiedSocialPublishing:true })
+      let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
       tourDraft.clear()
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, language: 'pt-BR' } })
       if (shouldRecoverSmartTourGenerateResponse(error, data)) {
         setStatus('generating')
         setMessage('Confirmando o início da sua criação...')
@@ -381,7 +383,7 @@ export default function SmartTourAI() {
         return
       }
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
+      campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
     } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
@@ -690,6 +692,12 @@ function Question(props) {
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === item.id ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
+  const applyCustomPresenterVideoChoices = () => {
+    setGeneration(current => ({ ...current, narration: 'enabled', captions: 'disabled' }))
+    setCtaEnabled(false)
+    setCta('')
+    setIncludePhone(false)
+  }
   if (id === 'images' && isShortVideos) return <>
     <input ref={inputRef} type="file" accept="video/mp4" hidden onChange={event => { addShortVideo(event.target.files); event.target.value = '' }} />
     <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo de até 5 minutos. A IA selecionará automaticamente os melhores momentos para criar um Short vertical.</p>
@@ -752,7 +760,7 @@ function Question(props) {
       <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">O vídeo tem 10 segundos. Escreva até 25 palavras para manter uma fala natural.</p>
       <textarea id="presenter-custom-speech" value={generation.presenterCustomSpeech} onChange={event => setGeneration(current => ({ ...current, presenterCustomSpeech: event.target.value, narration: 'enabled' }))} rows={5} className="mt-3 w-full rounded-smart-control border border-slate-200 bg-white p-3 text-sm leading-6 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
       <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold"><span className={wordCount > 25 ? 'text-red-600' : 'text-slate-500'}>{wordCount} / 25 palavras</span>{wordCount > 25 && <span role="alert" className="text-right text-red-600">Reduza a fala para no máximo 25 palavras.</span>}</div>
-      {cont(invalid, generation.presenterCustomSpeech, 'captions', () => setGenerationField('narration', 'enabled'))}
+      {cont(invalid, generation.presenterCustomSpeech, 'review', applyCustomPresenterVideoChoices)}
     </>
   }
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))

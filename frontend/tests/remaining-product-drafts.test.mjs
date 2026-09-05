@@ -47,6 +47,26 @@ test('Vídeo Imobiliário saves and restores its allowlisted pre-generation flow
   assert.doesNotMatch(smartTour, /tourDraft\.save\([^\n]*(?:\bFile\b|\bBlob\b|base64|objectURL|preview)/i)
 })
 
+test('Vídeo Imobiliário recovery preserves custom speech and property highlights independently', () => {
+  const restored = restoreProductDraftShape(
+    {
+      property: { highlights: [] },
+      generation: { presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: '', captions: '' },
+    },
+    {
+      property: { highlights: ['Vista para o mar', 'Varanda gourmet'] },
+      generation: { presenterSpeechMode: 'custom', presenterCustomSpeech: 'Conheça este imóvel incrível.', narration: 'enabled', captions: 'disabled' },
+    },
+  )
+
+  assert.deepEqual(restored.property.highlights, ['Vista para o mar', 'Varanda gourmet'])
+  assert.equal(restored.generation.presenterSpeechMode, 'custom')
+  assert.equal(restored.generation.presenterCustomSpeech, 'Conheça este imóvel incrível.')
+  assert.equal(restored.generation.narration, 'enabled')
+  assert.equal(restored.generation.captions, 'disabled')
+  assert.match(smartTour, /typeof restoredTourDraft\.ctaEnabled === 'boolean' \? restoredTourDraft\.ctaEnabled : null/)
+})
+
 test('Vídeo Imobiliário gives active-job recovery priority and restore has no economic side effects', () => {
   const draftEffect = smartTour.slice(smartTour.indexOf("if (!['idle', 'error'].includes(status))"), smartTour.indexOf('const answerQuestion'))
   assert.match(draftEffect, /readSmartTourActiveJob\(sessionStorage\)\.record/)
