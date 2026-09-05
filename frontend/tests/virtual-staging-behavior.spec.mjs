@@ -57,7 +57,7 @@ async function chooseModule(page, position) {
 async function openFurnishFlow(page) {
   await chooseModule(page, 0)
   await page.getByRole('button', { name: 'Começar' }).click()
-  await page.getByRole('button', { name: 'Mobiliar um espaço vazio com móveis e uma nova decoração' }).click()
+  await page.getByRole('button', { name: 'Mobiliar um ambiente vazio' }).click()
   await page.getByRole('button', { name: 'Aconchegante' }).click()
 }
 
@@ -69,22 +69,20 @@ async function reachReview(page, files = [imageFile()]) {
   await openFurnishFlow(page)
   await page.locator('input[type="file"][multiple]').setInputFiles(files)
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByRole('button', { name: 'Instagram' }).click()
-  await page.getByRole('button', { name: 'Continuar' }).click()
   await expect(page.getByText('Revise seu projeto')).toBeVisible()
 }
 
-test('exibe as quatro ações oficiais na pergunta inicial do Smart Space', async ({ page }) => {
+test('exibe somente as três ações oficiais e impede clear_area na UI do Smart Space', async ({ page }) => {
   await chooseModule(page, 0)
   await page.getByRole('button', { name: 'Começar' }).click()
 
   await expect(page.getByText('O que você quer fazer com o espaço destas imagens?')).toBeVisible()
   for (const action of [
-    'Mobiliar um espaço vazio com móveis e uma nova decoração',
-    'Remover os móveis e criar uma decoração completamente nova',
-    'Remover os móveis para visualizar o espaço livre',
-    'Limpar um terreno ou uma área para visualizar melhor o espaço',
+    'Mobiliar um ambiente vazio',
+    'Criar uma decoração completamente nova',
+    'Remover os móveis',
   ]) await expect(page.getByRole('button', { name: action })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Limpar um terreno ou uma área para visualizar melhor o espaço' })).toHaveCount(0)
 
   await expect(page.getByRole('button', { name: 'Mobiliar ambientes vazios ou quase vazios' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Tenho ambientes vazios e mobiliados' })).toHaveCount(0)
@@ -93,14 +91,14 @@ test('exibe as quatro ações oficiais na pergunta inicial do Smart Space', asyn
 test('mantém a pergunta de estilo para a ação de mobiliar', async ({ page }) => {
   await chooseModule(page, 0)
   await page.getByRole('button', { name: 'Começar' }).click()
-  await page.getByRole('button', { name: 'Mobiliar um espaço vazio com móveis e uma nova decoração' }).click()
+  await page.getByRole('button', { name: 'Mobiliar um ambiente vazio' }).click()
   await expect(page.getByText('Qual estilo você prefere para os ambientes?')).toBeVisible()
 })
 
 test('pula a pergunta de estilo para a ação de remover móveis', async ({ page }) => {
   await chooseModule(page, 0)
   await page.getByRole('button', { name: 'Começar' }).click()
-  await page.getByRole('button', { name: 'Remover os móveis para visualizar o espaço livre' }).click()
+  await page.getByRole('button', { name: 'Remover os móveis' }).click()
   await expect(page.getByText('Envie as fotos do imóvel')).toBeVisible()
   await expect(page.getByText('Qual estilo você prefere para os ambientes?')).toHaveCount(0)
 })

@@ -51,8 +51,7 @@ const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
 const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
   transformation_type: 'decoration_style',
   decoration_style: 'images',
-  images: 'image_destinations',
-  image_destinations: 'review',
+  images: 'review',
 })
 
 export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '' }) {
