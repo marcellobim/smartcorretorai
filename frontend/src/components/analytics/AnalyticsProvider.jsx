@@ -17,6 +17,7 @@ import {
   trackMetaCompleteRegistration,
   trackMetaPageView,
 } from '../../lib/meta-pixel'
+import { createMetaRegistrationDispatcher } from '../../lib/meta-registration-dispatcher'
 
 const AnalyticsContext = createContext({
   openCookiePreferences: () => {},
@@ -39,6 +40,18 @@ export default function AnalyticsProvider({ children }) {
   const [showPreferences, setShowPreferences] = useState(() => configured && !getTrackingConsent())
   const lastAnalyticsPathRef = useRef(null)
   const lastMetaPathRef = useRef(null)
+  const marketingConsentRef = useRef(consent?.marketing)
+  const metaReadyRef = useRef(metaReady)
+  const metaRegistrationDispatcherRef = useRef(null)
+  marketingConsentRef.current = consent?.marketing
+  metaReadyRef.current = metaReady
+  if (!metaRegistrationDispatcherRef.current) {
+    metaRegistrationDispatcherRef.current = createMetaRegistrationDispatcher({
+      isMarketingGranted: () => marketingConsentRef.current === 'granted',
+      isReady: () => metaReadyRef.current,
+      send: trackMetaCompleteRegistration,
+    })
+  }
 
   useEffect(() => {
     if (!analyticsConfigured || consent?.analytics !== 'granted') {
@@ -54,12 +67,17 @@ export default function AnalyticsProvider({ children }) {
 
   useEffect(() => {
     if (!metaConfigured || consent?.marketing !== 'granted') {
+      metaRegistrationDispatcherRef.current.revoke()
+      metaReadyRef.current = false
       setMetaReady(false)
       return
     }
     let active = true
     void initializeMetaPixel().then(initialized => {
-      if (active) setMetaReady(initialized)
+      if (active) {
+        metaReadyRef.current = initialized
+        setMetaReady(initialized)
+      }
     })
     return () => { active = false }
   }, [consent?.marketing, metaConfigured])
@@ -79,21 +97,31 @@ export default function AnalyticsProvider({ children }) {
     if (trackMetaPageView(safePath)) lastMetaPathRef.current = safePath
   }, [consent?.marketing, location.pathname, metaReady])
 
+  useEffect(() => {
+    if (consent?.marketing !== 'granted') {
+      metaRegistrationDispatcherRef.current.revoke()
+      return
+    }
+    if (metaReady) metaRegistrationDispatcherRef.current.flush()
+  }, [consent?.marketing, metaReady])
+
   const trackEvent = useCallback(eventName => {
     if (!analyticsReady || consent?.analytics !== 'granted') return false
     return trackFunnelEvent(eventName)
   }, [analyticsReady, consent?.analytics])
 
-  const trackRegistration = useCallback(() => {
-    if (!metaReady || consent?.marketing !== 'granted') return false
-    return trackMetaCompleteRegistration()
-  }, [consent?.marketing, metaReady])
+  const trackRegistration = useCallback(
+    () => metaRegistrationDispatcherRef.current.request(),
+    [],
+  )
 
   const openCookiePreferences = useCallback(() => {
     if (configured) setShowPreferences(true)
   }, [configured])
 
   const chooseConsent = useCallback(async value => {
+    marketingConsentRef.current = value.marketing
+    if (value.marketing !== 'granted') metaRegistrationDispatcherRef.current.revoke()
     storeTrackingConsent(value)
     setConsent(value)
     setShowPreferences(false)
@@ -105,9 +133,12 @@ export default function AnalyticsProvider({ children }) {
       lastAnalyticsPathRef.current = null
     }
     if (value.marketing === 'granted' && metaConfigured) {
-      setMetaReady(await initializeMetaPixel())
+      const initialized = await initializeMetaPixel()
+      metaReadyRef.current = initialized
+      setMetaReady(initialized)
     } else {
       revokeMetaConsent()
+      metaReadyRef.current = false
       setMetaReady(false)
       lastMetaPathRef.current = null
     }

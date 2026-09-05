@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 const metaSource = read('src/lib/meta-pixel.js')
+const registrationDispatcherSource = read('src/lib/meta-registration-dispatcher.js')
 const providerSource = read('src/components/analytics/AnalyticsProvider.jsx')
 const registerSource = read('src/pages/RegisterPage.jsx')
 const callbackSource = read('src/pages/AuthCallbackPage.jsx')
@@ -118,6 +119,27 @@ test('email registration is the only completion source and is guarded after a re
   assert.doesNotMatch(googleHandler, /trackRegistration|CompleteRegistration/)
   assert.match(metaSource, /window\.fbq\('track', 'CompleteRegistration'\)/)
   assert.doesNotMatch(metaSource, /CompleteRegistration'\s*,/)
+})
+
+test('new identities request completion while obfuscated duplicate identities do not', () => {
+  const identityGuard = 'if (signupResult?.user?.identities?.length > 0) {'
+  const guardStart = registerSource.indexOf(identityGuard)
+  const duplicateBranchStart = registerSource.indexOf('} else {', guardStart)
+  const navigationStart = registerSource.indexOf("navigate('/login')", duplicateBranchStart)
+  const newIdentityBranch = registerSource.slice(guardStart, duplicateBranchStart)
+  const duplicateIdentityBranch = registerSource.slice(duplicateBranchStart, navigationStart)
+
+  assert.ok(guardStart >= 0 && duplicateBranchStart > guardStart && navigationStart > duplicateBranchStart)
+  assert.match(newIdentityBranch, /trackRegistration\(\)/)
+  assert.doesNotMatch(duplicateIdentityBranch, /trackRegistration|CompleteRegistration/)
+})
+
+test('pending Meta registration is provider-owned and never persisted', () => {
+  assert.match(providerSource, /createMetaRegistrationDispatcher/)
+  assert.match(providerSource, /metaRegistrationDispatcherRef\.current\.request\(\)/)
+  assert.match(providerSource, /metaRegistrationDispatcherRef\.current\.flush\(\)/)
+  assert.match(providerSource, /metaRegistrationDispatcherRef\.current\.revoke\(\)/)
+  assert.doesNotMatch(registrationDispatcherSource, /localStorage|sessionStorage|fetch|supabase/i)
 })
 
 test('privacy, environment and CSP expose only the minimum Meta integration', () => {
