@@ -62,6 +62,11 @@ test('updates the lateral summary through the same edit action', () => {
 test('keeps all Smart Tour conditional paths coherent through review', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'female' }), 'presenter_speech_mode')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'male' }), 'presenter_speech_mode')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'automatic' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'custom' }), 'presenter_custom_speech')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'captions')
   assert.equal(getSmartTourNextQuestion({ questionId: 'narration', answerId: 'disabled' }), 'captions')
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'disabled' }), 'cta_enabled')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
@@ -81,8 +86,25 @@ test('offers the four independent presentation choices in the existing chat', ()
   for (const question of ['Deseja um apresentador virtual durante o vídeo?', 'Deseja narração durante o vídeo?', 'Deseja destacar algumas informações importantes durante o vídeo?', 'Deseja uma chamada para ação no final do vídeo?']) assert.ok(smartTour.includes(question))
   for (const explanation of ['Um corretor ou corretora virtual poderá apresentar', 'Uma narração em português do Brasil', 'As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa', 'Ao final do vídeo poderá ser exibido um convite para contato']) assert.ok(smartTour.includes(explanation))
   assert.match(smartTour, /\{id:'female',label:'Corretora'\},\{id:'male',label:'Corretor'\},\{id:'none',label:'Nenhum'\}/)
-  assert.match(smartTour, /presenterGender: '', narration: '', captions: ''/)
+  assert.match(smartTour, /presenterGender: '', presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: '', captions: ''/)
   assert.match(smartTour, /setGeneration\(current => \(\{ \.\.\.current, \[field\]: value \}\)\)/)
+})
+
+test('supports literal custom Corretor Virtual speech with a 25-word client limit', () => {
+  for (const copy of [
+    'O que você quer que o Corretor Virtual fale?',
+    'Apresentar o imóvel',
+    'Escrever minha própria fala',
+    'Escreva a fala do Corretor Virtual',
+    'O vídeo tem 10 segundos. Escreva até 25 palavras para manter uma fala natural.',
+    'Reduza a fala para no máximo 25 palavras.',
+  ]) assert.ok(smartTour.includes(copy))
+  assert.match(smartTour, /value=\{generation\.presenterCustomSpeech\}/)
+  assert.match(smartTour, /presenterCustomSpeech: event\.target\.value/)
+  assert.match(smartTour, /wordCount < 1 \|\| wordCount > 25/)
+  assert.match(smartTour, /\{wordCount\} \/ 25 palavras/)
+  assert.match(smartTour, /presenterSpeechMode === 'custom' \? 'enabled'/)
+  assert.match(smartTour, /presenterSpeechMode === 'custom' \? 'Sim \(implícita\)'/)
 })
 
 test('removes staging and furniture questions from the active Smart Tour chat', () => {

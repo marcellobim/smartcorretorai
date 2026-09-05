@@ -4,7 +4,7 @@ import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-creden
 import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
-import { applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
+import { applySmartTourCustomPresenterSpeech, applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
 import { buildShortVideosCleanGeminiPrompt, buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
 import { generateStrategicHashtags } from '../_shared/strategic-hashtags.ts'
@@ -131,7 +131,10 @@ serve(withCors(async req => {
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
     const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = buildOfficialHashtags(hashtagContext)
-    const fallbackBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language})
+    const baseBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language})
+    const fallbackBriefing = input.generation.presenterSpeechMode === 'custom'
+      ? applySmartTourCustomPresenterSpeech(baseBriefing,input.generation.presenterCustomSpeech)
+      : baseBriefing
     const fallbackPrompt = buildSmartTourVideoPrompt(fallbackBriefing)
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
@@ -146,7 +149,7 @@ serve(withCors(async req => {
     await supabase.from('video_jobs').update({tokens_reserved:325}).eq('id',input.clientRequestId).eq('user_id',user.id)
     let deliveryPersisted = false
     try {
-      const dynamicNarration = input.generation.narration === 'enabled'
+      const dynamicNarration = input.generation.presenterSpeechMode === 'automatic' && input.generation.narration === 'enabled'
         ? await generateSmartTourDynamicNarration({apiKey:Deno.env.get('OPENAI_API_KEY') || '',property:input.property,selectedCta:input.selectedCta})
         : null
       const briefing = dynamicNarration ? applySmartTourDynamicNarration(fallbackBriefing,dynamicNarration) : fallbackBriefing

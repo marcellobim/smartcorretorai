@@ -459,6 +459,34 @@ export function applySmartTourDynamicNarration<
   }
 }
 
+export function applySmartTourCustomPresenterSpeech(
+  briefing: SmartTourStructuredBriefing,
+  speech: unknown,
+): SmartTourStructuredBriefing {
+  const text = String(speech ?? '')
+  if (!text.trim() || !briefing.configuracoes.narracaoAtiva || briefing.apresentador.tipo === 'nenhum') return briefing
+  const narrationBlocks = briefing.timeline.narracao.map((block, index) => ({
+    ...block,
+    ...(index === 0 ? { inicioSegundos: 0, fimSegundos: briefing.timeline.duracaoTotalSegundos } : {}),
+    texto: index === 0 ? text : '',
+    frase_id: index === 0 ? 'CUSTOM_PRESENTER_SPEECH' : '',
+  }))
+  const scenes = briefing.cenas.map((scene, index) => ({
+    ...scene,
+    narracao: narrationBlocks[index]?.texto || '',
+    frase_id: narrationBlocks[index]?.texto ? 'CUSTOM_PRESENTER_SPEECH' : scene.frase_id,
+  }))
+  return {
+    ...briefing,
+    cenas: scenes,
+    timeline: { ...briefing.timeline, narracao: narrationBlocks },
+    regrasObrigatorias: [
+      ...briefing.regrasObrigatorias,
+      { codigo: 'fala_personalizada_corretor_virtual', valor: 'O apresentador virtual deve dizer exatamente o texto literal de timeline.narracao, sem reescrever, resumir, corrigir, completar ou adicionar palavras. A voz deve pertencer ao apresentador visível.' },
+    ],
+  }
+}
+
 export function buildSmartTourStructuredBriefing(input: {
   generation: SmartTourGenerationConfig
   property: PropertyContext

@@ -6,10 +6,15 @@ const clean = (value: unknown, max = 160) => String(value ?? '').replace(/[{}<>]
 export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): SmartTourGenerationConfig {
   const mode = MODES.has(String(value.mode)) ? value.mode as SmartTourGenerationConfig['mode'] : 'narrated_tour'
   const language = LANGUAGES.has(String(value.language)) ? value.language as SmartTourGenerationConfig['language'] : 'pt-BR'
-  const normalized: SmartTourGenerationConfig = { mode, language, presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
+  const normalized: SmartTourGenerationConfig = { mode, language, presenterGender: 'none', presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
   if (mode === 'guided_tour') normalized.presenterGender = value.presenterGender === 'none' ? 'none' : value.presenterGender === 'male' ? 'male' : 'female'
   else if (mode !== 'narrated_tour') normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
   normalized.narration = value.narration === 'disabled' ? 'disabled' : mode === 'cinematic_tour' && value.narration !== 'enabled' ? 'disabled' : 'enabled'
+  if (normalized.presenterGender !== 'none' && value.presenterSpeechMode === 'custom') {
+    normalized.presenterSpeechMode = 'custom'
+    normalized.presenterCustomSpeech = typeof value.presenterCustomSpeech === 'string' ? value.presenterCustomSpeech : ''
+    normalized.narration = 'enabled'
+  }
   normalized.captions = value.captions === 'disabled' ? 'disabled' : 'enabled'
   normalized.furniture = 'original'
   normalized.stagingPresentation = 'final_only'
@@ -26,7 +31,12 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
   const propertyRaw = raw.property && typeof raw.property === 'object' ? raw.property as Record<string, unknown> : {}
   const highlights = Array.isArray(propertyRaw.highlights) ? propertyRaw.highlights.map(item => clean(item,80)).filter(Boolean).slice(0,10) : []
   const property = Object.fromEntries(Object.entries(propertyRaw).filter(([key]) => key !== 'highlights').map(([key,value]) => [key,clean(value,key === 'description' ? 1000 : 120)]))
-  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation: normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {}), selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
+  const generation = normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {})
+  if (generation.presenterSpeechMode === 'custom') {
+    const wordCount = String(generation.presenterCustomSpeech ?? '').trim().split(/\s+/).filter(Boolean).length
+    if (wordCount < 1 || wordCount > 25) throw new Error('invalid_presenter_custom_speech')
+  }
+  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
 }
 
 export function validateShortVideosRequest(input: unknown): ShortVideosRequest {

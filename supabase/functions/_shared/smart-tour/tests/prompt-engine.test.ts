@@ -4,9 +4,11 @@ import { readFileSync } from 'node:fs'
 import {
   OFFICIAL_MATRIX,
   SMART_TOUR_BASE_BRIEFING,
+  applySmartTourCustomPresenterSpeech,
   buildPropertyContext,
   buildSmartTourNarration,
   buildSmartTourPrompt,
+  buildSmartTourStructuredBriefing,
   normalizeGeneration,
   resolveSmartTourProfessionalPhone,
   validateSmartTourRequest,
@@ -358,4 +360,43 @@ test('request payload validation contract remains unchanged', () => {
   const six = Array.from({ length: 6 }, (_, index) => `u/${index + 1}.jpg`)
   assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: six, imageOrder: six }), /invalid_image_count/)
   assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: ['u/1.jpg', 'u/1.jpg'], imageOrder: ['u/1.jpg', 'u/1.jpg'] }), /invalid_image_count/)
+})
+
+test('custom presenter speech is literal, enables narration, and is limited to 25 words server-side', () => {
+  const paths = ['u/1.jpg']
+  const base = {
+    clientRequestId: 'custom-speech',
+    imagePaths: paths,
+    imageOrder: [...paths],
+    property,
+    selectedCta: '',
+    includeProfessionalPhone: false,
+    language: 'pt-BR',
+  }
+  const exactSpeech = '  Conheça este imóvel incrível, pronto para receber seus melhores momentos.  '
+  const validated = validateSmartTourRequest({
+    ...base,
+    generation: normalizeGeneration({ mode: 'guided_tour', presenterGender: 'female', presenterSpeechMode: 'custom', presenterCustomSpeech: exactSpeech, narration: 'disabled' }),
+  })
+  assert.equal(validated.generation.presenterSpeechMode, 'custom')
+  assert.equal(validated.generation.presenterCustomSpeech, exactSpeech)
+  assert.equal(validated.generation.narration, 'enabled')
+
+  const briefing = buildSmartTourStructuredBriefing({ generation: validated.generation, property, selectedCta: '', imagePaths: paths, language: 'pt-BR' })
+  const customized = applySmartTourCustomPresenterSpeech(briefing, validated.generation.presenterCustomSpeech)
+  assert.equal(customized.timeline.narracao[0].texto, exactSpeech)
+  assert.equal(customized.cenas[0].narracao, exactSpeech)
+  assert.match(JSON.stringify(customized.regrasObrigatorias), /A voz deve pertencer ao apresentador visível/)
+
+  const words25 = Array.from({ length: 25 }, (_, index) => `palavra${index + 1}`).join(' ')
+  const generation = { mode: 'guided_tour', presenterGender: 'male', presenterSpeechMode: 'custom', presenterCustomSpeech: words25, narration: 'enabled' }
+  assert.equal(validateSmartTourRequest({ ...base, generation }).generation.presenterCustomSpeech, words25)
+  assert.throws(() => validateSmartTourRequest({ ...base, generation: { ...generation, presenterCustomSpeech: '' } }), /invalid_presenter_custom_speech/)
+  assert.throws(() => validateSmartTourRequest({ ...base, generation: { ...generation, presenterCustomSpeech: `${words25} excedente` } }), /invalid_presenter_custom_speech/)
+})
+
+test('legacy generation data defaults to automatic presenter speech', () => {
+  const normalized = normalizeGeneration({ mode: 'guided_tour', presenterGender: 'female', narration: 'enabled' })
+  assert.equal(normalized.presenterSpeechMode, 'automatic')
+  assert.equal(normalized.presenterCustomSpeech, '')
 })
