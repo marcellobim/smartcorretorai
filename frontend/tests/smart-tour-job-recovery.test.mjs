@@ -9,6 +9,8 @@ import {
   clearSmartTourActiveJob,
   parseSmartTourActiveJob,
   readSmartTourActiveJob,
+  shouldRecoverSmartTourGenerateResponse,
+  shouldRetrySmartTourStatusResponse,
   shouldRetryStartingJobNotFound,
   writeSmartTourActiveJob,
 } from '../src/lib/smart-tour-job-recovery.js'
@@ -82,6 +84,29 @@ test('retries only a recent provisional 404 and expires the bounded window', () 
   assert.equal(shouldRetryStartingJobNotFound(record, notFound, updatedAt + SMART_TOUR_STARTING_RECOVERY_WINDOW_MS + 1), false)
   assert.equal(shouldRetryStartingJobNotFound(record, { context: { status: 503 } }, updatedAt + 1), false)
   assert.equal(shouldRetryStartingJobNotFound({ ...record, phase: 'active' }, notFound, updatedAt + 1), false)
+})
+
+test('recovers unavailable generation responses and retries transient status checks', () => {
+  assert.equal(shouldRecoverSmartTourGenerateResponse(new Error('network'), null), true)
+  assert.equal(shouldRecoverSmartTourGenerateResponse({ context: { status: 504 } }, null), true)
+  assert.equal(shouldRecoverSmartTourGenerateResponse({ context: { status: 400 } }, null), false)
+  assert.equal(shouldRecoverSmartTourGenerateResponse(null, { ok: true, jobId: imageJobId }), false)
+  assert.equal(shouldRecoverSmartTourGenerateResponse(null, null), true)
+  assert.equal(shouldRecoverSmartTourGenerateResponse(null, { ok: false, error: 'invalid' }), false)
+  assert.equal(shouldRetrySmartTourStatusResponse(new Error('network'), null), true)
+  assert.equal(shouldRetrySmartTourStatusResponse({ context: { status: 503 } }, null), true)
+  assert.equal(shouldRetrySmartTourStatusResponse({ context: { status: 404 } }, null), false)
+  assert.equal(shouldRetrySmartTourStatusResponse(null, { ok: false, error: 'terminal' }), false)
+})
+
+test('image generation persists a provisional recovery record before invoke and polls inconclusive responses', () => {
+  const imageBranch = page.slice(page.indexOf('const orderedImages = images.slice()'), page.indexOf('\n    } catch (error)', page.indexOf('const orderedImages = images.slice()')))
+  const startingIndex = imageBranch.indexOf("inputFlow:'images', phase:'starting'")
+  const invokeIndex = imageBranch.indexOf("functions.invoke('smart-tour-generate'")
+  assert.ok(startingIndex >= 0)
+  assert.ok(invokeIndex > startingIndex)
+  assert.match(imageBranch, /shouldRecoverSmartTourGenerateResponse\(error, data\)[\s\S]*?poll\(requestId\)[\s\S]*?return/)
+  assert.match(imageBranch, /phase:'active'/)
 })
 
 test('mount recovery restores the input flow and starts polling once', () => {

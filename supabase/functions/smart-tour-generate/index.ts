@@ -185,8 +185,13 @@ serve(withCors(async req => {
       return json({ok:true,jobId:input.clientRequestId,status:'completed',signedVideoUrl:persisted.signedVideoUrl,hashtags})
     } catch (error) {
       if (!deliveryPersisted) {
-        await supabase.from('video_jobs').update({status:'failed',error_message:safeError(error)}).eq('id',input.clientRequestId).eq('user_id',user.id)
-        await settleGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,status:'failed',reason:safeError(error)})
+        const failureReason = safeError(error)
+        try {
+          const {error:persistError} = await supabase.from('video_jobs').update({status:'failed',error_message:failureReason}).eq('id',input.clientRequestId).eq('user_id',user.id)
+          if (persistError) console.warn('[smart-tour-generate] job_failure_persist_failed')
+        } finally {
+          await settleGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,status:'failed',reason:failureReason})
+        }
       }
       throw error
     }

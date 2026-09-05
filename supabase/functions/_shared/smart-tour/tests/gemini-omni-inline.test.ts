@@ -159,3 +159,10 @@ test('connects inline completion only to Video Imobiliario and preserves the ori
   assert.doesNotMatch(generator, /registerCompletedCreation|creationId|prepare\/confirm/)
   assert.match(status, /checkGeminiOmniVideoStream/)
 })
+
+test('settles a real failed Video Imobiliario job even when failure persistence fails', () => {
+  const generator = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
+  const failureCatch = generator.slice(generator.indexOf('} catch (error) {', generator.indexOf('let deliveryPersisted')), generator.indexOf('\n      throw error', generator.indexOf('let deliveryPersisted')))
+  assert.match(failureCatch, /try \{[\s\S]*?job_failure_persist_failed[\s\S]*?\} finally \{[\s\S]*?settleGeminiVideoEconomy\([\s\S]*?status:'failed'/)
+  assert.doesNotMatch(failureCatch, /status:'completed'/)
+})

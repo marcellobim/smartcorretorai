@@ -15,7 +15,7 @@ import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-token
 import { supabase } from '../lib/supabase'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingSmartTourPublication, preservePendingSmartTourPublication, publishSmartTourPublication, readPendingSmartTourPublication, recoverSmartTourPublication } from '../lib/smart-tour-social-publish'
-import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
+import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRecoverSmartTourGenerateResponse, shouldRetrySmartTourStatusResponse, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
@@ -303,6 +303,12 @@ export default function SmartTourAI() {
           setMessage('Esta criação não está mais disponível. Tente novamente.')
           return
         }
+        if (shouldRetrySmartTourStatusResponse(error, data)) {
+          setStatus('generating')
+          setMessage('Confirmando o andamento da sua criação...')
+          pollRef.current = setTimeout(() => poll(jobId), 3000)
+          return
+        }
         throw new Error(data?.error || 'Não foi possível consultar a criação.')
       }
       if (data.status === 'completed') { clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: mergeSmartTourCampaignHashtags(activeJob?.campaignPackage || {}, data.hashtags), inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); void reloadProfile(); return }
@@ -364,11 +370,19 @@ export default function SmartTourAI() {
         imagePaths[imageIndex] = path
       }
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
-      if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
-      writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
+      let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', unifiedSocialPublishing:true })
+      writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
       tourDraft.clear()
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: ctaEnabled === true && includePhone === true, language: 'pt-BR' } })
+      if (shouldRecoverSmartTourGenerateResponse(error, data)) {
+        setStatus('generating')
+        setMessage('Confirmando o início da sua criação...')
+        poll(requestId)
+        return
+      }
+      if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
+      campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:ctaEnabled === true && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
+      writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
     } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
 

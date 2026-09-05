@@ -62,6 +62,18 @@ export function getSmartTourStatusHttpStatus(error) {
   return Number.isInteger(status) ? status : null
 }
 
+export function shouldRecoverSmartTourGenerateResponse(error, data) {
+  if (!error) return !isRecord(data) || (data.ok === true && !data.jobId) || (!('ok' in data) && !('error' in data))
+  const status = getSmartTourStatusHttpStatus(error)
+  return status === null || status === 408 || status === 429 || status >= 500
+}
+
+export function shouldRetrySmartTourStatusResponse(error, data) {
+  if (!error) return !isRecord(data) || (!('ok' in data) && !('error' in data))
+  const status = getSmartTourStatusHttpStatus(error)
+  return status === null || status === 408 || status === 429 || status >= 500
+}
+
 export function shouldRetryStartingJobNotFound(record, error, now = Date.now()) {
   if (getSmartTourStatusHttpStatus(error) !== 404 || record?.phase !== 'starting') return false
   if (!Number.isFinite(record.updatedAt) || record.updatedAt <= 0 || now < record.updatedAt) return false
