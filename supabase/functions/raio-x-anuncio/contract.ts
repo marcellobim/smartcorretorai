@@ -200,6 +200,20 @@ const validateListingSection = (value: unknown, definition: Record<string, numbe
   return { ...base, what_works: whatWorks, what_can_improve: whatCanImprove, how_to_improve: howToImprove }
 }
 
+const normalizeListingDescription = (value: unknown, completeness: DescriptionCompleteness['state']): unknown => {
+  const item = record(value, 'invalid_description')
+  // The provider can leave the merit empty when the description was not found.
+  // Keep that section unevaluated; never invent a merit or loosen other sections.
+  if (completeness !== 'NOT_FOUND' || item.evaluated !== false || item.what_works !== ''
+    || item.suggestion_mode !== 'none' || item.suggestion !== null || item.copy_text !== null
+    || item.what_can_improve !== null || item.how_to_improve !== null
+    || !Array.isArray(item.issue_codes) || item.issue_codes.length !== 0) return item
+  const components = record(item.components, 'invalid_description')
+  if (!Object.values(components).every(score => score === 0)) return item
+  // The unchanged validator still checks exact keys, scores, analysis and types.
+  return { ...item, what_works: 'Descrição não encontrada no material enviado; não foi possível avaliar seus pontos positivos.' }
+}
+
 const validateAttractionSection = (value: unknown): ListingModelSection => {
   const section = validateListingSection(value, ATTRACTION_SECTION_COMPONENTS, 'invalid_attraction')
   const maximum = Object.values(ATTRACTION_SECTION_COMPONENTS).reduce((sum, amount) => sum + amount, 0)
@@ -222,7 +236,7 @@ export function validateListingXrayModelOutput(value: unknown): ListingXrayModel
     const completeness = record(raw.description_completeness, 'invalid_description_completeness'); exactKeys(completeness, ['state', 'evidence'], 'invalid_description_completeness')
     const completenessState = String(completeness.state) as DescriptionCompleteness['state']; if (!['COMPLETE', 'PARTIAL', 'NOT_FOUND'].includes(completenessState)) throw new ListingXrayValidationError('invalid_description_completeness')
     const completenessEvidence = cleanText(completeness.evidence, 600, 'invalid_description_completeness', true); if (completenessState === 'PARTIAL' && !completenessEvidence) throw new ListingXrayValidationError('invalid_description_completeness')
-    listing = { title: validateListingSection(raw.title, LISTING_SECTION_COMPONENTS.title, 'invalid_title'), description: validateListingSection(raw.description, LISTING_SECTION_COMPONENTS.description, 'invalid_description'), information: validateListingSection(raw.information, LISTING_SECTION_COMPONENTS.information, 'invalid_information'), persuasion: validateListingSection(raw.persuasion, LISTING_SECTION_COMPONENTS.persuasion, 'invalid_persuasion'), attraction: validateAttractionSection(raw.attraction), description_completeness: { state: completenessState, evidence: completenessEvidence }, observed_fields: observed }
+    listing = { title: validateListingSection(raw.title, LISTING_SECTION_COMPONENTS.title, 'invalid_title'), description: validateListingSection(normalizeListingDescription(raw.description, completenessState), LISTING_SECTION_COMPONENTS.description, 'invalid_description'), information: validateListingSection(raw.information, LISTING_SECTION_COMPONENTS.information, 'invalid_information'), persuasion: validateListingSection(raw.persuasion, LISTING_SECTION_COMPONENTS.persuasion, 'invalid_persuasion'), attraction: validateAttractionSection(raw.attraction), description_completeness: { state: completenessState, evidence: completenessEvidence }, observed_fields: observed }
   }
   let social: SocialAnalysis | null = null
   if (input.social !== null) { const raw = record(input.social, 'invalid_social_analysis'); exactKeys(raw, Object.keys(SOCIAL_SECTION_COMPONENTS), 'invalid_social_analysis'); social = Object.fromEntries(Object.entries(SOCIAL_SECTION_COMPONENTS).map(([key, definition]) => [key, validateSection(raw[key], definition, `invalid_social_${key}`)])) as SocialAnalysis }

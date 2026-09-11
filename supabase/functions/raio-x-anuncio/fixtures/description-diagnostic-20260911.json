@@ -1,0 +1,28 @@
+{
+  "event": "description_diagnostic_v1",
+  "description": {
+    "type": "object", "keyCount": 10,
+    "fields": {
+      "evaluated": { "type": "boolean", "value": false },
+      "components": { "type": "object", "keyCount": 5, "fields": {
+        "correctness": { "type": "number", "value": 0 },
+        "clarity": { "type": "number", "value": 0 },
+        "useful_coverage": { "type": "number", "value": 0 },
+        "benefits": { "type": "number", "value": 0 },
+        "naturalness": { "type": "number", "value": 0 }
+      } },
+      "analysis": { "type": "string", "length": 33, "cleanLength": 33 },
+      "suggestion_mode": { "type": "string", "length": 4, "cleanLength": 4, "value": "none" },
+      "suggestion": { "type": "null" },
+      "copy_text": { "type": "null" },
+      "issue_codes": { "type": "array", "length": 0, "items": [] },
+      "what_works": { "type": "string", "length": 0, "cleanLength": 0 },
+      "what_can_improve": { "type": "null" },
+      "how_to_improve": { "type": "null" }
+    }
+  },
+  "completeness": { "type": "object", "keyCount": 2, "fields": {
+    "state": { "type": "string", "length": 9, "cleanLength": 9, "value": "NOT_FOUND" },
+    "evidence": { "type": "null" }
+  } }
+}
