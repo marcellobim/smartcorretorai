@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { normalizeBannerPublicationOptions } from '../_shared/banner-publication-options.ts'
+import { handleGuestBanner } from './guest-runtime.ts'
+import { validGuestImages } from './guest-input.ts'
 import {
   createRealEstateBannerEconomy,
   normalizeBannerClientRequestId,
@@ -1421,6 +1423,7 @@ async function createHeroNextBackgroundResponse(
   formatStrategy: ReturnType<typeof normalizeFormatStrategy> = normalizeFormatStrategy({}),
   creativeIdea: ReturnType<typeof normalizeCreativeIdea> = normalizeCreativeIdea({}),
   idempotencyKey = '',
+  guest = false,
 ) {
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const model = Deno.env.get('HERO_MULTIMODAL_MODEL') || Deno.env.get('HERO_IMAGE_CONTEXT_MODEL') || 'gpt-5'
@@ -1434,7 +1437,7 @@ async function createHeroNextBackgroundResponse(
 
   const content = buildHeroNextMultimodalContent(prompt, experimentalImages)
 
-  console.log('[gerar-hero-ia] hero_next_background request', {
+  if (!guest) console.log('[gerar-hero-ia] hero_next_background request', {
     endpoint,
     model,
     received_image_count: inlineImages.length,
@@ -1474,6 +1477,7 @@ async function createHeroNextBackgroundResponse(
     body: JSON.stringify({
       model,
       background: true,
+      ...(guest ? { max_tool_calls: 1 } : {}),
       input: [
         {
           role: 'user',
@@ -2147,6 +2151,40 @@ serve(async (req) => {
     }
 
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization') || ''
+    const guestAction = req.headers.get('x-sca-guest-action')
+    if (guestAction === '1') {
+      const credential = req.headers.get('apikey') || ''
+      if (!credential) return jsonResponse({error:'session_required'},401)
+      const guestDb = createClient(SUPABASE_URL, credential)
+      const guestPayload = await req.json().catch(()=>({}))
+      try {
+        const result = await handleGuestBanner(guestPayload,guestDb,{
+          authClient: (accessToken: string) => createClient(SUPABASE_URL,credential,{global:{headers:{Authorization:`Bearer ${accessToken}`}}}),
+          prepare: async (banner: JsonRecord) => {
+            if (!Deno.env.get('OPENAI_API_KEY')) throw Error('guest_provider_unavailable')
+            const human = normalizeLongText(banner?.human_prompt,5000)
+            const images = normalizeInlineImages(banner?.inline_images,4)
+            if(!human || !validGuestImages(banner?.inline_images, images)) throw Error('invalid_banner')
+            const briefing = buildStandalonePromptBriefing({...banner,hero_next_experimental:true})
+            return {prompt:buildHeroNextSinglePiecePrompt(human,briefing),images,
+              storedBriefing:sanitizePromptBriefingForStorage(briefing),size:getExperimentalImageSize(briefing),
+              formatStrategy:normalizeFormatStrategy(banner.format_strategy),creativeIdea:normalizeCreativeIdea(banner.creative_idea)}
+          },
+          dispatch: (prepared: any, id: string) => createHeroNextBackgroundResponse(prepared.prompt,prepared.size,prepared.images,'',prepared.formatStrategy,prepared.creativeIdea,`guest-banner:${id}`,true),
+          poll: getOpenAIResponseStatus,
+          result: (response: JsonRecord, briefing: JsonRecord) => {
+            const image = extractImageGenerationBase64(response)
+            if(!image)throw Error('guest_result_missing')
+            const options=normalizeBannerPublicationOptions((briefing.choices as JsonRecord | undefined)?.publication_options)
+            return {image:new Blob([base64ToUint8Array(image)],{type:'image/jpeg'}),
+              texts:{...buildFallbackHeroTexts(briefing),...(options.length===3?{publication_options:options}:{})},usage:normalizeProviderUsage(response.usage)}
+          },
+        })
+        return jsonResponse(result)
+      } catch {
+        return jsonResponse({error:'guest_unavailable'},503)
+      }
+    }
     if (!/^Bearer\s+/i.test(authHeader)) {
       return jsonResponse({ error: 'Nao autorizado' }, 401)
     }

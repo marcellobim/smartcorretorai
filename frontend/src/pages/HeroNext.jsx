@@ -18,7 +18,7 @@ import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
 import { ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI } from '../components/design-system'
-import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
+import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
 import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import HeroShowcase from '../components/hero/HeroShowcase'
 import { useProductDraft } from '../hooks/useProductDraft'
@@ -936,54 +936,6 @@ const formatAnswer = (answer) => {
   return String(answer || '').trim()
 }
 
-const getBannerBaseChatFlow = (goal) => goal === 'rent' ? RENT_CHAT_FLOW
-  : goal === 'property_capture' ? PROPERTY_CAPTURE_CHAT_FLOW
-    : goal === 'broker_capture' ? BROKER_CAPTURE_CHAT_FLOW : SALE_CHAT_FLOW
-
-const getBannerVisibleChatFlow = (baseFlow, answers, guestMode = false) => getChatFlowForAnswers(baseFlow, answers)
-  .filter((question) => question.id === 'contactPhone' && guestMode
-    ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
-  // These answers are reset when the property type changes, so wait for that choice.
-  .filter((question) => !['bedrooms', 'suites', 'parking', 'area'].includes(question.id) || Boolean(answers.propertyType))
-
-const restoreBannerQuestionDrafts = (draft) => {
-  if (draft.questionDrafts) return draft.questionDrafts
-  if (draft.phase !== 'chat') return {}
-  const legacyFlow = getChatFlowForAnswers(getBannerBaseChatFlow(draft.goal), draft.answers || {})
-    .filter((question) => shouldShowChatQuestion(question, draft.answers || {}))
-  const question = legacyFlow[draft.chatIndex || 0]
-  if (!question) return {}
-  return { [question.id]: {
-    textDraft: draft.textDraft || '',
-    multiDraft: draft.multiDraft || [],
-    customDifferential: draft.customDifferential || '',
-  } }
-}
-
-const collectBannerBriefingAnswers = (flow, answers, questionDrafts) => {
-  const nextAnswers = { ...answers }
-  for (const question of flow) {
-    const draft = questionDrafts[question.id]
-    if (!draft || question.id === 'city') continue
-    let rawValue
-    if (question.type === 'text') {
-      rawValue = draft.textDraft ?? answers[question.id] ?? ''
-    } else if (question.type === 'multi' || question.type === 'multiGrouped') {
-      rawValue = [
-        ...(draft.multiDraft ?? answers[question.id] ?? []),
-        ...(draft.customDifferential?.trim() ? [normalizeTerm(draft.customDifferential).slice(0, 60)] : []),
-      ].filter(Boolean)
-    } else continue
-    const value = typeof rawValue === 'string' && !rawValue.trim() ? '' : normalizeAnswerValue(question.id, rawValue)
-    if (!value || (Array.isArray(value) && value.length === 0)) delete nextAnswers[question.id]
-    else nextAnswers[question.id] = value
-  }
-  return nextAnswers
-}
-
-const isBannerQuestionComplete = (question, answers) => question.optional === true
-  || (Array.isArray(answers[question.id]) ? answers[question.id].length > 0 : Boolean(answers[question.id]))
-
 const buildValueCondition = (goal, saleValues, rentValues) => {
   if (goal === 'rent') {
     const guaranteeLabel = rentValues.guarantee && rentValues.guarantee !== 'nao_informar'
@@ -1491,6 +1443,10 @@ function AssistantBubble({ children }) {
   return <ConversationAssistantBubble accent="emerald">{children}</ConversationAssistantBubble>
 }
 
+function UserBubble({ children, actions }) {
+  return <ConversationUserBubble actions={actions}>{children}</ConversationUserBubble>
+}
+
 export default function HeroNext({ guestMode = false } = {}) {
   const { user, reloadProfile } = useAuth()
   // This fixed draft owner is only a local storage namespace, never an auth/user_id
@@ -1502,8 +1458,9 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [goal, setGoal] = useState(() => restoredBannerDraft.goal || '')
   const [answers, setAnswers] = useState(() => restoredBannerDraft.answers || {})
   const [chatIndex, setChatIndex] = useState(() => restoredBannerDraft.chatIndex || 0)
-  const [questionDrafts, setQuestionDrafts] = useState(() => restoreBannerQuestionDrafts(restoredBannerDraft))
-  const [editingQuestionId, setEditingQuestionId] = useState(null)
+  const [textDraft, setTextDraft] = useState(() => restoredBannerDraft.textDraft || '')
+  const [multiDraft, setMultiDraft] = useState(() => restoredBannerDraft.multiDraft || [])
+  const [customDifferential, setCustomDifferential] = useState(() => restoredBannerDraft.customDifferential || '')
   const [cityUf, setCityUf] = useState(() => restoredBannerDraft.cityUf || '')
   const [citySelection, setCitySelection] = useState(() => restoredBannerDraft.citySelection || '')
   const [cities, setCities] = useState([])
@@ -1539,8 +1496,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [generationJobs, setGenerationJobs] = useState(() => guestMode ? [] : readStoredHeroNextResult()?.jobs || [])
   const [expandedPreview, setExpandedPreview] = useState(null)
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
-  const questionRefs = useRef({})
-  const latestBannerDraftRef = useRef(null)
+  const activeQuestionRef = useRef(null)
   const economicRequestIdRef = useRef(null)
   const guestBusyRef = useRef(false)
   const [guestSignupGate, setGuestSignupGate] = useState(false)
@@ -1575,10 +1531,11 @@ export default function HeroNext({ guestMode = false } = {}) {
       : ['chat', 'values', 'destination', 'ideas', 'prompt'].includes(phase) ? STEPS.DETAILS : null
   const { trackStep, trackGenerationClicked } = useAccountAnalytics(guestMode ? null : PRODUCTS.BANNER_IMOBILIARIO, reachedStep)
 
+  const isRentGoal = goal === 'rent'
   const isPropertyCaptureGoal = goal === 'property_capture'
   const isBrokerCaptureGoal = goal === 'broker_capture'
   const isAnyCaptureGoal = isPropertyCaptureGoal || isBrokerCaptureGoal
-  const profilePhoneRaw = String(guestMode ? questionDrafts.contactPhone?.textDraft ?? answers.contactPhone ?? '' : user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '').trim()
+  const profilePhoneRaw = String(guestMode ? answers.contactPhone || '' : user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '').trim()
   const profilePhone = normalizeContactPhoneForDisplay(profilePhoneRaw)
 
   useEffect(() => {
@@ -1590,24 +1547,14 @@ export default function HeroNext({ guestMode = false } = {}) {
   }, [trackStep, uploadedImages.length])
 
   useEffect(() => {
-    if (phase === 'result' || generationResult) { latestBannerDraftRef.current = null; return }
+    if (phase === 'result' || generationResult) return
     const imageMetadata = uploadedImages.length
       ? uploadedImages.map(({ name, size, contentType, lastModified }, order) => ({ name, size, type: contentType, lastModified, order }))
       : missingImageMetadata
-    const draft = { phase, goal, answers, chatIndex, questionDrafts, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
-    latestBannerDraftRef.current = draft
-    if (phase === 'intro' && !goal && !imageMetadata.length) { latestBannerDraftRef.current = null; bannerDraft.clear(); return }
+    const draft = { phase, goal, answers, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
+    if (phase === 'intro' && !goal && !imageMetadata.length) { bannerDraft.clear(); return }
     bannerDraft.save(draft)
-  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, questionDrafts, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, uploadedImages])
-
-  useEffect(() => {
-    // Flush this product's pending input when reloading before the shared draft debounce.
-    const flushBannerDraft = () => {
-      if (latestBannerDraftRef.current) bannerDraft.replace(latestBannerDraftRef.current)
-    }
-    window.addEventListener('pagehide', flushBannerDraft)
-    return () => window.removeEventListener('pagehide', flushBannerDraft)
-  }, [bannerDraft.replace])
+  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, textDraft, uploadedImages])
 
   const closeExpandedPreview = () => {
     setExpandedPreview(null)
@@ -1662,17 +1609,22 @@ export default function HeroNext({ guestMode = false } = {}) {
   }, [cityUf])
 
   useEffect(() => {
-    if (phase !== 'chat' || !editingQuestionId) return
-    const card = questionRefs.current[editingQuestionId]
-    card?.scrollIntoView({ behavior: 'auto', block: 'start' })
-    card?.focus({ preventScroll: true })
-    setEditingQuestionId(null)
-  }, [phase, editingQuestionId])
+    if (phase !== 'chat' || !activeQuestionRef.current) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      activeQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [phase, chatIndex])
 
-  const baseChatFlow = getBannerBaseChatFlow(goal)
-  const chatFlow = getBannerVisibleChatFlow(baseChatFlow, answers, guestMode)
-  const briefingAnswers = collectBannerBriefingAnswers(chatFlow, answers, questionDrafts)
-  const briefingReady = chatFlow.every((question) => isBannerQuestionComplete(question, briefingAnswers))
+  const baseChatFlow = isRentGoal
+    ? RENT_CHAT_FLOW
+    : isPropertyCaptureGoal
+      ? PROPERTY_CAPTURE_CHAT_FLOW
+      : isBrokerCaptureGoal
+        ? BROKER_CAPTURE_CHAT_FLOW
+      : SALE_CHAT_FLOW
+  const chatFlow = getChatFlowForAnswers(baseChatFlow, answers).filter((question) => question.id === 'contactPhone' && guestMode ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
+  const currentQuestion = chatFlow[chatIndex]
   const selectedDestinations = destinationIds
     .map((id) => DESTINATIONS.find((item) => item.id === id))
     .filter(Boolean)
@@ -1727,8 +1679,9 @@ export default function HeroNext({ guestMode = false } = {}) {
     setGoal(nextGoal)
     setAnswers({})
     setChatIndex(0)
-    setQuestionDrafts({})
-    setEditingQuestionId(null)
+    setTextDraft('')
+    setMultiDraft([])
+    setCustomDifferential('')
     setCityUf('')
     setCitySelection('')
     setCities([])
@@ -1784,51 +1737,52 @@ export default function HeroNext({ guestMode = false } = {}) {
       delete updatedAnswers.parking
       delete updatedAnswers.area
     }
+    const updatedChatFlow = getChatFlowForAnswers(baseChatFlow, updatedAnswers).filter((question) => question.id === 'contactPhone' && guestMode ? updatedAnswers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, updatedAnswers))
+    const currentUpdatedIndex = updatedChatFlow.findIndex((question) => question.id === questionId)
+    const nextMissingIndex = updatedChatFlow.findIndex((question, index) => (
+      index > currentUpdatedIndex && !updatedAnswers[question.id]
+    ))
+
     setAnswers(updatedAnswers)
-    setQuestionDrafts((current) => {
-      const next = { ...current, [questionId]: {
-        textDraft: typeof normalizedValue === 'string' ? normalizedValue : '',
-        multiDraft: Array.isArray(normalizedValue) ? normalizedValue : [],
-        customDifferential: '',
-      } }
-      if (questionId === 'propertyType') {
-        for (const id of ['bedrooms', 'suites', 'parking', 'area']) delete next[id]
-      }
-      return next
-    })
+    setTextDraft('')
+    setMultiDraft([])
+    setCustomDifferential('')
     setGenerationResult(null)
     setGenerationError('')
     setPromptTouched(false)
     setHumanPrompt('')
-  }
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 
-  const updateQuestionDraft = (questionId, patch) => {
-    setQuestionDrafts((current) => ({ ...current, [questionId]: { ...current[questionId], ...patch } }))
-    setPromptTouched(false)
-    setHumanPrompt('')
-    setGenerationResult(null)
-    setGenerationError('')
-  }
-
-  const commitBriefing = () => {
-    if (!briefingReady) return false
-    setAnswers(briefingAnswers)
-    setQuestionDrafts({})
-    setPromptTouched(false)
-    setHumanPrompt('')
-    return true
+    if (nextMissingIndex === -1) {
+      setPhase(isAnyCaptureGoal ? 'destination' : 'values')
+    } else {
+      setChatIndex(nextMissingIndex)
+    }
   }
 
   const goToQuestion = (index) => {
     const safeIndex = Math.max(0, Math.min(index, chatFlow.length - 1))
     const question = chatFlow[safeIndex]
+    const currentValue = answers[question.id]
+
     setChatIndex(safeIndex)
     setPhase('chat')
-    setEditingQuestionId(question.id)
+    setTextDraft(typeof currentValue === 'string' ? currentValue : '')
+    if (question.id === 'city') setCitySelection(typeof currentValue === 'string' ? currentValue : '')
+    setMultiDraft(Array.isArray(currentValue) ? currentValue : [])
+    setCustomDifferential('')
     setPromptTouched(false)
     setHumanPrompt('')
     setGenerationResult(null)
     setGenerationError('')
+  }
+
+  const goBackInChat = () => {
+    if (chatIndex > 0) {
+      goToQuestion(chatIndex - 1)
+      return
+    }
+    setPhase('goal')
   }
 
   const toggleDestination = (id) => {
@@ -1876,7 +1830,6 @@ export default function HeroNext({ guestMode = false } = {}) {
   const goToDestinationStep = () => {
     if (goal === 'sale' && !saleValueReady) return
     if (goal === 'rent' && !rentValueReady) return
-    if (phase === 'chat' && !commitBriefing()) return
     setPromptTouched(false)
     setHumanPrompt('')
     setGenerationError('')
@@ -2412,15 +2365,8 @@ export default function HeroNext({ guestMode = false } = {}) {
   }) : { data: null, error: null, warning: '' }
   const campaignPackageData = campaignPackageBuild.data
 
-  const renderQuestionControls = (currentQuestion) => {
+  const renderQuestionControls = () => {
     if (!currentQuestion) return null
-    const questionDraft = questionDrafts[currentQuestion.id] || {}
-    const textDraft = questionDraft.textDraft ?? answers[currentQuestion.id] ?? ''
-    const multiDraft = questionDraft.multiDraft ?? answers[currentQuestion.id] ?? []
-    const customDifferential = questionDraft.customDifferential || ''
-    const setTextDraft = (value) => updateQuestionDraft(currentQuestion.id, { textDraft: value })
-    const setMultiDraft = (updater) => updateQuestionDraft(currentQuestion.id, { multiDraft: updater(multiDraft) })
-    const setCustomDifferential = (value) => updateQuestionDraft(currentQuestion.id, { customDifferential: value })
 
     if (currentQuestion.id === 'contactPhoneChoice') {
       return (
@@ -2430,7 +2376,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             disabled={!guestMode && !profilePhone}
             aria-pressed={answers.contactPhoneChoice === 'Sim, quero divulgar'}
             onClick={() => commitAnswer(currentQuestion.id, 'Sim, quero divulgar')}
-            className="rounded-2xl border border-emerald-200 bg-white p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50 aria-pressed:border-primary-800 aria-pressed:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:opacity-70"
+            className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:opacity-70"
           >
             <p className="text-base font-black text-slate-950">Sim, divulgar meu telefone</p>
             <p className="mt-2 text-sm font-semibold text-slate-600">
@@ -2440,8 +2386,7 @@ export default function HeroNext({ guestMode = false } = {}) {
           <button
             type="button"
             onClick={() => commitAnswer(currentQuestion.id, 'Não, continuar sem telefone')}
-            aria-pressed={answers.contactPhoneChoice === 'Não, continuar sem telefone'}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50 aria-pressed:border-primary-800 aria-pressed:bg-primary-50"
+            className="rounded-3xl border border-slate-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
           >
             <p className="text-base font-black text-slate-950">Não divulgar telefone</p>
             <p className="mt-2 text-sm font-semibold text-slate-600">A campanha será criada sem contato telefônico.</p>
@@ -2456,15 +2401,13 @@ export default function HeroNext({ guestMode = false } = {}) {
           <div>
             <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Estado</p>
             <SmartLocationSelect
+              autoFocus
               accent="primary"
               ariaLabel="Estado"
               value={cityUf}
               onChange={(nextUf) => {
                 setCityUf(nextUf)
                 setCitySelection('')
-                setAnswers((current) => { const next = { ...current }; delete next.city; return next })
-                setPromptTouched(false)
-                setHumanPrompt('')
               }}
             >
               <option value="">Selecione o estado</option>
@@ -2493,9 +2436,10 @@ export default function HeroNext({ guestMode = false } = {}) {
 
     if (currentQuestion.type === 'text') {
       return (
-        <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           {['neighborhood', 'neighborhoods'].includes(currentQuestion.id) ? (
             <SmartLocationTextInput
+              autoFocus
               accent="primary"
               ariaLabel={currentQuestion.id === 'neighborhood' ? 'Bairro' : 'Bairros'}
               value={textDraft}
@@ -2507,14 +2451,14 @@ export default function HeroNext({ guestMode = false } = {}) {
             />
           ) : (
             <input
-              aria-label={currentQuestion.question}
+              autoFocus
               value={textDraft}
               onChange={(event) => setTextDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') commitAnswer(currentQuestion.id, textDraft)
               }}
               placeholder={currentQuestion.placeholder}
-              className="min-h-12 min-w-0 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+              className="min-h-12 flex-1 rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
             />
           )}
           <ProductButton type="button" onClick={() => commitAnswer(currentQuestion.id, textDraft)} disabled={!textDraft.trim()}>
@@ -2539,16 +2483,12 @@ export default function HeroNext({ guestMode = false } = {}) {
       return (
         <div className="mt-4 space-y-4">
           <div className="space-y-5">
-            {groups.map((group) => {
-              const Group = group.title ? 'details' : 'div'
-              return <Group key={group.title || 'opcoes'} className="min-w-0">
+            {groups.map((group) => (
+              <div key={group.title || 'opcoes'}>
                 {group.title && (
-                  <summary className="min-h-11 cursor-pointer rounded-xl bg-primary-50 px-3 py-3 text-sm font-black text-primary-700">
-                    {group.title}
-                    <span className="ml-2 text-xs font-semibold">{group.options.filter((option) => multiDraft.includes(normalizeTerm(option))).length} selecionados</span>
-                  </summary>
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-primary-700">{group.title}</p>
                 )}
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {group.options.map((option) => {
                     const normalizedOption = normalizeTerm(option)
                     const active = multiDraft.includes(normalizedOption)
@@ -2556,7 +2496,6 @@ export default function HeroNext({ guestMode = false } = {}) {
                       <button
                         key={option}
                         type="button"
-                        aria-pressed={active}
                         onClick={() => {
                           setMultiDraft((current) => (
                             current.includes(normalizedOption)
@@ -2564,7 +2503,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                               : [...current, normalizedOption]
                           ))
                         }}
-                        className={`min-h-11 max-w-full rounded-full border px-4 py-2 text-sm font-black transition ${
+                        className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                           active ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                         }`}
                       >
@@ -2573,11 +2512,10 @@ export default function HeroNext({ guestMode = false } = {}) {
                     )
                   })}
                 </div>
-              </Group>
-            })}
+              </div>
+            ))}
           </div>
           <input
-            aria-label={currentQuestion.customPlaceholder || 'Outro diferencial importante'}
             value={customDifferential}
             onChange={(event) => setCustomDifferential(event.target.value)}
             placeholder={currentQuestion.customPlaceholder || 'Outro diferencial importante'}
@@ -2597,9 +2535,8 @@ export default function HeroNext({ guestMode = false } = {}) {
           <button
             key={option}
             type="button"
-            aria-pressed={answers[currentQuestion.id] === option}
             onClick={() => commitAnswer(currentQuestion.id, option)}
-            className={`min-h-11 max-w-full rounded-full border px-4 py-2 text-sm font-black transition ${
+            className={`rounded-full border px-4 py-2 text-sm font-black transition ${
               answers[currentQuestion.id] === option ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-900'
             }`}
           >
@@ -2640,7 +2577,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'intro' && <HeroShowcase onStart={startCampaign} />}
 
-        {BANNER_STEP_BY_PHASE[phase] && !['goal', 'chat'].includes(phase) && (
+        {BANNER_STEP_BY_PHASE[phase] && (
           <ProductSteps
             steps={BANNER_CREATION_STEPS}
             activeStep={BANNER_STEP_BY_PHASE[phase]}
@@ -2651,8 +2588,6 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'goal' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
-            <h2 className="text-xl font-black text-slate-950 sm:text-2xl">Vamos criar seu anúncio imobiliário</h2>
-            <p className="mb-5 mt-2 text-sm font-semibold text-slate-600">Preencha as informações abaixo. Você pode fazer tudo de uma vez.</p>
             <AssistantBubble>O que deseja divulgar</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {GOALS.map((item) => (
@@ -2681,42 +2616,61 @@ export default function HeroNext({ guestMode = false } = {}) {
         )}
 
         {phase === 'chat' && (
-          <section data-smart-conversation data-banner-continuous-chat className="mx-auto mt-6 min-w-0 max-w-3xl overflow-visible">
+          <section data-smart-conversation className="mt-6 overflow-visible">
             <div className="mb-5">
               <ConversationHeader
-                eyebrow="Banner Imobiliário"
-                title="Vamos criar seu anúncio imobiliário"
-                description="Preencha as informações abaixo. Você pode fazer tudo de uma vez."
+                eyebrow="Conversa guiada"
+                title="Conte sobre sua campanha"
+                description="Uma pergunta por vez. Você pode revisar qualquer resposta."
                 accent="emerald"
+                trailing={<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>}
               />
             </div>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <ProductButton type="button" variant="secondary" onClick={() => setPhase('goal')}>Alterar objetivo</ProductButton>
-              <p className="text-xs font-bold text-emerald-700" role="status">{chatFlow.filter((question) => briefingAnswers[question.id]).length} de {chatFlow.length} respostas · {getGoalLabel(goal)}</p>
-            </div>
-            <div className="min-w-0 space-y-3">
-                  {chatFlow.map((question, index) => (
-                    <div key={question.id} data-banner-question={question.id} ref={(node) => { questionRefs.current[question.id] = node }} tabIndex={-1} className="min-w-0 scroll-mt-6 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                      <ConversationQuestionCard
-                        accent="emerald"
-                        label={`${index + 1} de ${chatFlow.length}`}
-                        labelTrailing={question.optional ? 'Opcional' : undefined}
-                        title={question.question}
-                        className="!p-3 sm:!p-5 [&_h3]:!mt-1 [&_h3]:!text-base sm:[&_h3]:!text-lg [&_.mt-6]:!mt-3"
-                      >
-                        {renderQuestionControls(question)}
-                      </ConversationQuestionCard>
+            <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="min-w-0">
+                <div className="mb-4">
+                  <ProductButton type="button" variant="secondary" onClick={goBackInChat}>Voltar</ProductButton>
+                </div>
+                <div className="min-w-0 space-y-4" aria-live="polite">
+                  {chatFlow.slice(0, chatIndex).map((question, index) => (
+                    <div key={question.id} className="space-y-4">
+                      <AssistantBubble>{question.question}</AssistantBubble>
+                      <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-2 inline-flex items-center text-xs font-black text-emerald-200 hover:text-white">Editar</button>}>
+                        {formatAnswer(answers[question.id])}
+                      </UserBubble>
                     </div>
                   ))}
+                  {currentQuestion && (
+                    <div ref={activeQuestionRef} className="scroll-mt-6 space-y-4">
+                      <ConversationQuestionCard
+                        accent="emerald"
+                        label={`${Math.min(chatIndex + 1, chatFlow.length)} de ${chatFlow.length}`}
+                        title={currentQuestion.question}
+                      >
+                        {renderQuestionControls()}
+                      </ConversationQuestionCard>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <aside className="rounded-3xl bg-white/80 p-4 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70 backdrop-blur-sm lg:sticky lg:top-6 lg:self-start">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Resumo ao vivo</p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">Sua campanha</h3>
+                <div className="mt-4 space-y-2 rounded-2xl bg-slate-50/90 p-2">
+                  <div className="rounded-xl px-2 py-2 text-sm"><strong className="text-slate-950">Objetivo</strong><p className="mt-1 font-semibold text-slate-600">{getGoalLabel(goal)}</p></div>
+                  {chatFlow.slice(0, chatIndex).map((question, index) => answers[question.id] ? (
+                    <div key={question.id} className="rounded-xl px-2 py-2 text-sm transition hover:bg-primary-50">
+                      <div className="flex items-start justify-between gap-3"><p className="min-w-0"><strong className="text-slate-950">{question.question}</strong><span className="mt-1 block break-words font-semibold text-slate-600">{formatAnswer(answers[question.id])}</span></p><button type="button" onClick={() => goToQuestion(index)} className="shrink-0 text-xs font-black text-emerald-700">Editar</button></div>
+                    </div>
+                  ) : null)}
+                </div>
+              </aside>
             </div>
-            {isAnyCaptureGoal && <div className="mt-5 flex justify-end">
-              <ProductButton type="button" onClick={goToDestinationStep} disabled={!briefingReady}>Continuar</ProductButton>
-            </div>}
           </section>
         )}
 
-        {(phase === 'values' || (phase === 'chat' && !isAnyCaptureGoal)) && (
-          <ProductCard variant="muted" className="mx-auto mt-4 max-w-3xl p-4 sm:p-6">
+        {phase === 'values' && (
+          <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>{goal === 'rent' ? 'Quais valores deseja divulgar' : 'Deseja divulgar valor ou condições'}</AssistantBubble>
 
             {goal === 'sale' && (
@@ -3014,10 +2968,10 @@ export default function HeroNext({ guestMode = false } = {}) {
             </div>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              {phase === 'values' && <ProductButton type="button" variant="secondary" onClick={() => setPhase('chat')}>
+              <ProductButton type="button" variant="secondary" onClick={() => setPhase('chat')}>
                 Voltar
-              </ProductButton>}
-              <ProductButton type="button" onClick={goToDestinationStep} disabled={(phase === 'chat' && !briefingReady) || (goal === 'sale' ? !saleValueReady : !rentValueReady)}>
+              </ProductButton>
+              <ProductButton type="button" onClick={goToDestinationStep} disabled={goal === 'sale' ? !saleValueReady : !rentValueReady}>
                 Continuar
               </ProductButton>
             </div>
