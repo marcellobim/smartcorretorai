@@ -1857,8 +1857,12 @@ export default function HeroNext({ guestMode = false } = {}) {
   }
 
   const handleFiles = async (files) => {
-    const maxFiles = guestMode ? 1 : MAX_HERO_NEXT_IMAGES
-    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith('image/')).slice(0, maxFiles)
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith('image/'))
+      .filter((file) => !uploadedImages.some((item) => item.id === `${file.name}-${file.size}-${file.lastModified}`))
+    if (uploadedImages.length + imageFiles.length > MAX_HERO_NEXT_IMAGES) {
+      setGenerationError('Você pode enviar até 4 imagens. Remova uma imagem antes de adicionar outra.')
+      return
+    }
     if (imageFiles.length === 0) return
 
     try {
@@ -1870,7 +1874,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         lastModified: file.lastModified,
         data: await fileToDataUrl(file),
       })))
-      setUploadedImages(parsed)
+      setUploadedImages([...uploadedImages, ...parsed])
       setMissingImageMetadata([])
       setGenerationError('')
     } catch (error) {
@@ -3251,7 +3255,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     accept="image/*"
                     multiple
                     className="hidden"
-                    onChange={(event) => handleFiles(event.target.files)}
+                    onChange={(event) => { handleFiles(event.target.files); event.target.value = '' }}
                   />
                 </label>
                 {missingImageMetadata.length > 0 && uploadedImages.length === 0 && (
@@ -3270,6 +3274,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                           </span>
                         </div>
                         <p className="truncate px-3 py-2 text-xs font-bold text-gray-600">{item.name}</p>
+                        <button type="button" className="px-3 pb-3 text-xs font-bold text-red-700" onClick={() => { setUploadedImages(uploadedImages.filter((image) => image.id !== item.id)); setGenerationError('') }}>Remover imagem {index + 1}</button>
                       </div>
                     ))}
                   </div>

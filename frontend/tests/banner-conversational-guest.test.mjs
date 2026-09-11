@@ -14,19 +14,29 @@ test('official Banner and guest share a single sequential question flow', () => 
   assert.match(source, /onRequireAccount=\{guestMode \? requireGuestAccount/)
 })
 
-test('upload handler reads a real JPEG and preserves the single guest-image limit', async () => {
+test('shared upload keeps zero, one and four images; rejects a fifth without losing the principal', async () => {
   const block = source.slice(source.indexOf('  const handleFiles = async'), source.indexOf('  const pollGeneration = async'))
-  let uploaded = [], missing = ['old'], error = 'old'
-  const readImage = async () => 'data:image/jpeg;base64,' + readFileSync(new URL('../public/virtual-staging/virtual-staging-before.jpg', import.meta.url)).toString('base64')
-  const handler = new Function('guestMode', 'MAX_HERO_NEXT_IMAGES', 'fileToDataUrl', 'setUploadedImages', 'setMissingImageMetadata', 'setGenerationError', 'getSmartTokenErrorMessage', block + ';return handleFiles')(
-    true, 4, readImage, x => uploaded = x, x => missing = x, x => error = x, () => 'read_failed',
-  )
-  const file = { name: 'upload-test.jpg', type: 'image/jpeg', size: 100, lastModified: 1 }
-  await handler([{ name: 'ignored.txt', type: 'text/plain' }, file, { ...file, name: 'second.jpg' }])
-  assert.equal(uploaded.length, 1)
-  assert.equal(uploaded[0].name, file.name)
-  assert.match(uploaded[0].data, /^data:image\/jpeg;base64,/)
-  assert.deepEqual(missing, [])
-  assert.equal(error, '')
-  assert.match(source, /onChange=\{\(event\) => handleFiles\(event.target.files\)\}/)
+  for (const guestMode of [false, true]) {
+    let uploaded = [], missing = ['old'], error = 'old'
+    const readImage = async () => 'data:image/jpeg;base64,' + readFileSync(new URL('../public/virtual-staging/virtual-staging-before.jpg', import.meta.url)).toString('base64')
+    const run = files => new Function('uploadedImages', 'guestMode', 'MAX_HERO_NEXT_IMAGES', 'fileToDataUrl', 'setUploadedImages', 'setMissingImageMetadata', 'setGenerationError', 'getSmartTokenErrorMessage', block + ';return handleFiles')(
+      uploaded, guestMode, 4, readImage, x => uploaded = x, x => missing = x, x => error = x, () => 'read_failed',
+    )(files)
+    const files = Array.from({length:5}, (_, i) => ({name:`image-${i}.jpg`,type:'image/jpeg',size:100,lastModified:i}))
+    await run([])
+    assert.equal(uploaded.length, 0)
+    await run(files.slice(0,1))
+    assert.equal(uploaded.length, 1)
+    await run(files.slice(1,4))
+    assert.deepEqual(uploaded.map(i => i.name), files.slice(0,4).map(i => i.name))
+    assert.match(uploaded[0].data, /^data:image\/jpeg;base64,/)
+    assert.deepEqual(missing, [])
+    assert.equal(error, '')
+    await run(files.slice(4))
+    assert.equal(uploaded.length, 4)
+    assert.match(error, /4 imagens/)
+    assert.equal(uploaded[0].name, files[0].name)
+  }
+  assert.match(source, /uploadedImages.map\(\(item, index\)/)
+  assert.match(source, /index === 0 \? 'Principal' : 'Apoio'/)
 })

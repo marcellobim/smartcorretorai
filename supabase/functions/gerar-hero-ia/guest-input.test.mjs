@@ -8,10 +8,12 @@ test('replays the image-free choice that failed before reservation', () => {
   assert.equal(validGuestImages(undefined, []), true)
 })
 
-test('retains a single valid upload and rejects malformed or excessive uploads', () => {
+test('retains up to four valid uploads and rejects malformed or excessive uploads', () => {
   const image = { contentType: 'image/png', data: 'aGVsbG8=' }
   assert.equal(validGuestImages([image], [image]), true)
-  assert.equal(validGuestImages([image, image], [image, image]), false)
+  assert.equal(validGuestImages(Array(4).fill(image), Array(4).fill(image)), true)
+  assert.equal(validGuestImages(Array(5).fill(image), Array(4).fill(image)), false)
+  assert.equal(validGuestImages(Array(5).fill(image), Array(5).fill(image)), false)
   assert.equal(validGuestImages([image], []), false)
   assert.equal(validGuestImages('arbitrary', []), false)
   assert.equal(validGuestImages([{}], [{ ...image, contentType: 'text/html' }]), false)
