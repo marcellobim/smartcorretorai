@@ -6,6 +6,8 @@ import {hash,verifyProof,ancestryError} from './proof.mjs'
 import {smoke} from './smoke.mjs'
 const root=fileURLToPath(new URL('../../',import.meta.url)),scope='smart-corretor-ai-s-projects'
 const cli=process.env.VERCEL_CLI || 'vercel'
+const deployVideoSocialMetadata=process.argv.includes('--video-social-metadata')
+if(process.argv.slice(2).some(arg=>arg!=='--video-social-metadata'))throw Error('DEPLOY BLOQUEADO: opção desconhecida')
 function run(command,args,cwd=root,inherit=false){
  const r=spawnSync(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:process.platform==='win32'&&command.endsWith('.cmd')})
  if(r.status!==0)throw Error('Comando obrigatório falhou: '+command+' '+args[0])
@@ -23,6 +25,7 @@ const current=await official(),sha=git('rev-parse','HEAD')
 if(spawnSync('git',['merge-base','--is-ancestor',current.sha,sha],{cwd:root}).status!==0)throw Error(ancestryError)
 if(git('diff','HEAD','--name-only'))throw Error('DEPLOY BLOQUEADO: crie checkpoint antes de publicar')
 smoke(root)
+if(deployVideoSocialMetadata)run(process.execPath,['--test','--test-isolation=none','frontend/tests/video-social-metadata.test.mjs','supabase/functions/social-publish-video/runtime.test.ts','frontend/tests/social-publish-ui-state.test.mjs'],root,true)
 run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
 const stage=path.join(root,'experiments','production-releases',sha+'-'+Date.now());mkdirSync(stage,{recursive:true})
 const zip=stage+'.zip'
@@ -44,6 +47,17 @@ const url=match.at(-1),info=JSON.parse(vc(['inspect',url,'--json']))
 if(info.readyState!=='READY')throw Error('Deployment não está READY')
 const fresh=await official()
 if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
+if(deployVideoSocialMetadata){
+ // Deploy only the two authorized functions from the same clean, verified checkpoint.
+ const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
+ git('archive','--format=zip','--output='+edgeZip,sha,'supabase/functions','supabase/config.toml')
+ if(process.platform==='win32')run('powershell',['-NoProfile','-Command',`Expand-Archive -LiteralPath '${edgeZip.replaceAll("'","''")}' -DestinationPath '${edgeStage.replaceAll("'","''")}' -Force`])
+ else run('unzip',['-o',edgeZip,'-d',edgeStage])
+ const edgeCli=process.env.SUPABASE_CLI || 'supabase'
+ run(edgeCli,['functions','deploy','smart-tour-generate','social-publish-video','--project-ref','sfbowejaevlmhcvsxhbk','--use-api','--workdir',edgeStage],root,true)
+ const afterEdges=await official()
+ if(afterEdges.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a publicação das funções')
+}
 vc(['promote',url,'--yes'])
 const release=await fetch('https://www.smartcorretorai.com/production-release.json',{cache:'no-store'}).then(r=>r.json())
 if(release.sha!==sha)throw Error('Smoke pós-deploy: SHA oficial divergente')

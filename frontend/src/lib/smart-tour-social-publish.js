@@ -106,6 +106,14 @@ const invoke = async (client, intent, destinations, action) => {
     body: buildSmartTourPublicationRequest(intent, destinations, action),
     headers: { Authorization: `Bearer ${accessToken}` },
   })
+  if (action === 'publish' && (error?.context?.status === 409 || data?.code === 'video_publication_identity_invalid')) {
+    const detail = data || await error.context.clone().json().catch(() => null)
+    if (detail?.code === 'video_publication_identity_invalid') {
+      const failure = new Error('Não foi possível preparar este vídeo para publicação. Sua criação está preservada.')
+      failure.code = 'video_publication_identity_invalid'
+      throw failure
+    }
+  }
   if (error || !data?.ok || !Array.isArray(data.results) || data.smart_tokens !== 0) throw new Error(text(data?.code) || 'video_publication_unavailable')
   return data
 }

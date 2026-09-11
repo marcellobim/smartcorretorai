@@ -1,3 +1,4 @@
+import { buildSmartTourPublicationOptions } from '../_shared/smart-tour/publication-options.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
@@ -136,7 +137,7 @@ serve(withCors(async req => {
       ? applySmartTourCustomPresenterSpeech(baseBriefing,input.generation.presenterCustomSpeech)
       : baseBriefing
     const fallbackPrompt = buildSmartTourVideoPrompt(fallbackBriefing)
-    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,tokens_reserved:0})
+    const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,publication_options:buildSmartTourPublicationOptions({property:input.property,language:input.language,cta:input.selectedCta,phone}),tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
     const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode:'real_estate_video',metadata:{image_count:input.imagePaths.length,output_duration_seconds:10,resolution:'1280x720',fps:24,audio:input.generation.narration === 'enabled',captions:input.generation.captions === 'enabled',presenter:['female','male'].includes(input.generation.presenterGender)}})
     if (!economy.executionClaimed) {
@@ -174,7 +175,7 @@ serve(withCors(async req => {
           return data.signedUrl
         },
         persistCompleted: async ({interactionId,outputPath,completedAt}) => {
-          const {error} = await supabase.from('video_jobs').update({status:'completed',provider_job_id:interactionId,output_video_path:outputPath,completed_at:completedAt,error_message:null}).eq('id',input.clientRequestId).eq('user_id',user.id)
+          const {error} = await supabase.from('video_jobs').update({status:'completed',provider_job_id:interactionId,output_video_path:outputPath,output_media_metadata:{mime_type:generated.contentType},completed_at:completedAt,error_message:null}).eq('id',input.clientRequestId).eq('user_id',user.id)
           if (error) throw new Error('job_completed_persist_failed')
           deliveryPersisted = true
         },

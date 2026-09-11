@@ -1,3 +1,4 @@
+import { recoverSmartTourSocialMetadata } from '../_shared/smart-tour/social-metadata.ts'
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizePersistedSmartTourPublicationOptions } from '../_shared/smart-tour/publication-options.ts'
@@ -107,12 +108,10 @@ serve(request => {
       if (input.sourceType !== 'video_imobiliario') return null
       const expectedPath = `${userId}/${input.sourceId}/smart-tour.mp4`
       const { data: job, error: jobError } = await admin.from('video_jobs')
-        .select('id,user_id,status,mode,output_video_path,publication_options,output_media_metadata')
+        .select('id,user_id,status,mode,output_video_path,publication_options,output_media_metadata,prompt_final')
         .eq('id', input.sourceId).eq('user_id', userId).eq('status', 'completed')
         .eq('mode', 'smart_tour_gemini_omni').eq('output_video_path', expectedPath).maybeSingle()
-      if (jobError || !job || job.output_media_metadata?.mime_type !== 'video/mp4') return null
-      const selectedOption = normalizePersistedSmartTourPublicationOptions(job.publication_options).find(option => option.id === input.optionId)
-      if (!selectedOption?.text) return null
+      if (jobError || !job) return null
 
       const { data: objects, error: objectError } = await admin.storage.from(BUCKET).list(`${userId}/${input.sourceId}`, { limit: 2, search: 'smart-tour.mp4' })
       const media = objects?.filter(object => object.name === 'smart-tour.mp4') || []
@@ -120,6 +119,15 @@ serve(request => {
       const contentType = String(metadata?.mimetype || metadata?.contentType || '')
       const contentLength = Number(metadata?.size || 0)
       if (objectError || media.length !== 1 || contentType !== 'video/mp4' || !Number.isSafeInteger(contentLength) || contentLength <= 0) return null
+      const socialMetadata = recoverSmartTourSocialMetadata(job, {contentType, contentLength})
+      if (!socialMetadata) return null
+      const selectedOption = normalizePersistedSmartTourPublicationOptions(socialMetadata.publication_options).find(option => option.id === input.optionId)
+      if (!selectedOption?.text) return null
+      if (job.output_media_metadata?.mime_type !== 'video/mp4' || !job.publication_options?.length) {
+        const { error: metadataError } = await admin.from('video_jobs').update(socialMetadata)
+          .eq('id', job.id).eq('user_id', userId).eq('status', 'completed').eq('output_video_path', expectedPath)
+        if (metadataError) return null
+      }
       const { data: connections, error: connectionError } = await admin.from('social_connections')
         .select('id').eq('user_id', userId).eq('provider', 'meta').eq('connection_status', 'active')
       if (connectionError || connections?.length !== 1) return null

@@ -23,6 +23,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
   const [selected, setSelected] = useState([])
   const [results, setResults] = useState([])
   const [publishing, setPublishing] = useState(false)
+  const [definitiveError, setDefinitiveError] = useState('')
   const [submissionStarted, setSubmissionStarted] = useState(false)
   const [confirmationPending, setConfirmationPending] = useState(false)
   const [caption, setCaption] = useState(() => typeof intent?.captionSnapshot === 'string' ? intent.captionSnapshot : '')
@@ -100,14 +101,20 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
     setSubmissionStarted(true)
     setConfirmationPending(false)
     setPublishing(true)
+    setDefinitiveError('')
     try {
       const confirmedIntent = captionEditable ? { ...intent, captionSnapshot: caption } : intent
       await onConfirmed?.(confirmedIntent)
       const response = await onPublish?.(confirmedIntent, [...selected])
       const nextResults = Array.isArray(response?.results) ? response.results.filter(result => result?.job_id) : []
       setResults(nextResults)
-    } catch {
-      setConfirmationPending(true)
+    } catch (error) {
+      if (intent.sourceType === 'video_imobiliario' && error?.code === 'video_publication_identity_invalid') {
+        setDefinitiveError('Não foi possível preparar este vídeo para publicação. Sua criação está preservada.')
+        setConfirmationPending(false)
+        setSubmissionStarted(false)
+        submissionLockRef.current = false
+      } else setConfirmationPending(true)
     } finally {
       setPublishing(false)
     }
@@ -136,6 +143,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
           {!usable && connection.status !== 'loading' && !connection.selectionRequired && <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-semibold leading-6 text-amber-900">Conecte sua conta Meta uma única vez para publicar no Instagram e Facebook.</p><button type="button" onClick={() => onConnect?.(captionEditable ? { ...intent, captionSnapshot: caption } : intent)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white">Conectar Instagram e Facebook</button></div>}
         </div>
 
+        {definitiveError && <p role="alert" className="mt-5 text-sm font-semibold text-red-700">{definitiveError}</p>}
         <SocialPublishProgress results={results} submissionStarted={submissionStarted} confirmationPending={confirmationPending} />
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={close} className="min-h-12 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700">Cancelar</button>{!submissionLocked && <button type="button" disabled={!usable || selected.length === 0 || publishing} onClick={publish} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />Publicar agora</button>}</div>
       </section>
