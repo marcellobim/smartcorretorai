@@ -29,7 +29,9 @@ import {
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { toFileMetadata } from '../lib/product-draft'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingStudioPublication, preservePendingStudioPublication, publishStudioPublication, readPendingStudioPublication, recoverStudioPublication } from '../lib/studio-social-publish'
@@ -661,6 +663,14 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   }
   const conversation = useGuidedConversation({ initialQuestionId: 1, initialState: restoredFlow.conversation, onEdit: resetCarouselFromStep, onStateChange: setConversationSnapshot })
   const step = Number(conversation.activeQuestionId)
+  const reachedStep = step >= 15
+    ? STEPS.REVIEW
+    : conversation.history.length > 1 ? STEPS.DETAILS : conversation.history.length ? STEPS.FLOW_STARTED : null
+  const { trackStep, trackGenerationClicked } = useAccountAnalytics(PRODUCTS.SMART_CARROSSEL, reachedStep)
+
+  useEffect(() => {
+    if (photos.length) trackStep(STEPS.UPLOAD)
+  }, [photos.length, trackStep])
 
   useEffect(() => {
     const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage }
@@ -803,6 +813,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
       return
     }
 
+    trackGenerationClicked()
     generationInFlightRef.current = true
     setGenerationStatus('uploading')
     setGenerationError('')

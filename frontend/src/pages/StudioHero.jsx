@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import {
   ProductButton,
   ProductCard,
@@ -1284,6 +1286,13 @@ export default function StudioHero() {
     hasResult: Boolean(videoUrl),
     hasRequiredUpload: isFreeAiMode || IMAGE_SLOTS.every((slot) => files[slot.key]),
   })
+  const reachedStep = !studioMode
+    ? null
+    : step >= uploadStep ? STEPS.REVIEW : step > 1 ? STEPS.DETAILS : STEPS.FLOW_STARTED
+  const { trackStep, trackGenerationClicked } = useAccountAnalytics(PRODUCTS.STUDIO_IA, reachedStep)
+  useEffect(() => {
+    if (Object.values(files).some(Boolean)) trackStep(STEPS.UPLOAD)
+  }, [files, trackStep])
   const studioSummaryItems = Object.entries(stepSummaries)
     .filter(([, value]) => Boolean(value))
     .sort(([left], [right]) => Number(left) - Number(right))
@@ -1823,6 +1832,7 @@ export default function StudioHero() {
       return
     }
 
+    trackGenerationClicked()
     clearPolling()
     setStatus(isFreeAiMode ? 'generating' : 'uploading')
     setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Preparando seu comercial...')

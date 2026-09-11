@@ -17,6 +17,8 @@ import {
   profilePlanValues,
   publicAdminAdjustment,
   publicAdminClient,
+  publicAdminActivityEvent,
+  buildClientFunnel,
   publicAdminCourtesyEvent,
   publicCreditLot,
   sanitizeAdminSearch,
@@ -136,6 +138,29 @@ async function optionalRpcData(supabase: any, name: string, args: Record<string,
   if (!error) return data
   if (isPendingAdminSchemaError(error)) return null
   throw new Error(`Falha ao agregar ${name}.`)
+}
+
+async function clientMetricRpcData(supabase: any, name: string, args: Record<string, unknown>) {
+  const { data, error } = await supabase.rpc(name, args)
+  return error ? null : data
+}
+
+async function loadPrebackendFailureCounts(supabase: any, userIds: readonly string[]) {
+  if (!userIds.length) return new Map<string, number>()
+  const { data, error } = await supabase.from('account_analytics_events')
+    .select('user_id').in('user_id', userIds).eq('event_type', 'generation_prebackend_failed')
+  if (error) throw new Error('Falha ao carregar falhas anteriores à geração.')
+  const counts = new Map<string, number>()
+  for (const row of data ?? []) counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1)
+  return counts
+}
+
+function mergePrebackendFailures(activityRows: any[] | null, counts: Map<string, number>) {
+  if (activityRows === null) return null
+  return (activityRows ?? []).map(row => ({
+    ...row,
+    failures: Number(row.failures ?? 0) + Number(counts.get(row.user_id) ?? 0),
+  }))
 }
 
 async function loadCourtesyEvents(supabase: any, userIds: readonly string[], limit = 100) {
@@ -375,13 +400,17 @@ async function loadClients(supabase: any, input: Record<string, unknown>) {
   if (error) throw new Error('Falha ao carregar clientes.')
 
   const userIds = (data ?? []).map((profile: any) => profile.id)
-  const [creditRows, activityRows, courtesyRows] = userIds.length ? await Promise.all([
-    optionalRpcData(supabase, 'admin_client_credit_metrics', { p_user_ids: userIds }),
-    optionalRpcData(supabase, 'admin_client_activity_metrics', { p_user_ids: userIds }),
+  const [creditRows, rawActivityRows, courtesyRows, usageRows, prebackendFailures] = userIds.length ? await Promise.all([
+    clientMetricRpcData(supabase, 'admin_client_credit_metrics', { p_user_ids: userIds }),
+    clientMetricRpcData(supabase, 'admin_client_activity_metrics', { p_user_ids: userIds }),
     loadCourtesyStates(supabase, userIds),
-  ]) : [[], [], []]
+    clientMetricRpcData(supabase, 'admin_client_usage_metrics', { p_user_ids: userIds }),
+    loadPrebackendFailureCounts(supabase, userIds),
+  ]) : [[], [], [], [], new Map<string, number>()]
+  const activityRows = mergePrebackendFailures(rawActivityRows, prebackendFailures)
   const creditsByUser = new Map((creditRows ?? []).map((row: any) => [row.user_id, row]))
   const activityByUser = new Map((activityRows ?? []).map((row: any) => [row.user_id, row]))
+  const usageByUser = new Map((usageRows ?? []).map((row: any) => [row.user_id, row]))
   const courtesyByUser = new Map<string, any>()
   for (const row of courtesyRows ?? []) courtesyByUser.set(row.user_id, row)
   const clients = (data ?? []).map((profile: any) => publicAdminClient(
@@ -389,6 +418,7 @@ async function loadClients(supabase: any, input: Record<string, unknown>) {
     creditsByUser.get(profile.id),
     activityByUser.get(profile.id),
     courtesyByUser.get(profile.id),
+    usageByUser.get(profile.id),
   ))
 
   return {
@@ -413,9 +443,11 @@ async function loadClientDetail(supabase: any, input: Record<string, unknown>) {
   if (profileError) throw new Error('Falha ao carregar cliente.')
   if (!profile) throw new AdminInputError('Cliente não encontrado.')
 
-  const [creditRows, activityRows, lotsResult, adjustmentsResult, courtesyEvents] = await Promise.all([
-    optionalRpcData(supabase, 'admin_client_credit_metrics', { p_user_ids: [userId] }),
-    optionalRpcData(supabase, 'admin_client_activity_metrics', { p_user_ids: [userId] }),
+  const [creditRows, rawActivityRows, usageRows, timelineRows, lotsResult, adjustmentsResult, courtesyEvents, prebackendFailures] = await Promise.all([
+    clientMetricRpcData(supabase, 'admin_client_credit_metrics', { p_user_ids: [userId] }),
+    clientMetricRpcData(supabase, 'admin_client_activity_metrics', { p_user_ids: [userId] }),
+    clientMetricRpcData(supabase, 'admin_client_usage_metrics', { p_user_ids: [userId] }),
+    clientMetricRpcData(supabase, 'admin_client_activity_timeline', { p_user_id: userId, p_limit: 100 }),
     supabase.from('credit_lots')
       .select('id,source,original_amount,remaining_amount,status,expires_at,created_at')
       .eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
@@ -423,7 +455,9 @@ async function loadClientDetail(supabase: any, input: Record<string, unknown>) {
       .select('id,amount,reason,created_at,admin_user_id')
       .eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     loadCourtesyEvents(supabase, [userId], 50),
+    loadPrebackendFailureCounts(supabase, [userId]),
   ])
+  const activityRows = mergePrebackendFailures(rawActivityRows, prebackendFailures)
   if (lotsResult.error) throw new Error('Falha ao carregar histórico do cliente.')
   const adjustmentsMissing = isPendingAdminSchemaError(adjustmentsResult.error)
   if (adjustmentsResult.error && !adjustmentsMissing) throw new Error('Falha ao carregar histórico do cliente.')
@@ -439,14 +473,19 @@ async function loadClientDetail(supabase: any, input: Record<string, unknown>) {
     adminsById = new Map((admins ?? []).map((admin: any) => [admin.id, admin]))
   }
 
+  const client = publicAdminClient(profile, creditRows?.[0], activityRows?.[0], courtesyEvents.rows[0], usageRows?.[0])
+  const timeline = (timelineRows ?? []).map(publicAdminActivityEvent)
   return {
-    client: publicAdminClient(profile, creditRows?.[0], activityRows?.[0], courtesyEvents.rows[0]),
+    client,
+    timeline,
+    funnel: buildClientFunnel(client, timeline),
     lots: (lotsResult.data ?? []).map(publicCreditLot),
     adjustments: (adjustmentsMissing ? [] : adjustmentsResult.data ?? []).map((row: any) => publicAdminAdjustment(row, adminsById.get(row.admin_user_id))),
     courtesyHistory: courtesyEvents.rows.map((row: any) => publicAdminCourtesyEvent(row, adminsById.get(row.admin_user_id))),
     activityDefinition: 'Gerações persistidas; não representa login ou permanência no site.',
     adminCreditOperationsAvailable: Boolean(creditRows) && !adjustmentsMissing,
     adminCourtesyOperationsAvailable: courtesyEvents.available,
+    accountAnalyticsAvailable: Boolean(usageRows) && Boolean(timelineRows),
   }
 }
 

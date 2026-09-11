@@ -9,7 +9,9 @@ import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components
 import GuidedConversation, { getConversationScrollBehavior } from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useAuth } from '../lib/auth-context'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import { restoreProductDraftShape, toFileMetadata } from '../lib/product-draft'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { supabase } from '../lib/supabase'
@@ -196,6 +198,12 @@ export default function SmartTourAI() {
   const conversation = useGuidedConversation({ initialQuestionId: 'images', initialState: restoredTourDraft.conversation, onEdit: resetTourFromQuestion, onStateChange: setConversationSnapshot })
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
   const question = questions[questionIndex] || questions[0]
+  const reachedStep = !activeInputFlow
+    ? null
+    : question[0] === 'review' ? STEPS.REVIEW
+      : question[0] === 'images' ? (images.length ? STEPS.UPLOAD : STEPS.FLOW_STARTED)
+        : STEPS.DETAILS
+  const { trackGenerationClicked } = useAccountAnalytics(PRODUCTS.VIDEO_IMOBILIARIO, reachedStep)
 
   useEffect(() => {
     if (!['idle', 'error'].includes(status)) return
@@ -326,6 +334,7 @@ export default function SmartTourAI() {
       if (!shortVideo?.file) return setMessage('Selecione um vídeo MP4 antes de continuar.')
       shortVideoGenerationLockRef.current = true
     }
+    trackGenerationClicked()
     setStatus('uploading'); setMessage(isShortVideos ? 'Enviando seu vídeo com segurança...' : 'Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()

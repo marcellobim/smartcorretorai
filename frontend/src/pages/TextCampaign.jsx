@@ -23,6 +23,8 @@ import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
 import TextCampaignResult from '../components/text-campaign/TextCampaignResult'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import {
   buildTextCampaignBriefing,
   changeTextCampaignManualCity,
@@ -115,6 +117,10 @@ export default function TextCampaign() {
     onStateChange: setConversationSnapshot,
   })
   const questionId = conversation.activeQuestionId
+  const reachedStep = questionId === 'review'
+    ? STEPS.REVIEW
+    : conversation.history.length > 1 ? STEPS.DETAILS : conversation.history.length ? STEPS.FLOW_STARTED : null
+  const { trackGenerationClicked } = useAccountAnalytics(PRODUCTS.CAMPANHA_TEXTOS, reachedStep)
   const questionNumber = TEXT_CAMPAIGN_QUESTION_ORDER.indexOf(questionId) + 1
   const briefing = useMemo(
     () => buildTextCampaignBriefing(answers, professionalPhone),
@@ -143,6 +149,7 @@ export default function TextCampaign() {
 
   const generateCampaign = async () => {
     if (generationLockRef.current || !briefingValid) return
+    trackGenerationClicked()
     generationLockRef.current = true
     setGenerationStatus('loading')
     setGenerationError('')

@@ -27,6 +27,8 @@ import TermosDeUso from './pages/TermosDeUso'
 import Privacidade from './pages/Privacidade'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminMfaGate from './components/auth/AdminMfaGate'
+import AccountAnalyticsRoute from './components/analytics/AccountAnalyticsRoute'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS } from './lib/account-analytics'
 
 function AdminRoute({ children }) {
   const { user, loading, isAdmin, onboardingState } = useAuthStore()
@@ -109,16 +111,16 @@ export default function App() {
       />
       <Route element={<OnboardingPrivateRoute><AppLayout /></OnboardingPrivateRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/hero" element={<HeroNext />} />
-        <Route path="/studio-hero" element={<StudioHero />} />
+        <Route path="/hero" element={<AccountAnalyticsRoute productId={PRODUCTS.BANNER_IMOBILIARIO}><HeroNext /></AccountAnalyticsRoute>} />
+        <Route path="/studio-hero" element={<AccountAnalyticsRoute productId={PRODUCTS.STUDIO_IA}><StudioHero /></AccountAnalyticsRoute>} />
         <Route path="/studio-galeria" element={<StudioGallery />} />
-        <Route path="/smart-carrossel" element={<SmartCarrossel />} />
-        <Route path="/smart-tour-ai" element={<SmartTourAI />} />
-        <Route path="/virtual-staging" element={<VirtualStaging />} />
+        <Route path="/smart-carrossel" element={<AccountAnalyticsRoute productId={PRODUCTS.SMART_CARROSSEL}><SmartCarrossel /></AccountAnalyticsRoute>} />
+        <Route path="/smart-tour-ai" element={<AccountAnalyticsRoute productId={PRODUCTS.VIDEO_IMOBILIARIO}><SmartTourAI /></AccountAnalyticsRoute>} />
+        <Route path="/virtual-staging" element={<AccountAnalyticsRoute productId={PRODUCTS.SMART_SPACE}><VirtualStaging /></AccountAnalyticsRoute>} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
-        <Route path="/nova-campanha" element={<NovaCompanha />} />
-        <Route path="/campanha-de-textos" element={<TextCampaign />} />
-        <Route path="/raio-x-anuncio" element={<RaioXAnuncio />} />
+        <Route path="/nova-campanha" element={<AccountAnalyticsRoute productId={PRODUCTS.BANNERS_RAPIDOS}><NovaCompanha /></AccountAnalyticsRoute>} />
+        <Route path="/campanha-de-textos" element={<AccountAnalyticsRoute productId={PRODUCTS.CAMPANHA_TEXTOS}><TextCampaign /></AccountAnalyticsRoute>} />
+        <Route path="/raio-x-anuncio" element={<AccountAnalyticsRoute productId={PRODUCTS.RAIO_X}><RaioXAnuncio /></AccountAnalyticsRoute>} />
         <Route path="/configuracoes" element={<Configuracoes />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,6 +6,8 @@ import { prepareListingXrayImages, validateListingXrayFiles } from '../lib/listi
 import { clearListingXrayRecovery, normalizeListingXrayResult, readListingXrayRecovery, writeListingXrayRecovery } from '../lib/listing-xray-result'
 import { useAuthStore } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 
 const POLL_DELAY_MS = 2_000
 const MAX_RECOVERY_POLLS = 45
@@ -24,6 +26,7 @@ function presentListingXrayFailure(payload = {}, fallback = '') {
 
 export default function RaioXAnuncio() {
   const user = useAuthStore(state => state.user)
+  const { trackStep, trackGenerationClicked } = useAccountAnalytics(PRODUCTS.RAIO_X)
   const [mode, setMode] = useState('link'); const [url, setUrl] = useState(''); const [files, setFiles] = useState([])
   const [contentTypeHint, setContentTypeHint] = useState(null); const [classificationRequired, setClassificationRequired] = useState(false)
   const [phase, setPhase] = useState('idle'); const [result, setResult] = useState(null); const [message, setMessage] = useState('')
@@ -70,18 +73,20 @@ export default function RaioXAnuncio() {
 
   const analyzeLink = async event => {
     event.preventDefault(); const sourceUrl = url.trim(); if (!/^https?:\/\//i.test(sourceUrl)) { setMessage('Cole um link público completo, começando com http:// ou https://.'); setPhase('failed'); return }
+    trackGenerationClicked()
     const requestId = newRequestId(); activeRequestRef.current = requestId; const operation = ++operationRef.current; setResult(null); setMessage(''); setPhase('loading'); writeListingXrayRecovery(window.sessionStorage, user.id, requestId, 'processing')
     try { await completeRequest(await invokeListingXray({ action: 'analyze_url', client_request_id: requestId, url: sourceUrl }), requestId, operation) } catch (error) { handleFailure(error, requestId, operation) }
   }
   const addFiles = event => {
-    try { const incoming = validateListingXrayFiles(event.target.files); const merged = [...files]; for (const file of incoming) if (!merged.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) merged.push(file); if (merged.length > 5) throw new Error('Envie no máximo 5 imagens.'); setFiles(merged); setMessage('') } catch (error) { setMessage(error.message); setPhase('failed') } finally { event.target.value = '' }
+    try { const incoming = validateListingXrayFiles(event.target.files); const merged = [...files]; for (const file of incoming) if (!merged.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) merged.push(file); if (merged.length > 5) throw new Error('Envie no máximo 5 imagens.'); setFiles(merged); trackStep(STEPS.UPLOAD); setMessage('') } catch (error) { setMessage(error.message); setPhase('failed') } finally { event.target.value = '' }
   }
   const analyzeImages = async event => {
     event.preventDefault(); if (!files.length) { setMessage('Envie pelo menos uma captura para continuar.'); setPhase('failed'); return }
+    trackGenerationClicked()
     const requestId = activeRequestRef.current || newRequestId(); activeRequestRef.current = requestId; const operation = ++operationRef.current; setResult(null); setMessage(''); setPhase('preparing_images'); writeListingXrayRecovery(window.sessionStorage, user.id, requestId, 'processing')
     try { const images = await prepareListingXrayImages(files); setPhase('loading'); await completeRequest(await invokeListingXray({ action: 'analyze_images', client_request_id: requestId, images, content_type_hint: contentTypeHint }), requestId, operation) } catch (error) { handleFailure(error, requestId, operation) }
   }
-  const selectMode = next => { setMode(next); setMessage(''); if (next === 'link') { setClassificationRequired(false); setContentTypeHint(null) } }
+  const selectMode = next => { trackStep(STEPS.FLOW_STARTED); setMode(next); setMessage(''); if (next === 'link') { setClassificationRequired(false); setContentTypeHint(null) } }
   const reset = () => { operationRef.current += 1; activeRequestRef.current = null; clearListingXrayRecovery(window.sessionStorage, user?.id); setUrl(''); setFiles([]); setContentTypeHint(null); setClassificationRequired(false); setResult(null); setMessage(''); setPhase('idle'); setMode('link') }
 
   if (phase === 'completed' && result) return <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><ListingXRayResult result={result} onReset={reset} /></div>

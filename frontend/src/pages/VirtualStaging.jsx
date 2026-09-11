@@ -13,7 +13,9 @@ import GuidedConversation from '../components/conversation/GuidedConversation'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useAuth } from '../lib/auth-context'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import { toFileMetadata } from '../lib/product-draft'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
@@ -514,6 +516,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     journeyDraft.save(draft)
   }, [conversationSnapshot, cta, ctaEnabled, decorationStyle, generation, hasStartedFurnish, images, includePhone, journeyDraft, lifeScene, missingImageMetadata, missingPresenterMetadata, presenterReference, presenterReferenceDecision, property, status, transformationType])
   const question = questions[questionIndex] || questions[0]
+  const reachedStep = isFurnishRenovate && !hasStartedFurnish
+    ? null
+    : question[0] === 'review' ? STEPS.REVIEW
+      : conversation.history.length ? STEPS.DETAILS : STEPS.FLOW_STARTED
+  const { trackStep, trackGenerationClicked } = useAccountAnalytics(PRODUCTS.SMART_SPACE, reachedStep)
+  useEffect(() => {
+    if (images.length || presenterReference?.file) trackStep(STEPS.UPLOAD)
+  }, [images.length, presenterReference?.file, trackStep])
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getVirtualStagingNextQuestion({ questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
     if (reviewEditRef.current) {
@@ -724,6 +734,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }
 
   const createFurnishRenovateImage = async () => {
+    trackGenerationClicked()
     if (!isFurnishRenovate || furnishGenerationInFlightRef.current) return
     if (!canGenerateFurnish) {
       setMessage('Revise as escolhas e envie de uma a cinco imagens para continuar.')
@@ -853,6 +864,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const createTour = async () => {
     if (isFurnishRenovate) return createFurnishRenovateImage()
     if (isBrokerPresentation && !presenterReference?.file) return setMessage('Envie uma foto do apresentador para continuar.')
+    trackGenerationClicked()
     setStatus('uploading'); setMessage('Enviando suas fotos com segurança...')
     try {
       const requestId = crypto.randomUUID()

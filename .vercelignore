@@ -1,5 +1,7 @@
 /*
 !frontend
+!scripts
+!.production-proof.json
 !core
 !api
 !server
@@ -15,7 +17,6 @@ node_modules
 **/node_modules
 frontend/dist
 docs
-scripts
 deno.lock
 supabase/*
 !supabase/functions
@@ -28,8 +29,5 @@ supabase/functions/_shared/*
 !supabase/functions/_shared/smart-tour
 supabase/functions/_shared/smart-tour/*
 !supabase/functions/_shared/smart-tour/publication-options.ts
-frontend/tests
-**/*.test.mjs
-**/*.test.ts
 **/*.log
 **/test-results

@@ -355,6 +355,7 @@ export function publicAdminClient(
   credit: Record<string, any> = {},
   activity: Record<string, any> = {},
   courtesy: Record<string, any> = {},
+  usage: Record<string, any> | null = null,
 ) {
   const subscriptions = Array.isArray(profile.subscriptions)
     ? profile.subscriptions
@@ -362,6 +363,7 @@ export function publicAdminClient(
   const subscription = subscriptions.find((item: any) => item.status === 'ativo') ?? subscriptions[0] ?? null
   const creditMetricsAvailable = Boolean(credit && Object.keys(credit).length)
   const activityMetricsAvailable = Boolean(activity && Object.keys(activity).length)
+  const accountAnalyticsAvailable = usage !== null
   const courtesyActive = courtesy?.action === 'granted'
   const paidAccess = subscription?.status === 'ativo'
     || (creditMetricsAvailable && (Number(credit.subscription_granted ?? 0) > 0 || Number(credit.purchase_granted ?? 0) > 0))
@@ -384,9 +386,54 @@ export function publicAdminClient(
     totalGenerations: activityMetricsAvailable ? Number(activity.generations ?? 0) : null,
     failedGenerations: activityMetricsAvailable ? Number(activity.failures ?? 0) : null,
     lastGenerationAt: activityMetricsAvailable ? activity.last_generation_at ?? null : null,
+    lastLoginAt: accountAnalyticsAvailable ? usage?.last_login_at ?? null : null,
+    lastActivityAt: accountAnalyticsAvailable ? usage?.last_activity_at ?? null : null,
+    lastProductId: accountAnalyticsAvailable ? usage?.last_product_id ?? null : null,
+    productsOpened: accountAnalyticsAvailable ? Number(usage?.products_opened ?? 0) : null,
+    trackingStartedAt: accountAnalyticsAvailable ? usage?.tracking_started_at ?? null : null,
+    hasTracking: accountAnalyticsAvailable && usage?.has_tracking === true,
+    accountAnalyticsAvailable,
     courtesyActive,
     catalogAccess: courtesyActive ? 'courtesy' : paidAccess ? 'paid' : 'trial',
   })
+}
+
+export function publicAdminActivityEvent(row: Record<string, any>) {
+  return Object.freeze({
+    eventType: String(row.event_type ?? ''),
+    productId: row.product_id ?? null,
+    stepId: row.step_id ?? null,
+    occurredAt: row.occurred_at ?? null,
+    source: ['generation_backend', 'auth'].includes(row.source) ? row.source : 'account_analytics',
+  })
+}
+
+export function buildClientFunnel(client: Record<string, any>, timeline: readonly Record<string, any>[]) {
+  const has = (eventType: string, predicate: (event: Record<string, any>) => boolean = () => true) =>
+    timeline.some(event => event.eventType === eventType && predicate(event))
+  const stages = [
+    { id: 'registered', label: 'Cadastro', proven: Boolean(client.createdAt), occurredAt: client.createdAt ?? null },
+    { id: 'login', label: 'Login', proven: Boolean(client.lastLoginAt), occurredAt: client.lastLoginAt ?? null },
+    { id: 'product_opened', label: 'Produto aberto', proven: has('product_opened'), occurredAt: null },
+    { id: 'flow_started', label: 'Fluxo iniciado', proven: has('flow_step_reached', event => event.stepId === 'flow_started'), occurredAt: null },
+    { id: 'steps', label: 'Etapas', proven: has('flow_step_reached'), occurredAt: null },
+    { id: 'review', label: 'Revisão', proven: has('flow_step_reached', event => event.stepId === 'review'), occurredAt: null },
+    { id: 'generation_clicked', label: 'Gerar', proven: has('generation_clicked'), occurredAt: null },
+    { id: 'generation_completed', label: 'Concluído', proven: has('generation_completed'), occurredAt: null },
+  ].map(stage => {
+    if (stage.occurredAt || !stage.proven) return stage
+    const matching = timeline.find(event => (
+      (stage.id === 'product_opened' && event.eventType === 'product_opened')
+      || (stage.id === 'flow_started' && event.eventType === 'flow_step_reached' && event.stepId === 'flow_started')
+      || (stage.id === 'steps' && event.eventType === 'flow_step_reached')
+      || (stage.id === 'review' && event.eventType === 'flow_step_reached' && event.stepId === 'review')
+      || (stage.id === 'generation_clicked' && event.eventType === 'generation_clicked')
+      || (stage.id === 'generation_completed' && event.eventType === 'generation_completed')
+    ))
+    return { ...stage, occurredAt: matching?.occurredAt ?? null }
+  })
+  const maximumProven = [...stages].reverse().find(stage => stage.proven) ?? null
+  return Object.freeze({ stages: Object.freeze(stages.map(Object.freeze)), maximumProven: maximumProven?.id ?? null })
 }
 
 export function publicCreditLot(lot: Record<string, any>) {

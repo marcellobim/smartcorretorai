@@ -7,6 +7,8 @@ import { TEMPLATE_CATALOG, TEMPLATE_MODEL_CREDIT_WEIGHTS, TEMPLATE_MODEL_PREVIEW
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { useProductDraft } from '../hooks/useProductDraft'
+import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildProduct3CampaignOptions, normalizeProduct3CampaignFiles } from '../components/campaign/buildProduct3CampaignPackage'
@@ -2081,6 +2083,12 @@ export default function NovaCampanha() {
   const [activeCampaignModelId, setActiveCampaignModelId] = useState(() => restoredQuickBannerDraft.activeCampaignModelId || null)
   const [selectedModelUses, setSelectedModelUses] = useState(() => restoredQuickBannerDraft.selectedModelUses || {})
   const [campaignObjective, setCampaignObjective] = useState(() => restoredQuickBannerDraft.campaignObjective || defaultCampaignObjective)
+  const reachedStep = productFlowStep === 'analysis'
+    ? STEPS.REVIEW
+    : productFlowStep === 'photos' ? STEPS.UPLOAD
+      : productFlowStep === 'property' ? STEPS.DETAILS
+        : activeCampaignModelId || Object.keys(selectedModelUses).length ? STEPS.FLOW_STARTED : null
+  const { trackGenerationClicked } = useAccountAnalytics(PRODUCTS.BANNERS_RAPIDOS, reachedStep)
 
   useEffect(() => {
     if (isProductEntry || fase !== 'form') return
@@ -2419,6 +2427,7 @@ export default function NovaCampanha() {
   // ══════════════════════════════════════════════════════════
   const gerarAnuncios = async () => {
     if (generationInFlightRef.current) return
+    trackGenerationClicked()
     generationInFlightRef.current = true
     setGenerationInFlight(true)
     setShowConfirm(false)

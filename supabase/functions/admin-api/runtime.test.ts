@@ -9,6 +9,8 @@ import {
   profilePlanValues,
   publicAdminAdjustment,
   publicAdminClient,
+  publicAdminActivityEvent,
+  buildClientFunnel,
   publicCreditLot,
   sanitizeAdminSearch,
   theoreticalMonthlyBrlCents,
@@ -26,6 +28,52 @@ import {
   testimonialApprovalTransition,
   testimonialPublicationTransition,
 } from './runtime.ts'
+
+test('client usage metrics remain optional for legacy accounts', () => {
+  const legacy = publicAdminClient({ id: 'legacy', created_at: '2026-01-01T00:00:00Z', saldo_creditos: 0 })
+  assert.equal(legacy.hasTracking, false)
+  assert.equal(legacy.lastLoginAt, null)
+  assert.equal(legacy.lastActivityAt, null)
+  assert.equal(legacy.lastProductId, null)
+  assert.equal(legacy.productsOpened, null)
+  assert.equal(legacy.accountAnalyticsAvailable, false)
+
+  const tracked = publicAdminClient(
+    { id: 'tracked', created_at: '2026-01-01T00:00:00Z', saldo_creditos: 200 },
+    {}, {}, {},
+    { last_login_at: '2026-09-08T12:00:00Z', last_activity_at: '2026-09-08T12:05:00Z', last_product_id: 'smart_space', products_opened: 2, has_tracking: true },
+  )
+  assert.equal(tracked.hasTracking, true)
+  assert.equal(tracked.lastProductId, 'smart_space')
+  assert.equal(tracked.productsOpened, 2)
+  assert.equal(tracked.accountAnalyticsAvailable, true)
+  assert.equal(tracked.smartTokenBalance, 200)
+})
+
+test('timeline is normalized without exposing arbitrary backend fields', () => {
+  assert.deepEqual(publicAdminActivityEvent({
+    event_type: 'flow_step_reached', product_id: 'studio_ia', step_id: 'review',
+    occurred_at: '2026-09-08T12:00:00Z', source: 'account_analytics', ignored_pii: 'secret',
+  }), {
+    eventType: 'flow_step_reached', productId: 'studio_ia', stepId: 'review',
+    occurredAt: '2026-09-08T12:00:00Z', source: 'account_analytics',
+  })
+})
+
+test('funnel marks only persisted evidence and does not infer missing stages', () => {
+  const timeline = [
+    { eventType: 'product_opened', productId: 'raio_x', occurredAt: '2026-09-08T12:01:00Z' },
+    { eventType: 'generation_completed', productId: 'raio_x', occurredAt: '2026-09-08T12:04:00Z' },
+  ]
+  const funnel = buildClientFunnel({ createdAt: '2026-09-01T00:00:00Z', lastLoginAt: '2026-09-08T12:00:00Z' }, timeline)
+  assert.equal(funnel.stages.find(stage => stage.id === 'registered')?.proven, true)
+  assert.equal(funnel.stages.find(stage => stage.id === 'login')?.proven, true)
+  assert.equal(funnel.stages.find(stage => stage.id === 'product_opened')?.proven, true)
+  assert.equal(funnel.stages.find(stage => stage.id === 'flow_started')?.proven, false)
+  assert.equal(funnel.stages.find(stage => stage.id === 'generation_clicked')?.proven, false)
+  assert.equal(funnel.stages.find(stage => stage.id === 'generation_completed')?.proven, true)
+  assert.equal(funnel.maximumProven, 'generation_completed')
+})
 
 test('Admin plan mapping uses the current commercial labels', () => {
   assert.equal(adminPlanLabel('free'), 'FREE')
@@ -93,6 +141,8 @@ test('client response exposes only the operational allowlist', () => {
     'createdAt', 'currentPeriodEnd', 'hasStripeCustomer', 'subscriptionGranted',
     'purchaseGranted', 'adminGranted', 'purchaseRemaining', 'rechargeCount',
     'rechargeCatalogCents', 'totalGenerations', 'failedGenerations', 'lastGenerationAt',
+    'lastLoginAt', 'lastActivityAt', 'lastProductId', 'productsOpened',
+    'trackingStartedAt', 'hasTracking', 'accountAnalyticsAvailable',
     'courtesyActive', 'catalogAccess',
   ])
   assert.equal(client.plan, 'ELITE')
@@ -175,6 +225,66 @@ test('missing optional admin migration metrics remain unavailable instead of bec
   assert.equal(client.subscriptionGranted, null)
   assert.equal(client.purchaseGranted, null)
   assert.equal(client.totalGenerations, null)
+})
+
+test('successful zero-valued aggregates remain zero for users without lots or generations', () => {
+  const client = publicAdminClient({
+    id: 'user-id', nome: 'Cliente', email: 'cliente@example.test', plano: 'free',
+    saldo_creditos: 0, created_at: '2026-09-08T00:00:00Z', subscriptions: [],
+  }, {
+    subscription_granted: 0, purchase_granted: 0, admin_granted: 0,
+    purchase_remaining: 0, purchase_count: 0, purchase_catalog_cents: 0,
+  }, {
+    generations: 0, failures: 0, last_generation_at: null,
+  })
+  assert.equal(client.subscriptionGranted, 0)
+  assert.equal(client.purchaseGranted, 0)
+  assert.equal(client.adminGranted, 0)
+  assert.equal(client.purchaseRemaining, 0)
+  assert.equal(client.rechargeCount, 0)
+  assert.equal(client.rechargeCatalogCents, 0)
+  assert.equal(client.totalGenerations, 0)
+  assert.equal(client.failedGenerations, 0)
+  assert.equal(client.lastGenerationAt, null)
+})
+
+test('trial-only users keep their balance while paid and activity aggregates remain zero', () => {
+  const client = publicAdminClient({
+    id: 'trial-user', nome: 'Cliente', email: 'cliente@example.test', plano: 'free',
+    saldo_creditos: 200, created_at: '2026-09-08T00:00:00Z', subscriptions: [],
+  }, {
+    subscription_granted: 0, purchase_granted: 0, admin_granted: 0,
+    purchase_remaining: 0, purchase_count: 0, purchase_catalog_cents: 0,
+  }, {
+    generations: 0, failures: 0, last_generation_at: null,
+  })
+  assert.equal(client.smartTokenBalance, 200)
+  assert.equal(client.subscriptionGranted, 0)
+  assert.equal(client.purchaseGranted, 0)
+  assert.equal(client.rechargeCount, 0)
+  assert.equal(client.totalGenerations, 0)
+  assert.equal(client.lastGenerationAt, null)
+})
+
+test('existing economic and completed-generation values remain unchanged', () => {
+  const client = publicAdminClient({
+    id: 'history-user', nome: 'Cliente', email: 'cliente@example.test', plano: 'pro',
+    saldo_creditos: 2165, created_at: '2026-08-01T00:00:00Z', subscriptions: [],
+  }, {
+    subscription_granted: 6350, purchase_granted: 2000, admin_granted: 500,
+    purchase_remaining: 0, purchase_count: 1, purchase_catalog_cents: 4990,
+  }, {
+    generations: 60, failures: 30, last_generation_at: '2026-09-05T21:07:08Z',
+  })
+  assert.equal(client.smartTokenBalance, 2165)
+  assert.equal(client.subscriptionGranted, 6350)
+  assert.equal(client.purchaseGranted, 2000)
+  assert.equal(client.adminGranted, 500)
+  assert.equal(client.rechargeCount, 1)
+  assert.equal(client.rechargeCatalogCents, 4990)
+  assert.equal(client.totalGenerations, 60)
+  assert.equal(client.failedGenerations, 30)
+  assert.equal(client.lastGenerationAt, '2026-09-05T21:07:08Z')
 })
 
 test('testimonial bonus input accepts only valid operation identifiers', () => {

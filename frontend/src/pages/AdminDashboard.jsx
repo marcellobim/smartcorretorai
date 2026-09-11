@@ -111,6 +111,37 @@ const catalogAccessTone = {
   courtesy: 'bg-violet-100 text-violet-800',
 }
 
+const productLabels = {
+  raio_x: 'Raio-X',
+  video_imobiliario: 'Vídeo Imobiliário',
+  banner_imobiliario: 'Banner Imobiliário',
+  studio_ia: 'Studio IA',
+  smart_carrossel: 'Smart Carrossel',
+  smart_space: 'Smart Space',
+  banners_rapidos: 'Banners Rápidos',
+  campanha_textos: 'Campanha de Textos',
+}
+
+const stepLabels = {
+  flow_started: 'Iniciou o fluxo',
+  details: 'Avançou pelas informações',
+  upload: 'Chegou ao upload',
+  review: 'Chegou à revisão',
+}
+
+const activityLabel = event => {
+  const product = event.productId ? productLabels[event.productId] || event.productId : ''
+  if (event.eventType === 'login') return 'Login'
+  if (event.eventType === 'first_login') return 'Primeiro login instrumentado'
+  if (event.eventType === 'product_opened') return `Abriu ${product}`
+  if (event.eventType === 'flow_step_reached') return `${stepLabels[event.stepId] || 'Avançou no fluxo'}${product ? ` · ${product}` : ''}`
+  if (event.eventType === 'generation_clicked') return `Clicou em gerar${product ? ` · ${product}` : ''}`
+  if (event.eventType === 'generation_started') return `Geração iniciada${product ? ` · ${product}` : ''}`
+  if (event.eventType === 'generation_completed') return `Geração concluída${product ? ` · ${product}` : ''}`
+  if (event.eventType === 'generation_failed') return `Geração falhou${product ? ` · ${product}` : ''}`
+  return 'Atividade registrada'
+}
+
 function MetricCard({ label, value, detail, icon: Icon }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -650,9 +681,48 @@ export default function AdminDashboard() {
                           ['Falhas', integerOrUnavailable(clientDetail.client.failedGenerations)],
                           ['Última geração', dateTime(clientDetail.client.lastGenerationAt)],
                           ['Cadastro', date(clientDetail.client.createdAt)],
+                          ['Último login', clientDetail.client.accountAnalyticsAvailable ? dateTime(clientDetail.client.lastLoginAt) : 'Indisponível'],
+                          ['Última atividade', clientDetail.client.accountAnalyticsAvailable ? dateTime(clientDetail.client.lastActivityAt) : 'Indisponível'],
+                          ['Produtos abertos', clientDetail.client.accountAnalyticsAvailable ? integer(clientDetail.client.productsOpened) : 'Indisponível'],
                         ].map(([label, value]) => <div key={label} className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-2 font-semibold text-slate-900">{value}</p></div>)}
                       </div>
-                      <p className="text-xs text-slate-500">{clientDetail.activityDefinition} Métricas de login e permanência ainda não são capturadas.</p>
+                      <p className="text-xs text-slate-500">{clientDetail.activityDefinition} O último login vem do Auth; tempo de permanência não é capturado.</p>
+
+                      {!clientDetail.client.hasTracking && (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                          Sem dados anteriores de navegação. Cadastro, Auth e gerações persistidas continuam disponíveis sem inventar histórico retroativo.
+                        </div>
+                      )}
+
+                      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                        <div className="rounded-xl border border-slate-200 p-5">
+                          <h3 className="font-semibold text-slate-950">Funil do cliente</h3>
+                          <p className="mt-1 text-xs text-slate-500">Somente etapas com evidência persistida são marcadas.</p>
+                          <div className="mt-4 space-y-2">
+                            {(clientDetail.funnel?.stages || []).map((stage, index) => <div key={stage.id} className="flex items-center gap-3 text-sm">
+                              <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${stage.proven ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
+                              <span className={stage.proven ? 'font-semibold text-slate-900' : 'text-slate-400'}>{stage.label}</span>
+                              <span className="ml-auto text-xs text-slate-400">{stage.proven ? dateTime(stage.occurredAt) : 'Sem evidência'}</span>
+                            </div>)}
+                          </div>
+                          <p className="mt-4 text-xs font-semibold text-slate-600">Estágio máximo comprovado: {(clientDetail.funnel?.stages || []).find(stage => stage.id === clientDetail.funnel?.maximumProven)?.label || 'Sem evidência'}</p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 p-5">
+                          <h3 className="font-semibold text-slate-950">Atividade recente</h3>
+                          <p className="mt-1 text-xs text-slate-500">Eventos account-scoped e estados reais das gerações.</p>
+                          {clientDetail.accountAnalyticsAvailable === false ? (
+                            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Tracking temporariamente indisponível.</p>
+                          ) : clientDetail.timeline?.length ? (
+                            <div className="mt-4 max-h-80 space-y-3 overflow-auto pr-1">
+                              {clientDetail.timeline.map((event, index) => <div key={`${event.occurredAt}-${event.eventType}-${index}`} className="border-l-2 border-primary-200 pl-3">
+                                <p className="text-sm font-semibold text-slate-900">{activityLabel(event)}</p>
+                                <p className="mt-1 text-xs text-slate-500">{dateTime(event.occurredAt)}</p>
+                              </div>)}
+                            </div>
+                          ) : <p className="mt-4 text-sm text-slate-500">Sem atividade registrada.</p>}
+                        </div>
+                      </div>
 
                       <div className={`rounded-xl border p-5 ${clientDetail.client.courtesyActive ? 'border-violet-200 bg-violet-50' : 'border-slate-200 bg-slate-50'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -775,7 +845,7 @@ export default function AdminDashboard() {
                     <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                       <tr>
                         <th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Plano</th><th className="px-3 py-3">Assinatura</th><th className="px-3 py-3">Acesso</th>
-                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th>
+                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Último login</th><th className="px-3 py-3">Última atividade</th><th className="px-3 py-3">Último produto</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -792,6 +862,9 @@ export default function AdminDashboard() {
                           <td className="px-3 py-4 text-right">{client.rechargeCatalogCents === null ? '—' : brl(client.rechargeCatalogCents)}</td>
                           <td className="px-3 py-4 text-right">{integerOrUnavailable(client.totalGenerations)}</td>
                           <td className="px-3 py-4 text-slate-600">{dateTime(client.lastGenerationAt)}</td>
+                          <td className="px-3 py-4 text-slate-600">{client.accountAnalyticsAvailable ? dateTime(client.lastLoginAt) : 'Indisponível'}</td>
+                          <td className="px-3 py-4 text-slate-600">{client.accountAnalyticsAvailable ? dateTime(client.lastActivityAt) : 'Indisponível'}</td>
+                          <td className="px-3 py-4 text-slate-600">{client.accountAnalyticsAvailable ? (client.lastProductId ? productLabels[client.lastProductId] || client.lastProductId : 'Sem dados anteriores') : 'Indisponível'}</td>
                           <td className="px-3 py-4 text-slate-600">{date(client.createdAt)}</td>
                           <td className="px-3 py-4 text-slate-600">{date(client.currentPeriodEnd)}</td>
                           <td className="px-3 py-4 text-slate-600">{client.hasStripeCustomer ? 'Vinculado' : 'Não vinculado'}</td>

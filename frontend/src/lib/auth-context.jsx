@@ -6,6 +6,7 @@ import {
   blocksAuthenticatedTree,
   classifyAuthSessionTransition,
 } from './auth-session-policy'
+import { trackAccountAnalyticsEvent } from './account-analytics'
 
 const AuthContext = createContext(null)
 
@@ -241,6 +242,10 @@ export function AuthProvider({ children }) {
       setSession(safeSession ?? null)
       setAuthUser(sessionUser)
       if (sessionUser) {
+        void trackAccountAnalyticsEvent({
+          eventType: 'first_login',
+          accessToken: newSession?.access_token,
+        })
         // A hidratação inicial e uma troca real de identidade continuam
         // bloqueantes. Uma renovação do JWT do mesmo usuário mantém a árvore
         // montada enquanto os estados protegidos são revalidados no backend.
