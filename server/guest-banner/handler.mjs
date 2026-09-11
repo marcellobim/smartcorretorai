@@ -50,7 +50,7 @@ export function createGuestHandler({ env = process.env, transport, clock = Date.
         p_new_hash: hashToken(token), p_network_hash: networkHash, p_event_type: body.eventType,
       })
       if (!result?.allowed) { res.setHeader('Retry-After', '3600'); return reply(429, { error: 'rate_limited' }) }
-      if (result.newSession) res.setHeader('Set-Cookie', sessionCookie(token, result.expiresAt, now))
+      res.setHeader('Set-Cookie', sessionCookie(result.newSession ? token : previous, result.expiresAt, now))
       return reply(200, { ok: true, generationEnabled: GENERATION_ENABLED })
     } catch {
       // Do not echo backend errors: they can contain hashes, credentials or query values.

@@ -13,8 +13,10 @@ export async function guestBannerRequest(action, payload = {}) {
   const result=await response.json()
   if(!response.ok || result.error) {
     const error=Error(result.error==='promotion_used'
-      ? 'Você já criou seu primeiro anúncio. Crie sua conta para continuar.'
-      : 'Não foi possível concluir. Tente novamente.')
+      ? 'Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.'
+      : result.error==='promotion_capacity'
+        ? 'O teste grátis está temporariamente indisponível por limite de capacidade. Crie sua conta ou entre para continuar.'
+        : 'Não foi possível concluir. Tente novamente.')
     error.code=result.error
     throw error
   }

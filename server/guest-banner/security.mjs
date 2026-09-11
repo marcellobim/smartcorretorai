@@ -29,8 +29,9 @@ export function readCookie(header, name) {
 }
 export function sessionCookie(token, expiresAt, now = Date.now()) {
   if (!OPAQUE.test(token)) throw new Error('invalid_cookie')
-  const maxAge = Math.max(0, Math.min(604800, Math.floor((Date.parse(expiresAt) - now) / 1000)))
-  if (!Number.isFinite(maxAge) || maxAge === 0) throw new Error('invalid_expiry')
+  if (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= now) throw new Error('invalid_expiry')
+  // Keep the existing opaque identifier; eligibility is permanent in the database.
+  const maxAge = 400 * 24 * 60 * 60
   return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`
 }
 export function networkSignal(headers, env, now = Date.now()) {

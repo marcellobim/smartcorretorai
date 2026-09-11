@@ -1518,7 +1518,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         setGenerationResult(guestResultForBanner(result));setPhase('result');setGuestConsumed(true)
       } else if(['processing','dispatching','unknown','failed'].includes(result.status)) {
         setGuestConsumed(true)
-        setGenerationError('Você já criou seu primeiro anúncio. Crie sua conta para continuar.')
+        setGenerationError('Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.')
       }
     }).catch(()=>{})
     return()=>{active=false}
@@ -2137,7 +2137,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       // Guest uses only the promotional backend, never authenticated ST routines.
     if (guestMode) {
       if(guestBusyRef.current || !canGenerate)return
-      if(guestConsumed){setGenerationError('Você já criou seu primeiro anúncio. Crie sua conta para continuar.');return}
+      if(guestConsumed){setGenerationError('Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.');return}
       guestBusyRef.current=true;setGenerationLoading(true);setGenerationError('');setPhase('processing')
       const clientRequestId=economicRequestIdRef.current || crypto.randomUUID()
       economicRequestIdRef.current=clientRequestId
@@ -2146,6 +2146,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         setGenerationResult({sourceId:clientRequestId,jobs:[job],imageUrl:job.imageUrl,texts:job.texts,campaignCopy:buildHeroNextCampaignCopy(goal,answers,valueCondition)})
         setGuestConsumed(true);setPhase('result')
       } catch(error) {
+          if(error.code==='promotion_used'){setGuestConsumed(true);requireGuestAccount()}
           if(error.code==='preprovider_cancelled')economicRequestIdRef.current=null
           setPhase('images')
         setGenerationError(error.message || 'Não foi possível concluir seu anúncio.')
@@ -3624,8 +3625,8 @@ export default function HeroNext({ guestMode = false } = {}) {
       </main>
       {guestMode && guestSignupGate && <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/70 p-4">
         <section role="dialog" aria-modal="true" aria-labelledby="guest-signup-title" className="w-full max-w-md rounded-2xl bg-white p-6 text-slate-900">
-          <h2 id="guest-signup-title" className="text-xl font-bold">Seu anúncio está pronto.</h2>
-          <p className="mt-3">Crie sua conta para baixar ou publicar.</p>
+          <h2 id="guest-signup-title" className="text-xl font-bold">{generationResult ? 'Seu anúncio está pronto.' : 'Continue criando com sua conta'}</h2>
+          <p className="mt-3">{generationResult ? 'Crie sua conta para baixar ou publicar.' : 'Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.'}</p>
           <p className="mt-3 text-sm">Ao criar sua conta, você recebe 200 Smart Tokens para continuar criando no SmartCorretorAI.</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link to="/cadastro" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl bg-violet-600 px-4 py-3 font-bold text-white">Criar minha conta</Link>

@@ -33,6 +33,13 @@ export async function handleGuestBanner(payload: RecordValue, db: any, renderer:
   }
   if (payload.action === 'guest_generate') {
     if (!HASH.test(payload.networkHash || '') || !HASH.test(payload.claimHash || '') || !UUID.test(payload.clientRequestId || '')) throw Error('invalid_request')
+    // Individual eligibility precedes rate/capacity checks and preparation.
+    const existing = await db.from('guest_banner_requests').select('id,status,client_request_id')
+      .eq('session_id',session.id).neq('status','cancelled').maybeSingle()
+    if(existing.error)throw Error('guest_storage_unavailable')
+    if(existing.data) return existing.data.client_request_id === payload.clientRequestId
+      ? {requestId:existing.data.id,status:existing.data.status,replayed:true}
+      : {error:'promotion_used'}
     let stored: RecordValue
     return await startGuestPromotion(payload, {
       rpc,
