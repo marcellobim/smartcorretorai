@@ -6,6 +6,7 @@ import {
   Play, Radar, Route, UploadCloud, Video, Wand2, X,
 } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
+import FirstCreationEntry from '../components/landing/FirstCreationEntry'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 const VIRTUAL_STAGING_BEFORE_IMAGE = '/landing/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/landing/virtual-staging-after.webp'
@@ -659,5 +660,5 @@ function LandingFooter() {
 }
 
 export default function LandingPage() {
-  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><Hero /><PositioningStrip /><ListingXraySpotlight /><DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
+  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><FirstCreationEntry /><div id="conheca-a-plataforma" className="scroll-mt-20"><Hero /></div><PositioningStrip /><ListingXraySpotlight /><DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
 }

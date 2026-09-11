@@ -188,7 +188,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, onRequireAccount, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
@@ -250,6 +250,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
   }
 
   const download = async (url, filename, key, file) => {
+    if(onRequireAccount){onRequireAccount();return}
     setDownloadError('')
     setDownloadingKey(key)
     try {
@@ -286,6 +287,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
   }
 
   const openBannerPublish = (field, optionIndex) => {
+    if(onRequireAccount){onRequireAccount();return}
     try {
       setBannerPublishIntent(smartSpacePublish?.enabled
         ? buildSmartSpaceCampaignPublicationIntent({ campaign, field })
