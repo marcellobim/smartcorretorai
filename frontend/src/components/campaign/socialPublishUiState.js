@@ -39,7 +39,7 @@ export function getSocialPublishResultLabel(status) {
 export function getSocialPublishNotice(results, { submissionStarted = false, confirmationPending = false } = {}) {
   const items = Array.isArray(results) ? results : []
   if (confirmationPending || hasReconciliationSocialPublishJob(items)) {
-    return 'Estamos finalizando sua publicação. Você pode sair desta tela.'
+    return 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.'
   }
 
   const published = items.filter(result => ['published', 'completed'].includes(result?.status)).length
@@ -48,10 +48,10 @@ export function getSocialPublishNotice(results, { submissionStarted = false, con
 
   if (items.length > 0 && published === items.length) return 'Publicação concluída.'
   if (published > 0 && active > 0) {
-    return 'Uma publicação já foi concluída. Estamos finalizando a outra. Você pode sair desta tela.'
+    return 'Uma publicação já foi concluída. Estamos finalizando a outra. Aguarde a confirmação antes de sair desta tela.'
   }
   if (published > 0 && failed > 0) return 'Uma publicação foi concluída. Confira abaixo o destino que não foi publicado.'
-  if (active > 0) return 'Estamos finalizando sua publicação. Você pode sair desta tela.'
+  if (active > 0) return 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.'
   if (submissionStarted) return 'Publicando...'
   if (failed > 0) return 'Não foi possível concluir a publicação. Confira abaixo o destino afetado.'
   return ''

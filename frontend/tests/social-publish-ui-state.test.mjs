@@ -15,7 +15,7 @@ test('ambos publicando bloqueiam nova submissão', () => {
   assert.equal(isSocialPublishSubmissionLocked({ results }), true)
   assert.equal(getSocialPublishResultLabel('processing'), 'Publicando...')
   assert.equal(getSocialPublishResultLabel('publishing'), 'Publicando...')
-  assert.equal(getSocialPublishNotice(results), 'Estamos finalizando sua publicação. Você pode sair desta tela.')
+  assert.equal(getSocialPublishNotice(results), 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.')
   assert.equal(shouldPollSocialPublishRecovery(results), true)
 })
 
@@ -23,7 +23,7 @@ for (const first of ['facebook', 'instagram']) {
   test(`${first} conclui primeiro e o outro continua publicando`, () => {
     const other = first === 'facebook' ? 'instagram' : 'facebook'
     const results = [result(first, 'published'), result(other, 'processing')]
-    assert.equal(getSocialPublishNotice(results), 'Uma publicação já foi concluída. Estamos finalizando a outra. Você pode sair desta tela.')
+    assert.equal(getSocialPublishNotice(results), 'Uma publicação já foi concluída. Estamos finalizando a outra. Aguarde a confirmação antes de sair desta tela.')
     assert.equal(getSocialPublishResultLabel(results[0].status), 'Publicado')
     assert.equal(getSocialPublishResultLabel(results[1].status), 'Publicando...')
     assert.equal(isSocialPublishSubmissionLocked({ results }), true)
@@ -58,7 +58,7 @@ test('sucesso parcial preserva Publicado e mostra somente a falha do outro desti
 test('reconciliation não parece falha, bloqueia clique e continua recovery read-only', () => {
   const results = [result('instagram', 'reconciliation_required')]
   assert.equal(getSocialPublishResultLabel('reconciliation_required'), 'Confirmando publicação...')
-  assert.equal(getSocialPublishNotice(results), 'Estamos finalizando sua publicação. Você pode sair desta tela.')
+  assert.equal(getSocialPublishNotice(results), 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.')
   assert.equal(isSocialPublishSubmissionLocked({ results }), true)
   assert.equal(shouldPollSocialPublishRecovery(results), true)
 })
@@ -66,7 +66,7 @@ test('reconciliation não parece falha, bloqueia clique e continua recovery read
 test('F5 e reabertura bloqueiam pelo job recuperado, sem depender do estado local de envio', () => {
   const recovered = [result('instagram', 'queued'), result('facebook', 'published')]
   assert.equal(isSocialPublishSubmissionLocked({ submitting: false, results: recovered }), true)
-  assert.equal(getSocialPublishNotice(recovered), 'Uma publicação já foi concluída. Estamos finalizando a outra. Você pode sair desta tela.')
+  assert.equal(getSocialPublishNotice(recovered), 'Uma publicação já foi concluída. Estamos finalizando a outra. Aguarde a confirmação antes de sair desta tela.')
 })
 
 test('duplo clique é bloqueado imediatamente pelo lock de submissão', () => {
@@ -76,5 +76,5 @@ test('duplo clique é bloqueado imediatamente pelo lock de submissão', () => {
 })
 
 test('resposta ambígua mantém bloqueio e mensagem de confirmação', () => {
-  assert.equal(getSocialPublishNotice([], { submissionStarted: true, confirmationPending: true }), 'Estamos finalizando sua publicação. Você pode sair desta tela.')
+  assert.equal(getSocialPublishNotice([], { submissionStarted: true, confirmationPending: true }), 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.')
 })
