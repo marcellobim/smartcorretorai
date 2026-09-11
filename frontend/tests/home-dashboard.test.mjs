@@ -17,7 +17,6 @@ const studio = read('src/pages/StudioHero.jsx')
 const virtualSpace = read('src/pages/VirtualStaging.jsx')
 const quickBanners = read('src/data/templateCatalog.js')
 const actionSource = dashboard.match(/const mainActions = \[([\s\S]*?)\n\]/)?.[1] || ''
-const textCampaignSource = dashboard.match(/const textCampaignAction = Object\.freeze\(\{([\s\S]*?)\n\}\)/)?.[1] || ''
 const benefitsSource = dashboard.match(/const benefits = \[([\s\S]*?)\n\]/)?.[1] || ''
 const faqSource = dashboard.match(/const faqItems = \[([\s\S]*?)\n\]/)?.[1] || ''
 
@@ -36,7 +35,7 @@ const expectedGridProducts = [
 test('removes the old Home history, resume and profile blocks', () => {
   assert.doesNotMatch(dashboard, /Continue de onde parou|Criações recentes/i)
   assert.doesNotMatch(dashboard, /function ProfileCard|<ProfileCard|useCampaigns|useAuth|recentCampaigns/)
-  assert.doesNotMatch(dashboard, /\/pacotes-gerados|function TokenCard|<TokenCard|Search|Bell/)
+  assert.doesNotMatch(dashboard, /\/pacotes-gerados|function TokenCard|<TokenCard|<Search|Bell/)
 })
 
 test('starts with the approved title and a real product-media carousel', () => {
@@ -96,7 +95,7 @@ test('keeps one featured medium and partially visible neighbors without turning 
   assert.doesNotMatch(dashboard.match(/function HeroMediaShowcase\(\) \{([\s\S]*?)\n\}\n\nconst carouselPositionClasses/)?.[1] || '', /<Link|<ProductButton|Criar agora/)
 })
 
-test('renders exactly nine central product cards in the approved three-by-three order', () => {
+test('preserves the existing product catalog and destinations for grouped navigation', () => {
   const ids = [...actionSource.matchAll(/id: '([^']+)'/g)].map(match => match[1])
   assert.deepEqual(ids, expectedGridProducts.map(([id]) => id))
 
@@ -108,34 +107,6 @@ test('renders exactly nine central product cards in the approved three-by-three 
   assert.deepEqual([...actionSource.matchAll(/icon: ([A-Za-z0-9]+)/g)].map(match => match[1]), [
     'Video', 'ImageIcon', 'Film', 'Wand2', 'ImagePlus', 'Box', 'Heart', 'UserRound', 'Zap',
   ])
-})
-
-test('puts the Raio-X in a wide strategic card before the product grid', () => {
-  const xrayPosition = dashboard.indexOf('Descubra o que pode melhorar na divulgação do seu imóvel.')
-  const gridPosition = dashboard.indexOf('data-home-product-grid')
-  assert.ok(xrayPosition >= 0 && gridPosition > xrayPosition)
-  assert.match(dashboard, /Analise seu anúncio, descubra oportunidades e veja o que você pode fazer para chamar mais atenção\./)
-  assert.match(dashboard, /to="\/raio-x-anuncio"[\s\S]*Analisar meu anúncio/)
-})
-
-test('uses a scannable three-column desktop grid with exactly three rows', () => {
-  assert.match(dashboard, /data-home-product-grid[\s\S]*auto-rows-fr[\s\S]*sm:grid-cols-2[\s\S]*lg:grid-cols-3/)
-  assert.doesNotMatch(dashboard, /xl:grid-cols-6/)
-  assert.match(dashboard, /mainActions\.map/)
-  assert.equal((actionSource.match(/id: '/g) || []).length, 9)
-  assert.match(dashboard, /O que você quer criar hoje\?/)
-  assert.match(dashboard, /min-w-0/)
-  assert.doesNotMatch(dashboard, /overflow-x-auto|min-w-\[[4-9][0-9]{2}px\]/)
-})
-
-test('closes the product composition with a full-width Campanha de Textos card', () => {
-  assert.match(textCampaignSource, /id: 'campanha-de-textos'/)
-  assert.match(textCampaignSource, /title: 'Campanha de Textos'/)
-  assert.match(textCampaignSource, /Transforme as informações do imóvel em textos prontos para divulgar em diferentes canais\./)
-  assert.match(textCampaignSource, /to: '\/campanha-de-textos'/)
-  assert.match(textCampaignSource, /label: 'Criar campanha'/)
-  assert.ok(dashboard.indexOf('data-home-product-grid') < dashboard.lastIndexOf('data-home-product="campanha-de-textos"'))
-  assert.equal(2 + (actionSource.match(/id: '/g) || []).length, 11)
 })
 
 test('uses subtle product accents on otherwise neutral white cards', () => {

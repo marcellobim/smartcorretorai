@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   BadgeCheck,
@@ -130,6 +130,13 @@ const textCampaignAction = Object.freeze({
   to: '/campanha-de-textos',
   label: 'Criar campanha',
 })
+
+const homeGroups = [
+  { id: 'video', title: 'VÍDEO', description: 'Crie vídeos para apresentar e divulgar seus imóveis.', to: '/dashboard?grupo=video', label: 'Ver produtos de vídeo', icon: Video, tone: 'violet', products: ['smart-tour-ai', 'comercial-imobiliario', 'video-criativo'] },
+  { id: 'imagem', title: 'IMAGEM', description: 'Crie banners, transforme ambientes e prepare carrosséis.', to: '/dashboard?grupo=imagem', label: 'Ver produtos de imagem', icon: ImageIcon, tone: 'mint', products: ['hero-ia', 'smart-space', 'banners-rapidos', 'smart-carrossel'] },
+  { id: 'texto', title: 'TEXTO', description: textCampaignAction.description, to: textCampaignAction.to, label: 'Abrir Campanha de Textos', icon: FileText, tone: 'gold' },
+  { id: 'analisar', title: 'ANALISAR', description: 'Analise seu anúncio com o Raio-X e descubra oportunidades de melhoria.', to: '/raio-x-anuncio', label: 'Abrir Raio-X', icon: Radar, tone: 'cyan' },
+]
 
 const productTones = Object.freeze({
   violet: 'bg-violet-500',
@@ -262,6 +269,12 @@ const faqItems = [
 ]
 
 export default function Dashboard() {
+  const [searchParams] = useSearchParams()
+  const selectedGroup = homeGroups.find(group => group.products && group.id === searchParams.get('grupo'))
+  const visibleActions = selectedGroup
+    ? selectedGroup.products.map(id => mainActions.find(action => action.id === id))
+    : homeGroups
+
   return (
     <div className="min-w-0">
       <Header title="Home" subtitle="Sua central de criação imobiliária" />
@@ -282,64 +295,22 @@ export default function Dashboard() {
           </div>
         </ProductCard>
 
-        <ProductCard data-home-product="raio-x-anuncio" className="mt-8 overflow-hidden border-cyan-200 bg-gradient-to-br from-primary-950 via-primary-900 to-cyan-800 p-0 text-white shadow-[0_30px_80px_-50px_rgba(8,145,178,0.8)]">
-          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:p-10">
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/20">
-                  <Radar className="h-6 w-6 text-cyan-200" aria-hidden="true" />
-                </span>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Raio-X</p>
-              </div>
-              <h2 className="mt-5 text-2xl font-black tracking-[-0.035em] sm:text-3xl">
-                Descubra o que pode melhorar na divulgação do seu imóvel.
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-cyan-50/90 sm:text-base">
-                Analise seu anúncio, descubra oportunidades e veja o que você pode fazer para chamar mais atenção.
-              </p>
-            </div>
-            <Link
-              to="/raio-x-anuncio"
-              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-black text-primary-950 shadow-lg transition hover:bg-cyan-50 ${SMART_UI.focus}`}
-            >
-              Analisar meu anúncio
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </div>
-        </ProductCard>
-
         <section className="mt-8" aria-labelledby="home-products-title">
+          {selectedGroup && (
+            <Link to="/dashboard" className={`mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl text-sm font-bold text-primary-900 ${SMART_UI.focus}`}>
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              Voltar aos grupos
+            </Link>
+          )}
           <ProductSectionHeading
             id="home-products-title"
-            title="O que você quer criar hoje?"
+            title={selectedGroup ? selectedGroup.title : 'O que você quer criar hoje?'}
           />
-
-          <div data-home-product-grid className="mt-5 grid min-w-0 auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {mainActions.map(action => (
-              <ActionCard key={action.id} action={action} />
+          <div data-home-product-grid className="mt-5 grid min-w-0 auto-rows-fr gap-4 sm:grid-cols-2">
+            {visibleActions.map(action => (
+              <ActionCard key={action.id} action={action} isGroup={!selectedGroup} />
             ))}
           </div>
-
-          <ProductCard data-home-product="campanha-de-textos" className="mt-3 overflow-hidden border-amber-200 bg-gradient-to-br from-white via-amber-50/70 to-orange-50 p-0">
-            <div className="grid min-w-0 gap-5 p-6 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-              <div className="flex min-w-0 items-start gap-4">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-800 ring-1 ring-amber-200">
-                  <FileText className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-lg font-black tracking-[-0.025em] text-slate-950">{textCampaignAction.title}</h2>
-                  <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600">{textCampaignAction.description}</p>
-                </div>
-              </div>
-              <Link
-                to={textCampaignAction.to}
-                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-950 px-5 py-3 text-sm font-black text-white transition hover:bg-primary-900 ${SMART_UI.focus}`}
-              >
-                {textCampaignAction.label}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-          </ProductCard>
         </section>
 
         <ProductCard data-home-benefits className="mt-8 grid overflow-hidden border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
@@ -564,16 +535,20 @@ function HeroMediaCard({ item, isActive, position, shouldPlay }) {
   )
 }
 
-function ActionCard({ action }) {
+function ActionCard({ action, isGroup = false }) {
   const Icon = action.icon
   const content = (
     <ProductCard
       as="article"
-      data-home-product={action.id}
+      data-home-product={isGroup ? undefined : action.id}
+      data-home-group={isGroup ? action.id : undefined}
       className="group relative flex h-full min-h-[250px] min-w-0 flex-col overflow-hidden border border-slate-200 bg-white p-5 transition duration-200 motion-reduce:transition-none hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_24px_55px_-38px_rgba(15,23,42,0.36)]"
     >
       <div className="flex-1">
         <Icon className="h-8 w-8 stroke-[1.65] text-primary-950" aria-hidden="true" />
+        {['comercial-imobiliario', 'video-criativo'].includes(action.id) && (
+          <p className="mt-4 text-xs font-bold text-slate-500">Studio IA</p>
+        )}
         <h2 className="mt-5 text-base font-black tracking-[-0.02em] text-slate-950">{action.title}</h2>
         <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{action.description}</p>
       </div>
