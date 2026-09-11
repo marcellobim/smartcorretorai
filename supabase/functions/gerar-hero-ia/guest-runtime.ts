@@ -35,11 +35,11 @@ export async function handleGuestBanner(payload: RecordValue, db: any, renderer:
     if (!HASH.test(payload.networkHash || '') || !HASH.test(payload.claimHash || '') || !UUID.test(payload.clientRequestId || '')) throw Error('invalid_request')
     // Individual eligibility precedes rate/capacity checks and preparation.
     const existing = await db.from('guest_banner_requests').select('id,status,client_request_id')
-      .eq('session_id',session.id).neq('status','cancelled').maybeSingle()
+      .eq('session_id',session.id).in('status',['reserved','dispatching','unknown','completed']).maybeSingle()
     if(existing.error)throw Error('guest_storage_unavailable')
-    if(existing.data) return existing.data.client_request_id === payload.clientRequestId
-      ? {requestId:existing.data.id,status:existing.data.status,replayed:true}
-      : {error:'promotion_used'}
+    if(existing.data) return existing.data.status === 'completed' && existing.data.client_request_id !== payload.clientRequestId
+      ? {error:'promotion_used'}
+      : {requestId:existing.data.id,status:existing.data.status,replayed:true}
     let stored: RecordValue
     return await startGuestPromotion(payload, {
       rpc,
@@ -68,7 +68,11 @@ export async function handleGuestBanner(payload: RecordValue, db: any, renderer:
       await rpc('guest_banner_finish',{p_request_id:request.id,p_status:'failed',p_artifact_ref:null,p_claim_hash:null,p_cost_microusd:null})
       return {status:'failed',requestId:request.id}
     }
-    const artifact=renderer.result(response,state.briefing)
+    let artifact
+    try { artifact=renderer.result(response,state.briefing) } catch {
+      await rpc('guest_banner_finish',{p_request_id:request.id,p_status:'failed',p_artifact_ref:null,p_claim_hash:null,p_cost_microusd:null})
+      return {status:'failed',requestId:request.id}
+    }
     const image=await storage.upload(path(request.id,'banner.jpg'),artifact.image,{upsert:true,contentType:'image/jpeg'})
     if(image.error)throw Error('guest_storage_unavailable')
     // Provider usage is separate from ST. Unknown invoice amounts remain NULL,

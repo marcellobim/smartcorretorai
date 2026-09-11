@@ -5,37 +5,45 @@ import {sessionCookie} from './security.mjs'
 // Run with PGLITE_MODULE pointing to an isolated @electric-sql/pglite installation.
 const {PGlite}=await import(process.env.PGLITE_MODULE || '@electric-sql/pglite')
 const sql=name=>readFileSync(new URL('../../supabase/migrations/'+name,import.meta.url),'utf8')
-test('individual guest eligibility survives next day, expiry and cleanup; capacity stays separate',async()=>{
+test('different guests share a day; only success consumes individual eligibility',async()=>{
  const db=new PGlite()
  try {
  await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key); create function auth.role() returns text language sql as $$select 'service_role'::text$$;")
- await db.exec(sql('20260910010000_create_guest_banner_foundation.sql'))
- await db.exec(sql('20260911010000_cancel_guest_preprovider_reservation.sql'))
- await db.exec(sql('20260913010000_preserve_guest_promotion_eligibility.sql'))
+ for(const name of ['20260910010000_create_guest_banner_foundation.sql','20260911010000_cancel_guest_preprovider_reservation.sql','20260912010000_allow_pending_guest_provider_cost.sql','20260913010000_preserve_guest_promotion_eligibility.sql','20260914010000_guest_success_only_no_global_cap.sql']) await db.exec(sql(name))
  await db.exec('update public.guest_banner_policy set generation_enabled=true,daily_limit=1')
  const hash='a'.repeat(64), network='b'.repeat(64), other='c'.repeat(64)
  const rpc=async(query,params=[])=>(await db.query(query,params)).rows[0].result
  const open=(existing,fresh)=>rpc("select public.guest_banner_open($1,$2,$3,'guest_banner_started') result",[existing,fresh,network])
- const reserve=(h,key)=>rpc('select public.guest_banner_reserve($1,$2,$3) result',[h,network,key])
- assert.equal((await open(null,hash)).newSession,true)
- const first=await reserve(hash,'11111111-1111-4111-8111-111111111111')
- assert.equal(first.status,'reserved')
- // Database-only completion fixture: no renderer/provider calls.
- await db.query('select public.guest_banner_take_dispatch($1)',[first.requestId])
- await db.query("update public.guest_banner_requests set status='completed',completed_at=now() where id=$1",[first.requestId])
- assert.equal((await reserve(hash,'22222222-2222-4222-8222-222222222222')).error,'promotion_used')
- await open(null,other)
- assert.equal((await reserve(other,'33333333-3333-4333-8333-333333333333')).error,'promotion_capacity')
- // Move the completed promotion and aggregate to yesterday; individual remains used.
- await db.exec("update public.guest_banner_daily_costs set day=current_date-1")
- assert.equal((await reserve(hash,'44444444-4444-4444-8444-444444444444')).error,'promotion_used')
- await db.exec("update public.guest_banner_sessions set expires_at=now()-interval '8 days' where token_hash=repeat('a',64)")
+ const key=n=>`${n}`.repeat(8)+'-1111-4111-8111-111111111111'
+ const reserve=(h,n)=>rpc('select public.guest_banner_reserve($1,$2,$3) result',[h,network,key(n)])
+ const dispatch=id=>rpc('select public.guest_banner_take_dispatch($1) result',[id])
+ const finish=(id,status,cost)=>rpc('select public.guest_banner_finish($1,$2,$3,$4,$5) result',[id,status,status==='completed'?id:null,status==='completed'?'d'.repeat(64):null,cost])
+ await open(null,hash); await open(null,other)
+ const first=await reserve(hash,1), second=await reserve(other,2)
+ assert.equal(first.status,'reserved'); assert.equal(second.status,'reserved')
+ assert.equal((await reserve(hash,3)).requestId,first.requestId) // concurrent new key reuses active job
+ assert.equal(await dispatch(first.requestId),true)
+ assert.equal(await dispatch(first.requestId),false) // no duplicate dispatch
+ assert.equal(await finish(first.requestId,'failed',123),true)
+ assert.equal((await reserve(hash,1)).status,'failed') // same key never dispatches twice
+ const retry=await reserve(hash,3)
+ assert.equal(retry.status,'reserved');assert.notEqual(retry.requestId,first.requestId)
+ await db.exec('update public.guest_banner_policy set daily_limit=0') // obsolete cap cannot disable dispatch
+ assert.equal(await dispatch(retry.requestId),true)
+ assert.equal(await finish(retry.requestId,'completed',456),true)
+ assert.equal((await reserve(hash,4)).error,'promotion_used')
+ assert.equal((await reserve(other,5)).requestId,second.requestId) // B retains its own opportunity
+ await rpc('select public.guest_banner_cancel_preprovider($1,$2) result',[other,second.requestId])
+ assert.equal((await reserve(other,6)).status,'reserved') // B can still proceed despite A success
+ assert.equal((await db.query('select cost_microusd from public.guest_banner_daily_costs')).rows[0].cost_microusd,579)
+ await db.exec("update public.guest_banner_daily_costs set day=current_date-1; update public.guest_banner_sessions set expires_at=now()-interval '8 days' where token_hash=repeat('a',64)")
  await db.query('select public.guest_banner_purge()')
- assert.equal((await open(hash,'d'.repeat(64))).newSession,false)
- assert.equal((await reserve(hash,'55555555-5555-4555-8555-555555555555')).error,'promotion_used')
- assert.equal((await reserve(other,'66666666-6666-4666-8666-666666666666')).status,'reserved')
+ assert.equal((await open(hash,'e'.repeat(64))).newSession,false)
+ assert.equal((await reserve(hash,7)).error,'promotion_used')
+ assert.doesNotMatch((await db.query("select pg_get_functiondef('public.guest_banner_reserve(text,text,uuid)'::regprocedure) as definition")).rows[0].definition,/promotion_capacity/)
  }finally{await db.close()}
 })
+
 test('existing opaque cookie persists across daily boundaries',()=>{
  const now=Date.now()
  assert.match(sessionCookie('a'.repeat(43),new Date(now+86400000).toISOString(),now),/Max-Age=34560000; HttpOnly; Secure; SameSite=Lax/)
@@ -49,9 +57,20 @@ test('client distinguishes used promotion from global capacity',async()=>{
  }
 })
 
-test('used guest returns promotion_used before rate, preparation or capacity',async()=>{
+test('success consumes the test while in-flight requests only replay without another dispatch',async()=>{
+ for(const status of ['completed','reserved','dispatching','unknown']){
  const {handleGuestBanner}=await import('../../supabase/functions/gerar-hero-ia/guest-runtime.ts')
- const db={from(table){const row=table==='guest_banner_sessions'?{id:'session',expires_at:'2099-01-01'}:{id:'request',status:'completed',client_request_id:'11111111-1111-4111-8111-111111111111'}; const query={select(){return query},eq(){return query},gt(){return query},neq(){return query},async maybeSingle(){return {data:row}}};return query},storage:{from(){return {}}},rpc(){throw Error('rate/capacity must not run')}}
+ const db={from(table){const row=table==='guest_banner_sessions'?{id:'session',expires_at:'2099-01-01'}:{id:'request',status,client_request_id:'11111111-1111-4111-8111-111111111111'}; const query={select(){return query},eq(){return query},gt(){return query},neq(){return query},in(){return query},async maybeSingle(){return {data:row}}};return query},storage:{from(){return {}}},rpc(){throw Error('rate/capacity must not run')}}
  const result=await handleGuestBanner({action:'guest_generate',sessionHash:'a'.repeat(64),networkHash:'b'.repeat(64),claimHash:'c'.repeat(64),clientRequestId:'22222222-2222-4222-8222-222222222222'},db,{prepare(){throw Error('prepare must not run')}})
- assert.deepEqual(result,{error:'promotion_used'})
+ assert.deepEqual(result,status==='completed'?{error:'promotion_used'}:{requestId:'request',status,replayed:true})
+ }
+})
+
+test('completed provider response without an artifact becomes retryable failure, not used promotion',async()=>{
+ const {handleGuestBanner}=await import('../../supabase/functions/gerar-hero-ia/guest-runtime.ts')
+ let finished
+ const db={from(table){const row=table==='guest_banner_sessions'?{id:'session',expires_at:'2099-01-01'}:{id:'request',status:'dispatching'};const q={select(){return q},eq(){return q},gt(){return q},neq(){return q},order(){return q},limit(){return q},async maybeSingle(){return {data:row}}};return q},storage:{from(){return {async download(){return {data:{text:async()=>JSON.stringify({responseId:'local-response',briefing:{}})}}}}}},async rpc(name,args){assert.equal(name,'guest_banner_finish');finished=args;return {data:true}}}
+ const result=await handleGuestBanner({action:'guest_status',sessionHash:'a'.repeat(64)},db,{poll:async()=>({status:'completed'}),result(){throw Error('guest_result_missing')},dispatch(){throw Error('no new generation allowed')}})
+ assert.deepEqual(result,{status:'failed',requestId:'request'})
+ assert.equal(finished.p_status,'failed');assert.equal(finished.p_artifact_ref,null)
 })

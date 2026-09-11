@@ -1516,9 +1516,11 @@ export default function HeroNext({ guestMode = false } = {}) {
       if(!active)return
       if(result.status==='completed') {
         setGenerationResult(guestResultForBanner(result));setPhase('result');setGuestConsumed(true)
-      } else if(['processing','dispatching','unknown','failed'].includes(result.status)) {
-        setGuestConsumed(true)
-        setGenerationError('Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.')
+      } else if(result.status==='failed' || result.status==='cancelled') {
+        economicRequestIdRef.current=null
+        setGuestConsumed(false);setPhase('images')
+      } else if(['processing','dispatching','unknown'].includes(result.status)) {
+        setGenerationError('Seu anúncio ainda está sendo verificado. Aguarde para evitar uma criação duplicada.')
       }
     }).catch(()=>{})
     return()=>{active=false}
@@ -2015,7 +2017,11 @@ export default function HeroNext({ guestMode = false } = {}) {
     const invokeGeneration = guestMode ? async ({body}) => {
       let result=await guestBannerRequest('generate',{clientRequestId:economicContext.clientRequestId,banner:body})
       for(let attempt=0;attempt<150 && result.status!=='completed';attempt++) {
-        if(['failed','unknown','cancelled'].includes(result.status))throw Error('Não foi possível concluir seu anúncio.')
+        if(['failed','unknown','cancelled'].includes(result.status)){
+          const failure=Error(result.status==='unknown' ? 'Seu anúncio ainda está sendo verificado. Aguarde para evitar uma criação duplicada.' : 'Não foi possível concluir seu anúncio. Seu teste grátis continua disponível.')
+          failure.code=result.status==='failed' || result.status==='cancelled' ? 'guest_generation_failed' : 'guest_processing'
+          throw failure
+        }
         await wait(4000)
         result=await guestBannerRequest('status')
       }
@@ -2147,7 +2153,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         setGuestConsumed(true);setPhase('result')
       } catch(error) {
           if(error.code==='promotion_used'){setGuestConsumed(true);requireGuestAccount()}
-          if(error.code==='preprovider_cancelled')economicRequestIdRef.current=null
+          if(['preprovider_cancelled','guest_generation_failed'].includes(error.code))economicRequestIdRef.current=null
           setPhase('images')
         setGenerationError(error.message || 'Não foi possível concluir seu anúncio.')
       } finally {guestBusyRef.current=false;setGenerationLoading(false)}
