@@ -1,0 +1,30 @@
+✔ password recovery routes exist and use a fixed same-origin callback (4.2473ms)
+✔ recovery avoids account enumeration and globally revokes sessions after reset (1.5703ms)
+✔ logout is fail-closed and the UI does not pretend success on failure (0.4779ms)
+✔ public auth errors do not disclose registration state or raw provider errors (0.8064ms)
+✔ new email identity keeps the successful registration flow (0.6956ms)
+✖ empty identity uses a neutral message without claiming account creation (1.6212ms)
+✔ real signup errors keep the generic non-enumerating failure message (0.4732ms)
+✔ saves and restores a namespaced, versioned draft for the same user (6.7586ms)
+✔ rejects and removes corrupted, incompatible and cross-user drafts (1.2944ms)
+✔ removes drafts older than seven days and renews updatedAt on save (1.0103ms)
+✔ never serializes credentials, CAPTCHA, binary objects, base64 or signed URLs (1.5425ms)
+✔ stores only inert file metadata and exposes explicit clear/restore/save/replace operations (0.9283ms)
+✔ guided conversation accepts restored stable state and reports progress without persisting internal prompts (0.3425ms)
+✔ Smart Carrossel restores allowlisted flow and requests physical file reselection (0.4533ms)
+✖ Banner Imobiliário restores briefing and options without image base64 (1.9786ms)
+✔ Banners Rápidos restores only essential choices and never restarts generation (0.5316ms)
+✖ Virtual Staging restores journey/options/conversation and never physical uploads (1.377ms)
+✔ draft restore remains separate from jobs, economy and auth lifecycle (3.7517ms)
+✖ keeps every production route, removes public experiments and preserves Smart Tour (2.8975ms)
+✖ uses the approved Video Imobiliario copy in the Dashboard and keeps its internal route (7.9232ms)
+✔ shows only the three approved Studio IA modules without changing internal routes (2.9806ms)
+✔ updates public product names while preserving Smart Carousel technical contracts (9.12ms)
+✔ uses only the isolated Gemini Omni client for Smart Tour generation (33.0947ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 18
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0

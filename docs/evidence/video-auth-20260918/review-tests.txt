@@ -1,0 +1,42 @@
+✔ password recovery routes exist and use a fixed same-origin callback (3.8239ms)
+✔ recovery avoids account enumeration and globally revokes sessions after reset (0.5111ms)
+✔ logout is fail-closed and the UI does not pretend success on failure (0.5652ms)
+✔ public auth errors do not disclose registration state or raw provider errors (0.741ms)
+✔ new email identity keeps the successful registration flow (0.6103ms)
+✔ empty identity uses a neutral message without claiming account creation (0.9208ms)
+✔ real signup errors keep the generic non-enumerating failure message (0.6721ms)
+✔ saves and restores a namespaced, versioned draft for the same user (4.7715ms)
+✔ rejects and removes corrupted, incompatible and cross-user drafts (1.2447ms)
+✔ removes drafts older than seven days and renews updatedAt on save (1.014ms)
+✔ never serializes credentials, CAPTCHA, binary objects, base64 or signed URLs (1.4192ms)
+✔ stores only inert file metadata and exposes explicit clear/restore/save/replace operations (0.8843ms)
+✔ guided conversation accepts restored stable state and reports progress without persisting internal prompts (0.1589ms)
+✔ Smart Carrossel restores allowlisted flow and requests physical file reselection (0.2835ms)
+✔ Banner Imobiliário restores briefing and options without image base64 (0.4369ms)
+✔ Banners Rápidos restores only essential choices and never restarts generation (0.3589ms)
+✔ Virtual Staging restores journey/options/conversation and never physical uploads (0.4168ms)
+✔ draft restore remains separate from jobs, economy and auth lifecycle (1.6235ms)
+✔ SDK HTTP error body identifies session_not_found without consuming the Response (56.3638ms)
+✔ server validation rejects missing sessions and account changes; network failure is distinct (1.7197ms)
+✔ photos are account scoped, bounded, ordered, unique, without signed URLs or traversal (2.0351ms)
+✔ reuse checks private object existence with the authenticated client and never uploads or generates (1.7095ms)
+✔ briefing, presenter choices and private photo references survive login for the same account only (0.8936ms)
+✔ keeps every production route, removes public experiments and preserves Smart Tour (1.6522ms)
+✔ uses the approved Video Imobiliario copy in the Dashboard and keeps its internal route (3.4453ms)
+✔ shows only the three approved Studio IA modules without changing internal routes (3.6685ms)
+✔ updates public product names while preserving Smart Carousel technical contracts (3.1447ms)
+✔ uses only the isolated Gemini Omni client for Smart Tour generation (20.3304ms)
+✔ Turnstile uses only the public Vite site-key variable and official explicit script (0.6411ms)
+✔ token remains ephemeral and is renewed after use, expiry, timeout or error (0.5811ms)
+✔ missing site key fails closed and protected submits require a token (0.7141ms)
+✔ password login and signup send captchaToken through the installed Supabase contract (0.425ms)
+✔ recovery, confirmation resend and password reauthentication include captchaToken (0.3327ms)
+✔ every protected attempt resets its widget without logging the token (0.5199ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 193.3763

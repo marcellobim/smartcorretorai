@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const read = relative => readFileSync(new URL(relative, import.meta.url), 'utf8')
+const read = relative => readFileSync(new URL(relative, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
 const auth = read('../src/lib/auth-context.jsx')
 const app = read('../src/App.jsx')
 const login = read('../src/pages/LoginPage.jsx')

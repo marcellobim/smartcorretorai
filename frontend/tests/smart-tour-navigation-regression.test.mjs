@@ -23,20 +23,20 @@ test('keeps every production route, removes public experiments and preserves Sma
   for (const route of expectedRoutes) assert.match(app, new RegExp(`path=["']${route.replace('/', '\\/')}["']`), `missing route ${route}`)
   assert.doesNotMatch(app, /home-frankenstein|home-opus|HomeFrankenstein|HomeOpusExperiment/)
   assert.match(app, /import SmartTourAI from ['"]\.\/pages\/SmartTourAI['"]/)
-  assert.match(app, /path="\/smart-tour-ai" element=\{<SmartTourAI \/>\}/)
+  assert.match(app, /path="\/smart-tour-ai" element=\{<AccountAnalyticsRoute productId=\{PRODUCTS\.VIDEO_IMOBILIARIO\}><SmartTourAI \/><\/AccountAnalyticsRoute>\}/)
   assert.doesNotMatch(app, /pacotes-gerados|import Creations/)
 })
 
 test('uses the approved Video Imobiliario copy in the Dashboard and keeps its internal route', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
-  const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const statusLabel'))
-  const ids = ['smart-tour-ai', 'hero-ia', 'studio-hero', 'virtual-staging', 'banners-rapidos']
+  const catalog = dashboard.slice(dashboard.indexOf('const mainActions'), dashboard.indexOf('const textCampaignAction'))
+  const ids = ['smart-tour-ai', 'hero-ia', 'comercial-imobiliario', 'video-criativo', 'smart-carrossel', 'smart-space', 'vida-no-imovel', 'apresentacao-corretor', 'banners-rapidos']
   const positions = ids.map(id => catalog.indexOf(`id: '${id}'`))
   assert.ok(positions.every(position => position >= 0))
   assert.deepEqual([...positions].sort((a, b) => a - b), positions)
   assert.match(catalog, /id: 'smart-tour-ai'[\s\S]*?title: 'Vídeo Imobiliário'[\s\S]*?description: 'Transforme as fotos do imóvel em um vídeo pronto para apresentar e divulgar\.'[\s\S]*?to: '\/smart-tour-ai'[\s\S]*?label: 'Criar vídeo'/)
-  assert.match(dashboard, /id: 'studio-hero'[\s\S]*?to: '\/studio-hero'/)
-  assert.match(catalog, /id: 'studio-hero'[\s\S]*?title: 'Studio IA'[\s\S]*?description: 'Produza comerciais, vídeos criativos e carrosséis para campanhas com mais presença\.'[\s\S]*?label: 'Abrir Studio IA'/)
+  assert.match(dashboard, /id: 'comercial-imobiliario'[\s\S]*?to: '\/studio-hero'/)
+  assert.match(catalog, /id: 'comercial-imobiliario'[\s\S]*?title: 'Comercial Imobiliário'[\s\S]*?to: '\/studio-hero'/)
   assert.match(dashboard, /id: 'banners-rapidos'[\s\S]*?to: '\/nova-campanha'/)
   assert.doesNotMatch(catalog, /smart-tokens|Adicionar Smart Tokens|to: '\/planos'/)
   assert.match(dashboard, /<Link to=\{action\.to\}[\s\S]*?\{content\}[\s\S]*?<\/Link>/)

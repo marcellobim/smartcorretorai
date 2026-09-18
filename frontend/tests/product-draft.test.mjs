@@ -101,7 +101,7 @@ test('Smart Carrossel restores allowlisted flow and requests physical file resel
 })
 
 test('Banner Imobiliário restores briefing and options without image base64', () => {
-  assert.match(banner, /productKey: 'banner-imobiliario'/)
+  assert.match(banner, /productKey: guestMode \? 'banner-imobiliario-guest' : 'banner-imobiliario'/)
   assert.match(banner, /const draft = \{ phase, goal, answers, chatIndex/)
   assert.match(banner, /imageMetadata/)
   assert.match(banner, /Selecione novamente[\s\S]*arquivos físicos não são armazenados/)
@@ -120,7 +120,7 @@ test('Virtual Staging restores journey/options/conversation and never physical u
   assert.match(staging, /productKey: `virtual-staging:\$\{journey\.id\}`/)
   assert.match(staging, /imageMetadata/)
   assert.match(staging, /presenterMetadata/)
-  assert.match(staging, /initialState: restoredJourneyDraft\.conversation/)
+  assert.match(staging, /initialState: restoredConversation/)
   assert.doesNotMatch(staging, /journeyDraft\.save\([^)]*(?:\bimages\b|presenterReference)/)
 })
 

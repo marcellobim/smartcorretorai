@@ -27,10 +27,26 @@ Se as fotos expiraram, foram removidas ou não há referência válida, o briefi
 - Evidências visuais: evidence/video-auth-20260918/401-relogin.png e restored-no-auto-send.png. Apenas dados sintéticos.
 - Harness reproduzível: node frontend/tests/video-auth-server.mjs; abrir /tests/video-auth-behavior/?mode=invalid ou ?mode=invalid-at-invoke. O link Simular retorno após login preserva o rascunho e troca o mock para sessão válida. A tela exibe contadores; não configura credenciais nem chama serviços reais.
 
-Cinco falhas antigas foram reproduzidas no checkout-base 3f9feb3: duas expectativas de rascunho de Banner/Virtual Staging, duas expectativas de rotas/textos antigos do Dashboard e a mensagem de cadastro sem identidade. Não foram alteradas nem apresentadas como aprovadas nesta correção.
+Cinco falhas antigas foram reproduzidas no checkout-base 3f9feb3: duas expectativas de rascunho de Banner/Virtual Staging, duas expectativas de rotas/textos antigos do Dashboard e a mensagem de cadastro sem identidade. A revisão posterior confirmou as cinco falhas novamente na base (18/23) e atualizou apenas as expectativas dos testes; as mesmas três suítes passaram 23/23. Ver revisão detalhada abaixo.
 
 ## Isolamento e publicação pendente
 
 Branch codex/video-auth-recovery-20260918, sobre 3f9feb3, separada do PR #1 e de codex/admin-pr1-production-20260918. Nenhuma função, schema, conta, permissão, saldo ou deployment alterado. A sessão real do usuário e a tentativa do Admin não foram manipuladas.
 
 Antes de publicar: revisar este PR; reconciliar os commits sobre o SHA que o alias oficial apontar após a publicação do Admin; salvar checkpoint privado; executar novamente as verificações obrigatórias do SHA final e somente node scripts/production/deploy.mjs. Não precisa de migration ou deploy de Edge Function para esta correção frontend. Após publicar, conferir o redirecionamento/revisão com login real e os gates existentes, sem acionar geração paga. Login/MFA/Turnstile reais não foram exercitados nesta validação isolada; os testes de comportamento usam mocks.
+
+## Revisão do checkpoint 84052ce em 18/09
+
+| Falha documentada | Evidência na base 3f9feb3 | Correção do teste | Impede publicação? |
+| --- | --- | --- | --- |
+| Banner: chave de rascunho | Runtime já separava visitante/conta | Assert contempla chave condicional | Não |
+| Virtual Staging: conversa | Runtime já usava restoredConversation normalizada | Assert acompanha a normalização existente | Não |
+| Smart Tour: rota | AccountAnalyticsRoute já envolvia a página | Assert preserva rota e wrapper | Não |
+| Dashboard: catálogo | Nove produtos atuais, limite textCampaignAction | Verifica IDs, ordem e rota atuais | Não |
+| Cadastro sem identidade | Mensagem neutra correta; regex falhava em CRLF | Normaliza CRLF apenas na leitura do teste | Não |
+
+Reprodução: base 18/23 com as mesmas cinco falhas; testes atualizados 23/23. Execução conjunta de recuperação, hardening, draft, navegação e Turnstile: 34/34. Nenhum runtime foi alterado para satisfazer esses testes.
+
+A publicação do Admin ainda não foi promovida: candidato 1d1cc5c READY; alias oficial continua em 3f9feb3. A integração será feita por ancestralidade em checkout separado, preservando ambos os PRs e o workspace principal.
+
+Staging real: bucket studio-videos privado e políticas por auth.uid() confirmados por consulta ao banco; nenhuma política alterada. Harness tests/video-auth-staging opera exclusivamente com projeto e duas contas sintéticas permitidas. Usa Auth e Storage reais; não contém mocks nem chamada de geração. Login real/retomada ainda pendentes porque o Turnstile fica vazio no navegador interno. Foi disponibilizado acesso local com cópia de senha para participação no navegador externo. Este bloqueio de validação impede promover o candidato; simulações anteriores não completam o gate.
