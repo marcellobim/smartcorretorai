@@ -1,0 +1,32 @@
+✔ authentication diagnostics are DEV-only and contain no persistent identifiers (2.5679ms)
+✔ initial auth remains blocking with or without a restored session (0.5335ms)
+✔ TOKEN_REFRESHED for the same user preserves the mounted child and its React-like state (0.3569ms)
+✔ same-user refresh keeps the route while revalidating protected backend state (0.4368ms)
+✔ SIGNED_OUT and invalid refreshed sessions remove private access (0.836ms)
+✔ a real user change blocks and clears inherited profile and authorization (0.9162ms)
+✔ onboarding and Admin remain backend-owned and fail closed (0.6793ms)
+✔ MFA remains authoritative and a refresh cannot preserve Admin after AAL2 loss (0.9352ms)
+✔ login and Turnstile contracts are untouched by the session refresh policy (0.7196ms)
+✔ SDK HTTP error body identifies session_not_found without consuming the Response (52.931ms)
+✔ server validation rejects missing sessions and account changes; network failure is distinct (2.8218ms)
+✔ photos are account scoped, bounded, ordered, unique, without signed URLs or traversal (1.886ms)
+✔ reuse checks private object existence with the authenticated client and never uploads or generates (0.8367ms)
+✔ briefing, presenter choices and private photo references survive login for the same account only (2.226ms)
+✔ parses the current record and legacy UUID without adding persisted data (0.7032ms)
+✔ rejects and safely clears invalid records (0.8491ms)
+✔ round-trips image and Short Videos recovery records in memory (0.4086ms)
+✔ retries only a recent provisional 404 and expires the bounded window (0.2435ms)
+✔ recovers unavailable generation responses and retries transient status checks (0.2505ms)
+✔ image generation persists a provisional recovery record before invoke and polls inconclusive responses (0.2665ms)
+✔ mount recovery restores the input flow and starts polling once (0.2361ms)
+✔ terminal states clear recovery while transient errors preserve it (0.5043ms)
+✔ reset clears the previous job before a new project can start (0.5472ms)
+✔ backend ownership prevents another user record from producing a result (0.4646ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 142.4844

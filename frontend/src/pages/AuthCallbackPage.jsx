@@ -1,3 +1,4 @@
+import { videoLoginDestination } from '../lib/smart-tour-auth-recovery'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandMark from '../components/brand/BrandMark'
@@ -27,7 +28,7 @@ export default function AuthCallbackPage() {
       const code = params.get('code')
       if (!code || params.get('error')) throw new Error('invalid_oauth_callback')
 
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      const { data: signedIn, error } = await supabase.auth.exchangeCodeForSession(code)
       window.history.replaceState({}, document.title, '/auth/callback')
       if (error) throw error
 
@@ -47,7 +48,7 @@ export default function AuthCallbackPage() {
         return
       }
       if (state === 'accepted' || state === 'not_google') {
-        navigate('/dashboard', { replace: true })
+        navigate(videoLoginDestination(sessionStorage, signedIn?.user?.id), { replace: true })
         return
       }
       throw new Error('invalid_onboarding_state')

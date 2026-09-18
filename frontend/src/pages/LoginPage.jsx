@@ -1,3 +1,4 @@
+import { hasVideoLoginRecovery, videoLoginDestination } from '../lib/smart-tour-auth-recovery'
 import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -16,6 +17,7 @@ const GENERIC_LOGIN_ERROR = 'Não foi possível entrar. Verifique os dados infor
 const GENERIC_RESEND_MESSAGE = 'Se houver um cadastro pendente para este e-mail, enviaremos novas instruções quando o envio estiver disponível.'
 
 export default function LoginPage() {
+  const [resumeVideo] = useState(() => hasVideoLoginRecovery(sessionStorage))
   const [showPassword, setShowPassword] = useState(false)
   const [showResendButton, setShowResendButton] = useState(false)
   const [resendingEmail, setResendingEmail] = useState(false)
@@ -48,10 +50,10 @@ export default function LoginPage() {
     setLoading(true)
     try {
       setUserEmail(data.email)
-      await signIn(data.email, data.senha, captchaToken)
+      const signedIn = await signIn(data.email, data.senha, captchaToken)
       trackEvent('login_completed')
       toast.success('Bem-vindo de volta!')
-      navigate('/dashboard')
+      navigate(videoLoginDestination(sessionStorage, signedIn?.user?.id))
     } catch {
       setShowResendButton(true)
       toast.error(GENERIC_LOGIN_ERROR)
@@ -120,6 +122,7 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-gray-900">Entrar na sua conta</h1>
+          {resumeVideo && <p role="status" className="mt-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Entre novamente com a mesma conta para retomar seu briefing de Vídeo Imobiliário. Após entrar, revise e confirme; nenhuma geração será reenviada automaticamente.</p>}
           <p className="mt-1 text-sm text-gray-500">
             Não tem conta?{' '}
             <Link to="/cadastro" className="text-primary-600 font-semibold hover:text-primary-700">

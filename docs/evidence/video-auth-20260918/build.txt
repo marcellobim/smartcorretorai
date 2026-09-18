@@ -1,0 +1,13 @@
+
+> smartcorretorai-frontend@1.0.0 build
+> vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 1593 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     1.50 kB │ gzip:   0.67 kB
+dist/assets/index-lZ21woMU.css    140.72 kB │ gzip:  20.87 kB
+dist/assets/index-Sc-nA8FD.js   1,498.97 kB │ gzip: 420.75 kB
+✓ built in 11.79s

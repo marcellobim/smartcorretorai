@@ -1,3 +1,4 @@
+import { VIDEO_REAUTH_MESSAGE, isVideoSessionInvalid, requireVideoSession, validVideoUploads, verifyVideoUploads } from '../lib/smart-tour-auth-recovery'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
@@ -120,6 +121,11 @@ export default function SmartTourAI() {
   const recoveryStartedRef = useRef(false)
   const reviewEditRef = useRef(null)
   const shortVideoGenerationLockRef = useRef(false)
+  const generationLockRef = useRef(false)
+  const [uploads, setUploads] = useState(() => validVideoUploads(restoredTourDraft.uploads, user?.id))
+  const uploadsRef = useRef(uploads)
+  const [resumeAfterLogin, setResumeAfterLogin] = useState(restoredTourDraft.resumeAfterLogin === true)
+  const [authRequired, setAuthRequired] = useState(false)
   const [images, setImages] = useState([])
   const [missingImageMetadata, setMissingImageMetadata] = useState(restoredImageMetadata)
   const [shortVideo, setShortVideo] = useState(null)
@@ -140,7 +146,9 @@ export default function SmartTourAI() {
   const phone = formatBrazilianPhone(rawPhone)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
   const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
+  const clearUploadedPhotos = () => { uploadsRef.current = null; setUploads(null) }
   const clearInputMedia = () => {
+    clearUploadedPhotos()
     setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
     setShortVideo(null)
     setMissingImageMetadata([])
@@ -214,11 +222,11 @@ export default function SmartTourAI() {
     const shortVideoMetadata = shortVideo?.file
       ? { ...toFileMetadata(shortVideo.file, 0), duration: shortVideo.duration }
       : missingShortVideoMetadata
-    const draft = { activeInputFlow, property, generation, ctaEnabled, cta, includePhone, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot }
+    const draft = { activeInputFlow, property, generation, ctaEnabled, cta, includePhone, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
     const meaningful = activeInputFlow || conversationSnapshot?.history?.length || imageMetadata.length || shortVideoMetadata || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
     if (!meaningful) { tourDraft.clear(); return }
     tourDraft.save(draft)
-  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, property, shortVideo, status, tourDraft])
+  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, property, shortVideo, status, tourDraft, uploads, resumeAfterLogin])
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getSmartTourNextQuestion({ questionId: question[0], answerId, mode: generation.mode }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
     if (reviewEditRef.current) {
@@ -237,6 +245,7 @@ export default function SmartTourAI() {
 
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current) }, [])
   useEffect(() => {
+    if (restoredTourDraft.resumeAfterLogin) return
     if (recoveryStartedRef.current) return
     const { record: activeJob, invalid } = readSmartTourActiveJob(sessionStorage)
     if (invalid) {
@@ -252,6 +261,7 @@ export default function SmartTourAI() {
   }, [])
 
   const addImages = files => {
+    clearUploadedPhotos()
     const selectedInSystemOrder = Array.from(files)
     if (selectedInSystemOrder.some(file => !['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024)) return setMessage('Envie imagens JPG ou PNG de até 15 MB.')
     setImages(current => {
@@ -279,14 +289,15 @@ export default function SmartTourAI() {
       setMessage(getSmartTokenErrorMessage(error, 'Não foi possível validar o vídeo.'))
     }
   }
-  const move = (position, offset) => setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages })
-  const remove = position => setImages(current => current.filter((item, itemIndex) => { if (itemIndex === position) URL.revokeObjectURL(item.preview); return itemIndex !== position }))
+  const move = (position, offset) => { clearUploadedPhotos(); setImages(current => { const target = position + offset; if (target < 0 || target >= current.length) return current; const nextImages = [...current]; [nextImages[position], nextImages[target]] = [nextImages[target], nextImages[position]]; return nextImages }) }
+  const remove = position => { clearUploadedPhotos(); setImages(current => current.filter((item, itemIndex) => { if (itemIndex === position) URL.revokeObjectURL(item.preview); return itemIndex !== position })) }
   const toggleHighlight = value => setPropertyField('highlights', property.highlights.includes(value) ? property.highlights.filter(item => item !== value) : property.highlights.length < 10 ? [...property.highlights, value] : property.highlights)
 
   async function poll(jobId) {
     const { record: activeJob } = readSmartTourActiveJob(sessionStorage)
     try {
       const { data, error } = await supabase.functions.invoke('smart-tour-status', { body: { jobId } })
+      if (await isVideoSessionInvalid(error, data)) { requireLogin(); return }
       if (error || !data?.ok) {
         if (shouldRetryStartingJobNotFound(activeJob, error)) {
           setStatus('generating')
@@ -319,13 +330,37 @@ export default function SmartTourAI() {
         }
         throw new Error(data?.error || 'Não foi possível consultar a criação.')
       }
-      if (data.status === 'completed') { clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: mergeSmartTourCampaignHashtags(activeJob?.campaignPackage || {}, data.hashtags), inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); void reloadProfile(); return }
-      if (data.status === 'failed') { clearSmartTourActiveJob(sessionStorage); if (getShortVideoTerminalActions(activeJob, 'failed').releaseLock) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(data.error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile(); return }
+      if (data.status === 'completed') { tourDraft.clear(); clearUploadedPhotos(); setResumeAfterLogin(false); clearSmartTourActiveJob(sessionStorage); setResult({ ...data, campaignPackage: mergeSmartTourCampaignHashtags(activeJob?.campaignPackage || {}, data.hashtags), inputFlow: activeJob?.inputFlow || 'images' }); setStatus('completed'); void reloadProfile(); return }
+      if (data.status === 'failed') { clearUploadedPhotos(); clearSmartTourActiveJob(sessionStorage); if (getShortVideoTerminalActions(activeJob, 'failed').releaseLock) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(data.error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile(); return }
       setMessage(data.message || 'A IA está criando sua apresentação...'); pollRef.current = setTimeout(() => poll(jobId), 9000)
-    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile() }
+    } catch (error) {
+      if (await isVideoSessionInvalid(error)) { requireLogin(); return }
+      setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível concluir. Tente novamente.')); void reloadProfile()
+    }
   }
 
+  const preserveBriefing = (resume = true) => tourDraft.replace({
+    activeInputFlow, property, generation, ctaEnabled, cta, includePhone,
+    imageMetadata: images.length ? images.map((item, order) => toFileMetadata(item.file, order)) : missingImageMetadata,
+    shortVideoMetadata: shortVideo?.file ? { ...toFileMetadata(shortVideo.file), duration: shortVideo.duration } : missingShortVideoMetadata,
+    conversation: conversationSnapshot, uploads: uploadsRef.current, resumeAfterLogin: resume,
+  })
+  const requireLogin = () => {
+    if (pollRef.current) clearTimeout(pollRef.current)
+    setResumeAfterLogin(true)
+    preserveBriefing()
+    setAuthRequired(true)
+    setStatus('error')
+    setMessage(VIDEO_REAUTH_MESSAGE)
+  }
+  const loginAgain = async () => {
+    if (!preserveBriefing()) { setMessage('Não foi possível salvar o briefing neste navegador. Mantenha esta aba aberta e entre novamente em outra aba.'); return }
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    if (error) { setMessage('Não foi possível abrir o login. Tente novamente.'); return }
+    window.location.assign('/login')
+  }
   const createTour = async () => {
+    if (generationLockRef.current || authRequired) return
     if (isShortVideos) {
       if (shortVideoGenerationLockRef.current) {
         setMessage('A criação do Short Videos já foi iniciada. Aguarde a conclusão.')
@@ -334,10 +369,18 @@ export default function SmartTourAI() {
       if (!shortVideo?.file) return setMessage('Selecione um vídeo MP4 antes de continuar.')
       shortVideoGenerationLockRef.current = true
     }
+    generationLockRef.current = true
+    setResumeAfterLogin(true)
+    if (!preserveBriefing()) { generationLockRef.current = false; setStatus('error'); setMessage('Não foi possível salvar o briefing neste navegador. Habilite o armazenamento da aba para continuar.'); return }
     trackGenerationClicked()
     setStatus('uploading'); setMessage(isShortVideos ? 'Enviando seu vídeo com segurança...' : 'Enviando suas fotos com segurança...')
     try {
-      const requestId = crypto.randomUUID()
+      await requireVideoSession(supabase, user.id)
+      setAuthRequired(false)
+      const pendingJob = readSmartTourActiveJob(sessionStorage).record
+      if (pendingJob) { await poll(pendingJob.jobId); return }
+      const savedUploads = !isShortVideos && validVideoUploads(uploadsRef.current, user.id)
+      const requestId = savedUploads?.requestId || crypto.randomUUID()
       const apiGeneration = normalizeGeneration(generation)
       const customPresenterSpeech = !isShortVideos && apiGeneration.presenterSpeechMode === 'custom'
       const videoCtaEnabled = ctaEnabled === true && !customPresenterSpeech
@@ -372,19 +415,28 @@ export default function SmartTourAI() {
         return
       }
       const orderedImages = images.slice()
-      const imagePaths = new Array(orderedImages.length)
-      for (let imageIndex = 0; imageIndex < orderedImages.length; imageIndex += 1) {
+      if (!savedUploads && !orderedImages.length) throw new Error('Selecione as fotos novamente; seu briefing foi preservado.')
+      if (savedUploads) await verifyVideoUploads(supabase, savedUploads, user.id)
+      const imagePaths = savedUploads ? [...savedUploads.paths] : new Array(orderedImages.length)
+      for (let imageIndex = 0; !savedUploads && imageIndex < orderedImages.length; imageIndex += 1) {
         const file = orderedImages[imageIndex].file
         const path = `${user.id}/smart-tour/${requestId}/${String(imageIndex + 1).padStart(2, '0')}.${file.type === 'image/png' ? 'png' : 'jpg'}`
         const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type })
-        if (error) throw new Error('Uma das fotos não pôde ser enviada. Tente novamente.')
+        if (error) { if (await isVideoSessionInvalid(error)) throw error; throw new Error('Uma das fotos não pôde ser enviada. Tente novamente.') }
         imagePaths[imageIndex] = path
       }
+      uploadsRef.current = { requestId, paths: imagePaths, savedAt: savedUploads?.savedAt || Date.now() }
+      setUploads(uploadsRef.current)
+      preserveBriefing()
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
       let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      tourDraft.clear()
       const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, language: 'pt-BR' } })
+      if (await isVideoSessionInvalid(error, data)) {
+        clearSmartTourActiveJob(sessionStorage)
+        requireLogin()
+        return
+      }
       if (shouldRecoverSmartTourGenerateResponse(error, data)) {
         setStatus('generating')
         setMessage('Confirmando o início da sua criação...')
@@ -392,12 +444,21 @@ export default function SmartTourAI() {
         return
       }
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
+      setResumeAfterLogin(false)
+      preserveBriefing(false)
       campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
-    } catch (error) { if (isShortVideos) shortVideoGenerationLockRef.current = false; setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
+    } catch (error) {
+      if (isShortVideos) shortVideoGenerationLockRef.current = false
+      if (await isVideoSessionInvalid(error)) { requireLogin(); return }
+      setStatus('error')
+      setMessage(getSmartTokenErrorMessage(error, /^(As fotos salvas|Uma foto salva|Selecione as fotos|Não foi possível verificar sua sessão|Entre com a mesma conta)/.test(error?.message || '') ? error.message : 'Não foi possível criar sua apresentação.'))
+    } finally { generationLockRef.current = false }
   }
 
   const reset = () => {
+    setAuthRequired(false)
+    setResumeAfterLogin(false)
     tourDraft.clear()
     clearSmartTourActiveJob(sessionStorage)
     shortVideoGenerationLockRef.current = false
@@ -429,7 +490,7 @@ export default function SmartTourAI() {
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
   const summary = [
-    { id: 'images', label: isShortVideos ? (shortVideo && `${shortVideo.file.name} · ${formatShortVideoDuration(shortVideo.duration)} · saída em formato Short vertical`) : (images.length && `${images.length} foto${images.length > 1 ? 's' : ''}`) },
+    { id: 'images', label: isShortVideos ? (shortVideo && `${shortVideo.file.name} · ${formatShortVideoDuration(shortVideo.duration)} · saída em formato Short vertical`) : ((images.length || uploads?.paths.length) && `${images.length || uploads.paths.length} fotos`) },
     { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
     { id: 'stage', label: property.stage },
     { id: 'type', label: property.type },
@@ -497,7 +558,7 @@ export default function SmartTourAI() {
       designSystem
       eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'}
     >
-      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
       </div>}
     </main>
@@ -697,7 +758,7 @@ function ExamplePlaceholder({ example, large = false }) {
 }
 
 function Question(props) {
-  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
+  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === item.id ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
@@ -798,9 +859,11 @@ function Question(props) {
       {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{reviewLabel(item.id, isShortVideos)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500">Editar</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-primary-600" />}<b className="text-sm">{message}</b></div>}
+    {resumeAfterLogin && <p role="status" className="mt-4 text-sm">Briefing preservado. {uploads ? 'As fotos já enviadas serão verificadas na confirmação.' : 'Se necessário, selecione novamente as fotos.'} Revise suas escolhas e confirme para continuar.</p>}
+    {authRequired && <ProductButton type="button" onClick={loginAgain}>Entrar novamente</ProductButton>}
     <SmartTokenEstimate cost={SMART_TOKEN_COSTS.geminiVideo} />
     <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <ProductButton type="button" disabled={['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="h-4 w-4" />{status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</ProductButton>
+      <ProductButton type="button" disabled={authRequired || ['uploading','generating'].includes(status)} onClick={createTour} className="w-full"><Video className="h-4 w-4" />{resumeAfterLogin ? 'Confirmar e continuar' : status === 'error' ? 'Tentar novamente' : 'Confirmar e criar vídeo'}</ProductButton>
       <ProductButton type="button" variant="secondary" disabled={['uploading','generating'].includes(status)} onClick={resetCreation}>Refazer criação</ProductButton>
     </div>
   </>

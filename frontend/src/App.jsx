@@ -1,3 +1,4 @@
+import { videoLoginDestination } from './lib/smart-tour-auth-recovery'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './lib/auth-context'
 import AppLayout from './components/layout/AppLayout'
@@ -46,7 +47,7 @@ function PublicRoute({ children }) {
   if (!user) return children
   if (onboardingState === 'needs_acceptance') return <Navigate to="/aceite-legal" replace />
   if (onboardingState === 'admin_blocked' || onboardingState === 'error') return <AuthGateError />
-  return <Navigate to="/dashboard" replace />
+  return <Navigate to={videoLoginDestination(sessionStorage, user.id)} replace />
 }
 
 function OnboardingPrivateRoute({ children }) {
