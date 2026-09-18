@@ -1,0 +1,83 @@
+[
+  {
+    "product": "Vídeo Imobiliário",
+    "route": "/smart-tour-ai",
+    "component": "frontend/src/pages/SmartTourAI.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "smart-tour-generate",
+    "status": "PASS"
+  },
+  {
+    "product": "Banner Imobiliário",
+    "route": "/hero",
+    "component": "frontend/src/pages/HeroNext.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "gerar-hero-ia",
+    "status": "PASS"
+  },
+  {
+    "product": "Smart Space",
+    "route": "/virtual-staging",
+    "component": "frontend/src/pages/VirtualStaging.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "virtual-staging-image-test",
+    "status": "PASS"
+  },
+  {
+    "product": "Banners Rápidos",
+    "route": "/nova-campanha",
+    "component": "frontend/src/pages/NovaCampanha.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "gerar-banners",
+    "status": "PASS"
+  },
+  {
+    "product": "Comercial Imobiliário",
+    "route": "/studio-hero",
+    "component": "frontend/src/pages/StudioHero.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "criar-video-ia",
+    "status": "PASS"
+  },
+  {
+    "product": "Vídeo Criativo",
+    "route": "/studio-hero",
+    "component": "frontend/src/pages/StudioHero.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "criar-video-ia",
+    "status": "PASS"
+  },
+  {
+    "product": "Smart Carrossel",
+    "route": "/smart-carrossel",
+    "component": "frontend/src/pages/SmartCarrossel.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "smart-carousel-creatomate",
+    "status": "PASS"
+  },
+  {
+    "product": "Campanha de Textos",
+    "route": "/campanha-de-textos",
+    "component": "frontend/src/pages/TextCampaign.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "generate-text-campaign",
+    "status": "PASS"
+  },
+  {
+    "product": "Raio-X",
+    "route": "/raio-x-anuncio",
+    "component": "frontend/src/pages/RaioXAnuncio.jsx",
+    "start": "PASS",
+    "steps": "PASS",
+    "generation": "raio-x-anuncio",
+    "status": "PASS"
+  }
+]

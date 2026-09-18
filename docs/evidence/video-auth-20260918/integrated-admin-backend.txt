@@ -1,0 +1,15 @@
+(node:2984) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/bbqbi/.codex/visualizations/2026/09/18/01a0b604-7101-7e40-b78c-de9080f7c56d/admin-video-release/supabase/functions/admin-api/guest-metrics.test.ts is not specified and it doesn't parse as CommonJS.
+✔ counts persisted events and request states within creation period; no row data returned (4.1499ms)
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+✔ missing event schema leaves requests usable and does not invent zero (2.2849ms)
+✔ network failure and absent count are unavailable (2.5462ms)
+To eliminate this warning, add "type": "module" to C:\Users\bbqbi\.codex\visualizations\2026\09\18\01a0b604-7101-7e40-b78c-de9080f7c56d\admin-video-release\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 115.2002

@@ -1,0 +1,33 @@
+✔ tracking payload has no PII, user id or arbitrary metadata (4.5205ms)
+✔ first login uses the authenticated token and does not block auth resolution (6.1005ms)
+✔ all active generation products are wrapped with account-scoped product tracking (1.3281ms)
+✔ flow milestones are deduplicated in-memory and tracking failures never block product behavior (0.4532ms)
+✔ every active product records generation clicks without awaiting tracking (6.4101ms)
+✔ Admin exposes the three compact columns, timeline, funnel and legacy fallback (6.3911ms)
+✔ Short Videos remains frozen (3.0781ms)
+✔ official Banner and guest share a single sequential question flow (1.3089ms)
+✔ shared upload keeps zero, one and four images; rejects a fifth without losing the principal (10.5013ms)
+✔ Home renders exactly four groups and no individual product cards (25.9972ms)
+✔ VÍDEO renders its three existing entries and leaves Short Videos absent (11.1034ms)
+✔ IMAGEM renders four products with their unchanged routes (4.5265ms)
+✔ unknown group returns to four choices and all destinations remain registered (8.7967ms)
+✔ SDK HTTP error body identifies session_not_found without consuming the Response (55.8576ms)
+✔ server validation rejects missing sessions and account changes; network failure is distinct (1.6053ms)
+✔ photos are account scoped, bounded, ordered, unique, without signed URLs or traversal (1.384ms)
+✔ reuse checks private object existence with the authenticated client and never uploads or generates (6.9897ms)
+✔ briefing, presenter choices and private photo references survive login for the same account only (3.9303ms)
+✔ admin release targets only admin-api and rejects combined/unrecognized scopes (0.7881ms)
+✔ admin release refuses absent/inactive function or disabled JWT (0.7149ms)
+✔ public artifact gate allows public configuration but rejects private and staging values (1.6688ms)
+✔ archive gate rejects missing or modified Git files before upload (9.0717ms)
+✔ descendant accepted; old/divergent commit blocked with exact message (2.1854ms)
+✔ mandatory smoke rejects removed CTA, route, Home group and Admin funnel (18.7011ms)
+✔ consolidated matrix includes all nine products (18.5547ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1030.4955
