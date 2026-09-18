@@ -4,10 +4,12 @@ import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {hash,verifyProof,ancestryError} from './proof.mjs'
 import {smoke} from './smoke.mjs'
+import {edgeScope,adminApiVersion} from './edge-scope.mjs'
 const root=fileURLToPath(new URL('../../',import.meta.url)),scope='smart-corretor-ai-s-projects'
 const cli=process.env.VERCEL_CLI || 'vercel'
 const deployVideoSocialMetadata=process.argv.includes('--video-social-metadata')
-if(process.argv.slice(2).some(arg=>arg!=='--video-social-metadata'))throw Error('DEPLOY BLOQUEADO: opção desconhecida')
+const deployAdminApi=process.argv.includes('--admin-api')
+const selectedFunctions=edgeScope(process.argv.slice(2))
 function run(command,args,cwd=root,inherit=false){
  const r=spawnSync(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:process.platform==='win32'&&command.endsWith('.cmd')})
  if(r.status!==0)throw Error('Comando obrigatório falhou: '+command+' '+args[0])
@@ -21,10 +23,18 @@ async function official(){
  if(detail.readyState!=='READY'||!detail.meta?.githubCommitSha)throw Error('DEPLOY BLOQUEADO: SHA oficial indisponível')
  return {sha:detail.meta.githubCommitSha,id:info.id}
 }
+const edgeCli=process.env.SUPABASE_CLI || 'supabase'
+function adminVersion(){
+ const functions=JSON.parse(run(edgeCli,['functions','list','--project-ref','sfbowejaevlmhcvsxhbk','--output','json']))
+ return adminApiVersion(functions)
+}
 const current=await official(),sha=git('rev-parse','HEAD')
+const previousAdminVersion=deployAdminApi?adminVersion():null
+if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
 if(spawnSync('git',['merge-base','--is-ancestor',current.sha,sha],{cwd:root}).status!==0)throw Error(ancestryError)
 if(git('diff','HEAD','--name-only'))throw Error('DEPLOY BLOQUEADO: crie checkpoint antes de publicar')
 smoke(root)
+if(deployAdminApi)run(process.execPath,['--test','--test-isolation=none','scripts/production/admin-release.test.mjs','scripts/production/guard.test.mjs'],root,true)
 if(deployVideoSocialMetadata)run(process.execPath,['--test','--test-isolation=none','frontend/tests/video-social-metadata.test.mjs','supabase/functions/social-publish-video/runtime.test.ts','frontend/tests/social-publish-ui-state.test.mjs'],root,true)
 run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
 const stage=path.join(root,'experiments','production-releases',sha+'-'+Date.now());mkdirSync(stage,{recursive:true})
@@ -47,14 +57,22 @@ const url=match.at(-1),info=JSON.parse(vc(['inspect',url,'--json']))
 if(info.readyState!=='READY')throw Error('Deployment não está READY')
 const fresh=await official()
 if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
-if(deployVideoSocialMetadata){
- // Deploy only the two authorized functions from the same clean, verified checkpoint.
+if(deployVideoSocialMetadata||deployAdminApi){
+ // Deploy only the selected authorized functions from the clean, verified checkpoint.
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  git('archive','--format=zip','--output='+edgeZip,sha,'supabase/functions','supabase/config.toml')
  if(process.platform==='win32')run('powershell',['-NoProfile','-Command',`Expand-Archive -LiteralPath '${edgeZip.replaceAll("'","''")}' -DestinationPath '${edgeStage.replaceAll("'","''")}' -Force`])
  else run('unzip',['-o',edgeZip,'-d',edgeStage])
- const edgeCli=process.env.SUPABASE_CLI || 'supabase'
- run(edgeCli,['functions','deploy','smart-tour-generate','social-publish-video','--project-ref','sfbowejaevlmhcvsxhbk','--use-api','--workdir',edgeStage],root,true)
+ if(deployAdminApi&&adminVersion()!==previousAdminVersion)throw Error('DEPLOY BLOQUEADO: admin-api mudou durante o build')
+ const functionNames=selectedFunctions
+ run(edgeCli,['functions','deploy',...functionNames,'--project-ref','sfbowejaevlmhcvsxhbk','--use-api','--workdir',edgeStage],root,true)
+ if(deployAdminApi){
+  const version=adminVersion()
+  if(version<=previousAdminVersion)throw Error('DEPLOY BLOQUEADO: versão da admin-api não avançou')
+  const response=await fetch('https://sfbowejaevlmhcvsxhbk.supabase.co/functions/v1/admin-api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'guest_banner_metrics',period:7})})
+  if(response.status!==401)throw Error('DEPLOY BLOQUEADO: gate sem sessão da admin-api divergente')
+  console.log(JSON.stringify({adminApiVersion:version,previousAdminVersion,verifyJwt:true,unauthenticatedStatus:response.status}))
+ }
  const afterEdges=await official()
  if(afterEdges.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a publicação das funções')
 }

@@ -1,0 +1,346 @@
+diff --git a/frontend/src/components/AdminGuestBannerMetrics.jsx b/frontend/src/components/AdminGuestBannerMetrics.jsx
+deleted file mode 100644
+index e399191..0000000
+--- a/frontend/src/components/AdminGuestBannerMetrics.jsx
++++ /dev/null
+@@ -1,47 +0,0 @@
+-import { useEffect, useState } from 'react'
+-import { adminRequest } from '../lib/admin-api'
+-
+-const FIELDS = [
+-  ['landingStarts', 'Entradas pela chamada grátis'],
+-  ['bannerStarts', 'Aberturas do teste'],
+-  ['requests', 'Pedidos de geração'],
+-  ['completed', 'Concluídos'],
+-  ['failed', 'Com falha'],
+-  ['reserved', 'Aguardando envio'],
+-  ['dispatching', 'Enviados para geração'],
+-  ['unknown', 'Estado a confirmar'],
+-  ['cancelled', 'Cancelados'],
+-]
+-
+-export default function AdminGuestBannerMetrics({ period, revision }) {
+-  const [result, setResult] = useState(null)
+-  const [retry, setRetry] = useState(0)
+-  useEffect(() => {
+-    let active = true
+-    setResult(null)
+-    adminRequest('guest_banner_metrics', { period })
+-      .then(data => { if (active) setResult({ period, revision, metrics: data?.metrics || {} }) })
+-      .catch(() => { if (active) setResult({ period, revision, metrics: {} }) })
+-    return () => { active = false }
+-  }, [period, revision, retry])
+-
+-  const loading = !result || result.period !== period || result.revision !== revision
+-  const validCount = value => Number.isSafeInteger(value) && value >= 0
+-  const unavailable = !loading && FIELDS.some(([key]) => !validCount(result.metrics[key]))
+-  return (
+-    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5" aria-labelledby="guest-banner-title" aria-busy={loading}>
+-      <h2 id="guest-banner-title" className="text-lg font-semibold text-slate-950">Banner Imobiliário — teste grátis</h2>
+-      <p className="mt-1 text-sm text-slate-600">Uso sem cadastro registrado pelo servidor, no período selecionado.</p>
+-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+-        {FIELDS.map(([key, label]) => (
+-          <div key={key} className="rounded-xl bg-slate-50 p-4">
+-            <p className="text-sm text-slate-600">{label}</p>
+-            <p className="mt-2 text-xl font-semibold text-slate-950">{loading ? 'Carregando…' : validCount(result.metrics[key]) ? result.metrics[key].toLocaleString('pt-BR') : 'Indisponível'}</p>
+-          </div>
+-        ))}
+-      </div>
+-      <p className="mt-4 text-xs text-slate-500">Entradas e aberturas são eventos registrados, não visitantes únicos. Os pedidos são filtrados pela data de criação e agrupados pelo estado atual. Conclusão não comprova download nem assinatura. Não há recuperação retroativa de acessos que não foram registrados.</p>
+-      {unavailable && <div className="mt-3 text-sm text-amber-900" role="status">Parte das métricas não está disponível. Isso não significa ausência de uso. <button type="button" onClick={() => setRetry(value => value + 1)} className="font-semibold underline">Tentar novamente</button></div>}
+-    </section>
+-  )
+-}
+diff --git a/frontend/src/pages/AdminDashboard.jsx b/frontend/src/pages/AdminDashboard.jsx
+index d68ae8b..f3dabcc 100644
+--- a/frontend/src/pages/AdminDashboard.jsx
++++ b/frontend/src/pages/AdminDashboard.jsx
+@@ -23,7 +23,6 @@ import {
+   X,
+ } from 'lucide-react'
+ import { adminRequest } from '../lib/admin-api'
+-import AdminGuestBannerMetrics from '../components/AdminGuestBannerMetrics'
+ 
+ const TABS = [
+   ['overview', 'Visão geral'],
+@@ -201,7 +200,6 @@ function isOperationalOverview(value) {
+ export default function AdminDashboard() {
+   const [activeTab, setActiveTab] = useState('overview')
+   const [period, setPeriod] = useState(30)
+-  const [metricsRevision, setMetricsRevision] = useState(0)
+   const [expandedProducts, setExpandedProducts] = useState(() => new Set())
+   const [overview, setOverview] = useState(null)
+   const [overviewLoading, setOverviewLoading] = useState(true)
+@@ -452,7 +450,7 @@ export default function AdminDashboard() {
+             </select>
+             <button
+               type="button"
+-              onClick={() => { loadOverview(period); setMetricsRevision(value => value + 1) }}
++              onClick={() => loadOverview(period)}
+               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+             >
+               <RefreshCw className="h-4 w-4" /> Atualizar
+@@ -473,8 +471,6 @@ export default function AdminDashboard() {
+           ))}
+         </nav>
+ 
+-        {activeTab === 'overview' && <AdminGuestBannerMetrics period={period} revision={metricsRevision} />}
+-
+         {overviewLoading && !['clients', 'testimonials'].includes(activeTab) ? (
+           <div className="flex min-h-[420px] items-center justify-center"><RefreshCw className="h-7 w-7 animate-spin text-slate-500" /></div>
+         ) : overview ? (
+@@ -849,13 +845,13 @@ export default function AdminDashboard() {
+                     <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                       <tr>
+                         <th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Plano</th><th className="px-3 py-3">Assinatura</th><th className="px-3 py-3">Acesso</th>
+-                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Último login</th><th className="px-3 py-3">Última atividade</th><th className="px-3 py-3">Último produto</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th>
++                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Último login</th><th className="px-3 py-3">Última atividade</th><th className="px-3 py-3">Último produto</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                       {clients.map(client => (
+                         <tr key={client.id}>
+-                    <td className="px-3 py-4"><div className="flex flex-wrap items-center gap-2"><p className="font-medium text-slate-900">{client.name || 'Sem nome'}</p><button type="button" onClick={() => openClient(client.id)} aria-label={`Ver atividades de ${client.name || client.email || 'cliente'}`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium"><Eye className="h-3.5 w-3.5" /> Ver atividades</button></div><p className="mt-1 text-xs text-slate-500">{client.email}</p></td>
++                          <td className="px-3 py-4"><p className="font-medium text-slate-900">{client.name || 'Sem nome'}</p><p className="mt-1 text-xs text-slate-500">{client.email}</p></td>
+                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${planTone[client.plan]}`}>{client.plan}</span></td>
+                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[client.subscriptionStatus] || statusTone.sem_assinatura}`}>{client.subscriptionStatus.replace('_', ' ')}</span></td>
+                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${catalogAccessTone[client.catalogAccess] || catalogAccessTone.trial}`}>{catalogAccessLabel[client.catalogAccess] || 'Trial'}</span></td>
+@@ -872,6 +868,7 @@ export default function AdminDashboard() {
+                           <td className="px-3 py-4 text-slate-600">{date(client.createdAt)}</td>
+                           <td className="px-3 py-4 text-slate-600">{date(client.currentPeriodEnd)}</td>
+                           <td className="px-3 py-4 text-slate-600">{client.hasStripeCustomer ? 'Vinculado' : 'Não vinculado'}</td>
++                          <td className="px-3 py-4"><button type="button" onClick={() => openClient(client.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium"><Eye className="h-3.5 w-3.5" /> Abrir</button></td>
+                         </tr>
+                       ))}
+                     </tbody>
+diff --git a/frontend/tests/admin-guest-metrics.test.mjs b/frontend/tests/admin-guest-metrics.test.mjs
+deleted file mode 100644
+index f8b784d..0000000
+--- a/frontend/tests/admin-guest-metrics.test.mjs
++++ /dev/null
+@@ -1,99 +0,0 @@
+-import test from 'node:test'
+-import assert from 'node:assert/strict'
+-import { build } from 'esbuild'
+-import { chromium } from 'playwright'
+-import { fileURLToPath } from 'node:url'
+-import { readFileSync } from 'node:fs'
+-import postcss from 'postcss'
+-import tailwindcss from 'tailwindcss'
+-import tailwindConfig from '../tailwind.config.js'
+-
+-test('guest metrics recover from unavailable backend and ignore stale period responses', async () => {
+-  const result = await build({
+-    stdin: {
+-      contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import Metrics from './src/components/AdminGuestBannerMetrics.jsx';
+-        const root = createRoot(document.getElementById('root')); window.renderMetrics = (period, revision = 0) => root.render(<Metrics period={period} revision={revision} />);`,
+-      resolveDir: fileURLToPath(new URL('../', import.meta.url)), loader: 'jsx',
+-    },
+-    bundle: true, write: false, format: 'iife', jsx: 'automatic',
+-    plugins: [{ name: 'admin-request-fixture', setup(builder) {
+-      builder.onResolve({ filter: /lib\/admin-api$/ }, () => ({ path: 'admin-api', namespace: 'fixture' }))
+-      builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: `export const adminRequest = (...args) => new Promise((resolve, reject) => window.requests.push({args, resolve, reject}));` }))
+-    } }],
+-  })
+-  const browser = await chromium.launch({ headless: true })
+-  try {
+-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+-    const errors = []
+-    page.on('pageerror', error => errors.push(error.message))
+-    await page.setContent('<div id="root"></div>')
+-    await page.evaluate(() => { window.requests = [] })
+-    await page.addScriptTag({ content: result.outputFiles[0].text })
+-    await page.evaluate(() => window.renderMetrics(30))
+-    await page.waitForFunction(() => window.requests.length === 1)
+-    assert.equal(await page.getByText('Carregando…', { exact: true }).count(), 9)
+-    await page.evaluate(() => window.requests[0].reject(new Error('backend unavailable')))
+-    await page.getByRole('button', { name: 'Tentar novamente' }).waitFor()
+-    assert.equal(await page.getByText('Indisponível', { exact: true }).count(), 9)
+-    await page.getByRole('button', { name: 'Tentar novamente' }).click()
+-    await page.waitForFunction(() => window.requests.length === 2)
+-    await page.evaluate(() => window.renderMetrics(7))
+-    await page.waitForFunction(() => window.requests.length === 3)
+-    await page.evaluate(() => window.requests[1].resolve({ metrics: { requests: 999 } }))
+-    assert.equal(await page.getByText('999', { exact: true }).count(), 0)
+-    await page.evaluate(() => window.requests[2].resolve({ metrics: { requests: 0, completed: 2 } }))
+-    await page.getByText('0', { exact: true }).waitFor()
+-    assert.equal(await page.getByText('2', { exact: true }).count(), 1)
+-    assert.equal(await page.getByText('Indisponível', { exact: true }).count(), 7)
+-    await page.evaluate(() => window.renderMetrics(7, 1))
+-    await page.waitForFunction(() => window.requests.length === 4)
+-    assert.deepEqual(await page.evaluate(() => window.requests[3].args), ['guest_banner_metrics', { period: 7 }])
+-    assert.deepEqual(errors, [])
+-  } finally { await browser.close() }
+-})
+-
+-test('Admin metrics and client activity remain usable at mobile and desktop widths', async () => {
+-  const source = readFileSync(new URL('../src/pages/AdminDashboard.jsx', import.meta.url), 'utf8')
+-  const component = readFileSync(new URL('../src/components/AdminGuestBannerMetrics.jsx', import.meta.url), 'utf8')
+-  const css = await postcss([tailwindcss({ ...tailwindConfig, content: [{ raw: source + component, extension: 'jsx' }] })])
+-    .process(readFileSync(new URL('../src/index.css', import.meta.url), 'utf8'), { from: undefined })
+-  const result = await build({
+-    stdin: { contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import Admin from './src/pages/AdminDashboard.jsx'; createRoot(document.getElementById('root')).render(<Admin />);`, resolveDir: fileURLToPath(new URL('../', import.meta.url)), loader: 'jsx' },
+-    bundle: true, write: false, format: 'iife', jsx: 'automatic',
+-    plugins: [{ name: 'admin-fixture', setup(builder) {
+-      builder.onResolve({ filter: /lib\/admin-api$/ }, () => ({ path: 'admin-api', namespace: 'fixture' }))
+-      builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: `export async function adminRequest(action, input) {
+-        window.calls.push({action,input});
+-        if (action === 'overview') throw new Error('isolated failure');
+-        if (action === 'guest_banner_metrics') return {metrics:{landingStarts:5,bannerStarts:4,requests:3,completed:2,failed:1,reserved:0,dispatching:0,unknown:0,cancelled:0}};
+-        if (action === 'list_clients') return {clients:[{id:'fixture',name:'Cliente de teste',email:'teste@example.invalid',plan:'FREE',subscriptionStatus:'sem_assinatura',catalogAccess:'trial',smartTokenBalance:0}],pagination:{page:1,total:1,totalPages:1}};
+-        if (action === 'get_client') return new Promise(() => {});
+-      }` }))
+-    } }],
+-  })
+-  const browser = await chromium.launch({ headless: true })
+-  try {
+-    for (const width of [390, 1440]) {
+-      const page = await browser.newPage({ viewport: { width, height: 900 } })
+-      const errors = []
+-      page.on('pageerror', error => errors.push(error.message))
+-      await page.route('http://localhost/**', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))
+-      await page.goto('http://localhost/admin')
+-      await page.evaluate(() => { window.calls = [] })
+-      await page.addStyleTag({ content: css.css })
+-      await page.addScriptTag({ content: result.outputFiles[0].text })
+-      await page.getByText('Concluídos', { exact: true }).waitFor()
+-      await page.waitForFunction(() => document.querySelector('[aria-busy="false"]'))
+-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+-      await page.getByRole('button', { name: 'Clientes', exact: true }).click()
+-      const button = page.getByRole('button', { name: 'Ver atividades de Cliente de teste' })
+-      await button.waitFor()
+-      const box = await button.boundingBox()
+-      assert.ok(box.x >= 0 && box.x + box.width <= width, 'activity action visible without horizontal scroll')
+-      await button.click()
+-      assert.ok(await page.evaluate(() => window.calls.some(call => call.action === 'get_client' && call.input.userId === 'fixture')))
+-      assert.deepEqual(errors, [])
+-      await page.close()
+-    }
+-  } finally { await browser.close() }
+-})
+diff --git a/supabase/functions/admin-api/guest-metrics.test.ts b/supabase/functions/admin-api/guest-metrics.test.ts
+deleted file mode 100644
+index c2fbce0..0000000
+--- a/supabase/functions/admin-api/guest-metrics.test.ts
++++ /dev/null
+@@ -1,65 +0,0 @@
+-import assert from 'node:assert/strict'
+-import test from 'node:test'
+-import { loadGuestBannerMetrics } from './guest-metrics.ts'
+-
+-function database(rows: Record<string, any[]>, failure?: string) {
+-  const calls: any[] = []
+-  return {
+-    calls,
+-    from(table: string) {
+-      const call: any = { table, filters: [] }
+-      calls.push(call)
+-      const query = {
+-        select(columns: string, options: any) { call.columns = columns; call.options = options; return query },
+-        eq(column: string, value: string) { call.filters.push((row: any) => row[column] === value); return query },
+-        gte(column: string, value: string) { call.filters.push((row: any) => row[column] >= value); return query },
+-        then(resolve: any, reject: any) {
+-          if (failure === 'throw') return Promise.reject(new Error('offline')).then(resolve, reject)
+-          const result = table === failure ? { count: null, error: { code: '42P01' } } : {
+-            count: (rows[table] || []).filter(row => call.filters.every((filter: any) => filter(row))).length,
+-            error: null,
+-          }
+-          return Promise.resolve(result).then(resolve, reject)
+-        },
+-      }
+-      return query
+-    },
+-  }
+-}
+-
+-test('counts persisted events and request states within creation period; no row data returned', async () => {
+-  const db = database({
+-    guest_banner_events: [
+-      { event_type: 'guest_banner_started', created_at: '2026-09-10' },
+-      { event_type: 'guest_banner_started', created_at: '2026-09-10' },
+-      { event_type: 'guest_landing_started', created_at: '2026-09-01' },
+-    ],
+-    guest_banner_requests: [
+-      { status: 'completed', created_at: '2026-09-10', session_id: 'private' },
+-      { status: 'failed', created_at: '2026-09-11' },
+-      { status: 'unknown', created_at: '2026-09-12' },
+-      { status: 'completed', created_at: '2026-09-01' },
+-    ],
+-  })
+-  const result = await loadGuestBannerMetrics(db, '2026-09-05')
+-  assert.deepEqual(result.metrics, { landingStarts: 0, bannerStarts: 2, requests: 3, completed: 1, failed: 1, reserved: 0, dispatching: 0, unknown: 1, cancelled: 0 })
+-  assert.ok(db.calls.every(call => call.options.head === true && call.options.count === 'exact'))
+-  assert.equal(JSON.stringify(result).includes('private'), false)
+-  const all = await loadGuestBannerMetrics(db, null)
+-  assert.equal(all.metrics.requests, 4)
+-  assert.equal(all.metrics.landingStarts, 1)
+-})
+-
+-test('missing event schema leaves requests usable and does not invent zero', async () => {
+-  const result = await loadGuestBannerMetrics(database({}, 'guest_banner_events'), null)
+-  assert.equal(result.metrics.landingStarts, null)
+-  assert.equal(result.metrics.bannerStarts, null)
+-  assert.equal(result.metrics.requests, 0)
+-})
+-
+-test('network failure and absent count are unavailable', async () => {
+-  const result = await loadGuestBannerMetrics(database({}, 'throw'), null)
+-  assert.ok(Object.values(result.metrics).every(value => value === null))
+-  const absent = { from: () => ({ select: () => Promise.resolve({ count: null, error: null }) }) }
+-  assert.ok(Object.values((await loadGuestBannerMetrics(absent, null)).metrics).every(value => value === null))
+-})
+diff --git a/supabase/functions/admin-api/guest-metrics.ts b/supabase/functions/admin-api/guest-metrics.ts
+deleted file mode 100644
+index 90940ef..0000000
+--- a/supabase/functions/admin-api/guest-metrics.ts
++++ /dev/null
+@@ -1,27 +0,0 @@
+-// Aggregate reads only. Never return session identifiers, network hashes or artifacts.
+-export async function loadGuestBannerMetrics(supabase: any, since: string | null) {
+-  const definitions = [
+-    ['landingStarts', 'guest_banner_events', 'event_type', 'guest_landing_started'],
+-    ['bannerStarts', 'guest_banner_events', 'event_type', 'guest_banner_started'],
+-    ['requests', 'guest_banner_requests', null, null],
+-    ['completed', 'guest_banner_requests', 'status', 'completed'],
+-    ['failed', 'guest_banner_requests', 'status', 'failed'],
+-    ['reserved', 'guest_banner_requests', 'status', 'reserved'],
+-    ['dispatching', 'guest_banner_requests', 'status', 'dispatching'],
+-    ['unknown', 'guest_banner_requests', 'status', 'unknown'],
+-    ['cancelled', 'guest_banner_requests', 'status', 'cancelled'],
+-  ] as const
+-  const entries = await Promise.all(definitions.map(async ([key, table, column, value]) => {
+-    try {
+-      let query = supabase.from(table).select('*', { count: 'exact', head: true })
+-      if (column) query = query.eq(column, value)
+-      if (since) query = query.gte('created_at', since)
+-      const { count, error } = await query
+-      return [key, !error && Number.isSafeInteger(count) && count >= 0 ? count : null]
+-    } catch {
+-      // Missing schema and read failures are unavailable, never a false zero.
+-      return [key, null]
+-    }
+-  }))
+-  return { metrics: Object.fromEntries(entries), since }
+-}
+diff --git a/supabase/functions/admin-api/index.ts b/supabase/functions/admin-api/index.ts
+index a6ae1a0..91ec259 100644
+--- a/supabase/functions/admin-api/index.ts
++++ b/supabase/functions/admin-api/index.ts
+@@ -1,7 +1,6 @@
+ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+ import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
+-import { loadGuestBannerMetrics } from './guest-metrics.ts'
+ import {
+   AdminAuthorizationError,
+   AdminMfaRequiredError,
+@@ -724,9 +723,6 @@ serve(async (req) => {
+ 
+     const body = await req.json().catch(() => ({})) as Record<string, unknown>
+     const action = String(body.action || '')
+-    if (action === 'guest_banner_metrics') {
+-      return jsonResponse(await loadGuestBannerMetrics(supabase, periodStartIso(normalizeAdminPeriod(body.period))))
+-    }
+     if (action === 'overview') return jsonResponse(await loadOverview(supabase, body.period))
+     if (action === 'list_clients') return jsonResponse(await loadClients(supabase, body))
+     if (action === 'get_client') return jsonResponse(await loadClientDetail(supabase, body))

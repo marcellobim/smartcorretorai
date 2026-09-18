@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
+import { loadGuestBannerMetrics } from './guest-metrics.ts'
 import {
   AdminAuthorizationError,
   AdminMfaRequiredError,
@@ -723,6 +724,9 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const action = String(body.action || '')
+    if (action === 'guest_banner_metrics') {
+      return jsonResponse(await loadGuestBannerMetrics(supabase, periodStartIso(normalizeAdminPeriod(body.period))))
+    }
     if (action === 'overview') return jsonResponse(await loadOverview(supabase, body.period))
     if (action === 'list_clients') return jsonResponse(await loadClients(supabase, body))
     if (action === 'get_client') return jsonResponse(await loadClientDetail(supabase, body))

@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import { adminRequest } from '../lib/admin-api'
+import AdminGuestBannerMetrics from '../components/AdminGuestBannerMetrics'
 
 const TABS = [
   ['overview', 'Visão geral'],
@@ -200,6 +201,7 @@ function isOperationalOverview(value) {
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [period, setPeriod] = useState(30)
+  const [metricsRevision, setMetricsRevision] = useState(0)
   const [expandedProducts, setExpandedProducts] = useState(() => new Set())
   const [overview, setOverview] = useState(null)
   const [overviewLoading, setOverviewLoading] = useState(true)
@@ -450,7 +452,7 @@ export default function AdminDashboard() {
             </select>
             <button
               type="button"
-              onClick={() => loadOverview(period)}
+              onClick={() => { loadOverview(period); setMetricsRevision(value => value + 1) }}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
               <RefreshCw className="h-4 w-4" /> Atualizar
@@ -470,6 +472,8 @@ export default function AdminDashboard() {
             </button>
           ))}
         </nav>
+
+        {activeTab === 'overview' && <AdminGuestBannerMetrics period={period} revision={metricsRevision} />}
 
         {overviewLoading && !['clients', 'testimonials'].includes(activeTab) ? (
           <div className="flex min-h-[420px] items-center justify-center"><RefreshCw className="h-7 w-7 animate-spin text-slate-500" /></div>
@@ -845,13 +849,13 @@ export default function AdminDashboard() {
                     <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                       <tr>
                         <th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Plano</th><th className="px-3 py-3">Assinatura</th><th className="px-3 py-3">Acesso</th>
-                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Último login</th><th className="px-3 py-3">Última atividade</th><th className="px-3 py-3">Último produto</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th><th className="px-3 py-3"><span className="sr-only">Ações</span></th>
+                        <th className="px-3 py-3 text-right">Saldo ST</th><th className="px-3 py-3 text-right">ST assinatura</th><th className="px-3 py-3 text-right">ST extras</th><th className="px-3 py-3 text-right">Recargas</th><th className="px-3 py-3 text-right">Valor catálogo</th><th className="px-3 py-3 text-right">Gerações</th><th className="px-3 py-3">Última geração</th><th className="px-3 py-3">Último login</th><th className="px-3 py-3">Última atividade</th><th className="px-3 py-3">Último produto</th><th className="px-3 py-3">Cadastro</th><th className="px-3 py-3">Próxima competência</th><th className="px-3 py-3">Stripe</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {clients.map(client => (
                         <tr key={client.id}>
-                          <td className="px-3 py-4"><p className="font-medium text-slate-900">{client.name || 'Sem nome'}</p><p className="mt-1 text-xs text-slate-500">{client.email}</p></td>
+                    <td className="px-3 py-4"><div className="flex flex-wrap items-center gap-2"><p className="font-medium text-slate-900">{client.name || 'Sem nome'}</p><button type="button" onClick={() => openClient(client.id)} aria-label={`Ver atividades de ${client.name || client.email || 'cliente'}`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium"><Eye className="h-3.5 w-3.5" /> Ver atividades</button></div><p className="mt-1 text-xs text-slate-500">{client.email}</p></td>
                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${planTone[client.plan]}`}>{client.plan}</span></td>
                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[client.subscriptionStatus] || statusTone.sem_assinatura}`}>{client.subscriptionStatus.replace('_', ' ')}</span></td>
                           <td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${catalogAccessTone[client.catalogAccess] || catalogAccessTone.trial}`}>{catalogAccessLabel[client.catalogAccess] || 'Trial'}</span></td>
@@ -868,7 +872,6 @@ export default function AdminDashboard() {
                           <td className="px-3 py-4 text-slate-600">{date(client.createdAt)}</td>
                           <td className="px-3 py-4 text-slate-600">{date(client.currentPeriodEnd)}</td>
                           <td className="px-3 py-4 text-slate-600">{client.hasStripeCustomer ? 'Vinculado' : 'Não vinculado'}</td>
-                          <td className="px-3 py-4"><button type="button" onClick={() => openClient(client.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium"><Eye className="h-3.5 w-3.5" /> Abrir</button></td>
                         </tr>
                       ))}
                     </tbody>
