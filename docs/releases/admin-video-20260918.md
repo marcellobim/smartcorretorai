@@ -31,3 +31,9 @@ A branch privada codex/admin-pr1-before-20260918 preserva 3f9feb3, inclusive o c
 - Ambas: aplicar os dois patches seletivos sobre um checkout do SHA oficial vigente, após git apply --check e revisão de eventuais mudanças paralelas.
 
 Antes de qualquer recuperação: consultar Production, criar branch descendente do SHA atual, revisar mudanças concorrentes, confirmar a versão atual de admin-api se afetada, aplicar apenas o escopo necessário, verificar segredos/testes/build, salvar checkpoint privado e usar o fluxo oficial. Os patches foram conferidos com git apply --check no candidato integrado, sem modificar arquivos. Não alteram banco, saldos, contas, MFA, Turnstile ou dados de produção.
+
+## Atualização: gate real aprovado
+
+Em 18/09, 21:39–21:46 UTC, login real e reautenticação de staging foram concluídos na mesma aba: mensagem clara, briefing/corretora/fala/CTA/cinco fotos preservados, confirmação manual pendente e nenhuma geração automática. Outra conta teve listagem vazia e download sem cache negado pelo servidor. Banco: cinco uploads, zero jobs/pedidos econômicos/reservas/transações. Evidências e detalhe do cache local em docs/video-auth-recovery-20260918.md, seção Gate real concluído. O gate pendente descrito acima foi resolvido. Nenhum runtime adicional alterado desde o build/testes integrados.
+
+Publicação agora liberada pelo usuário, exclusivamente pelo fluxo oficial. Recovery patches continuam aplicáveis; verificar versão e alias novamente no script.
