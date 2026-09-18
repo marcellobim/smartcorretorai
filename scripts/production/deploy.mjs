@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url'
 import {hash,verifyProof,ancestryError} from './proof.mjs'
 import {smoke} from './smoke.mjs'
 import {edgeScope,adminApiVersion} from './edge-scope.mjs'
+import {verifyArchiveTree} from './archive-proof.mjs'
 const root=fileURLToPath(new URL('../../',import.meta.url)),scope='smart-corretor-ai-s-projects'
 const cli=process.env.VERCEL_CLI || 'vercel'
 const deployVideoSocialMetadata=process.argv.includes('--video-social-metadata')
@@ -39,10 +40,12 @@ if(deployVideoSocialMetadata)run(process.execPath,['--test','--test-isolation=no
 run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
 const stage=path.join(root,'experiments','production-releases',sha+'-'+Date.now());mkdirSync(stage,{recursive:true})
 const zip=stage+'.zip'
-git('archive','--format=zip','--output='+zip,sha,'frontend','core','api','server','scripts/production','supabase/functions/_shared','vercel.json','.vercelignore','package.json','package-lock.json')
+const packagePaths=['frontend','core','api','server','scripts/production','supabase/functions/_shared','vercel.json','.vercelignore','package.json','package-lock.json']
+git('-c','core.autocrlf=false','archive','--format=zip','--output='+zip,sha,...packagePaths)
 // One shell for this reversible extraction; no filesystem deletion or path from remote input.
-if(process.platform==='win32')run('powershell',['-NoProfile','-Command',`Expand-Archive -LiteralPath '${zip.replaceAll("'","''")}' -DestinationPath '${stage.replaceAll("'","''")}' -Force`])
+if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',zip,'-DestinationPath',stage])
 else run('unzip',['-o',zip,'-d',stage])
+console.log(JSON.stringify({archiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--',...packagePaths),stage)}))
 const revisions=[...git('rev-list',sha,'^'+current.sha).split('\n').filter(Boolean),current.sha]
 const proof={sha,baseline:current.sha,bootstrap:current.sha==='75a6a0611c8cc7bbfa038817f129c3ad60477bb9',commits:revisions.map(id=>({sha:id,body:spawnSync('git',['cat-file','commit',id],{cwd:root}).stdout.toString('base64')})),files:{}}
 function walk(dir){for(const e of readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else {const relative=path.relative(stage,p).replaceAll('\\','/');if(e.name!=='vercel.json'&&e.name!=='.vercelignore'&&!e.name.startsWith('.env')&&!relative.startsWith('supabase/')&&!relative.endsWith('.log')&&!relative.includes('/node_modules/'))proof.files[relative]=hash(readFileSync(p))}}}
@@ -60,9 +63,10 @@ if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante
 if(deployVideoSocialMetadata||deployAdminApi){
  // Deploy only the selected authorized functions from the clean, verified checkpoint.
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
- git('archive','--format=zip','--output='+edgeZip,sha,'supabase/functions','supabase/config.toml')
- if(process.platform==='win32')run('powershell',['-NoProfile','-Command',`Expand-Archive -LiteralPath '${edgeZip.replaceAll("'","''")}' -DestinationPath '${edgeStage.replaceAll("'","''")}' -Force`])
+ git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,'supabase/functions','supabase/config.toml')
+ if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
  else run('unzip',['-o',edgeZip,'-d',edgeStage])
+ console.log(JSON.stringify({edgeArchiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--','supabase/functions','supabase/config.toml'),edgeStage)}))
  if(deployAdminApi&&adminVersion()!==previousAdminVersion)throw Error('DEPLOY BLOQUEADO: admin-api mudou durante o build')
  const functionNames=selectedFunctions
  run(edgeCli,['functions','deploy',...functionNames,'--project-ref','sfbowejaevlmhcvsxhbk','--use-api','--workdir',edgeStage],root,true)

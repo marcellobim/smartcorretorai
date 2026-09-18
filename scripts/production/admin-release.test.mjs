@@ -24,3 +24,21 @@ test('public artifact gate allows public configuration but rejects private and s
  assert.throws(()=>validatePublicText('safe',{VITE_PRIVATE_KEY:'fixture'}))
  assert.throws(()=>validatePublicText('-----BEGIN PRIVATE KEY-----'))
 })
+
+import {mkdtempSync,writeFileSync,rmSync} from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import {verifyArchiveTree} from './archive-proof.mjs'
+test('archive gate rejects missing or modified Git files before upload',()=>{
+ const dir=mkdtempSync(path.join(os.tmpdir(),'admin-archive-test-'))
+ try {
+  const tree='100644 blob ce013625030ba8dba906f756967f9e9ca394464a\thello.txt\0'
+  assert.throws(()=>verifyArchiveTree(tree,dir))
+  writeFileSync(path.join(dir,'hello.txt'),'hello\n')
+  assert.equal(verifyArchiveTree(tree,dir),1)
+  writeFileSync(path.join(dir,'hello.txt'),'changed\n')
+  assert.throws(()=>verifyArchiveTree(tree,dir))
+  assert.throws(()=>verifyArchiveTree('',dir))
+  assert.throws(()=>verifyArchiveTree(tree.replace('hello.txt','../outside.txt'),dir))
+ } finally {rmSync(dir,{recursive:true,force:true})}
+})
