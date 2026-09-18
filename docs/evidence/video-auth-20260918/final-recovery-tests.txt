@@ -1,0 +1,13 @@
+✔ SDK HTTP error body identifies session_not_found without consuming the Response (38.467ms)
+✔ server validation rejects missing sessions and account changes; network failure is distinct (1.8079ms)
+✔ photos are account scoped, bounded, ordered, unique, without signed URLs or traversal (1.9262ms)
+✔ reuse checks private object existence with the authenticated client and never uploads or generates (1.2772ms)
+✔ briefing, presenter choices and private photo references survive login for the same account only (2.0955ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 74.809
