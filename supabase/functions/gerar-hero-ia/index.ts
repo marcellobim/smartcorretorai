@@ -1878,6 +1878,138 @@ async function handleRealEstateBannerPrepare(
   }
 }
 
+async function handleRealEstateBannerRecovery(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  payload: JsonRecord,
+) {
+  const clientRequestId = normalizeText(payload.client_request_id, 80).toLowerCase()
+  if (!isUuid(clientRequestId)) {
+    return jsonResponse({ success: false, error: 'client_request_id invalido.' }, 400)
+  }
+
+  const { data: request, error: requestError } = await supabase
+    .from('real_estate_banner_requests')
+    .select('id, client_request_id, status')
+    .eq('user_id', userId)
+    .eq('product_code', 'real_estate_banner')
+    .eq('client_request_id', clientRequestId)
+    .maybeSingle()
+
+  if (requestError) {
+    console.warn('[gerar-hero-ia] banner recovery request lookup failed')
+    return jsonResponse({ success: false, error: 'Falha ao recuperar campanha.' }, 500)
+  }
+  if (!request) {
+    return jsonResponse({ success: true, recovery_only: true, found: false })
+  }
+
+  const { data: itemRows, error: itemsError } = await supabase
+    .from('real_estate_banner_items')
+    .select('piece_id, format_id, creation_option, generation_id, status')
+    .eq('request_id', request.id)
+    .order('item_index', { ascending: true })
+
+  if (itemsError) {
+    console.warn('[gerar-hero-ia] banner recovery items lookup failed')
+    return jsonResponse({ success: false, error: 'Falha ao recuperar campanha.' }, 500)
+  }
+
+  const itemList = (Array.isArray(itemRows) ? itemRows : []) as JsonRecord[]
+  const generationIds = [...new Set(itemList
+    .map((item) => normalizeText(item?.generation_id, 80))
+    .filter((generationId) => isUuid(generationId)))]
+  let generationRows: JsonRecord[] = []
+
+  if (generationIds.length > 0) {
+    const { data, error } = await supabase
+      .from('hero_generations')
+      .select('id, user_id, status, texts, image_storage_path')
+      .in('id', generationIds)
+      .eq('user_id', userId)
+    if (error) {
+      console.warn('[gerar-hero-ia] banner recovery generations lookup failed')
+      return jsonResponse({ success: false, error: 'Falha ao recuperar campanha.' }, 500)
+    }
+    generationRows = (Array.isArray(data) ? data : []) as JsonRecord[]
+  }
+
+  const generationById = new Map(generationRows.map((generation) => [normalizeText(generation.id, 80), generation]))
+  const signedUrlExpiresInSeconds = 60 * 60
+  let signedUrlFailure = false
+  const items = await Promise.all(itemList.map(async (item) => {
+    const generationId = normalizeText(item?.generation_id, 80)
+    const generation = generationById.get(generationId)
+    const generationStatus = normalizeText(generation?.status, 40)
+    const itemStatus = normalizeText(item?.status, 40)
+    const isCompleted = itemStatus === 'completed' && generationStatus === 'completed'
+    const isCancelled = generationStatus === 'cancelled'
+    const isFailed = itemStatus === 'failed' || generationStatus === 'failed' || generationStatus === 'expired'
+    const publicStatus = isCompleted ? 'completed' : isCancelled ? 'cancelled' : isFailed ? 'failed' : 'processing'
+    const generationRecordId = normalizeText(generation?.id, 80)
+    const ownedGenerationId = generation?.user_id === userId && isUuid(generationRecordId)
+      ? generationRecordId
+      : null
+    let imageUrl = null
+    let expiresAt = null
+
+    if (publicStatus === 'completed' && ownedGenerationId) {
+      const storagePath = normalizeText(generation.image_storage_path, 1024)
+      const allowedPaths = new Set([
+        `${userId}/hero-ia-next/${ownedGenerationId}/hero-principal.jpg`,
+        `${userId}/hero-ia/${ownedGenerationId}/hero-principal.jpg`,
+      ])
+      if (allowedPaths.has(storagePath)) {
+        const { data: signedImage, error: signedError } = await supabase.storage
+          .from(HERO_IMAGE_BUCKET)
+          .createSignedUrl(storagePath, signedUrlExpiresInSeconds)
+        if (signedError || !signedImage?.signedUrl) {
+          signedUrlFailure = true
+        } else {
+          imageUrl = signedImage.signedUrl
+          expiresAt = new Date(Date.now() + signedUrlExpiresInSeconds * 1000).toISOString()
+        }
+      }
+    }
+
+    return {
+      piece_id: normalizeText(item?.piece_id, 240),
+      format_id: normalizeText(item?.format_id, 80),
+      creation_option: Number.isInteger(Number(item?.creation_option)) ? Number(item.creation_option) : 1,
+      generation_id: ownedGenerationId,
+      status: publicStatus,
+      image_url: imageUrl,
+      texts: generation?.texts && typeof generation.texts === 'object' && !Array.isArray(generation.texts)
+        ? generation.texts
+        : {},
+      expires_at: expiresAt,
+    }
+  }))
+
+  if (signedUrlFailure) {
+    console.warn('[gerar-hero-ia] banner recovery signed url failed')
+    return jsonResponse({ success: false, error: 'Falha ao recuperar campanha.' }, 500)
+  }
+
+  const publicStatus = items.length > 0 && items.every((item) => item.status === 'completed')
+    ? 'completed'
+    : items.some((item) => item.status === 'processing')
+      ? 'processing'
+      : items.length > 0 && items.every((item) => item.status === 'cancelled')
+        ? 'cancelled'
+        : 'failed'
+
+  return jsonResponse({
+    success: true,
+    recovery_only: true,
+    found: true,
+    status: publicStatus,
+    request_id: request.id,
+    client_request_id: request.client_request_id,
+    items,
+  })
+}
+
 async function handleHeroNextStatus(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -2200,6 +2332,9 @@ serve(async (req) => {
     const payload = await req.json().catch(() => ({})) as JsonRecord
     if (normalizeId(payload.action) === 'prepare_batch') {
       return await handleRealEstateBannerPrepare(supabase, user.id, payload)
+    }
+    if (normalizeId(payload.action) === 'recover_batch') {
+      return await handleRealEstateBannerRecovery(supabase, user.id, payload)
     }
     if (normalizeId(payload.action) === 'status') {
       return await handleHeroNextStatus(supabase, user.id, payload)

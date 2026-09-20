@@ -32,7 +32,15 @@ import { guestBannerRequest, guestResultForBanner, GUEST_CLAIM_PENDING } from '.
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
-import { buildHeroNextCampaignPackageData } from '../lib/hero-next-recovery'
+import {
+  buildHeroNextCampaignPackageData,
+  buildHeroNextRecoveryRequest,
+  clearHeroNextRecovery,
+  materializeHeroNextResult,
+  normalizeHeroNextRecoveryPayload,
+  readHeroNextRecovery,
+  writeHeroNextRecovery,
+} from '../lib/hero-next-recovery'
 import { buildPublicationGoogleAds, buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
 
 const GOALS = [
@@ -154,6 +162,7 @@ const BANNER_STEP_BY_PHASE = {
   prompt: 3,
   images: 4,
   processing: 5,
+  recovery: 5,
 }
 
 const formatHeroPrice = (digits) => digits
@@ -1453,8 +1462,21 @@ export default function HeroNext({ guestMode = false } = {}) {
   // or server credential. The guest session remains exclusively in HttpOnly cookies.
   const bannerDraft = useProductDraft({ productKey: guestMode ? 'banner-imobiliario-guest' : 'banner-imobiliario', schemaVersion: 1, userId: guestMode ? 'guest-local-draft' : user?.id })
   const restoredBannerDraft = bannerDraft.restoredDraft || {}
-  const [phase, setPhase] = useState(() => (guestMode ? (['result', 'processing'].includes(restoredBannerDraft.phase) ? 'goal' : restoredBannerDraft.phase || 'goal') : readStoredHeroNextResult() ? 'result' : restoredBannerDraft.phase || 'intro'))
-  const startCampaign = () => setPhase('goal')
+  const [phase, setPhase] = useState(() => (guestMode
+    ? (['result', 'processing'].includes(restoredBannerDraft.phase) ? 'goal' : restoredBannerDraft.phase || 'goal')
+    : readStoredHeroNextResult()
+      ? 'result'
+      : restoredBannerDraft.phase === 'processing'
+        ? 'recovery'
+        : restoredBannerDraft.phase || 'intro'))
+  const startCampaign = () => {
+    if (!guestMode && user?.id && readHeroNextRecovery(window.localStorage, user.id)) {
+      setRecoveryNotice('Existe uma criação preservada neste navegador. Atualize o status ou escolha Recomeçar.')
+      setPhase('recovery')
+      return
+    }
+    setPhase('goal')
+  }
   const [goal, setGoal] = useState(() => restoredBannerDraft.goal || '')
   const [answers, setAnswers] = useState(() => restoredBannerDraft.answers || {})
   const [chatIndex, setChatIndex] = useState(() => restoredBannerDraft.chatIndex || 0)
@@ -1496,8 +1518,12 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [generationJobs, setGenerationJobs] = useState(() => guestMode ? [] : readStoredHeroNextResult()?.jobs || [])
   const [expandedPreview, setExpandedPreview] = useState(null)
   const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
+  const [recoveryLoading, setRecoveryLoading] = useState(false)
+  const [recoveryNotice, setRecoveryNotice] = useState('')
   const activeQuestionRef = useRef(null)
   const economicRequestIdRef = useRef(null)
+  const recoveryStartedRef = useRef(false)
+  const generationViewActiveRef = useRef(true)
   const guestBusyRef = useRef(false)
   const [guestSignupGate, setGuestSignupGate] = useState(false)
   const [guestConsumed, setGuestConsumed] = useState(false)
@@ -1935,8 +1961,18 @@ export default function HeroNext({ guestMode = false } = {}) {
     const jobId = `idea-${creativeIdea.number}-${formatId}`
 
     for (let attempt = 0; attempt < 90; attempt += 1) {
+      if (!generationViewActiveRef.current) {
+        const detachedError = new Error('Acompanhamento local encerrado.')
+        detachedError.code = 'banner_view_left'
+        throw detachedError
+      }
       setProcessingMessage(PROCESSING_STEPS[attempt % PROCESSING_STEPS.length])
       await wait(4000)
+      if (!generationViewActiveRef.current) {
+        const detachedError = new Error('Acompanhamento local encerrado.')
+        detachedError.code = 'banner_view_left'
+        throw detachedError
+      }
 
       const { data, error } = await supabase.functions.invoke('gerar-hero-ia', {
         body: {
@@ -1980,6 +2016,158 @@ export default function HeroNext({ guestMode = false } = {}) {
 
     throw new Error(`${destination.label} ainda está em criação. Tente novamente em alguns instantes.`)
   }
+
+  const commitGenerationResult = (jobs, sourceId, source = 'normal') => {
+    const result = materializeHeroNextResult(
+      jobs,
+      buildHeroNextCampaignCopy(goal, answers, valueCondition),
+      { sourceId },
+    )
+    setGenerationJobs(result.jobs)
+    setGenerationResult(result)
+    writeStoredHeroNextResult(result)
+    setGenerationError('')
+    setRecoveryNotice(source === 'recovery_completed' ? 'Criação recuperada com segurança.' : '')
+    setPhase('result')
+    if (!guestMode && user?.id && sourceId) {
+      writeHeroNextRecovery(window.localStorage, user.id, sourceId, 'completed')
+    }
+    return result
+  }
+
+  const recoverGenerationBatch = async ({ resumePolling = true } = {}) => {
+    if (guestMode || !user?.id || recoveryLoading) return null
+    const storedRecovery = readHeroNextRecovery(window.localStorage, user.id)
+    if (!storedRecovery) {
+      clearHeroNextRecovery(window.localStorage, user.id)
+      economicRequestIdRef.current = null
+      setGenerationLoading(false)
+      setRecoveryNotice('Não há uma criação anterior disponível para recuperação.')
+      setGenerationError('')
+      setPhase(goal ? 'images' : 'intro')
+      return null
+    }
+
+    generationViewActiveRef.current = true
+    economicRequestIdRef.current = storedRecovery.clientRequestId
+    setRecoveryLoading(true)
+    setGenerationError('')
+    setRecoveryNotice('Consultando o estado seguro da criação...')
+
+    try {
+      const recoveryRequest = buildHeroNextRecoveryRequest(storedRecovery)
+      const { data, error } = await supabase.functions.invoke('gerar-hero-ia', {
+        body: {
+          action: recoveryRequest.action,
+          client_request_id: recoveryRequest.client_request_id,
+        },
+      })
+      if (error) throw new Error(await getEdgeFunctionErrorMessage(error, 'Não foi possível atualizar o estado da criação.'))
+      if (data?.found === false) {
+        clearHeroNextRecovery(window.localStorage, user.id)
+        economicRequestIdRef.current = null
+        setGenerationJobs([])
+        setGenerationLoading(false)
+        setRecoveryNotice('A referência local não corresponde mais a uma criação disponível.')
+        setPhase(goal ? 'images' : 'intro')
+        return null
+      }
+
+      const recovered = normalizeHeroNextRecoveryPayload(data)
+      const recoveredJobs = recovered.jobs.map((item, index) => {
+        const destination = DESTINATIONS.find((entry) => entry.id === item.format_id)
+        const publicStatus = ['completed', 'failed', 'cancelled'].includes(item.status) ? item.status : 'processing'
+        return {
+          ...item,
+          jobId: item.piece_id || `hero-recovered-${index + 1}`,
+          formatId: item.format_id || destination?.id || '',
+          formatLabel: destination?.label || `Arte ${index + 1}`,
+          ideaNumber: Number(item.creation_option) || 1,
+          creativeDirection: getCreativeIdea(item.creation_option).title,
+          generationId: item.generation_id || null,
+          status: publicStatus,
+          imageUrl: item.image_url || null,
+          texts: item.texts || {},
+          error: null,
+        }
+      })
+      setGenerationJobs(recoveredJobs)
+
+      if (recovered.status === 'completed') {
+        const result = commitGenerationResult(recoveredJobs, storedRecovery.clientRequestId, 'recovery_completed')
+        setGenerationLoading(false)
+        return result
+      }
+
+      if (recovered.status === 'failed' || recovered.status === 'cancelled') {
+        writeHeroNextRecovery(window.localStorage, user.id, storedRecovery.clientRequestId, 'processing')
+        setGenerationLoading(false)
+        setGenerationError('Esta criação não foi concluída. Você pode sair ou recomeçar quando quiser.')
+        setRecoveryNotice('Nenhuma nova geração foi iniciada.')
+        setPhase('recovery')
+        return null
+      }
+
+      writeHeroNextRecovery(window.localStorage, user.id, storedRecovery.clientRequestId, 'processing')
+      if (!resumePolling) {
+        setGenerationLoading(false)
+        setRecoveryNotice('A criação existente ainda está em processamento.')
+        setPhase('recovery')
+        return null
+      }
+
+      const jobsWithGeneration = recoveredJobs.filter((job) => job.status === 'processing' && job.generationId)
+      if (!jobsWithGeneration.length) {
+        setGenerationLoading(false)
+        setRecoveryNotice('A criação ainda está sendo preparada. Atualize o status em alguns instantes.')
+        setPhase('recovery')
+        return null
+      }
+
+      setGenerationLoading(true)
+      setRecoveryNotice('Retomando o acompanhamento da criação existente...')
+      setPhase('processing')
+      const resumedJobs = await Promise.all(recoveredJobs.map(async (job) => {
+        if (job.status !== 'processing' || !job.generationId) return job
+        const destination = DESTINATIONS.find((entry) => entry.id === job.formatId)
+        if (!destination) return { ...job, status: 'failed', error: 'Formato da criação não reconhecido.' }
+        return await pollGenerationJob(job.generationId, destination, getCreativeIdea(job.ideaNumber))
+      }))
+      const completed = resumedJobs.find((job) => job.status === 'completed' && job.imageUrl)
+      if (completed) {
+        const result = commitGenerationResult(resumedJobs, storedRecovery.clientRequestId, 'recovery_completed')
+        setGenerationLoading(false)
+        return result
+      }
+      setGenerationLoading(false)
+      setGenerationError('Esta criação não foi concluída. Atualize o status ou recomece explicitamente.')
+      setRecoveryNotice('Nenhuma nova geração foi iniciada.')
+      setPhase('recovery')
+      return null
+    } catch (error) {
+      if (error?.code === 'banner_view_left') return null
+      setGenerationLoading(false)
+      setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível atualizar o estado da criação.'))
+      setRecoveryNotice('A referência foi preservada. Tente atualizar o status novamente.')
+      setPhase('recovery')
+      return null
+    } finally {
+      setRecoveryLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (guestMode || !user?.id || recoveryStartedRef.current) return
+    recoveryStartedRef.current = true
+    const storedRecovery = readHeroNextRecovery(window.localStorage, user.id)
+    if (!storedRecovery) {
+      if (phase === 'recovery') setPhase(goal ? 'images' : 'intro')
+      return
+    }
+    recoverGenerationBatch({ resumePolling: true })
+    // Recovery is intentionally keyed only by the authenticated user on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestMode, user?.id])
 
   const startGenerationJob = async (destination, creativeIdea, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext) => {
     const formatId = destination.id
@@ -2103,6 +2291,11 @@ export default function HeroNext({ guestMode = false } = {}) {
 
     if (error) throw new Error(await getEdgeFunctionErrorMessage(error, `Nao foi possivel iniciar ${destination.label}.`))
     if (!data.success) throw new Error(data.message || data.error || `Não foi possível iniciar ${destination.label}.`)
+    if (!guestMode && !generationViewActiveRef.current) {
+      const detachedError = new Error('Acompanhamento local encerrado.')
+      detachedError.code = 'banner_view_left'
+      throw detachedError
+    }
 
     const generationId = data.generation_id || data.hero_generation_id
     const returnedImageUrl = data.image_url || data.imageUrl || ''
@@ -2173,6 +2366,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     const campaignBatchId = createCampaignBatchId()
     const clientRequestId = economicRequestIdRef.current || crypto.randomUUID()
     economicRequestIdRef.current = clientRequestId
+    generationViewActiveRef.current = true
     const selectedIdeas = CREATIVE_IDEAS.slice(0, creativeIdeaCount)
     const jobRequests = selectedIdeas.flatMap((creativeIdea) => (
       selectedDestinations.map((destination, destinationIndex) => ({
@@ -2199,6 +2393,13 @@ export default function HeroNext({ guestMode = false } = {}) {
         imageUsageStrategy: formatStrategy.imageUsageStrategy,
       }
     })
+    if (!writeHeroNextRecovery(window.localStorage, user?.id, clientRequestId, 'processing')) {
+      economicRequestIdRef.current = null
+      setGenerationLoading(false)
+      setGenerationError('Não foi possível preservar esta criação para recuperação segura. Tente novamente.')
+      setPhase('images')
+      return
+    }
     setGenerationJobs(initialJobs)
     setPhase('processing')
 
@@ -2227,6 +2428,11 @@ export default function HeroNext({ guestMode = false } = {}) {
           ? 'Smart Tokens insuficientes para esta criação.'
           : economicBatch?.error || 'Não foi possível preparar a criação.')
       }
+      if (!generationViewActiveRef.current) {
+        const detachedError = new Error('Acompanhamento local encerrado.')
+        detachedError.code = 'banner_view_left'
+        throw detachedError
+      }
       const economicItemByPiece = new Map((economicBatch.items || []).map((item) => [item.piece_id, item]))
       const settledJobs = await Promise.all(jobRequests.map(async ({ destination, creativeIdea, formatIndex, totalFormats }, index) => {
         try {
@@ -2239,6 +2445,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             itemId: economicItem.id,
           })
         } catch (error) {
+          if (error?.code === 'banner_view_left') throw error
           const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
           const jobId = `idea-${creativeIdea.number}-${destination.id}`
           const failedJob = {
@@ -2272,10 +2479,16 @@ export default function HeroNext({ guestMode = false } = {}) {
       }
       setGenerationResult(completedResult)
       writeStoredHeroNextResult(completedResult)
-      economicRequestIdRef.current = null
+      setGenerationError('')
+      setRecoveryNotice('')
       setPhase('result')
+      writeHeroNextRecovery(window.localStorage, user.id, clientRequestId, 'completed')
+      economicRequestIdRef.current = null
     } catch (error) {
+      if (error?.code === 'banner_view_left') return
       setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível gerar a campanha.'))
+      setRecoveryNotice('A referência foi preservada. Use Atualizar status para consultar a mesma criação.')
+      setPhase('recovery')
     } finally {
       setGenerationLoading(false)
       await reloadProfile()
@@ -2315,6 +2528,8 @@ export default function HeroNext({ guestMode = false } = {}) {
 
   const resetCampaign = () => {
     if(guestMode){requireGuestAccount();return}
+    generationViewActiveRef.current = false
+    if (user?.id) clearHeroNextRecovery(window.localStorage, user.id)
     bannerDraft.clear()
     setPhase('intro')
     setGoal('')
@@ -2348,9 +2563,20 @@ export default function HeroNext({ guestMode = false } = {}) {
     setPieceLimitNotice('')
     setGenerationResult(null)
     setGenerationJobs([])
+    setGenerationError('')
+    setRecoveryNotice('')
+    setRecoveryLoading(false)
     setDownloadError('')
     setDownloadAllLoading(false)
     economicRequestIdRef.current = null
+  }
+
+  const leaveCurrentCreation = () => {
+    generationViewActiveRef.current = false
+    setGenerationLoading(false)
+    setGenerationError('')
+    setRecoveryNotice('A criação foi preservada. Sair desta tela não cancela uma geração que já tenha sido iniciada.')
+    setPhase('intro')
   }
 
   const campaignPackageBuild = generationResult ? buildHeroNextCampaignPackageData({
@@ -3366,6 +3592,55 @@ export default function HeroNext({ guestMode = false } = {}) {
                 {generationError}
               </p>
             )}
+            {!guestMode && (
+              <div className="mx-auto mt-6 max-w-2xl space-y-3">
+                <p className="text-xs font-semibold leading-relaxed text-slate-500">
+                  Sair desta tela não cancela uma geração que já tenha sido iniciada.
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <ProductButton type="button" variant="secondary" onClick={() => recoverGenerationBatch({ resumePolling: true })} disabled={generationLoading || recoveryLoading}>
+                    Atualizar status
+                  </ProductButton>
+                  <ProductButton type="button" variant="secondary" onClick={leaveCurrentCreation}>
+                    Sair desta criação
+                  </ProductButton>
+                  <ProductButton type="button" variant="secondary" onClick={resetCampaign}>
+                    Recomeçar
+                  </ProductButton>
+                </div>
+              </div>
+            )}
+          </ProductCard>
+        )}
+
+        {phase === 'recovery' && !guestMode && (
+          <ProductCard variant="muted" className="mt-6 p-6 text-center sm:p-10">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 text-primary-800">
+              <Wand2 className="h-7 w-7" />
+            </div>
+            <h1 className="mt-5 text-3xl font-black text-gray-950">Acompanhe sua criação</h1>
+            <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-gray-600">
+              {recoveryNotice || 'Consulte a operação existente sem iniciar uma nova geração.'}
+            </p>
+            {generationError && (
+              <p role="alert" className="mx-auto mt-5 max-w-xl rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
+                {generationError}
+              </p>
+            )}
+            <p className="mx-auto mt-5 max-w-xl text-xs font-semibold leading-relaxed text-slate-500">
+              Sair desta tela não cancela uma geração que já tenha sido iniciada. Recomeçar apenas limpa este formulário; uma nova cobrança só poderá ocorrer depois de uma nova confirmação de geração.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <ProductButton type="button" onClick={() => recoverGenerationBatch({ resumePolling: true })} disabled={recoveryLoading} loading={recoveryLoading}>
+                Atualizar status
+              </ProductButton>
+              <ProductButton type="button" variant="secondary" onClick={leaveCurrentCreation}>
+                Sair desta criação
+              </ProductButton>
+              <ProductButton type="button" variant="secondary" onClick={resetCampaign}>
+                Recomeçar
+              </ProductButton>
+            </div>
           </ProductCard>
         )}
 
