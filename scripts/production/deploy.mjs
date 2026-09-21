@@ -21,12 +21,16 @@ import {verifyArchiveTree} from './archive-proof.mjs'
 
 const root=fileURLToPath(new URL('../../',import.meta.url)),scope='smart-corretor-ai-s-projects'
 const cli=process.env.VERCEL_CLI||'vercel'
-const args=process.argv.slice(2),mode=deploymentMode(args)
-const deployVideoSocialMetadata=mode==='--video-social-metadata'
-const deployAdminApi=mode==='--admin-api'
-const deployBannerRecovery=mode==='--banner-recovery-hotfix'
-const promoteBannerRecovery=mode==='--banner-recovery-promote'
-const selectedFunctions=edgeScope(args)
+const vercelReadyTimeoutMs=10*60*1000
+const vercelReadyPollIntervalMs=5*1000
+const vercelTransientStates=new Set(['QUEUED','BUILDING','INITIALIZING','COMPLETING'])
+const vercelTerminalStates=new Set(['ERROR','CANCELED'])
+const vercelCandidateUrlPattern=/^https:\/\/smartcorretorai-[a-z0-9]+-smart-corretor-ai-s-projects\.vercel\.app\/?$/
+const bannerRecoveryReadyCandidate=Object.freeze({
+ url:'https://smartcorretorai-fremde96m-smart-corretor-ai-s-projects.vercel.app',
+ id:'dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7',
+ sha:'4865f9b57859495c01fa53925b3ab35ee70933c2',
+})
 
 function run(command,args,cwd=root,inherit=false){
  const r=spawnSync(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:process.platform==='win32'&&command.endsWith('.cmd')})
@@ -113,6 +117,66 @@ async function bannerUnauthenticatedSmoke(){
  if(response.status!==401)throw Error('DEPLOY BLOQUEADO: gerar-hero-ia aceitou recovery sem autenticação')
 }
 
+function terminalPollingError(message){
+ const error=Error(message)
+ error.vercelPollingTerminal=true
+ return error
+}
+
+export async function waitForVercelReady({inspect,timeoutMs=vercelReadyTimeoutMs,intervalMs=vercelReadyPollIntervalMs,now=()=>Date.now(),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),onWait=()=>{}}){
+ if(typeof inspect!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<0||!Number.isFinite(intervalMs)||intervalMs<=0)throw Error('Configuração inválida do polling Vercel')
+ const startedAt=now()
+ let lastInspectionError=null
+ for(;;){
+  try {
+   const info=await inspect()
+   const state=String(info?.readyState||'').toUpperCase()
+   lastInspectionError=null
+   if(state==='READY')return info
+   if(vercelTerminalStates.has(state))throw terminalPollingError('DEPLOY BLOQUEADO: deployment Vercel terminou em '+state)
+   if(!vercelTransientStates.has(state))throw terminalPollingError('DEPLOY BLOQUEADO: estado Vercel desconhecido: '+(state||'<vazio>'))
+   onWait({state,elapsedMs:now()-startedAt})
+  } catch(error) {
+   if(error?.vercelPollingTerminal)throw error
+   lastInspectionError=error
+   onWait({state:'INSPECTION_RETRY',elapsedMs:now()-startedAt})
+  }
+  const elapsedMs=now()-startedAt
+  if(elapsedMs>=timeoutMs)throw Error('DEPLOY BLOQUEADO: timeout aguardando Vercel READY'+(lastInspectionError?' após falha transitória de inspeção':''))
+  await sleep(Math.min(intervalMs,timeoutMs-elapsedMs))
+ }
+}
+
+function bannerCandidateExpectation(url,currentHeadSha){
+ return url===bannerRecoveryReadyCandidate.url?bannerRecoveryReadyCandidate:{url,id:null,sha:currentHeadSha}
+}
+
+export function validateBannerStageOneCandidate({url,info,detail,expectedCandidateSha,expectedCandidateId=null,current,fresh,backendVersion}){
+ if(!vercelCandidateUrlPattern.test(url))throw Error('DEPLOY BLOQUEADO: URL explícita do candidato Banner inválida')
+ if(info?.readyState!=='READY'||detail?.readyState!=='READY')throw Error('DEPLOY BLOQUEADO: candidato Banner não está READY')
+ if(!info?.id||info.id!==detail.id)throw Error('DEPLOY BLOQUEADO: identidade do candidato Banner divergente')
+ if(expectedCandidateId&&info.id!==expectedCandidateId)throw Error('DEPLOY BLOQUEADO: deployment ID do candidato Banner divergente')
+ if(detail.meta?.githubCommitSha!==expectedCandidateSha)throw Error('DEPLOY BLOQUEADO: SHA do candidato Banner divergente')
+ if(current.sha!==BANNER_RECOVERY_RELEASE.baseSha||current.id!==BANNER_RECOVERY_RELEASE.frontendDeploymentId)throw Error('DEPLOY BLOQUEADO: baseline oficial do hotfix Banner mudou')
+ if(fresh.sha!==current.sha||fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build')
+ if(info.id===fresh.id)throw Error('DEPLOY BLOQUEADO: candidato Banner já está no alias oficial')
+ if(backendVersion!==BANNER_RECOVERY_RELEASE.edgeVersion)throw Error('DEPLOY BLOQUEADO: gerar-hero-ia não permanece na versão de baseline')
+ return true
+}
+
+export async function acquireBannerStageOneCandidate({explicitUrl='',createDeployment,inspectDeployment,inspectDeploymentDetail,readOfficial,readBackendVersion,currentHeadSha,current,polling={}}){
+ const reuseUrl=String(explicitUrl||'').trim()
+ const reused=Boolean(reuseUrl)
+ const url=reused?reuseUrl:await createDeployment()
+ const expectation=bannerCandidateExpectation(url,currentHeadSha)
+ const info=await waitForVercelReady({inspect:()=>inspectDeployment(url),...polling})
+ const detail=await inspectDeploymentDetail(info.id)
+ const fresh=await readOfficial()
+ const backendVersion=await readBackendVersion()
+ validateBannerStageOneCandidate({url,info,detail,expectedCandidateSha:expectation.sha,expectedCandidateId:expectation.id,current,fresh,backendVersion})
+ return {url,info,detail,fresh,reused,candidateSha:expectation.sha}
+}
+
 async function promoteBanner(current,sha){
  validateBannerLocal(current,sha)
  const backendVersion=bannerVersion()
@@ -120,15 +184,24 @@ async function promoteBanner(current,sha){
  const info=JSON.parse(vc(['inspect',url,'--json']))
  const detail=JSON.parse(vc(['api','/v13/deployments/'+info.id,'--raw']))
  const fresh=await official()
- validateBannerPromotionCandidate({url,info,detail,sha,current,fresh,backendVersion})
+ const expectation=bannerCandidateExpectation(url,sha)
+ if(expectation.id&&info.id!==expectation.id)throw Error('DEPLOY BLOQUEADO: deployment ID do candidato Banner divergente')
+ validateBannerPromotionCandidate({url,info,detail,sha:expectation.sha,current,fresh,backendVersion})
  await candidateSmoke(url)
  vc(['promote',url,'--yes'])
  const release=await fetch('https://www.smartcorretorai.com/production-release.json',{cache:'no-store'}).then(r=>r.json())
- if(release.sha!==sha)throw Error('Smoke pós-deploy: SHA oficial divergente')
+ if(release.sha!==expectation.sha)throw Error('Smoke pós-deploy: SHA oficial divergente')
  for(const route of ['/','/criar-anuncio','/dashboard','/admin']){const r=await fetch('https://www.smartcorretorai.com'+route);if(!r.ok)throw Error('Smoke pós-deploy falhou: '+route)}
- console.log(JSON.stringify({sha,deploymentId:info.id,backendVersion,ready:info.readyState,alias:'www.smartcorretorai.com',postSmoke:'PASS'}))
+ console.log(JSON.stringify({sha:expectation.sha,gateSha:sha,deploymentId:info.id,backendVersion,ready:info.readyState,alias:'www.smartcorretorai.com',postSmoke:'PASS'}))
 }
 
+export async function main(args=process.argv.slice(2)){
+const mode=deploymentMode(args)
+const deployVideoSocialMetadata=mode==='--video-social-metadata'
+const deployAdminApi=mode==='--admin-api'
+const deployBannerRecovery=mode==='--banner-recovery-hotfix'
+const promoteBannerRecovery=mode==='--banner-recovery-promote'
+const selectedFunctions=edgeScope(args)
 const current=await official(),sha=git('rev-parse','HEAD')
 
 if(promoteBannerRecovery){
@@ -163,13 +236,35 @@ function walk(dir){for(const e of readdirSync(dir,{withFileTypes:true})){const p
 walk(stage);verifyProof(proof,current.sha,stage);writeFileSync(path.join(stage,'.production-proof.json'),JSON.stringify(proof))
 mkdirSync(path.join(stage,'.vercel'),{recursive:true});copyFileSync(path.join(root,'.vercel/project.json'),path.join(stage,'.vercel/project.json'))
 console.log('Guard PASS; candidato '+sha+' contém Production '+current.sha)
-const output=vc(['deploy','--prod','--skip-domain','--yes','--meta','githubCommitSha='+sha],stage)
-const match=output.match(/https:\/\/smartcorretorai-[a-z0-9]+-smart-corretor-ai-s-projects\.vercel\.app/g)
-if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
-const url=match.at(-1),info=JSON.parse(vc(['inspect',url,'--json']))
-if(info.readyState!=='READY')throw Error('Deployment não está READY')
-const fresh=await official()
-if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
+let url,info,fresh,candidateSha=sha
+if(deployBannerRecovery){
+ const candidate=await acquireBannerStageOneCandidate({
+  explicitUrl:process.env.BANNER_RECOVERY_CANDIDATE_URL,
+  createDeployment:()=>{
+   const output=vc(['deploy','--prod','--skip-domain','--yes','--meta','githubCommitSha='+sha],stage)
+   const match=output.match(/https:\/\/smartcorretorai-[a-z0-9]+-smart-corretor-ai-s-projects\.vercel\.app/g)
+   if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
+   return match.at(-1)
+  },
+  inspectDeployment:candidateUrl=>JSON.parse(vc(['inspect',candidateUrl,'--json'])),
+  inspectDeploymentDetail:deploymentId=>JSON.parse(vc(['api','/v13/deployments/'+deploymentId,'--raw'])),
+  readOfficial:official,
+  readBackendVersion:()=>bannerVersion(BANNER_RECOVERY_RELEASE.edgeVersion),
+  currentHeadSha:sha,current,
+  polling:{onWait:({state})=>console.log('Aguardando Vercel READY: '+state)},
+ })
+ ;({url,info,fresh,candidateSha}=candidate)
+ console.log(candidate.reused?'Candidato Vercel explícito validado e reutilizado; nenhum novo deployment foi criado.':'Candidato Vercel criado e confirmado READY.')
+} else {
+ const output=vc(['deploy','--prod','--skip-domain','--yes','--meta','githubCommitSha='+sha],stage)
+ const match=output.match(/https:\/\/smartcorretorai-[a-z0-9]+-smart-corretor-ai-s-projects\.vercel\.app/g)
+ if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
+ url=match.at(-1)
+ info=JSON.parse(vc(['inspect',url,'--json']))
+ if(info.readyState!=='READY')throw Error('Deployment não está READY')
+ fresh=await official()
+ if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
+}
 
 if(deployVideoSocialMetadata||deployAdminApi||deployBannerRecovery){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
@@ -193,7 +288,7 @@ if(deployVideoSocialMetadata||deployAdminApi||deployBannerRecovery){
   const version=bannerVersion()
   if(version<=previousBannerVersion)throw Error('DEPLOY BLOQUEADO: versão de gerar-hero-ia não avançou')
   await bannerUnauthenticatedSmoke()
-  console.log(JSON.stringify({mode:'banner-recovery-hotfix',sha,deploymentId:info.id,candidateUrl:url,ready:info.readyState,baselineDeploymentId:current.id,baselineSha:current.sha,previousBannerVersion,newBannerVersion:version,verifyJwt:false,promotion:'PENDING_EXPLICIT_APPROVAL'}))
+  console.log(JSON.stringify({mode:'banner-recovery-hotfix',sha:candidateSha,gateSha:sha,deploymentId:info.id,candidateUrl:url,ready:info.readyState,baselineDeploymentId:current.id,baselineSha:current.sha,previousBannerVersion,newBannerVersion:version,verifyJwt:false,promotion:'PENDING_EXPLICIT_APPROVAL'}))
  }
  const afterEdges=await official()
  if(afterEdges.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a publicação das funções')
@@ -210,3 +305,6 @@ const release=await fetch('https://www.smartcorretorai.com/production-release.js
 if(release.sha!==sha)throw Error('Smoke pós-deploy: SHA oficial divergente')
 for(const route of ['/','/criar-anuncio','/dashboard','/admin']){const r=await fetch('https://www.smartcorretorai.com'+route);if(!r.ok)throw Error('Smoke pós-deploy falhou: '+route)}
 console.log(JSON.stringify({sha,deploymentId:info.id,ready:info.readyState,alias:'www.smartcorretorai.com',postSmoke:'PASS'}))
+}
+
+if(path.resolve(process.argv[1]||'')===fileURLToPath(import.meta.url))await main()

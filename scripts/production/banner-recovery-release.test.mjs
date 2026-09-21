@@ -16,10 +16,168 @@ import {
  validateBannerWorktreeStatus,
  validateKnownBannerDesignFailure,
 } from './edge-scope.mjs'
+import {
+ acquireBannerStageOneCandidate,
+ validateBannerStageOneCandidate,
+ waitForVercelReady,
+} from './deploy.mjs'
 
 const allowed=[...BANNER_RECOVERY_RELEASE.functionalPaths,...BANNER_RECOVERY_RELEASE.gatePaths]
 const deploySource=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
 const root=fileURLToPath(new URL('../../',import.meta.url))
+const candidateUrl='https://smartcorretorai-fremde96m-smart-corretor-ai-s-projects.vercel.app'
+const candidateId='dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7'
+const candidateSha='4865f9b57859495c01fa53925b3ab35ee70933c2'
+const baseline={sha:BANNER_RECOVERY_RELEASE.baseSha,id:BANNER_RECOVERY_RELEASE.frontendDeploymentId}
+
+function fakePolling(states,{timeoutMs=100,intervalMs=10}={}){
+ let time=0,index=0
+ const waits=[]
+ return {
+  inspect:async()=>({id:candidateId,readyState:states[Math.min(index++,states.length-1)]}),
+  timeoutMs,intervalMs,
+  now:()=>time,
+  sleep:async ms=>{waits.push(ms);time+=ms},
+  waits,
+ }
+}
+
+function resumeFixture(overrides={}){
+ let deployments=0
+ const values={
+  explicitUrl:candidateUrl,
+  createDeployment:async()=>{deployments++;return candidateUrl},
+  inspectDeployment:async()=>({id:candidateId,readyState:'READY'}),
+  inspectDeploymentDetail:async()=>({id:candidateId,readyState:'READY',meta:{githubCommitSha:candidateSha}}),
+  readOfficial:async()=>({...baseline}),
+  readBackendVersion:async()=>BANNER_RECOVERY_RELEASE.edgeVersion,
+  currentHeadSha:'f'.repeat(40),current:{...baseline},
+  ...overrides,
+ }
+ return {values,deploymentCount:()=>deployments}
+}
+
+test('polling aceita READY imediato sem espera',async()=>{
+ const polling=fakePolling(['READY'])
+ const info=await waitForVercelReady(polling)
+ assert.equal(info.readyState,'READY')
+ assert.deepEqual(polling.waits,[])
+})
+
+test('polling percorre QUEUED -> BUILDING -> COMPLETING -> READY',async()=>{
+ const polling=fakePolling(['QUEUED','BUILDING','COMPLETING','READY'])
+ const info=await waitForVercelReady(polling)
+ assert.equal(info.readyState,'READY')
+ assert.deepEqual(polling.waits,[10,10,10])
+})
+
+test('incidente real COMPLETING -> READY aguarda e só então prossegue',async()=>{
+ const polling=fakePolling(['COMPLETING','READY'])
+ const info=await waitForVercelReady(polling)
+ assert.equal(info.readyState,'READY')
+ assert.deepEqual(polling.waits,[10])
+})
+
+test('polling reconhece INITIALIZING como estado transitório',async()=>{
+ const polling=fakePolling(['INITIALIZING','READY'])
+ const info=await waitForVercelReady(polling)
+ assert.equal(info.readyState,'READY')
+ assert.deepEqual(polling.waits,[10])
+})
+
+for(const state of ['ERROR','CANCELED'])test(`polling aborta imediatamente em ${state}`,async()=>{
+ const polling=fakePolling([state])
+ await assert.rejects(waitForVercelReady(polling),new RegExp(state))
+ assert.deepEqual(polling.waits,[])
+})
+
+test('polling aborta por timeout sem tratar estado transitório como sucesso',async()=>{
+ const polling=fakePolling(['COMPLETING'],{timeoutMs:20,intervalMs:10})
+ await assert.rejects(waitForVercelReady(polling),/timeout aguardando Vercel READY/)
+ assert.deepEqual(polling.waits,[10,10])
+})
+
+test('polling trata estado desconhecido como falha fechada',async()=>{
+ const polling=fakePolling(['MYSTERY'])
+ await assert.rejects(waitForVercelReady(polling),/estado Vercel desconhecido: MYSTERY/)
+ assert.deepEqual(polling.waits,[])
+})
+
+test('falha transitória de inspeção pode ser seguida por READY',async()=>{
+ let calls=0,time=0
+ const info=await waitForVercelReady({
+  inspect:async()=>{if(calls++===0)throw Error('Completing');return {id:candidateId,readyState:'READY'}},
+  timeoutMs:20,intervalMs:10,now:()=>time,sleep:async ms=>{time+=ms},
+ })
+ assert.equal(info.readyState,'READY')
+ assert.equal(calls,2)
+})
+
+test('polling não contém promoção nem publicação de backend e precede o bloco Edge',()=>{
+ const helperSource=waitForVercelReady.toString()+acquireBannerStageOneCandidate.toString()
+ assert.doesNotMatch(helperSource,/\bpromote\b|functions['"],['"]deploy/)
+ assert.match(deploySource,/const candidate=await acquireBannerStageOneCandidate\([\s\S]*?if\(deployVideoSocialMetadata\|\|deployAdminApi\|\|deployBannerRecovery\)/)
+})
+
+test('retomada não consulta nem publica backend antes de READY',async()=>{
+ let time=0,inspections=0,backendReads=0
+ const fixture=resumeFixture({
+  inspectDeployment:async()=>({id:candidateId,readyState:inspections++===0?'COMPLETING':'READY'}),
+  readBackendVersion:async()=>{backendReads++;return BANNER_RECOVERY_RELEASE.edgeVersion},
+  polling:{timeoutMs:20,intervalMs:10,now:()=>time,sleep:async ms=>{assert.equal(backendReads,0);time+=ms}},
+ })
+ await acquireBannerStageOneCandidate(fixture.values)
+ assert.equal(backendReads,1)
+})
+
+test('retomada aceita candidato READY do SHA exato sem criar segundo deployment',async()=>{
+ const fixture=resumeFixture()
+ const result=await acquireBannerStageOneCandidate(fixture.values)
+ assert.equal(result.url,candidateUrl)
+ assert.equal(result.reused,true)
+ assert.equal(fixture.deploymentCount(),0)
+})
+
+test('retomada rejeita SHA errado',async()=>{
+ const fixture=resumeFixture({inspectDeploymentDetail:async()=>({id:candidateId,readyState:'READY',meta:{githubCommitSha:'0'.repeat(40)}})})
+ await assert.rejects(acquireBannerStageOneCandidate(fixture.values),/SHA do candidato Banner divergente/)
+})
+
+test('retomada do candidato conhecido rejeita deployment ID diferente',async()=>{
+ const fixture=resumeFixture({
+  inspectDeployment:async()=>({id:'dpl_other',readyState:'READY'}),
+  inspectDeploymentDetail:async()=>({id:'dpl_other',readyState:'READY',meta:{githubCommitSha:candidateSha}}),
+ })
+ await assert.rejects(acquireBannerStageOneCandidate(fixture.values),/deployment ID do candidato Banner divergente/)
+})
+
+test('retomada rejeita candidato que não chega a READY',async()=>{
+ let time=0
+ const fixture=resumeFixture({
+  inspectDeployment:async()=>({id:candidateId,readyState:'COMPLETING'}),
+  polling:{timeoutMs:20,intervalMs:10,now:()=>time,sleep:async ms=>{time+=ms}},
+ })
+ await assert.rejects(acquireBannerStageOneCandidate(fixture.values),/timeout aguardando Vercel READY/)
+})
+
+test('retomada rejeita alias oficial divergente',async()=>{
+ const fixture=resumeFixture({readOfficial:async()=>({...baseline,id:'dpl_changed'})})
+ await assert.rejects(acquireBannerStageOneCandidate(fixture.values),/Production mudou/)
+})
+
+test('retomada rejeita backend diferente da v74',async()=>{
+ const fixture=resumeFixture({readBackendVersion:async()=>BANNER_RECOVERY_RELEASE.edgeVersion+1})
+ await assert.rejects(acquireBannerStageOneCandidate(fixture.values),/não permanece na versão de baseline/)
+})
+
+test('retomada rejeita candidato já promovido',()=>{
+ assert.throws(()=>validateBannerStageOneCandidate({
+  url:candidateUrl,
+  info:{id:baseline.id,readyState:'READY'},
+ detail:{id:baseline.id,readyState:'READY',meta:{githubCommitSha:candidateSha}},
+  expectedCandidateSha:candidateSha,current:{...baseline},fresh:{...baseline},backendVersion:BANNER_RECOVERY_RELEASE.edgeVersion,
+ }),/já está no alias oficial/)
+})
 
 test('modo Banner é exclusivo e seleciona somente gerar-hero-ia',()=>{
  assert.equal(deploymentMode(['--banner-recovery-hotfix']),'--banner-recovery-hotfix')
