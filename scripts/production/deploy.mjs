@@ -1,7 +1,8 @@
 import {spawnSync} from 'node:child_process'
-import {readFileSync,writeFileSync,mkdirSync,readdirSync,copyFileSync} from 'node:fs'
+import {existsSync,lstatSync,realpathSync,readFileSync,writeFileSync,mkdirSync,readdirSync,copyFileSync} from 'node:fs'
+import {createRequire} from 'node:module'
 import path from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {fileURLToPath,pathToFileURL} from 'node:url'
 import {hash,verifyProof,ancestryError} from './proof.mjs'
 import {smoke} from './smoke.mjs'
 import {
@@ -31,6 +32,24 @@ const bannerRecoveryReadyCandidate=Object.freeze({
  id:'dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7',
  sha:'4865f9b57859495c01fa53925b3ab35ee70933c2',
 })
+export const BANNER_RUNTIME_ENTRY='supabase/functions/gerar-hero-ia/index.ts'
+export const BANNER_RUNTIME_CLOSURE=Object.freeze([
+ 'core/copy-engine/index.ts',
+ 'server/guest-banner/promotion.mjs',
+ 'server/guest-banner/result.mjs',
+ 'supabase/functions/_shared/banner-publication-options.ts',
+ 'supabase/functions/_shared/economic-catalog.ts',
+ 'supabase/functions/_shared/google-ads.ts',
+ 'supabase/functions/_shared/official-hashtags.ts',
+ 'supabase/functions/_shared/supabase-admin-credential.ts',
+ 'supabase/functions/gerar-hero-ia/economy.ts',
+ 'supabase/functions/gerar-hero-ia/guest-input.ts',
+ 'supabase/functions/gerar-hero-ia/guest-runtime.ts',
+ BANNER_RUNTIME_ENTRY,
+].sort())
+const bannerConfigSha256='8F6A11E446D533666AC035601CAFD326C0F9A29AA5E18A7ABF14050DC41B0BBB'
+const require=createRequire(import.meta.url)
+const babelParse=require(path.join(root,'frontend/node_modules/@babel/parser')).parse
 
 function run(command,args,cwd=root,inherit=false){
  const r=spawnSync(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:process.platform==='win32'&&command.endsWith('.cmd')})
@@ -39,6 +58,128 @@ function run(command,args,cwd=root,inherit=false){
 }
 const git=(...args)=>run('git',args)
 const vc=(args,cwd=root)=>run(cli,[...args,'--scope',scope],cwd)
+
+const posix=value=>value.replaceAll('\\','/')
+const inside=(parent,target)=>{const relative=path.relative(parent,target);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))}
+
+function assertAllowedBannerRuntimePath(relative){
+ const value=posix(relative),lower=value.toLowerCase(),base=path.posix.basename(lower)
+ if(value!==relative||path.posix.isAbsolute(value)||value.startsWith('../')||value.includes('/../'))throw Error('DEPLOY BLOQUEADO: caminho runtime inválido: '+relative)
+ if(lower.startsWith('frontend/')||lower.startsWith('supabase/migrations/')||/(^|\/)(workers?|jobs?|cron)(\/|$)/.test(lower))throw Error('DEPLOY BLOQUEADO: componente proibido no bundle Banner: '+relative)
+ if(base==='.env'||base.startsWith('.env.')||/\.(?:pem|key|p12)$/.test(base)||/(^|\/)secrets?(\/|$)/.test(lower))throw Error('DEPLOY BLOQUEADO: secret/env proibido no bundle Banner: '+relative)
+ if(/(^|\/)(?:tiktok-connection|tiktok-callback|_shared\/tiktok|tiktokintegration|config\/tiktok|tiktok-oauth-connection)(\/|\.|$)/.test(lower))throw Error('DEPLOY BLOQUEADO: TikTok proibido no bundle Banner: '+relative)
+ if(/(^|\/)(?:instagram-connection|instagram-callback|instagram-publish|_shared\/instagram|meta-oauth|social-publish-[^/]*|social-media-lease)(\/|\.|$)/.test(lower))throw Error('DEPLOY BLOQUEADO: Meta/social proibido no bundle Banner: '+relative)
+ const edge=lower.match(/^supabase\/functions\/([^/]+)\//)?.[1]
+ if(edge&&edge!=='gerar-hero-ia'&&edge!=='_shared')throw Error('DEPLOY BLOQUEADO: outra Edge Function no bundle Banner: '+relative)
+ return value
+}
+
+function assertExactCaseAndSafeRealpath(repoRoot,absolute){
+ const rootAbsolute=path.resolve(repoRoot),rootReal=realpathSync(rootAbsolute)
+ if(!inside(rootAbsolute,absolute))throw Error('DEPLOY BLOQUEADO: path traversal fora do repositório')
+ const segments=path.relative(rootAbsolute,absolute).split(path.sep).filter(Boolean)
+ let current=rootAbsolute
+ for(const segment of segments){
+  const names=readdirSync(current)
+  if(!names.includes(segment)){
+   if(names.some(name=>name.toLowerCase()===segment.toLowerCase()))throw Error('DEPLOY BLOQUEADO: case mismatch em import local: '+segment)
+   throw Error('DEPLOY BLOQUEADO: import local inexistente: '+segment)
+  }
+  current=path.join(current,segment)
+  const metadata=lstatSync(current)
+  if(metadata.isSymbolicLink()&&!inside(rootReal,realpathSync(current)))throw Error('DEPLOY BLOQUEADO: symlink externo no bundle Banner')
+ }
+ const resolved=realpathSync(absolute)
+ if(!inside(rootReal,resolved))throw Error('DEPLOY BLOQUEADO: caminho real fora do repositório')
+ return resolved
+}
+
+function runtimeSpecifiers(source,file){
+ let ast
+ try {ast=babelParse(source,{sourceType:'module',plugins:['typescript','importAttributes']})}
+ catch {throw Error('DEPLOY BLOQUEADO: fonte runtime inválida: '+file)}
+ const specifiers=[]
+ const add=node=>{const value=node?.value;if(typeof value==='string')specifiers.push(value)}
+ const walk=node=>{
+  if(!node||typeof node!=='object')return
+  if(node.type==='ImportDeclaration'){
+   const runtime=node.importKind!=='type'&&(node.specifiers.length===0||node.specifiers.some(specifier=>specifier.type!=='ImportSpecifier'||specifier.importKind!=='type'))
+   if(runtime)add(node.source)
+  } else if((node.type==='ExportNamedDeclaration'||node.type==='ExportAllDeclaration')&&node.source&&node.exportKind!=='type')add(node.source)
+  else if(node.type==='ImportExpression'){
+   if(node.source?.type!=='StringLiteral')throw Error('DEPLOY BLOQUEADO: import dinâmico não literal em '+file)
+   add(node.source)
+  } else if(node.type==='CallExpression'&&node.callee?.type==='Import'){
+   if(node.arguments?.length!==1||node.arguments[0]?.type!=='StringLiteral')throw Error('DEPLOY BLOQUEADO: import dinâmico não literal em '+file)
+   add(node.arguments[0])
+  }
+  if(node.type==='CallExpression'){
+   const callee=node.callee
+   const member=callee?.type==='MemberExpression'&&!callee.computed&&callee.object?.type==='Identifier'&&callee.property?.type==='Identifier'?callee.object.name+'.'+callee.property.name:''
+   const direct=callee?.type==='Identifier'?callee.name:''
+   if(['Deno.readFile','Deno.readTextFile','Deno.open','Bun.file'].includes(member)||['readFile','readFileSync','readTextFile'].includes(direct))throw Error('DEPLOY BLOQUEADO: leitura runtime de asset local não declarada em '+file)
+  }
+  if(node.type==='NewExpression'&&node.callee?.type==='Identifier'&&node.callee.name==='URL'&&node.arguments?.[0]?.type==='StringLiteral'&&node.arguments[0].value.startsWith('.'))throw Error('DEPLOY BLOQUEADO: asset local via URL não suportado em '+file)
+  for(const [key,value] of Object.entries(node)){
+   if(['loc','start','end'].includes(key))continue
+   if(Array.isArray(value))for(const child of value)walk(child)
+   else if(value&&typeof value==='object')walk(value)
+  }
+ }
+ walk(ast.program)
+ return specifiers
+}
+
+function resolveLocalSpecifier(repoRoot,fromFile,specifier){
+ if(path.isAbsolute(specifier)||specifier.startsWith('file:'))throw Error('DEPLOY BLOQUEADO: import absoluto inesperado em '+fromFile)
+ const base=path.resolve(repoRoot,path.dirname(fromFile),specifier)
+ if(!inside(path.resolve(repoRoot),base))throw Error('DEPLOY BLOQUEADO: path traversal em import de '+fromFile)
+ const candidates=path.extname(base)?[base]:[base,...['.ts','.tsx','.js','.jsx','.mjs','.json'].map(extension=>base+extension),...['.ts','.tsx','.js','.jsx','.mjs','.json'].map(extension=>path.join(base,'index'+extension))]
+ const absolute=candidates.find(candidate=>existsSync(candidate))
+ if(!absolute)throw Error('DEPLOY BLOQUEADO: import local não resolvido em '+fromFile+': '+specifier)
+ assertExactCaseAndSafeRealpath(repoRoot,absolute)
+ return assertAllowedBannerRuntimePath(posix(path.relative(repoRoot,absolute)))
+}
+
+export function resolveBannerRuntimeClosure({repoRoot,entry=BANNER_RUNTIME_ENTRY,trackedFiles}){
+ const tracked=trackedFiles instanceof Set?trackedFiles:new Set(trackedFiles||[])
+ const pending=[assertAllowedBannerRuntimePath(posix(entry))],visited=new Set()
+ while(pending.length){
+  const file=pending.pop()
+  if(visited.has(file))continue
+  const absolute=path.resolve(repoRoot,file)
+  assertExactCaseAndSafeRealpath(repoRoot,absolute)
+  if(!tracked.has(file))throw Error('DEPLOY BLOQUEADO: arquivo runtime não rastreado no commit: '+file)
+  visited.add(file)
+  for(const specifier of runtimeSpecifiers(readFileSync(absolute,'utf8'),file)){
+   if(specifier.startsWith('http:')||specifier.startsWith('https:')||specifier.startsWith('npm:')||specifier.startsWith('jsr:')||specifier.startsWith('node:'))continue
+   if(!specifier.startsWith('.')&&!path.isAbsolute(specifier)&&!specifier.startsWith('file:'))continue
+   pending.push(resolveLocalSpecifier(repoRoot,file,specifier))
+  }
+ }
+ return [...visited].sort()
+}
+
+export function validateBannerRuntimeClosure(closure,expected=BANNER_RUNTIME_CLOSURE){
+ const actual=[...closure].sort(),wanted=[...expected].sort()
+ if(JSON.stringify(actual)!==JSON.stringify(wanted))throw Error('DEPLOY BLOQUEADO: closure runtime Banner diverge do manifesto aprovado')
+ return true
+}
+
+export async function validateBannerRuntimeBundle({repoRoot,entry=BANNER_RUNTIME_ENTRY,closure,buildImpl}){
+ const build=buildImpl||(await import(pathToFileURL(path.join(root,'frontend/node_modules/esbuild/lib/main.js')).href)).build
+ let result
+ try {result=await build({absWorkingDir:repoRoot,entryPoints:[entry],bundle:true,write:false,platform:'neutral',format:'esm',external:['https://*','http://*','npm:*','jsr:*'],logLevel:'silent',metafile:true})}
+ catch(error){throw Error('DEPLOY BLOQUEADO: bundle local gerar-hero-ia falhou: '+(error?.errors?.map(item=>item.text).join('; ')||error?.message||'erro desconhecido'))}
+ const inputs=Object.keys(result.metafile?.inputs||{}).map(posix).filter(value=>!value.startsWith('http:')&&!value.startsWith('https:')).sort()
+ if(JSON.stringify(inputs)!==JSON.stringify([...closure].sort()))throw Error('DEPLOY BLOQUEADO: closure e metafile esbuild divergentes')
+ return inputs
+}
+
+export function validateBannerConfigFile(file){
+ if(hash(readFileSync(file)).toUpperCase()!==bannerConfigSha256)throw Error('DEPLOY BLOQUEADO: supabase/config.toml diverge do hash aprovado')
+ return true
+}
 
 async function official(){
  const info=JSON.parse(vc(['inspect','www.smartcorretorai.com','--json']))
@@ -212,7 +353,16 @@ if(promoteBannerRecovery){
 const previousAdminVersion=deployAdminApi?adminVersion():null
 const previousBannerVersion=deployBannerRecovery?bannerVersion(BANNER_RECOVERY_RELEASE.edgeVersion):null
 if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
-if(deployBannerRecovery)validateBannerLocal(current,sha)
+let bannerRuntimeClosure=null
+if(deployBannerRecovery){
+ validateBannerLocal(current,sha)
+ const trackedFiles=new Set(git('ls-tree','-r','--name-only',sha).split('\n').filter(Boolean).map(posix))
+ bannerRuntimeClosure=resolveBannerRuntimeClosure({repoRoot:root,trackedFiles})
+ validateBannerRuntimeClosure(bannerRuntimeClosure)
+ if(git('diff','--name-only',sha,'--',...bannerRuntimeClosure))throw Error('DEPLOY BLOQUEADO: dependência runtime diverge do blob aprovado')
+ validateBannerConfigFile(path.join(root,'supabase/config.toml'))
+ await validateBannerRuntimeBundle({repoRoot:root,closure:bannerRuntimeClosure})
+}
 else {
  if(!isAncestor(current.sha,sha))throw Error(ancestryError)
  if(git('diff','HEAD','--name-only'))throw Error('DEPLOY BLOQUEADO: crie checkpoint antes de publicar')
@@ -268,10 +418,17 @@ if(deployBannerRecovery){
 
 if(deployVideoSocialMetadata||deployAdminApi||deployBannerRecovery){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
- git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,'supabase/functions','supabase/config.toml')
+ const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:['supabase/functions','supabase/config.toml']
+ git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
  else run('unzip',['-o',edgeZip,'-d',edgeStage])
- console.log(JSON.stringify({edgeArchiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--','supabase/functions','supabase/config.toml'),edgeStage)}))
+ console.log(JSON.stringify({edgeArchiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--',...edgeArchivePaths),edgeStage)}))
+ if(deployBannerRecovery){
+  const stagedClosure=resolveBannerRuntimeClosure({repoRoot:edgeStage,trackedFiles:new Set(bannerRuntimeClosure)})
+  validateBannerRuntimeClosure(stagedClosure,bannerRuntimeClosure)
+  validateBannerConfigFile(path.join(edgeStage,'supabase/config.toml'))
+  await validateBannerRuntimeBundle({repoRoot:edgeStage,closure:stagedClosure})
+ }
  if(deployAdminApi&&adminVersion()!==previousAdminVersion)throw Error('DEPLOY BLOQUEADO: admin-api mudou durante o build')
  if(deployBannerRecovery&&bannerVersion()!==previousBannerVersion)throw Error('DEPLOY BLOQUEADO: gerar-hero-ia mudou durante o build')
  const deployArgs=['functions','deploy',...selectedFunctions,'--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--use-api','--workdir',edgeStage]

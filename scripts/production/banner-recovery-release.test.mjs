@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {spawnSync} from 'node:child_process'
-import {readFileSync} from 'node:fs'
+import {copyFileSync,mkdirSync,mkdtempSync,readFileSync,rmSync,symlinkSync,writeFileSync} from 'node:fs'
+import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {
@@ -17,7 +18,13 @@ import {
  validateKnownBannerDesignFailure,
 } from './edge-scope.mjs'
 import {
+ BANNER_RUNTIME_CLOSURE,
+ BANNER_RUNTIME_ENTRY,
  acquireBannerStageOneCandidate,
+ resolveBannerRuntimeClosure,
+ validateBannerConfigFile,
+ validateBannerRuntimeBundle,
+ validateBannerRuntimeClosure,
  validateBannerStageOneCandidate,
  waitForVercelReady,
 } from './deploy.mjs'
@@ -29,6 +36,120 @@ const candidateUrl='https://smartcorretorai-fremde96m-smart-corretor-ai-s-projec
 const candidateId='dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7'
 const candidateSha='4865f9b57859495c01fa53925b3ab35ee70933c2'
 const baseline={sha:BANNER_RECOVERY_RELEASE.baseSha,id:BANNER_RECOVERY_RELEASE.frontendDeploymentId}
+
+function tempRepository(t,files){
+ const directory=mkdtempSync(path.join(tmpdir(),'sca-banner-closure-'))
+ for(const [relative,content] of Object.entries(files)){
+  const target=path.join(directory,relative)
+  mkdirSync(path.dirname(target),{recursive:true})
+  writeFileSync(target,content)
+ }
+ t.after(()=>rmSync(directory,{recursive:true,force:true}))
+ return {directory,tracked:new Set(Object.keys(files).map(value=>value.replaceAll('\\','/')))}
+}
+
+function runtimeStage(t,omit=[]){
+ const directory=mkdtempSync(path.join(tmpdir(),'sca-banner-stage-'))
+ for(const relative of BANNER_RUNTIME_CLOSURE){
+  if(omit.includes(relative))continue
+  const target=path.join(directory,relative)
+  mkdirSync(path.dirname(target),{recursive:true})
+  copyFileSync(path.join(root,relative),target)
+ }
+ const config=path.join(directory,'supabase/config.toml')
+ mkdirSync(path.dirname(config),{recursive:true})
+ copyFileSync(path.join(root,'supabase/config.toml'),config)
+ t.after(()=>rmSync(directory,{recursive:true,force:true}))
+ return directory
+}
+
+test('closure runtime atual contém exatamente os 12 arquivos aprovados',async()=>{
+ const closure=resolveBannerRuntimeClosure({repoRoot:root,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)})
+ assert.equal(closure.length,12)
+ assert.deepEqual(closure,BANNER_RUNTIME_CLOSURE)
+ assert.equal(validateBannerRuntimeClosure(closure),true)
+ assert.ok(closure.includes('core/copy-engine/index.ts'))
+ assert.ok(closure.includes('server/guest-banner/promotion.mjs'))
+ assert.ok(closure.includes('server/guest-banner/result.mjs'))
+ assert.ok(closure.includes('supabase/functions/_shared/google-ads.ts'))
+ assert.deepEqual(await validateBannerRuntimeBundle({repoRoot:root,closure}),closure)
+})
+
+test('import local inexistente é bloqueado',t=>{
+ const repo=tempRepository(t,{'index.ts':"import './missing.ts'\n"})
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'index.ts',trackedFiles:repo.tracked}),/import local não resolvido|inexistente/)
+})
+
+test('import dinâmico local não literal é bloqueado',t=>{
+ const repo=tempRepository(t,{'index.ts':"const target='./runtime.ts'; import(target)\n",'runtime.ts':'export const ok=true\n'})
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'index.ts',trackedFiles:repo.tracked}),/import dinâmico não literal/)
+})
+
+test('arquivo runtime não rastreado é bloqueado',t=>{
+ const repo=tempRepository(t,{'index.ts':"import './runtime.ts'\n",'runtime.ts':'export const ok=true\n'})
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'index.ts',trackedFiles:new Set(['index.ts'])}),/não rastreado/)
+})
+
+test('path traversal para fora do repositório é bloqueado',t=>{
+ const repo=tempRepository(t,{'nested/index.ts':"import '../../outside.ts'\n"})
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'nested/index.ts',trackedFiles:repo.tracked}),/path traversal/)
+})
+
+test('symlink que resolve fora do repositório é bloqueado',t=>{
+ const repo=tempRepository(t,{'index.ts':"import './external/runtime.ts'\n"})
+ const outside=mkdtempSync(path.join(tmpdir(),'sca-banner-outside-'))
+ writeFileSync(path.join(outside,'runtime.ts'),'export const outside=true\n')
+ symlinkSync(outside,path.join(repo.directory,'external'),'junction')
+ t.after(()=>rmSync(outside,{recursive:true,force:true}))
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'index.ts',trackedFiles:new Set(['index.ts','external/runtime.ts'])}),/symlink externo|fora do repositório/)
+})
+
+for(const [label,relative] of [
+ ['TikTok','supabase/functions/_shared/tiktok/runtime.ts'],
+ ['Meta','supabase/functions/_shared/instagram/runtime.ts'],
+ ['migration','supabase/migrations/20990101000000_bad.sql'],
+ ['outra Edge Function','supabase/functions/other-function/index.ts'],
+ ['frontend','frontend/src/runtime.ts'],
+])test(`${label} é proibido na closure runtime`,t=>{
+ const repo=tempRepository(t,{'index.ts':`import './${relative}'\n`,[relative]:'export const forbidden=true\n'})
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'index.ts',trackedFiles:repo.tracked}),/proibido|outra Edge Function/)
+})
+
+test('leitura runtime de asset local não declarada é bloqueada',t=>{
+ const repo=tempRepository(t,{'index.ts':"const content=Deno.readTextFile('./asset.txt')\n",'asset.txt':'x'})
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:repo.directory,entry:'index.ts',trackedFiles:repo.tracked}),/asset local não declarada/)
+})
+
+test('divergência entre closure e metafile esbuild é bloqueada',async()=>{
+ const buildImpl=async()=>({metafile:{inputs:{[BANNER_RUNTIME_ENTRY]:{}}}})
+ await assert.rejects(validateBannerRuntimeBundle({repoRoot:root,closure:BANNER_RUNTIME_CLOSURE,buildImpl}),/closure e metafile esbuild divergentes/)
+})
+
+test('staging incompleto reproduz a falha local antes do Supabase',async t=>{
+ const stage=runtimeStage(t,['core/copy-engine/index.ts','server/guest-banner/promotion.mjs','server/guest-banner/result.mjs'])
+ assert.throws(()=>resolveBannerRuntimeClosure({repoRoot:stage,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)}),/import local não resolvido|inexistente/)
+ await assert.rejects(validateBannerRuntimeBundle({repoRoot:stage,closure:BANNER_RUNTIME_CLOSURE}),/bundle local gerar-hero-ia falhou/)
+})
+
+test('staging completo resolve e faz bundle local com os mesmos 12 inputs',async t=>{
+ const stage=runtimeStage(t)
+ const closure=resolveBannerRuntimeClosure({repoRoot:stage,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)})
+ assert.deepEqual(closure,BANNER_RUNTIME_CLOSURE)
+ assert.deepEqual(await validateBannerRuntimeBundle({repoRoot:stage,closure}),BANNER_RUNTIME_CLOSURE)
+ assert.equal(validateBannerConfigFile(path.join(stage,'supabase/config.toml')),true)
+ assert.deepEqual(readFileSync(path.join(stage,'supabase/config.toml')),readFileSync(path.join(root,'supabase/config.toml')))
+})
+
+test('gate prova blobs Git, archive mínimo e validação local antes do deploy remoto',()=>{
+ assert.match(deploySource,/git\('ls-tree','-r','--name-only',sha\)/)
+ assert.match(deploySource,/git\('diff','--name-only',sha,'--',\.\.\.bannerRuntimeClosure\)/)
+ assert.match(deploySource,/edgeArchivePaths=deployBannerRecovery\?\[\.\.\.bannerRuntimeClosure,'supabase\/config\.toml'\]/)
+ const localValidation=deploySource.indexOf('await validateBannerRuntimeBundle({repoRoot:edgeStage')
+ const remoteDeploy=deploySource.indexOf('run(edgeCli,deployArgs')
+ assert.ok(localValidation>0&&remoteDeploy>localValidation)
+ const helpers=resolveBannerRuntimeClosure.toString()+validateBannerRuntimeBundle.toString()+validateBannerRuntimeClosure.toString()
+ assert.doesNotMatch(helpers,/\bvercel\b|supabase\.co|functions['"],['"]deploy|\bpromote\b/)
+})
 
 function fakePolling(states,{timeoutMs=100,intervalMs=10}={}){
  let time=0,index=0
