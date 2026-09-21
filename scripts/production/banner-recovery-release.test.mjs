@@ -21,7 +21,9 @@ import {
  BANNER_RUNTIME_CLOSURE,
  BANNER_RUNTIME_ENTRY,
  acquireBannerStageOneCandidate,
+ executeCommand,
  resolveBannerRuntimeClosure,
+ resolveVercelCli,
  validateBannerConfigFile,
  validateBannerRuntimeBundle,
  validateBannerRuntimeClosure,
@@ -36,6 +38,83 @@ const candidateUrl='https://smartcorretorai-fremde96m-smart-corretor-ai-s-projec
 const candidateId='dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7'
 const candidateSha='4865f9b57859495c01fa53925b3ab35ee70933c2'
 const baseline={sha:BANNER_RECOVERY_RELEASE.baseSha,id:BANNER_RECOVERY_RELEASE.frontendDeploymentId}
+
+function cliDouble(overrides={}){
+ const calls=[]
+ const values={
+  env:{VERCEL_CLI:'tools/vercel.cmd'},cwd:'C:\\candidate',platform:'win32',
+  exists:()=>true,stat:()=>({isFile:()=>true}),log:()=>{},
+  spawn:(command,args,options)=>{calls.push({command,args,options});return {status:0,stdout:'59.13.1\n',stderr:''}},
+  ...overrides,
+ }
+ return {values,calls}
+}
+
+test('VERCEL_CLI válida é resolvida e usada sem concatenar argumentos',()=>{
+ const fixture=cliDouble()
+ const command=resolveVercelCli(fixture.values)
+ assert.equal(command,path.resolve(fixture.values.cwd,'tools/vercel.cmd'))
+ assert.equal(fixture.calls.length,1)
+ assert.equal(fixture.calls[0].command,command)
+ assert.deepEqual(fixture.calls[0].args,['--version'])
+ assert.equal(fixture.calls[0].options.shell,true)
+})
+
+test('VERCEL_CLI ausente permite fallback vercel no PATH após validar versão',()=>{
+ const fixture=cliDouble({env:{}})
+ assert.equal(resolveVercelCli(fixture.values),'vercel')
+ assert.equal(fixture.calls[0].command,'vercel')
+ assert.deepEqual(fixture.calls[0].args,['--version'])
+ assert.equal(fixture.calls[0].options.shell,true)
+})
+
+test('VERCEL_CLI ausente e vercel fora do PATH aborta sem retry',()=>{
+ let calls=0
+ const fixture=cliDouble({
+  env:{},
+  spawn:()=>{
+   calls++
+   return {status:null,stdout:'',stderr:'',error:Object.assign(Error('missing'),{code:'ENOENT'})}
+  },
+ })
+ assert.throws(()=>resolveVercelCli(fixture.values),/Vercel CLI ausente/)
+ assert.equal(calls,1)
+})
+
+test('VERCEL_CLI inexistente aborta antes de executar qualquer comando',()=>{
+ const fixture=cliDouble({exists:()=>false})
+ assert.throws(()=>resolveVercelCli(fixture.values),/não aponta para um arquivo executável existente/)
+ assert.equal(fixture.calls.length,0)
+})
+
+test('falha de --version aborta',()=>{
+ const fixture=cliDouble({spawn:()=>({status:1,stdout:'',stderr:'invalid'})})
+ assert.throws(()=>resolveVercelCli(fixture.values),/Comando obrigatório falhou/)
+})
+
+test('ENOENT é identificado explicitamente e não recebe retry',()=>{
+ let calls=0
+ const spawn=()=>{calls++;return {status:null,stdout:'',stderr:'',error:Object.assign(Error('missing'),{code:'ENOENT'})}}
+ assert.throws(()=>executeCommand('missing-vercel',['--version'],{spawn,platform:'linux'}),/não encontrado \(ENOENT\): missing-vercel/)
+ assert.equal(calls,1)
+})
+
+for(const value of ['vercel.cmd && whoami','vercel.cmd|whoami','vercel.cmd;whoami','vercel.cmd > output','$(whoami)','`whoami`','"vercel.cmd"'])test(`VERCEL_CLI rejeita shell injection: ${value}`,()=>{
+ const fixture=cliDouble({env:{VERCEL_CLI:value}})
+ assert.throws(()=>resolveVercelCli(fixture.values),/somente um caminho/)
+ assert.equal(fixture.calls.length,0)
+})
+
+test('resolução da CLI não usa npx, download nem chamada remota antes de --version',()=>{
+ const helper=resolveVercelCli.toString()+executeCommand.toString()
+ assert.doesNotMatch(helper,/\bnpx\b|npm\s+install|https?:\/\//)
+ const fixture=cliDouble()
+ resolveVercelCli(fixture.values)
+ assert.deepEqual(fixture.calls.map(call=>call.args),[['--version']])
+ const initialization=deploySource.indexOf('cli=resolveVercelCli()')
+ const remoteRead=deploySource.indexOf('const current=await official()')
+ assert.ok(initialization>0&&remoteRead>initialization)
+})
 
 function tempRepository(t,files){
  const directory=mkdtempSync(path.join(tmpdir(),'sca-banner-closure-'))

@@ -21,7 +21,7 @@ import {
 import {verifyArchiveTree} from './archive-proof.mjs'
 
 const root=fileURLToPath(new URL('../../',import.meta.url)),scope='smart-corretor-ai-s-projects'
-const cli=process.env.VERCEL_CLI||'vercel'
+let cli=null
 const vercelReadyTimeoutMs=10*60*1000
 const vercelReadyPollIntervalMs=5*1000
 const vercelTransientStates=new Set(['QUEUED','BUILDING','INITIALIZING','COMPLETING'])
@@ -51,10 +51,51 @@ const bannerConfigSha256='8F6A11E446D533666AC035601CAFD326C0F9A29AA5E18A7ABF1405
 const require=createRequire(import.meta.url)
 const babelParse=require(path.join(root,'frontend/node_modules/@babel/parser')).parse
 
-function run(command,args,cwd=root,inherit=false){
- const r=spawnSync(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:process.platform==='win32'&&command.endsWith('.cmd')})
- if(r.status!==0)throw Error('Comando obrigatório falhou: '+command+' '+args[0])
+export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnSync,platform=process.platform}={}){
+ const windowsCommand=platform==='win32'&&(command==='vercel'||command.endsWith('.cmd'))
+ const r=spawn(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:windowsCommand})
+ const label=path.basename(command)
+ if(r.error){
+  const code=typeof r.error.code==='string'?r.error.code:'SPAWN_ERROR'
+  if(code==='ENOENT')throw Error('Comando obrigatório não encontrado (ENOENT): '+label)
+  throw Error('Falha ao iniciar comando obrigatório ('+code+'): '+label)
+ }
+ if(r.status!==0)throw Error('Comando obrigatório falhou: '+label+' '+args[0])
  return inherit?'':r.stdout.trim()
+}
+function run(command,args,cwd=root,inherit=false){return executeCommand(command,args,{cwd,inherit})}
+
+function unsafeExecutableValue(value){return /[\0\r\n&|;<>`"']|\$\(/.test(value)}
+
+export function resolveVercelCli({
+ env=process.env,
+ cwd=root,
+ spawn=spawnSync,
+ platform=process.platform,
+ exists=existsSync,
+ stat=lstatSync,
+ log=console.log,
+}={}){
+ const explicit=Object.prototype.hasOwnProperty.call(env,'VERCEL_CLI')
+ let command='vercel',source='PATH'
+ if(explicit){
+  const configured=env.VERCEL_CLI
+  if(typeof configured!=='string'||configured.trim()==='')throw Error('DEPLOY BLOQUEADO: VERCEL_CLI está vazia')
+  if(configured!==configured.trim()||unsafeExecutableValue(configured))throw Error('DEPLOY BLOQUEADO: VERCEL_CLI deve conter somente um caminho de executável')
+  command=path.resolve(cwd,configured)
+  source='VERCEL_CLI'
+  if(!exists(command)||!stat(command).isFile())throw Error('DEPLOY BLOQUEADO: VERCEL_CLI não aponta para um arquivo executável existente')
+ }
+ let version
+ try {version=executeCommand(command,['--version'],{cwd,spawn,platform})}
+ catch(error){
+  if(!explicit&&/\(ENOENT\)/.test(error.message))throw Error('DEPLOY BLOQUEADO: Vercel CLI ausente; defina VERCEL_CLI com um executável local válido')
+  throw error
+ }
+ const normalized=version.split(/\r?\n/,1)[0]?.trim()
+ if(!normalized||normalized.length>80||!/^[A-Za-z0-9][A-Za-z0-9 ._()+-]*$/.test(normalized))throw Error('DEPLOY BLOQUEADO: versão da Vercel CLI inválida')
+ log(JSON.stringify({vercelCli:{source,path:explicit?command:'vercel',version:normalized}}))
+ return command
 }
 const git=(...args)=>run('git',args)
 const vc=(args,cwd=root)=>run(cli,[...args,'--scope',scope],cwd)
@@ -337,6 +378,7 @@ async function promoteBanner(current,sha){
 }
 
 export async function main(args=process.argv.slice(2)){
+cli=resolveVercelCli()
 const mode=deploymentMode(args)
 const deployVideoSocialMetadata=mode==='--video-social-metadata'
 const deployAdminApi=mode==='--admin-api'
