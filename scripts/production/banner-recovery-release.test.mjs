@@ -23,6 +23,7 @@ import {
  acquireBannerStageOneCandidate,
  executeCommand,
  resolveBannerRuntimeClosure,
+ resolveSupabaseCli,
  resolveVercelCli,
  validateBannerConfigFile,
  validateBannerRuntimeBundle,
@@ -114,6 +115,82 @@ test('resolução da CLI não usa npx, download nem chamada remota antes de --ve
  const initialization=deploySource.indexOf('cli=resolveVercelCli()')
  const remoteRead=deploySource.indexOf('const current=await official()')
  assert.ok(initialization>0&&remoteRead>initialization)
+})
+
+function supabaseCliDouble(overrides={}){
+ const calls=[]
+ const values={
+  env:{SUPABASE_CLI:'tools/supabase.cmd'},cwd:'C:\\candidate',platform:'win32',
+  exists:()=>true,stat:()=>({isFile:()=>true}),log:()=>{},
+  spawn:(command,args,options)=>{calls.push({command,args,options});return {status:0,stdout:'2.116.0\n',stderr:''}},
+  ...overrides,
+ }
+ return {values,calls}
+}
+
+test('SUPABASE_CLI válida é resolvida e usada com argumentos separados',()=>{
+ const fixture=supabaseCliDouble()
+ const command=resolveSupabaseCli(fixture.values)
+ assert.equal(command,path.resolve(fixture.values.cwd,'tools/supabase.cmd'))
+ assert.equal(fixture.calls.length,1)
+ assert.equal(fixture.calls[0].command,command)
+ assert.deepEqual(fixture.calls[0].args,['--version'])
+ assert.equal(fixture.calls[0].options.shell,true)
+})
+
+test('SUPABASE_CLI ausente permite fallback supabase no PATH após validar versão',()=>{
+ const fixture=supabaseCliDouble({env:{}})
+ assert.equal(resolveSupabaseCli(fixture.values),'supabase')
+ assert.equal(fixture.calls[0].command,'supabase')
+ assert.deepEqual(fixture.calls[0].args,['--version'])
+ assert.equal(fixture.calls[0].options.shell,true)
+})
+
+test('SUPABASE_CLI ausente e supabase fora do PATH aborta sem retry',()=>{
+ let calls=0
+ const fixture=supabaseCliDouble({
+  env:{},
+  spawn:()=>{
+   calls++
+   return {status:null,stdout:'',stderr:'',error:Object.assign(Error('missing'),{code:'ENOENT'})}
+  },
+ })
+ assert.throws(()=>resolveSupabaseCli(fixture.values),/Supabase CLI ausente/)
+ assert.equal(calls,1)
+})
+
+test('SUPABASE_CLI inexistente aborta antes de executar qualquer comando',()=>{
+ const fixture=supabaseCliDouble({exists:()=>false})
+ assert.throws(()=>resolveSupabaseCli(fixture.values),/não aponta para um arquivo executável existente/)
+ assert.equal(fixture.calls.length,0)
+})
+
+test('falha de --version da Supabase CLI aborta',()=>{
+ const fixture=supabaseCliDouble({spawn:()=>({status:1,stdout:'',stderr:'invalid'})})
+ assert.throws(()=>resolveSupabaseCli(fixture.values),/Comando obrigatório falhou/)
+})
+
+for(const value of ['supabase.cmd && whoami','supabase.cmd|whoami','supabase.cmd;whoami','supabase.cmd > output','$(whoami)','`whoami`','"supabase.cmd"',' supabase.cmd'])test(`SUPABASE_CLI rejeita shell injection: ${value}`,()=>{
+ const fixture=supabaseCliDouble({env:{SUPABASE_CLI:value}})
+ assert.throws(()=>resolveSupabaseCli(fixture.values),/somente um caminho/)
+ assert.equal(fixture.calls.length,0)
+})
+
+test('Supabase CLI é validada antes de operação remota e não usa npx ou instalação',()=>{
+ const helper=resolveSupabaseCli.toString()+executeCommand.toString()
+ assert.doesNotMatch(helper,/\bnpx\b|npm\s+install|https?:\/\//)
+ const fixture=supabaseCliDouble()
+ resolveSupabaseCli(fixture.values)
+ assert.deepEqual(fixture.calls.map(call=>call.args),[['--version']])
+ const initialization=deploySource.indexOf('edgeCli=resolveSupabaseCli()')
+ const remoteRead=deploySource.indexOf('const current=await official()')
+ assert.ok(initialization>0&&remoteRead>initialization)
+})
+
+test('functions list e functions deploy usam exclusivamente a mesma Supabase CLI resolvida',()=>{
+ assert.match(deploySource,/function functionsList\(\)\{return JSON\.parse\(run\(edgeCli,\['functions','list'/)
+ assert.match(deploySource,/run\(edgeCli,deployArgs,root,true\)/)
+ assert.equal((deploySource.match(/edgeCli=resolveSupabaseCli\(\)/g)||[]).length,1)
 })
 
 function tempRepository(t,files){

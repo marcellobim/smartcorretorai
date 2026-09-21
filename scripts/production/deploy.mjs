@@ -52,7 +52,7 @@ const require=createRequire(import.meta.url)
 const babelParse=require(path.join(root,'frontend/node_modules/@babel/parser')).parse
 
 export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnSync,platform=process.platform}={}){
- const windowsCommand=platform==='win32'&&(command==='vercel'||command.endsWith('.cmd'))
+ const windowsCommand=platform==='win32'&&(['vercel','supabase'].includes(command)||command.endsWith('.cmd'))
  const r=spawn(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:windowsCommand})
  const label=path.basename(command)
  if(r.error){
@@ -95,6 +95,37 @@ export function resolveVercelCli({
  const normalized=version.split(/\r?\n/,1)[0]?.trim()
  if(!normalized||normalized.length>80||!/^[A-Za-z0-9][A-Za-z0-9 ._()+-]*$/.test(normalized))throw Error('DEPLOY BLOQUEADO: versão da Vercel CLI inválida')
  log(JSON.stringify({vercelCli:{source,path:explicit?command:'vercel',version:normalized}}))
+ return command
+}
+
+export function resolveSupabaseCli({
+ env=process.env,
+ cwd=root,
+ spawn=spawnSync,
+ platform=process.platform,
+ exists=existsSync,
+ stat=lstatSync,
+ log=console.log,
+}={}){
+ const explicit=Object.prototype.hasOwnProperty.call(env,'SUPABASE_CLI')
+ let command='supabase',source='PATH'
+ if(explicit){
+  const configured=env.SUPABASE_CLI
+  if(typeof configured!=='string'||configured.trim()==='')throw Error('DEPLOY BLOQUEADO: SUPABASE_CLI está vazia')
+  if(configured!==configured.trim()||unsafeExecutableValue(configured))throw Error('DEPLOY BLOQUEADO: SUPABASE_CLI deve conter somente um caminho de executável')
+  command=path.resolve(cwd,configured)
+  source='SUPABASE_CLI'
+  if(!exists(command)||!stat(command).isFile())throw Error('DEPLOY BLOQUEADO: SUPABASE_CLI não aponta para um arquivo executável existente')
+ }
+ let version
+ try {version=executeCommand(command,['--version'],{cwd,spawn,platform})}
+ catch(error){
+  if(!explicit&&/\(ENOENT\)/.test(error.message))throw Error('DEPLOY BLOQUEADO: Supabase CLI ausente; defina SUPABASE_CLI com um executável local válido')
+  throw error
+ }
+ const normalized=version.split(/\r?\n/,1)[0]?.trim()
+ if(!normalized||normalized.length>80||!/^[A-Za-z0-9][A-Za-z0-9 ._()+-]*$/.test(normalized))throw Error('DEPLOY BLOQUEADO: versão da Supabase CLI inválida')
+ log(JSON.stringify({supabaseCli:{source,path:explicit?command:'supabase',version:normalized}}))
  return command
 }
 const git=(...args)=>run('git',args)
@@ -229,7 +260,7 @@ async function official(){
  return {sha:detail.meta.githubCommitSha,id:info.id}
 }
 
-const edgeCli=process.env.SUPABASE_CLI||'supabase'
+let edgeCli=null
 function functionsList(){return JSON.parse(run(edgeCli,['functions','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json']))}
 function adminVersion(){return adminApiVersion(functionsList())}
 function bannerVersion(expected=null){return bannerFunctionVersion(functionsList(),expected)}
@@ -379,6 +410,7 @@ async function promoteBanner(current,sha){
 
 export async function main(args=process.argv.slice(2)){
 cli=resolveVercelCli()
+edgeCli=resolveSupabaseCli()
 const mode=deploymentMode(args)
 const deployVideoSocialMetadata=mode==='--video-social-metadata'
 const deployAdminApi=mode==='--admin-api'
