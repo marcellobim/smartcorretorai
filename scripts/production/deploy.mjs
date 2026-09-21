@@ -3,6 +3,7 @@ import {existsSync,lstatSync,realpathSync,readFileSync,writeFileSync,mkdirSync,r
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {fileURLToPath,pathToFileURL} from 'node:url'
+import {inflateRawSync} from 'node:zlib'
 import {hash,verifyProof,ancestryError} from './proof.mjs'
 import {smoke} from './smoke.mjs'
 import {
@@ -47,7 +48,9 @@ export const BANNER_RUNTIME_CLOSURE=Object.freeze([
  'supabase/functions/gerar-hero-ia/guest-runtime.ts',
  BANNER_RUNTIME_ENTRY,
 ].sort())
-const bannerConfigSha256='8F6A11E446D533666AC035601CAFD326C0F9A29AA5E18A7ABF14050DC41B0BBB'
+export const BANNER_CONFIG_BLOB_SHA256='C18A0DC34CFEDE87D00783DA1B071BAD911D5E501219AF842B2C5699348D9D19'
+const bannerConfigPath='supabase/config.toml'
+const forbiddenBannerConfigSections=['[functions.tiktok-connection]','[functions.tiktok-callback]']
 const require=createRequire(import.meta.url)
 const babelParse=require(path.join(root,'frontend/node_modules/@babel/parser')).parse
 
@@ -277,9 +280,56 @@ export async function validateBannerRuntimeBundle({repoRoot,entry=BANNER_RUNTIME
  return inputs
 }
 
-export function validateBannerConfigFile(file){
- if(hash(readFileSync(file)).toUpperCase()!==bannerConfigSha256)throw Error('DEPLOY BLOQUEADO: supabase/config.toml diverge do hash aprovado')
+export function validateBannerConfigWorktree(diff){
+ if(String(diff||'').trim())throw Error('DEPLOY BLOQUEADO: supabase/config.toml do worktree diverge do commit aprovado')
  return true
+}
+
+export function validateBannerConfigBlob(blob){
+ if(!Buffer.isBuffer(blob))throw Error('DEPLOY BLOQUEADO: blob Git de supabase/config.toml inválido')
+ for(const section of forbiddenBannerConfigSections)if(blob.includes(Buffer.from(section)))throw Error('DEPLOY BLOQUEADO: TikTok proibido no config.toml do hotfix Banner')
+ if(hash(blob).toUpperCase()!==BANNER_CONFIG_BLOB_SHA256)throw Error('DEPLOY BLOQUEADO: blob Git de supabase/config.toml diverge do baseline aprovado')
+ return true
+}
+
+export function readBannerConfigBlob(sha,{cwd=root,spawn=spawnSync}={}){
+ if(!/^[a-f0-9]{40}$/.test(sha))throw Error('DEPLOY BLOQUEADO: SHA inválido para leitura do config.toml')
+ const result=spawn('git',['cat-file','blob',`${sha}:${bannerConfigPath}`],{cwd,encoding:null,stdio:['ignore','pipe','pipe']})
+ if(result.error)throw Error('DEPLOY BLOQUEADO: falha ao ler blob Git de supabase/config.toml')
+ if(result.status!==0||!Buffer.isBuffer(result.stdout))throw Error('DEPLOY BLOQUEADO: blob Git de supabase/config.toml indisponível')
+ validateBannerConfigBlob(result.stdout)
+ return Buffer.from(result.stdout)
+}
+
+export function validateBannerConfigArtifact(actual,approvedBlob,label='artefato Edge'){
+ if(!Buffer.isBuffer(actual)||!Buffer.isBuffer(approvedBlob)||!actual.equals(approvedBlob))throw Error(`DEPLOY BLOQUEADO: supabase/config.toml do ${label} diverge byte a byte do blob Git aprovado`)
+ return true
+}
+
+export function readZipEntryBytes(file,entryName){
+ const archive=readFileSync(file),eocdSignature=0x06054b50,centralSignature=0x02014b50,localSignature=0x04034b50
+ let eocd=-1
+ for(let offset=archive.length-22;offset>=Math.max(0,archive.length-65557);offset--)if(archive.readUInt32LE(offset)===eocdSignature){eocd=offset;break}
+ if(eocd<0)throw Error('DEPLOY BLOQUEADO: ZIP Edge inválido')
+ const entries=archive.readUInt16LE(eocd+10),centralOffset=archive.readUInt32LE(eocd+16)
+ let offset=centralOffset,found=null
+ for(let index=0;index<entries;index++){
+  if(offset+46>archive.length||archive.readUInt32LE(offset)!==centralSignature)throw Error('DEPLOY BLOQUEADO: diretório central do ZIP Edge inválido')
+  const flags=archive.readUInt16LE(offset+8),method=archive.readUInt16LE(offset+10),compressedSize=archive.readUInt32LE(offset+20),size=archive.readUInt32LE(offset+24),nameLength=archive.readUInt16LE(offset+28),extraLength=archive.readUInt16LE(offset+30),commentLength=archive.readUInt16LE(offset+32),localOffset=archive.readUInt32LE(offset+42)
+  const name=archive.subarray(offset+46,offset+46+nameLength).toString('utf8')
+  if(name===entryName){
+   if(found||flags&1||![0,8].includes(method)||[compressedSize,size,localOffset].includes(0xffffffff))throw Error('DEPLOY BLOQUEADO: entrada config.toml inválida no ZIP Edge')
+   if(localOffset+30>archive.length||archive.readUInt32LE(localOffset)!==localSignature)throw Error('DEPLOY BLOQUEADO: entrada local config.toml inválida no ZIP Edge')
+   const localNameLength=archive.readUInt16LE(localOffset+26),localExtraLength=archive.readUInt16LE(localOffset+28),start=localOffset+30+localNameLength+localExtraLength,end=start+compressedSize
+   if(end>archive.length)throw Error('DEPLOY BLOQUEADO: conteúdo config.toml truncado no ZIP Edge')
+   const compressed=archive.subarray(start,end),data=method===0?Buffer.from(compressed):inflateRawSync(compressed)
+   if(data.length!==size)throw Error('DEPLOY BLOQUEADO: tamanho config.toml inválido no ZIP Edge')
+   found=data
+  }
+  offset+=46+nameLength+extraLength+commentLength
+ }
+ if(!found)throw Error('DEPLOY BLOQUEADO: supabase/config.toml ausente no ZIP Edge')
+ return found
 }
 
 async function official(){
@@ -463,14 +513,15 @@ if(promoteBannerRecovery){
 const previousAdminVersion=deployAdminApi?adminVersion():null
 const previousBannerVersion=deployBannerRecovery?bannerVersion(BANNER_RECOVERY_RELEASE.edgeVersion):null
 if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
-let bannerRuntimeClosure=null
+let bannerRuntimeClosure=null,bannerConfigBlob=null
 if(deployBannerRecovery){
  validateBannerLocal(current,sha)
  const trackedFiles=new Set(git('ls-tree','-r','--name-only',sha).split('\n').filter(Boolean).map(posix))
  bannerRuntimeClosure=resolveBannerRuntimeClosure({repoRoot:root,trackedFiles})
  validateBannerRuntimeClosure(bannerRuntimeClosure)
  if(git('diff','--name-only',sha,'--',...bannerRuntimeClosure))throw Error('DEPLOY BLOQUEADO: dependência runtime diverge do blob aprovado')
- validateBannerConfigFile(path.join(root,'supabase/config.toml'))
+ validateBannerConfigWorktree(git('diff','--name-only',sha,'--',bannerConfigPath))
+ bannerConfigBlob=readBannerConfigBlob(sha)
  await validateBannerRuntimeBundle({repoRoot:root,closure:bannerRuntimeClosure})
 }
 else {
@@ -530,13 +581,14 @@ if(deployVideoSocialMetadata||deployAdminApi||deployBannerRecovery){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
+ if(deployBannerRecovery)validateBannerConfigArtifact(readZipEntryBytes(edgeZip,bannerConfigPath),bannerConfigBlob,'ZIP Edge')
  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
  else run('unzip',['-o',edgeZip,'-d',edgeStage])
  console.log(JSON.stringify({edgeArchiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--',...edgeArchivePaths),edgeStage)}))
  if(deployBannerRecovery){
   const stagedClosure=resolveBannerRuntimeClosure({repoRoot:edgeStage,trackedFiles:new Set(bannerRuntimeClosure)})
   validateBannerRuntimeClosure(stagedClosure,bannerRuntimeClosure)
-  validateBannerConfigFile(path.join(edgeStage,'supabase/config.toml'))
+  validateBannerConfigArtifact(readFileSync(path.join(edgeStage,bannerConfigPath)),bannerConfigBlob,'staging Edge')
   await validateBannerRuntimeBundle({repoRoot:edgeStage,closure:stagedClosure})
  }
  if(deployAdminApi&&adminVersion()!==previousAdminVersion)throw Error('DEPLOY BLOQUEADO: admin-api mudou durante o build')

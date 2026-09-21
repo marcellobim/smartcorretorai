@@ -5,6 +5,7 @@ import {copyFileSync,mkdirSync,mkdtempSync,readFileSync,rmSync,symlinkSync,write
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {hash} from './proof.mjs'
 import {
  BANNER_RECOVERY_RELEASE,
  bannerFunctionVersion,
@@ -21,6 +22,7 @@ import {
  BANNER_RUNTIME_CLOSURE,
  BANNER_RUNTIME_ENTRY,
  BANNER_FRONTEND_TEST_ENV,
+ BANNER_CONFIG_BLOB_SHA256,
  acquireBannerStageOneCandidate,
  bannerTests,
  createBannerFrontendTestEnv,
@@ -29,7 +31,11 @@ import {
  resolveSupabaseCli,
  resolveVercelCli,
  runBannerFrontendCommand,
- validateBannerConfigFile,
+ readBannerConfigBlob,
+ readZipEntryBytes,
+ validateBannerConfigArtifact,
+ validateBannerConfigBlob,
+ validateBannerConfigWorktree,
  validateBannerRuntimeBundle,
  validateBannerRuntimeClosure,
  validateBannerStageOneCandidate,
@@ -39,6 +45,7 @@ import {
 const allowed=[...BANNER_RECOVERY_RELEASE.functionalPaths,...BANNER_RECOVERY_RELEASE.gatePaths]
 const deploySource=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
 const root=fileURLToPath(new URL('../../',import.meta.url))
+const approvedConfigBlob=Buffer.from(readFileSync(path.join(root,'supabase/config.toml'),'utf8').replaceAll('\r\n','\n'))
 const candidateUrl='https://smartcorretorai-fremde96m-smart-corretor-ai-s-projects.vercel.app'
 const candidateId='dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7'
 const candidateSha='4865f9b57859495c01fa53925b3ab35ee70933c2'
@@ -299,7 +306,7 @@ function runtimeStage(t,omit=[]){
  }
  const config=path.join(directory,'supabase/config.toml')
  mkdirSync(path.dirname(config),{recursive:true})
- copyFileSync(path.join(root,'supabase/config.toml'),config)
+ writeFileSync(config,approvedConfigBlob)
  t.after(()=>rmSync(directory,{recursive:true,force:true}))
  return directory
 }
@@ -377,14 +384,60 @@ test('staging completo resolve e faz bundle local com os mesmos 12 inputs',async
  const closure=resolveBannerRuntimeClosure({repoRoot:stage,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)})
  assert.deepEqual(closure,BANNER_RUNTIME_CLOSURE)
  assert.deepEqual(await validateBannerRuntimeBundle({repoRoot:stage,closure}),BANNER_RUNTIME_CLOSURE)
- assert.equal(validateBannerConfigFile(path.join(stage,'supabase/config.toml')),true)
- assert.deepEqual(readFileSync(path.join(stage,'supabase/config.toml')),readFileSync(path.join(root,'supabase/config.toml')))
+ assert.equal(validateBannerConfigArtifact(readFileSync(path.join(stage,'supabase/config.toml')),approvedConfigBlob,'staging Edge'),true)
+})
+
+function storedZipEntry(name,data){
+ const nameBytes=Buffer.from(name),local=Buffer.alloc(30),central=Buffer.alloc(46),end=Buffer.alloc(22)
+ local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);local.writeUInt32LE(data.length,18);local.writeUInt32LE(data.length,22);local.writeUInt16LE(nameBytes.length,26)
+ central.writeUInt32LE(0x02014b50);central.writeUInt16LE(20,4);central.writeUInt16LE(20,6);central.writeUInt32LE(data.length,20);central.writeUInt32LE(data.length,24);central.writeUInt16LE(nameBytes.length,28)
+ const centralOffset=local.length+nameBytes.length+data.length
+ end.writeUInt32LE(0x06054b50);end.writeUInt16LE(1,8);end.writeUInt16LE(1,10);end.writeUInt32LE(central.length+nameBytes.length,12);end.writeUInt32LE(centralOffset,16)
+ return Buffer.concat([local,nameBytes,data,central,nameBytes,end])
+}
+
+test('worktree CRLF corresponde ao commit enquanto blob aprovado permanece LF e byte-exato',()=>{
+ const worktree=readFileSync(path.join(root,'supabase/config.toml'))
+ assert.ok(worktree.includes(Buffer.from('\r\n')))
+ assert.equal(approvedConfigBlob.includes(Buffer.from('\r\n')),false)
+ assert.deepEqual(Buffer.from(worktree.toString('utf8').replaceAll('\r\n','\n')),approvedConfigBlob)
+ assert.equal(validateBannerConfigWorktree(''),true)
+ assert.equal(validateBannerConfigBlob(approvedConfigBlob),true)
+ assert.equal(hash(approvedConfigBlob).toUpperCase(),BANNER_CONFIG_BLOB_SHA256)
+ assert.deepEqual(readBannerConfigBlob('a'.repeat(40),{spawn:()=>({status:0,stdout:approvedConfigBlob})}),approvedConfigBlob)
+})
+
+test('alteração real do config, TikTok, verify_jwt, newline e BOM são bloqueados',()=>{
+ const changed=Buffer.from(approvedConfigBlob);changed[10]^=1
+ assert.throws(()=>validateBannerConfigArtifact(changed,approvedConfigBlob,'staging Edge'),/diverge byte a byte/)
+ assert.throws(()=>validateBannerConfigBlob(Buffer.concat([approvedConfigBlob,Buffer.from('\n[functions.tiktok-connection]\nverify_jwt = false\n')])),/TikTok proibido/)
+ assert.throws(()=>validateBannerConfigBlob(Buffer.concat([approvedConfigBlob,Buffer.from('\n[functions.tiktok-callback]\nverify_jwt = false\n')])),/TikTok proibido/)
+ const verifyChanged=Buffer.from(approvedConfigBlob.toString('utf8').replace('verify_jwt = false','verify_jwt = true'))
+ assert.throws(()=>validateBannerConfigArtifact(verifyChanged,approvedConfigBlob,'staging Edge'),/diverge byte a byte/)
+ assert.throws(()=>validateBannerConfigArtifact(approvedConfigBlob.subarray(0,-1),approvedConfigBlob,'staging Edge'),/diverge byte a byte/)
+ assert.throws(()=>validateBannerConfigArtifact(Buffer.concat([approvedConfigBlob,Buffer.from('\n')]),approvedConfigBlob,'staging Edge'),/diverge byte a byte/)
+ assert.throws(()=>validateBannerConfigArtifact(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),approvedConfigBlob]),approvedConfigBlob,'staging Edge'),/diverge byte a byte/)
+ assert.throws(()=>validateBannerConfigWorktree('supabase/config.toml'),/worktree diverge/)
+})
+
+test('config.toml do ZIP e do staging devem ser idênticos ao blob Git',t=>{
+ const directory=mkdtempSync(path.join(tmpdir(),'sca-banner-config-zip-')),zip=path.join(directory,'edge.zip')
+ t.after(()=>rmSync(directory,{recursive:true,force:true}))
+ writeFileSync(zip,storedZipEntry('supabase/config.toml',approvedConfigBlob))
+ const zipConfig=readZipEntryBytes(zip,'supabase/config.toml')
+ assert.equal(validateBannerConfigArtifact(zipConfig,approvedConfigBlob,'ZIP Edge'),true)
+ assert.equal(validateBannerConfigArtifact(Buffer.from(approvedConfigBlob),approvedConfigBlob,'staging Edge'),true)
+ const corrupted=Buffer.from(zipConfig);corrupted[0]^=1
+ assert.throws(()=>validateBannerConfigArtifact(corrupted,approvedConfigBlob,'ZIP Edge'),/diverge byte a byte/)
+ assert.throws(()=>validateBannerConfigArtifact(corrupted,zipConfig,'staging Edge'),/diverge byte a byte/)
 })
 
 test('gate prova blobs Git, archive mínimo e validação local antes do deploy remoto',()=>{
  assert.match(deploySource,/git\('ls-tree','-r','--name-only',sha\)/)
  assert.match(deploySource,/git\('diff','--name-only',sha,'--',\.\.\.bannerRuntimeClosure\)/)
  assert.match(deploySource,/edgeArchivePaths=deployBannerRecovery\?\[\.\.\.bannerRuntimeClosure,'supabase\/config\.toml'\]/)
+ assert.match(deploySource,/readBannerConfigBlob\(sha\)/)
+ assert.match(deploySource,/readZipEntryBytes\(edgeZip,bannerConfigPath\)/)
  const localValidation=deploySource.indexOf('await validateBannerRuntimeBundle({repoRoot:edgeStage')
  const remoteDeploy=deploySource.indexOf('run(edgeCli,deployArgs')
  assert.ok(localValidation>0&&remoteDeploy>localValidation)
