@@ -51,9 +51,9 @@ const bannerConfigSha256='8F6A11E446D533666AC035601CAFD326C0F9A29AA5E18A7ABF1405
 const require=createRequire(import.meta.url)
 const babelParse=require(path.join(root,'frontend/node_modules/@babel/parser')).parse
 
-export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnSync,platform=process.platform}={}){
+export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnSync,platform=process.platform,env}={}){
  const windowsCommand=platform==='win32'&&(['vercel','supabase'].includes(command)||command.endsWith('.cmd'))
- const r=spawn(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:windowsCommand})
+ const r=spawn(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:windowsCommand,...(env?{env}:{})})
  const label=path.basename(command)
  if(r.error){
   const code=typeof r.error.code==='string'?r.error.code:'SPAWN_ERROR'
@@ -64,6 +64,35 @@ export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnS
  return inherit?'':r.stdout.trim()
 }
 function run(command,args,cwd=root,inherit=false){return executeCommand(command,args,{cwd,inherit})}
+
+export const BANNER_FRONTEND_TEST_ENV=Object.freeze({
+ VITE_SUPABASE_URL:'https://smartcorretorai-banner-tests.invalid',
+ VITE_SUPABASE_ANON_KEY:'fictional-anon-key-for-banner-tests.invalid',
+})
+const bannerNetworkGuardMarker='BANNER_TEST_NETWORK_TO_INVALID_BLOCKED'
+const bannerNetworkGuardSource=`
+const marker=${JSON.stringify(bannerNetworkGuardMarker)}
+const originalFetch=globalThis.fetch
+let blocked=false
+globalThis.fetch=async function(input,init){
+ const value=typeof input==='string'?input:input?.url
+ let url
+ try {url=new URL(value)} catch {}
+ if(url?.hostname.endsWith('.invalid')){blocked=true;throw Error(marker)}
+ return originalFetch.call(this,input,init)
+}
+process.on('exit',()=>{if(blocked){process.stderr.write(marker+'\\n');process.exitCode=1}})
+`
+const bannerNetworkGuardOption='--import=data:text/javascript;base64,'+Buffer.from(bannerNetworkGuardSource).toString('base64')
+
+export function createBannerFrontendTestEnv(parentEnv=process.env){
+ const existing=typeof parentEnv.NODE_OPTIONS==='string'?parentEnv.NODE_OPTIONS.trim():''
+ return {...parentEnv,...BANNER_FRONTEND_TEST_ENV,NODE_OPTIONS:[existing,bannerNetworkGuardOption].filter(Boolean).join(' ')}
+}
+
+export function runBannerFrontendCommand(command,args,cwd,{execute=executeCommand,parentEnv=process.env,inherit=true}={}){
+ return execute(command,args,{cwd,inherit,env:createBannerFrontendTestEnv(parentEnv)})
+}
 
 function unsafeExecutableValue(value){return /[\0\r\n&|;<>`"']|\$\(/.test(value)}
 
@@ -281,7 +310,7 @@ function validateBannerLocal(current,sha){
 
 function bannerTests(){
  run(process.execPath,['--test','--test-isolation=none','scripts/production/banner-recovery-release.test.mjs','scripts/production/admin-release.test.mjs','scripts/production/guard.test.mjs'],root,true)
- run(process.execPath,['--test',
+ runBannerFrontendCommand(process.execPath,['--test',
   'supabase/functions/gerar-hero-ia/recover-batch.test.mjs',
   'supabase/functions/gerar-hero-ia/economy.test.ts',
   'supabase/functions/gerar-hero-ia/economy-contract.test.ts',
@@ -303,9 +332,9 @@ function bannerTests(){
   'tests/quick-banners-conversation.test.mjs',
   'tests/quick-banners-economy.test.mjs',
   'tests/studio-hero-design-system.test.mjs',
- ],frontendRoot,true)
+  ],frontendRoot)
  const designTest=path.join(frontendRoot,'tests/banner-design-system.test.mjs')
- const expected=spawnSync(process.execPath,['--test','--test-reporter=tap',designTest],{cwd:frontendRoot,encoding:'utf8'})
+ const expected=spawnSync(process.execPath,['--test','--test-reporter=tap',designTest],{cwd:frontendRoot,encoding:'utf8',env:createBannerFrontendTestEnv()})
  validateKnownBannerDesignFailure({
   status:expected.status,
   output:(expected.stdout||'')+(expected.stderr||''),
@@ -313,7 +342,7 @@ function bannerTests(){
   bannerSource:readFileSync(path.join(frontendRoot,'src/pages/HeroNext.jsx'),'utf8'),
  })
  const npm=process.platform==='win32'?'npm.cmd':'npm'
- run(npm,['run','build'],frontendRoot,true)
+ runBannerFrontendCommand(npm,['run','build'],frontendRoot)
 }
 
 async function candidateSmoke(url){

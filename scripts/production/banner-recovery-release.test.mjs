@@ -20,11 +20,14 @@ import {
 import {
  BANNER_RUNTIME_CLOSURE,
  BANNER_RUNTIME_ENTRY,
+ BANNER_FRONTEND_TEST_ENV,
  acquireBannerStageOneCandidate,
+ createBannerFrontendTestEnv,
  executeCommand,
  resolveBannerRuntimeClosure,
  resolveSupabaseCli,
  resolveVercelCli,
+ runBannerFrontendCommand,
  validateBannerConfigFile,
  validateBannerRuntimeBundle,
  validateBannerRuntimeClosure,
@@ -191,6 +194,54 @@ test('functions list e functions deploy usam exclusivamente a mesma Supabase CLI
  assert.match(deploySource,/function functionsList\(\)\{return JSON\.parse\(run\(edgeCli,\['functions','list'/)
  assert.match(deploySource,/run\(edgeCli,deployArgs,root,true\)/)
  assert.equal((deploySource.match(/edgeCli=resolveSupabaseCli\(\)/g)||[]).length,1)
+})
+
+test('subprocessos de teste frontend e build recebem somente os placeholders locais',()=>{
+ const calls=[]
+ const execute=(command,args,options)=>{calls.push({command,args,options});return ''}
+ const parentEnv={PATH:'local-path'}
+ runBannerFrontendCommand('node',['--test','frontend.test.mjs'],'C:\\frontend',{execute,parentEnv})
+ runBannerFrontendCommand('npm.cmd',['run','build'],'C:\\frontend',{execute,parentEnv})
+ assert.equal(calls.length,2)
+ for(const call of calls){
+  assert.equal(call.options.env.VITE_SUPABASE_URL,BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_URL)
+  assert.equal(call.options.env.VITE_SUPABASE_ANON_KEY,BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_ANON_KEY)
+  assert.match(call.options.env.NODE_OPTIONS,/--import=data:text\/javascript;base64,/)
+ }
+ assert.deepEqual(parentEnv,{PATH:'local-path'})
+})
+
+test('placeholders são fictícios, usam .invalid e não exigem credencial real',()=>{
+ assert.equal(new URL(BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_URL).hostname.endsWith('.invalid'),true)
+ assert.match(BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_ANON_KEY,/fictional|invalid/)
+ assert.doesNotMatch(BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_URL,/supabase\.co/)
+})
+
+test('tentativa de fetch para .invalid falha o subprocesso mesmo quando capturada',()=>{
+ const env=createBannerFrontendTestEnv({PATH:process.env.PATH,SystemRoot:process.env.SystemRoot})
+ const result=spawnSync(process.execPath,['-e',`fetch('${BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_URL}').catch(()=>{})`],{env,encoding:'utf8'})
+ assert.notEqual(result.status,0)
+ assert.match(result.stderr,/BANNER_TEST_NETWORK_TO_INVALID_BLOCKED/)
+})
+
+test('ambiente fictício não é propagado para CLIs, deploy de função ou smoke remoto',()=>{
+ const calls=[]
+ const spawn=(command,args,options)=>{calls.push({command,args,options});return {status:0,stdout:'1.0.0\n',stderr:''}}
+ executeCommand('vercel',['--version'],{spawn,platform:'linux'})
+ executeCommand('supabase',['functions','list'],{spawn,platform:'linux'})
+ assert.equal(calls.every(call=>call.options.env===undefined),true)
+ assert.match(deploySource,/run\(edgeCli,deployArgs,root,true\)/)
+ assert.match(deploySource,/await bannerUnauthenticatedSmoke\(\)/)
+ const smokeSource=deploySource.slice(deploySource.indexOf('async function bannerUnauthenticatedSmoke'),deploySource.indexOf('function terminalPollingError'))
+ assert.doesNotMatch(smokeSource,/BANNER_FRONTEND_TEST_ENV/)
+})
+
+test('gate não cria .env nem modifica process.env permanentemente',()=>{
+ const before={url:process.env.VITE_SUPABASE_URL,key:process.env.VITE_SUPABASE_ANON_KEY,options:process.env.NODE_OPTIONS}
+ const created=createBannerFrontendTestEnv(process.env)
+ assert.equal(created.VITE_SUPABASE_URL,BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_URL)
+ assert.deepEqual({url:process.env.VITE_SUPABASE_URL,key:process.env.VITE_SUPABASE_ANON_KEY,options:process.env.NODE_OPTIONS},before)
+ assert.doesNotMatch(deploySource,/writeFileSync\([^\n]*(?:\.env|VITE_SUPABASE)/)
 })
 
 function tempRepository(t,files){
