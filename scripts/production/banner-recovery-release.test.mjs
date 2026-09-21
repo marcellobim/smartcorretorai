@@ -22,6 +22,7 @@ import {
  BANNER_RUNTIME_ENTRY,
  BANNER_FRONTEND_TEST_ENV,
  acquireBannerStageOneCandidate,
+ bannerTests,
  createBannerFrontendTestEnv,
  executeCommand,
  resolveBannerRuntimeClosure,
@@ -242,6 +243,39 @@ test('gate não cria .env nem modifica process.env permanentemente',()=>{
  assert.equal(created.VITE_SUPABASE_URL,BANNER_FRONTEND_TEST_ENV.VITE_SUPABASE_URL)
  assert.deepEqual({url:process.env.VITE_SUPABASE_URL,key:process.env.VITE_SUPABASE_ANON_KEY,options:process.env.NODE_OPTIONS},before)
  assert.doesNotMatch(deploySource,/writeFileSync\([^\n]*(?:\.env|VITE_SUPABASE)/)
+})
+
+test('orquestração real do modo Banner usa isolamento na antiga linha 322 e os dois renders passam',()=>{
+ const commonCalls=[],frontendCalls=[]
+ const runCommon=(command,args,cwd,inherit)=>{commonCalls.push({command,args,cwd,inherit});return ''}
+ const runFrontend=(command,args,cwd)=>{
+  frontendCalls.push({command,args,cwd})
+  if(args[0]==='--test'){
+   assert.ok(args.includes('tests/banner-social-publish-render.test.mjs'))
+   return runBannerFrontendCommand(command,['--test','tests/banner-social-publish-render.test.mjs'],cwd,{inherit:false})
+  }
+  return ''
+ }
+ bannerTests({
+  runCommon,runFrontend,platform:'win32',
+  spawn:()=>({status:1,stdout:'expected design baseline',stderr:''}),
+  validateDesign:()=>true,read:()=>'',
+ })
+ assert.equal(commonCalls.length,2)
+ assert.ok(commonCalls[0].args.includes('scripts/production/banner-recovery-release.test.mjs'))
+ assert.ok(commonCalls[1].args.includes('supabase/functions/gerar-hero-ia/recover-batch.test.mjs'))
+ assert.equal(frontendCalls.length,2)
+ assert.equal(frontendCalls[0].args[0],'--test')
+ assert.deepEqual(frontendCalls[1].args,['run','build'])
+})
+
+test('modo Banner não possui executor comum residual para subprocesso frontend',()=>{
+ const source=bannerTests.toString()
+ assert.doesNotMatch(source,/runCommon\(process\.execPath,\['--test',\s*'tests\//)
+ assert.match(source,/runFrontend\(process\.execPath,\['--test',[\s\S]*?tests\/banner-social-publish-render\.test\.mjs/)
+ assert.match(source,/spawn\(process\.execPath,[\s\S]*?env:createBannerFrontendTestEnv\(\)/)
+ assert.match(source,/runFrontend\(npm,\['run','build'\],frontendRoot\)/)
+ assert.doesNotMatch(source,/\bvc\(|edgeCli|functions['"],['"]deploy|https:\/\//)
 })
 
 function tempRepository(t,files){

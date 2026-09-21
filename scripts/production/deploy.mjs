@@ -308,9 +308,16 @@ function validateBannerLocal(current,sha){
  return paths
 }
 
-function bannerTests(){
- run(process.execPath,['--test','--test-isolation=none','scripts/production/banner-recovery-release.test.mjs','scripts/production/admin-release.test.mjs','scripts/production/guard.test.mjs'],root,true)
- runBannerFrontendCommand(process.execPath,['--test',
+export function bannerTests({
+ runCommon=run,
+ runFrontend=runBannerFrontendCommand,
+ spawn=spawnSync,
+ validateDesign=validateKnownBannerDesignFailure,
+ read=readFileSync,
+ platform=process.platform,
+}={}){
+ runCommon(process.execPath,['--test','--test-isolation=none','scripts/production/banner-recovery-release.test.mjs','scripts/production/admin-release.test.mjs','scripts/production/guard.test.mjs'],root,true)
+ runCommon(process.execPath,['--test',
   'supabase/functions/gerar-hero-ia/recover-batch.test.mjs',
   'supabase/functions/gerar-hero-ia/economy.test.ts',
   'supabase/functions/gerar-hero-ia/economy-contract.test.ts',
@@ -319,7 +326,7 @@ function bannerTests(){
   'supabase/functions/gerar-hero-ia/guest-images-payload.test.mjs',
  ],root,true)
  const frontendRoot=path.join(root,'frontend')
- run(process.execPath,['--test',
+ runFrontend(process.execPath,['--test',
   'tests/banner-conversation-rhythm.test.mjs',
   'tests/banner-conversational-guest.test.mjs',
   'tests/banner-frontend-recovery.test.mjs',
@@ -334,15 +341,15 @@ function bannerTests(){
   'tests/studio-hero-design-system.test.mjs',
   ],frontendRoot)
  const designTest=path.join(frontendRoot,'tests/banner-design-system.test.mjs')
- const expected=spawnSync(process.execPath,['--test','--test-reporter=tap',designTest],{cwd:frontendRoot,encoding:'utf8',env:createBannerFrontendTestEnv()})
- validateKnownBannerDesignFailure({
+ const expected=spawn(process.execPath,['--test','--test-reporter=tap',designTest],{cwd:frontendRoot,encoding:'utf8',env:createBannerFrontendTestEnv()})
+ validateDesign({
   status:expected.status,
   output:(expected.stdout||'')+(expected.stderr||''),
-  testSource:readFileSync(designTest,'utf8'),
-  bannerSource:readFileSync(path.join(frontendRoot,'src/pages/HeroNext.jsx'),'utf8'),
+  testSource:read(designTest,'utf8'),
+  bannerSource:read(path.join(frontendRoot,'src/pages/HeroNext.jsx'),'utf8'),
  })
- const npm=process.platform==='win32'?'npm.cmd':'npm'
- runBannerFrontendCommand(npm,['run','build'],frontendRoot)
+ const npm=platform==='win32'?'npm.cmd':'npm'
+ runFrontend(npm,['run','build'],frontendRoot)
 }
 
 async function candidateSmoke(url){
