@@ -23,10 +23,13 @@ import {
  BANNER_RUNTIME_ENTRY,
  BANNER_FRONTEND_TEST_ENV,
  BANNER_CONFIG_BLOB_SHA256,
+ BANNER_PROMOTION_BACKEND_VERSION,
  acquireBannerStageOneCandidate,
  bannerTests,
  createBannerFrontendTestEnv,
  executeCommand,
+ protectedCandidateSmoke,
+ publicBannerSmoke,
  resolveBannerRuntimeClosure,
  resolveSupabaseCli,
  resolveVercelCli,
@@ -36,9 +39,11 @@ import {
  validateBannerConfigArtifact,
  validateBannerConfigBlob,
  validateBannerConfigWorktree,
+ validateProtectedBannerCandidateMetadata,
  validateBannerRuntimeBundle,
  validateBannerRuntimeClosure,
  validateBannerStageOneCandidate,
+ validateVercelProtectionResponse,
  waitForVercelReady,
 } from './deploy.mjs'
 
@@ -50,6 +55,8 @@ const candidateUrl='https://smartcorretorai-fremde96m-smart-corretor-ai-s-projec
 const candidateId='dpl_An5uMoKDMQPhU1PjAr1NWSfDVBH7'
 const candidateSha='4865f9b57859495c01fa53925b3ab35ee70933c2'
 const baseline={sha:BANNER_RECOVERY_RELEASE.baseSha,id:BANNER_RECOVERY_RELEASE.frontendDeploymentId}
+const vercelIdentity={projectId:'prj_U3MEwzheOk76LJzPIdx3OyLQbs5g',ownerId:'team_Jhfx1Tk09PX2qGSgri0sSvsQ',name:'smartcorretorai'}
+const candidateDetail=overrides=>({id:candidateId,readyState:'READY',...vercelIdentity,meta:{githubCommitSha:candidateSha},...overrides})
 
 function cliDouble(overrides={}){
  const calls=[]
@@ -463,7 +470,7 @@ function resumeFixture(overrides={}){
   explicitUrl:candidateUrl,
   createDeployment:async()=>{deployments++;return candidateUrl},
   inspectDeployment:async()=>({id:candidateId,readyState:'READY'}),
-  inspectDeploymentDetail:async()=>({id:candidateId,readyState:'READY',meta:{githubCommitSha:candidateSha}}),
+  inspectDeploymentDetail:async()=>candidateDetail(),
   readOfficial:async()=>({...baseline}),
   readBackendVersion:async()=>BANNER_RECOVERY_RELEASE.edgeVersion,
   currentHeadSha:'f'.repeat(40),current:{...baseline},
@@ -589,9 +596,61 @@ test('retomada rejeita candidato já promovido',()=>{
  assert.throws(()=>validateBannerStageOneCandidate({
   url:candidateUrl,
   info:{id:baseline.id,readyState:'READY'},
- detail:{id:baseline.id,readyState:'READY',meta:{githubCommitSha:candidateSha}},
+ detail:candidateDetail({id:baseline.id}),
   expectedCandidateSha:candidateSha,current:{...baseline},fresh:{...baseline},backendVersion:BANNER_RECOVERY_RELEASE.edgeVersion,
  }),/já está no alias oficial/)
+})
+
+const protectionResponse=(status,{location='https://vercel.com/sso-api?url=protected&nonce=test',server='Vercel'}={})=>({status,headers:new Headers({location,server})})
+const protectedMetadata=overrides=>({
+ url:candidateUrl,
+ info:{id:candidateId,readyState:'READY'},
+ detail:candidateDetail(),
+ current:{...baseline},fresh:{...baseline},backendVersion:BANNER_PROMOTION_BACKEND_VERSION,
+ ...overrides,
+})
+
+test('302 exato da proteção Vercel e metadados autenticados aprovados aceitam o candidato',async()=>{
+ assert.equal(validateProtectedBannerCandidateMetadata(protectedMetadata()),true)
+ let requested
+ assert.equal(await protectedCandidateSmoke(candidateUrl,{fetchImpl:async(url,options)=>{requested={url,options};return protectionResponse(302)}}),true)
+ assert.equal(requested.url,candidateUrl+'/')
+ assert.equal(requested.options.redirect,'manual')
+})
+
+for(const status of [301,307,200,401,403,404,500,503])test(`proteção Vercel bloqueia status ${status}`,()=>{
+ assert.throws(()=>validateVercelProtectionResponse(protectionResponse(status)),/302 Vercel esperado/)
+})
+
+test('proteção Vercel bloqueia domínio, path e assinatura Server divergentes',()=>{
+ assert.throws(()=>validateVercelProtectionResponse(protectionResponse(302,{location:'https://example.com/sso-api'})),/redirect inesperado/)
+ assert.throws(()=>validateVercelProtectionResponse(protectionResponse(302,{location:'https://vercel.com/login'})),/redirect inesperado/)
+ assert.throws(()=>validateVercelProtectionResponse(protectionResponse(302,{server:'example'})),/assinatura Server/)
+})
+
+test('metadados protegidos bloqueiam READY, SHA, ID, projeto/team e alias divergentes',()=>{
+ assert.throws(()=>validateProtectedBannerCandidateMetadata(protectedMetadata({info:{id:candidateId,readyState:'BUILDING'}})),/não está READY/)
+ assert.throws(()=>validateProtectedBannerCandidateMetadata(protectedMetadata({detail:candidateDetail({meta:{githubCommitSha:'0'.repeat(40)}})})),/SHA do candidato/)
+ assert.throws(()=>validateProtectedBannerCandidateMetadata(protectedMetadata({info:{id:'dpl_other',readyState:'READY'}})),/deployment ID/)
+ assert.throws(()=>validateProtectedBannerCandidateMetadata(protectedMetadata({detail:candidateDetail({projectId:'prj_other'})})),/projeto\/team/)
+ assert.throws(()=>validateProtectedBannerCandidateMetadata(protectedMetadata({fresh:{...baseline,id:'dpl_changed'}})),/Production mudou/)
+})
+
+test('promoção exige backend exatamente v75 ACTIVE com verify_jwt=false',()=>{
+ const active={slug:'gerar-hero-ia',version:75,status:'ACTIVE',verify_jwt:false}
+ assert.equal(bannerFunctionVersion([active],BANNER_PROMOTION_BACKEND_VERSION),75)
+ assert.equal(validateProtectedBannerCandidateMetadata(protectedMetadata({backendVersion:75})),true)
+ for(const version of [74,76,100])assert.throws(()=>validateProtectedBannerCandidateMetadata(protectedMetadata({backendVersion:version})),/exatamente na versão 75/)
+ assert.throws(()=>bannerFunctionVersion([{...active,status:'INACTIVE'}],75))
+ assert.throws(()=>bannerFunctionVersion([{...active,verify_jwt:true}],75))
+})
+
+const publicFetch=({pageStatus=200,pageBody='<html><title>SmartCorretorAI</title></html>',pageType='text/html; charset=utf-8',releaseStatus=200,releaseSha=candidateSha}={})=>async url=>url.endsWith('/production-release.json')?{status:releaseStatus,json:async()=>({sha:releaseSha})}:{status:pageStatus,headers:new Headers({'content-type':pageType}),text:async()=>pageBody}
+
+test('smoke público pós-promoção exige release e páginas SmartCorretorAI com 200',async()=>{
+ assert.equal(await publicBannerSmoke({expectedSha:candidateSha,fetchImpl:publicFetch()}),true)
+ await assert.rejects(publicBannerSmoke({expectedSha:candidateSha,fetchImpl:publicFetch({pageStatus:302})}),/Smoke pós-deploy falhou/)
+ await assert.rejects(publicBannerSmoke({expectedSha:candidateSha,fetchImpl:publicFetch({pageBody:'<html><title>Login – Vercel</title></html>'})}),/Smoke pós-deploy falhou/)
 })
 
 test('modo Banner é exclusivo e seleciona somente gerar-hero-ia',()=>{
@@ -610,6 +669,11 @@ test('promoção Banner é uma ação explícita separada sem escopo Edge',()=>{
  assert.match(deploySource,/promotion:'PENDING_EXPLICIT_APPROVAL'/)
  assert.match(deploySource,/validateBannerPromotionCandidate/)
  assert.match(deploySource,/if\(deployBannerRecovery\)[\s\S]*?process\.exit\(0\)[\s\S]*?vc\(\['promote'/)
+ const promotionSource=deploySource.slice(deploySource.indexOf('async function promoteBanner'),deploySource.indexOf('export async function main'))
+ assert.doesNotMatch(promotionSource,/functions','deploy|migration|secrets?\s+set|bannerTests\(|npm.*build|runFrontend|git\([^\n]*archive/)
+ assert.match(promotionSource,/bannerVersion\(BANNER_PROMOTION_BACKEND_VERSION\)/)
+ assert.ok(promotionSource.indexOf('protectedCandidateSmoke')<promotionSource.indexOf("vc(['promote'"))
+ assert.ok(promotionSource.indexOf("vc(['promote'")<promotionSource.indexOf('publicBannerSmoke'))
 })
 
 test('metadados Vercel simulados só aceitam o candidato exato e backend já publicado',()=>{
