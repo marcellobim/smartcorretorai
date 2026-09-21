@@ -30,6 +30,8 @@ import {
  executeCommand,
  protectedCandidateSmoke,
  publicBannerSmoke,
+ parseSupabaseCliVersion,
+ parseVercelCliVersion,
  resolveBannerRuntimeClosure,
  resolveSupabaseCli,
  resolveVercelCli,
@@ -77,6 +79,19 @@ test('VERCEL_CLI válida é resolvida e usada sem concatenar argumentos',()=>{
  assert.equal(fixture.calls[0].command,command)
  assert.deepEqual(fixture.calls[0].args,['--version'])
  assert.equal(fixture.calls[0].options.shell,true)
+})
+
+test('parser Vercel identifica os formatos oficiais da versão instalada',()=>{
+ assert.equal(parseVercelCliVersion({stdout:'Vercel CLI 59.13.1\n'}),'59.13.1')
+ assert.equal(parseVercelCliVersion({stdout:'59.13.1\n'}),'59.13.1')
+ assert.equal(parseVercelCliVersion({stdout:'59.13.1\n',stderr:'Vercel CLI 59.13.1\n'}),'59.13.1')
+})
+
+test('parser Vercel bloqueia versão divergente, ausente, ambígua ou output inesperado',()=>{
+ assert.throws(()=>parseVercelCliVersion({stdout:'Vercel CLI 59.14.0\n'}),/exatamente 59\.13\.1/)
+ assert.throws(()=>parseVercelCliVersion({stdout:''}),/ausente ou ambígua/)
+ assert.throws(()=>parseVercelCliVersion({stdout:'59.13.1\n59.14.0\n'}),/ausente ou ambígua/)
+ assert.throws(()=>parseVercelCliVersion({stdout:'installed version: 59.13.1\n'}),/output inesperado/)
 })
 
 test('VERCEL_CLI ausente permite fallback vercel no PATH após validar versão',()=>{
@@ -154,6 +169,29 @@ test('SUPABASE_CLI válida é resolvida e usada com argumentos separados',()=>{
  assert.equal(fixture.calls[0].command,command)
  assert.deepEqual(fixture.calls[0].args,['--version'])
  assert.equal(fixture.calls[0].options.shell,true)
+})
+
+test('parser Supabase separa versão instalada do aviso de atualização',()=>{
+ const stderr='A new version of Supabase CLI is available: v2.117.0 (currently installed v2.116.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n'
+ assert.equal(parseSupabaseCliVersion({stdout:'2.116.0\n',stderr}),'2.116.0')
+})
+
+test('parser Supabase bloqueia versão divergente, aviso isolado, ambiguidade e warning desconhecido',()=>{
+ const notice='A new version of Supabase CLI is available: v2.117.0 (currently installed v2.116.0)\n'
+ assert.throws(()=>parseSupabaseCliVersion({stdout:'2.117.0\n'}),/exatamente 2\.116\.0/)
+ assert.throws(()=>parseSupabaseCliVersion({stderr:notice}),/ausente ou ambígua/)
+ assert.throws(()=>parseSupabaseCliVersion({stdout:'2.116.0\n2.117.0\n'}),/ausente ou ambígua/)
+ assert.throws(()=>parseSupabaseCliVersion({stdout:'2.116.0\n',stderr:'available: v2.117.0\n'}),/output inesperado/)
+})
+
+test('parsers não registram outputs inesperados nem credenciais',()=>{
+ const logs=[]
+ const fixture=supabaseCliDouble({
+  log:value=>logs.push(value),
+  spawn:()=>({status:0,stdout:'2.116.0\n',stderr:'client_secret=must-not-log\n'}),
+ })
+ assert.throws(()=>resolveSupabaseCli(fixture.values),/output inesperado/)
+ assert.deepEqual(logs,[])
 })
 
 test('SUPABASE_CLI ausente permite fallback supabase no PATH após validar versão',()=>{

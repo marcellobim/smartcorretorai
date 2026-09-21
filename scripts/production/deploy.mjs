@@ -105,6 +105,62 @@ export function runBannerFrontendCommand(command,args,cwd,{execute=executeComman
 
 function unsafeExecutableValue(value){return /[\0\r\n&|;<>`"']|\$\(/.test(value)}
 
+const expectedVercelCliVersion='59.13.1'
+const expectedSupabaseCliVersion='2.116.0'
+
+function versionLines(value){
+ return typeof value==='string'?value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean):[]
+}
+
+function uniqueVersion(candidates,label){
+ const versions=[...new Set(candidates)]
+ if(versions.length!==1)throw Error(`DEPLOY BLOQUEADO: versão instalada da ${label} ausente ou ambígua`)
+ return versions[0]
+}
+
+export function parseVercelCliVersion({stdout='',stderr=''}={}){
+ const candidates=[]
+ for(const line of [...versionLines(stdout),...versionLines(stderr)]){
+  const match=line.match(/^(?:Vercel CLI )?(\d+\.\d+\.\d+)$/)
+  if(!match)throw Error('DEPLOY BLOQUEADO: output inesperado da Vercel CLI --version')
+  candidates.push(match[1])
+ }
+ const version=uniqueVersion(candidates,'Vercel CLI')
+ if(version!==expectedVercelCliVersion)throw Error(`DEPLOY BLOQUEADO: Vercel CLI deve ser exatamente ${expectedVercelCliVersion}`)
+ return version
+}
+
+const supabaseUpdateNotice=/^A new version of Supabase CLI is available: v\d+\.\d+\.\d+ \(currently installed v\d+\.\d+\.\d+\)$/
+const supabaseUpdateHelp='We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli'
+
+export function parseSupabaseCliVersion({stdout='',stderr=''}={}){
+ const candidates=[]
+ for(const line of versionLines(stdout)){
+  const match=line.match(/^(\d+\.\d+\.\d+)$/)
+  if(!match)throw Error('DEPLOY BLOQUEADO: output inesperado da Supabase CLI --version')
+  candidates.push(match[1])
+ }
+ for(const line of versionLines(stderr)){
+  if(!supabaseUpdateNotice.test(line)&&line!==supabaseUpdateHelp)throw Error('DEPLOY BLOQUEADO: output inesperado da Supabase CLI --version')
+ }
+ const version=uniqueVersion(candidates,'Supabase CLI')
+ if(version!==expectedSupabaseCliVersion)throw Error(`DEPLOY BLOQUEADO: Supabase CLI deve ser exatamente ${expectedSupabaseCliVersion}`)
+ return version
+}
+
+function executeCliVersion(command,{cwd=root,spawn=spawnSync,platform=process.platform}={}){
+ const windowsCommand=platform==='win32'&&(['vercel','supabase'].includes(command)||command.endsWith('.cmd'))
+ const result=spawn(command,['--version'],{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe'],shell:windowsCommand})
+ const label=path.basename(command)
+ if(result.error){
+  const code=typeof result.error.code==='string'?result.error.code:'SPAWN_ERROR'
+  if(code==='ENOENT')throw Error('Comando obrigatório não encontrado (ENOENT): '+label)
+  throw Error('Falha ao iniciar comando obrigatório ('+code+'): '+label)
+ }
+ if(result.status!==0)throw Error('Comando obrigatório falhou: '+label+' --version')
+ return {stdout:result.stdout??'',stderr:result.stderr??''}
+}
+
 export function resolveVercelCli({
  env=process.env,
  cwd=root,
@@ -124,15 +180,14 @@ export function resolveVercelCli({
   source='VERCEL_CLI'
   if(!exists(command)||!stat(command).isFile())throw Error('DEPLOY BLOQUEADO: VERCEL_CLI não aponta para um arquivo executável existente')
  }
- let version
- try {version=executeCommand(command,['--version'],{cwd,spawn,platform})}
+ let output
+ try {output=executeCliVersion(command,{cwd,spawn,platform})}
  catch(error){
   if(!explicit&&/\(ENOENT\)/.test(error.message))throw Error('DEPLOY BLOQUEADO: Vercel CLI ausente; defina VERCEL_CLI com um executável local válido')
   throw error
  }
- const normalized=version.split(/\r?\n/,1)[0]?.trim()
- if(!normalized||normalized.length>80||!/^[A-Za-z0-9][A-Za-z0-9 ._()+-]*$/.test(normalized))throw Error('DEPLOY BLOQUEADO: versão da Vercel CLI inválida')
- log(JSON.stringify({vercelCli:{source,path:explicit?command:'vercel',version:normalized}}))
+ const version=parseVercelCliVersion(output)
+ log(JSON.stringify({vercelCli:{source,path:explicit?command:'vercel',version}}))
  return command
 }
 
@@ -155,15 +210,14 @@ export function resolveSupabaseCli({
   source='SUPABASE_CLI'
   if(!exists(command)||!stat(command).isFile())throw Error('DEPLOY BLOQUEADO: SUPABASE_CLI não aponta para um arquivo executável existente')
  }
- let version
- try {version=executeCommand(command,['--version'],{cwd,spawn,platform})}
+ let output
+ try {output=executeCliVersion(command,{cwd,spawn,platform})}
  catch(error){
   if(!explicit&&/\(ENOENT\)/.test(error.message))throw Error('DEPLOY BLOQUEADO: Supabase CLI ausente; defina SUPABASE_CLI com um executável local válido')
   throw error
  }
- const normalized=version.split(/\r?\n/,1)[0]?.trim()
- if(!normalized||normalized.length>80||!/^[A-Za-z0-9][A-Za-z0-9 ._()+-]*$/.test(normalized))throw Error('DEPLOY BLOQUEADO: versão da Supabase CLI inválida')
- log(JSON.stringify({supabaseCli:{source,path:explicit?command:'supabase',version:normalized}}))
+ const version=parseSupabaseCliVersion(output)
+ log(JSON.stringify({supabaseCli:{source,path:explicit?command:'supabase',version}}))
  return command
 }
 const git=(...args)=>run('git',args)
