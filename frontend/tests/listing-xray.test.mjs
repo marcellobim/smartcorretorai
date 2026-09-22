@@ -19,12 +19,14 @@ const socialResult = { status: 'completed', content_type: 'SOCIAL_PUBLICATION', 
 const firstCanaryResult = JSON.parse(readFileSync(new URL('./fixtures/listing-xray-first-canary-result.json', import.meta.url), 'utf8'))
 function memoryStorage() { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) } }
 
-test('produto oficial usa rota autenticada comum e aparece na navegação, Home e Landing', () => {
-  assert.match(app, /path="\/raio-x-anuncio" element=\{<RaioXAnuncio \/>\}/)
+test('produto preservado mantém autenticação e fica fora da descoberta com entrada protegida', () => {
+  assert.match(app, /path="\/raio-x-anuncio" element=\{<AvailableProductRoute product="raio-x"><AccountAnalyticsRoute[^>]*><RaioXAnuncio \/>/)
   assert.match(app, /OnboardingPrivateRoute><AppLayout/)
   assert.match(sidebar, /to: '\/raio-x-anuncio'[\s\S]*label: 'Raio-X'/)
-  assert.match(dashboard, /data-home-product="raio-x-anuncio"[\s\S]*Analisar meu anúncio/)
-  assert.match(landing, /Seu anúncio está publicado, mas poderia chamar mais atenção\?[\s\S]*Experimentar o Raio-X/)
+  assert.match(dashboard, /const homeGroups = visibleProducts\(\[/)
+  assert.match(sidebar, /items: visibleProducts\(group.items\)/)
+  assert.match(landing, /RAIO_X_AVAILABLE && <ListingXraySpotlight/)
+  assert.match(landing, /Experimentar o Raio-X/)
   assert.doesNotMatch(admin, /ListingXraySourceDiagnostic|ListingXrayImageCanary|acquire_only/)
 })
 

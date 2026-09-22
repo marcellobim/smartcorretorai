@@ -1,3 +1,4 @@
+import AvailableProductRoute from './components/layout/AvailableProductRoute'
 import { videoLoginDestination } from './lib/smart-tour-auth-recovery'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './lib/auth-context'
@@ -119,9 +120,9 @@ export default function App() {
         <Route path="/smart-tour-ai" element={<AccountAnalyticsRoute productId={PRODUCTS.VIDEO_IMOBILIARIO}><SmartTourAI /></AccountAnalyticsRoute>} />
         <Route path="/virtual-staging" element={<AccountAnalyticsRoute productId={PRODUCTS.SMART_SPACE}><VirtualStaging /></AccountAnalyticsRoute>} />
         <Route path="/transformar-video" element={<TransformarVideo />} />
-        <Route path="/nova-campanha" element={<AccountAnalyticsRoute productId={PRODUCTS.BANNERS_RAPIDOS}><NovaCompanha /></AccountAnalyticsRoute>} />
+        <Route path="/nova-campanha" element={<AvailableProductRoute product="banners-rapidos"><AccountAnalyticsRoute productId={PRODUCTS.BANNERS_RAPIDOS}><NovaCompanha /></AccountAnalyticsRoute></AvailableProductRoute>} />
         <Route path="/campanha-de-textos" element={<AccountAnalyticsRoute productId={PRODUCTS.CAMPANHA_TEXTOS}><TextCampaign /></AccountAnalyticsRoute>} />
-        <Route path="/raio-x-anuncio" element={<AccountAnalyticsRoute productId={PRODUCTS.RAIO_X}><RaioXAnuncio /></AccountAnalyticsRoute>} />
+        <Route path="/raio-x-anuncio" element={<AvailableProductRoute product="raio-x"><AccountAnalyticsRoute productId={PRODUCTS.RAIO_X}><RaioXAnuncio /></AccountAnalyticsRoute></AvailableProductRoute>} />
         <Route path="/configuracoes" element={<Configuracoes />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

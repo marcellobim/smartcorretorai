@@ -32,7 +32,10 @@ test('organizes the sidebar in the approved section order', () => {
   assert.ok(administration > account)
 })
 
-test('keeps the approved sidebar products and the Smart Space public name', () => {
+test('preserves product definitions behind the customer navigation filter', () => {
+  assert.match(sidebar, /customerNavigationGroups = navigationGroups.map/)
+  assert.match(sidebar, /items: visibleProducts\(group.items\)/)
+  assert.match(sidebar, /\{customerNavigationGroups.map/)
   const expectedProducts = [
     ["'/smart-tour-ai'", "'Vídeo Imobiliário'"],
     ["'/hero'", "'Banner Imobiliário'"],

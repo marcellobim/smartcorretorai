@@ -20,9 +20,25 @@ export function smoke(root=process.cwd(),transform=(p,s)=>s){
  check(hero.includes('currentQuestion.question') && !hero.includes('questionDrafts'),'chat humanizado')
  check(hero.includes('MAX_HERO_NEXT_IMAGES = 4') && hero.includes("index === 0 ? 'Principal'") && hero.includes('inline_images: uploadedImages.map'),'0–4 imagens/principal/payload')
  const home=read('frontend/src/pages/Dashboard.jsx')
- for(const group of ['video','imagem','texto','analisar'])check(home.includes(group),'Home '+group)
+ for(const group of ['video','imagem','texto'])check(home.includes(group),'Home '+group)
  for(const marker of ['Funil do cliente','Atividade recente','Último login','Última atividade','generation_completed','generation_failed'])check(admin.includes(marker),'Admin 2.0 '+marker)
  check(app.includes('AccountAnalyticsRoute'),'eventos de abertura')
+ const policy=read('frontend/src/config/productAvailability.js')
+ const guard=read('frontend/src/components/layout/AvailableProductRoute.jsx')
+ const landing=read('frontend/src/pages/LandingPage.jsx')
+ const sidebar=read('frontend/src/components/layout/Sidebar.jsx')
+ for(const flag of ['RAIO_X_AVAILABLE','QUICK_BANNERS_AVAILABLE'])check(policy.includes(flag+' = false'),'política '+flag)
+ check(guard.includes('isProductAvailable(product) ? children : <Navigate to="/dashboard" replace />'),'redirecionamento sem montar produto')
+ for(const [route,id] of [['/raio-x-anuncio','raio-x'],['/nova-campanha','banners-rapidos']]){
+  check(app.includes('path="'+route+'" element={<AvailableProductRoute product="'+id+'"><AccountAnalyticsRoute'),'guard externo '+route)
+ }
+ for(const marker of ['const mainActions = visibleProducts([','const homeGroups = visibleProducts([','const heroMediaItems = visibleProducts(['])check(home.includes(marker),'descoberta Home '+marker)
+ check(sidebar.includes('items: visibleProducts(group.items)') && sidebar.includes('{customerNavigationGroups.map'),'descoberta Sidebar')
+ for(const marker of ['RAIO_X_AVAILABLE && <ListingXraySpotlight','const HERO_PRODUCT_SLIDES = visibleProducts([','const DELIVERY_GROUPS = visibleProducts([',"SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)",'items: visibleProducts(group.items)','Math.ceil(group.items.length / 2)',"group.items.length === 1 ? 'max-w-2xl grid-cols-1'"])check(landing.includes(marker),'descoberta/layout Landing '+marker)
+ check(read('frontend/src/config/shortVideos.js').includes('SHORT_VIDEOS_VISIBLE = false'),'Short Videos congelado')
+ check(landing.includes('TRIAL_OFFERED_LABEL') && read('frontend/src/pages/TermosDeUso.jsx').includes('QUICK_BANNERS_AVAILABLE && <li>'),'comunicação trial')
+ check(read('frontend/src/pages/TransformarVideo.jsx').includes('QUICK_BANNERS_AVAILABLE && <Link to="/nova-campanha"'),'CTA secundário')
+ for(const route of ['/login','/dashboard'])check(app.includes('path="'+route+'"'),'rota preservada '+route)
  const rows=[]
  for(const [name,route,page,endpoint,action] of products){
   const file=`frontend/src/pages/${page}.jsx`;check(existsSync(path.join(root,file)),name+' componente')
@@ -33,7 +49,7 @@ export function smoke(root=process.cwd(),transform=(p,s)=>s){
   check(code.includes(endpoint),name+' backend')
   check(code.toLowerCase().includes(action.toLowerCase()) && /onClick=|onSubmit=|onGenerate=/.test(code),name+' ação final')
   check(code.includes('trackGenerationClicked()'),name+' evento Gerar')
-  rows.push({product:name,route,component:file,start:'PASS',steps:'PASS',generation: endpoint,status:'PASS'})
+  rows.push({availability:['/nova-campanha','/raio-x-anuncio'].includes(route)?'PAUSED — redirect /dashboard':'AVAILABLE',product:name,route,component:file,start:'PASS',steps:'PASS',generation: endpoint,status:'PASS'})
  }
  return rows
 }

@@ -1,3 +1,4 @@
+import { visibleProducts } from '../../config/productAvailability'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -40,6 +41,8 @@ const navigationGroups = [
     ],
   },
 ]
+
+const customerNavigationGroups = navigationGroups.map(group => ({ ...group, items: visibleProducts(group.items) })).filter(group => group.items.length)
 
 const accountItems = [
   { to: '/configuracoes?tab=cadastro', icon: Settings, label: 'Configurações' },
@@ -181,7 +184,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
-        {navigationGroups.map(group => (
+        {customerNavigationGroups.map(group => (
           <NavigationGroup key={group.label} group={group} onNavigate={onClose} />
         ))}
 

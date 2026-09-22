@@ -21,15 +21,15 @@ const bundle = await build({
 const { render } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`)
 const ids = (html, attribute) => [...html.matchAll(new RegExp(`${attribute}="([^"]+)"`, 'g'))].map(match => match[1])
 
-test('Home renders exactly four groups and no individual product cards', () => {
+test('Home renders exactly three groups and no individual product cards', () => {
   const html = render('/dashboard')
-  assert.deepEqual(ids(html, 'data-home-group'), ['video', 'imagem', 'texto', 'analisar'])
+  assert.deepEqual(ids(html, 'data-home-group'), ['video', 'imagem', 'texto'])
   assert.deepEqual(ids(html, 'data-home-product'), [])
-  for (const label of ['VÍDEO', 'IMAGEM', 'TEXTO', 'ANALISAR']) assert.ok(html.includes(label))
+  for (const label of ['VÍDEO', 'IMAGEM', 'TEXTO']) assert.ok(html.includes(label))
   assert.match(html, /href="\/dashboard\?grupo=video"/)
   assert.match(html, /href="\/dashboard\?grupo=imagem"/)
   assert.match(html, /href="\/campanha-de-textos"/)
-  assert.match(html, /href="\/raio-x-anuncio"/)
+  assert.doesNotMatch(html, /Raio-X|ANALISAR|Banners Rápidos|href="\/raio-x-anuncio"|href="\/nova-campanha"/)
 })
 
 test('VÍDEO renders its three existing entries and leaves Short Videos absent', () => {
@@ -43,14 +43,14 @@ test('VÍDEO renders its three existing entries and leaves Short Videos absent',
   assert.match(html, /href="\/dashboard"[^>]*>[\s\S]*Voltar aos grupos/)
 })
 
-test('IMAGEM renders four products with their unchanged routes', () => {
+test('IMAGEM renders three products with their unchanged routes', () => {
   const html = render('/dashboard?grupo=imagem')
-  assert.deepEqual(ids(html, 'data-home-product'), ['hero-ia', 'smart-space', 'banners-rapidos', 'smart-carrossel'])
-  for (const route of ['/hero', '/virtual-staging', '/nova-campanha', '/smart-carrossel']) assert.ok(html.includes(`href="${route}"`))
+  assert.deepEqual(ids(html, 'data-home-product'), ['hero-ia', 'smart-space', 'smart-carrossel'])
+  for (const route of ['/hero', '/virtual-staging', '/smart-carrossel']) assert.ok(html.includes(`href="${route}"`))
 })
 
-test('unknown group returns to four choices and all destinations remain registered', () => {
-  assert.equal(ids(render('/dashboard?grupo=unknown'), 'data-home-group').length, 4)
+test('unknown group returns to three choices and all destinations remain registered', () => {
+  assert.equal(ids(render('/dashboard?grupo=unknown'), 'data-home-group').length, 3)
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
   for (const route of ['/smart-tour-ai', '/studio-hero', '/hero', '/virtual-staging', '/nova-campanha', '/smart-carrossel', '/campanha-de-textos', '/raio-x-anuncio']) assert.ok(app.includes(`path="${route}"`), route)
 })

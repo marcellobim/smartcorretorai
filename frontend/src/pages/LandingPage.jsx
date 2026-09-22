@@ -1,3 +1,5 @@
+import { RAIO_X_AVAILABLE, visibleProducts, TRIAL_OFFERED_LABEL } from '../config/productAvailability'
+import { SHORT_VIDEOS_VISIBLE } from '../config/shortVideos'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -46,14 +48,14 @@ const VIDEO_POSTERS = Object.freeze({
   '/previews/produto3/card-imobiliario-premium-preview-1x1.mp4': '/landing/posters/banner-card.webp',
 })
 const HERO_ROTATION_INTERVAL_MS = 5200
-const HERO_PRODUCT_SLIDES = [
+const HERO_PRODUCT_SLIDES = visibleProducts([
   { id: 'video-imobiliario', name: 'Vídeo Imobiliário', type: 'video', src: '/demos-videos/video-campanha.mp4', label: 'Vídeo imobiliário criado no SmartCorretorAI' },
   { id: 'virtual-staging', name: 'Smart Space', type: 'image', src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Ambiente criado com Smart Space no SmartCorretorAI' },
   { id: 'banner-imobiliario', name: 'Banner Imobiliário', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', label: 'Banner imobiliário criado no SmartCorretorAI' },
   { id: 'banners-rapidos', name: 'Banners Rápidos', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', label: 'Banner rápido criado no SmartCorretorAI' },
   { id: 'studio-ia', name: 'Studio IA', type: 'video', src: '/showcase/smart-studio-gallery/venda1lapa.mp4', label: 'Comercial imobiliário criado no Studio IA' },
-]
-const PRODUCT_FAMILIES = [
+])
+const PRODUCT_FAMILIES = visibleProducts([
   {
     id: 'video-imobiliario', name: 'Vídeo Imobiliário', number: '01',
     headline: 'Faça suas fotos ganharem movimento.',
@@ -119,8 +121,8 @@ const PRODUCT_FAMILIES = [
     icon: FileText,
     items: [{ id: 'campanha', title: 'Campanha completa', type: 'text' }],
   },
-]
-const DELIVERY_GROUPS = [
+]).map(group => ({ ...group, items: visibleProducts(group.items).filter(item => SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)) }))
+const DELIVERY_GROUPS = visibleProducts([
   {
     id: 'videos',
     eyebrow: 'Criações em vídeo',
@@ -162,7 +164,7 @@ const DELIVERY_GROUPS = [
       { id: 'campanha-completa', title: 'Campanha de Textos', description: 'Crie uma campanha completa para Portal, Redes sociais, WhatsApp e Google Ads.', type: 'text' },
     ],
   },
-]
+]).map(group => ({ ...group, items: visibleProducts(group.items).filter(item => SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)) }))
 const REAL_USES = [
   ['Venda', 'Imóveis usados, prontos, novos ou em estoque também precisam continuar chamando atenção. Apresente diferenciais e varie a forma de mostrar cada oportunidade.'],
   ['Locação', 'Locação não precisa ficar limitada a fotos e uma descrição básica. Crie materiais para apresentar melhor o imóvel e manter a oferta presente.'],
@@ -256,7 +258,7 @@ const FAQ_ITEMS = [
   ['O que são Smart Tokens?', 'Smart Tokens representam sua capacidade de criação dentro do SmartCorretorAI. Cada recurso informa a quantidade necessária antes de iniciar.'],
   ['Preciso ter assinatura?', 'Não. Os planos são indicados para quem cria com frequência, mas também é possível adquirir Smart Tokens separadamente.'],
   ['Posso comprar Smart Tokens separadamente?', 'Sim. As recargas podem ser usadas para começar sem assinatura ou complementar um plano.'],
-  ['Como funciona o teste grátis?', 'Após confirmar seu e-mail, você recebe uma única concessão de 200 Smart Tokens, sem cartão e sem prazo de expiração, para usar em Campanha de Textos, Banners Rápidos e Smart Carrossel. Os demais produtos podem exigir assinatura ou compra de Smart Tokens.'],
+  ['Como funciona o teste grátis?', `Após confirmar seu e-mail, você recebe uma única concessão de 200 Smart Tokens, sem cartão e sem prazo de expiração, para usar em ${TRIAL_OFFERED_LABEL}. Os demais produtos podem exigir assinatura ou compra de Smart Tokens.`],
   ['O que acontece se uma geração falhar?', 'Quando uma geração falha e não conclui a entrega correspondente, a reserva de Smart Tokens é liberada conforme o fluxo do produto.'],
   ['Posso cancelar minha assinatura?', 'Sim. O cancelamento pode ser solicitado pelo portal seguro de assinatura e ocorre ao final do período já pago.'],
   ['Como gerencio minha assinatura?', 'Acesse Configurações → Plano e Assinatura e selecione “Gerenciar assinatura” para abrir o portal seguro da Stripe.'],
@@ -480,7 +482,10 @@ function DeliveryPanel({ group }) {
     if (playingVideoRef.current && playingVideoRef.current !== video) playingVideoRef.current.pause()
     playingVideoRef.current = video
   }
-  const groups = [group.items.slice(0, 5), group.items.slice(5)]
+  // Keep the real-estate video modes together, followed by the other video products.
+  const otherProductsIndex = group.items.findIndex(item => item.id === 'comercial-imobiliario')
+  const midpoint = otherProductsIndex > 0 ? otherProductsIndex : Math.ceil(group.items.length / 2)
+  const groups = [group.items.slice(0, midpoint), group.items.slice(midpoint)].filter(items => items.length)
   return <section id={group.id} className="scroll-mt-20 bg-[#080c19] py-12 text-white">
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <div>
@@ -521,7 +526,7 @@ function ImageShowcase({ group }) {
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{group.eyebrow}</p>
       <h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{group.title}</h2>
-      <div className="mx-auto mt-7 hidden max-w-5xl grid-cols-2 gap-6 md:grid">{group.items.map(item => <ImagePreviewCard key={item.id} item={item} />)}</div>
+      <div className={`mx-auto mt-7 hidden gap-6 md:grid ${group.items.length === 1 ? 'max-w-2xl grid-cols-1' : 'max-w-5xl grid-cols-2'}`}>{group.items.map(item => <ImagePreviewCard key={item.id} item={item} />)}</div>
       <div className="mt-8 md:hidden"><div className="flex flex-wrap gap-2 pb-4">{group.items.map((item, index) => <button key={item.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`rounded-full border px-4 py-2 text-xs font-black ${activeIndex === index ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-300 bg-white text-slate-600'} ${focusRing}`}>{item.title}</button>)}</div><ImagePreviewCard item={group.items[activeIndex]} /></div>
       <div className="mt-8 flex flex-col justify-between gap-4 border-t border-slate-300 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{group.ctaLabel}<ArrowRight className="h-4 w-4" /></Link></div>
     </div>
@@ -660,5 +665,5 @@ function LandingFooter() {
 }
 
 export default function LandingPage() {
-  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><FirstCreationEntry /><div id="conheca-a-plataforma" className="scroll-mt-20"><Hero /></div><PositioningStrip /><ListingXraySpotlight /><DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
+  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><FirstCreationEntry /><div id="conheca-a-plataforma" className="scroll-mt-20"><Hero /></div><PositioningStrip />{RAIO_X_AVAILABLE && <ListingXraySpotlight />}<DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
 }

@@ -1,3 +1,4 @@
+import { QUICK_BANNERS_AVAILABLE } from '../config/productAvailability'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -1053,9 +1054,9 @@ export default function TransformarVideo() {
                   <Link to="/hero" className="inline-flex items-center justify-center rounded-xl bg-primary-800 px-4 py-3 text-sm font-black text-white hover:bg-primary-700">
                     Criar Campanha IA
                   </Link>
-                  <Link to="/nova-campanha" className="inline-flex items-center justify-center rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-primary-800 hover:bg-primary-50">
+                  {QUICK_BANNERS_AVAILABLE && <Link to="/nova-campanha" className="inline-flex items-center justify-center rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-primary-800 hover:bg-primary-50">
                     Criar banners rápidos
-                  </Link>
+                  </Link>}
                 </div>
               </aside>
             </div>

@@ -1,3 +1,4 @@
+import { QUICK_BANNERS_AVAILABLE } from '../config/productAvailability'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
@@ -101,7 +102,7 @@ export default function TermosDeUso() {
               <p className="mt-2">O teste gratuito permite utilizar os seguintes produtos:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>Campanha de Textos;</li>
-                <li>Banners Rápidos;</li>
+                {QUICK_BANNERS_AVAILABLE && <li>Banners Rápidos;</li>}
                 <li>Smart Carrossel.</li>
               </ul>
               <p className="mt-2">

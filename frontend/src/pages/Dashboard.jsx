@@ -1,3 +1,4 @@
+import { QUICK_BANNERS_AVAILABLE, visibleProducts } from '../config/productAvailability'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -39,7 +40,7 @@ const PLANS_ROUTE = '/planos'
 const SMART_TOKENS_LABEL = ['Smart', 'Tokens'].join(' ')
 const HOME_PAGE_CLASS = 'mx-auto w-full max-w-[92rem] px-smart-page py-6 sm:py-8'
 
-const mainActions = [
+const mainActions = visibleProducts([
   {
     id: 'smart-tour-ai',
     title: 'Vídeo Imobiliário',
@@ -121,7 +122,7 @@ const mainActions = [
     tone: 'peach',
     icon: Zap,
   },
-]
+])
 
 const textCampaignAction = Object.freeze({
   id: 'campanha-de-textos',
@@ -131,12 +132,12 @@ const textCampaignAction = Object.freeze({
   label: 'Criar campanha',
 })
 
-const homeGroups = [
+const homeGroups = visibleProducts([
   { id: 'video', title: 'VÍDEO', description: 'Crie vídeos para apresentar e divulgar seus imóveis.', to: '/dashboard?grupo=video', label: 'Ver produtos de vídeo', icon: Video, tone: 'violet', products: ['smart-tour-ai', 'comercial-imobiliario', 'video-criativo'] },
   { id: 'imagem', title: 'IMAGEM', description: 'Crie banners, transforme ambientes e prepare carrosséis.', to: '/dashboard?grupo=imagem', label: 'Ver produtos de imagem', icon: ImageIcon, tone: 'mint', products: ['hero-ia', 'smart-space', 'banners-rapidos', 'smart-carrossel'] },
   { id: 'texto', title: 'TEXTO', description: textCampaignAction.description, to: textCampaignAction.to, label: 'Abrir Campanha de Textos', icon: FileText, tone: 'gold' },
   { id: 'analisar', title: 'ANALISAR', description: 'Analise seu anúncio com o Raio-X e descubra oportunidades de melhoria.', to: '/raio-x-anuncio', label: 'Abrir Raio-X', icon: Radar, tone: 'cyan' },
-]
+]).map(group => ({ ...group, ...(group.products ? { products: group.products.filter(id => mainActions.some(action => action.id === id)) } : {}) })).filter(group => !group.products || group.products.length)
 
 const productTones = Object.freeze({
   violet: 'bg-violet-500',
@@ -147,7 +148,7 @@ const productTones = Object.freeze({
   gold: 'bg-amber-500',
 })
 
-const heroMediaItems = [
+const heroMediaItems = visibleProducts([
   {
     id: 'video-imobiliario',
     label: 'Vídeo Imobiliário',
@@ -179,7 +180,7 @@ const heroMediaItems = [
     src: '/previews/produto3/anuncio-premium-preview-1x1.jpg',
     type: 'image',
   },
-]
+])
 
 const benefits = [
   {
@@ -207,7 +208,7 @@ const benefits = [
 const faqItems = [
   {
     question: 'Qual produto devo usar para o que preciso criar?',
-    answer: 'Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, enquanto Banners Rápidos parte de modelos profissionais. Comercial Imobiliário, Vídeo Criativo e Smart Carrossel atendem diferentes formatos de campanha. Smart Space transforma ambientes, Vida no Imóvel e Apresentação pelo Corretor criam novas formas de apresentar, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.',
+    answer: `Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, ${QUICK_BANNERS_AVAILABLE ? 'enquanto Banners Rápidos parte de modelos profissionais.' : 'com diferentes formatos de divulgação.'} Comercial Imobiliário, Vídeo Criativo e Smart Carrossel atendem diferentes formatos de campanha. Smart Space transforma ambientes, Vida no Imóvel e Apresentação pelo Corretor criam novas formas de apresentar, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.`,
   },
   {
     question: `Preciso assinar um plano ou posso comprar ${SMART_TOKENS_LABEL} quando precisar?`,
@@ -272,7 +273,7 @@ export default function Dashboard() {
   const [searchParams] = useSearchParams()
   const selectedGroup = homeGroups.find(group => group.products && group.id === searchParams.get('grupo'))
   const visibleActions = selectedGroup
-    ? selectedGroup.products.map(id => mainActions.find(action => action.id === id))
+    ? selectedGroup.products.map(id => mainActions.find(action => action.id === id)).filter(Boolean)
     : homeGroups
 
   return (
@@ -306,7 +307,7 @@ export default function Dashboard() {
             id="home-products-title"
             title={selectedGroup ? selectedGroup.title : 'O que você quer criar hoje?'}
           />
-          <div data-home-product-grid className="mt-5 grid min-w-0 auto-rows-fr gap-4 sm:grid-cols-2">
+          <div data-home-product-grid className="mt-5 grid min-w-0 auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visibleActions.map(action => (
               <ActionCard key={action.id} action={action} isGroup={!selectedGroup} />
             ))}

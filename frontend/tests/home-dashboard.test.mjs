@@ -16,10 +16,11 @@ const bannerShowcase = read('src/components/hero/HeroShowcase.jsx')
 const studio = read('src/pages/StudioHero.jsx')
 const virtualSpace = read('src/pages/VirtualStaging.jsx')
 const quickBanners = read('src/data/templateCatalog.js')
-const actionSource = dashboard.match(/const mainActions = \[([\s\S]*?)\n\]/)?.[1] || ''
+const actionSource = dashboard.match(/const mainActions = visibleProducts\(\[([\s\S]*?)\n\]/)?.[1] || ''
 const benefitsSource = dashboard.match(/const benefits = \[([\s\S]*?)\n\]/)?.[1] || ''
 const faqSource = dashboard.match(/const faqItems = \[([\s\S]*?)\n\]/)?.[1] || ''
 
+// Preserved definitions; rendered customer availability is tested in home-groups and product-availability.
 const expectedGridProducts = [
   ['smart-tour-ai', 'Vídeo Imobiliário', '/smart-tour-ai'],
   ['hero-ia', 'Banner Imobiliário', '/hero'],

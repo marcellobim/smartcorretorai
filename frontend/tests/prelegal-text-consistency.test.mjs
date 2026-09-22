@@ -1,4 +1,5 @@
 import test from 'node:test'
+import { TRIAL_OFFERED_PRODUCTS } from '../src/config/productAvailability.js'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -14,10 +15,13 @@ const plans = read('src/pages/Planos.jsx')
 const app = read('src/App.jsx')
 const register = read('src/pages/RegisterPage.jsx')
 
-test('documents the current one-time 200 ST trial and exact product allowlist', () => {
+test('documents the one-time 200 ST trial and separates offered products from economic eligibility', () => {
+  assert.deepEqual(TRIAL_OFFERED_PRODUCTS, ['Campanha de Textos', 'Smart Carrossel'])
+  assert.match(landing, /TRIAL_OFFERED_LABEL/)
+  assert.match(terms, /QUICK_BANNERS_AVAILABLE && <li>Banners Rápidos/)
   for (const source of [terms, landing]) {
     assert.match(source, /200 Smart Tokens/)
-    for (const product of ['Campanha de Textos', 'Banners Rápidos', 'Smart Carrossel']) assert.ok(source.includes(product), product)
+    for (const product of ['Campanha de Textos', 'Smart Carrossel']) assert.ok((source === landing ? TRIAL_OFFERED_PRODUCTS.join(', ') : source).includes(product), product)
   }
   assert.match(terms, /única concessão/)
   assert.match(terms, /Após confirmar o e-mail/)

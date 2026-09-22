@@ -45,7 +45,8 @@ test('rotates the approved Hero products automatically with synchronized media',
   assert.doesNotMatch(heroSource, /matchMedia\('\(min-width|innerWidth/)
 })
 
-test('positions the Raio-X as the strategic starting point and uses only Smart Space publicly', () => {
+test('preserves the dormant Raio-X spotlight behind the commercial policy', () => {
+  assert.match(landing, /RAIO_X_AVAILABLE && <ListingXraySpotlight/)
   assert.match(landing, /Não sabe por onde começar\?/)
   assert.match(landing, /to="\/raio-x-anuncio"/)
   assert.match(landing, /Smart Space/)
@@ -86,7 +87,7 @@ test('presents two independent internal-style video previews with the original i
   assert.match(landing, /function DeliveryVideo/)
   assert.match(landing, /function VideoCreationGroup/)
   assert.match(landing, /aspect-\[9\/16\]/)
-  assert.match(landing, /const groups = \[group\.items\.slice\(0, 5\), group\.items\.slice\(5\)\]/)
+  assert.match(landing, /const groups = \[group\.items\.slice\(0, midpoint\), group\.items\.slice\(midpoint\)\]\.filter/)
   assert.match(landing, /groups\.map\(\(items, index\) => <VideoCreationGroup/)
   assert.match(landing, /playingVideoRef\.current[\s\S]*?\.pause\(\)/)
   assert.match(landing, /onPlay=\{event => onPlay\(event\.currentTarget\)\}/)
@@ -96,14 +97,15 @@ test('presents two independent internal-style video previews with the original i
   assert.ok(videoGroup.indexOf('Apresentação pelo Corretor') < videoGroup.indexOf('Carrossel de Anúncios'))
 })
 
-test('keeps Short Videos presentation exactly as it was before this package', () => {
+test('preserves Short Videos assets while filtering its commercial presentation', () => {
   assert.match(landing, /id: 'shorts'[\s\S]*?title: 'Short Videos'[\s\S]*?src: '\/demos-videos\/short-video-1\.mp4'/)
   assert.match(videoGroup, /id: 'short-videos'[\s\S]*?description: 'Crie vídeos curtos para manter seus imóveis presentes em formatos rápidos de divulgação\.'/)
-  assert.doesNotMatch(landing, /SHORT_VIDEOS_AVAILABILITY|comingSoon|hidden: true|EM BREVE|Conhecer a plataforma/)
-  assert.match(landing, /const groups = \[group\.items\.slice\(0, 5\), group\.items\.slice\(5\)\]/)
+  assert.match(landing, /SHORT_VIDEOS_VISIBLE \|\| !\['shorts', 'short-videos'\]\.includes\(item.id\)/)
+  assert.match(landing, /const groups = \[group\.items\.slice\(0, midpoint\), group\.items\.slice\(midpoint\)\]\.filter/)
 })
 
-test('shows only the two approved image creations without duplicating Smart Space', () => {
+test('preserves image definitions and uses one column for the remaining image product', () => {
+  assert.match(landing, /group.items.length === 1 \? 'max-w-2xl grid-cols-1'/)
   assert.match(imageGroup, /eyebrow: 'Criações em imagens'/)
   assert.match(imageGroup, /title: 'Veja tudo o que você pode criar\.'/)
   for (const module of ['Banner Imobiliário', 'Banners Rápidos']) assert.ok(imageGroup.includes(module), module)
