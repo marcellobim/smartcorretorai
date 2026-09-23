@@ -84,6 +84,7 @@ function RouteLoader() {
 }
 
 export default function App() {
+  const { isAdmin } = useAuthStore()
   // O AuthProvider já hidrata a sessão sozinho via onAuthStateChange
   // (lib/auth-context.jsx). Antes havia um useAuthStore(s => s.init) aqui
   // que duplicava a hidratação — removido junto com a função init.
@@ -126,7 +127,7 @@ export default function App() {
         <Route path="/campanha-de-textos" element={<AccountAnalyticsRoute productId={PRODUCTS.CAMPANHA_TEXTOS}><TextCampaign /></AccountAnalyticsRoute>} />
         <Route path="/raio-x-anuncio" element={<AvailableProductRoute product="raio-x"><AccountAnalyticsRoute productId={PRODUCTS.RAIO_X}><RaioXAnuncio /></AccountAnalyticsRoute></AvailableProductRoute>} />
         <Route path="/configuracoes" element={<Configuracoes />} />
-        <Route path="/configuracoes/integracoes/tiktok" element={TIKTOK_LOGIN_KIT_ENABLED ? <TikTokIntegration /> : <Navigate to="/configuracoes" replace />} />
+        <Route path="/configuracoes/integracoes/tiktok" element={TIKTOK_LOGIN_KIT_ENABLED && isAdmin ? <AdminRoute><TikTokIntegration /></AdminRoute> : <Navigate to="/configuracoes" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></>

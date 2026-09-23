@@ -8,6 +8,7 @@ import {
   CreditCard,
   Image,
   Lock,
+  Music2,
   Palette,
   Upload,
   User,
@@ -19,6 +20,7 @@ import { Input, Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
+import { TIKTOK_LOGIN_KIT_ENABLED } from '../config/tiktok'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
 
 const ESTADOS_BR = [
@@ -188,7 +190,7 @@ export default function Configuracoes() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(() => resolveSettingsTab(searchParams.get('tab')))
-  const { user, session, updateUser } = useAuth()
+  const { user, session, updateUser, isAdmin } = useAuth()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
   const [openingPortal, setOpeningPortal] = useState(false)
@@ -426,6 +428,18 @@ export default function Configuracoes() {
                 {label}
               </button>
             ))}
+            {TIKTOK_LOGIN_KIT_ENABLED && isAdmin && (
+              <section className="pt-5" aria-label="Integrações">
+                <h2 className="px-3 text-xs font-black uppercase tracking-wide text-slate-500">Integrações</h2>
+                <Link to="/configuracoes/integracoes/tiktok" className="mt-2 flex items-start gap-2.5 rounded-2xl border border-gray-200 bg-white px-3 py-3 text-slate-700 transition hover:border-primary-300 hover:bg-primary-50">
+                  <Music2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black">TikTok</span>
+                    <span className="mt-1 block text-xs leading-relaxed">Conecte sua conta TikTok</span>
+                  </span>
+                </Link>
+              </section>
+            )}
           </nav>
 
           <div className="min-w-0">

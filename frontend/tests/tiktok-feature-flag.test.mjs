@@ -20,7 +20,7 @@ test('TikTok Login Kit is disabled unless the flag is exactly true', () => {
 test('disabled route redirects with replace before mounting the TikTok page', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
   assert.match(app, /path="\/configuracoes\/integracoes\/tiktok"/)
-  assert.match(app, /TIKTOK_LOGIN_KIT_ENABLED \? <TikTokIntegration \/> : <Navigate to="\/configuracoes" replace \/>/)
+  assert.match(app, /TIKTOK_LOGIN_KIT_ENABLED && isAdmin \? <AdminRoute><TikTokIntegration \/><\/AdminRoute> : <Navigate to="\/configuracoes" replace \/>/)
 })
 
 test('existing private routes remain declared', () => {
