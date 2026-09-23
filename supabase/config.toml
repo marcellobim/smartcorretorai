@@ -86,3 +86,9 @@ verify_jwt = false
 
 [functions.stripe-customer-portal]
 verify_jwt = false
+
+[functions.tiktok-connection]
+verify_jwt = true
+
+[functions.tiktok-callback]
+verify_jwt = false

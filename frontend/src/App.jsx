@@ -24,6 +24,7 @@ import NovaCompanha from './pages/NovaCampanha'
 import TextCampaign from './pages/TextCampaign'
 import RaioXAnuncio from './pages/RaioXAnuncio'
 import Configuracoes from './pages/Configuracoes'
+import TikTokIntegration from './pages/TikTokIntegration'
 import Planos from './pages/Planos'
 import TermosDeUso from './pages/TermosDeUso'
 import Privacidade from './pages/Privacidade'
@@ -31,6 +32,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminMfaGate from './components/auth/AdminMfaGate'
 import AccountAnalyticsRoute from './components/analytics/AccountAnalyticsRoute'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS } from './lib/account-analytics'
+import { TIKTOK_LOGIN_KIT_ENABLED } from './config/tiktok'
 
 function AdminRoute({ children }) {
   const { user, loading, isAdmin, onboardingState } = useAuthStore()
@@ -124,6 +126,7 @@ export default function App() {
         <Route path="/campanha-de-textos" element={<AccountAnalyticsRoute productId={PRODUCTS.CAMPANHA_TEXTOS}><TextCampaign /></AccountAnalyticsRoute>} />
         <Route path="/raio-x-anuncio" element={<AvailableProductRoute product="raio-x"><AccountAnalyticsRoute productId={PRODUCTS.RAIO_X}><RaioXAnuncio /></AccountAnalyticsRoute></AvailableProductRoute>} />
         <Route path="/configuracoes" element={<Configuracoes />} />
+        <Route path="/configuracoes/integracoes/tiktok" element={TIKTOK_LOGIN_KIT_ENABLED ? <TikTokIntegration /> : <Navigate to="/configuracoes" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></>
