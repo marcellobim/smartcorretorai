@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Facebook, Instagram, Send, X } from 'lucide-react'
 import { getBannerConnectionDestinations } from '../../lib/banner-social-publish'
 import {
@@ -9,6 +9,8 @@ import {
   shouldPollSocialPublishRecovery,
 } from './socialPublishUiState'
 import SocialCaptionEditor from './SocialCaptionEditor'
+const TikTokPublish = lazy(() => import('./TikTokPublish'))
+import { TIKTOK_LOGIN_KIT_ENABLED } from '../../config/tiktok'
 
 const unavailableConnection = Object.freeze({ connected: false, status: 'unavailable', username: null, pageName: null, selectionRequired: false })
 const RECOVERY_INTERVAL_MS = 4000
@@ -139,6 +141,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
           <p className="text-sm font-black text-slate-950">Onde deseja publicar?</p>
           {connection.status === 'loading' && <p role="status" className="mt-3 text-sm font-semibold text-slate-500">Consultando contas conectadas…</p>}
           {usable && <div className="mt-3 grid gap-3">{destinations.map(({ id, label, Icon }) => <label key={id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-3 text-sm font-bold text-slate-800"><input type="checkbox" checked={selected.includes(id)} disabled={submissionLocked} onChange={() => toggle(id)} className="h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed" /><Icon className="h-5 w-5 text-emerald-700" />{label}</label>)}</div>}
+          {TIKTOK_LOGIN_KIT_ENABLED && intent.sourceType === 'video_imobiliario' && <Suspense fallback={null}><TikTokPublish intent={intent} caption={caption} /></Suspense>}
           {connection.selectionRequired && <p role="status" className="mt-3 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">Há mais de uma conta disponível. Selecione primeiro a conta desejada em Configurações.</p>}
           {!usable && connection.status !== 'loading' && !connection.selectionRequired && <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-semibold leading-6 text-amber-900">Conecte sua conta Meta uma única vez para publicar no Instagram e Facebook.</p><button type="button" onClick={() => onConnect?.(captionEditable ? { ...intent, captionSnapshot: caption } : intent)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white">Conectar Instagram e Facebook</button></div>}
         </div>

@@ -113,7 +113,8 @@ test('sessão ausente, cancelamento e identidade divergente não iniciam backend
   assert.equal(invoked, 0)
   assert.throws(() => buildSmartTourPublicationIntent({ campaign:{...campaign,mediaAssetId:'different'},field:fields[0] }), /identity_incomplete/)
   const dialog = readFileSync(new URL('../src/components/campaign/BannerPublishDialog.jsx', import.meta.url), 'utf8')
-  assert.match(dialog, /onClick=\{onClose\}[\s\S]{0,240}>Cancelar<\/button>/)
+  assert.match(dialog, /onClick=\{close\}[\s\S]{0,240}>Cancelar<\/button>/)
+  assert.match(dialog, /const close = \(\) => \{[\s\S]*?onClose\?\.\(\)/)
   assert.doesNotMatch(dialog, /\bFeed\b|\bReel\b|\bStory\b|container|lease/i)
 })
 
