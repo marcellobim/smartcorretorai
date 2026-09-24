@@ -1,3 +1,4 @@
+import { validateUpgradeScopes } from './capabilities.ts'
 import { TIKTOK_LOGIN_SCOPES, type TikTokAccount, type TikTokTokenSet } from './types.ts'
 import { validateTikTokRedirectUri } from './oauth.ts'
 
@@ -36,9 +37,10 @@ const requestJson = async (fetcher: TikTokFetch, url: string, init: RequestInit,
   return record
 }
 
-const parseTokenSet = (payload: Record<string, unknown>): TikTokTokenSet => {
+const parseTokenSet = (payload: Record<string, unknown>, capability: 'login_basic' | 'direct_post_upgrade' = 'login_basic'): TikTokTokenSet => {
   const scopes = requireText(payload.scope, 'tiktok_token_response_invalid').split(',').map(scope => scope.trim()).filter(Boolean)
-  if (scopes.length !== TIKTOK_LOGIN_SCOPES.length || TIKTOK_LOGIN_SCOPES.some(scope => !scopes.includes(scope))) throw new Error('tiktok_required_scope_missing')
+  if (capability === 'direct_post_upgrade') scopes.splice(0,scopes.length,...validateUpgradeScopes(scopes))
+  else if (scopes.length !== TIKTOK_LOGIN_SCOPES.length || TIKTOK_LOGIN_SCOPES.some(scope => !scopes.includes(scope))) throw new Error('tiktok_required_scope_missing')
   if (payload.token_type !== 'Bearer') throw new Error('tiktok_token_response_invalid')
   return Object.freeze({
     openId: requireText(payload.open_id, 'tiktok_token_response_invalid'),
@@ -59,6 +61,7 @@ export async function exchangeTikTokAuthorizationCode(input: {
   code: string
   redirectUri: string
   fetcher: TikTokFetch
+  capability?: 'login_basic' | 'direct_post_upgrade'
 }) {
   const redirectUri = validateTikTokRedirectUri(input.redirectUri)
   const body = new URLSearchParams({
@@ -70,7 +73,7 @@ export async function exchangeTikTokAuthorizationCode(input: {
   })
   return parseTokenSet(await requestJson(input.fetcher, TIKTOK_TOKEN_ENDPOINT, {
     method: 'POST', headers: formHeaders, body,
-  }, 'tiktok_token_exchange_failed'))
+  }, 'tiktok_token_exchange_failed'), input.capability)
 }
 
 export async function refreshTikTokAccessToken(input: {

@@ -1,3 +1,5 @@
+import { deriveTikTokCapabilities } from '../_shared/tiktok/capabilities.ts'
+import type { UpgradeBinding } from '../_shared/tiktok/upgrade.ts'
 import { validateTikTokIdentity, type TikTokIdentity } from '../_shared/tiktok/environment.ts'
 import {
   exchangeTikTokAuthorizationCode,
@@ -49,6 +51,8 @@ export type TikTokCallbackDependencies = Readonly<{
   stateRepository: TikTokOAuthStateRepository
   tokenKeyring: TikTokTokenKeyring
   fetcher: TikTokFetch
+  consumeUpgrade?: (state: string, redirectUri: string) => Promise<UpgradeBinding>
+  persistUpgrade?: (input: TikTokLoginPersistenceInput, binding: UpgradeBinding) => Promise<void>
   persistLogin: (input: TikTokLoginPersistenceInput) => Promise<void>
   now?: () => number
   log?: (message: string) => void
@@ -59,6 +63,7 @@ type PublicFailure =
   | 'callback_invalid'
   | 'code_missing'
   | 'scope_missing'
+  | 'upgrade_scope_missing'
   | 'state_invalid'
 
 const TIKTOK_CALLBACK_PATH = '/functions/v1/tiktok-callback'
@@ -169,6 +174,7 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
     if (request.method !== 'GET') return failure('callback_invalid', 'state', 405)
 
     const url = new URL(request.url)
+    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state',400,false)
     const state = singleParameter(url, 'state', 128)
     if (!state) return failure('state_invalid', 'state', 400, false)
 
@@ -179,13 +185,21 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
     if (!code && providerErrors.length === 0) return failure('code_missing', 'state', 400, false)
 
     let userId: string
+    let upgradeBinding: UpgradeBinding | undefined
+    const upgrading = state.startsWith('dp.')
     try {
+      if(upgrading) {
+        if(identity.environment !== 'sandbox' || !dependencies.consumeUpgrade || !dependencies.persistUpgrade) throw new Error('upgrade_unavailable')
+        upgradeBinding = await dependencies.consumeUpgrade(state,redirectUri)
+        userId = upgradeBinding.userId
+      } else {
       const consumed = await consumeTikTokOAuthState({
         state,
         expectedRedirectUri: redirectUri,
         identity,
       }, dependencies.stateRepository)
       userId = consumed.userId
+      }
     } catch {
       return failure('state_invalid', 'state', 400, false)
     }
@@ -203,7 +217,9 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
         code: code!,
         redirectUri,
         fetcher: dependencies.fetcher,
+        capability: upgrading ? 'direct_post_upgrade' : 'login_basic',
       })
+      if(upgrading && !deriveTikTokCapabilities(tokenSet.scopes).direct_post) return failure('upgrade_scope_missing','token_exchange',400,true)
       if (TIKTOK_LOGIN_SCOPES.some(scope => !tokenSet.scopes.includes(scope))) {
         return failure('scope_missing', 'token_exchange', 400, true)
       }
@@ -221,7 +237,10 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
         refreshToken: tokenSet.refreshToken,
       }, dependencies.tokenKeyring, { ...identity, userId, openId: tokenSet.openId })
       const current = safeNow(dependencies)
-      await dependencies.persistLogin({
+      const persist = upgradeBinding
+        ? (input: TikTokLoginPersistenceInput) => dependencies.persistUpgrade!(input,upgradeBinding!)
+        : dependencies.persistLogin
+      await persist({
         ...identity,
         userId,
         openId: tokenSet.openId,

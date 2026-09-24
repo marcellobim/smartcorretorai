@@ -1,3 +1,5 @@
+import { requireAuthorizedAdmin, requireAdminAal2 } from '../_shared/admin-authorization.ts'
+import { createTikTokUpgradeRepository } from '../_shared/tiktok/upgrade.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { loadTikTokConfiguration } from '../_shared/tiktok/environment.ts'
 import { createTikTokRepositories } from '../_shared/tiktok/repository.ts'
@@ -10,11 +12,17 @@ const required = (name: string) => {
 const config = await loadTikTokConfiguration(name => Deno.env.get(name))
 const admin = createClient(required('SUPABASE_URL'), required('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
 const repositories = createTikTokRepositories(admin, config)
+const upgrade = createTikTokUpgradeRepository(admin, config)
 import { createTikTokConnectionHandler } from './handler.ts'
 const handler = createTikTokConnectionHandler({
   ...config, identity: config,
   stateRepository: repositories.stateRepository,
   statusRepository: repositories.statusRepository,
+  async authorizeUpgrade(userId, jwt) {
+    await requireAuthorizedAdmin(admin,userId)
+    await requireAdminAal2(admin,jwt)
+  },
+  startUpgrade: userId => upgrade.start(userId,config.redirectUri,config.clientKey),
   async authenticate(accessToken) {
     const { data, error } = await admin.auth.getUser(accessToken)
     return error || !data.user ? null : { userId: data.user.id }

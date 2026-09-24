@@ -16,10 +16,11 @@ const authenticatedSession = async (client) => {
   }
 }
 
-const invokeTikTokConnection = async (client, accessToken, method) => {
+const invokeTikTokConnection = async (client, accessToken, method, options = {}) => {
   try {
-    const { data, error } = await client.functions.invoke(TIKTOK_CONNECTION_FUNCTION, {
+    const { data, error } = await client.functions.invoke(TIKTOK_CONNECTION_FUNCTION + (options.capabilities ? '?view=capabilities' : ''), {
       method,
+      ...(options.body ? { body: options.body } : {}),
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (error) throw new Error('tiktok_connection_request_failed')
@@ -125,3 +126,39 @@ export const getTikTokConnectionStatus = async (client) => {
 }
 
 export const TIKTOK_CONNECTION_ENDPOINT = TIKTOK_CONNECTION_FUNCTION
+
+// Upgrade has its own exact URL contract. The basic validator stays unchanged.
+export const validateTikTokUpgradeUrl = (value, environment = import.meta.env) => {
+  let url
+  try { url = new URL(value) } catch { throw new Error('invalid_tiktok_oauth_url') }
+  const state = url.searchParams.get('state') ?? ''
+  if (url.searchParams.getAll('state').length !== 1 || url.searchParams.getAll('scope').length !== 1
+    || !/^dp\.[A-Za-z0-9_-]{43}$/.test(state)
+    || url.searchParams.get('scope') !== 'user.info.basic,video.publish') throw new Error('invalid_tiktok_oauth_url')
+  const basic = new URL(url)
+  basic.searchParams.set('state', state.slice(3))
+  basic.searchParams.set('scope', 'user.info.basic')
+  validateTikTokAuthorizationUrl(basic.toString(), environment)
+  return url.toString()
+}
+
+export const redirectToTikTokUpgrade = async (client, assign, environment = import.meta.env) => {
+  if (typeof assign !== 'function') throw new Error('invalid_tiktok_oauth_redirect')
+  getTikTokCallbackUri(environment)
+  const session = await authenticatedSession(client)
+  const data = await invokeTikTokConnection(client, session.access_token, 'POST', { body: { action: 'direct_post_upgrade' } })
+  if (!hasExactKeys(data, new Set(['authorization_url']))) throw new Error('invalid_tiktok_oauth_response')
+  assign(validateTikTokUpgradeUrl(data.authorization_url, environment))
+}
+
+export const getTikTokCapabilities = async (client) => {
+  const session = await authenticatedSession(client)
+  const data = await invokeTikTokConnection(client, session.access_token, 'GET', { capabilities: true })
+  if (!hasExactKeys(data, new Set(['connected', 'status', 'account', 'capabilities', 'capability_status']))
+    || !hasExactKeys(data.capabilities, new Set(['login_basic', 'direct_post']))
+    || data.capabilities.login_basic !== true || typeof data.capabilities.direct_post !== 'boolean'
+    || data.capability_status !== (data.capabilities.direct_post ? 'direct_post_authorized' : 'connected_basic'))
+    throw new Error('tiktok_connection_status_unavailable')
+  parseStatusResponse({ connected: data.connected, status: data.status, account: data.account })
+  return { ...data.capabilities }
+}

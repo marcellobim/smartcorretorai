@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Loader2, Music2 } from 'lucide-react'
+import { useAuth } from '../lib/auth-context'
+import { TIKTOK_LOGIN_KIT_ENABLED } from '../config/tiktok'
 import { supabase } from '../lib/supabase'
 import {
   getTikTokConnectionStatus,
+  getTikTokCapabilities,
+  redirectToTikTokUpgrade,
   redirectToTikTokOAuth,
 } from '../lib/tiktok-oauth-connection'
 
@@ -11,6 +15,7 @@ const CALLBACK_MESSAGES = Object.freeze({
   authorization_denied: 'A autorização do TikTok foi cancelada.',
   callback_invalid: 'Não foi possível concluir a conexão com o TikTok.',
   code_missing: 'O TikTok não retornou a autorização esperada.',
+  upgrade_scope_missing: 'Publicação direta não autorizada. Sua conexão básica foi preservada.',
   scope_missing: 'A permissão necessária do TikTok não foi concedida.',
   state_invalid: 'Não foi possível validar a conexão. Tente novamente.',
 })
@@ -26,6 +31,10 @@ const clearTikTokCallbackParameters = () => {
 }
 
 export default function TikTokIntegration() {
+  const { isAdmin } = useAuth()
+  const allowUpgrade = TIKTOK_LOGIN_KIT_ENABLED && isAdmin
+  const [capabilities, setCapabilities] = useState(null)
+  const [upgradeBusy, setUpgradeBusy] = useState(false)
   const [view, setView] = useState({ status: 'loading', account: null, message: null })
 
   useEffect(() => {
@@ -37,13 +46,17 @@ export default function TikTokIntegration() {
     const outcome = outcomes.length === 1 ? outcomes[0] : null
     const reason = reasons.length === 1 ? reasons[0] : null
 
-    const loadStatus = async () => {
+    const loadStatus = async (message = null) => {
       try {
         const status = await getTikTokConnectionStatus(supabase)
         if (!active) return
         setView(status.connected
-          ? { status: 'connected', account: status.account, message: null }
-          : { status: status.status, account: null, message: null })
+          ? { status: 'connected', account: status.account, message }
+          : { status: status.status, account: null, message })
+        if (status.connected && allowUpgrade) {
+          try { const result = await getTikTokCapabilities(supabase); if (active) setCapabilities(result) }
+          catch { if (active) setCapabilities(null) }
+        }
       } catch {
         if (active) setView({ status: 'error', account: null, message: GENERIC_ERROR })
       }
@@ -53,7 +66,8 @@ export default function TikTokIntegration() {
 
     if (outcome === 'error') {
       const message = CALLBACK_MESSAGES[reason] ?? 'Não foi possível concluir a conexão com o TikTok.'
-      setView({ status: 'error', account: null, message })
+      setView({ status: 'confirming', account: null, message })
+      void loadStatus(message)
     } else if (outcome === 'connected' && reasons.length === 0) {
       setView({ status: 'confirming', account: null, message: null })
       void loadStatus()
@@ -64,7 +78,7 @@ export default function TikTokIntegration() {
     }
 
     return () => { active = false }
-  }, [])
+  }, [allowUpgrade])
 
   const connect = async () => {
     setView({ status: 'connecting', account: null, message: null })
@@ -77,6 +91,13 @@ export default function TikTokIntegration() {
         message: 'Não foi possível iniciar a conexão com o TikTok. Tente novamente.',
       })
     }
+  }
+
+  const upgrade = async () => {
+    if (!allowUpgrade || !capabilities || capabilities.direct_post || upgradeBusy) return
+    setUpgradeBusy(true)
+    try { await redirectToTikTokUpgrade(supabase, url => window.location.assign(url)) }
+    catch { setView(current => ({ ...current, message: 'Não foi possível iniciar a autorização de publicação. Tente novamente.' })); setUpgradeBusy(false) }
   }
 
   const busy = view.status === 'loading' || view.status === 'connecting' || view.status === 'confirming'
@@ -135,6 +156,19 @@ export default function TikTokIntegration() {
               </div>
               {view.account?.display_name && (
                 <p className="mt-2 text-sm font-bold text-emerald-900">{view.account.display_name}</p>
+              )}
+            </div>
+          )}
+
+          {view.message && view.status !== 'error' && <p className="mt-4 text-sm text-amber-900" role="alert">{view.message}</p>}
+
+          {allowUpgrade && view.status === 'connected' && (
+            <div className="mt-5">
+              <p className="text-sm text-gray-700">{!capabilities ? 'Não foi possível consultar a autorização de publicação.' : capabilities.direct_post ? 'Publicação direta autorizada' : 'Publicação direta ainda não autorizada'}</p>
+              {capabilities && !capabilities.direct_post && (
+                <button type="button" disabled={upgradeBusy} onClick={upgrade} className="mt-3 rounded-2xl bg-gray-950 px-5 py-3 text-sm font-black text-white disabled:opacity-50">
+                  {upgradeBusy ? 'Iniciando autorização...' : 'Autorizar publicação no TikTok'}
+                </button>
               )}
             </div>
           )}
