@@ -3,6 +3,7 @@ import {Music2} from 'lucide-react'
 import {useAuth} from '../../lib/auth-context'
 import {supabase} from '../../lib/supabase'
 import {TIKTOK_LOGIN_KIT_ENABLED} from '../../config/tiktok'
+import {prepareTikTokPosting} from './tiktok-posting-payload'
 import {readJwtAssuranceLevel} from '../../lib/auth-session-policy'
 import {getTikTokCapabilities,getTikTokConnectionStatus} from '../../lib/tiktok-oauth-connection'
 import {callTikTokPosting,parseTikTokJob,parseTikTokPreparation,postingConfirmation,readTikTokRecovery,writeTikTokRecovery,TIKTOK_JOB_LABELS,TIKTOK_VIDEO_PRODUCT} from '../../lib/tiktok-content-posting'
@@ -73,7 +74,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   if(inflight.current||job||recovery||recoveryError)return
   inflight.current=true;setBusy(true);setMessage('')
   try {
-   const data=parseTikTokPreparation(await callTikTokPosting(client,{action:'prepare',product_type:TIKTOK_VIDEO_PRODUCT,creation_id:creationId},userId),creationId)
+   const data=parseTikTokPreparation(await callTikTokPosting(client,prepareTikTokPosting(creationId),userId),creationId)
    if(live.current)setPrepared(data)
   } catch(e){if(live.current)setMessage(e.message)}
   finally {inflight.current=false;if(live.current)setBusy(false)}

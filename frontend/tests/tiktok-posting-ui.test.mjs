@@ -83,6 +83,7 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  assert.equal(await page.evaluate(()=>window.calls.length),0)
  await page.getByLabel('TikTok Fixture TikTok',{exact:true}).check()
  await page.getByLabel('Privacidade TikTok',{exact:true}).waitFor()
+ assert.deepEqual(await page.evaluate(()=>window.calls.filter(x=>x.action==='prepare')),[{action:'prepare',creation_id:'22222222-2222-4222-8222-222222222222'}])
  assert.equal(await page.getByLabel('Privacidade TikTok',{exact:true}).inputValue(),'')
  assert.ok(await page.getByRole('button',{name:'Publicar no TikTok',exact:true}).isDisabled())
  assert.ok(await page.getByLabel('Permitir comentários',{exact:false}).isDisabled());assert.ok(await page.getByLabel('Permitir Duet',{exact:false}).isDisabled())
