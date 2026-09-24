@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { TIKTOK_LOGIN_KIT_ENABLED } from '../../config/tiktok'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   CheckCircle2,
@@ -26,6 +27,8 @@ import { buildBannerPublicationIntent, canBuildBannerPublicationIntent, restoreP
 import { buildSmartTourPublicationIntent, restorePendingSmartTourPublication } from '../../lib/smart-tour-social-publish'
 import { buildStudioPublicationIntent, restorePendingStudioPublication } from '../../lib/studio-social-publish'
 import { buildSmartSpaceCampaignPublicationIntent, restorePendingSmartSpaceCampaignPublication } from '../../lib/smart-space-social-publish'
+
+const TikTokPublish = lazy(() => import('./TikTokPublish'))
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -317,6 +320,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} />}
 
       {sharePublishProps && <SharePublishActions {...sharePublishProps} onDownload={downloadSharedMedia} />}
+      {TIKTOK_LOGIN_KIT_ENABLED && campaign.sourceType === 'studio_ia_commercial' && campaign.sourceId && <Suspense fallback={null}><TikTokPublish creationId={campaign.sourceId} previewUrl={campaign.previewUrl || campaign.downloadUrl} /></Suspense>}
 
       {downloadError && (
         <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
