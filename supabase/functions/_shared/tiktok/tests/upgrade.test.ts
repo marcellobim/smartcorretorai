@@ -121,7 +121,7 @@ test('additive SQL fences flow, TTL, replay, optimistic token version and transa
  assert.doesNotMatch(sql,/CREATE OR REPLACE/i)
  assert.equal((sql.match(/SECURITY DEFINER/gi) ?? []).length,1)
  assert.match(sql,/tiktok_upgrade_admin_allowed/)
- assert.equal(createHash('sha256').update(readFileSync(new URL('../../../../migrations/20260919220603_create_isolated_tiktok_login_kit.sql',import.meta.url))).digest('hex'),'f8f7a60d35bc7b89081cdae7582d89220d4c411fd1c24f0a58a22659daa6ce08')
+ assert.equal(createHash('sha256').update(readFileSync(new URL('../../../../migrations/20260919220603_create_isolated_tiktok_login_kit.sql',import.meta.url),'utf8').replace(/\r\n/g,'\n')).digest('hex'),'f8f7a60d35bc7b89081cdae7582d89220d4c411fd1c24f0a58a22659daa6ce08')
  const original=read('20260919220603_create_isolated_tiktok_login_kit.sql')
  assert.match(original,/NEW.token_version := OLD.token_version \+ 1/)
  // Atomicity is a single invoker RPC with no exception handler that could commit a partial account failure.

@@ -1,3 +1,5 @@
+> Historical Phase A Studio contract. Current Video Imobiliario endpoint and product mapping: [Parte 1](tiktok-video-imobiliario-direct-post.md).
+
 # TikTok Direct Post Comercial — Phase A
 
 Status: FILE_UPLOAD candidate prepared locally. Phase A and OAuth Upgrade were validated in the isolated PostgreSQL 17.6 laboratory during earlier authorized checkpoints. No production rollout or real Content Posting invocation is part of this candidate.

@@ -2,6 +2,7 @@
 export function postingRepository(admin) {
  const call=async(name,args)=>{
   const {data,error}=await admin.rpc(name,args)
+  if(error?.message==='posting_idempotency_conflict') throw new Error('posting_idempotency_conflict')
   if(error||!data) throw new Error('posting_repository_unavailable')
   return data
  }

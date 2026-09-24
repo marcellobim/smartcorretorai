@@ -92,3 +92,6 @@ verify_jwt = true
 
 [functions.tiktok-callback]
 verify_jwt = false
+
+[functions.tiktok-content-posting]
+verify_jwt = true
