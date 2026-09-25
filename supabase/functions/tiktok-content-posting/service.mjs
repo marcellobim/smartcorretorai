@@ -47,9 +47,10 @@ export function createPostingService(d){
   },
   async confirm(i,input){
    await creation(i,input.creation_id)
+   const requestedOptions={...input.options,is_aigc:true}
    const existing=await d.byKey(i,input.idempotency_key)
    if(existing){
-    if(!owned(existing,i)||existing.creation_id!==input.creation_id||await fingerprint(existing.confirmed_options)!==await fingerprint(input.options))throw Error('idempotency_conflict')
+    if(!owned(existing,i)||existing.creation_id!==input.creation_id||await fingerprint(existing.confirmed_options)!==await fingerprint(requestedOptions))throw Error('idempotency_conflict')
     return {job:publicJob(existing)}
    }
    const latest=await d.latest(i,input.creation_id)
@@ -58,7 +59,8 @@ export function createPostingService(d){
    if(binding.user!==i.userId||binding.creation!==input.creation_id||binding.expires<=now())throw Error('preparation_expired')
    const m=await material(i,input.creation_id)
    if(binding.connection!==m.c.id||binding.version!==m.c.token_version||binding.hash!==m.probe.content_sha256)throw Error('media_changed')
-   const options=confirmedPostInfo({creator:m.creator,probe:m.probe,options:input.options,consent:input.consent})
+   // AIGC is a fixed server-side property of this Video Imobiliario contract.
+   const options=confirmedPostInfo({creator:m.creator,probe:m.probe,options:requestedOptions,consent:input.consent})
    const args=await prepareJob({input:{creation_id:input.creation_id,connection_id:m.c.id,idempotency_key:input.idempotency_key,confirmed_options:options},identity:i,
     readCreation:async()=>m.cr,readConnection:async()=>m.c,
     inspectObject:async()=>({contentType:'video/mp4',size:m.bytes.byteLength,etag:null,version:null}),

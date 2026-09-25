@@ -23,7 +23,7 @@ export function readTikTokRecovery(storage,userId,creationId) {
  try {
   const value = JSON.parse(storage.getItem(keyFor(userId,creationId)) || 'null')
   if (!value) return null
-  if (!uuid(value.idempotency_key) || value.creation_id !== creationId ||
+ if (!uuid(value.idempotency_key) || value.creation_id !== creationId || (!value.job_id && (typeof value.preparation !== 'string' || value.preparation.length<1 || value.preparation.length>4096)) ||
       value.product_type !== TIKTOK_VIDEO_PRODUCT || value.job_id && !uuid(value.job_id)) fail()
   return value
  } catch { throw Error('Não foi possível recuperar o envio salvo. Verifique o armazenamento deste navegador antes de publicar.') }
@@ -68,10 +68,10 @@ export function parseTikTokPreparation(value,creationId) {
      value.media.duration_ms > c.max_video_post_duration_sec*1000) fail()
  return value
 }
-export function postingConfirmation(creationId,idempotencyKey,options,consent) {
- if (!uuid(creationId) || !uuid(idempotencyKey)) fail()
+export function postingConfirmation(creationId,idempotencyKey,preparation,options,consent) {
+ if (!uuid(creationId) || !uuid(idempotencyKey) || typeof preparation!=='string' || preparation.length<1 || preparation.length>4096) fail()
  // Projection keeps all storage, identity and provider capabilities out of HTTP input.
- return {action:'confirm',product_type:TIKTOK_VIDEO_PRODUCT,creation_id:creationId,idempotency_key:idempotencyKey,
+ return {action:'confirm',creation_id:creationId,idempotency_key:idempotencyKey,preparation,
   options:Object.fromEntries(['title','privacy_level','disable_comment','disable_duet','disable_stitch','brand_content_toggle','brand_organic_toggle'].map(k=>[k,options[k]])),
   consent:Object.fromEntries(['confirmed','commercial_disclosure','music_usage_confirmed','branded_content_policy_confirmed'].map(k=>[k,consent[k]]))}
 }

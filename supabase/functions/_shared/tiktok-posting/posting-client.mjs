@@ -41,10 +41,10 @@ async function readPayload(response){
 export function parsePostingStatus(data){
  if(!data||typeof data!=='object'||Array.isArray(data))return error('unknown_ambiguous','status')
  const s=data.status
- const map={PROCESSING_UPLOAD:'processing',PUBLISH_COMPLETE:'published',FAILED:'failed'}
+ const map={PROCESSING_UPLOAD:'processing',PROCESSING_DOWNLOAD:'processing',PUBLISH_COMPLETE:'published',FAILED:'failed'}
  if(!Object.hasOwn(map,s)){
   // Known but incompatible transports cannot enter Phase A's FILE_UPLOAD workflow.
-  const known=['PROCESSING_DOWNLOAD','SEND_TO_USER_INBOX'].includes(s)?s:null
+  const known=['SEND_TO_USER_INBOX'].includes(s)?s:null
   return error('unknown_ambiguous','status',true,{provider_status:known})
  }
  const output={provider_status:s,status:map[s],provider_post_ids:[]}

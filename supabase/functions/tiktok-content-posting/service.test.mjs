@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs'
 import {createPostingService} from './service.mjs'
 import {createPostingHandler} from './handler.mjs'
 import {probeMp4} from '../_shared/tiktok-posting/mp4-probe.ts'
-import {callTikTokPosting,parseTikTokPreparation} from '../../../frontend/src/lib/tiktok-content-posting.js'
+import {callTikTokPosting,parseTikTokPreparation,postingConfirmation} from '../../../frontend/src/lib/tiktok-content-posting.js'
 const user='11111111-1111-4111-8111-111111111111',creation='22222222-2222-4222-8222-222222222222',cid='33333333-3333-4333-8333-333333333333',key='44444444-4444-4444-8444-444444444444'
 const identity={userId:user,environment:'sandbox',appId:'a'.repeat(64)}
 const bytes=readFileSync(new URL('../../../frontend/public/demos-videos/video-campanha.mp4',import.meta.url))
@@ -41,6 +41,14 @@ test('prepare response crosses wrapper and strict frontend parser into TikTok co
  assert.equal(parsed.account.display_name,'Fixture');assert.equal(parsed.creator.creator_username,'fixture');assert.equal(parsed.preview_url,'https://signed.example.test/video/'+creation);assert.equal(s.job(),null);assert.deepEqual(s.seq,['decrypt','creator']);assert.ok(!JSON.stringify(parsed).includes('fictional-access'));assert.ok(!JSON.stringify(parsed).includes('upload_token'))
 })
 test('incomplete prepare response remains rejected by strict frontend parser',()=>assert.throws(()=>parseTikTokPreparation({product_type:'video_imobiliario',creation_id:creation,is_aigc:true,privacy_level:null},creation)))
+test('confirm browser projection is exact and the server derives AIGC',async()=>{
+ const request=postingConfirmation(creation,key,'fixture-preparation',{...options,is_aigc:false},{...consent})
+ assert.deepEqual(Object.keys(request).sort(),['action','consent','creation_id','idempotency_key','options','preparation'].sort())
+ assert.ok(!Object.hasOwn(request,'product_type'));assert.ok(!Object.hasOwn(request.options,'is_aigc'))
+ const s=setup(),prepared=await s.service.prepare(identity,{creation_id:creation})
+ const confirmed=await s.service.confirm(identity,{...request,preparation:prepared.preparation})
+ assert.equal(confirmed.job.status,'processing');assert.equal(s.job().confirmed_options.is_aigc,true)
+})
 for(const patch of [{user_id:cid},{status:'processing'},{mode:'free_ai'},{output_video_path:'arbitrary'}])test('ownership/product/path fail closed '+JSON.stringify(patch),async()=>{const s=setup();Object.assign(s.override,patch);await assert.rejects(s.service.prepare(identity,{creation_id:creation}));assert.deepEqual(s.seq,[])})
 for(const patch of [{scopes:['user.info.basic']},{access_token_expires_at:new Date(0).toISOString()},{access_token_expires_at:null},{environment:'production'}])test('capability and lifetime reject '+JSON.stringify(patch),async()=>{const s=setup();Object.assign(s.connection,patch);await assert.rejects(s.service.prepare(identity,{creation_id:creation}),/reauthorization/);assert.deepEqual(s.seq,[])})
 test('confirm persists publish id before PUT; retries and reopens recover same job without another init',async()=>{
@@ -69,6 +77,20 @@ test('HTTP JWT/Admin gate executes before service and forbids extra fields',asyn
  for(const token of [null,'fixture-common']){const r=await handler(new Request('https://x.test',{method:'POST',headers:token?{authorization:'Bearer '+token}:{},body:JSON.stringify({action:'prepare',creation_id:creation})}));assert.ok([401,403].includes(r.status))}
  for(const extra of ['url','bucket','user_id','path','upload_url','publish_id']){const r=await handler(new Request('https://x.test',{method:'POST',headers:{authorization:'Bearer fixture-admin'},body:JSON.stringify({action:'prepare',creation_id:creation,[extra]:'untrusted'})}));assert.equal(r.status,400)}
  assert.equal(calls,0)
+})
+test('public confirm and status schemas remain exact',async()=>{
+ let captured
+ const handler=createPostingHandler({origin:'https://app.example.test',authorize:async()=>identity,service:{
+  confirm:async(_identity,input)=>{captured=input;return {job:{job_id:key,status:'processing',creation_id:creation,product_type:'video_imobiliario'}}},
+  status:async(_identity,input)=>({job:{job_id:input.job_id,status:'processing',creation_id:creation,product_type:'video_imobiliario'}}),
+ }})
+ const confirm={action:'confirm',creation_id:creation,idempotency_key:key,preparation:'fixture-preparation',options:{title:'Fixture',privacy_level:'SELF_ONLY',disable_comment:true,disable_duet:true,disable_stitch:true,brand_content_toggle:false,brand_organic_toggle:false},consent:{confirmed:true,commercial_disclosure:false,music_usage_confirmed:true,branded_content_policy_confirmed:false}}
+ let response=await handler(new Request('https://x.test',{method:'POST',headers:{authorization:'Bearer fixture-admin'},body:JSON.stringify(confirm)}))
+ assert.equal(response.status,200);assert.deepEqual(captured,confirm)
+ response=await handler(new Request('https://x.test',{method:'POST',headers:{authorization:'Bearer fixture-admin'},body:JSON.stringify({...confirm,product_type:'video_imobiliario'})}))
+ assert.equal(response.status,400);assert.deepEqual(await response.json(),{error:'invalid_input'})
+ response=await handler(new Request('https://x.test',{method:'POST',headers:{authorization:'Bearer fixture-admin'},body:JSON.stringify({action:'status',job_id:key})}))
+ assert.equal(response.status,200)
 })
 test('prepare 4xx telemetry identifies the sanitized validation stage and code',async()=>{
  const events=[]

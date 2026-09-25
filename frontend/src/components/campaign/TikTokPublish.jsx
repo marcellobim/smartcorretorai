@@ -94,10 +94,10 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
    // Re-read immediately before sending to honor another modal/tab's durable intent.
    const existing=readTikTokRecovery(storage,userId,creationId)
    if(existing?.job_id) {await loadStatus(existing);return}
-   const pending=existing || recovery || {...postingConfirmation(creationId,crypto.randomUUID(),options,{confirmed,commercial_disclosure:commercial,music_usage_confirmed:music,branded_content_policy_confirmed:branded}),status:'reconciliation_required'}
+   const pending=existing || recovery || {...postingConfirmation(creationId,crypto.randomUUID(),prepared.preparation,options,{confirmed,commercial_disclosure:commercial,music_usage_confirmed:music,branded_content_policy_confirmed:branded}),product_type:TIKTOK_VIDEO_PRODUCT,status:'reconciliation_required'}
    // Store the key and exact consent/options BEFORE confirm. Failure blocks network.
    save(pending)
-   const response=await callTikTokPosting(client,postingConfirmation(creationId,pending.idempotency_key,pending.options,pending.consent),userId)
+   const response=await callTikTokPosting(client,postingConfirmation(creationId,pending.idempotency_key,pending.preparation,pending.options,pending.consent),userId)
    const result=parseTikTokJob(response,creationId)
    save({...pending,...result});if(live.current)setJob(result)
   } catch(e){if(live.current)setMessage(e.message)}

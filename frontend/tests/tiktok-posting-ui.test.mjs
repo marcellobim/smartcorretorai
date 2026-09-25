@@ -17,9 +17,10 @@ test('four real presets share one real-estate social modal; Studio excluded',()=
  assert.match(readFileSync(new URL('../src/components/campaign/BannerPublishDialog.jsx',import.meta.url),'utf8'),/intent.sourceType === 'video_imobiliario' && <Suspense fallback=\{null\}><TikTokPublish/)
 })
 test('request projection and durable recovery fail closed',()=>{
- const req=postingConfirmation('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111',{title:'texto',is_aigc:false,url:'bad'},{confirmed:true})
+ const req=postingConfirmation('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','fixture-preparation',{title:'texto',is_aigc:false,url:'bad'},{confirmed:true})
  assert.equal(req.product_type,'video_imobiliario');assert.ok(!('is_aigc' in req.options));assert.ok(!('url' in req.options))
- assert.throws(()=>postingConfirmation('bad','11111111-1111-4111-8111-111111111111',{},{}))
+ assert.ok(!('product_type' in req));assert.equal(req.preparation,'fixture-preparation')
+ assert.throws(()=>postingConfirmation('bad','11111111-1111-4111-8111-111111111111','fixture-preparation',{},{}))
  assert.throws(()=>writeTikTokRecovery({setItem(){throw Error('blocked')}},'11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',{}))
  assert.throws(()=>readTikTokRecovery({getItem:()=>'{bad'},'11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'))
 })

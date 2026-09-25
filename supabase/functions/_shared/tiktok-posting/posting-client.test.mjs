@@ -108,10 +108,14 @@ for(const [provider,status] of [['PROCESSING_UPLOAD','processing'],['PUBLISH_COM
   if(provider==='FAILED')assert.equal(r.data.error_category,'invalid_media')
  })
 }
-for(const s of ['UNKNOWN','SEND_TO_USER_INBOX','PROCESSING_DOWNLOAD'])test('status fails closed '+s,async()=>{
+for(const s of ['UNKNOWN','SEND_TO_USER_INBOX'])test('status fails closed '+s,async()=>{
  const r=await harness({status:s}).client.status({accessToken:token,publishId:'fixture-publish'})
  assert.equal(r.ok,false);assert.equal(r.error.category,'unknown_ambiguous')
  assert.equal(r.error.provider_status,s==='UNKNOWN'?null:s)
+})
+test('status PROCESSING_DOWNLOAD remains processing',async()=>{
+ const r=await harness({status:'PROCESSING_DOWNLOAD'}).client.status({accessToken:token,publishId:'fixture-publish'})
+ assert.equal(r.ok,true);assert.equal(r.data.status,'processing');assert.equal(r.data.provider_status,'PROCESSING_DOWNLOAD')
 })
 test('status preserves int64 public IDs without rounding',async()=>{
  const c=createPostingClient({fetcher:async()=>new Response('{"error":{"code":"ok"},"data":{"status":"PUBLISH_COMPLETE","publicaly_available_post_id":[7123456789012345678]}}')})

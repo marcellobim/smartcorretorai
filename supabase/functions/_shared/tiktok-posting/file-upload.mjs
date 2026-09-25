@@ -2,7 +2,13 @@ import {MAX_BYTES,fail,sha256,validateOptions} from './contract.mjs'
 const INIT='https://open.tiktokapis.com/v2/post/publish/video/init/'
 const publishId=value=>typeof value==='string'&&/^[A-Za-z0-9_.~:-]{1,64}$/.test(value)
 const providerCode=value=>typeof value==='string'&&/^[a-z0-9_.-]{1,64}$/i.test(value)?value:null
-const deterministicCodes=new Set(['access_token_invalid','access_token_expired','scope_not_authorized','video_publish_not_authorized','user_not_authorized','privacy_level_not_supported','creator_not_eligible','duration_exceeds_limit','invalid_video','invalid_video_format','invalid_parameter','invalid_post_info','rate_limit_exceeded'])
+const deterministicCodes=new Set([
+ 'invalid_param','access_token_invalid','access_token_expired','scope_not_authorized',
+ 'privacy_level_option_mismatch','spam_risk_too_many_posts','spam_risk_user_banned_from_posting',
+ 'reached_active_user_cap','unaudited_client_can_only_post_to_private_accounts','rate_limit_exceeded',
+ 'video_publish_not_authorized','user_not_authorized','privacy_level_not_supported','creator_not_eligible',
+ 'duration_exceeds_limit','invalid_video','invalid_video_format','invalid_parameter','invalid_post_info',
+])
 const telemetry=(sink,event,detail={})=>{try{sink?.({event:'tiktok_direct_post_init',stage:event,...detail})}catch{}}
 class InitFailure extends Error { constructor(code,ambiguous){super(code);this.code=code;this.ambiguous=ambiguous} }
 const initFailure=(code,ambiguous)=>{throw new InitFailure(code,ambiguous)}
