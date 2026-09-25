@@ -31,7 +31,7 @@ export default function TikTokPublish({intent,caption='',client=supabase}) {
 export function TikTokDestination({creationId,caption,userId,client=supabase,storage=browserStorage}) {
  const [connection,setConnection]=useState({loading:true}),[selected,setSelected]=useState(false)
  const [prepared,setPrepared]=useState(null),[job,setJob]=useState(null),[recovery,setRecovery]=useState(null)
- const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[recoveryError,setRecoveryError]=useState(false)
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[diagnostic,setDiagnostic]=useState(null),[recoveryError,setRecoveryError]=useState(false)
  const [options,setOptions]=useState({title:caption,privacy_level:'',disable_comment:true,disable_duet:true,disable_stitch:true,brand_content_toggle:false,brand_organic_toggle:false})
  const [commercial,setCommercial]=useState(false),[music,setMusic]=useState(false),[branded,setBranded]=useState(false),[confirmed,setConfirmed]=useState(false)
  const inflight=useRef(false),live=useRef(true)
@@ -72,11 +72,11 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
  },[recovery?.job_id,job?.status])
  const prepare=async()=>{
   if(inflight.current||job||recovery||recoveryError)return
-  inflight.current=true;setBusy(true);setMessage('')
+  inflight.current=true;setBusy(true);setMessage('');setDiagnostic(null)
   try {
    const data=parseTikTokPreparation(await callTikTokPosting(client,prepareTikTokPosting(creationId),userId),creationId)
    if(live.current)setPrepared(data)
-  } catch(e){if(live.current)setMessage(e.message)}
+  } catch(e){if(live.current){setMessage(e.message);setDiagnostic(e.tiktokDiagnostic||null)}}
   finally {inflight.current=false;if(live.current)setBusy(false)}
  }
  const toggle=()=>{
@@ -112,7 +112,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
    {connection.loading&&<p role="status">Consultando TikTok…</p>}
    {!connection.loading&&!connection.direct&&<div><p className="text-sm">{connection.connected?'TikTok conectado. Publicação direta ainda não autorizada.':connection.error?'Não foi possível consultar a conexão TikTok.':'Conecte sua conta TikTok nas Configurações.'}</p><a href={settings} className="mt-3 inline-flex min-h-11 items-center font-bold underline">{connection.connected?'Autorizar publicação no TikTok':'Abrir Configurações → TikTok'}</a></div>}
    {busy&&<p role="status" className="text-sm font-semibold">{recovery?'Verificando publicação…':'Preparando opções TikTok…'}</p>}
-   {message&&<p role="alert" className="break-words text-sm text-red-700">{message}</p>}
+   {message&&<p role="alert" className="break-words text-sm text-red-700">{message}</p>}{diagnostic&&<p className="text-xs text-slate-600">Diagnóstico: {diagnostic.stage} / {diagnostic.error}</p>}
    {job?<div><p role="status" className="font-bold">{TIKTOK_JOB_LABELS[job.status]||'Verificar'}</p><p className="mt-2 text-sm">Esta criação já tem um envio registrado. O resultado é recuperado ao reabrir este navegador.</p>{!terminal.has(job.status)&&<button type="button" disabled={busy} onClick={checkStatus} className="mt-2 min-h-11 font-bold underline">Atualizar status TikTok</button>}</div>
     :recovery?<div><p role="status" className="font-bold">Verificar</p><p className="mt-2 text-sm">A resposta do envio anterior não foi recebida. Uma nova confirmação usará a mesma solicitação e as mesmas opções, sem criar outro envio.</p><button type="button" disabled={busy||!connection.direct} onClick={publish} className={button+' mt-3'}>Publicar no TikTok</button></div>
     :prepared&&connection.direct?<div className="space-y-4">

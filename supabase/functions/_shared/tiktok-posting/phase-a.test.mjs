@@ -11,7 +11,7 @@ const bytes=new Uint8Array(32).fill(1),hash=await sha256(bytes)
 const options={title:'Fixture',privacy_level:'SELF_ONLY',disable_comment:true,disable_duet:true,disable_stitch:true,brand_content_toggle:false,brand_organic_toggle:true,is_aigc:true}
 const creator={privacy_level_options:['SELF_ONLY'],comment_disabled:true,duet_disabled:true,stitch_disabled:true,max_video_post_duration_sec:60}
 const connection={id:CONNECTION,user_id:USER,environment:'sandbox',app_id:'a'.repeat(64),open_id:'fictional-open-id',connection_status:'active'}
-const creation={id:CREATION,user_id:USER,status:'completed',mode:'dynamic_reel',output_video_path:USER+'/'+CREATION+'/video.mp4'}
+const creation={id:CREATION,user_id:USER,status:'completed',mode:'smart_tour_gemini_omni',output_video_path:USER+'/'+CREATION+'/smart-tour.mp4'}
 const media={contentType:'video/mp4',size:32,etag:'fixture-etag',version:'fixture-version'}
 const info={container:'mp4',codec:'h264',width:720,height:1280,durationMs:8000,fps:24,size:32,etag:media.etag,version:media.version,sha256:hash}
 const base=()=>({input:{creation_id:CREATION,connection_id:CONNECTION,idempotency_key:KEY,confirmed_options:structuredClone(options)},
@@ -19,13 +19,13 @@ const base=()=>({input:{creation_id:CREATION,connection_id:CONNECTION,idempotenc
  inspectObject:async()=>({...media}),probe:async()=>({...info}),creator:structuredClone(creator),creatorCheckedAt:new Date(NOW-1000).toISOString(),now:NOW})
 test('trusted preflight derives exact product/bucket/path and stable fingerprint',async()=>{
  const a=await prepareJob(base()),b=await prepareJob({...base(),now:NOW+1000})
- assert.equal(a.product,'studio_ia_commercial');assert.equal(a.object_path,creation.output_video_path)
+ assert.equal(a.product,'video_imobiliario');assert.equal(a.object_path,creation.output_video_path)
  assert.equal(a.bucket,'studio-videos');assert.equal(a.content_sha256,hash);assert.equal(a.request_fingerprint,b.request_fingerprint)
 })
 for(const key of ['bucket','path','url','user_id','environment','app_id','source_type'])test('frontend forbidden field '+key,()=>{
  const d=base();d.input[key]='untrusted';assert.throws(()=>parseIntent(d.input),/posting_input_invalid/)
 })
-for(const [name,patch] of [['wrong owner',{user_id:CONNECTION}],['incomplete',{status:'processing'}],['wrong product',{mode:'free_ai'}],['wrong path',{output_video_path:'other/video.mp4'}]])test('creation rejects '+name,async()=>{
+for(const [name,patch] of [['wrong owner',{user_id:CONNECTION}],['incomplete',{status:'processing'}],['Studio IA mode',{mode:'dynamic_reel'}],['other product',{mode:'free_ai'}],['wrong path',{output_video_path:'other/video.mp4'}]])test('creation rejects '+name,async()=>{
  await assert.rejects(prepareJob({...base(),readCreation:async()=>({...creation,...patch})}),/posting_creation_invalid/)
 })
 for(const [name,patch] of [['owner',{user_id:CONNECTION}],['environment',{environment:'production'}],['app',{app_id:'b'.repeat(64)}],['inactive',{connection_status:'revoked'}]])test('connection rejects '+name,async()=>{
@@ -69,9 +69,9 @@ async function harness({init='ok',put='ok',persistFail=false,changed=false}={}) 
  const events=[],writes=[]
  const repository={transition:async(current,next,extra={})=>{
   events.push('persist:'+next);writes.push({next,...extra})
-  validateTransition(current,next,{revision:job.revision,claim:job.claim_token})
+  validateTransition(current,next,{revision:job.revision,claim:job.claim_token,errorCode:extra.errorCode})
   if(persistFail&&next==='uploading')throw Error('posting_repository_unavailable')
-  job={...job,status:next,revision:job.revision+1,publish_id:extra.publishId??job.publish_id,
+  job={...job,status:next,revision:job.revision+1,publish_id:extra.publishId??job.publish_id,error_code:extra.errorCode??job.error_code,
    init_attempts:job.init_attempts+(next==='initializing'?1:0),upload_attempts:job.upload_attempts+(next==='uploading'?1:0)}
   return {...job}
  }}
@@ -80,7 +80,13 @@ async function harness({init='ok',put='ok',persistFail=false,changed=false}={}) 
    events.push('init');assert.equal(url,'https://open.tiktokapis.com/v2/post/publish/video/init/')
    assert.equal(JSON.parse(request.body).source_info.source,'FILE_UPLOAD')
    assert.equal(request.redirect,'error')
-   if(init==='timeout')throw Error('private provider failure')
+   if(init==='timeout')return new Promise((_,reject)=>request.signal.addEventListener('abort',()=>reject(Object.assign(new Error('timeout'),{name:'AbortError'})),{once:true}))
+   if(init==='abort')throw Object.assign(new Error('abort'),{name:'AbortError'})
+   if(init==='transport')throw Error('private provider failure')
+   if(init==='http')return new Response(JSON.stringify({error:{code:'invalid_parameter'}}),{status:400})
+   if(init==='tiktok')return new Response(JSON.stringify({error:{code:'invalid_parameter'}}),{status:200})
+   if(init==='invalidjson')return new Response('{',{status:200})
+   if(init==='missing')return new Response(JSON.stringify({error:{code:'ok'},data:{upload_url:upload}}),{status:200})
    return new Response(JSON.stringify({error:{code:'ok'},data:{publish_id:'fixture-publish',upload_url:init==='badurl'?'https://evil.test':upload}}),{status:200})
   }
   events.push('put');assert.equal(job.publish_id,'fixture-publish');assert.equal(job.status,'uploading')
@@ -90,7 +96,7 @@ async function harness({init='ok',put='ok',persistFail=false,changed=false}={}) 
   if(put==='timeout')throw Error('private upload failure')
   return new Response(null,{status:201})
  }
- const run=()=>executeFileUpload({job:{...job},repository,accessToken:'fixture-access',loadBytes:async()=>changed?new Uint8Array(32):bytes,fetcher})
+ const run=()=>executeFileUpload({job:{...job},repository,accessToken:'fixture-access',loadBytes:async()=>changed?new Uint8Array(32):bytes,fetcher,initTimeoutMs:init==='timeout'?1:20000})
  return {run,events,writes,get:()=>job}
 }
 test('persist publish_id ACK precedes PUT; URL never persisted or returned',async()=>{
@@ -149,7 +155,14 @@ const sql=readFileSync(new URL('../../../migrations/20260923010000_create_tiktok
 test('SQL schema contract: identity FK, bounds, idempotency, partial active uniqueness',()=>{
  for(const fragment of ["REFERENCES public.tiktok_connections(id,user_id,environment,app_id,open_id)","content_length <= 52428800",
  "UNIQUE(user_id,environment,app_id,idempotency_key)","WHERE publish_id IS NOT NULL","WHERE status NOT IN ('published','blocked','failed')",
- "mode='dynamic_reel'","output_video_path=j.object_path","pg_advisory_xact_lock","FOR UPDATE","posting_snapshot_immutable"])assert.ok(sql.includes(fragment),fragment)
+ "output_video_path=j.object_path","pg_advisory_xact_lock","FOR UPDATE","posting_snapshot_immutable"])assert.ok(sql.includes(fragment),fragment)
+})
+test('Video Imobiliário source contract allows only the persisted smart-tour mode and product',()=>{
+ const source=readFileSync(new URL('../../../migrations/20260924050000_tiktok_video_imobiliario_source.sql',import.meta.url),'utf8')
+ assert.match(source,/j\.product IS DISTINCT FROM 'video_imobiliario'/)
+ assert.match(source,/mode='smart_tour_gemini_omni'/)
+ assert.match(source,/\/smart-tour\.mp4/)
+ assert.doesNotMatch(source,/mode='dynamic_reel'/)
 })
 test('SQL RLS/grants: service only RPC writes, no excess table privileges',()=>{
  assert.match(sql,/ENABLE ROW LEVEL SECURITY/)
@@ -180,4 +193,13 @@ test('CAS rejects NULL-like revision and a missing lease deadline',()=>{
  const j={status:'queued',revision:2,claim_token:KEY,claim_expires_at:null,init_attempts:0}
  assert.throws(()=>validateTransition(j,'initializing',{revision:null,claim:KEY,now:NOW}),/posting_cas_conflict/)
  assert.throws(()=>validateTransition(j,'initializing',{revision:2,claim:KEY,now:NOW}),/posting_cas_conflict/)
+})
+test('INIT classifications persist a safe diagnostic without upload',async()=>{
+ for(const [init,status,code] of [
+  ['timeout','reconciliation_required','init_timeout'],['abort','reconciliation_required','init_abort'],['transport','reconciliation_required','init_transport_error'],
+  ['http','failed','init_provider_rejected'],['tiktok','failed','init_provider_rejected'],['invalidjson','reconciliation_required','init_invalid_json'],
+  ['missing','reconciliation_required','init_missing_publish_id']
+ ]){
+  const h=await harness({init});assert.equal((await h.run()).status,status,init);assert.equal(h.get().error_code,code,init);assert.equal(h.events.includes('put'),false,init)
+ }
 })

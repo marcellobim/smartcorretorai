@@ -1,6 +1,9 @@
 import { requireAuthorizedAdmin, requireAdminAal2 } from '../admin-authorization.ts'
 export const MAX_BYTES = 50 * 1024 * 1024
-export const PRODUCT = 'studio_ia_commercial'
+// The four Video Imobiliário experiences persist the same trusted render mode.
+export const PRODUCT = 'video_imobiliario'
+export const VIDEO_IMOBILIARIO_MODE = 'smart_tour_gemini_omni'
+export const VIDEO_IMOBILIARIO_FILE = 'smart-tour.mp4'
 export const STATES = Object.freeze({
  awaiting_confirmation:['queued','blocked'], queued:['initializing','blocked'],
  initializing:['uploading','failed','reconciliation_required'],
@@ -44,12 +47,12 @@ export function validateOptions(options,creator,durationMs) {
  if (options.brand_content_toggle && options.privacy_level==='SELF_ONLY') fail('posting_options_invalid')
  return structuredClone(options)
 }
-export function validateTransition(job,next,{revision,claim,now=Date.now(),providerStatus}={}) {
+export function validateTransition(job,next,{revision,claim,now=Date.now(),providerStatus,errorCode}={}) {
  if (job.revision!==revision || !claim || job.claim_token!==claim || !Number.isFinite(Date.parse(job.claim_expires_at)) || Date.parse(job.claim_expires_at)<=now) fail('posting_cas_conflict')
  if (!STATES[job.status]?.includes(next) || (job.status==='reconciliation_required' && !job.publish_id)) fail('posting_transition_invalid')
  if(next==='initializing' && job.init_attempts!==0) fail('posting_transition_invalid')
  if(next==='published' && providerStatus!=='PUBLISH_COMPLETE') fail('posting_provider_incomplete')
- if(next==='failed' && providerStatus!=='FAILED') fail('posting_failure_unconfirmed')
+ if(next==='failed' && providerStatus!=='FAILED' && !(job.status==='initializing'&&errorCode==='init_provider_rejected')) fail('posting_failure_unconfirmed')
 }
 const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value==='object' ? Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])) : value
 export async function fingerprint(value) { return sha256(new TextEncoder().encode(JSON.stringify(canonical(value)))) }
@@ -57,9 +60,9 @@ export async function prepareJob({input,identity,readCreation,readConnection,ins
  const intent=parseIntent(input)
  if(identity.environment!=='sandbox' || !uuid(identity.userId) || !/^[0-9a-f]{64}$/.test(identity.appId)) fail('posting_identity_invalid')
  const creation=await readCreation(intent.creation_id)
- const objectPath=identity.userId+'/'+intent.creation_id+'/video.mp4'
+ const objectPath=identity.userId+'/'+intent.creation_id+'/'+VIDEO_IMOBILIARIO_FILE
  if(!creation || creation.id!==intent.creation_id || creation.user_id!==identity.userId || creation.status!=='completed' ||
- creation.mode!=='dynamic_reel' || creation.output_video_path!==objectPath) fail('posting_creation_invalid')
+ creation.mode!==VIDEO_IMOBILIARIO_MODE || creation.output_video_path!==objectPath) fail('posting_creation_invalid')
  // source_type is a server-derived product mapping, not a column presumed to exist on video_jobs.
  const connection=await readConnection(intent.connection_id)
  if(!connection || connection.id!==intent.connection_id || connection.user_id!==identity.userId || connection.environment!=='sandbox' ||

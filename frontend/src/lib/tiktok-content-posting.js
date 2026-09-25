@@ -40,9 +40,11 @@ export async function callTikTokPosting(client,body,userId) {
  if (assurance.error || assurance.data?.currentLevel !== 'aal2') throw Error(TIKTOK_ERRORS.posting_admin_mfa_required)
  const {data,error} = await client.functions.invoke('tiktok-content-posting',{body,headers:{Authorization:'Bearer '+session.access_token}})
  if (error || data?.error) {
-  let code = data?.error
-  try { code ||= (await error?.context?.clone().json())?.error } catch {}
-  throw Error(TIKTOK_ERRORS[code] || 'Não foi possível confirmar o resultado. Verifique o envio antes de tentar novamente.')
+  let code = data?.error, body = data
+  try { body ||= await error?.context?.clone().json(); code ||= body?.error } catch {}
+  const failure = Error(TIKTOK_ERRORS[code] || 'Não foi possível confirmar o resultado. Verifique o envio antes de tentar novamente.')
+  if (typeof body?.stage === 'string' && /^[a-z_]+$/.test(body.stage) && typeof code === 'string' && /^[a-z_]+$/.test(code)) failure.tiktokDiagnostic = { stage: body.stage, error: code }
+  throw failure
  }
  return data
 }
