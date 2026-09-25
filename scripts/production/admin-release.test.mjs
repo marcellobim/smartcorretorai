@@ -1,13 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {edgeScope,adminApiVersion} from './edge-scope.mjs'
+import {edgeScope,adminApiVersion,tiktokContentPostingVersion} from './edge-scope.mjs'
 import {validatePublicText} from './public-artifacts.mjs'
 test('admin release targets only admin-api and rejects combined/unrecognized scopes',()=>{
  assert.deepEqual(edgeScope(['--admin-api']),['admin-api'])
  assert.deepEqual(edgeScope([]),[])
  assert.deepEqual(edgeScope(['--video-social-metadata']),['smart-tour-generate','social-publish-video'])
+ assert.deepEqual(edgeScope(['--tiktok-content-posting']),['tiktok-content-posting'])
  assert.throws(()=>edgeScope(['--admin-api','--video-social-metadata']))
+ assert.throws(()=>edgeScope(['--tiktok-content-posting','--admin-api']))
  assert.throws(()=>edgeScope(['--anything']))
+})
+test('TikTok release requires exactly the active JWT-protected function',()=>{
+ const active={slug:'tiktok-content-posting',version:6,status:'ACTIVE',verify_jwt:true}
+ assert.equal(tiktokContentPostingVersion([active]),6)
+ for(const functions of [[],[{...active,verify_jwt:false}],[{...active,status:'REMOVED'}]])assert.throws(()=>tiktokContentPostingVersion(functions))
 })
 test('admin release refuses absent/inactive function or disabled JWT',()=>{
  const active={slug:'admin-api',version:25,status:'ACTIVE',verify_jwt:true}

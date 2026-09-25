@@ -9,6 +9,7 @@ import {smoke} from './smoke.mjs'
 import {
  BANNER_RECOVERY_RELEASE,
  adminApiVersion,
+ tiktokContentPostingVersion,
  bannerFunctionVersion,
  deploymentMode,
  edgeScope,
@@ -402,6 +403,7 @@ async function official(){
 let edgeCli=null
 function functionsList(){return JSON.parse(run(edgeCli,['functions','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json']))}
 function adminVersion(){return adminApiVersion(functionsList())}
+function tiktokContentPostingVersionActive(){return tiktokContentPostingVersion(functionsList())}
 function bannerVersion(expected=null){return bannerFunctionVersion(functionsList(),expected)}
 function isAncestor(ancestor,descendant){return spawnSync('git',['merge-base','--is-ancestor',ancestor,descendant],{cwd:root}).status===0}
 
@@ -598,10 +600,12 @@ edgeCli=resolveSupabaseCli()
 const mode=deploymentMode(args)
 const deployVideoSocialMetadata=mode==='--video-social-metadata'
 const deployAdminApi=mode==='--admin-api'
+const deployTikTokContentPosting=mode==='--tiktok-content-posting'
 const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
 const selectedFunctions=edgeScope(args)
 const current=await official(),sha=git('rev-parse','HEAD')
+if(deployTikTokContentPosting)tiktokContentPostingVersionActive()
 
 if(promoteBannerRecovery){
  await promoteBanner(current,sha)
@@ -675,7 +679,7 @@ if(deployBannerRecovery){
  if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
 }
 
-if(deployVideoSocialMetadata||deployAdminApi||deployBannerRecovery){
+if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)

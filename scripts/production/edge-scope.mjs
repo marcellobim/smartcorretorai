@@ -18,7 +18,7 @@ export const BANNER_RECOVERY_RELEASE = Object.freeze({
  ]),
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--banner-recovery-hotfix','--banner-recovery-promote']
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote']
 
 export function deploymentMode(args){
  if(args.some(arg=>!releaseModes.includes(arg)))throw Error('DEPLOY BLOQUEADO: opção desconhecida')
@@ -29,6 +29,7 @@ export function deploymentMode(args){
 export function edgeScope(args) {
  const mode=deploymentMode(args)
  if(mode==='--admin-api')return ['admin-api']
+ if(mode==='--tiktok-content-posting')return ['tiktok-content-posting']
  if(mode==='--video-social-metadata')return ['smart-tour-generate','social-publish-video']
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []
@@ -38,6 +39,12 @@ export function adminApiVersion(functions) {
  const admin=functions.find(f=>f.slug==='admin-api')
  if(!admin||admin.verify_jwt!==true||admin.status!=='ACTIVE'||!Number.isSafeInteger(admin.version))throw Error('DEPLOY BLOQUEADO: admin-api deve estar ativa com JWT habilitado')
  return admin.version
+}
+
+export function tiktokContentPostingVersion(functions) {
+ const posting=functions.find(f=>f.slug==='tiktok-content-posting')
+ if(!posting||posting.verify_jwt!==true||posting.status!=='ACTIVE'||!Number.isSafeInteger(posting.version))throw Error('DEPLOY BLOQUEADO: tiktok-content-posting deve estar ativa com JWT habilitado')
+ return posting.version
 }
 
 export function bannerFunctionVersion(functions,expectedVersion=null){
