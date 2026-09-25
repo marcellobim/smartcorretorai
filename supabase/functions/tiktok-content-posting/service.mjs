@@ -35,8 +35,15 @@ export function createPostingService(d){
    if(existing&&!terminal.has(existing.status)){if(!owned(existing,i)){const error=Error('creation_unavailable');error.prepareStage='existing_job';throw error}return {job:publicJob(existing)}}
    let m
    try{m=await material(i,input.creation_id)}catch(error){error.prepareStage='pre_creator_preflight';throw error}
+   let previewUrl
+   try{previewUrl=await d.preview(m.cr.output_video_path)}catch(error){error.prepareStage='preview';throw error}
    const preparation=await d.seal({user:i.userId,creation:input.creation_id,connection:m.c.id,version:m.c.token_version,hash:m.probe.content_sha256,expires:now()+300000})
-   return {preparation,account:{display_name:m.creator.creator_nickname},creator:creatorSnapshot(m.creator),media:{width:m.probe.width,height:m.probe.height,duration_ms:m.probe.duration_ms},preview_creation_id:input.creation_id}
+   return {
+    product_type:'video_imobiliario',creation_id:input.creation_id,is_aigc:true,privacy_level:null,
+    preparation,preview_url:previewUrl,account:{display_name:m.creator.creator_nickname},
+    creator:{creator_nickname:m.creator.creator_nickname,creator_username:m.creator.creator_username,...creatorSnapshot(m.creator)},
+    media:{width:m.probe.width,height:m.probe.height,duration_ms:m.probe.duration_ms},
+   }
   },
   async confirm(i,input){
    await creation(i,input.creation_id)

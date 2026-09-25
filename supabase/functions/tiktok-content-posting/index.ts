@@ -29,6 +29,11 @@ const service=createPostingService({
  latest:(i:any,id:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('creation_id',id).order('created_at',{ascending:false}).limit(1).maybeSingle()),
  byKey:(i:any,key:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('idempotency_key',key).maybeSingle()),
  job:(i:any,id:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('id',id).maybeSingle()),
+ async preview(path:string){
+  const {data,error}=await admin.storage.from('studio-videos').createSignedUrl(path,300)
+  if(error||!data?.signedUrl)throw Error('invalid_media')
+  return data.signedUrl
+ },
  async bytes(path:string){
   // Path is derived and ownership-checked by the service, never supplied by HTTP.
   const endpoint=new URL('/storage/v1/object/authenticated/studio-videos/'+path.split('/').map(encodeURIComponent).join('/'),url)
