@@ -27,6 +27,24 @@ export function createTikTokRepositories(admin: TikTokDatabaseClient, configured
       })
       if (error) throw new Error('tiktok_state_persistence_failed')
     },
+    async inspectChallenge(input) {
+      const { data, error } = await admin.from('tiktok_oauth_states')
+        .select('state_hash,environment,app_id,expires_at,consumed_at')
+        .eq('state_hash', input.stateHash)
+      if (error) throw new Error('tiktok_state_inspection_failed')
+      const record = rows(data)[0]
+      if (!record) return null
+      const stateHash = text(record.state_hash)
+      const environment = text(record.environment)
+      const appId = text(record.app_id)
+      const expiresAt = text(record.expires_at)
+      const consumedAt = nullableText(record.consumed_at)
+      if (!/^[0-9a-f]{64}$/.test(stateHash)
+          || !['sandbox', 'production'].includes(environment)
+          || !/^[0-9a-f]{64}$/.test(appId)
+          || !Number.isFinite(Date.parse(expiresAt))) return null
+      return { stateHash, environment: environment as TikTokIdentity['environment'], appId, expiresAt, consumedAt }
+    },
     async consumeChallenge(input) {
       assertIdentity(input)
       const { data, error } = await admin.rpc('consume_tiktok_oauth_state', {

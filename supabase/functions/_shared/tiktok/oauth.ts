@@ -27,6 +27,20 @@ const sha256 = async (value: string) => bytesToHex(new Uint8Array(
   await crypto.subtle.digest('SHA-256', encoder.encode(value)),
 ))
 
+export async function hashTikTokOAuthState(state: string) {
+  if (!STATE_PATTERN.test(state)) throw new Error('invalid_tiktok_oauth_state')
+  return sha256(state)
+}
+
+export async function fingerprintTikTokOAuthState(state: string) {
+  return (await hashTikTokOAuthState(state)).slice(0, 16)
+}
+
+export async function fingerprintTikTokAppId(appId: string) {
+  if (!/^[0-9a-f]{64}$/.test(appId)) throw new Error('invalid_tiktok_identity')
+  return (await sha256(appId)).slice(0, 16)
+}
+
 export function validateTikTokRedirectUri(value: string) {
   let url: URL
   try {
@@ -79,15 +93,16 @@ export async function createTikTokOAuthState(input: {
   const random = input.randomBytes?.(32) ?? crypto.getRandomValues(new Uint8Array(32))
   if (!(random instanceof Uint8Array) || random.byteLength !== 32) throw new Error('invalid_tiktok_oauth_randomness')
   const state = bytesToBase64Url(random)
+  const stateFingerprint = await fingerprintTikTokOAuthState(state)
   await repository.persistChallenge({
-    stateHash: await sha256(state),
+    stateHash: await hashTikTokOAuthState(state),
     userId: input.userId,
     redirectUriHash: await sha256(redirectUri),
     provider: TIKTOK_OAUTH_PROVIDER,
     flow: TIKTOK_LOGIN_FLOW,
     ...identity,
   })
-  return { state }
+  return { state, stateFingerprint }
 }
 
 export async function consumeTikTokOAuthState(input: {
@@ -99,7 +114,7 @@ export async function consumeTikTokOAuthState(input: {
   const redirectUri = validateTikTokRedirectUri(input.expectedRedirectUri)
   const identity = validateTikTokIdentity(input.identity)
   const consumed = await repository.consumeChallenge({
-    stateHash: await sha256(input.state),
+    stateHash: await hashTikTokOAuthState(input.state),
     redirectUriHash: await sha256(redirectUri),
     provider: TIKTOK_OAUTH_PROVIDER,
     flow: TIKTOK_LOGIN_FLOW,

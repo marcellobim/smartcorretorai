@@ -3,6 +3,7 @@ import test from 'node:test'
 import type { TikTokFetch } from '../_shared/tiktok/client.ts'
 import { createTikTokTokenKeyring } from '../_shared/tiktok/token-crypto.ts'
 import type { TikTokOAuthStateRepository } from '../_shared/tiktok/types.ts'
+import { hashTikTokOAuthState } from '../_shared/tiktok/oauth.ts'
 import {
   createTikTokCallbackHandler,
   type TikTokLoginPersistenceInput,
@@ -33,6 +34,7 @@ type SetupOptions = {
   redirectUri?: string
   frontendOrigin?: string
   frontendReturnUri?: string
+  inspectState?: 'missing' | { appId?: string; expiresAt?: string; consumedAt?: string | null }
 }
 
 const keyring = async () => createTikTokTokenKeyring({
@@ -51,6 +53,16 @@ const setup = async (options: SetupOptions = {}) => {
       if (!available) return null
       available = false
       return { userId: USER_ID }
+    },
+    async inspectChallenge(input) {
+      if (options.inspectState === 'missing' || !options.inspectState) return null
+      return {
+        stateHash: input.stateHash,
+        environment: 'sandbox',
+        appId: options.inspectState.appId ?? 'a'.repeat(64),
+        expiresAt: options.inspectState.expiresAt ?? new Date(NOW + 60_000).toISOString(),
+        consumedAt: options.inspectState.consumedAt ?? null,
+      }
     },
   }
   const fetcher: TikTokFetch = async (input, init) => {
@@ -279,6 +291,39 @@ test('sanitizes token exchange failures from response and logs', async () => {
   assert.equal(location(response).searchParams.get('provider_error_message'), null)
   assert.equal(location(response).searchParams.get('provider_log_id'), 'safe-log')
   assertSanitized(response, logs)
+})
+
+test('correlates a matching persisted state without exposing the raw state', async () => {
+  const { handler, logs } = await setup({ availableState: false, inspectState: { expiresAt: new Date(Date.now() + 60_000).toISOString() } })
+  const response = await handler(callback({ state: STATE, code: 'fake-code' }))
+  const expected = (await hashTikTokOAuthState(STATE)).slice(0, 16)
+  const result = location(response).searchParams
+  assert.equal(result.get('created_state_fp'), expected)
+  assert.equal(result.get('sent_state_fp'), expected)
+  assert.equal(result.get('received_state_fp'), expected)
+  assert.equal(result.get('environment'), 'sandbox')
+  assert.equal(result.get('app_id_match'), 'true')
+  assert.equal(result.get('state_found'), 'true')
+  assert.equal(result.get('state_expired'), 'false')
+  assert.equal(result.get('state_already_consumed'), 'false')
+  assertSanitized(response, logs)
+})
+
+test('identifies a different received state by fingerprint without revealing either value', async () => {
+  const differentState = 'B'.repeat(43)
+  const { handler, logs } = await setup({ availableState: false, inspectState: 'missing' })
+  const response = await handler(callback({ state: differentState, code: 'fake-code' }))
+  const result = location(response).searchParams
+  assert.equal(result.get('received_state_fp'), (await hashTikTokOAuthState(differentState)).slice(0, 16))
+  assert.equal(result.get('created_state_fp'), 'unknown')
+  assert.equal(result.get('sent_state_fp'), 'unknown')
+  assert.equal(result.get('state_found'), 'false')
+  assert.equal(result.get('app_id_match'), 'unknown')
+  assert.equal(result.get('state_expired'), 'unknown')
+  assert.equal(result.get('state_already_consumed'), 'unknown')
+  const exposed = `${response.headers.get('location') ?? ''}\n${logs.join('\n')}`
+  assert.equal(exposed.includes(differentState), false)
+  assert.equal(exposed.includes(STATE), false)
 })
 
 test('persistence error consumes state, returns sanitized error and never success', async () => {

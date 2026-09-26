@@ -3,6 +3,7 @@ import { validateTikTokIdentity, type TikTokIdentity } from '../_shared/tiktok/e
 import {
   buildTikTokAuthorizationUrl,
   createTikTokOAuthState,
+  fingerprintTikTokAppId,
 } from '../_shared/tiktok/oauth.ts'
 import { logTikTokOAuthEvent } from '../_shared/tiktok/telemetry.ts'
 import type { TikTokOAuthStateRepository } from '../_shared/tiktok/types.ts'
@@ -232,6 +233,13 @@ export function createTikTokConnectionHandler(dependencies: TikTokConnectionDepe
         state: challenge.state,
       })
       logTikTokOAuthEvent(log, { stage: 'authorization', http_status: 200 })
+      log(JSON.stringify({
+        event: 'tiktok_oauth_state_correlation',
+        created_state_fp: challenge.stateFingerprint,
+        sent_state_fp: challenge.stateFingerprint,
+        environment: identity.environment,
+        app_id_fp: await fingerprintTikTokAppId(identity.appId),
+      }))
       return json(frontendOrigin, requestOrigin, 200, { authorization_url: authorizationUrl })
     } catch {
       logTikTokOAuthEvent(log, { stage: 'authorization', http_status: 503 })

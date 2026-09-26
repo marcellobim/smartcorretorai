@@ -33,6 +33,13 @@ export type TikTokOAuthStateRecord = Readonly<{
 
 export type TikTokOAuthStateRepository = Readonly<{
   persistChallenge(record: TikTokOAuthStateRecord): Promise<void>
+  inspectChallenge?: (input: Pick<TikTokOAuthStateRecord, 'stateHash'>) => Promise<Readonly<{
+    stateHash: string
+    environment: TikTokIdentity['environment']
+    appId: string
+    expiresAt: string
+    consumedAt: string | null
+  }> | null>
   consumeChallenge(input: {
     stateHash: string
     redirectUriHash: string

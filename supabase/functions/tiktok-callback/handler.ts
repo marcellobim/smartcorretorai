@@ -8,7 +8,12 @@ import {
   type TikTokProviderDiagnostic,
   type TikTokFetch,
 } from '../_shared/tiktok/client.ts'
-import { consumeTikTokOAuthState } from '../_shared/tiktok/oauth.ts'
+import {
+  consumeTikTokOAuthState,
+  fingerprintTikTokAppId,
+  fingerprintTikTokOAuthState,
+  hashTikTokOAuthState,
+} from '../_shared/tiktok/oauth.ts'
 import {
   encryptTikTokConnectionForDatabase,
   type TikTokTokenKeyring,
@@ -77,6 +82,17 @@ type TikTokCallbackDiagnosticStage =
   | 'persistence'
   | 'final_redirect'
 
+type TikTokStateCorrelation = Readonly<{
+  createdStateFingerprint: string | null
+  sentStateFingerprint: string | null
+  receivedStateFingerprint: string | null
+  environment: TikTokIdentity['environment']
+  appIdMatch: boolean | null
+  stateFound: boolean | null
+  stateExpired: boolean | null
+  stateAlreadyConsumed: boolean | null
+}>
+
 const TIKTOK_CALLBACK_PATH = '/functions/v1/tiktok-callback'
 const TIKTOK_FRONTEND_RETURN_PATH = '/configuracoes/integracoes/tiktok'
 
@@ -135,7 +151,7 @@ export const validateTikTokFrontendReturnUri = (value: string, expectedOrigin: s
   return url.toString()
 }
 
-const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic) => {
+const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation) => {
   const location = new URL(baseUri)
   location.searchParams.set('tiktok', outcome)
   if (reason) location.searchParams.set('reason', reason)
@@ -147,6 +163,19 @@ const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: Publ
       if (diagnostic.providerMessage) location.searchParams.set('provider_error_message', diagnostic.providerMessage)
       if (diagnostic.providerLogId) location.searchParams.set('provider_log_id', diagnostic.providerLogId)
     }
+  }
+  if (correlation) {
+    const set = (name: string, value: string | boolean | null) => {
+      location.searchParams.set(name, value === null ? 'unknown' : String(value))
+    }
+    set('created_state_fp', correlation.createdStateFingerprint)
+    set('sent_state_fp', correlation.sentStateFingerprint)
+    set('received_state_fp', correlation.receivedStateFingerprint)
+    set('environment', correlation.environment)
+    set('app_id_match', correlation.appIdMatch)
+    set('state_found', correlation.stateFound)
+    set('state_expired', correlation.stateExpired)
+    set('state_already_consumed', correlation.stateAlreadyConsumed)
   }
   return new Response(null, {
     status: 303,
@@ -185,9 +214,54 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
   const frontendReturnUri = validateTikTokFrontendReturnUri(dependencies.frontendReturnUri, frontendOrigin)
   const log = dependencies.log ?? (() => undefined)
 
-  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic) => {
+  const correlationEvent = async (state: string | null): Promise<TikTokStateCorrelation | undefined> => {
+    if (!state) return undefined
+    let receivedStateFingerprint: string
+    try {
+      receivedStateFingerprint = await fingerprintTikTokOAuthState(state)
+    } catch {
+      return undefined
+    }
+    const appIdFingerprint = await fingerprintTikTokAppId(identity.appId)
+    const base: TikTokStateCorrelation = {
+      createdStateFingerprint: null,
+      sentStateFingerprint: null,
+      receivedStateFingerprint,
+      environment: identity.environment,
+      appIdMatch: null,
+      stateFound: null,
+      stateExpired: null,
+      stateAlreadyConsumed: null,
+    }
+    try {
+      const inspected = await dependencies.stateRepository.inspectChallenge?.({
+        stateHash: await hashTikTokOAuthState(state),
+      })
+      if (!inspected) {
+        const correlation = { ...base, stateFound: false }
+        log(JSON.stringify({ event: 'tiktok_oauth_state_correlation', created_state_fp: null, sent_state_fp: null, received_state_fp: receivedStateFingerprint, environment: identity.environment, app_id_fp: appIdFingerprint, app_id_match: null, state_found: false, state_expired: null, state_already_consumed: null }))
+        return correlation
+      }
+      const correlation = {
+        ...base,
+        createdStateFingerprint: inspected.stateHash.slice(0, 16),
+        sentStateFingerprint: inspected.stateHash.slice(0, 16),
+        appIdMatch: inspected.appId === identity.appId,
+        stateFound: true,
+        stateExpired: Date.parse(inspected.expiresAt) <= Date.now(),
+        stateAlreadyConsumed: inspected.consumedAt !== null,
+      }
+      log(JSON.stringify({ event: 'tiktok_oauth_state_correlation', created_state_fp: correlation.createdStateFingerprint, sent_state_fp: correlation.sentStateFingerprint, received_state_fp: receivedStateFingerprint, environment: identity.environment, app_id_fp: appIdFingerprint, app_id_match: correlation.appIdMatch, state_found: true, state_expired: correlation.stateExpired, state_already_consumed: correlation.stateAlreadyConsumed }))
+      return correlation
+    } catch {
+      log(JSON.stringify({ event: 'tiktok_oauth_state_correlation', created_state_fp: null, sent_state_fp: null, received_state_fp: receivedStateFingerprint, environment: identity.environment, app_id_fp: appIdFingerprint, app_id_match: null, state_found: null, state_expired: null, state_already_consumed: null }))
+      return base
+    }
+  }
+
+  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation) => {
     logTikTokOAuthEvent(log, { stage, http_status: status, state_consumed: stateConsumed })
-    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic)
+    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic, correlation)
   }
 
   return async (request: Request): Promise<Response> => {
@@ -221,7 +295,7 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
       userId = consumed.userId
       }
     } catch {
-      return failure('state_invalid', 'state', 'state_validation', 400, false)
+      return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, await correlationEvent(state))
     }
 
     if (providerErrors.length === 1) {

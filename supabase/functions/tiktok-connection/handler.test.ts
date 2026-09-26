@@ -229,13 +229,20 @@ test('returns only the sanitized authorization URL', async () => {
 test('logs only allowlisted telemetry fields', async () => {
   const { handler, logs } = setup()
   await handler(request(`Bearer ${SESSION_TOKEN}`))
-  assert.equal(logs.length, 1)
+  assert.equal(logs.length, 2)
   assert.deepEqual(JSON.parse(logs[0]), {
     event: 'tiktok_oauth',
     stage: 'authorization',
     http_status: 200,
   })
+  const correlation = JSON.parse(logs[1])
+  assert.equal(correlation.event, 'tiktok_oauth_state_correlation')
+  assert.match(correlation.created_state_fp, /^[0-9a-f]{16}$/)
+  assert.equal(correlation.sent_state_fp, correlation.created_state_fp)
+  assert.equal(correlation.environment, 'sandbox')
+  assert.match(correlation.app_id_fp, /^[0-9a-f]{16}$/)
   assert.equal(logs[0].includes(SESSION_TOKEN), false)
+  assert.equal(logs[1].includes(SESSION_TOKEN), false)
 })
 
 test('GET rejects a request without a Bearer token', async () => {
