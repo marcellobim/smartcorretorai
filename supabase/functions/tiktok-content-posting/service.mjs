@@ -2,7 +2,8 @@ import {fingerprint,prepareJob,VIDEO_IMOBILIARIO_FILE,VIDEO_IMOBILIARIO_MODE} fr
 import {creatorSnapshot,confirmedPostInfo} from '../_shared/tiktok-posting/posting-options.mjs'
 import {executeFileUpload} from '../_shared/tiktok-posting/file-upload.mjs'
 const terminal=new Set(['published','failed','blocked'])
-export const publicJob=j=>({job_id:j.id,status:j.status,provider_status:j.provider_status||null})
+export const publicJob=j=>({job_id:j.id,status:j.status,provider_status:j.provider_status||null,
+ ...(j.failure_stage==='init'?{failure_stage:'init',provider_http_status:j.provider_http_status||null,provider_error_code:j.provider_error_code||null,provider_error_message:j.provider_error_message||null,provider_log_id:j.provider_log_id||null}:{})})
 export function createPostingService(d){
  const now=d.now||Date.now
  const connection=async identity=>{

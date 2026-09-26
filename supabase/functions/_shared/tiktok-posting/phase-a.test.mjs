@@ -64,7 +64,7 @@ test('upload destination exact allowlist rejects SSRF, redirects and credentials
  'https://user@open-upload.tiktokapis.com/video/?upload_id=a&upload_token=b','https://open-upload.tiktokapis.com:444/video/?upload_id=a&upload_token=b',
  'https://open-upload.tiktokapis.com/other/?upload_id=a&upload_token=b',upload+'#fragment'])assert.throws(()=>validateUploadUrl(value))
 })
-async function harness({init='ok',put='ok',persistFail=false,changed=false}={}) {
+async function harness({init='ok',put='ok',persistFail=false,diagnosticFail=false,changed=false}={}) {
  let job={...await prepareJob(base()),id:KEY,status:'queued',revision:1,claim_token:KEY,claim_expires_at:new Date(Date.now()+120000).toISOString(),creator_info_checked_at:new Date(Date.now()-1000).toISOString(),init_attempts:0,upload_attempts:0}
  const events=[],writes=[]
  const repository={transition:async(current,next,extra={})=>{
@@ -73,6 +73,10 @@ async function harness({init='ok',put='ok',persistFail=false,changed=false}={}) 
   if(persistFail&&next==='uploading')throw Error('posting_repository_unavailable')
   job={...job,status:next,revision:job.revision+1,publish_id:extra.publishId??job.publish_id,error_code:extra.errorCode??job.error_code,
    init_attempts:job.init_attempts+(next==='initializing'?1:0),upload_attempts:job.upload_attempts+(next==='uploading'?1:0)}
+  return {...job}
+ },persistInitDiagnostic:async(current,diagnostic)=>{
+  if(diagnosticFail)throw Error('posting_repository_unavailable')
+  job={...job,provider_http_status:diagnostic.httpStatus,provider_error_code:diagnostic.providerCode,provider_error_message:diagnostic.providerMessage,provider_log_id:diagnostic.providerLogId,failure_stage:'init'}
   return {...job}
  }}
  const fetcher=async(url,request)=>{
@@ -83,8 +87,9 @@ async function harness({init='ok',put='ok',persistFail=false,changed=false}={}) 
    if(init==='timeout')return new Promise((_,reject)=>request.signal.addEventListener('abort',()=>reject(Object.assign(new Error('timeout'),{name:'AbortError'})),{once:true}))
    if(init==='abort')throw Object.assign(new Error('abort'),{name:'AbortError'})
    if(init==='transport')throw Error('private provider failure')
-   if(init==='http')return new Response(JSON.stringify({error:{code:'invalid_parameter'}}),{status:400})
-   if(init==='tiktok')return new Response(JSON.stringify({error:{code:'invalid_parameter'}}),{status:200})
+   if(init==='http')return new Response(JSON.stringify({error:{code:'invalid_param',message:'Invalid post_info',log_id:'safe-log'}}),{status:400})
+   if(init==='tiktok')return new Response(JSON.stringify({error:{code:'invalid_param',message:'Invalid post_info',log_id:'safe-log'}}),{status:200})
+   if(init==='unsafe')return new Response(JSON.stringify({error:{code:'invalid_param',message:'Bearer fixture-access https://private.example/upload_url',log_id:'not safe!'}}),{status:400})
    if(init==='invalidjson')return new Response('{',{status:200})
    if(init==='missing')return new Response(JSON.stringify({error:{code:'ok'},data:{upload_url:upload}}),{status:200})
    return new Response(JSON.stringify({error:{code:'ok'},data:{publish_id:'fixture-publish',upload_url:init==='badurl'?'https://evil.test':upload}}),{status:200})
@@ -194,7 +199,7 @@ test('CAS rejects NULL-like revision and a missing lease deadline',()=>{
  assert.throws(()=>validateTransition(j,'initializing',{revision:null,claim:KEY,now:NOW}),/posting_cas_conflict/)
  assert.throws(()=>validateTransition(j,'initializing',{revision:2,claim:KEY,now:NOW}),/posting_cas_conflict/)
 })
-test('INIT classifications persist a safe diagnostic without upload',async()=>{
+test('INIT classifications preserve safe diagnostics without upload',async()=>{
  for(const [init,status,code] of [
   ['timeout','reconciliation_required','init_timeout'],['abort','reconciliation_required','init_abort'],['transport','reconciliation_required','init_transport_error'],
   ['http','failed','init_provider_rejected'],['tiktok','failed','init_provider_rejected'],['invalidjson','reconciliation_required','init_invalid_json'],
@@ -202,4 +207,8 @@ test('INIT classifications persist a safe diagnostic without upload',async()=>{
  ]){
   const h=await harness({init});assert.equal((await h.run()).status,status,init);assert.equal(h.get().error_code,code,init);assert.equal(h.events.includes('put'),false,init)
  }
+})
+test('INIT diagnostic strips secrets and secondary persistence failures preserve the original failure',async()=>{
+ const unsafe=await harness({init:'unsafe'});assert.equal((await unsafe.run()).status,'failed');assert.deepEqual({http:unsafe.get().provider_http_status,code:unsafe.get().provider_error_code,message:unsafe.get().provider_error_message,log:unsafe.get().provider_log_id,stage:unsafe.get().failure_stage},{http:400,code:'invalid_param',message:null,log:null,stage:'init'});assert.doesNotMatch(JSON.stringify(unsafe.get()),/fixture-access|private\.example|upload_url/)
+ const failed=await harness({init:'http',diagnosticFail:true});assert.equal((await failed.run()).status,'failed');assert.equal(failed.get().error_code,'init_provider_rejected');assert.equal(failed.events.includes('put'),false)
 })

@@ -2,6 +2,18 @@ import {MAX_BYTES,fail,sha256,validateOptions} from './contract.mjs'
 const INIT='https://open.tiktokapis.com/v2/post/publish/video/init/'
 const publishId=value=>typeof value==='string'&&/^[A-Za-z0-9_.~:-]{1,64}$/.test(value)
 const providerCode=value=>typeof value==='string'&&/^[a-z0-9_.-]{1,64}$/i.test(value)?value:null
+const providerMessage=value=>{
+ if(typeof value!=='string')return null
+ const message=value.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()
+ if(!message||message.length>240||!/^[\p{L}\p{N} .,:;()'"!?_-]+$/u.test(message)||/(bearer|access[_ -]?token|refresh[_ -]?token|authorization|https?:\/\/|upload_url|open_id)/i.test(message))return null
+ return message
+}
+const providerLogId=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(value)?value:null
+const providerDiagnostic=(payload,httpStatus)=>{
+ const providerCodeValue=providerCode(payload?.error?.code)
+ if(!providerCodeValue)return null
+ return {httpStatus,providerCode:providerCodeValue,providerMessage:providerMessage(payload?.error?.message),providerLogId:providerLogId(payload?.error?.log_id??payload?.error?.logid)}
+}
 const deterministicCodes=new Set([
  'invalid_param','access_token_invalid','access_token_expired','scope_not_authorized',
  'privacy_level_option_mismatch','spam_risk_too_many_posts','spam_risk_user_banned_from_posting',
@@ -10,8 +22,8 @@ const deterministicCodes=new Set([
  'duration_exceeds_limit','invalid_video','invalid_video_format','invalid_parameter','invalid_post_info',
 ])
 const telemetry=(sink,event,detail={})=>{try{sink?.({event:'tiktok_direct_post_init',stage:event,...detail})}catch{}}
-class InitFailure extends Error { constructor(code,ambiguous){super(code);this.code=code;this.ambiguous=ambiguous} }
-const initFailure=(code,ambiguous)=>{throw new InitFailure(code,ambiguous)}
+class InitFailure extends Error { constructor(code,ambiguous,diagnostic=null){super(code);this.code=code;this.ambiguous=ambiguous;this.diagnostic=diagnostic} }
+const initFailure=(code,ambiguous,diagnostic=null)=>{throw new InitFailure(code,ambiguous,diagnostic)}
 const deterministicProviderFailure=code=>deterministicCodes.has(code)
 export function singleChunk(size) {
  if(!Number.isSafeInteger(size)||size<=0||size>MAX_BYTES) fail('posting_media_invalid')
@@ -46,14 +58,14 @@ export async function initUpload({job,accessToken,fetcher,initTelemetry,initTime
  clearTimeout(timer)
  let payload
  try { payload=await r.json() } catch {telemetry(initTelemetry,'invalid_json',{http_status:r.status});initFailure('init_invalid_json',true)}
- const code=providerCode(payload?.error?.code)
+ const diagnostic=providerDiagnostic(payload,r.status),code=diagnostic?.providerCode
  if(code&&code!=='ok')telemetry(initTelemetry,'tiktok_error_code',{provider_code:code,http_status:r.status})
  if(!r.ok){
   telemetry(initTelemetry,'http_non_2xx',{http_status:r.status})
   const safe=deterministicProviderFailure(code)||([400,401,403,422].includes(r.status)&&code!==null)
-  initFailure(safe?'init_provider_rejected':'init_http_ambiguous',!safe)
+  initFailure(safe?'init_provider_rejected':'init_http_ambiguous',!safe,safe?diagnostic:null)
  }
- if(code!=='ok')initFailure(deterministicProviderFailure(code)?'init_provider_rejected':'init_provider_ambiguous',!deterministicProviderFailure(code))
+ if(code!=='ok')initFailure(deterministicProviderFailure(code)?'init_provider_rejected':'init_provider_ambiguous',!deterministicProviderFailure(code),deterministicProviderFailure(code)?diagnostic:null)
  const id=payload.data?.publish_id
  if(!publishId(id)){telemetry(initTelemetry,'missing_publish_id',{http_status:r.status});initFailure('init_missing_publish_id',true)}
  let uploadUrl=null
@@ -95,7 +107,11 @@ export async function executeFileUpload({job,repository,accessToken,loadBytes,fe
  catch(error) {
   const failure=error instanceof InitFailure?error:new InitFailure('init_transport_error',true)
   const status=failure.ambiguous?'reconciliation_required':'failed'
-  await repository.transition(job,status,{errorCode:failure.code})
+  job=await repository.transition(job,status,{errorCode:failure.code})
+  if(status==='failed'&&failure.code==='init_provider_rejected'&&failure.diagnostic){
+   try { await repository.persistInitDiagnostic(job,failure.diagnostic) }
+   catch { telemetry(initTelemetry,'diagnostic_persist_failed') }
+  }
   return {status}
  }
  // This write must ACK before any PUT. uploadUrl is never passed to repository.

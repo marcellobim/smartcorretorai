@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
-import {createPostingService} from './service.mjs'
+import {createPostingService,publicJob} from './service.mjs'
 import {createPostingHandler} from './handler.mjs'
 import {probeMp4} from '../_shared/tiktok-posting/mp4-probe.ts'
 import {callTikTokPosting,parseTikTokPreparation,postingConfirmation} from '../../../frontend/src/lib/tiktok-content-posting.js'
@@ -23,7 +23,8 @@ function setup(){
   repository:{
    create:async j=>{seq.push('create');if(!job||job.idempotency_key!==j.idempotency_key)job={...j,id:key,status:'awaiting_confirmation',revision:1,init_attempts:0,upload_attempts:0};return clone(job)},
    claim:async(id,rev)=>{if(rev!==job.revision||Date.parse(job.claim_expires_at)>time)throw Error('CAS');job={...job,revision:rev+1,claim_token:key,claim_expires_at:new Date(time+120000).toISOString(),status:['initializing','uploading'].includes(job.status)?'reconciliation_required':job.status};return clone(job)},
-   transition:async(j,next,details={})=>{if(j.revision!==job.revision)throw Error('CAS');seq.push(next);job={...job,status:next,revision:job.revision+1,init_attempts:job.init_attempts+(next==='initializing'?1:0),upload_attempts:job.upload_attempts+(next==='uploading'?1:0),publish_id:details.publishId||job.publish_id,provider_status:details.providerStatus||job.provider_status};return clone(job)},
+   transition:async(j,next,details={})=>{if(j.revision!==job.revision)throw Error('CAS');seq.push(next);job={...job,status:next,revision:job.revision+1,init_attempts:job.init_attempts+(next==='initializing'?1:0),upload_attempts:job.upload_attempts+(next==='uploading'?1:0),publish_id:details.publishId||job.publish_id,provider_status:details.providerStatus||job.provider_status,error_code:details.errorCode||job.error_code};return clone(job)},
+   persistInitDiagnostic:async(j,d)=>{assert.equal(job.id,j.id);job={...job,provider_http_status:d.httpStatus,provider_error_code:d.providerCode,provider_error_message:d.providerMessage,provider_log_id:d.providerLogId,failure_stage:'init'};return clone(job)},
    closeIrrecoverable:async(j)=>{assert.equal(j.status,'reconciliation_required');assert.equal(j.publish_id,null);assert.equal(j.upload_attempts,0);job={...job,status:'failed',closure_reason:'init_no_publish_id_irrecoverable',completed_at:new Date(time).toISOString()};return clone(job)}
   },
   uploadFetch:async(url,init)=>{
@@ -63,6 +64,11 @@ test('same idempotency key with changed intent rejected',async()=>{const s=setup
 test('changed media/connection version blocks before job',async()=>{const s=setup(),input=await ready(s);s.connection.token_version++;await assert.rejects(s.service.confirm(identity,input),/media_changed/);assert.equal(s.job(),null)})
 test('missing consent/private branded options blocked before init',async()=>{for(const patch of [{consent:{...consent,confirmed:false}},{options:{...options,brand_content_toggle:true}}]){const s=setup(),input=await ready(s);await assert.rejects(s.service.confirm(identity,{...input,...patch}));assert.equal(s.job(),null)}})
 test('init timeout reconciles without PUT or retry',async()=>{const s=setup();s.deps.uploadFetch=async()=>{s.seq.push('POST');throw Error('timeout')};const input=await ready(s);assert.equal((await s.service.confirm(identity,input)).job.status,'reconciliation_required');await s.service.confirm(identity,input);assert.equal(s.seq.filter(x=>x==='POST').length,1);assert.ok(!s.seq.includes('PUT'))})
+test('deterministic INIT rejection returns only sanitized diagnostic fields',async()=>{
+ const s=setup();s.deps.uploadFetch=async(_,init)=>{s.seq.push(init.method);return new Response(JSON.stringify({error:{code:'invalid_param',message:'Invalid post_info privacy_level',log_id:'safe_log_123'}}),{status:400})}
+ const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,status:'failed',provider_status:null,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|upload_token|open_id/)
+})
+test('non-INIT jobs keep the V10 public job fallback without diagnostics',()=>assert.deepEqual(publicJob({id:key,status:'failed',provider_status:null,failure_stage:'upload',provider_http_status:500,provider_error_code:'unexpected'}),{job_id:key,status:'failed',provider_status:null}))
 test('irrecoverable no-publish job closes without deletion and a new intent can proceed',async()=>{
  const s=setup();s.setJob({id:key,user_id:user,environment:'sandbox',app_id:identity.appId,status:'reconciliation_required',publish_id:null,init_attempts:1,upload_attempts:0,error_code:'init_uncertain',idempotency_key:key,confirmed_options:options})
  const closed=await s.service.close_irrecoverable(identity,{job_id:key});assert.equal(closed.job.status,'failed');assert.equal(s.job().closure_reason,'init_no_publish_id_irrecoverable')

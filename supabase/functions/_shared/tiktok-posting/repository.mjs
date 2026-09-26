@@ -11,6 +11,7 @@ export function postingRepository(admin) {
   transition:(job,next,{publishId=null,providerStatus=null,errorCode=null}={})=>
    call('transition_tiktok_publish_job',{p_id:job.id,p_revision:job.revision,p_claim:job.claim_token,
     p_next:next,p_publish_id:publishId,p_provider_status:providerStatus,p_error_code:errorCode}),
+  persistInitDiagnostic:(job,diagnostic)=>call('persist_tiktok_publish_init_diagnostic',{p_id:job.id,p_http_status:diagnostic.httpStatus,p_provider_error_code:diagnostic.providerCode,p_provider_error_message:diagnostic.providerMessage,p_provider_log_id:diagnostic.providerLogId}),
   closeIrrecoverable:(job,identity)=>call('close_irrecoverable_tiktok_publish_job',{p_id:job.id,p_user_id:identity.userId,p_environment:identity.environment,p_app_id:identity.appId}),
  }
 }

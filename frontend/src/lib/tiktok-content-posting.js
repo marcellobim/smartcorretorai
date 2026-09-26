@@ -51,7 +51,14 @@ export async function callTikTokPosting(client,body,userId) {
 export function parseTikTokJob(value,creationId) {
  if (!value || !uuid(value.job_id) || value.creation_id !== creationId ||
      value.product_type !== TIKTOK_VIDEO_PRODUCT || !Object.hasOwn(TIKTOK_JOB_LABELS,value.status)) fail()
- return {job_id:value.job_id,status:value.status}
+ const job={job_id:value.job_id,status:value.status}
+ if (!Object.hasOwn(value,'failure_stage')) return job
+ const message=value.provider_error_message
+ if(value.failure_stage!=='init'||!Number.isInteger(value.provider_http_status)||value.provider_http_status<100||value.provider_http_status>599||
+    typeof value.provider_error_code!=='string'||!/^[A-Za-z0-9_.-]{1,64}$/.test(value.provider_error_code)||
+    (message!==null&&(typeof message!=='string'||message.length<1||message.length>240||!/^[\p{L}\p{N} .,:;()'"!?_-]+$/u.test(message)||/(bearer|access[_ -]?token|refresh[_ -]?token|authorization|https?:\/\/|upload_url|open_id)/i.test(message)))||
+    (value.provider_log_id!==null&&(typeof value.provider_log_id!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(value.provider_log_id)))) fail()
+ return {...job,failure_stage:'init',provider_http_status:value.provider_http_status,provider_error_code:value.provider_error_code,provider_error_message:message,provider_log_id:value.provider_log_id}
 }
 export function parseTikTokPreparation(value,creationId) {
  const c=value?.creator

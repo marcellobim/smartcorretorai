@@ -8,7 +8,7 @@ import {readFileSync,mkdirSync} from 'node:fs'
 import postcss from 'postcss'
 import tailwind from 'tailwindcss'
 import tailwindConfig from '../tailwind.config.js'
-import {TIKTOK_VIDEO_PRESETS,postingConfirmation,readTikTokRecovery,writeTikTokRecovery} from '../src/lib/tiktok-content-posting.js'
+import {TIKTOK_VIDEO_PRESETS,parseTikTokJob,postingConfirmation,readTikTokRecovery,writeTikTokRecovery} from '../src/lib/tiktok-content-posting.js'
 const root=fileURLToPath(new URL('..',import.meta.url))
 test('four real presets share one real-estate social modal; Studio excluded',()=>{
  const tour=readFileSync(new URL('../src/pages/SmartTourAI.jsx',import.meta.url),'utf8')
@@ -23,6 +23,12 @@ test('request projection and durable recovery fail closed',()=>{
  assert.throws(()=>postingConfirmation('bad','11111111-1111-4111-8111-111111111111','fixture-preparation',{},{}))
  assert.throws(()=>writeTikTokRecovery({setItem(){throw Error('blocked')}},'11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',{}))
  assert.throws(()=>readTikTokRecovery({getItem:()=>'{bad'},'11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'))
+})
+test('job parser projects INIT diagnostics only when fully sanitized',()=>{
+ const base={job_id:'44444444-4444-4444-8444-444444444444',status:'failed',creation_id:'22222222-2222-4222-8222-222222222222',product_type:'video_imobiliario'}
+ assert.deepEqual(parseTikTokJob(base,base.creation_id),{job_id:base.job_id,status:'failed'})
+ assert.deepEqual(parseTikTokJob({...base,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info',provider_log_id:'safe_log'},base.creation_id),{job_id:base.job_id,status:'failed',failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info',provider_log_id:'safe_log'})
+ for(const patch of [{failure_stage:'upload',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Bearer fixture-access',provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:'unsafe!'}])assert.throws(()=>parseTikTokJob({...base,...patch},base.creation_id))
 })
 for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Direct, explicit confirm, recovery and Meta',async()=>{
  const bundle=await build({stdin:{contents:`
