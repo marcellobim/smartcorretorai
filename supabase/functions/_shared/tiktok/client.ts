@@ -1,4 +1,4 @@
-import { validateUpgradeScopes } from './capabilities.ts'
+import { DIRECT_POST_SCOPES, validateUpgradeScopes } from './capabilities.ts'
 import { TIKTOK_LOGIN_SCOPES, type TikTokAccount, type TikTokTokenSet } from './types.ts'
 import { validateTikTokRedirectUri } from './oauth.ts'
 
@@ -40,7 +40,9 @@ const requestJson = async (fetcher: TikTokFetch, url: string, init: RequestInit,
 const parseTokenSet = (payload: Record<string, unknown>, capability: 'login_basic' | 'direct_post_upgrade' = 'login_basic'): TikTokTokenSet => {
   const scopes = requireText(payload.scope, 'tiktok_token_response_invalid').split(',').map(scope => scope.trim()).filter(Boolean)
   if (capability === 'direct_post_upgrade') scopes.splice(0,scopes.length,...validateUpgradeScopes(scopes))
-  else if (scopes.length !== TIKTOK_LOGIN_SCOPES.length || TIKTOK_LOGIN_SCOPES.some(scope => !scopes.includes(scope))) throw new Error('tiktok_required_scope_missing')
+  else if (new Set(scopes).size !== scopes.length
+    || TIKTOK_LOGIN_SCOPES.some(scope => !scopes.includes(scope))
+    || scopes.some(scope => !DIRECT_POST_SCOPES.includes(scope as typeof DIRECT_POST_SCOPES[number]))) throw new Error('tiktok_required_scope_missing')
   if (payload.token_type !== 'Bearer') throw new Error('tiktok_token_response_invalid')
   return Object.freeze({
     openId: requireText(payload.open_id, 'tiktok_token_response_invalid'),

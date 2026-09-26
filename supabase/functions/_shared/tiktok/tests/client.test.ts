@@ -10,6 +10,7 @@ import {
   TIKTOK_USER_INFO_ENDPOINT,
   type TikTokFetch,
 } from '../client.ts'
+import { deriveTikTokCapabilities } from '../capabilities.ts'
 
 const ACCESS_TOKEN = 'fake-access-token-for-unit-test'
 const REFRESH_TOKEN = 'fake-refresh-token-for-unit-test'
@@ -41,6 +42,17 @@ test('authorization code exchange uses fixed endpoint and form body without URL 
   assert.equal(body.get('redirect_uri'), REDIRECT_URI)
   assert.equal(tokens.openId, 'test-open-id')
   assert.deepEqual(tokens.scopes, ['user.info.basic'])
+})
+
+test('basic connection accepts the known granted Direct Post scope', async () => {
+  const base = { clientKey: 'client-key', clientSecret: CLIENT_SECRET, code: 'fake-code', redirectUri: REDIRECT_URI }
+  const basic = await exchangeTikTokAuthorizationCode({ ...base, fetcher: async () => response(tokenPayload) })
+  const grantedPublish = await exchangeTikTokAuthorizationCode({
+    ...base,
+    fetcher: async () => response({ ...tokenPayload, scope: 'user.info.basic,video.publish' }),
+  })
+  assert.deepEqual(basic.scopes, ['user.info.basic'])
+  assert.deepEqual(grantedPublish.scopes, ['user.info.basic', 'video.publish'])
 })
 
 test('refresh remains fully injected and accepts rotated refresh tokens', async () => {
@@ -103,12 +115,20 @@ test('provider and network failures expose only stable sanitized errors', async 
   )
 })
 
-test('missing required scope and malformed token response fail closed', async () => {
+test('missing, unknown, and insufficient Direct Post scopes fail closed', async () => {
   const base = { clientKey: 'client-key', clientSecret: CLIENT_SECRET, code: 'fake-code', redirectUri: REDIRECT_URI }
   await assert.rejects(
     () => exchangeTikTokAuthorizationCode({ ...base, fetcher: async () => response({ ...tokenPayload, scope: 'video.list' }) }),
     /tiktok_required_scope_missing/,
   )
+  await assert.rejects(
+    () => exchangeTikTokAuthorizationCode({ ...base, fetcher: async () => response({ ...tokenPayload, scope: 'user.info.basic,video.list' }) }),
+    /tiktok_required_scope_missing/,
+  )
+  const upgradeWithoutPublish = await exchangeTikTokAuthorizationCode({
+    ...base, capability: 'direct_post_upgrade', fetcher: async () => response(tokenPayload),
+  })
+  assert.equal(deriveTikTokCapabilities(upgradeWithoutPublish.scopes).direct_post, false)
   await assert.rejects(
     () => exchangeTikTokAuthorizationCode({ ...base, fetcher: async () => response({ ...tokenPayload, access_token: '' }) }),
     /tiktok_token_response_invalid/,
