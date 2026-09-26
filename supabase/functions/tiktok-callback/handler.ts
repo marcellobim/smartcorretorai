@@ -4,6 +4,8 @@ import { validateTikTokIdentity, type TikTokIdentity } from '../_shared/tiktok/e
 import {
   exchangeTikTokAuthorizationCode,
   fetchTikTokAccount,
+  TikTokProviderError,
+  type TikTokProviderDiagnostic,
   type TikTokFetch,
 } from '../_shared/tiktok/client.ts'
 import { consumeTikTokOAuthState } from '../_shared/tiktok/oauth.ts'
@@ -66,6 +68,15 @@ type PublicFailure =
   | 'upgrade_scope_missing'
   | 'state_invalid'
 
+type TikTokCallbackDiagnosticStage =
+  | 'state_validation'
+  | 'pkce_validation'
+  | 'token_exchange'
+  | 'scope_validation'
+  | 'user_info'
+  | 'persistence'
+  | 'final_redirect'
+
 const TIKTOK_CALLBACK_PATH = '/functions/v1/tiktok-callback'
 const TIKTOK_FRONTEND_RETURN_PATH = '/configuracoes/integracoes/tiktok'
 
@@ -124,10 +135,19 @@ export const validateTikTokFrontendReturnUri = (value: string, expectedOrigin: s
   return url.toString()
 }
 
-const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure) => {
+const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic) => {
   const location = new URL(baseUri)
   location.searchParams.set('tiktok', outcome)
   if (reason) location.searchParams.set('reason', reason)
+  if (diagnosticStage) {
+    location.searchParams.set('diagnostic_stage', diagnosticStage)
+    if (diagnostic) {
+      location.searchParams.set('provider_http_status', String(diagnostic.httpStatus))
+      if (diagnostic.providerCode) location.searchParams.set('provider_error_code', diagnostic.providerCode)
+      if (diagnostic.providerMessage) location.searchParams.set('provider_error_message', diagnostic.providerMessage)
+      if (diagnostic.providerLogId) location.searchParams.set('provider_log_id', diagnostic.providerLogId)
+    }
+  }
   return new Response(null, {
     status: 303,
     headers: {
@@ -165,24 +185,24 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
   const frontendReturnUri = validateTikTokFrontendReturnUri(dependencies.frontendReturnUri, frontendOrigin)
   const log = dependencies.log ?? (() => undefined)
 
-  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, status: number, stateConsumed?: boolean) => {
+  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic) => {
     logTikTokOAuthEvent(log, { stage, http_status: status, state_consumed: stateConsumed })
-    return redirect(frontendReturnUri, 'error', reason)
+    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic)
   }
 
   return async (request: Request): Promise<Response> => {
-    if (request.method !== 'GET') return failure('callback_invalid', 'state', 405)
+    if (request.method !== 'GET') return failure('callback_invalid', 'state', 'state_validation', 405)
 
     const url = new URL(request.url)
-    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state',400,false)
+    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state','state_validation',400,false)
     const state = singleParameter(url, 'state', 128)
-    if (!state) return failure('state_invalid', 'state', 400, false)
+    if (!state) return failure('state_invalid', 'state', 'state_validation', 400, false)
 
     const providerErrors = url.searchParams.getAll('error')
-    if (providerErrors.length > 1) return failure('callback_invalid', 'state', 400, false)
+    if (providerErrors.length > 1) return failure('callback_invalid', 'state', 'state_validation', 400, false)
 
     const code = singleParameter(url, 'code', 2048)
-    if (!code && providerErrors.length === 0) return failure('code_missing', 'state', 400, false)
+    if (!code && providerErrors.length === 0) return failure('code_missing', 'state', 'state_validation', 400, false)
 
     let userId: string
     let upgradeBinding: UpgradeBinding | undefined
@@ -201,14 +221,15 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
       userId = consumed.userId
       }
     } catch {
-      return failure('state_invalid', 'state', 400, false)
+      return failure('state_invalid', 'state', 'state_validation', 400, false)
     }
 
     if (providerErrors.length === 1) {
-      return failure('authorization_denied', 'state', 400, true)
+      return failure('authorization_denied', 'state', 'state_validation', 400, true)
     }
 
     let stage: TikTokOAuthStage = 'token_exchange'
+    let diagnosticStage: TikTokCallbackDiagnosticStage = 'token_exchange'
     try {
       const now = safeNow(dependencies)
       const tokenSet = await exchangeTikTokAuthorizationCode({
@@ -219,12 +240,14 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
         fetcher: dependencies.fetcher,
         capability: upgrading ? 'direct_post_upgrade' : 'login_basic',
       })
-      if(upgrading && !deriveTikTokCapabilities(tokenSet.scopes).direct_post) return failure('upgrade_scope_missing','token_exchange',400,true)
+      diagnosticStage = 'scope_validation'
+      if(upgrading && !deriveTikTokCapabilities(tokenSet.scopes).direct_post) return failure('upgrade_scope_missing','token_exchange','scope_validation',400,true)
       if (TIKTOK_LOGIN_SCOPES.some(scope => !tokenSet.scopes.includes(scope))) {
-        return failure('scope_missing', 'token_exchange', 400, true)
+        return failure('scope_missing', 'token_exchange', 'scope_validation', 400, true)
       }
 
       stage = 'account'
+      diagnosticStage = 'user_info'
       const account = await fetchTikTokAccount({
         accessToken: tokenSet.accessToken,
         fetcher: dependencies.fetcher,
@@ -232,6 +255,7 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
       if (account.openId !== tokenSet.openId) throw new Error('tiktok_account_identity_mismatch')
 
       stage = 'database'
+      diagnosticStage = 'persistence'
       const sealed = await encryptTikTokConnectionForDatabase({
         accessToken: tokenSet.accessToken,
         refreshToken: tokenSet.refreshToken,
@@ -269,12 +293,14 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
         state_consumed: true,
         account_resolved: true,
       })
-      return redirect(frontendReturnUri, 'connected')
+      return redirect(frontendReturnUri, 'connected', undefined, 'final_redirect')
     } catch (error) {
-      const reason = error instanceof Error && error.message === 'tiktok_required_scope_missing'
+      const scopeFailure = error instanceof Error && error.message === 'tiktok_required_scope_missing'
+      const reason = scopeFailure
         ? 'scope_missing'
         : 'callback_invalid'
-      return failure(reason, stage, 400, true)
+      const providerDiagnostic = error instanceof TikTokProviderError ? error.diagnostic : undefined
+      return failure(reason, stage, scopeFailure ? 'scope_validation' : diagnosticStage, 400, true, providerDiagnostic)
     }
   }
 }

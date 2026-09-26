@@ -29,6 +29,7 @@ type SetupOptions = {
   availableState?: boolean
   providerScope?: string
   tokenExchangeError?: boolean
+  providerError?: Record<string, string>
   redirectUri?: string
   frontendOrigin?: string
   frontendReturnUri?: string
@@ -57,6 +58,7 @@ const setup = async (options: SetupOptions = {}) => {
     calls.push({ url, init })
     if (url.endsWith('/v2/oauth/token/')) {
       if (options.tokenExchangeError) return Response.json({ error: 'provider_private_error' }, { status: 400 })
+      if (options.providerError) return Response.json({ error: options.providerError }, { status: 400 })
       return Response.json({
         open_id: OPEN_ID,
         access_token: ACCESS_TOKEN,
@@ -139,6 +141,7 @@ const callback = (parameters: Record<string, string>) => {
 }
 
 const location = (response: Response) => new URL(response.headers.get('location')!)
+const diagnosticStage = (response: Response) => location(response).searchParams.get('diagnostic_stage')
 
 const assertSanitized = (response: Response, logs: string[]) => {
   const exposed = `${response.headers.get('location') ?? ''}\n${logs.join('\n')}`
@@ -152,6 +155,7 @@ test('redirects safely when code is absent', async () => {
   const response = await handler(callback({ state: STATE }))
   assert.equal(response.status, 303)
   assert.equal(location(response).searchParams.get('reason'), 'code_missing')
+  assert.equal(diagnosticStage(response), 'state_validation')
   assertSanitized(response, logs)
 })
 
@@ -160,6 +164,7 @@ test('redirects safely when state is absent', async () => {
   const response = await handler(callback({ code: 'fake-code' }))
   assert.equal(response.status, 303)
   assert.equal(location(response).searchParams.get('reason'), 'state_invalid')
+  assert.equal(diagnosticStage(response), 'state_validation')
   assertSanitized(response, logs)
 })
 
@@ -168,6 +173,7 @@ test('consumes state and sanitizes an error returned by TikTok', async () => {
   const response = await handler(callback({ state: STATE, error: 'access_denied', error_description: 'provider_private_error' }))
   assert.equal(response.status, 303)
   assert.equal(location(response).searchParams.get('reason'), 'authorization_denied')
+  assert.equal(diagnosticStage(response), 'state_validation')
   assert.equal(calls.length, 0)
   assertSanitized(response, logs)
 })
@@ -176,6 +182,7 @@ test('rejects a malformed state before token exchange', async () => {
   const { handler, calls } = await setup()
   const response = await handler(callback({ state: 'invalid', code: 'fake-code' }))
   assert.equal(location(response).searchParams.get('reason'), 'state_invalid')
+  assert.equal(diagnosticStage(response), 'state_validation')
   assert.equal(calls.length, 0)
 })
 
@@ -183,6 +190,7 @@ test('rejects an expired or unavailable state', async () => {
   const { handler, calls } = await setup({ availableState: false })
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(location(response).searchParams.get('reason'), 'state_invalid')
+  assert.equal(diagnosticStage(response), 'state_validation')
   assert.equal(calls.length, 0)
 })
 
@@ -192,12 +200,14 @@ test('prevents replay after a state has been consumed', async () => {
   const replay = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(location(first).searchParams.get('tiktok'), 'connected')
   assert.equal(location(replay).searchParams.get('reason'), 'state_invalid')
+  assert.equal(diagnosticStage(replay), 'state_validation')
 })
 
 test('rejects insufficient scopes without exposing provider tokens', async () => {
   const { handler, persisted, logs } = await setup({ providerScope: 'video.upload' })
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(location(response).searchParams.get('reason'), 'scope_missing')
+  assert.equal(diagnosticStage(response), 'scope_validation')
   assert.equal(persisted.length, 0)
   assertSanitized(response, logs)
 })
@@ -222,7 +232,7 @@ test('ignores provider-controlled redirect destinations and returns only to the 
     redirect_uri: 'https://evil.example/callback',
     return_to: 'https://evil.example/return',
   }))
-  assert.equal(location(response).toString(), `${RETURN_URI}?tiktok=connected`)
+  assert.equal(location(response).toString(), `${RETURN_URI}?tiktok=connected&diagnostic_stage=final_redirect`)
   const tokenBody = calls[0].init?.body as URLSearchParams
   assert.equal(tokenBody.get('redirect_uri'), REDIRECT_URI)
 })
@@ -244,7 +254,7 @@ test('returns a sanitized 303 success redirect and safe telemetry', async () => 
   const { handler, logs } = await setup()
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(response.status, 303)
-  assert.equal(location(response).toString(), `${RETURN_URI}?tiktok=connected`)
+  assert.equal(location(response).toString(), `${RETURN_URI}?tiktok=connected&diagnostic_stage=final_redirect`)
   assert.equal(response.headers.get('referrer-policy'), 'no-referrer')
   assert.equal(logs.length, 1)
   assert.deepEqual(JSON.parse(logs[0]), {
@@ -259,10 +269,15 @@ test('returns a sanitized 303 success redirect and safe telemetry', async () => 
 })
 
 test('sanitizes token exchange failures from response and logs', async () => {
-  const { handler, logs } = await setup({ tokenExchangeError: true })
+  const { handler, logs } = await setup({ providerError: { code: 'invalid_grant', message: `Bearer ${ACCESS_TOKEN}`, log_id: 'safe-log' } })
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(response.status, 303)
   assert.equal(location(response).searchParams.get('reason'), 'callback_invalid')
+  assert.equal(diagnosticStage(response), 'token_exchange')
+  assert.equal(location(response).searchParams.get('provider_http_status'), '400')
+  assert.equal(location(response).searchParams.get('provider_error_code'), 'invalid_grant')
+  assert.equal(location(response).searchParams.get('provider_error_message'), null)
+  assert.equal(location(response).searchParams.get('provider_log_id'), 'safe-log')
   assertSanitized(response, logs)
 })
 
@@ -270,6 +285,7 @@ test('persistence error consumes state, returns sanitized error and never succes
   const { handler, persisted, logs } = await setup({ persistError: true })
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(location(response).searchParams.get('reason'), 'callback_invalid')
+  assert.equal(diagnosticStage(response), 'persistence')
   assert.equal(persisted.length, 0)
   assertSanitized(response, logs)
   const replay = await handler(callback({ state: STATE, code: 'fake-code' }))
@@ -289,6 +305,7 @@ test('account identity mismatch never reaches persistence', async () => {
   const { handler, persisted, logs } = await setup({ accountMismatch: true })
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
   assert.equal(location(response).searchParams.get('reason'), 'callback_invalid')
+  assert.equal(diagnosticStage(response), 'user_info')
   assert.equal(persisted.length, 0)
   assertSanitized(response, logs)
 })

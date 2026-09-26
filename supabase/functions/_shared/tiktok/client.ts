@@ -8,6 +8,22 @@ export const TIKTOK_USER_INFO_ENDPOINT = 'https://open.tiktokapis.com/v2/user/in
 
 export type TikTokFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
+export type TikTokProviderDiagnostic = Readonly<{
+  httpStatus: number
+  providerCode: string | null
+  providerMessage: string | null
+  providerLogId: string | null
+}>
+
+export class TikTokProviderError extends Error {
+  readonly diagnostic: TikTokProviderDiagnostic
+
+  constructor(code: string, diagnostic: TikTokProviderDiagnostic) {
+    super(code)
+    this.diagnostic = diagnostic
+  }
+}
+
 const requireText = (value: unknown, errorCode: string) => {
   if (typeof value !== 'string' || !value.trim()) throw new Error(errorCode)
   return value.trim()
@@ -18,6 +34,27 @@ const requirePositiveInteger = (value: unknown, errorCode: string) => {
   return Number(value)
 }
 
+const safeProviderCode = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(value) ? value : null
+const safeProviderMessage = (value: unknown) => typeof value === 'string'
+  && value.length >= 1 && value.length <= 240
+  && !/[\u0000-\u001f\u007f]/.test(value)
+  && !/(bearer|access[_ -]?token|refresh[_ -]?token|authorization|https?:\/\/|upload_url|open_id)/i.test(value)
+  ? value : null
+const safeProviderLogId = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null
+
+const providerDiagnostic = (response: Response, payload: unknown): TikTokProviderDiagnostic => {
+  const error = payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>).error
+    : null
+  const record = error && typeof error === 'object' && !Array.isArray(error) ? error as Record<string, unknown> : {}
+  return Object.freeze({
+    httpStatus: response.status,
+    providerCode: safeProviderCode(record.code),
+    providerMessage: safeProviderMessage(record.message),
+    providerLogId: safeProviderLogId(record.log_id),
+  })
+}
+
 const requestJson = async (fetcher: TikTokFetch, url: string, init: RequestInit, errorCode: string) => {
   let response: Response
   try {
@@ -26,13 +63,14 @@ const requestJson = async (fetcher: TikTokFetch, url: string, init: RequestInit,
     throw new Error(errorCode)
   }
   const payload = await response.json().catch(() => null)
-  if (!response.ok || !payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error(errorCode)
+  const diagnostic = providerDiagnostic(response, payload)
+  if (!response.ok || !payload || typeof payload !== 'object' || Array.isArray(payload)) throw new TikTokProviderError(errorCode, diagnostic)
   const record = payload as Record<string, unknown>
   const providerError = record.error
-  if (typeof providerError === 'string' && providerError.trim()) throw new Error(errorCode)
+  if (typeof providerError === 'string' && providerError.trim()) throw new TikTokProviderError(errorCode, diagnostic)
   if (providerError && typeof providerError === 'object' && !Array.isArray(providerError)) {
     const code = (providerError as Record<string, unknown>).code
-    if (typeof code === 'string' && code !== 'ok') throw new Error(errorCode)
+    if (typeof code === 'string' && code !== 'ok') throw new TikTokProviderError(errorCode, diagnostic)
   }
   return record
 }
