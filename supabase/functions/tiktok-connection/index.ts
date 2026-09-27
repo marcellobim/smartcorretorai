@@ -22,7 +22,7 @@ const handler = createTikTokConnectionHandler({
     await requireAuthorizedAdmin(admin,userId)
     await requireAdminAal2(admin,jwt)
   },
-  startUpgrade: userId => upgrade.start(userId,config.redirectUri,config.clientKey),
+  startUpgrade: (userId,capability) => upgrade.start(userId,config.redirectUri,config.clientKey,capability),
   async authenticate(accessToken) {
     const { data, error } = await admin.auth.getUser(accessToken)
     return error || !data.user ? null : { userId: data.user.id }

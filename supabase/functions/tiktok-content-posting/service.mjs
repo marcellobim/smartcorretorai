@@ -1,7 +1,7 @@
 import {fingerprint,prepareJob,VIDEO_IMOBILIARIO_FILE,VIDEO_IMOBILIARIO_MODE} from '../_shared/tiktok-posting/contract.mjs'
 import {creatorSnapshot,confirmedPostInfo} from '../_shared/tiktok-posting/posting-options.mjs'
 import {executePullFromUrl} from '../_shared/tiktok-posting/pull-from-url.mjs'
-const terminal=new Set(['published','failed','blocked'])
+const terminal=new Set(['inbox_delivered','published','failed','blocked'])
 // A failed INIT with no provider identifier was explicitly rejected.  Every
 // other non-terminal state is uncertain and must be recovered rather than
 // retried automatically.
@@ -65,7 +65,6 @@ export function createPostingService(d){
    if(binding.user!==i.userId||binding.creation!==input.creation_id||binding.expires<=now())throw Error('preparation_expired')
    const m=await material(i,input.creation_id)
    if(binding.connection!==m.c.id||binding.version!==m.c.token_version||binding.hash!==m.probe.content_sha256)throw Error('media_changed')
-   // AIGC is a fixed server-side property of this Video Imobiliario contract.
    const options=confirmedPostInfo({creator:m.creator,probe:m.probe,options:requestedOptions,consent:input.consent})
    const args=await prepareJob({input:{creation_id:input.creation_id,connection_id:m.c.id,idempotency_key:input.idempotency_key,confirmed_options:options},identity:i,
     readCreation:async()=>m.cr,readConnection:async()=>m.c,
@@ -118,11 +117,11 @@ export function createPostingService(d){
    job=await d.repository.transition(job,result.data.status,{providerStatus:result.data.provider_status,errorCode:result.data.status==='failed'?'provider_failed':null})
    return {job:publicJob(job)}
   },
-  async close_irrecoverable(i,input){
+ async close_irrecoverable(i,input){
    const job=await d.job(i,input.job_id)
    if(!owned(job,i))throw Error('creation_unavailable')
    const closed=await d.repository.closeIrrecoverable(job,i)
-   return {job:publicJob(closed)}
+  return {job:publicJob(closed)}
   }
  }
 }

@@ -1,5 +1,6 @@
 import {MAX_BYTES,fail,sha256,validateOptions} from './contract.mjs'
 const INIT='https://open.tiktokapis.com/v2/post/publish/video/init/'
+const INBOX_INIT='https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
 const publishId=value=>typeof value==='string'&&/^[A-Za-z0-9_.~:-]{1,64}$/.test(value)
 const providerCode=value=>typeof value==='string'&&/^[a-z0-9_.-]{1,64}$/i.test(value)?value:null
 const providerMessage=value=>{
@@ -74,6 +75,29 @@ export async function initUpload({job,accessToken,fetcher,initTelemetry,initTime
  telemetry(initTelemetry,'success',{http_status:r.status})
  return {publishId:id,uploadUrl}
 }
+// Inbox upload deliberately has no post_info.  Draft editing/publication belongs
+// to TikTok's app, so Direct Post fields must never cross this boundary.
+export async function initInboxUpload({job,accessToken,fetcher,initTelemetry,initTimeoutMs=20000}) {
+ const body=JSON.stringify({source_info:singleChunk(job.content_length)})
+ if(!accessToken||typeof fetcher!=='function') fail('posting_not_ready')
+ const controller=new AbortController();let timedOut=false
+ const timer=setTimeout(()=>{timedOut=true;controller.abort()},initTimeoutMs)
+ let r
+ telemetry(initTelemetry,'inbox_init_request_started')
+ try { r=await fetcher(INBOX_INIT,{method:'POST',redirect:'error',signal:controller.signal,headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json; charset=UTF-8'},body}) }
+ catch(error){clearTimeout(timer);if(timedOut)initFailure('init_timeout',true);if(error?.name==='AbortError')initFailure('init_abort',true);initFailure('init_transport_error',true)}
+ clearTimeout(timer)
+ let payload;try{payload=await r.json()}catch{initFailure('init_invalid_json',true)}
+ const diagnostic=providerDiagnostic(payload,r.status),code=diagnostic?.providerCode
+ if(!r.ok||code!=='ok'){
+  const safe=deterministicProviderFailure(code)||([400,401,403,422].includes(r.status)&&code!==null)
+  initFailure(safe?'init_provider_rejected':'init_http_ambiguous',!safe,safe?diagnostic:null)
+ }
+ const id=payload.data?.publish_id
+ if(!publishId(id))initFailure('init_missing_publish_id',true)
+ let uploadUrl=null;try{uploadUrl=validateUploadUrl(payload.data?.upload_url)}catch{}
+ return {publishId:id,uploadUrl,initErrorCode:uploadUrl?null:'init_invalid_upload_url'}
+}
 export async function putUpload({uploadUrl,bytes,job,fetcher}) {
  validateUploadUrl(uploadUrl)
  if(!(bytes instanceof Uint8Array)||bytes.byteLength!==job.content_length||await sha256(bytes)!==job.content_sha256) fail('posting_media_changed')
@@ -127,4 +151,20 @@ export async function executeFileUpload({job,repository,accessToken,loadBytes,fe
  }
  await repository.transition(job,'processing')
  return {status:'processing'} // no URL, token or provider payload returned to UI
+}
+
+export async function executeInboxFileUpload({job,repository,accessToken,loadBytes,fetcher,now=Date.now(),initTelemetry,initTimeoutMs=20000}) {
+ if(job.status!=='queued'||job.init_attempts!==0||job.environment!=='sandbox'||!job.claim_token||!accessToken||!Number.isFinite(Date.parse(job.claim_expires_at))||Date.parse(job.claim_expires_at)<=now) fail('posting_not_ready')
+ let bytes
+ try { bytes=await loadBytes({bucket:job.bucket,objectPath:job.object_path,etag:job.object_etag,version:job.object_version});if(!(bytes instanceof Uint8Array)||bytes.byteLength!==job.content_length||await sha256(bytes)!==job.content_sha256)fail('posting_media_changed') }
+ catch {await repository.transition(job,'blocked',{errorCode:'preflight_failed'});return {status:'blocked'}}
+ job=await repository.transition(job,'initializing')
+ let result
+ try{result=await initInboxUpload({job,accessToken,fetcher,initTelemetry,initTimeoutMs})}catch(error){const failure=error instanceof InitFailure?error:new InitFailure('init_transport_error',true);const status=failure.ambiguous?'reconciliation_required':'failed';job=await repository.transition(job,status,{errorCode:failure.code});if(status==='failed'&&failure.code==='init_provider_rejected'&&failure.diagnostic)try{await repository.persistInitDiagnostic(job,failure.diagnostic)}catch{};return {status}}
+ // Persist this acknowledgement before the upload: a retry after this point
+ // must query the same TikTok delivery, never issue another INIT.
+ job=await repository.transition(job,'uploading',{publishId:result.publishId})
+ if(!result.uploadUrl){await repository.transition(job,'reconciliation_required',{errorCode:result.initErrorCode});return {status:'reconciliation_required'}}
+ try{await putUpload({uploadUrl:result.uploadUrl,bytes,job,fetcher})}catch{await repository.transition(job,'reconciliation_required',{errorCode:'upload_uncertain'});return {status:'reconciliation_required'}}
+ await repository.transition(job,'processing');return {status:'processing'}
 }

@@ -10,7 +10,7 @@ import {callTikTokPosting,nextTikTokRecovery,parseTikTokJob,parseTikTokPreparati
 const settings='/configuracoes/integracoes/tiktok'
 const browserStorage={getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)}
 const privacy={PUBLIC_TO_EVERYONE:'Todos',MUTUAL_FOLLOW_FRIENDS:'Amigos',FOLLOWER_OF_CREATOR:'Seguidores',SELF_ONLY:'Somente eu'}
-const terminal=new Set(['published','failed','blocked'])
+const terminal=new Set(['inbox_delivered','published','failed','blocked'])
 const field='mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm'
 const button='min-h-12 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50'
 
@@ -67,7 +67,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   } catch(e) {setRecoveryError(true);setMessage(e.message)}
   getTikTokConnectionStatus(client).then(async status=>{
    const caps=status.connected?await getTikTokCapabilities(client):null
-   if(live.current)setConnection({...status,direct:caps?.direct_post===true,loading:false})
+   if(live.current)setConnection({...status,direct:caps?.direct_post===true,inbox:caps?.inbox_upload===true,loading:false})
   }).catch(()=>{if(live.current)setConnection({loading:false,error:true})})
   return()=>{live.current=false}
  },[creationId,userId,client,storage])
@@ -87,7 +87,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   if(inflight.current||job||recovery||recoveryError)return
   inflight.current=true;setBusy(true);setMessage('');setDiagnostic(null)
   try {
-   const response=await callTikTokPosting(client,prepareTikTokPosting(creationId),userId)
+   const response=await callTikTokPosting(client,{action:'draft_prepare',creation_id:creationId},userId)
    // PREPARE can legitimately discover an authorized in-progress submission.
    // It is a job only when it satisfies the strict job contract; otherwise it
    // must satisfy the preparation contract before options are displayed.
@@ -98,27 +98,27 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   finally {inflight.current=false;if(live.current)setBusy(false)}
  }
  useEffect(()=>{
-  if(selected&&connection.direct&&!prepared&&!job&&!recovery&&!recoveryError)void prepare()
- },[selected,connection.direct,prepared,job,recovery,recoveryError])
+  if(selected&&connection.inbox&&!prepared&&!job&&!recovery&&!recoveryError)void prepare()
+ },[selected,connection.inbox,prepared,job,recovery,recoveryError])
  const toggle=()=>{
   setSelected(value=>!value)
  }
  const set=(name,value)=>setOptions(o=>({...o,[name]:value}))
- const valid=prepared&&options.privacy_level&&music&&confirmed&&
+  const valid=connection.inbox?Boolean(prepared):prepared&&options.privacy_level&&music&&confirmed&&
   (!commercial||options.brand_content_toggle||options.brand_organic_toggle)&&
   (!options.brand_content_toggle||branded&&['PUBLIC_TO_EVERYONE','MUTUAL_FOLLOW_FRIENDS'].includes(options.privacy_level))
  const publish=async()=>{
-  if(inflight.current||job||recoveryError||!connection.direct||(!recovery&&!valid))return
+  if(inflight.current||job||recoveryError||!connection.inbox||(!recovery&&!valid))return
   inflight.current=true;setBusy(true);setMessage('')
   try {
    // Re-read immediately before sending to honor another modal/tab's durable intent.
    const existing=readTikTokRecovery(storage,userId,creationId)
    if(existing?.job_id) {await loadStatus(existing);return}
    if(existing) {await resolvePending(existing);return}
-   const pending=existing || recovery || {...postingConfirmation(creationId,crypto.randomUUID(),prepared.preparation,options,{confirmed,commercial_disclosure:commercial,music_usage_confirmed:music,branded_content_policy_confirmed:branded}),product_type:TIKTOK_VIDEO_PRODUCT,status:'reconciliation_required'}
+   const pending=existing || recovery || {action:'draft_confirm',creation_id:creationId,idempotency_key:crypto.randomUUID(),preparation:prepared.preparation,product_type:TIKTOK_VIDEO_PRODUCT,status:'reconciliation_required'}
    // Store the key and exact consent/options BEFORE confirm. Failure blocks network.
    save(pending)
-   const response=await callTikTokPosting(client,postingConfirmation(creationId,pending.idempotency_key,pending.preparation,pending.options,pending.consent),userId)
+   const response=await callTikTokPosting(client,{action:'draft_confirm',creation_id:creationId,idempotency_key:pending.idempotency_key,preparation:pending.preparation},userId)
    const result=parseTikTokJob(response,creationId)
    const next=nextTikTokRecovery(pending,result)
    if(!next)clearRecovery()
@@ -133,11 +133,12 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   </label>
   {selected&&<section aria-label="Opções TikTok" className="mt-3 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
    {connection.loading&&<p role="status">Consultando TikTok…</p>}
-   {!connection.loading&&!connection.direct&&<div><p className="text-sm">{connection.connected?'TikTok conectado. Publicação direta ainda não autorizada.':connection.error?'Não foi possível consultar a conexão TikTok.':'Conecte sua conta TikTok nas Configurações.'}</p><a href={settings} className="mt-3 inline-flex min-h-11 items-center font-bold underline">{connection.connected?'Autorizar publicação no TikTok':'Abrir Configurações → TikTok'}</a></div>}
+   {!connection.loading&&!connection.inbox&&<div><p className="text-sm">{connection.connected?'TikTok conectado. Upload ainda não autorizado.':connection.error?'Não foi possível consultar a conexão TikTok.':'Conecte sua conta TikTok nas Configurações.'}</p><a href={settings} className="mt-3 inline-flex min-h-11 font-bold underline">{connection.connected?'Autorizar envio ao TikTok':'Abrir Configurações → TikTok'}</a></div>}
    {busy&&<p role="status" className="text-sm font-semibold">{recovery?'Verificando publicação…':'Preparando opções TikTok…'}</p>}
    {message&&<p role="alert" className="break-words text-sm text-red-700">{message}</p>}{diagnostic&&<p className="text-xs text-slate-600">Diagnóstico: {diagnostic.stage} / {diagnostic.error}</p>}
-   {job?<div><p role="status" className="font-bold">{TIKTOK_JOB_LABELS[job.status]||'Verificar'}</p><p className="mt-2 text-sm">Esta criação já tem um envio registrado. O resultado é recuperado ao reabrir este navegador.</p>{job.failure_stage==='init'&&<p className="mt-2 break-words text-xs text-slate-600">Diagnóstico TikTok: INIT / HTTP {job.provider_http_status} / {job.provider_error_code}{job.provider_error_message?` / ${job.provider_error_message}`:''}{job.provider_log_id?` / log ${job.provider_log_id}`:''}</p>}{!terminal.has(job.status)&&<button type="button" disabled={busy} onClick={checkStatus} className="mt-2 min-h-11 font-bold underline">Atualizar status TikTok</button>}</div>
+   {job?<div><p role="status" className="font-bold">{job.provider_status==='SEND_TO_USER_INBOX'?'Vídeo enviado ao TikTok. Abra a notificação no aplicativo para revisar e publicar.':TIKTOK_JOB_LABELS[job.status]||'Verificar'}</p><p className="mt-2 text-sm">Esta criação já tem um envio registrado. O resultado é recuperado ao reabrir este navegador.</p>{job.failure_stage==='init'&&<p className="mt-2 break-words text-xs text-slate-600">Diagnóstico TikTok: INIT / HTTP {job.provider_http_status} / {job.provider_error_code}{job.provider_error_message?` / ${job.provider_error_message}`:''}{job.provider_log_id?` / log ${job.provider_log_id}`:''}</p>}{!terminal.has(job.status)&&<button type="button" disabled={busy} onClick={checkStatus} className="mt-2 min-h-11 font-bold underline">Atualizar status TikTok</button>}</div>
     :recovery?<div><p role="status" className="font-bold">Verificar</p><p className="mt-2 text-sm">{pendingUncertain?'A confirmação anterior ainda está sendo localizada. Ela não será reenviada automaticamente.':'Verificando a confirmação anterior sem reenviar a publicação.'}</p><button type="button" disabled={busy||!connection.direct} onClick={()=>void resolvePending(recovery).catch(e=>setMessage(e.message))} className={button+' mt-3'}>Localizar envio</button></div>
+    :prepared&&connection.inbox?<div className="space-y-4"><video src={prepared.preview_url} controls playsInline preload="metadata" aria-label="Preview TikTok" className="max-h-72 w-full rounded-xl bg-slate-950"/><p className="text-sm">O vídeo será enviado ao seu TikTok. Você receberá uma notificação no aplicativo para revisar, adicionar música e publicar.</p><button type="button" disabled={busy} onClick={publish} className={button+' w-full'}>Enviar ao TikTok</button></div>
     :prepared&&connection.direct?<div className="space-y-4">
      <p className="break-words text-sm">Conta TikTok: <strong>{prepared.creator.creator_nickname}</strong> (@{prepared.creator.creator_username})</p>
      <video src={prepared.preview_url} controls playsInline preload="metadata" aria-label="Preview TikTok" className="max-h-72 w-full rounded-xl bg-slate-950"/>
@@ -154,7 +155,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
      {options.brand_content_toggle&&<label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={branded} onChange={e=>setBranded(e.target.checked)}/><span>Concordo com a <a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noreferrer" className="underline">Política de conteúdo de marca</a>.</span></label>}
      <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/><span>Revisei o vídeo, as opções e a identificação de IA e autorizo esta publicação.</span></label>
      <button type="button" disabled={!valid||busy} onClick={publish} className={button+' w-full'}>Publicar no TikTok</button>
-    </div>:connection.direct&&!busy&&!recoveryError&&<button type="button" onClick={prepare} className="min-h-11 font-bold underline">Preparar publicação TikTok</button>}
+    </div>:connection.inbox&&!busy&&!recoveryError&&<button type="button" onClick={prepare} className="min-h-11 font-bold underline">Preparar envio ao TikTok</button>}
   </section>}
  </div>
 }

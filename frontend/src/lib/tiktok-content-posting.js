@@ -2,7 +2,7 @@
 export const TIKTOK_VIDEO_PRODUCT = 'video_imobiliario'
 export const TIKTOK_VIDEO_PRESETS = Object.freeze(['animate-images','campaign-video','narrated-video','virtual-agent'])
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-export const TIKTOK_JOB_LABELS = Object.freeze({awaiting_confirmation:'Publicando',queued:'Publicando',initializing:'Publicando',uploading:'Publicando',processing:'Processando',published:'Publicado',failed:'Falhou',blocked:'Falhou',reconciliation_required:'Verificar'})
+export const TIKTOK_JOB_LABELS = Object.freeze({awaiting_confirmation:'Enviando ao TikTok',queued:'Enviando ao TikTok',initializing:'Enviando ao TikTok',uploading:'Enviando ao TikTok',processing:'Processando',inbox_delivered:'TikTok: Enviado',published:'Publicado',failed:'Falhou',blocked:'Falhou',reconciliation_required:'Verificar'})
 export const TIKTOK_ERRORS = Object.freeze({
  posting_reauthorization_required:'Autorize novamente a publicação em Configurações → TikTok.',
  posting_admin_mfa_required:'Confirme a autenticação multifator em Configurações → TikTok.',
@@ -52,7 +52,7 @@ export function parseTikTokJob(value,creationId) {
  if (!value || !uuid(value.job_id) || value.creation_id !== creationId ||
      value.product_type !== TIKTOK_VIDEO_PRODUCT || !Object.hasOwn(TIKTOK_JOB_LABELS,value.status)) fail()
  if (Object.hasOwn(value,'retryable') && (typeof value.retryable !== 'boolean'||value.retryable&&value.status!=='failed')) fail()
- const job={job_id:value.job_id,status:value.status,...(value.retryable===true?{retryable:true}:{})}
+ const job={job_id:value.job_id,status:value.status,...(value.provider_status==='SEND_TO_USER_INBOX'?{provider_status:'SEND_TO_USER_INBOX'}:{}),...(value.retryable===true?{retryable:true}:{})}
  if (!Object.hasOwn(value,'failure_stage')) return job
  const message=value.provider_error_message
  if(value.failure_stage!=='init'||!Number.isInteger(value.provider_http_status)||value.provider_http_status<100||value.provider_http_status>599||
@@ -64,6 +64,9 @@ export function parseTikTokJob(value,creationId) {
 export const isTikTokTerminalWithoutProviderSend=job=>job?.status==='failed'&&job?.retryable===true
 export const nextTikTokRecovery=(saved,job)=>isTikTokTerminalWithoutProviderSend(job)?null:{...saved,...job}
 export function parseTikTokPreparation(value,creationId) {
+ if(value?.delivery==='inbox'&&value.product_type===TIKTOK_VIDEO_PRODUCT&&value.creation_id===creationId&&typeof value.preparation==='string'&&value.preparation.length>0){
+  let preview;try{preview=new URL(value.preview_url)}catch{fail()};if(preview.protocol!=='https:'||preview.username||preview.password)fail();return value
+ }
  const c=value?.creator
  const levels=['PUBLIC_TO_EVERYONE','MUTUAL_FOLLOW_FRIENDS','FOLLOWER_OF_CREATOR','SELF_ONLY']
  let preview

@@ -49,7 +49,7 @@ export type TikTokConnectionDependencies = Readonly<{
   frontendOrigin: string
   now?: () => number
   authorizeUpgrade?: (userId: string, jwt: string) => Promise<void>
-  startUpgrade?: (userId: string) => Promise<string>
+  startUpgrade?: (userId: string, capability: 'direct_post'|'inbox_upload') => Promise<string>
   randomBytes?: (length: number) => Uint8Array
   log?: (message: string) => void
 }>
@@ -191,7 +191,7 @@ export function createTikTokConnectionHandler(dependencies: TikTokConnectionDepe
           connected: true, status: 'connected',
           ...(new URL(request.url).searchParams.get('view') === 'capabilities' ? {
             capabilities: deriveTikTokCapabilities(selected.scopes),
-            capability_status: deriveTikTokCapabilities(selected.scopes).direct_post ? 'direct_post_authorized' : 'connected_basic',
+            capability_status: deriveTikTokCapabilities(selected.scopes).inbox_upload ? 'inbox_upload_authorized' : deriveTikTokCapabilities(selected.scopes).direct_post ? 'direct_post_authorized' : 'connected_basic',
           } : {}),
           account: { display_name: activeAccounts.get(selected.id)?.displayName ?? null },
         })
@@ -208,15 +208,15 @@ export function createTikTokConnectionHandler(dependencies: TikTokConnectionDepe
       if(raw) { const parsed = JSON.parse(raw); if(!parsed || typeof parsed!=='object' || Array.isArray(parsed)) throw Error(); body=parsed }
       action=body.action
     } catch { return json(frontendOrigin, requestOrigin, 400, {error:'invalid_action'}) }
-    if(action !== undefined && action !== 'login_basic' && action !== 'direct_post_upgrade')
+    if(action !== undefined && action !== 'login_basic' && action !== 'direct_post_upgrade' && action !== 'inbox_upload_upgrade')
       return json(frontendOrigin, requestOrigin, 400, {error:'invalid_action'})
-    if(action === 'direct_post_upgrade') {
+    if(action === 'direct_post_upgrade' || action === 'inbox_upload_upgrade') {
       if(Object.keys(body).some(k=>k!=='action')) return json(frontendOrigin, requestOrigin, 400, {error:'invalid_action'})
       if(identity.environment !== 'sandbox' || !dependencies.authorizeUpgrade || !dependencies.startUpgrade)
         return json(frontendOrigin, requestOrigin, 403, {error:'tiktok_upgrade_not_allowed'})
       try { await dependencies.authorizeUpgrade(authenticated.userId,token) }
       catch { return json(frontendOrigin, requestOrigin, 403, {error:'tiktok_upgrade_not_allowed'}) }
-      try { return json(frontendOrigin, requestOrigin, 200, {authorization_url:await dependencies.startUpgrade(authenticated.userId)}) }
+      try { return json(frontendOrigin, requestOrigin, 200, {authorization_url:await dependencies.startUpgrade(authenticated.userId,action==='inbox_upload_upgrade'?'inbox_upload':'direct_post')}) }
       catch { return json(frontendOrigin, requestOrigin, 503, {error:'tiktok_upgrade_unavailable'}) }
     }
 

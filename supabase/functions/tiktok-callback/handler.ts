@@ -333,7 +333,8 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
 
     let userId: string
     let upgradeBinding: UpgradeBinding | undefined
-    const upgrading = state.startsWith('dp.')
+    const upgrading = state.startsWith('dp.') || state.startsWith('du.')
+    const inboxUpgrade = state.startsWith('du.')
     try {
       if(upgrading) {
         if(identity.environment !== 'sandbox' || !dependencies.consumeUpgrade || !dependencies.persistUpgrade) throw new Error('upgrade_unavailable')
@@ -365,10 +366,10 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
         code: code!,
         redirectUri,
         fetcher: dependencies.fetcher,
-        capability: upgrading ? 'direct_post_upgrade' : 'login_basic',
+        capability: inboxUpgrade ? 'inbox_upload_upgrade' : upgrading ? 'direct_post_upgrade' : 'login_basic',
       })
       diagnosticStage = 'scope_validation'
-      if(upgrading && !deriveTikTokCapabilities(tokenSet.scopes).direct_post) return failure('upgrade_scope_missing','token_exchange','scope_validation',400,true)
+      if(upgrading && !(inboxUpgrade ? deriveTikTokCapabilities(tokenSet.scopes).inbox_upload : deriveTikTokCapabilities(tokenSet.scopes).direct_post)) return failure('upgrade_scope_missing','token_exchange','scope_validation',400,true)
       if (TIKTOK_LOGIN_SCOPES.some(scope => !tokenSet.scopes.includes(scope))) {
         return failure('scope_missing', 'token_exchange', 'scope_validation', 400, true)
       }

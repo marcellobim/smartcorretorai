@@ -48,7 +48,9 @@ async function readPayload(response){
 export function parsePostingStatus(data){
  if(!data||typeof data!=='object'||Array.isArray(data))return error('unknown_ambiguous','status')
  const s=data.status
- const map={PROCESSING_UPLOAD:'processing',PROCESSING_DOWNLOAD:'processing',PUBLISH_COMPLETE:'published',FAILED:'failed'}
+ // Inbox delivery is not a feed publication.  Keep the durable job active and
+ // expose the provider event; the UI labels it "Enviado ao TikTok".
+ const map={PROCESSING_UPLOAD:'processing',PROCESSING_DOWNLOAD:'processing',SEND_TO_USER_INBOX:'inbox_delivered',PUBLISH_COMPLETE:'published',FAILED:'failed'}
  if(!Object.hasOwn(map,s)){
   // Known but incompatible transports cannot enter Phase A's FILE_UPLOAD workflow.
   const known=['SEND_TO_USER_INBOX'].includes(s)?s:null
@@ -67,11 +69,11 @@ export function parsePostingStatus(data){
  }
  return {ok:true,data:output}
 }
-export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000,pullOrigin}={}){
- if(typeof fetcher!=='function'||typeof now!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>20000||typeof pullOrigin!=='string')
+export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000,pullOrigin=null}={}){
+ if(typeof fetcher!=='function'||typeof now!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>20000||(pullOrigin!==null&&typeof pullOrigin!=='string'))
   throw Error('posting_client_configuration')
  let allowedPullOrigin
- try{allowedPullOrigin=new URL(pullOrigin).origin;if(allowedPullOrigin!==pullOrigin||!allowedPullOrigin.startsWith('https://'))throw Error()}catch{throw Error('posting_client_configuration')}
+ if(pullOrigin!==null)try{allowedPullOrigin=new URL(pullOrigin).origin;if(allowedPullOrigin!==pullOrigin||!allowedPullOrigin.startsWith('https://'))throw Error()}catch{throw Error('posting_client_configuration')}
  const history={creator:[],init:[],status:[]}
  async function request(operation,accessToken,body){
   if(typeof accessToken!=='string'||!accessToken.trim()||/[\r\n]/.test(accessToken))return error('auth_scope',operation)
@@ -115,6 +117,7 @@ export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000,pullOr
   },
   async init({accessToken,postInfo,videoUrl}){
    let payload
+   if(!allowedPullOrigin)return error('invalid_media','init')
    try{const url=new URL(videoUrl);if(url.origin!==allowedPullOrigin||url.pathname!=='/api/tiktok-video'||!uuid(url.searchParams.get('j'))||!url.searchParams.get('e')||!url.searchParams.get('s')||[...url.searchParams.keys()].some(k=>!['j','e','s'].includes(k)))throw Error();payload={post_info:postInfo,source_info:{source:'PULL_FROM_URL',video_url:url.toString()}}}catch{return error('invalid_media','init')}
    const r=await request('init',accessToken,payload)
    if(!r.ok)return r

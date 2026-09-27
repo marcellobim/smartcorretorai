@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 import {
   getTikTokConnectionStatus,
   getTikTokCapabilities,
-  redirectToTikTokUpgrade,
+  redirectToTikTokInboxUpload,
   redirectToTikTokOAuth,
 } from '../lib/tiktok-oauth-connection'
 
@@ -15,7 +15,7 @@ const CALLBACK_MESSAGES = Object.freeze({
   authorization_denied: 'A autorização do TikTok foi cancelada.',
   callback_invalid: 'Não foi possível concluir a conexão com o TikTok.',
   code_missing: 'O TikTok não retornou a autorização esperada.',
-  upgrade_scope_missing: 'Publicação direta não autorizada. Sua conexão básica foi preservada.',
+  upgrade_scope_missing: 'Upload ao TikTok não autorizado. Sua conexão básica foi preservada.',
   scope_missing: 'A permissão necessária do TikTok não foi concedida.',
   state_invalid: 'Não foi possível validar a conexão. Tente novamente.',
 })
@@ -94,10 +94,10 @@ export default function TikTokIntegration() {
   }
 
   const upgrade = async () => {
-    if (!allowUpgrade || !capabilities || capabilities.direct_post || upgradeBusy) return
+    if (!allowUpgrade || !capabilities || capabilities.inbox_upload || upgradeBusy) return
     setUpgradeBusy(true)
-    try { await redirectToTikTokUpgrade(supabase, url => window.location.assign(url)) }
-    catch { setView(current => ({ ...current, message: 'Não foi possível iniciar a autorização de publicação. Tente novamente.' })); setUpgradeBusy(false) }
+    try { await redirectToTikTokInboxUpload(supabase, url => window.location.assign(url)) }
+    catch { setView(current => ({ ...current, message: 'Não foi possível iniciar a autorização de envio. Tente novamente.' })); setUpgradeBusy(false) }
   }
 
   const busy = view.status === 'loading' || view.status === 'connecting' || view.status === 'confirming'
@@ -164,10 +164,10 @@ export default function TikTokIntegration() {
 
           {allowUpgrade && view.status === 'connected' && (
             <div className="mt-5">
-              <p className="text-sm text-gray-700">{!capabilities ? 'Não foi possível consultar a autorização de publicação.' : capabilities.direct_post ? 'Publicação direta autorizada' : 'Publicação direta ainda não autorizada'}</p>
-              {capabilities && !capabilities.direct_post && (
+              <p className="text-sm text-gray-700">{!capabilities ? 'Não foi possível consultar a autorização de envio.' : capabilities.inbox_upload ? 'Upload ao TikTok autorizado' : 'Upload ao TikTok ainda não autorizado'}</p>
+              {capabilities && !capabilities.inbox_upload && (
                 <button type="button" disabled={upgradeBusy} onClick={upgrade} className="mt-3 rounded-2xl bg-gray-950 px-5 py-3 text-sm font-black text-white disabled:opacity-50">
-                  {upgradeBusy ? 'Iniciando autorização...' : 'Autorizar publicação no TikTok'}
+                  {upgradeBusy ? 'Iniciando autorização...' : 'Autorizar envio ao TikTok'}
                 </button>
               )}
             </div>

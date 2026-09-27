@@ -16,9 +16,10 @@ const frontendReturnUri=frontendOrigin+'/configuracoes/integracoes/tiktok'
 const state='dp.'+'A'.repeat(43)
 const binding={userId,connectionId,tokenVersion:3}
 test('capabilities preserve basic and require both exact allowed scopes',()=>{
- assert.deepEqual(deriveTikTokCapabilities(['user.info.basic']),{login_basic:true,direct_post:false})
- assert.deepEqual(deriveTikTokCapabilities(['video.publish','user.info.basic']),{login_basic:true,direct_post:true})
- for(const scopes of [[],['video.publish'],['user.info.basic','video.upload'],['user.info.basic','unknown']]) assert.equal(deriveTikTokCapabilities(scopes).direct_post,false)
+ assert.deepEqual(deriveTikTokCapabilities(['user.info.basic']),{login_basic:true,direct_post:false,inbox_upload:false})
+ assert.deepEqual(deriveTikTokCapabilities(['video.publish','user.info.basic']),{login_basic:true,direct_post:true,inbox_upload:false})
+ assert.deepEqual(deriveTikTokCapabilities(['user.info.basic','video.upload']),{login_basic:true,direct_post:false,inbox_upload:true})
+ for(const scopes of [[],['video.publish'],['user.info.basic','unknown']]) assert.equal(deriveTikTokCapabilities(scopes).direct_post,false)
  assert.deepEqual(validateUpgradeScopes(['video.publish','user.info.basic']),['user.info.basic','video.publish'])
 })
 for(const scopes of [['video.upload'],['user.info.basic','video.upload'],['user.info.basic','unknown'],['video.publish'],['user.info.basic','user.info.basic']]){
@@ -89,9 +90,9 @@ test('cancel consumes upgrade state without touching account or tokens',async()=
  assert.equal(f.requests,0);assert.equal(f.persisted.length,0)
  assert.equal(new URL((await f.call()).headers.get('location')!).searchParams.get('reason'),'state_invalid')
 })
-test('wrong callback rejected before state consumption',async()=>{
- const f=await fixture();await f.call('code=test',state,redirectUri.replace('project.','other.'))
- assert.equal(f.requests,0);await f.call();assert.equal(f.persisted.length,1)
+test('Supabase internal callback representation does not replace state validation',async()=>{
+ const f=await fixture();const r=await f.call('code=test',state,redirectUri.replace('project.','other.'))
+ assert.equal(new URL(r.headers.get('location')!).searchParams.get('tiktok'),'connected');assert.equal(f.persisted.length,1)
 })
 test('basic state cannot select upgrade and stripped upgrade cannot consume stored challenge',async()=>{
  const f=await fixture();await f.call('code=test','A'.repeat(43))

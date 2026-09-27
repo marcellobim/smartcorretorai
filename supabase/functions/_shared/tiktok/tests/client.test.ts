@@ -44,15 +44,25 @@ test('authorization code exchange uses fixed endpoint and form body without URL 
   assert.deepEqual(tokens.scopes, ['user.info.basic'])
 })
 
-test('basic connection accepts the known granted Direct Post scope', async () => {
+test('login persists only known granted publish/upload scope combinations', async () => {
   const base = { clientKey: 'client-key', clientSecret: CLIENT_SECRET, code: 'fake-code', redirectUri: REDIRECT_URI }
   const basic = await exchangeTikTokAuthorizationCode({ ...base, fetcher: async () => response(tokenPayload) })
   const grantedPublish = await exchangeTikTokAuthorizationCode({
     ...base,
     fetcher: async () => response({ ...tokenPayload, scope: 'user.info.basic,video.publish' }),
   })
+  const grantedUpload = await exchangeTikTokAuthorizationCode({
+    ...base,
+    fetcher: async () => response({ ...tokenPayload, scope: 'user.info.basic,video.upload' }),
+  })
+  const grantedBoth = await exchangeTikTokAuthorizationCode({
+    ...base,
+    fetcher: async () => response({ ...tokenPayload, scope: 'user.info.basic,video.publish,video.upload' }),
+  })
   assert.deepEqual(basic.scopes, ['user.info.basic'])
   assert.deepEqual(grantedPublish.scopes, ['user.info.basic', 'video.publish'])
+  assert.deepEqual(grantedUpload.scopes, ['user.info.basic', 'video.upload'])
+  assert.deepEqual(grantedBoth.scopes, ['user.info.basic', 'video.publish', 'video.upload'])
 })
 
 test('refresh remains fully injected and accepts rotated refresh tokens', async () => {
