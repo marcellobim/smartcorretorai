@@ -3,10 +3,19 @@ export const SMART_TOUR_STARTING_RECOVERY_WINDOW_MS = 45_000
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const parsePublicationOption = (value, index) => isRecord(value)
+  && value.id === `smart-tour-caption-option-${index + 1}`
+  && typeof value.text === 'string' && value.text.trim() && value.text.length <= 2200
+  ? { id: value.id, text: value.text }
+  : null
 
 export function parseLatestCompletedSmartTour(value) {
   if (!isRecord(value) || value.ok !== true || value.status !== 'completed' || !UUID_PATTERN.test(String(value.jobId || '')) || typeof value.signedVideoUrl !== 'string' || !value.signedVideoUrl.startsWith('https://') || !Array.isArray(value.hashtags) || value.hashtags.some(tag => typeof tag !== 'string')) return null
-  return { jobId: value.jobId, signedVideoUrl: value.signedVideoUrl, hashtags: value.hashtags }
+  const publicationOptions = Array.isArray(value.publicationOptions) && value.publicationOptions.length === 3
+    ? value.publicationOptions.map(parsePublicationOption).filter(Boolean)
+    : []
+  if (publicationOptions.length !== 3) return null
+  return { jobId: value.jobId, signedVideoUrl: value.signedVideoUrl, hashtags: value.hashtags, publicationOptions }
 }
 
 export function parseSmartTourActiveJob(rawValue) {

@@ -259,7 +259,19 @@ export default function SmartTourAI() {
         const latest = parseLatestCompletedSmartTour(data)
         if (!latest) return
         tourDraft.clear()
-        setResult({ ...latest, campaignPackage: mergeSmartTourCampaignHashtags({}, latest.hashtags), inputFlow: 'images' })
+        const campaignPackage = {
+          unifiedSocialPublishing: true,
+          aiCampaigns: latest.publicationOptions.map((option, index) => ({
+            id: option.id,
+            name: `Opção ${index + 1}`,
+            instagram: option.text,
+            facebook: option.text,
+            whatsapp: option.text,
+            linkedin: option.text,
+            hashtags: latest.hashtags,
+          })),
+        }
+        setResult({ ...latest, campaignPackage: mergeSmartTourCampaignHashtags(campaignPackage, latest.hashtags), inputFlow: 'images' })
         setStatus('completed')
       })
       return

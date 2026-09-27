@@ -100,12 +100,15 @@ test('recovers unavailable generation responses and retries transient status che
   assert.equal(shouldRetrySmartTourStatusResponse(null, { ok: false, error: 'terminal' }), false)
 })
 
-test('completed discovery accepts only a valid owned Smart Tour result and does not initiate generation', () => {
-  const valid = { ok: true, status: 'completed', jobId: imageJobId, signedVideoUrl: 'https://project.example.test/signed.mp4', hashtags: ['#imovel'] }
-  assert.deepEqual(parseLatestCompletedSmartTour(valid), { jobId: imageJobId, signedVideoUrl: valid.signedVideoUrl, hashtags: ['#imovel'] })
-  for (const invalid of [{ ...valid, jobId: 'other-user' }, { ...valid, status: 'generating' }, { ...valid, signedVideoUrl: 'http://unsafe.test' }, { ...valid, hashtags: [1] }, { ok: true, status: 'idle' }]) assert.equal(parseLatestCompletedSmartTour(invalid), null)
+test('completed discovery restores the owned result and its persisted social publication options without initiating generation', () => {
+  const publicationOptions = [1, 2, 3].map(index => ({ id: `smart-tour-caption-option-${index}`, text: `Legenda ${index}` }))
+  const valid = { ok: true, status: 'completed', jobId: imageJobId, signedVideoUrl: 'https://project.example.test/signed.mp4', hashtags: ['#imovel'], publicationOptions }
+  assert.deepEqual(parseLatestCompletedSmartTour(valid), { jobId: imageJobId, signedVideoUrl: valid.signedVideoUrl, hashtags: ['#imovel'], publicationOptions })
+  for (const invalid of [{ ...valid, jobId: 'other-user' }, { ...valid, status: 'generating' }, { ...valid, signedVideoUrl: 'http://unsafe.test' }, { ...valid, hashtags: [1] }, { ...valid, publicationOptions: [] }, { ...valid, publicationOptions: [{ id: 'unexpected', text: 'x' }, ...publicationOptions.slice(1)] }, { ok: true, status: 'idle' }]) assert.equal(parseLatestCompletedSmartTour(invalid), null)
   const discovery = page.slice(page.indexOf("action: 'discover_latest'"), page.indexOf("action: 'discover_latest'") + 800)
   assert.match(discovery, /parseLatestCompletedSmartTour/)
+  assert.match(discovery, /unifiedSocialPublishing: true/)
+  assert.match(discovery, /publicationOptions/)
   assert.doesNotMatch(discovery, /smart-tour-generate/)
 })
 
@@ -164,5 +167,6 @@ test('backend discovery is scoped to the authenticated user, completed Smart Tou
   assert.match(statusFunction, /body\?\.action === 'discover_latest'/)
   const discovery = statusFunction.slice(statusFunction.indexOf("body?.action === 'discover_latest'"), statusFunction.indexOf("const jobId", statusFunction.indexOf("body?.action === 'discover_latest'")))
   for (const fragment of [".eq('user_id', user.id)", ".eq('status', 'completed')", ".eq('mode', 'smart_tour_gemini_omni')", '`${user.id}/${latest.id}/smart-tour.mp4`']) assert.ok(discovery.includes(fragment), fragment)
+  assert.match(discovery, /publication_options/)
   assert.doesNotMatch(discovery, /settleGeminiVideoJobEconomy|smart-tour-generate/)
 })

@@ -50,7 +50,7 @@ serve(withCors(async req => {
   if (body?.action === 'discover_latest') {
     const { data: latest, error } = await supabase
       .from('video_jobs')
-      .select('id,output_video_path,marketing_hashtags')
+      .select('id,output_video_path,marketing_hashtags,publication_options')
       .eq('user_id', user.id)
       .eq('status', 'completed')
       .eq('mode', 'smart_tour_gemini_omni')
@@ -62,7 +62,7 @@ serve(withCors(async req => {
     if (!latest || latest.output_video_path !== expectedPath) return json({ ok: true, status: 'idle' })
     const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(expectedPath, 3600)
     if (signedUrlError || !data?.signedUrl) return json({ ok: true, status: 'idle' })
-    return json({ ok: true, status: 'completed', jobId: latest.id, signedVideoUrl: data.signedUrl, hashtags: latest.marketing_hashtags || [] })
+    return json({ ok: true, status: 'completed', jobId: latest.id, signedVideoUrl: data.signedUrl, hashtags: latest.marketing_hashtags || [], publicationOptions: latest.publication_options || [] })
   }
   const jobId = String(body.jobId || '')
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return json({ ok: false, error: 'Criação inválida.' }, 400)
