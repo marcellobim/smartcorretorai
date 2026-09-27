@@ -47,6 +47,23 @@ serve(withCors(async req => {
   if (!user) return json({ ok: false, error: 'Sua sessão expirou.' }, 401)
 
   const body = await req.json().catch(() => ({}))
+  if (body?.action === 'discover_latest') {
+    const { data: latest, error } = await supabase
+      .from('video_jobs')
+      .select('id,output_video_path,marketing_hashtags')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .eq('mode', 'smart_tour_gemini_omni')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw new Error('discover_latest_failed')
+    const expectedPath = latest ? `${user.id}/${latest.id}/smart-tour.mp4` : ''
+    if (!latest || latest.output_video_path !== expectedPath) return json({ ok: true, status: 'idle' })
+    const { data, error: signedUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(expectedPath, 3600)
+    if (signedUrlError || !data?.signedUrl) return json({ ok: true, status: 'idle' })
+    return json({ ok: true, status: 'completed', jobId: latest.id, signedVideoUrl: data.signedUrl, hashtags: latest.marketing_hashtags || [] })
+  }
   const jobId = String(body.jobId || '')
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return json({ ok: false, error: 'Criação inválida.' }, 400)
 

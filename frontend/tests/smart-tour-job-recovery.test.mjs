@@ -8,6 +8,7 @@ import {
   SMART_TOUR_STARTING_RECOVERY_WINDOW_MS,
   clearSmartTourActiveJob,
   parseSmartTourActiveJob,
+  parseLatestCompletedSmartTour,
   readSmartTourActiveJob,
   shouldRecoverSmartTourGenerateResponse,
   shouldRetrySmartTourStatusResponse,
@@ -99,6 +100,15 @@ test('recovers unavailable generation responses and retries transient status che
   assert.equal(shouldRetrySmartTourStatusResponse(null, { ok: false, error: 'terminal' }), false)
 })
 
+test('completed discovery accepts only a valid owned Smart Tour result and does not initiate generation', () => {
+  const valid = { ok: true, status: 'completed', jobId: imageJobId, signedVideoUrl: 'https://project.example.test/signed.mp4', hashtags: ['#imovel'] }
+  assert.deepEqual(parseLatestCompletedSmartTour(valid), { jobId: imageJobId, signedVideoUrl: valid.signedVideoUrl, hashtags: ['#imovel'] })
+  for (const invalid of [{ ...valid, jobId: 'other-user' }, { ...valid, status: 'generating' }, { ...valid, signedVideoUrl: 'http://unsafe.test' }, { ...valid, hashtags: [1] }, { ok: true, status: 'idle' }]) assert.equal(parseLatestCompletedSmartTour(invalid), null)
+  const discovery = page.slice(page.indexOf("action: 'discover_latest'"), page.indexOf("action: 'discover_latest'") + 800)
+  assert.match(discovery, /parseLatestCompletedSmartTour/)
+  assert.doesNotMatch(discovery, /smart-tour-generate/)
+})
+
 test('image generation persists a provisional recovery record before invoke and polls inconclusive responses', () => {
   const imageBranch = page.slice(page.indexOf('const orderedImages = images.slice()'), page.indexOf('\n    } catch (error)', page.indexOf('const orderedImages = images.slice()')))
   const startingIndex = imageBranch.indexOf("inputFlow:'images', phase:'starting'")
@@ -148,4 +158,11 @@ test('backend ownership prevents another user record from producing a result', (
   assert.match(statusFunction, /auth\.getUser\(token\)/)
   assert.match(statusFunction, /\.eq\('id', jobId\)[\s\S]*?\.eq\('user_id', user\.id\)[\s\S]*?\.maybeSingle\(\)/)
   assert.match(statusFunction, /if \(!job\) return json\(\{ ok: false, error: 'Criação não encontrada\.' \}, 404\)/)
+})
+
+test('backend discovery is scoped to the authenticated user, completed Smart Tour mode and exact MP4 path', () => {
+  assert.match(statusFunction, /body\?\.action === 'discover_latest'/)
+  const discovery = statusFunction.slice(statusFunction.indexOf("body?.action === 'discover_latest'"), statusFunction.indexOf("const jobId", statusFunction.indexOf("body?.action === 'discover_latest'")))
+  for (const fragment of [".eq('user_id', user.id)", ".eq('status', 'completed')", ".eq('mode', 'smart_tour_gemini_omni')", '`${user.id}/${latest.id}/smart-tour.mp4`']) assert.ok(discovery.includes(fragment), fragment)
+  assert.doesNotMatch(discovery, /settleGeminiVideoJobEconomy|smart-tour-generate/)
 })

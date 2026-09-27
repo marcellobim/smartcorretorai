@@ -18,7 +18,7 @@ import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-token
 import { supabase } from '../lib/supabase'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingSmartTourPublication, preservePendingSmartTourPublication, publishSmartTourPublication, readPendingSmartTourPublication, recoverSmartTourPublication } from '../lib/smart-tour-social-publish'
-import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, readSmartTourActiveJob, shouldRecoverSmartTourGenerateResponse, shouldRetrySmartTourStatusResponse, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
+import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, parseLatestCompletedSmartTour, readSmartTourActiveJob, shouldRecoverSmartTourGenerateResponse, shouldRetrySmartTourStatusResponse, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
@@ -252,7 +252,18 @@ export default function SmartTourAI() {
       clearSmartTourActiveJob(sessionStorage)
       return
     }
-    if (!activeJob) return
+    if (!activeJob) {
+      recoveryStartedRef.current = true
+      void supabase.functions.invoke('smart-tour-status', { body: { action: 'discover_latest' } }).then(({ data, error }) => {
+        if (error) return
+        const latest = parseLatestCompletedSmartTour(data)
+        if (!latest) return
+        tourDraft.clear()
+        setResult({ ...latest, campaignPackage: mergeSmartTourCampaignHashtags({}, latest.hashtags), inputFlow: 'images' })
+        setStatus('completed')
+      })
+      return
+    }
     recoveryStartedRef.current = true
     setActiveInputFlow(activeJob.inputFlow)
     setStatus('generating')
