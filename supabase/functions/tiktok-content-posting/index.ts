@@ -26,7 +26,7 @@ const service=createPostingService({
  repository:postingRepository(admin),client,probe:probeMp4,initTelemetry:telemetry,
  creation:(id:string,user:string)=>one(admin.from('video_jobs').select('id,user_id,status,mode,output_video_path').eq('id',id).eq('user_id',user).maybeSingle()),
  connection:(i:any)=>one(scope(admin.from('tiktok_connections').select('*'),i).eq('connection_status','active').order('updated_at',{ascending:false}).limit(1).maybeSingle()),
- latest:(i:any,id:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('creation_id',id).order('created_at',{ascending:false}).limit(1).maybeSingle()),
+ latest:(i:any,id:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('creation_id',id).or('status.neq.failed,publish_id.not.is.null,upload_attempts.gt.0').order('created_at',{ascending:false}).limit(1).maybeSingle()),
  byKey:(i:any,key:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('idempotency_key',key).maybeSingle()),
  job:(i:any,id:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('id',id).maybeSingle()),
  async preview(path:string){

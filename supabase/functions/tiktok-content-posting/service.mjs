@@ -2,6 +2,7 @@ import {fingerprint,prepareJob,VIDEO_IMOBILIARIO_FILE,VIDEO_IMOBILIARIO_MODE} fr
 import {creatorSnapshot,confirmedPostInfo} from '../_shared/tiktok-posting/posting-options.mjs'
 import {executeFileUpload} from '../_shared/tiktok-posting/file-upload.mjs'
 const terminal=new Set(['published','failed','blocked'])
+export const isRecoveryCandidate=j=>Boolean(j)&&(!terminal.has(j.status)||Boolean(j.publish_id)||Number(j.upload_attempts)>0)
 export const publicJob=j=>({job_id:j.id,status:j.status,provider_status:j.provider_status||null,
  ...(j.status==='failed'&&!j.publish_id&&j.upload_attempts===0?{retryable:true}:{}),
  ...(j.failure_stage==='init'?{failure_stage:'init',provider_http_status:j.provider_http_status||null,provider_error_code:j.provider_error_code||null,provider_error_message:j.provider_error_message||null,provider_log_id:j.provider_log_id||null}:{})})
@@ -34,7 +35,7 @@ export function createPostingService(d){
    try{await creation(i,input.creation_id)}catch(error){error.prepareStage='creation';throw error}
    let existing
    try{existing=await d.latest(i,input.creation_id)}catch(error){error.prepareStage='existing_job';throw error}
-   if(existing&&!terminal.has(existing.status)){if(!owned(existing,i)){const error=Error('creation_unavailable');error.prepareStage='existing_job';throw error}return {job:publicJob(existing)}}
+   if(isRecoveryCandidate(existing)){if(!owned(existing,i)){const error=Error('creation_unavailable');error.prepareStage='existing_job';throw error}return {job:publicJob(existing)}}
    let m
    try{m=await material(i,input.creation_id)}catch(error){error.prepareStage='pre_creator_preflight';throw error}
    let previewUrl
@@ -56,7 +57,7 @@ export function createPostingService(d){
     return {job:publicJob(existing)}
    }
    const latest=await d.latest(i,input.creation_id)
-   if(latest&&!terminal.has(latest.status)){if(!owned(latest,i))throw Error('creation_unavailable');return {job:publicJob(latest)}}
+   if(isRecoveryCandidate(latest)){if(!owned(latest,i))throw Error('creation_unavailable');return {job:publicJob(latest)}}
    const binding=await d.unseal(input.preparation)
    if(binding.user!==i.userId||binding.creation!==input.creation_id||binding.expires<=now())throw Error('preparation_expired')
    const m=await material(i,input.creation_id)
@@ -70,7 +71,7 @@ export function createPostingService(d){
     creator:creatorSnapshot(m.creator),creatorCheckedAt:m.checked,now:now()})
    let job
    try{job=await d.repository.create(args)}catch{
-    const raced=await d.latest(i,input.creation_id);if(raced&&owned(raced,i)&&!terminal.has(raced.status))return {job:publicJob(raced)}
+    const raced=await d.latest(i,input.creation_id);if(isRecoveryCandidate(raced)&&owned(raced,i))return {job:publicJob(raced)}
     throw Error('posting_unavailable')
    }
    if(job.status!=='awaiting_confirmation')return {job:publicJob(job)}

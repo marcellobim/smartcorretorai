@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
-import {createPostingService,publicJob} from './service.mjs'
+import {createPostingService,isRecoveryCandidate,publicJob} from './service.mjs'
 import {createPostingHandler} from './handler.mjs'
 import {probeMp4} from '../_shared/tiktok-posting/mp4-probe.ts'
 import {callTikTokPosting,parseTikTokPreparation,postingConfirmation} from '../../../frontend/src/lib/tiktok-content-posting.js'
@@ -87,6 +87,16 @@ test('non-INIT jobs keep the V10 public job fallback without diagnostics',()=>as
 test('failed INIT without publish id or upload is retryable, while a publish id remains recoverable',()=>{
  assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:null,upload_attempts:0}).retryable,true)
  assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:'accepted-by-tiktok',upload_attempts:0}).retryable,undefined)
+})
+test('recovery candidate excludes the exact terminal no-send shape and preserves accepted or active jobs',()=>{
+ const rejected={id:'9a9b599f-4748-487c-841c-995fec9b26cc',status:'failed',publish_id:null,upload_attempts:0}
+ assert.equal(isRecoveryCandidate(rejected),false)
+ assert.equal(isRecoveryCandidate({...rejected,publish_id:'accepted-by-tiktok'}),true)
+ assert.equal(isRecoveryCandidate({...rejected,status:'processing'}),true)
+})
+test('production latest query excludes terminal no-send jobs before PREPARE',()=>{
+ const source=readFileSync(new URL('./index.ts',import.meta.url),'utf8')
+ assert.match(source,/\.or\('status\.neq\.failed,publish_id\.not\.is\.null,upload_attempts\.gt\.0'\)/)
 })
 test('create race never recovers a terminal no-publish job as a new intent',async()=>{
  const s=setup();s.setJob({id:key,user_id:user,environment:'sandbox',app_id:identity.appId,status:'failed',publish_id:null,upload_attempts:0,idempotency_key:'55555555-5555-4555-8555-555555555555',confirmed_options:options})
