@@ -18,7 +18,7 @@ test('four real presets share one real-estate social modal; Studio excluded',()=
 })
 test('request projection and durable recovery fail closed',()=>{
  const req=postingConfirmation('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','fixture-preparation',{title:'texto',is_aigc:false,url:'bad'},{confirmed:true})
- assert.equal(req.product_type,'video_imobiliario');assert.ok(!('is_aigc' in req.options));assert.ok(!('url' in req.options))
+ assert.equal(req.product_type,undefined);assert.ok(!('is_aigc' in req.options));assert.ok(!('url' in req.options))
  assert.ok(!('product_type' in req));assert.equal(req.preparation,'fixture-preparation')
  assert.throws(()=>postingConfirmation('bad','11111111-1111-4111-8111-111111111111','fixture-preparation',{},{}))
  assert.throws(()=>writeTikTokRecovery({setItem(){throw Error('blocked')}},'11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',{}))
@@ -30,7 +30,7 @@ test('job parser projects INIT diagnostics only when fully sanitized',()=>{
  assert.deepEqual(parseTikTokJob({...base,retryable:true},base.creation_id),{job_id:base.job_id,status:'failed',retryable:true})
  assert.throws(()=>parseTikTokJob({...base,retryable:'true'},base.creation_id))
  assert.deepEqual(parseTikTokJob({...base,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info',provider_log_id:'safe_log'},base.creation_id),{job_id:base.job_id,status:'failed',failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info',provider_log_id:'safe_log'})
- for(const patch of [{failure_stage:'upload',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Bearer fixture-access',provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:'unsafe!'}])assert.throws(()=>parseTikTokJob({...base,...patch},base.creation_id))
+ for(const patch of [{failure_stage:'upload',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Bearer fixture-access',provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:'unsafe!'}])assert.deepEqual(parseTikTokJob({...base,...patch},base.creation_id),{job_id:base.job_id,status:'failed'})
 })
 for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Direct, explicit confirm, recovery and Meta',async()=>{
  const bundle=await build({stdin:{contents:`
@@ -63,7 +63,8 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  if(window.loss){window.loss=false;return {error:{context:new Response('{"error":"unknown"}')}}}
  return {data:window.job}}
  if(body.action==='status')return {data:window.statusResult==='published'?{...window.job,status:'published'}:window.job};
- return {data:{product_type:'video_imobiliario',creation_id:'22222222-2222-4222-8222-222222222222',is_aigc:true,privacy_level:null,
+ if(body.action==='resolve_pending')return {data:window.job||{pending:true}};
+ return {data:{product_type:'video_imobiliario',creation_id:'22222222-2222-4222-8222-222222222222',preparation:'fixture-preparation',is_aigc:true,privacy_level:null,
  preview_url:'https://fixture.invalid/video.mp4',preview_expires_in:300,media:{duration_ms:8000},
  creator:{creator_nickname:'Fixture TikTok',creator_username:'fixture',privacy_level_options:['SELF_ONLY','PUBLIC_TO_EVERYONE'],comment_disabled:true,duet_disabled:true,stitch_disabled:false,max_video_post_duration_sec:60}}};
  }}};`}))
@@ -105,9 +106,10 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  await page.getByRole('button',{name:'Publicar no TikTok',exact:true}).scrollIntoViewIfNeeded()
  const dir=new URL('../../supabase/.temp/tiktok-part2/',import.meta.url);mkdirSync(dir,{recursive:true});await page.screenshot({path:fileURLToPath(new URL('modal-'+width+'.png',dir))})
  await page.getByRole('button',{name:'Publicar no TikTok',exact:true}).click()
+ await page.waitForTimeout(100);assert.equal(await page.getByRole('alert').count(),0,await page.getByRole('alert').allTextContents())
  await page.getByRole('status').filter({hasText:'Processando'}).waitFor()
  const confirms=await page.evaluate(()=>window.calls.filter(x=>x.action==='confirm'))
- assert.equal(confirms.length,1);assert.equal(confirms[0].product_type,'video_imobiliario');assert.equal(confirms[0].options.title,'Legenda revisada');assert.ok(!Object.hasOwn(confirms[0].options,'is_aigc'))
+ assert.equal(confirms.length,1);assert.equal(confirms[0].product_type,undefined);assert.equal(confirms[0].options.title,'Legenda revisada');assert.ok(!Object.hasOwn(confirms[0].options,'is_aigc'))
  assert.deepEqual(await page.evaluate(()=>window.meta),[])
  await page.evaluate(()=>window.mount(true,'aal2',true,false));await page.getByLabel('TikTok Fixture TikTok',{exact:true}).check()
  await page.getByRole('status').filter({hasText:'Publicado'}).waitFor()
@@ -118,9 +120,8 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  await page.evaluate(()=>{window.loss=true});await page.getByRole('button',{name:'Publicar no TikTok',exact:true}).click();await page.getByRole('alert').waitFor()
  const key=await page.evaluate(()=>window.calls.find(x=>x.action==='confirm').idempotency_key)
  await page.evaluate(()=>window.mount(true,'aal2',true,false));await page.getByLabel('TikTok Fixture TikTok',{exact:true}).check()
- await page.getByText('A resposta do envio anterior',{exact:false}).waitFor()
+ await page.getByRole('status').filter({hasText:'Processando'}).waitFor()
  assert.equal(await page.evaluate(()=>window.calls.filter(x=>x.action==='confirm').length),1)
- await page.getByRole('button',{name:'Publicar no TikTok',exact:true}).click();await page.getByRole('status').filter({hasText:'Processando'}).waitFor()
  assert.equal(await page.evaluate(()=>window.calls.filter(x=>x.action==='confirm').at(-1).idempotency_key),key);assert.deepEqual(errors,[])
  await page.evaluate(()=>{window.job={...window.job,status:'failed',retryable:true};window.statusResult='current';window.mount(true,'aal2',true,false)});await page.getByLabel('TikTok Fixture TikTok',{exact:true}).check()
  await page.getByLabel('Privacidade TikTok',{exact:true}).waitFor()
