@@ -92,6 +92,15 @@ type TikTokCallbackPreConsumeReason =
   | 'error_duplicate'
   | 'code_missing'
 
+type TikTokCallbackRequestDiagnostic = Readonly<{
+  method: string
+  origin: string
+  path: string
+  methodMatch: boolean
+  originMatch: boolean
+  pathMatch: boolean
+}>
+
 type TikTokStateCorrelation = Readonly<{
   createdStateFingerprint: string | null
   sentStateFingerprint: string | null
@@ -161,11 +170,19 @@ export const validateTikTokFrontendReturnUri = (value: string, expectedOrigin: s
   return url.toString()
 }
 
-const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation, diagnosticReason?: TikTokCallbackPreConsumeReason) => {
+const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation, diagnosticReason?: TikTokCallbackPreConsumeReason, requestDiagnostic?: TikTokCallbackRequestDiagnostic) => {
   const location = new URL(baseUri)
   location.searchParams.set('tiktok', outcome)
   if (reason) location.searchParams.set('reason', reason)
   if (diagnosticReason) location.searchParams.set('diagnostic_reason', diagnosticReason)
+  if (requestDiagnostic) {
+    location.searchParams.set('diagnostic_method', requestDiagnostic.method)
+    location.searchParams.set('diagnostic_origin', requestDiagnostic.origin)
+    location.searchParams.set('diagnostic_path', requestDiagnostic.path)
+    location.searchParams.set('diagnostic_method_match', String(requestDiagnostic.methodMatch))
+    location.searchParams.set('diagnostic_origin_match', String(requestDiagnostic.originMatch))
+    location.searchParams.set('diagnostic_path_match', String(requestDiagnostic.pathMatch))
+  }
   if (diagnosticStage) {
     location.searchParams.set('diagnostic_stage', diagnosticStage)
     if (diagnostic) {
@@ -204,6 +221,27 @@ const singleParameter = (url: URL, name: string, maximumLength: number) => {
   const value = values[0]
   if (!value || value.length > maximumLength || /[\u0000-\u001f\u007f]/.test(value)) return null
   return value
+}
+
+const safeMethod = (value: string) => /^[A-Z]{1,16}$/.test(value) ? value : 'unknown'
+const safeOrigin = (url: URL | null) => url && url.protocol === 'https:' && url.origin.length <= 255 ? url.origin : 'unknown'
+const safePath = (url: URL | null) => url && url.pathname.length <= 255 && /^\/[A-Za-z0-9._~!$&'()*+,;=:@/%-]*$/.test(url.pathname) ? url.pathname : 'unknown'
+
+const callbackRequestDiagnostic = (request: Request, expectedRedirectUri: string): TikTokCallbackRequestDiagnostic => {
+  let received: URL | null = null
+  try { received = new URL(request.url) } catch { /* preserve the existing GET validation path */ }
+  const expected = new URL(expectedRedirectUri)
+  const method = safeMethod(request.method)
+  const origin = safeOrigin(received)
+  const path = safePath(received)
+  return {
+    method,
+    origin,
+    path,
+    methodMatch: method === 'GET',
+    originMatch: received?.origin === expected.origin,
+    pathMatch: received?.pathname === expected.pathname,
+  }
 }
 
 const safeNow = (dependencies: TikTokCallbackDependencies) => {
@@ -270,16 +308,16 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
     }
   }
 
-  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation, diagnosticReason?: TikTokCallbackPreConsumeReason) => {
+  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation, diagnosticReason?: TikTokCallbackPreConsumeReason, requestDiagnostic?: TikTokCallbackRequestDiagnostic) => {
     logTikTokOAuthEvent(log, { stage, http_status: status, state_consumed: stateConsumed })
-    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic, correlation, diagnosticReason)
+    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic, correlation, diagnosticReason, requestDiagnostic)
   }
 
   return async (request: Request): Promise<Response> => {
-    if (request.method !== 'GET') return failure('callback_invalid', 'state', 'state_validation', 405, undefined, undefined, undefined, 'invalid_method_or_path')
+    if (request.method !== 'GET') return failure('callback_invalid', 'state', 'state_validation', 405, undefined, undefined, undefined, 'invalid_method_or_path', callbackRequestDiagnostic(request, redirectUri))
 
     const url = new URL(request.url)
-    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state','state_validation',400,false,undefined,undefined,'invalid_method_or_path')
+    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state','state_validation',400,false,undefined,undefined,'invalid_method_or_path',callbackRequestDiagnostic(request, redirectUri))
     const stateValues = url.searchParams.getAll('state')
     if (stateValues.length === 0) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_missing')
     if (stateValues.length !== 1) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_duplicate')

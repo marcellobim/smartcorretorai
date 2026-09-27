@@ -323,6 +323,32 @@ test('classifies every pre-consumption rejection without echoing OAuth values', 
   }
 })
 
+test('reports only the sanitized received method, origin and path for route rejections', async () => {
+  const cases: Array<readonly [Request, Record<string, string>]> = [
+    [
+      callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/tiktok-callback?state=ignored', 'POST'),
+      { diagnostic_method: 'POST', diagnostic_origin: 'https://project.example.test', diagnostic_path: '/functions/v1/tiktok-callback', diagnostic_method_match: 'false', diagnostic_origin_match: 'true', diagnostic_path_match: 'true' },
+    ],
+    [
+      callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/other-callback'),
+      { diagnostic_method: 'GET', diagnostic_origin: 'https://project.example.test', diagnostic_path: '/functions/v1/other-callback', diagnostic_method_match: 'true', diagnostic_origin_match: 'true', diagnostic_path_match: 'false' },
+    ],
+    [
+      new Request('https://other.example.test/functions/v1/tiktok-callback?state=ignored&code=ignored'),
+      { diagnostic_method: 'GET', diagnostic_origin: 'https://other.example.test', diagnostic_path: '/functions/v1/tiktok-callback', diagnostic_method_match: 'true', diagnostic_origin_match: 'false', diagnostic_path_match: 'true' },
+    ],
+  ]
+  for (const [request, expected] of cases) {
+    const { handler, logs } = await setup()
+    const response = await handler(request)
+    const result = location(response).searchParams
+    assert.equal(diagnosticReason(response), 'invalid_method_or_path')
+    for (const [name, value] of Object.entries(expected)) assert.equal(result.get(name), value)
+    assert.equal(response.headers.get('location')?.includes('ignored'), false)
+    assertSanitized(response, logs)
+  }
+})
+
 test('correlates a matching persisted state without exposing the raw state', async () => {
   const { handler, logs } = await setup({ availableState: false, inspectState: { expiresAt: new Date(Date.now() + 60_000).toISOString() } })
   const response = await handler(callback({ state: STATE, code: 'fake-code' }))
