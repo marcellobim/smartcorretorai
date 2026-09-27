@@ -51,7 +51,8 @@ export async function callTikTokPosting(client,body,userId) {
 export function parseTikTokJob(value,creationId) {
  if (!value || !uuid(value.job_id) || value.creation_id !== creationId ||
      value.product_type !== TIKTOK_VIDEO_PRODUCT || !Object.hasOwn(TIKTOK_JOB_LABELS,value.status)) fail()
- const job={job_id:value.job_id,status:value.status}
+ if (Object.hasOwn(value,'retryable') && typeof value.retryable !== 'boolean') fail()
+ const job={job_id:value.job_id,status:value.status,...(value.retryable===true?{retryable:true}:{})}
  if (!Object.hasOwn(value,'failure_stage')) return job
  const message=value.provider_error_message
  if(value.failure_stage!=='init'||!Number.isInteger(value.provider_http_status)||value.provider_http_status<100||value.provider_http_status>599||

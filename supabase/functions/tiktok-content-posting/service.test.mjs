@@ -66,9 +66,13 @@ test('missing consent/private branded options blocked before init',async()=>{for
 test('init timeout reconciles without PUT or retry',async()=>{const s=setup();s.deps.uploadFetch=async()=>{s.seq.push('POST');throw Error('timeout')};const input=await ready(s);assert.equal((await s.service.confirm(identity,input)).job.status,'reconciliation_required');await s.service.confirm(identity,input);assert.equal(s.seq.filter(x=>x==='POST').length,1);assert.ok(!s.seq.includes('PUT'))})
 test('deterministic INIT rejection returns only sanitized diagnostic fields',async()=>{
  const s=setup();s.deps.uploadFetch=async(_,init)=>{s.seq.push(init.method);return new Response(JSON.stringify({error:{code:'invalid_param',message:'Invalid post_info privacy_level',log_id:'safe_log_123'}}),{status:400})}
- const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,status:'failed',provider_status:null,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|upload_token|open_id/)
+ const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,status:'failed',provider_status:null,retryable:true,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|upload_token|open_id/)
 })
 test('non-INIT jobs keep the V10 public job fallback without diagnostics',()=>assert.deepEqual(publicJob({id:key,status:'failed',provider_status:null,failure_stage:'upload',provider_http_status:500,provider_error_code:'unexpected'}),{job_id:key,status:'failed',provider_status:null}))
+test('failed INIT without publish id or upload is retryable, while a publish id remains recoverable',()=>{
+ assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:null,upload_attempts:0}).retryable,true)
+ assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:'accepted-by-tiktok',upload_attempts:0}).retryable,undefined)
+})
 test('irrecoverable no-publish job closes without deletion and a new intent can proceed',async()=>{
  const s=setup();s.setJob({id:key,user_id:user,environment:'sandbox',app_id:identity.appId,status:'reconciliation_required',publish_id:null,init_attempts:1,upload_attempts:0,error_code:'init_uncertain',idempotency_key:key,confirmed_options:options})
  const closed=await s.service.close_irrecoverable(identity,{job_id:key});assert.equal(closed.job.status,'failed');assert.equal(s.job().closure_reason,'init_no_publish_id_irrecoverable')

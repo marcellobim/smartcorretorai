@@ -27,6 +27,8 @@ test('request projection and durable recovery fail closed',()=>{
 test('job parser projects INIT diagnostics only when fully sanitized',()=>{
  const base={job_id:'44444444-4444-4444-8444-444444444444',status:'failed',creation_id:'22222222-2222-4222-8222-222222222222',product_type:'video_imobiliario'}
  assert.deepEqual(parseTikTokJob(base,base.creation_id),{job_id:base.job_id,status:'failed'})
+ assert.deepEqual(parseTikTokJob({...base,retryable:true},base.creation_id),{job_id:base.job_id,status:'failed',retryable:true})
+ assert.throws(()=>parseTikTokJob({...base,retryable:'true'},base.creation_id))
  assert.deepEqual(parseTikTokJob({...base,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info',provider_log_id:'safe_log'},base.creation_id),{job_id:base.job_id,status:'failed',failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info',provider_log_id:'safe_log'})
  for(const patch of [{failure_stage:'upload',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Bearer fixture-access',provider_log_id:null},{failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:null,provider_log_id:'unsafe!'}])assert.throws(()=>parseTikTokJob({...base,...patch},base.creation_id))
 })
@@ -36,7 +38,7 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  let root;window.calls=[];window.meta=[];window.job=null;window.loss=false;
  window.mount=(admin=true,aal='aal2',direct=false,clear=true,source='video_imobiliario')=>{
  root?.unmount();window.admin=admin;window.aal=aal;window.direct=direct;
- if(clear){localStorage.clear();window.calls=[];window.meta=[];window.job=null;window.loss=false}
+ if(clear){localStorage.clear();window.calls=[];window.meta=[];window.job=null;window.loss=false;window.statusResult='published'}
  root=createRoot(document.getElementById('root'));
  root.render(<Modal intent={{sourceType:source,sourceId:'22222222-2222-4222-8222-222222222222',mediaAssetId:'22222222-2222-4222-8222-222222222222',mediaType:'video',mediaPreviewUrl:'',mediaName:'Vídeo',captionSnapshot:'Legenda original'}}
  loadConnection={async()=>({connected:true,status:'active',username:'fixture.instagram',pageName:'Fixture Facebook'})}
@@ -60,7 +62,7 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  window.job||={job_id:'44444444-4444-4444-8444-444444444444',status:'processing',creation_id:'22222222-2222-4222-8222-222222222222',product_type:'video_imobiliario'};
  if(window.loss){window.loss=false;return {error:{context:new Response('{"error":"unknown"}')}}}
  return {data:window.job}}
- if(body.action==='status')return {data:{...window.job,status:'published'}};
+ if(body.action==='status')return {data:window.statusResult==='published'?{...window.job,status:'published'}:window.job};
  return {data:{product_type:'video_imobiliario',creation_id:'22222222-2222-4222-8222-222222222222',is_aigc:true,privacy_level:null,
  preview_url:'https://fixture.invalid/video.mp4',preview_expires_in:300,media:{duration_ms:8000},
  creator:{creator_nickname:'Fixture TikTok',creator_username:'fixture',privacy_level_options:['SELF_ONLY','PUBLIC_TO_EVERYONE'],comment_disabled:true,duet_disabled:true,stitch_disabled:false,max_video_post_duration_sec:60}}};
@@ -120,5 +122,9 @@ for(const width of [1440,390])test('shared modal '+width+': Admin/MFA, Basic, Di
  assert.equal(await page.evaluate(()=>window.calls.filter(x=>x.action==='confirm').length),1)
  await page.getByRole('button',{name:'Publicar no TikTok',exact:true}).click();await page.getByRole('status').filter({hasText:'Processando'}).waitFor()
  assert.equal(await page.evaluate(()=>window.calls.filter(x=>x.action==='confirm').at(-1).idempotency_key),key);assert.deepEqual(errors,[])
+ await page.evaluate(()=>{window.job={...window.job,status:'failed',retryable:true};window.statusResult='current';window.mount(true,'aal2',true,false)});await page.getByLabel('TikTok Fixture TikTok',{exact:true}).check()
+ await page.getByLabel('Privacidade TikTok',{exact:true}).waitFor()
+ assert.equal(await page.evaluate(()=>window.calls.filter(x=>x.action==='confirm').length),1)
+ assert.ok(await page.evaluate(()=>window.calls.filter(x=>x.action==='prepare').length>=2))
  }finally{await browser?.close();await new Promise(r=>server.close(r))}
 })

@@ -3,6 +3,7 @@ import {creatorSnapshot,confirmedPostInfo} from '../_shared/tiktok-posting/posti
 import {executeFileUpload} from '../_shared/tiktok-posting/file-upload.mjs'
 const terminal=new Set(['published','failed','blocked'])
 export const publicJob=j=>({job_id:j.id,status:j.status,provider_status:j.provider_status||null,
+ ...(j.status==='failed'&&!j.publish_id&&j.upload_attempts===0?{retryable:true}:{}),
  ...(j.failure_stage==='init'?{failure_stage:'init',provider_http_status:j.provider_http_status||null,provider_error_code:j.provider_error_code||null,provider_error_message:j.provider_error_message||null,provider_log_id:j.provider_log_id||null}:{})})
 export function createPostingService(d){
  const now=d.now||Date.now

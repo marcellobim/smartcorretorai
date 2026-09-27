@@ -36,9 +36,12 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
  const [commercial,setCommercial]=useState(false),[music,setMusic]=useState(false),[branded,setBranded]=useState(false),[confirmed,setConfirmed]=useState(false)
  const inflight=useRef(false),live=useRef(true)
  const save=value=>{writeTikTokRecovery(storage,userId,creationId,value);if(live.current)setRecovery(value)}
+ const clearRecovery=()=>{writeTikTokRecovery(storage,userId,creationId,null);if(live.current){setRecovery(null);setJob(null)}}
  const loadStatus=async saved=>{
   const result=parseTikTokJob(await callTikTokPosting(client,{action:'status',job_id:saved.job_id},userId),creationId)
+  if(result.retryable){clearRecovery();return result}
   save({...saved,...result});if(live.current)setJob(result)
+  return result
  }
  useEffect(()=>{
   live.current=true
@@ -79,9 +82,11 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   } catch(e){if(live.current){setMessage(e.message);setDiagnostic(e.tiktokDiagnostic||null)}}
   finally {inflight.current=false;if(live.current)setBusy(false)}
  }
+ useEffect(()=>{
+  if(selected&&connection.direct&&!prepared&&!job&&!recovery&&!recoveryError)void prepare()
+ },[selected,connection.direct,prepared,job,recovery,recoveryError])
  const toggle=()=>{
-  const next=!selected;setSelected(next)
-  if(next&&connection.direct&&!prepared&&!job&&!recovery)void prepare()
+  setSelected(value=>!value)
  }
  const set=(name,value)=>setOptions(o=>({...o,[name]:value}))
  const valid=prepared&&options.privacy_level&&music&&confirmed&&
