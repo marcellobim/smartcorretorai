@@ -305,7 +305,6 @@ test('sanitizes token exchange failures from response and logs', async () => {
 test('classifies every pre-consumption rejection without echoing OAuth values', async () => {
   const cases: Array<readonly [string, Request]> = [
     ['invalid_method_or_path', callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/tiktok-callback', 'POST')],
-    ['invalid_method_or_path', callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/other-callback')],
     ['state_missing', callbackEntries([['code', 'fake-code']])],
     ['state_duplicate', callbackEntries([['state', STATE], ['state', 'B'.repeat(43)], ['code', 'fake-code']])],
     ['state_empty', callbackEntries([['state', ''], ['code', 'fake-code']])],
@@ -323,30 +322,25 @@ test('classifies every pre-consumption rejection without echoing OAuth values', 
   }
 })
 
-test('reports only the sanitized received method, origin and path for route rejections', async () => {
-  const cases: Array<readonly [Request, Record<string, string>]> = [
-    [
-      callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/tiktok-callback?state=ignored', 'POST'),
-      { diagnostic_method: 'POST', diagnostic_origin: 'https://project.example.test', diagnostic_path: '/functions/v1/tiktok-callback', diagnostic_method_match: 'false', diagnostic_origin_match: 'true', diagnostic_path_match: 'true' },
-    ],
-    [
-      callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/other-callback'),
-      { diagnostic_method: 'GET', diagnostic_origin: 'https://project.example.test', diagnostic_path: '/functions/v1/other-callback', diagnostic_method_match: 'true', diagnostic_origin_match: 'true', diagnostic_path_match: 'false' },
-    ],
-    [
-      new Request('https://other.example.test/functions/v1/tiktok-callback?state=ignored&code=ignored'),
-      { diagnostic_method: 'GET', diagnostic_origin: 'https://other.example.test', diagnostic_path: '/functions/v1/tiktok-callback', diagnostic_method_match: 'true', diagnostic_origin_match: 'false', diagnostic_path_match: 'true' },
-    ],
-  ]
-  for (const [request, expected] of cases) {
-    const { handler, logs } = await setup()
-    const response = await handler(request)
-    const result = location(response).searchParams
-    assert.equal(diagnosticReason(response), 'invalid_method_or_path')
-    for (const [name, value] of Object.entries(expected)) assert.equal(result.get(name), value)
-    assert.equal(response.headers.get('location')?.includes('ignored'), false)
-    assertSanitized(response, logs)
-  }
+test('rejects POST while exposing only the sanitized received route', async () => {
+  const { handler, logs } = await setup()
+  const response = await handler(callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/tiktok-callback?state=ignored', 'POST'))
+  const result = location(response).searchParams
+  assert.equal(diagnosticReason(response), 'invalid_method_or_path')
+  assert.equal(result.get('diagnostic_method'), 'POST')
+  assert.equal(result.get('diagnostic_origin'), 'https://project.example.test')
+  assert.equal(result.get('diagnostic_path'), '/functions/v1/tiktok-callback')
+  assert.equal(result.get('diagnostic_method_match'), 'false')
+  assert.equal(response.headers.get('location')?.includes('ignored'), false)
+  assertSanitized(response, logs)
+})
+
+test('accepts the real internal Supabase GET path and proceeds to state validation', async () => {
+  const { handler, calls } = await setup()
+  const response = await handler(new Request(`http://edge-internal.invalid/tiktok-callback?state=${STATE}&code=fake-code`))
+  assert.equal(response.status, 303)
+  assert.equal(location(response).searchParams.get('tiktok'), 'connected')
+  assert.equal(calls.length, 2)
 })
 
 test('correlates a matching persisted state without exposing the raw state', async () => {

@@ -317,7 +317,6 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
     if (request.method !== 'GET') return failure('callback_invalid', 'state', 'state_validation', 405, undefined, undefined, undefined, 'invalid_method_or_path', callbackRequestDiagnostic(request, redirectUri))
 
     const url = new URL(request.url)
-    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state','state_validation',400,false,undefined,undefined,'invalid_method_or_path',callbackRequestDiagnostic(request, redirectUri))
     const stateValues = url.searchParams.getAll('state')
     if (stateValues.length === 0) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_missing')
     if (stateValues.length !== 1) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_duplicate')
