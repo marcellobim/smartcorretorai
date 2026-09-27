@@ -5,6 +5,7 @@ import {parseCreatorInfo,confirmedPostInfo} from './posting-options.mjs'
 export const POSTING_LIMITS=Object.freeze({creator:20,init:6,status:30,windowMs:60000})
 const PATHS=Object.freeze({creator:'creator_info/query/',init:'video/init/',status:'status/fetch/'})
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_.~:-]{1,64}$/.test(v)
+const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 const providerCode=v=>typeof v==='string'&&/^[a-z0-9_.-]{1,64}$/i.test(v)?v:null
 const providerMessage=v=>{
  if(typeof v!=='string')return null
@@ -66,9 +67,11 @@ export function parsePostingStatus(data){
  }
  return {ok:true,data:output}
 }
-export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000}={}){
- if(typeof fetcher!=='function'||typeof now!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>20000)
+export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000,pullOrigin}={}){
+ if(typeof fetcher!=='function'||typeof now!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>20000||typeof pullOrigin!=='string')
   throw Error('posting_client_configuration')
+ let allowedPullOrigin
+ try{allowedPullOrigin=new URL(pullOrigin).origin;if(allowedPullOrigin!==pullOrigin||!allowedPullOrigin.startsWith('https://'))throw Error()}catch{throw Error('posting_client_configuration')}
  const history={creator:[],init:[],status:[]}
  async function request(operation,accessToken,body){
   if(typeof accessToken!=='string'||!accessToken.trim()||/[\r\n]/.test(accessToken))return error('auth_scope',operation)
@@ -112,7 +115,7 @@ export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000}={}){
   },
   async init({accessToken,postInfo,videoUrl}){
    let payload
-   try{const url=new URL(videoUrl);if(url.origin!=='https://www.smartcorretorai.com'||!/^\/api\/tiktok-video\/[0-9a-f-]{36}$/i.test(url.pathname)||!url.searchParams.get('e')||!url.searchParams.get('s'))throw Error();payload={post_info:postInfo,source_info:{source:'PULL_FROM_URL',video_url:url.toString()}}}catch{return error('invalid_media','init')}
+   try{const url=new URL(videoUrl);if(url.origin!==allowedPullOrigin||url.pathname!=='/api/tiktok-video'||!uuid(url.searchParams.get('j'))||!url.searchParams.get('e')||!url.searchParams.get('s')||[...url.searchParams.keys()].some(k=>!['j','e','s'].includes(k)))throw Error();payload={post_info:postInfo,source_info:{source:'PULL_FROM_URL',video_url:url.toString()}}}catch{return error('invalid_media','init')}
    const r=await request('init',accessToken,payload)
    if(!r.ok)return r
    if(!id(r.data?.publish_id))return error('unknown_ambiguous','init',true)

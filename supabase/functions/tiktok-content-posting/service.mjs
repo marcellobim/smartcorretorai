@@ -2,9 +2,12 @@ import {fingerprint,prepareJob,VIDEO_IMOBILIARIO_FILE,VIDEO_IMOBILIARIO_MODE} fr
 import {creatorSnapshot,confirmedPostInfo} from '../_shared/tiktok-posting/posting-options.mjs'
 import {executePullFromUrl} from '../_shared/tiktok-posting/pull-from-url.mjs'
 const terminal=new Set(['published','failed','blocked'])
-export const isRecoveryCandidate=j=>Boolean(j)&&(!terminal.has(j.status)||Boolean(j.publish_id)||Number(j.upload_attempts)>0)
-export const publicJob=j=>({job_id:j.id,status:j.status,provider_status:j.provider_status||null,
- ...(j.status==='failed'&&!j.publish_id&&j.upload_attempts===0?{retryable:true}:{}),
+// A failed INIT with no provider identifier was explicitly rejected.  Every
+// other non-terminal state is uncertain and must be recovered rather than
+// retried automatically.
+export const isRecoveryCandidate=j=>Boolean(j)&&(!terminal.has(j.status)||Boolean(j.publish_id))
+export const publicJob=j=>({job_id:j.id,creation_id:j.creation_id,product_type:'video_imobiliario',status:j.status,provider_status:j.provider_status||null,
+ ...(j.status==='failed'&&!j.publish_id&&j.error_code==='init_provider_rejected'?{retryable:true}:{}),
  ...(j.failure_stage==='init'?{failure_stage:'init',provider_http_status:j.provider_http_status||null,provider_error_code:j.provider_error_code||null,provider_error_message:j.provider_error_message||null,provider_log_id:j.provider_log_id||null}:{})})
 export function createPostingService(d){
  const now=d.now||Date.now
@@ -82,9 +85,16 @@ export function createPostingService(d){
    }catch{
     // Never retry init after an unknown response or failed persistence acknowledgement.
     const current=await d.job(i,job.id)
-    return {job:current?publicJob(current):{job_id:job.id,status:'reconciliation_required',provider_status:null}}
+    return {job:current?publicJob(current):{job_id:job.id,creation_id:input.creation_id,product_type:'video_imobiliario',status:'reconciliation_required',provider_status:null}}
    }
    return {job:publicJob(await d.job(i,job.id))}
+  },
+  async resolve_pending(i,input){
+   await creation(i,input.creation_id)
+   const job=await d.byKey(i,input.idempotency_key)
+   if(!job)return {pending:true}
+   if(!owned(job,i)||job.creation_id!==input.creation_id)throw Error('creation_unavailable')
+   return {job:publicJob(job)}
   },
   async status(i,input){
    let job=await d.job(i,input.job_id)

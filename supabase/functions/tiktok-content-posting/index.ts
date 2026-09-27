@@ -13,20 +13,21 @@ const admin=createClient(url,credential,{auth:{persistSession:false}})
 const ring=await loadTikTokTokenKeyringFromEnvironment(n=>Deno.env.get(n))
 const signing=await crypto.subtle.importKey('raw',new TextEncoder().encode(credential),{name:'HMAC',hash:'SHA-256'},false,['sign','verify'])
 const enc=new TextEncoder(),dec=new TextDecoder()
-const publicOrigin='https://www.smartcorretorai.com'
+const pullOrigin=String(Deno.env.get('TIKTOK_PULL_PUBLIC_ORIGIN')||'').replace(/\/$/,'')
+if(!/^https:\/\/[a-z0-9.-]+$/i.test(pullOrigin))throw Error('tiktok_pull_origin_required')
 const b64=(bytes:Uint8Array)=>btoa(Array.from(bytes,b=>String.fromCharCode(b)).join('')).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'')
 const pullSignature=async(jobId:string,expires:number)=>b64(new Uint8Array(await crypto.subtle.sign('HMAC',signing,enc.encode(`tiktok-pull-v1:${jobId}:${expires}`))))
 const unb64=(s:string)=>Uint8Array.from(atob(s.replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0))
 const scope=(q:any,i:any)=>q.eq('user_id',i.userId).eq('environment','sandbox').eq('app_id',i.appId)
 const one=async(q:any)=>{const {data,error}=await q;if(error)throw Error('posting_unavailable');return data}
-const client=createPostingClient({fetcher:fetch})
+const client=createPostingClient({fetcher:fetch,pullOrigin})
 let initTimes:number[]=[]
 const deployment=Deno.env.get('DENO_DEPLOYMENT_ID')||''
 const functionVersion=/_(\d+)$/.exec(deployment)?.[1]||'unknown'
 const telemetry=(event:any)=>console.log(JSON.stringify({...event,function_version:functionVersion}))
 const service=createPostingService({
  repository:postingRepository(admin),client,probe:probeMp4,initTelemetry:telemetry,
- pullUrl:async(job:any)=>{const expires=Math.floor(Date.now()/1000)+3600;return `${publicOrigin}/api/tiktok-video/${job.id}?e=${expires}&s=${await pullSignature(job.id,expires)}`},
+ pullUrl:async(job:any)=>{const expires=Math.floor(Date.now()/1000)+21600;return `${pullOrigin}/api/tiktok-video?j=${job.id}&e=${expires}&s=${await pullSignature(job.id,expires)}`},
  creation:(id:string,user:string)=>one(admin.from('video_jobs').select('id,user_id,status,mode,output_video_path').eq('id',id).eq('user_id',user).maybeSingle()),
  connection:(i:any)=>one(scope(admin.from('tiktok_connections').select('*'),i).eq('connection_status','active').order('updated_at',{ascending:false}).limit(1).maybeSingle()),
  latest:(i:any,id:string)=>one(scope(admin.from('tiktok_publish_jobs').select('*'),i).eq('creation_id',id).or('status.neq.failed,publish_id.not.is.null,upload_attempts.gt.0').order('created_at',{ascending:false}).limit(1).maybeSingle()),

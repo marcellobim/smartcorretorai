@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs'
 import {createPostingService,isRecoveryCandidate,publicJob} from './service.mjs'
 import {createPostingHandler} from './handler.mjs'
 import {probeMp4} from '../_shared/tiktok-posting/mp4-probe.ts'
-import {callTikTokPosting,parseTikTokPreparation,postingConfirmation} from '../../../frontend/src/lib/tiktok-content-posting.js'
+import {callTikTokPosting,parseTikTokJob,parseTikTokPreparation,postingConfirmation} from '../../../frontend/src/lib/tiktok-content-posting.js'
 const user='11111111-1111-4111-8111-111111111111',creation='22222222-2222-4222-8222-222222222222',cid='33333333-3333-4333-8333-333333333333',key='44444444-4444-4444-8444-444444444444'
 const identity={userId:user,environment:'sandbox',appId:'a'.repeat(64)}
 const bytes=readFileSync(new URL('../../../frontend/public/demos-videos/video-campanha.mp4',import.meta.url))
@@ -19,7 +19,7 @@ function setup(){
   connection:async()=>connection,preview:async()=>`https://signed.example.test/video/${creation}`,bytes:async()=>bytes,probe:probeMp4,access:async()=>{seq.push('decrypt');return 'fictional-access'},
   seal:async b=>JSON.stringify(b),unseal:async s=>JSON.parse(s),
   latest:async()=>clone(job),byKey:async(_,k)=>job?.idempotency_key===k?clone(job):null,job:async()=>clone(job),
-  client:{creatorInfo:async()=>{seq.push('creator');return creatorError||{ok:true,data:creator}},init:async input=>{seq.push('INIT');assert.equal(input.postInfo.privacy_level,'SELF_ONLY');assert.match(input.videoUrl,/^https:\/\/www\.smartcorretorai\.com\/api\/tiktok-video\/[0-9a-f-]{36}\?e=\d+&s=[A-Za-z0-9_-]{43}$/);return {ok:true,publishId:'fixture-publish'}},status:async()=>{seq.push('status');return {ok:true,data:{status:'published',provider_status:'PUBLISH_COMPLETE'}}}},
+  client:{creatorInfo:async()=>{seq.push('creator');return creatorError||{ok:true,data:creator}},init:async input=>{seq.push('INIT');assert.equal(input.postInfo.privacy_level,'SELF_ONLY');assert.match(input.videoUrl,/^https:\/\/www\.smartcorretorai\.com\/api\/tiktok-video\?j=[0-9a-f-]{36}&e=\d+&s=[A-Za-z0-9_-]{43}$/);return {ok:true,publishId:'fixture-publish'}},status:async()=>{seq.push('status');return {ok:true,data:{status:'published',provider_status:'PUBLISH_COMPLETE'}}}},
   repository:{
    create:async j=>{seq.push('create');if(!job||job.idempotency_key!==j.idempotency_key)job={...j,id:key,status:'awaiting_confirmation',revision:1,init_attempts:0,upload_attempts:0};return clone(job)},
    claim:async(id,rev)=>{if(rev!==job.revision||Date.parse(job.claim_expires_at)>time)throw Error('CAS');job={...job,revision:rev+1,claim_token:key,claim_expires_at:new Date(time+120000).toISOString(),status:['initializing','uploading'].includes(job.status)?'reconciliation_required':job.status};return clone(job)},
@@ -27,7 +27,7 @@ function setup(){
    persistInitDiagnostic:async(j,d)=>{assert.equal(job.id,j.id);job={...job,provider_http_status:d.httpStatus,provider_error_code:d.providerCode,provider_error_message:d.providerMessage,provider_log_id:d.providerLogId,failure_stage:'init'};return clone(job)},
    closeIrrecoverable:async(j)=>{assert.equal(j.status,'reconciliation_required');assert.equal(j.publish_id,null);assert.equal(j.upload_attempts,0);job={...job,status:'failed',closure_reason:'init_no_publish_id_irrecoverable',completed_at:new Date(time).toISOString()};return clone(job)}
   },
-  pullUrl:async current=>`https://www.smartcorretorai.com/api/tiktok-video/${current.id}?e=1893456000&s=${'a'.repeat(43)}`}
+  pullUrl:async current=>`https://www.smartcorretorai.com/api/tiktok-video?j=${current.id}&e=1893456000&s=${'a'.repeat(43)}`}
  const service=createPostingService(deps)
  return {deps,service,seq,connection,options,consent,override,advance:()=>{time+=121000},job:()=>job,setJob:v=>{job=v},setCreatorError:v=>{creatorError=v}}
 }
@@ -62,7 +62,7 @@ test('mocked PULL_FROM_URL lifecycle reaches processing then PUBLISH_COMPLETE wi
  s.deps.client.init=async input=>{requests.push(input);return {ok:true,publishId:'fixture-publish'}}
  const input=await ready(s);assert.equal(input.options.privacy_level,'SELF_ONLY')
  assert.equal((await s.service.confirm(identity,input)).job.status,'processing')
- assert.equal(requests.length,1);assert.equal(requests[0].postInfo.privacy_level,'SELF_ONLY');assert.match(requests[0].videoUrl,/^https:\/\/www\.smartcorretorai\.com\/api\/tiktok-video\//);assert.ok(requests[0].videoUrl.includes('?e='));assert.ok(requests[0].videoUrl.includes('&s='));assert.equal(s.seq.includes('PUT'),false)
+ assert.equal(requests.length,1);assert.equal(requests[0].postInfo.privacy_level,'SELF_ONLY');assert.match(requests[0].videoUrl,/^https:\/\/www\.smartcorretorai\.com\/api\/tiktok-video\?j=/);assert.ok(requests[0].videoUrl.includes('&e='));assert.ok(requests[0].videoUrl.includes('&s='));assert.equal(s.seq.includes('PUT'),false)
  s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'processing')
  s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'published')
 })
@@ -73,11 +73,11 @@ test('missing consent/private branded options blocked before init',async()=>{for
 test('init timeout reconciles without a second INIT or PUT',async()=>{const s=setup();s.deps.client.init=async()=>{s.seq.push('INIT');return {ok:false,error:{ambiguous:true}}};const input=await ready(s);assert.equal((await s.service.confirm(identity,input)).job.status,'reconciliation_required');await s.service.confirm(identity,input);assert.equal(s.seq.filter(x=>x==='INIT').length,1);assert.ok(!s.seq.includes('PUT'))})
 test('deterministic INIT rejection returns only sanitized diagnostic fields',async()=>{
  const s=setup();s.deps.client.init=async()=>({ok:false,error:{ambiguous:false,httpStatus:400,providerCode:'invalid_param',providerMessage:'Invalid post_info privacy_level',providerLogId:'safe_log_123'}})
- const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,status:'failed',provider_status:null,retryable:true,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|open_id/)
+ const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,creation_id:creation,product_type:'video_imobiliario',status:'failed',provider_status:null,retryable:true,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|open_id/)
 })
-test('non-INIT jobs keep the V10 public job fallback without diagnostics',()=>assert.deepEqual(publicJob({id:key,status:'failed',provider_status:null,failure_stage:'upload',provider_http_status:500,provider_error_code:'unexpected'}),{job_id:key,status:'failed',provider_status:null}))
+test('non-INIT jobs retain the canonical HTTP identity without diagnostics',()=>assert.deepEqual(publicJob({id:key,creation_id:creation,status:'failed',provider_status:null,failure_stage:'upload',provider_http_status:500,provider_error_code:'unexpected'}),{job_id:key,creation_id:creation,product_type:'video_imobiliario',status:'failed',provider_status:null}))
 test('failed INIT without publish id or upload is retryable, while a publish id remains recoverable',()=>{
- assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:null,upload_attempts:0}).retryable,true)
+ assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:null,upload_attempts:0,error_code:'init_provider_rejected'}).retryable,true)
  assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:'accepted-by-tiktok',upload_attempts:0}).retryable,undefined)
 })
 test('recovery candidate excludes the exact terminal no-send shape and preserves accepted or active jobs',()=>{
@@ -131,4 +131,25 @@ test('prepare 4xx telemetry identifies the sanitized validation stage and code',
  assert.equal(response.status,400);assert.deepEqual(await response.json(),{ok:false,error:'creation_unavailable',stage:'creation'});assert.deepEqual(events,[{operation:'prepare',validation_stage:'creation',error_code:'creation_unavailable'}])
  response=await handler(new Request('https://x.test',{method:'POST',headers:{authorization:'Bearer fixture-admin'},body:JSON.stringify({action:'prepare',creation_id:creation,extra:true})}))
  assert.equal(response.status,400);assert.deepEqual(await response.json(),{ok:false,error:'invalid_input',stage:'request_schema'});assert.deepEqual(events.at(-1),{operation:'prepare',validation_stage:'request_schema',error_code:'invalid_input'})
+})
+test('real service to HTTP response to strict browser parser preserves canonical job identity',async()=>{
+ const s=setup(),input=await ready(s)
+ const handler=createPostingHandler({origin:'https://app.example.test',authorize:async()=>identity,service:s.service})
+ const response=await handler(new Request('https://x.test',{method:'POST',headers:{authorization:'Bearer fixture-admin'},body:JSON.stringify({action:'confirm',...input})}))
+ assert.equal(response.status,200)
+ const parsed=parseTikTokJob(await response.json(),creation)
+ assert.equal(parsed.status,'processing')
+ assert.equal(parsed.job_id,key)
+})
+test('unsafe optional INIT diagnostics are discarded without invalidating a canonical job',()=>{
+ const parsed=parseTikTokJob({job_id:key,creation_id:creation,product_type:'video_imobiliario',status:'failed',failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'https://private.example/video'},creation)
+ assert.deepEqual(parsed,{job_id:key,status:'failed'})
+})
+test('pending confirmation lookup is scoped to the same user, creation, environment and app without sending INIT',async()=>{
+ const s=setup(),input=await ready(s)
+ assert.deepEqual(await s.service.resolve_pending(identity,{creation_id:creation,idempotency_key:key}),{pending:true})
+ await s.service.confirm(identity,input)
+ const found=await s.service.resolve_pending(identity,{creation_id:creation,idempotency_key:key})
+ assert.equal(found.job.job_id,key);assert.equal(s.seq.filter(v=>v==='INIT').length,1)
+ await assert.rejects(s.service.resolve_pending(identity,{creation_id:cid,idempotency_key:key}),/creation_unavailable/)
 })

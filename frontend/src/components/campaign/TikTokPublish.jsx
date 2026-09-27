@@ -31,7 +31,7 @@ export default function TikTokPublish({intent,caption='',client=supabase}) {
 export function TikTokDestination({creationId,caption,userId,client=supabase,storage=browserStorage}) {
  const [connection,setConnection]=useState({loading:true}),[selected,setSelected]=useState(false)
  const [prepared,setPrepared]=useState(null),[job,setJob]=useState(null),[recovery,setRecovery]=useState(null)
- const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[diagnostic,setDiagnostic]=useState(null),[recoveryError,setRecoveryError]=useState(false)
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[diagnostic,setDiagnostic]=useState(null),[recoveryError,setRecoveryError]=useState(false),[pendingUncertain,setPendingUncertain]=useState(false)
  const [options,setOptions]=useState({title:caption,privacy_level:'',disable_comment:true,disable_duet:true,disable_stitch:true,brand_content_toggle:false,brand_organic_toggle:false})
  const [commercial,setCommercial]=useState(false),[music,setMusic]=useState(false),[branded,setBranded]=useState(false),[confirmed,setConfirmed]=useState(false)
  const inflight=useRef(false),live=useRef(true)
@@ -44,16 +44,25 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   save(next);if(live.current)setJob(result)
   return result
  }
+ const resolvePending=async saved=>{
+  const result=await callTikTokPosting(client,{action:'resolve_pending',creation_id:creationId,idempotency_key:saved.idempotency_key},userId)
+  if(result?.pending===true){if(live.current)setPendingUncertain(true);return null}
+  const jobResult=parseTikTokJob(result,creationId)
+  const next=nextTikTokRecovery(saved,jobResult)
+  if(!next){clearRecovery();if(live.current)setMessage('O TikTok rejeitou a tentativa anterior antes de aceitar o envio. Você pode preparar uma nova publicação.');return jobResult}
+  save(next);if(live.current)setJob(jobResult)
+  return jobResult
+ }
  useEffect(()=>{
   live.current=true
   try {
    const saved=readTikTokRecovery(storage,userId,creationId)
-   if(saved) {
+    if(saved) {
     setRecovery(saved)
     if(saved.job_id) {
      setJob({job_id:saved.job_id,status:saved.status||'reconciliation_required'})
      void loadStatus(saved).catch(e=>{if(live.current)setMessage(e.message)})
-    }
+    } else void resolvePending(saved).catch(e=>{if(live.current)setMessage(e.message)})
    }
   } catch(e) {setRecoveryError(true);setMessage(e.message)}
   getTikTokConnectionStatus(client).then(async status=>{
@@ -78,7 +87,12 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
   if(inflight.current||job||recovery||recoveryError)return
   inflight.current=true;setBusy(true);setMessage('');setDiagnostic(null)
   try {
-   const data=parseTikTokPreparation(await callTikTokPosting(client,prepareTikTokPosting(creationId),userId),creationId)
+   const response=await callTikTokPosting(client,prepareTikTokPosting(creationId),userId)
+   // PREPARE can legitimately discover an authorized in-progress submission.
+   // It is a job only when it satisfies the strict job contract; otherwise it
+   // must satisfy the preparation contract before options are displayed.
+   if(response?.job_id){if(live.current)setJob(parseTikTokJob(response,creationId));return}
+   const data=parseTikTokPreparation(response,creationId)
    if(live.current)setPrepared(data)
   } catch(e){if(live.current){setMessage(e.message);setDiagnostic(e.tiktokDiagnostic||null)}}
   finally {inflight.current=false;if(live.current)setBusy(false)}
@@ -100,6 +114,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
    // Re-read immediately before sending to honor another modal/tab's durable intent.
    const existing=readTikTokRecovery(storage,userId,creationId)
    if(existing?.job_id) {await loadStatus(existing);return}
+   if(existing) {await resolvePending(existing);return}
    const pending=existing || recovery || {...postingConfirmation(creationId,crypto.randomUUID(),prepared.preparation,options,{confirmed,commercial_disclosure:commercial,music_usage_confirmed:music,branded_content_policy_confirmed:branded}),product_type:TIKTOK_VIDEO_PRODUCT,status:'reconciliation_required'}
    // Store the key and exact consent/options BEFORE confirm. Failure blocks network.
    save(pending)
@@ -122,7 +137,7 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
    {busy&&<p role="status" className="text-sm font-semibold">{recovery?'Verificando publicação…':'Preparando opções TikTok…'}</p>}
    {message&&<p role="alert" className="break-words text-sm text-red-700">{message}</p>}{diagnostic&&<p className="text-xs text-slate-600">Diagnóstico: {diagnostic.stage} / {diagnostic.error}</p>}
    {job?<div><p role="status" className="font-bold">{TIKTOK_JOB_LABELS[job.status]||'Verificar'}</p><p className="mt-2 text-sm">Esta criação já tem um envio registrado. O resultado é recuperado ao reabrir este navegador.</p>{job.failure_stage==='init'&&<p className="mt-2 break-words text-xs text-slate-600">Diagnóstico TikTok: INIT / HTTP {job.provider_http_status} / {job.provider_error_code}{job.provider_error_message?` / ${job.provider_error_message}`:''}{job.provider_log_id?` / log ${job.provider_log_id}`:''}</p>}{!terminal.has(job.status)&&<button type="button" disabled={busy} onClick={checkStatus} className="mt-2 min-h-11 font-bold underline">Atualizar status TikTok</button>}</div>
-    :recovery?<div><p role="status" className="font-bold">Verificar</p><p className="mt-2 text-sm">A resposta do envio anterior não foi recebida. Uma nova confirmação usará a mesma solicitação e as mesmas opções, sem criar outro envio.</p><button type="button" disabled={busy||!connection.direct} onClick={publish} className={button+' mt-3'}>Publicar no TikTok</button></div>
+    :recovery?<div><p role="status" className="font-bold">Verificar</p><p className="mt-2 text-sm">{pendingUncertain?'A confirmação anterior ainda está sendo localizada. Ela não será reenviada automaticamente.':'Verificando a confirmação anterior sem reenviar a publicação.'}</p><button type="button" disabled={busy||!connection.direct} onClick={()=>void resolvePending(recovery).catch(e=>setMessage(e.message))} className={button+' mt-3'}>Localizar envio</button></div>
     :prepared&&connection.direct?<div className="space-y-4">
      <p className="break-words text-sm">Conta TikTok: <strong>{prepared.creator.creator_nickname}</strong> (@{prepared.creator.creator_username})</p>
      <video src={prepared.preview_url} controls playsInline preload="metadata" aria-label="Preview TikTok" className="max-h-72 w-full rounded-xl bg-slate-950"/>

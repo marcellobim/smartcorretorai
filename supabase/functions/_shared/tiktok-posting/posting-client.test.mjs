@@ -1,10 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {inspect} from 'node:util'
-import {createPostingClient,POSTING_LIMITS,classifyPostingError} from './posting-client.mjs'
+import {createPostingClient as makePostingClient,POSTING_LIMITS,classifyPostingError} from './posting-client.mjs'
 import {parseCreatorInfo,initialPostingSelection,confirmedPostInfo,creatorSnapshot} from './posting-options.mjs'
 const token='synthetic-access-never-log'
-const videoUrl='https://www.smartcorretorai.com/api/tiktok-video/44444444-4444-4444-8444-444444444444?e=1893456000&s='+('a'.repeat(43))
+const pullOrigin='https://www.smartcorretorai.com'
+const videoUrl=pullOrigin+'/api/tiktok-video?j=44444444-4444-4444-8444-444444444444&e=1893456000&s='+('a'.repeat(43))
+const createPostingClient=options=>makePostingClient({pullOrigin,...options})
 const creator={creator_avatar_url:'https://example.test/avatar.png',creator_username:'fixture',creator_nickname:'Fixture',
  privacy_level_options:['SELF_ONLY','PUBLIC_TO_EVERYONE'],comment_disabled:false,duet_disabled:false,stitch_disabled:false,max_video_post_duration_sec:60}
 const probe={container:'mp4',codec:'h264',width:720,height:1280,duration_ms:8000,fps:24,content_length:3659097,
@@ -74,7 +76,7 @@ test('init exact PULL_FROM_URL payload contains only the opaque media capability
  assert.equal(Object.hasOwn(source_info,'video_size'),false);assert.equal(Object.hasOwn(source_info,'chunk_size'),false);assert.equal(Object.hasOwn(source_info,'total_chunk_count'),false)
  assert.equal(h.calls[0].url,'https://open.tiktokapis.com/v2/post/publish/video/init/')
  assert.equal(JSON.stringify(r),'{"ok":true,"publishId":"fixture-publish"}')
- assert.ok(!inspect(r).includes('access_token'));assert.ok(videoUrl.startsWith('https://www.smartcorretorai.com/api/tiktok-video/'))
+ assert.ok(!inspect(r).includes('access_token'));assert.ok(videoUrl.startsWith('https://www.smartcorretorai.com/api/tiktok-video?'))
 })
 for(const [name,data] of [
  ['missing publish',{}]

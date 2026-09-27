@@ -1,5 +1,5 @@
 const uuid = v => typeof v==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
-const fields = {prepare:['action','creation_id'],confirm:['action','creation_id','idempotency_key','preparation','options','consent'],status:['action','job_id'],close_irrecoverable:['action','job_id']}
+const fields = {prepare:['action','creation_id'],confirm:['action','creation_id','idempotency_key','preparation','options','consent'],resolve_pending:['action','creation_id','idempotency_key'],status:['action','job_id'],close_irrecoverable:['action','job_id']}
 export function createPostingHandler({authorize,service,origin,telemetry}) {
  return async request => {
   const emit=(stage,code)=>{try{telemetry?.({operation:'prepare',validation_stage:stage,error_code:code})}catch{}}
@@ -20,7 +20,11 @@ export function createPostingHandler({authorize,service,origin,telemetry}) {
    if(!uuid(['status','close_irrecoverable'].includes(input.action)?input.job_id:input.creation_id)){if(input.action==='prepare'){prepareStage='creation_id';emit(prepareStage,'invalid_input')}throw Error()}
    if(input.action==='confirm'&&(!uuid(input.idempotency_key)||typeof input.preparation!=='string'||input.preparation.length>4096))throw Error()
   }catch{return reply(400,input?.action==='prepare'?{ok:false,error:'invalid_input',stage:prepareStage||'request_schema'}:{error:'invalid_input'})}
-  try{return reply(200,await service[input.action](identity,input))}
+  try{
+   const result=await service[input.action](identity,input)
+   // Jobs are a public HTTP resource, never the service's internal envelope.
+   return reply(200,result?.job||result)
+  }
   catch(error){
    const safe=['reauthorization_required','creation_unavailable','media_changed','preparation_expired','invalid_options','rate_limit','creator_restriction','invalid_media','idempotency_conflict']
    const code=safe.includes(error?.message)?error.message:'posting_unavailable'
