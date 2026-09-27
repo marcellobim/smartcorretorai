@@ -70,7 +70,7 @@ export function createPostingService(d){
     creator:creatorSnapshot(m.creator),creatorCheckedAt:m.checked,now:now()})
    let job
    try{job=await d.repository.create(args)}catch{
-    const raced=await d.latest(i,input.creation_id);if(raced&&owned(raced,i))return {job:publicJob(raced)}
+    const raced=await d.latest(i,input.creation_id);if(raced&&owned(raced,i)&&!terminal.has(raced.status))return {job:publicJob(raced)}
     throw Error('posting_unavailable')
    }
    if(job.status!=='awaiting_confirmation')return {job:publicJob(job)}

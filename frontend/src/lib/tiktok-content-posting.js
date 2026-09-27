@@ -51,7 +51,7 @@ export async function callTikTokPosting(client,body,userId) {
 export function parseTikTokJob(value,creationId) {
  if (!value || !uuid(value.job_id) || value.creation_id !== creationId ||
      value.product_type !== TIKTOK_VIDEO_PRODUCT || !Object.hasOwn(TIKTOK_JOB_LABELS,value.status)) fail()
- if (Object.hasOwn(value,'retryable') && typeof value.retryable !== 'boolean') fail()
+ if (Object.hasOwn(value,'retryable') && (typeof value.retryable !== 'boolean'||value.retryable&&value.status!=='failed')) fail()
  const job={job_id:value.job_id,status:value.status,...(value.retryable===true?{retryable:true}:{})}
  if (!Object.hasOwn(value,'failure_stage')) return job
  const message=value.provider_error_message
@@ -61,6 +61,8 @@ export function parseTikTokJob(value,creationId) {
     (value.provider_log_id!==null&&(typeof value.provider_log_id!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(value.provider_log_id)))) fail()
  return {...job,failure_stage:'init',provider_http_status:value.provider_http_status,provider_error_code:value.provider_error_code,provider_error_message:message,provider_log_id:value.provider_log_id}
 }
+export const isTikTokTerminalWithoutProviderSend=job=>job?.status==='failed'&&job?.retryable===true
+export const nextTikTokRecovery=(saved,job)=>isTikTokTerminalWithoutProviderSend(job)?null:{...saved,...job}
 export function parseTikTokPreparation(value,creationId) {
  const c=value?.creator
  const levels=['PUBLIC_TO_EVERYONE','MUTUAL_FOLLOW_FRIENDS','FOLLOWER_OF_CREATOR','SELF_ONLY']

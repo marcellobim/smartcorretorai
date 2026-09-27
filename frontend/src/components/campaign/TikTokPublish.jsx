@@ -6,7 +6,7 @@ import {TIKTOK_LOGIN_KIT_ENABLED} from '../../config/tiktok'
 import {prepareTikTokPosting} from './tiktok-posting-payload'
 import {readJwtAssuranceLevel} from '../../lib/auth-session-policy'
 import {getTikTokCapabilities,getTikTokConnectionStatus} from '../../lib/tiktok-oauth-connection'
-import {callTikTokPosting,parseTikTokJob,parseTikTokPreparation,postingConfirmation,readTikTokRecovery,writeTikTokRecovery,TIKTOK_JOB_LABELS,TIKTOK_VIDEO_PRODUCT} from '../../lib/tiktok-content-posting'
+import {callTikTokPosting,nextTikTokRecovery,parseTikTokJob,parseTikTokPreparation,postingConfirmation,readTikTokRecovery,writeTikTokRecovery,TIKTOK_JOB_LABELS,TIKTOK_VIDEO_PRODUCT} from '../../lib/tiktok-content-posting'
 const settings='/configuracoes/integracoes/tiktok'
 const browserStorage={getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)}
 const privacy={PUBLIC_TO_EVERYONE:'Todos',MUTUAL_FOLLOW_FRIENDS:'Amigos',FOLLOWER_OF_CREATOR:'Seguidores',SELF_ONLY:'Somente eu'}
@@ -39,8 +39,9 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
  const clearRecovery=()=>{writeTikTokRecovery(storage,userId,creationId,null);if(live.current){setRecovery(null);setJob(null)}}
  const loadStatus=async saved=>{
   const result=parseTikTokJob(await callTikTokPosting(client,{action:'status',job_id:saved.job_id},userId),creationId)
-  if(result.retryable){clearRecovery();return result}
-  save({...saved,...result});if(live.current)setJob(result)
+  const next=nextTikTokRecovery(saved,result)
+  if(!next){clearRecovery();return result}
+  save(next);if(live.current)setJob(result)
   return result
  }
  useEffect(()=>{
@@ -104,7 +105,9 @@ export function TikTokDestination({creationId,caption,userId,client=supabase,sto
    save(pending)
    const response=await callTikTokPosting(client,postingConfirmation(creationId,pending.idempotency_key,pending.preparation,pending.options,pending.consent),userId)
    const result=parseTikTokJob(response,creationId)
-   save({...pending,...result});if(live.current)setJob(result)
+   const next=nextTikTokRecovery(pending,result)
+   if(!next)clearRecovery()
+   else {save(next);if(live.current)setJob(result)}
   } catch(e){if(live.current)setMessage(e.message)}
   finally {inflight.current=false;if(live.current)setBusy(false)}
  }

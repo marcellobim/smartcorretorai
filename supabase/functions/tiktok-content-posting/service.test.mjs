@@ -59,6 +59,21 @@ test('confirm persists publish id before PUT; retries and reopens recover same j
  assert.equal(s.seq.filter(v=>v==='POST').length,1);assert.equal(s.seq.filter(v=>v==='PUT').length,1)
  s.advance();const status=await s.service.status(identity,{job_id:key});assert.equal(status.job.status,'published');assert.equal(s.seq.filter(v=>v==='POST').length,1)
 })
+test('mocked FILE_UPLOAD lifecycle reaches processing then PUBLISH_COMPLETE with SELF_ONLY',async()=>{
+ const s=setup(),phases=[{status:'processing',provider_status:'PROCESSING_UPLOAD'},{status:'published',provider_status:'PUBLISH_COMPLETE'}],requests=[]
+ s.deps.client.status=async()=>({ok:true,data:phases.shift()})
+ s.deps.uploadFetch=async(url,request)=>{
+  requests.push({url,method:request.method,headers:request.headers,body:request.body})
+  if(request.method==='POST')return new Response(JSON.stringify({error:{code:'ok'},data:{publish_id:'fixture-publish',upload_url:'https://open-upload.tiktokapis.com/video/?upload_id=fixture&upload_token=fixture'}}),{status:200})
+  return new Response('',{status:201})
+ }
+ const input=await ready(s);assert.equal(input.options.privacy_level,'SELF_ONLY')
+ assert.equal((await s.service.confirm(identity,input)).job.status,'processing')
+ assert.equal(requests[0].method,'POST');const init=JSON.parse(requests[0].body);assert.equal(init.source_info.source,'FILE_UPLOAD');assert.equal(init.source_info.video_size,bytes.byteLength);assert.equal(init.source_info.chunk_size,bytes.byteLength);assert.equal(init.source_info.total_chunk_count,1)
+ assert.equal(requests[1].method,'PUT');assert.equal(requests[1].headers['Content-Type'],'video/mp4');assert.equal(requests[1].headers['Content-Length'],String(bytes.byteLength));assert.equal(requests[1].headers['Content-Range'],'bytes 0-'+(bytes.byteLength-1)+'/'+bytes.byteLength)
+ s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'processing')
+ s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'published')
+})
 test('double confirmation races never send two init requests',async()=>{const s=setup(),input=await ready(s);await Promise.all([s.service.confirm(identity,input),s.service.confirm(identity,input)]);assert.equal(s.seq.filter(v=>v==='POST').length,1)})
 test('same idempotency key with changed intent rejected',async()=>{const s=setup(),input=await ready(s);await s.service.confirm(identity,input);await assert.rejects(s.service.confirm(identity,{...input,options:{...options,title:'changed'}}),/idempotency_conflict/)})
 test('changed media/connection version blocks before job',async()=>{const s=setup(),input=await ready(s);s.connection.token_version++;await assert.rejects(s.service.confirm(identity,input),/media_changed/);assert.equal(s.job(),null)})
@@ -72,6 +87,11 @@ test('non-INIT jobs keep the V10 public job fallback without diagnostics',()=>as
 test('failed INIT without publish id or upload is retryable, while a publish id remains recoverable',()=>{
  assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:null,upload_attempts:0}).retryable,true)
  assert.equal(publicJob({id:key,status:'failed',provider_status:null,publish_id:'accepted-by-tiktok',upload_attempts:0}).retryable,undefined)
+})
+test('create race never recovers a terminal no-publish job as a new intent',async()=>{
+ const s=setup();s.setJob({id:key,user_id:user,environment:'sandbox',app_id:identity.appId,status:'failed',publish_id:null,upload_attempts:0,idempotency_key:'55555555-5555-4555-8555-555555555555',confirmed_options:options})
+ const prepared=await s.service.prepare(identity,{creation_id:creation});s.deps.repository.create=async()=>{throw Error('transient')}
+ await assert.rejects(s.service.confirm(identity,{creation_id:creation,idempotency_key:'66666666-6666-4666-8666-666666666666',preparation:prepared.preparation,options:{...options,title:'Nova intenção'},consent:{...consent}}),/posting_unavailable/)
 })
 test('irrecoverable no-publish job closes without deletion and a new intent can proceed',async()=>{
  const s=setup();s.setJob({id:key,user_id:user,environment:'sandbox',app_id:identity.appId,status:'reconciliation_required',publish_id:null,init_attempts:1,upload_attempts:0,error_code:'init_uncertain',idempotency_key:key,confirmed_options:options})
