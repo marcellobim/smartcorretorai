@@ -82,6 +82,16 @@ type TikTokCallbackDiagnosticStage =
   | 'persistence'
   | 'final_redirect'
 
+type TikTokCallbackPreConsumeReason =
+  | 'invalid_method_or_path'
+  | 'state_missing'
+  | 'state_duplicate'
+  | 'state_empty'
+  | 'state_too_long'
+  | 'state_control_character'
+  | 'error_duplicate'
+  | 'code_missing'
+
 type TikTokStateCorrelation = Readonly<{
   createdStateFingerprint: string | null
   sentStateFingerprint: string | null
@@ -151,10 +161,11 @@ export const validateTikTokFrontendReturnUri = (value: string, expectedOrigin: s
   return url.toString()
 }
 
-const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation) => {
+const redirect = (baseUri: string, outcome: 'connected' | 'error', reason?: PublicFailure, diagnosticStage?: TikTokCallbackDiagnosticStage, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation, diagnosticReason?: TikTokCallbackPreConsumeReason) => {
   const location = new URL(baseUri)
   location.searchParams.set('tiktok', outcome)
   if (reason) location.searchParams.set('reason', reason)
+  if (diagnosticReason) location.searchParams.set('diagnostic_reason', diagnosticReason)
   if (diagnosticStage) {
     location.searchParams.set('diagnostic_stage', diagnosticStage)
     if (diagnostic) {
@@ -259,24 +270,29 @@ export function createTikTokCallbackHandler(dependencies: TikTokCallbackDependen
     }
   }
 
-  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation) => {
+  const failure = (reason: PublicFailure, stage: TikTokOAuthStage, diagnosticStage: TikTokCallbackDiagnosticStage, status: number, stateConsumed?: boolean, diagnostic?: TikTokProviderDiagnostic, correlation?: TikTokStateCorrelation, diagnosticReason?: TikTokCallbackPreConsumeReason) => {
     logTikTokOAuthEvent(log, { stage, http_status: status, state_consumed: stateConsumed })
-    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic, correlation)
+    return redirect(frontendReturnUri, 'error', reason, diagnosticStage, diagnostic, correlation, diagnosticReason)
   }
 
   return async (request: Request): Promise<Response> => {
-    if (request.method !== 'GET') return failure('callback_invalid', 'state', 'state_validation', 405)
+    if (request.method !== 'GET') return failure('callback_invalid', 'state', 'state_validation', 405, undefined, undefined, undefined, 'invalid_method_or_path')
 
     const url = new URL(request.url)
-    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state','state_validation',400,false)
-    const state = singleParameter(url, 'state', 128)
-    if (!state) return failure('state_invalid', 'state', 'state_validation', 400, false)
+    if(url.origin !== new URL(redirectUri).origin || url.pathname !== new URL(redirectUri).pathname) return failure('callback_invalid','state','state_validation',400,false,undefined,undefined,'invalid_method_or_path')
+    const stateValues = url.searchParams.getAll('state')
+    if (stateValues.length === 0) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_missing')
+    if (stateValues.length !== 1) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_duplicate')
+    const state = stateValues[0]
+    if (!state) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_empty')
+    if (state.length > 128) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_too_long')
+    if (/[\u0000-\u001f\u007f]/.test(state)) return failure('state_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'state_control_character')
 
     const providerErrors = url.searchParams.getAll('error')
-    if (providerErrors.length > 1) return failure('callback_invalid', 'state', 'state_validation', 400, false)
+    if (providerErrors.length > 1) return failure('callback_invalid', 'state', 'state_validation', 400, false, undefined, undefined, 'error_duplicate')
 
     const code = singleParameter(url, 'code', 2048)
-    if (!code && providerErrors.length === 0) return failure('code_missing', 'state', 'state_validation', 400, false)
+    if (!code && providerErrors.length === 0) return failure('code_missing', 'state', 'state_validation', 400, false, undefined, undefined, 'code_missing')
 
     let userId: string
     let upgradeBinding: UpgradeBinding | undefined

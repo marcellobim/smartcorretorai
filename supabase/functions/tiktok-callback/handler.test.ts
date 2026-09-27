@@ -152,8 +152,15 @@ const callback = (parameters: Record<string, string>) => {
   return new Request(url)
 }
 
+const callbackEntries = (entries: readonly (readonly [string, string])[], path = '/functions/v1/tiktok-callback', method = 'GET') => {
+  const url = new URL(`https://project.example.test${path}`)
+  for (const [name, value] of entries) url.searchParams.append(name, value)
+  return new Request(url, { method })
+}
+
 const location = (response: Response) => new URL(response.headers.get('location')!)
 const diagnosticStage = (response: Response) => location(response).searchParams.get('diagnostic_stage')
+const diagnosticReason = (response: Response) => location(response).searchParams.get('diagnostic_reason')
 
 const assertSanitized = (response: Response, logs: string[]) => {
   const exposed = `${response.headers.get('location') ?? ''}\n${logs.join('\n')}`
@@ -168,6 +175,7 @@ test('redirects safely when code is absent', async () => {
   assert.equal(response.status, 303)
   assert.equal(location(response).searchParams.get('reason'), 'code_missing')
   assert.equal(diagnosticStage(response), 'state_validation')
+  assert.equal(diagnosticReason(response), 'code_missing')
   assertSanitized(response, logs)
 })
 
@@ -177,6 +185,7 @@ test('redirects safely when state is absent', async () => {
   assert.equal(response.status, 303)
   assert.equal(location(response).searchParams.get('reason'), 'state_invalid')
   assert.equal(diagnosticStage(response), 'state_validation')
+  assert.equal(diagnosticReason(response), 'state_missing')
   assertSanitized(response, logs)
 })
 
@@ -291,6 +300,27 @@ test('sanitizes token exchange failures from response and logs', async () => {
   assert.equal(location(response).searchParams.get('provider_error_message'), null)
   assert.equal(location(response).searchParams.get('provider_log_id'), 'safe-log')
   assertSanitized(response, logs)
+})
+
+test('classifies every pre-consumption rejection without echoing OAuth values', async () => {
+  const cases: Array<readonly [string, Request]> = [
+    ['invalid_method_or_path', callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/tiktok-callback', 'POST')],
+    ['invalid_method_or_path', callbackEntries([['state', STATE], ['code', 'fake-code']], '/functions/v1/other-callback')],
+    ['state_missing', callbackEntries([['code', 'fake-code']])],
+    ['state_duplicate', callbackEntries([['state', STATE], ['state', 'B'.repeat(43)], ['code', 'fake-code']])],
+    ['state_empty', callbackEntries([['state', ''], ['code', 'fake-code']])],
+    ['state_too_long', callbackEntries([['state', 'A'.repeat(129)], ['code', 'fake-code']])],
+    ['state_control_character', callbackEntries([['state', `A${String.fromCharCode(0)}B`], ['code', 'fake-code']])],
+    ['error_duplicate', callbackEntries([['state', STATE], ['code', 'fake-code'], ['error', 'one'], ['error', 'two']])],
+    ['code_missing', callbackEntries([['state', STATE]])],
+  ]
+  for (const [expected, request] of cases) {
+    const { handler, logs } = await setup()
+    const response = await handler(request)
+    assert.equal(response.status, 303)
+    assert.equal(diagnosticReason(response), expected)
+    assertSanitized(response, logs)
+  }
 })
 
 test('correlates a matching persisted state without exposing the raw state', async () => {
