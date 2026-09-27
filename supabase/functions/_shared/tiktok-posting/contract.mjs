@@ -6,7 +6,7 @@ export const VIDEO_IMOBILIARIO_MODE = 'smart_tour_gemini_omni'
 export const VIDEO_IMOBILIARIO_FILE = 'smart-tour.mp4'
 export const STATES = Object.freeze({
  awaiting_confirmation:['queued','blocked'], queued:['initializing','blocked'],
- initializing:['uploading','failed','reconciliation_required'],
+ initializing:['uploading','processing','failed','reconciliation_required'],
  uploading:['processing','failed','reconciliation_required'],
  processing:['processing','published','failed','reconciliation_required'],
  reconciliation_required:['processing','published','failed'], published:[], blocked:[], failed:[],

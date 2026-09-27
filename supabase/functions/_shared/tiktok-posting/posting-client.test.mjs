@@ -4,7 +4,7 @@ import {inspect} from 'node:util'
 import {createPostingClient,POSTING_LIMITS,classifyPostingError} from './posting-client.mjs'
 import {parseCreatorInfo,initialPostingSelection,confirmedPostInfo,creatorSnapshot} from './posting-options.mjs'
 const token='synthetic-access-never-log'
-const upload='https://open-upload.tiktokapis.com/video/?upload_id=fixture&upload_token=synthetic-only'
+const videoUrl='https://www.smartcorretorai.com/api/tiktok-video/44444444-4444-4444-8444-444444444444?e=1893456000&s='+('a'.repeat(43))
 const creator={creator_avatar_url:'https://example.test/avatar.png',creator_username:'fixture',creator_nickname:'Fixture',
  privacy_level_options:['SELF_ONLY','PUBLIC_TO_EVERYONE'],comment_disabled:false,duet_disabled:false,stitch_disabled:false,max_video_post_duration_sec:60}
 const probe={container:'mp4',codec:'h264',width:720,height:1280,duration_ms:8000,fps:24,content_length:3659097,
@@ -12,7 +12,8 @@ const probe={container:'mp4',codec:'h264',width:720,height:1280,duration_ms:8000
 const options={title:'Fixture',privacy_level:'SELF_ONLY',disable_comment:true,disable_duet:true,disable_stitch:true,
  brand_content_toggle:false,brand_organic_toggle:false,is_aigc:true}
 const consent={confirmed:true,commercial_disclosure:false,music_usage_confirmed:true,branded_content_policy_confirmed:false}
-const initArgs=()=>({accessToken:token,creator:structuredClone(creator),probe:{...probe},options:{...options},consent:{...consent}})
+const optionArgs=()=>({creator:structuredClone(creator),probe:{...probe},options:{...options},consent:{...consent}})
+const initArgs=()=>({accessToken:token,postInfo:{...options},videoUrl})
 const response=(data,status=200,code='ok')=>new Response(JSON.stringify({data,error:{code,message:token,log_id:'private'},open_id:'private-open-id'}),{status})
 function harness(data,status=200,code='ok'){
  const calls=[]
@@ -39,10 +40,10 @@ test('privacy and interactions start unselected; no fallback',()=>{
  const selection=initialPostingSelection(creator)
  assert.equal(selection.privacy_level,null)
  for(const key of ['allow_comment','allow_duet','allow_stitch'])assert.equal(selection[key],false)
- assert.throws(()=>confirmedPostInfo({...initArgs(),options:{...options,privacy_level:null}}))
+ assert.throws(()=>confirmedPostInfo({...optionArgs(),options:{...options,privacy_level:null}}))
 })
 for(const kind of ['comment','duet','stitch'])test('disabled '+kind+' blocks enabling',()=>{
- assert.throws(()=>confirmedPostInfo({...initArgs(),creator:{...creator,[kind+'_disabled']:true},options:{...options,['disable_'+kind]:false}}))
+ assert.throws(()=>confirmedPostInfo({...optionArgs(),creator:{...creator,[kind+'_disabled']:true},options:{...options,['disable_'+kind]:false}}))
 })
 for(const [name,patch,category] of [
  ['long media',{probe:{...probe,duration_ms:61000}},'invalid_media'],
@@ -54,30 +55,29 @@ for(const [name,patch,category] of [
  ['paid private',{options:{...options,brand_content_toggle:true},consent:{...consent,commercial_disclosure:true,branded_content_policy_confirmed:true}},'invalid_options'],
  ['paid without policy',{options:{...options,privacy_level:'PUBLIC_TO_EVERYONE',brand_content_toggle:true},consent:{...consent,commercial_disclosure:true}},'invalid_options']
 ]){
- test('init preflight '+name,async()=>{const h=harness({});const r=await h.client.init({...initArgs(),...patch});assert.equal(r.error.category,category);assert.equal(h.calls.length,0)})
+ test('post options preflight '+name,()=>{assert.throws(()=>confirmedPostInfo({...optionArgs(),...patch}),new RegExp(category==='invalid_media'?'invalid_media':'invalid_options'))})
 }
 test('commercial own/paid/both selections are explicit and not rewritten',()=>{
  for(const [own,paid] of [[true,false],[false,true],[true,true]]){
-  const input={...initArgs(),options:{...options,privacy_level:'PUBLIC_TO_EVERYONE',brand_organic_toggle:own,brand_content_toggle:paid},
+  const input={...optionArgs(),options:{...options,privacy_level:'PUBLIC_TO_EVERYONE',brand_organic_toggle:own,brand_content_toggle:paid},
    consent:{...consent,commercial_disclosure:true,branded_content_policy_confirmed:paid}}
   assert.deepEqual(confirmedPostInfo(input),input.options)
  }
 })
-test('init exact FILE_UPLOAD payload; backend URL capability is not serializable',async()=>{
- const h=harness({publish_id:'fixture-publish',upload_url:upload})
+test('init exact PULL_FROM_URL payload contains only the opaque media capability',async()=>{
+ const h=harness({publish_id:'fixture-publish'})
  const r=await h.client.init(initArgs())
  assert.equal(r.ok,true)
  const {post_info,source_info}=JSON.parse(h.calls[0].request.body)
  assert.deepEqual(post_info,options)
- assert.deepEqual(source_info,{source:'FILE_UPLOAD',video_size:probe.content_length,chunk_size:probe.content_length,total_chunk_count:1})
+ assert.deepEqual(source_info,{source:'PULL_FROM_URL',video_url:videoUrl})
+ assert.equal(Object.hasOwn(source_info,'video_size'),false);assert.equal(Object.hasOwn(source_info,'chunk_size'),false);assert.equal(Object.hasOwn(source_info,'total_chunk_count'),false)
  assert.equal(h.calls[0].url,'https://open.tiktokapis.com/v2/post/publish/video/init/')
- assert.equal(JSON.stringify(r),'{"ok":true,"publish_id":"fixture-publish"}')
- assert.ok(!inspect(r).includes(upload));assert.equal(r.takeUploadUrl(),upload);assert.throws(()=>r.takeUploadUrl())
+ assert.equal(JSON.stringify(r),'{"ok":true,"publishId":"fixture-publish"}')
+ assert.ok(!inspect(r).includes('access_token'));assert.ok(videoUrl.startsWith('https://www.smartcorretorai.com/api/tiktok-video/'))
 })
 for(const [name,data] of [
- ['missing publish',{upload_url:upload}],['missing URL',{publish_id:'fixture-publish'}],
- ['invalid URL',{publish_id:'fixture-publish',upload_url:'http://open-upload.tiktokapis.com/video/?upload_id=a&upload_token=b'}],
- ['wrong host',{publish_id:'fixture-publish',upload_url:'https://evil.test/video/?upload_id=a&upload_token=b'}]
+ ['missing publish',{}]
 ]){
  test('init response '+name,async()=>{const r=await harness(data).client.init(initArgs());assert.equal(r.ok,false);assert.equal(r.error.ambiguous,true)
   if(data.publish_id)assert.equal(r.publish_id,data.publish_id)
@@ -128,7 +128,7 @@ test('unknown fail reason is never echoed',async()=>{
 })
 test('rolling local limits cover all operations and expire; no tokens retained as keys',async()=>{
  let now=0,calls=0
- const c=createPostingClient({now:()=>now,fetcher:async url=>{calls++;return response(url.includes('creator_info')?creator:url.includes('video/init')?{publish_id:'fixture-publish',upload_url:upload}:{status:'PROCESSING_UPLOAD'})}})
+  const c=createPostingClient({now:()=>now,fetcher:async url=>{calls++;return response(url.includes('creator_info')?creator:url.includes('video/init')?{publish_id:'fixture-publish'}:{status:'PROCESSING_UPLOAD'})}})
  for(const op of ['creator','init','status']){
   const call=()=>op==='creator'?c.creatorInfo({accessToken:token}):op==='init'?c.init(initArgs()):c.status({accessToken:token,publishId:'fixture-publish'})
   for(let i=0;i<POSTING_LIMITS[op];i++)assert.equal((await call()).ok,true)
@@ -143,10 +143,10 @@ test('no logs, persistence or global fetch; secrets never enter serializable res
  const oldFetch=globalThis.fetch,oldLog=console.log,oldError=console.error;let logs=0
  globalThis.fetch=()=>assert.fail('real network forbidden');console.log=()=>logs++;console.error=()=>logs++
  try{
-  const h=harness({publish_id:'fixture-publish',upload_url:upload,open_id:'secret-open-id',client_secret:'synthetic-client-secret'})
+  const h=harness({publish_id:'fixture-publish',open_id:'secret-open-id',client_secret:'synthetic-client-secret'})
   const r=await h.client.init(initArgs())
   const serial=JSON.stringify(r)+inspect(r)
-  for(const privateValue of [token,upload,'secret-open-id','synthetic-client-secret'])assert.ok(!serial.includes(privateValue))
+  for(const privateValue of [token,'secret-open-id','synthetic-client-secret'])assert.ok(!serial.includes(privateValue))
   assert.equal(logs,0)
  }finally{globalThis.fetch=oldFetch;console.log=oldLog;console.error=oldError}
 })
@@ -161,6 +161,6 @@ test('bounded malformed response and HTTP200 without code never succeed',async()
 })
 
 test('branded content cannot silently select follower-only privacy',()=>{
- const a=initArgs();a.creator.privacy_level_options=['FOLLOWER_OF_CREATOR'];a.options.privacy_level='FOLLOWER_OF_CREATOR';a.options.brand_content_toggle=true;a.consent.commercial_disclosure=true;a.consent.branded_content_policy_confirmed=true
+ const a=optionArgs();a.creator.privacy_level_options=['FOLLOWER_OF_CREATOR'];a.options.privacy_level='FOLLOWER_OF_CREATOR';a.options.brand_content_toggle=true;a.consent.commercial_disclosure=true;a.consent.branded_content_policy_confirmed=true
  assert.throws(()=>confirmedPostInfo(a))
 })

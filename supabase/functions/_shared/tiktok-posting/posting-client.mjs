@@ -1,4 +1,3 @@
-import {singleChunk,validateUploadUrl} from './file-upload.mjs'
 import {parseCreatorInfo,confirmedPostInfo} from './posting-options.mjs'
 
 // Backend-only, mandatory injected transport. Never mounted as a public endpoint.
@@ -6,6 +5,13 @@ import {parseCreatorInfo,confirmedPostInfo} from './posting-options.mjs'
 export const POSTING_LIMITS=Object.freeze({creator:20,init:6,status:30,windowMs:60000})
 const PATHS=Object.freeze({creator:'creator_info/query/',init:'video/init/',status:'status/fetch/'})
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_.~:-]{1,64}$/.test(v)
+const providerCode=v=>typeof v==='string'&&/^[a-z0-9_.-]{1,64}$/i.test(v)?v:null
+const providerMessage=v=>{
+ if(typeof v!=='string')return null
+ const message=v.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()
+ return message&&message.length<=240&&/^[\p{L}\p{N} .,:;()'"!?_-]+$/u.test(message)&&!/(bearer|\baccess\b|refresh|token|authorization|https?:\/\/|upload_url|open_id)/i.test(message)?message:null
+}
+const providerLogId=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(v)?v:null
 const groups={
  auth_scope:['access_token_invalid','scope_not_authorized','token_not_authorized_for_specified_publish_id','auth_removed'],
  creator_restriction:['spam_risk_too_many_posts','spam_risk_user_banned_from_posting','reached_active_user_cap','unaudited_client_can_only_post_to_private_accounts'],
@@ -86,8 +92,9 @@ export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000}={}){
      return error(classifyPostingError(null,r.status),operation,operation==='init')
     }
     if(!r.ok||payload?.error?.code!=='ok'){
-     const category=classifyPostingError(payload?.error?.code,r.status)
-     return error(category,operation,operation==='init'&&['provider_temporary','unknown_ambiguous'].includes(category))
+     const code=providerCode(payload?.error?.code),category=classifyPostingError(code,r.status)
+     const diagnostic=operation==='init'&&code&&code!=='ok'?{httpStatus:r.status,providerCode:code,providerMessage:providerMessage(payload?.error?.message),providerLogId:providerLogId(payload?.error?.log_id??payload?.error?.logid)}:{}
+     return error(category,operation,operation==='init'&&['provider_temporary','unknown_ambiguous'].includes(category),diagnostic)
     }
     return {ok:true,data:payload.data}
    })()
@@ -103,26 +110,13 @@ export function createPostingClient({fetcher,now=Date.now,timeoutMs=20000}={}){
     return error(e.message==='creator_restriction'?'creator_restriction':'unknown_ambiguous','creator')
    }
   },
-  async init({accessToken,creator,probe,options,consent}){
+  async init({accessToken,postInfo,videoUrl}){
    let payload
-   try{payload={post_info:confirmedPostInfo({creator,probe,options,consent}),source_info:singleChunk(probe.content_length)}}
-   catch(e){return error(e.message==='invalid_media'?'invalid_media':'invalid_options','init')}
+   try{const url=new URL(videoUrl);if(url.origin!=='https://www.smartcorretorai.com'||!/^\/api\/tiktok-video\/[0-9a-f-]{36}$/i.test(url.pathname)||!url.searchParams.get('e')||!url.searchParams.get('s'))throw Error();payload={post_info:postInfo,source_info:{source:'PULL_FROM_URL',video_url:url.toString()}}}catch{return error('invalid_media','init')}
    const r=await request('init',accessToken,payload)
    if(!r.ok)return r
    if(!id(r.data?.publish_id))return error('unknown_ambiguous','init',true)
-   const publish_id=r.data.publish_id
-   let url
-   try{url=validateUploadUrl(r.data.upload_url)}catch{
-    return {...error('unknown_ambiguous','init',true),publish_id}
-   }
-   // Capability is non-enumerable and single-use: serialization never includes the URL.
-   // Only the backend coordinator may consume it, AFTER persisting publish_id.
-   const result={ok:true,publish_id}
-   Object.defineProperty(result,'takeUploadUrl',{enumerable:false,value:()=>{
-    if(!url)throw Error('posting_upload_url_consumed')
-    const value=url;url=null;return value
-   }})
-   return Object.freeze(result)
+   return Object.freeze({ok:true,publishId:r.data.publish_id})
   },
   async status({accessToken,publishId}){
    if(!id(publishId))return error('invalid_options','status')

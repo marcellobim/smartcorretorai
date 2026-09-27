@@ -19,7 +19,7 @@ function setup(){
   connection:async()=>connection,preview:async()=>`https://signed.example.test/video/${creation}`,bytes:async()=>bytes,probe:probeMp4,access:async()=>{seq.push('decrypt');return 'fictional-access'},
   seal:async b=>JSON.stringify(b),unseal:async s=>JSON.parse(s),
   latest:async()=>clone(job),byKey:async(_,k)=>job?.idempotency_key===k?clone(job):null,job:async()=>clone(job),
-  client:{creatorInfo:async()=>{seq.push('creator');return creatorError||{ok:true,data:creator}},status:async()=>{seq.push('status');return {ok:true,data:{status:'published',provider_status:'PUBLISH_COMPLETE'}}}},
+  client:{creatorInfo:async()=>{seq.push('creator');return creatorError||{ok:true,data:creator}},init:async input=>{seq.push('INIT');assert.equal(input.postInfo.privacy_level,'SELF_ONLY');assert.match(input.videoUrl,/^https:\/\/www\.smartcorretorai\.com\/api\/tiktok-video\/[0-9a-f-]{36}\?e=\d+&s=[A-Za-z0-9_-]{43}$/);return {ok:true,publishId:'fixture-publish'}},status:async()=>{seq.push('status');return {ok:true,data:{status:'published',provider_status:'PUBLISH_COMPLETE'}}}},
   repository:{
    create:async j=>{seq.push('create');if(!job||job.idempotency_key!==j.idempotency_key)job={...j,id:key,status:'awaiting_confirmation',revision:1,init_attempts:0,upload_attempts:0};return clone(job)},
    claim:async(id,rev)=>{if(rev!==job.revision||Date.parse(job.claim_expires_at)>time)throw Error('CAS');job={...job,revision:rev+1,claim_token:key,claim_expires_at:new Date(time+120000).toISOString(),status:['initializing','uploading'].includes(job.status)?'reconciliation_required':job.status};return clone(job)},
@@ -27,10 +27,7 @@ function setup(){
    persistInitDiagnostic:async(j,d)=>{assert.equal(job.id,j.id);job={...job,provider_http_status:d.httpStatus,provider_error_code:d.providerCode,provider_error_message:d.providerMessage,provider_log_id:d.providerLogId,failure_stage:'init'};return clone(job)},
    closeIrrecoverable:async(j)=>{assert.equal(j.status,'reconciliation_required');assert.equal(j.publish_id,null);assert.equal(j.upload_attempts,0);job={...job,status:'failed',closure_reason:'init_no_publish_id_irrecoverable',completed_at:new Date(time).toISOString()};return clone(job)}
   },
-  uploadFetch:async(url,init)=>{
-   seq.push(init.method);if(init.method==='POST')return new Response(JSON.stringify({error:{code:'ok'},data:{publish_id:'fixture-publish',upload_url:'https://open-upload.tiktokapis.com/video/?upload_id=fixture&upload_token=fixture'}}),{status:200})
-   assert.equal(job.publish_id,'fixture-publish');assert.equal(job.status,'uploading');assert.equal(init.body.byteLength,bytes.length);return new Response('',{status:201})
-  }}
+  pullUrl:async current=>`https://www.smartcorretorai.com/api/tiktok-video/${current.id}?e=1893456000&s=${'a'.repeat(43)}`}
  const service=createPostingService(deps)
  return {deps,service,seq,connection,options,consent,override,advance:()=>{time+=121000},job:()=>job,setJob:v=>{job=v},setCreatorError:v=>{creatorError=v}}
 }
@@ -52,36 +49,31 @@ test('confirm browser projection is exact and the server derives AIGC',async()=>
 })
 for(const patch of [{user_id:cid},{status:'processing'},{mode:'free_ai'},{output_video_path:'arbitrary'}])test('ownership/product/path fail closed '+JSON.stringify(patch),async()=>{const s=setup();Object.assign(s.override,patch);await assert.rejects(s.service.prepare(identity,{creation_id:creation}));assert.deepEqual(s.seq,[])})
 for(const patch of [{scopes:['user.info.basic']},{access_token_expires_at:new Date(0).toISOString()},{access_token_expires_at:null},{environment:'production'}])test('capability and lifetime reject '+JSON.stringify(patch),async()=>{const s=setup();Object.assign(s.connection,patch);await assert.rejects(s.service.prepare(identity,{creation_id:creation}),/reauthorization/);assert.deepEqual(s.seq,[])})
-test('confirm persists publish id before PUT; retries and reopens recover same job without another init',async()=>{
+test('confirm persists publish id before status recovery; retries and reopens recover same job without another init',async()=>{
  const s=setup(),input=await ready(s);const result=await s.service.confirm(identity,input)
- assert.equal(result.job.status,'processing');assert.ok(s.seq.indexOf('uploading')<s.seq.indexOf('PUT'))
+ assert.equal(result.job.status,'processing');assert.ok(s.seq.indexOf('initializing')<s.seq.indexOf('INIT'));assert.ok(s.seq.indexOf('INIT')<s.seq.indexOf('processing'))
  await s.service.confirm(identity,input);await s.service.prepare(identity,{creation_id:creation})
- assert.equal(s.seq.filter(v=>v==='POST').length,1);assert.equal(s.seq.filter(v=>v==='PUT').length,1)
- s.advance();const status=await s.service.status(identity,{job_id:key});assert.equal(status.job.status,'published');assert.equal(s.seq.filter(v=>v==='POST').length,1)
+ assert.equal(s.seq.filter(v=>v==='INIT').length,1)
+ s.advance();const status=await s.service.status(identity,{job_id:key});assert.equal(status.job.status,'published');assert.equal(s.seq.filter(v=>v==='INIT').length,1)
 })
-test('mocked FILE_UPLOAD lifecycle reaches processing then PUBLISH_COMPLETE with SELF_ONLY',async()=>{
- const s=setup(),phases=[{status:'processing',provider_status:'PROCESSING_UPLOAD'},{status:'published',provider_status:'PUBLISH_COMPLETE'}],requests=[]
+test('mocked PULL_FROM_URL lifecycle reaches processing then PUBLISH_COMPLETE with SELF_ONLY',async()=>{
+ const s=setup(),phases=[{status:'processing',provider_status:'PROCESSING_DOWNLOAD'},{status:'published',provider_status:'PUBLISH_COMPLETE'}],requests=[]
  s.deps.client.status=async()=>({ok:true,data:phases.shift()})
- s.deps.uploadFetch=async(url,request)=>{
-  requests.push({url,method:request.method,headers:request.headers,body:request.body})
-  if(request.method==='POST')return new Response(JSON.stringify({error:{code:'ok'},data:{publish_id:'fixture-publish',upload_url:'https://open-upload.tiktokapis.com/video/?upload_id=fixture&upload_token=fixture'}}),{status:200})
-  return new Response('',{status:201})
- }
+ s.deps.client.init=async input=>{requests.push(input);return {ok:true,publishId:'fixture-publish'}}
  const input=await ready(s);assert.equal(input.options.privacy_level,'SELF_ONLY')
  assert.equal((await s.service.confirm(identity,input)).job.status,'processing')
- assert.equal(requests[0].method,'POST');const init=JSON.parse(requests[0].body);assert.equal(init.source_info.source,'FILE_UPLOAD');assert.equal(init.source_info.video_size,bytes.byteLength);assert.equal(init.source_info.chunk_size,bytes.byteLength);assert.equal(init.source_info.total_chunk_count,1)
- assert.equal(requests[1].method,'PUT');assert.equal(requests[1].headers['Content-Type'],'video/mp4');assert.equal(requests[1].headers['Content-Length'],String(bytes.byteLength));assert.equal(requests[1].headers['Content-Range'],'bytes 0-'+(bytes.byteLength-1)+'/'+bytes.byteLength)
+ assert.equal(requests.length,1);assert.equal(requests[0].postInfo.privacy_level,'SELF_ONLY');assert.match(requests[0].videoUrl,/^https:\/\/www\.smartcorretorai\.com\/api\/tiktok-video\//);assert.ok(requests[0].videoUrl.includes('?e='));assert.ok(requests[0].videoUrl.includes('&s='));assert.equal(s.seq.includes('PUT'),false)
  s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'processing')
  s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'published')
 })
-test('double confirmation races never send two init requests',async()=>{const s=setup(),input=await ready(s);await Promise.all([s.service.confirm(identity,input),s.service.confirm(identity,input)]);assert.equal(s.seq.filter(v=>v==='POST').length,1)})
+test('double confirmation races never send two init requests',async()=>{const s=setup(),input=await ready(s);await Promise.all([s.service.confirm(identity,input),s.service.confirm(identity,input)]);assert.equal(s.seq.filter(v=>v==='INIT').length,1)})
 test('same idempotency key with changed intent rejected',async()=>{const s=setup(),input=await ready(s);await s.service.confirm(identity,input);await assert.rejects(s.service.confirm(identity,{...input,options:{...options,title:'changed'}}),/idempotency_conflict/)})
 test('changed media/connection version blocks before job',async()=>{const s=setup(),input=await ready(s);s.connection.token_version++;await assert.rejects(s.service.confirm(identity,input),/media_changed/);assert.equal(s.job(),null)})
 test('missing consent/private branded options blocked before init',async()=>{for(const patch of [{consent:{...consent,confirmed:false}},{options:{...options,brand_content_toggle:true}}]){const s=setup(),input=await ready(s);await assert.rejects(s.service.confirm(identity,{...input,...patch}));assert.equal(s.job(),null)}})
-test('init timeout reconciles without PUT or retry',async()=>{const s=setup();s.deps.uploadFetch=async()=>{s.seq.push('POST');throw Error('timeout')};const input=await ready(s);assert.equal((await s.service.confirm(identity,input)).job.status,'reconciliation_required');await s.service.confirm(identity,input);assert.equal(s.seq.filter(x=>x==='POST').length,1);assert.ok(!s.seq.includes('PUT'))})
+test('init timeout reconciles without a second INIT or PUT',async()=>{const s=setup();s.deps.client.init=async()=>{s.seq.push('INIT');return {ok:false,error:{ambiguous:true}}};const input=await ready(s);assert.equal((await s.service.confirm(identity,input)).job.status,'reconciliation_required');await s.service.confirm(identity,input);assert.equal(s.seq.filter(x=>x==='INIT').length,1);assert.ok(!s.seq.includes('PUT'))})
 test('deterministic INIT rejection returns only sanitized diagnostic fields',async()=>{
- const s=setup();s.deps.uploadFetch=async(_,init)=>{s.seq.push(init.method);return new Response(JSON.stringify({error:{code:'invalid_param',message:'Invalid post_info privacy_level',log_id:'safe_log_123'}}),{status:400})}
- const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,status:'failed',provider_status:null,retryable:true,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|upload_token|open_id/)
+ const s=setup();s.deps.client.init=async()=>({ok:false,error:{ambiguous:false,httpStatus:400,providerCode:'invalid_param',providerMessage:'Invalid post_info privacy_level',providerLogId:'safe_log_123'}})
+ const result=await s.service.confirm(identity,await ready(s));assert.deepEqual(result.job,{job_id:key,status:'failed',provider_status:null,retryable:true,failure_stage:'init',provider_http_status:400,provider_error_code:'invalid_param',provider_error_message:'Invalid post_info privacy_level',provider_log_id:'safe_log_123'});assert.doesNotMatch(JSON.stringify(result),/fictional-access|open_id/)
 })
 test('non-INIT jobs keep the V10 public job fallback without diagnostics',()=>assert.deepEqual(publicJob({id:key,status:'failed',provider_status:null,failure_stage:'upload',provider_http_status:500,provider_error_code:'unexpected'}),{job_id:key,status:'failed',provider_status:null}))
 test('failed INIT without publish id or upload is retryable, while a publish id remains recoverable',()=>{
@@ -108,9 +100,9 @@ test('irrecoverable no-publish job closes without deletion and a new intent can 
  const closed=await s.service.close_irrecoverable(identity,{job_id:key});assert.equal(closed.job.status,'failed');assert.equal(s.job().closure_reason,'init_no_publish_id_irrecoverable')
  const prepared=await s.service.prepare(identity,{creation_id:creation});assert.ok(prepared.preparation)
  const input={creation_id:creation,idempotency_key:'55555555-5555-4555-8555-555555555555',preparation:prepared.preparation,options:{...options},consent:{...consent}}
- assert.equal((await s.service.confirm(identity,input)).job.status,'processing');assert.equal(s.seq.filter(x=>x==='POST').length,1)
+ assert.equal((await s.service.confirm(identity,input)).job.status,'processing');assert.equal(s.seq.filter(x=>x==='INIT').length,1)
 })
-test('failed publish id acknowledgement prevents PUT and later status reconciles',async()=>{const s=setup();const transition=s.deps.repository.transition;s.deps.repository.transition=async(j,n,d)=>{if(n==='uploading')throw Error('ack_unknown');return transition(j,n,d)};const input=await ready(s);await s.service.confirm(identity,input);assert.ok(!s.seq.includes('PUT'));s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'reconciliation_required')})
+test('failed publish id acknowledgement prevents status polling and later reconciles',async()=>{const s=setup();const transition=s.deps.repository.transition;s.deps.repository.transition=async(j,n,d)=>{if(n==='processing')throw Error('ack_unknown');return transition(j,n,d)};const input=await ready(s);await s.service.confirm(identity,input);assert.equal(s.seq.includes('status'),false);s.advance();assert.equal((await s.service.status(identity,{job_id:key})).job.status,'reconciliation_required')})
 test('429 prepare is explicit and does not create job',async()=>{const s=setup();s.setCreatorError({ok:false,error:{category:'rate_limit'}});await assert.rejects(s.service.prepare(identity,{creation_id:creation}),/rate_limit/);assert.equal(s.job(),null)})
 test('HTTP JWT/Admin gate executes before service and forbids extra fields',async()=>{
  let calls=0;const handler=createPostingHandler({origin:'https://app.example.test',authorize:async jwt=>{if(jwt!=='fixture-admin')throw Error();return identity},service:{prepare:async()=>{calls++;return {}}}})

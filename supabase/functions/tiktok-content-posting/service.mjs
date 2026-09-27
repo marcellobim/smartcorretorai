@@ -1,6 +1,6 @@
 import {fingerprint,prepareJob,VIDEO_IMOBILIARIO_FILE,VIDEO_IMOBILIARIO_MODE} from '../_shared/tiktok-posting/contract.mjs'
 import {creatorSnapshot,confirmedPostInfo} from '../_shared/tiktok-posting/posting-options.mjs'
-import {executeFileUpload} from '../_shared/tiktok-posting/file-upload.mjs'
+import {executePullFromUrl} from '../_shared/tiktok-posting/pull-from-url.mjs'
 const terminal=new Set(['published','failed','blocked'])
 export const isRecoveryCandidate=j=>Boolean(j)&&(!terminal.has(j.status)||Boolean(j.publish_id)||Number(j.upload_attempts)>0)
 export const publicJob=j=>({job_id:j.id,status:j.status,provider_status:j.provider_status||null,
@@ -78,7 +78,7 @@ export function createPostingService(d){
    try{job=await d.repository.claim(job.id,job.revision)}catch{return {job:publicJob(await d.job(i,job.id)||job)}}
    job=await d.repository.transition(job,'queued')
    try{
-    await executeFileUpload({job,repository:d.repository,accessToken:m.token,loadBytes:async()=>m.bytes,fetcher:d.uploadFetch,now:now(),initTelemetry:d.initTelemetry})
+    await executePullFromUrl({job,repository:d.repository,accessToken:m.token,client:d.client,pullUrl:d.pullUrl,now:now()})
    }catch{
     // Never retry init after an unknown response or failed persistence acknowledgement.
     const current=await d.job(i,job.id)
