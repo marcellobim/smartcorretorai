@@ -1,4 +1,5 @@
 import { formatBrazilianPhone } from '../../../../supabase/functions/_shared/product3-contract.ts'
+import { BRAND } from '../../config/brand'
 import { validateGoogleAdsDelivery } from '../../../../supabase/functions/_shared/google-ads.ts'
 
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
@@ -287,7 +288,7 @@ export function buildCampaignPackage(input = {}) {
         campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
       ].filter(Boolean),
       strategy: [
-        '💡 Dica SmartCorretorAI — Sua campanha está pronta! Agora é o momento de colocá-la em ação. Baixe seus materiais para mantê-los sempre disponíveis e publique o quanto antes. Depois, aproveite este mesmo imóvel para criar novos vídeos, banners e campanhas com os outros produtos do SmartCorretorAI. Assim, você mantém suas redes sempre atualizadas com conteúdos variados e aumenta suas oportunidades de alcançar novos clientes.',
+        `💡 Dica ${BRAND.name} — Sua campanha está pronta! Agora é o momento de colocá-la em ação. Baixe seus materiais para mantê-los sempre disponíveis e publique o quanto antes. Depois, aproveite este mesmo imóvel para criar novos vídeos, banners e campanhas com os outros produtos do ${BRAND.name}. Assim, você mantém suas redes sempre atualizadas com conteúdos variados e aumenta suas oportunidades de alcançar novos clientes.`,
         '🚀 Continue gerando resultados — Quem publica com frequência permanece em evidência. Aproveite que todas as informações deste imóvel já estão organizadas e crie novas versões da campanha em diferentes formatos. Em poucos minutos você terá conteúdo suficiente para vários dias de divulgação, economizando tempo e fortalecendo sua presença nas redes sociais.',
         'Lembre-se: quanto mais conteúdos de qualidade você publicar, maiores serão suas oportunidades de gerar novos contatos e negócios.',
       ],

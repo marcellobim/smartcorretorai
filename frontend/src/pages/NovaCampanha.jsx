@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { BRAND } from '../config/brand'
 import { Sparkles, MessageCircle, Copy, Download, CheckCircle2, Plus, Camera, X, Send, AlertCircle, Zap, Video, Instagram, Youtube, Building2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../components/layout/Header'
@@ -195,7 +196,7 @@ const PRODUCT_CONTEXTS = {
     headerSubtitle: 'O contexto do Banner Imobiliário será preservado neste fluxo.',
     propertyEyebrow: 'Banner Imobiliário',
     propertyTitle: 'Cadastro padrão do imóvel',
-    propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. Nenhum cadastro paralelo será criado.',
+    propertySubtitle: `Use os mesmos dados oficiais do ${BRAND.name}. Nenhum cadastro paralelo será criado.`,
     uploadEyebrow: 'Upload do Banner Imobiliário',
     uploadTitle: 'Envie as fotos do imóvel',
     photosSubtitle: 'As fotos serão usadas como base visual do Banner Imobiliário.',
@@ -217,7 +218,7 @@ const PRODUCT_CONTEXTS = {
     headerSubtitle: 'O contexto do Transformar Meu Vídeo será preservado neste fluxo.',
     propertyEyebrow: 'Transformar Meu Vídeo',
     propertyTitle: 'Cadastro padrão do imóvel',
-    propertySubtitle: 'Use os mesmos dados oficiais do SmartCorretorAI. O vídeo será obrigatório apenas neste produto.',
+    propertySubtitle: `Use os mesmos dados oficiais do ${BRAND.name}. O vídeo será obrigatório apenas neste produto.`,
     uploadEyebrow: 'Upload do Transformar Meu Vídeo',
     uploadTitle: 'Envie seu vídeo',
     photosSubtitle: 'Fotos podem apoiar o material. O envio de vídeo será obrigatório para este produto na etapa final.',
@@ -1634,7 +1635,7 @@ function AgendamentoPopup({ titulo, onClose }) {
     const diasMap = { seg: 0, ter: 1, qua: 2, qui: 3, sex: 4, sab: 5, dom: 6 }
     const [h, m] = horario.split(':').map(Number)
 
-    let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SmartCorretorAI//PT\r\n'
+    let ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//${BRAND.name}//PT\r\n`
     cronograma.forEach(({ dia, peca }) => {
       const diaObj = DIAS_SEMANA.find(d => d.label === dia)
       if (!diaObj) return
@@ -1644,7 +1645,7 @@ function AgendamentoPopup({ titulo, onClose }) {
       dt.setHours(h, m, 0, 0)
       const dtEnd = new Date(dt); dtEnd.setMinutes(dt.getMinutes() + 30)
       const fmt = d => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-      ics += `BEGIN:VEVENT\r\nDTSTART:${fmt(dt)}\r\nDTEND:${fmt(dtEnd)}\r\nSUMMARY:${peca.icon} ${peca.nome} — ${titulo}\r\nDESCRIPTION:Publicar conteúdo gerado pelo SmartCorretorAI\r\nEND:VEVENT\r\n`
+      ics += `BEGIN:VEVENT\r\nDTSTART:${fmt(dt)}\r\nDTEND:${fmt(dtEnd)}\r\nSUMMARY:${peca.icon} ${peca.nome} — ${titulo}\r\nDESCRIPTION:Publicar conteúdo gerado pelo ${BRAND.name}\r\nEND:VEVENT\r\n`
     })
     ics += 'END:VCALENDAR'
 

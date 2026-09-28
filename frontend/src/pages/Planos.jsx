@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Coins, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -163,7 +164,7 @@ export default function Planos() {
           </Link>
           <div className="flex items-center gap-2">
             <BrandMark size={32} decorative />
-            <span className="font-black text-gray-950">SmartCorretorAI</span>
+            <span className="font-black text-gray-950">{BRAND.name}</span>
           </div>
         </div>
 
@@ -373,7 +374,7 @@ export default function Planos() {
               Dúvidas ou sugestões? Fale com a gente.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
-              Use este canal para suporte, sugestões ou qualquer assunto relacionado ao SmartCorretorAI.
+              Use este canal para suporte, sugestões ou qualquer assunto relacionado ao {BRAND.name}.
             </p>
             <a
               href="mailto:suporte@smartcorretorai.com"

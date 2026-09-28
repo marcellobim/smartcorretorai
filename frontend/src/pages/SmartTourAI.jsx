@@ -1,4 +1,5 @@
 import { VIDEO_REAUTH_MESSAGE, isVideoSessionInvalid, requireVideoSession, validVideoUploads, verifyVideoUploads } from '../lib/smart-tour-auth-recovery'
+import { BRAND } from '../config/brand'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
@@ -532,13 +533,13 @@ export default function SmartTourAI() {
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
   return <>
-    <Header title={SMART_TOUR_PRODUCT_NAME} subtitle="O SmartCorretorAI organiza o contexto. A IA faz o trabalho pesado." />
+    <Header title={SMART_TOUR_PRODUCT_NAME} subtitle={`${BRAND.name} organiza o contexto. A IA faz o trabalho pesado.`} />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="smart-tour-title"
         productName="Vídeo Imobiliário"
         headline="Transforme as fotos dos seus imóveis em comerciais profissionais."
-        description="Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante."
+        description={`Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O ${BRAND.name} faz o restante.`}
       />
 
       <ProductCard className="mt-8 p-5 sm:p-7">

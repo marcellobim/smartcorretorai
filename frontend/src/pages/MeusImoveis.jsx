@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BRAND } from '../config/brand'
 import {
   Bed,
   Camera,
@@ -859,7 +860,7 @@ function EmptyMasterState({ search }) {
       <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">
         {search
           ? 'Tente buscar por outro bairro, cidade ou título.'
-          : 'O Cadastro Mestre concentra dados, fotos e destaques para todos os produtos do SmartCorretorAI.'}
+          : `O Cadastro Mestre concentra dados, fotos e destaques para todos os produtos do ${BRAND.name}.`}
       </p>
     </div>
   )
