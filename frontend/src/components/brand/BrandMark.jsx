@@ -1,3 +1,5 @@
+﻿import { BRAND } from '../../config/brand'
+
 const SOURCE_SIZES = [32, 64, 128, 256, 512, 1024]
 
 function getSourceSize(size) {
@@ -6,7 +8,7 @@ function getSourceSize(size) {
 
 export default function BrandMark({
   size = 32,
-  alt = 'SmartCorretorAI',
+  alt = BRAND.name,
   decorative = false,
   className = '',
 }) {
