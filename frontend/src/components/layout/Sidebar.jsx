@@ -21,35 +21,38 @@ import { useAuth } from '../../lib/auth-context'
 import toast from 'react-hot-toast'
 import { formatSmartTokens, getSmartTokenBalance, isTrialUser } from '../../lib/smart-tokens'
 import BrandMark from '../brand/BrandMark'
+import { useLocale } from '../../i18n/useLocale'
 
-const navigationGroups = [
+const navigationGroups = t => [
   {
-    label: 'Principal',
+    id: 'principal',
+    label: t('navigation.principal'),
     items: [
-      { to: '/dashboard', icon: Home, label: 'Home' },
-      { to: '/raio-x-anuncio', icon: Radar, label: 'Raio-X' },
+      { to: '/dashboard', icon: Home, label: t('navigation.home') },
+      { to: '/raio-x-anuncio', icon: Radar, label: t('navigation.adRadar') },
     ],
   },
   {
-    label: 'Criar',
+    id: 'criar',
+    label: t('navigation.create'),
     items: [
-      { to: '/smart-tour-ai', icon: Video, label: 'Vídeo Imobiliário' },
-      { to: '/hero', icon: Image, label: 'Banner Imobiliário' },
-      { to: '/studio-hero', icon: Sparkles, label: 'Studio IA' },
-      { to: '/virtual-staging', icon: Box, label: 'Smart Space' },
-      { to: '/nova-campanha', icon: LayoutTemplate, label: 'Banners Rápidos' },
-      { to: '/campanha-de-textos', icon: FileText, label: 'Campanha de Textos' },
+      { to: '/smart-tour-ai', icon: Video, label: t('navigation.realEstateVideo') },
+      { to: '/hero', icon: Image, label: t('navigation.realEstateBanner') },
+      { to: '/studio-hero', icon: Sparkles, label: t('navigation.aiStudio') },
+      { to: '/virtual-staging', icon: Box, label: t('navigation.smartSpace') },
+      { to: '/nova-campanha', icon: LayoutTemplate, label: t('navigation.quickBanners') },
+      { to: '/campanha-de-textos', icon: FileText, label: t('navigation.textCampaign') },
     ],
   },
 ]
 
-const customerNavigationGroups = navigationGroups.map(group => ({ ...group, items: visibleProducts(group.items) })).filter(group => group.items.length)
+const customerNavigationGroups = t => navigationGroups(t).map(group => ({ ...group, items: visibleProducts(group.items) })).filter(group => group.items.length)
 
-const accountItems = [
-  { to: '/configuracoes?tab=cadastro', icon: Settings, label: 'Configurações' },
+const accountItems = t => [
+  { to: '/configuracoes?tab=cadastro', icon: Settings, label: t('navigation.settings') },
 ]
 
-const smartTokensItem = { to: '/planos', label: 'Smart Tokens' }
+const smartTokensItem = t => ({ to: '/planos', label: t('sidebar.smartTokens.label') })
 
 function SidebarLink({ item, onNavigate }) {
   const location = useLocation()
@@ -94,20 +97,21 @@ function SidebarLink({ item, onNavigate }) {
   )
 }
 
-function SmartTokensLink({ profile, onNavigate }) {
+function SmartTokensLink({ profile, onNavigate, t }) {
   const balance = getSmartTokenBalance({ saldo_creditos: profile?.saldo_creditos })
   const trial = isTrialUser(profile)
   const showBalance = balance !== null && (!trial || balance > 0)
+  const item = smartTokensItem(t)
 
   return (
     <div>
       {showBalance && (
         <p className="px-3 pb-1 text-xs font-bold text-slate-500">
-          Saldo: <span className="font-black text-primary-800">{formatSmartTokens(balance)} ST</span>
+          {t('sidebar.smartTokens.balance')} <span className="font-black text-primary-800">{formatSmartTokens(balance)} {t('sidebar.smartTokens.unit')}</span>
         </p>
       )}
       <NavLink
-        to={smartTokensItem.to}
+        to={item.to}
         onClick={onNavigate}
         className={({ isActive }) => `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition-all duration-150 ${
           isActive
@@ -120,9 +124,9 @@ function SmartTokensLink({ profile, onNavigate }) {
             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-primary-700'}`}>
               <Coins className="h-4 w-4" />
             </span>
-            <span className="min-w-0 flex-1 truncate">Smart Tokens</span>
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
             <span className={`text-[10px] font-black ${isActive ? 'text-white' : 'text-primary-700'}`}>
-              Adicionar
+              {t('sidebar.smartTokens.add')}
             </span>
           </>
         )}
@@ -133,8 +137,8 @@ function SmartTokensLink({ profile, onNavigate }) {
 
 function NavigationGroup({ group, onNavigate }) {
   return (
-    <section aria-labelledby={`sidebar-${group.label.toLowerCase()}`}>
-      <h2 id={`sidebar-${group.label.toLowerCase()}`} className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+    <section aria-labelledby={`sidebar-${group.id}`}>
+      <h2 id={`sidebar-${group.id}`} className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
         {group.label}
       </h2>
       <div className="mt-1.5 space-y-1">
@@ -148,12 +152,13 @@ function NavigationGroup({ group, onNavigate }) {
 
 export default function Sidebar({ mobile = false, onClose }) {
   const { user, profile, logout, isAdmin } = useAuth()
+  const { t } = useLocale()
   const displayName =
     user?.displayName ||
     user?.full_name ||
     user?.nome ||
     (user?.email ? user.email.split('@')[0] : null) ||
-    'Usuário'
+    t('sidebar.userFallback')
 
   const handleLogout = async () => {
     try {
@@ -165,19 +170,19 @@ export default function Sidebar({ mobile = false, onClose }) {
   }
 
   return (
-    <aside className="flex h-dvh w-64 flex-col overflow-hidden border-r border-gray-200 bg-white" aria-label="Menu principal">
+    <aside className="flex h-dvh w-64 flex-col overflow-hidden border-r border-gray-200 bg-white" aria-label={t('sidebar.mainMenu')}>
       <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-5 py-4">
         <BrandMark size={36} decorative />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-gray-900">{BRAND.name}</p>
-          <p className="text-xs text-gray-400">Inteligência que vende.</p>
+          <p className="text-xs text-gray-400">{t('sidebar.tagline')}</p>
         </div>
         {mobile && (
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            aria-label="Fechar menu"
+            aria-label={t('sidebar.closeMenu')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -185,17 +190,17 @@ export default function Sidebar({ mobile = false, onClose }) {
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
-        {customerNavigationGroups.map(group => (
-          <NavigationGroup key={group.label} group={group} onNavigate={onClose} />
+        {customerNavigationGroups(t).map(group => (
+          <NavigationGroup key={group.id} group={group} onNavigate={onClose} />
         ))}
 
         <section aria-labelledby="sidebar-conta">
           <h2 id="sidebar-conta" className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-            Conta
+            {t('navigation.account')}
           </h2>
           <div className="mt-1.5 space-y-1">
-            <SmartTokensLink profile={profile} onNavigate={onClose} />
-            {accountItems.map(item => (
+            <SmartTokensLink profile={profile} onNavigate={onClose} t={t} />
+            {accountItems(t).map(item => (
               <SidebarLink key={item.label} item={item} onNavigate={onClose} />
             ))}
           </div>
@@ -204,10 +209,10 @@ export default function Sidebar({ mobile = false, onClose }) {
         {isAdmin && (
           <section aria-labelledby="sidebar-administracao">
             <h2 id="sidebar-administracao" className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-              Administração
+              {t('navigation.administration')}
             </h2>
             <div className="mt-1.5">
-              <SidebarLink item={{ to: '/admin', icon: Shield, label: 'Admin' }} onNavigate={onClose} />
+              <SidebarLink item={{ to: '/admin', icon: Shield, label: t('navigation.admin') }} onNavigate={onClose} />
             </div>
           </section>
         )}
@@ -226,8 +231,8 @@ export default function Sidebar({ mobile = false, onClose }) {
             type="button"
             onClick={handleLogout}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-            title="Sair"
-            aria-label="Sair"
+            title={t('sidebar.logout')}
+            aria-label={t('sidebar.logout')}
           >
             <LogOut className="h-4 w-4" />
           </button>
