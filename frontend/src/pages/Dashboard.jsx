@@ -34,6 +34,7 @@ import {
   ProductSectionHeading,
   SMART_UI,
 } from '../components/design-system'
+import { useLocale } from '../i18n/useLocale'
 const VIRTUAL_STAGING_BEFORE_IMAGE = '/virtual-staging/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/virtual-staging/virtual-staging-after.png'
 
@@ -41,104 +42,108 @@ const PLANS_ROUTE = '/planos'
 const SMART_TOKENS_LABEL = ['Smart', 'Tokens'].join(' ')
 const HOME_PAGE_CLASS = 'mx-auto w-full max-w-[92rem] px-smart-page py-6 sm:py-8'
 
-const mainActions = visibleProducts([
+const mainActions = t => visibleProducts([
   {
     id: 'smart-tour-ai',
-    title: 'Vídeo Imobiliário',
-    description: 'Transforme as fotos do imóvel em um vídeo pronto para apresentar e divulgar.',
+    title: t('dashboard.actions.realEstateVideo.title'),
+    description: t('dashboard.actions.realEstateVideo.description'),
     to: '/smart-tour-ai',
-    label: 'Criar vídeo',
+    label: t('dashboard.actions.realEstateVideo.label'),
     tone: 'violet',
     icon: Video,
   },
   {
     id: 'hero-ia',
-    title: 'Banner Imobiliário',
-    description: 'Crie uma peça visual profissional para destacar o imóvel em anúncios e redes sociais.',
+    title: t('dashboard.actions.realEstateBanner.title'),
+    description: t('dashboard.actions.realEstateBanner.description'),
     to: '/hero',
-    label: 'Criar Banner',
+    label: t('dashboard.actions.realEstateBanner.label'),
     tone: 'mint',
     icon: ImageIcon,
   },
   {
     id: 'comercial-imobiliario',
-    title: 'Comercial Imobiliário',
-    description: 'Transforme uma imagem do imóvel em um comercial profissional para divulgação.',
+    title: t('dashboard.actions.realEstateCommercial.title'),
+    description: t('dashboard.actions.realEstateCommercial.description'),
     to: '/studio-hero',
-    label: 'Criar comercial',
+    label: t('dashboard.actions.realEstateCommercial.label'),
     tone: 'blue',
     icon: Film,
   },
   {
     id: 'video-criativo',
-    title: 'Vídeo Criativo',
-    description: 'Transforme uma ideia em um vídeo criativo exclusivo, pronto para divulgação.',
+    title: t('dashboard.actions.creativeVideo.title'),
+    description: t('dashboard.actions.creativeVideo.description'),
     to: '/studio-hero',
-    label: 'Criar vídeo criativo',
+    label: t('dashboard.actions.creativeVideo.label'),
     tone: 'cyan',
     icon: Wand2,
   },
   {
     id: 'smart-carrossel',
-    title: 'Smart Carrossel',
-    description: 'Organize suas imagens em uma apresentação dinâmica para redes sociais e campanhas.',
+    title: t('dashboard.actions.smartCarousel.title'),
+    description: t('dashboard.actions.smartCarousel.description'),
     to: '/smart-carrossel',
-    label: 'Criar carrossel',
+    label: t('dashboard.actions.smartCarousel.label'),
     tone: 'violet',
     icon: ImagePlus,
   },
   {
     id: 'smart-space',
-    title: 'Smart Space',
-    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
+    title: t('dashboard.actions.smartSpace.title'),
+    description: t('dashboard.actions.smartSpace.description'),
     to: '/virtual-staging',
-    label: 'Transformar espaço',
+    label: t('dashboard.actions.smartSpace.label'),
     tone: 'cyan',
     icon: Box,
   },
   {
     id: 'vida-no-imovel',
-    title: 'Vida no Imóvel',
-    description: 'Crie cenas naturais com pessoas utilizando os ambientes e torne a apresentação mais envolvente.',
+    title: t('dashboard.actions.propertyLife.title'),
+    description: t('dashboard.actions.propertyLife.description'),
     to: '/virtual-staging',
-    label: 'Dar vida ao imóvel',
+    label: t('dashboard.actions.propertyLife.label'),
     tone: 'peach',
     icon: Heart,
   },
   {
     id: 'apresentacao-corretor',
-    title: 'Apresentação pelo Corretor',
-    description: 'Use sua própria imagem para apresentar o imóvel de forma profissional e personalizada.',
+    title: t('dashboard.actions.agentPresentation.title'),
+    description: t('dashboard.actions.agentPresentation.description'),
     to: '/virtual-staging',
-    label: 'Criar apresentação',
+    label: t('dashboard.actions.agentPresentation.label'),
     tone: 'blue',
     icon: UserRound,
   },
   {
     id: 'banners-rapidos',
-    title: 'Banners Rápidos',
-    description: 'Monte materiais consistentes a partir de modelos profissionais.',
+    title: t('dashboard.actions.quickBanners.title'),
+    description: t('dashboard.actions.quickBanners.description'),
     to: '/nova-campanha',
-    label: 'Criar banners',
+    label: t('dashboard.actions.quickBanners.label'),
     tone: 'peach',
     icon: Zap,
   },
 ])
 
-const textCampaignAction = Object.freeze({
+const textCampaignAction = t => Object.freeze({
   id: 'campanha-de-textos',
-  title: 'Campanha de Textos',
-  description: 'Transforme as informações do imóvel em textos prontos para divulgar em diferentes canais.',
+  title: t('dashboard.textCampaign.title'),
+  description: t('dashboard.textCampaign.description'),
   to: '/campanha-de-textos',
-  label: 'Criar campanha',
+  label: t('dashboard.textCampaign.label'),
 })
 
-const homeGroups = visibleProducts([
-  { id: 'video', title: 'VÍDEO', description: 'Crie vídeos para apresentar e divulgar seus imóveis.', to: '/dashboard?grupo=video', label: 'Ver produtos de vídeo', icon: Video, tone: 'violet', products: ['smart-tour-ai', 'comercial-imobiliario', 'video-criativo'] },
-  { id: 'imagem', title: 'IMAGEM', description: 'Crie banners, transforme ambientes e prepare carrosséis.', to: '/dashboard?grupo=imagem', label: 'Ver produtos de imagem', icon: ImageIcon, tone: 'mint', products: ['hero-ia', 'smart-space', 'banners-rapidos', 'smart-carrossel'] },
-  { id: 'texto', title: 'TEXTO', description: textCampaignAction.description, to: textCampaignAction.to, label: 'Abrir Campanha de Textos', icon: FileText, tone: 'gold' },
-  { id: 'analisar', title: 'ANALISAR', description: 'Analise seu anúncio com o Raio-X e descubra oportunidades de melhoria.', to: '/raio-x-anuncio', label: 'Abrir Raio-X', icon: Radar, tone: 'cyan' },
-]).map(group => ({ ...group, ...(group.products ? { products: group.products.filter(id => mainActions.some(action => action.id === id)) } : {}) })).filter(group => !group.products || group.products.length)
+const homeGroups = t => {
+  const textCampaign = textCampaignAction(t)
+  const actions = mainActions(t)
+  return visibleProducts([
+    { id: 'video', title: t('dashboard.groups.video.title'), description: t('dashboard.groups.video.description'), to: '/dashboard?grupo=video', label: t('dashboard.groups.video.label'), icon: Video, tone: 'violet', products: ['smart-tour-ai', 'comercial-imobiliario', 'video-criativo'] },
+    { id: 'imagem', title: t('dashboard.groups.image.title'), description: t('dashboard.groups.image.description'), to: '/dashboard?grupo=imagem', label: t('dashboard.groups.image.label'), icon: ImageIcon, tone: 'mint', products: ['hero-ia', 'smart-space', 'banners-rapidos', 'smart-carrossel'] },
+    { id: 'texto', title: t('dashboard.groups.text.title'), description: textCampaign.description, to: textCampaign.to, label: t('dashboard.groups.text.label'), icon: FileText, tone: 'gold' },
+    { id: 'analisar', title: t('dashboard.groups.analyze.title'), description: t('dashboard.groups.analyze.description'), to: '/raio-x-anuncio', label: t('dashboard.groups.analyze.label'), icon: Radar, tone: 'cyan' },
+  ]).map(group => ({ ...group, ...(group.products ? { products: group.products.filter(id => actions.some(action => action.id === id)) } : {}) })).filter(group => !group.products || group.products.length)
+}
 
 const productTones = Object.freeze({
   violet: 'bg-violet-500',
@@ -149,147 +154,137 @@ const productTones = Object.freeze({
   gold: 'bg-amber-500',
 })
 
-const heroMediaItems = visibleProducts([
+const heroMediaItems = t => visibleProducts([
   {
     id: 'video-imobiliario',
-    label: 'Vídeo Imobiliário',
+    label: t('dashboard.carousel.realEstateVideo'),
     src: '/demos-videos/animar-imagens.mp4',
     type: 'video',
   },
   {
     id: 'banner-imobiliario',
-    label: 'Banner Imobiliário',
+    label: t('dashboard.carousel.realEstateBanner'),
     src: '/showcase/hero/hero-principal 1.jpg',
     type: 'image',
   },
   {
     id: 'virtual-space',
-    label: 'Smart Space',
+    label: t('dashboard.carousel.smartSpace'),
     beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE,
     src: VIRTUAL_STAGING_AFTER_IMAGE,
     type: 'comparison',
   },
   {
     id: 'studio-ia',
-    label: 'Studio IA',
+    label: t('dashboard.carousel.aiStudio'),
     src: '/showcase/smartcarrossel/showcase-carrossel.mp4',
     type: 'video',
   },
   {
     id: 'banners-rapidos',
-    label: 'Banners Rápidos',
+    label: t('dashboard.carousel.quickBanners'),
     src: '/previews/produto3/anuncio-premium-preview-1x1.jpg',
     type: 'image',
   },
 ])
 
-const benefits = [
+const benefits = t => [
   {
     icon: Gauge,
-    title: 'Agilidade com qualidade',
-    description: 'Fluxos guiados para criar com clareza e avançar sem etapas desnecessárias.',
+    title: t('dashboard.benefits.agility.title'),
+    description: t('dashboard.benefits.agility.description'),
   },
   {
     icon: ShieldCheck,
-    title: 'Seguro e privado',
-    description: 'Acesso protegido pela sua conta e controle sobre os materiais enviados.',
+    title: t('dashboard.benefits.security.title'),
+    description: t('dashboard.benefits.security.description'),
   },
   {
     icon: Coins,
-    title: 'Economia inteligente',
-    description: 'Use seus Smart Tokens conforme o recurso escolhido para cada criação.',
+    title: t('dashboard.benefits.savings.title'),
+    description: t('dashboard.benefits.savings.description'),
   },
   {
     icon: BadgeCheck,
-    title: 'Materiais prontos para divulgar',
-    description: 'Baixe, revise e publique nos canais adequados para o seu imóvel.',
+    title: t('dashboard.benefits.materials.title'),
+    description: t('dashboard.benefits.materials.description'),
   },
 ]
 
-const faqItems = [
+const faqItems = t => [
   {
-    question: 'Qual produto devo usar para o que preciso criar?',
-    answer: `Para vídeos do imóvel, use Vídeo Imobiliário. Banner Imobiliário cria uma campanha visual guiada, ${QUICK_BANNERS_AVAILABLE ? 'enquanto Banners Rápidos parte de modelos profissionais.' : 'com diferentes formatos de divulgação.'} Comercial Imobiliário, Vídeo Criativo e Smart Carrossel atendem diferentes formatos de campanha. Smart Space transforma ambientes, Vida no Imóvel e Apresentação pelo Corretor criam novas formas de apresentar, e Campanha de Textos prepara conteúdo escrito para diferentes canais. Produtos elegíveis também podem entregar conteúdo textual preparado para uso manual no Google Ads.`,
+    question: t('dashboard.faq.items.product.question'),
+    answer: t(QUICK_BANNERS_AVAILABLE ? 'dashboard.faq.items.product.answerWithQuickBanners' : 'dashboard.faq.items.product.answerWithoutQuickBanners'),
   },
   {
-    question: `Preciso assinar um plano ou posso comprar ${SMART_TOKENS_LABEL} quando precisar?`,
-    answer: `Você pode escolher um plano para uso frequente ou adquirir ${SMART_TOKENS_LABEL} separadamente quando precisar de mais capacidade. Consulte sua contratação em Configurações → Plano e Assinatura; para saldo e capacidade adicional, use Smart Tokens na Sidebar.`,
-    link: { to: PLANS_ROUTE, label: `Ir para ${SMART_TOKENS_LABEL}` },
+    question: t('dashboard.faq.items.plan.question'), answer: t('dashboard.faq.items.plan.answer'), link: { to: PLANS_ROUTE, label: t('dashboard.faq.items.plan.link') },
   },
   {
-    question: `Como funcionam os ${SMART_TOKENS_LABEL}? E se uma geração der erro?`,
-    answer: `${SMART_TOKENS_LABEL} são usados nas criações conforme o recurso escolhido. Quando uma geração falha ou não é concluída corretamente, a reserva é cancelada e os tokens não são consumidos; você não precisa solicitar estorno manual por essa criação.`,
-    link: { to: PLANS_ROUTE, label: `Ir para ${SMART_TOKENS_LABEL} na Sidebar` },
+    question: t('dashboard.faq.items.tokens.question'), answer: t('dashboard.faq.items.tokens.answer'), link: { to: PLANS_ROUTE, label: t('dashboard.faq.items.tokens.link') },
   },
   {
-    question: `Quais são os planos do ${BRAND.name}?`,
-    answer: 'Os planos são indicados principalmente para quem cria com frequência e oferecem capacidade recorrente conforme a opção contratada. Consulte seu plano atual em Configurações → Plano e Assinatura, onde também há acesso às condições disponíveis.',
-    link: { to: '/configuracoes?tab=plano', label: 'Ver Plano e Assinatura' },
+    question: `${t('dashboard.faq.items.plans.questionPrefix')} ${BRAND.name}?`, answer: t('dashboard.faq.items.plans.answer'), link: { to: '/configuracoes?tab=plano', label: t('dashboard.faq.items.plans.link') },
   },
   {
-    question: 'Posso cancelar minha assinatura quando quiser?',
-    answer: 'Sim. Em Configurações → Plano e Assinatura, use Gerenciar assinatura para abrir o portal seguro da Stripe. O cancelamento tem efeito ao final do período vigente, sem apagar Smart Tokens já concedidos.',
-    link: { to: '/configuracoes?tab=plano', label: 'Ver Plano e Assinatura' },
+    question: t('dashboard.faq.items.cancel.question'), answer: t('dashboard.faq.items.cancel.answer'), link: { to: '/configuracoes?tab=plano', label: t('dashboard.faq.items.cancel.link') },
   },
   {
-    question: `Meus ${SMART_TOKENS_LABEL} expiram?`,
-    answer: `${SMART_TOKENS_LABEL} comprados em recargas têm validade de 30 dias. Os tokens incluídos em assinaturas seguem as condições do ciclo e da oferta contratada.`,
-    link: { to: PLANS_ROUTE, label: `Ir para ${SMART_TOKENS_LABEL}` },
+    question: t('dashboard.faq.items.expiration.question'), answer: t('dashboard.faq.items.expiration.answer'), link: { to: PLANS_ROUTE, label: t('dashboard.faq.items.expiration.link') },
   },
   {
-    question: 'Como publico minhas criações nas redes sociais?',
-    answer: `Nos produtos compatíveis, você pode conectar uma conta do Instagram ou Facebook e publicar diretamente pelo ${BRAND.name}. Cada publicação depende da sua escolha e confirmação: antes do envio, você pode revisar a legenda, editar parte do texto, substituí-lo ou apagá-lo. Se preferir, também pode baixar o material e fazer a publicação manualmente no canal desejado.`,
+    question: t('dashboard.faq.items.publish.question'), answer: `${t('dashboard.faq.items.publish.answerPrefix')} ${BRAND.name}.${t('dashboard.faq.items.publish.answerSuffix')}`,
   },
   {
-    question: 'Onde altero meu e-mail de acesso ou minha senha?',
-    answer: 'O e-mail profissional fica em Configurações → Cadastro e pode ser usado nos seus materiais. Em Configurações → Acesso e Senha você identifica o e-mail de acesso/login e pode definir uma nova senha. A troca do e-mail de acesso não está disponível nessa tela.',
-    link: { to: '/configuracoes?tab=acesso', label: 'Ir para Acesso e Senha' },
+    question: t('dashboard.faq.items.access.question'), answer: t('dashboard.faq.items.access.answer'), link: { to: '/configuracoes?tab=acesso', label: t('dashboard.faq.items.access.link') },
   },
   {
-    question: 'Minhas criações ficam salvas?',
-    answer: `${BRAND.name} não oferece galeria ou armazenamento permanente. Baixe e salve sua criação assim que ela estiver pronta. Resultados e arquivos podem existir temporariamente por necessidade técnica, mas não há promessa de recuperação posterior pela interface; guarde localmente todo material que quiser conservar.`,
+    question: t('dashboard.faq.items.savedCreations.question'),
+    answer: `${BRAND.name} ${t('dashboard.faq.items.savedCreations.answerSuffix')}`,
   },
   {
-    question: `${BRAND.name} altera meus dados profissionais automaticamente?`,
-    answer: 'Não. Nome, telefone ou WhatsApp, e-mail profissional e CRECI são controlados por você em Configurações → Cadastro. Atualize esses dados sempre que necessário para que os produtos possam utilizar as informações corretas quando o layout comportar.',
-    link: { to: '/configuracoes?tab=cadastro', label: 'Ir para Cadastro' },
+    question: `${BRAND.name} ${t('dashboard.faq.items.professionalData.questionSuffix')}`,
+    answer: t('dashboard.faq.items.professionalData.answer'),
+    link: { to: '/configuracoes?tab=cadastro', label: t('dashboard.faq.items.professionalData.link') },
   },
   {
-    question: 'Quem é responsável pelas imagens, vídeos e materiais que eu envio?',
-    answer: `Você é responsável pelo conteúdo enviado e deve possuir as autorizações ou os direitos necessários para usar imagens, vídeos, marcas, textos e outros materiais. ${BRAND.name} não transfere esses direitos para sua conta.`,
-    link: { to: '/termos', label: 'Ver Termos de Uso' },
+    question: t('dashboard.faq.items.responsibility.question'),
+    answer: `${t('dashboard.faq.items.responsibility.answerPrefix')} ${BRAND.name} ${t('dashboard.faq.items.responsibility.answerSuffix')}`,
+    link: { to: '/termos', label: t('dashboard.faq.items.responsibility.link') },
   },
   {
-    question: 'A inteligência artificial pode cometer erros ou alterar algum detalhe?',
-    answer: 'Sim. Conteúdos gerados com IA podem apresentar erros, imprecisões ou variações. Revise as informações do imóvel, os textos e os elementos visuais antes de divulgar ou publicar o material.',
+    question: t('dashboard.faq.items.aiErrors.question'),
+    answer: t('dashboard.faq.items.aiErrors.answer'),
   },
   {
-    question: 'Ainda ficou com alguma dúvida ou quer falar com a gente?',
-    answer: 'Se você tiver dúvidas, sugestões, precisar de ajuda ou quiser nos contar sobre algum problema, entre em contato com nossa equipe. Vamos analisar sua mensagem e responder assim que possível.',
-    link: { href: `mailto:${BRAND.supportEmail}`, label: `Falar com o ${BRAND.name}` },
+    question: t('dashboard.faq.items.contact.question'),
+    answer: t('dashboard.faq.items.contact.answer'),
+    link: { href: `mailto:${BRAND.supportEmail}`, label: `${t('dashboard.faq.items.contact.linkPrefix')} ${BRAND.name}` },
   },
 ]
 
 export default function Dashboard() {
+  const { t } = useLocale()
   const [searchParams] = useSearchParams()
-  const selectedGroup = homeGroups.find(group => group.products && group.id === searchParams.get('grupo'))
+  const groups = homeGroups(t)
+  const actions = mainActions(t)
+  const selectedGroup = groups.find(group => group.products && group.id === searchParams.get('grupo'))
   const visibleActions = selectedGroup
-    ? selectedGroup.products.map(id => mainActions.find(action => action.id === id)).filter(Boolean)
-    : homeGroups
+    ? selectedGroup.products.map(id => actions.find(action => action.id === id)).filter(Boolean)
+    : groups
 
   return (
     <div className="min-w-0">
-      <Header title="Home" subtitle="Sua central de criação imobiliária" />
+      <Header title={t('dashboard.header.title')} subtitle={t('dashboard.header.subtitle')} />
 
       <main className={`${HOME_PAGE_CLASS} min-w-0`}>
         <ProductCard className="overflow-hidden border-slate-200 bg-white p-5 shadow-[0_28px_75px_-55px_rgba(15,23,42,0.38)] sm:p-7 lg:p-9">
           <div data-home-hero className="grid min-w-0 gap-8 lg:grid-cols-[minmax(350px,0.9fr)_minmax(480px,1.1fr)] lg:items-center">
             <div className="max-w-xl">
               <h1 className="text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl lg:text-[2.6rem] lg:leading-[1.08] xl:text-[2.85rem]">
-              O que vamos criar para o seu imóvel hoje?
+              {t('dashboard.hero.title')}
               </h1>
               <p className={`${SMART_UI.body} mt-4 max-w-lg`}>
-                Crie vídeos, imagens e campanhas profissionais para apresentar e divulgar seus imóveis.
+                {t('dashboard.hero.description')}
               </p>
             </div>
 
@@ -301,12 +296,12 @@ export default function Dashboard() {
           {selectedGroup && (
             <Link to="/dashboard" className={`mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl text-sm font-bold text-primary-900 ${SMART_UI.focus}`}>
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              Voltar aos grupos
+              {t('dashboard.backToGroups')}
             </Link>
           )}
           <ProductSectionHeading
             id="home-products-title"
-            title={selectedGroup ? selectedGroup.title : 'O que você quer criar hoje?'}
+            title={selectedGroup ? selectedGroup.title : t('dashboard.productsTitle')}
           />
           <div data-home-product-grid className="mt-5 grid min-w-0 auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visibleActions.map(action => (
@@ -316,7 +311,7 @@ export default function Dashboard() {
         </section>
 
         <ProductCard data-home-benefits className="mt-8 grid overflow-hidden border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
-          {benefits.map((benefit, index) => (
+          {benefits(t).map((benefit, index) => (
             <BenefitItem key={benefit.title} benefit={benefit} divided={index > 0} />
           ))}
         </ProductCard>
@@ -324,12 +319,12 @@ export default function Dashboard() {
         <section className="mt-5" aria-labelledby="home-faq-title">
           <ProductCard as="details" onToggle={handleFaqSectionToggle} className="group/faq-section overflow-hidden border-slate-200 bg-white" data-home-faq>
             <summary onKeyDown={handleFaqSectionSummaryKeyDown} className={`flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left marker:hidden sm:px-6 ${SMART_UI.focus}`}>
-              <h2 id="home-faq-title" className="text-base font-black text-slate-950 sm:text-lg">Perguntas frequentes</h2>
+              <h2 id="home-faq-title" className="text-base font-black text-slate-950 sm:text-lg">{t('dashboard.faq.title')}</h2>
               <Plus className="h-5 w-5 shrink-0 text-primary-600 group-open/faq-section:hidden" aria-hidden="true" />
               <Minus className="hidden h-5 w-5 shrink-0 text-primary-600 group-open/faq-section:block" aria-hidden="true" />
             </summary>
             <div className="border-t border-slate-200">
-              {faqItems.map(item => (
+              {faqItems(t).map(item => (
                 <FaqItem key={item.question} item={item} />
               ))}
             </div>
@@ -342,6 +337,7 @@ export default function Dashboard() {
 }
 
 function HeroMediaShowcase() {
+  const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(1)
   const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -349,7 +345,8 @@ function HeroMediaShowcase() {
   const [isUserPaused, setIsUserPaused] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const touchStartX = useRef(null)
-  const totalItems = heroMediaItems.length
+  const mediaItems = heroMediaItems(t)
+  const totalItems = mediaItems.length
   const isPaused = isHovered || isFocused || isTouching || isUserPaused || prefersReducedMotion
 
   useEffect(() => {
@@ -399,8 +396,8 @@ function HeroMediaShowcase() {
       data-home-hero-carousel
       className="relative min-w-0 touch-pan-y select-none"
       role="region"
-      aria-roledescription="carrossel"
-      aria-label={`Exemplos reais de materiais criados no ${BRAND.name}`}
+      aria-roledescription={t('dashboard.carousel.roleDescription')}
+      aria-label={`${t('dashboard.carousel.examplesCreatedBy')} ${BRAND.name}`}
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovered(true)}
@@ -414,7 +411,7 @@ function HeroMediaShowcase() {
       onTouchCancel={() => setIsTouching(false)}
     >
       <div className="relative h-[19rem] overflow-hidden rounded-3xl sm:h-[21rem] lg:h-[19rem]">
-        {heroMediaItems.map((item, index) => {
+        {mediaItems.map((item, index) => {
           const position = getCarouselPosition(index, activeIndex, totalItems)
           return (
             <HeroMediaCard
@@ -431,7 +428,7 @@ function HeroMediaShowcase() {
           type="button"
           onClick={() => moveBy(-1)}
           className={`absolute left-2 top-1/2 z-40 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white/90 text-primary-950 shadow-lg backdrop-blur transition hover:bg-white motion-reduce:transition-none ${SMART_UI.focus}`}
-          aria-label="Mostrar exemplo anterior"
+          aria-label={t('dashboard.carousel.previousExample')}
         >
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -439,20 +436,20 @@ function HeroMediaShowcase() {
           type="button"
           onClick={() => moveBy(1)}
           className={`absolute right-2 top-1/2 z-40 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white/90 text-primary-950 shadow-lg backdrop-blur transition hover:bg-white motion-reduce:transition-none ${SMART_UI.focus}`}
-          aria-label="Mostrar próximo exemplo"
+          aria-label={t('dashboard.carousel.nextExample')}
         >
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-center gap-2" aria-label="Selecionar exemplo">
-        {heroMediaItems.map((item, index) => (
+      <div className="mt-3 flex items-center justify-center gap-2" aria-label={t('dashboard.carousel.selectExample')}>
+        {mediaItems.map((item, index) => (
           <button
             key={item.id}
             type="button"
             onClick={() => moveTo(index)}
             className={`h-2 rounded-full transition-[width,background-color] duration-300 motion-reduce:transition-none ${index === activeIndex ? 'w-6 bg-primary-900' : 'w-2 bg-slate-300 hover:bg-slate-400'} ${SMART_UI.focus}`}
-            aria-label={`Mostrar ${item.label}`}
+            aria-label={`${t('dashboard.carousel.show')} ${item.label}`}
             aria-current={index === activeIndex ? 'true' : undefined}
           />
         ))}
@@ -463,14 +460,14 @@ function HeroMediaShowcase() {
             if (isUserPaused) event.currentTarget.blur()
           }}
           className={`ml-1 grid h-8 w-8 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-primary-950 motion-reduce:transition-none ${SMART_UI.focus}`}
-          aria-label={isUserPaused ? 'Retomar carrossel' : 'Pausar carrossel'}
+          aria-label={isUserPaused ? t('dashboard.carousel.resume') : t('dashboard.carousel.pause')}
         >
           {isUserPaused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
         </button>
       </div>
 
       <p className="sr-only" aria-live="polite">
-        {heroMediaItems[activeIndex].label}, exemplo {activeIndex + 1} de {totalItems}
+        {mediaItems[activeIndex].label}, {t('dashboard.carousel.example')} {activeIndex + 1} {t('dashboard.carousel.of')} {totalItems}
       </p>
     </div>
   )
@@ -491,6 +488,7 @@ function getCarouselPosition(index, activeIndex, totalItems) {
 }
 
 function HeroMediaCard({ item, isActive, position, shouldPlay }) {
+  const { t } = useLocale()
   const { label, src, beforeSrc, type } = item
   const videoRef = useRef(null)
 
@@ -509,15 +507,15 @@ function HeroMediaCard({ item, isActive, position, shouldPlay }) {
       aria-hidden={!isActive}
     >
       {type === 'video' && (
-        <video ref={videoRef} src={src} muted loop autoPlay={shouldPlay} playsInline preload={isActive ? 'metadata' : 'none'} draggable="false" aria-label={`Exemplo real de ${label}`} className="h-full w-full object-contain" />
+        <video ref={videoRef} src={src} muted loop autoPlay={shouldPlay} playsInline preload={isActive ? 'metadata' : 'none'} draggable="false" aria-label={`${t('dashboard.carousel.realExampleOf')} ${label}`} className="h-full w-full object-contain" />
       )}
       {type === 'image' && (
-        <img src={src} alt={`Exemplo real de ${label}`} draggable="false" className="h-full w-full object-contain" />
+        <img src={src} alt={`${t('dashboard.carousel.realExampleOf')} ${label}`} draggable="false" className="h-full w-full object-contain" />
       )}
       {type === 'comparison' && (
         <div className="grid h-full grid-cols-2">
-          <img src={beforeSrc} alt="Ambiente antes da transformação" draggable="false" className="h-full min-w-0 object-cover" />
-          <img src={src} alt="Ambiente depois da transformação" draggable="false" className="h-full min-w-0 object-cover" />
+          <img src={beforeSrc} alt={t('dashboard.carousel.beforeTransformation')} draggable="false" className="h-full min-w-0 object-cover" />
+          <img src={src} alt={t('dashboard.carousel.afterTransformation')} draggable="false" className="h-full min-w-0 object-cover" />
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/25" />
@@ -529,8 +527,8 @@ function HeroMediaCard({ item, isActive, position, shouldPlay }) {
       )}
       {type === 'comparison' && (
         <div className="absolute inset-x-0 bottom-2 flex justify-around text-[9px] font-black uppercase tracking-wide text-white">
-          <span>Antes</span>
-          <span>Depois</span>
+          <span>{t('dashboard.carousel.before')}</span>
+          <span>{t('dashboard.carousel.after')}</span>
         </div>
       )}
     </div>
@@ -538,6 +536,7 @@ function HeroMediaCard({ item, isActive, position, shouldPlay }) {
 }
 
 function ActionCard({ action, isGroup = false }) {
+  const { t } = useLocale()
   const Icon = action.icon
   const content = (
     <ProductCard
@@ -549,7 +548,7 @@ function ActionCard({ action, isGroup = false }) {
       <div className="flex-1">
         <Icon className="h-8 w-8 stroke-[1.65] text-primary-950" aria-hidden="true" />
         {['comercial-imobiliario', 'video-criativo'].includes(action.id) && (
-          <p className="mt-4 text-xs font-bold text-slate-500">Studio IA</p>
+          <p className="mt-4 text-xs font-bold text-slate-500">{t('dashboard.carousel.aiStudio')}</p>
         )}
         <h2 className="mt-5 text-base font-black tracking-[-0.02em] text-slate-950">{action.title}</h2>
         <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{action.description}</p>
