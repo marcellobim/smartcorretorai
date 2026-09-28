@@ -41,21 +41,27 @@ test('Vídeo Imobiliário saves and restores its allowlisted pre-generation flow
   assert.match(smartTour, /restoreProductDraftShape\(initialProperty, restoredTourDraft\.property\)/)
   assert.match(smartTour, /restoreProductDraftShape\(initialGeneration, restoredTourDraft\.generation\)/)
   assert.match(smartTour, /initialState: restoredTourDraft\.conversation/)
-  assert.match(smartTour, /activeInputFlow, property, generation, ctaEnabled, cta, includePhone, imageMetadata, shortVideoMetadata, conversation:/)
+  assert.match(smartTour, /activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity, imageMetadata, shortVideoMetadata, conversation:/)
   assert.match(smartTour, /toFileMetadata\(item\.file, order\)/)
   assert.match(smartTour, /Rascunho restaurado[\s\S]*arquivos físicos não são armazenados/)
   assert.doesNotMatch(smartTour, /tourDraft\.save\([^\n]*(?:\bFile\b|\bBlob\b|base64|objectURL|preview)/i)
 })
 
-test('Vídeo Imobiliário recovery preserves custom speech and property highlights independently', () => {
+test('Vídeo Imobiliário recovery preserves property data, custom speech, captions, CTA and professional identity independently', () => {
   const restored = restoreProductDraftShape(
     {
       property: { highlights: [] },
       generation: { presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: '', captions: '' },
+      ctaEnabled: false,
+      cta: '',
+      showProfessionalIdentity: false,
     },
     {
       property: { highlights: ['Vista para o mar', 'Varanda gourmet'] },
       generation: { presenterSpeechMode: 'custom', presenterCustomSpeech: 'Conheça este imóvel incrível.', narration: 'enabled', captions: 'disabled' },
+      ctaEnabled: true,
+      cta: 'Agende sua visita',
+      showProfessionalIdentity: true,
     },
   )
 
@@ -64,7 +70,11 @@ test('Vídeo Imobiliário recovery preserves custom speech and property highligh
   assert.equal(restored.generation.presenterCustomSpeech, 'Conheça este imóvel incrível.')
   assert.equal(restored.generation.narration, 'enabled')
   assert.equal(restored.generation.captions, 'disabled')
+  assert.equal(restored.ctaEnabled, true)
+  assert.equal(restored.cta, 'Agende sua visita')
+  assert.equal(restored.showProfessionalIdentity, true)
   assert.match(smartTour, /typeof restoredTourDraft\.ctaEnabled === 'boolean' \? restoredTourDraft\.ctaEnabled : null/)
+  assert.match(smartTour, /typeof restoredTourDraft\.showProfessionalIdentity === 'boolean' \? restoredTourDraft\.showProfessionalIdentity : null/)
 })
 
 test('Vídeo Imobiliário gives active-job recovery priority and restore has no economic side effects', () => {
@@ -73,7 +83,7 @@ test('Vídeo Imobiliário gives active-job recovery priority and restore has no 
   assert.doesNotMatch(draftEffect, /(?:functions\.invoke|storage\.from|createTour|reserve|consume|poll\()/i)
   assert.match(smartTour, /readSmartTourActiveJob\(sessionStorage\)[\s\S]*poll\(activeJob\.jobId\)/)
   assert.match(smartTour, /writeSmartTourActiveJob\(sessionStorage,[\s\S]{0,500}tourDraft\.clear\(\)/)
-  assert.match(smartTour, /const reset = \(\) => \{\s*tourDraft\.clear\(\)\s*clearSmartTourActiveJob/)
+  assert.match(smartTour, /const reset = \(\) => \{\s*setAuthRequired\(false\)\s*setResumeAfterLogin\(false\)\s*tourDraft\.clear\(\)\s*clearSmartTourActiveJob/)
 })
 
 test('Campanha de Textos saves/restores briefing and conversation without replacing request idempotency', () => {
