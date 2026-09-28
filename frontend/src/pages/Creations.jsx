@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Check, Download, FileText, Image, Info, Loader2, PackageOpen, Video, X } from 'lucide-react'
@@ -348,7 +349,7 @@ export default function Creations() {
             <Info className="h-4 w-4" aria-hidden="true" />
           </span>
           <p className="min-w-0 text-sm font-semibold leading-6 text-primary-950">
-            Baixe suas criações para guardá-las. Elas ficam disponíveis temporariamente por até 24 horas. Para acessar novamente depois, salve o conteúdo no seu dispositivo. Após o download ou a data de expiração indicada, a criação é removida do SmartCorretorAI.
+            Baixe suas criações para guardá-las. Elas ficam disponíveis temporariamente por até 24 horas. Para acessar novamente depois, salve o conteúdo no seu dispositivo. Após o download ou a data de expiração indicada, a criação é removida do {BRAND.name}.
           </p>
         </ProductCard>
 

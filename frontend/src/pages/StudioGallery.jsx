@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { ArrowLeft, Play, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, SMART_UI } from '../components/design-system'
@@ -124,7 +125,7 @@ export default function StudioGallery() {
         <header className="mt-5 overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#f0f7ff_52%,#faf5ff_100%)] text-slate-900 shadow-2xl shadow-blue-100/70">
           <ProductHero
             id="studio-gallery-title"
-            eyebrow="SmartCorretorAI"
+            eyebrow={BRAND.name}
             productName="Studio IA"
             headline="Inspire-se"
             description="Veja alguns exemplos do que o Smart Studio pode criar para você."
