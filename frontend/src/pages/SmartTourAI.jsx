@@ -440,6 +440,7 @@ export default function SmartTourAI() {
           generation: { ...apiGeneration, presenterGender: 'none' },
           selectedCta,
           includeProfessionalPhone: videoCtaEnabled && includePhone === true,
+          showProfessionalIdentity: showProfessionalIdentity === true,
           language: 'pt-BR',
         } })
         if (error || !data?.ok || !data?.jobId) {
@@ -469,7 +470,7 @@ export default function SmartTourAI() {
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
       let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, language: 'pt-BR' } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: 'pt-BR' } })
       if (await isVideoSessionInvalid(error, data)) {
         clearSmartTourActiveJob(sessionStorage)
         requireLogin()

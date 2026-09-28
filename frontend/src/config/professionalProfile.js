@@ -82,9 +82,14 @@ export function formatProfessionalIdentity(profile = {}, market = 'BR') {
 
 export function hasCompleteProfessionalIdentity(profile = {}, market = 'BR') {
   const config = getProfessionalProfileConfig(market)
+  const name = [
+    readProfileField(profile, config, 'displayName'),
+    readProfileField(profile, config, 'professionalName'),
+    profile.full_name,
+  ].map(value => String(value || '').trim()).find(Boolean)
   const state = String(readProfileField(profile, config, 'state') || '').trim()
   const credentialNumber = String(readProfileField(profile, config, config.identity.credentialKey) || '').trim()
-  if (!state || !credentialNumber) return false
+  if (!name || !state || !credentialNumber) return false
   if (config.market !== 'BR') return true
   return ['F', 'J'].includes(String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase())
 }

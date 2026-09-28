@@ -8,7 +8,7 @@ type JsonRecord = Record<string, unknown>
 type SmartTourComposableBriefing = SmartTourStructuredBriefing | ShortVideosStructuredBriefing
 export type SmartTourCaptionPlan = {
   durationSeconds: 10
-  blocks: Array<{ bloco: number; inicioSegundos: number; fimSegundos: number; texto: string; isClosing: boolean }>
+  blocks: Array<{ bloco: number; inicioSegundos: number; fimSegundos: number; texto: string; isClosing: boolean; isProfessionalIdentity?: boolean }>
 }
 type CaptionRenderStatus =
   | { status: 'processing' }
@@ -34,8 +34,9 @@ export function hasDeterministicSmartTourText(briefing: SmartTourComposableBrief
   const timedText = [
     ...(briefing.timeline?.legendas || []),
     ...(briefing.timeline?.cta ? [briefing.timeline.cta] : []),
+    ...(briefing.timeline?.identificacaoProfissional ? [briefing.timeline.identificacaoProfissional] : []),
   ]
-  return briefing.legendas.ativas && (timedText.some(block => Boolean(block.texto)) || briefing.cenas.some(scene => Boolean(scene.legenda)))
+  return timedText.some(block => Boolean(block.texto)) || briefing.cenas.some(scene => Boolean(scene.legenda))
 }
 
 export function parseSmartTourStructuredBriefing(value: unknown): SmartTourComposableBriefing {
@@ -47,7 +48,7 @@ export function parseSmartTourStructuredBriefing(value: unknown): SmartTourCompo
     if (briefing.versao === 'smart-tour-structured-briefing-v1' && briefing.cenas.length !== briefing.configuracoes?.quantidadeImagens) throw new Error('invalid')
     if (briefing.versao === 'short-videos-structured-briefing-v1' && (briefing.configuracoes?.quantidadeVideos !== 1 || briefing.cenas.length !== 1)) throw new Error('invalid')
     if (briefing.timeline) {
-      const blocks = [...briefing.timeline.legendas, ...briefing.timeline.narracao, briefing.timeline.cta]
+      const blocks = [...briefing.timeline.legendas, ...briefing.timeline.narracao, briefing.timeline.cta, ...(briefing.timeline.identificacaoProfissional ? [briefing.timeline.identificacaoProfissional] : [])]
       const validBlock = (block: { inicioSegundos: number; fimSegundos: number }) =>
         Number.isFinite(block.inicioSegundos) && Number.isFinite(block.fimSegundos) &&
         block.inicioSegundos >= 0 && block.fimSegundos > block.inicioSegundos && block.fimSegundos <= 10
@@ -81,6 +82,7 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
     ? [
         ...briefing.timeline.legendas.map(block => ({ ...block, isClosing: false })),
         { ...briefing.timeline.cta, isClosing: true },
+        ...(briefing.timeline.identificacaoProfissional ? [{ ...briefing.timeline.identificacaoProfissional, isClosing: false, isProfessionalIdentity: true }] : []),
       ]
     : legacyTextBlocks)
   const captionElements = timedTextBlocks.flatMap(block => {
@@ -88,29 +90,30 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
     const blockDuration = block.fimSegundos - block.inicioSegundos
     if (block.inicioSegundos < 0 || blockDuration <= 0 || block.fimSegundos > duration) throw new Error('smart_tour_caption_timeline_invalid')
     const isClosing = block.isClosing
+    const isProfessionalIdentity = Boolean(block.isProfessionalIdentity)
     const isControlledClosing = Boolean(controlledPlan) && isClosing
     return [{
-      name: `Smart-Tour-Caption-${block.bloco}`,
+      name: isProfessionalIdentity ? 'Smart-Tour-Professional-Identity' : `Smart-Tour-Caption-${block.bloco}`,
       type: 'text',
-      track: 2,
+      track: isProfessionalIdentity ? 3 : 2,
       time: block.inicioSegundos,
       duration: blockDuration,
       x: '50%',
-      y: isControlledClosing ? '50%' : isClosing ? '79%' : '82%',
-      width: '88%',
-      height: isControlledClosing ? '70%' : isClosing ? '18%' : '14%',
+      y: isProfessionalIdentity ? '16%' : isControlledClosing ? '50%' : isClosing ? '79%' : '82%',
+      width: isProfessionalIdentity ? '74%' : '88%',
+      height: isProfessionalIdentity ? '9%' : isControlledClosing ? '70%' : isClosing ? '18%' : '14%',
       x_alignment: '50%',
       y_alignment: '50%',
       text: block.texto,
       fill_color: '#ffffff',
       font_family: 'Inter',
-      font_weight: 700,
-      font_size: isClosing ? '5.8 vmin' : '4.8 vmin',
+      font_weight: isProfessionalIdentity ? 600 : 700,
+      font_size: isProfessionalIdentity ? '3.1 vmin' : isClosing ? '5.8 vmin' : '4.8 vmin',
       line_height: '112%',
       text_wrap: true,
-      background_color: isClosing ? 'rgba(5, 30, 18, 0.94)' : 'rgba(5, 30, 18, 0.86)',
-      background_x_padding: '16%',
-      background_y_padding: '16%',
+      background_color: isProfessionalIdentity ? 'rgba(5, 30, 18, 0.72)' : isClosing ? 'rgba(5, 30, 18, 0.94)' : 'rgba(5, 30, 18, 0.86)',
+      background_x_padding: isProfessionalIdentity ? '9%' : '16%',
+      background_y_padding: isProfessionalIdentity ? '8%' : '16%',
       background_border_radius: '18%',
     }]
   })

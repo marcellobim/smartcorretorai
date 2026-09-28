@@ -15,8 +15,8 @@ const LINEAR_NEXT_QUESTION = Object.freeze({
   phone: 'review',
 })
 
-export function shouldAskProfessionalIdentity({ captions = '', identity = '' } = {}) {
-  return captions === 'enabled' && Boolean(String(identity || '').trim())
+export function shouldAskProfessionalIdentity({ identity = '' } = {}) {
+  return Boolean(String(identity || '').trim())
 }
 
 export function getSmartTourNextQuestion({ questionId, answerId = '', mode = '' }) {

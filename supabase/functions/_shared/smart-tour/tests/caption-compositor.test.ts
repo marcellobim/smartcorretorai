@@ -157,6 +157,22 @@ test('deterministic compositor activates only for the selected captions and CTA 
   assert.equal(buildSmartTourCaptionRenderScript('https://example.com/base.mp4', neither).elements.filter(item => item.type === 'text').length, 0)
 })
 
+test('deterministic compositor renders a professional identity independently, before the CTA and outside narration', () => {
+  const identityBriefing = buildSmartTourStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
+    property: { purpose: 'sale', type: 'Apartamento', city: 'São Paulo', district: 'Moema' },
+    selectedCta: 'Fale comigo',
+    imagePaths: ['1.jpg'],
+    professionalIdentity: 'Riccieri — CRECI F 12345/SC',
+    language: 'pt-BR',
+  })
+  const identity = buildSmartTourCaptionRenderScript('https://example.com/base.mp4', identityBriefing).elements.find(item => item.name === 'Smart-Tour-Professional-Identity')
+  assert.equal(hasDeterministicSmartTourText(identityBriefing), true)
+  assert.deepEqual({ text: identity?.text, time: identity?.time, duration: identity?.duration, track: identity?.track, y: identity?.y }, { text: 'Riccieri — CRECI F 12345/SC', time: 6, duration: 2, track: 3, y: '16%' })
+  assert.equal(identityBriefing.timeline.narracao.some(block => block.texto.includes('Riccieri')), false)
+  assert.equal(identityBriefing.timeline.cta.texto.includes('Riccieri'), false)
+})
+
 test('Short Videos controlled plan limits information and turns the last two seconds into the CTA screen', () => {
   const shortBriefing = buildShortVideosStructuredBriefing({
     generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },

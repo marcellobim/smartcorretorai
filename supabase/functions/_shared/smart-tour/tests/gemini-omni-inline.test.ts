@@ -155,7 +155,7 @@ test('connects inline completion only to Video Imobiliario and preserves the ori
   assert.match(generator, /timeoutMs:resolveSmartTourInlineProviderTimeout\(Date\.now\(\) - requestStartedAt,110_000\)/)
   assert.match(generator, /startGeminiOmniShortVideo\(\{prompt:geminiPrompt,video:prepared\.video\}\)/)
   assert.match(generator, /persistSmartTourInlineVideo\(\{userId:user\.id,jobId:input\.clientRequestId,\.\.\.generated\}/)
-  assert.match(generator, /status:'completed',provider_job_id:interactionId,output_video_path:outputPath,completed_at:completedAt/)
+  assert.match(generator, /status:'completed',provider_job_id:interactionId,output_video_path:outputPath,(?:output_media_metadata:\{mime_type:generated\.contentType\},)?completed_at:completedAt/)
   assert.doesNotMatch(generator, /registerCompletedCreation|creationId|prepare\/confirm/)
   assert.match(status, /checkGeminiOmniVideoStream/)
 })

@@ -41,7 +41,7 @@ test('SmartCorretorAI builds the complete structured JSON without asking Gemini 
   assert.match(briefing.tarefa, /Sua criatividade deve ser utilizada para filmar\.\n\nNunca para redesenhar\./)
   assert.deepEqual(briefing.configuracoes, {
     modo: 'guided_tour', idioma: 'pt-BR', formato: '9:16', duracaoSegundos: 10,
-    quantidadeImagens: 5, narracaoAtiva: true, legendasAtivas: true, ctaAtivo: true,
+    quantidadeImagens: 5, narracaoAtiva: true, legendasAtivas: true, ctaAtivo: true, identificacaoProfissionalAtiva: false,
   })
   assert.deepEqual(briefing.imovel, {
     finalidade: 'Venda', tipo: 'Apartamento', estadoDoImovel: 'Pronto para morar',
@@ -274,6 +274,18 @@ test('disabled captions and CTA produce no visual text without changing duration
   assert.equal(disabled.timeline.cta.texto, '')
 })
 
+test('professional identity is a separate visual timeline block, never narration or CTA', () => {
+  const briefing = build({
+    generation: { ...generation, captions: 'disabled' },
+    professionalIdentity: 'Riccieri — CRECI F 12345/SC',
+  })
+  assert.equal(briefing.configuracoes.identificacaoProfissionalAtiva, true)
+  assert.deepEqual(briefing.identificacaoProfissional, { texto: 'Riccieri — CRECI F 12345/SC' })
+  assert.deepEqual(briefing.timeline.identificacaoProfissional, { bloco: 6, inicioSegundos: 6, fimSegundos: 8, texto: 'Riccieri — CRECI F 12345/SC' })
+  assert.ok(briefing.timeline.narracao.every(block => !block.texto.includes('Riccieri')))
+  assert.equal(briefing.timeline.cta.texto.includes('Riccieri'), false)
+})
+
 test('Gemini Omni receives the exact JSON as the only briefing text and remains the video generator', () => {
   const briefing = build()
   const prompt = buildSmartTourVideoPrompt(briefing)
@@ -291,7 +303,8 @@ test('Gemini Omni receives the exact JSON as the only briefing text and remains 
 
 test('active generation builds JSON locally, generates Gemini video, then composes selected text deterministically', () => {
   const source = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
-  assert.match(source, /buildSmartTourStructuredBriefing\(\{generation:input\.generation,property:input\.property,selectedCta:input\.selectedCta,phone,imagePaths:input\.imagePaths,language:input\.language\}\)/)
+  assert.match(source, /formatSmartTourProfessionalIdentity\(profile\)/)
+  assert.match(source, /professionalIdentity,imagePaths:input\.imagePaths,language:input\.language/)
   assert.match(source, /generateGeminiOmniVideoInline\(\{[\s\S]{0,100}prompt,[\s\S]{0,100}images,[\s\S]{0,160}timeoutMs:/)
   assert.match(source, /hasDeterministicSmartTourText\(briefing\)/)
   assert.match(source, /startSmartTourCaptionRender\(creatomateKey, rawUrl\.signedUrl, briefing\)/)

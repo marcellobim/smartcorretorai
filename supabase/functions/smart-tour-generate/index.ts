@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
-import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, formatSmartTourProfessionalIdentity, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { applySmartTourCustomPresenterSpeech, applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
 import { buildShortVideosCleanGeminiPrompt, buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
@@ -52,11 +52,12 @@ serve(withCors(async req => {
         if (existing.status === 'completed' || existing.status === 'failed') await settleGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,status:existing.status})
         return json({ok:true,jobId:existing.id,status:existing.status,hashtags:existing.marketing_hashtags || [],idempotent:true})
       }
-      const {data:profile} = await supabase.from('profiles').select('whatsapp, telefone').eq('id',user.id).maybeSingle()
+      const {data:profile} = await supabase.from('profiles').select(input.showProfessionalIdentity ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
       const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
+      const professionalIdentity = input.showProfessionalIdentity ? formatSmartTourProfessionalIdentity(profile) : ''
       const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
       const fallbackHashtags = buildOfficialHashtags(hashtagContext)
-      const fallbackBriefing = buildShortVideosStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,videoPath:input.videoPath,language:input.language})
+      const fallbackBriefing = buildShortVideosStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,professionalIdentity,videoPath:input.videoPath,language:input.language})
       const fallbackPrompt = JSON.stringify(fallbackBriefing)
       const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni_short_video',style:'short-videos',model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.videoPath,input_image_2_path:null,marketing_hashtags:fallbackHashtags,tokens_reserved:0,error_message:'stage:storage_validated'})
       if (insertError) throw new Error('job_create_failed')
@@ -129,11 +130,12 @@ serve(withCors(async req => {
       if (existing.status === 'completed' || existing.status === 'failed') await settleGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,status:existing.status})
       return json({ok:true,jobId:existing.id,status:existing.status,hashtags:existing.marketing_hashtags || [],idempotent:true})
     }
-    const {data:profile} = await supabase.from('profiles').select('whatsapp, telefone').eq('id',user.id).maybeSingle()
+    const {data:profile} = await supabase.from('profiles').select(input.showProfessionalIdentity ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
+    const professionalIdentity = input.showProfessionalIdentity ? formatSmartTourProfessionalIdentity(profile) : ''
     const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = buildOfficialHashtags(hashtagContext)
-    const baseBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,imagePaths:input.imagePaths,language:input.language})
+    const baseBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,professionalIdentity,imagePaths:input.imagePaths,language:input.language})
     const fallbackBriefing = input.generation.presenterSpeechMode === 'custom'
       ? applySmartTourCustomPresenterSpeech(baseBriefing,input.generation.presenterCustomSpeech)
       : baseBriefing

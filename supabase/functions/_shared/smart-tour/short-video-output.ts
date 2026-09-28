@@ -65,6 +65,8 @@ export function buildShortVideosCaptionPlan(briefing: ShortVideosStructuredBrief
   }
 
   const ctaText = [briefing.cta.titulo, briefing.cta.telefone].filter(Boolean).join('\n')
+  const professionalIdentity = briefing.timeline.identificacaoProfissional?.texto.trim() || ''
+  if (professionalIdentity) blocks.push({ bloco: 4, inicioSegundos: 6, fimSegundos: 8, texto: professionalIdentity, isClosing: false, isProfessionalIdentity: true })
   if (ctaText) blocks.push({ bloco: 3, inicioSegundos: 8, fimSegundos: 10, texto: ctaText, isClosing: true })
 
   return { durationSeconds: 10, blocks }

@@ -36,7 +36,7 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
     const wordCount = String(generation.presenterCustomSpeech ?? '').trim().split(/\s+/).filter(Boolean).length
     if (wordCount < 1 || wordCount > 25) throw new Error('invalid_presenter_custom_speech')
   }
-  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
+  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, showProfessionalIdentity: raw.showProfessionalIdentity === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR' }
 }
 
 export function validateShortVideosRequest(input: unknown): ShortVideosRequest {
@@ -61,6 +61,7 @@ export function validateShortVideosRequest(input: unknown): ShortVideosRequest {
     generation: { ...normalizeGeneration(raw.generation as Partial<SmartTourGenerationConfig> || {}), presenterGender: 'none' },
     selectedCta: clean(raw.selectedCta,120),
     includeProfessionalPhone: raw.includeProfessionalPhone === true,
+    showProfessionalIdentity: raw.showProfessionalIdentity === true,
     language: LANGUAGES.has(String(raw.language)) ? raw.language as ShortVideosRequest['language'] : 'pt-BR',
   }
 }

@@ -52,6 +52,16 @@ test('controlled plan uses at most two structured information blocks and one exa
   assert.doesNotMatch(plan.blocks.map(block => block.texto).join('\n'), /R\$ 750\.000|Varanda gourmet/)
 })
 
+test('controlled plan keeps professional identity visual and separate from the final CTA', () => {
+  const source = briefing({ selectedCta: 'Fale comigo' })
+  source.timeline.identificacaoProfissional.texto = 'Riccieri — CRECI F 12345/SC'
+  const plan = buildShortVideosCaptionPlan(source)
+  const identity = plan.blocks.find(block => block.isProfessionalIdentity)
+  const cta = plan.blocks.find(block => block.isClosing)
+  assert.deepEqual(identity, { bloco: 4, inicioSegundos: 6, fimSegundos: 8, texto: 'Riccieri — CRECI F 12345/SC', isClosing: false, isProfessionalIdentity: true })
+  assert.equal(cta?.inicioSegundos, 8)
+})
+
 test('CTA stays literal, is not fixed, and missing phone never invents a number', () => {
   for (const selectedCta of ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']) {
     const plan = buildShortVideosCaptionPlan(briefing({ selectedCta, phone: '' }))

@@ -130,9 +130,9 @@ test('automatic presenter speech and no presenter keep the current narration, hi
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'enabled' }), 'professional_identity')
 })
 
-test('asks professional identity only with on-screen captions and a formatted identity', () => {
+test('asks professional identity independently from on-screen captions when the identity is complete', () => {
   assert.equal(shouldAskProfessionalIdentity({ captions: 'enabled', identity: 'Riccieri — CRECI F 12345/SC' }), true)
-  assert.equal(shouldAskProfessionalIdentity({ captions: 'disabled', identity: 'Riccieri — CRECI F 12345/SC' }), false)
+  assert.equal(shouldAskProfessionalIdentity({ captions: 'disabled', identity: 'Riccieri — CRECI F 12345/SC' }), true)
   assert.equal(shouldAskProfessionalIdentity({ captions: 'enabled', identity: '' }), false)
   assert.match(smartTour, /showSummary=\{false\}/)
 })
@@ -141,6 +141,7 @@ test('keeps narration source independent when the presenter is edited and shows 
   assert.match(smartTour, /if \(questionId === 'presenter'\) setGeneration\(current => \(\{ \.\.\.current, presenterGender: '' \}\)\)/)
   assert.doesNotMatch(smartTour, /questionId === 'presenter'\) setGeneration\(current => \(\{ \.\.\.current, presenterGender: '', presenterSpeechMode/)
   assert.match(smartTour, /showProfessionalIdentity !== null \? \[\{ label: t\('smartTour\.professionalIdentity\.reviewLabel'\)/)
+  assert.match(smartTour, /showProfessionalIdentity: showProfessionalIdentity === true/)
   assert.match(smartTour, /label: t\('smartTour\.captions\.reviewLabel'\)/)
 })
 

@@ -129,6 +129,7 @@ export type SmartTourStructuredBriefing = {
     narracaoAtiva: boolean
     legendasAtivas: boolean
     ctaAtivo: boolean
+    identificacaoProfissionalAtiva: boolean
   }
   imovel: {
     finalidade: string
@@ -166,9 +167,11 @@ export type SmartTourStructuredBriefing = {
     legendas: SmartTourTimelineBlock[]
     narracao: SmartTourTimelineBlock[]
     cta: SmartTourTimelineBlock & { titulo: string; telefone: string }
+    identificacaoProfissional: SmartTourTimelineBlock
   }
   legendas: { ativas: boolean }
   cta: { titulo: string; telefone: string }
+  identificacaoProfissional: { texto: string }
   regrasPreservacao: {
     cenarioProtegido: true
     umaImagemPorCena: true
@@ -387,6 +390,7 @@ export function buildShortVideosStructuredBriefing(input: {
   property: PropertyContext
   selectedCta: string
   phone?: string
+  professionalIdentity?: string
   videoPath: string
   language: SupportedLanguage
 }): ShortVideosStructuredBriefing {
@@ -395,6 +399,7 @@ export function buildShortVideosStructuredBriefing(input: {
     property: input.property,
     selectedCta: input.selectedCta,
     phone: input.phone,
+    professionalIdentity: input.professionalIdentity,
     imagePaths: [input.videoPath],
     language: input.language,
     includePurposePresentation: true,
@@ -492,6 +497,7 @@ export function buildSmartTourStructuredBriefing(input: {
   property: PropertyContext
   selectedCta: string
   phone?: string
+  professionalIdentity?: string
   imagePaths: string[]
   language: SupportedLanguage
   includePurposePresentation?: boolean
@@ -501,6 +507,7 @@ export function buildSmartTourStructuredBriefing(input: {
   const tipoImovel = literal(input.property.type)
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
+  const professionalIdentity = String(input.professionalIdentity ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160)
   const includePurposePresentation = input.includePurposePresentation !== false
   const displayedPurpose = input.language === 'pt-BR' && includePurposePresentation
     ? purposePresentation(input.property.purpose)
@@ -530,6 +537,12 @@ export function buildSmartTourStructuredBriefing(input: {
     texto: ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '',
     titulo: ctaTitle,
     telefone: phone,
+  }
+  const professionalIdentityTimeline = {
+    bloco: 6,
+    inicioSegundos: ctaTitle ? 6 : 8,
+    fimSegundos: ctaTitle ? 8 : 10,
+    texto: professionalIdentity,
   }
   const types = sceneTypes(input.imagePaths.length)
   const scenes = input.imagePaths.map((image, index) => {
@@ -578,6 +591,7 @@ export function buildSmartTourStructuredBriefing(input: {
       narracaoAtiva: config.narration === 'enabled',
       legendasAtivas: config.captions === 'enabled',
       ctaAtivo: Boolean(ctaTitle),
+      identificacaoProfissionalAtiva: Boolean(professionalIdentity),
     },
     imovel: {
       finalidade,
@@ -605,11 +619,13 @@ export function buildSmartTourStructuredBriefing(input: {
       legendas: captionTimeline,
       narracao: narrationTimeline.map(({ tipo: _tipo, ...block }) => block),
       cta: ctaTimeline,
+      identificacaoProfissional: professionalIdentityTimeline,
     },
     legendas: {
       ativas: config.captions === 'enabled' || Boolean(ctaTitle),
     },
     cta: { titulo: ctaTitle, telefone: phone },
+    identificacaoProfissional: { texto: professionalIdentity },
     regrasPreservacao: {
       cenarioProtegido: true,
       umaImagemPorCena: true,
@@ -630,7 +646,8 @@ export function buildSmartTourStructuredBriefing(input: {
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
-      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Renderizar no próprio vídeo final exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos, da narração e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
+      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Renderizar no próprio vídeo final exclusivamente timeline.legendas, timeline.narracao, timeline.cta e timeline.identificacaoProfissional como fonte efetiva dos textos, da narração e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
+      { codigo: 'identificacao_profissional_visual_deterministica', valor: professionalIdentity ? 'timeline.identificacaoProfissional é uma sobreposição visual discreta do compositor determinístico. Nunca narrar, reescrever, completar ou incluir esse texto em legendas sociais.' : false },
       { codigo: 'legendas_sem_valores_comerciais_automaticos', valor: 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
