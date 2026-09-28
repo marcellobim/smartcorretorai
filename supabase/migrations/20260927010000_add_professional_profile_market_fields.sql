@@ -19,7 +19,7 @@ ALTER TABLE public.profiles
 -- Keep RLS ownership unchanged. Extend only the existing browser column grants.
 GRANT INSERT (market, display_name, creci_type, professional_role, license_number, sms, facebook, linkedin)
   ON TABLE public.profiles TO authenticated;
-GRANT UPDATE (market, display_name, creci_type, professional_role, license_number, sms, facebook, linkedin)
+GRANT UPDATE (market, display_name, creci_type, professional_role, license_number, sms, facebook, linkedin, instagram)
   ON TABLE public.profiles TO authenticated;
 GRANT ALL PRIVILEGES ON TABLE public.profiles TO service_role;
 
