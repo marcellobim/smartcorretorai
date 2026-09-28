@@ -135,6 +135,78 @@ export const SMART_TOUR_HIGHLIGHT_GROUPS = Object.freeze({
   ]),
 })
 
+const US_PROPERTY_TYPES = Object.freeze({
+  singleFamilyHome: 'us_single_family_home', condo: 'us_condo', townhouse: 'us_townhouse', multiFamily: 'us_multi_family',
+  apartment: 'us_apartment', studio: 'us_studio', landLot: 'us_land_lot', commercial: 'us_commercial',
+})
+
+const US_RESIDENTIAL_TYPES = Object.freeze([
+  US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily,
+  US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio,
+])
+
+const usHighlight = (value, labelKey, types) => Object.freeze({ value, labelKey, types: Object.freeze(types) })
+
+export const SMART_TOUR_US_HIGHLIGHT_GROUPS = Object.freeze([
+  Object.freeze({ id: 'location', labelKey: 'smartTour.highlightGroups.us.location', items: Object.freeze([
+    usHighlight('us_near_downtown', 'smartTour.highlights.us.nearDowntown', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_near_schools', 'smartTour.highlights.us.nearSchools', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.landLot]),
+    usHighlight('us_near_parks', 'smartTour.highlights.us.nearParks', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio, US_PROPERTY_TYPES.landLot]),
+    usHighlight('us_near_shopping', 'smartTour.highlights.us.nearShopping', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_easy_highway_access', 'smartTour.highlights.us.easyHighwayAccess', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.landLot, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_quiet_street', 'smartTour.highlights.us.quietStreet', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.landLot]),
+  ]) }),
+  Object.freeze({ id: 'communityHoa', labelKey: 'smartTour.highlightGroups.us.communityHoa', items: Object.freeze([
+    usHighlight('us_community_pool', 'smartTour.highlights.us.communityPool', [US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio]),
+    usHighlight('us_fitness_center', 'smartTour.highlights.us.fitnessCenter', [US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio]),
+    usHighlight('us_clubhouse', 'smartTour.highlights.us.clubhouse', [US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment]),
+    usHighlight('us_gated_community', 'smartTour.highlights.us.gatedCommunity', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily]),
+  ]) }),
+  Object.freeze({ id: 'propertyFeatures', labelKey: 'smartTour.highlightGroups.us.propertyFeatures', items: Object.freeze([
+    usHighlight('us_updated', 'smartTour.highlights.us.updated', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_new_construction', 'smartTour.highlights.us.newConstruction', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_move_in_ready', 'smartTour.highlights.us.moveInReady', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_open_floor_plan', 'smartTour.highlights.us.openFloorPlan', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_home_office', 'smartTour.highlights.us.homeOffice', US_RESIDENTIAL_TYPES),
+    usHighlight('us_walk_in_closet', 'smartTour.highlights.us.walkInCloset', US_RESIDENTIAL_TYPES),
+    usHighlight('us_gourmet_kitchen', 'smartTour.highlights.us.gourmetKitchen', US_RESIDENTIAL_TYPES),
+    usHighlight('us_covered_patio', 'smartTour.highlights.us.coveredPatio', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.condo]),
+    usHighlight('us_fenced_yard', 'smartTour.highlights.us.fencedYard', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily]),
+    usHighlight('us_high_ceilings', 'smartTour.highlights.us.highCeilings', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_natural_light', 'smartTour.highlights.us.naturalLight', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_fireplace', 'smartTour.highlights.us.fireplace', US_RESIDENTIAL_TYPES),
+  ]) }),
+  Object.freeze({ id: 'parking', labelKey: 'smartTour.highlightGroups.us.parking', items: Object.freeze([
+    usHighlight('us_garage', 'smartTour.highlights.us.garage', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_covered_parking', 'smartTour.highlights.us.coveredParking', [US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_assigned_parking', 'smartTour.highlights.us.assignedParking', [US_PROPERTY_TYPES.condo, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.apartment, US_PROPERTY_TYPES.studio]),
+  ]) }),
+  Object.freeze({ id: 'efficiencySmartHome', labelKey: 'smartTour.highlightGroups.us.efficiencySmartHome', items: Object.freeze([
+    usHighlight('us_solar_panels', 'smartTour.highlights.us.solarPanels', [US_PROPERTY_TYPES.singleFamilyHome, US_PROPERTY_TYPES.townhouse, US_PROPERTY_TYPES.multiFamily, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_energy_efficient', 'smartTour.highlights.us.energyEfficient', [...US_RESIDENTIAL_TYPES, US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_smart_home_features', 'smartTour.highlights.us.smartHomeFeatures', US_RESIDENTIAL_TYPES),
+  ]) }),
+  Object.freeze({ id: 'commercial', labelKey: 'smartTour.highlightGroups.us.commercial', items: Object.freeze([
+    usHighlight('us_high_visibility', 'smartTour.highlights.us.highVisibility', [US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_storefront', 'smartTour.highlights.us.storefront', [US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_ready_to_occupy', 'smartTour.highlights.us.readyToOccupy', [US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_customer_parking', 'smartTour.highlights.us.customerParking', [US_PROPERTY_TYPES.commercial]),
+    usHighlight('us_loading_access', 'smartTour.highlights.us.loadingAccess', [US_PROPERTY_TYPES.commercial]),
+  ]) }),
+  Object.freeze({ id: 'landLot', labelKey: 'smartTour.highlightGroups.us.landLot', items: Object.freeze([
+    usHighlight('us_corner_lot', 'smartTour.highlights.us.cornerLot', [US_PROPERTY_TYPES.landLot]),
+    usHighlight('us_cleared_lot', 'smartTour.highlights.us.clearedLot', [US_PROPERTY_TYPES.landLot]),
+    usHighlight('us_utilities_available', 'smartTour.highlights.us.utilitiesAvailable', [US_PROPERTY_TYPES.landLot]),
+    usHighlight('us_residential_zoning', 'smartTour.highlights.us.residentialZoning', [US_PROPERTY_TYPES.landLot]),
+    usHighlight('us_paved_road', 'smartTour.highlights.us.pavedRoad', [US_PROPERTY_TYPES.landLot]),
+  ]) }),
+])
+
+export const SMART_TOUR_HIGHLIGHT_CATALOG_BY_MARKET = Object.freeze({
+  BR: SMART_TOUR_HIGHLIGHT_GROUPS,
+  US: SMART_TOUR_US_HIGHLIGHT_GROUPS,
+})
+
 export const SMART_TOUR_HIGHLIGHTS = Object.freeze(Object.fromEntries(
   Object.entries(SMART_TOUR_HIGHLIGHT_GROUPS).map(([kind, groups]) => [kind, [...new Set(groups.flatMap(group => group.items))]]),
 ))
@@ -154,12 +226,17 @@ export function getSmartTourMeasureFields(type) {
   return SMART_TOUR_MEASURE_FIELDS[kind === 'house' ? 'residential' : kind]
 }
 
-export function getSmartTourHighlights(type) {
-  return SMART_TOUR_HIGHLIGHTS[getSmartTourPropertyKind(type)]
+export function getSmartTourHighlights(type, options = {}) {
+  return getSmartTourHighlightGroups(type, options)
+    .flatMap(group => group.items)
+    .map(item => typeof item === 'string' ? item : item.value)
 }
 
-export function getSmartTourHighlightGroups(type) {
-  return SMART_TOUR_HIGHLIGHT_GROUPS[getSmartTourPropertyKind(type)]
+export function getSmartTourHighlightGroups(type, options = {}) {
+  if (options?.market !== 'US') return SMART_TOUR_HIGHLIGHT_GROUPS[getSmartTourPropertyKind(type)]
+  return SMART_TOUR_US_HIGHLIGHT_GROUPS
+    .map(group => ({ ...group, items: group.items.filter(item => item.types.includes(type)) }))
+    .filter(group => group.items.length > 0)
 }
 
 export function normalizeSmartTourDistrict(value = '') {
