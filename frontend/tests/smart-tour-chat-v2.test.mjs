@@ -136,19 +136,22 @@ test('14. frontend forces the original property without virtual staging', () => 
   assert.doesNotMatch(page, /virtual_staging|before_after/)
 })
 
-test('15. asks the exact four formal independent questions', () => {
+test('15. asks the formal independent questions with localized caption and identity prompts', () => {
   for (const question of [
     'Deseja um apresentador virtual durante o vídeo?',
     'Deseja narração durante o vídeo?',
-    'Deseja destacar algumas informações importantes durante o vídeo?',
     'Deseja uma chamada para ação no final do vídeo?',
   ]) assert.ok(page.includes(question), question)
+  assert.match(page, /smartTour\.captions\.question/)
+  assert.match(page, /smartTour\.professionalIdentity\.question/)
 })
 
 test('16. history, summary and review reflect every independent choice', () => {
-  for (const label of ['Apresentador', 'Narração', 'Destaques no vídeo', 'CTA final', 'Chamada escolhida', 'Telefone']) assert.ok(page.includes(label), label)
+  for (const label of ['Apresentador', 'Narração', 'CTA final', 'Chamada escolhida', 'Telefone']) assert.ok(page.includes(label), label)
+  assert.match(page, /smartTour\.captions\.reviewLabel/)
+  assert.match(page, /smartTour\.professionalIdentity\.reviewLabel/)
   assert.match(page, /ctaEnabled === true \? cta : ''/)
-  assert.match(page, /ctaEnabled === true && includePhone === true/)
+  assert.match(page, /includeProfessionalPhone: videoCtaEnabled && includePhone === true/)
   assert.match(page, /reviewItems\.map/)
 })
 

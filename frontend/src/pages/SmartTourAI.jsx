@@ -13,6 +13,7 @@ import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useAuth } from '../lib/auth-context'
+import { useLocale } from '../i18n/useLocale'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import { restoreProductDraftShape, toFileMetadata } from '../lib/product-draft'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
@@ -22,7 +23,8 @@ import { clearPendingSmartTourPublication, preservePendingSmartTourPublication, 
 import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, parseLatestCompletedSmartTour, readSmartTourActiveJob, shouldRecoverSmartTourGenerateResponse, shouldRetrySmartTourStatusResponse, shouldRetryStartingJobNotFound, writeSmartTourActiveJob } from '../lib/smart-tour-job-recovery'
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
-import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../config/smartTourConversation'
+import { getSmartTourNextQuestion, getSmartTourReviewEditNext, shouldAskProfessionalIdentity } from '../config/smartTourConversation'
+import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
 import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, SHORT_VIDEOS_VISIBLE, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
@@ -57,27 +59,28 @@ const guideExamples = visibleExamples.map(example => ({
 }))
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const emptyFileMetadata = { name: '', size: 0, type: '', lastModified: 0, order: 0 }
-const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'presenter_speech_mode', 'presenter_custom_speech', 'narration', 'captions', 'cta_enabled', 'cta', 'phone', 'review']
+const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'presenter_speech_mode', 'presenter_custom_speech', 'narration', 'captions', 'professional_identity', 'cta_enabled', 'cta', 'phone', 'review']
 
 function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
   const presenterGender = ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none'
-  const presenterSpeechMode = presenterGender !== 'none' && value.presenterSpeechMode === 'custom' ? 'custom' : 'automatic'
-  return { ...value, mode: 'guided_tour', presenterGender, presenterSpeechMode, presenterCustomSpeech: presenterSpeechMode === 'custom' ? String(value.presenterCustomSpeech ?? '') : '', narration: presenterSpeechMode === 'custom' ? 'enabled' : value.narration === 'disabled' ? 'disabled' : 'enabled', captions: presenterSpeechMode === 'custom' ? 'disabled' : value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
+  const presenterSpeechMode = value.presenterSpeechMode === 'custom' ? 'custom' : 'automatic'
+  return { ...value, mode: 'guided_tour', presenterGender, presenterSpeechMode, presenterCustomSpeech: presenterSpeechMode === 'custom' ? String(value.presenterCustomSpeech ?? '') : '', narration: presenterSpeechMode === 'custom' ? 'enabled' : value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 }
 
 const countWords = value => String(value ?? '').trim().split(/\s+/).filter(Boolean).length
-function questionsFor(isShortVideos = false) {
+function questionsFor(isShortVideos = false, t = key => key) {
   const questions = [
     ['images', 1, isShortVideos ? 'Envie o vídeo original do imóvel.' : 'Envie até 5 fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
     ['stage', 2, 'Qual é o estado atual do imóvel?'], ['type', 2, 'Que tipo de imóvel vamos apresentar?'],
     ['facts', 2, 'Quais são as principais medidas?'], ['location', 2, 'Onde fica o imóvel?'],
     ['commercial', 2, 'Quais informações comerciais deseja incluir?'], ['highlights', 2, 'Quais são os principais destaques?'],
     ['presenter', 3, 'Deseja um apresentador virtual durante o vídeo?'],
-    ['presenter_speech_mode', 3, 'O que você quer que o Corretor Virtual fale?'],
-    ['presenter_custom_speech', 3, 'Escreva a fala do Corretor Virtual'],
+    ['presenter_speech_mode', 3, 'Como deseja definir a narração?'],
+    ['presenter_custom_speech', 3, 'Escreva sua narração'],
     ['narration', 3, 'Deseja narração durante o vídeo?'],
-    ['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo?'],
+    ['captions', 3, t('smartTour.captions.question')],
+    ['professional_identity', 4, t('smartTour.professionalIdentity.question')],
     ['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo?'],
   ]
   const completeQuestions = [...questions, ['cta', 4, 'Qual chamada deseja usar no final?'], ['phone', 4, 'Deseja divulgar seu telefone profissional?'], ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.']]
@@ -95,8 +98,8 @@ function smartTourConfirmation(id, answer, isShortVideos = false) {
     commercial: answer === 'Sem informações comerciais' ? 'Tudo bem! Seguiremos sem exibir valores comerciais.' : 'Perfeito! As informações comerciais foram registradas.',
     highlights: `Excelente! ${answer} foram selecionados para valorizar o imóvel.`,
     presenter: answer === 'Nenhum' ? 'Tudo certo! O vídeo seguirá sem apresentador virtual.' : `Perfeito! ${answer} fará a apresentação virtual.`,
-    presenter_speech_mode: answer === 'Apresentar o imóvel' ? 'Perfeito! O Smart criará a fala usando as informações do imóvel.' : 'Perfeito! Você definirá exatamente o que o Corretor Virtual vai dizer.',
-    presenter_custom_speech: 'Perfeito! A fala será usada exatamente como você escreveu.',
+    presenter_speech_mode: answer === 'Usar sugestão da SNETIA' ? 'Perfeito! A SNETIA criará a narração usando as informações do imóvel.' : 'Perfeito! Você definirá exatamente o que será narrado.',
+    presenter_custom_speech: 'Perfeito! A narração será usada exatamente como você escreveu.',
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
     captions: answer === 'Sim' ? 'Ótimo! Uma seleção curta de destaques poderá aparecer no vídeo.' : 'Tudo certo! As informações continuarão na campanha, mas não aparecerão no vídeo.',
     cta_enabled: answer === 'Sim' ? 'Perfeito! Agora escolha a chamada final.' : 'Tudo certo! O vídeo terminará naturalmente na última cena, sem chamada final.',
@@ -107,7 +110,8 @@ function smartTourConfirmation(id, answer, isShortVideos = false) {
 }
 
 export default function SmartTourAI() {
-  const { user, reloadProfile } = useAuth()
+  const { user, profile, reloadProfile } = useAuth()
+  const { market, t } = useLocale()
   const tourDraft = useProductDraft({ productKey: 'video-imobiliario', schemaVersion: 1, userId: user?.id })
   const restoredTourDraft = tourDraft.restoredDraft || {}
   const restoredInputFlow = restoredTourDraft.activeInputFlow === 'images' || (SHORT_VIDEOS_VISIBLE && restoredTourDraft.activeInputFlow === SHORT_VIDEOS_MODULE_ID) ? restoredTourDraft.activeInputFlow : null
@@ -136,13 +140,18 @@ export default function SmartTourAI() {
   const [ctaEnabled, setCtaEnabled] = useState(() => typeof restoredTourDraft.ctaEnabled === 'boolean' ? restoredTourDraft.ctaEnabled : null)
   const [cta, setCta] = useState(() => typeof restoredTourDraft.cta === 'string' ? restoredTourDraft.cta : '')
   const [includePhone, setIncludePhone] = useState(() => typeof restoredTourDraft.includePhone === 'boolean' ? restoredTourDraft.includePhone : null)
+  const [showProfessionalIdentity, setShowProfessionalIdentity] = useState(() => typeof restoredTourDraft.showProfessionalIdentity === 'boolean' ? restoredTourDraft.showProfessionalIdentity : null)
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
   const [activeInputFlow, setActiveInputFlow] = useState(restoredInputFlow)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTourDraft.conversation || null)
   const isShortVideos = activeInputFlow === SHORT_VIDEOS_MODULE_ID
-  const questions = useMemo(() => questionsFor(isShortVideos), [isShortVideos])
+  const questions = useMemo(() => questionsFor(isShortVideos, t), [isShortVideos, t])
+  const professionalMarket = user?.market === 'US' || market === 'US' ? 'US' : 'BR'
+  const professionalIdentity = formatProfessionalIdentity(profile || user || {}, professionalMarket)
+  const hasCompleteIdentity = hasCompleteProfessionalIdentity(profile || user || {}, professionalMarket)
+  const canAskProfessionalIdentity = hasCompleteIdentity && shouldAskProfessionalIdentity({ captions: generation.captions, identity: professionalIdentity })
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatBrazilianPhone(rawPhone)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
@@ -175,6 +184,7 @@ export default function SmartTourAI() {
       if (questionId === 'presenter_custom_speech') setGeneration(current => ({ ...current, presenterCustomSpeech: '' }))
       if (questionId === 'narration') setGeneration(current => ({ ...current, narration: '' }))
       if (questionId === 'captions') setGeneration(current => ({ ...current, captions: '' }))
+      if (questionId === 'professional_identity') setShowProfessionalIdentity(null)
       if (questionId === 'cta_enabled') { setCtaEnabled(null); setCta(''); setIncludePhone(null) }
       if (questionId === 'cta') setCta('')
       if (questionId === 'phone') setIncludePhone(null)
@@ -196,6 +206,7 @@ export default function SmartTourAI() {
       ...(shouldReset('captions') ? { captions: '' } : {}),
       furniture: 'original', stagingPresentation: 'final_only',
     }))
+    if (shouldReset('professional_identity')) setShowProfessionalIdentity(null)
     if (shouldReset('cta_enabled')) setCtaEnabled(null)
     if (shouldReset('cta')) setCta('')
     if (shouldReset('phone')) setIncludePhone(null)
@@ -223,13 +234,17 @@ export default function SmartTourAI() {
     const shortVideoMetadata = shortVideo?.file
       ? { ...toFileMetadata(shortVideo.file, 0), duration: shortVideo.duration }
       : missingShortVideoMetadata
-    const draft = { activeInputFlow, property, generation, ctaEnabled, cta, includePhone, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
+    const draft = { activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
     const meaningful = activeInputFlow || conversationSnapshot?.history?.length || imageMetadata.length || shortVideoMetadata || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
     if (!meaningful) { tourDraft.clear(); return }
     tourDraft.save(draft)
-  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, property, shortVideo, status, tourDraft, uploads, resumeAfterLogin])
+  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, property, shortVideo, showProfessionalIdentity, status, tourDraft, uploads, resumeAfterLogin])
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getSmartTourNextQuestion({ questionId: question[0], answerId, mode: generation.mode }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
+    const shouldShowProfessionalIdentity = question[0] === 'captions'
+      ? hasCompleteIdentity && shouldAskProfessionalIdentity({ captions: answerId, identity: professionalIdentity })
+      : canAskProfessionalIdentity
+    if (resolvedNextQuestionId === 'professional_identity' && !shouldShowProfessionalIdentity) resolvedNextQuestionId = 'cta_enabled'
     if (reviewEditRef.current) {
       resolvedNextQuestionId = getSmartTourReviewEditNext({ originQuestionId: reviewEditRef.current, questionId: question[0], answerId, mode: generation.mode })
       if (resolvedNextQuestionId === 'review') reviewEditRef.current = null
@@ -364,7 +379,7 @@ export default function SmartTourAI() {
   }
 
   const preserveBriefing = (resume = true) => tourDraft.replace({
-    activeInputFlow, property, generation, ctaEnabled, cta, includePhone,
+    activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity,
     imageMetadata: images.length ? images.map((item, order) => toFileMetadata(item.file, order)) : missingImageMetadata,
     shortVideoMetadata: shortVideo?.file ? { ...toFileMetadata(shortVideo.file), duration: shortVideo.duration } : missingShortVideoMetadata,
     conversation: conversationSnapshot, uploads: uploadsRef.current, resumeAfterLogin: resume,
@@ -406,8 +421,7 @@ export default function SmartTourAI() {
       const savedUploads = !isShortVideos && validVideoUploads(uploadsRef.current, user.id)
       const requestId = savedUploads?.requestId || crypto.randomUUID()
       const apiGeneration = normalizeGeneration(generation)
-      const customPresenterSpeech = !isShortVideos && apiGeneration.presenterSpeechMode === 'custom'
-      const videoCtaEnabled = ctaEnabled === true && !customPresenterSpeech
+      const videoCtaEnabled = ctaEnabled === true
       const selectedCta = videoCtaEnabled ? cta : ''
       if (isShortVideos) {
         const videoPath = buildShortVideoInputPath(user.id, requestId)
@@ -494,6 +508,7 @@ export default function SmartTourAI() {
     setCtaEnabled(null)
     setCta('')
     setIncludePhone(null)
+    setShowProfessionalIdentity(null)
     conversation.resetConversation()
     setStatus('idle')
     setMessage('')
@@ -523,10 +538,11 @@ export default function SmartTourAI() {
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
     ...(!isShortVideos ? [{ id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') }] : []),
-    ...(!isShortVideos && ['female','male'].includes(generation.presenterGender) ? [{ id: 'presenter_speech_mode', label: generation.presenterSpeechMode === 'custom' ? 'Escrever minha própria fala' : 'Apresentar o imóvel' }] : []),
+    ...(!isShortVideos ? [{ id: 'presenter_speech_mode', label: generation.presenterSpeechMode === 'custom' ? 'Escrever minha própria fala' : 'Usar sugestão da SNETIA' }] : []),
     ...(!isShortVideos && generation.presenterSpeechMode === 'custom' && generation.presenterCustomSpeech ? [{ id: 'presenter_custom_speech', label: generation.presenterCustomSpeech }] : []),
     { id: 'narration', label: generation.presenterSpeechMode === 'custom' ? 'Sim (implícita)' : generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' },
     { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
+    { id: 'professional_identity', label: showProfessionalIdentity === true ? professionalIdentity : showProfessionalIdentity === false ? t('smartTour.options.no') : '' },
     { id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' },
     { id: 'cta', label: ctaEnabled === true ? cta : '' },
     { id: 'phone', label: ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '') : '' },
@@ -576,13 +592,13 @@ export default function SmartTourAI() {
       questionNumber={questionIndex + 1}
       totalQuestions={questions.length}
       onEdit={editConversationAnswer}
-      summaryItems={summary}
+      showSummary={false}
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
       designSystem
       eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'}
     >
-      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
       </div>}
     </main>
@@ -782,7 +798,7 @@ function ExamplePlaceholder({ example, large = false }) {
 }
 
 function Question(props) {
-  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
+  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === item.id ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
@@ -838,30 +854,31 @@ function Question(props) {
   if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
   if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-primary-400 bg-primary-50 text-primary-900' : 'border-slate-200 bg-white hover:border-primary-300'}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'presenter')}</> }
-  if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterGender: value, presenterSpeechMode: 'automatic', presenterCustomSpeech: '' })) }))
-  if (id === 'presenter_speech_mode') return explainedChoices('Escolha como a fala do Corretor Virtual será definida.', [
-    {id:'automatic',label:'Apresentar o imóvel',description:'O Smart cria a fala usando as informações do imóvel.'},
-    {id:'custom',label:'Escrever minha própria fala',description:'Você escreve exatamente o que o Corretor Virtual vai dizer.'},
+  if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterGender: value })) }))
+  if (id === 'presenter_speech_mode') return explainedChoices('Escolha como a narração será definida.', [
+    {id:'automatic',label:'Usar sugestão da SNETIA',description:'A SNETIA cria a narração usando as informações do imóvel.'},
+    {id:'custom',label:'Escrever minha própria fala',description:'Você escreve exatamente o texto que será narrado.'},
   ], generation.presenterSpeechMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterSpeechMode: value, presenterCustomSpeech: '', ...(value === 'custom' ? { narration: 'enabled' } : {}) })) }))
   if (id === 'presenter_custom_speech') {
     const wordCount = countWords(generation.presenterCustomSpeech)
     const invalid = wordCount < 1 || wordCount > 25
     return <>
-      <label className="block text-sm font-black text-slate-800" htmlFor="presenter-custom-speech">Escreva a fala do Corretor Virtual</label>
+      <label className="block text-sm font-black text-slate-800" htmlFor="presenter-custom-speech">Escreva sua narração</label>
       <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">O vídeo tem 10 segundos. Escreva até 25 palavras para manter uma fala natural.</p>
       <textarea id="presenter-custom-speech" value={generation.presenterCustomSpeech} onChange={event => setGeneration(current => ({ ...current, presenterCustomSpeech: event.target.value, narration: 'enabled' }))} rows={5} className="mt-3 w-full rounded-smart-control border border-slate-200 bg-white p-3 text-sm leading-6 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
       <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold"><span className={wordCount > 25 ? 'text-red-600' : 'text-slate-500'}>{wordCount} / 25 palavras</span>{wordCount > 25 && <span role="alert" className="text-right text-red-600">Reduza a fala para no máximo 25 palavras.</span>}</div>
-      {cont(invalid, generation.presenterCustomSpeech, 'narration', applyCustomPresenterVideoChoices)}
+      {cont(invalid, generation.presenterCustomSpeech, 'captions', applyCustomPresenterVideoChoices)}
     </>
   }
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
-  if (id === 'captions') return explainedChoices('As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa. Ao escolher ‘Não’, elas apenas deixarão de aparecer durante o vídeo.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
+  if (id === 'captions') return explainedChoices(t('smartTour.captions.description'), [{id:'enabled',label:t('smartTour.options.yes')},{id:'disabled',label:t('smartTour.options.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
+  if (id === 'professional_identity') return explainedChoices(t('smartTour.professionalIdentity.description'), [{id:'yes',label:t('smartTour.options.yes'),description:professionalIdentity},{id:'no',label:t('smartTour.options.no')}], showProfessionalIdentity === true ? 'yes' : showProfessionalIdentity === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setShowProfessionalIdentity(value === 'yes') }))
   if (id === 'cta_enabled') return explainedChoices('Ao final do vídeo poderá ser exibido um convite para contato utilizando as informações do seu cadastro profissional.', [{id:'yes',label:'Sim'},{id:'no',label:'Não'}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   const finalChoiceItems = [
     ...(!isShortVideos ? [{ label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' }] : []),
-    ...(!isShortVideos && ['female','male'].includes(generation.presenterGender) ? [{ label: 'Fala do Corretor Virtual', value: generation.presenterSpeechMode === 'custom' ? generation.presenterCustomSpeech : 'Apresentar o imóvel' }] : []),
+    ...(!isShortVideos ? [{ label: 'Fonte da narração', value: generation.presenterSpeechMode === 'custom' ? generation.presenterCustomSpeech : 'Sugestão da SNETIA' }] : []),
     { label: 'Narração', value: generation.presenterSpeechMode === 'custom' ? 'Sim (implícita)' : generation.narration === 'enabled' ? 'Sim' : 'Não' },
     { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
     { label: 'CTA', value: ctaEnabled === true ? (cta || 'Sim') : 'Não' },
@@ -894,6 +911,6 @@ function reviewLabel(id, isShortVideos = false) {
   return {
     images: isShortVideos ? 'Vídeo original' : 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
-    presenter: 'Apresentador', presenter_speech_mode: 'Fala do Corretor Virtual', presenter_custom_speech: 'Texto personalizado', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
+    presenter: 'Apresentador', presenter_speech_mode: 'Fonte da narração', presenter_custom_speech: 'Narração personalizada', narration: 'Narração', captions: t('smartTour.captions.reviewLabel'), professional_identity: t('smartTour.professionalIdentity.reviewLabel'), cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }[id] || id
 }

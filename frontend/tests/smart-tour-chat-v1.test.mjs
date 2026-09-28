@@ -80,7 +80,7 @@ test('uses the four independent production choices instead of presentation modes
   assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'narration' }), 'captions')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'captions' }), 'cta_enabled')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'captions' }), 'professional_identity')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'no' }), 'review')
   assert.doesNotMatch(page, /SMART_TOUR_MODES|free_ai_format|id === 'mode'/)

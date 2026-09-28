@@ -386,7 +386,7 @@ test('custom presenter speech is literal, enables narration, and is limited to 2
   const customized = applySmartTourCustomPresenterSpeech(briefing, validated.generation.presenterCustomSpeech)
   assert.equal(customized.timeline.narracao[0].texto, exactSpeech)
   assert.equal(customized.cenas[0].narracao, exactSpeech)
-  assert.match(JSON.stringify(customized.regrasObrigatorias), /A voz deve pertencer ao apresentador visível/)
+  assert.match(JSON.stringify(customized.regrasObrigatorias), /A narração deve usar exatamente o texto literal/)
 
   const words25 = Array.from({ length: 25 }, (_, index) => `palavra${index + 1}`).join(' ')
   const generation = { mode: 'guided_tour', presenterGender: 'male', presenterSpeechMode: 'custom', presenterCustomSpeech: words25, narration: 'enabled' }
@@ -417,4 +417,18 @@ test('custom presenter speech preserves independent caption and CTA choices', ()
   assert.equal(normalized.captions, 'enabled')
   assert.equal(briefing.configuracoes.ctaAtivo, true)
   assert.equal(briefing.timeline.cta.texto, 'Fale comigo')
+})
+
+test('custom speech remains literal without a virtual presenter', () => {
+  const normalized = normalizeGeneration({
+    mode: 'guided_tour', presenterGender: 'none', presenterSpeechMode: 'custom', presenterCustomSpeech: 'Fala literal sem apresentador.',
+    narration: 'enabled', captions: 'enabled',
+  })
+  const briefing = buildSmartTourStructuredBriefing({ generation: normalized, property, selectedCta: 'Fale comigo', imagePaths: ['u/1.jpg'], language: 'pt-BR' })
+  const customized = applySmartTourCustomPresenterSpeech(briefing, normalized.presenterCustomSpeech)
+  assert.equal(normalized.presenterSpeechMode, 'custom')
+  assert.equal(customized.apresentador.tipo, 'nenhum')
+  assert.equal(customized.timeline.narracao[0].texto, 'Fala literal sem apresentador.')
+  assert.equal(customized.configuracoes.legendasAtivas, true)
+  assert.equal(customized.timeline.cta.texto, 'Fale comigo')
 })

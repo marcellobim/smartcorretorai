@@ -464,7 +464,7 @@ export function applySmartTourCustomPresenterSpeech(
   speech: unknown,
 ): SmartTourStructuredBriefing {
   const text = String(speech ?? '')
-  if (!text.trim() || !briefing.configuracoes.narracaoAtiva || briefing.apresentador.tipo === 'nenhum') return briefing
+  if (!text.trim() || !briefing.configuracoes.narracaoAtiva) return briefing
   const narrationBlocks = briefing.timeline.narracao.map((block, index) => ({
     ...block,
     ...(index === 0 ? { inicioSegundos: 0, fimSegundos: briefing.timeline.duracaoTotalSegundos } : {}),
@@ -482,7 +482,7 @@ export function applySmartTourCustomPresenterSpeech(
     timeline: { ...briefing.timeline, narracao: narrationBlocks },
     regrasObrigatorias: [
       ...briefing.regrasObrigatorias,
-      { codigo: 'fala_personalizada_corretor_virtual', valor: 'O apresentador virtual deve dizer exatamente o texto literal de timeline.narracao, sem reescrever, resumir, corrigir, completar ou adicionar palavras. A voz deve pertencer ao apresentador visível.' },
+      { codigo: 'fala_personalizada', valor: 'A narração deve usar exatamente o texto literal de timeline.narracao, sem reescrever, resumir, corrigir, completar ou adicionar palavras.' },
     ],
   }
 }

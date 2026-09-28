@@ -10,7 +10,7 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
   if (mode === 'guided_tour') normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
   else if (mode !== 'narrated_tour') normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
   normalized.narration = value.narration === 'disabled' ? 'disabled' : mode === 'cinematic_tour' && value.narration !== 'enabled' ? 'disabled' : 'enabled'
-  if (normalized.presenterGender !== 'none' && value.presenterSpeechMode === 'custom') {
+  if (value.presenterSpeechMode === 'custom') {
     normalized.presenterSpeechMode = 'custom'
     normalized.presenterCustomSpeech = typeof value.presenterCustomSpeech === 'string' ? value.presenterCustomSpeech : ''
     normalized.narration = 'enabled'

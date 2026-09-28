@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { appendConversationTurn, createConversationTurn, truncateConversationAt } from '../src/components/conversation/conversationFlow.js'
-import { getSmartTourNextQuestion } from '../src/config/smartTourConversation.js'
+import { getSmartTourNextQuestion, shouldAskProfessionalIdentity } from '../src/config/smartTourConversation.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = relativePath => readFileSync(path.join(frontendRoot, relativePath), 'utf8')
@@ -36,7 +36,7 @@ test('shows confirmation before typing and only then advances', () => {
   const typingIndex = hook.indexOf('setPhase(CONVERSATION_PHASE.TYPING)')
   const advanceIndex = hook.indexOf('setActiveQuestionId(nextQuestionId)')
   assert.ok(confirmationIndex >= 0 && confirmationIndex < typingIndex && typingIndex < advanceIndex)
-  assert.match(sharedUi, /SmartCorretorAI está digitando/)
+  assert.match(sharedUi, /BRAND\.name\} está digitando/)
 })
 
 test('keeps only one active question and blocks duplicate submissions', () => {
@@ -61,14 +61,14 @@ test('updates the lateral summary through the same edit action', () => {
 
 test('keeps all Smart Tour conditional paths coherent through review', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'presenter_speech_mode')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'female' }), 'presenter_speech_mode')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'male' }), 'presenter_speech_mode')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'automatic' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'custom' }), 'presenter_custom_speech')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'review')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'captions')
   assert.equal(getSmartTourNextQuestion({ questionId: 'narration', answerId: 'disabled' }), 'captions')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'disabled' }), 'cta_enabled')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'disabled' }), 'professional_identity')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'no' }), 'review')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta' }), 'phone')
@@ -82,9 +82,11 @@ test('asks CTA yes or no and omits phone when CTA is disabled', () => {
   assert.match(smartTour, /O vídeo terminará naturalmente na última cena, sem chamada final/)
 })
 
-test('offers the four independent presentation choices in the existing chat', () => {
-  for (const question of ['Deseja um apresentador virtual durante o vídeo?', 'Deseja narração durante o vídeo?', 'Deseja destacar algumas informações importantes durante o vídeo?', 'Deseja uma chamada para ação no final do vídeo?']) assert.ok(smartTour.includes(question))
-  for (const explanation of ['Um corretor ou corretora virtual poderá apresentar', 'Uma narração em português do Brasil', 'As informações do imóvel continuarão sendo utilizadas para gerar a campanha completa', 'Ao final do vídeo poderá ser exibido um convite para contato']) assert.ok(smartTour.includes(explanation))
+test('offers the independent presentation choices in the existing chat', () => {
+  for (const question of ['Deseja um apresentador virtual durante o vídeo?', 'Deseja narração durante o vídeo?', 'Deseja uma chamada para ação no final do vídeo?']) assert.ok(smartTour.includes(question))
+  assert.match(smartTour, /smartTour\.captions\.question/)
+  assert.match(smartTour, /smartTour\.professionalIdentity\.question/)
+  for (const explanation of ['Um corretor ou corretora virtual poderá apresentar', 'Uma narração em português do Brasil', 'Ao final do vídeo poderá ser exibido um convite para contato']) assert.ok(smartTour.includes(explanation))
   assert.match(smartTour, /\{id:'female',label:'Corretora'\},\{id:'male',label:'Corretor'\},\{id:'none',label:'Nenhum'\}/)
   assert.match(smartTour, /presenterGender: '', presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: '', captions: ''/)
   assert.match(smartTour, /setGeneration\(current => \(\{ \.\.\.current, \[field\]: value \}\)\)/)
@@ -92,10 +94,10 @@ test('offers the four independent presentation choices in the existing chat', ()
 
 test('supports literal custom Corretor Virtual speech with a 25-word client limit', () => {
   for (const copy of [
-    'O que você quer que o Corretor Virtual fale?',
-    'Apresentar o imóvel',
+    'Como deseja definir a narração?',
+    'Usar sugestão da SNETIA',
     'Escrever minha própria fala',
-    'Escreva a fala do Corretor Virtual',
+    'Escreva sua narração',
     'O vídeo tem 10 segundos. Escreva até 25 palavras para manter uma fala natural.',
     'Reduza a fala para no máximo 25 palavras.',
   ]) assert.ok(smartTour.includes(copy))
@@ -107,23 +109,32 @@ test('supports literal custom Corretor Virtual speech with a 25-word client limi
   assert.match(smartTour, /presenterSpeechMode === 'custom' \? 'Sim \(implícita\)'/)
 })
 
-test('custom presenter speech skips narration, visual highlights and final CTA without clearing property highlights', () => {
+test('custom presenter speech preserves property data and continues to captions, professional identity and CTA', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'custom' }), 'presenter_custom_speech')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'review')
-  assert.match(smartTour, /const applyCustomPresenterVideoChoices = \(\) => \{[\s\S]*?narration: 'enabled', captions: 'disabled'[\s\S]*?setCtaEnabled\(false\)[\s\S]*?setCta\(''\)[\s\S]*?setIncludePhone\(false\)[\s\S]*?\}/)
-  assert.match(smartTour, /cont\(invalid, generation\.presenterCustomSpeech, 'review', applyCustomPresenterVideoChoices\)/)
-  assert.match(smartTour, /captions: presenterSpeechMode === 'custom' \? 'disabled'/)
-  assert.match(smartTour, /const videoCtaEnabled = ctaEnabled === true && !customPresenterSpeech/)
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_custom_speech' }), 'captions')
+  assert.ok(smartTour.indexOf("['highlights'") < smartTour.indexOf("['presenter_speech_mode'"))
+  assert.match(smartTour, /const applyCustomPresenterVideoChoices = \(\) => \{[\s\S]*?narration: 'enabled'[\s\S]*?\}/)
+  assert.match(smartTour, /cont\(invalid, generation\.presenterCustomSpeech, 'captions', applyCustomPresenterVideoChoices\)/)
+  assert.doesNotMatch(smartTour, /captions: presenterSpeechMode === 'custom' \? 'disabled'/)
+  assert.match(smartTour, /const videoCtaEnabled = ctaEnabled === true/)
   const customChoices = smartTour.match(/const applyCustomPresenterVideoChoices = \(\) => \{([\s\S]*?)\n  \}/)?.[1] || ''
-  assert.doesNotMatch(customChoices, /setProperty|highlights/)
-  assert.match(smartTour, /const draft = \{ activeInputFlow, property, generation, ctaEnabled, cta, includePhone/)
+  assert.doesNotMatch(customChoices, /setProperty|property|highlights|captions|cta|professionalIdentity|display_name|creci|license/)
+  assert.doesNotMatch(smartTour, /presenterSpeechMode === 'custom' \? \(canAskProfessionalIdentity/)
+  assert.match(smartTour, /const draft = \{ activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity/)
 })
 
 test('automatic presenter speech and no presenter keep the current narration, highlights and CTA path', () => {
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter', answerId: 'none' }), 'presenter_speech_mode')
   assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'automatic' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'narration', answerId: 'enabled' }), 'captions')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'enabled' }), 'cta_enabled')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'captions', answerId: 'enabled' }), 'professional_identity')
+})
+
+test('asks professional identity only with on-screen captions and a formatted identity', () => {
+  assert.equal(shouldAskProfessionalIdentity({ captions: 'enabled', identity: 'Riccieri — CRECI F 12345/SC' }), true)
+  assert.equal(shouldAskProfessionalIdentity({ captions: 'disabled', identity: 'Riccieri — CRECI F 12345/SC' }), false)
+  assert.equal(shouldAskProfessionalIdentity({ captions: 'enabled', identity: '' }), false)
+  assert.match(smartTour, /showSummary=\{false\}/)
 })
 
 test('removes staging and furniture questions from the active Smart Tour chat', () => {
