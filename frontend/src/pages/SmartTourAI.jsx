@@ -71,42 +71,42 @@ function normalizeGeneration(input) {
 const countWords = value => String(value ?? '').trim().split(/\s+/).filter(Boolean).length
 function questionsFor(isShortVideos = false, t = key => key) {
   const questions = [
-    ['images', 1, isShortVideos ? 'Envie o vídeo original do imóvel.' : 'Envie até 5 fotos na ordem em que deseja apresentá-las.'], ['purpose', 2, 'Qual é a finalidade do imóvel?'],
-    ['stage', 2, 'Qual é o estado atual do imóvel?'], ['type', 2, 'Que tipo de imóvel vamos apresentar?'],
-    ['facts', 2, 'Quais são as principais medidas?'], ['location', 2, 'Onde fica o imóvel?'],
-    ['commercial', 2, 'Quais informações comerciais deseja incluir?'], ['highlights', 2, 'Quais são os principais destaques?'],
-    ['presenter', 3, 'Deseja um apresentador virtual durante o vídeo?'],
-    ['presenter_speech_mode', 3, 'Como deseja definir a narração?'],
-    ['presenter_custom_speech', 3, 'Escreva sua narração'],
-    ['narration', 3, 'Deseja narração durante o vídeo?'],
+    ['images', 1, t(isShortVideos ? 'smartTour.questions.video' : 'smartTour.questions.images')], ['purpose', 2, t('smartTour.questions.purpose')],
+    ['stage', 2, t('smartTour.questions.stage')], ['type', 2, t('smartTour.questions.type')],
+    ['facts', 2, t('smartTour.questions.facts')], ['location', 2, t('smartTour.questions.location')],
+    ['commercial', 2, t('smartTour.questions.commercial')], ['highlights', 2, t('smartTour.questions.highlights')],
+    ['presenter', 3, t('smartTour.questions.presenter')],
+    ['presenter_speech_mode', 3, t('smartTour.questions.presenterSpeechMode')],
+    ['presenter_custom_speech', 3, t('smartTour.questions.customSpeech')],
+    ['narration', 3, t('smartTour.questions.narration')],
     ['captions', 3, t('smartTour.captions.question')],
     ['professional_identity', 4, t('smartTour.professionalIdentity.question')],
-    ['cta_enabled', 4, 'Deseja uma chamada para ação no final do vídeo?'],
+    ['cta_enabled', 4, t('smartTour.questions.ctaEnabled')],
   ]
-  const completeQuestions = [...questions, ['cta', 4, 'Qual chamada deseja usar no final?'], ['phone', 4, 'Deseja divulgar seu telefone profissional?'], ['review', 4, 'Tudo pronto. Revise as escolhas antes de criar.']]
+  const completeQuestions = [...questions, ['cta', 4, t('smartTour.questions.cta')], ['phone', 4, t('smartTour.questions.phone')], ['review', 4, t('smartTour.questions.review')]]
   return isShortVideos ? adaptQuestionsForShortVideos(completeQuestions) : completeQuestions
 }
 
-function smartTourConfirmation(id, answer, isShortVideos = false) {
-  if (id === 'purpose') return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
+function smartTourConfirmation(id, answer, isShortVideos = false, t = key => key) {
+  if (id === 'purpose') return answer === 'Locação' ? t('smartTour.confirmations.rent') : t('smartTour.confirmations.sale')
   const confirmations = {
     images: isShortVideos ? `Ótimo! O vídeo “${answer}” foi validado.` : `Ótimo! ${answer} serão usadas exatamente na ordem escolhida.`,
     stage: `Perfeito! Vamos considerar o imóvel como “${answer}”.`,
     type: `Ótimo! O tipo “${answer}” já está registrado.`,
-    facts: 'Perfeito! As principais medidas do imóvel foram registradas.',
+    facts: t('smartTour.confirmations.facts'),
     location: `Ótimo! A localização em ${answer} foi registrada.`,
-    commercial: answer === 'Sem informações comerciais' ? 'Tudo bem! Seguiremos sem exibir valores comerciais.' : 'Perfeito! As informações comerciais foram registradas.',
+    commercial: answer === 'Sem informações comerciais' ? t('smartTour.confirmations.commercialEmpty') : t('smartTour.confirmations.commercial'),
     highlights: `Excelente! ${answer} foram selecionados para valorizar o imóvel.`,
     presenter: answer === 'Nenhum' ? 'Tudo certo! O vídeo seguirá sem apresentador virtual.' : `Perfeito! ${answer} fará a apresentação virtual.`,
     presenter_speech_mode: answer === 'Usar sugestão da SNETIA' ? 'Perfeito! A SNETIA criará a narração usando as informações do imóvel.' : 'Perfeito! Você definirá exatamente o que será narrado.',
-    presenter_custom_speech: 'Perfeito! A narração será usada exatamente como você escreveu.',
+    presenter_custom_speech: t('smartTour.confirmations.customSpeech'),
     narration: answer === 'Sim' ? 'Perfeito! A apresentação terá narração profissional.' : 'Tudo certo! A apresentação seguirá sem narração.',
     captions: answer === 'Sim' ? 'Ótimo! Uma seleção curta de destaques poderá aparecer no vídeo.' : 'Tudo certo! As informações continuarão na campanha, mas não aparecerão no vídeo.',
     cta_enabled: answer === 'Sim' ? 'Perfeito! Agora escolha a chamada final.' : 'Tudo certo! O vídeo terminará naturalmente na última cena, sem chamada final.',
     cta: `Ótimo! A chamada final será “${answer}”.`,
     phone: answer === 'Telefone profissional' ? 'Perfeito! Seu telefone profissional será incluído.' : 'Tudo certo! A apresentação seguirá sem telefone.',
   }
-  return confirmations[id] || 'Perfeito! Informação registrada.'
+  return confirmations[id] || t('smartTour.confirmations.default')
 }
 
 export default function SmartTourAI() {
@@ -250,7 +250,7 @@ export default function SmartTourAI() {
       if (resolvedNextQuestionId === 'review') reviewEditRef.current = null
     }
     if (isShortVideos && resolvedNextQuestionId === 'presenter') resolvedNextQuestionId = 'narration'
-    const accepted = conversation.submitAnswer({ questionId: question[0], question: question[2], answer, confirmation: smartTourConfirmation(question[0], answer, isShortVideos), nextQuestionId: resolvedNextQuestionId })
+    const accepted = conversation.submitAnswer({ questionId: question[0], question: question[2], answer, confirmation: smartTourConfirmation(question[0], answer, isShortVideos, t), nextQuestionId: resolvedNextQuestionId })
     if (accepted) apply?.()
     return accepted
   }
@@ -522,7 +522,7 @@ export default function SmartTourAI() {
     setActiveInputFlow(inputFlow)
     window.requestAnimationFrame(() => document.getElementById('smart-tour-creation')?.scrollIntoView({ behavior: getConversationScrollBehavior(), block: 'start' }))
   }
-  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle="Seu vídeo imobiliário profissional." /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, ...(!isShortVideoResult ? { sourceType:'video_imobiliario', sourceId:result.jobId, mediaAssetId:result.jobId } : {}), mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} videoPublish={!isShortVideoResult ? { enabled:true, captionEditable:true, loadConnection:() => getMetaConnectionStatus(supabase), resumeIntent:user?.id ? readPendingSmartTourPublication(window.sessionStorage,user.id) : null, onPublish:(intent,destinations) => publishSmartTourPublication(supabase,intent,destinations), onRecover:(intent,destinations) => recoverSmartTourPublication(supabase,intent,destinations), onResumed:() => clearPendingSmartTourPublication(window.sessionStorage,user?.id), onConnect:async intent => { if (!preservePendingSmartTourPublication(window.sessionStorage,user?.id,intent)) throw new Error('video_publication_pending_not_saved'); await redirectToMetaOAuth(supabase,url => window.location.assign(url)) } } : undefined} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel="Criar novo vídeo" /></main></> }
+  if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle={t('smartTour.resultSubtitle')} /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, ...(!isShortVideoResult ? { sourceType:'video_imobiliario', sourceId:result.jobId, mediaAssetId:result.jobId } : {}), mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} videoPublish={!isShortVideoResult ? { enabled:true, captionEditable:true, loadConnection:() => getMetaConnectionStatus(supabase), resumeIntent:user?.id ? readPendingSmartTourPublication(window.sessionStorage,user.id) : null, onPublish:(intent,destinations) => publishSmartTourPublication(supabase,intent,destinations), onRecover:(intent,destinations) => recoverSmartTourPublication(supabase,intent,destinations), onResumed:() => clearPendingSmartTourPublication(window.sessionStorage,user?.id), onConnect:async intent => { if (!preservePendingSmartTourPublication(window.sessionStorage,user?.id,intent)) throw new Error('video_publication_pending_not_saved'); await redirectToMetaOAuth(supabase,url => window.location.assign(url)) } } : undefined} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel={t('smartTour.createNew')} /></main></> }
 
   const measureFields = getSmartTourMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
@@ -550,20 +550,20 @@ export default function SmartTourAI() {
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
   return <>
-    <Header title={SMART_TOUR_PRODUCT_NAME} subtitle={`${BRAND.name} organiza o contexto. A IA faz o trabalho pesado.`} />
+    <Header title={SMART_TOUR_PRODUCT_NAME} subtitle={t('smartTour.headerSubtitle')} />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="smart-tour-title"
-        productName="Vídeo Imobiliário"
-        headline="Transforme as fotos dos seus imóveis em comerciais profissionais."
-        description={`Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O ${BRAND.name} faz o restante.`}
+        productName={t('smartTour.productName')}
+        headline={t('smartTour.heroHeadline')}
+        description={t('smartTour.heroDescription')}
       />
 
       <ProductCard className="mt-8 p-5 sm:p-7">
         <ProductSectionHeading
-          eyebrow="Exemplos de experiências"
-          title="Escolha o resultado que você deseja"
-          description="Estas são as combinações mais utilizadas. Durante a criação do vídeo você pode personalizar cada opção e criar a combinação que melhor atende à sua necessidade."
+          eyebrow={t('smartTour.showcase.eyebrow')}
+          title={t('smartTour.showcase.title')}
+          description={t('smartTour.showcase.description')}
         />
         <SmartTourShowcase />
       </ProductCard>
@@ -577,7 +577,7 @@ export default function SmartTourAI() {
       />
 
       {activeInputFlow && <div id="smart-tour-creation" className="mt-10 space-y-8 scroll-mt-6">
-        <ProductSectionHeading eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'} title="Agora, conte como será o seu vídeo" />
+        <ProductSectionHeading eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')} title={t('smartTour.creationTitle')} />
         <ProductSteps steps={[
           { title: isShortVideos ? 'Vídeo' : 'Fotos', subtitle: 'Envio' },
           { title: 'Imóvel', subtitle: 'Informações' },
@@ -607,13 +607,14 @@ export default function SmartTourAI() {
 }
 
 function SmartTourGuide() {
+  const { t } = useLocale()
   const [activeGuideId, setActiveGuideId] = useState(null)
   const [hoveredGuideId, setHoveredGuideId] = useState(null)
   return <ProductCard className="mt-8 p-5 sm:p-7">
     <ProductSectionHeading
-      eyebrow="Guia rápido"
-      title="Como criar cada tipo de vídeo"
-      description="Passe o mouse ou toque em uma opção para ver como ela foi configurada."
+      eyebrow={t('smartTour.guide.eyebrow')}
+      title={t('smartTour.guide.title')}
+      description={t('smartTour.guide.description')}
     />
     <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
       {guideExamples.map((example, index) => {
@@ -630,7 +631,7 @@ function SmartTourGuide() {
           </button>
           {isActive && <div id={`guide-${example.id}`} role="tooltip" className={`absolute top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-3rem))] rounded-2xl border border-white/10 bg-slate-950 p-4 text-xs font-bold text-white shadow-2xl ${index % 2 === 0 ? 'left-0' : 'right-0'} lg:left-1/2 lg:right-auto lg:-translate-x-1/2`}>
             <div className="space-y-2">
-              {[['Apresentador', example.presenter], ['Narração', example.narration], ['Textos', example.texts], ['CTA', example.cta]].map(([label, enabled]) => <p key={label} className="flex items-center justify-between gap-4"><span>{label}:</span><span className="text-cyan-200">{enabled ? 'Sim' : 'Não'}</span></p>)}
+              {[[t('smartTour.review.presenter'), example.presenter], [t('smartTour.review.narration'), example.narration], [t('smartTour.guide.texts'), example.texts], ['CTA', example.cta]].map(([label, enabled]) => <p key={label} className="flex items-center justify-between gap-4"><span>{label}:</span><span className="text-cyan-200">{enabled ? t('smartTour.options.yes') : t('smartTour.options.no')}</span></p>)}
             </div>
           </div>}
         </div>
@@ -640,21 +641,22 @@ function SmartTourGuide() {
 }
 
 function SmartTourStartChoice({ onSelectImages, onSelectShortVideos, shortVideosVisible }) {
+  const { t } = useLocale()
   return <ProductCard className="mt-8 p-5 sm:p-7">
-    <ProductSectionHeading title="Como deseja começar?" />
+    <ProductSectionHeading title={t('smartTour.start.title')} />
     <div className="mt-6 grid gap-4 md:grid-cols-2">
       <ProductCard as="article" variant="flat" className="flex h-full flex-col p-5 sm:p-6">
-        <h3 className="text-lg font-black text-slate-950">Criar um vídeo com fotos</h3>
-        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Utilize até 5 fotos do imóvel para criar uma apresentação profissional.</p>
+        <h3 className="text-lg font-black text-slate-950">{t('smartTour.start.photosTitle')}</h3>
+        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">{t('smartTour.start.photosDescription')}</p>
         <ProductButton type="button" onClick={onSelectImages} className="mt-5 w-full sm:w-fit">
-          Criar vídeo com fotos
+          {t('smartTour.start.photosAction')}
         </ProductButton>
       </ProductCard>
       {shortVideosVisible && <ProductCard as="article" variant="flat" className="flex h-full flex-col p-5 sm:p-6">
-        <h3 className="text-lg font-black text-slate-950">Transformar um vídeo em Short</h3>
-        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo do imóvel e transforme-o em um Short automaticamente.</p>
+        <h3 className="text-lg font-black text-slate-950">{t('smartTour.start.shortTitle')}</h3>
+        <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">{t('smartTour.start.shortDescription')}</p>
         <ProductButton type="button" onClick={onSelectShortVideos} className="mt-5 w-full sm:w-fit">
-          Criar Short com vídeo
+          {t('smartTour.start.shortAction')}
         </ProductButton>
       </ProductCard>}
     </div>
@@ -662,6 +664,7 @@ function SmartTourStartChoice({ onSelectImages, onSelectShortVideos, shortVideos
 }
 
 function SmartTourShowcase() {
+  const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(null)
   const modalVideoRef = useRef(null)
   const closeButtonRef = useRef(null)
@@ -698,7 +701,7 @@ function SmartTourShowcase() {
             type="button"
             onClick={() => setActiveIndex(exampleIndex)}
             className="group mx-auto block w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 text-left shadow-xl shadow-slate-200/70 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-            aria-label={`Ampliar demonstração: ${example.title}`}
+            aria-label={`${t('smartTour.showcase.expand')}: ${example.title}`}
           >
             <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
               {example.placeholder ? <ExamplePlaceholder example={example} /> : (
@@ -731,7 +734,7 @@ function SmartTourShowcase() {
             className="mx-auto mt-4"
           >
             <PlayCircle className="h-4 w-4" aria-hidden="true" />
-            Ver exemplo
+            {t('smartTour.showcase.viewExample')}
           </ProductButton>
         </ProductCard>
       ))}
@@ -742,16 +745,16 @@ function SmartTourShowcase() {
         className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6"
         role="dialog"
         aria-modal="true"
-        aria-label={`Demonstração ampliada: ${activeExample.title}`}
+        aria-label={`${t('smartTour.showcase.expanded')}: ${activeExample.title}`}
         onMouseDown={event => { if (event.target === event.currentTarget) close() }}
       >
         <div className="relative flex max-h-full w-full max-w-4xl flex-col items-center">
           <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
             <div className="min-w-0">
               <p className="truncate text-lg font-black">{activeExample.title}</p>
-              <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} de {SMART_TOUR_EXAMPLES.length}</p>
+              <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} {t('smartTour.showcase.of')} {SMART_TOUR_EXAMPLES.length}</p>
             </div>
-            <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950" aria-label="Fechar demonstração">
+            <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950" aria-label={t('smartTour.showcase.close')}>
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -802,25 +805,25 @@ function Question(props) {
   const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === item.id ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
-  const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
+  const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">{t('smartTour.continue')}</ProductButton>
   const applyCustomPresenterVideoChoices = () => {
     setGeneration(current => ({ ...current, narration: 'enabled' }))
   }
   if (id === 'images' && isShortVideos) return <>
     <input ref={inputRef} type="file" accept="video/mp4" hidden onChange={event => { addShortVideo(event.target.files); event.target.value = '' }} />
-    <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">Envie um vídeo de até 5 minutos. A IA selecionará automaticamente os melhores momentos para criar um Short vertical.</p>
-    {missingShortVideoMetadata && !shortVideo && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente o vídeo “{missingShortVideoMetadata.name}”; o arquivo físico não é armazenado.</p>}
-    {!shortVideo ? <button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 px-4 text-center transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar vídeo</b><span className="text-xs text-slate-500">Um arquivo MP4 de até 5 minutos</span><span className="mt-1 text-xs text-slate-400">Máximo de 250 MB</span></button> : <div className="rounded-smart-card border border-slate-200 bg-white p-4"><video src={shortVideo.preview} controls playsInline preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="mx-auto max-h-80 w-full rounded-2xl bg-slate-950 object-contain" aria-label="Prévia do vídeo original" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Video className="h-5 w-5 shrink-0 text-primary-700" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-900">{shortVideo.file.name}</p><p className="text-xs font-semibold text-slate-500">{formatShortVideoDuration(shortVideo.duration)} · {(shortVideo.file.size / 1024 / 1024).toFixed(1)} MB</p></div><ProductButton type="button" variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>Substituir</ProductButton><ProductButton type="button" variant="danger" size="sm" onClick={() => setShortVideo(null)} aria-label="Remover vídeo"><Trash2 className="h-4 w-4" />Remover</ProductButton></div></div>}
+    <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{t('smartTour.upload.videoInstruction')}</p>
+    {missingShortVideoMetadata && !shortVideo && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{t('smartTour.upload.draftRestored')} “{missingShortVideoMetadata.name}”; {t('smartTour.upload.fileNotStored')}</p>}
+    {!shortVideo ? <button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 px-4 text-center transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">{t('smartTour.upload.selectVideo')}</b><span className="text-xs text-slate-500">{t('smartTour.upload.videoLimit')}</span><span className="mt-1 text-xs text-slate-400">{t('smartTour.upload.max250')}</span></button> : <div className="rounded-smart-card border border-slate-200 bg-white p-4"><video src={shortVideo.preview} controls playsInline preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="mx-auto max-h-80 w-full rounded-2xl bg-slate-950 object-contain" aria-label={t('smartTour.upload.videoPreview')} /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><Video className="h-5 w-5 shrink-0 text-primary-700" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-900">{shortVideo.file.name}</p><p className="text-xs font-semibold text-slate-500">{formatShortVideoDuration(shortVideo.duration)} · {(shortVideo.file.size / 1024 / 1024).toFixed(1)} MB</p></div><ProductButton type="button" variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>{t('smartTour.upload.replace')}</ProductButton><ProductButton type="button" variant="danger" size="sm" onClick={() => setShortVideo(null)} aria-label={t('smartTour.upload.removeVideo')}><Trash2 className="h-4 w-4" />{t('smartTour.upload.remove')}</ProductButton></div></div>}
     {message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}
     {shortVideo && cont(false, shortVideo.file.name, 'purpose')}
   </>
-  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} />{missingImageMetadata.length > 0 && images.length === 0 && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente {missingImageMetadata.length} {missingImageMetadata.length === 1 ? 'imagem' : 'imagens'} na ordem indicada; os arquivos físicos não são armazenados.</p>}<button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">Selecionar fotos</b><span className="text-xs text-slate-500">Selecione de 1 a {SMART_TOUR_MAX_IMAGES} fotos</span><span className="mt-1 text-xs text-slate-400">JPG ou PNG · até 15 MB cada</span></button><p className="mt-3 text-xs font-bold">{images.length} de {SMART_TOUR_MAX_IMAGES} imagens</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"><img src={item.preview} alt={`Foto ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} foto${images.length > 1 ? 's' : ''}`, 'purpose')}</>
-  if (id === 'purpose') return choices([{id:'sale',label:'Venda'},{id:'rent',label:'Locação'}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
+  if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} />{missingImageMetadata.length > 0 && images.length === 0 && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{t('smartTour.upload.photosDraftRestored')} {missingImageMetadata.length} {t(missingImageMetadata.length === 1 ? 'smartTour.upload.photo' : 'smartTour.upload.photos')} {t('smartTour.upload.inOrder')}; {t('smartTour.upload.fileNotStored')}</p>}<button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">{t('smartTour.upload.selectPhotos')}</b><span className="text-xs text-slate-500">{t('smartTour.upload.photosLimit')} {SMART_TOUR_MAX_IMAGES} {t('smartTour.upload.photos')}</span><span className="mt-1 text-xs text-slate-400">{t('smartTour.upload.photoFormat')}</span></button><p className="mt-3 text-xs font-bold">{images.length} {t('smartTour.showcase.of')} {SMART_TOUR_MAX_IMAGES} {t('smartTour.upload.photos')}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"><img src={item.preview} alt={`${t('smartTour.upload.photo')} ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" aria-label={offset < 0 ? t('smartTour.upload.moveUp') : t('smartTour.upload.moveDown')} disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" aria-label={t('smartTour.upload.removePhoto')} onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} ${t(images.length === 1 ? 'smartTour.upload.photo' : 'smartTour.upload.photos')}`, 'purpose')}</>
+  if (id === 'purpose') return choices([{id:'sale',label:t('smartTour.purpose.sale')},{id:'rent',label:t('smartTour.purpose.rent')}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
   if (id === 'stage') { const stageOptions = isShortVideos ? getShortVideosStageOptions(property.purpose, STAGES) : getSmartTourStageOptions(property.purpose, STAGES); return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') { const propertyTypes = isShortVideos ? getShortVideosPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES) : getSmartTourPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES); return <>{choices(propertyTypes, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</> }
   if (id === 'facts') {
     const fields = getSmartTourMeasureFields(property.type)
-    const fieldLabels = { bedrooms:'Dormitórios', suites:'Suítes', parkingSpaces:'Vagas', area:'Área' }
+    const fieldLabels = { bedrooms:t('smartTour.fields.bedrooms'), suites:t('smartTour.fields.suites'), parkingSpaces:t('smartTour.fields.parkingSpaces'), area:t('smartTour.fields.area') }
     const answer = fields.map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ' m²' : ''}`).join(' · ')
     const isIncomplete = fields.some(field => field === 'area' ? Number(property.area) <= 0 : property[field] === '')
     return <>
@@ -830,11 +833,11 @@ function Question(props) {
             {fieldLabels[field]}
             <div className="mt-1 flex items-center rounded-smart-control border bg-white focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100">
               <input
-                aria-label="Área do imóvel"
+                aria-label={t('smartTour.fields.area')}
                 value={property.area}
                 onChange={event => { const digits = event.target.value.replace(/\D/g, '').slice(0, 6); setPropertyField('area', Number(digits) > 0 ? String(Number(digits)) : '') }}
                 inputMode="numeric"
-                placeholder="Ex.: 85"
+                placeholder={t('smartTour.areaPlaceholder')}
                 className="min-w-0 flex-1 rounded-xl border-0 p-3 outline-none"
               />
               <span className="pr-3 text-sm font-black text-slate-500">m²</span>
@@ -852,51 +855,51 @@ function Question(props) {
       {cont(isIncomplete, answer, 'location')}
     </>
   }
-  if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
+  if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder={t('smartTour.fields.district')} className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
   if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-primary-400 bg-primary-50 text-primary-900' : 'border-slate-200 bg-white hover:border-primary-300'}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'presenter')}</> }
-  if (id === 'presenter') return explainedChoices('Um corretor ou corretora virtual poderá apresentar o imóvel de forma natural, mantendo os ambientes como o principal destaque.', [{id:'female',label:'Corretora'},{id:'male',label:'Corretor'},{id:'none',label:'Nenhum'}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterGender: value })) }))
-  if (id === 'presenter_speech_mode') return explainedChoices('Escolha como a narração será definida.', [
-    {id:'automatic',label:'Usar sugestão da SNETIA',description:'A SNETIA cria a narração usando as informações do imóvel.'},
-    {id:'custom',label:'Escrever minha própria fala',description:'Você escreve exatamente o texto que será narrado.'},
+  if (id === 'presenter') return explainedChoices(t('smartTour.presenter.description'), [{id:'female',label:t('smartTour.presenter.female')},{id:'male',label:t('smartTour.presenter.male')},{id:'none',label:t('smartTour.presenter.none')}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterGender: value })) }))
+  if (id === 'presenter_speech_mode') return explainedChoices(t('smartTour.speechMode.description'), [
+    {id:'automatic',label:t('smartTour.speechMode.automatic'),description:t('smartTour.speechMode.automaticDescription')},
+    {id:'custom',label:t('smartTour.speechMode.custom'),description:t('smartTour.speechMode.customDescription')},
   ], generation.presenterSpeechMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterSpeechMode: value, presenterCustomSpeech: '', ...(value === 'custom' ? { narration: 'enabled' } : {}) })) }))
   if (id === 'presenter_custom_speech') {
     const wordCount = countWords(generation.presenterCustomSpeech)
     const invalid = wordCount < 1 || wordCount > 25
     return <>
-      <label className="block text-sm font-black text-slate-800" htmlFor="presenter-custom-speech">Escreva sua narração</label>
-      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">O vídeo tem 10 segundos. Escreva até 25 palavras para manter uma fala natural.</p>
+      <label className="block text-sm font-black text-slate-800" htmlFor="presenter-custom-speech">{t('smartTour.customSpeech.label')}</label>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{t('smartTour.customSpeech.helper')}</p>
       <textarea id="presenter-custom-speech" value={generation.presenterCustomSpeech} onChange={event => setGeneration(current => ({ ...current, presenterCustomSpeech: event.target.value, narration: 'enabled' }))} rows={5} className="mt-3 w-full rounded-smart-control border border-slate-200 bg-white p-3 text-sm leading-6 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
-      <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold"><span className={wordCount > 25 ? 'text-red-600' : 'text-slate-500'}>{wordCount} / 25 palavras</span>{wordCount > 25 && <span role="alert" className="text-right text-red-600">Reduza a fala para no máximo 25 palavras.</span>}</div>
+      <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold"><span className={wordCount > 25 ? 'text-red-600' : 'text-slate-500'}>{wordCount} / 25 {t('smartTour.customSpeech.words')}</span>{wordCount > 25 && <span role="alert" className="text-right text-red-600">{t('smartTour.customSpeech.limit')}</span>}</div>
       {cont(invalid, generation.presenterCustomSpeech, 'captions', applyCustomPresenterVideoChoices)}
     </>
   }
-  if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
+  if (id === 'narration') return explainedChoices(t('smartTour.narrationDescription'), [{id:'enabled',label:t('smartTour.options.yes')},{id:'disabled',label:t('smartTour.options.no')}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices(t('smartTour.captions.description'), [{id:'enabled',label:t('smartTour.options.yes')},{id:'disabled',label:t('smartTour.options.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
   if (id === 'professional_identity') return explainedChoices(t('smartTour.professionalIdentity.description'), [{id:'yes',label:t('smartTour.options.yes'),description:professionalIdentity},{id:'no',label:t('smartTour.options.no')}], showProfessionalIdentity === true ? 'yes' : showProfessionalIdentity === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setShowProfessionalIdentity(value === 'yes') }))
-  if (id === 'cta_enabled') return explainedChoices('Ao final do vídeo poderá ser exibido um convite para contato utilizando as informações do seu cadastro profissional.', [{id:'yes',label:'Sim'},{id:'no',label:'Não'}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
+  if (id === 'cta_enabled') return explainedChoices(t('smartTour.ctaDescription'), [{id:'yes',label:t('smartTour.options.yes')},{id:'no',label:t('smartTour.options.no')}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
   if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:'Sim',description:phone || 'Cadastre o telefone no Perfil Profissional.'},{id:'no',label:'Não'}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   const finalChoiceItems = [
-    ...(!isShortVideos ? [{ label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' }] : []),
-    ...(!isShortVideos ? [{ label: 'Fonte da narração', value: generation.presenterSpeechMode === 'custom' ? generation.presenterCustomSpeech : 'Sugestão da SNETIA' }] : []),
-    { label: 'Narração', value: generation.presenterSpeechMode === 'custom' ? 'Sim (implícita)' : generation.narration === 'enabled' ? 'Sim' : 'Não' },
+    ...(!isShortVideos ? [{ label: t('smartTour.review.presenter'), value: generation.presenterGender === 'female' ? t('smartTour.presenter.female') : generation.presenterGender === 'male' ? t('smartTour.presenter.male') : t('smartTour.presenter.none') }] : []),
+    ...(!isShortVideos ? [{ label: t('smartTour.review.speechSource'), value: generation.presenterSpeechMode === 'custom' ? generation.presenterCustomSpeech : t('smartTour.speechMode.automatic') }] : []),
+    { label: t('smartTour.review.narration'), value: generation.presenterSpeechMode === 'custom' ? t('smartTour.review.implicitYes') : generation.narration === 'enabled' ? t('smartTour.options.yes') : t('smartTour.options.no') },
     { label: t('smartTour.captions.reviewLabel'), value: generation.captions === 'enabled' ? t('smartTour.options.yes') : t('smartTour.options.no') },
-    { label: 'CTA', value: ctaEnabled === true ? (cta || 'Sim') : 'Não' },
+    { label: 'CTA', value: ctaEnabled === true ? (cta || t('smartTour.options.yes')) : t('smartTour.options.no') },
     ...(showProfessionalIdentity !== null ? [{ label: t('smartTour.professionalIdentity.reviewLabel'), value: showProfessionalIdentity ? professionalIdentity : t('smartTour.options.no') }] : []),
-    ...(ctaEnabled === true ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
+    ...(ctaEnabled === true ? [{ label: t('smartTour.review.phone'), value: includePhone === true ? phone : t('smartTour.options.no') }] : []),
   ]
   return <>
     <div className="rounded-2xl bg-primary-50 p-4 text-sm font-semibold leading-6 text-primary-950 ring-1 ring-primary-100">
-      <p className="text-lg font-black">Revise suas escolhas</p>
+      <p className="text-lg font-black">{t('smartTour.review.title')}</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {finalChoiceItems.map(item => <div key={item.label} className="rounded-2xl border border-primary-100 bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{item.label}</p><p className="mt-1 text-sm font-black text-slate-800">{item.value}</p></div>)}
       </div>
-      <p className="mt-4 font-black">Confirma suas escolhas?</p>
+      <p className="mt-4 font-black">{t('smartTour.review.confirm')}</p>
     </div>
-    <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">Todas as escolhas</p>
+    <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t('smartTour.review.allChoices')}</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{reviewLabel(item.id, isShortVideos)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500">Editar</button></div></div>)}
+      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{reviewLabel(item.id, isShortVideos, t)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500">{t('smartTour.edit')}</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-primary-600" />}<b className="text-sm">{message}</b></div>}
     {resumeAfterLogin && <p role="status" className="mt-4 text-sm">Briefing preservado. {uploads ? 'As fotos já enviadas serão verificadas na confirmação.' : 'Se necessário, selecione novamente as fotos.'} Revise suas escolhas e confirme para continuar.</p>}
@@ -909,10 +912,10 @@ function Question(props) {
   </>
 }
 
-function reviewLabel(id, isShortVideos = false) {
+function reviewLabel(id, isShortVideos = false, t = key => key) {
   return {
-    images: isShortVideos ? 'Vídeo original' : 'Fotos', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas',
-    location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
-    presenter: 'Apresentador', presenter_speech_mode: 'Fonte da narração', presenter_custom_speech: 'Narração personalizada', narration: 'Narração', captions: t('smartTour.captions.reviewLabel'), professional_identity: t('smartTour.professionalIdentity.reviewLabel'), cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
+    images: isShortVideos ? t('smartTour.review.originalVideo') : t('smartTour.review.photos'), purpose: t('smartTour.review.purpose'), stage: t('smartTour.review.stage'), type: t('smartTour.review.type'), facts: t('smartTour.review.facts'),
+    location: t('smartTour.review.location'), commercial: t('smartTour.review.values'), highlights: t('smartTour.review.highlights'),
+    presenter: t('smartTour.review.presenter'), presenter_speech_mode: t('smartTour.review.speechSource'), presenter_custom_speech: t('smartTour.review.customNarration'), narration: t('smartTour.review.narration'), captions: t('smartTour.captions.reviewLabel'), professional_identity: t('smartTour.professionalIdentity.reviewLabel'), cta_enabled: t('smartTour.review.finalCta'), cta: t('smartTour.review.selectedCta'), phone: t('smartTour.review.phone'),
   }[id] || id
 }
