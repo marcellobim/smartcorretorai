@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BRAND } from '../../config/brand'
 import { CheckCircle2, MessageSquareQuote, Send } from 'lucide-react'
 import { useOptionalAuth } from '../../lib/auth-context'
 import { supabase } from '../../lib/supabase'
@@ -110,7 +111,7 @@ export default function TestimonialInvite() {
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-white shadow-lg shadow-primary-200"><MessageSquareQuote className="h-6 w-6" /></span>
             <div>
               <h3 id="testimonial-invite-title" className="text-lg font-black text-slate-950">Conte como foi sua experiência</h3>
-              <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">Seu depoimento pode ajudar outros corretores a conhecer o SmartCorretorAI.</p>
+              <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">Seu depoimento pode ajudar outros corretores a conhecer o {BRAND.name}.</p>
               <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-500">Depoimentos enviados podem participar da campanha de bônus de 500 Smart Tokens, conforme análise e regras da campanha.</p>
             </div>
           </div>
@@ -136,14 +137,14 @@ export default function TestimonialInvite() {
           <form onSubmit={submit} className="space-y-5" noValidate>
             <p className="text-sm font-semibold leading-6 text-slate-600">Compartilhe sua experiência com suas próprias palavras. O bônus não depende de avaliação positiva.</p>
             <label className="block text-sm font-black text-slate-800">Depoimento
-              <textarea required maxLength={TESTIMONIAL_BODY_MAX_LENGTH} value={body} onChange={event => setBody(event.target.value)} disabled={submissionState === 'sending'} rows="7" placeholder="Conte como o SmartCorretorAI fez parte do seu trabalho" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm font-medium leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100 disabled:bg-slate-100" />
+              <textarea required maxLength={TESTIMONIAL_BODY_MAX_LENGTH} value={body} onChange={event => setBody(event.target.value)} disabled={submissionState === 'sending'} rows="7" placeholder={`Conte como o ${BRAND.name} fez parte do seu trabalho`} className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm font-medium leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100 disabled:bg-slate-100" />
               <span className="mt-1 block text-right text-xs font-semibold text-slate-400">{body.length}/{TESTIMONIAL_BODY_MAX_LENGTH}</span>
             </label>
             <label className="block text-sm font-black text-slate-800">Profissão <span className="font-semibold text-slate-400">(opcional)</span>
               <input maxLength={TESTIMONIAL_PROFESSION_MAX_LENGTH} value={professionLabel} onChange={event => setProfessionLabel(event.target.value)} disabled={submissionState === 'sending'} placeholder="Ex.: Corretor de imóveis" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm font-medium outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100 disabled:bg-slate-100" />
             </label>
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-slate-700"><input type="checkbox" checked={publicationConsent} onChange={event => setPublicationConsent(event.target.checked)} disabled={submissionState === 'sending'} className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-800 focus:ring-primary-500" /><span>Autorizo a publicação deste depoimento nos canais do SmartCorretorAI.</span></label>
+              <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-slate-700"><input type="checkbox" checked={publicationConsent} onChange={event => setPublicationConsent(event.target.checked)} disabled={submissionState === 'sending'} className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-800 focus:ring-primary-500" /><span>Autorizo a publicação deste depoimento nos canais do {BRAND.name}.</span></label>
               <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-slate-700"><input type="checkbox" checked={attributionConsent} onChange={event => setAttributionConsent(event.target.checked)} disabled={submissionState === 'sending'} className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-800 focus:ring-primary-500" /><span>Autorizo a exibição do meu nome e profissão junto ao depoimento.</span></label>
             </div>
             {errorMessage && <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{errorMessage}</p>}
