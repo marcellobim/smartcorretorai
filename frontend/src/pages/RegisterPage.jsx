@@ -12,6 +12,7 @@ import TurnstileWidget from '../components/auth/TurnstileWidget'
 import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { LEGAL_ACCEPTANCE_CONTEXT, LEGAL_DOCUMENT_VERSIONS } from '../config/legalDocuments'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
+import { useLocale } from '../i18n/useLocale'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -25,6 +26,7 @@ export default function RegisterPage() {
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signUp, signInWithGoogle } = useAuth()
   const { trackEvent, trackRegistration } = useAnalytics()
+  const { t } = useLocale()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -90,11 +92,11 @@ export default function RegisterPage() {
           <span className="font-bold text-gray-900">{BRAND.name}</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900">Crie sua conta grátis</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('register.title')}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Comece grátis com 200 Smart Tokens após confirmar seu e-mail, sem cartão. Já tem conta?{' '}
+          {t('register.subtitle')}{' '}
           <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">
-            Entrar
+            {t('register.signIn')}
           </Link>
         </p>
 
@@ -102,7 +104,7 @@ export default function RegisterPage() {
           <GoogleAuthButton onClick={handleGoogle} loading={googleLoading} />
           <div className="my-6 flex items-center gap-3" aria-hidden="true">
             <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">ou</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('register.or')}</span>
             <div className="h-px flex-1 bg-slate-200" />
           </div>
         </div>
@@ -116,47 +118,47 @@ export default function RegisterPage() {
           className="space-y-4"
         >
           <Input
-            label="Nome completo"
-            placeholder="Seu nome"
+            label={t('register.name.label')}
+            placeholder={t('register.name.placeholder')}
             error={errors.nome?.message}
-            {...register('nome', { required: 'Nome obrigatório', minLength: { value: 3, message: 'Mínimo 3 caracteres' } })}
+            {...register('nome', { required: t('register.name.required'), minLength: { value: 3, message: t('register.name.minLength') } })}
           />
 
           <Input
-            label="E-mail profissional"
+            label={t('register.email.label')}
             type="email"
-            placeholder="seu@email.com"
+            placeholder={t('register.email.placeholder')}
             error={errors.email?.message}
             {...register('email', {
-              required: 'E-mail obrigatório',
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+              required: t('register.email.required'),
+              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: t('register.email.invalid') },
             })}
           />
 
           <Input
-            label="Telefone / WhatsApp"
+            label={t('register.phone.label')}
             type="tel"
-            placeholder="(11) 99999-9999"
+            placeholder={t('register.phone.placeholder')}
             error={errors.telefone?.message}
             {...register('telefone', {
-              required: 'Telefone obrigatório',
-              pattern: { value: /^[\d\s\(\)\-\+]{10,15}$/, message: 'Telefone inválido' },
+              required: t('register.phone.required'),
+              pattern: { value: /^[\d\s\(\)\-\+]{10,15}$/, message: t('register.phone.invalid') },
             })}
           />
 
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="CRECI"
-              placeholder="Ex: 12345-F"
-              hint="Opcional"
+              label={t('register.creci.label')}
+              placeholder={t('register.creci.placeholder')}
+              hint={t('register.creci.optional')}
               {...register('creci')}
             />
             <Select
-              label="Estado (UF)"
+              label={t('register.state.label')}
               error={errors.estado?.message}
-              {...register('estado', { required: 'Estado obrigatório' })}
+              {...register('estado', { required: t('register.state.required') })}
             >
-              <option value="">Selecione</option>
+              <option value="">{t('register.state.select')}</option>
               {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map((uf) => (
                 <option key={uf} value={uf}>{uf}</option>
               ))}
@@ -165,13 +167,13 @@ export default function RegisterPage() {
 
           <div className="relative">
             <Input
-              label="Senha"
+              label={t('register.password.label')}
               type={showPassword ? 'text' : 'password'}
-              placeholder="Mínimo 12 caracteres"
+              placeholder={t('register.password.placeholder')}
               error={errors.senha?.message}
               {...register('senha', {
-                required: 'Senha obrigatória',
-                minLength: { value: 12, message: 'Mínimo 12 caracteres' },
+                required: t('register.password.required'),
+                minLength: { value: 12, message: t('register.password.minLength') },
               })}
             />
             <button
@@ -188,13 +190,13 @@ export default function RegisterPage() {
               type="checkbox"
               id="termos"
               className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              {...register('termos', { required: 'Aceite os termos para continuar' })}
+              {...register('termos', { required: t('register.terms.required') })}
             />
             <label htmlFor="termos" className="text-sm text-gray-600">
-              Ao criar minha conta, usar o sistema, gerar campanhas ou contratar planos/recargas, declaro que li e aceito os{' '}
-              <Link to="/termos" className="text-primary-600 hover:underline">Termos de Uso</Link>{' '}
-              e a{' '}
-              <Link to="/privacidade" className="text-primary-600 hover:underline">Política de Privacidade</Link>.
+              {t('register.terms.prefix')}{' '}
+              <Link to="/termos" className="text-primary-600 hover:underline">{t('register.terms.termsLink')}</Link>{' '}
+              {t('register.terms.connector')}{' '}
+              <Link to="/privacidade" className="text-primary-600 hover:underline">{t('register.terms.privacyLink')}</Link>.
             </label>
           </div>
           {errors.termos && <p className="text-xs text-red-500">{errors.termos.message}</p>}
@@ -202,7 +204,7 @@ export default function RegisterPage() {
           <TurnstileWidget ref={captchaRef} onTokenChange={handleCaptchaToken} />
 
           <Button type="submit" loading={loading} disabled={!captchaToken} className="w-full mt-2">
-            Criar conta grátis
+            {t('register.submit')}
           </Button>
         </form>
       </div>
