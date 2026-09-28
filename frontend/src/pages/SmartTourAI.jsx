@@ -27,7 +27,7 @@ import { getSmartTourNextQuestion, getSmartTourReviewEditNext, shouldAskProfessi
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { getCountiesByState, getStatesForMarket, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
-import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
+import { formatPhone } from '../utils/phoneFormatters'
 import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, SHORT_VIDEOS_VISIBLE, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
 
 const BUCKET = 'studio-videos'
@@ -155,7 +155,7 @@ export default function SmartTourAI() {
   const hasCompleteIdentity = hasCompleteProfessionalIdentity(profile || user || {}, professionalMarket)
   const canAskProfessionalIdentity = hasCompleteIdentity && shouldAskProfessionalIdentity({ captions: generation.captions, identity: professionalIdentity })
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
-  const phone = formatBrazilianPhone(rawPhone)
+  const phone = formatPhone(rawPhone, professionalMarket)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
   const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
   const clearUploadedPhotos = () => { uploadsRef.current = null; setUploads(null) }
