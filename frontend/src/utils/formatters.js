@@ -1,26 +1,19 @@
+import {
+  formatCurrency as formatLocaleCurrency,
+  formatDate as formatLocaleDate,
+  formatDateTime as formatLocaleDateTime,
+} from '../i18n/formatters'
+
 export function formatCurrency(value) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value)
+  return formatLocaleCurrency(value, 'pt-BR', 'BRL')
 }
 
 export function formatDate(date) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(date))
+  return formatLocaleDate(date, 'pt-BR')
 }
 
 export function formatDateTime(date) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date))
+  return formatLocaleDateTime(date, 'pt-BR')
 }
 
 export function formatArea(value) {
