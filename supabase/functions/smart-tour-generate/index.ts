@@ -154,7 +154,7 @@ serve(withCors(async req => {
     let deliveryPersisted = false
     try {
       const dynamicNarration = input.generation.presenterSpeechMode === 'automatic' && input.generation.narration === 'enabled'
-        ? await generateSmartTourDynamicNarration({apiKey:Deno.env.get('OPENAI_API_KEY') || '',property:input.property,selectedCta:input.selectedCta})
+        ? await generateSmartTourDynamicNarration({apiKey:Deno.env.get('OPENAI_API_KEY') || '',property:input.property,selectedCta:input.selectedCta,language:input.language === 'en-US' ? 'en-US' : 'pt-BR'})
         : null
       const briefing = dynamicNarration ? applySmartTourDynamicNarration(fallbackBriefing,dynamicNarration) : fallbackBriefing
       const prompt = buildSmartTourVideoPrompt(briefing)

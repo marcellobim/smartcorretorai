@@ -29,6 +29,8 @@ const validNarration = (value: unknown, purpose: string) => {
   const lower = narration.toLocaleLowerCase('pt-BR')
   if (purpose === 'À venda' && !lower.includes('à venda')) return ''
   if (purpose === 'Para alugar' && !lower.includes('para alugar')) return ''
+  if (purpose === 'For sale' && !lower.includes('for sale')) return ''
+  if (purpose === 'For rent' && !lower.includes('for rent')) return ''
   return narration
 }
 
@@ -36,10 +38,12 @@ export async function generateSmartTourDynamicNarration(input: {
   apiKey: string
   property: PropertyContext
   selectedCta: string
+  language?: 'pt-BR' | 'en-US'
   fetchImpl?: FetchLike
 }) {
   if (!input.apiKey) return null
-  const finalidade = purposeLabel(input.property.purpose)
+  const english = input.language === 'en-US'
+  const finalidade = english ? (input.property.purpose === 'rent' ? 'For rent' : 'For sale') : purposeLabel(input.property.purpose)
   const characteristics = [
     clean(input.property.bedrooms) && `${clean(input.property.bedrooms)} dormitórios`,
     clean(input.property.suites) && `${clean(input.property.suites)} suítes`,
@@ -68,7 +72,11 @@ export async function generateSmartTourDynamicNarration(input: {
         messages: [
           {
             role: 'system',
-            content: `Você é um redator especializado em narração imobiliária para vídeos curtos.
+            content: english ? `You are a real-estate narrator for short videos.
+Write natural American English, between 12 and ${SMART_TOUR_NARRATION_MAX_WORDS} words.
+Mention “for sale” or “for rent” exactly as supplied. Use only the received data and never invent details.
+Prioritize purpose, property type/context, relevant location, up to two features and one highlight.
+Do not include a CTA, phone, professional name, license, title or social media. Return only the narration.` : `Você é um redator especializado em narração imobiliária para vídeos curtos.
 Escreva em português brasileiro um texto curto, natural e humano, entre 12 e ${SMART_TOUR_NARRATION_MAX_WORDS} palavras.
 Mencione obrigatoriamente “à venda” para Venda ou “para alugar” para Locação.
 Use exclusivamente os dados recebidos. Não invente informações.

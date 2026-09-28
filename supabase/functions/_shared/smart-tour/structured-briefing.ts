@@ -99,6 +99,14 @@ O imóvel já está pronto.
 
 Seu trabalho é somente registrar esse imóvel como um cinegrafista profissional faria.`
 
+const SMART_TOUR_GEMINI_MISSION_EN = `PRIMARY MISSION
+You are a professional real-estate videographer. Film the supplied property faithfully.
+
+GOLDEN RULE
+All supplied images are the definitive representation of the property. Architecture, furniture, decor, objects, finishes, colors, lighting, proportions and perspective are final.
+
+You may use creativity only for cinematic camera movement, continuity, natural presenter movement, framing, pacing and smooth transitions. Never redesign, reconstruct, replace, remove or alter any part of the property.`
+
 type Presenter = 'corretora' | 'corretor' | 'nenhum'
 export type SmartTourSceneType = 'abertura' | 'caracteristicas' | 'diferencial' | 'localizacao' | 'encerramento'
 export type SmartTourTimelineBlock = {
@@ -120,7 +128,7 @@ type PhraseDefinition = {
 
 export type SmartTourStructuredBriefing = {
   versao: 'smart-tour-structured-briefing-v1'
-  tarefa: typeof SMART_TOUR_GEMINI_MISSION
+  tarefa: string
   configuracoes: {
     modo: SmartTourGenerationConfig['mode']
     idioma: SupportedLanguage
@@ -294,10 +302,10 @@ const presenter = (config: SmartTourGenerationConfig): Presenter => {
   return 'nenhum'
 }
 
-const purpose = (value: unknown) => {
+const purpose = (value: unknown, language: SupportedLanguage = 'pt-BR') => {
   const cleaned = literal(value)
-  if (cleaned.toLocaleLowerCase('pt-BR') === 'sale') return 'Venda'
-  if (cleaned.toLocaleLowerCase('pt-BR') === 'rent') return 'Locação'
+  if (cleaned.toLocaleLowerCase('pt-BR') === 'sale') return language === 'en-US' ? 'For Sale' : 'Venda'
+  if (cleaned.toLocaleLowerCase('pt-BR') === 'rent') return language === 'en-US' ? 'For Rent' : 'Locação'
   return cleaned
 }
 
@@ -332,10 +340,10 @@ const selectPhrase = (input: {
   return { id: selected.id, texto: selected.texto }
 }
 
-const technicalCaption = (property: PropertyContext) => unique([
-  labelQuantity(property.bedrooms, 'Dormitório', 'Dormitórios'),
-  labelQuantity(property.suites, 'Suíte', 'Suítes'),
-  labelQuantity(property.parkingSpaces, 'Vaga', 'Vagas'),
+const technicalCaption = (property: PropertyContext, language: SupportedLanguage) => unique([
+  labelQuantity(property.bedrooms, language === 'en-US' ? 'Bedroom' : 'Dormitório', language === 'en-US' ? 'Bedrooms' : 'Dormitórios'),
+  labelQuantity(property.suites, language === 'en-US' ? 'Suite' : 'Suíte', language === 'en-US' ? 'Suites' : 'Suítes'),
+  labelQuantity(property.parkingSpaces, language === 'en-US' ? 'Parking Space' : 'Vaga', language === 'en-US' ? 'Parking Spaces' : 'Vagas'),
 ]).join(' • ')
 
 const commercialHighlights = (property: PropertyContext) => {
@@ -346,10 +354,10 @@ const commercialHighlights = (property: PropertyContext) => {
   return { location, condominium, differentials }
 }
 
-const purposePresentation = (value: unknown) => {
+const purposePresentation = (value: unknown, language: SupportedLanguage) => {
   const normalized = literal(value).toLocaleLowerCase('pt-BR')
-  if (normalized === 'sale') return 'À venda'
-  if (normalized === 'rent') return 'Para alugar'
+  if (normalized === 'sale') return language === 'en-US' ? 'For Sale' : 'À venda'
+  if (normalized === 'rent') return language === 'en-US' ? 'For Rent' : 'Para alugar'
   return ''
 }
 
@@ -364,13 +372,13 @@ const narrationWithPurpose = (text: string, displayedPurpose: string) => {
   return `${displayedPurpose}. ${text}`
 }
 
-const commercialCaption = (blockNumber: number, property: PropertyContext, includePurposePresentation = true) => {
+const commercialCaption = (blockNumber: number, property: PropertyContext, language: SupportedLanguage, includePurposePresentation = true) => {
   if (blockNumber === 1) {
     const location = unique([literal(property.district), literal(property.city)]).join(' • ')
-    const displayedPurpose = includePurposePresentation ? purposePresentation(property.purpose) : ''
+    const displayedPurpose = includePurposePresentation ? purposePresentation(property.purpose, language) : ''
     return [displayedPurpose, location].filter(Boolean).join('\n')
   }
-  if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property)]).join('\n')
+  if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property, language)]).join('\n')
   if (blockNumber === 3) {
     const highlights = commercialHighlights(property)
     return highlights.location[0] || highlights.differentials[0] || highlights.condominium[0] || ''
@@ -503,15 +511,16 @@ export function buildSmartTourStructuredBriefing(input: {
   language: SupportedLanguage
   includePurposePresentation?: boolean
 }): SmartTourStructuredBriefing {
+  const english = input.language === 'en-US'
   const config = normalizeGeneration(input.generation)
-  const finalidade = purpose(input.property.purpose)
+  const finalidade = purpose(input.property.purpose, input.language)
   const tipoImovel = literal(presentSmartTourPropertyType(input.property.type))
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
   const professionalIdentity = String(input.professionalIdentity ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160)
   const includePurposePresentation = input.includePurposePresentation !== false
-  const displayedPurpose = input.language === 'pt-BR' && includePurposePresentation
-    ? purposePresentation(input.property.purpose)
+  const displayedPurpose = includePurposePresentation
+    ? purposePresentation(input.property.purpose, input.language)
     : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths })
   const narrationTimeline = TEXT_TIMELINE.map(block => {
@@ -528,7 +537,7 @@ export function buildSmartTourStructuredBriefing(input: {
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
     texto: config.captions === 'enabled'
-      ? commercialCaption(block.bloco, input.property, includePurposePresentation)
+      ? commercialCaption(block.bloco, input.property, input.language, includePurposePresentation)
       : '',
   }))
   const ctaTimeline = {
@@ -558,7 +567,7 @@ export function buildSmartTourStructuredBriefing(input: {
       : phrase.texto
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, includePurposePresentation) : '')
+      : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, input.language, includePurposePresentation) : '')
     return {
       numero: sceneNumber,
       tipo,
@@ -573,16 +582,16 @@ export function buildSmartTourStructuredBriefing(input: {
   })
   const presenterType = presenter(config)
   const hasPresenter = presenterType !== 'nenhum'
-  const presenterLabel = presenterType === 'corretor' ? 'um corretor' : 'uma corretora'
-  const presenterReference = presenterType === 'corretor' ? 'O corretor' : 'A corretora'
+  const presenterLabel = english ? (presenterType === 'corretor' ? 'a male real estate agent' : 'a female real estate agent') : (presenterType === 'corretor' ? 'um corretor' : 'uma corretora')
+  const presenterReference = english ? 'The presenter' : (presenterType === 'corretor' ? 'O corretor' : 'A corretora')
   const presenterRules = hasPresenter ? [
-    { codigo: 'apresentador_obrigatorio', valor: `Criar e exibir obrigatoriamente exatamente uma pessoa: ${presenterLabel}. Essa pessoa deve aparecer naturalmente durante a apresentação.` },
-    { codigo: 'apresentador_excecao_unica', valor: `${presenterReference} é a única exceção autorizada à regra de não inventar pessoas. Não criar, exibir ou sugerir nenhuma pessoa adicional.` },
-    { codigo: 'apresentador_preserva_imovel', valor: `A presença e os movimentos naturais de ${presenterLabel} não podem alterar, reconstruir, ocultar ou substituir qualquer parte do imóvel. O imóvel deve ser preservado integralmente.` },
+    { codigo: 'apresentador_obrigatorio', valor: english ? `Create and show exactly one person: ${presenterLabel}. This person must appear naturally during the presentation.` : `Criar e exibir obrigatoriamente exatamente uma pessoa: ${presenterLabel}. Essa pessoa deve aparecer naturalmente durante a apresentação.` },
+    { codigo: 'apresentador_excecao_unica', valor: english ? `${presenterReference} is the only allowed exception to the no-invented-people rule. Do not create, show or suggest any additional person.` : `${presenterReference} é a única exceção autorizada à regra de não inventar pessoas. Não criar, exibir ou sugerir nenhuma pessoa adicional.` },
+    { codigo: 'apresentador_preserva_imovel', valor: english ? `The presence and natural movement of ${presenterLabel} must not alter, reconstruct, hide or replace any part of the property. Preserve the property completely.` : `A presença e os movimentos naturais de ${presenterLabel} não podem alterar, reconstruir, ocultar ou substituir qualquer parte do imóvel. O imóvel deve ser preservado integralmente.` },
   ] : []
   return {
     versao: 'smart-tour-structured-briefing-v1',
-    tarefa: SMART_TOUR_GEMINI_MISSION,
+    tarefa: input.language === 'en-US' ? SMART_TOUR_GEMINI_MISSION_EN : SMART_TOUR_GEMINI_MISSION,
     configuracoes: {
       modo: config.mode,
       idioma: input.language,
@@ -631,17 +640,16 @@ export function buildSmartTourStructuredBriefing(input: {
       cenarioProtegido: true,
       umaImagemPorCena: true,
       respeitarOrdemDasImagens: true,
-      elementosImutaveis: ['arquitetura', 'paredes', 'pisos', 'tetos', 'portas', 'janelas', 'móveis existentes', 'decoração', 'objetos', 'acabamentos', 'cores', 'proporções', 'perspectiva', 'enquadramento'],
+      elementosImutaveis: english ? ['architecture', 'walls', 'floors', 'ceilings', 'doors', 'windows', 'existing furniture', 'decor', 'objects', 'finishes', 'colors', 'proportions', 'perspective', 'framing'] : ['arquitetura', 'paredes', 'pisos', 'tetos', 'portas', 'janelas', 'móveis existentes', 'decoração', 'objetos', 'acabamentos', 'cores', 'proporções', 'perspectiva', 'enquadramento'],
       transformacoesPermitidas: [
-        'movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo',
-        'variações naturais sutis de luminosidade',
-        ...(hasPresenter ? [`movimentos naturais e discretos da única ${presenterType} autorizada`] : []),
+        ...(english ? ['low-amplitude linear movement', 'gentle pan', 'minimal push-in', 'minimal pull-back', 'subtle natural lighting variations'] : ['movimento linear de baixa amplitude', 'pan suave', 'push-in mínimo', 'pull-back mínimo', 'variações naturais sutis de luminosidade']),
+        ...(hasPresenter ? [english ? `natural, discreet movement by the only authorized ${presenterLabel}` : `movimentos naturais e discretos da única ${presenterType} autorizada`] : []),
       ],
     },
     regrasObrigatorias: [
-      { codigo: 'usar_json_como_fonte_unica', valor: 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
-      ...GEMINI_VIDEO_TEXT_RULES,
-      { codigo: 'sem_invencao', valor: hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : 'não inventar dados, contatos, ambientes, pessoas ou elementos' },
+      { codigo: 'usar_json_como_fonte_unica', valor: english ? 'Use only information in this JSON. Do not invent, complete, alter, correct or replace any information.' : 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
+      ...(english ? [] : GEMINI_VIDEO_TEXT_RULES),
+      { codigo: 'sem_invencao', valor: english ? (hasPresenter ? `Do not invent data, contacts, rooms, additional people or elements; the only mandatory authorized person is the presenter.` : 'Do not invent data, contacts, rooms, people or elements.') : (hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : 'não inventar dados, contatos, ambientes, pessoas ou elementos') },
       ...presenterRules,
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },

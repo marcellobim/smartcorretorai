@@ -67,7 +67,7 @@ function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
   const presenterGender = ['female','male'].includes(value.presenterGender) ? value.presenterGender : 'none'
   const presenterSpeechMode = value.presenterSpeechMode === 'custom' ? 'custom' : 'automatic'
-  return { ...value, mode: 'guided_tour', presenterGender, presenterSpeechMode, presenterCustomSpeech: presenterSpeechMode === 'custom' ? String(value.presenterCustomSpeech ?? '') : '', narration: presenterSpeechMode === 'custom' ? 'enabled' : value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
+  return { ...value, mode: 'guided_tour', presenterGender, presenterSpeechMode, presenterCustomSpeech: presenterSpeechMode === 'custom' ? String(value.presenterCustomSpeech ?? '') : '', narration: presenterSpeechMode === 'custom' ? 'enabled' : value.narration === 'disabled' ? 'disabled' : 'enabled', captions: value.captions === 'disabled' ? 'disabled' : 'enabled', furniture: 'original', stagingPresentation: 'final_only', language: value.language === 'en-US' ? 'en-US' : 'pt-BR' }
 }
 
 const countWords = value => String(value ?? '').trim().split(/\s+/).filter(Boolean).length
@@ -113,7 +113,7 @@ function smartTourConfirmation(id, answer, isShortVideos = false, t = key => key
 
 export default function SmartTourAI() {
   const { user, profile, reloadProfile } = useAuth()
-  const { market, t } = useLocale()
+  const { locale, market, t } = useLocale()
   const tourDraft = useProductDraft({ productKey: 'video-imobiliario', schemaVersion: 1, userId: user?.id })
   const restoredTourDraft = tourDraft.restoredDraft || {}
   const restoredInputFlow = restoredTourDraft.activeInputFlow === 'images' || (SHORT_VIDEOS_VISIBLE && restoredTourDraft.activeInputFlow === SHORT_VIDEOS_MODULE_ID) ? restoredTourDraft.activeInputFlow : null
@@ -236,7 +236,7 @@ export default function SmartTourAI() {
     const shortVideoMetadata = shortVideo?.file
       ? { ...toFileMetadata(shortVideo.file, 0), duration: shortVideo.duration }
       : missingShortVideoMetadata
-    const draft = { activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
+    const draft = { activeInputFlow, property, generation, locale, market, ctaEnabled, cta, includePhone, showProfessionalIdentity, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
     const meaningful = activeInputFlow || conversationSnapshot?.history?.length || imageMetadata.length || shortVideoMetadata || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
     if (!meaningful) { tourDraft.clear(); return }
     tourDraft.save(draft)
@@ -422,7 +422,7 @@ export default function SmartTourAI() {
       if (pendingJob) { await poll(pendingJob.jobId); return }
       const savedUploads = !isShortVideos && validVideoUploads(uploadsRef.current, user.id)
       const requestId = savedUploads?.requestId || crypto.randomUUID()
-      const apiGeneration = normalizeGeneration(generation)
+      const apiGeneration = normalizeGeneration({ ...generation, language: locale === 'en-US' ? 'en-US' : 'pt-BR' })
       const videoCtaEnabled = ctaEnabled === true
       const selectedCta = videoCtaEnabled ? cta : ''
       if (isShortVideos) {
@@ -430,7 +430,7 @@ export default function SmartTourAI() {
         const { error: uploadError } = await supabase.storage.from(SHORT_VIDEOS_INPUT_BUCKET).upload(videoPath, shortVideo.file, { contentType: 'video/mp4' })
         if (uploadError) throw new Error('O vídeo não pôde ser enviado. Tente novamente.')
         setStatus('generating'); setMessage('A IA está selecionando os melhores momentos do seu vídeo...')
-        let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '' })
+        let campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '' })
         writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'starting', updatedAt:Date.now() })
         tourDraft.clear()
         const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: {
@@ -443,7 +443,7 @@ export default function SmartTourAI() {
           selectedCta,
           includeProfessionalPhone: videoCtaEnabled && includePhone === true,
           showProfessionalIdentity: showProfessionalIdentity === true,
-          language: 'pt-BR',
+          language: apiGeneration.language, market,
         } })
         if (error || !data?.ok || !data?.jobId) {
           setStatus('generating')
@@ -451,7 +451,7 @@ export default function SmartTourAI() {
           poll(requestId)
           return
         }
-        campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags })
+        campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags })
         writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'active', updatedAt:Date.now() }); poll(data.jobId)
         return
       }
@@ -470,9 +470,9 @@ export default function SmartTourAI() {
       setUploads(uploadsRef.current)
       preserveBriefing()
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
-      let campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
+      let campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: 'pt-BR' } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: apiGeneration.language, market } })
       if (await isVideoSessionInvalid(error, data)) {
         clearSmartTourActiveJob(sessionStorage)
         requireLogin()
@@ -487,7 +487,7 @@ export default function SmartTourAI() {
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
       setResumeAfterLogin(false)
       preserveBriefing(false)
-      campaignPackage = buildSmartTourCampaignPackage({ property, language:'pt-BR', cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
+      campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', hashtags:data.hashtags, unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow:'images', phase:'active', updatedAt:Date.now() }); poll(data.jobId)
     } catch (error) {
       if (isShortVideos) shortVideoGenerationLockRef.current = false

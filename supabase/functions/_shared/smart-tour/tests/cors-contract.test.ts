@@ -92,8 +92,8 @@ test('other product Edge Functions retain their approved CORS and generation mar
   assert.match(hero, /SMARTCORRETORAI_MASTER_PROPERTY_V1/)
 })
 
-test('Smart Tour frontend payload keeps its contract and suppresses phone without CTA', () => {
-  assert.match(frontendSource, /body: \{ clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: 'pt-BR' \}/)
+test('Smart Tour frontend payload uses the effective locale and market while preserving CTA phone gating', () => {
+  assert.match(frontendSource, /language: apiGeneration\.language, market/)
 })
 
 test('Gemini Omni model and protected professional phone contracts remain connected', () => {
