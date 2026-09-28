@@ -118,7 +118,7 @@ test('10. highlight lists change coherently with property type', () => {
 })
 
 test('11. Sobrado is not a primary property type', () => {
-  assert.equal(SMART_TOUR_PROPERTY_TYPES.includes('Sobrado'), false)
+  assert.equal(SMART_TOUR_PROPERTY_TYPES.some((type) => type.value === 'Sobrado'), false)
 })
 
 test('12. Sobrado remains a Casa highlight', () => {

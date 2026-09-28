@@ -1,4 +1,11 @@
-export const SMART_TOUR_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Terreno / Lote', 'Comercial']
+export const SMART_TOUR_PROPERTY_TYPES = Object.freeze([
+  { value: 'Apartamento', labelKey: 'smartTour.propertyTypes.apartment' },
+  { value: 'Casa', labelKey: 'smartTour.propertyTypes.house' },
+  { value: 'Cobertura', labelKey: 'smartTour.propertyTypes.penthouse' },
+  { value: 'Studio / Loft', labelKey: 'smartTour.propertyTypes.studioLoft' },
+  { value: 'Terreno / Lote', labelKey: 'smartTour.propertyTypes.landLot' },
+  { value: 'Comercial', labelKey: 'smartTour.propertyTypes.commercial' },
+])
 export const SMART_TOUR_RENTAL_STAGES = Object.freeze(['Pronto para morar', 'Disponível já', 'Vago'])
 
 export function getSmartTourStageOptions(purpose, saleOptions) {
@@ -6,7 +13,7 @@ export function getSmartTourStageOptions(purpose, saleOptions) {
 }
 
 export function getSmartTourPropertyTypes(purpose, propertyTypes = SMART_TOUR_PROPERTY_TYPES) {
-  return purpose === 'rent' ? propertyTypes.filter(type => type !== 'Terreno / Lote') : propertyTypes
+  return purpose === 'rent' ? propertyTypes.filter(type => type.value !== 'Terreno / Lote') : propertyTypes
 }
 
 export const SMART_TOUR_MEASURE_FIELDS = Object.freeze({

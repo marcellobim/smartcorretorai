@@ -197,6 +197,7 @@ export default Object.freeze({
     tiktok: 'TikTok',
   }),
   smartTour: Object.freeze({
+    propertyTypes: Object.freeze({ apartment: 'Apartamento', house: 'Casa', penthouse: 'Cobertura', studioLoft: 'Studio / Loft', landLot: 'Terreno / Lote', commercial: 'Comercial' }),
     productName: 'Vídeo Imobiliário',
     headerSubtitle: 'A SNETIA organiza o contexto. A IA faz o trabalho pesado.',
     heroHeadline: 'Transforme as fotos dos seus imóveis em comerciais profissionais.',

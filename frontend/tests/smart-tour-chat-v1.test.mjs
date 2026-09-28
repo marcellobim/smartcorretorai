@@ -50,14 +50,14 @@ test('uses the approved rental states and removes land only from rental', () => 
   assert.deepEqual(SMART_TOUR_RENTAL_STAGES, ['Pronto para morar', 'Disponível já', 'Vago'])
   assert.deepEqual(getSmartTourStageOptions('rent', saleStages), SMART_TOUR_RENTAL_STAGES)
   assert.deepEqual(getSmartTourStageOptions('sale', saleStages), saleStages)
-  assert.equal(getSmartTourPropertyTypes('rent').includes('Terreno / Lote'), false)
-  assert.equal(getSmartTourPropertyTypes('sale').includes('Terreno / Lote'), true)
+  assert.equal(getSmartTourPropertyTypes('rent').some((type) => type.value === 'Terreno / Lote'), false)
+  assert.equal(getSmartTourPropertyTypes('sale').some((type) => type.value === 'Terreno / Lote'), true)
   assert.match(page, /getSmartTourStageOptions\(property\.purpose, STAGES\)/)
   assert.match(page, /getSmartTourPropertyTypes\(property\.purpose, SMART_TOUR_PROPERTY_TYPES\)/)
 })
 
 test('removes Sobrado as a primary type and keeps it as a house highlight', () => {
-  assert.equal(SMART_TOUR_PROPERTY_TYPES.includes('Sobrado'), false)
+  assert.equal(SMART_TOUR_PROPERTY_TYPES.some((type) => type.value === 'Sobrado'), false)
   assert.equal(getSmartTourHighlights('Casa').includes('Sobrado'), true)
 })
 
