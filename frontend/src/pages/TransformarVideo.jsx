@@ -1,4 +1,5 @@
 import { QUICK_BANNERS_AVAILABLE } from '../config/productAvailability'
+import { BRAND } from '../config/brand'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -1071,7 +1072,7 @@ function Header({ title, subtitle }) {
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 sm:px-7 lg:px-8">
-        <p className="text-xs font-black uppercase tracking-wide text-primary-700">SmartCorretorAI 3.0</p>
+        <p className="text-xs font-black uppercase tracking-wide text-primary-700">{BRAND.name} 3.0</p>
         <h1 className="text-2xl font-black tracking-tight text-gray-950">{title}</h1>
         <p className="max-w-3xl text-sm font-semibold leading-relaxed text-gray-500">{subtitle}</p>
       </div>
@@ -1083,7 +1084,7 @@ function AssistantBubble({ children }) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-cyan-100">
-        <BrandMark size={20} alt="SmartCorretorAI" />
+        <BrandMark size={20} alt={BRAND.name} />
       </div>
       <div className="max-w-3xl rounded-3xl rounded-tl-md border border-blue-100 bg-white px-5 py-4 shadow-sm">
         <p className="text-sm font-bold leading-relaxed text-slate-700">{children}</p>

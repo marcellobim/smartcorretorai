@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { useNavigate } from 'react-router-dom'
 import {
   CheckCircle2,
@@ -2848,7 +2849,7 @@ export default function StudioHero() {
           {false && answers.cta && (
             <UserReply onEdit={() => setStep(ctaStep)}>
               <strong>{answers.cta}</strong>
-              <span>Essa sera a chamada final preparada pelo SmartCorretorAI.</span>
+              <span>Essa sera a chamada final preparada pelo {BRAND.name}.</span>
             </UserReply>
           )}
 
@@ -3038,7 +3039,7 @@ export default function StudioHero() {
           )}
 
           {!isFreeAiMode && (hasCinematicPropertyPreparationStep ? answers.decorationPolicy : answers.cta) && step >= uploadStep && (
-            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message="Envie a melhor imagem do imovel. O SmartCorretorAI adiciona automaticamente o encerramento profissional do video.">
+            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message={`Envie a melhor imagem do imovel. O ${BRAND.name} adiciona automaticamente o encerramento profissional do video.`}>
               <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
                 {isGenerating && !videoUrl ? (
                   <LoadingCard generationMessage={generationMessage} />
@@ -3072,7 +3073,7 @@ export default function StudioHero() {
                         ))}
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
-                        Escolha a foto que melhor representa o imovel. Ela abre o comercial; o encerramento profissional e aplicado automaticamente pelo SmartCorretorAI.
+                        Escolha a foto que melhor representa o imovel. Ela abre o comercial; o encerramento profissional e aplicado automaticamente pelo {BRAND.name}.
                       </div>
                     </div>
 
@@ -3743,7 +3744,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             ))}
           </div>
           <p className="mt-3 text-xs font-semibold leading-5 text-primary-900">
-            O encerramento final e controlado pelo SmartCorretorAI para manter consistencia de campanha.
+            O encerramento final e controlado pelo {BRAND.name} para manter consistencia de campanha.
           </p>
         </ProductCard>
       )}
