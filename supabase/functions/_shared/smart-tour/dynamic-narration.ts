@@ -3,6 +3,8 @@ import type { PropertyContext } from './types.ts'
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions'
 const OPENAI_NARRATION_MODEL = 'gpt-4.1'
 const OPENAI_NARRATION_TIMEOUT_MS = 55_000
+// Ten seconds at a natural Brazilian Portuguese delivery rate (~2.4 words/s).
+export const SMART_TOUR_NARRATION_MAX_WORDS = 24
 
 type FetchLike = typeof fetch
 
@@ -19,21 +21,13 @@ const purposeLabel = (value: unknown) => {
   return clean(value, 40)
 }
 
-const normalizedEnding = (value: string) => value
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLocaleLowerCase('pt-BR')
-  .replace(/[^\p{L}\p{N}]+$/gu, '')
-  .trim()
-
-const validNarration = (value: unknown, purpose: string, cta: string) => {
+const validNarration = (value: unknown, purpose: string) => {
   const narration = clean(value, 700)
-  if (!narration || narration.split(/\s+/).length < 5 || narration.split(/\s+/).length > 90) return ''
+  if (!narration || narration.split(/\s+/).length < 5 || narration.split(/\s+/).length > SMART_TOUR_NARRATION_MAX_WORDS) return ''
   if (/```|^\s*[\[{]/.test(narration)) return ''
   const lower = narration.toLocaleLowerCase('pt-BR')
   if (purpose === 'À venda' && !lower.includes('à venda')) return ''
   if (purpose === 'Para alugar' && !lower.includes('para alugar')) return ''
-  if (cta && !normalizedEnding(narration).endsWith(normalizedEnding(cta))) return ''
   return narration
 }
 
@@ -45,21 +39,20 @@ export async function generateSmartTourDynamicNarration(input: {
 }) {
   if (!input.apiKey) return null
   const finalidade = purposeLabel(input.property.purpose)
-  const cta = clean(input.selectedCta, 160)
-  const preco = clean(input.property.price)
+  const characteristics = [
+    clean(input.property.bedrooms) && `${clean(input.property.bedrooms)} dormitórios`,
+    clean(input.property.suites) && `${clean(input.property.suites)} suítes`,
+    clean(input.property.parkingSpaces) && `${clean(input.property.parkingSpaces)} vagas`,
+    clean(input.property.area) && `${clean(input.property.area)} m²`,
+  ].filter(Boolean).slice(0, 2)
   const facts = {
     finalidade,
     tipoDoImovel: clean(input.property.type),
     estadoAtual: clean(input.property.stage),
     cidade: clean(input.property.city),
     bairro: clean(input.property.district),
-    dormitorios: clean(input.property.bedrooms),
-    suites: clean(input.property.suites),
-    vagas: clean(input.property.parkingSpaces),
-    area: clean(input.property.area),
-    ...(preco ? { preco } : {}),
-    destaques: (input.property.highlights || []).map(item => clean(item, 120)).filter(Boolean).slice(0, 10),
-    cta,
+    caracteristicasPrincipais: characteristics,
+    destaquesPrincipais: (input.property.highlights || []).map(item => clean(item, 120)).filter(Boolean).slice(0, 2),
   }
 
   try {
@@ -75,18 +68,19 @@ export async function generateSmartTourDynamicNarration(input: {
           {
             role: 'system',
             content: `Você é um redator especializado em narração imobiliária para vídeos curtos.
-Escreva em português brasileiro um texto curto, natural e humano.
+Escreva em português brasileiro um texto curto, natural e humano, entre 12 e ${SMART_TOUR_NARRATION_MAX_WORDS} palavras.
 Mencione obrigatoriamente “à venda” para Venda ou “para alugar” para Locação.
 Use exclusivamente os dados recebidos. Não invente informações.
-Não leia uma lista de características: transforme os dados em uma fala fluida.
+Comece pela finalidade e depois priorize tipo/contexto, localização quando relevante, no máximo duas características e no máximo um destaque.
+Não leia listas; transforme somente os pontos principais em uma fala fluida. Se não couber tudo, remova destaque, característica e localização nessa ordem; nunca remova a finalidade.
+Não inclua CTA, telefone, nome profissional, apelido, CRECI, licença, cargo ou redes sociais.
 Varie naturalmente a abertura e evite começar sempre com “Conheça este” ou “Conheça esta”.
-Finalize literalmente com a chamada recebida em cta, quando ela existir.
 Retorne somente o texto final da narração, sem título, explicação, aspas, Markdown ou JSON.`,
           },
           { role: 'user', content: JSON.stringify(facts) },
         ],
         temperature: 0.9,
-        max_tokens: 300,
+        max_tokens: 80,
       }),
       signal: AbortSignal.timeout(OPENAI_NARRATION_TIMEOUT_MS),
     })
@@ -94,7 +88,7 @@ Retorne somente o texto final da narração, sem título, explicação, aspas, M
       choices?: Array<{ message?: { content?: unknown } }>
     } | null
     if (!response.ok) return null
-    return validNarration(body?.choices?.[0]?.message?.content, finalidade, cta) || null
+    return validNarration(body?.choices?.[0]?.message?.content, finalidade) || null
   } catch {
     return null
   }

@@ -519,9 +519,9 @@ export function buildSmartTourStructuredBriefing(input: {
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
-    texto: block.bloco === 1 && displayedPurpose
-      ? (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property, includePurposePresentation) : displayedPurpose)
-      : (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property, includePurposePresentation) : ''),
+    texto: config.captions === 'enabled'
+      ? commercialCaption(block.bloco, input.property, includePurposePresentation)
+      : '',
   }))
   const ctaTimeline = {
     bloco: 5,
@@ -544,9 +544,7 @@ export function buildSmartTourStructuredBriefing(input: {
       : phrase.texto
     const legenda = isLast
       ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
-      : (sceneNumber === 1 && displayedPurpose
-        ? (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, includePurposePresentation) : displayedPurpose)
-        : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, includePurposePresentation) : ''))
+      : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, includePurposePresentation) : '')
     return {
       numero: sceneNumber,
       tipo,
@@ -609,7 +607,7 @@ export function buildSmartTourStructuredBriefing(input: {
       cta: ctaTimeline,
     },
     legendas: {
-      ativas: config.captions === 'enabled' || Boolean(ctaTitle) || Boolean(displayedPurpose),
+      ativas: config.captions === 'enabled' || Boolean(ctaTitle),
     },
     cta: { titulo: ctaTitle, telefone: phone },
     regrasPreservacao: {

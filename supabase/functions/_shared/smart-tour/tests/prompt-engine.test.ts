@@ -400,3 +400,21 @@ test('legacy generation data defaults to automatic presenter speech', () => {
   assert.equal(normalized.presenterSpeechMode, 'automatic')
   assert.equal(normalized.presenterCustomSpeech, '')
 })
+
+test('guided tour presenter gender accepts only the explicit supported values', () => {
+  assert.equal(normalizeGeneration({ mode: 'guided_tour', presenterGender: 'male' }).presenterGender, 'male')
+  assert.equal(normalizeGeneration({ mode: 'guided_tour', presenterGender: 'female' }).presenterGender, 'female')
+  assert.equal(normalizeGeneration({ mode: 'guided_tour', presenterGender: 'none' }).presenterGender, 'none')
+  assert.equal(normalizeGeneration({ mode: 'guided_tour', presenterGender: 'unexpected' as never }).presenterGender, 'none')
+})
+
+test('custom presenter speech preserves independent caption and CTA choices', () => {
+  const normalized = normalizeGeneration({
+    mode: 'guided_tour', presenterGender: 'male', presenterSpeechMode: 'custom', presenterCustomSpeech: 'Fala literal.',
+    narration: 'enabled', captions: 'enabled',
+  })
+  const briefing = buildSmartTourStructuredBriefing({ generation: normalized, property, selectedCta: 'Fale comigo', imagePaths: ['u/1.jpg'], language: 'pt-BR' })
+  assert.equal(normalized.captions, 'enabled')
+  assert.equal(briefing.configuracoes.ctaAtivo, true)
+  assert.equal(briefing.timeline.cta.texto, 'Fale comigo')
+})

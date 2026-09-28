@@ -6,6 +6,7 @@ import {
   buildShortVideosStructuredBriefing,
   buildSmartTourStructuredBriefing,
   generateSmartTourDynamicNarration,
+  SMART_TOUR_NARRATION_MAX_WORDS,
 } from '../index.ts'
 
 const property = {
@@ -34,7 +35,7 @@ const generation = {
 test('uses the existing OpenAI chat transport and sends only the approved property fields', async () => {
   let requestUrl = ''
   let requestInit: RequestInit | undefined
-  const narration = 'Seu próximo endereço pode estar no Klabin: um apartamento para alugar com varanda e acesso fácil ao metrô. Agende sua visita.'
+  const narration = 'No Klabin, este apartamento para alugar reúne dois dormitórios, varanda e acesso fácil ao metrô.'
   const result = await generateSmartTourDynamicNarration({
     apiKey: 'test-key',
     property,
@@ -61,13 +62,27 @@ test('uses the existing OpenAI chat transport and sends only the approved proper
   assert.match(body.messages[0].content, /para alugar/)
   const facts = JSON.parse(body.messages[1].content)
   assert.deepEqual(Object.keys(facts), [
-    'finalidade', 'tipoDoImovel', 'estadoAtual', 'cidade', 'bairro', 'dormitorios',
-    'suites', 'vagas', 'area', 'preco', 'destaques', 'cta',
+    'finalidade', 'tipoDoImovel', 'estadoAtual', 'cidade', 'bairro', 'caracteristicasPrincipais',
+    'destaquesPrincipais',
   ])
   assert.equal(facts.finalidade, 'Para alugar')
+  assert.deepEqual(facts.caracteristicasPrincipais, ['2 dormitórios', '1 suítes'])
+  assert.deepEqual(facts.destaquesPrincipais, ['Varanda', 'Próximo ao metrô'])
   assert.equal(body.temperature, 0.9)
-  assert.equal(body.max_tokens, 300)
-  assert.doesNotMatch(body.messages[1].content, /condomínio|IPTU|não deve ser enviada/i)
+  assert.equal(body.max_tokens, 80)
+  assert.match(body.messages[0].content, new RegExp(`entre 12 e ${SMART_TOUR_NARRATION_MAX_WORDS} palavras`))
+  assert.doesNotMatch(body.messages[1].content, /condomínio|IPTU|não deve ser enviada|CRECI|license|display_name/i)
+})
+
+test('rejects a narration that would exceed the natural ten-second speaking budget', async () => {
+  const tooLong = ['Para alugar', ...Array.from({ length: SMART_TOUR_NARRATION_MAX_WORDS - 1 }, (_, index) => `palavra${index}`)].join(' ')
+  const result = await generateSmartTourDynamicNarration({
+    apiKey: 'test-key',
+    property,
+    selectedCta: 'Agende sua visita',
+    fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: tooLong } }] }), { status: 200 }),
+  })
+  assert.equal(result, null)
 })
 
 test('returns fallback signal for missing key, provider failure or invalid content', async () => {

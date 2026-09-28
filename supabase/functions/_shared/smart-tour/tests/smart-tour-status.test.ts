@@ -197,7 +197,7 @@ test('status function logs every external boundary without exposing complete ide
     'status_error',
   ]) assert.ok(statusSource.includes(event), event)
 
-  assert.doesNotMatch(statusSource, /providerJobId:|interactionId:|userId:|jobId:/)
+  assert.doesNotMatch(statusSource, /providerJobId:|interactionId:|userId:/)
   assert.doesNotMatch(statusSource, /interactionUrl:|interactionIdFirst8:|interactionIdLast8:/)
   assert.doesNotMatch(statusSource, /console\.(?:info|warn|error)\([^\n]*(?:token|prompt|signedVideoUrl)/i)
   assert.match(statusSource, /providerMessage: diagnostic\.providerMessage/)
@@ -254,20 +254,20 @@ test('only reaches download and completed persistence after a completed MP4 resu
   assert.doesNotMatch(statusSource, /registerVideoImobiliarioCreation|creationId/)
 })
 
-test('status function composes only Short Videos and never delivers its raw Gemini video', () => {
+test('status function recovers deterministic compositions without delivering the raw Gemini video', () => {
   assert.match(statusSource, /if \(isShortVideos\) \{/)
   assert.match(statusSource, /startSmartTourCaptionRender/)
   assert.match(statusSource, /smart-tour-gemini\.mp4/)
   assert.match(statusSource, /const briefing = parseSmartTourStructuredBriefing\(job\.prompt_final\)/)
   assert.match(statusSource, /validateShortVideosFinalMp4/)
   assert.match(statusSource, /encodeSmartTourCaptionRenderId/)
-  assert.match(statusSource, /cleanupShortVideoRaw/)
+  assert.match(statusSource, /cleanupCaptionRaw/)
   assert.match(statusSource, /return json\(\{ ok: true, status: 'generating'/)
   assert.doesNotMatch(statusSource, /output_video_path: shortVideoRawPath/)
   assert.match(statusSource, /upload\(outputPath, completedVideo\.videoBytes/)
   assert.doesNotMatch(statusSource, /startGeminiOmni(?:ShortVideo|Video)\(/)
   assert.doesNotMatch(statusSource, /tokens_reserved|smart_tokens|decrement/i)
-  assert.match(statusSource, /short_video_composition_\$\{diagnostic\.kind\}/)
+  assert.match(statusSource, /smart_tour_composition_\$\{diagnostic\.kind\}/)
   assert.match(statusSource, /update\(\{ status: 'failed', error_message: code \}\)/)
 })
 

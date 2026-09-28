@@ -118,7 +118,7 @@ test('Short Videos compositor applies purpose, enabled captions, CTA and phone w
   assert.equal(textElements.at(-1)?.text, 'Agende sua visita\n(11) 99999-9999')
 })
 
-test('Short Videos compositor keeps only mandatory purpose and active CTA when optional captions are disabled', () => {
+test('deterministic compositor keeps only an active CTA when captions are disabled', () => {
   const shortBriefing = buildShortVideosStructuredBriefing({
     generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
     property: { purpose: 'sale', type: 'Casa', city: 'Campinas', district: 'Cambuí' },
@@ -130,9 +130,31 @@ test('Short Videos compositor keeps only mandatory purpose and active CTA when o
   const script = buildSmartTourCaptionRenderScript('https://example.com/gemini-short.mp4', shortBriefing)
   const textElements = script.elements.filter(element => element.type === 'text')
 
-  assert.deepEqual(textElements.map(element => element.text), ['À venda', 'Fale comigo\n(19) 99999-9999'])
+  assert.deepEqual(textElements.map(element => element.text), ['Fale comigo\n(19) 99999-9999'])
   assert.equal(script.elements[0].volume, '100%')
   assert.equal(script.elements.some(element => element.type === 'audio'), false)
+})
+
+test('deterministic compositor activates only for the selected captions and CTA combination', () => {
+  const create = (captions: 'enabled' | 'disabled', cta: string) => buildSmartTourStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions, furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
+    property: { purpose: 'sale', type: 'Apartamento', city: 'São Paulo', district: 'Moema' },
+    selectedCta: cta,
+    imagePaths: ['1.jpg'],
+    language: 'pt-BR',
+  })
+  const captionsOnly = create('enabled', '')
+  const ctaOnly = create('disabled', 'Fale comigo')
+  const both = create('enabled', 'Fale comigo')
+  const neither = create('disabled', '')
+  assert.equal(hasDeterministicSmartTourText(captionsOnly), true)
+  assert.equal(hasDeterministicSmartTourText(ctaOnly), true)
+  assert.equal(hasDeterministicSmartTourText(both), true)
+  assert.equal(hasDeterministicSmartTourText(neither), false)
+  assert.equal(buildSmartTourCaptionRenderScript('https://example.com/base.mp4', captionsOnly).elements.filter(item => item.type === 'text').length > 0, true)
+  assert.deepEqual(buildSmartTourCaptionRenderScript('https://example.com/base.mp4', ctaOnly).elements.filter(item => item.type === 'text').map(item => item.text), ['Fale comigo'])
+  assert.equal(buildSmartTourCaptionRenderScript('https://example.com/base.mp4', both).elements.filter(item => item.type === 'text').length > 1, true)
+  assert.equal(buildSmartTourCaptionRenderScript('https://example.com/base.mp4', neither).elements.filter(item => item.type === 'text').length, 0)
 })
 
 test('Short Videos controlled plan limits information and turns the last two seconds into the CTA screen', () => {

@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
-import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, resolveSmartTourProfessionalPhone, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { applySmartTourCustomPresenterSpeech, applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
 import { buildShortVideosCleanGeminiPrompt, buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
@@ -27,6 +27,7 @@ const SHORT_VIDEOS_INPUT_BUCKET = 'short-videos-inputs'
 serve(withCors(async req => {
   const requestStartedAt = Date.now()
   const url = Deno.env.get('SUPABASE_URL'), key = resolveSupabaseAdminCredential().key
+  const creatomateKey = Deno.env.get('CREATOMATE_API_KEY') || ''
   if (!url || !key) return json({ok:false,error:'Configuração indisponível.'},500)
   const supabase = createClient(url,key,{auth:{persistSession:false}})
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i,'')
@@ -164,6 +165,27 @@ serve(withCors(async req => {
         images,
         timeoutMs:resolveSmartTourInlineProviderTimeout(Date.now() - requestStartedAt,110_000),
       })
+      if (hasDeterministicSmartTourText(briefing)) {
+        if (!creatomateKey) throw new Error('smart_tour_caption_missing_environment')
+        const rawOutputPath = `${user.id}/${input.clientRequestId}/smart-tour-gemini.mp4`
+        const { error: rawUploadError } = await supabase.storage
+          .from('studio-videos')
+          .upload(rawOutputPath, generated.videoBytes, { contentType: generated.contentType, upsert: true })
+        if (rawUploadError) throw new Error('caption_raw_video_upload_failed')
+        const { data: rawUrl, error: rawUrlError } = await supabase.storage.from('studio-videos').createSignedUrl(rawOutputPath, 600)
+        if (rawUrlError || !rawUrl?.signedUrl) throw new Error('caption_raw_video_url_failed')
+        const startedRender = await startSmartTourCaptionRender(creatomateKey, rawUrl.signedUrl, briefing)
+        const { error: renderPersistError } = await supabase
+          .from('video_jobs')
+          .update({ status: 'generating', provider_job_id: encodeSmartTourCaptionRenderId(startedRender.renderId), error_message: null })
+          .eq('id', input.clientRequestId)
+          .eq('user_id', user.id)
+        if (renderPersistError) throw new Error('caption_render_persist_failed')
+        deliveryPersisted = true
+        await updateGeminiVideoEconomyTelemetry(supabase,{userId:user.id,clientRequestId:input.clientRequestId,providerJobId:generated.interactionId,model:SMART_TOUR_GEMINI_OMNI_MODEL,telemetry:{output_bytes:generated.videoBytes.byteLength}}).catch(() => console.warn('[smart-tour-generate] economy_telemetry_deferred'))
+        console.info('[smart-tour-generate] caption_render_started', JSON.stringify({delivery:'base64',outputBytes:generated.videoBytes.byteLength}))
+        return json({ok:true,jobId:input.clientRequestId,status:'generating',hashtags})
+      }
       const persisted = await persistSmartTourInlineVideo({userId:user.id,jobId:input.clientRequestId,...generated},{
         upload: async (path,videoBytes,contentType) => {
           const {error} = await supabase.storage.from('studio-videos').upload(path,videoBytes,{contentType,upsert:true})

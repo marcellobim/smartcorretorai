@@ -243,16 +243,15 @@ test('single-source JSON rule replaces texto_literal and forbids invention or re
   assert.equal(briefing.regrasObrigatorias.some(item => item.codigo === 'fonte_unica'), false)
 })
 
-test('purpose and CTA remain visible even when optional commercial captions are disabled', () => {
+test('disabling captions removes every information caption while preserving an enabled CTA', () => {
   const briefing = build({ generation: { ...generation, captions: 'disabled' } })
   assert.deepEqual(briefing.legendas, { ativas: true })
-  assert.equal(briefing.cenas[0].legenda, 'À venda')
-  assert.ok(briefing.cenas.slice(1, -1).every(scene => scene.legenda === ''))
-  assert.equal(briefing.timeline.legendas[0].texto, 'À venda')
+  assert.ok(briefing.cenas.slice(0, -1).every(scene => scene.legenda === ''))
+  assert.ok(briefing.timeline.legendas.every(block => block.texto === ''))
   assert.equal(briefing.cenas.at(-1)?.legenda, 'Agende sua visita\n(11) 98765-4321')
 })
 
-test('disabled optional modules keep only the mandatory purpose without changing duration or images', () => {
+test('disabled captions and CTA produce no visual text without changing duration or images', () => {
   const disabled = build({
     generation: { ...generation, presenterGender: 'none', narration: 'disabled', captions: 'disabled' },
     selectedCta: '',
@@ -262,17 +261,15 @@ test('disabled optional modules keep only the mandatory purpose without changing
   assert.equal(disabled.regrasObrigatorias.some(item => item.codigo.startsWith('apresentador_')), false)
   assert.match(String(disabled.regrasObrigatorias.find(item => item.codigo === 'sem_invencao')?.valor), /não inventar dados, contatos, ambientes, pessoas ou elementos/)
   assert.equal('narracao' in disabled, false)
-  assert.deepEqual(disabled.legendas, { ativas: true })
+  assert.deepEqual(disabled.legendas, { ativas: false })
   assert.equal('staging' in disabled, false)
   assert.deepEqual(disabled.cta, { titulo: '', telefone: '' })
   assert.equal(disabled.configuracoes.duracaoSegundos, 10)
   assert.equal(disabled.configuracoes.quantidadeImagens, 5)
   assert.deepEqual(disabled.cenas.map(scene => scene.imagem), imagePaths)
   assert.ok(disabled.cenas.every(scene => scene.frase_id === '' && scene.narracao === '' && scene.duracaoNarracaoSegundos === 0))
-  assert.equal(disabled.cenas[0].legenda, 'À venda')
-  assert.ok(disabled.cenas.slice(1).every(scene => scene.legenda === ''))
-  assert.equal(disabled.timeline.legendas[0].texto, 'À venda')
-  assert.ok(disabled.timeline.legendas.slice(1).every(block => block.texto === ''))
+  assert.ok(disabled.cenas.every(scene => scene.legenda === ''))
+  assert.ok(disabled.timeline.legendas.every(block => block.texto === ''))
   assert.ok(disabled.timeline.narracao.every(block => block.texto === ''))
   assert.equal(disabled.timeline.cta.texto, '')
 })
@@ -292,10 +289,13 @@ test('Gemini Omni receives the exact JSON as the only briefing text and remains 
   assert.deepEqual(payload.input.at(-1), { type: 'text', text: JSON.stringify(briefing) })
 })
 
-test('active generation builds JSON locally and makes only the existing Gemini Omni video call', () => {
+test('active generation builds JSON locally, generates Gemini video, then composes selected text deterministically', () => {
   const source = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
   assert.match(source, /buildSmartTourStructuredBriefing\(\{generation:input\.generation,property:input\.property,selectedCta:input\.selectedCta,phone,imagePaths:input\.imagePaths,language:input\.language\}\)/)
   assert.match(source, /generateGeminiOmniVideoInline\(\{[\s\S]{0,100}prompt,[\s\S]{0,100}images,[\s\S]{0,160}timeoutMs:/)
+  assert.match(source, /hasDeterministicSmartTourText\(briefing\)/)
+  assert.match(source, /startSmartTourCaptionRender\(creatomateKey, rawUrl\.signedUrl, briefing\)/)
+  assert.match(source, /encodeSmartTourCaptionRenderId\(startedRender\.renderId\)/)
   assert.doesNotMatch(source, /credentialProfile|video-imobiliario|GEMINI_API_KEY_2/)
   assert.match(source, /startGeminiOmniShortVideo\(\{prompt:geminiPrompt,video:prepared\.video\}\)/)
   assert.doesNotMatch(source, /startGeminiOmniShortVideo\([^\n]*video-imobiliario/)

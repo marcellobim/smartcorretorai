@@ -787,10 +787,7 @@ function Question(props) {
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">Continuar</ProductButton>
   const applyCustomPresenterVideoChoices = () => {
-    setGeneration(current => ({ ...current, narration: 'enabled', captions: 'disabled' }))
-    setCtaEnabled(false)
-    setCta('')
-    setIncludePhone(false)
+    setGeneration(current => ({ ...current, narration: 'enabled' }))
   }
   if (id === 'images' && isShortVideos) return <>
     <input ref={inputRef} type="file" accept="video/mp4" hidden onChange={event => { addShortVideo(event.target.files); event.target.value = '' }} />
@@ -854,7 +851,7 @@ function Question(props) {
       <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">O vídeo tem 10 segundos. Escreva até 25 palavras para manter uma fala natural.</p>
       <textarea id="presenter-custom-speech" value={generation.presenterCustomSpeech} onChange={event => setGeneration(current => ({ ...current, presenterCustomSpeech: event.target.value, narration: 'enabled' }))} rows={5} className="mt-3 w-full rounded-smart-control border border-slate-200 bg-white p-3 text-sm leading-6 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
       <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold"><span className={wordCount > 25 ? 'text-red-600' : 'text-slate-500'}>{wordCount} / 25 palavras</span>{wordCount > 25 && <span role="alert" className="text-right text-red-600">Reduza a fala para no máximo 25 palavras.</span>}</div>
-      {cont(invalid, generation.presenterCustomSpeech, 'review', applyCustomPresenterVideoChoices)}
+      {cont(invalid, generation.presenterCustomSpeech, 'narration', applyCustomPresenterVideoChoices)}
     </>
   }
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))

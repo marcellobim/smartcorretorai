@@ -7,7 +7,7 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
   const mode = MODES.has(String(value.mode)) ? value.mode as SmartTourGenerationConfig['mode'] : 'narrated_tour'
   const language = LANGUAGES.has(String(value.language)) ? value.language as SmartTourGenerationConfig['language'] : 'pt-BR'
   const normalized: SmartTourGenerationConfig = { mode, language, presenterGender: 'none', presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only' }
-  if (mode === 'guided_tour') normalized.presenterGender = value.presenterGender === 'none' ? 'none' : value.presenterGender === 'male' ? 'male' : 'female'
+  if (mode === 'guided_tour') normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
   else if (mode !== 'narrated_tour') normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
   normalized.narration = value.narration === 'disabled' ? 'disabled' : mode === 'cinematic_tour' && value.narration !== 'enabled' ? 'disabled' : 'enabled'
   if (normalized.presenterGender !== 'none' && value.presenterSpeechMode === 'custom') {
