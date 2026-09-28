@@ -1,4 +1,5 @@
 import { QUICK_BANNERS_AVAILABLE, visibleProducts } from '../config/productAvailability'
+import { BRAND } from '../config/brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -221,7 +222,7 @@ const faqItems = [
     link: { to: PLANS_ROUTE, label: `Ir para ${SMART_TOKENS_LABEL} na Sidebar` },
   },
   {
-    question: 'Quais são os planos do SmartCorretorAI?',
+    question: `Quais são os planos do ${BRAND.name}?`,
     answer: 'Os planos são indicados principalmente para quem cria com frequência e oferecem capacidade recorrente conforme a opção contratada. Consulte seu plano atual em Configurações → Plano e Assinatura, onde também há acesso às condições disponíveis.',
     link: { to: '/configuracoes?tab=plano', label: 'Ver Plano e Assinatura' },
   },
@@ -237,7 +238,7 @@ const faqItems = [
   },
   {
     question: 'Como publico minhas criações nas redes sociais?',
-    answer: 'Nos produtos compatíveis, você pode conectar uma conta do Instagram ou Facebook e publicar diretamente pelo SmartCorretorAI. Cada publicação depende da sua escolha e confirmação: antes do envio, você pode revisar a legenda, editar parte do texto, substituí-lo ou apagá-lo. Se preferir, também pode baixar o material e fazer a publicação manualmente no canal desejado.',
+    answer: `Nos produtos compatíveis, você pode conectar uma conta do Instagram ou Facebook e publicar diretamente pelo ${BRAND.name}. Cada publicação depende da sua escolha e confirmação: antes do envio, você pode revisar a legenda, editar parte do texto, substituí-lo ou apagá-lo. Se preferir, também pode baixar o material e fazer a publicação manualmente no canal desejado.`,
   },
   {
     question: 'Onde altero meu e-mail de acesso ou minha senha?',
@@ -246,16 +247,16 @@ const faqItems = [
   },
   {
     question: 'Minhas criações ficam salvas?',
-    answer: 'O SmartCorretorAI não oferece galeria ou armazenamento permanente. Baixe e salve sua criação assim que ela estiver pronta. Resultados e arquivos podem existir temporariamente por necessidade técnica, mas não há promessa de recuperação posterior pela interface; guarde localmente todo material que quiser conservar.',
+    answer: `${BRAND.name} não oferece galeria ou armazenamento permanente. Baixe e salve sua criação assim que ela estiver pronta. Resultados e arquivos podem existir temporariamente por necessidade técnica, mas não há promessa de recuperação posterior pela interface; guarde localmente todo material que quiser conservar.`,
   },
   {
-    question: 'O SmartCorretorAI altera meus dados profissionais automaticamente?',
+    question: `${BRAND.name} altera meus dados profissionais automaticamente?`,
     answer: 'Não. Nome, telefone ou WhatsApp, e-mail profissional e CRECI são controlados por você em Configurações → Cadastro. Atualize esses dados sempre que necessário para que os produtos possam utilizar as informações corretas quando o layout comportar.',
     link: { to: '/configuracoes?tab=cadastro', label: 'Ir para Cadastro' },
   },
   {
     question: 'Quem é responsável pelas imagens, vídeos e materiais que eu envio?',
-    answer: 'Você é responsável pelo conteúdo enviado e deve possuir as autorizações ou os direitos necessários para usar imagens, vídeos, marcas, textos e outros materiais. O SmartCorretorAI não transfere esses direitos para sua conta.',
+    answer: `Você é responsável pelo conteúdo enviado e deve possuir as autorizações ou os direitos necessários para usar imagens, vídeos, marcas, textos e outros materiais. ${BRAND.name} não transfere esses direitos para sua conta.`,
     link: { to: '/termos', label: 'Ver Termos de Uso' },
   },
   {
@@ -265,7 +266,7 @@ const faqItems = [
   {
     question: 'Ainda ficou com alguma dúvida ou quer falar com a gente?',
     answer: 'Se você tiver dúvidas, sugestões, precisar de ajuda ou quiser nos contar sobre algum problema, entre em contato com nossa equipe. Vamos analisar sua mensagem e responder assim que possível.',
-    link: { href: 'mailto:suporte@smartcorretorai.com', label: 'Falar com o SmartCorretorAI' },
+    link: { href: 'mailto:suporte@smartcorretorai.com', label: `Falar com o ${BRAND.name}` },
   },
 ]
 
@@ -399,7 +400,7 @@ function HeroMediaShowcase() {
       className="relative min-w-0 touch-pan-y select-none"
       role="region"
       aria-roledescription="carrossel"
-      aria-label="Exemplos reais de materiais criados no SmartCorretorAI"
+      aria-label={`Exemplos reais de materiais criados no ${BRAND.name}`}
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovered(true)}
