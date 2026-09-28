@@ -7,7 +7,7 @@ import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
 import { buildSmartTourCampaignPackage } from '../components/campaign/buildSmartTourCampaignPackage'
-import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
+import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation, { getConversationScrollBehavior } from '../components/conversation/GuidedConversation'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
@@ -26,13 +26,14 @@ import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } f
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext, shouldAskProfessionalIdentity } from '../config/smartTourConversation'
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
+import { getCountiesByState, getStatesForMarket, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
 import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, SHORT_VIDEOS_VISIBLE, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
 
 const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
-const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
+const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const visibleExamples = SMART_TOUR_EXAMPLES.filter(example => SHORT_VIDEOS_VISIBLE || example.id !== SHORT_VIDEOS_MODULE_ID).map(example => ({
   ...example,
   ...(example.id === 'animate-images' ? {
@@ -60,6 +61,7 @@ const guideExamples = visibleExamples.map(example => ({
 const initialGeneration = { mode: 'guided_tour', presenterGender: '', presenterSpeechMode: 'automatic', presenterCustomSpeech: '', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const emptyFileMetadata = { name: '', size: 0, type: '', lastModified: 0, order: 0 }
 const SMART_TOUR_QUESTION_ORDER = ['images', 'purpose', 'stage', 'type', 'facts', 'location', 'commercial', 'highlights', 'presenter', 'presenter_speech_mode', 'presenter_custom_speech', 'narration', 'captions', 'professional_identity', 'cta_enabled', 'cta', 'phone', 'review']
+const formatUsLocation = ({ neighborhoodCommunity = '', city = '', county = '', state = '', zipCode = '' }) => [neighborhoodCommunity, city, county, state, zipCode].filter(Boolean).join(', ')
 
 function normalizeGeneration(input) {
   const value = { ...initialGeneration, ...input }
@@ -176,7 +178,7 @@ export default function SmartTourAI() {
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
       if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [] }))
       if (questionId === 'facts') setProperty(current => ({ ...current, bedrooms: '', suites: '', parkingSpaces: '', area: '' }))
-      if (questionId === 'location') setProperty(current => ({ ...current, state: '', city: '', district: '' }))
+      if (questionId === 'location') setProperty(current => ({ ...current, state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '' }))
       if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '' }))
       if (questionId === 'highlights') setProperty(current => ({ ...current, highlights: [] }))
       if (questionId === 'presenter') setGeneration(current => ({ ...current, presenterGender: '' }))
@@ -195,7 +197,7 @@ export default function SmartTourAI() {
     const targetIndex = SMART_TOUR_QUESTION_ORDER.indexOf(questionId)
     const shouldReset = id => SMART_TOUR_QUESTION_ORDER.indexOf(id) >= targetIndex
     if (shouldReset('images')) clearInputMedia()
-    const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'city'], ['location', 'district'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
+    const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'county'], ['location', 'city'], ['location', 'district'], ['location', 'zipCode'], ['location', 'neighborhoodCommunity'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
     setGeneration(current => ({
       ...current,
@@ -535,7 +537,7 @@ export default function SmartTourAI() {
     { id: 'stage', label: property.stage },
     { id: 'type', label: property.type },
     { id: 'facts', label: measuresSummary },
-    { id: 'location', label: formatSmartTourLocation(property) },
+    { id: 'location', label: market === 'US' ? formatUsLocation(property) : formatSmartTourLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
     ...(!isShortVideos ? [{ id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') }] : []),
@@ -855,7 +857,23 @@ function Question(props) {
       {cont(isIncomplete, answer, 'location')}
     </>
   }
-  if (id === 'location') { const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder={t('smartTour.fields.district')} className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
+  if (id === 'location') {
+    if (market === 'US') {
+      const states = getStatesForMarket('US')
+      const counties = getCountiesByState(property.state)
+      const zipCode = normalizeUsZipCode(property.zipCode)
+      const location = formatUsLocation({ ...property, zipCode })
+      return <div className="space-y-3">
+        <label className="block text-xs font-black">{t('smartTour.location.state')}<SmartLocationSelect ariaLabel={t('smartTour.location.state')} value={property.state} onChange={value => { setPropertyField('state', value); setPropertyField('county', '') }} className="mt-1"><option value="">{t('smartTour.location.selectState')}</option>{states.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</SmartLocationSelect></label>
+        <label className="block text-xs font-black">{t('smartTour.location.county')}<SmartLocationSelect ariaLabel={t('smartTour.location.county')} value={property.county} disabled={!property.state} onChange={value => setPropertyField('county', value)} className="mt-1"><option value="">{property.state ? t('smartTour.location.selectCounty') : t('smartTour.location.selectStateFirst')}</option>{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</SmartLocationSelect></label>
+        <label className="block text-xs font-black">{t('smartTour.location.city')}<input aria-label={t('smartTour.location.city')} value={property.city} onChange={event => setPropertyField('city', event.target.value)} placeholder={t('smartTour.location.city')} className="mt-1 w-full rounded-xl border p-3" /></label>
+        <label className="block text-xs font-black">{t('smartTour.location.zipCode')}<input aria-label={t('smartTour.location.zipCode')} value={property.zipCode} onChange={event => setPropertyField('zipCode', normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-xl border p-3" />{property.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs text-red-600">{t('smartTour.location.zipCodeHint')}</span>}</label>
+        <label className="block text-xs font-black">{t('smartTour.location.neighborhoodCommunity')}<input aria-label={t('smartTour.location.neighborhoodCommunity')} value={property.neighborhoodCommunity} onChange={event => setPropertyField('neighborhoodCommunity', event.target.value)} placeholder={t('smartTour.location.optional')} className="mt-1 w-full rounded-xl border p-3" /></label>
+        {cont(!property.state || !property.county || !property.city.trim() || !isValidUsZipCode(zipCode), location, 'commercial', () => setPropertyField('zipCode', zipCode))}
+      </div>
+    }
+    const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder={t('smartTour.fields.district')} className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div>
+  }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
   if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type, { market }); return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.id || group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.labelKey ? t(group.labelKey) : group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(rawItem => { const item = typeof rawItem === 'string' ? { value: rawItem, label: rawItem } : rawItem; const label = item.labelKey ? t(item.labelKey) : item.label; return <button key={item.value} type="button" disabled={!property.highlights.includes(item.value) && property.highlights.length >= 10} onClick={() => toggleHighlight(item.value)} className={`rounded-full border px-3 py-2 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item.value) ? 'border-primary-400 bg-primary-50 text-primary-900' : 'border-slate-200 bg-white hover:border-primary-300'}`}>{label}</button> })}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', 'presenter')}</> }
   if (id === 'presenter') return explainedChoices(t('smartTour.presenter.description'), [{id:'female',label:t('smartTour.presenter.female')},{id:'male',label:t('smartTour.presenter.male')},{id:'none',label:t('smartTour.presenter.none')}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterGender: value })) }))
