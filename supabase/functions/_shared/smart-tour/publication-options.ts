@@ -37,7 +37,8 @@ export function buildSmartTourPublicationOptions(input: SmartTourPublicationInpu
   const property = input.property && typeof input.property === 'object' ? input.property : {}
   const language = input.language && input.language in translations ? input.language as keyof typeof translations : 'pt-BR'
   const copy = translations[language]
-  const propertyType = translatedTypes[language]?.[clean(property.type)] || clean(property.type).toLocaleLowerCase(language)
+  const presentedType = presentSmartTourPropertyType(property.type)
+  const propertyType = translatedTypes[language]?.[presentedType] || presentedType.toLocaleLowerCase(language)
   const subject = [
     copy.intro,
     propertyType,
@@ -50,8 +51,8 @@ export function buildSmartTourPublicationOptions(input: SmartTourPublicationInpu
     property.parkingSpaces && `${clean(property.parkingSpaces)} ${copy.parking}`,
     property.area && `${clean(property.area)} m²`,
   ].filter(Boolean).join(' · ')
-  const highlights = language === 'pt-BR' && Array.isArray(property.highlights)
-    ? property.highlights.map(clean).filter(Boolean)
+  const highlights = language === 'pt-BR'
+    ? presentSmartTourHighlights(property.highlights).map(clean).filter(Boolean)
     : []
   const detail = [
     factLine,
@@ -85,3 +86,4 @@ export function normalizePersistedSmartTourPublicationOptions(value: unknown): r
   })
   return normalized.every(Boolean) ? Object.freeze(normalized as SmartTourPublicationOption[]) : []
 }
+import { presentSmartTourHighlights, presentSmartTourPropertyType } from './presentation.ts'

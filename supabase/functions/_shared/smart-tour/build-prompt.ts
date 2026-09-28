@@ -2,6 +2,7 @@ import type { PropertyContext, SmartTourGenerationConfig } from './types.ts'
 import type { SmartTourStructuredBriefing } from './structured-briefing.ts'
 import { normalizeGeneration } from './validation.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
+import { presentSmartTourHighlights, presentSmartTourPropertyType } from './presentation.ts'
 import { GEMINI_VIDEO_TEXT_RULES_PROMPT } from '../gemini-video-text-rules.ts'
 
 type BriefingModule = 'CORRETOR' | 'NARRACAO' | 'LEGENDAS' | 'CTA' | 'TELEFONE'
@@ -138,7 +139,7 @@ const NARRATION_PROPERTY_TYPES: Record<string, { demonstrative: 'este' | 'esta';
 }
 
 const narrationOpening = (property: PropertyContext) => {
-  const capturedType = removeNonOfficialPhoneNumbers(property.type).toLocaleLowerCase('pt-BR')
+  const capturedType = removeNonOfficialPhoneNumbers(presentSmartTourPropertyType(property.type)).toLocaleLowerCase('pt-BR')
   const mappedType = NARRATION_PROPERTY_TYPES[capturedType]
   const subject = mappedType
     ? `Conheça ${mappedType.demonstrative} excelente ${mappedType.label}`
@@ -181,7 +182,7 @@ export function buildSmartTourNarration(property: PropertyContext) {
   return [`${opening}.`, description, 'Agende sua visita.'].filter(Boolean).join(' ')
 }
 
-const safeHighlights = (property: PropertyContext) => (property.highlights || [])
+const safeHighlights = (property: PropertyContext) => presentSmartTourHighlights(property.highlights)
   .map(removeNonOfficialPhoneNumbers)
   .filter(Boolean)
   .slice(0, 10)
@@ -223,7 +224,7 @@ export function buildPropertyContext(property: PropertyContext, cta = '', phone 
   const data = {
     finalidadeOriginal: removeNonOfficialPhoneNumbers(property.purpose),
     finalidadeExibicao: purposeText(property.purpose),
-    tipologia: removeNonOfficialPhoneNumbers(property.type),
+    tipologia: removeNonOfficialPhoneNumbers(presentSmartTourPropertyType(property.type)),
     descricaoResumida: summarizedDescription(property),
     estadoDoImovel: removeNonOfficialPhoneNumbers(property.stage),
     area: removeNonOfficialPhoneNumbers(property.area),

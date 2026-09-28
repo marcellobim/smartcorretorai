@@ -1,5 +1,6 @@
 import type { PropertyContext, SmartTourGenerationConfig, SupportedLanguage } from './types.ts'
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
+import { presentSmartTourHighlights, presentSmartTourPropertyType } from './presentation.ts'
 import { normalizeGeneration } from './validation.ts'
 import { GEMINI_VIDEO_TEXT_RULES } from '../gemini-video-text-rules.ts'
 
@@ -338,7 +339,7 @@ const technicalCaption = (property: PropertyContext) => unique([
 ]).join(' • ')
 
 const commercialHighlights = (property: PropertyContext) => {
-  const highlights = unique((property.highlights || []).map(literal))
+  const highlights = unique(presentSmartTourHighlights(property.highlights).map(literal))
   const location = highlights.filter(item => NORMALIZED_LOCATION_HIGHLIGHTS.has(normalizeMatch(item)))
   const condominium = highlights.filter(item => NORMALIZED_CONDOMINIUM_BENEFITS.has(normalizeMatch(item)))
   const differentials = highlights.filter(item => !location.includes(item) && !condominium.includes(item))
@@ -504,7 +505,7 @@ export function buildSmartTourStructuredBriefing(input: {
 }): SmartTourStructuredBriefing {
   const config = normalizeGeneration(input.generation)
   const finalidade = purpose(input.property.purpose)
-  const tipoImovel = literal(input.property.type)
+  const tipoImovel = literal(presentSmartTourPropertyType(input.property.type))
   const ctaTitle = literal(input.selectedCta)
   const phone = ctaTitle ? input.phone || '' : ''
   const professionalIdentity = String(input.professionalIdentity ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160)
@@ -606,7 +607,7 @@ export function buildSmartTourStructuredBriefing(input: {
       preco: literal(input.property.price),
       condominio: literal(input.property.condominium),
       iptu: literal(input.property.iptu),
-      destaques: unique((input.property.highlights || []).map(literal)).slice(0, 10),
+      destaques: unique(presentSmartTourHighlights(input.property.highlights).map(literal)).slice(0, 10),
       descricao: literal(input.property.description),
     },
     apresentador: { tipo: presenterType, unicoHumanoAutorizado: hasPresenter },

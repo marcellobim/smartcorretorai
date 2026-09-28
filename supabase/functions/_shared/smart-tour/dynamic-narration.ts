@@ -1,4 +1,5 @@
 import type { PropertyContext } from './types.ts'
+import { presentSmartTourHighlights, presentSmartTourPropertyType } from './presentation.ts'
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions'
 const OPENAI_NARRATION_MODEL = 'gpt-4.1'
@@ -47,12 +48,12 @@ export async function generateSmartTourDynamicNarration(input: {
   ].filter(Boolean).slice(0, 2)
   const facts = {
     finalidade,
-    tipoDoImovel: clean(input.property.type),
+    tipoDoImovel: clean(presentSmartTourPropertyType(input.property.type)),
     estadoAtual: clean(input.property.stage),
     cidade: clean(input.property.city),
     bairro: clean(input.property.district),
     caracteristicasPrincipais: characteristics,
-    destaquesPrincipais: (input.property.highlights || []).map(item => clean(item, 120)).filter(Boolean).slice(0, 2),
+    destaquesPrincipais: presentSmartTourHighlights(input.property.highlights).map(item => clean(item, 120)).filter(Boolean).slice(0, 2),
   }
 
   try {
