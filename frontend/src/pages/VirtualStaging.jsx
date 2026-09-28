@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { ArrowDown, ArrowUp, Download, Expand, Instagram, Loader2, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
@@ -240,7 +241,7 @@ function FurnishRenovateDelivery({ results, onCreateNew, publication }) {
             ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} />
             : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`Falha na imagem ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">Imagem {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`Imagem original ${result.originalIndex + 1} não concluída`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">Não foi possível transformar esta imagem.</p></article>)}
         </div>
-        <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">Você poderá usar estes resultados em outros produtos do SmartCorretorAI para criar vídeos, banners, carrosséis e campanhas.</p>
+        <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">Você poderá usar estes resultados em outros produtos do {BRAND.name} para criar vídeos, banners, carrosséis e campanhas.</p>
         {completedResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">Nenhuma imagem pôde ser concluída.</p>}
         <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">Criar novo projeto</ProductButton>
       </ProductCard>
@@ -917,7 +918,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   } : undefined
   if (isFurnishRenovate && !hasStartedFurnish) return <section aria-labelledby="virtual-staging-chat-intro-title" className="mt-10">
     <ProductCard className="p-6 sm:p-8">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">SmartCorretorAI</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-700">{BRAND.name}</p>
       <h2 id="virtual-staging-chat-intro-title" className="mt-3 text-3xl font-black tracking-tight text-slate-950">{VIRTUAL_STAGING_CHAT_INTRO.title}</h2>
       <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">{VIRTUAL_STAGING_CHAT_INTRO.description}</p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">

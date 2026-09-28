@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { BRAND } from '../config/brand'
 import {
   ArrowRight,
   BadgeCheck,
@@ -94,7 +95,7 @@ function BrandHeader() {
           <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-[#05101d] shadow-[0_0_35px_rgba(125,211,252,0.38)]">
             <Zap className="h-5 w-5" />
           </div>
-          <span className="text-lg font-black tracking-tight text-white">SmartCorretorAI</span>
+          <span className="text-lg font-black tracking-tight text-white">{BRAND.name}</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link to="/login" className="rounded-full px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/10">
