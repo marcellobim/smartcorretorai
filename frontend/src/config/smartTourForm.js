@@ -6,14 +6,36 @@ export const SMART_TOUR_PROPERTY_TYPES = Object.freeze([
   { value: 'Terreno / Lote', labelKey: 'smartTour.propertyTypes.landLot' },
   { value: 'Comercial', labelKey: 'smartTour.propertyTypes.commercial' },
 ])
+
+export const SMART_TOUR_US_PROPERTY_TYPES = Object.freeze([
+  { value: 'us_single_family_home', labelKey: 'smartTour.propertyTypes.usSingleFamilyHome' },
+  { value: 'us_condo', labelKey: 'smartTour.propertyTypes.usCondo' },
+  { value: 'us_townhouse', labelKey: 'smartTour.propertyTypes.usTownhouse' },
+  { value: 'us_multi_family', labelKey: 'smartTour.propertyTypes.usMultiFamily' },
+  { value: 'us_apartment', labelKey: 'smartTour.propertyTypes.usApartment' },
+  { value: 'us_studio', labelKey: 'smartTour.propertyTypes.usStudio' },
+  { value: 'us_land_lot', labelKey: 'smartTour.propertyTypes.usLandLot' },
+  { value: 'us_commercial', labelKey: 'smartTour.propertyTypes.usCommercial' },
+])
+
+export const SMART_TOUR_PROPERTY_TYPES_BY_MARKET = Object.freeze({
+  BR: SMART_TOUR_PROPERTY_TYPES,
+  US: SMART_TOUR_US_PROPERTY_TYPES,
+})
 export const SMART_TOUR_RENTAL_STAGES = Object.freeze(['Pronto para morar', 'Disponível já', 'Vago'])
 
 export function getSmartTourStageOptions(purpose, saleOptions) {
   return purpose === 'rent' ? SMART_TOUR_RENTAL_STAGES : saleOptions
 }
 
-export function getSmartTourPropertyTypes(purpose, propertyTypes = SMART_TOUR_PROPERTY_TYPES) {
-  return purpose === 'rent' ? propertyTypes.filter(type => type.value !== 'Terreno / Lote') : propertyTypes
+export function getSmartTourPropertyTypes(purpose, options = {}) {
+  // Arrays remain supported for existing callers that supply a custom BR catalog.
+  const propertyTypes = Array.isArray(options)
+    ? options
+    : SMART_TOUR_PROPERTY_TYPES_BY_MARKET[options?.market] || SMART_TOUR_PROPERTY_TYPES
+  return purpose === 'rent'
+    ? propertyTypes.filter(type => type.value !== 'Terreno / Lote' && type.value !== 'us_land_lot')
+    : propertyTypes
 }
 
 export const SMART_TOUR_MEASURE_FIELDS = Object.freeze({
@@ -121,6 +143,9 @@ export function getSmartTourPropertyKind(type) {
   if (type === 'Comercial') return 'commercial'
   if (type === 'Terreno / Lote') return 'land'
   if (type === 'Casa') return 'house'
+  if (type === 'us_commercial') return 'commercial'
+  if (type === 'us_land_lot') return 'land'
+  if (type === 'us_single_family_home' || type === 'us_townhouse') return 'house'
   return 'residential'
 }
 

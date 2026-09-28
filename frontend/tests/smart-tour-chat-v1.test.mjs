@@ -53,7 +53,7 @@ test('uses the approved rental states and removes land only from rental', () => 
   assert.equal(getSmartTourPropertyTypes('rent').some((type) => type.value === 'Terreno / Lote'), false)
   assert.equal(getSmartTourPropertyTypes('sale').some((type) => type.value === 'Terreno / Lote'), true)
   assert.match(page, /getSmartTourStageOptions\(property\.purpose, STAGES\)/)
-  assert.match(page, /getSmartTourPropertyTypes\(property\.purpose, SMART_TOUR_PROPERTY_TYPES\)/)
+  assert.match(page, /getSmartTourPropertyTypes\(property\.purpose, \{ market \}\)/)
 })
 
 test('removes Sobrado as a primary type and keeps it as a house highlight', () => {

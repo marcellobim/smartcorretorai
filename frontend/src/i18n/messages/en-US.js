@@ -197,7 +197,7 @@ export default Object.freeze({
     tiktok: 'TikTok',
   }),
   smartTour: Object.freeze({
-    propertyTypes: Object.freeze({ apartment: 'Apartment', house: 'House', penthouse: 'Penthouse', studioLoft: 'Studio / Loft', landLot: 'Land / Lot', commercial: 'Commercial' }),
+    propertyTypes: Object.freeze({ apartment: 'Apartment', house: 'House', penthouse: 'Penthouse', studioLoft: 'Studio / Loft', landLot: 'Land / Lot', commercial: 'Commercial', usSingleFamilyHome: 'Single-Family Home', usCondo: 'Condo', usTownhouse: 'Townhouse', usMultiFamily: 'Multi-Family Home', usApartment: 'Apartment', usStudio: 'Studio', usLandLot: 'Land / Lot', usCommercial: 'Commercial Property' }),
     productName: 'Real Estate Video',
     headerSubtitle: 'SNETIA organizes the context. AI does the heavy lifting.',
     heroHeadline: 'Turn your property photos into professional video ads.',

@@ -197,7 +197,7 @@ export default Object.freeze({
     tiktok: 'TikTok',
   }),
   smartTour: Object.freeze({
-    propertyTypes: Object.freeze({ apartment: 'Apartamento', house: 'Casa', penthouse: 'Cobertura', studioLoft: 'Studio / Loft', landLot: 'Terreno / Lote', commercial: 'Comercial' }),
+    propertyTypes: Object.freeze({ apartment: 'Apartamento', house: 'Casa', penthouse: 'Cobertura', studioLoft: 'Studio / Loft', landLot: 'Terreno / Lote', commercial: 'Comercial', usSingleFamilyHome: 'Casa unifamiliar', usCondo: 'Unidade condominial (Condo)', usTownhouse: 'Casa geminada (Townhouse)', usMultiFamily: 'Imóvel multifamiliar', usApartment: 'Apartamento', usStudio: 'Studio', usLandLot: 'Terreno / Lote', usCommercial: 'Imóvel comercial' }),
     productName: 'Vídeo Imobiliário',
     headerSubtitle: 'A SNETIA organiza o contexto. A IA faz o trabalho pesado.',
     heroHeadline: 'Transforme as fotos dos seus imóveis em comerciais profissionais.',
