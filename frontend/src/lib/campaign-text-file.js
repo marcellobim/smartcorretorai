@@ -1,3 +1,5 @@
+import { BRAND } from '../config/brand'
+
 export function buildCampaignTextFile(campaign) {
   if (!campaign) return ''
 
@@ -13,7 +15,7 @@ export function buildCampaignTextFile(campaign) {
     : ''
 
   return [
-    'CAMPANHA HERO IA - SMARTCORRETORAI',
+    `CAMPANHA HERO IA - ${BRAND.name.toLocaleUpperCase('pt-BR')}`,
     ...moduleSections,
     contactSection,
   ].filter(Boolean).join('\n\n----------------------------------------\n\n')

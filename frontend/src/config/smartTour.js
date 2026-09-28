@@ -1,4 +1,6 @@
-export const SMART_TOUR_PRODUCT_NAME = 'SmartCorretorAI'
+import { BRAND } from './brand'
+
+export const SMART_TOUR_PRODUCT_NAME = BRAND.name
 export const SMART_TOUR_ROUTE = '/smart-tour-ai'
 import { SHORT_VIDEOS_EXAMPLE_PATH } from './shortVideos.js'
 
