@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { BRAND } from '../../config/brand'
 import { useAnalytics } from '../analytics/AnalyticsProvider'
 import { SMART_UI } from '../design-system'
 
@@ -14,7 +15,7 @@ export default function AppFooter() {
     <footer className="mt-8 border-t border-slate-200/80 bg-white/60" data-app-footer>
       <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-3 px-smart-page py-4 text-center sm:flex-row sm:items-center sm:justify-between sm:py-5 sm:text-left">
         <p className="text-xs font-semibold text-slate-500 sm:text-sm">
-          © 2026 SmartCorretorAI.
+          © 2026 {BRAND.name}.
         </p>
         <nav aria-label="Rodapé" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-bold text-slate-600 sm:justify-end sm:text-sm">
           {footerLinks.map(link => (

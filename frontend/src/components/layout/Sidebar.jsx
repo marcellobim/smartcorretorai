@@ -1,4 +1,5 @@
 import { visibleProducts } from '../../config/productAvailability'
+import { BRAND } from '../../config/brand'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -168,7 +169,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-5 py-4">
         <BrandMark size={36} decorative />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-gray-900">SmartCorretorAI</p>
+          <p className="truncate text-sm font-bold text-gray-900">{BRAND.name}</p>
           <p className="text-xs text-gray-400">Inteligência que vende.</p>
         </div>
         {mobile && (
