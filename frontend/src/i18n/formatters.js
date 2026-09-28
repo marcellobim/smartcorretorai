@@ -12,7 +12,7 @@ export function formatNumber(value, locale = DEFAULT_LOCALE_CONFIG.locale) {
   return new Intl.NumberFormat(locale).format(Number(value || 0))
 }
 
-export function formatArea(value, marketOrUnits = DEFAULT_LOCALE_CONFIG.units) {
+export function formatArea(value, marketOrUnits = DEFAULT_LOCALE_CONFIG.units, locale = DEFAULT_LOCALE_CONFIG.locale) {
   const units = marketOrUnits === 'US' ? 'imperial' : marketOrUnits === 'BR' ? 'metric' : marketOrUnits
-  return `${formatNumber(value)} ${units === 'imperial' ? 'sqft' : 'm²'}`
+  return `${formatNumber(value, locale)} ${units === 'imperial' ? 'sqft' : 'm²'}`
 }

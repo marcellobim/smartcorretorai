@@ -1,11 +1,7 @@
-import { useMemo } from 'react'
+import { useContext } from 'react'
 
-import { DEFAULT_LOCALE_CONFIG } from './locale-config'
-import { getMessage } from './messages'
+import { LocaleContext } from './LocaleProvider'
 
 export function useLocale() {
-  return useMemo(() => ({
-    ...DEFAULT_LOCALE_CONFIG,
-    t: (key) => getMessage(key, DEFAULT_LOCALE_CONFIG.locale),
-  }), [])
+  return useContext(LocaleContext)
 }

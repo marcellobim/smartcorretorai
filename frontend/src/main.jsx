@@ -5,15 +5,17 @@ import { Toaster } from 'react-hot-toast'
 import App from './App.jsx'
 import { AuthProvider } from './lib/auth-context'
 import AnalyticsProvider from './components/analytics/AnalyticsProvider'
+import { LocaleProvider } from './i18n/LocaleProvider'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AnalyticsProvider>
-        <AuthProvider>
-          <App />
-          <Toaster
+        <LocaleProvider>
+          <AuthProvider>
+            <App />
+            <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,
@@ -26,8 +28,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             success: { iconTheme: { primary: '#6270f3', secondary: '#fff' } },
             error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
           }}
-          />
-        </AuthProvider>
+            />
+          </AuthProvider>
+        </LocaleProvider>
       </AnalyticsProvider>
     </BrowserRouter>
   </React.StrictMode>,
