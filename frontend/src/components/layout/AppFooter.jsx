@@ -2,14 +2,15 @@ import { Link } from 'react-router-dom'
 import { BRAND } from '../../config/brand'
 import { useAnalytics } from '../analytics/AnalyticsProvider'
 import { SMART_UI } from '../design-system'
-
-const footerLinks = [
-  { label: 'Termos de Uso', to: '/termos' },
-  { label: 'Política de Privacidade', to: '/privacidade' },
-]
+import { useLocale } from '../../i18n/useLocale'
 
 export default function AppFooter() {
   const { openCookiePreferences } = useAnalytics()
+  const { t } = useLocale()
+  const footerLinks = [
+    { label: t('footer.terms'), to: '/termos' },
+    { label: t('footer.privacy'), to: '/privacidade' },
+  ]
 
   return (
     <footer className="mt-8 border-t border-slate-200/80 bg-white/60" data-app-footer>
@@ -17,17 +18,17 @@ export default function AppFooter() {
         <p className="text-xs font-semibold text-slate-500 sm:text-sm">
           © 2026 {BRAND.name}.
         </p>
-        <nav aria-label="Rodapé" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-bold text-slate-600 sm:justify-end sm:text-sm">
+        <nav aria-label={t('footer.navigationLabel')} className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-bold text-slate-600 sm:justify-end sm:text-sm">
           {footerLinks.map(link => (
             <Link key={link.label} to={link.to} className={`inline-flex min-h-10 items-center transition hover:text-primary-700 motion-reduce:transition-none ${SMART_UI.focus}`}>
               {link.label}
             </Link>
           ))}
           <button type="button" onClick={openCookiePreferences} className={`inline-flex min-h-10 items-center transition hover:text-primary-700 motion-reduce:transition-none ${SMART_UI.focus}`}>
-            Preferências de cookies
+            {t('footer.cookiePreferences')}
           </button>
           <a href={`mailto:${BRAND.supportEmail}`} className={`inline-flex min-h-10 items-center transition hover:text-primary-700 motion-reduce:transition-none ${SMART_UI.focus}`}>
-            Suporte
+            {t('footer.support')}
           </a>
         </nav>
       </div>

@@ -14,4 +14,11 @@ export default Object.freeze({
     facebook: 'Facebook',
     tiktok: 'TikTok',
   }),
+  footer: Object.freeze({
+    terms: 'Terms of Use',
+    privacy: 'Privacy Policy',
+    navigationLabel: 'Footer',
+    cookiePreferences: 'Cookie preferences',
+    support: 'Support',
+  }),
 })
