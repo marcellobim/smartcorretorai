@@ -38,6 +38,7 @@ DECLARE
   v_display_name TEXT;
   v_phone TEXT;
   v_creci TEXT;
+  v_creci_type TEXT;
   v_state TEXT;
   v_imobiliaria TEXT;
   v_whatsapp TEXT;
@@ -55,6 +56,11 @@ BEGIN
   v_display_name := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'display_name'), '');
   v_phone := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'telefone'), '');
   v_creci := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'creci'), '');
+  v_creci_type := CASE pg_catalog.upper(pg_catalog.btrim(COALESCE(NEW.raw_user_meta_data ->> 'creci_type', '')))
+    WHEN 'F' THEN 'F'
+    WHEN 'J' THEN 'J'
+    ELSE NULL
+  END;
   v_state := NULLIF(pg_catalog.upper(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'estado')), '');
   v_imobiliaria := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'imobiliaria'), '');
   v_whatsapp := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'whatsapp'), '');
@@ -65,10 +71,10 @@ BEGIN
   END;
 
   INSERT INTO public.profiles (
-    id, email, full_name, nome, display_name, telefone, creci, estado, imobiliaria, whatsapp,
+    id, email, full_name, nome, display_name, telefone, creci, creci_type, estado, imobiliaria, whatsapp,
     market, role, plano, avatar_url
   ) VALUES (
-    NEW.id, NEW.email, v_name, v_name, v_display_name, v_phone, v_creci, v_state, v_imobiliaria, v_whatsapp,
+    NEW.id, NEW.email, v_name, v_name, v_display_name, v_phone, v_creci, v_creci_type, v_state, v_imobiliaria, v_whatsapp,
     v_market, 'user', 'starter', v_avatar_url
   )
   ON CONFLICT (id) DO NOTHING;

@@ -53,11 +53,19 @@ export default function RegisterPage() {
     signupSubmissionRef.current = true
     setLoading(true)
     try {
-      const signupResult = await signUp(data.email, data.senha, {
+      const professionalMetadata = {
         nome: data.nome,
         telefone: data.telefone,
         creci: data.creci,
         estado: data.estado,
+        market: 'BR',
+        ...(data.display_name?.trim() ? { display_name: data.display_name.trim() } : {}),
+        ...(data.creci_type ? { creci_type: data.creci_type } : {}),
+        ...(data.imobiliaria?.trim() ? { imobiliaria: data.imobiliaria.trim() } : {}),
+        ...(data.whatsapp?.trim() ? { whatsapp: data.whatsapp.trim() } : {}),
+      }
+      const signupResult = await signUp(data.email, data.senha, {
+        ...professionalMetadata,
         legal_acceptance: {
           accepted: true,
           terms_version: LEGAL_DOCUMENT_VERSIONS.terms,
@@ -125,6 +133,13 @@ export default function RegisterPage() {
           />
 
           <Input
+            label={t('profile.displayName')}
+            placeholder="Ex: Riccieri"
+            hint={t('profile.displayNameDescription')}
+            {...register('display_name')}
+          />
+
+          <Input
             label={t('register.email.label')}
             type="email"
             placeholder={t('register.email.placeholder')}
@@ -146,6 +161,19 @@ export default function RegisterPage() {
             })}
           />
 
+          <Input
+            label={t('profile.whatsapp')}
+            type="tel"
+            placeholder="(11) 99999-9999"
+            {...register('whatsapp')}
+          />
+
+          <Input
+            label={t('profile.brokerage')}
+            placeholder="Ex: Silva Imóveis"
+            {...register('imobiliaria')}
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <Input
               label={t('register.creci.label')}
@@ -153,6 +181,14 @@ export default function RegisterPage() {
               hint={t('register.creci.optional')}
               {...register('creci')}
             />
+            <Select label={t('profile.creciType')} {...register('creci_type')}>
+              <option value="">Selecione</option>
+              <option value="F">{t('profile.creciTypes.F')}</option>
+              <option value="J">{t('profile.creciTypes.J')}</option>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <Select
               label={t('register.state.label')}
               error={errors.estado?.message}
