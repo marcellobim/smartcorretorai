@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -63,7 +64,7 @@ export default function ResetPasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl">
-        <div className="flex items-center gap-3"><BrandMark size={36} decorative /><span className="font-black">SmartCorretorAI</span></div>
+        <div className="flex items-center gap-3"><BrandMark size={36} decorative /><span className="font-black">{BRAND.name}</span></div>
         <h1 className="mt-7 text-2xl font-black text-slate-950">Criar nova senha</h1>
         {!recoveryReady ? (
           <div role="alert" className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">

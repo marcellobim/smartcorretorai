@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BRAND } from '../../config/brand'
 import { Navigate } from 'react-router-dom'
 import { KeyRound, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -43,7 +44,7 @@ export default function AdminMfaGate({ children }) {
     try {
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'SmartCorretorAI Admin',
+        friendlyName: `${BRAND.name} Admin`,
       })
       if (error || !data?.id || !data?.totp?.qr_code) throw error || new Error('mfa_enrollment_failed')
       setEnrollment(data)
