@@ -22,6 +22,7 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { TIKTOK_LOGIN_KIT_ENABLED } from '../config/tiktok'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
+import { useLocale } from '../i18n/useLocale'
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -190,7 +191,8 @@ export default function Configuracoes() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(() => resolveSettingsTab(searchParams.get('tab')))
-  const { user, session, updateUser, isAdmin } = useAuth()
+  const { user, session, updateUser, reloadProfile, isAdmin } = useAuth()
+  const { t } = useLocale()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
   const [openingPortal, setOpeningPortal] = useState(false)
@@ -209,12 +211,17 @@ export default function Configuracoes() {
   } = useForm({
     defaultValues: {
       nome: '',
+      display_name: '',
       email: '',
       creci: '',
+      creci_type: '',
       estado: '',
       telefone: '',
       whatsapp: '',
       imobiliaria: '',
+      instagram: '',
+      facebook: '',
+      linkedin: '',
     },
   })
 
@@ -235,16 +242,21 @@ export default function Configuracoes() {
     if (!user?.id) return
     resetPerfil({
       nome: user?.nome || '',
+      display_name: user?.display_name || '',
       email: user?.email || session?.user?.email || '',
       creci: user?.creci || '',
+      creci_type: user?.creci_type || '',
       estado: user?.estado || '',
       telefone: user?.telefone || '',
       whatsapp: formatBrazilianPhone(user?.whatsapp || user?.telefone || ''),
       imobiliaria: user?.imobiliaria || '',
+      instagram: user?.instagram || '',
+      facebook: user?.facebook || '',
+      linkedin: user?.linkedin || '',
     })
     setAvatarFile(undefined)
     setLogoFile(undefined)
-  }, [user?.id, user?.nome, user?.email, user?.creci, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.estado, session?.user?.email, resetPerfil])
+  }, [user?.id, user?.nome, user?.display_name, user?.email, user?.creci, user?.creci_type, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
 
   const watched = watch()
   const profileComplete = useMemo(() => Boolean(
@@ -284,24 +296,39 @@ export default function Configuracoes() {
       if (logoFile instanceof File) logo_url = await uploadProfileImage(logoFile, 'logo')
       else if (logoFile === null) logo_url = null
 
+      const supportsProfessionalProfileSchema = ['display_name', 'creci_type', 'facebook', 'linkedin'].every((field) => Object.prototype.hasOwnProperty.call(user || {}, field))
+      const profileUpdate = {
+        nome: data.nome,
+        email: data.email,
+        creci: data.creci,
+        estado: data.estado,
+        telefone: data.telefone,
+        whatsapp: formatBrazilianPhone(data.whatsapp || user?.telefone || ''),
+        imobiliaria: data.imobiliaria,
+        avatar_url,
+        logo_url,
+      }
+
+      if (supportsProfessionalProfileSchema) {
+        Object.assign(profileUpdate, {
+          display_name: data.display_name || null,
+          creci_type: data.creci_type || null,
+          instagram: data.instagram || null,
+          facebook: data.facebook || null,
+          linkedin: data.linkedin || null,
+        })
+      }
+
       const { data: updated, error } = await supabase
         .from('profiles')
-        .update({
-          nome: data.nome,
-          email: data.email,
-          creci: data.creci,
-          estado: data.estado,
-          whatsapp: formatBrazilianPhone(data.whatsapp || user?.telefone || ''),
-          imobiliaria: data.imobiliaria,
-          avatar_url,
-          logo_url,
-        })
+        .update(profileUpdate)
         .eq('id', user.id)
         .select()
         .single()
 
       if (error) throw error
       updateUser(updated)
+      await reloadProfile()
       setAvatarFile(undefined)
       setLogoFile(undefined)
       toast.success(successMessage)
@@ -473,14 +500,34 @@ export default function Configuracoes() {
                     />
                     <div className="grid gap-4 md:grid-cols-2">
                       <Input
-                        label="Nome profissional"
+                        label={t('profile.professionalName')}
                         placeholder="Seu nome de divulgação"
                         error={profileErrors.nome?.message}
                         {...regPerfil('nome')}
                       />
-                      <Input label="CRECI" placeholder="Ex: 12345-F" {...regPerfil('creci')} />
                       <Input
-                        label="Telefone / WhatsApp"
+                        label={t('profile.displayName')}
+                        placeholder="Ex: Riccieri"
+                        hint={t('profile.displayNameDescription')}
+                        {...regPerfil('display_name')}
+                      />
+                      <Input label="CRECI" placeholder="Ex: 12345" {...regPerfil('creci')} />
+                      <Select label={t('profile.creciType')} {...regPerfil('creci_type')}>
+                        <option value="">Selecione</option>
+                        <option value="F">{t('profile.creciTypes.F')}</option>
+                        <option value="J">{t('profile.creciTypes.J')}</option>
+                      </Select>
+                      <Input
+                        label={t('profile.phone')}
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        maxLength={15}
+                        placeholder="(11) 99999-9999"
+                        {...regPerfil('telefone')}
+                      />
+                      <Input
+                        label={t('profile.whatsapp')}
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
@@ -495,14 +542,14 @@ export default function Configuracoes() {
                         })}
                       />
                       <Input
-                        label="E-mail profissional"
+                        label={t('profile.email')}
                         type="email"
                         placeholder="contato@seudominio.com.br"
                         hint="Dado profissional para seus materiais. Não é o e-mail de acesso/login."
                         error={profileErrors.email?.message}
                         {...regPerfil('email')}
                       />
-                      <Select label="Estado profissional" {...regPerfil('estado')}>
+                      <Select label={t('profile.state')} {...regPerfil('estado')}>
                         <option value="">Selecione</option>
                         {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                       </Select>
@@ -526,7 +573,10 @@ export default function Configuracoes() {
                       shape="square"
                     />
                     <div className="space-y-4">
-                      <Input label="Imobiliária / empresa" placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
+                      <Input label={t('profile.brokerage')} placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
+                      <Input label={t('profile.instagram')} placeholder="@seuperfil" {...regPerfil('instagram')} />
+                      <Input label={t('profile.facebook')} placeholder="facebook.com/seuperfil" {...regPerfil('facebook')} />
+                      <Input label={t('profile.linkedin')} placeholder="linkedin.com/in/seuperfil" {...regPerfil('linkedin')} />
                       <FieldNotice>
                         Todos os dados desta seção são opcionais e nunca substituem automaticamente seus dados profissionais pessoais.
                       </FieldNotice>

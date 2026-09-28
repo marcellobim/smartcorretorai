@@ -198,6 +198,8 @@ export default Object.freeze({
   }),
   profile: Object.freeze({
     professionalName: 'Professional name',
+    displayName: 'Display name',
+    displayNameDescription: 'How you prefer to be identified professionally. If left blank, we will use your name.',
     companyName: 'Company name',
     brokerage: 'Brokerage',
     creciNumber: 'CRECI number',

@@ -198,6 +198,8 @@ export default Object.freeze({
   }),
   profile: Object.freeze({
     professionalName: 'Nome profissional',
+    displayName: 'Nome de divulgação',
+    displayNameDescription: 'Como você prefere ser identificado profissionalmente. Se deixar em branco, usaremos seu nome.',
     companyName: 'Nome da empresa',
     brokerage: 'Imobiliária',
     creciNumber: 'Número do CRECI',
