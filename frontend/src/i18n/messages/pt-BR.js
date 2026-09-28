@@ -102,6 +102,20 @@ export default Object.freeze({
     submit: 'Enviar instruções',
     backToLogin: 'Voltar para o login',
   }),
+  resetPassword: Object.freeze({
+    title: 'Criar nova senha',
+    password: Object.freeze({
+      label: 'Nova senha',
+      required: 'Informe a nova senha.',
+      minLength: 'Use pelo menos 12 caracteres.',
+    }),
+    confirmation: Object.freeze({
+      label: 'Confirmar nova senha',
+      required: 'Confirme a nova senha.',
+      mismatch: 'As senhas não conferem.',
+    }),
+    submit: 'Redefinir senha e encerrar sessões',
+  }),
   social: Object.freeze({
     instagram: 'Instagram',
     facebook: 'Facebook',

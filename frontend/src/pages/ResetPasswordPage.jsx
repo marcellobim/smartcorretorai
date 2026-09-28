@@ -7,8 +7,10 @@ import BrandMark from '../components/brand/BrandMark'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { supabase } from '../lib/supabase'
+import { useLocale } from '../i18n/useLocale'
 
 export default function ResetPasswordPage() {
+  const { t } = useLocale()
   const [recoveryReady, setRecoveryReady] = useState(() => sessionStorage.getItem('smartcorretor_password_recovery') === 'pending')
   const navigate = useNavigate()
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm()
@@ -38,7 +40,7 @@ export default function ResetPasswordPage() {
 
   const onSubmit = async data => {
     if (data.password !== data.confirmation) {
-      setError('confirmation', { type: 'validate', message: 'As senhas não conferem.' })
+      setError('confirmation', { type: 'validate', message: t('resetPassword.confirmation.mismatch') })
       return
     }
     const { data: sessionData } = await supabase.auth.getSession()
@@ -65,17 +67,17 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl">
         <div className="flex items-center gap-3"><BrandMark size={36} decorative /><span className="font-black">{BRAND.name}</span></div>
-        <h1 className="mt-7 text-2xl font-black text-slate-950">Criar nova senha</h1>
+        <h1 className="mt-7 text-2xl font-black text-slate-950">{t('resetPassword.title')}</h1>
         {!recoveryReady ? (
           <div role="alert" className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
             Este link expirou ou já foi utilizado. <Link to="/esqueci-senha" className="underline">Solicite um novo link.</Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
-            <Input label="Nova senha" type="password" autoComplete="new-password" error={errors.password?.message} {...register('password', { required: 'Informe a nova senha.', minLength: { value: 12, message: 'Use pelo menos 12 caracteres.' } })} />
-            <Input label="Confirmar nova senha" type="password" autoComplete="new-password" error={errors.confirmation?.message} {...register('confirmation', { required: 'Confirme a nova senha.' })} />
+            <Input label={t('resetPassword.password.label')} type="password" autoComplete="new-password" error={errors.password?.message} {...register('password', { required: t('resetPassword.password.required'), minLength: { value: 12, message: t('resetPassword.password.minLength') } })} />
+            <Input label={t('resetPassword.confirmation.label')} type="password" autoComplete="new-password" error={errors.confirmation?.message} {...register('confirmation', { required: t('resetPassword.confirmation.required') })} />
             {errors.root?.message && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{errors.root.message}</p>}
-            <Button type="submit" loading={isSubmitting} className="w-full">Redefinir senha e encerrar sessões</Button>
+            <Button type="submit" loading={isSubmitting} className="w-full">{t('resetPassword.submit')}</Button>
           </form>
         )}
       </section>

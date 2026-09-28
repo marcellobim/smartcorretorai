@@ -102,6 +102,20 @@ export default Object.freeze({
     submit: 'Send instructions',
     backToLogin: 'Back to login',
   }),
+  resetPassword: Object.freeze({
+    title: 'Create a new password',
+    password: Object.freeze({
+      label: 'New password',
+      required: 'Enter your new password.',
+      minLength: 'Use at least 12 characters.',
+    }),
+    confirmation: Object.freeze({
+      label: 'Confirm new password',
+      required: 'Confirm your new password.',
+      mismatch: 'Passwords do not match.',
+    }),
+    submit: 'Reset password and sign out of all sessions',
+  }),
   social: Object.freeze({
     instagram: 'Instagram',
     facebook: 'Facebook',
