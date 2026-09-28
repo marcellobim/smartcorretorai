@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { BRAND } from '../config/brand'
 import {
   ArrowRight,
   BadgeCheck,
@@ -51,7 +52,7 @@ function BrandMark() {
       <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-primary-900 shadow-lg shadow-cyan-950/10">
         <Zap className="h-5 w-5" />
       </div>
-      <span className="text-sm font-black tracking-tight text-white">SmartCorretorAI</span>
+      <span className="text-sm font-black tracking-tight text-white">{BRAND.name}</span>
     </div>
   )
 }

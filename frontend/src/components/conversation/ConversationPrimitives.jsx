@@ -1,4 +1,5 @@
 import { MessageSquareText } from 'lucide-react'
+import { BRAND } from '../../config/brand'
 import { ProductCard } from '../design-system'
 import BrandMark from '../brand/BrandMark'
 
@@ -46,7 +47,7 @@ export function ConversationAssistantBubble({ children, accent = 'primary', conf
   const palette = getAccent(accent)
   return <div className={`flex items-start gap-3 ${className}`}>
     <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ${palette.soft}`}>
-      <BrandMark size={20} alt="SmartCorretorAI" />
+      <BrandMark size={20} alt={BRAND.name} />
     </span>
     <div className={`max-w-2xl rounded-2xl rounded-tl-md border px-4 py-3 text-sm font-bold leading-6 shadow-sm ${confirmation ? palette.confirmation : `${palette.border} bg-white text-slate-700`}`}>
       {children}
@@ -66,7 +67,7 @@ export function ConversationQuestionCard({ label, labelTrailing, title, accent =
   return <ProductCard className={`p-5 sm:p-6 ${className}`}>
     <div className="flex gap-3">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${palette.soft}`}>
-        <BrandMark size={24} alt="SmartCorretorAI" />
+        <BrandMark size={24} alt={BRAND.name} />
       </span>
       <div className="min-w-0 flex-1">
         {(label || labelTrailing) && <div className="flex flex-wrap items-center gap-2">
