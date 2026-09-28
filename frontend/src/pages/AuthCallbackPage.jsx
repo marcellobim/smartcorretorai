@@ -1,6 +1,7 @@
 import { videoLoginDestination } from '../lib/smart-tour-auth-recovery'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { BRAND } from '../config/brand'
 import BrandMark from '../components/brand/BrandMark'
 import { supabase } from '../lib/supabase'
 
@@ -66,7 +67,7 @@ export default function AuthCallbackPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-xl">
-        <div className="flex items-center justify-center gap-3"><BrandMark size={36} decorative /><span className="font-black">SmartCorretorAI</span></div>
+        <div className="flex items-center justify-center gap-3"><BrandMark size={36} decorative /><span className="font-black">{BRAND.name}</span></div>
         {errorMessage ? (
           <>
             <p role="alert" className="mt-7 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold leading-6 text-red-800">{errorMessage}</p>

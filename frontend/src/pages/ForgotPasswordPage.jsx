@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BRAND } from '../config/brand'
 import { useForm } from 'react-hook-form'
 import { Mail } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
@@ -40,7 +41,7 @@ export default function ForgotPasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl">
-        <div className="flex items-center gap-3"><BrandMark size={36} decorative /><span className="font-black">SmartCorretorAI</span></div>
+        <div className="flex items-center gap-3"><BrandMark size={36} decorative /><span className="font-black">{BRAND.name}</span></div>
         <h1 className="mt-7 text-2xl font-black text-slate-950">Recuperar acesso</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">Informe seu e-mail de acesso para receber as próximas instruções.</p>
         {sent ? (

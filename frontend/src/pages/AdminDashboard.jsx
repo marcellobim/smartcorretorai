@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import { adminRequest } from '../lib/admin-api'
+import { BRAND } from '../config/brand'
 import AdminGuestBannerMetrics from '../components/AdminGuestBannerMetrics'
 
 const TABS = [
@@ -438,7 +439,7 @@ export default function AdminDashboard() {
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">Operação</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Admin SmartCorretorAI</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Admin {BRAND.name}</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">Dados operacionais reais, protegidos e consolidados no backend.</p>
           </div>
           <div className="flex items-center gap-2">
