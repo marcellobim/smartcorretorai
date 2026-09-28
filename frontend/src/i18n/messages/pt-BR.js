@@ -90,6 +90,18 @@ export default Object.freeze({
     }),
     submit: 'Criar conta grátis',
   }),
+  forgotPassword: Object.freeze({
+    title: 'Recuperar acesso',
+    subtitle: 'Informe seu e-mail de acesso para receber as próximas instruções.',
+    confirmation: 'Se existir uma conta para este e-mail, enviaremos as instruções de recuperação quando o envio estiver disponível.',
+    email: Object.freeze({
+      label: 'E-mail',
+      required: 'Informe seu e-mail.',
+      invalid: 'Informe um e-mail válido.',
+    }),
+    submit: 'Enviar instruções',
+    backToLogin: 'Voltar para o login',
+  }),
   social: Object.freeze({
     instagram: 'Instagram',
     facebook: 'Facebook',
