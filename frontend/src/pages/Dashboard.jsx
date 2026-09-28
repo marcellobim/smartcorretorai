@@ -266,7 +266,7 @@ const faqItems = [
   {
     question: 'Ainda ficou com alguma dúvida ou quer falar com a gente?',
     answer: 'Se você tiver dúvidas, sugestões, precisar de ajuda ou quiser nos contar sobre algum problema, entre em contato com nossa equipe. Vamos analisar sua mensagem e responder assim que possível.',
-    link: { href: 'mailto:suporte@smartcorretorai.com', label: `Falar com o ${BRAND.name}` },
+    link: { href: `mailto:${BRAND.supportEmail}`, label: `Falar com o ${BRAND.name}` },
   },
 ]
 

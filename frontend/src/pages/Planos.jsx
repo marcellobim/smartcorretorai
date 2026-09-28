@@ -377,10 +377,10 @@ export default function Planos() {
               Use este canal para suporte, sugestões ou qualquer assunto relacionado ao {BRAND.name}.
             </p>
             <a
-              href="mailto:suporte@smartcorretorai.com"
+              href={`mailto:${BRAND.supportEmail}`}
               className="mt-5 inline-flex rounded-2xl bg-cyan-100 px-4 py-3 text-sm font-black text-primary-900 hover:bg-white"
             >
-              suporte@smartcorretorai.com
+              {BRAND.supportEmail}
             </a>
           </div>
         </section>

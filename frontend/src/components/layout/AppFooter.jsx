@@ -26,7 +26,7 @@ export default function AppFooter() {
           <button type="button" onClick={openCookiePreferences} className={`inline-flex min-h-10 items-center transition hover:text-primary-700 motion-reduce:transition-none ${SMART_UI.focus}`}>
             Preferências de cookies
           </button>
-          <a href="mailto:suporte@smartcorretorai.com" className={`inline-flex min-h-10 items-center transition hover:text-primary-700 motion-reduce:transition-none ${SMART_UI.focus}`}>
+          <a href={`mailto:${BRAND.supportEmail}`} className={`inline-flex min-h-10 items-center transition hover:text-primary-700 motion-reduce:transition-none ${SMART_UI.focus}`}>
             Suporte
           </a>
         </nav>

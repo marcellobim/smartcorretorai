@@ -2,6 +2,7 @@
   name: 'SNETIA',
   domain: 'snetia.com',
   website: 'https://snetia.com',
+  supportEmail: 'support@snetia.com',
 
   legacyName: 'SmartCorretorAI',
   legacyDomain: 'smartcorretorai.com',
