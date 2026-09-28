@@ -1,4 +1,5 @@
 import { hasVideoLoginRecovery, videoLoginDestination } from '../lib/smart-tour-auth-recovery'
+import { BRAND } from '../config/brand'
 import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -95,7 +96,7 @@ export default function LoginPage() {
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-10">
             <BrandMark size={40} decorative />
-            <span className="text-xl font-bold">SmartCorretorAI</span>
+            <span className="text-xl font-bold">{BRAND.name}</span>
           </div>
           <h2 className="text-3xl font-extrabold leading-tight">
             Gere campanhas de marketing completas em segundos
@@ -118,7 +119,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
             <BrandMark size={32} decorative />
-            <span className="font-bold text-gray-900">SmartCorretorAI</span>
+            <span className="font-bold text-gray-900">{BRAND.name}</span>
           </div>
 
           <h1 className="text-2xl font-bold text-gray-900">Entrar na sua conta</h1>

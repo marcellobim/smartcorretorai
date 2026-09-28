@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff } from 'lucide-react'
@@ -86,7 +87,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2 mb-8">
           <BrandMark size={32} decorative />
-          <span className="font-bold text-gray-900">SmartCorretorAI</span>
+          <span className="font-bold text-gray-900">{BRAND.name}</span>
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900">Crie sua conta grátis</h1>
