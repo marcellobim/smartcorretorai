@@ -13,6 +13,7 @@ import { Button } from '../components/ui/Button'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
 import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
+import { useLocale } from '../i18n/useLocale'
 
 const GENERIC_LOGIN_ERROR = 'Não foi possível entrar. Verifique os dados informados ou tente novamente mais tarde.'
 const GENERIC_RESEND_MESSAGE = 'Se houver um cadastro pendente para este e-mail, enviaremos novas instruções quando o envio estiver disponível.'
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
   const { signIn, signInWithGoogle } = useAuth()
   const { trackEvent } = useAnalytics()
+  const { t } = useLocale()
   const navigate = useNavigate()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -99,13 +101,13 @@ export default function LoginPage() {
             <span className="text-xl font-bold">{BRAND.name}</span>
           </div>
           <h2 className="text-3xl font-extrabold leading-tight">
-            Gere campanhas de marketing completas em segundos
+            {t('login.hero.title')}
           </h2>
           <p className="mt-4 text-white/70">
-            Banners, vídeos e textos prontos para todas as redes sociais, automatizados com IA.
+            {t('login.hero.description')}
           </p>
           <div className="mt-8 space-y-3">
-            {['5x mais rápido que contratar um designer', 'Formatos para todas as redes sociais', 'Textos persuasivos gerados por IA'].map((item) => (
+            {[t('login.hero.benefits.faster'), t('login.hero.benefits.formats'), t('login.hero.benefits.copy')].map((item) => (
               <div key={item} className="flex items-center gap-2.5 text-sm text-white/80">
                 <span className="w-5 h-5 bg-green-400/20 rounded-full flex items-center justify-center text-green-300 text-xs">✓</span>
                 {item}
@@ -122,12 +124,12 @@ export default function LoginPage() {
             <span className="font-bold text-gray-900">{BRAND.name}</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900">Entrar na sua conta</h1>
-          {resumeVideo && <p role="status" className="mt-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Entre novamente com a mesma conta para retomar seu briefing de Vídeo Imobiliário. Após entrar, revise e confirme; nenhuma geração será reenviada automaticamente.</p>}
+          <h1 className="text-2xl font-bold text-gray-900">{t('login.title')}</h1>
+          {resumeVideo && <p role="status" className="mt-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">{t('login.resumeVideo')}</p>}
           <p className="mt-1 text-sm text-gray-500">
-            Não tem conta?{' '}
+            {t('login.noAccount')}{' '}
             <Link to="/cadastro" className="text-primary-600 font-semibold hover:text-primary-700">
-              Cadastre-se grátis
+              {t('login.signUp')}
             </Link>
           </p>
 
@@ -135,30 +137,30 @@ export default function LoginPage() {
             <GoogleAuthButton onClick={handleGoogle} loading={googleLoading} />
             <div className="my-6 flex items-center gap-3" aria-hidden="true">
               <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">ou</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('login.or')}</span>
               <div className="h-px flex-1 bg-slate-200" />
             </div>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
-              label="E-mail"
+              label={t('login.email.label')}
               type="email"
-              placeholder="seu@email.com"
+              placeholder={t('login.email.placeholder')}
               error={errors.email?.message}
               {...register('email', {
-                required: 'E-mail obrigatório',
-                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+                required: t('login.email.required'),
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: t('login.email.invalid') },
               })}
             />
 
             <div className="relative">
               <Input
-                label="Senha"
+                label={t('login.password.label')}
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 error={errors.senha?.message}
-                {...register('senha', { required: 'Senha obrigatória' })}
+                {...register('senha', { required: t('login.password.required') })}
               />
               <button
                 type="button"
@@ -171,14 +173,14 @@ export default function LoginPage() {
 
             <div className="flex justify-end">
               <Link to="/esqueci-senha" className="text-sm text-primary-600 hover:text-primary-700">
-                Esqueceu a senha?
+                {t('login.forgotPassword')}
               </Link>
             </div>
 
             <TurnstileWidget ref={captchaRef} onTokenChange={handleCaptchaToken} />
 
             <Button type="submit" loading={loading} disabled={!captchaToken} className="w-full mt-2">
-              Entrar
+              {t('login.submit')}
             </Button>
 
             {showResendButton && (
@@ -187,10 +189,10 @@ export default function LoginPage() {
                   <Mail className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm text-amber-800 font-medium mb-2">
-                      Ainda não confirmou seu e-mail?
+                      {t('login.resend.title')}
                     </p>
                     <p className="text-xs text-amber-700 mb-3">
-                      Você pode solicitar novas instruções. A resposta será a mesma independentemente do estado da conta.
+                      {t('login.resend.description')}
                     </p>
                     <Button
                       type="button"
@@ -200,7 +202,7 @@ export default function LoginPage() {
                       variant="outline"
                       className="w-full text-sm"
                     >
-                      Reenviar email de confirmação
+                      {t('login.resend.button')}
                     </Button>
                   </div>
                 </div>
