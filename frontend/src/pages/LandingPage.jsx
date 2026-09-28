@@ -11,28 +11,27 @@ import {
 import BrandMark from '../components/brand/BrandMark'
 import FirstCreationEntry from '../components/landing/FirstCreationEntry'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
+import { useLocale } from '../i18n/useLocale'
 const VIRTUAL_STAGING_BEFORE_IMAGE = '/landing/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/landing/virtual-staging-after.webp'
-const VIRTUAL_STAGING_SPOTLIGHT_PAIRS = {
-  living: { id: 'living', label: 'Sala integrada', before: '/virtual-staging/virtual-staging-before.jpg', after: '/virtual-staging/virtual-staging-after.png' },
-  balcony: { id: 'balcony', label: 'Varanda', before: '/virtual-staging/example-01-before.jpg', after: '/virtual-staging/example-01-after.jpg' },
-  bathroom: { id: 'bathroom', label: 'Banheiro', before: '/virtual-staging/example-02-before.jpg', after: '/virtual-staging/example-02-after.jpg' },
-  bedroom: { id: 'bedroom', label: 'Quarto e home office', before: '/virtual-staging/example-03-before.jpg', after: '/virtual-staging/example-03-after.jpg' },
-  dining: { id: 'dining', label: 'Sala de jantar', before: '/virtual-staging/example-04-before.jpg', after: '/virtual-staging/example-04-after.jpg' },
-  kitchen: { id: 'kitchen', label: 'Cozinha integrada', before: '/virtual-staging/example-05-before.jpg', after: '/virtual-staging/example-05-after.jpg' },
-  office: { id: 'office', label: 'Escritório', before: '/virtual-staging/example-06-before.jpg', after: '/virtual-staging/example-06-after.jpg' },
+const VIRTUAL_STAGING_PHONE_SEQUENCES = t => {
+  const pairs = {
+    living: { id: 'living', label: t('landing.comparison.rooms.living'), before: '/virtual-staging/virtual-staging-before.jpg', after: '/virtual-staging/virtual-staging-after.png' },
+    balcony: { id: 'balcony', label: t('landing.comparison.rooms.balcony'), before: '/virtual-staging/example-01-before.jpg', after: '/virtual-staging/example-01-after.jpg' },
+    bathroom: { id: 'bathroom', label: t('landing.comparison.rooms.bathroom'), before: '/virtual-staging/example-02-before.jpg', after: '/virtual-staging/example-02-after.jpg' },
+    bedroom: { id: 'bedroom', label: t('landing.comparison.rooms.bedroom'), before: '/virtual-staging/example-03-before.jpg', after: '/virtual-staging/example-03-after.jpg' },
+    dining: { id: 'dining', label: t('landing.comparison.rooms.dining'), before: '/virtual-staging/example-04-before.jpg', after: '/virtual-staging/example-05-after.jpg' },
+    kitchen: { id: 'kitchen', label: t('landing.comparison.rooms.kitchen'), before: '/virtual-staging/example-05-before.jpg', after: '/virtual-staging/example-05-after.jpg' },
+    office: { id: 'office', label: t('landing.comparison.rooms.office'), before: '/virtual-staging/example-06-before.jpg', after: '/virtual-staging/example-06-after.jpg' },
+  }
+  return [[pairs.bedroom, pairs.bathroom, pairs.living], [pairs.kitchen, pairs.dining], [pairs.balcony, pairs.office]]
 }
-const VIRTUAL_STAGING_PHONE_SEQUENCES = [
-  [VIRTUAL_STAGING_SPOTLIGHT_PAIRS.bedroom, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.bathroom, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.living],
-  [VIRTUAL_STAGING_SPOTLIGHT_PAIRS.kitchen, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.dining],
-  [VIRTUAL_STAGING_SPOTLIGHT_PAIRS.balcony, VIRTUAL_STAGING_SPOTLIGHT_PAIRS.office],
-]
-const NAV_ITEMS = [
-  { label: 'Produtos', href: '#produtos' },
-  { label: 'Como funciona', href: '#como-funciona' },
-  { label: 'Recursos', href: '#recursos' },
-  { label: 'Planos', to: '/planos' },
-  { label: 'FAQ', href: '#faq' },
+const NAV_ITEMS = t => [
+  { id: 'products', label: t('landing.navigation.products'), href: '#produtos' },
+  { id: 'howItWorks', label: t('landing.navigation.howItWorks'), href: '#como-funciona' },
+  { id: 'features', label: t('landing.navigation.features'), href: '#recursos' },
+  { id: 'plans', label: t('landing.navigation.plans'), to: '/planos' },
+  { id: 'faq', label: t('landing.navigation.faq'), href: '#faq' },
 ]
 const VIDEO_POSTERS = Object.freeze({
   '/demos-videos/animar-imagens.mp4': '/landing/posters/animar-imagens.webp',
@@ -166,12 +165,12 @@ const DELIVERY_GROUPS = visibleProducts([
     ],
   },
 ]).map(group => ({ ...group, items: visibleProducts(group.items).filter(item => SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)) }))
-const REAL_USES = [
-  ['Venda', 'Imóveis usados, prontos, novos ou em estoque também precisam continuar chamando atenção. Apresente diferenciais e varie a forma de mostrar cada oportunidade.'],
-  ['Locação', 'Locação não precisa ficar limitada a fotos e uma descrição básica. Crie materiais para apresentar melhor o imóvel e manter a oferta presente.'],
-  ['Lançamentos', 'Transforme imagens, informações e condições comerciais em diferentes materiais para sua campanha.'],
-  ['Captação de imóveis', 'Os materiais podem apoiar a apresentação da sua estratégia de divulgação ao proprietário.'],
-  ['Captação de profissionais', 'Crie campanhas para apresentar oportunidades e atrair novos corretores e profissionais para equipes e imobiliárias.'],
+const REAL_USES = t => [
+  { id: 'sale', title: t('landing.benefits.uses.sale.title'), copy: t('landing.benefits.uses.sale.description') },
+  { id: 'rental', title: t('landing.benefits.uses.rental.title'), copy: t('landing.benefits.uses.rental.description') },
+  { id: 'developments', title: t('landing.benefits.uses.developments.title'), copy: t('landing.benefits.uses.developments.description') },
+  { id: 'propertyAcquisition', title: t('landing.benefits.uses.propertyAcquisition.title'), copy: t('landing.benefits.uses.propertyAcquisition.description') },
+  { id: 'professionalRecruiting', title: t('landing.benefits.uses.professionalRecruiting.title'), copy: t('landing.benefits.uses.professionalRecruiting.description') },
 ]
 const IMAGE_SHOWCASE_EXAMPLES = {
   'banner-imobiliario': [
@@ -242,29 +241,29 @@ const BENEFITS = [
   ['Resultado profissional com menos ferramentas', 'Crie sem precisar dominar vários editores e serviços separados.', Wand2],
 ]
 // Conteúdo ilustrativo separado para aprovação visual local; substituir ou remover antes de produção.
-const DEMO_TESTIMONIALS = [
-  ['A demonstração do produto ficou muito mais clara quando reuni vídeo, imagem e texto no mesmo fluxo.', 'Nome ilustrativo', 'Corretor(a) de imóveis — conteúdo demo'],
-  ['O formato guiado ajuda a transformar o material do imóvel em uma apresentação consistente.', 'Nome ilustrativo', 'Profissional imobiliário — conteúdo demo'],
-  ['Conseguir visualizar diferentes entregas para o mesmo imóvel deixa a campanha mais organizada.', 'Nome ilustrativo', 'Corretor(a) de imóveis — conteúdo demo'],
+const DEMO_TESTIMONIALS = t => [
+  [t('landing.testimonials.quotes.unifiedFlow'), 'Nome ilustrativo', 'Corretor(a) de imóveis — conteúdo demo'],
+  [t('landing.testimonials.quotes.guidedFormat'), 'Nome ilustrativo', 'Profissional imobiliário — conteúdo demo'],
+  [t('landing.testimonials.quotes.organizedCampaign'), 'Nome ilustrativo', 'Corretor(a) de imóveis — conteúdo demo'],
 ]
-const FAQ_ITEMS = [
-  ['Preciso saber usar IA?', 'Não. Os produtos apresentam perguntas e etapas guiadas. Você escolhe o que deseja criar, envia o material necessário e acompanha a preparação da entrega.'],
-  ['Preciso ter imagens para começar?', 'Não em todos os casos. Alguns produtos usam fotos ou vídeos; outros fluxos permitem começar apenas com as informações da campanha.'],
-  ['Posso usar para venda e locação?', 'Sim. Você pode criar materiais para apresentar oportunidades de venda e locação em diferentes formatos.'],
-  ['Posso usar para captação de imóveis?', 'Sim. Os materiais podem apoiar a apresentação da sua estratégia de divulgação ao proprietário.'],
-  ['Posso criar campanhas para captação de profissionais?', 'Sim. A Campanha de Textos permite preparar mensagens para apresentar oportunidades e atrair profissionais para equipes e imobiliárias.'],
-  ['As imagens e vídeos gerados são sempre fiéis ao imóvel?', `${BRAND.name} foi desenvolvido para preservar ao máximo as características do material enviado. Como algumas criações utilizam inteligência artificial, podem ocorrer adaptações, variações ou pequenas alterações para compor o resultado. Revise sempre o material antes de divulgar, especialmente características do imóvel que possam influenciar a decisão de um interessado. Quando se tratar de Smart Space, a imagem representa uma proposta visual do ambiente e pode incluir mobiliário, decoração ou elementos que não existem fisicamente no imóvel.`],
-  ['Quem é responsável pelas informações e materiais divulgados?', 'O usuário é responsável por revisar e confirmar as informações, imagens, vídeos e textos antes da publicação. Preço, metragem, localização, características, condições comerciais e demais informações do imóvel devem estar corretos e atualizados antes da divulgação.'],
-  ['Preciso revisar o conteúdo antes de publicar?', 'Sim. A inteligência artificial ajuda na criação, mas a revisão final continua sendo importante. Confira textos, informações comerciais e materiais visuais antes de utilizá-los em anúncios, campanhas ou outros canais de divulgação.'],
-  ['O que são Smart Tokens?', `Smart Tokens representam sua capacidade de criação dentro do ${BRAND.name}. Cada recurso informa a quantidade necessária antes de iniciar.`],
-  ['Preciso ter assinatura?', 'Não. Os planos são indicados para quem cria com frequência, mas também é possível adquirir Smart Tokens separadamente.'],
-  ['Posso comprar Smart Tokens separadamente?', 'Sim. As recargas podem ser usadas para começar sem assinatura ou complementar um plano.'],
-  ['Como funciona o teste grátis?', `Após confirmar seu e-mail, você recebe uma única concessão de 200 Smart Tokens, sem cartão e sem prazo de expiração, para usar em ${TRIAL_OFFERED_LABEL}. Os demais produtos podem exigir assinatura ou compra de Smart Tokens.`],
-  ['O que acontece se uma geração falhar?', 'Quando uma geração falha e não conclui a entrega correspondente, a reserva de Smart Tokens é liberada conforme o fluxo do produto.'],
-  ['Posso cancelar minha assinatura?', 'Sim. O cancelamento pode ser solicitado pelo portal seguro de assinatura e ocorre ao final do período já pago.'],
-  ['Como gerencio minha assinatura?', 'Acesse Configurações → Plano e Assinatura e selecione “Gerenciar assinatura” para abrir o portal seguro da Stripe.'],
-  ['Como funciona a publicação direta em redes sociais?', `Nos produtos compatíveis, você pode conectar uma conta do Instagram ou Facebook e publicar diretamente pelo ${BRAND.name}. Cada publicação depende da sua escolha e confirmação: antes do envio, você pode revisar a legenda, editar parte do texto, substituí-lo ou apagá-lo. Se preferir, também pode baixar o material e fazer a publicação manualmente no canal desejado.`],
-  ['Como falar com o suporte?', `Envie sua mensagem para ${BRAND.supportEmail}.`, `mailto:${BRAND.supportEmail}`],
+const FAQ_ITEMS = t => [
+  [t('landing.faq.items.useAi.question'), t('landing.faq.items.useAi.answer')],
+  [t('landing.faq.items.images.question'), t('landing.faq.items.images.answer')],
+  [t('landing.faq.items.saleAndRental.question'), t('landing.faq.items.saleAndRental.answer')],
+  [t('landing.faq.items.propertyAcquisition.question'), t('landing.faq.items.propertyAcquisition.answer')],
+  [t('landing.faq.items.professionalRecruiting.question'), t('landing.faq.items.professionalRecruiting.answer')],
+  [t('landing.faq.items.generatedMedia.question'), `${BRAND.name} ${t('landing.faq.items.generatedMedia.answerSuffix')}`],
+  [t('landing.faq.items.responsibility.question'), t('landing.faq.items.responsibility.answer')],
+  [t('landing.faq.items.review.question'), t('landing.faq.items.review.answer')],
+  [t('landing.faq.items.tokens.question'), `${t('landing.faq.items.tokens.answerPrefix')} ${BRAND.name}. ${t('landing.faq.items.tokens.answerSuffix')}`],
+  [t('landing.faq.items.subscription.question'), t('landing.faq.items.subscription.answer')],
+  [t('landing.faq.items.buyTokens.question'), t('landing.faq.items.buyTokens.answer')],
+  [t('landing.faq.items.freeTrial.question'), `${t('landing.faq.items.freeTrial.answerPrefix')} ${TRIAL_OFFERED_LABEL}. ${t('landing.faq.items.freeTrial.answerSuffix')}`],
+  [t('landing.faq.items.generationFailure.question'), t('landing.faq.items.generationFailure.answer')],
+  [t('landing.faq.items.cancelSubscription.question'), t('landing.faq.items.cancelSubscription.answer')],
+  [t('landing.faq.items.manageSubscription.question'), t('landing.faq.items.manageSubscription.answer')],
+  [t('landing.faq.items.socialPublishing.question'), `${t('landing.faq.items.socialPublishing.answerPrefix')} ${BRAND.name}. ${t('landing.faq.items.socialPublishing.answerSuffix')}`],
+  [t('landing.faq.items.contactSupport.question'), `${t('landing.faq.items.contactSupport.answerPrefix')} ${BRAND.supportEmail}.`, `mailto:${BRAND.supportEmail}`],
 ]
 const focusRing = 'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/45'
 
@@ -289,23 +288,25 @@ function useLandingCtaTracking(ctaLocation) {
 }
 
 function BeforeAfter({ beforeSrc, afterSrc, compact = false, contain = false }) {
+  const { t } = useLocale()
   const [position, setPosition] = useState(52)
   return (
-    <div className="relative h-full min-h-[300px] overflow-hidden bg-slate-200" aria-label="Comparação interativa antes e depois">
-      <img src={afterSrc} alt="Ambiente mobiliado depois do Smart Space" loading="lazy" className={`absolute inset-0 h-full w-full ${contain ? 'object-contain' : 'object-cover'}`} />
-      {contain ? <img src={beforeSrc} alt="Ambiente vazio antes do Smart Space" loading="lazy" className="absolute inset-0 h-full w-full object-contain" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }} /> : <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${position}%` }}><img src={beforeSrc} alt="Ambiente vazio antes do Smart Space" loading="lazy" className="h-full max-w-none object-cover" style={{ width: compact ? '560px' : '900px' }} /></div>}
+    <div className="relative h-full min-h-[300px] overflow-hidden bg-slate-200" aria-label={t('landing.comparison.interactiveAriaLabel')}>
+      <img src={afterSrc} alt={t('landing.comparison.afterImageAlt')} loading="lazy" className={`absolute inset-0 h-full w-full ${contain ? 'object-contain' : 'object-cover'}`} />
+      {contain ? <img src={beforeSrc} alt={t('landing.comparison.beforeImageAlt')} loading="lazy" className="absolute inset-0 h-full w-full object-contain" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }} /> : <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${position}%` }}><img src={beforeSrc} alt={t('landing.comparison.beforeImageAlt')} loading="lazy" className="h-full max-w-none object-cover" style={{ width: compact ? '560px' : '900px' }} /></div>}
       <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-white" style={{ left: `${position}%` }}><span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-sm font-black text-slate-950 shadow-xl">↔</span></div>
-      <span className="absolute left-4 top-4 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-black text-white backdrop-blur">Antes</span>
-      <span className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950 backdrop-blur">Depois</span>
-      <input className="absolute inset-0 z-20 h-full w-full cursor-ew-resize opacity-0" type="range" min="18" max="82" value={position} onChange={event => setPosition(Number(event.target.value))} aria-label="Mover comparação entre antes e depois" />
+      <span className="absolute left-4 top-4 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-black text-white backdrop-blur">{t('landing.comparison.before')}</span>
+      <span className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950 backdrop-blur">{t('landing.comparison.after')}</span>
+      <input className="absolute inset-0 z-20 h-full w-full cursor-ew-resize opacity-0" type="range" min="18" max="82" value={position} onChange={event => setPosition(Number(event.target.value))} aria-label={t('landing.comparison.sliderAriaLabel')} />
     </div>
   )
 }
 
 function TextCampaignPreview() {
+  const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(0)
   const active = TEXT_CAMPAIGN_CHANNELS[activeIndex]
-  return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b1022] lg:grid-cols-[320px_minmax(0,1fr)]" aria-label="Demonstração interativa de uma campanha completa de textos">
+  return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b1022] lg:grid-cols-[320px_minmax(0,1fr)]" aria-label={t('landing.controls.textCampaignPreviewAriaLabel')}>
     <div className="min-w-0 border-b border-white/10 p-4 lg:border-b-0 lg:border-r lg:p-5">
       <div className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible">
         {TEXT_CAMPAIGN_CHANNELS.map((channel, index) => <button key={channel.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`flex min-w-[150px] items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-black lg:min-w-0 ${activeIndex === index ? 'border-violet-400 bg-violet-600 text-white' : 'border-white/10 bg-white/[.03] text-slate-300 hover:bg-white/[.06]'} ${focusRing}`}><span className="text-[10px] text-violet-200">0{index + 1}</span>{channel.title}</button>)}
@@ -324,13 +325,14 @@ function DeliveryVideo({ item, onPlay }) {
 }
 
 function VideoCreationGroup({ items, onPlay }) {
+  const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(0)
   const item = items[activeIndex]
   return <article className="flex min-w-0 flex-col rounded-[1.75rem] border border-white/10 bg-[#0b1022] p-4 sm:p-5">
     <div className="flex justify-center"><DeliveryVideo item={item} onPlay={onPlay} /></div>
     <h3 className="mt-5 text-2xl font-black leading-[1.08] tracking-[-.04em]">{item.title}</h3>
     <p className="mt-3 min-h-[72px] text-sm font-medium leading-6 text-slate-300">{item.description}</p>
-    <div className="mt-4 flex flex-wrap gap-2" aria-label={`Opções de ${items[0].title} a ${items.at(-1).title}`}>{items.map((entry, index) => <button key={entry.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`rounded-full border px-3 py-2 text-xs font-black ${activeIndex === index ? 'border-violet-500 bg-violet-600 text-white' : 'border-white/15 text-slate-300 hover:bg-white/5'} ${focusRing}`}>{entry.title}</button>)}</div>
+    <div className="mt-4 flex flex-wrap gap-2" aria-label={`${t('landing.controls.optionsPrefix')} ${items[0].title} ${t('landing.controls.optionsTo')} ${items.at(-1).title}`}>{items.map((entry, index) => <button key={entry.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`rounded-full border px-3 py-2 text-xs font-black ${activeIndex === index ? 'border-violet-500 bg-violet-600 text-white' : 'border-white/15 text-slate-300 hover:bg-white/5'} ${focusRing}`}>{entry.title}</button>)}</div>
   </article>
 }
 
@@ -342,6 +344,7 @@ function ProductMedia({ item, active }) {
 }
 
 function LandingHeader() {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const trackCta = useLandingCtaTracking('header')
   useEffect(() => {
@@ -351,7 +354,8 @@ function LandingHeader() {
     return () => window.removeEventListener('keydown', close)
   }, [open])
   const navClass = `rounded-lg px-3 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/5 hover:text-white ${focusRing}`
-  return <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/90 text-white backdrop-blur-xl"><div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10"><Link to="/" aria-label={`${BRAND.name} — início`} className={`flex items-center gap-2.5 rounded-xl ${focusRing}`}><BrandMark size={38} decorative /><span className="text-sm font-black sm:text-base">{BRAND.name}</span></Link><nav aria-label="Navegação principal" className="hidden items-center gap-1 lg:flex">{NAV_ITEMS.map(item => item.to ? <Link key={item.label} to={item.to} onClick={() => item.to === '/planos' && trackCta('view_plans')} className={navClass}>{item.label}</Link> : <a key={item.label} href={item.href} className={navClass}>{item.label}</a>)}</nav><div className="flex items-center gap-2"><Link to="/login" onClick={() => trackCta('login')} className={`hidden rounded-xl px-3 py-2 text-sm font-black text-slate-200 sm:inline-flex ${focusRing}`}>Entrar</Link><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex whitespace-nowrap rounded-xl bg-violet-600 px-3 py-2.5 text-[11px] font-black text-white shadow-lg hover:bg-violet-500 sm:px-4 sm:text-sm ${focusRing}`}>Experimentar grátis</Link><button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="landing-mobile-menu" aria-label={open ? 'Fechar menu' : 'Abrir menu'} className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 lg:hidden ${focusRing}`}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></div></div>{open && <nav id="landing-mobile-menu" aria-label="Navegação mobile" className="border-t border-white/10 bg-[#080c19] px-4 py-4 lg:hidden"><div className="grid gap-1">{NAV_ITEMS.map(item => item.to ? <Link key={item.label} to={item.to} onClick={() => { if (item.to === '/planos') trackCta('view_plans'); setOpen(false) }} className={navClass}>{item.label}</Link> : <a key={item.label} href={item.href} onClick={() => setOpen(false)} className={navClass}>{item.label}</a>)}<Link to="/login" onClick={() => { trackCta('login'); setOpen(false) }} className={`${navClass} sm:hidden`}>Entrar</Link></div></nav>}</header>
+  const navItems = NAV_ITEMS(t)
+  return <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/90 text-white backdrop-blur-xl"><div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10"><Link to="/" aria-label={`${BRAND.name} — ${t('landing.navigation.home')}`} className={`flex items-center gap-2.5 rounded-xl ${focusRing}`}><BrandMark size={38} decorative /><span className="text-sm font-black sm:text-base">{BRAND.name}</span></Link><nav aria-label={t('landing.navigation.main')} className="hidden items-center gap-1 lg:flex">{navItems.map(item => item.to ? <Link key={item.id} to={item.to} onClick={() => item.to === '/planos' && trackCta('view_plans')} className={navClass}>{item.label}</Link> : <a key={item.id} href={item.href} className={navClass}>{item.label}</a>)}</nav><div className="flex items-center gap-2"><Link to="/login" onClick={() => trackCta('login')} className={`hidden rounded-xl px-3 py-2 text-sm font-black text-slate-200 sm:inline-flex ${focusRing}`}>{t('landing.navigation.signIn')}</Link><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex whitespace-nowrap rounded-xl bg-violet-600 px-3 py-2.5 text-[11px] font-black text-white shadow-lg hover:bg-violet-500 sm:px-4 sm:text-sm ${focusRing}`}>{t('landing.navigation.tryFree')}</Link><button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="landing-mobile-menu" aria-label={open ? t('landing.navigation.closeMenu') : t('landing.navigation.openMenu')} className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 lg:hidden ${focusRing}`}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></div></div>{open && <nav id="landing-mobile-menu" aria-label={t('landing.navigation.mobile')} className="border-t border-white/10 bg-[#080c19] px-4 py-4 lg:hidden"><div className="grid gap-1">{navItems.map(item => item.to ? <Link key={item.id} to={item.to} onClick={() => { if (item.to === '/planos') trackCta('view_plans'); setOpen(false) }} className={navClass}>{item.label}</Link> : <a key={item.id} href={item.href} onClick={() => setOpen(false)} className={navClass}>{item.label}</a>)}<Link to="/login" onClick={() => { trackCta('login'); setOpen(false) }} className={`${navClass} sm:hidden`}>{t('landing.navigation.signIn')}</Link></div></nav>}</header>
 }
 
 function HeroMedia({ slide, active }) {
@@ -369,6 +373,7 @@ function HeroMedia({ slide, active }) {
 }
 
 function Hero() {
+  const { t } = useLocale()
   const trackCta = useLandingCtaTracking('hero')
   const reducedMotion = useReducedMotion()
   const [activeIndex, setActiveIndex] = useState(0)
@@ -387,13 +392,13 @@ function Hero() {
       <div className="pointer-events-none absolute left-1/2 top-1/3 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-violet-700/20 blur-[110px]" />
       <div className="relative mx-auto grid min-h-[700px] max-w-[92rem] items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:min-h-[720px] lg:grid-cols-[minmax(0,.85fr)_minmax(560px,1.15fr)] lg:px-10 lg:py-16">
         <div className="relative z-10 max-w-2xl">
-          <p className="inline-flex rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.18em] text-violet-200">Marketing imobiliário</p>
-          <h1 className="mt-6 text-[2rem] font-black leading-[1.05] tracking-[-.055em] sm:text-5xl sm:leading-[1.03] lg:text-[3.55rem]"><span className="block [text-wrap:balance]">Crie vídeos, imagens e campanhas para vender, alugar e captar imóveis ou profissionais.</span><span className="mt-4 block text-[.58em] leading-[1.2] tracking-[-.035em] text-white [text-wrap:balance]">E <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">publique diretamente</span> no Instagram e Facebook, em poucos passos.</span></h1>
-          <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300 sm:text-lg">Com fotos, vídeos ou apenas as informações que você já tem, o {BRAND.name} ajuda você a criar materiais para venda, locação, lançamentos, captação de imóveis e captação de profissionais.</p>
-          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-violet-200 sm:text-base">Crie, revise e publique sem sair do {BRAND.name}.</p>
+          <p className="inline-flex rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.18em] text-violet-200">{t('landing.hero.eyebrow')}</p>
+          <h1 className="mt-6 text-[2rem] font-black leading-[1.05] tracking-[-.055em] sm:text-5xl sm:leading-[1.03] lg:text-[3.55rem]"><span className="block [text-wrap:balance]">{t('landing.hero.title')}</span><span className="mt-4 block text-[.58em] leading-[1.2] tracking-[-.035em] text-white [text-wrap:balance]">{t('landing.hero.publishPrefix')} <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">{t('landing.hero.publishHighlight')}</span> {t('landing.hero.publishSuffix')}</span></h1>
+          <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300 sm:text-lg">{t('landing.hero.descriptionPrefix')} {BRAND.name} {t('landing.hero.descriptionSuffix')}</p>
+          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-violet-200 sm:text-base">{t('landing.hero.platformPrefix')} {BRAND.name}.</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link>
-            <a href="#formas-de-criar" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />Ver tudo o que posso criar</a>
+            <Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link>
+            <a href="#formas-de-criar" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />{t('landing.hero.explore')}</a>
           </div>
           <p className="mt-5 text-xs font-bold text-slate-400">Comece grátis com 200 Smart Tokens após confirmar seu e-mail. Sem cartão.</p>
         </div>
@@ -415,28 +420,29 @@ function Hero() {
 }
 
 function PositioningStrip() {
+  const { t } = useLocale()
   const startingPoints = [
-    ['Já tenho fotos ou vídeos', 'Use o material que você já tem para criar novas formas de apresentar e divulgar seus imóveis.'],
-    ['Tenho apenas as informações', 'Ainda não tem imagens? Tudo bem. Comece pelas informações e crie materiais para venda, locação, lançamentos, captação de imóveis ou captação de profissionais.'],
+    [t('landing.positioning.startingPoints.media.title'), t('landing.positioning.startingPoints.media.description')],
+    [t('landing.positioning.startingPoints.information.title'), t('landing.positioning.startingPoints.information.description')],
   ]
   return <>
     <section id="formas-de-criar" className="scroll-mt-20 border-y border-white/10 bg-[#090d1b] text-white">
       <div className="mx-auto grid max-w-[92rem] gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.15fr_.85fr] lg:items-end lg:px-10 lg:py-20">
         <div>
-          <p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">Novas formas de divulgar</p>
-          <h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">As mesmas imagens. Novas formas de chamar atenção.</h2>
-          <p className="mt-6 max-w-3xl text-base font-medium leading-7 text-slate-300">Seu anúncio não precisa aparecer sempre do mesmo jeito. Use as fotos e informações que você já tem para criar novas maneiras de apresentar o imóvel — em vídeo, imagem, banner, carrossel ou texto.</p>
+          <p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.positioning.eyebrow')}</p>
+          <h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">{t('landing.positioning.title')}</h2>
+          <p className="mt-6 max-w-3xl text-base font-medium leading-7 text-slate-300">{t('landing.positioning.description')}</p>
         </div>
         <div className="border-l-2 border-violet-500 pl-6 sm:pl-8">
-          <p className="text-2xl font-black tracking-[-.035em] text-violet-300 sm:text-3xl">Divulgue mais. Divulgue diferente.</p>
-          <p className="mt-4 text-sm font-medium leading-7 text-slate-400">Venda, locação, lançamentos ou captação: mantenha-se presente e apresente seus imóveis de novas formas todos os dias.</p>
+          <p className="text-2xl font-black tracking-[-.035em] text-violet-300 sm:text-3xl">{t('landing.positioning.callout.title')}</p>
+          <p className="mt-4 text-sm font-medium leading-7 text-slate-400">{t('landing.positioning.callout.description')}</p>
         </div>
       </div>
     </section>
     <section className="bg-white pb-12 pt-20 sm:pb-14 sm:pt-24">
       <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
-        <p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Comece com o que você tem</p>
-        <h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] text-slate-950 sm:text-5xl">Com imagens ou sem imagens, você pode começar a criar.</h2>
+        <p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.positioning.startingPoints.eyebrow')}</p>
+        <h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.positioning.startingPoints.title')}</h2>
         <div className="mt-12 grid gap-px overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-200 md:grid-cols-2">
           {startingPoints.map(([title, copy], index) => <article key={title} className="bg-[#f8f7fb] p-7 sm:p-10"><span className="text-xs font-black text-violet-700">0{index + 1}</span><h3 className="mt-8 text-2xl font-black tracking-[-.035em] text-slate-950">{title}</h3><p className="mt-4 max-w-xl text-sm font-medium leading-7 text-slate-600">{copy}</p></article>)}
         </div>
@@ -477,6 +483,7 @@ function ListingXraySpotlight() {
 }
 
 function DeliveryPanel({ group }) {
+  const { t } = useLocale()
   const playingVideoRef = useRef(null)
   const trackCta = useLandingCtaTracking('product_section')
   const handlePlay = video => {
@@ -493,7 +500,7 @@ function DeliveryPanel({ group }) {
         <p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{group.eyebrow}</p>
         <h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{group.title}</h2>
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-2" aria-label="Criações em vídeo">{groups.map((items, index) => <VideoCreationGroup key={index} items={items} onPlay={handlePlay} />)}</div>
+      <div className="mt-8 grid gap-4 md:grid-cols-2" aria-label={t('landing.products.videoCreations')}>{groups.map((items, index) => <VideoCreationGroup key={index} items={items} onPlay={handlePlay} />)}</div>
       <div className="mt-6 flex flex-col justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{group.ctaLabel}<ArrowRight className="h-4 w-4" /></Link></div>
     </div>
   </section>
@@ -535,12 +542,14 @@ function ImageShowcase({ group }) {
 }
 
 function TextCampaignSection() {
+  const { t } = useLocale()
   const trackCta = useLandingCtaTracking('product_section')
-  return <section id="textos-campanhas" className="scroll-mt-20 bg-[#080c19] py-14 text-white sm:py-16"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">Textos e campanhas</p><h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">Criar campanha de textos.</h2><p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-300">Converse com nossa IA e receba textos preparados para diferentes canais.</p><div className="mt-8"><TextCampaignPreview /></div><div className="mt-6 flex justify-end"><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link></div></div></section>
+  return <section id="textos-campanhas" className="scroll-mt-20 bg-[#080c19] py-14 text-white sm:py-16"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.products.textCampaign.eyebrow')}</p><h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{t('landing.products.textCampaign.title')}</h2><p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-300">{t('landing.products.textCampaign.description')}</p><div className="mt-8"><TextCampaignPreview /></div><div className="mt-6 flex justify-end"><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link></div></div></section>
 }
 
 function DeliveryShowcase() {
-  return <div id="produtos"><section className="bg-[#f4f3f8] pb-14 pt-12 text-slate-950 sm:pb-16 sm:pt-14"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">O que você pode criar</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">Uma plataforma. Muitas formas de divulgar.</h2><p className="mt-6 max-w-4xl text-base font-medium leading-7 text-slate-600">Vídeos, imagens, banners, carrosséis e textos para transformar suas informações e materiais em novas formas de apresentar, divulgar e manter suas oportunidades presentes.</p><p className="mt-6 text-xs font-black uppercase tracking-[.12em] text-violet-700">Venda <span className="mx-2 text-slate-300">·</span> Locação <span className="mx-2 text-slate-300">·</span> Lançamentos <span className="mx-2 text-slate-300">·</span> Captação de imóveis <span className="mx-2 text-slate-300">·</span> Captação de profissionais</p></div></section>{DELIVERY_GROUPS.map((group, index) => group.id === 'videos' ? <DeliveryPanel key={group.id} group={group} /> : group.id === 'imagens-campanhas' ? <ImageShowcase key={group.id} group={group} /> : <TextCampaignSection key={group.id} />)}</div>
+  const { t } = useLocale()
+  return <div id="produtos"><section className="bg-[#f4f3f8] pb-14 pt-12 text-slate-950 sm:pb-16 sm:pt-14"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.products.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">{t('landing.products.title')}</h2><p className="mt-6 max-w-4xl text-base font-medium leading-7 text-slate-600">{t('landing.products.description')}</p><p className="mt-6 text-xs font-black uppercase tracking-[.12em] text-violet-700">{t('landing.products.uses.sale')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.rental')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.developments')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.properties')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.professionals')}</p></div></section>{DELIVERY_GROUPS.map((group, index) => group.id === 'videos' ? <DeliveryPanel key={group.id} group={group} /> : group.id === 'imagens-campanhas' ? <ImageShowcase key={group.id} group={group} /> : <TextCampaignSection key={group.id} />)}</div>
 }
 
 function ProductShowcase() {
@@ -564,6 +573,7 @@ function ProductShowcase() {
 }
 
 function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
+  const { t } = useLocale()
   const [frame, setFrame] = useState(0)
   useEffect(() => {
     setFrame(0)
@@ -581,19 +591,19 @@ function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
   const pair = sequence[Math.floor(frame / 2) % sequence.length]
   const showAfter = frame % 2 === 1
   const shellPosition = slot === 0 ? 'col-span-2 mx-auto max-w-[280px] lg:col-span-1 lg:max-w-[300px]' : 'max-w-[170px] sm:max-w-[210px] lg:max-w-[300px]'
-  return <article data-virtual-staging-phone={slot + 1} className={`w-full ${shellPosition}`} aria-label={`${pair.label}: comparação antes e depois`}>
+  return <article data-virtual-staging-phone={slot + 1} className={`w-full ${shellPosition}`} aria-label={`${pair.label}: ${t('landing.comparison.phoneAriaLabel')}`}>
     <div className="relative aspect-[9/18.5] overflow-hidden rounded-[2rem] border-[5px] border-[#111528] bg-[#050816] shadow-[0_28px_65px_-30px_rgba(15,23,42,.8)] sm:border-[6px]">
       <span className="absolute left-1/2 top-2 z-30 h-3.5 w-14 -translate-x-1/2 rounded-full bg-[#070a13]" aria-hidden="true" />
       <div className="absolute inset-px overflow-hidden rounded-[1.55rem] bg-slate-200">
         {reducedMotion ? <>
-          <img src={pair.after} alt={`${pair.label} depois do Smart Space`} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r border-white"><img src={pair.before} alt={`${pair.label} antes do Smart Space`} loading="lazy" className="h-full w-[200%] max-w-none object-cover" /></div>
-          <span className="absolute left-3 top-9 rounded-full bg-slate-950/80 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-white">ANTES</span>
-          <span className="absolute right-3 top-9 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-slate-950">DEPOIS</span>
+          <img src={pair.after} alt={`${pair.label} ${t('landing.comparison.afterSmartSpaceAlt')}`} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r border-white"><img src={pair.before} alt={`${pair.label} ${t('landing.comparison.beforeSmartSpaceAlt')}`} loading="lazy" className="h-full w-[200%] max-w-none object-cover" /></div>
+          <span className="absolute left-3 top-9 rounded-full bg-slate-950/80 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-white">{t('landing.comparison.beforeUppercase')}</span>
+          <span className="absolute right-3 top-9 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-slate-950">{t('landing.comparison.afterUppercase')}</span>
         </> : <>
-          <img key={`${pair.id}-before`} src={pair.before} alt={`${pair.label} antes do Smart Space`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className="absolute inset-0 h-full w-full object-cover" />
-          <img key={`${pair.id}-after`} src={pair.after} alt={`${pair.label} depois do Smart Space`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${showAfter ? 'opacity-100' : 'opacity-0'}`} />
-          <span className={`absolute left-1/2 top-9 -translate-x-1/2 rounded-full px-3 py-1 text-[9px] font-black tracking-[.14em] shadow-lg backdrop-blur transition-colors duration-700 ${showAfter ? 'bg-white/90 text-slate-950' : 'bg-slate-950/80 text-white'}`}>{showAfter ? 'DEPOIS' : 'ANTES'}</span>
+          <img key={`${pair.id}-before`} src={pair.before} alt={`${pair.label} ${t('landing.comparison.beforeSmartSpaceAlt')}`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className="absolute inset-0 h-full w-full object-cover" />
+          <img key={`${pair.id}-after`} src={pair.after} alt={`${pair.label} ${t('landing.comparison.afterSmartSpaceAlt')}`} loading={slot === 0 && frame === 0 ? 'eager' : 'lazy'} className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${showAfter ? 'opacity-100' : 'opacity-0'}`} />
+          <span className={`absolute left-1/2 top-9 -translate-x-1/2 rounded-full px-3 py-1 text-[9px] font-black tracking-[.14em] shadow-lg backdrop-blur transition-colors duration-700 ${showAfter ? 'bg-white/90 text-slate-950' : 'bg-slate-950/80 text-white'}`}>{showAfter ? t('landing.comparison.afterUppercase') : t('landing.comparison.beforeUppercase')}</span>
         </>}
         <span className="absolute inset-x-3 bottom-3 rounded-xl border border-white/20 bg-[#050816]/75 px-3 py-2 text-center text-[10px] font-black text-white backdrop-blur">{pair.label}</span>
       </div>
@@ -602,33 +612,36 @@ function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
 }
 
 function VirtualStagingSpotlight() {
+  const { t } = useLocale()
   const reducedMotion = useReducedMotion()
   const trackCta = useLandingCtaTracking('product_section')
   return <section id="virtual-staging-destaque" className="scroll-mt-20 overflow-hidden bg-white py-20 text-slate-950 sm:py-28">
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:items-end">
-        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Smart Space</p><p className="mt-3 text-sm font-black text-slate-500">Antes e depois com inteligência artificial</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">Pare de anunciar ambientes sem graça.<br /><span className="text-violet-700">Mostre o potencial do seu imóvel.</span></h2></div>
-        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">Transforme ambientes e mostre novas possibilidades para cada espaço.</p><Link to="/virtual-staging" onClick={() => trackCta('explore_products')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>Transformar espaço<ArrowRight className="h-4 w-4" /></Link></div>
+        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.smartSpace.eyebrow')}</p><p className="mt-3 text-sm font-black text-slate-500">{t('landing.smartSpace.subtitle')}</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">{t('landing.smartSpace.title')}<br /><span className="text-violet-700">{t('landing.smartSpace.titleHighlight')}</span></h2></div>
+        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">{t('landing.smartSpace.description')}</p><Link to="/virtual-staging" onClick={() => trackCta('explore_products')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.smartSpace.cta')}<ArrowRight className="h-4 w-4" /></Link></div>
       </div>
       <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">
         <div className="pointer-events-none absolute inset-x-1/4 top-0 h-40 rounded-full bg-violet-500/20 blur-[70px]" />
-        <div className="relative mx-auto grid max-w-5xl grid-cols-2 items-start justify-items-center gap-5 sm:gap-8 lg:grid-cols-3 lg:gap-10">{VIRTUAL_STAGING_PHONE_SEQUENCES.map((sequence, slot) => <VirtualStagingPhone key={sequence[0].id} sequence={sequence} slot={slot} reducedMotion={reducedMotion} />)}</div>
-        <p className="relative mx-auto mt-10 max-w-3xl text-center text-xs font-semibold leading-5 text-slate-400 lg:mt-12">Imagens geradas com inteligência artificial. O resultado representa uma possibilidade visual de ambientação.</p>
+        <div className="relative mx-auto grid max-w-5xl grid-cols-2 items-start justify-items-center gap-5 sm:gap-8 lg:grid-cols-3 lg:gap-10">{VIRTUAL_STAGING_PHONE_SEQUENCES(t).map((sequence, slot) => <VirtualStagingPhone key={sequence[0].id} sequence={sequence} slot={slot} reducedMotion={reducedMotion} />)}</div>
+        <p className="relative mx-auto mt-10 max-w-3xl text-center text-xs font-semibold leading-5 text-slate-400 lg:mt-12">{t('landing.smartSpace.disclaimer')}</p>
       </div>
     </div>
   </section>
 }
 
 function HowItWorks() {
+  const { t } = useLocale()
   const trackCta = useLandingCtaTracking('product_section')
-  const steps = [['01', 'Escolha', 'Defina o que vamos criar juntos.'], ['02', 'Informe', 'Converse com nossa IA e vamos montar sua campanha.'], ['03', 'Receba', `${BRAND.name} prepara sua criação e entrega o material pronto para você divulgar.`]]
-  return <section id="como-funciona" className="scroll-mt-20 bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Como funciona</p><h2 className="mt-4 max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">Você escolhe o que precisa. A gente simplifica o caminho.</h2><p className="mt-5 max-w-3xl text-base font-medium leading-7 text-slate-600">Sem prompts complicados, sem escolher modelos e sem descobrir qual ferramenta usar.</p><div className="mt-12 grid border-y border-slate-200 md:grid-cols-3">{steps.map(([number, title, description], index) => <article key={number} className={`py-8 md:px-8 md:py-10 ${index > 0 ? 'border-t border-slate-200 md:border-l md:border-t-0' : ''}`}><span className="text-sm font-black text-violet-600">{number}</span><h3 className="mt-10 text-2xl font-black text-slate-950">{title}</h3><p className="mt-3 text-sm font-medium leading-6 text-slate-600">{description}</p></article>)}</div><div className="mt-8 flex flex-col justify-between gap-6 rounded-2xl bg-[#f4f3f8] p-6 sm:flex-row sm:items-center"><p className="max-w-3xl text-sm font-bold leading-6 text-slate-700">Tem imagens? Ótimo. Ainda não tem? Alguns produtos permitem começar apenas com as informações da campanha.</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link></div></div></section>
+  const steps = [['01', t('landing.howItWorks.steps.choose.title'), t('landing.howItWorks.steps.choose.description')], ['02', t('landing.howItWorks.steps.inform.title'), t('landing.howItWorks.steps.inform.description')], ['03', t('landing.howItWorks.steps.receive.title'), `${BRAND.name} ${t('landing.howItWorks.steps.receive.descriptionSuffix')}`]]
+  return <section id="como-funciona" className="scroll-mt-20 bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.howItWorks.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.howItWorks.title')}</h2><p className="mt-5 max-w-3xl text-base font-medium leading-7 text-slate-600">{t('landing.howItWorks.description')}</p><div className="mt-12 grid border-y border-slate-200 md:grid-cols-3">{steps.map(([number, title, description], index) => <article key={number} className={`py-8 md:px-8 md:py-10 ${index > 0 ? 'border-t border-slate-200 md:border-l md:border-t-0' : ''}`}><span className="text-sm font-black text-violet-600">{number}</span><h3 className="mt-10 text-2xl font-black text-slate-950">{title}</h3><p className="mt-3 text-sm font-medium leading-6 text-slate-600">{description}</p></article>)}</div><div className="mt-8 flex flex-col justify-between gap-6 rounded-2xl bg-[#f4f3f8] p-6 sm:flex-row sm:items-center"><p className="max-w-3xl text-sm font-bold leading-6 text-slate-700">{t('landing.howItWorks.note')}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link></div></div></section>
 }
 
 function BenefitsSection() {
+  const { t } = useLocale()
   return <>
-    <section id="recursos" className="scroll-mt-20 bg-[#f4f3f8] py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Usos reais</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] text-slate-950 sm:text-5xl">Para cada oportunidade, uma nova forma de apresentar.</h2><div className="mt-12 grid gap-px overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-200 md:grid-cols-2 lg:grid-cols-3">{REAL_USES.map(([title, copy], index) => <article key={title} className={`bg-white p-7 sm:p-8 ${index === 3 ? 'lg:col-span-2' : ''}`}><h3 className="text-xl font-black uppercase tracking-[-.025em] text-slate-950">{title}</h3>{title === 'Captação de imóveis' && <p className="mt-4 text-lg font-black leading-7 text-violet-700">Antes de divulgar o imóvel, mostre ao proprietário como você pretende divulgá-lo.</p>}<p className="mt-4 text-sm font-medium leading-7 text-slate-600">{copy}</p></article>)}</div></div></section>
-    <section className="border-y border-white/10 bg-[#090d1b] py-16 text-white sm:py-20"><div className="mx-auto grid max-w-[92rem] gap-6 px-4 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-10"><h2 className="text-3xl font-black leading-[1.05] tracking-[-.045em] sm:text-5xl">Para quem cria sozinho. Para quem precisa criar em volume.</h2><p className="text-base font-medium leading-7 text-slate-300">Do corretor autônomo às equipes, gerentes e imobiliárias: crie materiais para diferentes imóveis, oportunidades e campanhas com a mesma facilidade.</p></div></section>
+    <section id="recursos" className="scroll-mt-20 bg-[#f4f3f8] py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.benefits.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.benefits.title')}</h2><div className="mt-12 grid gap-px overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-200 md:grid-cols-2 lg:grid-cols-3">{REAL_USES(t).map(({ id, title, copy }, index) => <article key={id} className={`bg-white p-7 sm:p-8 ${index === 3 ? 'lg:col-span-2' : ''}`}><h3 className="text-xl font-black uppercase tracking-[-.025em] text-slate-950">{title}</h3>{id === 'propertyAcquisition' && <p className="mt-4 text-lg font-black leading-7 text-violet-700">{t('landing.benefits.propertyAcquisitionCallout')}</p>}<p className="mt-4 text-sm font-medium leading-7 text-slate-600">{copy}</p></article>)}</div></div></section>
+    <section className="border-y border-white/10 bg-[#090d1b] py-16 text-white sm:py-20"><div className="mx-auto grid max-w-[92rem] gap-6 px-4 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-10"><h2 className="text-3xl font-black leading-[1.05] tracking-[-.045em] sm:text-5xl">{t('landing.benefits.scale.title')}</h2><p className="text-base font-medium leading-7 text-slate-300">{t('landing.benefits.scale.description')}</p></div></section>
   </>
 }
 
@@ -643,26 +656,30 @@ function TokensSection() {
 }
 
 function SocialProof() {
-  return <section className="bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><h2 className="max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">Por que os corretores escolhem o {BRAND.name}</h2><div className="mt-10 grid gap-4 lg:grid-cols-3">{DEMO_TESTIMONIALS.map(([quote], index) => <blockquote key={quote} data-demo-placeholder="true" data-demo-index={index + 1} className="flex min-h-[280px] flex-col justify-center rounded-[1.75rem] border border-slate-200 bg-[#f7f6fa] p-7"><p className="text-xl font-bold leading-8 text-slate-900">“{quote}”</p></blockquote>)}</div></div></section>
+  const { t } = useLocale()
+  return <section className="bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><h2 className="max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.testimonials.titlePrefix')} {BRAND.name}</h2><div className="mt-10 grid gap-4 lg:grid-cols-3">{DEMO_TESTIMONIALS(t).map(([quote], index) => <blockquote key={quote} data-demo-placeholder="true" data-demo-index={index + 1} className="flex min-h-[280px] flex-col justify-center rounded-[1.75rem] border border-slate-200 bg-[#f7f6fa] p-7"><p className="text-xl font-bold leading-8 text-slate-900">“{quote}”</p></blockquote>)}</div></div></section>
 }
 
 function FaqSection() {
+  const { t } = useLocale()
   const [openIndex, setOpenIndex] = useState(0)
-  return <section id="faq" className="scroll-mt-20 bg-[#f4f3f8] py-20 sm:py-24"><div className="mx-auto grid max-w-[92rem] gap-10 px-4 sm:px-6 lg:grid-cols-[.65fr_1.35fr] lg:px-10"><h2 className="text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">Perguntas frequentes</h2><div className="border-t border-slate-300">{FAQ_ITEMS.map(([question, answer, link], index) => { const open = openIndex === index; const answerId = `landing-faq-answer-${index}`; return <div key={question} className="border-b border-slate-300"><button type="button" onClick={() => setOpenIndex(current => current === index ? -1 : index)} aria-expanded={open} aria-controls={answerId} className={`flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-black text-slate-950 sm:text-base ${focusRing}`}>{question}<ChevronDown className={`h-5 w-5 shrink-0 text-violet-700 transition motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} /></button>{open && <div id={answerId} className="max-w-2xl pb-6 text-sm font-medium leading-7 text-slate-600"><p>{answer}</p>{link && <a href={link} className={`mt-3 inline-flex font-black text-violet-700 underline ${focusRing}`}>Falar com o suporte</a>}</div>}</div> })}</div></div></section>
+  return <section id="faq" className="scroll-mt-20 bg-[#f4f3f8] py-20 sm:py-24"><div className="mx-auto grid max-w-[92rem] gap-10 px-4 sm:px-6 lg:grid-cols-[.65fr_1.35fr] lg:px-10"><h2 className="text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.faq.title')}</h2><div className="border-t border-slate-300">{FAQ_ITEMS(t).map(([question, answer, link], index) => { const open = openIndex === index; const answerId = `landing-faq-answer-${index}`; return <div key={question} className="border-b border-slate-300"><button type="button" onClick={() => setOpenIndex(current => current === index ? -1 : index)} aria-expanded={open} aria-controls={answerId} className={`flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-black text-slate-950 sm:text-base ${focusRing}`}>{question}<ChevronDown className={`h-5 w-5 shrink-0 text-violet-700 transition motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} /></button>{open && <div id={answerId} className="max-w-2xl pb-6 text-sm font-medium leading-7 text-slate-600"><p>{answer}</p>{link && <a href={link} className={`mt-3 inline-flex font-black text-violet-700 underline ${focusRing}`}>{t('landing.faq.contactLink')}</a>}</div>}</div> })}</div></div></section>
 }
 
 function FinalCta() {
+  const { t } = useLocale()
   const trackCta = useLandingCtaTracking('final_section')
-  return <section className="bg-[#050816] px-4 py-20 text-white sm:px-6 sm:py-28"><div className="mx-auto max-w-[92rem] rounded-[2rem] border border-white/10 bg-gradient-to-br from-violet-700/25 to-white/[.03] px-6 py-14 text-center sm:px-10 sm:py-20"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">Comece agora</p><h2 className="mx-auto mt-5 max-w-5xl text-4xl font-black leading-[1.03] tracking-[-.055em] sm:text-6xl">Divulgue mais. Divulgue diferente.</h2><p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300">Venda, locação, lançamento ou captação. Crie novas formas de apresentar suas oportunidades com o {BRAND.name}.</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link><p className="mt-4 text-xs font-bold text-slate-400">Comece grátis com 200 Smart Tokens após confirmar seu e-mail. Sem cartão.</p></div></section>
+  return <section className="bg-[#050816] px-4 py-20 text-white sm:px-6 sm:py-28"><div className="mx-auto max-w-[92rem] rounded-[2rem] border border-white/10 bg-gradient-to-br from-violet-700/25 to-white/[.03] px-6 py-14 text-center sm:px-10 sm:py-20"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.finalCta.eyebrow')}</p><h2 className="mx-auto mt-5 max-w-5xl text-4xl font-black leading-[1.03] tracking-[-.055em] sm:text-6xl">{t('landing.finalCta.title')}</h2><p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300">{t('landing.finalCta.descriptionPrefix')} {BRAND.name}.</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white ${focusRing}`}>{t('landing.finalCta.cta')}<ArrowRight className="h-4 w-4" /></Link><p className="mt-4 text-xs font-bold text-slate-400">{t('landing.finalCta.note')}</p></div></section>
 }
 
 function LandingFooter() {
+  const { t } = useLocale()
   const { openCookiePreferences } = useAnalytics()
   const groups = [
-    [BRAND.name, [{ label: 'FAQ', href: '#faq' }, { label: 'Planos e Smart Tokens', to: '/planos' }]],
-    ['Suporte e legal', [{ label: 'Contato', href: `mailto:${BRAND.supportEmail}` }, { label: BRAND.supportEmail, href: `mailto:${BRAND.supportEmail}` }, { label: 'Termos de Uso', to: '/termos' }, { label: 'Política de Privacidade', to: '/privacidade' }]],
+    [BRAND.name, [{ label: t('landing.footer.faq'), href: '#faq' }, { label: t('landing.footer.plansAndTokens'), to: '/planos' }]],
+    [t('landing.footer.supportAndLegal'), [{ label: t('landing.footer.contact'), href: `mailto:${BRAND.supportEmail}` }, { label: BRAND.supportEmail, href: `mailto:${BRAND.supportEmail}` }, { label: t('landing.footer.terms'), to: '/termos' }, { label: t('landing.footer.privacy'), to: '/privacidade' }]],
   ]
-  return <footer className="border-t border-white/10 bg-[#050816] text-white"><div className="mx-auto grid max-w-[92rem] gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.45fr_1fr_1.2fr_.7fr] lg:px-10"><div><div className="flex items-center gap-3"><BrandMark size={42} decorative /><span className="text-lg font-black">{BRAND.name}</span></div><p className="mt-4 text-sm font-black text-violet-300">Inteligência que vende</p></div>{groups.map(([title, links]) => <div key={title}><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{title}</h2><ul className="mt-5 space-y-3">{links.map(link => <li key={link.label}>{link.to ? <Link to={link.to} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</Link> : <a href={link.href} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</a>}</li>)}{title === 'Suporte e legal' && <li><button type="button" onClick={openCookiePreferences} className={`text-left text-sm font-semibold text-slate-400 hover:text-white ${focusRing}`}>Preferências de cookies</button></li>}</ul></div>)}<div><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">Redes sociais</h2><div className="mt-5 flex gap-3"><a href="https://www.instagram.com/smartcorretorai/" target="_blank" rel="noopener noreferrer" aria-label={`Instagram oficial do ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Instagram className="h-4 w-4" /></a><a href="https://www.facebook.com/profile.php?id=61589717755129" target="_blank" rel="noopener noreferrer" aria-label={`Facebook oficial do ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Facebook className="h-4 w-4" /></a></div></div></div><div className="border-t border-white/10"><div className="mx-auto max-w-[92rem] px-4 py-5 text-xs font-semibold text-slate-600 sm:px-6 lg:px-10">© 2026 {BRAND.name}. Todos os direitos reservados.</div></div></footer>
+  return <footer className="border-t border-white/10 bg-[#050816] text-white"><div className="mx-auto grid max-w-[92rem] gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.45fr_1fr_1.2fr_.7fr] lg:px-10"><div><div className="flex items-center gap-3"><BrandMark size={42} decorative /><span className="text-lg font-black">{BRAND.name}</span></div><p className="mt-4 text-sm font-black text-violet-300">{t('landing.footer.tagline')}</p></div>{groups.map(([title, links]) => <div key={title}><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{title}</h2><ul className="mt-5 space-y-3">{links.map(link => <li key={link.label}>{link.to ? <Link to={link.to} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</Link> : <a href={link.href} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</a>}</li>)}{title === t('landing.footer.supportAndLegal') && <li><button type="button" onClick={openCookiePreferences} className={`text-left text-sm font-semibold text-slate-400 hover:text-white ${focusRing}`}>{t('landing.footer.cookiePreferences')}</button></li>}</ul></div>)}<div><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{t('landing.footer.socialNetworks')}</h2><div className="mt-5 flex gap-3"><a href="https://www.instagram.com/smartcorretorai/" target="_blank" rel="noopener noreferrer" aria-label={`${t('landing.footer.instagramAriaPrefix')} ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Instagram className="h-4 w-4" /></a><a href="https://www.facebook.com/profile.php?id=61589717755129" target="_blank" rel="noopener noreferrer" aria-label={`${t('landing.footer.facebookAriaPrefix')} ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Facebook className="h-4 w-4" /></a></div></div></div><div className="border-t border-white/10"><div className="mx-auto max-w-[92rem] px-4 py-5 text-xs font-semibold text-slate-600 sm:px-6 lg:px-10">© 2026 {BRAND.name}. {t('landing.footer.rights')}</div></div></footer>
 }
 
 export default function LandingPage() {
