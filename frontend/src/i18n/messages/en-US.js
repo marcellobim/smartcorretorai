@@ -200,12 +200,12 @@ export default Object.freeze({
     options: Object.freeze({ yes: 'Yes', no: 'No' }),
     captions: Object.freeze({
       question: 'Would you like to display on-screen captions during the video?',
-      description: 'On-screen captions show property information inside the video. They are different from the caption used for social publishing.',
+      description: 'These are text overlays inside the video, separate from the caption used for social publishing.',
       reviewLabel: 'On-screen captions',
     }),
     professionalIdentity: Object.freeze({
       question: 'Would you like to show your professional details in the video?',
-      description: 'We’ll use your display name (or registered name) and license information.',
+      description: 'We’ll use your display name (or registered name) and professional license information.',
       reviewLabel: 'Professional details',
     }),
   }),

@@ -179,7 +179,7 @@ export default function SmartTourAI() {
       if (questionId === 'location') setProperty(current => ({ ...current, state: '', city: '', district: '' }))
       if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '' }))
       if (questionId === 'highlights') setProperty(current => ({ ...current, highlights: [] }))
-      if (questionId === 'presenter') setGeneration(current => ({ ...current, presenterGender: '', presenterSpeechMode: 'automatic', presenterCustomSpeech: '' }))
+      if (questionId === 'presenter') setGeneration(current => ({ ...current, presenterGender: '' }))
       if (questionId === 'presenter_speech_mode') setGeneration(current => ({ ...current, presenterSpeechMode: 'automatic', presenterCustomSpeech: '' }))
       if (questionId === 'presenter_custom_speech') setGeneration(current => ({ ...current, presenterCustomSpeech: '' }))
       if (questionId === 'narration') setGeneration(current => ({ ...current, narration: '' }))
@@ -880,8 +880,9 @@ function Question(props) {
     ...(!isShortVideos ? [{ label: 'Apresentador', value: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : 'Nenhum' }] : []),
     ...(!isShortVideos ? [{ label: 'Fonte da narração', value: generation.presenterSpeechMode === 'custom' ? generation.presenterCustomSpeech : 'Sugestão da SNETIA' }] : []),
     { label: 'Narração', value: generation.presenterSpeechMode === 'custom' ? 'Sim (implícita)' : generation.narration === 'enabled' ? 'Sim' : 'Não' },
-    { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
+    { label: t('smartTour.captions.reviewLabel'), value: generation.captions === 'enabled' ? t('smartTour.options.yes') : t('smartTour.options.no') },
     { label: 'CTA', value: ctaEnabled === true ? (cta || 'Sim') : 'Não' },
+    ...(showProfessionalIdentity !== null ? [{ label: t('smartTour.professionalIdentity.reviewLabel'), value: showProfessionalIdentity ? professionalIdentity : t('smartTour.options.no') }] : []),
     ...(ctaEnabled === true ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
   ]
   return <>

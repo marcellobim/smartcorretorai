@@ -200,12 +200,12 @@ export default Object.freeze({
     options: Object.freeze({ yes: 'Sim', no: 'Não' }),
     captions: Object.freeze({
       question: 'Deseja exibir legendas na tela durante o vídeo?',
-      description: 'Legendas na tela mostram informações do imóvel dentro do vídeo. Isso é diferente da legenda usada na publicação social.',
+      description: 'São textos exibidos dentro do vídeo, diferentes da legenda usada na publicação social.',
       reviewLabel: 'Legendas na tela',
     }),
     professionalIdentity: Object.freeze({
       question: 'Deseja mostrar seus dados profissionais no vídeo?',
-      description: 'Usaremos seu nome de divulgação (ou nome cadastrado) e CRECI.',
+      description: 'Usaremos seu nome de divulgação (ou nome cadastrado) e seu registro profissional.',
       reviewLabel: 'Dados profissionais',
     }),
   }),

@@ -137,6 +137,13 @@ test('asks professional identity only with on-screen captions and a formatted id
   assert.match(smartTour, /showSummary=\{false\}/)
 })
 
+test('keeps narration source independent when the presenter is edited and shows professional identity in final review', () => {
+  assert.match(smartTour, /if \(questionId === 'presenter'\) setGeneration\(current => \(\{ \.\.\.current, presenterGender: '' \}\)\)/)
+  assert.doesNotMatch(smartTour, /questionId === 'presenter'\) setGeneration\(current => \(\{ \.\.\.current, presenterGender: '', presenterSpeechMode/)
+  assert.match(smartTour, /showProfessionalIdentity !== null \? \[\{ label: t\('smartTour\.professionalIdentity\.reviewLabel'\)/)
+  assert.match(smartTour, /label: t\('smartTour\.captions\.reviewLabel'\)/)
+})
+
 test('removes staging and furniture questions from the active Smart Tour chat', () => {
   assert.doesNotMatch(smartTour, /id === 'staging'|id === 'furniture'|Como deseja mostrar o resultado|Mobiliar com IA|virtual_staging/)
   assert.match(smartTour, /furniture: 'original', stagingPresentation: 'final_only'/)
