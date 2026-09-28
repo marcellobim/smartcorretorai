@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { BRAND } from '../config/brand'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -3908,7 +3909,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         <section role="dialog" aria-modal="true" aria-labelledby="guest-signup-title" className="w-full max-w-md rounded-2xl bg-white p-6 text-slate-900">
           <h2 id="guest-signup-title" className="text-xl font-bold">{generationResult ? 'Seu anúncio está pronto.' : 'Continue criando com sua conta'}</h2>
           <p className="mt-3">{generationResult ? 'Crie sua conta para baixar ou publicar.' : 'Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.'}</p>
-          <p className="mt-3 text-sm">Ao criar sua conta, você recebe 200 Smart Tokens para continuar criando no SmartCorretorAI.</p>
+          <p className="mt-3 text-sm">Ao criar sua conta, você recebe 200 Smart Tokens para continuar criando no {BRAND.name}.</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link to="/cadastro" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl bg-violet-600 px-4 py-3 font-bold text-white">Criar minha conta</Link>
             <Link to="/login" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl border px-4 py-3 font-bold">Entrar</Link>
