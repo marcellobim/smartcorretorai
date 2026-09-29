@@ -284,6 +284,15 @@ const LIFE_SCENE_NARRATION_TIMELINE = [
   { bloco: 5, inicioSegundos: 8.4, fimSegundos: 9.6, tipo: 'encerramento' },
 ] as const
 
+function splitLiteralSpeechIntoTimeline(text: string, blockCount: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  return Array.from({ length: blockCount }, (_, index) => {
+    const start = Math.floor(index * words.length / blockCount)
+    const end = Math.floor((index + 1) * words.length / blockCount)
+    return words.slice(start, end).join(' ')
+  })
+}
+
 const LOCATION_HIGHLIGHTS = new Set([
   'Próximo ao metrô', 'Próximo ao comércio', 'Próximo a escolas', 'Próximo a universidades',
   'Próximo a hospitais', 'Próximo a parques', 'Próximo ao shopping', 'Próximo à praia',
@@ -572,9 +581,12 @@ export function buildSmartTourStructuredBriefing(input: {
     : ''
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths, presenterReference: input.presenterReference })
   const narrationBlocks = lifeScene ? LIFE_SCENE_NARRATION_TIMELINE : TEXT_TIMELINE
+  const customSpeechTimeline = config.presenterSpeechMode === 'custom'
+    ? splitLiteralSpeechIntoTimeline(config.presenterCustomSpeech || '', narrationBlocks.length)
+    : []
   const narrationTimeline = narrationBlocks.map(block => {
     const phrase = config.presenterSpeechMode === 'custom'
-      ? { id: 'PRESENTER_CUSTOM_SPEECH', texto: block.bloco === 1 ? config.presenterCustomSpeech || '' : '' }
+      ? { id: 'PRESENTER_CUSTOM_SPEECH', texto: customSpeechTimeline[block.bloco - 1] || '' }
       : config.narration === 'enabled'
       ? (lifeScene
           ? lifeInPropertyNarration(block.bloco, input.property, input.language)
@@ -588,11 +600,16 @@ export function buildSmartTourStructuredBriefing(input: {
     return { ...block, texto, frase_id: phrase.id }
   })
   const captionBlocks = requiresCommercialPurpose ? LIFE_SCENE_CAPTION_TIMELINE : TEXT_TIMELINE.slice(0, 4)
+  const customCaptionTimeline = config.presenterSpeechMode === 'custom'
+    ? splitLiteralSpeechIntoTimeline(config.presenterCustomSpeech || '', captionBlocks.length)
+    : []
   const captionTimeline = captionBlocks.map(block => ({
     bloco: block.bloco,
     inicioSegundos: block.inicioSegundos,
     fimSegundos: block.fimSegundos,
-    texto: requiresCommercialPurpose
+    texto: config.presenterSpeechMode === 'custom'
+      ? (config.captions === 'enabled' ? customCaptionTimeline[block.bloco - 1] || '' : '')
+      : requiresCommercialPurpose
       ? (config.captions === 'enabled' ? lifeSceneCommercialCaption(block.bloco, input.property) : '')
       : (block.bloco === 1 && displayedPurpose
           ? (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : displayedPurpose)
@@ -611,14 +628,18 @@ export function buildSmartTourStructuredBriefing(input: {
     const sceneNumber = index + 1
     const tipo = types[index]
     const isLast = tipo === 'encerramento'
-    const phrase = lifeScene
+    const phrase = config.presenterSpeechMode === 'custom'
+      ? { id: 'PRESENTER_CUSTOM_SPEECH', texto: customSpeechTimeline[Math.min(index, customSpeechTimeline.length - 1)] || '' }
+      : lifeScene
       ? { id: '', texto: '' }
       : config.narration === 'enabled'
       ? (tipo === 'abertura' && purposeOpening
           ? { id: 'BROKER_COMMERCIAL_OPENING', texto: purposeOpening }
           : selectPhrase({ tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:${sceneNumber}` }))
       : { id: '', texto: '' }
-    const narration = !requiresCommercialPurpose && sceneNumber === 1
+    const narration = config.presenterSpeechMode === 'custom'
+      ? phrase.texto
+      : !requiresCommercialPurpose && sceneNumber === 1
       ? narrationWithPurpose(phrase.texto, displayedPurpose)
       : phrase.texto
     const legenda = isLast
@@ -638,7 +659,7 @@ export function buildSmartTourStructuredBriefing(input: {
       movimento: MOVEMENTS[index % MOVEMENTS.length],
       legenda,
       narracao: narration,
-      duracaoNarracaoSegundos: lifeScene ? 0 : config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
+      duracaoNarracaoSegundos: config.presenterSpeechMode === 'custom' ? 0 : lifeScene ? 0 : config.narration === 'enabled' ? (isLast ? 1.2 : 1.8) : 0,
       tempoTelefoneVisivelAposNarracaoSegundos: isLast && Boolean(phone) ? 0.8 : 0,
     } as SmartTourStructuredBriefing['cenas'][number]
   })
@@ -741,7 +762,7 @@ export function buildSmartTourStructuredBriefing(input: {
       ...presenterReferenceRules,
       ...lifeSceneRules,
       ...((hasLifeScene || Boolean(input.presenterReference)) ? [{ codigo: 'virtual_space_composicao_vertical_segura', valor: 'Criar a apresentação em composição vertical 9:16, preenchendo visualmente toda a tela sem faixas pretas e sem deformação. Manter o imóvel e, quando aplicável, a pessoa principal dentro da área segura vertical, evitando cortes inadequados.' }] : []),
-      ...(input.presenterReference && config.narration === 'enabled' ? [{ codigo: 'finalidade_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve declarar obrigatoriamente a finalidade recebida: à venda para sale ou para locação para rent/rental. Não omitir nem inferir a finalidade.' }] : []),
+      ...(input.presenterReference && config.narration === 'enabled' && config.presenterSpeechMode !== 'custom' ? [{ codigo: 'finalidade_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve declarar obrigatoriamente a finalidade recebida: à venda para sale ou para locação para rent/rental. Não omitir nem inferir a finalidade.' }] : []),
       ...(input.presenterReference && config.captions === 'enabled' ? [{ codigo: 'finalidade_legenda_apresentacao_corretor', valor: 'A primeira legenda de timeline.legendas deve ser obrigatoriamente À VENDA para sale ou PARA LOCAÇÃO para rent/rental. Não omitir, inferir nem substituir pela localização, pelo tipo ou pelo estado do imóvel.' }] : []),
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
@@ -753,8 +774,8 @@ export function buildSmartTourStructuredBriefing(input: {
       { codigo: lifeScene ? 'sequencia_comercial_vida_no_imovel' : input.presenterReference ? 'sequencia_comercial_apresentacao_corretor' : 'legendas_sem_valores_comerciais_automaticos', valor: requiresCommercialPurpose
         ? 'Aplicar literalmente a sequência de timeline.legendas: finalidade; estado do imóvel; bairro e cidade; primeiro destaque; preço quando informado ou segundo destaque. Não omitir, reordenar, completar ou inventar valores.'
         : 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
-      ...(requiresCommercialPurpose ? [{ codigo: lifeScene ? 'sequencia_narracao_vida_no_imovel' : 'sequencia_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve manter nesta ordem: tipo do imóvel, finalidade, bairro e cidade. Depois, manter dormitórios, suítes, vagas, estado do imóvel e convite final, usando somente os valores recebidos.' }] : []),
-      { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },
+      ...(requiresCommercialPurpose && config.presenterSpeechMode !== 'custom' ? [{ codigo: lifeScene ? 'sequencia_narracao_vida_no_imovel' : 'sequencia_narracao_apresentacao_corretor', valor: 'A abertura de timeline.narracao deve manter nesta ordem: tipo do imóvel, finalidade, bairro e cidade. Depois, manter dormitórios, suítes, vagas, estado do imóvel e convite final, usando somente os valores recebidos.' }] : []),
+      ...(config.presenterSpeechMode !== 'custom' ? [{ codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' }] : []),
       { codigo: 'cta_deterministico', valor: 'reservar a última cena para a legenda formada somente por cta.titulo e cta.telefone, sem alterar caracteres' },
       { codigo: 'ultima_narracao_curta', valor: 'limitar a narração final a 1,2 segundo e manter somente o telefone visível por aproximadamente 0,8 segundo após a fala' },
     ],

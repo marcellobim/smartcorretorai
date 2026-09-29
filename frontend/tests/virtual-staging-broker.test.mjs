@@ -116,6 +116,8 @@ test('broker journey keeps phone independent, CTA optional, rental states and fi
   assert.match(page, /Foto do apresentador: 1 imagem temporária/)
   assert.match(page, /\{ label: 'Apresentação pelo Corretor', value: 'Imagem própria enviada' \}/)
   assert.match(page, /\{ label: 'Foto do apresentador', value: '1 imagem temporária' \}/)
+  assert.match(page, /\{ label: 'CTA', value: isLifeInProperty \? cta : ctaEnabled === true \? cta : 'Sem CTA' \}/)
+  assert.match(page, /\{ label: 'Telefone', value: includePhone === true \? phone : 'Sem telefone' \}/)
 })
 
 test('broker generation sends one separate presenter reference without mixing property images', () => {

@@ -1282,8 +1282,8 @@ function Question(props) {
       ? [{ label: 'Vida no Imóvel', value: getLifeSceneLabel(lifeScene) }]
       : [{ label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' }]),
     { label: 'Textos', value: generation.captions === 'enabled' ? 'Sim' : 'Não' },
-    { label: 'CTA', value: isLifeInProperty || isBrokerPresentation ? cta : ctaEnabled === true ? (cta || 'Sim') : 'Não' },
-    ...((isLifeInProperty || isBrokerPresentation || ctaEnabled === true) ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Não' }] : []),
+    { label: 'CTA', value: isLifeInProperty ? cta : ctaEnabled === true ? cta : 'Sem CTA' },
+    ...(isLifeInProperty || isBrokerPresentation ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Sem telefone' }] : ctaEnabled === true ? [{ label: 'Telefone', value: includePhone === true ? phone : 'Sem telefone' }] : []),
   ]
   return <>
     <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-950">

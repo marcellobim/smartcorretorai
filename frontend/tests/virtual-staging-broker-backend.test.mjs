@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import {
   buildSmartTourStructuredBriefing as buildVirtualStagingBriefing,
+  buildSmartTourCaptionRenderScript,
   parseSmartTourStructuredBriefing,
   validateSmartTourRequest as validateVirtualStagingRequest,
 } from '../../supabase/functions/_shared/virtual-staging/index.ts'
@@ -62,6 +63,64 @@ test('status validator accepts five captions only for life or presenter-referenc
   })
   assert.equal(standardBriefing.timeline.legendas.length, 4)
   assert.doesNotThrow(() => parseSmartTourStructuredBriefing(JSON.stringify(standardBriefing)))
+})
+
+test('custom broker speech uses literal deterministic audio and captions without property additions', () => {
+  const speech = 'Conheça este imóvel incrível perto de tudo'
+  const validated = validateVirtualStagingRequest({
+    ...brokerRequest,
+    generation: { ...brokerRequest.generation, presenterSpeechMode: 'custom', presenterCustomSpeech: speech, captions: 'enabled' },
+    selectedCta: '',
+    includeProfessionalPhone: true,
+  })
+  const briefing = buildVirtualStagingBriefing({
+    generation: validated.generation,
+    property: validated.property,
+    selectedCta: validated.selectedCta,
+    phone: '11999999999',
+    imagePaths: validated.imagePaths,
+    language: validated.language,
+    presenterReference: validated.presenter_reference,
+  })
+  assert.equal(briefing.timeline.narracao.map(block => block.texto).filter(Boolean).join(' '), speech)
+  assert.equal(briefing.timeline.legendas.map(block => block.texto).filter(Boolean).join(' '), speech)
+  assert.equal(briefing.timeline.narracao.some(block => /Moema|Apartamento|venda/i.test(block.texto)), false)
+  assert.equal(briefing.timeline.cta.texto, '')
+  assert.equal(briefing.timeline.cta.telefone, '11999999999')
+  const render = buildSmartTourCaptionRenderScript('https://example.com/video.mp4', briefing)
+  assert.equal(render.elements[0].volume, '0%')
+  const audio = render.elements.find(element => element.name === 'Broker-Custom-Literal-Speech')
+  assert.deepEqual(audio && { source: audio.source, duration: audio.duration, provider: audio.provider }, { source: speech, duration: 10, provider: 'openai model=tts-1 voice=nova' })
+})
+
+test('custom broker speech can disable captions without disabling literal audio', () => {
+  const speech = 'Conheça este imóvel incrível perto de tudo'
+  const validated = validateVirtualStagingRequest({ ...brokerRequest, generation: { ...brokerRequest.generation, presenterSpeechMode: 'custom', presenterCustomSpeech: speech, captions: 'disabled' } })
+  const briefing = buildVirtualStagingBriefing({ generation: validated.generation, property: validated.property, selectedCta: '', imagePaths: validated.imagePaths, language: validated.language, presenterReference: validated.presenter_reference })
+  assert.equal(briefing.timeline.legendas.every(block => block.texto === ''), true)
+  const render = buildSmartTourCaptionRenderScript('https://example.com/video.mp4', briefing)
+  assert.equal(render.elements.some(element => element.name === 'Broker-Custom-Literal-Speech'), true)
+})
+
+test('twenty-five custom words use the complete ten-second literal audio window', () => {
+  const speech = Array.from({ length: 25 }, (_, index) => `palavra${index + 1}`).join(' ')
+  const validated = validateVirtualStagingRequest({ ...brokerRequest, generation: { ...brokerRequest.generation, presenterSpeechMode: 'custom', presenterCustomSpeech: speech } })
+  const briefing = buildVirtualStagingBriefing({ generation: validated.generation, property: validated.property, selectedCta: '', imagePaths: validated.imagePaths, language: validated.language, presenterReference: validated.presenter_reference })
+  const render = buildSmartTourCaptionRenderScript('https://example.com/video.mp4', briefing)
+  const audio = render.elements.find(element => element.name === 'Broker-Custom-Literal-Speech')
+  assert.equal(briefing.timeline.narracao.map(block => block.texto).filter(Boolean).join(' '), speech)
+  assert.equal(audio?.duration, 10)
+  assert.equal(audio?.source, speech)
+  assert.throws(() => validateVirtualStagingRequest({ ...brokerRequest, generation: { ...brokerRequest.generation, presenterSpeechMode: 'custom', presenterCustomSpeech: `${speech} excedente` } }), /invalid_presenter_custom_speech/)
+})
+
+test('custom broker composition is recoverable from the stored briefing without a new visual provider call', () => {
+  const generator = read('supabase/functions/virtual-staging-generate/index.ts')
+  const status = read('supabase/functions/virtual-staging-status/index.ts')
+  assert.match(generator, /requiresCaptionRender:hasDeterministicSmartTourText\(briefing\)/)
+  assert.match(status, /parseSmartTourStructuredBriefing\(job\.prompt_final\)/)
+  assert.match(status, /startSmartTourCaptionRender\(creatomateKey, rawUrl\.signedUrl, briefing\)/)
+  assert.match(status, /checkSmartTourCaptionRender\(creatomateKey, captionRenderId\)/)
 })
 
 test('backend requires exactly one valid presenter_reference for broker-presentation', () => {
