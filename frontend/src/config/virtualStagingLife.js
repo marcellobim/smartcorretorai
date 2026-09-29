@@ -24,14 +24,14 @@ export function getLifeSceneLabel(lifeScene) {
   return LIFE_SCENE_OPTIONS.find(option => option.id === lifeScene)?.label || ''
 }
 
-export function buildLifeInPropertyGenerationPayload({ lifeScene, captions }) {
+export function buildLifeInPropertyGenerationPayload({ lifeScene, captions, language = 'pt-BR' }) {
   return {
     mode: 'narrated_tour',
     narration: 'enabled',
     captions: captions === 'disabled' ? 'disabled' : 'enabled',
     furniture: 'original',
     stagingPresentation: 'final_only',
-    language: 'pt-BR',
+    language: language === 'en-US' ? 'en-US' : 'pt-BR',
     life_scene: LIFE_SCENE_IDS.has(lifeScene) ? lifeScene : '',
   }
 }

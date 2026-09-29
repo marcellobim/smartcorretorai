@@ -26,7 +26,7 @@ export function validatePresenterReferenceSelection(files) {
   return { file, error: '' }
 }
 
-export function buildBrokerPresentationGenerationPayload({ captions, presenterSpeechMode = 'generated', presenterCustomSpeech = '' }) {
+export function buildBrokerPresentationGenerationPayload({ captions, presenterSpeechMode = 'generated', presenterCustomSpeech = '', language = 'pt-BR' }) {
   return {
     mode: 'guided_tour',
     presenterGender: 'none',
@@ -34,7 +34,7 @@ export function buildBrokerPresentationGenerationPayload({ captions, presenterSp
     captions: captions === 'disabled' ? 'disabled' : 'enabled',
     furniture: 'original',
     stagingPresentation: 'final_only',
-    language: 'pt-BR',
+    language: language === 'en-US' ? 'en-US' : 'pt-BR',
     presenterSpeechMode: presenterSpeechMode === 'custom' ? 'custom' : 'generated',
     presenterCustomSpeech: presenterSpeechMode === 'custom' ? presenterCustomSpeech : '',
   }

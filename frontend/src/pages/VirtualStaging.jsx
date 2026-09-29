@@ -15,6 +15,7 @@ import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, Product
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { useLocale } from '../i18n/useLocale'
 import { useAuth } from '../lib/auth-context'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import { toFileMetadata } from '../lib/product-draft'
@@ -28,7 +29,8 @@ import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPER
 import { BROKER_CUSTOM_SPEECH_MAX_WORDS, BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, BROKER_SPEECH_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
-import { formatBrazilianPhone } from '../../../supabase/functions/_shared/product3-contract.ts'
+import { getCountiesByState, getStatesForMarket, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
+import { formatPhone } from '../utils/phoneFormatters'
 import { buildSmartSpaceRecovery, getSmartSpaceRecoveryKey, normalizeSmartSpaceResult, normalizeSmartSpaceVideo, parseSmartSpaceRecovery, readSmartSpaceRecoveryClientRequestId, resolveSmartSpaceRecoveryInputs } from '../lib/smart-space-results'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { buildSmartSpaceImagePublicationIntent, buildSmartSpaceVideoPublicationIntent, clearPendingSmartSpacePublication, preservePendingSmartSpacePublication, publishSmartSpacePublication, readPendingSmartSpacePublication, recoverSmartSpacePublication, restorePendingSmartSpacePublication } from '../lib/smart-space-social-publish'
@@ -39,13 +41,16 @@ const VIRTUAL_STAGING_AFTER_IMAGE = '/virtual-staging/virtual-staging-after.png'
 const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
-const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', city: '', district: '', neighborhood: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
+const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', neighborhood: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const initialGeneration = { mode: 'guided_tour', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
 const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
   [FURNISH_RENOVATE_JOURNEY_ID]: 'virtual_staging',
   [LIFE_IN_PROPERTY_JOURNEY_ID]: 'vida_no_imovel',
   [BROKER_PRESENTATION_JOURNEY_ID]: 'apresentacao_corretor',
 })
+const formatUsLocation = ({ neighborhoodCommunity = '', city = '', county = '', state = '', zipCode = '' }) => [neighborhoodCommunity, city, county, state, zipCode].filter(Boolean).join(', ')
+const normalizeLocale = value => value === 'en-US' ? 'en-US' : 'pt-BR'
+const normalizeMarket = value => value === 'US' ? 'US' : 'BR'
 function questionsFor(journeyId) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) return FURNISH_RENOVATE_QUESTIONS
   const sharedQuestions = [
@@ -347,8 +352,12 @@ export default function VirtualStagingAI() {
 
 function VirtualStagingJourney({ journey, onChooseAnother }) {
   const { user, reloadProfile } = useAuth()
+  const { locale, market } = useLocale()
   const journeyDraft = useProductDraft({ productKey: `virtual-staging:${journey.id}`, schemaVersion: 1, userId: user?.id })
   const restoredJourneyDraft = journeyDraft.restoredDraft || {}
+  const supportsLocaleMarket = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID || journey.id === BROKER_PRESENTATION_JOURNEY_ID
+  const draftLocale = supportsLocaleMarket ? normalizeLocale(restoredJourneyDraft.locale || locale) : 'pt-BR'
+  const draftMarket = supportsLocaleMarket ? normalizeMarket(restoredJourneyDraft.market || market) : 'BR'
   const restoredConversation = journey.id === FURNISH_RENOVATE_JOURNEY_ID && restoredJourneyDraft.conversation
     ? {
         ...restoredJourneyDraft.conversation,
@@ -440,7 +449,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     && !furnishGenerationBusy
     && !hasAttemptedFurnishGeneration
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
-  const phone = formatBrazilianPhone(rawPhone)
+  const phone = formatPhone(rawPhone, draftMarket)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
   const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
   const clearPresenterReference = () => {
@@ -472,7 +481,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
       if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [] }))
       if (questionId === 'facts') setProperty(current => ({ ...current, bedrooms: '', suites: '', parkingSpaces: '', area: '' }))
-      if (questionId === 'location') setProperty(current => ({ ...current, state: '', city: '', ...(isFurnishRenovate ? { neighborhood: '' } : { district: '' }) }))
+      if (questionId === 'location') setProperty(current => ({ ...current, state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '', ...(isFurnishRenovate ? { neighborhood: '' } : {}) }))
       if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '' }))
       if (questionId === 'highlights') setProperty(current => ({ ...current, highlights: [] }))
       if (questionId === 'presenter_speech_mode') { setPresenterSpeechMode('generated'); setPresenterCustomSpeech('') }
@@ -495,7 +504,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (shouldReset('images')) setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
     if (shouldReset('transformation_type')) setTransformationType('')
     if (shouldReset('decoration_style')) setDecorationStyle('')
-    const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'city'], ['location', 'district'], ['location', 'neighborhood'], ['bedrooms', 'bedrooms'], ['suites', 'suites'], ['parkingSpaces', 'parkingSpaces'], ['area', 'area'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
+    const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'county'], ['location', 'city'], ['location', 'district'], ['location', 'neighborhood'], ['location', 'zipCode'], ['location', 'neighborhoodCommunity'], ['bedrooms', 'bedrooms'], ['suites', 'suites'], ['parkingSpaces', 'parkingSpaces'], ['area', 'area'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
     setGeneration(current => ({
       ...current,
@@ -525,11 +534,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     const presenterMetadata = presenterReference?.file
       ? toFileMetadata(presenterReference.file, 0)
       : missingPresenterMetadata
-    const draft = { hasStartedFurnish, property, generation, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, ctaEnabled, cta, includePhone, imageMetadata, presenterMetadata, conversation: conversationSnapshot }
+    const draft = { hasStartedFurnish, property, generation, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, ctaEnabled, cta, includePhone, ...(supportsLocaleMarket ? { locale: draftLocale, market: draftMarket } : {}), imageMetadata, presenterMetadata, conversation: conversationSnapshot }
     const meaningful = conversationSnapshot?.history?.length || hasStartedFurnish || imageMetadata.length || presenterMetadata || transformationType || decorationStyle || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
     if (!meaningful) { journeyDraft.clear(); return }
     journeyDraft.save(draft)
-  }, [conversationSnapshot, cta, ctaEnabled, decorationStyle, generation, hasStartedFurnish, images, includePhone, journeyDraft, lifeScene, missingImageMetadata, missingPresenterMetadata, presenterCustomSpeech, presenterReference, presenterReferenceDecision, presenterSpeechMode, property, status, transformationType])
+  }, [conversationSnapshot, cta, ctaEnabled, decorationStyle, draftLocale, draftMarket, generation, hasStartedFurnish, images, includePhone, journeyDraft, lifeScene, missingImageMetadata, missingPresenterMetadata, presenterCustomSpeech, presenterReference, presenterReferenceDecision, presenterSpeechMode, property, status, supportsLocaleMarket, transformationType])
   const question = questions[questionIndex] || questions[0]
   const reachedStep = isFurnishRenovate && !hasStartedFurnish
     ? null
@@ -582,7 +591,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
             buildRecovery: data => {
               const selectedCta = isLifeInProperty || ctaEnabled === true ? cta : ''
               const includeProfessionalPhone = includePhone === true
-              const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: 'pt-BR', cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [] })
+              const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [] })
               return { jobId: data.jobId, status: data.status || 'generating', campaignPackage, updatedAt: Date.now() }
             },
             persistRecovery: recovery => sessionStorage.setItem(activeJobKey, JSON.stringify(recovery)),
@@ -923,15 +932,15 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       }
       setStatus('generating'); setMessage('A IA está criando sua apresentação...')
       const apiGeneration = isLifeInProperty
-        ? buildLifeInPropertyGenerationPayload({ lifeScene, captions: generation.captions })
-        : buildBrokerPresentationGenerationPayload({ captions: generation.captions, presenterSpeechMode, presenterCustomSpeech })
+        ? buildLifeInPropertyGenerationPayload({ lifeScene, captions: generation.captions, language: draftLocale })
+        : buildBrokerPresentationGenerationPayload({ captions: generation.captions, presenterSpeechMode, presenterCustomSpeech, language: draftLocale })
       const selectedCta = isLifeInProperty || ctaEnabled === true ? cta : ''
       const includeProfessionalPhone = includePhone === true
       const brokerFiles = isBrokerPresentation ? buildBrokerPresentationFilePayload({ presenterReferencePath, propertyImagePaths: imagePaths }) : {}
-      const requestBody = { journeyId: journey.id, clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: 'pt-BR', ...brokerFiles }
+      const requestBody = { journeyId: journey.id, clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: draftLocale, ...brokerFiles }
       const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: requestBody })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || 'Não foi possível iniciar a criação.')
-      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', hashtags:data.hashtags })
+      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', hashtags:data.hashtags })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, status:'generating', campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, 'Não foi possível criar sua apresentação.')); void reloadProfile() }
   }
@@ -977,7 +986,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'stage', label: property.stage },
     { id: 'type', label: property.type },
     { id: 'facts', label: measuresSummary },
-    { id: 'location', label: formatVirtualStagingLocation(property) },
+    { id: 'location', label: draftMarket === 'US' ? formatUsLocation(property) : formatVirtualStagingLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
     { id: 'highlights', label: property.highlights.length ? `${property.highlights.length} destaques` : (isReviewContext ? 'Sem destaques adicionais' : '') },
     ...(isBrokerPresentation
@@ -1036,7 +1045,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       designSystem
       accent="emerald"
     >
-      <Question id={question[0]} {...{ journeyId: journey.id, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
+      <Question id={question[0]} {...{ journeyId: journey.id, market: draftMarket, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
     </GuidedConversation>
   </section>
 }
@@ -1183,7 +1192,7 @@ function VirtualStagingModules({ selectedJourneyId, onSelect }) {
 }
 
 function Question(props) {
-  const { id, journeyId, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
+  const { id, journeyId, market, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
   const isFurnishRenovate = journeyId === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
   const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID
@@ -1251,7 +1260,12 @@ function Question(props) {
       {cont(isIncomplete, answer, 'location')}
     </>
   }
-  if (id === 'location') { const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
+  if (id === 'location') {
+    if (market === 'US') {
+      const states = getStatesForMarket('US'); const counties = getCountiesByState(property.state); const zipCode = normalizeUsZipCode(property.zipCode); const location = formatUsLocation({ ...property, zipCode })
+      return <div className="space-y-3"><label className="block text-xs font-black">State<select aria-label="State" value={property.state} onChange={event => { setPropertyField('state', event.target.value); setPropertyField('county', '') }} className="mt-1 w-full rounded-xl border p-3"><option value="">Select state</option>{states.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="block text-xs font-black">County<select aria-label="County" value={property.county} disabled={!property.state} onChange={event => setPropertyField('county', event.target.value)} className="mt-1 w-full rounded-xl border p-3"><option value="">{property.state ? 'Select county' : 'Select state first'}</option>{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</select></label><label className="block text-xs font-black">City<input aria-label="City" value={property.city} onChange={event => setPropertyField('city', event.target.value)} placeholder="City" className="mt-1 w-full rounded-xl border p-3" /></label><label className="block text-xs font-black">ZIP Code<input aria-label="ZIP Code" value={property.zipCode} onChange={event => setPropertyField('zipCode', normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-xl border p-3" />{property.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs text-red-600">Use a valid ZIP Code.</span>}</label><label className="block text-xs font-black">Neighborhood / Community <span className="font-normal">(optional)</span><input aria-label="Neighborhood / Community" value={property.neighborhoodCommunity} onChange={event => setPropertyField('neighborhoodCommunity', event.target.value)} placeholder="Neighborhood or community" className="mt-1 w-full rounded-xl border p-3" /></label>{cont(!property.state || !property.county || !property.city.trim() || !isValidUsZipCode(zipCode), location, 'commercial', () => setPropertyField('zipCode', zipCode))}</div>
+    }
+    const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
   if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type); const nextQuestionId = isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{item}</button>)}</div></section>)}</div>{cont(false, property.highlights.length ? `${property.highlights.length} destaques` : 'Nenhum destaque adicional', nextQuestionId)}</> }
   if (id === 'life_scene') return choices(LIFE_SCENE_OPTIONS, lifeScene, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setLifeScene(value) }))
