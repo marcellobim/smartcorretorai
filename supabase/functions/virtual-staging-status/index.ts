@@ -20,6 +20,26 @@ import {
 } from './status-runtime.ts'
 import { recordGeminiVideoJobTelemetry, settleGeminiVideoJobEconomy } from '../_shared/gemini-video-economy.ts'
 
+const recoveryMetadata = (prompt: unknown) => {
+  try {
+    const briefing = parseSmartTourStructuredBriefing(String(prompt || ''))
+    const language = briefing.configuracoes?.idioma === 'en-US' ? 'en-US' : 'pt-BR'
+    const journeyId = briefing.vidaNoImovel ? 'life-in-property' : briefing.referenciaApresentador ? 'broker-presentation' : ''
+    if (!journeyId) return null
+    const property = briefing.imovel || {}
+    return {
+      journeyId,
+      language,
+      property: { purpose: property.finalidade === 'Locação' ? 'rent' : property.finalidade === 'Venda' ? 'sale' : '', type: property.tipo || '', stage: property.estadoDoImovel || '', state: property.localizacao?.estado || '', city: property.localizacao?.cidade || '', district: property.localizacao?.bairro || '', bedrooms: property.dormitorios || '', suites: property.suites || '', parkingSpaces: property.vagas || '', area: property.area || '', price: property.preco || '', description: property.descricao || '', highlights: property.destaques || [] },
+      cta: briefing.cta?.titulo || '',
+      phone: briefing.cta?.telefone || '',
+      lifeScene: briefing.vidaNoImovel?.life_scene || '',
+      presenterSpeechMode: (briefing as any).configuracoes?.presenterSpeechMode || '',
+      presenterCustomSpeech: (briefing as any).configuracoes?.presenterCustomSpeech || '',
+    }
+  } catch { return null }
+}
+
 serve(withCors(async req => {
   const traceId = crypto.randomUUID().slice(0, 8)
   const log = (event: string, details: Record<string, unknown> = {}) => {
@@ -37,6 +57,21 @@ serve(withCors(async req => {
   if (!user) return json({ ok: false, error: 'Sua sessão expirou.' }, 401)
 
   const body = await req.json().catch(() => ({}))
+  if (body?.action === 'discover_latest') {
+    const style = body.style === 'narrated_tour' || body.style === 'guided_tour' ? body.style : ''
+    const journeyId = body.journeyId === 'life-in-property' || body.journeyId === 'broker-presentation' ? body.journeyId : ''
+    if (!style || !journeyId) return json({ ok: false, error: 'Criação inválida.' }, 400)
+    const { data: jobs, error } = await supabase.from('video_jobs')
+      .select('id,status,output_video_path,marketing_hashtags,prompt_final,created_at')
+      .eq('user_id', user.id).eq('mode', 'virtual_staging_gemini_omni').eq('style', style)
+      .order('created_at', { ascending: false }).limit(20)
+    if (error) throw new Error('discover_latest_failed')
+    const job = (jobs || []).map(item => ({ item, recovery: recoveryMetadata(item.prompt_final) })).find(entry => entry.recovery?.journeyId === journeyId)
+    if (!job) return json({ ok: true, status: 'none' })
+    const signedVideoUrl = job.item.status === 'completed' && job.item.output_video_path
+      ? (await supabase.storage.from('studio-videos').createSignedUrl(job.item.output_video_path, 3600)).data?.signedUrl || '' : ''
+    return json({ ok: true, jobId: job.item.id, clientRequestId: job.item.id, status: job.item.status, signedVideoUrl, hashtags: job.item.marketing_hashtags || [], recovery: job.recovery })
+  }
   const jobId = String(body.jobId || '')
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return json({ ok: false, error: 'Criação inválida.' }, 400)
 
@@ -55,6 +90,7 @@ serve(withCors(async req => {
     if (!job) return json({ ok: false, error: 'Criação não encontrada.' }, 404)
     const economyIdentity = [user.id, jobId] as const
     const settleEconomy = (status: 'completed' | 'failed', details: { outputPath?: string; reason?: string; telemetry?: Record<string, unknown> } = {}) => settleGeminiVideoJobEconomy(supabase, economyIdentity, status, details)
+    const recovery = recoveryMetadata(job.prompt_final)
     log('job_lookup_completed', { jobStatus: job.status, providerIdPresent: Boolean(job.provider_job_id) })
 
     if (job.status === 'failed') { await settleEconomy('failed', { reason: job.error_message || 'video_job_failed' }); return json({ ok: true, status: 'failed', error: 'Não foi possível concluir sua apresentação.' }) }
@@ -66,7 +102,7 @@ serve(withCors(async req => {
       const { data, error } = await supabase.storage.from('studio-videos').createSignedUrl(job.output_video_path, 3600)
       if (error) throw new Error('status_completed_url_failed')
       log('completed_url_completed')
-      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [] })
+      return json({ ok: true, status: 'completed', jobId, signedVideoUrl: data?.signedUrl || '', hashtags: job.marketing_hashtags || [], recovery })
     }
 
     if (!job.provider_job_id) {

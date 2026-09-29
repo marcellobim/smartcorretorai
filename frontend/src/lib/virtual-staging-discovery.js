@@ -6,6 +6,7 @@ const timeoutError = () => Object.assign(new Error('virtual_staging_discovery_ti
 
 export async function runVirtualStagingInitialDiscovery({
   style,
+  journeyId = '',
   invokeDiscovery,
   buildRecovery,
   persistRecovery,
@@ -23,7 +24,7 @@ export async function runVirtualStagingInitialDiscovery({
   }
 
   const discovery = (async () => {
-    const response = await invokeDiscovery({ action: 'discover_latest', style }, controller.signal)
+    const response = await invokeDiscovery({ action: 'discover_latest', style, journeyId }, controller.signal)
     ensureActive()
     if (!response || typeof response !== 'object') throw new Error('virtual_staging_discovery_invalid_response')
     const { data, error } = response

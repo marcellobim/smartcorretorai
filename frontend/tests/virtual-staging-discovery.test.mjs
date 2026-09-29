@@ -17,6 +17,7 @@ function callbacks(overrides = {}) {
     calls,
     options: {
       style: 'narrated_tour',
+      journeyId: 'life-in-property',
       invokeDiscovery: async body => ({ data: { ok: true, status: 'generating', jobId: 'job-1' }, requestBody: body }),
       buildRecovery: data => { calls.built.push(data); return { jobId: data.jobId, status: data.status } },
       persistRecovery: recovery => { calls.persisted.push(recovery) },
@@ -61,7 +62,7 @@ test('resposta sem job encerra discovery sem persistir ou iniciar polling', asyn
   })
   const outcome = await runVirtualStagingInitialDiscovery(fixture.options)
   assert.deepEqual(outcome, { state: 'empty' })
-  assert.deepEqual(receivedBody, { action: 'discover_latest', style: 'narrated_tour' })
+  assert.deepEqual(receivedBody, { action: 'discover_latest', style: 'narrated_tour', journeyId: 'life-in-property' })
   assert.equal(fixture.calls.persisted.length, 0)
   assert.equal(fixture.calls.polled.length, 0)
 })

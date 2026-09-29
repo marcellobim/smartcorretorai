@@ -637,12 +637,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         try {
           const outcome = await runVirtualStagingInitialDiscovery({
             style: discoveryStyle,
+            journeyId: journey.id,
             invokeDiscovery: (body, signal) => supabase.functions.invoke('virtual-staging-status', { body, signal }),
             buildRecovery: data => {
-              const selectedCta = isLifeInProperty || ctaEnabled === true ? cta : ''
-              const includeProfessionalPhone = includePhone === true
-              const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [], journeyId: journey.id, lifeScene: isLifeInProperty ? lifeScene : '' })
-              return { jobId: data.jobId, status: data.status || 'generating', campaignPackage, updatedAt: Date.now() }
+              const recovery = data.recovery || {}
+              const persistedLanguage = recovery.language === 'en-US' ? 'en-US' : 'pt-BR'
+              const campaignPackage = buildVirtualStagingCampaignPackage({ property: recovery.property || property, language: persistedLanguage, cta: recovery.cta || '', phone: recovery.phone || '', hashtags: data.hashtags || [], journeyId: recovery.journeyId || journey.id, lifeScene: recovery.lifeScene || '' })
+              return { jobId: data.jobId, clientRequestId: data.clientRequestId || data.jobId, status: data.status || 'generating', campaignPackage, updatedAt: Date.now() }
             },
             persistRecovery: recovery => sessionStorage.setItem(activeJobKey, JSON.stringify(recovery)),
             clearRecovery: () => sessionStorage.removeItem(activeJobKey),
