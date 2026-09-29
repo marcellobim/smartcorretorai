@@ -15,9 +15,9 @@ import { TIKTOK_LOGIN_KIT_ENABLED } from '../../config/tiktok'
 const unavailableConnection = Object.freeze({ connected: false, status: 'unavailable', username: null, pageName: null, selectionRequired: false })
 const RECOVERY_INTERVAL_MS = 4000
 
-export function SocialPublishProgress({ results, submissionStarted = false, confirmationPending = false }) {
-  const notice = getSocialPublishNotice(results, { submissionStarted, confirmationPending })
-  return <>{notice && <p role="status" className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{notice}</p>}{results.length > 0 && <div className="mt-4 grid gap-2" aria-label="Resultado por destino">{results.map(result => <p key={result.destination} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700"><span className="capitalize">{result.destination}</span>: {getSocialPublishResultLabel(result.status)}</p>)}</div>}</>
+export function SocialPublishProgress({ results, submissionStarted = false, confirmationPending = false, uiLabels }) {
+  const notice = getSocialPublishNotice(results, { submissionStarted, confirmationPending }, uiLabels?.social?.progress)
+  return <>{notice && <p role="status" className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{notice}</p>}{results.length > 0 && <div className="mt-4 grid gap-2" aria-label={uiLabels?.accessibility?.resultByDestination ?? 'Resultado por destino'}>{results.map(result => <p key={result.destination} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700"><span className="capitalize">{result.destination}</span>: {getSocialPublishResultLabel(result.status, uiLabels?.social?.progress)}</p>)}</div>}</>
 }
 
 export default function BannerPublishDialog({ intent, loadConnection, onConnect, onClose, onPublish, onRecover, onConfirmed, onTerminalClose, captionEditable = false, captionPlaceholder = '', uiLabels }) {
@@ -112,7 +112,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
       setResults(nextResults)
     } catch (error) {
       if (intent.sourceType === 'video_imobiliario' && error?.code === 'video_publication_identity_invalid') {
-        setDefinitiveError('Não foi possível preparar este vídeo para publicação. Sua criação está preservada.')
+        setDefinitiveError(uiLabels?.social?.creationPreparationError ?? 'Não foi possível preparar este vídeo para publicação. Sua criação está preservada.')
         setConfirmationPending(false)
         setSubmissionStarted(false)
         submissionLockRef.current = false
@@ -133,22 +133,22 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
         <div className="mt-5 grid gap-5 sm:grid-cols-[180px_1fr]">
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">{intent.mediaType === 'video' ? <video src={intent.mediaPreviewUrl} aria-label={intent.mediaName} controls playsInline preload="metadata" className="aspect-video h-full w-full bg-slate-950 object-contain" /> : <img src={intent.mediaPreviewUrl} alt={intent.mediaName} className="aspect-square h-full w-full object-contain" />}</div>
           <div>{captionEditable
-            ? <SocialCaptionEditor value={caption} onChange={setCaption} disabled={submissionLocked} placeholder={captionPlaceholder} />
+            ? <SocialCaptionEditor value={caption} onChange={setCaption} disabled={submissionLocked} placeholder={captionPlaceholder} uiLabels={uiLabels?.social?.caption} />
             : <><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{intent.optionLabel}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{intent.captionSnapshot}</p></>}</div>
         </div>
 
         <div className="mt-6 border-t border-slate-100 pt-5">
-          <p className="text-sm font-black text-slate-950">Onde deseja publicar?</p>
-          {connection.status === 'loading' && <p role="status" className="mt-3 text-sm font-semibold text-slate-500">Consultando contas conectadas…</p>}
+          <p className="text-sm font-black text-slate-950">{uiLabels?.social?.chooseDestination ?? 'Onde deseja publicar?'}</p>
+          {connection.status === 'loading' && <p role="status" className="mt-3 text-sm font-semibold text-slate-500">{uiLabels?.social?.checkingConnections ?? 'Consultando contas conectadas…'}</p>}
           {usable && <div className="mt-3 grid gap-3">{destinations.map(({ id, label, Icon }) => <label key={id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-3 text-sm font-bold text-slate-800"><input type="checkbox" checked={selected.includes(id)} disabled={submissionLocked} onChange={() => toggle(id)} className="h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed" /><Icon className="h-5 w-5 text-emerald-700" />{label}</label>)}</div>}
           {TIKTOK_LOGIN_KIT_ENABLED && intent.sourceType === 'video_imobiliario' && <Suspense fallback={null}><TikTokPublish intent={intent} caption={caption} /></Suspense>}
-          {connection.selectionRequired && <p role="status" className="mt-3 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">Há mais de uma conta disponível. Selecione primeiro a conta desejada em Configurações.</p>}
-          {!usable && connection.status !== 'loading' && !connection.selectionRequired && <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-semibold leading-6 text-amber-900">Conecte sua conta Meta uma única vez para publicar no Instagram e Facebook.</p><button type="button" onClick={() => onConnect?.(captionEditable ? { ...intent, captionSnapshot: caption } : intent)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white">Conectar Instagram e Facebook</button></div>}
+          {connection.selectionRequired && <p role="status" className="mt-3 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">{uiLabels?.social?.multipleAccounts ?? 'Há mais de uma conta disponível. Selecione primeiro a conta desejada em Configurações.'}</p>}
+          {!usable && connection.status !== 'loading' && !connection.selectionRequired && <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-semibold leading-6 text-amber-900">{uiLabels?.social?.connectMetaHelp ?? 'Conecte sua conta Meta uma única vez para publicar no Instagram e Facebook.'}</p><button type="button" onClick={() => onConnect?.(captionEditable ? { ...intent, captionSnapshot: caption } : intent)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white">{uiLabels?.social?.connectMeta ?? 'Conectar Instagram e Facebook'}</button></div>}
         </div>
 
         {definitiveError && <p role="alert" className="mt-5 text-sm font-semibold text-red-700">{definitiveError}</p>}
-        <SocialPublishProgress results={results} submissionStarted={submissionStarted} confirmationPending={confirmationPending} />
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={close} className="min-h-12 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700">Cancelar</button>{!submissionLocked && <button type="button" disabled={!usable || selected.length === 0 || publishing} onClick={publish} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />Publicar agora</button>}</div>
+        <SocialPublishProgress results={results} submissionStarted={submissionStarted} confirmationPending={confirmationPending} uiLabels={uiLabels} />
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={close} className="min-h-12 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700">{uiLabels?.social?.cancel ?? 'Cancelar'}</button>{!submissionLocked && <button type="button" disabled={!usable || selected.length === 0 || publishing} onClick={publish} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />{uiLabels?.social?.publish ?? 'Publicar agora'}</button>}</div>
       </section>
     </div>
   )

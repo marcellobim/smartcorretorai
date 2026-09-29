@@ -27,32 +27,32 @@ export const isSocialPublishSubmissionLocked = ({ submissionStarted = false, res
   submissionStarted || hasExistingSocialPublishJob(results)
 )
 
-export function getSocialPublishResultLabel(status) {
-  if (ACTIVE_SOCIAL_PUBLISH_STATUSES.has(status)) return 'Publicando...'
-  if (status === 'published' || status === 'completed') return 'Publicado'
-  if (status === 'reconciliation_required') return 'Confirmando publicação...'
-  if (status === 'failed') return 'Não foi possível publicar'
-  if (status === 'cancelled') return 'Cancelado'
-  return 'Aguardando confirmação'
+export function getSocialPublishResultLabel(status, labels = {}) {
+  if (ACTIVE_SOCIAL_PUBLISH_STATUSES.has(status)) return labels.publishing ?? 'Publicando...'
+  if (status === 'published' || status === 'completed') return labels.published ?? 'Publicado'
+  if (status === 'reconciliation_required') return labels.confirming ?? 'Confirmando publicação...'
+  if (status === 'failed') return labels.failed ?? 'Não foi possível publicar'
+  if (status === 'cancelled') return labels.cancelled ?? 'Cancelado'
+  return labels.waitingConfirmation ?? 'Aguardando confirmação'
 }
 
-export function getSocialPublishNotice(results, { submissionStarted = false, confirmationPending = false } = {}) {
+export function getSocialPublishNotice(results, { submissionStarted = false, confirmationPending = false } = {}, labels = {}) {
   const items = Array.isArray(results) ? results : []
   if (confirmationPending || hasReconciliationSocialPublishJob(items)) {
-    return 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.'
+    return labels.finishing ?? 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.'
   }
 
   const published = items.filter(result => ['published', 'completed'].includes(result?.status)).length
   const active = items.filter(result => ACTIVE_SOCIAL_PUBLISH_STATUSES.has(result?.status)).length
   const failed = items.filter(result => result?.status === 'failed').length
 
-  if (items.length > 0 && published === items.length) return 'Publicação concluída.'
+  if (items.length > 0 && published === items.length) return labels.completed ?? 'Publicação concluída.'
   if (published > 0 && active > 0) {
-    return 'Uma publicação já foi concluída. Estamos finalizando a outra. Aguarde a confirmação antes de sair desta tela.'
+    return labels.partialActive ?? 'Uma publicação já foi concluída. Estamos finalizando a outra. Aguarde a confirmação antes de sair desta tela.'
   }
-  if (published > 0 && failed > 0) return 'Uma publicação foi concluída. Confira abaixo o destino que não foi publicado.'
-  if (active > 0) return 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.'
-  if (submissionStarted) return 'Publicando...'
-  if (failed > 0) return 'Não foi possível concluir a publicação. Confira abaixo o destino afetado.'
+  if (published > 0 && failed > 0) return labels.partialFailed ?? 'Uma publicação foi concluída. Confira abaixo o destino que não foi publicado.'
+  if (active > 0) return labels.finishing ?? 'Estamos finalizando sua publicação. Aguarde a confirmação antes de sair desta tela.'
+  if (submissionStarted) return labels.publishing ?? 'Publicando...'
+  if (failed > 0) return labels.failedNotice ?? 'Não foi possível concluir a publicação. Confira abaixo o destino afetado.'
   return ''
 }
