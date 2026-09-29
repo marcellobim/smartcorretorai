@@ -8,6 +8,18 @@ export default Object.freeze({
     yes: 'Yes',
     no: 'No',
   }),
+  virtualStaging: Object.freeze({
+    continue: 'Continue', yes: 'Yes', no: 'No', edit: 'Edit', optional: 'optional',
+    purpose: Object.freeze({ sale: 'For Sale', rent: 'For Rent' }),
+    speech: Object.freeze({ generated: 'Create the speech for me', custom: 'Write my own speech', placeholder: 'Write exactly what will be spoken', limit: 'Up to {count} words. The text will be used literally.' }),
+    lifeScene: Object.freeze({ young: 'Young adults', young_dog: 'Young adults with a dog', young_cat: 'Young adults with a cat', adult: 'Adults', adult_dog: 'Adults with a dog', adult_cat: 'Adults with a cat', senior: 'Seniors', senior_dog: 'Seniors with a dog', senior_cat: 'Seniors with a cat' }),
+    cta: Object.freeze({ none: 'No CTA', phoneNone: 'No phone number', phoneMissing: 'Add a phone number to your Professional Profile.' }),
+    location: Object.freeze({ state: 'State', county: 'County', city: 'City', zip: 'ZIP Code', neighborhood: 'Neighborhood', community: 'Neighborhood / Community', selectState: 'Select state', selectCounty: 'Select county', selectStateFirst: 'Select state first', invalidZip: 'Enter a valid ZIP Code.' }),
+    measures: Object.freeze({ bedrooms: 'Bedrooms', suites: 'Suites', parkingSpaces: 'Parking spaces', area: 'Area', areaPlaceholder: 'e.g., 85' }),
+    options: Object.freeze({ preLaunch: 'Pre-launch', launch: 'Launch', underConstruction: 'Under construction', moveInReady: 'Move-in ready', availableNow: 'Available now', vacant: 'Vacant', apartment: 'Apartment', house: 'House', penthouse: 'Penthouse', studioLoft: 'Studio / Loft', landLot: 'Land / Lot', commercial: 'Commercial', schedule: 'Schedule a tour', learn: 'Learn more', contact: 'Contact us now', talk: 'Talk to me' }),
+    presenter: Object.freeze({ notice: 'It will be used only in this creation as a reference for the presenter.', similarity: 'AI will use your photo as an identity reference. The presenter will resemble you, although small appearance differences may occur during generation.', photo: 'Presenter photo', select: 'Select presenter photo', replace: 'Replace photo', remove: 'Remove photo', format: 'One photo · JPG or PNG · up to 15 MB' }),
+    questions: Object.freeze({ images: 'Upload up to 5 photos in the order you want to present them.', purpose: 'What is the property’s purpose?', stage: 'What is the current status of the property?', type: 'What type of property are we presenting?', facts: 'What are the main details?', location: 'Where is the property located?', commercial: 'What commercial information would you like to include?', highlights: 'What are the main highlights?', lifeScene: 'Who would you like to include to enhance your property presentation?', captions: 'Would you like to highlight important information during the video?', cta: 'Which call to action should appear at the end?', phone: 'Would you like to display your professional phone number?', review: 'All set. Review your choices before creating.', presenterReference: 'Would you like to use your own image as a reference to present the property?', presenterPhoto: 'Upload a photo with your face clearly visible.', speech: 'How would you like to create the video speech?', customSpeech: 'Write the video speech.', ctaEnabled: 'Would you like a call to action at the end of the video?' }),
+  }),
   banner: Object.freeze({
     status: Object.freeze({ analyzingBrief: 'Analyzing brief...', generatingVisual: 'Generating visual...', finalizingDelivery: 'Finalizing delivery...', preparingCampaign: 'Preparing your campaign...' }),
     review: Object.freeze({ cta: 'CTA:' }),
