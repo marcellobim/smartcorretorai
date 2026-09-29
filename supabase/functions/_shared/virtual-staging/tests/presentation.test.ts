@@ -51,3 +51,21 @@ test('briefing adds presentation only for Life and Broker without changing inter
   const smartSpace = buildSmartTourStructuredBriefing({ generation: { mode: 'guided_tour', language: 'pt-BR', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'female' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'pt-BR' })
   assert.equal(smartSpace.apresentacao, undefined)
 })
+
+test('Life and generated Broker localize deterministic captions while custom captions remain literal', () => {
+  const property = { purpose: 'sale', type: 'Apartamento', stage: 'Pronto para morar', bedrooms: '2', suites: '1', parkingSpaces: '1', area: '80', district: 'Moema', city: 'São Paulo', price: '', highlights: ['Varanda gourmet', 'Vista livre'] }
+  const lifePt = buildSmartTourStructuredBriefing({ generation: { mode: 'narrated_tour', language: 'pt-BR', life_scene: 'adult', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'pt-BR' })
+  const lifeEn = buildSmartTourStructuredBriefing({ generation: { mode: 'narrated_tour', language: 'en-US', life_scene: 'adult', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'en-US' })
+  assert.deepEqual(lifePt.timeline.legendas.map(block => block.texto), ['À VENDA', 'Pronto para morar', 'Moema, São Paulo', 'Varanda gourmet', 'Vista livre'])
+  assert.deepEqual(lifeEn.timeline.legendas.map(block => block.texto), ['For Sale', 'Move-in ready', 'Moema, São Paulo', 'Gourmet balcony', 'Unobstructed view'])
+  assert.equal(lifeEn.timeline.cta.texto, 'Schedule a tour')
+
+  const brokerGenerated = buildSmartTourStructuredBriefing({ generation: { mode: 'guided_tour', language: 'en-US', presenterSpeechMode: 'generated', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: '', imagePaths: ['image.jpg'], language: 'en-US', presenterReference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: 'presenter.jpg' } })
+  assert.deepEqual(brokerGenerated.timeline.legendas.map(block => block.texto), ['For Sale', 'Move-in ready', 'Moema, São Paulo', 'Gourmet balcony', 'Unobstructed view'])
+  assert.equal(brokerGenerated.timeline.cta.texto, '')
+
+  const customText = 'My exact words stay untouched in every caption block.'
+  const brokerCustom = buildSmartTourStructuredBriefing({ generation: { mode: 'guided_tour', language: 'en-US', presenterSpeechMode: 'custom', presenterCustomSpeech: customText, narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'en-US', presenterReference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: 'presenter.jpg' } })
+  assert.equal(brokerCustom.timeline.legendas.map(block => block.texto).join(' '), customText)
+  assert.equal(brokerCustom.timeline.cta.texto, 'Agende sua visita')
+})

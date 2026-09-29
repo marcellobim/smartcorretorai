@@ -2,7 +2,7 @@ import type { LifeScene, PresenterReference, PropertyContext, SmartTourGeneratio
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
 import { composePtBrPropertySpeechFacts } from '../pt-br-speech.ts'
-import { presentCta, presentHighlights, presentLifeProfile, presentMetricLabel, presentPropertyType, presentPurpose, presentStage } from './presentation.ts'
+import { presentCta, presentHighlight, presentHighlights, presentLifeProfile, presentMetricLabel, presentPropertyType, presentPurpose, presentStage } from './presentation.ts'
 
 export const SMART_TOUR_GEMINI_MISSION = `MISSÃO PRINCIPAL
 Você é um cinegrafista profissional especializado em imóveis.
@@ -504,10 +504,18 @@ const selectPhrase = (input: {
   return { id: selected.id, texto: selected.texto }
 }
 
-const technicalCaption = (property: PropertyContext) => unique([
-  labelQuantity(property.bedrooms, 'Dormitório', 'Dormitórios'),
-  labelQuantity(property.suites, 'Suíte', 'Suítes'),
-  labelQuantity(property.parkingSpaces, 'Vaga', 'Vagas'),
+const captionMetric = (value: unknown, metric: 'bedrooms' | 'suites' | 'parkingSpaces', language: SupportedLanguage) => {
+  const cleaned = literal(value)
+  if (!cleaned || Number(cleaned) === 0) return ''
+  if (language !== 'en-US') return labelQuantity(cleaned, metric === 'bedrooms' ? 'Dormitório' : metric === 'suites' ? 'Suíte' : 'Vaga', metric === 'bedrooms' ? 'Dormitórios' : metric === 'suites' ? 'Suítes' : 'Vagas')
+  const label = presentMetricLabel(metric, language)
+  return `${cleaned} ${cleaned === '1' ? label.replace(/s$/, '') : label}`
+}
+
+const technicalCaption = (property: PropertyContext, language: SupportedLanguage) => unique([
+  captionMetric(property.bedrooms, 'bedrooms', language),
+  captionMetric(property.suites, 'suites', language),
+  captionMetric(property.parkingSpaces, 'parkingSpaces', language),
 ]).join(' • ')
 
 const commercialHighlights = (property: PropertyContext) => {
@@ -536,16 +544,19 @@ const narrationWithPurpose = (text: string, displayedPurpose: string) => {
   return `${displayedPurpose}. ${text}`
 }
 
-const commercialCaption = (blockNumber: number, property: PropertyContext, includePurposePresentation = true) => {
+const commercialCaption = (blockNumber: number, property: PropertyContext, includePurposePresentation = true, language: SupportedLanguage = 'pt-BR') => {
   if (blockNumber === 1) {
     const location = unique([literal(property.district), literal(property.city)]).join(' • ')
-    const displayedPurpose = includePurposePresentation ? purposePresentation(property.purpose) : ''
+    const displayedPurpose = includePurposePresentation
+      ? (language === 'en-US' ? presentPurpose(purpose(property.purpose), language) : purposePresentation(property.purpose))
+      : ''
     return [displayedPurpose, location].filter(Boolean).join('\n')
   }
-  if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property)]).join('\n')
+  if (blockNumber === 2) return unique([language === 'en-US' ? presentStage(property.stage, language) : literal(property.stage), technicalCaption(property, language)]).join('\n')
   if (blockNumber === 3) {
     const highlights = commercialHighlights(property)
-    return highlights.location[0] || highlights.differentials[0] || highlights.condominium[0] || ''
+    const selected = highlights.location[0] || highlights.differentials[0] || highlights.condominium[0] || ''
+    return language === 'en-US' ? presentHighlight(selected, language) : selected
   }
   if (blockNumber === 4) {
     const highlights = commercialHighlights(property)
@@ -553,18 +564,18 @@ const commercialCaption = (blockNumber: number, property: PropertyContext, inclu
       highlights.condominium[0] || '',
       highlights.differentials[0] || highlights.location[1] || '',
     ])
-    return selected.slice(0, 2).join(' • ')
+    return selected.slice(0, 2).map(item => language === 'en-US' ? presentHighlight(item, language) : item).join(' • ')
   }
   return ''
 }
 
-const lifeSceneCommercialCaption = (blockNumber: number, property: PropertyContext) => {
+const lifeSceneCommercialCaption = (blockNumber: number, property: PropertyContext, language: SupportedLanguage) => {
   const highlights = unique((property.highlights || []).map(literal))
-  if (blockNumber === 1) return lifeScenePurpose(property.purpose)?.caption || ''
-  if (blockNumber === 2) return literal(property.stage)
+  if (blockNumber === 1) return language === 'en-US' ? presentPurpose(purpose(property.purpose), language) : lifeScenePurpose(property.purpose)?.caption || ''
+  if (blockNumber === 2) return language === 'en-US' ? presentStage(property.stage, language) : literal(property.stage)
   if (blockNumber === 3) return unique([literal(property.district), literal(property.city)]).join(', ')
-  if (blockNumber === 4) return highlights[0] || ''
-  if (blockNumber === 5) return literal(property.price) || highlights[1] || ''
+  if (blockNumber === 4) return language === 'en-US' ? presentHighlight(highlights[0], language) : highlights[0] || ''
+  if (blockNumber === 5) return literal(property.price) || (language === 'en-US' ? presentHighlight(highlights[1], language) : highlights[1]) || ''
   return ''
 }
 
@@ -620,16 +631,16 @@ export function buildSmartTourStructuredBriefing(input: {
     texto: config.presenterSpeechMode === 'custom'
       ? (config.captions === 'enabled' ? customCaptionTimeline[block.bloco - 1] || '' : '')
       : requiresCommercialPurpose
-      ? (config.captions === 'enabled' ? lifeSceneCommercialCaption(block.bloco, input.property) : '')
+      ? (config.captions === 'enabled' ? lifeSceneCommercialCaption(block.bloco, input.property, input.language) : '')
       : (block.bloco === 1 && displayedPurpose
-          ? (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : displayedPurpose)
-          : (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property) : '')),
+          ? (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property, true, input.language) : displayedPurpose)
+          : (config.captions === 'enabled' ? commercialCaption(block.bloco, input.property, true, input.language) : '')),
   }))
   const ctaTimeline = {
     bloco: requiresCommercialPurpose ? 6 : 5,
     inicioSegundos: 8,
     fimSegundos: 10,
-    texto: ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '',
+    texto: ctaTitle ? [config.presenterSpeechMode === 'custom' ? ctaTitle : presentCta(ctaTitle, input.language), phone].filter(Boolean).join('\n') : '',
     titulo: ctaTitle,
     telefone: phone,
   }
@@ -653,14 +664,14 @@ export function buildSmartTourStructuredBriefing(input: {
       ? narrationWithPurpose(phrase.texto, displayedPurpose)
       : phrase.texto
     const legenda = isLast
-      ? (ctaTitle ? [ctaTitle, phone].filter(Boolean).join('\n') : '')
+      ? (ctaTitle ? [config.presenterSpeechMode === 'custom' ? ctaTitle : presentCta(ctaTitle, input.language), phone].filter(Boolean).join('\n') : '')
       : (requiresCommercialPurpose
           ? (config.captions === 'enabled'
-              ? (sceneNumber === 1 && purposeCaption ? purposeCaption : commercialCaption(sceneNumber, input.property, false))
+              ? (sceneNumber === 1 && purposeCaption ? (input.language === 'en-US' ? presentPurpose(purpose(input.property.purpose), input.language) : purposeCaption) : commercialCaption(sceneNumber, input.property, false, input.language))
               : '')
           : (sceneNumber === 1 && displayedPurpose
-              ? (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : displayedPurpose)
-              : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property) : '')))
+              ? (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, true, input.language) : displayedPurpose)
+              : (config.captions === 'enabled' ? commercialCaption(sceneNumber, input.property, true, input.language) : '')))
     return {
       numero: sceneNumber,
       tipo,
