@@ -83,7 +83,7 @@ test('keeps the approved rental states shared by Virtual Staging and Video Imobi
 
 test('uses the official Vida no Imovel demo with the homologated protected modal', () => {
   assert.match(page, /activeDemo\.demoVideo/)
-  assert.match(page, />Ver exemplo</)
+  assert.match(page, /virtualStaging\.demo\.view/)
   assert.match(page, /role="dialog"/)
   assert.match(page, /event\.key === 'Escape'/)
   assert.match(page, /event\.target === event\.currentTarget/)

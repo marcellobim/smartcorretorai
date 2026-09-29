@@ -159,6 +159,15 @@ export const VIRTUAL_STAGING_BR_ONLY_HIGHLIGHTS = Object.freeze([])
 
 const brOnlyValues = new Set(VIRTUAL_STAGING_BR_ONLY_HIGHLIGHTS)
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key)
+const GROUP_LABELS = Object.freeze({
+  'Localização': Object.freeze({ ptBR: 'Localização', enUS: 'Location' }),
+  'Condomínio': Object.freeze({ ptBR: 'Condomínio', enUS: 'Condominium' }),
+  'Diferenciais do imóvel': Object.freeze({ ptBR: 'Diferenciais do imóvel', enUS: 'Property highlights' }),
+  'Garagem': Object.freeze({ ptBR: 'Garagem', enUS: 'Parking' }),
+  'Sustentabilidade': Object.freeze({ ptBR: 'Sustentabilidade', enUS: 'Sustainability' }),
+  'Comercial': Object.freeze({ ptBR: 'Comercial', enUS: 'Commercial' }),
+  'Terrenos': Object.freeze({ ptBR: 'Terrenos', enUS: 'Land' }),
+})
 
 export const VIRTUAL_STAGING_HIGHLIGHT_LABELS = Object.freeze(Object.fromEntries(
   activeValues.map(value => [value, Object.freeze({
@@ -174,6 +183,12 @@ export function getVirtualStagingHighlightLabel(value, { locale = 'pt-BR', marke
   if (locale === 'en-US' && market === 'US' && !label.brOnly && label.enUS) return label.enUS
   if (locale === 'en-US' && !label.brOnly && label.enUS) return label.enUS
   return label.ptBR || value
+}
+
+export function getVirtualStagingHighlightGroupLabel(value, { locale = 'pt-BR' } = {}) {
+  const label = GROUP_LABELS[value]
+  if (!label) return value
+  return locale === 'en-US' ? label.enUS : label.ptBR
 }
 
 export function isVirtualStagingHighlightAvailableForMarket(value, market = 'BR') {

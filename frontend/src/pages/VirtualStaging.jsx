@@ -29,7 +29,7 @@ import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPER
 import { BROKER_CUSTOM_SPEECH_MAX_WORDS, BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, BROKER_SPEECH_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
 import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '../config/virtualStagingConversation'
 import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualStagingHighlightGroups, getVirtualStagingMeasureFields, normalizeVirtualStagingDistrict, VIRTUAL_STAGING_MEASURE_OPTIONS, VIRTUAL_STAGING_PROPERTY_TYPES } from '../config/virtualStagingForm'
-import { getVirtualStagingHighlightLabel, isVirtualStagingHighlightAvailableForMarket } from '../config/virtualStagingHighlightLabels'
+import { getVirtualStagingHighlightGroupLabel, getVirtualStagingHighlightLabel, isVirtualStagingHighlightAvailableForMarket } from '../config/virtualStagingHighlightLabels'
 import { getCountiesByState, getStatesForMarket, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
 import { buildSmartSpaceRecovery, getSmartSpaceRecoveryKey, normalizeSmartSpaceResult, normalizeSmartSpaceVideo, parseSmartSpaceRecovery, readSmartSpaceRecoveryClientRequestId, resolveSmartSpaceRecoveryInputs } from '../lib/smart-space-results'
@@ -52,6 +52,15 @@ const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
 const formatUsLocation = ({ neighborhoodCommunity = '', city = '', county = '', state = '', zipCode = '' }) => [neighborhoodCommunity, city, county, state, zipCode].filter(Boolean).join(', ')
 const normalizeLocale = value => value === 'en-US' ? 'en-US' : 'pt-BR'
 const normalizeMarket = value => value === 'US' ? 'US' : 'BR'
+const VIRTUAL_STAGING_OPTION_KEYS = Object.freeze({ 'Pré-lançamento': 'preLaunch', 'Lançamento': 'launch', 'Em obras': 'underConstruction', 'Pronto para morar': 'moveInReady', 'Disponível já': 'availableNow', Vago: 'vacant', Apartamento: 'apartment', Casa: 'house', Cobertura: 'penthouse', 'Studio / Loft': 'studioLoft', 'Terreno / Lote': 'landLot', Comercial: 'commercial', 'Agende sua visita': 'schedule', 'Saiba mais': 'learn', 'Entre em contato agora': 'contact', 'Fale comigo': 'talk' })
+const getVirtualStagingOptionLabel = (value, t) => VIRTUAL_STAGING_OPTION_KEYS[value] ? t(`virtualStaging.options.${VIRTUAL_STAGING_OPTION_KEYS[value]}`) : value
+const isLifeOrBrokerJourney = journeyId => journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
+const getJourneyPresentation = (journey, t) => {
+  if (journey.id === LIFE_IN_PROPERTY_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.life.title'), description: t('virtualStaging.journey.life.description') }
+  if (journey.id === BROKER_PRESENTATION_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.broker.title'), description: t('virtualStaging.journey.broker.description') }
+  return journey
+}
+const interpolate = (template, values) => Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, value), template)
 function questionsFor(journeyId) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) return FURNISH_RENOVATE_QUESTIONS
   const sharedQuestions = [
@@ -311,6 +320,7 @@ function getInitialVirtualStagingJourneyId() {
 
 export default function VirtualStagingAI() {
   const { user } = useAuth()
+  const { t } = useLocale()
   const { trackEvent } = useAnalytics()
   const selectionDraft = useProductDraft({ productKey: 'virtual-staging:selection', schemaVersion: 1, userId: user?.id })
   const [selectedJourneyId, setSelectedJourneyId] = useState(getInitialVirtualStagingJourneyId)
@@ -352,7 +362,7 @@ export default function VirtualStagingAI() {
         id="virtual-space-title"
         title="Smart Space"
         description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial."
-        visual={<VirtualSpaceHeroVisual />}
+        visual={<VirtualSpaceHeroVisual t={t} />}
       />
 
       <ProductCard ref={modulesRef} className="mt-8 scroll-mt-6 p-5 sm:p-7">
@@ -361,7 +371,7 @@ export default function VirtualStagingAI() {
           title="Escolha como deseja apresentar seu imóvel"
           description="Cada módulo cria uma experiência diferente, preservando a mesma jornada simples e guiada."
         />
-        <VirtualStagingModules selectedJourneyId={selectedJourneyId} onSelect={selectJourney} />
+        <VirtualStagingModules selectedJourneyId={selectedJourneyId} onSelect={selectJourney} t={t} />
       </ProductCard>
 
       {selectedJourney && <div ref={chatRef} className="scroll-mt-6">
@@ -1005,7 +1015,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} />
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
-    return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: journey.title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel="Criar novo projeto" uiLabels={videoUiLabels} /></section>
+    return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: getJourneyPresentation(journey, t).title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel={t('virtualStaging.lifeBroker.newProject')} uiLabels={videoUiLabels} /></section>
   }
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>{lifeBrokerCopy('checkResult')}</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">{lifeBrokerCopy('newProject')}</button></div></section>
 
@@ -1023,10 +1033,10 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   ].filter(item => Boolean(item.label))
   const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: furnishProject.property_images.length, transformationType: furnishProject.transformation_type, decorationStyle: furnishProject.decoration_style })
   const standardSummary = [
-    { id: 'images', label: images.length && `${images.length} foto${images.length > 1 ? 's' : ''}` },
+    { id: 'images', label: images.length && interpolate(t(images.length === 1 ? 'virtualStaging.photos.one' : 'virtualStaging.photos.many'), { count: images.length }) },
     { id: 'purpose', label: property.purpose && t(`virtualStaging.purpose.${property.purpose}`) },
-    { id: 'stage', label: property.stage },
-    { id: 'type', label: property.type },
+    { id: 'stage', label: getVirtualStagingOptionLabel(property.stage, t) },
+    { id: 'type', label: getVirtualStagingOptionLabel(property.type, t) },
     { id: 'facts', label: measuresSummary },
     { id: 'location', label: draftMarket === 'US' ? formatUsLocation(property) : formatVirtualStagingLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? t('virtualStaging.ui.noCommercialInfo') : '') },
@@ -1043,7 +1053,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         : [{ id: 'narration', label: generation.narration === 'enabled' ? t('virtualStaging.yes') : generation.narration === 'disabled' ? t('virtualStaging.no') : '' }]),
     { id: 'captions', label: generation.captions === 'enabled' ? t('virtualStaging.yes') : generation.captions === 'disabled' ? t('virtualStaging.no') : '' },
     ...(!isLifeInProperty ? [{ id: 'cta_enabled', label: ctaEnabled === true ? t('virtualStaging.yes') : ctaEnabled === false ? t('virtualStaging.no') : '' }] : []),
-    { id: 'cta', label: isLifeInProperty || ctaEnabled === true ? cta : '' },
+    { id: 'cta', label: isLifeInProperty || ctaEnabled === true ? getVirtualStagingOptionLabel(cta, t) : '' },
     { id: 'phone', label: includePhone === true ? phone : includePhone === false ? t('virtualStaging.cta.phoneNone') : '' },
   ].filter(item => Boolean(item.label))
   const summary = isFurnishRenovate ? furnishSummary : standardSummary
@@ -1054,7 +1064,9 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const visualStep = status === 'idle'
     ? (isFurnishRenovate ? (furnishStepByQuestion[question[0]] || 1) : question[1])
     : (isFurnishRenovate ? (furnishHasStyleStep ? 4 : 3) : 5)
-  const chooseAnotherButton = <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>Escolher outro módulo</ProductButton>
+  const isLocalizedJourney = isLifeOrBrokerJourney(journey.id)
+  const presentedJourney = getJourneyPresentation(journey, t)
+  const chooseAnotherButton = <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>{isLocalizedJourney ? t('virtualStaging.journey.chooseAnother') : 'Escolher outro módulo'}</ProductButton>
   const journeySteps = isFurnishRenovate
     ? [
         { title: 'Transformação', subtitle: 'Tipo' },
@@ -1062,14 +1074,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         { title: 'Imagens', subtitle: 'Upload' },
         { title: 'Revisão', subtitle: 'Projeto' },
       ]
-    : (isBrokerPresentation ? ['Referência', 'Imóvel', 'Estilo', 'Revisão', 'Criar'] : ['Fotos', 'Imóvel', 'Estilo', 'Revisão', 'Criar'])
-        .map(title => ({ title, subtitle: '' }))
+    : (isBrokerPresentation ? ['reference', 'property', 'style', 'review', 'create'] : ['photos', 'property', 'style', 'review', 'create'])
+        .map(key => ({ title: t(`virtualStaging.steps.${key}`), subtitle: '' }))
   return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className="mt-10 space-y-8">
       <ProductSectionHeading
         id={`virtual-staging-chat-${journey.id}`}
-        eyebrow={`Jornada selecionada · ${journey.title}`}
-        title="Agora, conte como deseja transformar seu imóvel"
-        description="Responda uma pergunta por vez. Suas escolhas ficam organizadas no resumo ao lado."
+        eyebrow={isLocalizedJourney ? interpolate(t('virtualStaging.journey.selected'), { title: presentedJourney.title }) : `Jornada selecionada · ${journey.title}`}
+        title={isLocalizedJourney ? t('virtualStaging.journey.heading') : 'Agora, conte como deseja transformar seu imóvel'}
+        description={isLocalizedJourney ? t('virtualStaging.journey.description') : 'Responda uma pergunta por vez. Suas escolhas ficam organizadas no resumo ao lado.'}
         action={chooseAnotherButton}
       />
     <ProductSteps steps={journeySteps} activeStep={visualStep} accent="emerald" />
@@ -1092,20 +1104,20 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   </section>
 }
 
-function VirtualSpaceHeroVisual() {
+function VirtualSpaceHeroVisual({ t }) {
   return <div aria-label="Os três módulos do Smart Space" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
     <div className="absolute inset-y-2 right-0 w-[88%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
     <div className="relative grid w-full grid-cols-3 items-end gap-2 px-1 sm:gap-3 sm:px-4">
-      {VIRTUAL_STAGING_JOURNEYS.map((journey, index) => <article key={journey.id} className={`min-w-0 ${index === 1 ? '-translate-y-4' : ''}`}>
+      {VIRTUAL_STAGING_JOURNEYS.map((journey, index) => { const presentedJourney = getJourneyPresentation(journey, t); return <article key={journey.id} className={`min-w-0 ${index === 1 ? '-translate-y-4' : ''}`}>
         <div className="mx-auto w-full max-w-[132px] rounded-[1.65rem] border border-slate-700 bg-slate-950 p-1.5 shadow-[0_22px_48px_-18px_rgba(15,23,42,0.68)] ring-2 ring-white">
           <div className="relative aspect-[9/16] overflow-hidden rounded-[1.25rem] bg-slate-900">
             {journey.id === FURNISH_RENOVATE_JOURNEY_ID
               ? <VirtualStagingBeforeAfterPhone initialIndex={0} roundedClass="rounded-[1.25rem]" />
-              : <video src={journey.demoVideo} aria-label={`Exemplo do módulo ${journey.title}`} autoPlay muted loop playsInline controls={false} preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-phone-media absolute inset-0 bg-black" />}
+              : <video src={journey.demoVideo} aria-label={isLifeOrBrokerJourney(journey.id) ? interpolate(t('virtualStaging.demo.example'), { title: presentedJourney.title }) : `Exemplo do módulo ${journey.title}`} autoPlay muted loop playsInline controls={false} preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-phone-media absolute inset-0 bg-black" />}
           </div>
         </div>
-        <p className="mx-auto mt-3 max-w-[132px] text-center text-[10px] font-black leading-4 text-slate-700 sm:text-xs">{journey.title}</p>
-      </article>)}
+        <p className="mx-auto mt-3 max-w-[132px] text-center text-[10px] font-black leading-4 text-slate-700 sm:text-xs">{presentedJourney.title}</p>
+      </article> })}
     </div>
   </div>
 }
@@ -1152,7 +1164,7 @@ function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass }) {
   </button>
 }
 
-function VirtualStagingModules({ selectedJourneyId, onSelect }) {
+function VirtualStagingModules({ selectedJourneyId, onSelect, t }) {
   const [activeDemo, setActiveDemo] = useState(null)
   const modalVideoRef = useRef(null)
   const closeButtonRef = useRef(null)
@@ -1183,13 +1195,15 @@ function VirtualStagingModules({ selectedJourneyId, onSelect }) {
     <div className="mt-7 grid gap-5 md:grid-cols-3">
       {VIRTUAL_STAGING_JOURNEYS.map(journey => {
       const isSelected = selectedJourneyId === journey.id
+      const isLocalizedJourney = isLifeOrBrokerJourney(journey.id)
+      const presentedJourney = getJourneyPresentation(journey, t)
       const hasOfficialDemo = journey.demoAssetStatus === 'official'
       const isVirtualStagingDemo = journey.id === FURNISH_RENOVATE_JOURNEY_ID
       const preview = <div className="mx-auto w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 shadow-xl shadow-slate-200/70">
         <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
           {isVirtualStagingDemo ? <VirtualStagingBeforeAfterPhone initialIndex={1} roundedClass="rounded-[1.45rem]" /> : <video
             src={journey.demoVideo}
-            aria-label={`Demonstração: ${journey.title}`}
+            aria-label={isLocalizedJourney ? interpolate(t('virtualStaging.demo.preview'), { title: presentedJourney.title }) : `Demonstração: ${journey.title}`}
             autoPlay
             muted
             loop
@@ -1209,24 +1223,24 @@ function VirtualStagingModules({ selectedJourneyId, onSelect }) {
         key={journey.id}
         className={`group flex min-w-0 flex-col rounded-3xl bg-white p-4 text-left transition-all duration-200 ${isSelected ? 'shadow-[0_20px_45px_-24px_rgba(30,64,175,0.65)] ring-2 ring-primary-500' : 'shadow-[0_14px_36px_-28px_rgba(15,23,42,0.55)] ring-1 ring-slate-200 hover:-translate-y-0.5 hover:shadow-[0_20px_45px_-26px_rgba(15,23,42,0.5)] hover:ring-primary-200'}`}
       >
-        {hasOfficialDemo && !isVirtualStagingDemo ? <button type="button" onClick={() => setActiveDemo(journey)} aria-label={`Ampliar demonstração: ${journey.title}`} className="mx-auto block w-full rounded-[2rem] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">{preview}</button> : preview}
-        <h3 className="mt-4 text-center text-base font-black text-slate-950">{journey.title}</h3>
-        <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{journey.description}</p>
-        {hasOfficialDemo && !isVirtualStagingDemo && <ProductButton type="button" variant="secondary" size="sm" onClick={() => setActiveDemo(journey)} className="mx-auto mt-4"><PlayCircle className="h-4 w-4" aria-hidden="true" />Ver exemplo</ProductButton>}
+        {hasOfficialDemo && !isVirtualStagingDemo ? <button type="button" onClick={() => setActiveDemo(journey)} aria-label={isLocalizedJourney ? interpolate(t('virtualStaging.demo.enlarge'), { title: presentedJourney.title }) : `Ampliar demonstração: ${journey.title}`} className="mx-auto block w-full rounded-[2rem] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">{preview}</button> : preview}
+        <h3 className="mt-4 text-center text-base font-black text-slate-950">{presentedJourney.title}</h3>
+        <p className="mt-2 text-center text-sm font-semibold leading-6 text-slate-600">{presentedJourney.description}</p>
+        {hasOfficialDemo && !isVirtualStagingDemo && <ProductButton type="button" variant="secondary" size="sm" onClick={() => setActiveDemo(journey)} className="mx-auto mt-4"><PlayCircle className="h-4 w-4" aria-hidden="true" />{isLocalizedJourney ? t('virtualStaging.demo.view') : 'Ver exemplo'}</ProductButton>}
         <ProductButton type="button" variant={isSelected ? 'primary' : 'secondary'} aria-pressed={isSelected} aria-controls={isSelected ? `virtual-staging-chat-${journey.id}` : undefined} onClick={() => onSelect(journey.id)} className="mx-auto mt-4 w-fit">
-          {isSelected ? 'Módulo selecionado' : 'Escolher módulo'}
+          {isLocalizedJourney ? (isSelected ? t('virtualStaging.journey.selectedModule') : t('virtualStaging.journey.chooseModule')) : (isSelected ? 'Módulo selecionado' : 'Escolher módulo')}
         </ProductButton>
       </article>
       })}
     </div>
-    {activeDemo && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={`Demonstração ampliada: ${activeDemo.title}`} onMouseDown={event => { if (event.target === event.currentTarget) closeDemo() }}>
+    {activeDemo && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={interpolate(t('virtualStaging.demo.expanded'), { title: getJourneyPresentation(activeDemo, t).title })} onMouseDown={event => { if (event.target === event.currentTarget) closeDemo() }}>
       <div className="relative flex max-h-full w-full max-w-4xl flex-col items-center">
         <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
-          <p className="truncate text-lg font-black">{activeDemo.title}</p>
-          <button ref={closeButtonRef} type="button" onClick={closeDemo} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70" aria-label="Fechar demonstração"><X className="h-5 w-5" /></button>
+          <p className="truncate text-lg font-black">{getJourneyPresentation(activeDemo, t).title}</p>
+          <button ref={closeButtonRef} type="button" onClick={closeDemo} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70" aria-label={t('virtualStaging.demo.close')}><X className="h-5 w-5" /></button>
         </div>
         <div className="relative h-[min(calc(100dvh-9rem),calc(177.778vw-2.667rem),760px)] w-auto max-w-full aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-white/15 bg-black shadow-2xl">
-          <video key={activeDemo.id} ref={modalVideoRef} src={activeDemo.demoVideo} aria-label={`Demonstração ampliada: ${activeDemo.title}`} autoPlay playsInline controls preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-presentation-media bg-black" />
+          <video key={activeDemo.id} ref={modalVideoRef} src={activeDemo.demoVideo} aria-label={interpolate(t('virtualStaging.demo.expanded'), { title: getJourneyPresentation(activeDemo, t).title })} autoPlay playsInline controls preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-presentation-media bg-black" />
         </div>
       </div>
     </div>}
@@ -1239,7 +1253,7 @@ function Question(props) {
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
   const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID
   const { t } = useLocale()
-  const optionLabel = value => t(`virtualStaging.options.${({ 'Pré-lançamento': 'preLaunch', 'Lançamento': 'launch', 'Em obras': 'underConstruction', 'Pronto para morar': 'moveInReady', 'Disponível já': 'availableNow', Vago: 'vacant', Apartamento: 'apartment', Casa: 'house', Cobertura: 'penthouse', 'Studio / Loft': 'studioLoft', 'Terreno / Lote': 'landLot', Comercial: 'commercial', 'Agende sua visita': 'schedule', 'Saiba mais': 'learn', 'Entre em contato agora': 'contact', 'Fale comigo': 'talk' })[value] || ''}`)
+  const optionLabel = value => getVirtualStagingOptionLabel(value, t)
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${value === item.id ? (isFurnishRenovate ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-emerald-400 bg-emerald-50') : `border-slate-200 bg-white ${isFurnishRenovate ? 'hover:border-primary-300 focus:ring-primary-500' : ''}`}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">{t('virtualStaging.continue')}</Button>
@@ -1312,7 +1326,7 @@ function Question(props) {
     }
     const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder={t('virtualStaging.location.neighborhood')} className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || t('virtualStaging.lifeBroker.noCommercial'); const commercialFields = [['price', property.purpose === 'rent' ? t('virtualStaging.lifeBroker.rent') : t('virtualStaging.lifeBroker.price')], ['condominium',t('virtualStaging.lifeBroker.condominium')], ['iptu',t('virtualStaging.lifeBroker.tax')]]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input aria-label={label} value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.currencyPlaceholder')} className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights', undefined, commercialAnswer === t('virtualStaging.lifeBroker.noCommercial') ? 'empty' : 'provided')}</> }
-  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type).map(group => ({ ...group, items: group.items.filter(item => isVirtualStagingHighlightAvailableForMarket(item, market)) })).filter(group => group.items.length); const selectedLabels = property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale, market })).join(' · '); const nextQuestionId = isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">{t('virtualStaging.highlights.instruction')}</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{getVirtualStagingHighlightLabel(item, { locale, market })}</button>)}</div></section>)}</div>{cont(false, selectedLabels || t('virtualStaging.highlights.none'), nextQuestionId)}</> }
+  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type).map(group => ({ ...group, items: group.items.filter(item => isVirtualStagingHighlightAvailableForMarket(item, market)) })).filter(group => group.items.length); const selectedLabels = property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale, market })).join(' · '); const nextQuestionId = isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">{t('virtualStaging.highlights.instruction')}</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{getVirtualStagingHighlightGroupLabel(group.title, { locale })}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{getVirtualStagingHighlightLabel(item, { locale, market })}</button>)}</div></section>)}</div>{cont(false, selectedLabels || t('virtualStaging.highlights.none'), nextQuestionId)}</> }
   if (id === 'life_scene') return choices(LIFE_SCENE_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.lifeScene.${option.id}`) })), lifeScene, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setLifeScene(value) }))
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices(t('virtualStaging.lifeBroker.captionsHelp'), [{id:'enabled',label:t('virtualStaging.yes')},{id:'disabled',label:t('virtualStaging.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))

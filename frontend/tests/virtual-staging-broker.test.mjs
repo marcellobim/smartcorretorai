@@ -87,7 +87,7 @@ test('uses the approved Module 3 demo with audio-enabled protected modal', () =>
   assert.equal(journey?.demoVideo, '/demos-videos/apresentacao-pelo-proprio-corretor.mp4')
   assert.equal(journey?.demoAssetStatus, 'official')
   assert.match(page, /const hasOfficialDemo = journey\.demoAssetStatus === 'official'/)
-  assert.match(page, />Ver exemplo</)
+  assert.match(page, /virtualStaging\.demo\.view/)
   assert.match(page, /activeDemo\.demoVideo/)
   assert.match(page, /autoPlay playsInline controls preload="metadata"/)
   assert.match(page, /controlsList="nodownload noremoteplayback"/)
