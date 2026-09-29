@@ -14,7 +14,7 @@ const page = readFileSync(path.join(frontendRoot, 'src/pages/VirtualStaging.jsx'
 test('Vida no Imóvel and Apresentação pelo Corretor use the saved locale without changing their generation semantics', () => {
   assert.equal(buildLifeInPropertyGenerationPayload({ lifeScene: 'adult', captions: 'enabled', language: 'en-US' }).language, 'en-US')
   assert.equal(buildBrokerPresentationGenerationPayload({ captions: 'enabled', language: 'en-US' }).language, 'en-US')
-  assert.match(page, /const \{ locale, market \} = useLocale\(\)/)
+  assert.match(page, /const \{ locale, market, t \} = useLocale\(\)/)
   assert.match(page, /const draftLocale = supportsLocaleMarket \? normalizeLocale\(restoredJourneyDraft\.locale \|\| locale\) : 'pt-BR'/)
   assert.match(page, /language: draftLocale/)
   assert.doesNotMatch(page.slice(page.indexOf('const requestBody ='), page.indexOf("supabase.functions.invoke('virtual-staging-generate'")), /market:/)
@@ -30,7 +30,7 @@ test('new drafts save locale and market while legacy drafts fall back to BR and 
 test('BR preserves UF, city, district and its phone mask; US uses dependent county and ZIP validation', () => {
   assert.match(page, /<SmartCarouselStateSelect/)
   assert.match(page, /<SmartCarouselCitySelect uf=\{property\.state\}/)
-  assert.match(page, /placeholder="Bairro"/)
+  assert.match(page, /placeholder=\{t\('virtualStaging\.location\.neighborhood'\)\}/)
   assert.match(page, /getCountiesByState\(property\.state\)/)
   assert.match(page, /disabled=\{!property\.state\}/)
   assert.match(page, /normalizeUsZipCode\(property\.zipCode\)/)

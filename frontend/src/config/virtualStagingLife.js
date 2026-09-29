@@ -20,7 +20,8 @@ export const LIFE_SCENE_OPTIONS = Object.freeze([
 
 const LIFE_SCENE_IDS = new Set(LIFE_SCENE_OPTIONS.map(option => option.id))
 
-export function getLifeSceneLabel(lifeScene) {
+export function getLifeSceneLabel(lifeScene, { t } = {}) {
+  if (typeof t === 'function' && LIFE_SCENE_IDS.has(lifeScene)) return t(`virtualStaging.lifeScene.${lifeScene}`)
   return LIFE_SCENE_OPTIONS.find(option => option.id === lifeScene)?.label || ''
 }
 

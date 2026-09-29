@@ -85,9 +85,33 @@ function questionsFor(journeyId) {
   return sharedQuestions
 }
 
-function virtualStagingConfirmation(id, answer, journeyId) {
+function virtualStagingConfirmation(id, answer, journeyId, { t, locale = 'pt-BR', answerId = '' } = {}) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
     if (id === 'images') return 'Ótimo! As fotografias serão usadas na ordem escolhida.'
+  }
+  const isLifeOrBroker = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
+  if (isLifeOrBroker && t) {
+    const history = key => t(`virtualStaging.history.${key}`)
+    const interpolate = (key, value) => history(key).replace('{value}', value)
+    const confirmations = {
+      images: interpolate('images', answer),
+      purpose: history(answerId === 'rent' ? 'purposeRent' : 'purposeSale'),
+      stage: interpolate('stage', answer),
+      type: interpolate('type', answer),
+      facts: history('facts'),
+      location: interpolate('location', answer),
+      commercial: answerId === 'empty' ? history('commercialEmpty') : history('commercial'),
+      highlights: interpolate('highlights', answer),
+      life_scene: interpolate('lifeScene', answer.toLocaleLowerCase(locale)),
+      presenter_reference: answerId === 'yes' ? history('presenterReferenceYes') : history('presenterReferenceNo'),
+      presenter_photo: history('presenterPhoto'),
+      narration: answerId === 'enabled' ? history('narrationOn') : history('narrationOff'),
+      captions: answerId === 'enabled' ? history('captionsOn') : history('captionsOff'),
+      cta_enabled: answerId === 'yes' ? history('ctaEnabledOn') : history('ctaEnabledOff'),
+      cta: interpolate('cta', answer),
+      phone: answerId === 'yes' ? history('phoneOn') : history('phoneOff'),
+    }
+    return confirmations[id] || history('default')
   }
   if (id === 'purpose') return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
   const confirmations = {
@@ -565,7 +589,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       resolvedNextQuestionId = getVirtualStagingReviewEditNext({ originQuestionId: reviewEditRef.current, questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id })
       if (resolvedNextQuestionId === 'review') reviewEditRef.current = null
     }
-    const accepted = conversation.submitAnswer({ questionId: question[0], question: localizedQuestion, answer, confirmation: virtualStagingConfirmation(question[0], answer, journey.id), nextQuestionId: resolvedNextQuestionId })
+    const accepted = conversation.submitAnswer({ questionId: question[0], question: localizedQuestion, answer, confirmation: virtualStagingConfirmation(question[0], answer, journey.id, { t, locale: draftLocale, answerId }), nextQuestionId: resolvedNextQuestionId })
     if (accepted) apply?.()
     return accepted
   }
@@ -981,7 +1005,6 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>{lifeBrokerCopy('checkResult')}</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">{lifeBrokerCopy('newProject')}</button></div></section>
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
-  const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
   const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${field === 'area' ? 'm²' : t(`virtualStaging.measures.${field}`).toLocaleLowerCase(draftLocale)}`).filter(Boolean).join(' · ')
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? t('virtualStaging.ui.rent') : t('virtualStaging.ui.price')} ${property.price}`, property.condominium && `${t('virtualStaging.ui.condominium')} ${property.condominium}`, property.iptu && `${t('virtualStaging.ui.tax')} ${property.iptu}`].filter(Boolean).join(' · ')
   const selectedHighlightLabels = property.highlights
@@ -996,25 +1019,25 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: furnishProject.property_images.length, transformationType: furnishProject.transformation_type, decorationStyle: furnishProject.decoration_style })
   const standardSummary = [
     { id: 'images', label: images.length && `${images.length} foto${images.length > 1 ? 's' : ''}` },
-    { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? 'Venda' : 'Locação') },
+    { id: 'purpose', label: property.purpose && t(`virtualStaging.purpose.${property.purpose}`) },
     { id: 'stage', label: property.stage },
     { id: 'type', label: property.type },
     { id: 'facts', label: measuresSummary },
     { id: 'location', label: draftMarket === 'US' ? formatUsLocation(property) : formatVirtualStagingLocation(property) },
     { id: 'commercial', label: valuesSummary || (isReviewContext ? t('virtualStaging.ui.noCommercialInfo') : '') },
-    { id: 'highlights', label: selectedHighlightLabels || (isReviewContext ? 'Sem destaques adicionais' : '') },
+    { id: 'highlights', label: selectedHighlightLabels || (isReviewContext ? t('virtualStaging.highlights.none') : '') },
     ...(isBrokerPresentation
       ? [
-          { id: 'presenter_reference', label: presenterReferenceDecision === true ? 'Apresentação pelo Corretor: Imagem própria enviada' : '' },
-          { id: 'presenter_photo', label: presenterReference ? 'Foto do apresentador: 1 imagem temporária' : '' },
-          { id: 'presenter_speech_mode', label: presenterSpeechMode === 'custom' ? 'Fala própria' : 'Fala criada para mim' },
+          { id: 'presenter_reference', label: presenterReferenceDecision === true ? `${t('virtualStaging.lifeBroker.presentation')}: ${t('virtualStaging.lifeBroker.ownImage')}` : '' },
+          { id: 'presenter_photo', label: presenterReference ? `${t('virtualStaging.presenter.photo')}: ${t('virtualStaging.lifeBroker.temporaryImage')}` : '' },
+          { id: 'presenter_speech_mode', label: t(`virtualStaging.speech.${presenterSpeechMode}`) },
           ...(presenterSpeechMode === 'custom' ? [{ id: 'presenter_custom_speech', label: presenterCustomSpeech }] : []),
         ]
       : isLifeInProperty
-        ? [{ id: 'life_scene', label: lifeScene ? `Vida no Imóvel: ${getLifeSceneLabel(lifeScene)}` : '' }]
-        : [{ id: 'narration', label: generation.narration === 'enabled' ? 'Sim' : generation.narration === 'disabled' ? 'Não' : '' }]),
-    { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
-    ...(!isLifeInProperty ? [{ id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' }] : []),
+        ? [{ id: 'life_scene', label: lifeScene ? `${t('virtualStaging.lifeBroker.life')}: ${getLifeSceneLabel(lifeScene, { t })}` : '' }]
+        : [{ id: 'narration', label: generation.narration === 'enabled' ? t('virtualStaging.yes') : generation.narration === 'disabled' ? t('virtualStaging.no') : '' }]),
+    { id: 'captions', label: generation.captions === 'enabled' ? t('virtualStaging.yes') : generation.captions === 'disabled' ? t('virtualStaging.no') : '' },
+    ...(!isLifeInProperty ? [{ id: 'cta_enabled', label: ctaEnabled === true ? t('virtualStaging.yes') : ctaEnabled === false ? t('virtualStaging.no') : '' }] : []),
     { id: 'cta', label: isLifeInProperty || ctaEnabled === true ? cta : '' },
     { id: 'phone', label: includePhone === true ? phone : includePhone === false ? t('virtualStaging.cta.phoneNone') : '' },
   ].filter(item => Boolean(item.label))
@@ -1235,11 +1258,11 @@ function Question(props) {
     const copy = key => t(`virtualStaging.lifeBroker.${key}`)
     return <>{isFurnishRenovate && <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{FURNISH_RENOVATE_COPY.uploadDescription}</p>}{!isFurnishRenovate && <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{copy('uploadInstruction')}</p>}{isBrokerPresentation && <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{t('virtualStaging.ui.images')}</p>}<input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" aria-label={isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')} hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" aria-label={isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')} onClick={() => inputRef.current?.click()} className={`flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed px-4 text-center transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${isFurnishRenovate ? 'border-primary-200 bg-primary-50/60 hover:border-primary-400 focus:ring-primary-500' : 'border-emerald-200 bg-emerald-50/50'}`}><UploadCloud className={isFurnishRenovate ? 'text-primary-600' : 'text-emerald-600'} /><b className="mt-2 text-sm">{isFurnishRenovate ? 'Selecionar imagens' : isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')}</b>{isFurnishRenovate ? <span className="text-xs text-slate-500">JPG ou PNG · até 15 MB cada</span> : <><span className="text-xs text-slate-500">{copy('uploadInstruction')}</span><span className="mt-1 text-xs text-slate-400">{copy('photoFormat')}</span></>}</button>{isFurnishRenovate && <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{FURNISH_RENOVATE_COPY.uploadHint}</p>}<p className="mt-3 text-xs font-bold">{isFurnishRenovate ? `${images.length} de ${imageLimit} imagens adicionadas` : copy('photoCount').replace('{count}', images.length).replace('{limit}', imageLimit)}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={isFurnishRenovate ? `Foto ${position + 1}` : copy('photo').replace('{count}', position + 1)} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" aria-label={(offset < 0 ? copy('moveUp') : copy('moveDown')).replace('{count}', position + 1)} disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" aria-label={copy('remove').replace('{count}', position + 1)} onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, images.length === 1 ? copy('oneImageSelected') : copy('imagesSelected').replace('{count}', images.length))}</>
   }
-  if (id === 'purpose') return choices([{id:'sale',label:t('virtualStaging.purpose.sale')},{id:'rent',label:t('virtualStaging.purpose.rent')}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: isFurnishRenovate ? 'type' : 'stage', apply: () => setPropertyField('purpose', value) }))
-  if (id === 'stage') { const stageOptions = property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : STAGES; return choices(stageOptions.map(value => ({ id: value, label: optionLabel(value) })), property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
+  if (id === 'purpose') return choices([{id:'sale',label:t('virtualStaging.purpose.sale')},{id:'rent',label:t('virtualStaging.purpose.rent')}], property.purpose, (value, label) => answerQuestion({ answer: label, answerId: value, nextQuestionId: isFurnishRenovate ? 'type' : 'stage', apply: () => setPropertyField('purpose', value) }))
+  if (id === 'stage') { const stageOptions = property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : STAGES; return choices(stageOptions.map(value => ({ id: value, label: optionLabel(value) })), property.stage, (value, label) => answerQuestion({ answer: label, answerId: value, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') return <>{choices(VIRTUAL_STAGING_PROPERTY_TYPES.map(value => ({ id: value, label: optionLabel(value) })), property.type, value => setPropertyField('type', value))}{cont(!property.type, optionLabel(property.type), 'facts')}</>
   if (['bedrooms', 'suites', 'parkingSpaces'].includes(id)) {
-    const labels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas' }
+    const labels = { bedrooms: t('virtualStaging.measures.bedrooms').toLocaleLowerCase(locale), suites: t('virtualStaging.measures.suites').toLocaleLowerCase(locale), parkingSpaces: t('virtualStaging.measures.parkingSpaces').toLocaleLowerCase(locale) }
     return choices(VIRTUAL_STAGING_MEASURE_OPTIONS[id], property[id], value => answerQuestion({ answer: `${value} ${labels[id]}`, answerId: value, apply: () => setPropertyField(id, value) }))
   }
   if (id === 'area') return <><label className="text-xs font-black">{t('virtualStaging.lifeBroker.areaLabel')}<div className="mt-1 flex items-center rounded-smart-control border bg-white focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100"><input aria-label={t('virtualStaging.lifeBroker.areaLabel')} value={property.area} onChange={event => { const digits = event.target.value.replace(/\D/g, '').slice(0, 6); setPropertyField('area', Number(digits) > 0 ? String(Number(digits)) : '') }} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.areaPlaceholder')} className="min-w-0 flex-1 rounded-smart-control border-0 p-3 outline-none" /><span className="pr-3 text-sm font-black text-slate-500">m²</span></div></label>{cont(Number(property.area) <= 0, `${property.area} m²`, 'location')}</>
@@ -1282,15 +1305,15 @@ function Question(props) {
       const states = getStatesForMarket('US'); const counties = getCountiesByState(property.state); const zipCode = normalizeUsZipCode(property.zipCode); const location = formatUsLocation({ ...property, zipCode })
       return <div className="space-y-3"><label className="block text-xs font-black">State<select aria-label="State" value={property.state} onChange={event => { setPropertyField('state', event.target.value); setPropertyField('county', '') }} className="mt-1 w-full rounded-xl border p-3"><option value="">Select state</option>{states.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="block text-xs font-black">County<select aria-label="County" value={property.county} disabled={!property.state} onChange={event => setPropertyField('county', event.target.value)} className="mt-1 w-full rounded-xl border p-3"><option value="">{property.state ? 'Select county' : 'Select state first'}</option>{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</select></label><label className="block text-xs font-black">City<input aria-label="City" value={property.city} onChange={event => setPropertyField('city', event.target.value)} placeholder="City" className="mt-1 w-full rounded-xl border p-3" /></label><label className="block text-xs font-black">ZIP Code<input aria-label="ZIP Code" value={property.zipCode} onChange={event => setPropertyField('zipCode', normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-xl border p-3" />{property.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs text-red-600">Use a valid ZIP Code.</span>}</label><label className="block text-xs font-black">Neighborhood / Community <span className="font-normal">(optional)</span><input aria-label="Neighborhood / Community" value={property.neighborhoodCommunity} onChange={event => setPropertyField('neighborhoodCommunity', event.target.value)} placeholder="Neighborhood or community" className="mt-1 w-full rounded-xl border p-3" /></label>{cont(!property.state || !property.county || !property.city.trim() || !isValidUsZipCode(zipCode), location, 'commercial', () => setPropertyField('zipCode', zipCode))}</div>
     }
-    const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
-  if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || t('virtualStaging.lifeBroker.noCommercial'); const commercialFields = [['price', property.purpose === 'rent' ? t('virtualStaging.lifeBroker.rent') : t('virtualStaging.lifeBroker.price')], ['condominium',t('virtualStaging.lifeBroker.condominium')], ['iptu',t('virtualStaging.lifeBroker.tax')]]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input aria-label={label} value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.currencyPlaceholder')} className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
-  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type).map(group => ({ ...group, items: group.items.filter(item => isVirtualStagingHighlightAvailableForMarket(item, market)) })).filter(group => group.items.length); const selectedLabels = property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale, market })).join(' · '); const nextQuestionId = isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">Selecione até 10 características. Somente os itens escolhidos serão enviados como contexto.</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{getVirtualStagingHighlightLabel(item, { locale, market })}</button>)}</div></section>)}</div>{cont(false, selectedLabels || 'Nenhum destaque adicional', nextQuestionId)}</> }
+    const normalizedDistrict = normalizeVirtualStagingDistrict(property.district); const location = formatVirtualStagingLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder={t('virtualStaging.location.neighborhood')} className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div> }
+  if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || t('virtualStaging.lifeBroker.noCommercial'); const commercialFields = [['price', property.purpose === 'rent' ? t('virtualStaging.lifeBroker.rent') : t('virtualStaging.lifeBroker.price')], ['condominium',t('virtualStaging.lifeBroker.condominium')], ['iptu',t('virtualStaging.lifeBroker.tax')]]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input aria-label={label} value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.currencyPlaceholder')} className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights', undefined, commercialAnswer === t('virtualStaging.lifeBroker.noCommercial') ? 'empty' : 'provided')}</> }
+  if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type).map(group => ({ ...group, items: group.items.filter(item => isVirtualStagingHighlightAvailableForMarket(item, market)) })).filter(group => group.items.length); const selectedLabels = property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale, market })).join(' · '); const nextQuestionId = isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">{t('virtualStaging.highlights.instruction')}</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{getVirtualStagingHighlightLabel(item, { locale, market })}</button>)}</div></section>)}</div>{cont(false, selectedLabels || t('virtualStaging.highlights.none'), nextQuestionId)}</> }
   if (id === 'life_scene') return choices(LIFE_SCENE_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.lifeScene.${option.id}`) })), lifeScene, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setLifeScene(value) }))
   if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices(t('virtualStaging.lifeBroker.captionsHelp'), [{id:'enabled',label:t('virtualStaging.yes')},{id:'disabled',label:t('virtualStaging.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
   if (id === 'cta_enabled') return explainedChoices(t('virtualStaging.lifeBroker.ctaHelp'), [{id:'yes',label:t('virtualStaging.yes')},{id:'no',label:t('virtualStaging.no')}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) setCta('') } }))
   if (id === 'cta') return choices(CTAS.map(value => ({ id: value, label: optionLabel(value) })), cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
-  if (id === 'phone') return choices([{id:'yes',label:t('virtualStaging.yes'),description:phone || t('virtualStaging.cta.phoneMissing')},{id:'no',label:t('virtualStaging.no')}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? 'Telefone profissional' : 'Sem telefone', answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
+  if (id === 'phone') return choices([{id:'yes',label:t('virtualStaging.yes'),description:phone || t('virtualStaging.cta.phoneMissing')},{id:'no',label:t('virtualStaging.no')}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? t('virtualStaging.history.phoneProfessional') : t('virtualStaging.history.phoneNone'), answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   if (isFurnishRenovate) {
     return <>
       <div className="rounded-2xl bg-primary-50 p-4 text-sm font-semibold leading-6 text-primary-950">
@@ -1310,7 +1333,7 @@ function Question(props) {
           { label: t('virtualStaging.presenter.photo'), value: t('virtualStaging.lifeBroker.temporaryImage') },
         ]
       : isLifeInProperty
-      ? [{ label: t('virtualStaging.lifeBroker.life'), value: getLifeSceneLabel(lifeScene) }]
+      ? [{ label: t('virtualStaging.lifeBroker.life'), value: getLifeSceneLabel(lifeScene, { t }) }]
       : [{ label: 'Narração', value: generation.narration === 'enabled' ? 'Sim' : 'Não' }]),
     { label: t('virtualStaging.lifeBroker.texts'), value: generation.captions === 'enabled' ? t('virtualStaging.yes') : t('virtualStaging.no') },
     { label: t('virtualStaging.lifeBroker.cta'), value: isLifeInProperty ? cta : ctaEnabled === true ? cta : t('virtualStaging.lifeBroker.noCta') },
@@ -1326,7 +1349,7 @@ function Question(props) {
     </div>
     <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t('virtualStaging.lifeBroker.allChoices')}</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id)}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" aria-label={`${t('virtualStaging.lifeBroker.edit')}: ${reviewLabel(item.id)}`} onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">{t('virtualStaging.lifeBroker.edit')}</button></div></div>)}
+      {reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{reviewLabel(item.id, { t, journeyId })}</p><p className="mt-1 break-words text-sm font-bold leading-6 text-slate-700">{item.label}</p></div><button type="button" aria-label={`${t('virtualStaging.lifeBroker.edit')}: ${reviewLabel(item.id, { t, journeyId })}`} onClick={() => onReviewEdit(item.id)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">{t('virtualStaging.lifeBroker.edit')}</button></div></div>)}
     </div>
     {message && <div className="mt-4 flex gap-3 rounded-2xl border p-4">{['uploading','generating'].includes(status) && <Loader2 className="animate-spin text-emerald-600" />}<b className="text-sm">{message}</b></div>}
     <SmartTokenEstimate cost={SMART_TOKEN_COSTS.geminiVideo} />
@@ -1337,10 +1360,12 @@ function Question(props) {
   </>
 }
 
-function reviewLabel(id) {
-  return {
+function reviewLabel(id, { t, journeyId } = {}) {
+  const labels = {
     transformation_type: 'Tipo de transformação', decoration_style: 'Estilo', images: 'Fotografias', purpose: 'Finalidade', stage: 'Estado', type: 'Tipo', facts: 'Medidas', area: 'Área', state: 'Estado', city: 'Cidade', district: 'Bairro', neighborhood: 'Bairro', bedrooms: 'Dormitórios', suites: 'Suítes', parkingSpaces: 'Vagas',
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
     presenter_reference: 'Apresentação pelo Corretor', presenter_photo: 'Foto do apresentador', life_scene: 'Vida no Imóvel', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
-  }[id] || id
+  }
+  if ((journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID) && t) return t(`virtualStaging.review.${id}`)
+  return labels[id] || id
 }

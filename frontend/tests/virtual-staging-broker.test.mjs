@@ -53,8 +53,8 @@ test('Apresentacao pelo Corretor starts with the own-image decision and never en
 
 test('declining an own image stops the journey and points to Video Imobiliario', () => {
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_reference', answerId: 'no', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'presenter_reference_required')
-  assert.match(page, /Este módulo utiliza uma foto sua como referência para criar o apresentador\. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação\./)
-  assert.match(page, />Ir para Vídeo Imobiliário</)
+  assert.match(page, /virtualStaging\.lifeBroker\.presenterRequiredNotice/)
+  assert.match(page, /virtualStaging\.lifeBroker\.goToVideo/)
   assert.match(page, /navigate\('\/smart-tour-ai'\)/)
   assert.doesNotMatch(page, /presenter_reference_required[\s\S]{0,300}nextQuestionId/)
 })
@@ -68,19 +68,17 @@ test('presenter upload accepts exactly one valid temporary image', () => {
   assert.equal(validatePresenterReferenceSelection([{ ...jpeg, type: 'image/webp' }]).file, null)
   assert.equal(validatePresenterReferenceSelection([{ ...jpeg, size: 16 * 1024 * 1024 }]).file, null)
 
-  assert.match(page, /ref=\{presenterInputRef\} type="file" accept="image\/jpeg,image\/png" hidden/)
+  assert.match(page, /ref=\{presenterInputRef\} type="file" accept="image\/jpeg,image\/png" aria-label=\{t\('virtualStaging\.presenter\.select'\)\} hidden/)
   assert.doesNotMatch(page, /ref=\{presenterInputRef\} type="file"[^>]*multiple/)
   assert.match(page, /URL\.createObjectURL\(file\)/)
   assert.match(page, /URL\.revokeObjectURL\(presenterReferenceRef\.current\.preview\)/)
 })
 
 test('presenter preview is removable and replaceable and remains separate from property images', () => {
-  assert.match(page, /Foto do apresentador/)
-  assert.match(page, /Preview da foto do apresentador/)
-  assert.match(page, />Substituir foto</)
-  assert.match(page, />Remover foto</)
-  assert.match(page, /Imagens do imóvel/)
-  assert.match(page, /Selecionar fotos do imóvel/)
+  assert.match(page, /virtualStaging\.presenter\.photo/)
+  assert.match(page, /virtualStaging\.presenter\.replace/)
+  assert.match(page, /virtualStaging\.presenter\.remove/)
+  assert.match(page, /copy\('selectPhotos'\)/)
   assert.match(page, /presenterReference[\s\S]*images/)
 })
 
@@ -100,8 +98,8 @@ test('uses the approved Module 3 demo with audio-enabled protected modal', () =>
 })
 
 test('identity notice and temporary-use communication are shown literally', () => {
-  assert.match(page, /Ela será utilizada somente nesta criação como referência para o apresentador\./)
-  assert.match(page, /A IA utilizará sua foto como referência de identidade\. O apresentador será semelhante a você, mas pequenas diferenças de aparência podem ocorrer durante a geração\./)
+  assert.match(page, /virtualStaging\.presenter\.notice/)
+  assert.match(page, /virtualStaging\.presenter\.similarity/)
 })
 
 test('broker journey keeps phone independent, CTA optional, rental states and final summary', () => {
@@ -112,12 +110,12 @@ test('broker journey keeps phone independent, CTA optional, rental states and fi
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta_enabled', answerId: 'no', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'phone')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'phone')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'phone', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'review')
-  assert.match(page, /Apresentação pelo Corretor: Imagem própria enviada/)
-  assert.match(page, /Foto do apresentador: 1 imagem temporária/)
-  assert.match(page, /\{ label: 'Apresentação pelo Corretor', value: 'Imagem própria enviada' \}/)
-  assert.match(page, /\{ label: 'Foto do apresentador', value: '1 imagem temporária' \}/)
-  assert.match(page, /\{ label: 'CTA', value: isLifeInProperty \? cta : ctaEnabled === true \? cta : 'Sem CTA' \}/)
-  assert.match(page, /\{ label: 'Telefone', value: includePhone === true \? phone : 'Sem telefone' \}/)
+  assert.match(page, /virtualStaging\.lifeBroker\.presentation/)
+  assert.match(page, /virtualStaging\.lifeBroker\.ownImage/)
+  assert.match(page, /virtualStaging\.presenter\.photo/)
+  assert.match(page, /virtualStaging\.lifeBroker\.temporaryImage/)
+  assert.match(page, /virtualStaging\.history\.phoneProfessional/)
+  assert.match(page, /virtualStaging\.history\.phoneNone/)
 })
 
 test('broker generation sends one separate presenter reference without mixing property images', () => {
@@ -149,7 +147,7 @@ test('custom presenter speech skips highlights only and remains literal in the g
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_custom_speech', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'captions')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'generated', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'highlights')
   assert.match(page, /if \(id === 'presenter_custom_speech'\)/)
-  assert.match(page, /Até \{BROKER_CUSTOM_SPEECH_MAX_WORDS\} palavras\. O texto será usado literalmente\./)
+  assert.match(page, /virtualStaging\.speech\.limit/)
   assert.match(page, /buildBrokerPresentationGenerationPayload\(\{ captions: generation\.captions, presenterSpeechMode, presenterCustomSpeech, language: draftLocale \}\)/)
 })
 

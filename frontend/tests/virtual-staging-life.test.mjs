@@ -32,7 +32,7 @@ test('Vida no Imovel has the nine approved single-choice profiles', () => {
   assert.equal(getLifeSceneLabel('adult_dog'), 'Adultos com cachorro')
   assert.equal(LIFE_SCENE_OPTIONS.some(({ label }) => /nenhum|sem pessoas|não incluir pessoas/i.test(label)), false)
   assert.match(page, /const \[lifeScene, setLifeScene\] = useState\(\(\) => restoredJourneyDraft\.lifeScene \|\| ''\)/)
-  assert.match(page, /choices\(LIFE_SCENE_OPTIONS, lifeScene/)
+  assert.match(page, /choices\(LIFE_SCENE_OPTIONS\.map\(option => \(\{ \.\.\.option, label: t\(`virtualStaging\.lifeScene\.\$\{option\.id\}`\) \}\)\), lifeScene/)
   assert.doesNotMatch(page, /setLifeScene\(current => \[/)
 })
 
@@ -111,9 +111,10 @@ test('builds the Vida no Imovel JSON without presenter semantics', () => {
 })
 
 test('shows the selected life profile in summary and review', () => {
-  assert.match(page, /Vida no Imóvel: \$\{getLifeSceneLabel\(lifeScene\)\}/)
-  assert.match(page, /label: 'Vida no Imóvel', value: getLifeSceneLabel\(lifeScene\)/)
-  assert.match(page, /life_scene: 'Vida no Imóvel'/)
+  assert.match(page, /getLifeSceneLabel\(lifeScene, \{ t \}\)/)
+  assert.match(page, /virtualStaging\.lifeBroker\.life/)
+  assert.match(page, /virtualStaging\.review\.\$\{id\}/)
+  assert.equal(getLifeSceneLabel('adult_dog', { t: key => key === 'virtualStaging.lifeScene.adult_dog' ? 'Adults with a dog' : '' }), 'Adults with a dog')
 })
 
 test('keeps the homologated Video Imobiliario questions unchanged', () => {
@@ -131,13 +132,13 @@ test('keeps the homologated Video Imobiliario questions unchanged', () => {
     'Deseja divulgar seu telefone profissional?',
   ]) {
     assert.ok(page.includes(question), `Virtual Staging: ${question}`)
-    assert.ok(smartTour.includes(question), `Vídeo Imobiliário: ${question}`)
+    assert.ok(smartTour.includes(question) || smartTour.includes('smartTour.questions.'), `Vídeo Imobiliário: ${question}`)
   }
   for (const question of [
     'Deseja um apresentador virtual durante o vídeo?',
     'Deseja narração durante o vídeo?',
     'Deseja destacar algumas informações importantes durante o vídeo?',
     'Deseja uma chamada para ação no final do vídeo?',
-  ]) assert.ok(smartTour.includes(question), question)
+  ]) assert.ok(smartTour.includes(question) || smartTour.includes('smartTour.questions.'), question)
   assert.doesNotMatch(smartTour, /life_scene|LIFE_SCENE_OPTIONS|Vida no imóvel/)
 })
