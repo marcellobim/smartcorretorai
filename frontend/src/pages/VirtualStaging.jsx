@@ -976,8 +976,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
   const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
-  const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${measureLabels[field]}`).filter(Boolean).join(' · ')
-  const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
+  const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${field === 'area' ? 'm²' : t(`virtualStaging.measures.${field}`).toLocaleLowerCase(draftLocale)}`).filter(Boolean).join(' · ')
+  const valuesSummary = [property.price && `${property.purpose === 'rent' ? t('virtualStaging.ui.rent') : t('virtualStaging.ui.price')} ${property.price}`, property.condominium && `${t('virtualStaging.ui.condominium')} ${property.condominium}`, property.iptu && `${t('virtualStaging.ui.tax')} ${property.iptu}`].filter(Boolean).join(' · ')
   const selectedHighlightLabels = property.highlights
     .map(value => getVirtualStagingHighlightLabel(value, { locale: draftLocale, market: draftMarket }))
     .join(' · ')
@@ -995,7 +995,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'type', label: property.type },
     { id: 'facts', label: measuresSummary },
     { id: 'location', label: draftMarket === 'US' ? formatUsLocation(property) : formatVirtualStagingLocation(property) },
-    { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
+    { id: 'commercial', label: valuesSummary || (isReviewContext ? t('virtualStaging.ui.noCommercialInfo') : '') },
     { id: 'highlights', label: selectedHighlightLabels || (isReviewContext ? 'Sem destaques adicionais' : '') },
     ...(isBrokerPresentation
       ? [
@@ -1010,7 +1010,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'captions', label: generation.captions === 'enabled' ? 'Sim' : generation.captions === 'disabled' ? 'Não' : '' },
     ...(!isLifeInProperty ? [{ id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' }] : []),
     { id: 'cta', label: isLifeInProperty || ctaEnabled === true ? cta : '' },
-    { id: 'phone', label: includePhone === true ? phone : includePhone === false ? 'Sem telefone' : '' },
+    { id: 'phone', label: includePhone === true ? phone : includePhone === false ? t('virtualStaging.cta.phoneNone') : '' },
   ].filter(item => Boolean(item.label))
   const summary = isFurnishRenovate ? furnishSummary : standardSummary
   const furnishHasStyleStep = !transformationType || furnishRenovateRequiresStyle(transformationType)
