@@ -75,7 +75,7 @@ test('adds the inclusive experience choice only to broker capture', () => {
 test('keeps history editing while removing the intermediate live summary', () => {
   assert.match(banner, /chatFlow\.slice\(0, chatIndex\)\.map\(\(question, index\)[\s\S]*?formatAnswer\(answers\[question\.id\]\)[\s\S]*?goToQuestion\(index\)/)
   assert.doesNotMatch(banner, /Resumo ao vivo|Sua campanha<\/h3>/)
-  assert.match(banner, /Resumo da campanha[\s\S]*?chatFlow\.map\(\(question, index\)/)
+  assert.match(banner, /b\('campaignSummary'\)[\s\S]*?chatFlow\.map\(\(question, index\)/)
   assert.match(banner, /const goToQuestion[\s\S]*?setChatIndex\(safeIndex\)[\s\S]*?setTextDraft[\s\S]*?setMultiDraft/)
 })
 

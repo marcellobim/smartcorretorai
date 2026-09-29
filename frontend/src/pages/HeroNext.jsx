@@ -1458,6 +1458,9 @@ function UserBubble({ children, actions }) {
 export default function HeroNext({ guestMode = false } = {}) {
   const { user, profile, reloadProfile } = useAuth()
   const { locale, market, t } = useLocale()
+  const b = (key) => t(`banner.ui.${key}`)
+  const optionLabels = t('banner.optionLabels')
+  const optionLabel = (value) => optionLabels?.[value] || value
   // This fixed draft owner is only a local storage namespace, never an auth/user_id
   // or server credential. The guest session remains exclusively in HttpOnly cookies.
   const bannerDraft = useProductDraft({ productKey: guestMode ? 'banner-imobiliario-guest' : 'banner-imobiliario', schemaVersion: 1, userId: guestMode ? 'guest-local-draft' : user?.id })
@@ -1668,9 +1671,13 @@ export default function HeroNext({ guestMode = false } = {}) {
     const flow = locationQuestions
       ? baseChatFlow.flatMap(question => question.id === 'city' ? locationQuestions : question.id === 'neighborhood' ? [] : [question])
       : baseChatFlow
+    const localizedFlow = flow.map(question => ({
+      ...question,
+      question: t(`banner.questions.${question.id}`) === `banner.questions.${question.id}` ? question.question : t(`banner.questions.${question.id}`),
+    }))
     return canAskProfessionalIdentity
-      ? [...flow, { id: 'professionalIdentity', question: t('banner.professionalIdentity.question'), type: 'professionalIdentity' }]
-      : flow
+      ? [...localizedFlow, { id: 'professionalIdentity', question: t('banner.professionalIdentity.question'), type: 'professionalIdentity' }]
+      : localizedFlow
   }, [baseChatFlow, canAskProfessionalIdentity, market, t])
   const chatFlow = getChatFlowForAnswers(localizedBaseChatFlow, answers).filter((question) => question.id === 'contactPhone' && guestMode ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
   const currentQuestion = chatFlow[chatIndex]
@@ -2676,7 +2683,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             onClick={() => commitAnswer(currentQuestion.id, 'Sim, quero divulgar')}
             className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:opacity-70"
           >
-            <p className="text-base font-black text-slate-950">Sim, divulgar meu telefone</p>
+            <p className="text-base font-black text-slate-950">{b('phoneYes')}</p>
             <p className="mt-2 text-sm font-semibold text-slate-600">
               {profilePhone || (guestMode ? 'Informe o telefone que deseja exibir no anúncio.' : 'Cadastre um telefone no Cadastro Profissional para habilitar esta opção.')}
             </p>
@@ -2686,8 +2693,8 @@ export default function HeroNext({ guestMode = false } = {}) {
             onClick={() => commitAnswer(currentQuestion.id, 'Não, continuar sem telefone')}
             className="rounded-3xl border border-slate-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
           >
-            <p className="text-base font-black text-slate-950">Não divulgar telefone</p>
-            <p className="mt-2 text-sm font-semibold text-slate-600">A campanha será criada sem contato telefônico.</p>
+            <p className="text-base font-black text-slate-950">{b('phoneNo')}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">{b('campaignWithoutPhone')}</p>
           </button>
         </div>
       )
@@ -2697,7 +2704,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       return (
         <div className="mt-4 space-y-4">
           <div>
-            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Estado</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{b('state')}</p>
             <SmartLocationSelect
               autoFocus
               accent="primary"
@@ -2708,12 +2715,12 @@ export default function HeroNext({ guestMode = false } = {}) {
                 setCitySelection('')
               }}
             >
-              <option value="">Selecione o estado</option>
+              <option value="">{b('selectState')}</option>
               {getStatesForMarket('BR').map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </SmartLocationSelect>
           </div>
           <div>
-            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{b('city')}</p>
             <SmartLocationSelect
               accent="primary"
               ariaLabel="Cidade"
@@ -2784,7 +2791,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             {groups.map((group) => (
               <div key={group.title || 'opcoes'}>
                 {group.title && (
-                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-primary-700">{group.title}</p>
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-primary-700">{optionLabel(group.title)}</p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   {group.options.map((option) => {
@@ -2805,7 +2812,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                           active ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                         }`}
                       >
-                        {normalizedOption}
+                        {optionLabel(normalizedOption)}
                       </button>
                     )
                   })}
@@ -2816,12 +2823,12 @@ export default function HeroNext({ guestMode = false } = {}) {
           <input
             value={customDifferential}
             onChange={(event) => setCustomDifferential(event.target.value)}
-            placeholder={currentQuestion.customPlaceholder || 'Outro diferencial importante'}
+            placeholder={optionLabel(currentQuestion.customPlaceholder || 'Outro diferencial importante')}
             maxLength={60}
             className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
           />
           <ProductButton type="button" onClick={() => commitAnswer(currentQuestion.id, selectedWithCustom)} disabled={selectedWithCustom.length === 0}>
-            {currentQuestion.confirmLabel || 'Confirmar diferenciais'}
+            {optionLabel(currentQuestion.confirmLabel || 'Confirmar diferenciais')}
           </ProductButton>
         </div>
       )
@@ -2838,7 +2845,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               answers[currentQuestion.id] === option ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-900'
             }`}
           >
-            {option}
+            {optionLabel(option)}
           </button>
         ))}
       </div>
@@ -2868,7 +2875,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             headline="Sua campanha, criada com"
             highlight="direção profissional."
             description="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto."
-            actions={<ProductButton type="button" size="lg" onClick={startCampaign}>Começar minha campanha</ProductButton>}
+            actions={<ProductButton type="button" size="lg" onClick={startCampaign}>{b('startCampaign')}</ProductButton>}
             className="mt-6"
           />
         )}
@@ -2886,7 +2893,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'goal' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
-            <AssistantBubble>O que deseja divulgar</AssistantBubble>
+            <AssistantBubble>{b('chooseGoal')}</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {GOALS.map((item) => (
                 <button
@@ -2898,7 +2905,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                   className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:border-gray-950 hover:shadow-md"
                 >
                   <Building2 className="h-7 w-7 text-primary-600" />
-                  <p className="mt-4 text-xl font-black text-gray-950">{item.label}</p>
+                  <p className="mt-4 text-xl font-black text-gray-950">{optionLabel(item.label)}</p>
                   <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
                     {item.description || 'A conversa será adaptada para esse objetivo.'}
                   </p>
@@ -2917,9 +2924,9 @@ export default function HeroNext({ guestMode = false } = {}) {
           <section data-smart-conversation className="mt-6 overflow-visible">
             <div className="mb-5">
               <ConversationHeader
-                eyebrow="Conversa guiada"
-                title="Conte sobre sua campanha"
-                description="Uma pergunta por vez. Você pode revisar qualquer resposta."
+                eyebrow={b('guidedConversation')}
+                title={b('tellUs')}
+                description={b('oneQuestion')}
                 accent="emerald"
                 trailing={<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>}
               />
@@ -2927,13 +2934,13 @@ export default function HeroNext({ guestMode = false } = {}) {
             <div className="min-w-0">
               <div className="min-w-0">
                 <div className="mb-4">
-                  <ProductButton type="button" variant="secondary" onClick={goBackInChat}>Voltar</ProductButton>
+                  <ProductButton type="button" variant="secondary" onClick={goBackInChat}>{t('common.back')}</ProductButton>
                 </div>
                 <div className="min-w-0 space-y-4" aria-live="polite">
                   {chatFlow.slice(0, chatIndex).map((question, index) => (
                     <div key={question.id} className="space-y-4">
                       <AssistantBubble>{question.question}</AssistantBubble>
-                      <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-2 inline-flex items-center text-xs font-black text-emerald-200 hover:text-white">Editar</button>}>
+                      <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-2 inline-flex items-center text-xs font-black text-emerald-200 hover:text-white">{b('edit')}</button>}>
                         {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id])}
                       </UserBubble>
                     </div>
@@ -2998,7 +3005,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
                 {saleValueMode === 'price' && (
                   <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5">
-                    <p className="text-sm font-black text-gray-950">Como deseja apresentar o valor?</p>
+                    <p className="text-sm font-black text-gray-950">{b('pricePresentation')}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {[
                         ['fixed', 'Preço fixo'],
@@ -3021,7 +3028,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                         </button>
                       ))}
                     </div>
-                    <label className="mt-5 block text-sm font-black text-gray-950" htmlFor="sale-price">Valor</label>
+                    <label className="mt-5 block text-sm font-black text-gray-950" htmlFor="sale-price">{b('price')}</label>
                     <input
                       id="sale-price"
                       value={formattedSalePrice}
@@ -3066,8 +3073,8 @@ export default function HeroNext({ guestMode = false } = {}) {
 
                 {commercialTermsAvailable && (
                   <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5">
-                    <p className="text-sm font-black text-gray-950">Quer destacar condições comerciais?</p>
-                    <p className="mt-1 text-sm font-semibold text-gray-500">Adicione chamadas comerciais ao banner, se quiser.</p>
+                    <p className="text-sm font-black text-gray-950">{b('commercialHighlight')}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-500">{b('commercialHelp')}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {[
                         ['yes', 'Sim'],
@@ -3122,7 +3129,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             {goal === 'rent' && (
               <div className="mt-5 space-y-5">
                 <div className="rounded-3xl border border-gray-200 bg-white p-5">
-                  <p className="text-sm font-black text-gray-950">Aluguel</p>
+                  <p className="text-sm font-black text-gray-950">{b('rent')}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {[
                       ['show', 'Mostrar aluguel'],
@@ -3224,7 +3231,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                 ))}
 
                 <div className="rounded-3xl border border-gray-200 bg-white p-5">
-                  <p className="text-sm font-black text-gray-950">Garantia</p>
+                  <p className="text-sm font-black text-gray-950">{b('guarantee')}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {RENT_GUARANTEE_OPTIONS.map(({ id, label }) => (
                       <button
@@ -3248,9 +3255,9 @@ export default function HeroNext({ guestMode = false } = {}) {
             )}
 
             <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-600">
-              <p><strong>Como os valores serão apresentados:</strong> {valueCondition.label}</p>
+              <p><strong>{b('valuePresentation')}</strong> {valueCondition.label}</p>
               {valueCondition.details && <p className="mt-1">{valueCondition.details}</p>}
-              {valueCondition.mode === 'hidden' || valueCondition.mode === 'no_values' ? <p className="mt-1">Não mostrar valores na campanha.</p> : null}
+              {valueCondition.mode === 'hidden' || valueCondition.mode === 'no_values' ? <p className="mt-1">{b('hideValues')}</p> : null}
             </div>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
@@ -3268,9 +3275,9 @@ export default function HeroNext({ guestMode = false } = {}) {
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <ProductCard className="p-5 sm:p-7">
               <div className="rounded-3xl border border-emerald-100 bg-white p-5 sm:p-6">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Revisão final</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-950">Tudo certo para continuar</h2>
-                <p className="mt-2 text-sm font-semibold text-slate-600">Confira o resumo antes de seguir para as imagens.</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{b('finalReview')}</p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">{b('readyToContinue')}</h2>
+                <p className="mt-2 text-sm font-semibold text-slate-600">{b('reviewBeforeImages')}</p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {[
                     ['Objetivo definido', getGoalLabel(goal)],
@@ -3284,21 +3291,21 @@ export default function HeroNext({ guestMode = false } = {}) {
                     </div>
                   ))}
                 </div>
-                <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">A inteligência do Banner Imobiliário seguirá suas respostas internamente. Nenhuma instrução técnica precisa ser revisada por você.</p>
+                <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">{b('internalReview')}</p>
               </div>
               <div className="mt-5 flex flex-wrap justify-end gap-3">
                 <ProductButton type="button" variant="secondary" onClick={() => setPhase('ideas')}>
                   Voltar
                 </ProductButton>
                 <ProductButton type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()}>
-                  Continuar para imagens
+                {b('continueToImages')}
                 </ProductButton>
               </div>
             </ProductCard>
             <ProductCard as="aside" variant="flat" className="p-5">
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Resumo da campanha</p>
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{b('campaignSummary')}</p>
               <div className="mt-4 space-y-3 text-sm font-semibold text-slate-600">
-                <p><strong>Objetivo:</strong> {getGoalLabel(goal)}</p>
+                <p><strong>{b('objective')}:</strong> {getGoalLabel(goal)}</p>
                 {chatFlow.map((question, index) => answers[question.id] ? (
                   <div key={question.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
@@ -3320,7 +3327,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                   <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
-                        <strong>Formatos e opções</strong><br />
+                        <strong>{b('formatsOptions')}</strong><br />
                         {selectedDestinations.map((item) => item.label).join(', ')}
                         <br />
                         {formatCreationOptionCount(creativeIdeaCount)} - Total: {formatPieceCount(totalPieceCount)} IA
@@ -3369,7 +3376,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'destination' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
-            <AssistantBubble>Quais formatos deseja gerar para esta campanha</AssistantBubble>
+            <AssistantBubble>{b('formatsQuestion')}</AssistantBubble>
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
               Cada formato selecionado gera uma peça IA própria, otimizada para aquele canal.
             </p>
@@ -3402,9 +3409,9 @@ export default function HeroNext({ guestMode = false } = {}) {
             </div>
             {selectedDestinations.length > 0 && (
               <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-600">
-                <p><strong>Formatos selecionados:</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
-                <p className="mt-1"><strong>Próximo passo:</strong> escolher quantas opções de criação deseja receber.</p>
-                <p className="mt-1"><strong>Total atual:</strong> {formatPieceCount(totalPieceCount)} IA</p>
+                <p><strong>{b('formatsSelected')}</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
+                <p className="mt-1"><strong>{b('nextStep')}</strong> {b('chooseCreationOptions')}</p>
+                <p className="mt-1"><strong>{b('currentTotal')}</strong> {formatPieceCount(totalPieceCount)} IA</p>
               </div>
             )}
             {(pieceLimitNotice || pieceLimitExceeded) && (
@@ -3425,7 +3432,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'ideas' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
-            <AssistantBubble>Quantas opções de criação você quer receber?</AssistantBubble>
+            <AssistantBubble>{b('optionsQuestion')}</AssistantBubble>
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
               Você pode receber uma ou mais versões da mesma campanha para comparar antes de escolher.
             </p>
@@ -3462,10 +3469,10 @@ export default function HeroNext({ guestMode = false } = {}) {
               ))}
             </div>
             <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-600">
-              <p><strong>Formatos selecionados:</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
-              <p className="mt-1"><strong>Opções de criação:</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
-              <p className="mt-1"><strong>Total previsto:</strong> {formatPieceCount(totalPieceCount)} IA</p>
-              <p className="mt-1"><strong>Consumo previsto:</strong> {totalPieceCount} geração(ões)</p>
+              <p><strong>{b('formatsSelected')}</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
+              <p className="mt-1"><strong>{b('creationOptions')}</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
+              <p className="mt-1"><strong>{b('expectedTotal')}</strong> {formatPieceCount(totalPieceCount)} IA</p>
+              <p className="mt-1"><strong>{b('expectedConsumption')}</strong> {totalPieceCount} {b('generations')}</p>
             </div>
             {(pieceLimitNotice || pieceLimitExceeded) && (
               <p className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
@@ -3485,7 +3492,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'images' && (
           <ProductCard className="mt-6 p-5 sm:p-8">
-            <p className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Etapa de imagens</p>
+            <p className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{b('imageStep')}</p>
             <AssistantBubble>{isAnyCaptureGoal ? 'Deseja anexar logo ou foto institucional?' : 'Você possui imagens reais deste imóvel?'}</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
@@ -3496,7 +3503,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                 }`}
               >
                 <Upload className="h-7 w-7 text-primary-600" />
-                <p className="mt-4 text-lg font-black">Sim, vou enviar agora</p>
+                <p className="mt-4 text-lg font-black">{b('uploadNow')}</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'yes' ? 'text-gray-300' : 'text-gray-500'}`}>
                   {isAnyCaptureGoal
                     ? 'Sua marca será aplicada como referência visual. Logo e foto institucional são opcionais.'
@@ -3599,7 +3606,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-800 text-white">
               <Wand2 className="h-7 w-7 animate-pulse" />
             </div>
-            <h1 className="mt-5 text-3xl font-black text-gray-950">Criando sua campanha...</h1>
+            <h1 className="mt-5 text-3xl font-black text-gray-950">{b('creatingCampaign')}</h1>
             <p className="mt-3 text-sm font-semibold text-gray-500">
               {processingMessage}
             </p>
@@ -3667,7 +3674,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 text-primary-800">
               <Wand2 className="h-7 w-7" />
             </div>
-            <h1 className="mt-5 text-3xl font-black text-gray-950">Acompanhe sua criação</h1>
+            <h1 className="mt-5 text-3xl font-black text-gray-950">{b('followCreation')}</h1>
             <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-gray-600">
               {recoveryNotice || 'Consulte a operação existente sem iniciar uma nova geração.'}
             </p>
@@ -3697,15 +3704,15 @@ export default function HeroNext({ guestMode = false } = {}) {
           <section className="mt-6 space-y-5">
             <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
               <div>
-                <p className="text-sm font-black text-slate-950">Arquivos da sua campanha</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">Pré-visualize ou baixe cada arte. Se preferir, reúna tudo em um único clique.</p>
+                <p className="text-sm font-black text-slate-950">{b('campaignFiles')}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{b('previewDownload')}</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {campaignPackageData.files.length > 0 && (
                   <button type="button" disabled={downloadAllLoading} onClick={downloadAllImages} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"><Download className="h-4 w-4" />{downloadAllLoading ? 'Baixando artes...' : 'Baixar todas as artes'}</button>
                 )}
                 {campaignCopy.length > 0 && (
-                  <button type="button" onClick={downloadTexts} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Baixar todos os textos</button>
+                  <button type="button" onClick={downloadTexts} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />{b('downloadAllTexts')}</button>
                 )}
               </div>
             </div>
@@ -3746,7 +3753,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     if (event.target === event.currentTarget) closeExpandedPreview()
                   }}
                 >
-                  <h2 id="hero-result-preview-title" className="sr-only">Preview ampliado do Banner Imobiliário</h2>
+                  <h2 id="hero-result-preview-title" className="sr-only">{b('previewTitle')}</h2>
                   <button
                     ref={expandedPreviewCloseRef}
                     type="button"
@@ -3772,8 +3779,8 @@ export default function HeroNext({ guestMode = false } = {}) {
             <div className="rounded-[2rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 text-white shadow-xl shadow-primary-900/10 sm:p-8">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Campanha IA</p>
-                  <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Campanha criada com sucesso</h1>
+                  <p className="text-xs font-black uppercase tracking-wide text-cyan-100">{b('campaignAi')}</p>
+                  <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">{b('campaignCreated')}</h1>
                   <p className="mt-3 text-sm font-semibold text-gray-300">
                     Suas peças foram geradas nos formatos selecionados.
                   </p>
@@ -3820,7 +3827,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-black text-gray-950">Peças geradas</p>
+                    <p className="text-sm font-black text-gray-950">{b('generatedPieces')}</p>
                     <p className="text-xs font-semibold text-gray-500">
                       {(generationResult.jobs || []).filter((job) => job.status === 'completed').length} concluída(s) de {(generationResult.jobs || []).length}
                     </p>
@@ -3929,21 +3936,21 @@ export default function HeroNext({ guestMode = false } = {}) {
 
               <aside className="space-y-5">
                 <div className="rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">Resumo</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-primary-700">{b('summary')}</p>
                   <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
-                    <p><strong>Objetivo:</strong> {getGoalLabel(goal)}</p>
-                    <p><strong>Tipo:</strong> {isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType}</p>
-                    <p><strong>Local:</strong> {[answers.neighborhood || answers.neighborhoods, answers.city].filter(Boolean).join(', ')}</p>
-                    {isPropertyCaptureGoal && <p><strong>Serviços:</strong> {formatAnswer(answers.services) || 'Não informado'}</p>}
-                    <p><strong>Diferenciais:</strong> {formatAnswer(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials) || 'Não informado'}</p>
-                    {!isAnyCaptureGoal && <p><strong>Valores/condições:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>}
+                    <p><strong>{b('objective')}:</strong> {getGoalLabel(goal)}</p>
+                    <p><strong>{b('type')}:</strong> {isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType}</p>
+                    <p><strong>{b('location')}:</strong> {[answers.neighborhood || answers.neighborhoods, answers.city].filter(Boolean).join(', ')}</p>
+                    {isPropertyCaptureGoal && <p><strong>{b('services')}:</strong> {formatAnswer(answers.services) || b('noInformation')}</p>}
+                    <p><strong>{b('highlights')}:</strong> {formatAnswer(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials) || b('noInformation')}</p>
+                    {!isAnyCaptureGoal && <p><strong>{b('valuesConditions')}:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>}
                     <p><strong>CTA:</strong> {answers.cta}</p>
                     {answers.contactPhoneChoice === 'Sim, quero divulgar' && answers.contactPhone && (
-                      <p><strong>Telefone:</strong> {answers.contactPhone}</p>
+                      <p><strong>{b('phone')}:</strong> {answers.contactPhone}</p>
                     )}
-                    <p><strong>Formatos:</strong> {selectedDestinations.map((item) => item.label).join(', ') || 'Não informado'}</p>
-                    <p><strong>Opções de criação:</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
-                    <p><strong>Total:</strong> {formatPieceCount(generationResult.jobs.length || totalPieceCount || 0)} IA</p>
+                    <p><strong>{b('formats')}:</strong> {selectedDestinations.map((item) => item.label).join(', ') || b('noInformation')}</p>
+                    <p><strong>{b('creationOptions')}</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
+                    <p><strong>{b('total')}</strong> {formatPieceCount(generationResult.jobs.length || totalPieceCount || 0)} IA</p>
                     <p><strong>{isAnyCaptureGoal ? 'Arquivos de marca' : 'Imagens reais'}:</strong> {uploadedImages.length > 0 ? `${uploadedImages.length} anexada(s)` : 'Não utilizadas'}</p>
                   </div>
                 </div>
@@ -3959,9 +3966,9 @@ export default function HeroNext({ guestMode = false } = {}) {
           <p className="mt-3">{generationResult ? 'Crie sua conta para baixar ou publicar.' : 'Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.'}</p>
           <p className="mt-3 text-sm">Ao criar sua conta, você recebe 200 Smart Tokens para continuar criando no {BRAND.name}.</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <Link to="/cadastro" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl bg-violet-600 px-4 py-3 font-bold text-white">Criar minha conta</Link>
-            <Link to="/login" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl border px-4 py-3 font-bold">Entrar</Link>
-            <button type="button" onClick={()=>setGuestSignupGate(false)} className="px-3 py-2">Voltar ao anúncio</button>
+            <Link to="/cadastro" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl bg-violet-600 px-4 py-3 font-bold text-white">{b('createAccount')}</Link>
+            <Link to="/login" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl border px-4 py-3 font-bold">{b('signIn')}</Link>
+            <button type="button" onClick={()=>setGuestSignupGate(false)} className="px-3 py-2">{b('backToAd')}</button>
           </div>
         </section>
       </div>}

@@ -22,7 +22,7 @@ test('uses the shared product design system throughout the Banner Imobiliário i
 })
 
 test('preserves Banner actions while migrating controls to ProductButton', () => {
-  assert.match(banner, /actions=\{<ProductButton[^>]*onClick=\{startCampaign\}>Começar minha campanha<\/ProductButton>\}/)
+  assert.match(banner, /actions=\{<ProductButton[^>]*onClick=\{startCampaign\}>\{b\('startCampaign'\)\}<\/ProductButton>\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => commitAnswer\(currentQuestion\.id, textDraft\)\}[^>]*disabled=\{!textDraft\.trim\(\)\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{goToDestinationStep\}[^>]*disabled=\{goal === 'sale' \? !saleValueReady : !rentValueReady\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => setPhase\('images'\)\}[^>]*disabled=\{!effectivePrompt\.trim\(\)\}/)
@@ -64,7 +64,7 @@ test('presents the Banner conversation with the approved shared visual grammar w
   assert.match(banner, /ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard/)
   assert.match(banner, /phase === 'chat'[\s\S]*?<section data-smart-conversation className="mt-6 overflow-visible">/)
   assert.match(banner, /<ConversationQuestionCard[\s\S]*?label=\{`\$\{Math\.min\(chatIndex \+ 1, chatFlow\.length\)\} de \$\{chatFlow\.length\}`\}[\s\S]*?title=\{currentQuestion\.question\}/)
-  assert.match(banner, /<UserBubble actions=\{<button[\s\S]*?goToQuestion\(index\)[\s\S]*?>Editar<\/button>\}/)
+  assert.match(banner, /<UserBubble actions=\{<button[\s\S]*?goToQuestion\(index\)[\s\S]*?>\{b\('edit'\)\}<\/button>\}/)
   assert.match(banner, /const commitAnswer[\s\S]*?setChatIndex\(nextMissingIndex\)[\s\S]*?const goToQuestion/)
   assert.match(banner, /activeQuestionRef\.current\?\.scrollIntoView\(\{ behavior: 'smooth', block: 'nearest' \}\)/)
   assert.doesNotMatch(banner, /import GuidedConversation|<GuidedConversation/)
