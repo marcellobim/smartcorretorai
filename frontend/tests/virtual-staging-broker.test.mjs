@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { getVirtualStagingNextQuestion } from '../src/config/virtualStagingConversation.js'
 import {
+  BROKER_CUSTOM_SPEECH_MAX_WORDS,
   BROKER_PRESENTATION_JOURNEY_ID,
   BROKER_REFERENCE_OPTIONS,
   buildBrokerPresentationFilePayload,
@@ -37,16 +38,17 @@ test('Apresentacao pelo Corretor starts with the own-image decision and never en
     'facts',
     'location',
     'commercial',
+    'presenter_speech_mode',
     'highlights',
     'captions',
-    'cta',
+    'cta_enabled',
     'phone',
     'review',
   ])
   assert.equal(sequence.includes('life_scene'), false)
-  assert.equal(sequence.includes('presenter'), false)
+  assert.equal(sequence.includes('presenter_speech_mode'), true)
   assert.equal(sequence.includes('narration'), false)
-  assert.equal(sequence.includes('cta_enabled'), false)
+  assert.equal(sequence.includes('cta_enabled'), true)
 })
 
 test('declining an own image stops the journey and points to Video Imobiliario', () => {
@@ -102,10 +104,12 @@ test('identity notice and temporary-use communication are shown literally', () =
   assert.match(page, /A IA utilizará sua foto como referência de identidade\. O apresentador será semelhante a você, mas pequenas diferenças de aparência podem ocorrer durante a geração\./)
 })
 
-test('broker journey keeps optional phone, mandatory CTA, rental states and final summary', () => {
+test('broker journey keeps phone independent, CTA optional, rental states and final summary', () => {
   assert.match(page, /property\.purpose === 'rent' \? LIFE_RENTAL_STAGE_OPTIONS : STAGES/)
   for (const stage of ['Pronto para morar', 'Disponível já', 'Vago']) assert.match(read('frontend/src/config/virtualStagingLife.js'), new RegExp(stage))
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'captions', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'cta')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'captions', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'cta_enabled')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta_enabled', answerId: 'yes', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'cta')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta_enabled', answerId: 'no', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'phone')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'phone')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'phone', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'review')
   assert.match(page, /Apresentação pelo Corretor: Imagem própria enviada/)
@@ -123,7 +127,7 @@ test('broker generation sends one separate presenter reference without mixing pr
     property_images: { image_paths: propertyImagePaths, image_order: propertyImagePaths },
   })
   assert.deepEqual(buildBrokerPresentationGenerationPayload({ captions: 'disabled' }), {
-    mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR',
+    mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR', presenterSpeechMode: 'generated', presenterCustomSpeech: '',
   })
   assert.match(page, /presenter-reference\.\$\{presenterFile\.type === 'image\/png' \? 'png' : 'jpg'\}/)
   assert.match(page, /buildBrokerPresentationFilePayload\(\{ presenterReferencePath, propertyImagePaths: imagePaths \}\)/)
@@ -135,6 +139,16 @@ test('broker generation sends one separate presenter reference without mixing pr
   assert.match(virtualGenerator, /presenterReferencePath/)
   assert.match(virtualGenerator, /images:\[\.\.\.presenterImages,\.\.\.images\]/)
   assert.doesNotMatch(read('supabase/functions/smart-tour-generate/index.ts'), /presenter_reference|presenterReferencePath|broker-presentation/)
+})
+
+test('custom presenter speech skips highlights only and remains literal in the generation contract', () => {
+  assert.equal(BROKER_CUSTOM_SPEECH_MAX_WORDS, 25)
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'custom', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'presenter_custom_speech')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_custom_speech', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'captions')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'generated', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'highlights')
+  assert.match(page, /if \(id === 'presenter_custom_speech'\)/)
+  assert.match(page, /Até \{BROKER_CUSTOM_SPEECH_MAX_WORDS\} palavras\. O texto será usado literalmente\./)
+  assert.match(page, /buildBrokerPresentationGenerationPayload\(\{ captions: generation\.captions, presenterSpeechMode, presenterCustomSpeech \}\)/)
 })
 
 test('Modules 1 and 2 retain their approved branching', () => {

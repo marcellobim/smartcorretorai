@@ -226,6 +226,12 @@ test('persiste somente identificadores e caminhos para recovery idempotente do S
   assert.doesNotMatch(page, /furnish(?:Gallery|History)|virtualStaging(?:Gallery|History)/i)
 })
 
+test('opens Smart Space directly on transformation without the internal start card', () => {
+  assert.doesNotMatch(page, /virtual-staging-chat-intro-title/)
+  assert.doesNotMatch(page, /VIRTUAL_STAGING_CHAT_INTRO\.action/)
+  assert.match(page, /initialQuestionId: isBrokerPresentation \? 'presenter_reference' : isFurnishRenovate \? 'transformation_type' : 'images'/)
+})
+
 test('mantém resultado concluído separado de falha real quando a URL assinada não materializa', () => {
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
   assert.match(integration, /status: 'result_unavailable', rawResult: data\.result/)

@@ -36,7 +36,7 @@ test('Vida no Imovel has the nine approved single-choice profiles', () => {
   assert.doesNotMatch(page, /setLifeScene\(current => \[/)
 })
 
-test('branches only Vida no Imovel after highlights and makes CTA mandatory', () => {
+test('keeps Vida no Imovel CTA mandatory while broker CTA remains independent', () => {
   const next = questionId => getVirtualStagingNextQuestion({ questionId, journeyId: LIFE_IN_PROPERTY_JOURNEY_ID })
 
   const sequence = ['images']
@@ -70,8 +70,8 @@ test('branches only Vida no Imovel after highlights and makes CTA mandatory', ()
   assert.match(page, /\['life_scene', 3, 'Quem deseja incluir para valorizar ainda mais a apresentação do seu imóvel\?'\]/)
   assert.match(page, /\['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo\?'\]/)
   assert.match(page, /\['cta', 4, 'Qual chamada deseja usar no final\?'\]/)
-  assert.match(page, /const selectedCta = isLifeInProperty \|\| isBrokerPresentation \|\| ctaEnabled === true \? cta : ''/)
-  assert.match(page, /const includeProfessionalPhone = \(isLifeInProperty \|\| isBrokerPresentation \|\| ctaEnabled === true\) && includePhone === true/)
+  assert.match(page, /const selectedCta = isLifeInProperty \|\| ctaEnabled === true \? cta : ''/)
+  assert.match(page, /const includeProfessionalPhone = includePhone === true/)
 })
 
 test('keeps the approved rental states shared by Virtual Staging and Video Imobiliario', () => {

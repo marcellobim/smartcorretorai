@@ -7,6 +7,11 @@ export const BROKER_REFERENCE_OPTIONS = Object.freeze([
   { id: 'yes', label: 'Sim' },
   { id: 'no', label: 'Não' },
 ])
+export const BROKER_SPEECH_OPTIONS = Object.freeze([
+  { id: 'generated', label: 'Criar uma fala para mim' },
+  { id: 'custom', label: 'Escrever minha própria fala' },
+])
+export const BROKER_CUSTOM_SPEECH_MAX_WORDS = 25
 
 const PRESENTER_REFERENCE_TYPES = new Set(['image/jpeg', 'image/png'])
 const PRESENTER_REFERENCE_MAX_BYTES = 15 * 1024 * 1024
@@ -21,7 +26,7 @@ export function validatePresenterReferenceSelection(files) {
   return { file, error: '' }
 }
 
-export function buildBrokerPresentationGenerationPayload({ captions }) {
+export function buildBrokerPresentationGenerationPayload({ captions, presenterSpeechMode = 'generated', presenterCustomSpeech = '' }) {
   return {
     mode: 'guided_tour',
     presenterGender: 'none',
@@ -30,6 +35,8 @@ export function buildBrokerPresentationGenerationPayload({ captions }) {
     furniture: 'original',
     stagingPresentation: 'final_only',
     language: 'pt-BR',
+    presenterSpeechMode: presenterSpeechMode === 'custom' ? 'custom' : 'generated',
+    presenterCustomSpeech: presenterSpeechMode === 'custom' ? presenterCustomSpeech : '',
   }
 }
 

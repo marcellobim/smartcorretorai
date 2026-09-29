@@ -41,9 +41,11 @@ const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
   type: 'facts',
   facts: 'location',
   location: 'commercial',
-  commercial: 'highlights',
+  commercial: 'presenter_speech_mode',
+  presenter_custom_speech: 'captions',
   highlights: 'captions',
-  captions: 'cta',
+  captions: 'cta_enabled',
+  cta_enabled: 'cta',
   cta: 'phone',
   phone: 'review',
 })
@@ -62,6 +64,8 @@ export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode 
   if (journeyId === LIFE_IN_PROPERTY_JOURNEY_ID) return LIFE_IN_PROPERTY_NEXT_QUESTION[questionId] || 'review'
   if (journeyId === BROKER_PRESENTATION_JOURNEY_ID) {
     if (questionId === 'presenter_reference') return answerId === 'yes' ? 'presenter_photo' : 'presenter_reference_required'
+    if (questionId === 'presenter_speech_mode') return answerId === 'custom' ? 'presenter_custom_speech' : 'highlights'
+    if (questionId === 'cta_enabled') return answerId === 'yes' ? 'cta' : 'phone'
     return BROKER_PRESENTATION_NEXT_QUESTION[questionId] || 'review'
   }
   if (questionId === 'cta_enabled') return answerId === 'yes' ? 'cta' : 'review'

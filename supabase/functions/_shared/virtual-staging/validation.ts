@@ -39,6 +39,13 @@ export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): 
   else if (mode !== 'narrated_tour') normalized.presenterGender = value.presenterGender === 'female' || value.presenterGender === 'male' ? value.presenterGender : 'none'
   normalized.narration = value.narration === 'disabled' ? 'disabled' : mode === 'cinematic_tour' && value.narration !== 'enabled' ? 'disabled' : 'enabled'
   normalized.captions = value.captions === 'disabled' ? 'disabled' : 'enabled'
+  if (value.presenterSpeechMode === 'custom') {
+    const customSpeech = typeof value.presenterCustomSpeech === 'string' ? value.presenterCustomSpeech.trim() : ''
+    if (!customSpeech || customSpeech.length > 280 || customSpeech.split(/\s+/).filter(Boolean).length > 25) throw new Error('invalid_presenter_custom_speech')
+    normalized.presenterSpeechMode = 'custom'
+    normalized.presenterCustomSpeech = customSpeech
+    normalized.narration = 'enabled'
+  } else normalized.presenterSpeechMode = 'generated'
   normalized.furniture = 'original'
   normalized.stagingPresentation = 'final_only'
   if (value.life_scene !== undefined) {

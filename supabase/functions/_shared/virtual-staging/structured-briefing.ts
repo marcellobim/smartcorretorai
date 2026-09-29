@@ -562,7 +562,7 @@ export function buildSmartTourStructuredBriefing(input: {
   const finalidade = purpose(input.property.purpose)
   const tipoImovel = literal(input.property.type)
   const ctaTitle = literal(input.selectedCta)
-  const phone = ctaTitle ? input.phone || '' : ''
+  const phone = input.phone || ''
   const lifeScene = config.life_scene
   const requiresCommercialPurpose = Boolean(lifeScene || input.presenterReference)
   const purposeOpening = requiresCommercialPurpose ? lifeSceneOpeningNarration(input.property, input.language) : ''
@@ -573,7 +573,9 @@ export function buildSmartTourStructuredBriefing(input: {
   const signature = JSON.stringify({ property: input.property, generation: config, ctaTitle, phone, images: input.imagePaths, presenterReference: input.presenterReference })
   const narrationBlocks = lifeScene ? LIFE_SCENE_NARRATION_TIMELINE : TEXT_TIMELINE
   const narrationTimeline = narrationBlocks.map(block => {
-    const phrase = config.narration === 'enabled'
+    const phrase = config.presenterSpeechMode === 'custom'
+      ? { id: 'PRESENTER_CUSTOM_SPEECH', texto: block.bloco === 1 ? config.presenterCustomSpeech || '' : '' }
+      : config.narration === 'enabled'
       ? (lifeScene
           ? lifeInPropertyNarration(block.bloco, input.property, input.language)
           : input.presenterReference
@@ -747,6 +749,7 @@ export function buildSmartTourStructuredBriefing(input: {
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
       { codigo: 'legendas_aplicadas_por_compositor_deterministico', valor: 'Não desenhar legendas, CTA, telefone ou qualquer outro texto no vídeo gerado pelo Gemini. Os textos e tempos de timeline.legendas e timeline.cta serão aplicados literalmente pelo compositor determinístico após a geração.' },
       { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Usar exclusivamente timeline.legendas, timeline.narracao e timeline.cta como fonte efetiva dos textos e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
+      ...(config.presenterSpeechMode === 'custom' ? [{ codigo: 'fala_propria_literal', valor: 'Quando presenterSpeechMode for custom, narrar literalmente timeline.narracao[0].texto, sem resumir, corrigir, traduzir, complementar ou substituir palavras.' }] : []),
       { codigo: lifeScene ? 'sequencia_comercial_vida_no_imovel' : input.presenterReference ? 'sequencia_comercial_apresentacao_corretor' : 'legendas_sem_valores_comerciais_automaticos', valor: requiresCommercialPurpose
         ? 'Aplicar literalmente a sequência de timeline.legendas: finalidade; estado do imóvel; bairro e cidade; primeiro destaque; preço quando informado ou segundo destaque. Não omitir, reordenar, completar ou inventar valores.'
         : 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },

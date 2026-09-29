@@ -233,7 +233,7 @@ export function buildPropertyContext(property: PropertyContext, cta = '', phone 
     descricaoEnviada: removeNonOfficialPhoneNumbers(property.description),
     diferenciais: highlights,
     ...(cta ? { cta: removeNonOfficialPhoneNumbers(cta) } : {}),
-    ...(cta && phone ? { telefone: phone } : {}),
+    ...(phone ? { telefone: phone } : {}),
     ...(presenter ? { apresentador: presenter } : {}),
   }
   return `DADOS ESTRUTURADOS — VALORES LITERAIS CONTROLADOS PELO SMARTCORRETORAI\n${JSON.stringify(data, null, 2)}`
