@@ -1,0 +1,53 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  presentCta,
+  presentHighlight,
+  presentLifeProfile,
+  presentMetricLabel,
+  presentPropertyType,
+  presentPurpose,
+  presentStage,
+} from '../presentation.ts'
+import { buildSmartTourStructuredBriefing } from '../structured-briefing.ts'
+
+test('presentation mappings preserve PT-BR and provide EN-US labels', () => {
+  assert.equal(presentPurpose('Venda'), 'Venda')
+  assert.equal(presentPurpose('Venda', 'en-US'), 'For Sale')
+  assert.equal(presentPurpose('Locação', 'en-US'), 'For Rent')
+  assert.equal(presentPropertyType('Apartamento', 'en-US'), 'Apartment')
+  assert.equal(presentPropertyType('Terreno / Lote', 'en-US'), 'Land / Lot')
+  assert.equal(presentStage('Pronto para morar', 'en-US'), 'Move-in ready')
+  assert.equal(presentStage('Disponível já', 'en-US'), 'Available now')
+  assert.equal(presentCta('Agende sua visita', 'en-US'), 'Schedule a tour')
+  assert.equal(presentLifeProfile('adult_dog'), 'adultos com cachorro')
+  assert.equal(presentLifeProfile('adult_dog', 'en-US'), 'Adults with a dog')
+  assert.equal(presentHighlight('Varanda gourmet', 'en-US'), 'Gourmet balcony')
+  assert.equal(presentHighlight('Próximo ao metrô', 'en-US'), 'Near public transit')
+  assert.equal(presentMetricLabel('bedrooms'), 'dormitórios')
+  assert.equal(presentMetricLabel('parkingSpaces', 'en-US'), 'parking spaces')
+  assert.equal(presentMetricLabel('area', 'en-US'), 'sq ft')
+})
+
+test('missing language and unknown values fall back safely to the original value', () => {
+  assert.equal(presentPurpose('Venda', undefined), 'Venda')
+  assert.equal(presentPropertyType('Tipo futuro', 'en-US'), 'Tipo futuro')
+  assert.equal(presentStage('Estado futuro', 'en-US'), 'Estado futuro')
+  assert.equal(presentCta('CTA futuro', 'en-US'), 'CTA futuro')
+  assert.equal(presentHighlight('Diferencial futuro', 'en-US'), 'Diferencial futuro')
+})
+
+test('briefing adds presentation only for Life and Broker without changing internal values or custom speech', () => {
+  const property = { purpose: 'sale', type: 'Apartamento', stage: 'Pronto para morar', bedrooms: '2', suites: '1', parkingSpaces: '1', area: '80', highlights: ['Varanda gourmet'] }
+  const life = buildSmartTourStructuredBriefing({ generation: { mode: 'narrated_tour', language: 'en-US', life_scene: 'adult_dog', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'en-US' })
+  assert.equal(life.imovel.finalidade, 'Venda')
+  assert.equal(life.imovel.tipo, 'Apartamento')
+  assert.deepEqual(life.apresentacao, { finalidade: 'For Sale', tipo: 'Apartment', estadoDoImovel: 'Move-in ready', metricas: { dormitorios: 'bedrooms', suites: 'suites', vagas: 'parking spaces', area: 'sq ft' }, diferenciais: ['Gourmet balcony'], cta: 'Schedule a tour', perfilVida: 'Adults with a dog' })
+
+  const custom = buildSmartTourStructuredBriefing({ generation: { mode: 'guided_tour', language: 'en-US', presenterSpeechMode: 'custom', presenterCustomSpeech: 'This exact sentence remains literal.', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'en-US', presenterReference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: 'presenter.jpg' } })
+  assert.equal(custom.timeline.narracao.map(block => block.texto).join(' '), 'This exact sentence remains literal.')
+  assert.equal(custom.apresentacao?.cta, 'Schedule a tour')
+
+  const smartSpace = buildSmartTourStructuredBriefing({ generation: { mode: 'guided_tour', language: 'pt-BR', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'female' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language: 'pt-BR' })
+  assert.equal(smartSpace.apresentacao, undefined)
+})

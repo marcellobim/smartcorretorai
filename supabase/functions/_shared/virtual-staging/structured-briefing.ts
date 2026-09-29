@@ -2,6 +2,7 @@ import type { LifeScene, PresenterReference, PropertyContext, SmartTourGeneratio
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { normalizeGeneration } from './validation.ts'
 import { composePtBrPropertySpeechFacts } from '../pt-br-speech.ts'
+import { presentCta, presentHighlights, presentLifeProfile, presentMetricLabel, presentPropertyType, presentPurpose, presentStage } from './presentation.ts'
 
 export const SMART_TOUR_GEMINI_MISSION = `MISSÃO PRINCIPAL
 Você é um cinegrafista profissional especializado em imóveis.
@@ -160,6 +161,15 @@ export type SmartTourStructuredBriefing = {
   apresentador: { tipo: Presenter; unicoHumanoAutorizado: boolean }
   referenciaApresentador?: PresenterReference & { posicaoNaEntrada: 1; usoExclusivo: 'referencia_de_identidade' }
   vidaNoImovel?: { life_scene: LifeScene; descricao: string }
+  apresentacao?: {
+    finalidade: string
+    tipo: string
+    estadoDoImovel: string
+    metricas: { dormitorios: string; suites: string; vagas: string; area: string }
+    diferenciais: string[]
+    cta: string
+    perfilVida?: string
+  }
   musica: { configurada: false; instrucao: 'preservar_comportamento_atual' }
   sequenciaDasImagens: string[]
   movimentosDesejados: Array<'pan_suave' | 'push_in_minimo' | 'pull_back_minimo' | 'movimento_linear_baixa_amplitude'>
@@ -728,7 +738,16 @@ export function buildSmartTourStructuredBriefing(input: {
     },
     apresentador: { tipo: presenterType, unicoHumanoAutorizado: hasPresenter },
     ...(input.presenterReference ? { referenciaApresentador: { ...input.presenterReference, posicaoNaEntrada: 1 as const, usoExclusivo: 'referencia_de_identidade' as const } } : {}),
-    ...(lifeScene ? { vidaNoImovel: { life_scene: lifeScene, descricao: lifeSceneLabel } } : {}),
+    ...(lifeScene ? { vidaNoImovel: { life_scene: lifeScene, descricao: presentLifeProfile(lifeScene, input.language) } } : {}),
+    ...(hasLifeScene || Boolean(input.presenterReference) ? { apresentacao: {
+      finalidade: presentPurpose(finalidade, input.language),
+      tipo: presentPropertyType(tipoImovel, input.language),
+      estadoDoImovel: presentStage(input.property.stage, input.language),
+      metricas: { dormitorios: presentMetricLabel('bedrooms', input.language), suites: presentMetricLabel('suites', input.language), vagas: presentMetricLabel('parkingSpaces', input.language), area: presentMetricLabel('area', input.language) },
+      diferenciais: presentHighlights(input.property.highlights, input.language),
+      cta: presentCta(ctaTitle, input.language),
+      ...(lifeScene ? { perfilVida: presentLifeProfile(lifeScene, input.language) } : {}),
+    } } : {}),
     musica: { configurada: false, instrucao: 'preservar_comportamento_atual' },
     sequenciaDasImagens: [...input.imagePaths],
     movimentosDesejados: [...MOVEMENTS],
