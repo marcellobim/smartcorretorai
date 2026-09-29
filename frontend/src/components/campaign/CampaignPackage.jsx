@@ -109,7 +109,7 @@ function ImagePreview({ src, alt, renderId = '', onRefresh, onOpen }) {
   return <button type="button" onClick={(event) => onOpen({ src, alt }, event.currentTarget)} className="block h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-primary-300" aria-label={`Ampliar ${alt}`}>{image}</button>
 }
 
-function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshMedia, onOpenImage, mediaPresentation, protectVideoDownload }) {
+function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshMedia, onOpenImage, mediaPresentation, protectVideoDownload, uiLabels }) {
   if (campaign.mediaType === 'images') {
     if (!campaign.files.length) return null
     return (
@@ -142,7 +142,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
                       className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
                     >
                       <Download className="h-4 w-4" />
-                      {downloadingKey === `image-${file.id || index}` ? 'Baixando...' : 'Baixar'}
+                      {downloadingKey === `image-${file.id || index}` ? (uiLabels?.download?.loading ?? 'Baixando...') : (uiLabels?.download?.image ?? 'Baixar')}
                     </button>
                   )}
                 </div>
@@ -180,7 +180,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
         </button>
         {campaign.downloadUrl && (
           <button type="button" disabled={Boolean(downloadingKey)} onClick={() => onDownload(campaign.downloadUrl, campaign.downloadName || 'smartcorretorai-apresentacao', 'video')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60">
-            <Download className="h-5 w-5" />{downloadingKey === 'video' ? 'Baixando...' : 'Baixar vídeo'}
+            <Download className="h-5 w-5" />{downloadingKey === 'video' ? (uiLabels?.download?.loading ?? 'Baixando...') : (uiLabels?.download?.video ?? 'Baixar vídeo')}
           </button>
         )}
       </div>
@@ -188,7 +188,7 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, onRequireAccount, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, onRequireAccount, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, uiLabels, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
@@ -314,7 +314,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         </div>
       </header>
 
-      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} />}
+      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} uiLabels={uiLabels} />}
 
       {sharePublishProps && <SharePublishActions {...sharePublishProps} onDownload={downloadSharedMedia} />}
 
@@ -370,7 +370,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       <TestimonialInvite />
 
       {onCreateNew && <button type="button" onClick={onCreateNew} className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50">{createNewLabel}</button>}
-      {bannerPublishIntent && <BannerPublishDialog intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} onTerminalClose={smartSpacePublish?.onTerminalClose} captionEditable={smartSpacePublish?.enabled === true || bannerPublish?.captionEditable === true || videoPublish?.captionEditable === true || studioPublish?.captionEditable === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
+      {bannerPublishIntent && <BannerPublishDialog uiLabels={uiLabels} intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} onTerminalClose={smartSpacePublish?.onTerminalClose} captionEditable={smartSpacePublish?.enabled === true || bannerPublish?.captionEditable === true || videoPublish?.captionEditable === true || studioPublish?.captionEditable === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
     </section>
   )
 }

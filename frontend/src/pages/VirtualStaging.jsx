@@ -428,6 +428,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const isFurnishRenovate = journey.id === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID
   const isBrokerPresentation = journey.id === BROKER_PRESENTATION_JOURNEY_ID
+  const videoUiLabels = {
+    download: { loading: t('virtualStaging.download.loading'), image: t('virtualStaging.download.image'), video: t('virtualStaging.download.video') },
+    social: { freePublication: t('virtualStaging.social.freePublication'), confirm: t('virtualStaging.social.confirm'), chooseDestination: t('virtualStaging.social.chooseDestination'), checkingConnections: t('virtualStaging.social.checkingConnections'), cancel: t('virtualStaging.social.cancel'), publish: t('virtualStaging.social.publish') },
+    accessibility: { cancelPublish: t('virtualStaging.accessibility.cancelPublish') },
+  }
   const furnishRecoveryKey = getSmartSpaceRecoveryKey(user?.id)
   const explicitFurnishRecoveryId = readSmartSpaceRecoveryClientRequestId(globalThis.location?.search || '')
   const questions = useMemo(() => {
@@ -970,7 +975,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} />
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
-    return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: journey.title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>
+    return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: journey.title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel="Criar novo projeto" uiLabels={videoUiLabels} /></section>
   }
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>Consultar resultado novamente</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">Criar novo projeto</button></div></section>
 
