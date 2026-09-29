@@ -69,3 +69,18 @@ test('Life and generated Broker localize deterministic captions while custom cap
   assert.equal(brokerCustom.timeline.legendas.map(block => block.texto).join(' '), customText)
   assert.equal(brokerCustom.timeline.cta.texto, 'Agende sua visita')
 })
+
+test('Life narration preserves PT-BR and uses concise natural American English only for EN-US', () => {
+  const property = { purpose: 'sale', type: 'Apartamento', stage: 'Pronto para morar', bedrooms: '2', suites: '1', parkingSpaces: '1', district: 'Moema', city: 'São Paulo', highlights: ['Varanda gourmet'] }
+  const buildLife = language => buildSmartTourStructuredBriefing({ generation: { mode: 'narrated_tour', language, life_scene: 'adult_dog', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: 'Agende sua visita', imagePaths: ['image.jpg'], language })
+  const pt = buildLife('pt-BR')
+  const en = buildLife('en-US')
+
+  assert.deepEqual(pt.timeline.narracao.map(block => block.texto), ['Apartamento à venda em Moema, São Paulo.', 'dois dormitórios, uma suíte e uma vaga.', 'Pronto para morar.', '', 'Agende sua visita.'])
+  assert.deepEqual(en.timeline.narracao.map(block => block.texto), ['Apartment for sale in Moema, São Paulo.', '2 bedrooms, 1 suite and 1 parking space.', 'Move-in ready.', '', 'Schedule a tour.'])
+  assert.match(en.regrasObrigatorias.find(rule => rule.codigo === 'vida_no_imovel_narracao_natural')?.valor || '', /natural American English/)
+  assert.doesNotMatch(en.timeline.narracao.map(block => block.texto).join(' '), /à venda|dormitórios|Pronto para morar|Agende sua visita/i)
+  assert.equal(en.vidaNoImovel?.life_scene, 'adult_dog')
+  assert.equal(en.vidaNoImovel?.descricao, 'Adults with a dog')
+  assert.equal(buildSmartTourStructuredBriefing({ generation: { mode: 'guided_tour', language: 'en-US', presenterSpeechMode: 'generated', narration: 'enabled', captions: 'enabled', furniture: 'original', stagingPresentation: 'final_only', presenterGender: 'none' }, property, selectedCta: '', imagePaths: ['image.jpg'], language: 'en-US', presenterReference: { enabled: true, source: 'temporary_upload', purpose: 'identity_reference', image_path: 'presenter.jpg' } }).timeline.narracao[0].texto, '')
+})

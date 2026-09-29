@@ -424,6 +424,19 @@ const lifeSceneNarration = (blockNumber: number, property: PropertyContext, lang
 }
 
 const lifeInPropertyOpeningNarration = (property: PropertyContext, language: SupportedLanguage) => {
+  if (language === 'en-US') {
+    const purposeLabel = presentPurpose(purpose(property.purpose), language).toLocaleLowerCase('en-US')
+    if (!purposeLabel) return ''
+    const propertyType = presentPropertyType(property.type, language)
+    const district = literal(property.district)
+    const city = literal(property.city)
+    return firstNarrationWithinLimit([
+      district && city ? `${propertyType} ${purposeLabel} in ${district}, ${city}.` : '',
+      district ? `${propertyType} ${purposeLabel} in ${district}.` : '',
+      city ? `${propertyType} ${purposeLabel} in ${city}.` : '',
+      `${propertyType} ${purposeLabel}.`,
+    ], 7)
+  }
   if (language !== 'pt-BR') return ''
   const purposeLabel = lifeScenePurpose(property.purpose)
   if (!purposeLabel) return ''
@@ -444,7 +457,21 @@ const joinNarrationFacts = (facts: string[]) => {
   return `${facts.slice(0, -1).join(', ')} e ${facts.at(-1)}`
 }
 
-const lifeInPropertyFeatureNarration = (property: PropertyContext) => {
+const lifeInPropertyFeatureNarration = (property: PropertyContext, language: SupportedLanguage) => {
+  if (language === 'en-US') {
+    const facts = [
+      captionMetric(property.bedrooms, 'bedrooms', language),
+      captionMetric(property.suites, 'suites', language),
+      captionMetric(property.parkingSpaces, 'parkingSpaces', language),
+    ].filter(Boolean)
+    for (let count = facts.length; count > 0; count -= 1) {
+      const selected = facts.slice(0, count)
+      const candidate = `${selected.length <= 1 ? selected[0] : `${selected.slice(0, -1).join(', ')} and ${selected.at(-1)}`}.`
+      if (narrationWordCount(candidate) <= 8) return candidate
+    }
+    const highlight = presentHighlight(property.highlights?.[0], language)
+    return firstNarrationWithinLimit([highlight ? `${highlight}.` : ''], 8)
+  }
   const factsText = composePtBrPropertySpeechFacts({
     bedrooms: property.bedrooms,
     suites: property.suites,
@@ -460,16 +487,20 @@ const lifeInPropertyFeatureNarration = (property: PropertyContext) => {
   return firstNarrationWithinLimit([highlight ? `${highlight}.` : ''], 8)
 }
 
-const lifeInPropertyStageNarration = (property: PropertyContext) => {
+const lifeInPropertyStageNarration = (property: PropertyContext, language: SupportedLanguage) => {
+  if (language === 'en-US') return firstNarrationWithinLimit([presentStage(property.stage, language) ? `${presentStage(property.stage, language)}.` : ''], 4)
   const stage = literal(property.stage)
   return firstNarrationWithinLimit([stage ? `${stage}.` : ''], 4)
 }
 
-const lifeInPropertyNarration = (blockNumber: number, property: PropertyContext, language: SupportedLanguage) => {
+const lifeInPropertyNarration = (blockNumber: number, property: PropertyContext, language: SupportedLanguage, selectedCta: string) => {
   if (blockNumber === 1) return { id: 'LIFE_CONCISE_OPENING', texto: lifeInPropertyOpeningNarration(property, language) }
-  if (blockNumber === 2) return { id: 'LIFE_CONCISE_FEATURE', texto: lifeInPropertyFeatureNarration(property) }
-  if (blockNumber === 3) return { id: 'LIFE_CONCISE_STAGE', texto: lifeInPropertyStageNarration(property) }
-  if (blockNumber === 5) return { id: 'LIFE_CONCISE_INVITATION', texto: language === 'pt-BR' ? 'Agende sua visita.' : '' }
+  if (blockNumber === 2) return { id: 'LIFE_CONCISE_FEATURE', texto: lifeInPropertyFeatureNarration(property, language) }
+  if (blockNumber === 3) return { id: 'LIFE_CONCISE_STAGE', texto: lifeInPropertyStageNarration(property, language) }
+  if (blockNumber === 5) {
+    const cta = presentCta(selectedCta, language)
+    return { id: 'LIFE_CONCISE_INVITATION', texto: language === 'en-US' && cta ? `${cta}.` : language === 'pt-BR' ? 'Agende sua visita.' : '' }
+  }
   return { id: '', texto: '' }
 }
 
@@ -610,7 +641,7 @@ export function buildSmartTourStructuredBriefing(input: {
       ? { id: 'PRESENTER_CUSTOM_SPEECH', texto: customSpeechTimeline[block.bloco - 1] || '' }
       : config.narration === 'enabled'
       ? (lifeScene
-          ? lifeInPropertyNarration(block.bloco, input.property, input.language)
+          ? lifeInPropertyNarration(block.bloco, input.property, input.language, input.selectedCta)
           : input.presenterReference
             ? lifeSceneNarration(block.bloco, input.property, input.language)
           : selectPhrase({ tipo: block.tipo, finalidade, tipoImovel, idioma: input.language, signature: `${signature}:timeline:${block.bloco}` }))
@@ -687,6 +718,7 @@ export function buildSmartTourStructuredBriefing(input: {
   const presenterType = input.presenterReference ? 'referencia_do_usuario' : presenter(config)
   const hasPresenter = presenterType !== 'nenhum'
   const lifeSceneLabel = lifeScene ? LIFE_SCENE_LABELS[lifeScene] : ''
+  const presentedLifeSceneLabel = lifeScene ? presentLifeProfile(lifeScene, input.language) : ''
   const hasLifeScene = Boolean(lifeScene)
   const presenterLabel = presenterType === 'corretor' ? 'um corretor' : 'uma corretora'
   const presenterReferenceLabel = presenterType === 'corretor' ? 'O corretor' : 'A corretora'
@@ -709,13 +741,15 @@ export function buildSmartTourStructuredBriefing(input: {
     { codigo: 'referencia_identidade_limite', valor: 'A IA utilizará a fotografia como referência de identidade. Pequenas diferenças naturais podem ocorrer durante a geração. Não prometer fidelidade absoluta.' },
   ] : []
   const lifeSceneRules = hasLifeScene ? [
-    { codigo: 'vida_no_imovel_perfil_obrigatorio', valor: `Incluir naturalmente ${lifeSceneLabel} durante o vídeo, sem incluir pessoas ou animais de outro perfil.` },
+    { codigo: 'vida_no_imovel_perfil_obrigatorio', valor: `Incluir naturalmente ${presentedLifeSceneLabel} durante o vídeo, sem incluir pessoas ou animais de outro perfil.` },
     { codigo: 'vida_no_imovel_imovel_protagonista', valor: 'Utilizar as pessoas e, quando aplicável, o animal escolhido apenas para valorizar os ambientes. O imóvel deve permanecer como protagonista em todas as cenas.' },
     { codigo: 'vida_no_imovel_preservacao_total', valor: 'A inclusão do perfil escolhido não autoriza modificar a arquitetura original, acabamentos, materiais, móveis existentes, decoração, objetos, cores, iluminação arquitetônica, geometria, proporções, perspectiva ou enquadramento. Não reconstruir ambientes.' },
     { codigo: 'vida_no_imovel_ordem_das_imagens', valor: 'Manter todas as regras existentes desta apresentação e respeitar integralmente a ordem original das imagens.' },
     ...(config.narration === 'enabled' ? [{
       codigo: 'vida_no_imovel_narracao_natural',
-      valor: 'Narre o texto literal de timeline.narracao como uma única apresentação humana, natural e conversacional em Português do Brasil. Use ritmo calmo, entonação profissional imobiliária e pequenas pausas naturais entre os blocos, respeitando a pontuação e os tempos informados. Não leia palavras ou blocos como rótulos isolados. Não use dicção mecânica, tom de robô, GPS ou publicidade exagerada. Não acelere, não prolongue artificialmente e não altere nenhuma palavra.',
+      valor: input.language === 'en-US'
+        ? 'Speak the literal timeline.narracao text as one concise, natural American English real-estate presentation. Use a calm pace, professional delivery and brief natural pauses between blocks, respecting punctuation and the supplied timing. Do not read words or blocks as isolated labels. Do not use robotic, GPS-like or exaggerated advertising delivery. Do not speed up, artificially extend or change any word.'
+        : 'Narre o texto literal de timeline.narracao como uma única apresentação humana, natural e conversacional em Português do Brasil. Use ritmo calmo, entonação profissional imobiliária e pequenas pausas naturais entre os blocos, respeitando a pontuação e os tempos informados. Não leia palavras ou blocos como rótulos isolados. Não use dicção mecânica, tom de robô, GPS ou publicidade exagerada. Não acelere, não prolongue artificialmente e não altere nenhuma palavra.',
     }] : []),
   ] : []
   return {
