@@ -107,7 +107,7 @@ test('builds the Vida no Imovel JSON without presenter semantics', () => {
   })
   assert.equal('presenterGender' in payload, false)
   assert.equal(buildLifeInPropertyGenerationPayload({ lifeScene: 'invalid', captions: 'enabled' }).life_scene, '')
-  assert.match(page, /buildLifeInPropertyGenerationPayload\(\{ lifeScene, captions: generation\.captions \}\)/)
+  assert.match(page, /buildLifeInPropertyGenerationPayload\(\{ lifeScene, captions: generation\.captions, language: draftLocale \}\)/)
 })
 
 test('shows the selected life profile in summary and review', () => {

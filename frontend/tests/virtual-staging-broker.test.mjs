@@ -150,7 +150,7 @@ test('custom presenter speech skips highlights only and remains literal in the g
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'generated', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'highlights')
   assert.match(page, /if \(id === 'presenter_custom_speech'\)/)
   assert.match(page, /Até \{BROKER_CUSTOM_SPEECH_MAX_WORDS\} palavras\. O texto será usado literalmente\./)
-  assert.match(page, /buildBrokerPresentationGenerationPayload\(\{ captions: generation\.captions, presenterSpeechMode, presenterCustomSpeech \}\)/)
+  assert.match(page, /buildBrokerPresentationGenerationPayload\(\{ captions: generation\.captions, presenterSpeechMode, presenterCustomSpeech, language: draftLocale \}\)/)
 })
 
 test('Modules 1 and 2 retain their approved branching', () => {
