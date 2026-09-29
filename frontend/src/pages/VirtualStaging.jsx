@@ -227,22 +227,26 @@ function FurnishRenovateResultCard({ result, publication }) {
   </article>
 }
 
-function FurnishRenovateDelivery({ results, onCreateNew, publication }) {
+function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication }) {
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
+  const unavailableResults = results.filter(result => result.status === 'result_unavailable')
 
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
       <ProductCard className="p-5 sm:p-7">
         <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">Seu Smart Space está pronto</h2>
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">Algumas imagens não puderam ser concluídas.</p>}
+        {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">Alguns resultados foram criados e estão sendo carregados novamente.</p>}
         <div className="mt-6 space-y-6">
           {results.map(result => result.status === 'completed'
             ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} />
-            : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`Falha na imagem ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">Imagem {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`Imagem original ${result.originalIndex + 1} não concluída`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">Não foi possível transformar esta imagem.</p></article>)}
+            : result.status === 'result_unavailable'
+              ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`Resultado da imagem ${result.originalIndex + 1} aguardando carregamento`}><h3 className="font-black text-primary-950">Imagem {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`Imagem original ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">A transformação foi concluída, mas o resultado ainda não pôde ser carregado.</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">Tentar carregar resultado novamente</ProductButton></article>
+              : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`Falha na imagem ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">Imagem {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`Imagem original ${result.originalIndex + 1} não concluída`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">Não foi possível transformar esta imagem.</p></article>)}
         </div>
         <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">Você poderá usar estes resultados em outros produtos do {BRAND.name} para criar vídeos, banners, carrosséis e campanhas.</p>
-        {completedResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">Nenhuma imagem pôde ser concluída.</p>}
+        {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">Nenhuma imagem pôde ser concluída.</p>}
         <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">Criar novo projeto</ProductButton>
       </ProductCard>
     </section>
@@ -250,7 +254,7 @@ function FurnishRenovateDelivery({ results, onCreateNew, publication }) {
 }
 
 function FurnishRenovateProcessing({ results }) {
-  const statusLabels = { pending: 'Aguardando', uploading: 'Enviando', generating: 'Criando', stage_1_completed: 'Espaço livre pronto', completed: 'Pronta', failed: 'Não concluída' }
+  const statusLabels = { pending: 'Aguardando', uploading: 'Enviando', generating: 'Criando', stage_1_completed: 'Espaço livre pronto', completed: 'Pronta', result_unavailable: 'Resultado pronto', failed: 'Não concluída' }
   const activeIndex = Math.max(0, results.findIndex(result => ['uploading', 'generating'].includes(result.status)))
   return <section className="mt-10" aria-labelledby="virtual-staging-processing-title">
     <ProductCard className="p-6 sm:p-8">
@@ -642,7 +646,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       }
       const recoveredResults = await Promise.all(recoveryInputs.map(async input => {
         const item = byIndex.get(Number(input.itemIndex))
-        const base = { id: `recovered-${input.itemIndex}`, originalIndex: Number(input.itemIndex), inputPath: input.inputPath, originalPreview: '', stages: [], status: item?.status || 'pending', deliveryStatus: '', video: normalizeSmartSpaceVideo(item ? {
+        const base = { id: `recovered-${input.itemIndex}`, clientRequestId: recovery.clientRequestId, originalIndex: Number(input.itemIndex), inputPath: input.inputPath, originalPreview: '', stages: [], status: item?.status || 'pending', deliveryStatus: '', video: normalizeSmartSpaceVideo(item ? {
           state: item.video_state, renderer: item.video_renderer, render_id: item.video_render_id,
           output_path: item.video_output_path, failure_reason: item.video_failure_reason,
         } : null), error: '' }
@@ -656,7 +660,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
             }
             return recoveredResult
           } catch {
-            return { ...base, status: 'failed', error: 'result_unavailable' }
+            return { ...base, status: 'result_unavailable', rawResult: item.result, error: 'result_unavailable' }
           }
         }
         return item?.status === 'failed' ? { ...base, status: 'failed', error: item.failure_reason || 'generation_failed' } : base
@@ -839,7 +843,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         try {
           materialized = await materializeSmartSpaceResult({ rawResult: data.result, inputPath, originalIndex: imageIndex, id: image.key, clientRequestId: sessionId })
         } catch {
-          updateResult(image.key, { status: 'failed', outputPath: data?.result?.output_path || '', error: 'result_unavailable' })
+          updateResult(image.key, { clientRequestId: sessionId, status: 'result_unavailable', rawResult: data.result, outputPath: data?.result?.output_path || '', error: 'result_unavailable' })
           continue
         }
 
@@ -859,6 +863,28 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       setStatus('error')
       setMessage(getSmartTokenErrorMessage(error, 'Não foi possível iniciar seu Smart Space. Crie um novo projeto para tentar novamente.'))
       await reloadProfile()
+    }
+  }
+
+  const retryFurnishResultMaterialization = async id => {
+    const pendingResult = furnishResults.find(result => result.id === id)
+    if (!pendingResult?.rawResult || !pendingResult.inputPath) return
+    setFurnishResults(current => current.map(result => result.id === id ? { ...result, error: '' } : result))
+    try {
+      const materialized = await materializeSmartSpaceResult({
+        rawResult: pendingResult.rawResult,
+        inputPath: pendingResult.inputPath,
+        originalIndex: pendingResult.originalIndex,
+        id: pendingResult.id,
+        clientRequestId: pendingResult.clientRequestId,
+      })
+      setFurnishResults(current => current.map(result => result.id === id
+        ? { ...materialized, video: result.video, rawResult: undefined }
+        : result))
+    } catch {
+      setFurnishResults(current => current.map(result => result.id === id
+        ? { ...result, status: 'result_unavailable', error: 'result_unavailable' }
+        : result))
     }
   }
 
@@ -928,7 +954,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     </ProductCard>
   </section>
   if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} />
-  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} publication={smartSpacePublication} />
+  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} />
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
     return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: journey.title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel="Criar novo projeto" /></section>

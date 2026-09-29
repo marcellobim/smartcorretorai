@@ -172,7 +172,7 @@ test('envia ao backend somente o contrato permitido do furnish-renovate', () => 
 })
 
 test('processa a coleção sequencialmente, bloqueia clique duplicado e não executa retry automático', () => {
-  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
+  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const retryFurnishResultMaterialization'))
   assert.match(integration, /furnishGenerationInFlightRef\.current\) return/)
   assert.match(integration, /furnishGenerationInFlightRef\.current = true/)
   assert.ok((integration.match(/functions\.invoke\('virtual-staging-image-test'/g) || []).length >= 3)
@@ -224,6 +224,25 @@ test('persiste somente identificadores e caminhos para recovery idempotente do S
   assert.match(page, /setFurnishResults\(\[\]\)/)
   assert.match(page, /setHasAttemptedFurnishGeneration\(false\)/)
   assert.doesNotMatch(page, /furnish(?:Gallery|History)|virtualStaging(?:Gallery|History)/i)
+})
+
+test('mantém resultado concluído separado de falha real quando a URL assinada não materializa', () => {
+  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
+  assert.match(integration, /status: 'result_unavailable', rawResult: data\.result/)
+  assert.doesNotMatch(integration, /status: 'failed', outputPath: data\?\.result\?\.output_path \|\| '', error: 'result_unavailable'/)
+  assert.match(page, /const retryFurnishResultMaterialization = async id =>/)
+  assert.match(page, /rawResult: pendingResult\.rawResult/)
+  assert.doesNotMatch(page.slice(page.indexOf('const retryFurnishResultMaterialization'), page.indexOf('const createTour')), /functions\.invoke\('virtual-staging-image-test'/)
+  assert.match(page, /result\.status === 'result_unavailable'/)
+  assert.match(page, /A transformação foi concluída, mas o resultado ainda não pôde ser carregado\./)
+})
+
+test('recovery mantém item concluído com URL indisponível recuperável sem reclassificá-lo como falha de geração', () => {
+  const recovery = page.slice(page.indexOf('const recover = async'), page.indexOf('const addImages = files'))
+  assert.match(recovery, /status: 'result_unavailable', rawResult: item\.result, error: 'result_unavailable'/)
+  assert.match(recovery, /item\?\.status === 'failed' \? \{ \.\.\.base, status: 'failed'/)
+  assert.match(recovery, /action: 'resume'/)
+  assert.doesNotMatch(recovery, /client_request_id: crypto\.randomUUID/)
 })
 
 test('preserva contrato singular, ordem explícita, falha parcial e metadados de recovery', () => {
