@@ -99,6 +99,15 @@ function normalizeContactPhoneForDisplay(phone: unknown) {
   return original
 }
 
+function normalizeProfessionalIdentity(value: unknown) {
+  const identity = normalizeText(value, 180)
+  if (!identity) return ''
+
+  const hasBrazilianCredential = /\bCRECI\s+[FJ]\s+[^/]+\/[A-Z]{2}\b/i.test(identity)
+  const hasUsCredential = /\bLicense\s+.+,\s*[A-Z]{2}\b/i.test(identity)
+  return hasBrazilianCredential || hasUsCredential ? identity : ''
+}
+
 function formatAreaForDisplay(area: unknown) {
   const original = normalizeText(area, 80)
   if (!original) return ''
@@ -596,6 +605,9 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
   const commercialTermCalls = formatCommercialTermCalls(valueCondition.commercial_terms)
   const contactPhone = normalizeContactPhone(choices.contact_phone, 80)
   const displayPhone = normalizeContactPhoneForDisplay(choices.display_phone || contactPhone)
+  const professionalIdentity = choices.show_professional_identity === true
+    ? normalizeProfessionalIdentity(choices.professional_identity)
+    : ''
   const cta = normalizeText(choices.cta, 120) || 'Fale comigo'
   const highlights = normalizeTextArray(choices.highlights || property.master_highlights, 8, 120)
   const inlineImages = normalizeInlineImages(choices.inline_images, HERO_NEXT_MAX_INLINE_IMAGES)
@@ -665,6 +677,10 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
     displayPhone ? `Telefone original como fato imutavel: ${contactPhone}. Telefone para exibicao visual: ${displayPhone}.` : '',
     displayPhone ? `CTA completo para exibicao visual:\n${cta}\n${displayPhone}` : '',
     displayPhone ? 'Nunca juntar CTA e telefone em frase corrida. Nunca colocar ponto final depois do telefone.' : '',
+    professionalIdentity ? `IDENTIFICACAO PROFISSIONAL OBRIGATORIA NA ARTE: ${professionalIdentity}` : '',
+    professionalIdentity ? 'Renderize essa identificacao exatamente uma vez, sem abreviar, corrigir ou inventar dados, em um rodape discreto ou area de assinatura com contraste e leitura clara.' : '',
+    professionalIdentity ? 'A identificacao profissional nao pode cobrir nem competir com preco, endereco/localizacao, CTA, condicoes comerciais ou a imagem principal.' : '',
+    !professionalIdentity ? 'Nao exiba identificacao profissional, CRECI, license ou dados profissionais no rodape.' : '',
     '',
     'ESTRATEGIA DO FORMATO DESTA GERACAO:',
     campaignBatchId ? `Campanha compartilhada: ${campaignBatchId}.` : '',
@@ -1660,6 +1676,8 @@ function buildPromptBriefing(property: JsonRecord, masterProperty: JsonRecord, p
       cta: normalizeText(payload.cta, 120),
       contact_phone: normalizeContactPhone(payload.contact_phone || payload.campaign_contact_phone, 80),
       display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
+      show_professional_identity: payload.show_professional_identity === true,
+      professional_identity: payload.show_professional_identity === true ? normalizeProfessionalIdentity(payload.professional_identity) : '',
       value_condition: normalizeValueCondition(
         payload.value_condition,
         isCommercialTermsStage(payload.property_state || masterProperty.estado_imovel),
@@ -1725,6 +1743,8 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       cta: normalizeText(payload.cta, 120),
       contact_phone: normalizeContactPhone(payload.contact_phone || payload.campaign_contact_phone, 80),
       display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
+      show_professional_identity: payload.show_professional_identity === true,
+      professional_identity: payload.show_professional_identity === true ? normalizeProfessionalIdentity(payload.professional_identity) : '',
       value_condition: normalizeValueCondition(
         payload.value_condition,
         campaignObjective === 'venda' && isCommercialTermsStage(payload.property_stage),
