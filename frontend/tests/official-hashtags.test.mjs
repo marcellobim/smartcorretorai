@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildOfficialHashtagGroups, buildOfficialHashtags, normalizeOfficialHashtags } from '../../supabase/functions/_shared/official-hashtags.ts'
 import { buildSmartTourCampaignPackage } from '../src/components/campaign/buildSmartTourCampaignPackage.js'
+import { buildVirtualStagingCampaignPackage } from '../src/components/campaign/buildVirtualStagingCampaignPackage.js'
 
 const assertOfficialSet = (hashtags) => {
   assert.ok(hashtags.length >= 12 && hashtags.length <= 15)
@@ -105,4 +106,20 @@ test('Smart Tour consumes the official engine without changing Campaign Central'
     assertOfficialSet(campaign.hashtags)
     assert.equal(campaign.hashtags.some((tag) => /avenda|venda|comprar|compra/i.test(tag)), false)
   }
+})
+
+test('Life and Broker social content localize only their EN-US campaign output and keep Broker CTA optional', () => {
+  const property = { purpose:'sale', type:'Apartamento', stage:'Pronto para morar', city:'São Paulo', district:'Moema', state:'SP', bedrooms:'2', suites:'1', parkingSpaces:'1', highlights:['Varanda gourmet'] }
+  const lifePt = buildVirtualStagingCampaignPackage({ property, language:'pt-BR', cta:'Agende sua visita', phone:'', journeyId:'life-in-property', lifeScene:'adult_dog' })
+  const lifeEn = buildVirtualStagingCampaignPackage({ property, language:'en-US', cta:'Agende sua visita', phone:'', journeyId:'life-in-property', lifeScene:'adult_dog' })
+  const brokerEn = buildVirtualStagingCampaignPackage({ property, language:'en-US', cta:'', phone:'', journeyId:'broker-presentation' })
+  assert.match(lifePt.aiCampaigns[0].instagram, /Conheça apartamento à venda/i)
+  assert.match(lifeEn.aiCampaigns[0].instagram, /Discover apartment for sale/i)
+  assert.match(lifeEn.aiCampaigns[0].instagram, /Gourmet balcony|Lifestyle: Adults with a dog/)
+  assert.match(lifeEn.aiCampaigns[0].instagram, /Schedule a tour/)
+  assert.doesNotMatch(lifeEn.aiCampaigns[0].instagram, /à venda|dormitórios|Varanda gourmet|Agende sua visita/i)
+  assert.equal(brokerEn.cta, '')
+  assert.doesNotMatch(brokerEn.aiCampaigns[0].instagram, /Get in touch|Schedule a tour|Agende sua visita/i)
+  assert.ok(lifeEn.aiCampaigns[0].hashtags.every(tag => !/apartamento|venda|imovel|dormitorio|visita/i.test(tag)))
+  assert.ok(lifeEn.aiCampaigns[0].hashtags.some(tag => /ApartmentForSale|GourmetBalcony|ScheduleATour/.test(tag)))
 })

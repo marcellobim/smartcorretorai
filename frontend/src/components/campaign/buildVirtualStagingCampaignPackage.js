@@ -1,5 +1,6 @@
 import { normalizeOfficialHashtags } from '../../../../supabase/functions/_shared/official-hashtags.ts'
 import { buildGoogleAdsDelivery } from '../../../../supabase/functions/_shared/google-ads.ts'
+import { presentCta, presentHighlights, presentLifeProfile, presentMetricLabel, presentPropertyType, presentPurpose } from '../../../../supabase/functions/_shared/virtual-staging/presentation.ts'
 
 const clean = value => String(value || '').trim()
 const location = property => [property.district, property.city, property.state].filter(Boolean).join(', ')
@@ -25,6 +26,7 @@ export function mergeVirtualStagingCampaignHashtags(campaignPackage, generatedHa
     parkingSpaces: campaignPackage?.parkingSpaces,
     highlights: campaignPackage?.highlights,
     cta: campaignPackage?.cta,
+    language: campaignPackage?.language,
   })
   return {
     ...campaignPackage,
@@ -32,23 +34,25 @@ export function mergeVirtualStagingCampaignHashtags(campaignPackage, generatedHa
   }
 }
 
-export function buildVirtualStagingCampaignPackage({ property, language, cta, phone, videoUrl = '', hashtags: generatedHashtags = [] }) {
-  const text = translations[language] || translations['pt-BR']
-  const translatedTypes = { 'en-US':{Apartamento:'apartment',Casa:'house',Cobertura:'penthouse','Studio / Loft':'studio / loft',Sobrado:'townhouse','Terreno / Lote':'land',Comercial:'commercial property'}, es:{Apartamento:'apartamento',Casa:'casa',Cobertura:'ático','Studio / Loft':'estudio / loft',Sobrado:'casa adosada','Terreno / Lote':'terreno',Comercial:'inmueble comercial'} }
-  const translatedCtas = { 'en-US':{'Agende sua visita':'Schedule your visit','Saiba mais':'Learn more','Entre em contato agora':'Contact us now','Fale comigo':'Talk to me'}, es:{'Agende sua visita':'Agenda tu visita','Saiba mais':'Más información','Entre em contato agora':'Contáctanos ahora','Fale comigo':'Habla conmigo'} }
-  const propertyType = translatedTypes[language]?.[property.type] || clean(property.type).toLocaleLowerCase(language)
-  const subject = [text.intro, propertyType, property.purpose === 'rent' ? text.rent : text.sale, location(property) && `${text.in} ${location(property)}`].filter(Boolean).join(' ')
-  const factLine = [property.bedrooms && `${property.bedrooms} ${text.bedrooms}`, property.suites && `${property.suites} ${text.suites}`, property.parkingSpaces && `${property.parkingSpaces} ${text.parking}`, property.area && `${property.area} m²`].filter(Boolean).join(' · ')
-  const localizedHighlights = language === 'pt-BR' ? property.highlights || [] : []
-  const detail = [factLine, localizedHighlights.length ? `${text.details}: ${localizedHighlights.slice(0,5).join(', ')}` : '', language === 'pt-BR' ? clean(property.description) : '', clean(property.price)].filter(Boolean).join('\n\n')
-  const localizedCta = translatedCtas[language]?.[cta] || cta || text.contact
+export function buildVirtualStagingCampaignPackage({ property, language, cta, phone, videoUrl = '', hashtags: generatedHashtags = [], journeyId = '', lifeScene = '' }) {
+  const socialLanguage = language === 'en-US' ? 'en-US' : 'pt-BR'
+  const text = translations[socialLanguage]
+  const isLife = journeyId === 'life-in-property'
+  const localizedPurpose = socialLanguage === 'en-US' ? presentPurpose(property.purpose, socialLanguage).toLocaleLowerCase('en-US') : property.purpose === 'rent' ? text.rent : text.sale
+  const propertyType = socialLanguage === 'en-US' ? presentPropertyType(property.type, socialLanguage).toLocaleLowerCase('en-US') : clean(property.type).toLocaleLowerCase(socialLanguage)
+  const subject = [text.intro, propertyType, localizedPurpose, location(property) && `${text.in} ${location(property)}`].filter(Boolean).join(' ')
+  const factLine = [property.bedrooms && `${property.bedrooms} ${presentMetricLabel('bedrooms', socialLanguage)}`, property.suites && `${property.suites} ${presentMetricLabel('suites', socialLanguage)}`, property.parkingSpaces && `${property.parkingSpaces} ${presentMetricLabel('parkingSpaces', socialLanguage)}`, socialLanguage === 'pt-BR' && property.area && `${property.area} m²`].filter(Boolean).join(' · ')
+  const localizedHighlights = socialLanguage === 'en-US' ? presentHighlights(property.highlights, socialLanguage) : property.highlights || []
+  const lifeProfile = isLife && socialLanguage === 'en-US' ? presentLifeProfile(lifeScene, socialLanguage) : ''
+  const detail = [factLine, localizedHighlights.length ? `${text.details}: ${localizedHighlights.slice(0, 3).join(', ')}` : '', lifeProfile && `Lifestyle: ${lifeProfile}`, socialLanguage === 'pt-BR' ? clean(property.description) : '', clean(property.price)].filter(Boolean).join('\n\n')
+  const localizedCta = clean(cta) ? presentCta(cta, socialLanguage) : isLife ? text.contact : ''
   const close = [localizedCta, phone].filter(Boolean).join('\n')
   const variants = [
     `${subject}.\n\n${detail}\n\n${close}`,
     `${localizedHighlights[0] || subject}.\n\n${subject}.\n\n${detail}\n\n${close}`,
     `${subject}.\n\n${localizedHighlights.slice(0,3).join(' · ') || detail}\n\n${close}`,
   ]
-  const hashtags = normalizeOfficialHashtags(generatedHashtags, { purpose:property.purpose, propertyType:property.type, propertyStage:property.stage, city:property.city, district:property.district, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, highlights:property.highlights, cta:localizedCta })
+  const hashtags = normalizeOfficialHashtags(generatedHashtags, { purpose:property.purpose, propertyType:property.type, propertyStage:property.stage, city:property.city, district:property.district, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, highlights:property.highlights, cta:localizedCta, language:socialLanguage })
   const googleAds = buildGoogleAdsDelivery({ purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, highlights:localizedHighlights, cta:localizedCta })
-  return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:language === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`virtual-staging-${index+1}`,name:`Opção ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})), googleAds }
+  return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, language:socialLanguage, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:socialLanguage === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`virtual-staging-${index+1}`,name:`Opção ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})), googleAds }
 }

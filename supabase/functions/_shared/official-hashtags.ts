@@ -1,3 +1,5 @@
+import { presentCta, presentHighlight, presentPropertyType, presentPurpose, presentStage } from './virtual-staging/presentation.ts'
+
 export type OfficialHashtagContext = {
   purpose?: unknown
   propertyType?: unknown
@@ -10,6 +12,7 @@ export type OfficialHashtagContext = {
   parkingSpaces?: unknown
   highlights?: unknown
   cta?: unknown
+  language?: unknown
 }
 
 export type OfficialHashtagGroups = {
@@ -69,7 +72,20 @@ const uniqueGroup = (values: unknown[], max: number, purpose: OfficialPurpose) =
 const isResidentialType = (value: unknown) => /apartamento|casa|cobertura|studio|loft|sobrado|residencial/.test(fold(value))
 const isCommercialType = (value: unknown) => /comercial|sala|loja|galpao|escritorio/.test(fold(value))
 
+const isEnUs = (context: OfficialHashtagContext) => context.language === 'en-US'
+const englishGroups = (context: OfficialHashtagContext): OfficialHashtagGroups => {
+  const propertyType = presentPropertyType(context.propertyType || 'Property', 'en-US')
+  const purpose = presentPurpose(context.purpose, 'en-US')
+  const city = clean(context.city)
+  const district = clean(context.district)
+  const highlights = Array.isArray(context.highlights) ? context.highlights.map(item => presentHighlight(item, 'en-US')).filter(Boolean) : []
+  const stage = presentStage(context.propertyStage, 'en-US')
+  const cta = presentCta(context.cta, 'en-US')
+  return { location: uniqueGroup([district, city, district && city && `${district} ${city}`], 3, ''), purpose: uniqueGroup([`${propertyType} ${purpose}`, city && `${purpose} ${city}`], 2, ''), market: uniqueGroup([city && `${propertyType} in ${city}`, district && `Living in ${district}`, city && `Homes in ${city}`], 3, ''), characteristics: uniqueGroup([clean(context.bedrooms) && `${context.bedrooms} Bedrooms`, clean(context.suites) && `${context.suites} Suites`, clean(context.parkingSpaces) && `${context.parkingSpaces} Parking Spaces`, ...highlights, stage, propertyType], 4, ''), commercialAppeal: uniqueGroup([/schedule|tour/i.test(cta) ? 'Schedule a Tour' : '', 'Find Your Home'], 2, ''), brand: ['#SmartCorretorAI'] }
+}
+
 export function buildOfficialHashtagGroups(context: OfficialHashtagContext = {}): OfficialHashtagGroups {
+  if (isEnUs(context)) return englishGroups(context)
   const purpose = normalizePurpose(context.purpose)
   const propertyType = clean(context.propertyType) || 'Imovel'
   const propertyStage = clean(context.propertyStage)
@@ -123,6 +139,16 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
   for (const tag of [...groups.location, ...groups.purpose, ...groups.market, ...groups.characteristics, ...groups.commercialAppeal]) {
     if (!unique.has(fold(tag))) unique.set(fold(tag), tag)
   }
+  if (isEnUs(context)) {
+    for (const value of ['Real Estate', 'Property For Sale', 'Home Search', 'House Hunting', 'Dream Home', 'Real Estate Listing']) {
+      const tag = toOfficialHashtag(value)
+      if (!unique.has(fold(tag))) unique.set(fold(tag), tag)
+      if (unique.size >= 14) break
+    }
+    const english = [...unique.values()].filter(tag => fold(tag) !== '#smartcorretorai').slice(0, 14)
+    english.splice(Math.max(1, Math.floor(english.length / 2)), 0, '#SmartCorretorAI')
+    return english.slice(0, 15)
+  }
   const propertyType = clean(context.propertyType) || 'Imovel'
   const city = clean(context.city)
   const district = clean(context.district)
@@ -148,6 +174,7 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
 }
 
 export function normalizeOfficialHashtags(input: unknown, context: OfficialHashtagContext = {}): string[] {
+  if (isEnUs(context)) return buildOfficialHashtags(context)
   const values = Array.isArray(input)
     ? input
     : typeof input === 'string' ? input.match(/#[\p{L}\p{N}_]+/gu) || [] : []

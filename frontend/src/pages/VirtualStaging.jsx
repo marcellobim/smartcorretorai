@@ -641,7 +641,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
             buildRecovery: data => {
               const selectedCta = isLifeInProperty || ctaEnabled === true ? cta : ''
               const includeProfessionalPhone = includePhone === true
-              const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [] })
+              const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta: selectedCta, phone: includeProfessionalPhone ? phone : '', hashtags: data.hashtags || [], journeyId: journey.id, lifeScene: isLifeInProperty ? lifeScene : '' })
               return { jobId: data.jobId, status: data.status || 'generating', campaignPackage, updatedAt: Date.now() }
             },
             persistRecovery: recovery => sessionStorage.setItem(activeJobKey, JSON.stringify(recovery)),
@@ -990,7 +990,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       const requestBody = { journeyId: journey.id, clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone, language: draftLocale, ...brokerFiles }
       const { data, error } = await supabase.functions.invoke('virtual-staging-generate', { body: requestBody })
       if (error || !data?.ok || !data?.jobId) throw new Error(data?.error || lifeBrokerCopy('startFailed'))
-      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', hashtags:data.hashtags })
+      const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', hashtags:data.hashtags, journeyId: journey.id, lifeScene: isLifeInProperty ? lifeScene : '' })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, status:'generating', campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('createFailed'))); void reloadProfile() }
   }

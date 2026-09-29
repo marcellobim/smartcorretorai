@@ -21,6 +21,13 @@ Use hashtags sem acentos ou cedilha.
 Inclua sempre #SmartCorretorAI misturada no meio da lista, nunca no início ou no final.
 Responda somente com JSON válido no formato {"hashtags":["#Exemplo"]}.`
 
+export const STRATEGIC_HASHTAG_EN_US_SYSTEM_PROMPT = `You are a U.S. real-estate social discovery strategist.
+Generate 12 to 15 natural, publication-ready English hashtags.
+Use only the supplied property data. Mix location, property type, purpose, verified lifestyle, highlights, and search intent.
+Do not translate Brazilian hashtags word for word, invent features, repeat tags, or use Portuguese.
+Always include #SmartCorretorAI in the middle of the list, never first or last.
+Respond only with valid JSON in the format {"hashtags":["#Example"]}.`
+
 export async function generateStrategicHashtags({ apiKey, context, variationKey = '', model = 'gpt-4.1' }: StrategicHashtagRequest) {
   const fallback = buildOfficialHashtags(context)
   if (!apiKey) return fallback
@@ -31,7 +38,7 @@ export async function generateStrategicHashtags({ apiKey, context, variationKey 
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: STRATEGIC_HASHTAG_SYSTEM_PROMPT },
+          { role: 'system', content: context.language === 'en-US' ? STRATEGIC_HASHTAG_EN_US_SYSTEM_PROMPT : STRATEGIC_HASHTAG_SYSTEM_PROMPT },
           { role: 'user', content: JSON.stringify({ ...context, variationKey }) },
         ],
         response_format: { type: 'json_object' },
