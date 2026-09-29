@@ -1461,6 +1461,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const b = (key) => t(`banner.ui.${key}`)
   const optionLabels = t('banner.optionLabels')
   const optionLabel = (value) => optionLabels?.[value] || value
+  const processingSteps = [t('banner.status.analyzingBrief'), t('banner.status.generatingVisual'), t('banner.status.finalizingDelivery'), t('banner.status.preparingCampaign')]
   // This fixed draft owner is only a local storage namespace, never an auth/user_id
   // or server credential. The guest session remains exclusively in HttpOnly cookies.
   const bannerDraft = useProductDraft({ productKey: guestMode ? 'banner-imobiliario-guest' : 'banner-imobiliario', schemaVersion: 1, userId: guestMode ? 'guest-local-draft' : user?.id })
@@ -1521,7 +1522,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [generationResult, setGenerationResult] = useState(() => guestMode ? null : readStoredHeroNextResult())
   const [generationJobs, setGenerationJobs] = useState(() => guestMode ? [] : readStoredHeroNextResult()?.jobs || [])
   const [expandedPreview, setExpandedPreview] = useState(null)
-  const [processingMessage, setProcessingMessage] = useState(PROCESSING_STEPS[0])
+  const [processingMessage, setProcessingMessage] = useState(processingSteps[0])
   const [recoveryLoading, setRecoveryLoading] = useState(false)
   const [recoveryNotice, setRecoveryNotice] = useState('')
   const activeQuestionRef = useRef(null)
@@ -1673,6 +1674,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       : baseChatFlow
     const localizedFlow = flow.map(question => ({
       ...question,
+      ...(question.id === 'profile' && market === 'US' ? { options: question.options.filter(option => option !== 'Minha Casa Minha Vida') } : {}),
       question: t(`banner.questions.${question.id}`) === `banner.questions.${question.id}` ? question.question : t(`banner.questions.${question.id}`),
     }))
     return canAskProfessionalIdentity
@@ -1946,7 +1948,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
   const pollGeneration = async (generationId) => {
     for (let attempt = 0; attempt < 90; attempt += 1) {
-      setProcessingMessage(PROCESSING_STEPS[attempt % PROCESSING_STEPS.length])
+      setProcessingMessage(processingSteps[attempt % processingSteps.length])
       await wait(4000)
 
       const { data, error } = await supabase.functions.invoke('gerar-hero-ia', {
@@ -2000,7 +2002,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         detachedError.code = 'banner_view_left'
         throw detachedError
       }
-      setProcessingMessage(PROCESSING_STEPS[attempt % PROCESSING_STEPS.length])
+      setProcessingMessage(processingSteps[attempt % processingSteps.length])
       await wait(4000)
       if (!generationViewActiveRef.current) {
         const detachedError = new Error('Acompanhamento local encerrado.')
@@ -3944,7 +3946,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     {isPropertyCaptureGoal && <p><strong>{b('services')}:</strong> {formatAnswer(answers.services) || b('noInformation')}</p>}
                     <p><strong>{b('highlights')}:</strong> {formatAnswer(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials) || b('noInformation')}</p>
                     {!isAnyCaptureGoal && <p><strong>{b('valuesConditions')}:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>}
-                    <p><strong>CTA:</strong> {answers.cta}</p>
+                    <p><strong>{t('banner.review.cta')}</strong> {answers.cta}</p>
                     {answers.contactPhoneChoice === 'Sim, quero divulgar' && answers.contactPhone && (
                       <p><strong>{b('phone')}:</strong> {answers.contactPhone}</p>
                     )}

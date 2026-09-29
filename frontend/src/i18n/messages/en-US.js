@@ -9,7 +9,10 @@ export default Object.freeze({
     no: 'No',
   }),
   banner: Object.freeze({
+    status: Object.freeze({ analyzingBrief: 'Analyzing brief...', generatingVisual: 'Generating visual...', finalizingDelivery: 'Finalizing delivery...', preparingCampaign: 'Preparing your campaign...' }),
+    review: Object.freeze({ cta: 'CTA:' }),
     optionLabels: Object.freeze({
+      'Minha Casa Minha Vida': 'Minha Casa Minha Vida', 'Econômico': 'Affordable', 'Luxo': 'Luxury', 'Investimento': 'Investment',
       'Venda de imóvel': 'For Sale', 'Locação de imóvel': 'For Rent', 'Captação de Imóveis': 'Property Acquisition', 'Captação de Corretores': 'Agent Recruitment',
       'Apartamento': 'Apartment', 'Studio': 'Studio', 'Casa': 'House', 'Sobrado': 'Townhouse', 'Cobertura': 'Penthouse', 'Garden': 'Garden Apartment', 'Kitnet': 'Studio Apartment', 'Terreno/Lote': 'Land / Lot', 'Sala comercial': 'Commercial Office', 'Loja': 'Retail Store', 'Galpão': 'Warehouse', 'Comercial': 'Commercial',
       'Pré-lançamento': 'Pre-launch', 'Lançamento': 'Launch', 'Em obras': 'Under Construction', 'Pronto para morar': 'Move-in Ready', 'Não informar': 'Do not provide', 'Não informar área': 'Do not provide area', 'Não informar garantia': 'Do not provide guarantee',

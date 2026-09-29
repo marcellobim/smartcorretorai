@@ -9,6 +9,8 @@ export default Object.freeze({
     no: 'Não',
   }),
   banner: Object.freeze({
+    status: Object.freeze({ analyzingBrief: 'Analisando briefing...', generatingVisual: 'Gerando visual...', finalizingDelivery: 'Finalizando entrega...', preparingCampaign: 'Preparando sua campanha...' }),
+    review: Object.freeze({ cta: 'CTA:' }),
     optionLabels: Object.freeze({}),
     questions: Object.freeze({ propertyType: 'Que tipo de imóvel vamos divulgar?', profile: 'Qual é o perfil deste imóvel?', stage: 'Em que estágio ele está?', city: 'Em qual cidade fica o imóvel?', neighborhood: 'E o bairro?', neighborhoods: 'Quais bairros deseja atender?', bedrooms: 'Quantos dormitórios?', suites: 'Quantas suítes?', parking: 'Quantas vagas?', area: 'Deseja informar a área?', differentials: 'Quais diferenciais merecem destaque?', cta: 'Qual chamada deve conduzir a campanha?', contactPhoneChoice: 'Quer divulgar um telefone de contato na campanha?', contactPhone: 'Qual telefone deseja exibir?', services: 'Quais serviços deseja captar?', propertyKinds: 'Quais imóveis deseja captar?', ownerAudience: 'Quem você deseja atingir?', marketExperience: 'Qual sua experiência no mercado?', specialties: 'Quais são suas especialidades?', businessDifferentials: 'Quais diferenciais deseja destacar?', mainMessage: 'Qual mensagem principal deseja usar?', professionalProfile: 'Qual profissional deseja atrair?' }),
     ui: Object.freeze({
