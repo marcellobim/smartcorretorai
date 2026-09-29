@@ -26,7 +26,7 @@ test('preserves Banner actions while migrating controls to ProductButton', () =>
   assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => commitAnswer\(currentQuestion\.id, textDraft\)\}[^>]*disabled=\{!textDraft\.trim\(\)\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{goToDestinationStep\}[^>]*disabled=\{goal === 'sale' \? !saleValueReady : !rentValueReady\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => setPhase\('images'\)\}[^>]*disabled=\{!effectivePrompt\.trim\(\)\}/)
-  assert.match(banner, /<ProductButton[^>]*onClick=\{handleGenerate\}[^>]*disabled=\{!canGenerate\}[^>]*loading=\{generationLoading\}/)
+  assert.match(banner, /<ProductButton[^>]*onClick=\{handleGenerate\}[^>]*disabled=\{!canGenerate \|\| \(guestMode && guestConsumed\)\}[^>]*loading=\{generationLoading\}/)
 })
 
 test('keeps HeroShowcase actions and keyboard navigation with shared components', () => {
@@ -51,11 +51,13 @@ test('standardizes only the Banner location controls without replacing its conve
   assert.match(read('src/components/design-system/ProductButton.jsx'), /aria-busy=\{loading \? true : ariaBusy\}/)
   assert.match(location, /export function SmartLocationSelect/)
   assert.match(banner, /SmartLocationSelect, SmartLocationTextInput/)
-  assert.match(banner, /if \(currentQuestion\.id === 'city'\)[\s\S]*?ariaLabel="Estado"[\s\S]*?setCityUf\(nextUf\)[\s\S]*?setCitySelection\(''\)/)
+  assert.match(banner, /if \(currentQuestion\.id === 'city' && market === 'BR'\)[\s\S]*?ariaLabel="Estado"[\s\S]*?setCityUf\(nextUf\)[\s\S]*?setCitySelection\(''\)/)
   assert.match(banner, /ariaLabel="Cidade"[\s\S]*?disabled=\{!cityUf \|\| citiesLoading\}[\s\S]*?if \(nextCity\) commitAnswer\(currentQuestion\.id, nextCity\)/)
   assert.match(banner, /\['neighborhood', 'neighborhoods'\]\.includes\(currentQuestion\.id\)[\s\S]*?<SmartLocationTextInput/)
   assert.match(banner, /placeholder=\{currentQuestion\.placeholder\}/)
   assert.match(banner, /city: answers\.city \|\| ''[\s\S]*?district: answers\.neighborhood \|\| answers\.neighborhoods \|\| ''/)
+  assert.match(banner, /getStatesForMarket\('US'\)/)
+  assert.match(banner, /getCountiesByState\(state\)/)
 })
 
 test('presents the Banner conversation with the approved shared visual grammar while preserving its own engine', () => {

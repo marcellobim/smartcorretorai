@@ -5,6 +5,15 @@ export default Object.freeze({
     back: 'Back',
     save: 'Save',
     loading: 'Loading...',
+    yes: 'Yes',
+    no: 'No',
+  }),
+  banner: Object.freeze({
+    professionalIdentity: Object.freeze({
+      question: 'Would you like to show your professional details on the banner?',
+      description: 'We’ll use your display name (or registered name) and professional license information.',
+    }),
+    location: Object.freeze({ state: 'State', county: 'County', city: 'City', zipCode: 'ZIP Code', neighborhood: 'Neighborhood / Community', selectState: 'Select a state', selectCounty: 'Select a county', cityPlaceholder: 'e.g., Miami', zipPlaceholder: 'e.g., 33101', neighborhoodPlaceholder: 'e.g., Brickell' }),
   }),
   brand: Object.freeze({
     name: 'SNETIA',

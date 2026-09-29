@@ -72,9 +72,10 @@ test('adds the inclusive experience choice only to broker capture', () => {
   assert.match(brokerCaptureFlow, /question: 'Qual experiência deseja priorizar\?'[\s\S]*?options: BROKER_CAPTURE_EXPERIENCE_OPTIONS/)
 })
 
-test('keeps history editing and the live summary wired to the same answers', () => {
+test('keeps history editing while removing the intermediate live summary', () => {
   assert.match(banner, /chatFlow\.slice\(0, chatIndex\)\.map\(\(question, index\)[\s\S]*?formatAnswer\(answers\[question\.id\]\)[\s\S]*?goToQuestion\(index\)/)
-  assert.match(banner, /Resumo ao vivo[\s\S]*?chatFlow\.slice\(0, chatIndex\)\.map[\s\S]*?formatAnswer\(answers\[question\.id\]\)[\s\S]*?goToQuestion\(index\)/)
+  assert.doesNotMatch(banner, /Resumo ao vivo|Sua campanha<\/h3>/)
+  assert.match(banner, /Resumo da campanha[\s\S]*?chatFlow\.map\(\(question, index\)/)
   assert.match(banner, /const goToQuestion[\s\S]*?setChatIndex\(safeIndex\)[\s\S]*?setTextDraft[\s\S]*?setMultiDraft/)
 })
 
@@ -87,8 +88,8 @@ test('keeps final generation and economic integration outside the conversation c
 
 test('retains responsive mobile-first layout without a fixed-height conversation viewport', () => {
   const chat = sliceBetween("{phase === 'chat'", "{phase === 'values'")
-  assert.match(chat, /grid min-w-0 gap-8 lg:grid-cols-\[minmax\(0,1fr\)_240px\]/)
-  assert.match(chat, /lg:sticky lg:top-6 lg:self-start/)
+  assert.match(chat, /<div className="min-w-0">/)
+  assert.doesNotMatch(chat, /lg:sticky lg:top-6 lg:self-start/)
   assert.doesNotMatch(chat, /h-screen|min-h-screen|overflow-y-(?:auto|scroll)/)
   assert.doesNotMatch(chat, /conversationQueue|ConversationTypewriterText/)
 })

@@ -5,6 +5,15 @@ export default Object.freeze({
     back: 'Voltar',
     save: 'Salvar',
     loading: 'Carregando...',
+    yes: 'Sim',
+    no: 'Não',
+  }),
+  banner: Object.freeze({
+    professionalIdentity: Object.freeze({
+      question: 'Deseja mostrar seus dados profissionais no banner?',
+      description: 'Usaremos seu nome de divulgação (ou nome cadastrado) e seu registro profissional.',
+    }),
+    location: Object.freeze({ state: 'Estado (UF)', county: 'Condado', city: 'Cidade', zipCode: 'CEP', neighborhood: 'Bairro', selectState: 'Selecione o estado', selectCounty: 'Selecione o condado', cityPlaceholder: 'Ex: São Paulo', zipPlaceholder: 'Ex: 01000-000', neighborhoodPlaceholder: 'Ex: Vila Mariana' }),
   }),
   brand: Object.freeze({
     name: 'SNETIA',

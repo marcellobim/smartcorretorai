@@ -23,6 +23,7 @@ import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble
 import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import HeroShowcase from '../components/hero/HeroShowcase'
 import { useProductDraft } from '../hooks/useProductDraft'
+import { useLocale } from '../i18n/useLocale'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useAuth } from '../lib/auth-context'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
@@ -33,6 +34,9 @@ import { guestBannerRequest, guestResultForBanner, GUEST_CLAIM_PENDING } from '.
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
+import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
+import { getCountiesByState, getStatesForMarket, normalizeUsZipCode } from '../config/locations'
+import { formatPhone } from '../utils/phoneFormatters'
 import {
   buildHeroNextCampaignPackageData,
   buildHeroNextRecoveryRequest,
@@ -139,12 +143,6 @@ const PROPERTY_STAGE_OPTIONS = [
 const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+', 'Não informar']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+', 'Não informar']
 const PARKING_OPTIONS = ['0', '1', '2', '3+', 'Não informar']
-
-const HERO_STATE_OPTIONS = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
-  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
-  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
-]
 
 const BANNER_CREATION_STEPS = [
   { title: 'Objetivo', subtitle: 'Conte sobre a campanha' },
@@ -1458,7 +1456,8 @@ function UserBubble({ children, actions }) {
 }
 
 export default function HeroNext({ guestMode = false } = {}) {
-  const { user, reloadProfile } = useAuth()
+  const { user, profile, reloadProfile } = useAuth()
+  const { locale, market, t } = useLocale()
   // This fixed draft owner is only a local storage namespace, never an auth/user_id
   // or server credential. The guest session remains exclusively in HttpOnly cookies.
   const bannerDraft = useProductDraft({ productKey: guestMode ? 'banner-imobiliario-guest' : 'banner-imobiliario', schemaVersion: 1, userId: guestMode ? 'guest-local-draft' : user?.id })
@@ -1480,6 +1479,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   }
   const [goal, setGoal] = useState(() => restoredBannerDraft.goal || '')
   const [answers, setAnswers] = useState(() => restoredBannerDraft.answers || {})
+  const [showProfessionalIdentity, setShowProfessionalIdentity] = useState(() => typeof restoredBannerDraft.showProfessionalIdentity === 'boolean' ? restoredBannerDraft.showProfessionalIdentity : null)
   const [chatIndex, setChatIndex] = useState(() => restoredBannerDraft.chatIndex || 0)
   const [textDraft, setTextDraft] = useState(() => restoredBannerDraft.textDraft || '')
   const [multiDraft, setMultiDraft] = useState(() => restoredBannerDraft.multiDraft || [])
@@ -1565,7 +1565,10 @@ export default function HeroNext({ guestMode = false } = {}) {
   const isBrokerCaptureGoal = goal === 'broker_capture'
   const isAnyCaptureGoal = isPropertyCaptureGoal || isBrokerCaptureGoal
   const profilePhoneRaw = String(guestMode ? answers.contactPhone || '' : user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '').trim()
-  const profilePhone = normalizeContactPhoneForDisplay(profilePhoneRaw)
+  const professionalMarket = market === 'US' ? 'US' : 'BR'
+  const professionalIdentity = formatProfessionalIdentity(profile || user || {}, professionalMarket)
+  const canAskProfessionalIdentity = !guestMode && hasCompleteProfessionalIdentity(profile || user || {}, professionalMarket)
+  const profilePhone = formatPhone(profilePhoneRaw, professionalMarket)
 
   useEffect(() => {
     if (!guestMode) writeStoredHeroNextResult(generationResult)
@@ -1580,10 +1583,10 @@ export default function HeroNext({ guestMode = false } = {}) {
     const imageMetadata = uploadedImages.length
       ? uploadedImages.map(({ name, size, contentType, lastModified }, order) => ({ name, size, type: contentType, lastModified, order }))
       : missingImageMetadata
-    const draft = { phase, goal, answers, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
+    const draft = { phase, goal, answers, showProfessionalIdentity, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
     if (phase === 'intro' && !goal && !imageMetadata.length) { bannerDraft.clear(); return }
     bannerDraft.save(draft)
-  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, textDraft, uploadedImages])
+  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, showProfessionalIdentity, textDraft, uploadedImages])
 
   const closeExpandedPreview = () => {
     setExpandedPreview(null)
@@ -1616,7 +1619,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   }, [expandedPreview])
 
   useEffect(() => {
-    if (!cityUf) {
+    if (market !== 'BR' || !cityUf) {
       setCities([])
       setCitiesLoading(false)
       return undefined
@@ -1635,7 +1638,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       })
 
     return () => controller.abort()
-  }, [cityUf])
+  }, [cityUf, market])
 
   useEffect(() => {
     if (phase !== 'chat' || !activeQuestionRef.current) return undefined
@@ -1652,7 +1655,24 @@ export default function HeroNext({ guestMode = false } = {}) {
       : isBrokerCaptureGoal
         ? BROKER_CAPTURE_CHAT_FLOW
       : SALE_CHAT_FLOW
-  const chatFlow = getChatFlowForAnswers(baseChatFlow, answers).filter((question) => question.id === 'contactPhone' && guestMode ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
+  const localizedBaseChatFlow = useMemo(() => {
+    const locationQuestions = market === 'US'
+      ? [
+          { id: 'state', question: t('banner.location.state'), type: 'state' },
+          { id: 'county', question: t('banner.location.county'), type: 'county' },
+          { id: 'city', question: t('banner.location.city'), type: 'text', placeholder: t('banner.location.cityPlaceholder') },
+          { id: 'zipCode', question: t('banner.location.zipCode'), type: 'text', placeholder: t('banner.location.zipPlaceholder') },
+          { id: 'neighborhood', question: t('banner.location.neighborhood'), type: 'text', placeholder: t('banner.location.neighborhoodPlaceholder') },
+        ]
+      : null
+    const flow = locationQuestions
+      ? baseChatFlow.flatMap(question => question.id === 'city' ? locationQuestions : question.id === 'neighborhood' ? [] : [question])
+      : baseChatFlow
+    return canAskProfessionalIdentity
+      ? [...flow, { id: 'professionalIdentity', question: t('banner.professionalIdentity.question'), type: 'professionalIdentity' }]
+      : flow
+  }, [baseChatFlow, canAskProfessionalIdentity, market, t])
+  const chatFlow = getChatFlowForAnswers(localizedBaseChatFlow, answers).filter((question) => question.id === 'contactPhone' && guestMode ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
   const currentQuestion = chatFlow[chatIndex]
   const selectedDestinations = destinationIds
     .map((id) => DESTINATIONS.find((item) => item.id === id))
@@ -1707,6 +1727,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     setGoalNotice('')
     setGoal(nextGoal)
     setAnswers({})
+    setShowProfessionalIdentity(null)
     setChatIndex(0)
     setTextDraft('')
     setMultiDraft([])
@@ -1745,6 +1766,10 @@ export default function HeroNext({ guestMode = false } = {}) {
   }
 
   const commitAnswer = (questionId, value) => {
+    if (questionId === 'professionalIdentity') {
+      setShowProfessionalIdentity(value === 'yes')
+      value = value === 'yes' ? t('common.yes') : t('common.no')
+    }
     const normalizedValue = normalizeAnswerValue(questionId, value)
     const isEmpty = !normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)
     const allowsEmpty = baseChatFlow.find((question) => question.id === questionId)?.optional === true
@@ -1766,7 +1791,8 @@ export default function HeroNext({ guestMode = false } = {}) {
       delete updatedAnswers.parking
       delete updatedAnswers.area
     }
-    const updatedChatFlow = getChatFlowForAnswers(baseChatFlow, updatedAnswers).filter((question) => question.id === 'contactPhone' && guestMode ? updatedAnswers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, updatedAnswers))
+    if (questionId === 'state') delete updatedAnswers.county
+    const updatedChatFlow = getChatFlowForAnswers(localizedBaseChatFlow, updatedAnswers).filter((question) => question.id === 'contactPhone' && guestMode ? updatedAnswers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, updatedAnswers))
     const currentUpdatedIndex = updatedChatFlow.findIndex((question) => question.id === questionId)
     const nextMissingIndex = updatedChatFlow.findIndex((question, index) => (
       index > currentUpdatedIndex && !updatedAnswers[question.id]
@@ -2235,7 +2261,12 @@ export default function HeroNext({ guestMode = false } = {}) {
         property_type: answers.propertyType || normalizeList(answers.propertyKinds).join(', '),
         property_profile: answers.profile || (goal === 'rent' ? 'Locação' : goal === 'property_capture' ? 'Captação de Imóveis' : goal === 'broker_capture' ? 'Captação de Corretores' : ''),
         property_stage: answers.stage || '',
+        market: professionalMarket,
+        locale,
+        state: answers.state || cityUf || '',
+        county: answers.county || '',
         city: answers.city || '',
+        zip_code: answers.zipCode || '',
         district: answers.neighborhood || answers.neighborhoods || '',
         bedrooms: answers.bedrooms || '',
         suites: answers.suites || '',
@@ -2254,8 +2285,11 @@ export default function HeroNext({ guestMode = false } = {}) {
         highlights: getHeroNextCaptureFeatures(goal, answers),
         cta: answers.cta || (isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale com o corretor'),
         contact_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? answers.contactPhone || '' : '',
-        display_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? normalizeContactPhoneForDisplay(answers.contactPhone || '') : '',
+        display_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? formatPhone(answers.contactPhone || '', professionalMarket) : '',
         campaign_contact_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? answers.contactPhone || '' : '',
+        show_professional_identity: showProfessionalIdentity === true,
+        professional_identity: showProfessionalIdentity === true ? professionalIdentity : '',
+        professional_identity_placement: showProfessionalIdentity === true ? 'discreet_footer' : '',
         deliverables: {
           hero_image: true,
           instagram_text: true,
@@ -2606,6 +2640,32 @@ export default function HeroNext({ guestMode = false } = {}) {
   const renderQuestionControls = () => {
     if (!currentQuestion) return null
 
+    if (currentQuestion.id === 'professionalIdentity') {
+      return (
+        <div className="mt-5">
+          <p className="mb-3 text-sm font-semibold text-slate-600">{t('banner.professionalIdentity.description')}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+          <button type="button" onClick={() => commitAnswer(currentQuestion.id, 'yes')} className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50">
+            <p className="text-base font-black text-slate-950">{t('common.yes')}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">{professionalIdentity}</p>
+          </button>
+          <button type="button" onClick={() => commitAnswer(currentQuestion.id, 'no')} className="rounded-3xl border border-slate-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50">
+            <p className="text-base font-black text-slate-950">{t('common.no')}</p>
+          </button>
+          </div>
+        </div>
+      )
+    }
+
+    if (currentQuestion.id === 'state') {
+      return <div className="mt-4"><SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.state')} value={answers.state || ''} onChange={(state) => commitAnswer('state', state)}><option value="">{t('banner.location.selectState')}</option>{getStatesForMarket('US').map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</SmartLocationSelect></div>
+    }
+
+    if (currentQuestion.id === 'county') {
+      const state = answers.state || ''
+      return <div className="mt-4"><SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.county')} value={answers.county || ''} disabled={!state} onChange={(county) => commitAnswer('county', county)}><option value="">{t('banner.location.selectCounty')}</option>{getCountiesByState(state).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</SmartLocationSelect></div>
+    }
+
     if (currentQuestion.id === 'contactPhoneChoice') {
       return (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -2633,7 +2693,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       )
     }
 
-    if (currentQuestion.id === 'city') {
+    if (currentQuestion.id === 'city' && market === 'BR') {
       return (
         <div className="mt-4 space-y-4">
           <div>
@@ -2649,7 +2709,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               }}
             >
               <option value="">Selecione o estado</option>
-              {HERO_STATE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+              {getStatesForMarket('BR').map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </SmartLocationSelect>
           </div>
           <div>
@@ -2691,7 +2751,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             <input
               autoFocus
               value={textDraft}
-              onChange={(event) => setTextDraft(event.target.value)}
+              onChange={(event) => setTextDraft(currentQuestion.id === 'zipCode' ? normalizeUsZipCode(event.target.value) : event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') commitAnswer(currentQuestion.id, textDraft)
               }}
@@ -2864,7 +2924,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                 trailing={<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>}
               />
             </div>
-            <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="min-w-0">
               <div className="min-w-0">
                 <div className="mb-4">
                   <ProductButton type="button" variant="secondary" onClick={goBackInChat}>Voltar</ProductButton>
@@ -2874,7 +2934,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <div key={question.id} className="space-y-4">
                       <AssistantBubble>{question.question}</AssistantBubble>
                       <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-2 inline-flex items-center text-xs font-black text-emerald-200 hover:text-white">Editar</button>}>
-                        {formatAnswer(answers[question.id])}
+                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id])}
                       </UserBubble>
                     </div>
                   ))}
@@ -2891,18 +2951,6 @@ export default function HeroNext({ guestMode = false } = {}) {
                   )}
                 </div>
               </div>
-              <aside className="rounded-3xl bg-white/80 p-4 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70 backdrop-blur-sm lg:sticky lg:top-6 lg:self-start">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Resumo ao vivo</p>
-                <h3 className="mt-1 text-lg font-black text-slate-950">Sua campanha</h3>
-                <div className="mt-4 space-y-2 rounded-2xl bg-slate-50/90 p-2">
-                  <div className="rounded-xl px-2 py-2 text-sm"><strong className="text-slate-950">Objetivo</strong><p className="mt-1 font-semibold text-slate-600">{getGoalLabel(goal)}</p></div>
-                  {chatFlow.slice(0, chatIndex).map((question, index) => answers[question.id] ? (
-                    <div key={question.id} className="rounded-xl px-2 py-2 text-sm transition hover:bg-primary-50">
-                      <div className="flex items-start justify-between gap-3"><p className="min-w-0"><strong className="text-slate-950">{question.question}</strong><span className="mt-1 block break-words font-semibold text-slate-600">{formatAnswer(answers[question.id])}</span></p><button type="button" onClick={() => goToQuestion(index)} className="shrink-0 text-xs font-black text-emerald-700">Editar</button></div>
-                    </div>
-                  ) : null)}
-                </div>
-              </aside>
             </div>
           </section>
         )}
@@ -3256,7 +3304,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>{question.question}</strong><br />
-                        {formatAnswer(answers[question.id])}
+                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id])}
                       </p>
                       <button
                         type="button"

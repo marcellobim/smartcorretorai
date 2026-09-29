@@ -102,7 +102,8 @@ test('Smart Carrossel restores allowlisted flow and requests physical file resel
 
 test('Banner Imobiliário restores briefing and options without image base64', () => {
   assert.match(banner, /productKey: guestMode \? 'banner-imobiliario-guest' : 'banner-imobiliario'/)
-  assert.match(banner, /const draft = \{ phase, goal, answers, chatIndex/)
+  assert.match(banner, /const draft = \{ phase, goal, answers, showProfessionalIdentity, chatIndex/)
+  assert.match(banner, /showProfessionalIdentity.*restoredBannerDraft\.showProfessionalIdentity/)
   assert.match(banner, /imageMetadata/)
   assert.match(banner, /Selecione novamente[\s\S]*arquivos físicos não são armazenados/)
   assert.doesNotMatch(banner, /bannerDraft\.save\([^)]*uploadedImages/)
