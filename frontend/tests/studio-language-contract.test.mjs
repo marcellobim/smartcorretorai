@@ -43,3 +43,40 @@ test('language contract leaves Studio mode, image behavior and VEO economy const
   assert.match(createVideo, /const ctaFrame = isFreeAiRequest \? null : resolveStudioHeroCtaFrame\(briefing\)/)
   assert.match(createVideo, /input_image_1_path: inputImage1Path \|\| null/)
 })
+
+test('dynamic_reel resolves each existing CTA choice to its locale-specific fixed frame', () => {
+  const frames = [
+    ['cta-saiba-mais.png', 'cta-learn-more.png'],
+    ['cta-agende-sua-visita.png', 'cta-schedule-your-visit.png'],
+    ['cta-entre-em-contato-agora.png', 'cta-contact-us-now.png'],
+    ['cta-faca-parte-do-nosso-time.png', 'cta-join-our-team.png'],
+    ['cta-aguardo-seu-contato.png', 'cta-get-in-touch.png'],
+  ]
+  for (const [pt, en] of frames) {
+    assert.match(createVideo, new RegExp(`'pt-BR':[\\s\\S]*${pt}`))
+    assert.match(createVideo, new RegExp(`'en-US':[\\s\\S]*${en}`))
+  }
+  assert.match(createVideo, /const language = briefing\.language === 'en-US' \? 'en-US' : 'pt-BR'/)
+  assert.match(createVideo, /STUDIO_HERO_CTA_FRAMES\.sell\[language\]/)
+  assert.match(createVideo, /const ctaFrame = isFreeAiRequest \? null : resolveStudioHeroCtaFrame\(briefing\)/)
+})
+
+test('dynamic_reel uses the persisted language for narration while free_ai stays on its existing contract', () => {
+  assert.match(createVideo, /voiceover_language: isFreeAi \? 'pt-BR' : briefing\.language/)
+  assert.match(createVideo, /AMERICAN ENGLISH VOICE LOCK - MANDATORY/)
+  assert.match(createVideo, /This is a dynamic_reel commercial\. All spoken narration must be natural American English\./)
+  assert.match(createVideo, /function localizeDynamicReelPromptLanguage\(prompt: string, language: string\)/)
+  assert.match(createVideo, /\.replaceAll\('Brazilian Portuguese', 'American English'\)/)
+  assert.match(createVideo, /briefing\.creativeMode === 'free_ai' \? 'pt-BR' : briefing\.language/)
+  assert.match(createVideo, /if \(isFreeAiRequest\) \{[\s\S]*withFreeAiSpokenCta[\s\S]*\} else \{/)
+  assert.doesNotMatch(createVideo.slice(createVideo.indexOf('function buildDynamicReelLanguagePresentation'), createVideo.indexOf('function buildStructuredStudioHeroBriefing')), /withFreeAiSpokenCta/)
+})
+
+test('the EN-US CTA assets are versioned locally and the runtime continues to use bucket paths', () => {
+  const assetRoot = path.join(frontendRoot, 'public/studio-hero/cta')
+  for (const asset of ['cta-learn-more.png', 'cta-schedule-your-visit.png', 'cta-contact-us-now.png', 'cta-join-our-team.png', 'cta-get-in-touch.png']) {
+    assert.ok(readFileSync(path.join(assetRoot, asset)).byteLength > 0, `${asset} is present`)
+  }
+  assert.match(createVideo, /const STUDIO_HERO_CTA_LIBRARY_PREFIX = 'system\/studio-hero\/cta'/)
+  assert.match(createVideo, /const libraryPath = `\$\{STUDIO_HERO_CTA_LIBRARY_PREFIX\}\/\$\{ctaFrame\.fileName\}`/)
+})

@@ -161,6 +161,13 @@ Preserve and pronounce Portuguese words correctly, including: lançamento, local
 Never pronounce "lançamento" as the unaccented written form "lancamento".
 Do not read any uppercase ASCII screen-text token as narration.`
 
+const STUDIO_HERO_AMERICAN_ENGLISH_NARRATION_LOCK = `AMERICAN ENGLISH VOICE LOCK - MANDATORY
+
+Spoken narration is separate from visual text and must remain natural American English.
+Use clear, concise real-estate advertising language with idiomatic American English pronunciation.
+Never switch to Brazilian Portuguese or translate city, neighborhood, brand, or other proper names unnecessarily.
+Do not read any uppercase screen-text token as narration.`
+
 function resolveVideoTextToken(clean: string) {
   const compact = clean.replace(/[\s-]+/g, '')
   return VIDEO_TEXT_TOKEN_DICTIONARY[clean] || VIDEO_TEXT_TOKEN_DICTIONARY[compact] || clean
@@ -264,46 +271,89 @@ type StudioHeroCtaFrame = {
   publicPath: string
 }
 
-const STUDIO_HERO_CTA_FRAMES: Record<string, StudioHeroCtaFrame> = {
+type StudioHeroCtaFrameSet = Record<'pt-BR' | 'en-US', StudioHeroCtaFrame>
+
+const STUDIO_HERO_CTA_FRAMES: Record<string, StudioHeroCtaFrameSet> = {
   sell: {
-    slug: 'saiba-mais',
-    label: 'SAIBA MAIS',
-    fileName: 'cta-saiba-mais.png',
-    publicPath: '/studio-hero/cta/cta-saiba-mais.png',
+    'pt-BR': {
+      slug: 'saiba-mais',
+      label: 'SAIBA MAIS',
+      fileName: 'cta-saiba-mais.png',
+      publicPath: '/studio-hero/cta/cta-saiba-mais.png',
+    },
+    'en-US': {
+      slug: 'learn-more',
+      label: 'LEARN MORE',
+      fileName: 'cta-learn-more.png',
+      publicPath: '/studio-hero/cta/cta-learn-more.png',
+    },
   },
   rent: {
-    slug: 'agende-sua-visita',
-    label: 'AGENDE SUA VISITA',
-    fileName: 'cta-agende-sua-visita.png',
-    publicPath: '/studio-hero/cta/cta-agende-sua-visita.png',
+    'pt-BR': {
+      slug: 'agende-sua-visita',
+      label: 'AGENDE SUA VISITA',
+      fileName: 'cta-agende-sua-visita.png',
+      publicPath: '/studio-hero/cta/cta-agende-sua-visita.png',
+    },
+    'en-US': {
+      slug: 'schedule-your-visit',
+      label: 'SCHEDULE YOUR VISIT',
+      fileName: 'cta-schedule-your-visit.png',
+      publicPath: '/studio-hero/cta/cta-schedule-your-visit.png',
+    },
   },
   property_capture: {
-    slug: 'entre-em-contato-agora',
-    label: 'ENTRE EM CONTATO AGORA',
-    fileName: 'cta-entre-em-contato-agora.png',
-    publicPath: '/studio-hero/cta/cta-entre-em-contato-agora.png',
+    'pt-BR': {
+      slug: 'entre-em-contato-agora',
+      label: 'ENTRE EM CONTATO AGORA',
+      fileName: 'cta-entre-em-contato-agora.png',
+      publicPath: '/studio-hero/cta/cta-entre-em-contato-agora.png',
+    },
+    'en-US': {
+      slug: 'contact-us-now',
+      label: 'CONTACT US NOW',
+      fileName: 'cta-contact-us-now.png',
+      publicPath: '/studio-hero/cta/cta-contact-us-now.png',
+    },
   },
   broker_capture: {
-    slug: 'faca-parte-do-nosso-time',
-    label: 'FACA PARTE DO NOSSO TIME',
-    fileName: 'cta-faca-parte-do-nosso-time.png',
-    publicPath: '/studio-hero/cta/cta-faca-parte-do-nosso-time.png',
+    'pt-BR': {
+      slug: 'faca-parte-do-nosso-time',
+      label: 'FACA PARTE DO NOSSO TIME',
+      fileName: 'cta-faca-parte-do-nosso-time.png',
+      publicPath: '/studio-hero/cta/cta-faca-parte-do-nosso-time.png',
+    },
+    'en-US': {
+      slug: 'join-our-team',
+      label: 'JOIN OUR TEAM',
+      fileName: 'cta-join-our-team.png',
+      publicPath: '/studio-hero/cta/cta-join-our-team.png',
+    },
   },
   fallback: {
-    slug: 'aguardo-seu-contato',
-    label: 'AGUARDO SEU CONTATO',
-    fileName: 'cta-aguardo-seu-contato.png',
-    publicPath: '/studio-hero/cta/cta-aguardo-seu-contato.png',
+    'pt-BR': {
+      slug: 'aguardo-seu-contato',
+      label: 'AGUARDO SEU CONTATO',
+      fileName: 'cta-aguardo-seu-contato.png',
+      publicPath: '/studio-hero/cta/cta-aguardo-seu-contato.png',
+    },
+    'en-US': {
+      slug: 'get-in-touch',
+      label: 'GET IN TOUCH',
+      fileName: 'cta-get-in-touch.png',
+      publicPath: '/studio-hero/cta/cta-get-in-touch.png',
+    },
   },
 }
 
 function resolveStudioHeroCtaFrame(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>): StudioHeroCtaFrame {
-  if (getMatrixProfileGroup(briefing) === 'LANCAMENTO') return STUDIO_HERO_CTA_FRAMES.sell
-  if (briefing.objective === 'rent') return STUDIO_HERO_CTA_FRAMES.rent
-  if (briefing.objective === 'property_capture') return STUDIO_HERO_CTA_FRAMES.property_capture
-  if (briefing.objective === 'broker_capture') return STUDIO_HERO_CTA_FRAMES.broker_capture
-  if (briefing.objective === 'sell') return STUDIO_HERO_CTA_FRAMES.sell
-  return STUDIO_HERO_CTA_FRAMES.fallback
+  const language = briefing.language === 'en-US' ? 'en-US' : 'pt-BR'
+  if (getMatrixProfileGroup(briefing) === 'LANCAMENTO') return STUDIO_HERO_CTA_FRAMES.sell[language]
+  if (briefing.objective === 'rent') return STUDIO_HERO_CTA_FRAMES.rent[language]
+  if (briefing.objective === 'property_capture') return STUDIO_HERO_CTA_FRAMES.property_capture[language]
+  if (briefing.objective === 'broker_capture') return STUDIO_HERO_CTA_FRAMES.broker_capture[language]
+  if (briefing.objective === 'sell') return STUDIO_HERO_CTA_FRAMES.sell[language]
+  return STUDIO_HERO_CTA_FRAMES.fallback[language]
 }
 
 async function downloadStudioHeroCtaFrameBytes(supabase: ReturnType<typeof createClient>, ctaFrame: StudioHeroCtaFrame) {
@@ -863,7 +913,10 @@ function getOpeningHookText(briefing: ReturnType<typeof buildStructuredStudioHer
     return normalizeVideoTextToken(match || options[0], options[0], 32)
   }
 
-  return pick(allowedHighlights.length ? allowedHighlights : ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'])
+  const heroWord = pick(allowedHighlights.length ? allowedHighlights : ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'])
+  return briefing.creativeMode === 'free_ai'
+    ? heroWord
+    : presentDynamicReelValue(heroWord, briefing.language)
 }
 
 function resolveDecorationDirection(briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>) {
@@ -935,8 +988,9 @@ function buildStudioHeroMatrixPrompt(
     : `${renderedMatrixPrompt}\n\n---\n\n${STUDIO_HERO_CINEMATIC_OPENING_TEXT_LOCK}`
 
   const visualPrompt = removeMatrixAudioSection(matrixPrompt)
-  const voiceoverPrompt = buildMatrixVoiceoverPrompt(matrixId, text1)
-  const prompt = buildProviderPromptWithVoiceover(visualPrompt, voiceoverPrompt)
+  const language = briefing.creativeMode === 'free_ai' ? 'pt-BR' : briefing.language
+  const voiceoverPrompt = buildMatrixVoiceoverPrompt(matrixId, text1, language)
+  const prompt = buildProviderPromptWithVoiceover(visualPrompt, voiceoverPrompt, language)
 
   return {
     prompt,
@@ -1092,6 +1146,9 @@ function buildStudioHeroJsonPrompt(payload: {
       launch_strategy: isLaunchProfile ? 'sell the opportunity, not immediate occupancy' : undefined,
     },
     property_engine: propertyContext,
+    american_english_presentation: !isFreeAi && briefing.language === 'en-US'
+      ? buildDynamicReelLanguagePresentation(briefing, metadataChat, ctaFrame || null)
+      : undefined,
     immutable_numeric_facts: compactJsonRecord({
       bedrooms: isBrokerRecruitment ? '' : briefing.bedrooms,
       suites: isBrokerRecruitment ? '' : briefing.suites,
@@ -1329,8 +1386,10 @@ function buildStudioHeroJsonPrompt(payload: {
       },
     audio_engine: {
       music: 'luxury_cinematic',
-      voiceover_language: 'pt-BR',
-      voiceover_style: 'short_elegant_brazilian_portuguese_real_estate_commercial',
+      voiceover_language: isFreeAi ? 'pt-BR' : briefing.language,
+      voiceover_style: isFreeAi || briefing.language !== 'en-US'
+        ? 'short_elegant_brazilian_portuguese_real_estate_commercial'
+        : 'short_elegant_american_english_real_estate_commercial',
       voiceover_content_policy: 'narrate_property_facts_naturally_without_reading_raw_structured_data',
       immutable_numeric_voiceover_policy: isBrokerRecruitment
         ? undefined
@@ -1514,7 +1573,18 @@ function removeMatrixAudioSection(prompt: string) {
     .trim()
 }
 
-function buildMatrixVoiceoverPrompt(matrixId: StudioHeroMatrixId, text1: string) {
+function buildMatrixVoiceoverPrompt(matrixId: StudioHeroMatrixId, text1: string, language = 'pt-BR') {
+  if (language === 'en-US') {
+    const place = text1 || 'this property'
+    if (matrixId === 'SELL_MCMV_V1') return `Discover a great opportunity in ${place}. A home designed for comfort, practicality, and a fresh start.`
+    if (matrixId === 'SELL_PRONTOS_V1') return `Discover a great opportunity in ${place}. A move-in-ready property made for new moments.`
+    if (matrixId === 'SELL_ALTO_PADRAO_V1') return `Discover a high-end property in ${place}. Elegance, comfort, and a presentation designed to impress.`
+    if (matrixId.startsWith('RENT_')) return `Discover a rental opportunity in ${place}. Comfort, practicality, and a property worth seeing.`
+    if (matrixId === 'CAPTURE_PROPERTY_V1') return 'Looking to sell or promote your property with more impact? Count on a professional presentation that highlights every detail.'
+    if (matrixId === 'CAPTURE_AGENT_V1') return 'Join a team built to create more opportunities, visibility, and professional growth.'
+    return 'Discover a real estate presentation designed to create interest, impact, and a desire to learn more.'
+  }
+
   const place = toVoiceoverPlace(text1 || 'este imovel')
 
   if (matrixId === 'SELL_MCMV_V1') {
@@ -1544,7 +1614,7 @@ function buildMatrixVoiceoverPrompt(matrixId: StudioHeroMatrixId, text1: string)
   return 'ConheÃ§a uma apresentaÃ§Ã£o imobiliÃ¡ria criada para gerar desejo, impacto e vontade de saber mais.'
 }
 
-function buildProviderPromptWithVoiceover(visualPrompt: string, voiceoverPrompt: string) {
+function buildProviderPromptWithVoiceover(visualPrompt: string, voiceoverPrompt: string, language = 'pt-BR') {
   const cleanVisualPrompt = visualPrompt.trim()
   const cleanVoiceoverPrompt = normalizeText(voiceoverPrompt, 500)
 
@@ -1571,7 +1641,7 @@ Do not read the prompt.
 Do not mention technical terms.
 Do not invent prices, addresses, phone numbers or property details.
 Keep the narration short, elegant and commercial.
-Never narrate in English.`
+${language === 'en-US' ? 'Never narrate in Brazilian Portuguese.' : 'Never narrate in English.'}`
 }
 
 function buildStudioHeroBriefingPrompt(_bairro: string, _cta: string, dadosImovelText: string): string {
@@ -1633,7 +1703,13 @@ function normalizeStudioPublicationOptions(value: unknown) {
   return options.every((option, index) => option.id === `studio-caption-option-${index + 1}` && option.text.length > 0 && option.text.length <= 2200) ? options : []
 }
 
-function withStudioHeroFinalVisualQualityLock(prompt: string, isFreeAi: boolean, isJsonMode = false) {
+function voiceoverLanguageLock(language: string, isFreeAi: boolean) {
+  return !isFreeAi && language === 'en-US'
+    ? STUDIO_HERO_AMERICAN_ENGLISH_NARRATION_LOCK
+    : STUDIO_HERO_PORTUGUESE_NARRATION_LOCK
+}
+
+function withStudioHeroFinalVisualQualityLock(prompt: string, isFreeAi: boolean, isJsonMode = false, language = 'pt-BR') {
   const cleanPrompt = prompt.trim()
   if (!cleanPrompt) return cleanPrompt
 
@@ -1655,7 +1731,7 @@ function withStudioHeroFinalVisualQualityLock(prompt: string, isFreeAi: boolean,
       instruction: STUDIO_HERO_GENERATIVE_TEXT_EXCLUSION,
       mode_rule: modeRule,
     }
-    payload.brazilian_portuguese_voice_lock = STUDIO_HERO_PORTUGUESE_NARRATION_LOCK
+    payload[language === 'en-US' && !isFreeAi ? 'american_english_voice_lock' : 'brazilian_portuguese_voice_lock'] = voiceoverLanguageLock(language, isFreeAi)
     return JSON.stringify(payload, null, 2)
   }
 
@@ -1670,7 +1746,7 @@ ${modeRule}
 
 ---
 
-${STUDIO_HERO_PORTUGUESE_NARRATION_LOCK}`
+${voiceoverLanguageLock(language, isFreeAi)}`
 }
 
 const LAND_CONSTRUCTION_LABELS: Record<string, string> = {
@@ -1687,6 +1763,114 @@ function normalizeLandConstructionType(value: unknown) {
 
 function normalizeStudioLanguage(value: unknown) {
   return value === 'en-US' ? 'en-US' : 'pt-BR'
+}
+
+const DYNAMIC_REEL_EN_US_PRESENTATION: Record<string, string> = {
+  sale: 'sell a property',
+  rent: 'rent a property',
+  property_capture: 'attract property owners',
+  broker_capture: 'recruit real estate professionals',
+  APARTAMENTO: 'apartment',
+  CASA: 'house',
+  'SALA COMERCIAL': 'commercial office',
+  LOJA: 'retail space',
+  'LAJE CORPORATIVA': 'corporate floor',
+  GALPAO: 'warehouse',
+  LOTE: 'lot',
+  TERRENO: 'land',
+  COMERCIAL: 'commercial property',
+  TODOS: 'all property types',
+  MCMV: 'affordable housing',
+  PRONTOS: 'move-in ready',
+  'ALTO PADRAO': 'high-end',
+  LANCAMENTO: 'new development',
+  'PRE-LANCAMENTO': 'pre-launch',
+  PRONTO: 'move-in ready',
+  LOCALIZACAO: 'location',
+  'ESPACO INTERNO': 'interior space',
+  'VARANDA / AREA EXTERNA': 'balcony / outdoor area',
+  ACABAMENTO: 'finishes',
+  LAZER: 'leisure amenities',
+  VISTA: 'view',
+  OPORTUNIDADE: 'opportunity',
+  CONDOMINIO: 'condominium',
+  'AREA EXTERNA': 'outdoor area',
+  SEGURANCA: 'security',
+  INFRAESTRUTURA: 'infrastructure',
+  NEGOCIOS: 'business potential',
+  VISIBILIDADE: 'visibility',
+  'AVALIACAO DE MERCADO': 'market valuation',
+  'DIVULGACAO PROFISSIONAL': 'professional marketing',
+  'CARTEIRA DE CLIENTES': 'client network',
+  'ATENDIMENTO CONSULTIVO': 'consultative service',
+  'VENDA COM ESTRATEGIA': 'strategic sales support',
+  'LEADS QUALIFICADOS': 'qualified leads',
+  TREINAMENTO: 'training',
+  'AMBIENTE COLABORATIVO': 'collaborative environment',
+  'COMISSOES ATRATIVAS': 'competitive commissions',
+  'CRESCIMENTO PROFISSIONAL': 'professional growth',
+  'MARCA FORTE': 'strong brand',
+  'SAIBA MAIS': 'learn more',
+  'AGENDE SUA VISITA': 'schedule your visit',
+  'ENTRE EM CONTATO': 'contact us',
+  'SOLICITE MAIS INFORMACOES': 'request more information',
+  'INFORMACOES NA BIO': 'details in bio',
+  'FALE COMIGO': "let's talk",
+  'QUERO CONVERSAR': "let's talk",
+  'CHAME NO WHATSAPP': 'message us on WhatsApp',
+  EXCLUSIVO: 'exclusive',
+  DISPONIVEL: 'available',
+  CONTRATAMOS: "we're hiring",
+  'QUER VENDER': 'looking to sell',
+  'QUER ALUGAR': 'looking to rent',
+  'PRONTO PARA MORAR': 'move-in ready',
+  'EM OBRAS': 'under construction',
+  VENDA: 'sale',
+  LOCACAO: 'rental',
+}
+
+function presentDynamicReelValue(value: unknown, language: string) {
+  const text = normalizeText(value, 180)
+  if (language !== 'en-US' || !text) return text
+  return DYNAMIC_REEL_EN_US_PRESENTATION[text.toUpperCase()] || text
+}
+
+function buildDynamicReelLanguagePresentation(
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
+  metadataChat: { bairro: string; caracteristica: string; oferta: string; cta: string },
+  ctaFrame: StudioHeroCtaFrame | null,
+) {
+  if (briefing.language !== 'en-US') return ''
+
+  const presentation = {
+    objective: presentDynamicReelValue(briefing.objective, briefing.language),
+    objective_label: presentDynamicReelValue(briefing.objectiveLabel, briefing.language),
+    property_type: presentDynamicReelValue(briefing.propertyType, briefing.language),
+    profile: presentDynamicReelValue(briefing.profile, briefing.language),
+    stage: presentDynamicReelValue(briefing.stage, briefing.language),
+    main_feature: presentDynamicReelValue(metadataChat.caracteristica, briefing.language),
+    differentials: briefing.differentials.map((value) => presentDynamicReelValue(value, briefing.language)),
+    selected_cta: ctaFrame?.label || presentDynamicReelValue(metadataChat.cta, briefing.language),
+    location: metadataChat.bairro,
+  }
+
+  return `AMERICAN ENGLISH PRESENTATION - HIGHEST PRIORITY
+
+This is a dynamic_reel commercial. All spoken narration must be natural American English.
+Use the following presentation labels for meaning. They are presentation-only translations; do not reinterpret or alter internal identifiers, numeric facts, proper names, city names, neighborhood names, or the fixed final CTA frame.
+Do not narrate Brazilian Portuguese labels, even if internal structured values appear elsewhere in this prompt.
+Keep the existing eight-second structure, image behavior, visual safeguards, and CTA-frame timing unchanged.
+
+PRESENTATION LABELS
+${JSON.stringify(presentation, null, 2)}`
+}
+
+function localizeDynamicReelPromptLanguage(prompt: string, language: string) {
+  if (language !== 'en-US') return prompt
+  return prompt
+    .replaceAll('Brazilian Portuguese', 'American English')
+    .replaceAll('brazilian portuguese', 'American English')
+    .replaceAll('Never narrate in English.', 'Never narrate in Brazilian Portuguese.')
 }
 
 function buildStructuredStudioHeroBriefing(body: JsonRecord) {
@@ -3813,18 +3997,34 @@ serve(async (req) => {
       }
 
       if (!visualPromptForDebug) visualPromptForDebug = promptFinal
+      if (!isFreeAiRequest && briefing.language === 'en-US') {
+        promptFinal = localizeDynamicReelPromptLanguage(promptFinal, briefing.language)
+        visualPromptForDebug = localizeDynamicReelPromptLanguage(visualPromptForDebug, briefing.language)
+        voiceoverPromptForDebug = buildMatrixVoiceoverPrompt(
+          selectStudioHeroMatrix(briefing),
+          normalizeText1(briefing, metadataChat.bairro),
+          briefing.language,
+        )
+      }
       if (isFreeAiRequest) {
         promptFinal = withFreeAiSpokenCta(promptFinal, metadataChat.cta, promptMode === 'json')
         const spokenCtaInstruction = buildFreeAiSpokenCtaInstruction(metadataChat.cta)
         if (spokenCtaInstruction) {
           voiceoverPromptForDebug = [voiceoverPromptForDebug, spokenCtaInstruction].filter(Boolean).join('\n\n')
         }
+      } else {
+        const languagePresentation = buildDynamicReelLanguagePresentation(briefing, metadataChat, ctaFrame)
+        if (languagePresentation && promptMode !== 'json') {
+          promptFinal = `${promptFinal}\n\n---\n\n${languagePresentation}`
+          visualPromptForDebug = `${visualPromptForDebug}\n\n---\n\n${languagePresentation}`
+        }
       }
-      promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json')
-      visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json')
+      const promptLanguage = isFreeAiRequest ? 'pt-BR' : briefing.language
+      promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json', promptLanguage)
+      visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json', promptLanguage)
       voiceoverPromptForDebug = voiceoverPromptForDebug
-        ? `${voiceoverPromptForDebug}\n\n${STUDIO_HERO_PORTUGUESE_NARRATION_LOCK}`
-        : STUDIO_HERO_PORTUGUESE_NARRATION_LOCK
+        ? `${voiceoverPromptForDebug}\n\n${voiceoverLanguageLock(promptLanguage, isFreeAiRequest)}`
+        : voiceoverLanguageLock(promptLanguage, isFreeAiRequest)
       visibleTextsForDebug = []
       visibleTextCount = 0
 
