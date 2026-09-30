@@ -23,7 +23,7 @@ import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/down
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
-import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_COPY, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, FURNISH_RENOVATE_STYLE_OPTIONS, FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, getFurnishRenovateStyleLabel, getFurnishRenovateTransformationLabel, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
+import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
 import { BROKER_CUSTOM_SPEECH_MAX_WORDS, BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, BROKER_SPEECH_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
@@ -173,7 +173,15 @@ async function materializeSmartSpaceResult({ rawResult, inputPath, originalIndex
   }
 }
 
-function FurnishRenovateResultCard({ result, publication }) {
+const smartSpaceText = locale => locale === 'en-US' ? {
+  image: 'Image', original: 'Original', result: 'Image result', enlarge: 'Enlarge', download: 'Download', publish: 'Publish', transformationVideo: 'Transformation video', recommended: 'Recommended', videoTip: 'Show the before and after in a short video, ideal for Instagram and Facebook.', downloadVideo: 'Download transformation video', publishVideo: 'Publish transformation video', partial: 'We created the open space, but could not complete the new design.', videoFinishing: 'Your images are ready. We are finalizing the transformation video.', videoFailed: 'Your images are available, but the transformation video could not be completed.',
+} : {
+  image: 'Imagem', original: 'Original', result: 'Resultado da imagem', enlarge: 'Ampliar', download: 'Baixar', publish: 'Publicar', transformationVideo: 'Vídeo da transformação', recommended: 'Recomendado', videoTip: 'Mostre o antes e depois em um vídeo curto, ideal para Instagram e Facebook.', downloadVideo: 'Baixar vídeo da transformação', publishVideo: 'Publicar vídeo da transformação', partial: 'Conseguimos criar o espaço livre, mas não foi possível concluir a nova decoração.', videoFinishing: 'Suas imagens estão prontas. Estamos finalizando o vídeo da transformação.', videoFailed: 'As imagens estão disponíveis, mas o vídeo da transformação não pôde ser concluído.',
+}
+
+function FurnishRenovateResultCard({ result, publication, locale }) {
+  const copy = smartSpaceText(locale)
+  const stageLabel = stage => locale === 'en-US' ? ({ free_space: 'Open space', new_decoration: 'New design', clear_area: 'Cleared area', remove_furniture: 'Open space', furnish: 'Furnished room', remove_and_redecorate: 'New design' }[stage.kind] || stage.label) : stage.label
   const [downloading, setDownloading] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [publishIntent, setPublishIntent] = useState(null)
@@ -219,7 +227,7 @@ function FurnishRenovateResultCard({ result, publication }) {
         previewUrl: result.video?.signedUrl,
       }))
     } catch {
-      setDownloadError('Não foi possível identificar o vídeo da transformação com segurança.')
+      setDownloadError(locale === 'en-US' ? 'We could not safely identify the transformation video.' : 'Não foi possível identificar o vídeo da transformação com segurança.')
     }
   }
   const openImagePublication = stage => {
@@ -232,45 +240,47 @@ function FurnishRenovateResultCard({ result, publication }) {
         previewUrl: stage.url,
       }))
     } catch {
-      setDownloadError('Não foi possível identificar a imagem com segurança.')
+      setDownloadError(locale === 'en-US' ? 'We could not safely identify the image.' : 'Não foi possível identificar a imagem com segurança.')
     }
   }
 
-  return <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label={`Resultado da imagem ${result.originalIndex + 1}`}>
-    <h3 className="text-base font-black text-slate-900">Imagem {result.originalIndex + 1}</h3>
-    {result.deliveryStatus === 'partial' && <p role="status" className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Conseguimos criar o espaço livre, mas não foi possível concluir a nova decoração.</p>}
+  return <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label={`${copy.result} ${result.originalIndex + 1}`}>
+    <h3 className="text-base font-black text-slate-900">{copy.image} {result.originalIndex + 1}</h3>
+    {result.deliveryStatus === 'partial' && <p role="status" className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{copy.partial}</p>}
     <div className={`mt-4 grid gap-4 ${result.stages.length > 1 ? 'xl:grid-cols-3' : 'lg:grid-cols-2'}`}>
-      {[{ label: 'Original', src: result.originalPreview, alt: `Imagem original ${result.originalIndex + 1}`, kind: 'original' }, ...result.stages.map(stage => ({ label: stage.label, src: stage.url, alt: `${stage.label} da imagem ${result.originalIndex + 1}`, kind: stage.kind }))].map(item => <figure key={item.kind} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-3">
+      {[{ label: copy.original, src: result.originalPreview, alt: `${copy.original} ${copy.image.toLocaleLowerCase(locale)} ${result.originalIndex + 1}`, kind: 'original' }, ...result.stages.map(stage => ({ label: stageLabel(stage), src: stage.url, alt: `${stageLabel(stage)} ${copy.image.toLocaleLowerCase(locale)} ${result.originalIndex + 1}`, kind: stage.kind }))].map(item => <figure key={item.kind} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-3">
             <span className="absolute left-6 top-6 z-10 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-white">{item.label}</span>
             <img src={item.src} alt={item.alt} className="max-h-[34rem] w-full rounded-2xl object-contain" />
-            <a href={item.src} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700"><Expand className="h-4 w-4" />Ampliar</a>
+            <a href={item.src} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700"><Expand className="h-4 w-4" />{copy.enlarge}</a>
           </figure>)}</div>
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">{result.stages.flatMap(stage => [
       <ProductButton key={`download-${stage.kind}`} type="button" size="lg" variant="success" loading={downloading === stage.kind} onClick={() => download(stage)} className="w-full sm:w-auto">
-        {downloading !== stage.kind && <Download className="h-5 w-5" />}Baixar {stage.label.toLocaleLowerCase('pt-BR')}
+        {downloading !== stage.kind && <Download className="h-5 w-5" />}{copy.download} {stageLabel(stage).toLocaleLowerCase(locale)}
       </ProductButton>,
       publication?.enabled ? <ProductButton key={`publish-${stage.kind}`} type="button" size="lg" variant="secondary" onClick={() => openImagePublication(stage)} className="w-full sm:w-auto">
-        <Instagram className="h-5 w-5" />Publicar {stage.label.toLocaleLowerCase('pt-BR')}
+        <Instagram className="h-5 w-5" />{copy.publish} {stageLabel(stage).toLocaleLowerCase(locale)}
       </ProductButton> : null,
     ].filter(Boolean))}</div>
-    {result.video?.state === 'completed' && result.video.signedUrl && <section className="mt-5 rounded-3xl border border-slate-200 bg-slate-950 p-3" aria-label="Vídeo da transformação">
-      <div className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-white"><p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-300">Recomendado</p><p className="mt-1 text-sm font-bold">Mostre o antes e depois em um vídeo curto, ideal para Instagram e Facebook.</p></div>
+    {result.video?.state === 'completed' && result.video.signedUrl && <section className="mt-5 rounded-3xl border border-slate-200 bg-slate-950 p-3" aria-label={copy.transformationVideo}>
+      <div className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-white"><p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-300">{copy.recommended}</p><p className="mt-1 text-sm font-bold">{copy.videoTip}</p></div>
       <video src={result.video.signedUrl} controls playsInline preload="metadata" className="mx-auto max-h-[38rem] w-full rounded-2xl bg-black object-contain" />
       <ProductButton type="button" size="lg" variant="success" loading={downloading === 'video'} onClick={downloadVideo} className="mt-3 w-full sm:w-auto">
-        {downloading !== 'video' && <Download className="h-5 w-5" />}Baixar vídeo da transformação
+        {downloading !== 'video' && <Download className="h-5 w-5" />}{copy.downloadVideo}
       </ProductButton>
       {publication?.enabled && <ProductButton type="button" size="lg" variant="secondary" onClick={openVideoPublication} className="mt-3 w-full sm:ml-3 sm:w-auto">
-        <Instagram className="h-5 w-5" />Publicar vídeo da transformação
+        <Instagram className="h-5 w-5" />{copy.publishVideo}
       </ProductButton>}
     </section>}
-    {['submitting', 'rendering'].includes(result.video?.state) && <p role="status" className="mt-4 rounded-2xl border border-primary-200 bg-primary-50 p-3 text-sm font-bold text-primary-900">Suas imagens estão prontas. Estamos finalizando o vídeo da transformação.</p>}
-    {['failed_retryable', 'failed_unknown'].includes(result.video?.state) && <p role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">As imagens estão disponíveis, mas o vídeo da transformação não pôde ser concluído.</p>}
+    {['submitting', 'rendering'].includes(result.video?.state) && <p role="status" className="mt-4 rounded-2xl border border-primary-200 bg-primary-50 p-3 text-sm font-bold text-primary-900">{copy.videoFinishing}</p>}
+    {['failed_retryable', 'failed_unknown'].includes(result.video?.state) && <p role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{copy.videoFailed}</p>}
     {downloadError && <p role="alert" className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{downloadError}</p>}
     {publishIntent && <BannerPublishDialog intent={publishIntent} loadConnection={publication?.loadConnection} onConnect={publication?.onConnect} onPublish={publication?.onPublish} onRecover={publication?.onRecover} onConfirmed={publication?.onConfirmed} onTerminalClose={publication?.onTerminalClose} captionEditable captionPlaceholder={publishIntent.captionPlaceholder} onClose={() => { dismissedPublicationRef.current = `${publishIntent.sourceId}:${publishIntent.mediaAssetId}`; setPublishIntent(null) }} />}
   </article>
 }
 
-function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication }) {
+function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication, locale }) {
+  const en = locale === 'en-US'
+  const copy = en ? { failedSome: 'Some images could not be completed.', loadingSome: 'Some results were created and are loading again.', loadingResult: 'Image result loading', transformed: 'The transformation was completed, but the result could not be loaded yet.', retry: 'Try loading the result again', failedImage: 'Image failed', notCompleted: 'not completed', transformFailed: 'This image could not be transformed.', otherProducts: `You can use these results in other ${BRAND.name} products to create videos, banners, carousels, and campaigns.`, none: 'No image could be completed.' } : { failedSome: 'Algumas imagens não puderam ser concluídas.', loadingSome: 'Alguns resultados foram criados e estão sendo carregados novamente.', loadingResult: 'Resultado da imagem aguardando carregamento', transformed: 'A transformação foi concluída, mas o resultado ainda não pôde ser carregado.', retry: 'Tentar carregar resultado novamente', failedImage: 'Falha na imagem', notCompleted: 'não concluída', transformFailed: 'Não foi possível transformar esta imagem.', otherProducts: `Você poderá usar estes resultados em outros produtos do ${BRAND.name} para criar vídeos, banners, carrosséis e campanhas.`, none: 'Nenhuma imagem pôde ser concluída.' }
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
   const unavailableResults = results.filter(result => result.status === 'result_unavailable')
@@ -278,33 +288,34 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
       <ProductCard className="p-5 sm:p-7">
-        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">Seu Smart Space está pronto</h2>
-        {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">Algumas imagens não puderam ser concluídas.</p>}
-        {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">Alguns resultados foram criados e estão sendo carregados novamente.</p>}
+        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{en ? 'Your Smart Space is ready' : 'Seu Smart Space está pronto'}</h2>
+        {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy.failedSome}</p>}
+        {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy.loadingSome}</p>}
         <div className="mt-6 space-y-6">
           {results.map(result => result.status === 'completed'
-            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} />
+            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} locale={locale} />
             : result.status === 'result_unavailable'
-              ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`Resultado da imagem ${result.originalIndex + 1} aguardando carregamento`}><h3 className="font-black text-primary-950">Imagem {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`Imagem original ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">A transformação foi concluída, mas o resultado ainda não pôde ser carregado.</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">Tentar carregar resultado novamente</ProductButton></article>
-              : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`Falha na imagem ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">Imagem {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`Imagem original ${result.originalIndex + 1} não concluída`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">Não foi possível transformar esta imagem.</p></article>)}
+              ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`${copy.loadingResult} ${result.originalIndex + 1}`}><h3 className="font-black text-primary-950">{en ? 'Image' : 'Imagem'} {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`${en ? 'Original image' : 'Imagem original'} ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">{copy.transformed}</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">{copy.retry}</ProductButton></article>
+              : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`${copy.failedImage} ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">{en ? 'Image' : 'Imagem'} {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`${en ? 'Original image' : 'Imagem original'} ${result.originalIndex + 1} ${copy.notCompleted}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">{copy.transformFailed}</p></article>)}
         </div>
-        <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">Você poderá usar estes resultados em outros produtos do {BRAND.name} para criar vídeos, banners, carrosséis e campanhas.</p>
-        {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">Nenhuma imagem pôde ser concluída.</p>}
-        <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">Criar novo projeto</ProductButton>
+        <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">{copy.otherProducts}</p>
+        {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{copy.none}</p>}
+        <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">{en ? 'Create a new project' : 'Criar novo projeto'}</ProductButton>
       </ProductCard>
     </section>
   )
 }
 
-function FurnishRenovateProcessing({ results }) {
-  const statusLabels = { pending: 'Aguardando', uploading: 'Enviando', generating: 'Criando', stage_1_completed: 'Espaço livre pronto', completed: 'Pronta', result_unavailable: 'Resultado pronto', failed: 'Não concluída' }
+function FurnishRenovateProcessing({ results, locale }) {
+  const en = locale === 'en-US'
+  const statusLabels = en ? { pending: 'Waiting', uploading: 'Uploading', generating: 'Creating', stage_1_completed: 'Open space ready', completed: 'Ready', result_unavailable: 'Result ready', failed: 'Not completed' } : { pending: 'Aguardando', uploading: 'Enviando', generating: 'Criando', stage_1_completed: 'Espaço livre pronto', completed: 'Pronta', result_unavailable: 'Resultado pronto', failed: 'Não concluída' }
   const activeIndex = Math.max(0, results.findIndex(result => ['uploading', 'generating'].includes(result.status)))
   return <section className="mt-10" aria-labelledby="virtual-staging-processing-title">
     <ProductCard className="p-6 sm:p-8">
       <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">Criando seu Smart Space</h2>
-      <p className="mt-3 text-base font-semibold text-slate-600">Estamos analisando e transformando cada ambiente.</p>
-      <p className="mt-2 text-sm font-black text-primary-800">Processando imagem {Math.min(activeIndex + 1, results.length)} de {results.length}</p>
+      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{en ? 'Creating your Smart Space' : 'Criando seu Smart Space'}</h2>
+      <p className="mt-3 text-base font-semibold text-slate-600">{en ? 'We are analyzing and transforming each space.' : 'Estamos analisando e transformando cada ambiente.'}</p>
+      <p className="mt-2 text-sm font-black text-primary-800">{en ? 'Processing image' : 'Processando imagem'} {Math.min(activeIndex + 1, results.length)} {en ? 'of' : 'de'} {results.length}</p>
       <ol className="mt-6 grid gap-3 sm:grid-cols-2">
         {results.map(result => <li key={result.id} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-black ${['uploading', 'generating', 'stage_1_completed'].includes(result.status) ? 'border-primary-300 bg-primary-50 text-primary-900' : result.status === 'completed' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : result.status === 'failed' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-500'}`}><img src={result.originalPreview} alt="" className="h-12 w-12 rounded-xl object-cover" /><span>Imagem {result.originalIndex + 1}<span className="block text-xs">{statusLabels[result.status]}</span></span></li>)}
       </ol>
@@ -321,6 +332,7 @@ function getInitialVirtualStagingJourneyId() {
 export default function VirtualStagingAI() {
   const { user } = useAuth()
   const { t } = useLocale()
+  const furnishCopy = getFurnishRenovateCopy(locale)
   const { trackEvent } = useAnalytics()
   const selectionDraft = useProductDraft({ productKey: 'virtual-staging:selection', schemaVersion: 1, userId: user?.id })
   const [selectedJourneyId, setSelectedJourneyId] = useState(getInitialVirtualStagingJourneyId)
@@ -391,7 +403,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const journeyDraft = useProductDraft({ productKey: `virtual-staging:${journey.id}`, schemaVersion: 1, userId: user?.id })
   const restoredJourneyDraft = journeyDraft.restoredDraft || {}
   const supportsLocaleMarket = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID || journey.id === BROKER_PRESENTATION_JOURNEY_ID
-  const draftLocale = supportsLocaleMarket ? normalizeLocale(restoredJourneyDraft.locale || locale) : 'pt-BR'
+  const draftLocale = supportsLocaleMarket ? normalizeLocale(restoredJourneyDraft.locale || locale) : normalizeLocale(locale)
   const draftMarket = supportsLocaleMarket ? normalizeMarket(restoredJourneyDraft.market || market) : 'BR'
   const lifeBrokerCopy = key => t(`virtualStaging.lifeBroker.${key}`)
   const restoredConversation = journey.id === FURNISH_RENOVATE_JOURNEY_ID && restoredJourneyDraft.conversation
@@ -589,7 +601,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const localizedQuestionKey = {
     images: 'images', purpose: 'purpose', stage: 'stage', type: 'type', facts: 'facts', location: 'location', commercial: 'commercial', highlights: 'highlights', life_scene: 'lifeScene', captions: 'captions', cta: 'cta', phone: 'phone', review: 'review', presenter_reference: 'presenterReference', presenter_photo: 'presenterPhoto', presenter_speech_mode: 'speech', presenter_custom_speech: 'customSpeech', cta_enabled: 'ctaEnabled',
   }[question[0]]
-  const localizedQuestion = localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[2]
+  const smartSpaceQuestions = draftLocale === 'en-US' ? { transformation_type: 'What would you like to do with the space in these images?', decoration_style: 'Which style do you prefer for the rooms?', images: 'Upload property photos', review: 'Review your project' } : null
+  const localizedQuestion = isFurnishRenovate && smartSpaceQuestions ? smartSpaceQuestions[question[0]] : localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[2]
   const reachedStep = isFurnishRenovate && !hasStartedFurnish
     ? null
     : question[0] === 'review' ? STEPS.REVIEW
@@ -1012,8 +1025,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       await redirectToMetaOAuth(supabase, url => window.location.assign(url))
     },
   } : undefined
-  if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} />
-  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} />
+  if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} locale={draftLocale} />
+  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} locale={draftLocale} />
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
     return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: getJourneyPresentation(journey, t).title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel={t('virtualStaging.lifeBroker.newProject')} uiLabels={videoUiLabels} /></section>
@@ -1028,11 +1041,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     .join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
   const furnishSummary = [
-    { id: 'transformation_type', label: getFurnishRenovateTransformationLabel(transformationType) },
-    { id: 'decoration_style', label: getFurnishRenovateStyleLabel(decorationStyle) },
-    { id: 'images', label: images.length === 1 ? '1 imagem' : images.length > 1 ? `${images.length} imagens` : '' },
+    { id: 'transformation_type', label: getFurnishRenovateTransformationLabel(transformationType, draftLocale) },
+    { id: 'decoration_style', label: getFurnishRenovateStyleLabel(decorationStyle, draftLocale) },
+    { id: 'images', label: images.length === 1 ? `1 ${draftLocale === 'en-US' ? 'image' : 'imagem'}` : images.length > 1 ? `${images.length} ${draftLocale === 'en-US' ? 'images' : 'imagens'}` : '' },
   ].filter(item => Boolean(item.label))
-  const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: furnishProject.property_images.length, transformationType: furnishProject.transformation_type, decorationStyle: furnishProject.decoration_style })
+  const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: furnishProject.property_images.length, transformationType: furnishProject.transformation_type, decorationStyle: furnishProject.decoration_style, locale: draftLocale })
   const standardSummary = [
     { id: 'images', label: images.length && interpolate(t(images.length === 1 ? 'virtualStaging.photos.one' : 'virtualStaging.photos.many'), { count: images.length }) },
     { id: 'purpose', label: property.purpose && t(`virtualStaging.purpose.${property.purpose}`) },
@@ -1070,10 +1083,10 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const chooseAnotherButton = <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>{isLocalizedJourney ? t('virtualStaging.journey.chooseAnother') : 'Escolher outro módulo'}</ProductButton>
   const journeySteps = isFurnishRenovate
     ? [
-        { title: 'Transformação', subtitle: 'Tipo' },
-        ...(furnishHasStyleStep ? [{ title: 'Estilo', subtitle: 'Decoração' }] : []),
-        { title: 'Imagens', subtitle: 'Upload' },
-        { title: 'Revisão', subtitle: 'Projeto' },
+        { title: draftLocale === 'en-US' ? 'Transformation' : 'Transformação', subtitle: draftLocale === 'en-US' ? 'Type' : 'Tipo' },
+        ...(furnishHasStyleStep ? [{ title: draftLocale === 'en-US' ? 'Style' : 'Estilo', subtitle: draftLocale === 'en-US' ? 'Design' : 'Decoração' }] : []),
+        { title: draftLocale === 'en-US' ? 'Images' : 'Imagens', subtitle: 'Upload' },
+        { title: draftLocale === 'en-US' ? 'Review' : 'Revisão', subtitle: draftLocale === 'en-US' ? 'Project' : 'Projeto' },
       ]
     : (isBrokerPresentation ? ['reference', 'property', 'style', 'review', 'create'] : ['photos', 'property', 'style', 'review', 'create'])
         .map(key => ({ title: t(`virtualStaging.steps.${key}`), subtitle: '' }))
@@ -1258,8 +1271,8 @@ function Question(props) {
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${value === item.id ? (isFurnishRenovate ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-emerald-400 bg-emerald-50') : `border-slate-200 bg-white ${isFurnishRenovate ? 'hover:border-primary-300 focus:ring-primary-500' : ''}`}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">{t('virtualStaging.continue')}</Button>
-  if (id === 'transformation_type' && isFurnishRenovate) return choices(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, transformationType, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setTransformationType(value); if (!furnishRenovateRequiresStyle(value)) setDecorationStyle('') } }))
-  if (id === 'decoration_style' && isFurnishRenovate) return choices(FURNISH_RENOVATE_STYLE_OPTIONS, decorationStyle, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setDecorationStyle(value) }))
+  if (id === 'transformation_type' && isFurnishRenovate) return choices(getFurnishRenovateTransformationOptions(locale), transformationType, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setTransformationType(value); if (!furnishRenovateRequiresStyle(value)) setDecorationStyle('') } }))
+  if (id === 'decoration_style' && isFurnishRenovate) return choices(getFurnishRenovateStyleOptions(locale), decorationStyle, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setDecorationStyle(value) }))
   if (id === 'presenter_reference') return choices(BROKER_REFERENCE_OPTIONS.map(option => ({ ...option, label: option.id === 'yes' ? t('common.yes') : t('common.no') })), presenterReferenceDecision === true ? 'yes' : presenterReferenceDecision === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterReferenceDecision(value === 'yes'); if (value === 'no') clearPresenterReference() } }))
   if (id === 'presenter_speech_mode') return choices(BROKER_SPEECH_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.speech.${option.id}`) })), presenterSpeechMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterSpeechMode(value); if (value !== 'custom') setPresenterCustomSpeech('') } }))
   if (id === 'presenter_custom_speech') { const words = presenterCustomSpeech.trim().split(/\s+/).filter(Boolean); return <><textarea value={presenterCustomSpeech} onChange={event => setPresenterCustomSpeech(event.target.value)} placeholder={t('virtualStaging.speech.placeholder')} className="min-h-32 w-full rounded-xl border p-3" /><p className="mt-2 text-xs text-slate-500">{t('virtualStaging.speech.limit').replace('{count}', BROKER_CUSTOM_SPEECH_MAX_WORDS)}</p>{cont(!words.length || words.length > BROKER_CUSTOM_SPEECH_MAX_WORDS, presenterCustomSpeech.trim(), 'captions')}</> }
@@ -1276,7 +1289,8 @@ function Question(props) {
   if (id === 'images') {
     const imageLimit = isFurnishRenovate ? FURNISH_RENOVATE_MAX_IMAGES : VIRTUAL_STAGING_MAX_IMAGES
     const copy = key => t(`virtualStaging.lifeBroker.${key}`)
-    return <>{isFurnishRenovate && <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{FURNISH_RENOVATE_COPY.uploadDescription}</p>}{!isFurnishRenovate && <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{copy('uploadInstruction')}</p>}{isBrokerPresentation && <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{t('virtualStaging.ui.images')}</p>}<input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" aria-label={isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')} hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" aria-label={isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')} onClick={() => inputRef.current?.click()} className={`flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed px-4 text-center transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${isFurnishRenovate ? 'border-primary-200 bg-primary-50/60 hover:border-primary-400 focus:ring-primary-500' : 'border-emerald-200 bg-emerald-50/50'}`}><UploadCloud className={isFurnishRenovate ? 'text-primary-600' : 'text-emerald-600'} /><b className="mt-2 text-sm">{isFurnishRenovate ? 'Selecionar imagens' : isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')}</b>{isFurnishRenovate ? <span className="text-xs text-slate-500">JPG ou PNG · até 15 MB cada</span> : <><span className="text-xs text-slate-500">{copy('uploadInstruction')}</span><span className="mt-1 text-xs text-slate-400">{copy('photoFormat')}</span></>}</button>{isFurnishRenovate && <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{FURNISH_RENOVATE_COPY.uploadHint}</p>}<p className="mt-3 text-xs font-bold">{isFurnishRenovate ? `${images.length} de ${imageLimit} imagens adicionadas` : copy('photoCount').replace('{count}', images.length).replace('{limit}', imageLimit)}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={isFurnishRenovate ? `Foto ${position + 1}` : copy('photo').replace('{count}', position + 1)} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" aria-label={(offset < 0 ? copy('moveUp') : copy('moveDown')).replace('{count}', position + 1)} disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" aria-label={copy('remove').replace('{count}', position + 1)} onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, images.length === 1 ? copy('oneImageSelected') : copy('imagesSelected').replace('{count}', images.length))}</>
+    const smartUpload = locale === 'en-US' ? { select: 'Select images', format: 'JPG or PNG · up to 15 MB each', count: `${images.length} of ${imageLimit} images added`, photo: 'Photo' } : { select: 'Selecionar imagens', format: 'JPG ou PNG · até 15 MB cada', count: `${images.length} de ${imageLimit} imagens adicionadas`, photo: 'Foto' }
+    return <>{isFurnishRenovate && <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{furnishCopy.uploadDescription}</p>}{!isFurnishRenovate && <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">{copy('uploadInstruction')}</p>}<input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" aria-label={isFurnishRenovate ? smartUpload.select : isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')} hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} /><button type="button" aria-label={isFurnishRenovate ? smartUpload.select : isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')} onClick={() => inputRef.current?.click()} className={`flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed px-4 text-center transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${isFurnishRenovate ? 'border-primary-200 bg-primary-50/60 hover:border-primary-400 focus:ring-primary-500' : 'border-emerald-200 bg-emerald-50/50'}`}><UploadCloud className={isFurnishRenovate ? 'text-primary-600' : 'text-emerald-600'} /><b className="mt-2 text-sm">{isFurnishRenovate ? smartUpload.select : isBrokerPresentation ? copy('selectPropertyPhotos') : copy('selectPhotos')}</b>{isFurnishRenovate ? <span className="text-xs text-slate-500">{smartUpload.format}</span> : <><span className="text-xs text-slate-500">{copy('uploadInstruction')}</span><span className="mt-1 text-xs text-slate-400">{copy('photoFormat')}</span></>}</button>{isFurnishRenovate && <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{furnishCopy.uploadHint}</p>}<p className="mt-3 text-xs font-bold">{isFurnishRenovate ? smartUpload.count : copy('photoCount').replace('{count}', images.length).replace('{limit}', imageLimit)}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border p-2"><img src={item.preview} alt={isFurnishRenovate ? `${smartUpload.photo} ${position + 1}` : copy('photo').replace('{count}', position + 1)} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" aria-label={(offset < 0 ? copy('moveUp') : copy('moveDown')).replace('{count}', position + 1)} disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" aria-label={copy('remove').replace('{count}', position + 1)} onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, images.length === 1 ? copy('oneImageSelected') : copy('imagesSelected').replace('{count}', images.length))}</>
   }
   if (id === 'purpose') return choices([{id:'sale',label:t('virtualStaging.purpose.sale')},{id:'rent',label:t('virtualStaging.purpose.rent')}], property.purpose, (value, label) => answerQuestion({ answer: label, answerId: value, nextQuestionId: isFurnishRenovate ? 'type' : 'stage', apply: () => setPropertyField('purpose', value) }))
   if (id === 'stage') { const stageOptions = property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : STAGES; return choices(stageOptions.map(value => ({ id: value, label: optionLabel(value) })), property.stage, (value, label) => answerQuestion({ answer: label, answerId: value, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
@@ -1335,15 +1349,16 @@ function Question(props) {
   if (id === 'cta') return choices(CTAS.map(value => ({ id: value, label: optionLabel(value) })), cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
   if (id === 'phone') return choices([{id:'yes',label:t('virtualStaging.yes'),description:phone || t('virtualStaging.cta.phoneMissing')},{id:'no',label:t('virtualStaging.no')}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? t('virtualStaging.history.phoneProfessional') : t('virtualStaging.history.phoneNone'), answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   if (isFurnishRenovate) {
+    const smartReview = locale === 'en-US' ? { title: 'Review your project', edit: 'Edit', transform: 'Transform space', remake: 'Start over', cost: 'ST per image · Selection total:' } : { title: 'Revise seu projeto', edit: 'Editar', transform: 'Transformar espaço', remake: 'Refazer projeto', cost: 'ST por imagem · Total da seleção:' }
     return <>
       <div className="rounded-2xl bg-primary-50 p-4 text-sm font-semibold leading-6 text-primary-950">
-        <p className="text-lg font-black">Revise seu projeto</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">{reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-primary-100 bg-white px-4 py-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{item.displayLabel || reviewLabel(item.id)}</p><p className="mt-1 text-sm font-black text-slate-800">{item.label}</p>{item.id === 'images' && <div className="mt-3 flex flex-wrap gap-2">{images.map((image, index) => <img key={image.key} src={image.preview} alt={`Imagem ${index + 1} na ordem do projeto`} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />)}</div>}</div><button type="button" onClick={() => onReviewEdit(item.id)} className="rounded-xl px-3 py-2 text-xs font-black text-primary-700 hover:bg-primary-50">Editar</button></div></div>)}</div>
-        <p className="mt-5 rounded-2xl border border-primary-100 bg-white/80 p-4 font-bold">{FURNISH_RENOVATE_COPY.reviewNotice}</p>
-        <p className="mt-3 text-sm font-black text-primary-900">{getSmartSpaceUnitCost(transformationType)} ST por imagem · Total da seleção: {getSmartSpaceQuote(transformationType, images.length)} ST</p>
+        <p className="text-lg font-black">{smartReview.title}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">{reviewItems.map(item => <div key={item.id} className="rounded-2xl border border-primary-100 bg-white px-4 py-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><p className="text-[11px] font-black uppercase tracking-wide text-primary-700">{item.displayLabel || reviewLabel(item.id)}</p><p className="mt-1 text-sm font-black text-slate-800">{item.label}</p>{item.id === 'images' && <div className="mt-3 flex flex-wrap gap-2">{images.map((image, index) => <img key={image.key} src={image.preview} alt={`${locale === 'en-US' ? 'Image' : 'Imagem'} ${index + 1} ${locale === 'en-US' ? 'in project order' : 'na ordem do projeto'}`} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />)}</div>}</div><button type="button" onClick={() => onReviewEdit(item.id)} className="rounded-xl px-3 py-2 text-xs font-black text-primary-700 hover:bg-primary-50">{smartReview.edit}</button></div></div>)}</div>
+        <p className="mt-5 rounded-2xl border border-primary-100 bg-white/80 p-4 font-bold">{furnishCopy.reviewNotice}</p>
+        <p className="mt-3 text-sm font-black text-primary-900">{getSmartSpaceUnitCost(transformationType)} {smartReview.cost} {getSmartSpaceQuote(transformationType, images.length)} ST</p>
       </div>
       {status === 'error' && message && <p role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{message}</p>}
-      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Transformar espaço</Button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Refazer projeto</button></div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />{smartReview.transform}</Button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">{smartReview.remake}</button></div>
     </>
   }
   const finalChoiceItems = [

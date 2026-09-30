@@ -23,9 +23,10 @@ test('uses the shared visual foundation for every Virtual Staging journey', () =
 test('defines the shortened visual steps for image Virtual Staging', () => {
   const stepsStart = page.indexOf('const journeySteps = isFurnishRenovate')
   const stepsDefinition = page.slice(stepsStart, page.indexOf('return <section aria-labelledby', stepsStart))
-  const expectedTitles = ['Transformação', 'Estilo', 'Imagens', 'Revisão']
-
-  assert.deepEqual([...stepsDefinition.matchAll(/\{ title: '([^']+)'/g)].map(match => match[1]), expectedTitles)
+  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Transformation' : 'Transformação'/)
+  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Style' : 'Estilo'/)
+  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Images' : 'Imagens'/)
+  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Review' : 'Revisão'/)
   assert.doesNotMatch(stepsDefinition, /title: 'Aviso'/)
   assert.doesNotMatch(stepsDefinition, /title: 'Destinos'/)
 })
@@ -46,7 +47,7 @@ test('keeps the AI notice inside review without an extra conversational step', (
   assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.at(-1), ['review', 4, 'Revise seu projeto'])
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
   assert.doesNotMatch(page, /id === 'ai_notice'/)
-  assert.match(page, /FURNISH_RENOVATE_COPY\.reviewNotice/)
+  assert.match(page, /furnishCopy\.reviewNotice/)
 })
 
 test('keeps both active video modules in the shared mobile result presentation', () => {
@@ -59,10 +60,10 @@ test('keeps both active video modules in the shared mobile result presentation',
 test('keeps the image result as Before and After with its private download', () => {
   const imageDelivery = page.slice(page.indexOf('function FurnishRenovateResultCard'), page.indexOf('function FurnishRenovateProcessing'))
 
-  assert.match(imageDelivery, /label: 'Original'[\s\S]*\.\.\.result\.stages/)
+  assert.match(imageDelivery, /label: copy\.original[\s\S]*\.\.\.result\.stages/)
   assert.match(imageDelivery, /\{item\.label\}[\s\S]*<img src=\{item\.src\}/)
   assert.match(imageDelivery, /downloadFurnishRenovateResult\(result, stage\)/)
-  assert.match(imageDelivery, /Baixar \{stage\.label\.toLocaleLowerCase/)
+  assert.match(imageDelivery, /\{copy\.download\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
   assert.doesNotMatch(imageDelivery, /CampaignPackage/)
 })
 

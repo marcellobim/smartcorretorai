@@ -16,6 +16,7 @@ import {
   FURNISH_RENOVATE_TRANSFORMATION_OPTIONS,
   furnishRenovateRequiresStyle,
   getFurnishRenovateTransformationLabel,
+  getFurnishRenovateTransformationOptions,
   getSmartSpaceQuote,
   getSmartSpaceUnitCost,
   isAvailableFurnishRenovateTransformation,
@@ -55,11 +56,12 @@ test('defines only the approved local Virtual Staging conversation sequence', ()
   assert.match(page, /journeyQuestions\.filter\(\(\[questionId\]\) => questionId !== 'decoration_style'\)/)
 })
 
-test('offers only the three official Smart Space actions and clear_area cannot return to the UI', () => {
+test('offers the four official Smart Space actions including clear_area', () => {
   assert.deepEqual(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, [
     { id: 'furnish', label: 'Mobiliar um ambiente vazio', description: 'Para espaços sem móveis ou quase vazios.' },
     { id: 'remove_and_redecorate', label: 'Criar uma decoração completamente nova', description: 'Remove os móveis atuais e cria uma nova decoração.' },
     { id: 'remove_furniture', label: 'Remover os móveis', description: 'Deixa o ambiente livre para visualizar melhor o espaço.' },
+    { id: 'clear_area', label: 'Limpar visualmente objetos e itens', description: 'Remove elementos soltos para revelar melhor a área.' },
   ])
   assert.equal(furnishRenovateRequiresStyle('furnish'), true)
   assert.equal(furnishRenovateRequiresStyle('remove_and_redecorate'), true)
@@ -68,10 +70,12 @@ test('offers only the three official Smart Space actions and clear_area cannot r
   assert.equal(isAvailableFurnishRenovateTransformation('furnish'), true)
   assert.equal(isAvailableFurnishRenovateTransformation('remove_and_redecorate'), true)
   assert.equal(isAvailableFurnishRenovateTransformation('remove_furniture'), true)
-  assert.equal(isAvailableFurnishRenovateTransformation('clear_area'), false)
-  assert.equal(getFurnishRenovateTransformationLabel('clear_area'), 'Limpar um terreno ou uma área para visualizar melhor o espaço')
+  assert.equal(isAvailableFurnishRenovateTransformation('clear_area'), true)
+  assert.equal(getFurnishRenovateTransformationLabel('clear_area'), 'Limpar visualmente objetos e itens')
+  assert.equal(getFurnishRenovateTransformationLabel('clear_area', 'en-US'), 'Visually clear objects and items')
+  assert.equal(getFurnishRenovateTransformationOptions('en-US').at(-1).id, 'clear_area')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'transformation_type', answerId: 'remove_furniture', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'images')
-  assert.match(page, /\.\.\.\(furnishHasStyleStep \? \[\{ title: 'Estilo', subtitle: 'Decoração' \}\] : \[\]\)/)
+  assert.match(page, /furnishHasStyleStep \? \[\{ title: draftLocale === 'en-US' \? 'Style'/)
   assert.match(page, /furnishHasStyleStep[\s\S]*images: 2, review: 3/)
   assert.match(page, /if \(id === 'transformation_type' && isFurnishRenovate\) return choices/)
   assert.doesNotMatch(JSON.stringify(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS), /Deixar a IA decidir/)
@@ -98,7 +102,7 @@ test('accepts one to five ordered images and prevents advancing without one', ()
   assert.match(page, /accept="image\/jpeg,image\/png"/)
   assert.match(page, /!\['image\/jpeg', 'image\/png'\]\.includes\(file\.type\)/)
   assert.match(page, /file\.size > 15 \* 1024 \* 1024/)
-  assert.match(page, /\{images\.length\} de \{imageLimit\} imagens adicionadas/)
+  assert.match(page, /smartUpload\.count/)
   assert.match(page, /\{images\.length > 0 && cont/)
   assert.match(page, /images\.length >= 1/)
   assert.match(page, /images\.length <= FURNISH_RENOVATE_MAX_IMAGES/)
@@ -109,15 +113,15 @@ test('accepts one to five ordered images and prevents advancing without one', ()
 test('removes generation destinations while preserving publication actions in results', () => {
   assert.doesNotMatch(FURNISH_RENOVATE_QUESTIONS.join(' '), /image_destinations|Onde você pretende usar estas imagens/)
   assert.doesNotMatch(page, /DestinationBrandIcon|destinationsHint|Destino das imagens/)
-  assert.match(page, /Publicar \{stage\.label\.toLocaleLowerCase/)
-  assert.match(page, /Publicar vídeo da transformação/)
+  assert.match(page, /\{copy\.publish\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
+  assert.match(page, /\{copy\.publishVideo\}/)
 })
 
 test('shows the approved AI notice in review without an extra conversational step', () => {
   assert.equal(FURNISH_RENOVATE_AI_NOTICE, 'Como o resultado é criado por inteligência artificial, alguns detalhes do ambiente podem ser alterados para melhorar a composição visual.')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
   assert.doesNotMatch(page, /id === 'ai_notice'/)
-  assert.match(page, /FURNISH_RENOVATE_COPY\.reviewNotice/)
+  assert.match(page, /furnishCopy\.reviewNotice/)
 })
 
 test('reviews transformation, style and ordered thumbnails without generation destinations', () => {
@@ -130,8 +134,8 @@ test('reviews transformation, style and ordered thumbnails without generation de
   assert.equal(review[0].label, 'Tenho ambientes vazios e mobiliados')
   assert.equal(review[1].label, 'Aconchegante')
   assert.equal(review[2].label, '3 imagens')
-  assert.match(page, /Revise seu projeto/)
-  assert.match(page, /Imagem \$\{index \+ 1\} na ordem do projeto/)
+  assert.match(page, /smartReview\.title/)
+  assert.match(page, /smartReview\.title/)
   for (const id of ['transformation_type', 'decoration_style', 'images']) {
     assert.equal(getVirtualStagingReviewEditNext({ originQuestionId: id, questionId: id, journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
   }
@@ -196,16 +200,16 @@ test('calcula 30 ou 60 ST por imagem conforme a transformação e atualiza o per
 })
 
 test('mostra progresso real, comparação de duas ou três etapas e downloads individuais', () => {
-  assert.match(page, /Criando seu Smart Space/)
-  assert.match(page, /Estamos analisando e transformando cada ambiente\./)
-  assert.match(page, /Processando imagem \{Math\.min\(activeIndex \+ 1, results\.length\)\} de \{results\.length\}/)
+  assert.match(page, /Creating your Smart Space/)
+  assert.match(page, /We are analyzing and transforming each space\./)
+  assert.match(page, /\{en \? 'Processing image' : 'Processando imagem'\}/)
   for (const stage of ['Aguardando', 'Enviando', 'Criando', 'Pronta', 'Não concluída']) assert.match(page, new RegExp(stage))
-  assert.match(page, /Seu Smart Space está pronto/)
-  assert.match(page, /label: 'Original'[\s\S]*\.\.\.result\.stages/)
+  assert.match(page, /Your Smart Space is ready/)
+  assert.match(page, /label: copy\.original[\s\S]*\.\.\.result\.stages/)
   assert.match(page, /xl:grid-cols-3/)
   assert.match(page, /downloadFileFromPrivateUrl\(stage\.url, fallbackName\)/)
-  assert.match(page, /Baixar \{stage\.label\.toLocaleLowerCase/)
-  assert.match(page, /Criar novo projeto/)
+  assert.match(page, /\{copy\.download\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
+  assert.match(page, /Create a new project/)
 })
 
 test('persiste somente identificadores e caminhos para recovery idempotente do Smart Space', () => {
