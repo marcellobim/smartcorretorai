@@ -1685,8 +1685,13 @@ function normalizeLandConstructionType(value: unknown) {
   return LAND_CONSTRUCTION_LABELS[key] || ''
 }
 
+function normalizeStudioLanguage(value: unknown) {
+  return value === 'en-US' ? 'en-US' : 'pt-BR'
+}
+
 function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const briefing = (body.briefing && typeof body.briefing === 'object' ? body.briefing : {}) as JsonRecord
+  const language = normalizeStudioLanguage(body.language ?? briefing.language)
   const objective = getBriefingValue(briefing, 'objective', '')
   const objectiveLabel = getBriefingValue(briefing, 'objectiveLabel', objective)
   const propertyType = getBriefingValue(briefing, 'propertyType', '')
@@ -1720,6 +1725,7 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const brokerBenefitOther = getBriefingValue(briefing, 'brokerBenefitOther', '')
 
   return {
+    language,
     objective,
     objectiveLabel,
     propertyType,
@@ -3573,9 +3579,10 @@ serve(async (req) => {
         model,
         prompt_final: null,
         input_image_1_path: inputImage1Path || null,
-         input_image_2_path: inputImage2Path || null,
-         publication_options: publicationOptions,
-         tokens_reserved: 0,
+        input_image_2_path: inputImage2Path || null,
+        publication_options: publicationOptions,
+        output_media_metadata: { language: briefing.language },
+        tokens_reserved: 0,
       })
       .select('id')
       .single()

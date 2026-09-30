@@ -24,24 +24,27 @@ class MemoryStorage {
   removeItem(key) { this.values.delete(key) }
 }
 
-test('job start persists only the job UUID and the normalized Studio mode', () => {
+test('job start persists only the job UUID, normalized Studio mode and original language', () => {
   const storage = new MemoryStorage()
   const record = writeStudioActiveJob(storage, {
     jobId,
     mode: 'dynamic_reel',
+    language: 'en-US',
     accessToken: 'must-not-be-stored',
     captchaToken: 'must-not-be-stored',
     email: 'must-not-be-stored',
     imageBase64: 'must-not-be-stored',
   })
 
-  assert.deepEqual(record, { jobId, mode: 'dynamic_reel' })
-  assert.deepEqual(JSON.parse(storage.getItem(STUDIO_ACTIVE_JOB_KEY)), { jobId, mode: 'dynamic_reel' })
+  assert.deepEqual(record, { jobId, mode: 'dynamic_reel', language: 'en-US' })
+  assert.deepEqual(JSON.parse(storage.getItem(STUDIO_ACTIVE_JOB_KEY)), { jobId, mode: 'dynamic_reel', language: 'en-US' })
   assert.doesNotMatch(storage.getItem(STUDIO_ACTIVE_JOB_KEY), /token|email|base64|must-not-be-stored/i)
 })
 
 test('active record validates UUID and the two supported backend modes', () => {
-  assert.deepEqual(parseStudioActiveJob(JSON.stringify({ jobId, mode: 'free_ai' })), { jobId, mode: 'free_ai' })
+  assert.deepEqual(parseStudioActiveJob(JSON.stringify({ jobId, mode: 'free_ai' })), { jobId, mode: 'free_ai', language: 'pt-BR' })
+  assert.deepEqual(parseStudioActiveJob(JSON.stringify({ jobId, mode: 'free_ai', language: 'en-US' })), { jobId, mode: 'free_ai', language: 'en-US' })
+  assert.deepEqual(parseStudioActiveJob(JSON.stringify({ jobId, mode: 'free_ai', language: 'fr-FR' })), { jobId, mode: 'free_ai', language: 'pt-BR' })
   assert.equal(parseStudioActiveJob(JSON.stringify({ jobId: 'invalid', mode: 'free_ai' })), null)
   assert.equal(parseStudioActiveJob(JSON.stringify({ jobId, mode: 'cinematic' })), null)
   assert.equal(parseStudioActiveJob('{broken'), null)
@@ -56,7 +59,7 @@ test('unmount cancels only the local timer and leaves sessionStorage untouched',
   assert.match(cleanup, /componentMountedRef\.current = false/)
   assert.match(cleanup, /clearPolling\(\)/)
   assert.doesNotMatch(cleanup, /clearStudioActiveJob/)
-  assert.deepEqual(readStudioActiveJob(storage).record, { jobId, mode: 'dynamic_reel' })
+  assert.deepEqual(readStudioActiveJob(storage).record, { jobId, mode: 'dynamic_reel', language: 'pt-BR' })
 })
 
 test('remount restores mode and processing state and resumes the same job', () => {
@@ -66,7 +69,7 @@ test('remount restores mode and processing state and resumes the same job', () =
   assert.match(page, /scheduleVideoPoll\(activeJob\.jobId, 0, \{ mode: 'recovery' \}\)/)
   assert.match(page, /isRecoveredJob && \([\s\S]*<RecoveredStudioJobPanel/)
   assert.match(page, /function RecoveredStudioJobPanel\([\s\S]*<LoadingCard/)
-  assert.match(page, /function RecoveredStudioJobPanel\([\s\S]*video src=\{videoUrl\}/)
+  assert.match(page, /function RecoveredStudioJobPanel\([\s\S]*<ResultPanel/)
 })
 
 test('recovery only polls status and never starts a generation or a new reservation', () => {
@@ -75,6 +78,8 @@ test('recovery only polls status and never starts a generation or a new reservat
   assert.doesNotMatch(recovery, /criar-video-ia|handleGenerate|reserve|Smart Tokens/)
   assert.equal((page.match(/invokeStudioFunction\('criar-video-ia'/g) || []).length, 1)
   assert.match(page, /invokeStudioFunction\('get-video-job-status', \{ jobId: normalizedJobId \}\)/)
+  assert.match(page, /const jobLanguage = data\.language === 'en-US' \? 'en-US' : 'pt-BR'/)
+  assert.match(page, /activeJobRef\.current\.language !== jobLanguage/)
 })
 
 test('an existing active job blocks creation of a duplicate job', () => {

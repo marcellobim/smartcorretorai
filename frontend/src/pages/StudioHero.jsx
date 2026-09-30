@@ -1130,11 +1130,9 @@ async function invokeStudioFunction(name, body) {
 }
 
 export default function StudioHero() {
-  // These values remain presentation-only: no locale or market is sent in the
-  // existing Studio payload, so stable IDs and generation behavior are intact.
   const { locale, market, t } = useLocale()
-  void locale
   void market
+  const language = locale === 'en-US' ? 'en-US' : 'pt-BR'
   const optionLabel = (group, value) => (value ? t(`studio.options.${group}.${value}`) : '')
   const studioUiLabels = {
     preview: {
@@ -1797,6 +1795,15 @@ export default function StudioHero() {
       if (!data?.ok) throw new Error(data?.error || 'Comercial ainda nao disponivel.')
       if (!componentMountedRef.current || activeJobRef.current?.jobId !== normalizedJobId) return
 
+      const jobLanguage = data.language === 'en-US' ? 'en-US' : 'pt-BR'
+      if (activeJobRef.current.language !== jobLanguage) {
+        const activeJob = writeStudioActiveJob(window.sessionStorage, {
+          ...activeJobRef.current,
+          language: jobLanguage,
+        })
+        activeJobRef.current = activeJob
+      }
+
       if (data.status === 'completed') {
         const nextVideoUrl = data.signedVideoUrl || data.signedUrl || data.videoUrl || ''
         if (!nextVideoUrl) {
@@ -1901,6 +1908,7 @@ export default function StudioHero() {
       }
 
       const payload = {
+        language,
         mode: isFreeAiMode ? 'free_ai' : 'cinematic',
         creativeMode: isFreeAiMode ? 'free_ai' : 'cinematic',
         style: answers.profile || 'ALTO PADRAO',
@@ -1909,6 +1917,7 @@ export default function StudioHero() {
         oferta: nativeVideoText.offer,
         cta: nativeVideoText.cta,
         briefing: {
+          language,
           objective: answers.objective,
           objectiveLabel: getObjectiveSummaryLabel(answers.objective),
           propertyType: answers.propertyType,
@@ -2001,6 +2010,7 @@ export default function StudioHero() {
       const activeJob = writeStudioActiveJob(window.sessionStorage, {
         jobId: nextJobId,
         mode: getStudioActiveMode(studioMode),
+        language,
       })
       activeJobRef.current = activeJob
       setVideoUrl('')

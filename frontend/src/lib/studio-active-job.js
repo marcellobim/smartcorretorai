@@ -2,6 +2,7 @@ export const STUDIO_ACTIVE_JOB_KEY = 'smartcorretorai:studio-ia:active-job:v1'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ACTIVE_MODES = new Set(['dynamic_reel', 'free_ai'])
+const ACTIVE_LANGUAGES = new Set(['pt-BR', 'en-US'])
 
 export function parseStudioActiveJob(rawValue) {
   if (typeof rawValue !== 'string' || !rawValue.trim()) return null
@@ -18,7 +19,10 @@ export function parseStudioActiveJob(rawValue) {
   const mode = String(parsed.mode || '').trim()
   if (!UUID_PATTERN.test(jobId) || !ACTIVE_MODES.has(mode)) return null
 
-  return { jobId, mode }
+  const language = ACTIVE_LANGUAGES.has(String(parsed.language || '').trim())
+    ? String(parsed.language).trim()
+    : 'pt-BR'
+  return { jobId, mode, language }
 }
 
 export function readStudioActiveJob(storage) {
@@ -36,6 +40,7 @@ export function writeStudioActiveJob(storage, record) {
   const normalized = parseStudioActiveJob(JSON.stringify({
     jobId: record?.jobId,
     mode: record?.mode,
+    language: record?.language,
   }))
   if (!normalized) throw new Error('invalid_studio_active_job')
   storage?.setItem(STUDIO_ACTIVE_JOB_KEY, JSON.stringify(normalized))

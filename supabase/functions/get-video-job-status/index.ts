@@ -40,6 +40,11 @@ function sanitizeDebugText(value: unknown, maxLength = 500) {
     .slice(0, maxLength)
 }
 
+function getStudioJobLanguage(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return 'pt-BR'
+  return (metadata as JsonRecord).language === 'en-US' ? 'en-US' : 'pt-BR'
+}
+
 function buildFailedJobDebug(job: {
   id?: unknown
   status?: unknown
@@ -165,7 +170,7 @@ serve(async (req) => {
 
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
-      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, publication_options, completed_at, created_at')
+      .select('id, user_id, status, mode, provider_job_id, output_video_path, credit_idempotency_key, error_message, model, publication_options, output_media_metadata, completed_at, created_at')
       .eq('user_id', user.id)
       .eq('id', jobId)
       .single()
@@ -173,6 +178,8 @@ serve(async (req) => {
     if (jobError || !job) {
       return jsonResponse({ ok: false, error: 'Job nao encontrado.' }, 404)
     }
+
+    const language = getStudioJobLanguage(job.output_media_metadata)
 
     if (job.status === 'completed') {
       const outputPath = String(job.output_video_path || '')
@@ -185,7 +192,7 @@ serve(async (req) => {
           userId: user.id, jobId: job.id, finalStatus: 'failed', isAdminBypass,
           legacyIdempotencyKey: String(job.credit_idempotency_key || ''), reason: 'completed_video_output_missing',
         })
-        return jsonResponse({ ok: true, status: 'failed', jobId: job.id, error: 'Nao foi possivel recuperar o video.' })
+        return jsonResponse({ ok: true, status: 'failed', jobId: job.id, language, error: 'Nao foi possivel recuperar o video.' })
       }
       await settleJobEconomy(supabase, {
         userId: user.id, jobId: job.id, finalStatus: 'completed', isAdminBypass,
@@ -198,6 +205,7 @@ serve(async (req) => {
         ok: true,
         status: 'completed',
         jobId: job.id,
+        language,
         signedVideoUrl,
         publicationOptions: job.publication_options,
       })
@@ -214,6 +222,7 @@ serve(async (req) => {
         ok: true,
         status: 'failed',
         jobId: job.id,
+        language,
         error: 'Nao foi possivel gerar o video neste momento.',
         errorMessage,
         debug: buildFailedJobDebug(job),
@@ -250,6 +259,7 @@ serve(async (req) => {
         ok: true,
         status: 'completed',
         jobId: job.id,
+        language,
         signedVideoUrl,
         publicationOptions: job.publication_options,
       })
@@ -276,12 +286,13 @@ serve(async (req) => {
           userId: user.id, jobId: job.id, finalStatus: 'failed', isAdminBypass,
           legacyIdempotencyKey: String(job.credit_idempotency_key || ''), reason: 'veo_video_start_timeout',
         })
-        return jsonResponse({ ok: true, status: 'failed', jobId: job.id, error: 'Nao foi possivel gerar o video neste momento.' })
+        return jsonResponse({ ok: true, status: 'failed', jobId: job.id, language, error: 'Nao foi possivel gerar o video neste momento.' })
       }
       return jsonResponse({
         ok: true,
         status: 'generating',
         jobId: job.id,
+        language,
         message: 'Preparando seu video.',
       })
     }
@@ -292,6 +303,7 @@ serve(async (req) => {
         ok: true,
         status: 'generating',
         jobId: job.id,
+        language,
         message: 'Gerando seu video.',
       })
     }
@@ -317,6 +329,7 @@ serve(async (req) => {
         ok: true,
         status: 'failed',
         jobId: job.id,
+        language,
         error: 'Nao foi possivel gerar o video neste momento.',
         errorMessage: providerErrorMessage,
         debug: buildFailedJobDebug({
@@ -373,6 +386,7 @@ serve(async (req) => {
       ok: true,
       status: 'completed',
       jobId: job.id,
+      language,
       signedVideoUrl,
       publicationOptions: job.publication_options,
     })
