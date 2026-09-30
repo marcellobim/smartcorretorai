@@ -30,7 +30,8 @@ import {
   ProductSummary,
   SMART_UI,
 } from '../components/design-system'
-import { buildPublicationGoogleAds, buildPublicationPackage } from '../../../core/copy-engine'
+import { buildPublicationGoogleAds } from '../../../core/copy-engine'
+import { buildStudioPublicationOptions } from '../lib/studio-publication-content'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
@@ -1046,8 +1047,9 @@ function getStudioCopyFeatures(answers) {
     .filter((item) => item && !STUDIO_COPY_INTERNAL_TERMS.has(item.toUpperCase()))
 }
 
-function buildDeliveryInput({ answers, districtValue, cityValue }) {
+function buildDeliveryInput({ answers, districtValue, cityValue, language = 'pt-BR' }) {
   return {
+    language,
     objective: answers.objective,
     objectiveLabel: getObjectiveSummaryLabel(answers.objective),
     propertyType: getStudioCopyPropertyType(answers),
@@ -1070,7 +1072,7 @@ function buildDeliveryInput({ answers, districtValue, cityValue }) {
 }
 
 function buildDeliveryTexts(input) {
-  return buildPublicationPackage(buildDeliveryInput(input))
+  return buildStudioPublicationOptions(buildDeliveryInput(input))
 }
 
 async function invokeStudioFunction(name, body) {
@@ -1954,7 +1956,7 @@ export default function StudioHero() {
           creativeFreedom: answers.creativeFreedom,
         },
         jobId: draftId,
-        publicationOptions: buildDeliveryTexts({ answers, districtValue, cityValue })
+        publicationOptions: buildDeliveryTexts({ answers, districtValue, cityValue, language })
           .filter(item => /instagram|facebook/i.test(item.label))
           .slice(0, 3)
           .map((item, index) => ({ id: `studio-caption-option-${index + 1}`, label: item.label, text: item.text })),
@@ -2290,6 +2292,7 @@ export default function StudioHero() {
               districtValue={districtValue}
               generationMessage={localizedGenerationMessage}
               studioUiLabels={studioUiLabels}
+              language={activeJobRef.current?.language || 'pt-BR'}
               onReset={createNewStudioVersion}
             />
           )}
@@ -3072,6 +3075,7 @@ export default function StudioHero() {
                     districtValue={districtValue}
                     onReset={createNewStudioVersion}
                     uiLabels={studioUiLabels}
+                    language={activeJobRef.current?.language || language}
                   />
                 ) : (
                   <StudioChecklist
@@ -3115,6 +3119,7 @@ export default function StudioHero() {
                     districtValue={districtValue}
                     onReset={createNewStudioVersion}
                     uiLabels={studioUiLabels}
+                    language={activeJobRef.current?.language || language}
                   />
                 ) : (
                   <>
@@ -3181,7 +3186,7 @@ export default function StudioHero() {
   )
 }
 
-function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceType, publicationOptions, studioPublish, answers, cityValue, districtValue, generationMessage, studioUiLabels, onReset }) {
+function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceType, publicationOptions, studioPublish, answers, cityValue, districtValue, generationMessage, studioUiLabels, language, onReset }) {
   const { t } = useLocale()
   if (videoUrl) {
     return (
@@ -3195,6 +3200,7 @@ function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceTy
         cityValue={cityValue}
         districtValue={districtValue}
         uiLabels={studioUiLabels}
+        language={language}
         onReset={onReset}
       />
     )
@@ -3932,10 +3938,10 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
   )
 }
 
-function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, uiLabels, onReset }) {
+function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, uiLabels, language = 'pt-BR', onReset }) {
   const { t } = useLocale()
   const completed = Boolean(videoUrl)
-  const deliveryInput = { answers, districtValue, cityValue }
+  const deliveryInput = { answers, districtValue, cityValue, language }
   const deliveryTexts = completed
     ? (publicationOptions.length === 3 ? publicationOptions : buildDeliveryTexts(deliveryInput))
     : []
