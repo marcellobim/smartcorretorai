@@ -135,7 +135,9 @@ const VIDEO_TEXT_TOKEN_DICTIONARY: Record<string, string> = {
   LOCACAO: 'LOCACAO',
 }
 
-const STUDIO_HERO_FREE_AI_FINAL_CTA = 'SAIBA MAIS'
+function getStudioHeroFreeAiFinalCta(language: string) {
+  return language === 'en-US' ? 'LEARN MORE' : 'SAIBA MAIS'
+}
 
 const STUDIO_HERO_GENERATIVE_TEXT_EXCLUSION = `FINAL VISUAL QUALITY OVERRIDE - HIGHEST PRIORITY
 
@@ -915,7 +917,7 @@ function getOpeningHookText(briefing: ReturnType<typeof buildStructuredStudioHer
 
   const heroWord = pick(allowedHighlights.length ? allowedHighlights : ['EXCLUSIVO', 'OPORTUNIDADE', 'LANCAMENTO'])
   return briefing.creativeMode === 'free_ai'
-    ? heroWord
+    ? presentFreeAiValue(heroWord, briefing.language)
     : presentDynamicReelValue(heroWord, briefing.language)
 }
 
@@ -988,7 +990,7 @@ function buildStudioHeroMatrixPrompt(
     : `${renderedMatrixPrompt}\n\n---\n\n${STUDIO_HERO_CINEMATIC_OPENING_TEXT_LOCK}`
 
   const visualPrompt = removeMatrixAudioSection(matrixPrompt)
-  const language = briefing.creativeMode === 'free_ai' ? 'pt-BR' : briefing.language
+  const language = briefing.language
   const voiceoverPrompt = buildMatrixVoiceoverPrompt(matrixId, text1, language)
   const prompt = buildProviderPromptWithVoiceover(visualPrompt, voiceoverPrompt, language)
 
@@ -1021,6 +1023,7 @@ function buildStudioHeroJsonPrompt(payload: {
 }) {
   const { briefing, metadataChat, ctaFrame } = payload
   const isFreeAi = briefing.creativeMode === 'free_ai'
+  const freeAiFinalCta = getStudioHeroFreeAiFinalCta(briefing.language)
   const matrixId = selectStudioHeroMatrix(briefing)
   const matrix = STUDIO_HERO_MATRICES[matrixId]
   const heroWord = getOpeningHookText(briefing)
@@ -1149,6 +1152,9 @@ function buildStudioHeroJsonPrompt(payload: {
     american_english_presentation: !isFreeAi && briefing.language === 'en-US'
       ? buildDynamicReelLanguagePresentation(briefing, metadataChat, ctaFrame || null)
       : undefined,
+    free_ai_american_english_presentation: isFreeAi && briefing.language === 'en-US'
+      ? buildFreeAiLanguagePresentation(briefing, metadataChat)
+      : undefined,
     immutable_numeric_facts: compactJsonRecord({
       bedrooms: isBrokerRecruitment ? '' : briefing.bedrooms,
       suites: isBrokerRecruitment ? '' : briefing.suites,
@@ -1205,7 +1211,7 @@ function buildStudioHeroJsonPrompt(payload: {
       final_native_cta: isFreeAi
         ? {
           enabled: true,
-          value: STUDIO_HERO_FREE_AI_FINAL_CTA,
+          value: freeAiFinalCta,
           time_range: 'final_scene_only',
           show_once: true,
           max_lines: 1,
@@ -1216,7 +1222,7 @@ function buildStudioHeroJsonPrompt(payload: {
           no_address: true,
           no_two_line_cta: true,
           no_long_cta: true,
-          omission_policy: `If exact rendering of ${STUDIO_HERO_FREE_AI_FINAL_CTA} cannot be guaranteed, omit the final CTA.`,
+          omission_policy: `If exact rendering of ${freeAiFinalCta} cannot be guaranteed, omit the final CTA.`,
         }
         : undefined,
       text_render_engine: {
@@ -1286,11 +1292,11 @@ function buildStudioHeroJsonPrompt(payload: {
         'if exact rendering cannot be guaranteed, omit that text',
         ...(isFreeAi
           ? [
-            `show only the opening hero word and the final native CTA ${STUDIO_HERO_FREE_AI_FINAL_CTA}`,
-            `render ${STUDIO_HERO_FREE_AI_FINAL_CTA} only in the final scene`,
-            `never show ${STUDIO_HERO_FREE_AI_FINAL_CTA} before the final scene`,
-            `never create additional on-screen text beyond the opening hero word and final native CTA ${STUDIO_HERO_FREE_AI_FINAL_CTA}`,
-            `if exact rendering of ${STUDIO_HERO_FREE_AI_FINAL_CTA} cannot be guaranteed, omit the final CTA`,
+            `show only the opening hero word and the final native CTA ${freeAiFinalCta}`,
+            `render ${freeAiFinalCta} only in the final scene`,
+            `never show ${freeAiFinalCta} before the final scene`,
+            `never create additional on-screen text beyond the opening hero word and final native CTA ${freeAiFinalCta}`,
+            `if exact rendering of ${freeAiFinalCta} cannot be guaranteed, omit the final CTA`,
             'do not render phone, WhatsApp, QR Code, address, two-line CTA or long CTA text',
           ]
           : [
@@ -1386,8 +1392,8 @@ function buildStudioHeroJsonPrompt(payload: {
       },
     audio_engine: {
       music: 'luxury_cinematic',
-      voiceover_language: isFreeAi ? 'pt-BR' : briefing.language,
-      voiceover_style: isFreeAi || briefing.language !== 'en-US'
+      voiceover_language: briefing.language,
+      voiceover_style: briefing.language !== 'en-US'
         ? 'short_elegant_brazilian_portuguese_real_estate_commercial'
         : 'short_elegant_american_english_real_estate_commercial',
       voiceover_content_policy: 'narrate_property_facts_naturally_without_reading_raw_structured_data',
@@ -1395,7 +1401,9 @@ function buildStudioHeroJsonPrompt(payload: {
         ? undefined
         : 'When mentioning bedrooms, suites, parking or area, speak exactly the values from immutable_numeric_facts. Never convert 2 dormitorios into 2 suites.',
       broker_recruitment_voiceover_policy: isBrokerRecruitment
-        ? 'sound like a short Brazilian Portuguese real estate recruitment ad; invite brokers to join the team; never describe a property listing'
+        ? briefing.language === 'en-US'
+          ? 'sound like a short American English real estate recruitment ad; invite brokers to join the team; never describe a property listing'
+          : 'sound like a short Brazilian Portuguese real estate recruitment ad; invite brokers to join the team; never describe a property listing'
         : undefined,
       rental_voiceover_policy: isRentObjective
         ? 'make it clear this is available for rent or lease; never use purchase-oriented narration'
@@ -1549,7 +1557,7 @@ function buildStudioHeroJsonPrompt(payload: {
   return {
     prompt,
     profileKey: 'json_structured_prompt',
-    visibleTexts: isFreeAi ? [heroWord, STUDIO_HERO_FREE_AI_FINAL_CTA].filter(Boolean) : [heroWord].filter(Boolean),
+    visibleTexts: isFreeAi ? [heroWord, freeAiFinalCta].filter(Boolean) : [heroWord].filter(Boolean),
   }
 }
 
@@ -1703,8 +1711,8 @@ function normalizeStudioPublicationOptions(value: unknown) {
   return options.every((option, index) => option.id === `studio-caption-option-${index + 1}` && option.text.length > 0 && option.text.length <= 2200) ? options : []
 }
 
-function voiceoverLanguageLock(language: string, isFreeAi: boolean) {
-  return !isFreeAi && language === 'en-US'
+function voiceoverLanguageLock(language: string) {
+  return language === 'en-US'
     ? STUDIO_HERO_AMERICAN_ENGLISH_NARRATION_LOCK
     : STUDIO_HERO_PORTUGUESE_NARRATION_LOCK
 }
@@ -1731,7 +1739,7 @@ function withStudioHeroFinalVisualQualityLock(prompt: string, isFreeAi: boolean,
       instruction: STUDIO_HERO_GENERATIVE_TEXT_EXCLUSION,
       mode_rule: modeRule,
     }
-    payload[language === 'en-US' && !isFreeAi ? 'american_english_voice_lock' : 'brazilian_portuguese_voice_lock'] = voiceoverLanguageLock(language, isFreeAi)
+    payload[language === 'en-US' ? 'american_english_voice_lock' : 'brazilian_portuguese_voice_lock'] = voiceoverLanguageLock(language)
     return JSON.stringify(payload, null, 2)
   }
 
@@ -1746,7 +1754,7 @@ ${modeRule}
 
 ---
 
-${voiceoverLanguageLock(language, isFreeAi)}`
+${voiceoverLanguageLock(language)}`
 }
 
 const LAND_CONSTRUCTION_LABELS: Record<string, string> = {
@@ -1835,6 +1843,60 @@ function presentDynamicReelValue(value: unknown, language: string) {
   return DYNAMIC_REEL_EN_US_PRESENTATION[text.toUpperCase()] || text
 }
 
+const FREE_AI_EN_US_PRESENTATION: Record<string, string> = {
+  MODERNO: 'modern',
+  ELEGANTE: 'elegant',
+  LUXUOSO: 'luxurious',
+  MINIMALISTA: 'minimalist',
+  DIA: 'daytime',
+  'GOLDEN HOUR': 'golden hour',
+  ENTARDECER: 'sunset',
+  NOITE: 'nighttime',
+  CALMO: 'calm',
+  EQUILIBRADO: 'balanced',
+  DINAMICO: 'dynamic',
+  IMPACTANTE: 'impactful',
+  'MAIS REALISTA': 'more realistic',
+  'MAIS CRIATIVO': 'more creative',
+}
+
+function presentFreeAiValue(value: unknown, language: string) {
+  const text = normalizeText(value, 180)
+  if (language !== 'en-US' || !text) return text
+  return FREE_AI_EN_US_PRESENTATION[text.toUpperCase()]
+    || DYNAMIC_REEL_EN_US_PRESENTATION[text.toUpperCase()]
+    || text
+}
+
+function buildFreeAiLanguagePresentation(
+  briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
+  metadataChat: { bairro: string; caracteristica: string; oferta: string; cta: string },
+) {
+  if (briefing.language !== 'en-US') return ''
+
+  return `AMERICAN ENGLISH PRESENTATION - FREE AI ONLY
+
+All spoken narration must be natural, concise American English and fit the existing eight-second video.
+Use these presentation-only labels for meaning. Do not reinterpret internal identifiers, numeric facts, proper names, locations, or the selected CTA value.
+Do not use Brazilian Portuguese in narration or generated visible text.
+
+PRESENTATION LABELS
+${JSON.stringify({
+    objective: presentFreeAiValue(briefing.objective, briefing.language),
+    objective_label: presentFreeAiValue(briefing.objectiveLabel, briefing.language),
+    property_type: presentFreeAiValue(briefing.propertyType, briefing.language),
+    profile: presentFreeAiValue(briefing.profile, briefing.language),
+    main_feature: presentFreeAiValue(metadataChat.caracteristica, briefing.language),
+    differentials: briefing.differentials.map((value) => presentFreeAiValue(value, briefing.language)),
+    visual_style: presentFreeAiValue(briefing.visualStyle, briefing.language),
+    atmosphere: presentFreeAiValue(briefing.atmosphere, briefing.language),
+    pace: presentFreeAiValue(briefing.pace, briefing.language),
+    creative_freedom: presentFreeAiValue(briefing.creativeFreedom, briefing.language),
+    selected_cta: presentFreeAiValue(metadataChat.cta, briefing.language),
+    final_native_cta: getStudioHeroFreeAiFinalCta(briefing.language),
+  }, null, 2)}`
+}
+
 function buildDynamicReelLanguagePresentation(
   briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
   metadataChat: { bairro: string; caracteristica: string; oferta: string; cta: string },
@@ -1866,6 +1928,14 @@ ${JSON.stringify(presentation, null, 2)}`
 }
 
 function localizeDynamicReelPromptLanguage(prompt: string, language: string) {
+  if (language !== 'en-US') return prompt
+  return prompt
+    .replaceAll('Brazilian Portuguese', 'American English')
+    .replaceAll('brazilian portuguese', 'American English')
+    .replaceAll('Never narrate in English.', 'Never narrate in Brazilian Portuguese.')
+}
+
+function localizeFreeAiPromptLanguage(prompt: string, language: string) {
   if (language !== 'en-US') return prompt
   return prompt
     .replaceAll('Brazilian Portuguese', 'American English')
@@ -4007,8 +4077,17 @@ serve(async (req) => {
         )
       }
       if (isFreeAiRequest) {
-        promptFinal = withFreeAiSpokenCta(promptFinal, metadataChat.cta, promptMode === 'json')
-        const spokenCtaInstruction = buildFreeAiSpokenCtaInstruction(metadataChat.cta)
+        if (briefing.language === 'en-US') {
+          promptFinal = localizeFreeAiPromptLanguage(promptFinal, briefing.language)
+          visualPromptForDebug = localizeFreeAiPromptLanguage(visualPromptForDebug, briefing.language)
+          const languagePresentation = buildFreeAiLanguagePresentation(briefing, metadataChat)
+          if (languagePresentation && promptMode !== 'json') {
+            promptFinal = `${promptFinal}\n\n---\n\n${languagePresentation}`
+            visualPromptForDebug = `${visualPromptForDebug}\n\n---\n\n${languagePresentation}`
+          }
+        }
+        promptFinal = withFreeAiSpokenCta(promptFinal, metadataChat.cta, promptMode === 'json', briefing.language)
+        const spokenCtaInstruction = buildFreeAiSpokenCtaInstruction(metadataChat.cta, briefing.language)
         if (spokenCtaInstruction) {
           voiceoverPromptForDebug = [voiceoverPromptForDebug, spokenCtaInstruction].filter(Boolean).join('\n\n')
         }
@@ -4019,12 +4098,12 @@ serve(async (req) => {
           visualPromptForDebug = `${visualPromptForDebug}\n\n---\n\n${languagePresentation}`
         }
       }
-      const promptLanguage = isFreeAiRequest ? 'pt-BR' : briefing.language
+      const promptLanguage = briefing.language
       promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json', promptLanguage)
       visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json', promptLanguage)
       voiceoverPromptForDebug = voiceoverPromptForDebug
-        ? `${voiceoverPromptForDebug}\n\n${voiceoverLanguageLock(promptLanguage, isFreeAiRequest)}`
-        : voiceoverLanguageLock(promptLanguage, isFreeAiRequest)
+        ? `${voiceoverPromptForDebug}\n\n${voiceoverLanguageLock(promptLanguage)}`
+        : voiceoverLanguageLock(promptLanguage)
       visibleTextsForDebug = []
       visibleTextCount = 0
 

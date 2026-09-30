@@ -61,13 +61,13 @@ test('dynamic_reel resolves each existing CTA choice to its locale-specific fixe
   assert.match(createVideo, /const ctaFrame = isFreeAiRequest \? null : resolveStudioHeroCtaFrame\(briefing\)/)
 })
 
-test('dynamic_reel uses the persisted language for narration while free_ai stays on its existing contract', () => {
-  assert.match(createVideo, /voiceover_language: isFreeAi \? 'pt-BR' : briefing\.language/)
+test('dynamic_reel and free_ai use the persisted language for narration without changing their separate flows', () => {
+  assert.match(createVideo, /voiceover_language: briefing\.language/)
   assert.match(createVideo, /AMERICAN ENGLISH VOICE LOCK - MANDATORY/)
   assert.match(createVideo, /This is a dynamic_reel commercial\. All spoken narration must be natural American English\./)
   assert.match(createVideo, /function localizeDynamicReelPromptLanguage\(prompt: string, language: string\)/)
   assert.match(createVideo, /\.replaceAll\('Brazilian Portuguese', 'American English'\)/)
-  assert.match(createVideo, /briefing\.creativeMode === 'free_ai' \? 'pt-BR' : briefing\.language/)
+  assert.match(createVideo, /const language = briefing\.language/)
   assert.match(createVideo, /if \(isFreeAiRequest\) \{[\s\S]*withFreeAiSpokenCta[\s\S]*\} else \{/)
   assert.doesNotMatch(createVideo.slice(createVideo.indexOf('function buildDynamicReelLanguagePresentation'), createVideo.indexOf('function buildStructuredStudioHeroBriefing')), /withFreeAiSpokenCta/)
 })
