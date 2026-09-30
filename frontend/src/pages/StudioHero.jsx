@@ -18,6 +18,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { useLocale } from '../i18n/useLocale'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import {
   ProductButton,
@@ -1129,6 +1130,12 @@ async function invokeStudioFunction(name, body) {
 }
 
 export default function StudioHero() {
+  // These values remain presentation-only: no locale or market is sent in the
+  // existing Studio payload, so stable IDs and generation behavior are intact.
+  const { locale, market, t } = useLocale()
+  void locale
+  void market
+  const optionLabel = (group, value) => (value ? t(`studio.options.${group}.${value}`) : '')
   const { user, isAdmin, reloadProfile } = useAuth()
   const navigate = useNavigate()
   const pollTimerRef = useRef(null)
@@ -1235,15 +1242,18 @@ export default function StudioHero() {
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroAccess = getStudioHeroAccess(user, isAdmin)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
+  const localizedGenerationMessages = ['preparing', 'analyzing', 'motion', 'assembling', 'wait', 'result']
+    .map((key, index) => ({ ...GENERATION_MESSAGES[index], text: t(`studio.loading.messages.${key}`) }))
+  const localizedGenerationMessage = localizedGenerationMessages[generationMessageIndex % localizedGenerationMessages.length]
   const progressPercent = Math.min(100, Math.max(8, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
   const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode)
   const propertyFeaturesSummary = isCommercialProperty
     ? [answers.area, answers.parking].filter(Boolean).join(', ')
     : [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
   const stepSummaries = {
-    1: answers.objective ? getObjectiveSummaryLabel(answers.objective) : '',
-    2: isPropertyCampaign ? answers.propertyType : displayLocation,
-    [profileStep]: hasProfileStep ? answers.profile : '',
+    1: answers.objective ? optionLabel('objectives', answers.objective) : '',
+    2: isPropertyCampaign ? optionLabel('propertyTypes', answers.propertyType) : displayLocation,
+    [profileStep]: hasProfileStep ? optionLabel('profiles', answers.profile) : '',
     [houseLocationStep]: hasHouseLocationStep ? answers.houseLocationType : '',
     [stageStep]: hasStageStep ? answers.stage : '',
     [landAreaStep]: hasLandAreaStep ? formatLandArea(answers.area) : '',
@@ -1253,7 +1263,7 @@ export default function StudioHero() {
     [landConceptStep]: hasLandConceptStep ? answers.imaginedConstructionType : '',
     [locationStep]: displayLocation,
     [captureTypeStep]: isCapture ? answers.propertyType : '',
-    [differentialsStep]: answers.differentials.join(', '),
+    [differentialsStep]: answers.differentials.map((value) => optionLabel('differentials', value)).join(', '),
     [benefitQuestionStep]: isBrokerCapture ? (answers.brokerHasBenefits === 'yes' ? 'Sim' : answers.brokerHasBenefits === 'no' ? 'Nao' : '') : '',
     [benefitDetailsStep]: isBrokerCapture && answers.brokerHasBenefits === 'yes'
       ? [
@@ -1265,13 +1275,13 @@ export default function StudioHero() {
     [propertyFeaturesStep]: hasFreeAiPropertyFeaturesStep
       ? propertyFeaturesSummary
       : '',
-    [ctaStep]: answers.cta,
-    [furnishingStep]: hasCinematicPropertyPreparationStep ? answers.furnishingStatus : '',
-    [decorationStep]: hasCinematicPropertyPreparationStep ? answers.decorationPolicy : '',
-    [visualStyleStep]: isFreeAiMode ? answers.visualStyle : '',
-    [atmosphereStep]: isFreeAiMode ? answers.atmosphere : '',
-    [paceStep]: isFreeAiMode ? answers.pace : '',
-    [creativeFreedomStep]: isFreeAiMode ? answers.creativeFreedom : '',
+    [ctaStep]: optionLabel('cta', answers.cta),
+    [furnishingStep]: hasCinematicPropertyPreparationStep ? optionLabel('furnishing', answers.furnishingStatus === FURNISHING_OPTIONS[0] ? 'furnished' : 'empty') : '',
+    [decorationStep]: hasCinematicPropertyPreparationStep ? optionLabel('decoration', answers.decorationPolicy === DECORATION_POLICY_OPTIONS[0] ? 'preserve' : answers.decorationPolicy === DECORATION_POLICY_OPTIONS[1] ? 'light' : 'free') : '',
+    [visualStyleStep]: isFreeAiMode ? optionLabel('visualStyle', answers.visualStyle) : '',
+    [atmosphereStep]: isFreeAiMode ? optionLabel('atmosphere', answers.atmosphere) : '',
+    [paceStep]: isFreeAiMode ? optionLabel('pace', answers.pace) : '',
+    [creativeFreedomStep]: isFreeAiMode ? optionLabel('creativeFreedom', answers.creativeFreedom) : '',
     [uploadStep]: isFreeAiMode
       ? 'Criacao livre com IA'
       : IMAGE_SLOTS.every((slot) => files[slot.key])
@@ -2039,8 +2049,8 @@ export default function StudioHero() {
             <ProductHero
               id="studio-ia-title"
               productName={<span>Studio IA</span>}
-              headline="Seu estudio inteligente de criacao de videos imobiliarios."
-              description="Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em poucos minutos com IA."
+              headline={t('studio.landing.title')}
+              description={t('studio.landing.description')}
               visual={<StudioHeroRepresentativePhone />}
               className="min-h-[440px] gap-8 px-7 py-12 sm:px-11 sm:py-14 lg:min-h-[440px] lg:grid-cols-[minmax(0,1.45fr)_minmax(190px,.55fr)] lg:gap-6 lg:px-12 lg:py-12 xl:grid-cols-[minmax(0,1.5fr)_minmax(220px,.5fr)] xl:gap-10 xl:px-14 [&>div.relative.z-10]:max-w-[52rem] [&_h1]:max-w-[52rem] [&_h2]:mt-5 [&_h2]:max-w-[52rem] [&_h2]:text-[2rem] [&_h2]:leading-[1.08] sm:[&_h2]:text-[2.75rem] lg:[&_h2]:text-[2.75rem] xl:[&_h2]:text-[3.25rem] lg:[&_h2]:leading-[1.04] [&_h2+p]:mt-6 [&_h2+p]:max-w-2xl"
             />
@@ -2056,8 +2066,8 @@ export default function StudioHero() {
             <div className="mb-6">
               <ProductSectionHeading
                 eyebrow="Soluções Studio IA"
-                title="Descubra o que você pode criar"
-                description="Explore os exemplos abaixo e descubra as diferentes campanhas que a IA pode criar para você. Cada geração é única."
+                title={t('studio.showcase.title')}
+                description={t('studio.showcase.description')}
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2075,7 +2085,7 @@ export default function StudioHero() {
                         {example.media && (
                           <video
                             src={example.media}
-                            aria-label={`Demonstração: ${example.title}`}
+                            aria-label={t('studio.accessibility.demo').replace('{title}', example.title)}
                             autoPlay
                             muted
                             loop
@@ -2193,18 +2203,18 @@ export default function StudioHero() {
           <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${isFreeAiMode ? 'via-violet-200/70' : 'via-blue-200/70'} to-transparent`} />
           <ProductHero
             id="studio-ia-flow-title"
-            productName={isFreeAiMode ? 'Vídeo Criativo' : 'Comercial Imobiliário'}
-            headline={isFreeAiMode ? 'Vamos transformar sua ideia em um vídeo.' : 'Vamos criar seu comercial.'}
+            productName={isFreeAiMode ? t('studio.mode.creative') : t('studio.mode.commercial')}
+            headline={isFreeAiMode ? t('studio.hero.creativeHeadline') : t('studio.hero.commercialHeadline')}
             description={isFreeAiMode
-              ? 'O Studio IA vai construir a direcao criativa a partir da conversa, sem pedir uma imagem.'
-              : 'O Studio IA vai construir a direcao criativa a partir das suas escolhas e da sua imagem.'}
+              ? t('studio.hero.creativeDescription')
+              : t('studio.hero.commercialDescription')}
             secondaryDescription={`${isFreeAiMode
-              ? 'Um fluxo curto para imaginar estilo, atmosfera e ritmo antes da criacao.'
-              : 'Um fluxo curto para transformar suas escolhas e sua imagem em uma peca de divulgacao mais cinematografica.'} Suas respostas definem estilo, ritmo e atmosfera. O comercial final usa poucas palavras para ficar mais forte.`}
+              ? t('studio.hero.creativeSecondary')
+              : t('studio.hero.commercialSecondary')} ${t('studio.hero.sharedSecondary')}`}
             actions={<ProductButton type="button" variant="secondary" disabled={isGenerating} onClick={() => {
               createNewStudioVersion()
               setStudioMode('')
-            }}>Escolher outro tipo de criacao</ProductButton>}
+            }}>{t('studio.landing.chooseAnother')}</ProductButton>}
             visual={<StudioHeroGuideCard title="Como vamos conduzir?" items={guideItems} icon={ShieldCheck} />}
           />
         </section>
@@ -2230,7 +2240,7 @@ export default function StudioHero() {
               answers={answers}
               cityValue={cityValue}
               districtValue={districtValue}
-              generationMessage={generationMessage}
+              generationMessage={localizedGenerationMessage}
               onReset={createNewStudioVersion}
             />
           )}
@@ -2253,13 +2263,13 @@ export default function StudioHero() {
             </ProductCard>
           </div>
 
-          <AssistantStep number={1} currentStep={step} summary={stepSummaries[1]} onEdit={() => setStep(1)} message="O que voce deseja criar?">
+          <AssistantStep number={1} currentStep={step} summary={stepSummaries[1]} onEdit={() => setStep(1)} message={t('studio.questions.objective')}>
             <OptionGrid>
               {OBJECTIVE_OPTIONS.map((option) => (
                 <ChoiceButton
                   key={option.id}
                   active={answers.objective === option.id}
-                  title={option.label}
+                  title={optionLabel('objectives', option.id)}
                   description={option.description}
                   onClick={() => updateObjective(option)}
                 />
@@ -2275,7 +2285,7 @@ export default function StudioHero() {
           )}
 
           {answers.objective && isPropertyCampaign && (
-            <AssistantStep number={2} currentStep={step} summary={stepSummaries[2]} onEdit={() => setStep(2)} message="Que tipo de imovel vamos divulgar?">
+            <AssistantStep number={2} currentStep={step} summary={stepSummaries[2]} onEdit={() => setStep(2)} message={t('studio.questions.propertyType')}>
               <ChipGrid>
                 {propertyTypeOptions.map((option) => (
                   <ChipButton
@@ -2283,7 +2293,7 @@ export default function StudioHero() {
                     active={answers.propertyType === option}
                     onClick={() => updatePropertyType(option)}
                   >
-                    {option}
+                    {optionLabel('propertyTypes', option)}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2303,7 +2313,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[landAreaStep]}
               onEdit={() => setStep(landAreaStep)}
-              message="Qual é a área aproximada do lote ou terreno?"
+              message={t('studio.questions.landArea')}
             >
               <div className="max-w-sm space-y-4">
                 <label className="block">
@@ -2334,7 +2344,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[landImaginationStep]}
               onEdit={() => setStep(landImaginationStep)}
-              message="Deseja que a IA imagine uma construção neste local?"
+              message={t('studio.questions.imagineConstruction')}
             >
               <ChipGrid>
                 <ChipButton
@@ -2359,7 +2369,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[landConceptStep]}
               onEdit={() => setStep(landConceptStep)}
-              message="O que devemos imaginar neste local?"
+              message={t('studio.questions.imaginedConstruction')}
             >
               <OptionGrid>
                 {LAND_CONSTRUCTION_OPTIONS.map((option) => (
@@ -2375,7 +2385,7 @@ export default function StudioHero() {
           )}
 
           {answers.propertyType && hasProfileStep && (
-            <AssistantStep number={3} currentStep={step} summary={stepSummaries[profileStep]} onEdit={() => setStep(profileStep)} message="Qual e o perfil comercial deste imovel?">
+            <AssistantStep number={3} currentStep={step} summary={stepSummaries[profileStep]} onEdit={() => setStep(profileStep)} message={t('studio.questions.profile')}>
               <ChipGrid>
                 {profileOptions.map((option) => (
                   <ChipButton
@@ -2398,7 +2408,7 @@ export default function StudioHero() {
           )}
 
           {hasHouseLocationStep && answers.profile && (
-            <AssistantStep number={houseLocationStep} currentStep={step} summary={stepSummaries[houseLocationStep]} onEdit={() => setStep(houseLocationStep)} message="Onde o imovel esta localizado?">
+            <AssistantStep number={houseLocationStep} currentStep={step} summary={stepSummaries[houseLocationStep]} onEdit={() => setStep(houseLocationStep)} message={t('studio.questions.houseLocation')}>
               <ChipGrid>
                 {HOUSE_LOCATION_OPTIONS.map((option) => (
                   <ChipButton
@@ -2466,7 +2476,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[locationStep]}
               onEdit={() => setStep(locationStep)}
-              message={isCapture ? 'Em qual cidade deseja atuar?' : 'Qual e a UF, cidade e bairro do imovel?'}
+              message={isCapture ? t('studio.questions.captureLocation') : t('studio.questions.location')}
             >
               <div className="space-y-5">
                 <div>
@@ -2637,7 +2647,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[differentialsStep]}
               onEdit={() => setStep(differentialsStep)}
-              message="Qual palavra de impacto deseja usar na abertura do comercial?"
+              message={t('studio.questions.impact')}
             >
               <div className="space-y-4">
                 <p className="text-sm font-black text-slate-600">Escolha uma palavra curta para criar o impacto inicial do vídeo.</p>
@@ -2653,7 +2663,7 @@ export default function StudioHero() {
                         disabled={disabled}
                         onClick={() => toggleDifferential(option)}
                       >
-                        {option}
+                        {optionLabel('differentials', option)}
                       </ChipButton>
                     )
                   })}
@@ -2680,7 +2690,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[benefitQuestionStep]}
               onEdit={() => setStep(benefitQuestionStep)}
-              message="Existe algum beneficio que voce gostaria de destacar para atrair novos corretores?"
+              message={t('studio.questions.benefits')}
             >
               <ChipGrid>
                 <ChipButton active={answers.brokerHasBenefits === 'no'} onClick={() => updateBrokerHasBenefits('no')}>
@@ -2699,7 +2709,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[propertyFeaturesStep]}
               onEdit={() => setStep(propertyFeaturesStep)}
-              message="Quais caracteristicas do imovel devemos considerar?"
+              message={t('studio.questions.characteristics')}
             >
               <div className="space-y-5">
                 <p className="text-sm font-bold text-slate-500">
@@ -2753,7 +2763,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[benefitDetailsStep]}
               onEdit={() => setStep(benefitDetailsStep)}
-              message="Quais beneficios vale a pena mostrar?"
+              message={t('studio.questions.benefitDetails')}
             >
               <div className="space-y-5">
                 <div>
@@ -2783,7 +2793,7 @@ export default function StudioHero() {
                           disabled={disabled}
                           onClick={() => toggleBrokerBenefit(option)}
                         >
-                          {option}
+                        {option}
                         </ChipButton>
                       )
                     })}
@@ -2830,7 +2840,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[ctaStep]}
               onEdit={() => setStep(ctaStep)}
-              message={isCapture ? 'Como deseja encerrar este comercial?' : 'Qual chamada final deseja usar?'}
+              message={isCapture ? t('studio.questions.captureCta') : t('studio.questions.cta')}
             >
               <ChipGrid>
                 {ctaOptions.map((option) => (
@@ -2839,7 +2849,7 @@ export default function StudioHero() {
                     active={answers.cta === option}
                     onClick={() => updateCtaLabel(option)}
                   >
-                    {option}
+                    {optionLabel('cta', option)}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2859,7 +2869,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[furnishingStep]}
               onEdit={() => setStep(furnishingStep)}
-              message="Sua imagem já possui mobiliário?"
+              message={t('studio.questions.furnishing')}
             >
               <ChipGrid>
                 {FURNISHING_OPTIONS.map((option) => (
@@ -2868,7 +2878,7 @@ export default function StudioHero() {
                     active={answers.furnishingStatus === option}
                     onClick={() => updateFurnishingStatus(option)}
                   >
-                    {option}
+                    {optionLabel('furnishing', option === FURNISHING_OPTIONS[0] ? 'furnished' : 'empty')}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2881,7 +2891,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[decorationStep]}
               onEdit={() => setStep(decorationStep)}
-              message="Voce quer permitir que a IA sugira decoracao ou pequenos ajustes visuais na imagem?"
+              message={t('studio.questions.decoration')}
             >
               <ChipGrid>
                 {DECORATION_POLICY_OPTIONS.map((option) => (
@@ -2890,7 +2900,7 @@ export default function StudioHero() {
                     active={answers.decorationPolicy === option}
                     onClick={() => updateDecorationPolicy(option)}
                   >
-                    {option}
+                    {optionLabel('decoration', option === DECORATION_POLICY_OPTIONS[0] ? 'preserve' : option === DECORATION_POLICY_OPTIONS[1] ? 'light' : 'free')}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2903,7 +2913,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[visualStyleStep]}
               onEdit={() => setStep(visualStyleStep)}
-              message="Qual estilo visual voce imagina para este comercial?"
+              message={t('studio.questions.visualStyle')}
             >
               <ChipGrid>
                 {FREE_AI_VISUAL_STYLE_OPTIONS.map((option) => (
@@ -2912,7 +2922,7 @@ export default function StudioHero() {
                     active={answers.visualStyle === option}
                     onClick={() => updateFreeAiAnswer('visualStyle', option, atmosphereStep)}
                   >
-                    {option}
+                    {optionLabel('visualStyle', option)}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2925,7 +2935,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[atmosphereStep]}
               onEdit={() => setStep(atmosphereStep)}
-              message="Qual atmosfera combina melhor com este comercial?"
+              message={t('studio.questions.atmosphere')}
             >
               <ChipGrid>
                 {FREE_AI_ATMOSPHERE_OPTIONS.map((option) => (
@@ -2934,7 +2944,7 @@ export default function StudioHero() {
                     active={answers.atmosphere === option}
                     onClick={() => updateFreeAiAnswer('atmosphere', option, paceStep)}
                   >
-                    {option}
+                    {optionLabel('atmosphere', option)}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2947,7 +2957,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[paceStep]}
               onEdit={() => setStep(paceStep)}
-              message="Como voce imagina o ritmo deste comercial?"
+              message={t('studio.questions.pace')}
             >
               <ChipGrid>
                 {FREE_AI_PACE_OPTIONS.map((option) => (
@@ -2956,7 +2966,7 @@ export default function StudioHero() {
                     active={answers.pace === option}
                     onClick={() => updateFreeAiAnswer('pace', option, creativeFreedomStep)}
                   >
-                    {option}
+                    {optionLabel('pace', option)}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2969,7 +2979,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[creativeFreedomStep]}
               onEdit={() => setStep(creativeFreedomStep)}
-              message="Qual nivel de liberdade criativa deseja permitir?"
+              message={t('studio.questions.creativeFreedom')}
             >
               <div className="space-y-4">
                 <p className="text-sm font-bold text-slate-500">
@@ -2982,7 +2992,7 @@ export default function StudioHero() {
                       active={answers.creativeFreedom === option}
                       onClick={() => updateFreeAiAnswer('creativeFreedom', option, uploadStep)}
                     >
-                      {option}
+                    {optionLabel('creativeFreedom', option)}
                     </ChipButton>
                   ))}
                 </ChipGrid>
@@ -3000,7 +3010,7 @@ export default function StudioHero() {
             >
               <ProductCard variant="flat" className="border-violet-100 p-4">
                 {isGenerating && !videoUrl ? (
-                  <LoadingCard generationMessage={generationMessage} />
+                  <LoadingCard generationMessage={localizedGenerationMessage} />
                 ) : videoUrl ? (
                   <ResultPanel
                     videoUrl={videoUrl}
@@ -3025,7 +3035,7 @@ export default function StudioHero() {
                     isGenerating={isGenerating}
                     status={status}
                     message={message}
-                    generationMessage={generationMessage}
+                    generationMessage={localizedGenerationMessage}
                     videoUrl={videoUrl}
                     propertyFeaturesSummary={propertyFeaturesSummary}
                     onEdit={setStep}
@@ -3042,7 +3052,7 @@ export default function StudioHero() {
             <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message={`Envie a melhor imagem do imovel. O ${BRAND.name} adiciona automaticamente o encerramento profissional do video.`}>
               <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
                 {isGenerating && !videoUrl ? (
-                  <LoadingCard generationMessage={generationMessage} />
+                  <LoadingCard generationMessage={localizedGenerationMessage} />
                 ) : videoUrl ? (
                   <ResultPanel
                     videoUrl={videoUrl}
