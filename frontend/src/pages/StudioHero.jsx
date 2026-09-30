@@ -827,18 +827,18 @@ function getShortCtaPreview(cta) {
   return normalizeImpactText(clean, 'SAIBA MAIS', 2)
 }
 
-function getCreativeProgressMessage(step, uploadStep, isFreeAiMode = false) {
-  if (isFreeAiMode && step >= uploadStep) return 'Estamos quase la. Falta revisar a direcao criativa.'
-  if (isFreeAiMode && step >= uploadStep - 3) return 'Agora estamos definindo estilo, atmosfera e ritmo.'
-  if (step >= uploadStep) return 'Agora sua imagem entra como base visual do comercial.'
-  if (step >= uploadStep - 1) return 'Estamos quase terminando. Falta escolher a imagem.'
-  if (step >= 4) return 'O estilo do comercial ja esta ganhando forma.'
-  if (step >= 2) return 'Otimo. Ja temos uma boa base para seguir.'
-  return 'Vamos construir a direcao criativa em poucos passos.'
+function getCreativeProgressMessage(step, uploadStep, isFreeAiMode = false, t) {
+  if (isFreeAiMode && step >= uploadStep) return t('studio.progress.creativeReview')
+  if (isFreeAiMode && step >= uploadStep - 3) return t('studio.progress.creativeDirection')
+  if (step >= uploadStep) return t('studio.progress.imageBase')
+  if (step >= uploadStep - 1) return t('studio.progress.imageChoice')
+  if (step >= 4) return t('studio.progress.style')
+  if (step >= 2) return t('studio.progress.base')
+  return t('studio.progress.start')
 }
 
-function getAssistantHint(number) {
-  return ASSISTANT_HINTS[number] || 'Isso vai ajudar bastante a deixar o comercial mais certeiro.'
+function getAssistantHint(number, t) {
+  return t(`studio.hints.${['', 'one', 'two', 'three'][number] || 'default'}`)
 }
 
 function buildStudioHeroFinalCta(answers) {
@@ -1136,6 +1136,32 @@ export default function StudioHero() {
   void locale
   void market
   const optionLabel = (group, value) => (value ? t(`studio.options.${group}.${value}`) : '')
+  const studioUiLabels = {
+    preview: {
+      loading: t('virtualStaging.preview.loading'),
+      unavailable: t('virtualStaging.preview.unavailable'),
+      retry: t('virtualStaging.preview.retry'),
+      enlarge: t('virtualStaging.preview.enlarge'),
+    },
+    media: {
+      generated: t('virtualStaging.media.generated'),
+      campaignArts: t('virtualStaging.media.campaignArts'),
+      unavailable: t('virtualStaging.media.unavailable'),
+      waiting: t('virtualStaging.media.waiting'),
+      rendering: t('virtualStaging.media.rendering'),
+      art: t('virtualStaging.media.art'),
+    },
+    result: {
+      temporarilyUnavailable: t('virtualStaging.result.temporarilyUnavailable'),
+      reloadInstruction: t('virtualStaging.result.reloadInstruction'),
+      generatedMedia: t('virtualStaging.result.generatedMedia'),
+      presentation: t('virtualStaging.result.presentation'),
+      play: t('studio.result.play'),
+    },
+    download: { loading: t('studio.status.processing'), image: t('studio.result.download'), video: t('studio.result.download') },
+    actions: { copy: t('virtualStaging.actions.copy'), copied: t('virtualStaging.actions.copied'), publish: t('virtualStaging.actions.publish'), creationError: t('virtualStaging.actions.creationError') },
+    campaign: t('virtualStaging.campaign'),
+  }
   const { user, isAdmin, reloadProfile } = useAuth()
   const navigate = useNavigate()
   const pollTimerRef = useRef(null)
@@ -1181,7 +1207,9 @@ export default function StudioHero() {
       await redirectToMetaOAuth(supabase, url => window.location.assign(url))
     },
   } : undefined
-  const guideItems = STUDIO_GUIDE_ITEMS_BY_MODE[studioMode] || STUDIO_GUIDE_ITEMS_BY_MODE.cinematic
+  const guideItems = studioMode === 'free_ai'
+    ? ['creativeDirection', 'transformIdea', 'shortSocial', 'deliver'].map((key) => t(`studio.guidance.creative.${key}`))
+    : ['creativeDirection', 'useImage', 'shortSocial', 'deliver'].map((key) => t(`studio.guidance.cinematic.${key}`))
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
   const isPropertyCapture = answers.objective === 'property_capture'
   const isBrokerCapture = answers.objective === 'broker_capture'
@@ -1246,7 +1274,7 @@ export default function StudioHero() {
     .map((key, index) => ({ ...GENERATION_MESSAGES[index], text: t(`studio.loading.messages.${key}`) }))
   const localizedGenerationMessage = localizedGenerationMessages[generationMessageIndex % localizedGenerationMessages.length]
   const progressPercent = Math.min(100, Math.max(8, Math.round((Math.min(step, uploadStep) / uploadStep) * 100)))
-  const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode)
+  const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode, t)
   const propertyFeaturesSummary = isCommercialProperty
     ? [answers.area, answers.parking].filter(Boolean).join(', ')
     : [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
@@ -2073,6 +2101,11 @@ export default function StudioHero() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {VISIBLE_STUDIO_MODE_EXAMPLES.map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
+                const localizedExample = example.id === 'cinematic'
+                  ? t('studio.demo.cinematic')
+                  : example.id === 'free_ai'
+                    ? t('studio.demo.creative')
+                    : example
                 return (
                   <ProductCard key={example.id} variant="flat" className={`overflow-hidden p-4 ${accent.card}`}>
                     <div className="mx-auto max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
@@ -2080,12 +2113,12 @@ export default function StudioHero() {
                         <div className={`absolute inset-0 bg-gradient-to-b ${accent.glow}`} />
                         <div className="relative px-4 text-center text-white">
                           <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
-                          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{example.label}</p>
+                          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{localizedExample.label}</p>
                         </div>
                         {example.media && (
                           <video
                             src={example.media}
-                            aria-label={t('studio.accessibility.demo').replace('{title}', example.title)}
+                            aria-label={t('studio.accessibility.demo').replace('{title}', localizedExample.title)}
                             autoPlay
                             muted
                             loop
@@ -2102,7 +2135,7 @@ export default function StudioHero() {
                       </div>
                     </div>
                     <h3 className={`mt-4 text-center text-base font-black leading-tight ${accent.cta}`}>
-                      {example.title}
+                      {localizedExample.title}
                     </h3>
                     <div className="mt-3 space-y-3">
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
@@ -2111,7 +2144,7 @@ export default function StudioHero() {
                           Você conversa com a IA e envia:
                         </p>
                         <ul className="mt-2 space-y-1.5">
-                          {example.send.map((item) => (
+                          {localizedExample.send.map((item) => (
                             <li key={`${example.id}-${item}`} className="flex gap-2 text-xs font-bold leading-5 text-slate-600">
                               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" aria-hidden="true" />
                               <span>{item}</span>
@@ -2125,7 +2158,7 @@ export default function StudioHero() {
                           E recebe:
                         </p>
                         <ul className="mt-2 space-y-1.5">
-                          {example.receive.map((item) => (
+                          {localizedExample.receive.map((item) => (
                             <li key={`${example.id}-${item}`} className="flex gap-2 text-xs font-bold leading-5 text-slate-600">
                               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" aria-hidden="true" />
                               <span>{item}</span>
@@ -2143,9 +2176,14 @@ export default function StudioHero() {
           <StudioGalleryInvitation />
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
-              const ModeIcon = mode.Icon
-              const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
+              {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
+                const ModeIcon = mode.Icon
+                const accent = STUDIO_MODE_ACCENTS[mode.accent] || STUDIO_MODE_ACCENTS.cyan
+                const localizedMode = mode.id === 'cinematic'
+                  ? { title: t('studio.mode.commercial'), description: t('studio.mode.commercialDescription'), cta: t('studio.mode.commercialAction') }
+                  : mode.id === 'free_ai'
+                    ? { title: t('studio.mode.creative'), description: t('studio.mode.creativeDescription'), cta: t('studio.mode.creativeAction') }
+                    : mode
               const cardContent = (
                 <>
                   <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${accent.glow}`} />
@@ -2157,10 +2195,10 @@ export default function StudioHero() {
                       {mode.status}
                     </span>}
                   </div>
-                  <h2 className="relative mt-5 text-xl font-black text-slate-950">{mode.title}</h2>
-                  <p className="relative mt-3 flex-1 text-sm font-semibold leading-6 text-slate-600">{mode.description}</p>
+                  <h2 className="relative mt-5 text-xl font-black text-slate-950">{localizedMode.title}</h2>
+                  <p className="relative mt-3 flex-1 text-sm font-semibold leading-6 text-slate-600">{localizedMode.description}</p>
                   <span className={`relative mt-5 text-sm font-black ${accent.cta}`}>
-                    {mode.active ? mode.cta : 'Em breve'}
+                    {mode.active ? localizedMode.cta : 'Em breve'}
                   </span>
                 </>
               )
@@ -2215,7 +2253,7 @@ export default function StudioHero() {
               createNewStudioVersion()
               setStudioMode('')
             }}>{t('studio.landing.chooseAnother')}</ProductButton>}
-            visual={<StudioHeroGuideCard title="Como vamos conduzir?" items={guideItems} icon={ShieldCheck} />}
+            visual={<StudioHeroGuideCard title={t('studio.hero.guideTitle')} items={guideItems} icon={ShieldCheck} />}
           />
         </section>
 
@@ -2241,6 +2279,7 @@ export default function StudioHero() {
               cityValue={cityValue}
               districtValue={districtValue}
               generationMessage={localizedGenerationMessage}
+              studioUiLabels={studioUiLabels}
               onReset={createNewStudioVersion}
             />
           )}
@@ -2325,7 +2364,7 @@ export default function StudioHero() {
                       inputMode="numeric"
                       pattern="[0-9]*"
                       placeholder="Ex.: 450"
-                      aria-label="Área aproximada do lote ou terreno"
+                      aria-label={t('studio.questions.landAreaAria')}
                       className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
                     />
                     <span className="ml-2 text-sm font-black text-slate-500">m²</span>
@@ -2440,7 +2479,7 @@ export default function StudioHero() {
           )}
 
           {hasStageStep && (!hasHouseLocationStep || answers.houseLocationType) && answers.profile && (
-            <AssistantStep number={stageStep} currentStep={step} summary={stepSummaries[stageStep]} onEdit={() => setStep(stageStep)} message="Qual e o estagio do imovel?">
+            <AssistantStep number={stageStep} currentStep={step} summary={stepSummaries[stageStep]} onEdit={() => setStep(stageStep)} message={t('studio.questions.stage')}>
               <ChipGrid>
                 {stageOptions.map((option) => (
                   <ChipButton
@@ -2480,7 +2519,7 @@ export default function StudioHero() {
             >
               <div className="space-y-5">
                 <div>
-                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Estado</p>
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{t('virtualStaging.location.state')}</p>
                   <SmartCarouselStateSelect
                     accent="cyan"
                     value={answers.uf}
@@ -2494,7 +2533,7 @@ export default function StudioHero() {
 
                 {answers.uf && (
                   <div>
-                    <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Cidade</p>
+                    <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{t('virtualStaging.location.city')}</p>
                     {usesManualCity ? (
                       <div className="space-y-3">
                         <SmartLocationTextInput
@@ -2511,7 +2550,7 @@ export default function StudioHero() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          aria-label="Voltar para a lista de cidades"
+                          aria-label={t('studio.location.backToCities')}
                           onClick={() => {
                             resetGenerationState()
                             setManualCityMode(false)
@@ -2537,7 +2576,7 @@ export default function StudioHero() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          aria-label="Digitar cidade manualmente"
+                          aria-label={t('studio.location.typeCity')}
                           aria-pressed="false"
                           onClick={() => {
                             resetGenerationState()
@@ -2580,16 +2619,16 @@ export default function StudioHero() {
 
                 {cityValue && (!isCapture || answers.captureHasDistrict === 'yes') && (
                   <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">{isCapture ? 'Bairro ou regiao' : 'Bairro'}</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">{isCapture ? t('virtualStaging.location.community') : t('virtualStaging.location.neighborhood')}</p>
                     <SmartLocationTextInput
                       accent="cyan"
-                      ariaLabel={isCapture ? 'Bairro ou regiao' : 'Bairro'}
+                      ariaLabel={isCapture ? t('virtualStaging.location.community') : t('virtualStaging.location.neighborhood')}
                       value={answers.district}
                       onChange={(event) => {
                         resetGenerationState()
                         setAnswers((current) => ({ ...current, district: formatDisplayText(event.target.value), cta: '', imageCount: 1 }))
                       }}
-                      placeholder={isCapture ? 'Ex.: Moema, Zona Sul, Centro, Toda a cidade' : 'Digite o bairro'}
+                      placeholder={isCapture ? t('studio.placeholders.captureNeighborhood') : t('studio.placeholders.neighborhood')}
                     />
                   </div>
                 )}
@@ -2613,7 +2652,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[captureTypeStep]}
               onEdit={() => setStep(captureTypeStep)}
-              message={isPropertyCapture ? 'Que tipo de imovel deseja captar?' : 'Qual profissional deseja atrair?'}
+              message={isPropertyCapture ? t('studio.questions.capturePropertyType') : t('studio.questions.captureProfessional')}
             >
               {isBrokerCapture && (
                 <p className="mb-4 text-sm font-bold text-slate-500">
@@ -3006,7 +3045,7 @@ export default function StudioHero() {
               currentStep={step}
               summary={stepSummaries[uploadStep]}
               onEdit={() => setStep(uploadStep)}
-              message="Perfeito. O comercial livre ja esta preparado para a proxima etapa."
+              message={t('studio.review.creativeComplete')}
             >
               <ProductCard variant="flat" className="border-violet-100 p-4">
                 {isGenerating && !videoUrl ? (
@@ -3022,6 +3061,7 @@ export default function StudioHero() {
                     cityValue={cityValue}
                     districtValue={districtValue}
                     onReset={createNewStudioVersion}
+                    uiLabels={studioUiLabels}
                   />
                 ) : (
                   <StudioChecklist
@@ -3064,6 +3104,7 @@ export default function StudioHero() {
                     cityValue={cityValue}
                     districtValue={districtValue}
                     onReset={createNewStudioVersion}
+                    uiLabels={studioUiLabels}
                   />
                 ) : (
                   <>
@@ -3130,7 +3171,8 @@ export default function StudioHero() {
   )
 }
 
-function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceType, publicationOptions, studioPublish, answers, cityValue, districtValue, generationMessage, onReset }) {
+function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceType, publicationOptions, studioPublish, answers, cityValue, districtValue, generationMessage, studioUiLabels, onReset }) {
+  const { t } = useLocale()
   if (videoUrl) {
     return (
       <ResultPanel
@@ -3142,6 +3184,7 @@ function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceTy
         answers={answers}
         cityValue={cityValue}
         districtValue={districtValue}
+        uiLabels={studioUiLabels}
         onReset={onReset}
       />
     )
@@ -3150,8 +3193,8 @@ function RecoveredStudioJobPanel({ status, message, videoUrl, sourceId, sourceTy
   if (status === 'failed') {
     return (
       <ProductCard className="space-y-4 border-red-100 bg-red-50 p-5 text-red-800">
-        <p className="font-bold">{message || 'Não foi possível concluir esta criação.'}</p>
-        <ProductButton type="button" variant="secondary" onClick={onReset}>Iniciar outra criação</ProductButton>
+        <p className="font-bold">{message || t('studio.errors.generation')}</p>
+        <ProductButton type="button" variant="secondary" onClick={onReset}>{t('studio.actions.createNewVersion')}</ProductButton>
       </ProductCard>
     )
   }
@@ -3180,9 +3223,10 @@ function StudioHeroGuideCard({ title, items, icon: Icon = Film }) {
 }
 
 function StudioHeroRepresentativePhone() {
+  const { t } = useLocale()
   return (
     <div
-      aria-label="Exemplo visual do Studio IA"
+      aria-label={t('studio.showcase.visualExample')}
       className="pointer-events-none relative flex min-h-[245px] items-center justify-center sm:min-h-[285px] lg:min-h-[310px]"
     >
       <div className="absolute h-52 w-52 rounded-full bg-cyan-300/15 blur-3xl sm:h-64 sm:w-64" aria-hidden="true" />
@@ -3212,32 +3256,33 @@ function StudioHeroRepresentativePhone() {
 }
 
 function StudioPossibilitiesShowcase() {
+  const { t } = useLocale()
   return (
     <ProductCard className="overflow-hidden p-5 sm:p-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div>
           <ProductSectionHeading
-            eyebrow="Possibilidades Studio IA"
-            title="Descubra o que você pode criar"
-            description="Cada conversa com a IA gera um resultado único."
+            eyebrow={t('studio.showcase.eyebrow')}
+            title={t('studio.gallery.title')}
+            description={t('studio.gallery.description')}
           />
           <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
-            Escolha um objetivo e veja algumas das possibilidades que o Studio IA pode criar para você.
+            {t('studio.gallery.instruction')}
           </p>
           <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-slate-500">
-            Os exemplos são demonstrações visuais. Cada campanha será criada exclusivamente para o imóvel e o objetivo informados por você.
+            {t('studio.showcase.examplesNotice')}
           </p>
           <ProductCard variant="muted" className="mt-5 border-cyan-100 bg-cyan-50/70 p-4">
-            <p className="text-sm font-black text-cyan-950">Nenhum vídeo é igual ao outro.</p>
+            <p className="text-sm font-black text-cyan-950">{t('studio.showcase.uniqueTitle')}</p>
             <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
-              Cada criação é gerada exclusivamente a partir da conversa realizada com a IA.
+              {t('studio.showcase.uniqueDescription')}
             </p>
             <p className="mt-4 flex items-center gap-2 text-sm font-black text-cyan-950">
               <span className="h-px w-4 bg-cyan-600" aria-hidden="true" />
-              Cada campanha é única.
+              {t('studio.showcase.uniqueCampaignTitle')}
             </p>
             <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
-              A IA cria uma nova campanha a cada geração. As imagens são ilustrativas, criadas para chamar a atenção e representar o conceito da campanha, podendo ser diferentes do imóvel real.
+              {t('studio.showcase.uniqueCampaignDescription')}
             </p>
           </ProductCard>
         </div>
@@ -3250,12 +3295,12 @@ function StudioPossibilitiesShowcase() {
                   <div className="relative px-4 text-center text-white" aria-hidden="true">
                     <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
                     <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
-                      Demonstração visual
+                      {t('studio.showcase.demo')}
                     </p>
                   </div>
                   <video
                     src={example.media}
-                    aria-label={`Demonstração: ${example.title}`}
+                    aria-label={t('studio.accessibility.demo').replace('{title}', example.title)}
                     autoPlay
                     muted
                     loop
@@ -3271,7 +3316,7 @@ function StudioPossibilitiesShowcase() {
                 </div>
               </div>
               <div className="px-1 pb-1 pt-4">
-                <p className="text-xs font-black uppercase tracking-wide text-primary-700">Exemplo {index + 1}</p>
+                <p className="text-xs font-black uppercase tracking-wide text-primary-700">{t('studio.showcase.example').replace('{count}', index + 1)}</p>
                 <h3 className="mt-2 text-base font-black leading-tight text-slate-950">{example.title}</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
               </div>
@@ -3285,14 +3330,15 @@ function StudioPossibilitiesShowcase() {
 
 function StudioGalleryInvitation() {
   const navigate = useNavigate()
+  const { t } = useLocale()
 
   return (
     <ProductCard variant="muted" className="p-6 sm:p-8">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-slate-950">Inspire-se com mais campanhas</h2>
+          <h2 className="text-2xl font-black text-slate-950">{t('studio.gallery.invitationTitle')}</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            Veja outros exemplos reais criados pelo Smart Studio.
+            {t('studio.gallery.invitationDescription')}
           </p>
         </div>
         <ProductButton
@@ -3301,7 +3347,7 @@ function StudioGalleryInvitation() {
           size="lg"
           className="shrink-0"
         >
-          Ver Galeria de Exemplos
+          {t('studio.gallery.invitationAction')}
         </ProductButton>
       </div>
     </ProductCard>
@@ -3309,6 +3355,7 @@ function StudioGalleryInvitation() {
 }
 
 function AssistantStep({ number, currentStep, summary, onEdit, message, children }) {
+  const { t } = useLocale()
   if (number > currentStep) return null
 
   const answered = Boolean(summary) && number < currentStep
@@ -3336,7 +3383,7 @@ function AssistantStep({ number, currentStep, summary, onEdit, message, children
     label={`Etapa ${number}`}
     labelTrailing="Direcao criativa"
     title={<TypewriterText text={message} active={active} />}
-    description={getAssistantHint(number)}
+    description={getAssistantHint(number, t)}
   >
     {children}
   </ConversationQuestionCard>
@@ -3427,6 +3474,7 @@ function OptionGroup({ title, options, value, onSelect }) {
 }
 
 function FilePicker({ slot, file, error = false, onChange }) {
+  const { t } = useLocale()
   return (
     <ProductCard
       as="label"
@@ -3448,8 +3496,8 @@ function FilePicker({ slot, file, error = false, onChange }) {
       />
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-black text-slate-950">{slot.label}</p>
-          <p className="mt-1 text-xs font-bold text-slate-500">{slot.helper}</p>
+          <p className="text-sm font-black text-slate-950">{t('studio.summary.image')}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{t('studio.upload.required')}</p>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-950 text-cyan-100">
           <ImagePlus className="h-5 w-5" />
@@ -3459,13 +3507,13 @@ function FilePicker({ slot, file, error = false, onChange }) {
         {file ? (
           <img
             src={URL.createObjectURL(file)}
-            alt={`${slot.label} selecionada`}
+            alt={t('studio.upload.previewAlt').replace('{label}', t('studio.summary.image'))}
             className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex flex-col items-center gap-2 text-slate-400">
             <UploadCloud className="h-8 w-8" />
-            <span className="text-xs font-bold">Selecionar imagem</span>
+            <span className="text-xs font-bold">{t('studio.upload.selectImage')}</span>
           </div>
         )}
       </div>
@@ -3473,12 +3521,12 @@ function FilePicker({ slot, file, error = false, onChange }) {
         <p className="min-h-4 truncate text-xs font-bold text-slate-500">{file?.name || ' '}</p>
         {file && (
           <p className="text-xs font-black uppercase tracking-wide text-primary-700">
-            Clique no card para trocar a imagem
+            {t('studio.upload.replaceImage')}
           </p>
         )}
         {error && (
           <p className="text-xs font-black text-red-600">
-            Revise esta imagem. Para este teste, use JPG ou PNG.
+            {t('studio.upload.invalid')}
           </p>
         )}
       </div>
@@ -3496,6 +3544,7 @@ function UploadReadyPanel({
   isGenerating,
   onGenerate,
 }) {
+  const { t } = useLocale()
   const selectedCount = IMAGE_SLOTS.filter((slot) => files[slot.key]).length
   const ready = selectedCount === IMAGE_SLOTS.length
   const displayLocation = getDisplayLocation({
@@ -3515,12 +3564,12 @@ function UploadReadyPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black text-slate-950">
-            {ready ? 'Tudo pronto para criar.' : 'Envie a melhor imagem do imovel.'}
+            {ready ? t('studio.upload.ready') : t('studio.upload.required')}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
             {ready
-              ? 'Revise a imagem e crie o comercial quando estiver tudo certo.'
-              : 'A foto escolhida abre o comercial. O encerramento profissional entra automaticamente no final.'}
+              ? t('studio.review.commercialReady')
+              : t('studio.upload.helper').replace('{brand}', BRAND.name)}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -3531,7 +3580,7 @@ function UploadReadyPanel({
                 key={slot.key}
                 className={`rounded-full border px-3 py-1.5 text-xs font-black ${selected ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
               >
-                {slot.label}: {selected ? 'OK' : 'pendente'}
+                {t('studio.summary.image')}: {selected ? t('studio.answers.complete') : t('studio.answers.pending')}
               </span>
             )
           })}
@@ -3542,20 +3591,20 @@ function UploadReadyPanel({
             {summaryItems.map(([label, value]) => (
               <ProductCard key={label} variant="muted" className="p-3">
                 <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-                <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || 'Pendente'}</p>
+                <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || t('studio.answers.pending')}</p>
               </ProductCard>
             ))}
       </div>
 
       <p className="mt-3 text-xs font-bold text-slate-500">
-        {selectedCount}/{IMAGE_SLOTS.length} imagem selecionada.
+        {t(selectedCount === 1 ? 'studio.upload.selected' : 'studio.upload.selectedPlural').replace('{count}', selectedCount).replace('{limit}', IMAGE_SLOTS.length)}
       </p>
 
       {ready && (
         <>
           {!studioHeroAccess?.canGenerate && (
             <ProductCard variant="muted" className="mt-3 border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
-              Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja exemplos e ative quando quiser.
+              {t('studio.errors.access')}
             </ProductCard>
           )}
 
@@ -3564,12 +3613,12 @@ function UploadReadyPanel({
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Criando comercial
+                {t('studio.status.generating')}
               </>
             ) : (
               <>
                 <PlayCircle className="h-4 w-4" />
-                Criar comercial
+                {t('studio.actions.createCommercial')}
               </>
             )}
           </ProductButton>
@@ -3623,6 +3672,7 @@ function TypewriterText({ text, active }) {
 }
 
 function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, propertyFeaturesSummary = '', onEdit, onEditImages, onGenerate, mode = 'cinematic' }) {
+  const { t } = useLocale()
   const isSale = answers.objective === 'sale'
   const isFreeAiMode = mode === 'free_ai'
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
@@ -3714,19 +3764,19 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       <ProductCard variant="flat" className="flex flex-col gap-3 border-cyan-100 bg-[linear-gradient(135deg,#ffffff_0%,#ecfeff_100%)] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-black text-slate-950">
-            {videoUrl ? 'Comercial criado com sucesso.' : 'Seu comercial sera criado com:'}
+            {videoUrl ? t('studio.delivery.commercialSuccess') : t('studio.delivery.prepared')}
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-500">
             {videoUrl
-              ? 'Voce recebeu video, download e textos prontos para divulgar.'
+              ? t('studio.delivery.completed')
               : isFreeAiMode
-                ? 'Tudo pronto. Revise suas escolhas e crie o comercial livre quando estiver tudo certo.'
-                : 'Tudo pronto. Revise sua imagem e crie o comercial quando estiver tudo certo.'}
+                ? t('studio.review.creativeReady')
+                : t('studio.review.commercialReady')}
           </p>
           <p className="mt-2 max-w-xl text-xs font-semibold leading-5 text-slate-500">
             {isFreeAiMode
-              ? 'Este modo usa a conversa para imaginar o comercial sem depender de uma imagem enviada.'
-              : 'Cada comercial e criado de forma unica. Novas versoes podem apresentar cenas, movimentos e resultados diferentes.'}
+              ? t('studio.delivery.creativeDescription')
+              : t('studio.delivery.commercialDescription')}
           </p>
         </div>
       </ProductCard>
@@ -3736,7 +3786,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
           <span>{message}</span>
           {imageErrorTarget && (
             <ProductButton type="button" variant="secondary" onClick={onEditImages}>
-              Voltar para imagem
+              {t('studio.upload.backToImage')}
             </ProductButton>
           )}
         </ProductCard>
@@ -3744,7 +3794,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
 
       {!videoUrl && (
         <ProductCard variant="muted" className="border-primary-100 bg-primary-50/70 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-primary-800">Textos conceituais do comercial</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-800">{t('studio.summary.impact')}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {visibleTextPreview.map(([label, value]) => (
               <ProductCard key={label} variant="flat" className="border-white/70 px-3 py-3">
@@ -3754,19 +3804,19 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             ))}
           </div>
           <p className="mt-3 text-xs font-semibold leading-5 text-primary-900">
-            O encerramento final e controlado pelo {BRAND.name} para manter consistencia de campanha.
+            {t('studio.delivery.controlledEnding').replace('{brand}', BRAND.name)}
           </p>
         </ProductCard>
       )}
 
       {!isFreeAiMode && !studioHeroAccess?.canGenerate && (
         <ProductCard variant="muted" className="border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold leading-6 text-primary-800">
-          Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja exemplos e ative quando quiser.
+          {t('studio.errors.access')}
         </ProductCard>
       )}
 
       <ProductCard variant="muted" className={`p-4 ${isFreeAiMode ? 'border-violet-100 bg-violet-50/70' : 'border-cyan-100 bg-cyan-50/70'}`}>
-        <p className={`text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-800' : 'text-cyan-800'}`}>Pacote de entrega</p>
+          <p className={`text-xs font-black uppercase tracking-wide ${isFreeAiMode ? 'text-violet-800' : 'text-cyan-800'}`}>{t('studio.delivery.title')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {DELIVERY_PACKAGE_ITEMS.map((item) => (
             <span key={item} className="rounded-full border border-white/80 bg-white px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm">
@@ -3792,10 +3842,10 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
               </span>
               <span className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
-                <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || 'Pendente'}</p>
+                <p className="mt-1 line-clamp-2 text-xs font-black leading-relaxed text-slate-950">{value || t('studio.answers.pending')}</p>
                 <span className="mt-2 inline-flex items-center gap-1 text-xs font-black uppercase tracking-wide text-cyan-700">
                   <Pencil className="h-3.5 w-3.5" />
-                  Editar
+                  {t('studio.actions.edit')}
                 </span>
               </span>
             </div>
@@ -3806,24 +3856,24 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       {!videoUrl && (
         <ProductCard variant="flat" className="border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_100%)] p-4">
           <p className="text-sm font-black text-slate-950">
-            Tudo pronto.
+            {t('studio.review.ready')}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
             {isFreeAiMode
-              ? 'Revise o resumo e a direcao criativa. Quando estiver tudo certo, crie seu comercial livre.'
-              : 'Revise o resumo e a imagem selecionada. Quando estiver tudo certo, crie seu comercial.'}
+              ? t('studio.review.creativeReady')
+              : t('studio.review.commercialReady')}
           </p>
           <SmartTokenEstimate cost={SMART_TOKEN_COSTS.veoVideo} className="mt-4" />
           <ProductButton type="button" onClick={onGenerate} disabled={!canGenerate || isGenerating} loading={isGenerating} className="mt-4 w-full justify-center py-4 text-base">
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Criando comercial
+                {t('studio.status.generating')}
               </>
             ) : (
               <>
                 <PlayCircle className="h-4 w-4" />
-                {isFreeAiMode ? 'Criar comercial livre' : 'Criar comercial'}
+                {isFreeAiMode ? t('studio.actions.createFreeCommercial') : t('studio.actions.createCommercial')}
               </>
             )}
           </ProductButton>
@@ -3834,8 +3884,9 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
 }
 
 function LoadingCard({ generationMessage }) {
+  const { t } = useLocale()
   const Icon = generationMessage?.Icon || Loader2
-  const text = generationMessage?.text || 'Estamos criando seu comercial.'
+  const text = generationMessage?.text || t('studio.status.generating')
 
   return (
     <ProductCard variant="flat" className="border-cyan-100 p-5">
@@ -3844,12 +3895,12 @@ function LoadingCard({ generationMessage }) {
           <Icon className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-sm font-black text-slate-950">Estamos criando seu comercial</p>
+          <p className="text-sm font-black text-slate-950">{t('studio.loading.title')}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
             {text}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
-            O video aparecera aqui quando estiver pronto.
+            {t('studio.loading.videoReady')}
           </p>
         </div>
       </div>
@@ -3858,19 +3909,21 @@ function LoadingCard({ generationMessage }) {
 }
 
 function ErrorCard({ message, imageErrorTarget, onEditImages }) {
+  const { t } = useLocale()
   return (
     <ProductCard variant="flat" className="flex flex-col gap-3 border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-700 sm:flex-row sm:items-center sm:justify-between">
       <span>{message}</span>
       {imageErrorTarget && (
         <ProductButton type="button" variant="secondary" onClick={onEditImages}>
-          Voltar para imagem
+          {t('studio.upload.backToImage')}
         </ProductButton>
       )}
     </ProductCard>
   )
 }
 
-function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, onReset }) {
+function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, uiLabels, onReset }) {
+  const { t } = useLocale()
   const completed = Boolean(videoUrl)
   const deliveryInput = { answers, districtValue, cityValue }
   const deliveryTexts = completed
@@ -3911,8 +3964,9 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
         }}
         mediaPresentation="mobile"
         studioPublish={studioPublish}
+        uiLabels={uiLabels}
         onCreateNew={onReset}
-        createNewLabel="Criar nova versão"
+        createNewLabel={t('studio.actions.createNewVersion')}
       />
     )
   }
@@ -3947,8 +4001,9 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
         }}
         mediaPresentation="mobile"
         studioPublish={studioPublish}
+        uiLabels={uiLabels}
         onCreateNew={onReset}
-        createNewLabel="Criar nova versão"
+        createNewLabel={t('studio.actions.createNewVersion')}
       />
     )
   }
@@ -3957,10 +4012,10 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
     <ProductCard className={`border-cyan-100 shadow-xl shadow-cyan-100/40 ${compact ? 'p-4' : 'p-5'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-cyan-700">Resultado</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Seu comercial esta pronto</h2>
+          <p className="text-xs font-black uppercase tracking-wide text-cyan-700">{t('studio.result.eyebrow')}</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">{t('studio.result.title')}</h2>
           <p className="mt-2 text-sm font-semibold text-slate-500">
-            Voce recebeu video, download e textos prontos para divulgar.
+            {t('studio.result.description')}
           </p>
         </div>
         {completed ? (
@@ -3986,7 +4041,7 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
             className="w-full bg-primary-950 hover:bg-primary-900"
           >
             <PlayCircle className="h-4 w-4" />
-            Assistir
+            {t('studio.result.play')}
           </ProductButton>
           <ProductButton
             as="a"
@@ -3995,7 +4050,7 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
             className="w-full bg-primary-700 hover:bg-primary-800"
           >
             <Download className="h-4 w-4" />
-            Baixar
+            {t('studio.result.download')}
           </ProductButton>
           <ProductButton
             type="button"
@@ -4004,7 +4059,7 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
             className="w-full"
           >
             <RotateCcw className="h-4 w-4" />
-            Criar nova versao
+            {t('studio.result.createNewVersion')}
           </ProductButton>
         </div>
       )}

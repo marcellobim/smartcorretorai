@@ -22,7 +22,7 @@ test('keeps all 27 states and the shared State, City and editable neighborhood f
   assert.equal(new Set(states).size, 27)
   assert.match(studio, /<SmartCarouselStateSelect[\s\S]*?value=\{answers\.uf\}/)
   assert.match(studio, /<SmartCarouselCitySelect[\s\S]*?uf=\{answers\.uf\}[\s\S]*?value=\{answers\.city\}/)
-  assert.match(studio, /<SmartLocationTextInput[\s\S]*?ariaLabel=\{isCapture \? 'Bairro ou regiao' : 'Bairro'\}[\s\S]*?value=\{answers\.district\}/)
+  assert.match(studio, /<SmartLocationTextInput[\s\S]*?ariaLabel=\{isCapture \? t\('virtualStaging\.location\.community'\) : t\('virtualStaging\.location\.neighborhood'\)\}[\s\S]*?value=\{answers\.district\}/)
 })
 
 test('resets dependent fields when State or selected City changes', () => {
@@ -64,9 +64,9 @@ test('uses one effective City and preserves legacy cityOther in manual mode', ()
 test('offers an accessible manual fallback without replacing the normal IBGE flow', () => {
   assert.match(studio, /const usesManualCity = manualCityMode \|\| Boolean\(formatDisplayText\(answers\.cityOther\)\)/)
   assert.match(studio, /Não encontrou sua cidade\? Digite manualmente\./)
-  assert.match(studio, /aria-label="Digitar cidade manualmente"/)
+  assert.match(studio, /aria-label=\{t\('studio\.location\.typeCity'\)\}/)
   assert.match(studio, /ariaLabel="Cidade manual"/)
-  assert.match(studio, /aria-label="Voltar para a lista de cidades"/)
+  assert.match(studio, /aria-label=\{t\('studio\.location\.backToCities'\)\}/)
   assert.match(studio, /setManualCityMode\(true\)[\s\S]*?changeStudioManualCity\(\{ \.\.\.current, city: '' \}, current\.cityOther\)/)
   assert.match(studio, /setManualCityMode\(false\)[\s\S]*?changeStudioSelectedCity\(current, ''\)/)
 })
