@@ -69,17 +69,16 @@ test('completed clears recovery while preserving the result in current React sta
 
 test('Create new project clears the recoverable job explicitly', () => {
   assert.match(page, /const reset = \(\) => \{ sessionStorage\.removeItem\(activeJobKey\)/)
-  assert.match(page, /createNewLabel="Criar novo projeto"/)
+  assert.match(page, /<FurnishRenovateDelivery results=\{furnishResults\} onCreateNew=\{reset\}/)
 })
 
 test('completed without signedVideoUrl clears recovery and exposes a current-session status retry', () => {
   assert.equal(isUsableVirtualStagingVideoUrl(''), false)
   assert.equal(isUsableVirtualStagingVideoUrl('   '), false)
   assert.match(page, /setStatus\('result_unavailable'\)/)
-  assert.match(page, /vídeo está temporariamente indisponível/)
-  assert.match(page, /Consultar resultado novamente/)
+  assert.match(page, /lifeBrokerCopy\('checkResult'\)/)
   assert.match(page, /if \(status === 'result_unavailable'\) return <section role="alert"/)
-  assert.match(page, /onClick=\{retryResultStatus\}>Consultar resultado novamente/)
+  assert.match(page, /onClick=\{retryResultStatus\}>\{lifeBrokerCopy\('checkResult'\)\}/)
   assert.match(page, /activeJobIdRef\.current \|\| stored\?\.jobId/)
 })
 
@@ -112,20 +111,20 @@ test('secondary preview errors stay local and video remains the result only for 
   assert.match(campaignPackage, /onError=\{\(\) => setFailed\(true\)\}/)
   assert.match(campaignPackage, /onError=\{\(\) => setStatus\('error'\)\}/)
   assert.match(page, /if \(isFurnishRenovate && status === 'completed' && furnishResults\.length > 0\) return <FurnishRenovateDelivery/)
-  assert.match(page, /if \(result\) return <section[\s\S]*?<CampaignPackage/)
+  assert.match(page, /if \(result\) \{[\s\S]*?return <section[\s\S]*?<CampaignPackage/)
   assert.doesNotMatch(campaignPackage, /setResult|sessionStorage\.removeItem/)
 })
 
 test('furnish-renovate uses the private image result while other modules keep CampaignPackage', () => {
   const delivery = page.slice(page.indexOf('function FurnishRenovateResultCard'), page.indexOf('function FurnishRenovateProcessing'))
-  assert.match(delivery, /label: 'Antes'[\s\S]*label: 'Depois'/)
-  assert.match(page, /const fallbackName = `virtual-staging-\$\{String\(result\.originalIndex \+ 1\)\.padStart\(2, '0'\)\}\.jpg`/)
-  assert.match(page, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)
-  assert.match(delivery, /downloadFurnishRenovateResult\(result\)/)
-  assert.match(delivery, /Baixar imagem transformada/)
-  assert.match(delivery, /Criar novo projeto/)
-  assert.doesNotMatch(delivery, /CampaignPackage|Textos para divulgação|Hashtags|Instagram|WhatsApp|Facebook|LinkedIn|Próximos passos/)
-  assert.match(page, /if \(isFurnishRenovate && status === 'completed' && furnishResults\.length > 0\) return <FurnishRenovateDelivery[\s\S]*if \(result\) return <section[\s\S]*?<CampaignPackage/)
+  assert.match(delivery, /label: copy\.original[\s\S]*\.\.\.result\.stages/)
+  assert.match(page, /const fallbackName = `smart-space-\$\{String\(result\.originalIndex \+ 1\)\.padStart\(2, '0'\)\}-\$\{safeStage\}\.jpg`/)
+  assert.match(page, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(stage\.url, fallbackName\)/)
+  assert.match(delivery, /downloadFurnishRenovateResult\(result, stage\)/)
+  assert.match(delivery, /\{copy\.download\} \{stageLabel\(stage\)\.toLocaleLowerCase\(locale\)\}/)
+  assert.match(delivery, /\{en \? 'Create a new project' : 'Criar novo projeto'\}/)
+  assert.doesNotMatch(delivery, /CampaignPackage|Textos para divulgação|Hashtags|WhatsApp|Facebook|LinkedIn|Próximos passos/)
+  assert.match(page, /if \(isFurnishRenovate && status === 'completed' && furnishResults\.length > 0\) return <FurnishRenovateDelivery[\s\S]*if \(result\) \{[\s\S]*?return <section[\s\S]*?<CampaignPackage/)
 })
 
 test('empty CampaignPackage preview displays a controlled unavailable result', () => {
