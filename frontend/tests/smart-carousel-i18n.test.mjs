@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { getSmartCarouselCopy } from '../src/i18n/smart-carousel.js'
 
 const root = path.resolve(import.meta.dirname, '..')
 const page = readFileSync(path.join(root, 'src/pages/SmartCarrossel.jsx'), 'utf8')
@@ -61,4 +62,35 @@ test('Smart Carrossel renders persisted social content without using the current
   assert.match(page, /cta: campaignPackage\?\.google_ads\?\.cta \|\| cta/)
   assert.match(page, /language: campaignPackage\?\.language \|\| 'pt-BR'/)
   assert.match(page, /aiCampaigns: campaignPackage\?\.campaigns \|\| \[\]/)
+})
+
+test('Smart Carrossel localizes price, area, phone, generation status, errors, and review metadata', () => {
+  const pt = getSmartCarouselCopy('pt-BR')
+  const en = getSmartCarouselCopy('en-US')
+  assert.equal(pt.priceFixed, 'Preço fixo')
+  assert.equal(en.priceFixed, 'Fixed price')
+  assert.equal(pt.areaUnit, 'm²')
+  assert.equal(en.areaUnit, 'sq ft')
+  assert.equal(pt.phone.yes, 'Sim')
+  assert.equal(en.phone.yes, 'Yes')
+  assert.equal(pt.status.uploading, 'Enviando fotos...')
+  assert.equal(en.status.uploading, 'Uploading photos...')
+  assert.equal(en.errors.creation, 'Unable to create your presentation. Please try again.')
+  assert.equal(en.text(en.upload.limitExceededMany, { max: 20, count: 2 }), 'The limit is 20 images. 2 extra images were not added.')
+  assert.equal(en.text(en.reviewMeta.quantity, { count: 5 }), '5 images selected · fixed price')
+  assert.match(page, /\{copy\.priceFixed\}/)
+  assert.match(page, /\{copy\.areaUnit\}/)
+  assert.match(page, /copy\.phone\.yes/)
+  assert.match(page, /copy\.status\.uploading/)
+  assert.match(page, /localizeSmartCarouselError\(copy, message\)/)
+})
+
+test('Smart Carrossel keeps highlight values stable while displaying EN-US labels', () => {
+  const en = getSmartCarouselCopy('en-US')
+  assert.equal(en.labelFor('Piscina'), 'Pool')
+  assert.equal(en.labelFor('Varanda gourmet'), 'Outdoor entertaining balcony')
+  assert.equal(en.labelFor('Usa FGTS'), 'Eligible financing terms')
+  assert.match(page, /\{copy\.labelFor\(group\.title\)\}/)
+  assert.match(page, /\{copy\.labelFor\(item\)\}/)
+  assert.match(page, /value: highlights/)
 })
