@@ -9,11 +9,11 @@ const carousel = readFileSync(path.join(frontendRoot, 'src/pages/SmartCarrossel.
 
 test('uses the shared Design System and the four approved visual steps', () => {
   assert.match(carousel, /import \{[\s\S]*?ProductButton,[\s\S]*?ProductCard,[\s\S]*?ProductHero,[\s\S]*?ProductSectionHeading,[\s\S]*?ProductSteps,[\s\S]*?SMART_UI,[\s\S]*?\} from '\.\.\/components\/design-system'/)
-  assert.match(carousel, /<ProductHero[\s\S]*?productName="Carrossel de Anúncios"[\s\S]*?headline="Apresentação Profissional"/)
+  assert.match(carousel, /<ProductHero[\s\S]*?productName=\{copy\.productName\}[\s\S]*?headline=\{copy\.headline\}/)
   assert.match(carousel, /<ProductCard(?:\s|>)/)
   assert.match(carousel, /<ProductButton(?:\s|>)/)
   assert.match(carousel, /const SMART_CAROUSEL_STEPS = \[[\s\S]*?Fotos[\s\S]*?Informações[\s\S]*?Criar apresentação[\s\S]*?Preview[\s\S]*?\]/)
-  assert.match(carousel, /<ProductSteps[\s\S]*?steps=\{SMART_CAROUSEL_STEPS\}[\s\S]*?activeStep=\{currentStep\}[\s\S]*?accent="emerald"/)
+  assert.match(carousel, /<ProductSteps[\s\S]*?steps=\{copy\.steps\.map\([\s\S]*?activeStep=\{currentStep\}[\s\S]*?accent="emerald"/)
 })
 
 test('presents the hero and generated campaign in the shared mobile format', () => {

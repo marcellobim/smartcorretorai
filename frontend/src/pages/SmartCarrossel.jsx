@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
+import { useLocale } from '../i18n/useLocale'
+import { getSmartCarouselCopy } from '../i18n/smart-carousel'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
@@ -46,7 +48,6 @@ const SMART_CAROUSEL_FUNCTION_TIMEOUT_MS = 2 * 60 * 1000
 const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
 const SMART_CAROUSEL_MIN_IMAGES = 5
 const SMART_CAROUSEL_MAX_IMAGES = 20
-const SMART_CAROUSEL_MIN_IMAGES_MESSAGE = 'Selecione pelo menos 5 imagens para criar uma apresentação de qualidade.'
 const SMART_CAROUSEL_HERO_VIDEO = '/showcase/smartcarrossel/showcase-carrossel.mp4'
 const SMART_CAROUSEL_STEPS = [
   { title: 'Fotos', subtitle: 'Selecione e organize' },
@@ -63,28 +64,13 @@ function normalizeDistrictName(value) {
     .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator, letter) => `${separator}${letter.toLocaleUpperCase('pt-BR')}`)
 }
 
-function getRecoveredPhotosMessage(count) {
-  return `Seu progresso foi recuperado. Selecione novamente ${count} ${count === 1 ? 'foto' : 'fotos'} para continuar.`
+function getRecoveredPhotosMessage(copy, count) {
+  return copy.text(copy.upload.recovered, { count, photo: count === 1 ? (copy.productName === 'Property Carousel' ? 'photo' : 'foto') : (copy.productName === 'Property Carousel' ? 'photos' : 'fotos') })
 }
 
-function smartCarouselConfirmation(step, answer) {
-  if (step === 1) return answer === 'Locação' ? 'Perfeito! Vamos criar uma apresentação para divulgar a locação desse imóvel.' : 'Perfeito! Vamos criar uma apresentação para apoiar a venda desse imóvel.'
-  const confirmations = {
-    2: `Ótimo! Vamos considerar o imóvel como “${answer}”.`,
-    3: `Perfeito! O tipo “${answer}” já está registrado.`,
-    4: `Certo! Registrei ${answer} dormitório${answer === '1' ? '' : 's'}.`,
-    5: `Ótimo! Registrei ${answer} suíte${answer === '1' ? '' : 's'}.`,
-    6: `Perfeito! Registrei ${answer} vaga${answer === '1' ? '' : 's'}.`,
-    7: `Ótimo! O imóvel fica em ${answer}.`,
-    8: `Perfeito! A cidade escolhida é ${answer}.`,
-    9: `Certo! Localização registrada no bairro ${answer}.`,
-    10: answer === 'Sem preço' ? 'Tudo bem! A apresentação seguirá sem informar o preço.' : `Perfeito! O preço será apresentado como ${answer}.`,
-    11: `Ótimo! A área informada é ${answer}.`,
-    12: `Excelente! ${answer} foram selecionados para valorizar o imóvel.`,
-    13: `Perfeito! A chamada final será “${answer}”.`,
-    14: answer === 'Telefone profissional' ? 'Ótimo! Seu telefone profissional será incluído.' : 'Tudo certo! A apresentação seguirá sem telefone.',
-  }
-  return confirmations[step] || 'Perfeito! Informação registrada.'
+function smartCarouselConfirmation(copy, step, answer, value) {
+  if (step === 1) return value === 'rent' ? copy.confirmations.rent : copy.confirmations.sale
+  return copy.confirmations.default
 }
 
 const SMART_CAROUSEL_PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sobrado', 'Terreno / Lote']
@@ -270,6 +256,8 @@ async function uploadSmartCarouselFilesWithTimeout(args) {
 
 export default function SmartCarrossel() {
   const navigate = useNavigate()
+  const { locale, market } = useLocale()
+  const copy = getSmartCarouselCopy(locale)
   const { user, accessToken, reloadProfile } = useAuth()
   const mediaDraft = useProductDraft({ productKey: 'smart-carousel:media', schemaVersion: 1, userId: user?.id })
   const flowDraft = useProductDraft({ productKey: 'smart-carousel:flow', schemaVersion: 1, userId: user?.id })
@@ -456,17 +444,17 @@ export default function SmartCarrossel() {
         <section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#ecfdf5_52%,#ecfeff_100%)] text-slate-900 shadow-2xl shadow-emerald-100/70">
           <ProductHero
             id="smart-carousel-title"
-            productName="Carrossel de Anúncios"
-            headline="Apresentação Profissional"
-            description="Transforme as fotos do seu imóvel em uma apresentação elegante, dinâmica e pronta para divulgação."
+            productName={copy.productName}
+            headline={copy.headline}
+            description={copy.description}
             actions={(
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 {hasPresentationState && conversationGenerationStatus !== 'succeeded' && (
                   <ProductButton type="button" variant="ghost" disabled={isGenerationActive} onClick={createNewPresentation}>
-                    <RotateCcw className="h-4 w-4" />Nova apresentação
+                    <RotateCcw className="h-4 w-4" />{copy.newPresentation}
                   </ProductButton>
                 )}
-                <ProductButton type="button" variant="secondary" onClick={() => navigate('/studio-hero')}>Escolher outro tipo de criação</ProductButton>
+                <ProductButton type="button" variant="secondary" onClick={() => navigate('/studio-hero')}>{copy.chooseAnother}</ProductButton>
               </div>
             )}
             visual={<SmartCarouselHeroPhone />}
@@ -474,9 +462,9 @@ export default function SmartCarrossel() {
         </section>
 
         <ProductSteps
-          steps={SMART_CAROUSEL_STEPS}
+          steps={copy.steps.map(([title, subtitle]) => ({ title, subtitle }))}
           activeStep={currentStep}
-          label="Etapas do Carrossel de Anúncios"
+          label={copy.stepsLabel}
           accent="emerald"
         />
 
@@ -499,10 +487,10 @@ export default function SmartCarrossel() {
             }}
             studioPublish={recoveredStudioPublish}
             onCreateNew={createNewPresentation}
-            createNewLabel="Criar nova apresentação"
+            createNewLabel={copy.createNew}
           />
         )}
-        {!recoveredCreation && <PhotoSection photos={photos} missingPhotoMetadata={missingPhotoMetadata} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />}
+        {!recoveredCreation && <PhotoSection copy={copy} market={market} photos={photos} missingPhotoMetadata={missingPhotoMetadata} inputRef={photoInputRef} isDragActive={isDragActive} setIsDragActive={setIsDragActive} addPhotos={addPhotos} handlePhotoInput={handlePhotoInput} removePhoto={removePhoto} clearPhotos={clearPhotos} movePhoto={movePhoto} photoSelectionMessage={photoSelectionMessage} onContinue={() => setInformationStarted(true)} />}
         {informationUnlocked && (
           <SmartCarouselConversation
             user={user}
@@ -513,6 +501,9 @@ export default function SmartCarrossel() {
             onGenerationStageChange={setGenerationStage}
             onGenerationStatusChange={setConversationGenerationStatus}
             onCreateNew={createNewPresentation}
+            copy={copy}
+            locale={locale}
+            market={market}
           />
         )}
       </div>
@@ -545,7 +536,7 @@ function SmartCarouselHeroPhone() {
   )
 }
 
-function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto, photoSelectionMessage, onContinue }) {
+function PhotoSection({ copy, photos, missingPhotoMetadata, inputRef, isDragActive, setIsDragActive, addPhotos, handlePhotoInput, removePhoto, clearPhotos, movePhoto, photoSelectionMessage, onContinue }) {
   const hasMinimumImages = photos.length >= SMART_CAROUSEL_MIN_IMAGES
   const missingImages = Math.max(SMART_CAROUSEL_MIN_IMAGES - photos.length, 0)
   const minimumImagesProgress = Math.min((photos.length / SMART_CAROUSEL_MIN_IMAGES) * 100, 100)
@@ -555,9 +546,9 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
       <div className="border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-end">
           <ProductSectionHeading
-            eyebrow="Etapa 1"
-            title="1. Selecione e organize suas fotos"
-            description="Adicione as fotos do imóvel e organize na ordem desejada para a apresentação."
+            eyebrow={copy.upload.eyebrow}
+            title={copy.upload.title}
+            description={copy.upload.description}
           />
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /><span>A primeira foto será a <strong className="font-black text-emerald-700">CAPA</strong></span></div>
@@ -566,7 +557,7 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
         </div>
       </div>
       <div className="p-5 sm:p-8">
-        <p className="mb-3 text-sm font-black text-slate-700">Mínimo de {SMART_CAROUSEL_MIN_IMAGES} imagens e máximo de {SMART_CAROUSEL_MAX_IMAGES} imagens.</p>
+        <p className="mb-3 text-sm font-black text-slate-700">{copy.text(copy.upload.limits, { min: SMART_CAROUSEL_MIN_IMAGES, max: SMART_CAROUSEL_MAX_IMAGES })}</p>
         <div
           aria-live="polite"
           className={`mb-5 rounded-2xl border px-4 py-3 sm:px-5 ${hasMinimumImages ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}
@@ -574,13 +565,13 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className={`text-sm font-black ${hasMinimumImages ? 'text-emerald-900' : 'text-amber-900'}`}>
               {hasMinimumImages
-                ? 'Quantidade mínima atingida.'
-                : `${photos.length} de ${SMART_CAROUSEL_MIN_IMAGES} imagens mínimas`}
+                ? copy.upload.minimumReached
+                : copy.text(copy.upload.minimumCount, { count: photos.length, min: SMART_CAROUSEL_MIN_IMAGES })}
             </p>
             <p className={`text-xs font-bold ${hasMinimumImages ? 'text-emerald-700' : 'text-amber-800'}`}>
               {hasMinimumImages
-                ? `${photos.length} de ${SMART_CAROUSEL_MAX_IMAGES} imagens selecionadas`
-                : `Adicione mais ${missingImages} ${missingImages === 1 ? 'imagem' : 'imagens'} para continuar.`}
+                ? copy.text(copy.upload.selectedCount, { count: photos.length, max: SMART_CAROUSEL_MAX_IMAGES })
+                : copy.text(copy.upload.addMore, { count: missingImages, image: missingImages === 1 ? (copy.productName === 'Property Carousel' ? 'image' : 'imagem') : (copy.productName === 'Property Carousel' ? 'images' : 'imagens') })}
             </p>
           </div>
           <div className={`mt-3 h-2 overflow-hidden rounded-full ${hasMinimumImages ? 'bg-emerald-100' : 'bg-amber-100'}`}>
@@ -590,15 +581,15 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
             />
           </div>
         </div>
-        {missingPhotoMetadata.length > 0 && <p role="status" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">{getRecoveredPhotosMessage(missingPhotoMetadata.length)}</p>}
+        {missingPhotoMetadata.length > 0 && <p role="status" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">{getRecoveredPhotosMessage(copy, missingPhotoMetadata.length)}</p>}
         {photoSelectionMessage && <p role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{photoSelectionMessage}</p>}
         <input ref={inputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handlePhotoInput} className="sr-only" />
         {photos.length === 0 ? (
           <div onClick={() => inputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setIsDragActive(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setIsDragActive(false)} onDrop={(event) => { event.preventDefault(); setIsDragActive(false); addPhotos(event.dataTransfer.files) }} className={`group mt-7 flex min-h-[310px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border-2 border-dashed px-5 py-10 text-center outline-none transition sm:min-h-[340px] sm:px-8 ${isDragActive ? 'border-emerald-500 bg-emerald-100/70 shadow-inner' : 'border-emerald-200 bg-[linear-gradient(145deg,rgba(236,253,245,0.82),rgba(248,250,252,0.9))] hover:border-emerald-400 hover:bg-emerald-50/80 focus:ring-4 focus:ring-emerald-100'}`}>
             <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 shadow-[0_18px_40px_-24px_rgba(5,150,105,0.8)] transition group-hover:-translate-y-1 group-hover:shadow-[0_22px_45px_-22px_rgba(5,150,105,0.85)]"><ImageIcon className="h-8 w-8" /><span className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white ring-4 ring-emerald-50"><UploadCloud className="h-4 w-4" /></span></div>
-            <p className="mt-7 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Arraste suas fotos aqui</p><p className="mt-2 text-sm font-semibold text-slate-500 sm:text-base">ou escolha as imagens do imóvel</p>
-            <ProductButton type="button" variant="success" onClick={(event) => { event.stopPropagation(); inputRef.current?.click() }} className="mt-6">Selecionar fotos</ProductButton>
-            <p className="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">JPG ou PNG · seleção múltipla</p>
+            <p className="mt-7 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">{copy.upload.drag}</p><p className="mt-2 text-sm font-semibold text-slate-500 sm:text-base">{copy.upload.choose}</p>
+            <ProductButton type="button" variant="success" onClick={(event) => { event.stopPropagation(); inputRef.current?.click() }} className="mt-6">{copy.upload.select}</ProductButton>
+            <p className="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{copy.upload.format}</p>
           </div>
         ) : (
           <div className="mt-7">
@@ -627,7 +618,7 @@ function PhotoSection({ photos, missingPhotoMetadata, inputRef, isDragActive, se
   )
 }
 
-function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refreshBalance, onGenerationStageChange, onGenerationStatusChange, onCreateNew }) {
+function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refreshBalance, onGenerationStageChange, onGenerationStatusChange, onCreateNew, copy, locale, market }) {
   const restoredFlow = flowDraft.restoredDraft || {}
   const [purpose, setPurpose] = useState(() => restoredFlow.purpose || '')
   const [propertyStage, setPropertyStage] = useState(() => restoredFlow.propertyStage || '')
@@ -706,9 +697,9 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   }
 
   const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
-  const formatPrice = (digits) => digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
+  const formatPrice = (digits) => digits ? new Intl.NumberFormat(locale, { style: 'currency', currency: market === 'US' ? 'USD' : 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
   const normalizedDistrict = normalizeDistrictName(district)
-  const priceLabel = priceDigits ? `${priceMode === 'starting_at' ? 'A partir de ' : ''}${formatPrice(priceDigits)}` : ''
+  const priceLabel = priceDigits ? `${priceMode === 'starting_at' ? `${copy.startingAt} ` : ''}${formatPrice(priceDigits)}` : ''
   const stageOptions = purpose === 'rent' ? ['Pronto para mudar'] : ['Pronto para morar', 'Lançamento', 'Em construção']
   const numberOptions = ['0', '1', '2', '3', '4', '5+']
 
@@ -728,11 +719,11 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   useEffect(() => () => onGenerationStatusChange('idle'), [onGenerationStatusChange])
 
   const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS ? current : [...current, item])
-  const messages = ['', 'Qual é a finalidade do imóvel?', 'Qual é o estado atual do imóvel?', 'Que tipo de imóvel será apresentado?', 'Quantos dormitórios o imóvel possui?', 'Quantas suítes?', 'Quantas vagas estão disponíveis?', 'Em qual estado fica o imóvel?', 'Agora escolha a cidade.', 'Em qual bairro ele está localizado?', 'Como deseja apresentar o preço?', 'Qual é a área do imóvel?', 'Quais são os principais destaques?', 'Qual chamada deseja usar no final?', 'Deseja divulgar seu telefone profissional?', 'Tudo pronto. Revise suas escolhas antes de criar.']
-  const summaryItems = [[1, purpose === 'sale' ? 'Venda' : purpose === 'rent' ? 'Locação' : ''], [2, propertyStage], [3, propertyType], [4, bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, normalizedDistrict], [10, priceLabel], [11, area ? `${area} m²` : ''], [12, highlights.length ? `${highlights.length} destaques` : ''], [13, cta], [14, sharePhone === 'yes' ? 'Telefone profissional' : sharePhone === 'no' ? 'Sem telefone' : '']].filter(([, value]) => Boolean(value))
+  const messages = copy.questions
+  const summaryItems = [[1, purpose ? copy.purpose[purpose][0].replace(/^\S+\s/, '') : ''], [2, copy.stage[propertyStage] || propertyStage], [3, copy.labelFor(propertyType)], [4, bedrooms ? `${bedrooms} ${locale === 'en-US' ? 'bedroom' : 'dormitório'}${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} ${locale === 'en-US' ? 'suite' : 'suíte'}${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} ${locale === 'en-US' ? 'parking space' : 'vaga'}${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, normalizedDistrict], [10, priceLabel], [11, area ? `${area} ${copy.areaUnit}` : ''], [12, highlights.length ? copy.text(copy.highlightsSummary, { count: highlights.length }) : ''], [13, copy.labelFor(cta)], [14, sharePhone === 'yes' ? copy.phone.professional : sharePhone === 'no' ? copy.phone.none : '']].filter(([, value]) => Boolean(value))
 
   const submitCarouselAnswer = ({ setter, value, answer = value, nextStep }) => {
-    const accepted = conversation.submitAnswer({ questionId: step, question: messages[step], answer, confirmation: smartCarouselConfirmation(step, answer), nextQuestionId: nextStep })
+    const accepted = conversation.submitAnswer({ questionId: step, question: messages[step], answer, confirmation: smartCarouselConfirmation(copy, step, answer, value), nextQuestionId: nextStep })
     if (accepted) setter?.(value)
     return accepted
   }
@@ -826,7 +817,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
       return
     }
     if (photos.length < SMART_CAROUSEL_MIN_IMAGES) {
-      stopWithError(SMART_CAROUSEL_MIN_IMAGES_MESSAGE)
+      stopWithError(copy.minImages)
       return
     }
     if (photos.length > SMART_CAROUSEL_MAX_IMAGES) {
@@ -926,9 +917,9 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   const generationProgress = generationStatus === 'uploading' ? 34 : generationStatus === 'creating' ? 67 : 84
 
   let questionContent = null
-  if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title="🏡 Venda" description="Apresentação para comercialização do imóvel." onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'sale', answer: 'Venda', nextStep: 2 })} /><ChoiceButton active={purpose === 'rent'} title="🔑 Locação" description="Apresentação para encontrar o locatário ideal." onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'rent', answer: 'Locação', nextStep: 2 })} /></OptionGrid>
-  else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => submitCarouselAnswer({ setter: setPropertyStage, value: item, nextStep: 3 })}>{item}</ChipButton>)}</ChipGrid>
-  else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => submitCarouselAnswer({ setter: setPropertyType, value: item, nextStep: 4 })}>{item}</ChipButton>)}</ChipGrid>
+  if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title={copy.purpose.sale[0]} description={copy.purpose.sale[1]} onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'sale', answer: copy.purpose.sale[0], nextStep: 2 })} /><ChoiceButton active={purpose === 'rent'} title={copy.purpose.rent[0]} description={copy.purpose.rent[1]} onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'rent', answer: copy.purpose.rent[0], nextStep: 2 })} /></OptionGrid>
+  else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => submitCarouselAnswer({ setter: setPropertyStage, value: item, answer: copy.stage[item], nextStep: 3 })}>{copy.stage[item]}</ChipButton>)}</ChipGrid>
+  else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => submitCarouselAnswer({ setter: setPropertyType, value: item, answer: copy.labelFor(item), nextStep: 4 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
   else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => submitCarouselAnswer({ setter, value: item, nextStep: step + 1 })}>{item}</ChipButton>)}</ChipGrid> }
   else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { if (nextUf && submitCarouselAnswer({ setter: setUf, value: nextUf, nextStep: 8 })) setCity('') }} />
   else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { if (nextCity) submitCarouselAnswer({ setter: setCity, value: nextCity, nextStep: 9 }) }} />
@@ -936,7 +927,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   else if (step === 10) questionContent = <div><ChipGrid><ChipButton active={priceMode === 'fixed'} onClick={() => setPriceMode('fixed')}>Preço fixo</ChipButton><ChipButton active={priceMode === 'starting_at'} onClick={() => setPriceMode('starting_at')}>A partir de</ChipButton></ChipGrid><input value={formatPrice(priceDigits)} onChange={(event) => setPriceDigits(event.target.value.replace(/\D/g, '').slice(0, 12))} inputMode="numeric" placeholder="R$ 0 (opcional)" className="mt-4 w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><ProductButton type="button" variant="success" disabled={!priceMode || !priceDigits} onClick={() => submitCarouselAnswer({ setter: () => {}, value: priceMode, answer: priceLabel, nextStep: 11 })}>Continuar</ProductButton><ProductButton type="button" variant="ghost" onClick={() => { if (submitCarouselAnswer({ setter: () => {}, value: '', answer: 'Sem preço', nextStep: 11 })) { setPriceMode(''); setPriceDigits('') } }}>Continuar sem informar preço</ProductButton></div></div>
   else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Ex: 120" className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">m²</span></div><ProductButton type="button" variant="success" disabled={!area} onClick={() => submitCarouselAnswer({ setter: () => {}, value: area, answer: `${area} m²`, nextStep: 12 })} className="mt-4">Continuar</ProductButton></div>
   else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <ProductCard as="section" key={group.title} variant="muted" className="p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{item}</ChipButton>)}</div></ProductCard>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{highlights.length} de {SMART_CAROUSEL_MAX_HIGHLIGHTS} selecionados</span><ProductButton type="button" variant="success" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: `${highlights.length} destaques`, nextStep: 13 })}>Continuar</ProductButton></div></div>
-  else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, nextStep: 14 })}>{item}</ChipButton>)}</ChipGrid>
+  else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, answer: copy.labelFor(item), nextStep: 14 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
   else if (step === 14) questionContent = <OptionGrid><ChoiceButton disabled={!profilePhone} active={sharePhone === 'yes'} title="Sim" description={profilePhone || 'Cadastre um telefone no Perfil Profissional.'} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: 'Telefone profissional', nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title="Não" description="Continuar sem divulgar telefone." onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: 'Sem telefone', nextStep: 15 })} /></OptionGrid>
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
@@ -951,12 +942,12 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
         className="sticky bottom-3 z-10 w-full py-4 text-base sm:py-5 sm:text-lg"
       >
         {!isGenerating && <Sparkles className="h-5 w-5" />}
-        Criar apresentação
+        {copy.create}
       </ProductButton>
 
       {!hasMinimumImages && (
         <p id="smart-carousel-minimum-images-message" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
-          {SMART_CAROUSEL_MIN_IMAGES_MESSAGE}
+          {copy.minImages}
         </p>
       )}
 
@@ -970,7 +961,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
       {generationStatus === 'failed' && (
         <ProductCard variant="flat" className="border-rose-100 bg-rose-50 p-5 text-left">
           <p className="text-sm font-bold leading-6 text-rose-800">{generationError}</p>
-          <ProductButton type="button" variant="danger" onClick={receipt || activeJobId ? resumeStatus : createPresentation} className="mt-4"><RotateCcw className="h-4 w-4" />Tentar novamente</ProductButton>
+          <ProductButton type="button" variant="danger" onClick={receipt || activeJobId ? resumeStatus : createPresentation} className="mt-4"><RotateCcw className="h-4 w-4" />{copy.status.retry}</ProductButton>
         </ProductCard>
       )}
 
@@ -1007,7 +998,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
           }}
           studioPublish={studioPublish}
           onCreateNew={createNewPresentation}
-          createNewLabel="Criar nova apresentação"
+          createNewLabel={copy.createNew}
         />
       )}
     </div>
@@ -1024,7 +1015,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     totalQuestions={14}
     onEdit={conversation.editAnswer}
     summaryItems={summaryItems.map(([id, label]) => ({ id, label }))}
-    eyebrow="Etapa 2"
+    eyebrow={copy.step}
     review={step >= 15}
     editDisabled={isGenerating}
   >

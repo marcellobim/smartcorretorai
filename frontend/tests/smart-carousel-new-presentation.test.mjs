@@ -75,9 +75,9 @@ test('reset does not create a job, reserve tokens or call the provider', () => {
 })
 
 test('retry remains distinct and preserves the current briefing and files', () => {
-  assert.match(carousel, /onClick=\{receipt \|\| activeJobId \? resumeStatus : createPresentation\}[\s\S]{0,180}>Tentar novamente</)
-  assert.doesNotMatch(carousel, /Tentar novamente[\s\S]{0,180}createNewPresentation/)
-  assert.match(carousel, /onCreateNew=\{createNewPresentation\}[\s\S]*createNewLabel="Criar nova apresentação"/)
+  assert.match(carousel, /onClick=\{receipt \|\| activeJobId \? resumeStatus : createPresentation\}[\s\S]{0,180}>\{copy\.status\.retry\}</)
+  assert.doesNotMatch(carousel, /copy\.status\.retry[\s\S]{0,180}createNewPresentation/)
+  assert.match(carousel, /onCreateNew=\{createNewPresentation\}[\s\S]*createNewLabel=\{copy\.createNew\}/)
 })
 
 test('global draft helper remains the only persistence mechanism used by this reset', () => {
@@ -88,8 +88,8 @@ test('global draft helper remains the only persistence mechanism used by this re
 })
 
 test('recovery notice uses a dynamic, customer-friendly photo count', () => {
-  assert.match(carousel, /return `Seu progresso foi recuperado\. Selecione novamente \$\{count\} \$\{count === 1 \? 'foto' : 'fotos'\} para continuar\.`/)
-  assert.match(carousel, /getRecoveredPhotosMessage\(missingPhotoMetadata\.length\)/)
+  assert.match(carousel, /return copy\.text\(copy\.upload\.recovered/)
+  assert.match(carousel, /getRecoveredPhotosMessage\(copy, missingPhotoMetadata\.length\)/)
 
   const message = count => `Seu progresso foi recuperado. Selecione novamente ${count} ${count === 1 ? 'foto' : 'fotos'} para continuar.`
   assert.equal(message(1), 'Seu progresso foi recuperado. Selecione novamente 1 foto para continuar.')
