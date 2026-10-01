@@ -31,7 +31,7 @@ test('keeps the shared conversation and State, City and neighborhood contracts',
   assert.match(carousel, /<SmartLocationTextInput value=\{district\} onChange=\{\(event\) => setDistrict\(event\.target\.value\)\}/)
   assert.match(carousel, /setter: setDistrict, value: normalizedDistrict, answer: normalizedDistrict, nextStep: 10/)
   assert.match(carousel, /district: normalizedDistrict/)
-  assert.match(carousel, /\[9, normalizedDistrict\]/)
+  assert.match(carousel, /formattedLocation/)
 })
 
 test('preserves upload controls, loading lock and retry callbacks', () => {

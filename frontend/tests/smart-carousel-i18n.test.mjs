@@ -33,3 +33,20 @@ test('Smart Carrossel keeps backend values and recovery identifiers independent 
   assert.match(page, /hasRecoverableActiveJob/)
   assert.match(page, /pollRenderStatus\(receipt, activeJobId\)/)
 })
+
+test('Smart Carrossel keeps BR location and adds the shared US location contract only in the frontend draft', () => {
+  assert.match(page, /<SmartCarouselCitySelect uf=\{uf\} value=\{city\}/)
+  assert.match(page, /getStatesForMarket\('US'\)/)
+  assert.match(page, /getCountiesByState\(uf\)/)
+  assert.match(page, /isValidCountyForState\(uf, county\)/)
+  assert.match(page, /normalizeUsZipCode\(zipCode\)/)
+  assert.match(page, /neighborhoodCommunity/)
+  assert.match(page, /county,/)
+  assert.match(page, /zip_code: normalizedZipCode/)
+  assert.match(page, /neighborhood_community: neighborhoodCommunity\.trim\(\)/)
+})
+
+test('Smart Carrossel formats professional phone numbers through the shared market helper', () => {
+  assert.match(page, /formatPhone\(user\?\.whatsapp.*market\)/)
+  assert.match(page, /formatPhone\(profilePhone, market\)/)
+})

@@ -20,6 +20,8 @@ import { getSmartCarouselCopy } from '../i18n/smart-carousel'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
+import { getCountiesByState, getStatesForMarket, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
+import { formatPhone } from '../utils/phoneFormatters'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import {
   ProductButton,
@@ -629,6 +631,9 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   const [uf, setUf] = useState(() => restoredFlow.uf || '')
   const [city, setCity] = useState(() => restoredFlow.city || '')
   const [district, setDistrict] = useState(() => restoredFlow.district || '')
+  const [county, setCounty] = useState(() => restoredFlow.county || '')
+  const [zipCode, setZipCode] = useState(() => restoredFlow.zipCode || '')
+  const [neighborhoodCommunity, setNeighborhoodCommunity] = useState(() => restoredFlow.neighborhoodCommunity || '')
   const [priceMode, setPriceMode] = useState(() => restoredFlow.priceMode || '')
   const [priceDigits, setPriceDigits] = useState(() => restoredFlow.priceDigits || '')
   const [area, setArea] = useState(() => restoredFlow.area || '')
@@ -653,7 +658,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     const resetters = [
       [1, () => setPurpose('')], [2, () => setPropertyStage('')], [3, () => setPropertyType('')],
       [4, () => setBedrooms('')], [5, () => setSuites('')], [6, () => setParkingSpaces('')],
-      [7, () => setUf('')], [8, () => setCity('')], [9, () => setDistrict('')],
+      [7, () => { setUf(''); setCounty(''); setCity(''); setDistrict(''); setZipCode(''); setNeighborhoodCommunity('') }], [8, () => setCity('')], [9, () => setDistrict('')],
       [10, () => { setPriceMode(''); setPriceDigits('') }], [11, () => setArea('')],
       [12, () => setHighlights([])], [13, () => setCta('')], [14, () => setSharePhone('')],
     ]
@@ -682,13 +687,13 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
 
   useEffect(() => {
     const terminalStatus = ['failed', 'cancelled'].includes(generationStatus) ? generationStatus : ''
-    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage, terminalStatus, terminalError: terminalStatus ? generationError : '' }
+    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, county, city, district, zipCode, neighborhoodCommunity, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage, terminalStatus, terminalError: terminalStatus ? generationError : '' }
     if (!conversationSnapshot?.history?.length && !Object.values(draft).some(value => typeof value === 'string' ? value : Array.isArray(value) ? value.length : false)) {
       flowDraft.clear()
       return
     }
     flowDraft.save(draft)
-  }, [activeJobId, area, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, cta, district, flowDraft, generationError, generationStatus, highlights, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl])
+  }, [activeJobId, area, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, county, cta, district, flowDraft, generationError, generationStatus, highlights, neighborhoodCommunity, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl, zipCode])
 
   const createNewPresentation = () => {
     flowDraft.clear()
@@ -696,9 +701,14 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     onCreateNew()
   }
 
-  const profilePhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
+  const profilePhone = formatPhone(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '', market)
   const formatPrice = (digits) => digits ? new Intl.NumberFormat(locale, { style: 'currency', currency: market === 'US' ? 'USD' : 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
   const normalizedDistrict = normalizeDistrictName(district)
+  const normalizedZipCode = normalizeUsZipCode(zipCode)
+  const isUsLocationComplete = Boolean(uf && isValidCountyForState(uf, county) && city.trim() && isValidUsZipCode(normalizedZipCode))
+  const formattedLocation = market === 'US'
+    ? [neighborhoodCommunity.trim(), [city.trim(), county, uf, normalizedZipCode].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
+    : [normalizedDistrict, city, uf].filter(Boolean).join(', ')
   const priceLabel = priceDigits ? `${priceMode === 'starting_at' ? `${copy.startingAt} ` : ''}${formatPrice(priceDigits)}` : ''
   const stageOptions = purpose === 'rent' ? ['Pronto para mudar'] : ['Pronto para morar', 'Lançamento', 'Em construção']
   const numberOptions = ['0', '1', '2', '3', '4', '5+']
@@ -720,7 +730,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
 
   const toggleHighlight = (item) => setHighlights((current) => current.includes(item) ? current.filter((value) => value !== item) : current.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS ? current : [...current, item])
   const messages = copy.questions
-  const summaryItems = [[1, purpose ? copy.purpose[purpose][0].replace(/^\S+\s/, '') : ''], [2, copy.stage[propertyStage] || propertyStage], [3, copy.labelFor(propertyType)], [4, bedrooms ? `${bedrooms} ${locale === 'en-US' ? 'bedroom' : 'dormitório'}${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} ${locale === 'en-US' ? 'suite' : 'suíte'}${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} ${locale === 'en-US' ? 'parking space' : 'vaga'}${parkingSpaces === '1' ? '' : 's'}` : ''], [7, uf], [8, city], [9, normalizedDistrict], [10, priceLabel], [11, area ? `${area} ${copy.areaUnit}` : ''], [12, highlights.length ? copy.text(copy.highlightsSummary, { count: highlights.length }) : ''], [13, copy.labelFor(cta)], [14, sharePhone === 'yes' ? copy.phone.professional : sharePhone === 'no' ? copy.phone.none : '']].filter(([, value]) => Boolean(value))
+  const summaryItems = [[1, purpose ? copy.purpose[purpose][0].replace(/^\S+\s/, '') : ''], [2, copy.stage[propertyStage] || propertyStage], [3, copy.labelFor(propertyType)], [4, bedrooms ? `${bedrooms} ${locale === 'en-US' ? 'bedroom' : 'dormitório'}${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} ${locale === 'en-US' ? 'suite' : 'suíte'}${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} ${locale === 'en-US' ? 'parking space' : 'vaga'}${parkingSpaces === '1' ? '' : 's'}` : ''], [7, formattedLocation], [10, priceLabel], [11, area ? `${area} ${copy.areaUnit}` : ''], [12, highlights.length ? copy.text(copy.highlightsSummary, { count: highlights.length }) : ''], [13, copy.labelFor(cta)], [14, sharePhone === 'yes' ? copy.phone.professional : sharePhone === 'no' ? copy.phone.none : '']].filter(([, value]) => Boolean(value))
 
   const submitCarouselAnswer = ({ setter, value, answer = value, nextStep }) => {
     const accepted = conversation.submitAnswer({ questionId: step, question: messages[step], answer, confirmation: smartCarouselConfirmation(copy, step, answer, value), nextQuestionId: nextStep })
@@ -738,6 +748,9 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     uf,
     city,
     district: normalizedDistrict,
+    county,
+    zip_code: normalizedZipCode,
+    neighborhood_community: neighborhoodCommunity.trim(),
     price_label: priceLabel,
     area,
     highlights,
@@ -921,6 +934,17 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => submitCarouselAnswer({ setter: setPropertyStage, value: item, answer: copy.stage[item], nextStep: 3 })}>{copy.stage[item]}</ChipButton>)}</ChipGrid>
   else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => submitCarouselAnswer({ setter: setPropertyType, value: item, answer: copy.labelFor(item), nextStep: 4 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
   else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => submitCarouselAnswer({ setter, value: item, nextStep: step + 1 })}>{item}</ChipButton>)}</ChipGrid> }
+  else if (step === 7 && market === 'US') {
+    const counties = getCountiesByState(uf)
+    questionContent = <div className="space-y-4">
+      <label className="block text-sm font-black">State<select aria-label="State" value={uf} onChange={(event) => { setUf(event.target.value); setCounty(''); setCity('') }} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold"><option value="">Select state</option>{getStatesForMarket('US').map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      <label className="block text-sm font-black">County<input aria-label="County" list="smart-carousel-us-counties" value={county} disabled={!uf} onChange={(event) => setCounty(event.target.value)} placeholder={uf ? 'Search county' : 'Select state first'} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold disabled:bg-slate-50" /><datalist id="smart-carousel-us-counties">{counties.map((option) => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</datalist></label>
+      <label className="block text-sm font-black">City<input aria-label="City" value={city} disabled={!isValidCountyForState(uf, county)} onChange={(event) => setCity(event.target.value)} placeholder="City" className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold disabled:bg-slate-50" /></label>
+      <label className="block text-sm font-black">ZIP Code<input aria-label="ZIP Code" value={zipCode} onChange={(event) => setZipCode(normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold" />{zipCode && !isValidUsZipCode(normalizedZipCode) && <span className="mt-1 block text-xs font-bold text-rose-700">Enter a valid ZIP Code.</span>}</label>
+      <label className="block text-sm font-black">Neighborhood / Community <span className="font-normal">(optional)</span><input aria-label="Neighborhood / Community" value={neighborhoodCommunity} onChange={(event) => setNeighborhoodCommunity(event.target.value)} placeholder="Neighborhood or community" className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold" /></label>
+      <ProductButton type="button" variant="success" disabled={!isUsLocationComplete} onClick={() => submitCarouselAnswer({ setter: () => {}, value: formattedLocation, answer: formattedLocation, nextStep: 10 })}>{copy.continue}</ProductButton>
+    </div>
+  }
   else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { if (nextUf && submitCarouselAnswer({ setter: setUf, value: nextUf, nextStep: 8 })) setCity('') }} />
   else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { if (nextCity) submitCarouselAnswer({ setter: setCity, value: nextCity, nextStep: 9 }) }} />
   else if (step === 9) questionContent = <div><SmartLocationTextInput value={district} onChange={(event) => setDistrict(event.target.value)} /><ProductButton type="button" variant="success" disabled={!district.trim()} onClick={() => submitCarouselAnswer({ setter: setDistrict, value: normalizedDistrict, answer: normalizedDistrict, nextStep: 10 })} className="mt-4">Continuar</ProductButton></div>
@@ -992,7 +1016,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
             highlights,
             cta,
             contactAuthorized: sharePhone === 'yes',
-            phone: sharePhone === 'yes' ? profilePhone : '',
+            phone: sharePhone === 'yes' ? formatPhone(profilePhone, market) : '',
             aiCampaigns: campaignPackage?.campaigns || [],
             googleAds: campaignPackage?.google_ads,
           }}
