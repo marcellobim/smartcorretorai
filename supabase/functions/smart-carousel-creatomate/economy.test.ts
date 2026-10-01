@@ -119,6 +119,13 @@ test('current providers and RenderScript remain unchanged', () => {
   assert.doesNotMatch(source, /isAuthorizedAdmin|profiles\.role|user_metadata\.role|hardcoded.*email/i)
 })
 
+test('language and market are normalized, persisted with the job, and returned by status recovery', () => {
+  assert.match(source, /const locale = normalizeSmartCarouselLocale\(body\)/)
+  assert.match(source, /language: locale\.language,[\s\S]*market: locale\.market/)
+  assert.match(source, /localeFromCampaignPackage\(recovered\.campaignPackage\)/)
+  assert.match(frontend, /language: locale,[\s\S]*market,/)
+})
+
 test('delivery is persisted before consumption and retries recover without providers', () => {
   const recordAt = source.indexOf('await recordSmartCarouselProvider')
   const createReturnAt = source.indexOf('return jsonResponse({', recordAt)

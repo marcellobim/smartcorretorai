@@ -28,6 +28,15 @@ import {
   logMarketingLocalFailure,
   requestMarketingOpenAIJson,
 } from './marketing-openai.ts'
+import {
+  buildSmartCarouselCaptions,
+  formatSmartCarouselPhone,
+  normalizeSmartCarouselLocale,
+  presentationLabel,
+  presentationHighlights,
+  presentationCta,
+  type SmartCarouselLocale,
+} from './localization.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +71,11 @@ type ReceiptPayload = {
   j: string
   i: number
   e: number
+}
+
+function localeFromCampaignPackage(value: unknown) {
+  const record = asRecord(value)
+  return normalizeSmartCarouselLocale({ language: record.language, market: record.market })
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -103,22 +117,6 @@ function normalizeDistrictName(value: unknown) {
     .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator, letter) => `${separator}${letter.toLocaleUpperCase('pt-BR')}`)
 }
 
-function normalizePhone(value: unknown) {
-  let digits = cleanText(value, 40).replace(/\D/g, '')
-  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
-    digits = digits.slice(2)
-  }
-
-  if (!/^\d{10,11}$/.test(digits)) return ''
-
-  const areaCode = digits.slice(0, 2)
-  const subscriber = digits.slice(2)
-  if (areaCode.startsWith('0') || subscriber.startsWith('0')) return ''
-
-  return subscriber.length === 9
-    ? `(${areaCode}) ${subscriber.slice(0, 5)}-${subscriber.slice(5)}`
-    : `(${areaCode}) ${subscriber.slice(0, 4)}-${subscriber.slice(4)}`
-}
 
 function toBase64Url(bytes: Uint8Array) {
   let binary = ''
@@ -239,34 +237,6 @@ async function createSignedUrl(supabase: ReturnType<typeof createClient>, path: 
   return data.signedUrl
 }
 
-function buildCaptions(answers: JsonRecord) {
-  const propertyStage = cleanText(answers.property_stage, 40)
-  const city = cleanText(answers.city, 60)
-  const district = normalizeDistrictName(answers.district)
-  const uf = cleanText(answers.uf, 2)
-  const priceLabel = cleanText(answers.price_label, 50)
-  const bedrooms = cleanText(answers.bedrooms, 8)
-  const suites = cleanText(answers.suites, 8)
-  const parkingSpaces = cleanText(answers.parking_spaces, 8)
-  const area = cleanText(answers.area, 10)
-
-  const captions: string[] = []
-  const location = [district, city, uf].filter(Boolean).join(' · ')
-  if (location) captions.push(location)
-  if (propertyStage) captions.push(propertyStage)
-
-  const details = [
-    bedrooms ? `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}` : '',
-    suites ? `${suites} suíte${suites === '1' ? '' : 's'}` : '',
-    parkingSpaces ? `${parkingSpaces} vaga${parkingSpaces === '1' ? '' : 's'}` : '',
-  ].filter(Boolean).join(' · ')
-  if (details) captions.push(details)
-  if (area) captions.push(`${area} m²`)
-  if (priceLabel) captions.push(priceLabel)
-
-  return captions.filter(Boolean).slice(0, 5)
-}
-
 function selectNarrationVoice(imageCount: number, highlightCount: number) {
   const useFemaleVoice = (imageCount + highlightCount) % 2 === 0
   const id = useFemaleVoice ? 'nova' : 'onyx'
@@ -358,22 +328,26 @@ async function generateMarketingIntelligence(
   phone: string,
   imageCount: number,
   availableSeconds: number,
+  locale: SmartCarouselLocale,
 ) {
   const facts = {
     purpose: cleanText(answers.purpose, 20),
-    property_stage: cleanText(answers.property_stage, 40),
-    property_type: cleanText(answers.property_type, 40),
+    property_stage: presentationLabel(answers.property_stage, locale.language),
+    property_type: presentationLabel(answers.property_type, locale.language),
     bedrooms: cleanText(answers.bedrooms, 8),
     suites: cleanText(answers.suites, 8),
     parking_spaces: cleanText(answers.parking_spaces, 8),
     area: cleanText(answers.area, 10),
-    district: normalizeDistrictName(answers.district),
+    district: locale.market === 'BR' ? normalizeDistrictName(answers.district) : '',
     city: cleanText(answers.city, 60),
     uf: cleanText(answers.uf, 2),
-    property_stage_label: cleanText(answers.property_stage, 40),
+    county: locale.market === 'US' ? cleanText(answers.county, 60) : '',
+    zip_code: locale.market === 'US' ? cleanText(answers.zip_code, 12) : '',
+    neighborhood_community: locale.market === 'US' ? cleanText(answers.neighborhood_community, 60) : '',
+    property_stage_label: presentationLabel(answers.property_stage, locale.language),
     price_label: cleanText(answers.price_label, 50),
-    highlights: sanitizeStringList(answers.highlights, MAX_HIGHLIGHTS, 80),
-    cta: cleanText(cta, 80),
+    highlights: presentationHighlights(sanitizeStringList(answers.highlights, MAX_HIGHLIGHTS, 80), locale.language),
+    cta: presentationCta(cleanText(cta, 80), locale.language),
     contact_authorized: Boolean(phone),
     phone: phone || '',
   }
@@ -382,7 +356,10 @@ async function generateMarketingIntelligence(
     maximumWords: maxNarrationWords,
   } = calculateNarrationWordTargets(availableSeconds)
 
-  const systemPrompt = `Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
+  const languageDirective = locale.language === 'en-US'
+    ? `Write every deliverable in natural US English. Use US real-estate terminology. Use city, county, state, ZIP Code, and neighborhood/community only when supplied. Never use CRECI, MCMV, FGTS, Brazilian financing concepts, or literal Brazilian translations. Do not invent currency or area conversions.\n\n`
+    : ''
+  const systemPrompt = `${languageDirective}Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
 Sua miss\u00e3o \u00e9 entregar uma narra\u00e7\u00e3o e tr\u00eas campanhas completas que um corretor publicaria exatamente como recebeu.
 
 REGRA ABSOLUTA: use somente os fatos confirmados no JSON do usu\u00e1rio. Nunca invente localiza\u00e7\u00e3o, proximidade, vista, acabamento, seguran\u00e7a, valoriza\u00e7\u00e3o, lazer, financiamento, perfil familiar, investimento ou qualquer caracter\u00edstica ausente.
@@ -443,8 +420,12 @@ Responda somente com JSON v\u00e1lido neste formato:
 }`
 
   const userPrompt = JSON.stringify({
+    language: locale.language,
+    market: locale.market,
     confirmed_facts: facts,
-    visual_information: ['localiza\u00e7\u00e3o', 'estado do im\u00f3vel', 'composi\u00e7\u00e3o', 'area', 'pre\u00e7o quando informado'],
+    visual_information: locale.language === 'en-US'
+      ? ['location', 'property status', 'details', 'area', 'price when supplied']
+      : ['localiza\u00e7\u00e3o', 'estado do im\u00f3vel', 'composi\u00e7\u00e3o', 'area', 'pre\u00e7o quando informado'],
     narration: {
       available_seconds: availableSeconds,
       minimum_words: minNarrationWords,
@@ -493,7 +474,7 @@ Responda somente com JSON v\u00e1lido neste formato:
       },
       minimumWords: minNarrationWords,
       maximumWords: maxNarrationWords,
-      fallbackInvitation: cta,
+      fallbackInvitation: facts.cta,
       reviseOnce: async (targetNarrationWords) => {
         return requestMarketingOpenAIJson({
           jobId,
@@ -512,7 +493,7 @@ Responda somente com JSON v\u00e1lido neste formato:
               messages: [
                 {
                   role: 'system',
-                  content: `Voce e um revisor de narracao imobiliaria para voz brasileira.
+                  content: `Voce e um revisor de narracao imobiliaria para voz ${locale.language === 'en-US' ? 'americana. Preserve ingles natural dos Estados Unidos.' : 'brasileira.'}
 Revise uma unica vez a narracao recebida para caber rigorosamente na faixa informada.
 Entregue exatamente a contagem-alvo informada sempre que semanticamente possivel.
 Preserve os fatos confirmados, o gancho e o convite natural.
@@ -579,8 +560,8 @@ Responda somente com JSON valido no formato:
   }
 }
 
-function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, narrationText: string, voiceProvider: string) {
-  const captions = buildCaptions(answers)
+function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, narrationText: string, voiceProvider: string, locale: SmartCarouselLocale) {
+  const captions = buildSmartCarouselCaptions(answers, locale)
   const transitionDuration = SMART_CAROUSEL_TRANSITION_DURATION_SECONDS
   const ctaSceneDuration = SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS
   const timing = calculateSmartCarouselTiming(imageUrls.length)
@@ -774,6 +755,7 @@ async function buildPresentationPlan(
   cta: string,
   openaiApiKey: string,
   jobId: string,
+  locale: SmartCarouselLocale,
 ) {
   const timing = calculateSmartCarouselTiming(imageUrls.length)
   const availableSeconds = timing.narrationSeconds
@@ -785,10 +767,11 @@ async function buildPresentationPlan(
     phone,
     imageUrls.length,
     availableSeconds,
+    locale,
   )
   const voice = selectNarrationVoice(imageUrls.length, intelligence.narrationHighlights.length)
   return {
-    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, intelligence.narration, voice.provider),
+    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, intelligence.narration, voice.provider, locale),
     narration: {
       source: 'openai_marketing_director',
       text: intelligence.narration,
@@ -818,6 +801,7 @@ async function handleCreate(
   const cta = cleanText(body.cta, 80)
   const ctaPath = cleanText(body.cta_path, 512)
   const sharePhone = body.share_phone === true || body.share_phone === 'yes'
+  const locale = normalizeSmartCarouselLocale(body)
 
   if (!isUuid(jobId)) return jsonResponse({ ok: false, error: 'Apresentação inválida.' }, 400)
   if (imagePaths.length < SMART_CAROUSEL_MIN_IMAGES || imagePaths.length > SMART_CAROUSEL_MAX_IMAGES) {
@@ -852,6 +836,8 @@ async function handleCreate(
         tts_model: OPENAI_TTS_MODEL,
         image_count: imagePaths.length,
         has_audio: true,
+        language: locale.language,
+        market: locale.market,
       },
     })
     executionClaimed = economyClaim.executionClaimed
@@ -865,6 +851,7 @@ async function handleCreate(
         return jsonResponse({
           ok: true, status: 'succeeded', job_id: jobId, video_url: recovered.videoUrl,
           campaign_package: recovered.campaignPackage,
+          ...localeFromCampaignPackage(recovered.campaignPackage),
         })
       }
       if (recovered.status === 'failed') {
@@ -874,6 +861,7 @@ async function handleCreate(
         ok: true, status: 'processing', job_id: jobId,
         ...(recovered.receipt ? { receipt: recovered.receipt } : {}),
         ...(Object.keys(recovered.campaignPackage).length ? { campaign_package: recovered.campaignPackage } : {}),
+        ...localeFromCampaignPackage(recovered.campaignPackage),
       }, 202)
     }
 
@@ -888,7 +876,7 @@ async function handleCreate(
         .select('whatsapp, telefone')
         .eq('id', userId)
         .maybeSingle()
-      phone = normalizePhone(profile?.whatsapp || profile?.telefone || '')
+      phone = formatSmartCarouselPhone(profile?.whatsapp || profile?.telefone || '', locale.market)
     }
 
     const presentationPlan = await buildPresentationPlan(
@@ -899,6 +887,7 @@ async function handleCreate(
       cta,
       openaiApiKey,
       jobId,
+      locale,
     )
     const response = await fetch('https://api.creatomate.com/v2/renders', {
       method: 'POST',
@@ -926,6 +915,8 @@ async function handleCreate(
       e: issuedAt + RECEIPT_TTL_SECONDS,
     })
     const campaignPackage = {
+      language: locale.language,
+      market: locale.market,
       campaigns: presentationPlan.campaigns,
       google_ads: presentationPlan.googleAds,
       publication_options: presentationPlan.campaigns.map((campaign, index) => ({
@@ -956,6 +947,8 @@ async function handleCreate(
       job_id: jobId,
       receipt,
       campaign_package: campaignPackage,
+      language: locale.language,
+      market: locale.market,
     })
   } catch (error) {
     if (executionClaimed) {
@@ -998,6 +991,7 @@ async function handleStatus(
     return jsonResponse({
       ok: true, status: 'succeeded', job_id: jobId, video_url: recovered.videoUrl,
       campaign_package: recovered.campaignPackage,
+      ...localeFromCampaignPackage(recovered.campaignPackage),
     })
   }
   if (recovered.status === 'failed' || recovered.status === 'insufficient') {
@@ -1060,6 +1054,7 @@ async function handleStatus(
       return jsonResponse({
         ok: true, status: 'succeeded', job_id: jobId, video_url: videoUrl,
         campaign_package: recovered.campaignPackage,
+        ...localeFromCampaignPackage(recovered.campaignPackage),
       })
     }
 
@@ -1113,6 +1108,7 @@ async function handleDiscoverLatest(
     job_id: sourceId,
     video_url: videoUrl,
     campaign_package: campaignPackage,
+    ...localeFromCampaignPackage(campaignPackage),
   })
 }
 

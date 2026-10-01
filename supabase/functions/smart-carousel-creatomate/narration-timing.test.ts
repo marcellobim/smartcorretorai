@@ -34,7 +34,7 @@ function extractBuildPresentationPlan() {
     .slice(start, end)
     .replace(
       /async function buildPresentationPlan\([\s\S]*?\) \{/,
-      'async function buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta, openaiApiKey, jobId) {',
+      "async function buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta, openaiApiKey, jobId, locale = { language: 'pt-BR', market: 'BR' }) {",
     )
 }
 

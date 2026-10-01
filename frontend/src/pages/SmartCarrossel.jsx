@@ -871,6 +871,8 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
         answers: confirmedAnswers,
         cta,
         share_phone: sharePhone === 'yes',
+        language: locale,
+        market,
       })
       if (!mountedRef.current) return
       if (data.status === 'succeeded' && data.video_url) {
