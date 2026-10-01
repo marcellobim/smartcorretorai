@@ -56,6 +56,7 @@ import {
 } from '../config/textCampaign'
 import {
   getTextCampaignConfirmation,
+  getTextCampaignRentalGuaranteeLabel,
   getTextCampaignUiLabel,
   getTextCampaignQuestion,
   getTextCampaignUiCopy,
@@ -479,8 +480,8 @@ function RentalCommercialQuestion({ answers, setAnswers, commit, locale, copy })
   return <div className="space-y-5">
     <ChoiceGrid>{[['show', ui(locale, 'showPrice')], ['hidden', ui(locale, 'hideValues')]].map(([id, label]) => <ChoiceButton key={id} active={answers.rentValueMode === id} onClick={() => setAnswers(current => ({ ...current, ...emptyCommercial(), rentValueMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
     {answers.rentValueMode === 'show' && <ProductCard variant="muted" className="grid gap-4 p-4 sm:grid-cols-2">
-      {[['rentPrice', 'Aluguel'], ['condominium', 'Condomínio'], ['iptu', 'IPTU']].map(([field, label]) => <label key={field} className="text-sm font-black text-slate-700">{label}<input aria-label={label} inputMode="numeric" value={formatTextCampaignCurrency(answers[field])} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value.replace(/\D/g, '').slice(0, 12) }))} className={inputClass} /></label>)}
-      <label className="text-sm font-black text-slate-700">Garantia<select aria-label="Garantia de locação" value={answers.rentGuarantee} onChange={event => setAnswers(current => ({ ...current, rentGuarantee: event.target.value }))} className={inputClass}><option value="">Selecione</option>{TEXT_CAMPAIGN_RENT_GUARANTEES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+      {[['rentPrice', 'rent'], ['condominium', 'condominium'], ['iptu', 'tax']].map(([field, labelKey]) => <label key={field} className="text-sm font-black text-slate-700">{ui(locale, labelKey)}<input aria-label={ui(locale, labelKey)} inputMode="numeric" value={formatTextCampaignCurrency(answers[field])} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value.replace(/\D/g, '').slice(0, 12) }))} className={inputClass} /></label>)}
+      <label className="text-sm font-black text-slate-700">{ui(locale, 'guarantee')}<select aria-label={ui(locale, 'rentalGuarantee')} value={answers.rentGuarantee} onChange={event => setAnswers(current => ({ ...current, rentGuarantee: event.target.value }))} className={inputClass}><option value="">{copy.select}</option>{TEXT_CAMPAIGN_RENT_GUARANTEES.map(item => <option key={item.id} value={item.id}>{getTextCampaignRentalGuaranteeLabel(locale, item.id, item.label)}</option>)}</select></label>
     </ProductCard>}
     <ProductButton disabled={!valid} onClick={() => commit({ answer: answers.rentValueMode === 'hidden' ? ui(locale, 'rentalPricesNotProvided') : `${ui(locale, 'rent')} ${formatTextCampaignCurrency(answers.rentPrice)}` })}>{copy.continue}</ProductButton>
   </div>
@@ -579,7 +580,7 @@ function buildReviewGroups(answers, briefing, locale) {
 function describeCommercial(answers, locale) {
   if (answers.purpose === 'rent') {
     if (answers.rentValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
-    return [`${ui(locale, 'rent')}: ${formatTextCampaignCurrency(answers.rentPrice)}`, answers.condominium && `${ui(locale, 'condominium')}: ${formatTextCampaignCurrency(answers.condominium)}`, answers.iptu && `${ui(locale, 'tax')}: ${formatTextCampaignCurrency(answers.iptu)}`, answers.rentGuarantee && `${ui(locale, 'guarantee')}: ${answers.rentGuarantee}`].filter(Boolean).join('\n')
+    return [`${ui(locale, 'rent')}: ${formatTextCampaignCurrency(answers.rentPrice)}`, answers.condominium && `${ui(locale, 'condominium')}: ${formatTextCampaignCurrency(answers.condominium)}`, answers.iptu && `${ui(locale, 'tax')}: ${formatTextCampaignCurrency(answers.iptu)}`, answers.rentGuarantee && `${ui(locale, 'guarantee')}: ${getTextCampaignRentalGuaranteeLabel(locale, answers.rentGuarantee)}`].filter(Boolean).join('\n')
   }
   if (answers.saleValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
   if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')}: ${formatTextCampaignCurrency(answers.salePrice)}`

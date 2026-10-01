@@ -107,9 +107,11 @@ test('keeps commercial_terms limited to entry, monthly and annual amounts', () =
 })
 
 test('models rent, condominium, IPTU and approved guarantees separately', () => {
-  assert.match(page, /\['rentPrice', 'Aluguel'\]/)
-  assert.match(page, /\['condominium', 'Condomínio'\]/)
-  assert.match(page, /\['iptu', 'IPTU'\]/)
+  assert.match(page, /\['rentPrice', 'rent'\]/)
+  assert.match(page, /\['condominium', 'condominium'\]/)
+  assert.match(page, /\['iptu', 'tax'\]/)
+  assert.match(page, /getTextCampaignRentalGuaranteeLabel\(locale, item\.id, item\.label\)/)
+  assert.match(page, /getTextCampaignRentalGuaranteeLabel\(locale, answers\.rentGuarantee\)/)
   assert.deepEqual(config.TEXT_CAMPAIGN_RENT_GUARANTEES.map(item => item.id), ['seguro_fianca', 'fiador', 'caucao', 'titulo_capitalizacao', 'a_combinar', 'nao_informar'])
 })
 
