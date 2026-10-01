@@ -15,6 +15,7 @@ import {
   type TextCampaignResult,
   validateTextCampaignRequest,
   validateTextCampaignResult,
+  attachTextCampaignProfessionalIdentity,
 } from './contract.ts'
 import { handleGenerateTextCampaign, type TextCampaignRuntimeDependencies } from './runtime.ts'
 
@@ -108,6 +109,14 @@ test('keeps the PT-BR prompt and builds an EN-US prompt with presented business 
   assert.equal(presented.property_type, 'Condo')
   assert.equal(presented.cta, 'Schedule your visit')
   assert.equal(presented.highlights[0], 'Near Parks')
+})
+
+test('formats complete BR and US professional identities without accepting client input', () => {
+  assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { display_name: 'Ana Lima', creci: '12345', creci_type: 'F', estado: 'SC' }).professional_identity, 'Ana Lima — CRECI F 12345/SC')
+  assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { nome: 'Ana Lima', creci: '12345', creci_type: 'X', estado: 'SC' }).professional_identity, undefined)
+  const us = { ...validBriefing(), language: 'en-US' as const, market: 'US' as const }
+  assert.equal(attachTextCampaignProfessionalIdentity(us, { display_name: 'Alex Smith', license_number: '123456', estado: 'FL' }).professional_identity, 'Alex Smith — License 123456, FL')
+  assert.equal(attachTextCampaignProfessionalIdentity(us, { nome: 'Alex Smith', license_number: '123456' }).professional_identity, undefined)
 })
 
 test('recovers a completed delivery by its existing id without OpenAI, hashtags, reservation or a new claim', async () => {

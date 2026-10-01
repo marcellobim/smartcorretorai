@@ -47,6 +47,14 @@ serve(withCors(async (request) => {
       const { data: { user }, error } = await supabase.auth.getUser(token)
       return error || !user ? null : { id: user.id }
     },
+    getProfessionalProfile: async (userId) => {
+      const { data, error } = await serviceClient
+        .from('profiles')
+        .select('display_name,nome,full_name,creci,creci_type,estado,license_number')
+        .eq('id', userId)
+        .maybeSingle()
+      return error ? null : data as Record<string, unknown> | null
+    },
     generate: async (briefing) => {
       const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
         method: 'POST',

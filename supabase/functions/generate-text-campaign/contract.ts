@@ -1,6 +1,7 @@
 import type { OfficialHashtagContext } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_RESPONSE_SCHEMA } from '../_shared/google-ads.ts'
 import { presentCta, presentHighlight, presentPropertyType, presentPurpose, presentStage } from '../_shared/virtual-staging/presentation.ts'
+import { formatProfessionalIdentity } from '../_shared/professional-identity.ts'
 
 export const TEXT_CAMPAIGN_MODEL = 'gpt-4.1'
 export const TEXT_CAMPAIGN_TIMEOUT_MS = 60_000
@@ -64,6 +65,7 @@ export type TextCampaignBriefing = {
   contact_authorized: boolean
   professional_phone: string
   commercial: Record<string, unknown>
+  professional_identity?: string
 }
 
 export type TextCampaignResult = {
@@ -249,6 +251,11 @@ export function presentTextCampaignBriefing(briefing: TextCampaignBriefing) {
   }
 }
 
+export function attachTextCampaignProfessionalIdentity(briefing: TextCampaignBriefing, profile: Record<string, unknown> | null | undefined) {
+  const professionalIdentity = formatProfessionalIdentity(profile, briefing.market)
+  return professionalIdentity ? { ...briefing, professional_identity: professionalIdentity } : briefing
+}
+
 export const TEXT_CAMPAIGN_RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -269,10 +276,15 @@ export const TEXT_CAMPAIGN_RESPONSE_SCHEMA = {
 } as const
 
 export function buildTextCampaignOpenAIRequest(briefing: TextCampaignBriefing) {
+  const identityInstruction = briefing.professional_identity
+    ? briefing.language === 'en-US'
+      ? ' Include the provided professional_identity exactly once, only where a professional signature is natural (such as portal, email, LinkedIn, or a social closing). Never put it in hashtags, CTA text, Google Ads headlines, or every carousel slide. Do not repeat the phone number or CTA.'
+      : ' Inclua a professional_identity fornecida exatamente uma vez, apenas onde uma assinatura profissional for natural (como portal, e-mail, LinkedIn ou fechamento social). Nunca a coloque em hashtags, CTA, headline de Google Ads ou em todos os slides do carrossel. Não repita telefone ou CTA.'
+    : ''
   return {
     model: TEXT_CAMPAIGN_MODEL,
     messages: [
-      { role: 'system', content: briefing.language === 'en-US' ? TEXT_CAMPAIGN_EN_US_SYSTEM_PROMPT : TEXT_CAMPAIGN_SYSTEM_PROMPT },
+      { role: 'system', content: `${briefing.language === 'en-US' ? TEXT_CAMPAIGN_EN_US_SYSTEM_PROMPT : TEXT_CAMPAIGN_SYSTEM_PROMPT}${identityInstruction}` },
       { role: 'user', content: JSON.stringify({ briefing: presentTextCampaignBriefing(briefing) }) },
     ],
     response_format: { type: 'json_schema', json_schema: { name: 'text_campaign', strict: true, schema: TEXT_CAMPAIGN_RESPONSE_SCHEMA } },

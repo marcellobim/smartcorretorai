@@ -10,6 +10,7 @@ import {
   type TextCampaignResult,
   validateTextCampaignRequest,
   validateTextCampaignResult,
+  attachTextCampaignProfessionalIdentity,
 } from './contract.ts'
 import type { DeliveryClaim } from './delivery.ts'
 type AuthUser = { id: string }
@@ -26,6 +27,7 @@ type EconomicEventStatus = 'started' | 'delivered' | 'failed' | 'refunded'
 
 export type TextCampaignRuntimeDependencies = {
   authenticate: (token: string) => Promise<AuthUser | null>
+  getProfessionalProfile?: (userId: string) => Promise<Record<string, unknown> | null>
   generate: (briefing: TextCampaignBriefing) => Promise<GeneratedCampaign>
   generateHashtags: (briefing: TextCampaignBriefing) => Promise<string[]>
   quote: () => EconomicQuote
@@ -139,6 +141,13 @@ export async function handleGenerateTextCampaign(request: Request, dependencies:
   }
 
   if (!briefing) return jsonResponse({ ok: false, error: 'Revise os dados do imóvel antes de continuar.' }, 400)
+
+  // This is intentionally skipped for recovery: persisted text must never be rewritten after a profile change.
+  try {
+    briefing = attachTextCampaignProfessionalIdentity(briefing, await dependencies.getProfessionalProfile?.(user.id))
+  } catch {
+    // The additive profile migration may not exist yet; generation remains available without a signature.
+  }
 
   let quote: EconomicQuote
   try {
