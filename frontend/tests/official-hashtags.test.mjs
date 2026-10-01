@@ -123,3 +123,14 @@ test('Life and Broker social content localize only their EN-US campaign output a
   assert.ok(lifeEn.aiCampaigns[0].hashtags.every(tag => !/apartamento|venda|imovel|dormitorio|visita/i.test(tag)))
   assert.ok(lifeEn.aiCampaigns[0].hashtags.some(tag => /ApartmentForSale|GourmetBalcony|ScheduleATour/.test(tag)))
 })
+
+test('EN-US official hashtags use natural real-estate terms without legacy Portuguese values', () => {
+  const hashtags = normalizeOfficialHashtags(['#Apartamento', '#AgendeSuaVisita'], {
+    language: 'en-US', purpose: 'sale', propertyType: 'Apartment', propertyStage: 'Move-in ready',
+    city: 'Austin', district: 'Downtown', state: 'TX', bedrooms: '2', suites: '1',
+    highlights: ['Pool'], cta: 'Schedule a tour',
+  })
+  assertOfficialSet(hashtags)
+  assert.ok(hashtags.some(tag => /ApartmentForSale|ScheduleATour|RealEstate/.test(tag)))
+  assert.equal(hashtags.some(tag => /apartamento|venda|imovel|visita/i.test(tag)), false)
+})

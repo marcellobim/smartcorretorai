@@ -525,6 +525,7 @@ Responda somente com JSON valido no formato:
         purpose:facts.purpose, propertyType:facts.property_type, propertyStage:facts.property_stage,
         city:facts.city, district:facts.district, state:facts.uf, bedrooms:facts.bedrooms,
         suites:facts.suites, parkingSpaces:facts.parking_spaces, highlights:facts.highlights, cta:campaign.cta,
+        language: locale.language,
       }),
     }))
     return {
@@ -916,7 +917,7 @@ async function handleCreate(
       google_ads: presentationPlan.googleAds,
       publication_options: presentationPlan.campaigns.map((campaign, index) => ({
         id: `studio-caption-option-${index + 1}`,
-        label: `Texto ${index + 1}`,
+        label: locale.language === 'en-US' ? `Copy ${index + 1}` : `Texto ${index + 1}`,
         text: socialCaption(campaign.instagram),
       })),
     }

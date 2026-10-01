@@ -132,6 +132,12 @@ test('backend CTA validation binds the legacy CTA value to its language-specific
   assert.match(source, /ctaPath\.split\('\/'\)\.pop\(\) !== expectedCtaFile/)
 })
 
+test('social package uses persisted language for hashtags and publication options', () => {
+  assert.match(source, /highlights:facts\.highlights, cta:campaign\.cta,[\s\S]*language: locale\.language/)
+  assert.match(source, /label: locale\.language === 'en-US' \? `Copy \$\{index \+ 1\}` : `Texto \$\{index \+ 1\}`/)
+  assert.match(source, /language: locale\.language,[\s\S]*campaigns: presentationPlan\.campaigns,[\s\S]*google_ads: presentationPlan\.googleAds,[\s\S]*publication_options/)
+})
+
 test('delivery is persisted before consumption and retries recover without providers', () => {
   const recordAt = source.indexOf('await recordSmartCarouselProvider')
   const createReturnAt = source.indexOf('return jsonResponse({', recordAt)

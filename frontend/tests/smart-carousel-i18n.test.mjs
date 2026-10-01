@@ -56,3 +56,9 @@ test('Smart Carrossel uploads a language-specific CTA asset while preserving int
   assert.match(page, /SMART_CAROUSEL_CTA_ASSETS\[language === 'en-US' \? 'en-US' : 'pt-BR'\]\[cta\]/)
   assert.match(page, /uploadSmartCarouselFilesWithTimeout\(\{ photos, userId: user\.id, jobId, cta, language: locale \}\)/)
 })
+
+test('Smart Carrossel renders persisted social content without using the current UI locale', () => {
+  assert.match(page, /cta: campaignPackage\?\.google_ads\?\.cta \|\| cta/)
+  assert.match(page, /language: campaignPackage\?\.language \|\| 'pt-BR'/)
+  assert.match(page, /aiCampaigns: campaignPackage\?\.campaigns \|\| \[\]/)
+})
