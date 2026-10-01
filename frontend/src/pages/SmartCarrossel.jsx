@@ -153,6 +153,11 @@ function isValidSmartCarouselReceipt(value) {
     && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
 }
 
+function isValidSmartCarouselJobId(value) {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 async function waitWithTimeout(promise, timeoutMs, message) {
   let timeoutId
   const timeoutPromise = new Promise((_, reject) => {
@@ -269,6 +274,7 @@ export default function SmartCarrossel() {
   const mediaDraft = useProductDraft({ productKey: 'smart-carousel:media', schemaVersion: 1, userId: user?.id })
   const flowDraft = useProductDraft({ productKey: 'smart-carousel:flow', schemaVersion: 1, userId: user?.id })
   const restoredMediaDraft = mediaDraft.restoredDraft
+  const restoredFlowDraft = flowDraft.restoredDraft || {}
   const photoInputRef = useRef(null)
   const photoIdRef = useRef(0)
   const photosRef = useRef([])
@@ -414,7 +420,16 @@ export default function SmartCarrossel() {
     })
   }
 
-  const informationUnlocked = informationStarted && photos.length >= SMART_CAROUSEL_MIN_IMAGES
+  const hasRestoredActiveJob = isValidSmartCarouselReceipt(restoredFlowDraft.receipt)
+    && isValidSmartCarouselJobId(restoredFlowDraft.activeJobId)
+  const hasRestoredCompletedJob = isValidSmartCarouselJobId(restoredFlowDraft.completedJobId)
+    && typeof restoredFlowDraft.videoUrl === 'string'
+    && restoredFlowDraft.videoUrl.startsWith('https://')
+  const hasRestoredTerminalJob = ['failed', 'cancelled'].includes(restoredFlowDraft.terminalStatus)
+  const informationUnlocked = hasRestoredActiveJob
+    || hasRestoredCompletedJob
+    || hasRestoredTerminalJob
+    || (informationStarted && photos.length >= SMART_CAROUSEL_MIN_IMAGES)
   const currentStep = informationUnlocked ? Math.max(2, generationStage) : 1
   const hasPresentationState = photos.length > 0
     || missingPhotoMetadata.length > 0
@@ -633,8 +648,10 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   const pollTimerRef = useRef(null)
   const mountedRef = useRef(true)
   const generationInFlightRef = useRef(false)
-  const [generationStatus, setGenerationStatus] = useState(() => restoredFlow.completedJobId && restoredFlow.videoUrl ? 'succeeded' : 'idle')
-  const [generationError, setGenerationError] = useState('')
+  const [generationStatus, setGenerationStatus] = useState(() => restoredFlow.completedJobId && restoredFlow.videoUrl
+    ? 'succeeded'
+    : ['failed', 'cancelled'].includes(restoredFlow.terminalStatus) ? restoredFlow.terminalStatus : 'idle')
+  const [generationError, setGenerationError] = useState(() => restoredFlow.terminalError || '')
   const [receipt, setReceipt] = useState(() => restoredFlow.receipt || '')
   const [activeJobId, setActiveJobId] = useState(() => restoredFlow.activeJobId || '')
   const [completedJobId, setCompletedJobId] = useState(() => restoredFlow.completedJobId || '')
@@ -673,13 +690,14 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
   }, [photos.length, trackStep])
 
   useEffect(() => {
-    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage }
+    const terminalStatus = ['failed', 'cancelled'].includes(generationStatus) ? generationStatus : ''
+    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, city, district, priceMode, priceDigits, area, highlights, cta, sharePhone, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage, terminalStatus, terminalError: terminalStatus ? generationError : '' }
     if (!conversationSnapshot?.history?.length && !Object.values(draft).some(value => typeof value === 'string' ? value : Array.isArray(value) ? value.length : false)) {
       flowDraft.clear()
       return
     }
     flowDraft.save(draft)
-  }, [activeJobId, area, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, cta, district, flowDraft, highlights, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl])
+  }, [activeJobId, area, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, cta, district, flowDraft, generationError, generationStatus, highlights, parkingSpaces, priceDigits, priceMode, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl])
 
   const createNewPresentation = () => {
     flowDraft.clear()
@@ -734,10 +752,10 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     highlights,
   }
 
-  const stopWithError = (message, keepReceipt = false) => {
+  const stopWithError = (message, keepReceipt = false, terminalStatus = 'failed') => {
     if (!mountedRef.current) return
     generationInFlightRef.current = false
-    setGenerationStatus('failed')
+    setGenerationStatus(terminalStatus)
     setGenerationError(getSmartTokenErrorMessage(message, 'Não foi possível criar sua apresentação. Tente novamente.'))
     void refreshBalance()
     if (!keepReceipt) {
@@ -773,8 +791,8 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
         return
       }
 
-      if (data.status === 'failed') {
-        stopWithError(data.error || 'Não foi possível criar sua apresentação. Tente novamente.')
+      if (['failed', 'cancelled'].includes(data.status)) {
+        stopWithError(data.error || 'Não foi possível criar sua apresentação. Tente novamente.', false, data.status)
         return
       }
 
@@ -794,8 +812,19 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     pollRenderStatus(receipt, activeJobId)
   }
 
+  const hasRecoverableActiveJob = isValidSmartCarouselReceipt(receipt) && isValidSmartCarouselJobId(activeJobId)
+
+  useEffect(() => {
+    if (!hasRecoverableActiveJob || generationInFlightRef.current) return
+    resumeStatus()
+  }, [activeJobId, receipt])
+
   const createPresentation = async () => {
     if (generationInFlightRef.current) return
+    if (hasRecoverableActiveJob) {
+      resumeStatus()
+      return
+    }
     if (photos.length < SMART_CAROUSEL_MIN_IMAGES) {
       stopWithError(SMART_CAROUSEL_MIN_IMAGES_MESSAGE)
       return

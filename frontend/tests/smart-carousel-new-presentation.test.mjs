@@ -102,3 +102,34 @@ test('recovery notice does not expose implementation details', () => {
   const notice = carousel.slice(noticeStart, noticeEnd)
   assert.doesNotMatch(notice, /rascunho foi restaurado|arquivos físicos|não ficam salvas no navegador|sessionStorage|\bFile\b|\bBlob\b/i)
 })
+
+test('F5 with an active receipt mounts recovery without requiring local photo files', () => {
+  assert.match(carousel, /const hasRestoredActiveJob = isValidSmartCarouselReceipt\(restoredFlowDraft\.receipt\)[\s\S]*isValidSmartCarouselJobId\(restoredFlowDraft\.activeJobId\)/)
+  assert.match(carousel, /const informationUnlocked = hasRestoredActiveJob[\s\S]*\|\| \(informationStarted && photos\.length >= SMART_CAROUSEL_MIN_IMAGES\)/)
+  assert.match(carousel, /const hasRecoverableActiveJob = isValidSmartCarouselReceipt\(receipt\) && isValidSmartCarouselJobId\(activeJobId\)/)
+  assert.match(carousel, /if \(!hasRecoverableActiveJob \|\| generationInFlightRef\.current\) return[\s\S]*resumeStatus\(\)/)
+  const recoveryEffect = carousel.slice(carousel.indexOf('const hasRecoverableActiveJob'), carousel.indexOf('const createPresentation'))
+  assert.doesNotMatch(recoveryEffect, /randomUUID|uploadSmartCarouselFiles|action: 'create'|claimSmartCarouselEconomy|creatomate/i)
+})
+
+test('recovery defensively resumes the existing job before any new UUID, upload or creation call', () => {
+  const createStart = carousel.indexOf('const createPresentation = async () => {')
+  const uuidAt = carousel.indexOf('crypto.randomUUID()', createStart)
+  const recoveryGuardAt = carousel.indexOf('if (hasRecoverableActiveJob) {', createStart)
+  const uploadAt = carousel.indexOf('uploadSmartCarouselFilesWithTimeout', createStart)
+  const createCallAt = carousel.indexOf("action: 'create'", createStart)
+  assert.ok(createStart >= 0 && recoveryGuardAt > createStart)
+  assert.ok(uuidAt > recoveryGuardAt && uploadAt > recoveryGuardAt && createCallAt > recoveryGuardAt)
+  const guard = carousel.slice(recoveryGuardAt, uuidAt)
+  assert.match(guard, /resumeStatus\(\)/)
+  assert.doesNotMatch(guard, /randomUUID|uploadSmartCarouselFiles|action: 'create'/)
+})
+
+test('restored completed and terminal jobs render their existing terminal state without a new job', () => {
+  assert.match(carousel, /const hasRestoredCompletedJob = isValidSmartCarouselJobId\(restoredFlowDraft\.completedJobId\)[\s\S]*restoredFlowDraft\.videoUrl\.startsWith\('https:\/\/'\)/)
+  assert.match(carousel, /const hasRestoredTerminalJob = \['failed', 'cancelled'\]\.includes\(restoredFlowDraft\.terminalStatus\)/)
+  assert.match(carousel, /restoredFlow\.completedJobId && restoredFlow\.videoUrl[\s\S]*'succeeded'[\s\S]*restoredFlow\.terminalStatus/)
+  assert.match(carousel, /const terminalStatus = \['failed', 'cancelled'\]\.includes\(generationStatus\) \? generationStatus : ''/)
+  assert.match(carousel, /campaignPackage, terminalStatus, terminalError: terminalStatus \? generationError : ''/)
+  assert.match(carousel, /\['failed', 'cancelled'\]\.includes\(data\.status\)[\s\S]*stopWithError\([\s\S]*data\.status\)/)
+})
