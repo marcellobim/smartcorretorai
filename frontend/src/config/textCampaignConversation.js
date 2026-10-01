@@ -63,7 +63,26 @@ export function getTextCampaignNextQuestion(questionId) {
   return TEXT_CAMPAIGN_QUESTION_ORDER[Math.min(index + 1, TEXT_CAMPAIGN_QUESTION_ORDER.length - 1)] || 'review'
 }
 
-export function getTextCampaignConfirmation(questionId, answer) {
+export function getTextCampaignConfirmation(questionId, answer, locale = 'pt-BR') {
+  const english = locale === 'en-US'
+  const notProvided = english ? 'Do not provide' : 'Não informar'
+  const phoneAuthorized = english ? 'Professional phone authorized' : 'Telefone profissional'
+  if (english) {
+    const confirmations = {
+      purpose: answer === 'For rent' ? 'Perfect! The campaign will use rental language only.' : 'Perfect! The campaign will use sales language only.',
+      stage: `Got it! The status “${answer}” has been recorded.`,
+      type: `Great! The property type “${answer}” has been recorded.`,
+      facts: 'Perfect! The main property details have been organized.',
+      location: `Great! The location in ${answer} has been recorded.`,
+      commercial: 'Perfect! Price and terms have been organized without mixing contracts.',
+      highlights: `Excellent! ${answer} have been selected.`,
+      custom_highlight: answer === notProvided ? 'All set! We will use only the structured features.' : 'Great! The custom feature has been recorded.',
+      notes: answer === notProvided ? 'All set! There are no additional notes.' : 'Perfect! The note has been recorded as a fact you provided.',
+      cta: `Great! The call to action will be “${answer}”.`,
+      phone: answer === phoneAuthorized ? 'Perfect! Your professional contact has been authorized.' : 'All set! The campaign will continue without a phone number.',
+    }
+    return confirmations[questionId] || 'Information recorded.'
+  }
   const confirmations = {
     purpose: answer === 'Locação' ? 'Perfeito! A campanha usará somente linguagem de locação.' : 'Perfeito! A campanha usará somente linguagem de venda.',
     stage: `Certo! A situação “${answer}” foi registrada.`,

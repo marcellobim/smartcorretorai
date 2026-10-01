@@ -187,7 +187,7 @@ export default function TextCampaign() {
       questionId: id,
       question: getTextCampaignQuestion(id, locale),
       answer,
-      confirmation: getTextCampaignConfirmation(id, answer),
+      confirmation: getTextCampaignConfirmation(id, answer, locale),
       nextQuestionId,
     })
     if (accepted) apply?.()

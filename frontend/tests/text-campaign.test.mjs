@@ -46,6 +46,15 @@ test('supports localized sale and rent labels with stable internal values', () =
   assert.match(page, /purpose: option\.id/)
 })
 
+test('localizes guided-conversation confirmations while preserving PT-BR fallback', () => {
+  assert.match(page, /getTextCampaignConfirmation\(id, answer, locale\)/)
+  assert.match(conversation.getTextCampaignConfirmation('phone', 'Professional phone authorized', 'en-US'), /professional contact has been authorized/i)
+  assert.match(conversation.getTextCampaignConfirmation('notes', 'Do not provide', 'en-US'), /no additional notes/i)
+  assert.match(conversation.getTextCampaignConfirmation('cta', 'Schedule a visit', 'en-US'), /call to action/i)
+  assert.match(conversation.getTextCampaignConfirmation('phone', 'Telefone profissional'), /contato profissional/i)
+  assert.match(conversation.getTextCampaignConfirmation('notes', 'Não informar', 'invalid-locale'), /não há observações adicionais/i)
+})
+
 test('keeps the approved sale and rental stage rules', () => {
   assert.deepEqual(config.getTextCampaignStageOptions('sale'), ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar'])
   assert.deepEqual(config.getTextCampaignStageOptions('rent'), ['Pronto para morar', 'Disponível já', 'Vago'])
