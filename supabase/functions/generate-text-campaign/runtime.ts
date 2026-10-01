@@ -48,14 +48,14 @@ const parseRequest = (value: unknown) => {
     throw new TextCampaignValidationError('invalid_payload')
   }
   const recovery = value.recovery === true
-  const allowedKeys = recovery ? ['client_request_id', 'recovery'] : ['briefing', 'client_request_id']
+  const allowedKeys = recovery ? ['client_request_id', 'recovery'] : ['briefing', 'language', 'market', 'client_request_id']
   if (Object.keys(value).some(key => !allowedKeys.includes(key)) || (!recovery && !('briefing' in value))) throw new TextCampaignValidationError('invalid_payload')
   const clientRequestId = typeof value.client_request_id === 'string' ? value.client_request_id.trim().toLowerCase() : ''
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(clientRequestId)) {
     throw new TextCampaignValidationError('invalid_client_request_id')
   }
   return {
-    briefing: recovery ? null : validateTextCampaignRequest({ briefing: value.briefing }),
+    briefing: recovery ? null : validateTextCampaignRequest({ briefing: value.briefing, language: value.language, market: value.market }),
     clientRequestId,
     recovery,
   }

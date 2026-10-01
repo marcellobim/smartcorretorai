@@ -118,9 +118,12 @@ export const createEmptyTextCampaignAnswers = () => ({
   parkingSpaces: '',
   area: '',
   state: '',
+  county: '',
   city: '',
   cityOther: '',
   district: '',
+  zipCode: '',
+  neighborhoodCommunity: '',
   saleValueMode: '',
   salePriceMode: '',
   salePrice: '',
@@ -139,9 +142,10 @@ export const createEmptyTextCampaignAnswers = () => ({
 })
 
 export const getTextCampaignStageOptions = purpose => getSmartTourStageOptions(purpose, TEXT_CAMPAIGN_SALE_STAGES)
-export const getTextCampaignPropertyTypes = purpose => getSmartTourPropertyTypes(purpose, SMART_TOUR_PROPERTY_TYPES)
+export const getTextCampaignPropertyTypes = (purpose, market = 'BR') => getSmartTourPropertyTypes(purpose, market === 'US' ? { market } : SMART_TOUR_PROPERTY_TYPES)
+  .map(type => typeof type === 'string' ? type : type.value)
 export const getTextCampaignMeasureFields = type => getSmartTourMeasureFields(type)
-export const getTextCampaignHighlightGroups = type => getSmartTourHighlightGroups(type)
+export const getTextCampaignHighlightGroups = (type, market = 'BR') => getSmartTourHighlightGroups(type, { market })
 export { SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES, SMART_TOUR_RENTAL_STAGES }
 
 export function normalizeTextCampaignLocation(value = '') {
@@ -153,7 +157,10 @@ export function getEffectiveTextCampaignCity(answers = {}) {
 }
 
 export function changeTextCampaignState(current, state) {
-  return { ...current, state, city: '', cityOther: '', district: '' }
+  const usFields = ['county', 'zipCode', 'neighborhoodCommunity'].some(field => field in current)
+    ? { county: '', zipCode: '', neighborhoodCommunity: '' }
+    : {}
+  return { ...current, state, city: '', cityOther: '', district: '', ...usFields }
 }
 
 export function changeTextCampaignSelectedCity(current, city) {
@@ -170,6 +177,12 @@ export function formatTextCampaignCurrency(value = '') {
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits))
     : ''
 }
+
+export function formatTextCampaignCurrencyForMarket(value = '', locale = 'pt-BR', market = 'BR') {
+  const digits = String(value).replace(/\D/g, '').slice(0, 12)
+  return digits ? new Intl.NumberFormat(locale, { style: 'currency', currency: market === 'US' ? 'USD' : 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
+}
+
 
 export function normalizeTextCampaignCommercialTerms(value = {}) {
   return Object.fromEntries(TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS
@@ -189,7 +202,7 @@ export function getTextCampaignVisualStep(questionId) {
   return 4
 }
 
-export function buildTextCampaignBriefing(answers = {}, professionalPhone = '') {
+export function buildTextCampaignBriefing(answers = {}, professionalPhone = '', { language = 'pt-BR', market = 'BR' } = {}) {
   const city = getEffectiveTextCampaignCity(answers)
   const district = normalizeTextCampaignLocation(answers.district)
   const commercialTerms = normalizeTextCampaignCommercialTerms(answers.commercialTerms)
@@ -197,6 +210,8 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '') 
   const contactAuthorized = answers.includeProfessionalPhone === 'yes' && Boolean(professionalPhone)
 
   return {
+    language: language === 'en-US' ? 'en-US' : 'pt-BR',
+    market: market === 'US' ? 'US' : 'BR',
     purpose: answers.purpose,
     stage: answers.stage,
     property_type: answers.type,
@@ -205,8 +220,11 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '') 
     parking_spaces: answers.parkingSpaces,
     area: answers.area,
     state: answers.state,
+    county: market === 'US' ? String(answers.county || '').trim() : '',
     city,
     district,
+    zip_code: market === 'US' ? String(answers.zipCode || '').trim() : '',
+    neighborhood_community: market === 'US' ? normalizeTextCampaignLocation(answers.neighborhoodCommunity) : '',
     highlights: [...(answers.highlights || [])],
     custom_highlight: String(answers.customHighlight || '').trim() || null,
     notes: String(answers.notes || '').trim() || null,
@@ -232,15 +250,17 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '') 
 }
 
 export function isTextCampaignBriefingValid(briefing = {}) {
-  const required = ['purpose', 'stage', 'property_type', 'area', 'state', 'city', 'district', 'cta']
+  const required = ['purpose', 'stage', 'property_type', 'area', 'state', 'city', 'cta']
+  if (briefing.market !== 'US') required.push('district')
+  if (briefing.market === 'US' && (!briefing.county || !/^\d{5}(?:-\d{4})?$/.test(briefing.zip_code || ''))) return false
   if (required.some(field => !briefing[field])) return false
   if (!['sale', 'rent'].includes(briefing.purpose)) return false
-  if (briefing.purpose === 'rent' && briefing.property_type === 'Terreno / Lote') return false
+  if (briefing.purpose === 'rent' && ['Terreno / Lote', 'us_land_lot'].includes(briefing.property_type)) return false
   if (!Array.isArray(briefing.highlights) || briefing.highlights.length > TEXT_CAMPAIGN_MAX_HIGHLIGHTS) return false
   if (briefing.contact_authorized && !briefing.professional_phone) return false
-  const residential = !['Comercial', 'Terreno / Lote'].includes(briefing.property_type)
+  const residential = !['Comercial', 'Terreno / Lote', 'us_commercial', 'us_land_lot'].includes(briefing.property_type)
   if (residential && (!briefing.bedrooms || !briefing.suites || !briefing.parking_spaces)) return false
-  if (briefing.property_type === 'Comercial' && !briefing.parking_spaces) return false
+  if (['Comercial', 'us_commercial'].includes(briefing.property_type) && !briefing.parking_spaces) return false
   const commercial = briefing.commercial || {}
   if (briefing.purpose === 'sale') {
     if (!['price', 'conditions', 'hidden'].includes(commercial.mode)) return false

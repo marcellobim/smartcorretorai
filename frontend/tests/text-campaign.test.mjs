@@ -24,12 +24,13 @@ before(async () => {
 
 after(async () => vite?.close())
 
-test('registers a private Campanha de Textos product and hero', () => {
+test('registers a private Campanha de Textos product and localized hero', () => {
   assert.match(app, /import TextCampaign from '.\/pages\/TextCampaign'/)
-  assert.match(app, /path="\/campanha-de-textos" element=\{<TextCampaign \/>\}/)
-  assert.match(dashboard, /title: 'Campanha de Textos'[\s\S]*?to: '\/campanha-de-textos'/)
+  assert.match(app, /path="\/campanha-de-textos" element=\{<AccountAnalyticsRoute productId=\{PRODUCTS\.CAMPANHA_TEXTOS\}><TextCampaign \/><\/AccountAnalyticsRoute>\}/)
+  assert.match(dashboard, /id: 'campanha-de-textos',[\s\S]*?title: t\('dashboard\.textCampaign\.title'\),[\s\S]*?to: '\/campanha-de-textos'/)
   assert.match(layout, /location\.pathname === '\/campanha-de-textos'/)
   assert.match(page, /<ProductHero[\s\S]*?productName="Campanha de Textos"/)
+  assert.match(page, /const \{ locale, market \} = useLocale\(\)/)
 })
 
 test('defines exactly five approved visual steps', () => {
@@ -39,9 +40,10 @@ test('defines exactly five approved visual steps', () => {
   assert.match(page, /<ProductSteps/)
 })
 
-test('supports Venda and Locação as exclusive purposes', () => {
-  assert.match(page, /\{ id: 'sale', label: 'Venda' \}/)
-  assert.match(page, /\{ id: 'rent', label: 'Locação' \}/)
+test('supports localized sale and rent labels with stable internal values', () => {
+  assert.match(page, /\{ id: 'sale', label: locale === 'en-US' \? 'For sale' : 'Venda' \}/)
+  assert.match(page, /\{ id: 'rent', label: locale === 'en-US' \? 'For rent' : 'Locação' \}/)
+  assert.match(page, /purpose: option\.id/)
 })
 
 test('keeps the approved sale and rental stage rules', () => {

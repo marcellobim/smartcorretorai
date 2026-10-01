@@ -29,18 +29,20 @@ export const TEXT_CAMPAIGN_DELIVERY_KEYS = Object.freeze([
 
 const SALE_STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
 const RENT_STAGES = ['Pronto para morar', 'Disponível já', 'Vago']
-const PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Terreno / Lote', 'Comercial']
+const PROPERTY_TYPES = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Terreno / Lote', 'Comercial', 'us_single_family_home', 'us_condo', 'us_townhouse', 'us_multi_family', 'us_apartment', 'us_studio', 'us_land_lot', 'us_commercial']
 const STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const CTA_OPTIONS = ['Fale comigo', 'Saiba mais', 'Agende sua visita', 'Conheça as condições', 'Quero informações', 'Chamar no WhatsApp']
 const SALE_CONDITIONS = ['Entrada facilitada', 'Usa FGTS', 'Subsídio do governo', 'Aceita financiamento', 'Condições especiais', 'Parcelamento durante a obra', 'Últimas unidades', 'Unidades limitadas']
 const RENT_GUARANTEES = ['seguro_fianca', 'fiador', 'caucao', 'titulo_capitalizacao', 'a_combinar', 'nao_informar']
 const COMMERCIAL_TERM_KEYS = ['entry_amount', 'monthly_amount', 'annual_amount']
-const BRIEFING_KEYS = ['purpose', 'stage', 'property_type', 'bedrooms', 'suites', 'parking_spaces', 'area', 'state', 'city', 'district', 'highlights', 'custom_highlight', 'notes', 'cta', 'contact_authorized', 'professional_phone', 'commercial']
+const BRIEFING_KEYS = ['language', 'market', 'purpose', 'stage', 'property_type', 'bedrooms', 'suites', 'parking_spaces', 'area', 'state', 'county', 'city', 'district', 'zip_code', 'neighborhood_community', 'highlights', 'custom_highlight', 'notes', 'cta', 'contact_authorized', 'professional_phone', 'commercial']
 const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+']
 const PARKING_OPTIONS = ['0', '1', '2', '3', '4+']
 
 export type TextCampaignBriefing = {
+  language: 'pt-BR' | 'en-US'
+  market: 'BR' | 'US'
   purpose: 'sale' | 'rent'
   stage: string
   property_type: string
@@ -49,8 +51,11 @@ export type TextCampaignBriefing = {
   parking_spaces: string
   area: string
   state: string
+  county: string
   city: string
   district: string
+  zip_code: string
+  neighborhood_community: string
   highlights: string[]
   custom_highlight: string | null
   notes: string | null
@@ -147,22 +152,31 @@ function validateCommercial(value: unknown, purpose: 'sale' | 'rent') {
 }
 
 export function validateTextCampaignRequest(value: unknown): TextCampaignBriefing {
-  if (!isRecord(value) || !exactKeys(value, ['briefing']) || !isRecord(value.briefing)) throw new TextCampaignValidationError('invalid_payload')
-  const raw = value.briefing
+  if (!isRecord(value) || !Object.keys(value).every(key => ['briefing', 'language', 'market'].includes(key)) || !isRecord(value.briefing)) throw new TextCampaignValidationError('invalid_payload')
+  const raw = {
+    ...value.briefing,
+    language: value.language === 'en-US' || value.briefing.language === 'en-US' ? 'en-US' : 'pt-BR',
+    market: value.market === 'US' || value.briefing.market === 'US' ? 'US' : 'BR',
+    county: value.briefing.county ?? '',
+    zip_code: value.briefing.zip_code ?? '',
+    neighborhood_community: value.briefing.neighborhood_community ?? '',
+  }
   if (!exactKeys(raw, BRIEFING_KEYS)) throw new TextCampaignValidationError('invalid_briefing_keys')
   const purpose = assertAllowed(clean(raw.purpose, 10), ['sale', 'rent'], 'invalid_purpose') as 'sale' | 'rent'
+  const language = raw.language === 'en-US' ? 'en-US' : 'pt-BR'
+  const market = raw.market === 'US' ? 'US' : 'BR'
   const stage = assertAllowed(clean(raw.stage, 50), purpose === 'sale' ? SALE_STAGES : RENT_STAGES, 'invalid_stage')
   const propertyType = assertAllowed(clean(raw.property_type, 50), PROPERTY_TYPES, 'invalid_property_type')
-  if (purpose === 'rent' && propertyType === 'Terreno / Lote') throw new TextCampaignValidationError('invalid_rental_land')
+  if (purpose === 'rent' && ['Terreno / Lote', 'us_land_lot'].includes(propertyType)) throw new TextCampaignValidationError('invalid_rental_land')
   const bedrooms = clean(raw.bedrooms, 3)
   const suites = clean(raw.suites, 3)
   const parkingSpaces = clean(raw.parking_spaces, 3)
   const area = clean(raw.area, 7)
-  const requiresResidential = !['Comercial', 'Terreno / Lote'].includes(propertyType)
+  const requiresResidential = !['Comercial', 'Terreno / Lote', 'us_commercial', 'us_land_lot'].includes(propertyType)
   if (!/^\d{1,7}$/.test(area)) throw new TextCampaignValidationError('invalid_area')
   if (requiresResidential && (!BEDROOM_OPTIONS.includes(bedrooms) || !SUITE_OPTIONS.includes(suites) || !PARKING_OPTIONS.includes(parkingSpaces))) throw new TextCampaignValidationError('invalid_residential_facts')
-  if (propertyType === 'Comercial' && (bedrooms || suites || !PARKING_OPTIONS.includes(parkingSpaces))) throw new TextCampaignValidationError('invalid_commercial_facts')
-  if (propertyType === 'Terreno / Lote' && (bedrooms || suites || parkingSpaces)) throw new TextCampaignValidationError('invalid_land_facts')
+  if (['Comercial', 'us_commercial'].includes(propertyType) && (bedrooms || suites || !PARKING_OPTIONS.includes(parkingSpaces))) throw new TextCampaignValidationError('invalid_commercial_facts')
+  if (['Terreno / Lote', 'us_land_lot'].includes(propertyType) && (bedrooms || suites || parkingSpaces)) throw new TextCampaignValidationError('invalid_land_facts')
   if (!isRecord(raw.commercial)) throw new TextCampaignValidationError('invalid_commercial')
   const highlights = Array.isArray(raw.highlights) ? raw.highlights.map(item => requiredText(item, 80, 'invalid_highlight')) : null
   if (!highlights || highlights.length > TEXT_CAMPAIGN_MAX_HIGHLIGHTS || new Set(highlights.map(item => item.toLocaleLowerCase('pt-BR'))).size !== highlights.length) throw new TextCampaignValidationError('invalid_highlights')
@@ -171,6 +185,8 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
   if (typeof raw.contact_authorized !== 'boolean' || (contactAuthorized && !/^[+\d][\d\s().-]{7,31}$/.test(phone)) || (!contactAuthorized && phone)) throw new TextCampaignValidationError('invalid_contact')
 
   return {
+    language,
+    market,
     purpose,
     stage,
     property_type: propertyType,
@@ -178,9 +194,12 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
     suites,
     parking_spaces: parkingSpaces,
     area,
-    state: assertAllowed(clean(raw.state, 2), STATES, 'invalid_state'),
+    state: market === 'BR' ? assertAllowed(clean(raw.state, 2), STATES, 'invalid_state') : requiredText(raw.state, 2, 'invalid_state'),
+    county: market === 'US' ? requiredText(raw.county, 100, 'invalid_county') : '',
     city: requiredText(raw.city, 80, 'invalid_city'),
-    district: requiredText(raw.district, 80, 'invalid_district'),
+    district: market === 'BR' ? requiredText(raw.district, 80, 'invalid_district') : clean(raw.district, 80),
+    zip_code: market === 'US' && /^\d{5}(?:-\d{4})?$/.test(clean(raw.zip_code, 10)) ? clean(raw.zip_code, 10) : market === 'US' ? (() => { throw new TextCampaignValidationError('invalid_zip_code') })() : '',
+    neighborhood_community: market === 'US' ? clean(raw.neighborhood_community, 80) : '',
     highlights,
     custom_highlight: optionalText(raw.custom_highlight, 160),
     notes: optionalText(raw.notes, 1000),

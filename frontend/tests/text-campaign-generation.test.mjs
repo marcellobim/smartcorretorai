@@ -47,8 +47,22 @@ test('uses a synchronous double-click lock and a single authenticated Edge Funct
   assert.match(page, /if \(generationLockRef\.current \|\| !briefingValid\) return/)
   assert.match(page, /generationLockRef\.current = true/)
   assert.match(page, /finally \{[\s\S]*?generationLockRef\.current = false/)
-  assert.match(page, /supabase\.functions\.invoke\('generate-text-campaign',[\s\S]*?body: \{ briefing, client_request_id: generationRequestRef\.current \}/)
+  assert.match(page, /supabase\.functions\.invoke\('generate-text-campaign',[\s\S]*?body: \{ briefing, language: locale, market, client_request_id: generationRequestRef\.current \}/)
   assert.doesNotMatch(page, /model: ['"]gpt|provider:|system_prompt:/)
+})
+
+test('builds BR and US briefing payloads with explicit language and market', () => {
+  const br = validBriefing()
+  assert.equal(br.language, 'pt-BR')
+  assert.equal(br.market, 'BR')
+  const us = config.buildTextCampaignBriefing({
+    ...config.createEmptyTextCampaignAnswers(), purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', bedrooms: '2', suites: '1', parkingSpaces: '1', area: '90',
+    state: 'FL', county: 'Miami-Dade', city: 'Miami', zipCode: '33101', neighborhoodCommunity: 'Downtown', saleValueMode: 'hidden', cta: 'Agende sua visita', includeProfessionalPhone: 'no',
+  }, '', { language: 'en-US', market: 'US' })
+  assert.equal(us.language, 'en-US')
+  assert.equal(us.market, 'US')
+  assert.deepEqual({ state: us.state, county: us.county, city: us.city, zip_code: us.zip_code, neighborhood_community: us.neighborhood_community }, { state: 'FL', county: 'Miami-Dade', city: 'Miami', zip_code: '33101', neighborhood_community: 'Downtown' })
+  assert.equal(config.isTextCampaignBriefingValid(us), true)
 })
 
 test('exposes loading, disabled and aria-busy states', () => {

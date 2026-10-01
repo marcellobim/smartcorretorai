@@ -17,6 +17,9 @@ import {
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
+import { useLocale } from '../i18n/useLocale'
+import { formatPhone } from '../utils/phoneFormatters'
+import { getCountiesByState, getStatesForMarket, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { restoreProductDraftShape } from '../lib/product-draft'
 import { supabase } from '../lib/supabase'
 import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
@@ -31,7 +34,7 @@ import {
   changeTextCampaignSelectedCity,
   changeTextCampaignState,
   createEmptyTextCampaignAnswers,
-  formatTextCampaignCurrency,
+  formatTextCampaignCurrencyForMarket,
   getEffectiveTextCampaignCity,
   getTextCampaignHighlightGroups,
   getTextCampaignMeasureFields,
@@ -99,6 +102,7 @@ const emptyCommercial = () => ({
 
 export default function TextCampaign() {
   const { user, accessToken, reloadProfile } = useAuth()
+  const { locale, market } = useLocale()
   const textDraft = useProductDraft({ productKey: 'campanha-de-textos', schemaVersion: 1, userId: user?.id })
   const restoredTextDraft = textDraft.restoredDraft || {}
   const [answers, setAnswers] = useState(() => restoreProductDraftShape(createEmptyTextCampaignAnswers(), restoredTextDraft.answers))
@@ -113,7 +117,7 @@ export default function TextCampaign() {
   )
   const recoveryAttemptedRef = useRef(false)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTextDraft.conversation || null)
-  const professionalPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
+  const professionalPhone = formatPhone(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '', market)
   const conversation = useGuidedConversation({
     initialQuestionId: 'purpose',
     initialState: restoredTextDraft.conversation,
@@ -127,8 +131,8 @@ export default function TextCampaign() {
   const { trackGenerationClicked } = useAccountAnalytics(PRODUCTS.CAMPANHA_TEXTOS, reachedStep)
   const questionNumber = TEXT_CAMPAIGN_QUESTION_ORDER.indexOf(questionId) + 1
   const briefing = useMemo(
-    () => buildTextCampaignBriefing(answers, professionalPhone),
-    [answers, professionalPhone],
+    () => buildTextCampaignBriefing(answers, professionalPhone, { language: locale, market }),
+    [answers, locale, market, professionalPhone],
   )
   const briefingValid = useMemo(() => isTextCampaignBriefingValid(briefing), [briefing])
   const summaryItems = useMemo(() => buildSummaryItems(answers), [answers])
@@ -137,8 +141,8 @@ export default function TextCampaign() {
     if (campaign || generationStatus === 'loading') return
     const meaningful = conversationSnapshot?.history?.length || Object.values(answers).some(value => Array.isArray(value) ? value.length : value && typeof value === 'object' ? Object.values(value).some(Boolean) : Boolean(value))
     if (!meaningful) { textDraft.clear(); return }
-    textDraft.save({ answers, manualCityMode, conversation: conversationSnapshot })
-  }, [answers, campaign, conversationSnapshot, generationStatus, manualCityMode, textDraft])
+    textDraft.save({ answers, manualCityMode, conversation: conversationSnapshot, language: locale, market })
+  }, [answers, campaign, conversationSnapshot, generationStatus, locale, manualCityMode, market, textDraft])
 
   useEffect(() => {
     const restoredRequestId = restoredTextDraft.completedRequestId || ''
@@ -199,7 +203,7 @@ export default function TextCampaign() {
       generationRequestRef.current ||= getOrCreateTextCampaignRequestId()
       const { data, error } = await supabase.functions.invoke('generate-text-campaign', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { briefing, client_request_id: generationRequestRef.current },
+        body: { briefing, language: locale, market, client_request_id: generationRequestRef.current },
       })
       if (error) {
         const body = await readTextCampaignFunctionError(error)
@@ -264,7 +268,7 @@ export default function TextCampaign() {
         history={conversation.history}
         phase={conversation.phase}
         questionId={questionId}
-        question={TEXT_CAMPAIGN_QUESTIONS[questionId]}
+          question={questionLabel(questionId, locale)}
         questionNumber={questionNumber}
         totalQuestions={TEXT_CAMPAIGN_QUESTION_ORDER.length}
         onEdit={conversation.editAnswer}
@@ -285,6 +289,8 @@ export default function TextCampaign() {
           manualCityMode={manualCityMode}
           setManualCityMode={setManualCityMode}
           professionalPhone={professionalPhone}
+          locale={locale}
+          market={market}
           briefing={briefing}
           commit={commit}
           onEdit={conversation.editAnswer}
@@ -332,10 +338,10 @@ function QuestionContent(props) {
   return <ReviewQuestion {...props} />
 }
 
-function PurposeQuestion({ answers, setAnswers, commit }) {
+function PurposeQuestion({ answers, setAnswers, commit, locale }) {
   return <ChoiceGrid>{[
-    { id: 'sale', label: 'Venda' },
-    { id: 'rent', label: 'Locação' },
+    { id: 'sale', label: locale === 'en-US' ? 'For sale' : 'Venda' },
+    { id: 'rent', label: locale === 'en-US' ? 'For rent' : 'Locação' },
   ].map(option => <ChoiceButton key={option.id} active={answers.purpose === option.id} onClick={() => commit({
     answer: option.label,
     apply: () => setAnswers({ ...createEmptyTextCampaignAnswers(), purpose: option.id }),
@@ -349,11 +355,14 @@ function StageQuestion({ answers, setAnswers, commit }) {
   })}>{stage}</ChoiceButton>)}</ChoiceGrid>
 }
 
-function TypeQuestion({ answers, setAnswers, commit }) {
-  return <ChoiceGrid>{getTextCampaignPropertyTypes(answers.purpose).map(type => <ChoiceButton key={type} active={answers.type === type} onClick={() => commit({
-    answer: type,
+function TypeQuestion({ answers, setAnswers, commit, market, locale }) {
+  return <ChoiceGrid>{getTextCampaignPropertyTypes(answers.purpose, market).map(rawType => {
+    const type = typeof rawType === 'string' ? rawType : rawType.value
+    const label = propertyTypeLabel(type, locale)
+    return <ChoiceButton key={type} active={answers.type === type} onClick={() => commit({
+    answer: label,
     apply: () => setAnswers(current => ({ ...current, type, bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [], customHighlight: '' })),
-  })}>{type}</ChoiceButton>)}</ChoiceGrid>
+  })}>{label}</ChoiceButton>})}</ChoiceGrid>
 }
 
 function FactsQuestion({ answers, setAnswers, commit }) {
@@ -380,7 +389,8 @@ function FactsQuestion({ answers, setAnswers, commit }) {
   </div>
 }
 
-function LocationQuestion({ answers, setAnswers, manualCityMode, setManualCityMode, commit }) {
+function LocationQuestion({ answers, setAnswers, manualCityMode, setManualCityMode, commit, market }) {
+  if (market === 'US') return <UsLocationQuestion answers={answers} setAnswers={setAnswers} commit={commit} />
   const city = getEffectiveTextCampaignCity(answers)
   const ready = Boolean(answers.state && city && normalizeTextCampaignLocation(answers.district))
   return <div className="space-y-4">
@@ -408,6 +418,22 @@ function LocationQuestion({ answers, setAnswers, manualCityMode, setManualCityMo
       answer: `${normalizeTextCampaignLocation(answers.district)}, ${city} - ${answers.state}`,
       apply: () => setAnswers(current => ({ ...current, district: normalizeTextCampaignLocation(current.district) })),
     })}>Continuar</ProductButton></div>
+  </div>
+}
+
+function UsLocationQuestion({ answers, setAnswers, commit }) {
+  const counties = getCountiesByState(answers.state)
+  const zipCode = normalizeUsZipCode(answers.zipCode)
+  const ready = Boolean(answers.state && isValidCountyForState(answers.state, answers.county) && answers.city.trim() && isValidUsZipCode(zipCode))
+  return <div className="space-y-4">
+    <div className="grid gap-4 sm:grid-cols-2">
+      <FieldLabel label="State"><select aria-label="State" value={answers.state} onChange={event => setAnswers(current => ({ ...current, state: event.target.value, county: '', city: '', zipCode: '', neighborhoodCommunity: '' }))} className={inputClass}><option value="">Select state</option>{getStatesForMarket('US').map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></FieldLabel>
+      <FieldLabel label="County"><input aria-label="County" list="text-campaign-us-counties" disabled={!answers.state} value={answers.county} onChange={event => setAnswers(current => ({ ...current, county: event.target.value, city: '' }))} placeholder={answers.state ? 'Search county' : 'Select state first'} className={inputClass} /><datalist id="text-campaign-us-counties">{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</datalist></FieldLabel>
+      <FieldLabel label="City"><SmartLocationTextInput ariaLabel="City" disabled={!isValidCountyForState(answers.state, answers.county)} placeholder="City" accent="primary" value={answers.city} onChange={event => setAnswers(current => ({ ...current, city: event.target.value, cityOther: '' }))} /></FieldLabel>
+      <FieldLabel label="ZIP Code"><SmartLocationTextInput ariaLabel="ZIP Code" inputMode="numeric" placeholder="12345" accent="primary" value={answers.zipCode} onChange={event => setAnswers(current => ({ ...current, zipCode: normalizeUsZipCode(event.target.value) }))} />{answers.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs font-bold text-rose-700">Enter a valid ZIP Code.</span>}</FieldLabel>
+      <FieldLabel label="Neighborhood / Community (optional)"><SmartLocationTextInput ariaLabel="Neighborhood or community" placeholder="Neighborhood or community" accent="primary" value={answers.neighborhoodCommunity} onChange={event => setAnswers(current => ({ ...current, neighborhoodCommunity: event.target.value }))} /></FieldLabel>
+    </div>
+    <ProductButton disabled={!ready} onClick={() => commit({ answer: [answers.neighborhoodCommunity, answers.city, answers.county, answers.state, zipCode].filter(Boolean).join(', '), apply: () => setAnswers(current => ({ ...current, zipCode })) })}>Continue</ProductButton>
   </div>
 }
 
@@ -459,12 +485,12 @@ function RentalCommercialQuestion({ answers, setAnswers, commit }) {
   </div>
 }
 
-function HighlightsQuestion({ answers, setAnswers, commit }) {
-  const groups = getTextCampaignHighlightGroups(answers.type)
+function HighlightsQuestion({ answers, setAnswers, commit, market, locale }) {
+  const groups = getTextCampaignHighlightGroups(answers.type, market)
   return <div className="space-y-4">
-    {groups.map(group => <ProductCard key={group.title} variant="muted" className="p-4">
-      <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{group.title}</p>
-      <ChipCollection items={group.items} selected={answers.highlights} disabledAt={TEXT_CAMPAIGN_MAX_HIGHLIGHTS} onToggle={item => setAnswers(current => ({ ...current, highlights: toggleValue(current.highlights, item) }))} />
+    {groups.map(group => <ProductCard key={group.title || group.id} variant="muted" className="p-4">
+      <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{groupLabel(group, locale)}</p>
+      <ChipCollection items={group.items} labelFor={item => highlightLabel(typeof item === 'string' ? item : item.value, locale)} selected={answers.highlights} disabledAt={TEXT_CAMPAIGN_MAX_HIGHLIGHTS} onToggle={item => setAnswers(current => ({ ...current, highlights: toggleValue(current.highlights, typeof item === 'string' ? item : item.value) }))} />
     </ProductCard>)}
     <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{answers.highlights.length} de {TEXT_CAMPAIGN_MAX_HIGHLIGHTS} selecionados</span><ProductButton onClick={() => commit({ answer: `${answers.highlights.length} destaques` })}>Continuar</ProductButton></div>
   </div>
@@ -595,9 +621,20 @@ function ChoiceButton({ active, children, ...props }) {
   return <ProductButton type="button" variant={active ? 'primary' : 'secondary'} className="w-full" {...props}>{children}</ProductButton>
 }
 
-function ChipCollection({ items, selected, onToggle, disabledAt }) {
-  return <div className="flex flex-wrap gap-2">{items.map(item => <button key={item} type="button" disabled={!selected.includes(item) && disabledAt && selected.length >= disabledAt} onClick={() => onToggle(item)} className={`rounded-full border px-3 py-2 text-xs font-black transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${selected.includes(item) ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-primary-300'}`}>{item}</button>)}</div>
+function ChipCollection({ items, selected, onToggle, disabledAt, labelFor = item => item }) {
+  return <div className="flex flex-wrap gap-2">{items.map(rawItem => { const item = typeof rawItem === 'string' ? rawItem : rawItem.value; return <button key={item} type="button" disabled={!selected.includes(item) && disabledAt && selected.length >= disabledAt} onClick={() => onToggle(rawItem)} className={`rounded-full border px-3 py-2 text-xs font-black transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${selected.includes(item) ? 'border-primary-700 bg-primary-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-primary-300'}`}>{labelFor(item)}</button> })}</div>
 }
+
+const enLabels = {
+  purpose: 'What is the property purpose?', stage: 'What is the property status?', type: 'What type of property are you marketing?', facts: 'What are the key property details?', location: 'Where is the property located?', commercial: 'How would you like to present price and terms?', highlights: 'Which features should appear in the campaign?', custom_highlight: 'Would you like to add a custom feature?', notes: 'Any other confirmed property information?', cta: 'Which call to action should guide the campaign?', phone: 'Would you like to show your professional phone number?', review: 'Everything is ready. Review your text campaign brief.',
+}
+function questionLabel(id, locale) { return locale === 'en-US' ? (enLabels[id] || id) : TEXT_CAMPAIGN_QUESTIONS[id] }
+function propertyTypeLabel(value, locale) {
+  if (locale !== 'en-US') return value
+  return ({ Apartamento: 'Apartment', Casa: 'House', Cobertura: 'Penthouse', 'Studio / Loft': 'Studio / Loft', 'Terreno / Lote': 'Land / Lot', Comercial: 'Commercial', us_single_family_home: 'Single-family home', us_condo: 'Condo', us_townhouse: 'Townhouse', us_multi_family: 'Multi-family home', us_apartment: 'Apartment', us_studio: 'Studio', us_land_lot: 'Land / lot', us_commercial: 'Commercial property' })[value] || value
+}
+function groupLabel(group, locale) { return locale === 'en-US' ? ({ location: 'Location', communityHoa: 'Community & HOA', propertyFeatures: 'Property features', parking: 'Parking', efficiencySmartHome: 'Efficiency & smart home', commercial: 'Commercial', landLot: 'Land / lot' })[group.id] || group.title : group.title }
+function highlightLabel(value, locale) { return locale === 'en-US' ? value.replace(/^us_/, '').split('_').map(word => word[0]?.toUpperCase() + word.slice(1)).join(' ') : value }
 
 function toggleValue(values, value) {
   return values.includes(value) ? values.filter(item => item !== value) : [...values, value]

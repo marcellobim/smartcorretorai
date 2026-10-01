@@ -18,8 +18,9 @@ import {
 import { handleGenerateTextCampaign, type TextCampaignRuntimeDependencies } from './runtime.ts'
 
 const validBriefing = (): TextCampaignBriefing => ({
+  language: 'pt-BR', market: 'BR',
   purpose: 'sale', stage: 'Pronto para morar', property_type: 'Apartamento', bedrooms: '3', suites: '1', parking_spaces: '2', area: '120',
-  state: 'SP', city: 'São Paulo', district: 'Vila Mariana', highlights: ['Piscina', 'Varanda gourmet'], custom_highlight: null, notes: null,
+  state: 'SP', county: '', city: 'São Paulo', district: 'Vila Mariana', zip_code: '', neighborhood_community: '', highlights: ['Piscina', 'Varanda gourmet'], custom_highlight: null, notes: null,
   cta: 'Agende sua visita', contact_authorized: false, professional_phone: '',
   commercial: { mode: 'price', price_mode: 'fixed', price: '950000', conditions: [], commercial_terms: {} },
 })
@@ -79,6 +80,19 @@ test('accepts POST only and requires a valid Bearer user', async () => {
   assert.equal((await handleGenerateTextCampaign(request({}, 'GET'), dependencies())).status, 405)
   assert.equal((await handleGenerateTextCampaign(request(rawRequest(), 'POST', ''), dependencies())).status, 401)
   assert.equal((await handleGenerateTextCampaign(request(rawRequest()), dependencies({ authenticate: async () => null }))).status, 401)
+})
+
+test('normalizes absent or invalid locale fields to the BR defaults and accepts US location fields', () => {
+  const legacy = validateTextCampaignRequest({ briefing: validBriefing() })
+  assert.equal(legacy.language, 'pt-BR')
+  assert.equal(legacy.market, 'BR')
+  const invalid = validateTextCampaignRequest({ language: 'fr-FR', market: 'CA', briefing: validBriefing() })
+  assert.equal(invalid.language, 'pt-BR')
+  assert.equal(invalid.market, 'BR')
+  const us = validateTextCampaignRequest({ language: 'en-US', market: 'US', briefing: {
+    ...validBriefing(), language: 'en-US', market: 'US', property_type: 'us_condo', state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '33101', neighborhood_community: 'Downtown',
+  } })
+  assert.deepEqual({ language: us.language, market: us.market, state: us.state, county: us.county, city: us.city, zip_code: us.zip_code, neighborhood_community: us.neighborhood_community }, { language: 'en-US', market: 'US', state: 'FL', county: 'Miami-Dade', city: 'Miami', zip_code: '33101', neighborhood_community: 'Downtown' })
 })
 
 test('recovers a completed delivery by its existing id without OpenAI, hashtags, reservation or a new claim', async () => {
