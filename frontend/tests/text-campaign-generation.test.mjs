@@ -122,11 +122,14 @@ test('copies individual pieces and the complete campaign', async () => {
   assert.ok(orderedHeadings.every((heading, index) => index === 0 || complete.indexOf(orderedHeadings[index - 1]) < complete.indexOf(heading)))
   const applicableLinkedIn = { ...result(), linkedin: { applicable: true, text: 'LinkedIn aplicável', reason: '' } }
   assert.match(resultHelpers.formatCompleteTextCampaign(applicableLinkedIn), /LINKEDIN[\s\S]*LinkedIn aplicável/)
-  assert.match(resultComponent, /Copiar campanha completa/)
-  assert.match(resultComponent, /formatCompleteTextCampaign\(campaign\)[\s\S]*text\/plain;charset=utf-8/)
+  assert.match(resultComponent, /formatCompleteTextCampaign\(editableCampaign\)[\s\S]*text\/plain;charset=utf-8/)
   assert.match(resultComponent, /download: 'campanha-de-textos\.txt'/)
   assert.match(resultComponent, /Baixar TXT/)
   assert.match(resultComponent, /onClick=\{\(\) => copyValue\(id, content\)\}/)
+  assert.match(resultComponent, /useState\(\(\) => structuredClone\(campaign\)\)/)
+  assert.match(resultComponent, /textarea aria-label=\{label\}/)
+  assert.match(resultComponent, /campaign\.text_carousel\.slides\.map/)
+  assert.match(resultComponent, /campaign\.google_ads\.headlines\.join/)
 })
 
 test('uses a deterministic clipboard fallback without intrusive alerts', async () => {
@@ -141,14 +144,14 @@ test('uses a deterministic clipboard fallback without intrusive alerts', async (
 test('provides accessible copied feedback', () => {
   assert.match(resultComponent, /aria-live="polite"/)
   assert.match(resultComponent, /'Copiado'/)
-  assert.match(resultComponent, /copiedId === 'complete'[\s\S]*?'Copiado' : 'Copiar campanha completa'/)
+  assert.match(resultComponent, /copiedId === 'complete'[\s\S]*?resultCopy\(locale\)\.copied/)
 })
 
 test('widens only generated results and preserves responsive one/two-column layout', () => {
   assert.match(page, /campaign \? 'mx-auto w-full max-w-\[96rem\] px-smart-page py-6 sm:py-8' : SMART_UI\.page/)
   assert.match(resultComponent, /grid gap-4 lg:grid-cols-2/)
   assert.match(resultComponent, /min-w-0 p-5 sm:p-6/)
-  assert.match(resultComponent, /whitespace-pre-line break-words/)
+  assert.match(resultComponent, /resize-y rounded-xl border/)
 })
 
 test('clears generated text and restarts the briefing for a new campaign', () => {
