@@ -101,9 +101,8 @@ test('creator reserves before Veo and preserves official admin authorization', (
 test('lost responses recover provider identity and consumption follows persisted delivery', () => {
   assert.match(creator, /acceptedProviderJobId = veoResult\.providerJobId[\s\S]*updateVeoVideoEconomyTelemetry/)
   assert.match(status, /veo_video_economy_requests[\s\S]*provider_job_id/)
-  const persistAt = status.indexOf("status: 'completed',\n        output_video_path: outputPath")
-  const settleAt = status.indexOf('await settleJobEconomy', persistAt)
-  assert.ok(persistAt > 0 && settleAt > persistAt)
+  const completedPersistedBeforeSettlement = /\.update\(\{[\s\S]*?status:\s*'completed',[\s\S]*?output_video_path:\s*outputPath,[\s\S]*?\}\)[\s\S]*?await settleJobEconomy/
+  assert.match(status, completedPersistedBeforeSettlement)
   assert.match(status, /job\.status === 'completed'[\s\S]*settleJobEconomy/)
   assert.match(status, /job\.status === 'failed'[\s\S]*settleJobEconomy/)
 })
