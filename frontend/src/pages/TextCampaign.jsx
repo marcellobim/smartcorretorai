@@ -56,6 +56,7 @@ import {
 } from '../config/textCampaign'
 import {
   getTextCampaignConfirmation,
+  getTextCampaignUiLabel,
   getTextCampaignQuestion,
   getTextCampaignUiCopy,
   getTextCampaignNextQuestion,
@@ -63,12 +64,8 @@ import {
   TEXT_CAMPAIGN_QUESTIONS,
 } from '../config/textCampaignConversation'
 
-const fieldLabels = {
-  bedrooms: 'Dormitórios',
-  suites: 'Suítes',
-  parkingSpaces: 'Vagas',
-  area: 'Área',
-}
+const fieldLabel = (field, locale) => ({ bedrooms: locale === 'en-US' ? 'Bedrooms' : 'Dormitórios', suites: locale === 'en-US' ? 'Suites' : 'Suítes', parkingSpaces: locale === 'en-US' ? 'Parking spaces' : 'Vagas', area: locale === 'en-US' ? 'Area' : 'Área' })[field]
+const ui = (locale, key) => getTextCampaignUiLabel(locale, key)
 
 const TEXT_CAMPAIGN_REQUEST_STORAGE_KEY = 'smartcorretor:text-campaign:client-request-id'
 const requestIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -138,7 +135,7 @@ export default function TextCampaign() {
     [answers, locale, market, professionalPhone],
   )
   const briefingValid = useMemo(() => isTextCampaignBriefingValid(briefing), [briefing])
-  const summaryItems = useMemo(() => buildSummaryItems(answers), [answers])
+  const summaryItems = useMemo(() => buildSummaryItems(answers, locale), [answers, locale])
 
   useEffect(() => {
     if (campaign || generationStatus === 'loading') return
@@ -202,7 +199,7 @@ export default function TextCampaign() {
     setGenerationStatus('loading')
     setGenerationError('')
     try {
-      if (!accessToken) throw new Error('Sua sessão expirou. Faça login novamente.')
+      if (!accessToken) throw new Error(ui(locale, 'sessionExpired'))
       generationRequestRef.current ||= getOrCreateTextCampaignRequestId()
       const { data, error } = await supabase.functions.invoke('generate-text-campaign', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -214,16 +211,16 @@ export default function TextCampaign() {
           generationRequestRef.current = null
           clearTextCampaignRequestId()
         }
-        throw new Error(body?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
+        throw new Error(body?.error || ui(locale, 'generationFailed'))
       }
-      if (!data?.ok) throw new Error(data?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
-      if (!isCompleteTextCampaignResult(data.campaign)) throw new Error('A campanha retornou incompleta. Tente novamente.')
+      if (!data?.ok) throw new Error(data?.error || ui(locale, 'generationFailed'))
+      if (!isCompleteTextCampaignResult(data.campaign)) throw new Error(ui(locale, 'incompleteCampaign'))
       completedRequestRef.current = generationRequestRef.current
       textDraft.replace({ completedRequestId: generationRequestRef.current })
       setCampaign(data.campaign)
       setGenerationStatus('success')
     } catch (error) {
-      setGenerationError(getSmartTokenErrorMessage(error, 'Não foi possível criar a campanha agora. Tente novamente.'))
+      setGenerationError(getSmartTokenErrorMessage(error, ui(locale, 'generationFailed')))
       setGenerationStatus('error')
     } finally {
       generationLockRef.current = false
@@ -352,11 +349,11 @@ function PurposeQuestion({ answers, setAnswers, commit, locale }) {
   })}>{option.label}</ChoiceButton>)}</ChoiceGrid>
 }
 
-function StageQuestion({ answers, setAnswers, commit }) {
+function StageQuestion({ answers, setAnswers, commit, locale }) {
   return <ChoiceGrid>{getTextCampaignStageOptions(answers.purpose).map(stage => <ChoiceButton key={stage} active={answers.stage === stage} onClick={() => commit({
-    answer: stage,
+    answer: stageLabel(stage, locale),
     apply: () => setAnswers(current => ({ ...current, stage, ...emptyCommercial() })),
-  })}>{stage}</ChoiceButton>)}</ChoiceGrid>
+  })}>{stageLabel(stage, locale)}</ChoiceButton>)}</ChoiceGrid>
 }
 
 function TypeQuestion({ answers, setAnswers, commit, market, locale }) {
@@ -369,59 +366,59 @@ function TypeQuestion({ answers, setAnswers, commit, market, locale }) {
   })}>{label}</ChoiceButton>})}</ChoiceGrid>
 }
 
-function FactsQuestion({ answers, setAnswers, commit }) {
+function FactsQuestion({ answers, setAnswers, commit, locale, copy }) {
   const fields = getTextCampaignMeasureFields(answers.type)
   const ready = fields.every(field => answers[field] !== '')
   return <div className="space-y-5">
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map(field => <label key={field} className="block text-sm font-black text-slate-700">
-        <span>{fieldLabels[field]}</span>
+        <span>{fieldLabel(field, locale)}</span>
         {field === 'area' ? <input
-          aria-label="Área em metros quadrados"
+          aria-label={fieldLabel(field, locale)}
           inputMode="numeric"
           value={answers.area}
           onChange={event => setAnswers(current => ({ ...current, area: event.target.value.replace(/\D/g, '').slice(0, 7) }))}
-          placeholder="Ex.: 120"
+          placeholder={locale === 'en-US' ? 'e.g., 120' : 'Ex.: 120'}
           className={inputClass}
-        /> : <select aria-label={fieldLabels[field]} value={answers[field]} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value }))} className={inputClass}>
-          <option value="">Selecione</option>
+        /> : <select aria-label={fieldLabel(field, locale)} value={answers[field]} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value }))} className={inputClass}>
+          <option value="">{copy.select}</option>
           {SMART_TOUR_MEASURE_OPTIONS[field].map(value => <option key={value} value={value}>{value}</option>)}
         </select>}
       </label>)}
     </div>
-    <ProductButton disabled={!ready} onClick={() => commit({ answer: fields.map(field => `${fieldLabels[field]}: ${answers[field]}${field === 'area' ? ' m²' : ''}`).join(' · ') })}>Continuar</ProductButton>
+    <ProductButton disabled={!ready} onClick={() => commit({ answer: fields.map(field => `${fieldLabel(field, locale)}: ${answers[field]}${field === 'area' ? ' m²' : ''}`).join(' · ') })}>{copy.continue}</ProductButton>
   </div>
 }
 
-function LocationQuestion({ answers, setAnswers, manualCityMode, setManualCityMode, commit, market }) {
+function LocationQuestion({ answers, setAnswers, manualCityMode, setManualCityMode, commit, market, locale, copy }) {
   if (market === 'US') return <UsLocationQuestion answers={answers} setAnswers={setAnswers} commit={commit} />
   const city = getEffectiveTextCampaignCity(answers)
   const ready = Boolean(answers.state && city && normalizeTextCampaignLocation(answers.district))
   return <div className="space-y-4">
     <div className="grid gap-4 sm:grid-cols-3">
-      <FieldLabel label="Estado"><SmartCarouselStateSelect accent="primary" value={answers.state} onChange={state => {
+      <FieldLabel label={ui(locale, 'state')}><SmartCarouselStateSelect accent="primary" value={answers.state} onChange={state => {
         setManualCityMode(false)
         setAnswers(current => changeTextCampaignState(current, state))
       }} /></FieldLabel>
-      <FieldLabel label="Cidade">{manualCityMode || Boolean(answers.cityOther) ? <SmartLocationTextInput
+      <FieldLabel label={ui(locale, 'city')}>{manualCityMode || Boolean(answers.cityOther) ? <SmartLocationTextInput
         accent="primary"
-        ariaLabel="Cidade manual"
-        placeholder="Digite a cidade"
+        ariaLabel={locale === 'en-US' ? 'City (manual)' : 'Cidade manual'}
+        placeholder={locale === 'en-US' ? 'Enter city' : 'Digite a cidade'}
         value={answers.cityOther}
         onChange={event => setAnswers(current => changeTextCampaignManualCity(current, event.target.value))}
       /> : <SmartCarouselCitySelect accent="primary" uf={answers.state} value={answers.city} onChange={cityValue => setAnswers(current => changeTextCampaignSelectedCity(current, cityValue))} />}</FieldLabel>
-      <FieldLabel label="Bairro"><SmartLocationTextInput accent="primary" value={answers.district} onChange={event => setAnswers(current => ({ ...current, district: event.target.value }))} /></FieldLabel>
+      <FieldLabel label={ui(locale, 'district')}><SmartLocationTextInput accent="primary" value={answers.district} onChange={event => setAnswers(current => ({ ...current, district: event.target.value }))} /></FieldLabel>
     </div>
     {answers.state && <ProductButton variant="ghost" size="sm" onClick={() => {
       setManualCityMode(current => !current)
       setAnswers(current => current.cityOther
         ? changeTextCampaignSelectedCity(current, '')
         : changeTextCampaignManualCity(current, ''))
-    }}>{manualCityMode || answers.cityOther ? 'Voltar para a lista de cidades' : 'Não encontrou sua cidade? Digite manualmente.'}</ProductButton>}
+    }}>{manualCityMode || answers.cityOther ? ui(locale, 'backToCities') : ui(locale, 'cityNotFound')}</ProductButton>}
     <div><ProductButton disabled={!ready} onClick={() => commit({
       answer: `${normalizeTextCampaignLocation(answers.district)}, ${city} - ${answers.state}`,
       apply: () => setAnswers(current => ({ ...current, district: normalizeTextCampaignLocation(current.district) })),
-    })}>Continuar</ProductButton></div>
+    })}>{copy.continue}</ProductButton></div>
   </div>
 }
 
@@ -445,7 +442,7 @@ function CommercialQuestion(props) {
   return props.answers.purpose === 'rent' ? <RentalCommercialQuestion {...props} /> : <SaleCommercialQuestion {...props} />
 }
 
-function SaleCommercialQuestion({ answers, setAnswers, commit }) {
+function SaleCommercialQuestion({ answers, setAnswers, commit, locale, copy }) {
   const termsAvailable = textCampaignCommercialTermsAvailable(answers.stage)
   const normalizedTerms = Object.values(answers.commercialTerms).some(Boolean)
   const valid = answers.saleValueMode === 'hidden'
@@ -458,85 +455,85 @@ function SaleCommercialQuestion({ answers, setAnswers, commit }) {
   }))
   return <div className="space-y-5">
     <ChoiceGrid>{[
-      ['price', 'Informar preço'],
-      ['conditions', 'Destacar condições'],
-      ['hidden', 'Não informar valores'],
+      ['price', ui(locale, 'showPrice')],
+      ['conditions', ui(locale, 'highlightTerms')],
+      ['hidden', ui(locale, 'hideValues')],
     ].map(([id, label]) => <ChoiceButton key={id} active={answers.saleValueMode === id} onClick={() => chooseMode(id)}>{label}</ChoiceButton>)}</ChoiceGrid>
     {answers.saleValueMode === 'price' && <ProductCard variant="muted" className="space-y-4 p-4">
-      <ChoiceGrid>{[['fixed', 'Preço fixo'], ['starting_at', 'A partir de']].map(([id, label]) => <ChoiceButton key={id} active={answers.salePriceMode === id} onClick={() => setAnswers(current => ({ ...current, salePriceMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
-      <input aria-label="Valor de venda" inputMode="numeric" value={formatTextCampaignCurrency(answers.salePrice)} onChange={event => setAnswers(current => ({ ...current, salePrice: event.target.value.replace(/\D/g, '').slice(0, 12) }))} placeholder="R$ 0" className={inputClass} />
+      <ChoiceGrid>{[['fixed', ui(locale, 'fixedPrice')], ['starting_at', ui(locale, 'startingAt')]].map(([id, label]) => <ChoiceButton key={id} active={answers.salePriceMode === id} onClick={() => setAnswers(current => ({ ...current, salePriceMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
+      <input aria-label={ui(locale, 'salePrice')} inputMode="numeric" value={formatTextCampaignCurrency(answers.salePrice)} onChange={event => setAnswers(current => ({ ...current, salePrice: event.target.value.replace(/\D/g, '').slice(0, 12) }))} placeholder={ui(locale, 'pricePlaceholder')} className={inputClass} />
     </ProductCard>}
     {answers.saleValueMode === 'conditions' && <div className="space-y-4">
       <ChipCollection items={TEXT_CAMPAIGN_SALE_CONDITIONS} selected={answers.saleConditions} onToggle={item => setAnswers(current => ({ ...current, saleConditions: toggleValue(current.saleConditions, item) }))} />
       {termsAvailable && <ProductCard variant="muted" className="p-4">
-        <p className="mb-3 text-sm font-black text-slate-700">Adicione chamadas comerciais ao texto, se quiser.</p>
+        <p className="mb-3 text-sm font-black text-slate-700">{ui(locale, 'addTerms')}</p>
         <div className="grid gap-3 sm:grid-cols-3">{TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS.map(field => <label key={field.id} className="text-xs font-black text-slate-600">{field.label}<input inputMode="numeric" aria-label={field.label} value={formatTextCampaignCurrency(answers.commercialTerms[field.id])} onChange={event => setAnswers(current => ({ ...current, commercialTerms: { ...current.commercialTerms, [field.id]: event.target.value.replace(/\D/g, '').slice(0, 12) } }))} className={inputClass} /></label>)}</div>
       </ProductCard>}
     </div>}
-    <ProductButton disabled={!valid} onClick={() => commit({ answer: saleCommercialLabel(answers) })}>Continuar</ProductButton>
+    <ProductButton disabled={!valid} onClick={() => commit({ answer: saleCommercialLabel(answers, locale) })}>{copy.continue}</ProductButton>
   </div>
 }
 
-function RentalCommercialQuestion({ answers, setAnswers, commit }) {
+function RentalCommercialQuestion({ answers, setAnswers, commit, locale, copy }) {
   const valid = answers.rentValueMode === 'hidden' || (answers.rentValueMode === 'show' && answers.rentPrice && answers.rentGuarantee)
   return <div className="space-y-5">
-    <ChoiceGrid>{[['show', 'Informar valores'], ['hidden', 'Não informar valores']].map(([id, label]) => <ChoiceButton key={id} active={answers.rentValueMode === id} onClick={() => setAnswers(current => ({ ...current, ...emptyCommercial(), rentValueMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
+    <ChoiceGrid>{[['show', ui(locale, 'showPrice')], ['hidden', ui(locale, 'hideValues')]].map(([id, label]) => <ChoiceButton key={id} active={answers.rentValueMode === id} onClick={() => setAnswers(current => ({ ...current, ...emptyCommercial(), rentValueMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
     {answers.rentValueMode === 'show' && <ProductCard variant="muted" className="grid gap-4 p-4 sm:grid-cols-2">
       {[['rentPrice', 'Aluguel'], ['condominium', 'Condomínio'], ['iptu', 'IPTU']].map(([field, label]) => <label key={field} className="text-sm font-black text-slate-700">{label}<input aria-label={label} inputMode="numeric" value={formatTextCampaignCurrency(answers[field])} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value.replace(/\D/g, '').slice(0, 12) }))} className={inputClass} /></label>)}
       <label className="text-sm font-black text-slate-700">Garantia<select aria-label="Garantia de locação" value={answers.rentGuarantee} onChange={event => setAnswers(current => ({ ...current, rentGuarantee: event.target.value }))} className={inputClass}><option value="">Selecione</option>{TEXT_CAMPAIGN_RENT_GUARANTEES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
     </ProductCard>}
-    <ProductButton disabled={!valid} onClick={() => commit({ answer: answers.rentValueMode === 'hidden' ? 'Sem valores de locação' : `Aluguel ${formatTextCampaignCurrency(answers.rentPrice)}` })}>Continuar</ProductButton>
+    <ProductButton disabled={!valid} onClick={() => commit({ answer: answers.rentValueMode === 'hidden' ? ui(locale, 'rentalPricesNotProvided') : `${ui(locale, 'rent')} ${formatTextCampaignCurrency(answers.rentPrice)}` })}>{copy.continue}</ProductButton>
   </div>
 }
 
-function HighlightsQuestion({ answers, setAnswers, commit, market, locale }) {
+function HighlightsQuestion({ answers, setAnswers, commit, market, locale, copy }) {
   const groups = getTextCampaignHighlightGroups(answers.type, market)
   return <div className="space-y-4">
     {groups.map(group => <ProductCard key={group.title || group.id} variant="muted" className="p-4">
       <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{groupLabel(group, locale)}</p>
       <ChipCollection items={group.items} labelFor={item => highlightLabel(typeof item === 'string' ? item : item.value, locale)} selected={answers.highlights} disabledAt={TEXT_CAMPAIGN_MAX_HIGHLIGHTS} onToggle={item => setAnswers(current => ({ ...current, highlights: toggleValue(current.highlights, typeof item === 'string' ? item : item.value) }))} />
     </ProductCard>)}
-    <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{answers.highlights.length} de {TEXT_CAMPAIGN_MAX_HIGHLIGHTS} selecionados</span><ProductButton onClick={() => commit({ answer: `${answers.highlights.length} destaques` })}>Continuar</ProductButton></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{answers.highlights.length} / {TEXT_CAMPAIGN_MAX_HIGHLIGHTS} {ui(locale, 'selected')}</span><ProductButton onClick={() => commit({ answer: `${answers.highlights.length} ${ui(locale, 'highlights')}` })}>{copy.continue}</ProductButton></div>
   </div>
 }
 
-function OptionalTextQuestion({ questionId, answers, setAnswers, commit, field, placeholder, multiline = false }) {
+function OptionalTextQuestion({ questionId, answers, setAnswers, commit, field, placeholder, multiline = false, locale, copy }) {
   const Control = multiline ? 'textarea' : 'input'
   const value = answers[field]
   return <div className="space-y-4">
-    <Control aria-label={TEXT_CAMPAIGN_QUESTIONS[questionId]} value={value} rows={multiline ? 5 : undefined} maxLength={multiline ? 1000 : 160} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value }))} placeholder={placeholder} className={inputClass} />
-    <div className="flex flex-wrap gap-3"><ProductButton disabled={!value.trim()} onClick={() => commit({ answer: value.trim(), apply: () => setAnswers(current => ({ ...current, [field]: value.trim() })) })}>Continuar</ProductButton><ProductButton variant="ghost" onClick={() => commit({ answer: 'Não informar', apply: () => setAnswers(current => ({ ...current, [field]: '' })) })}>Não informar</ProductButton></div>
+    <Control aria-label={getTextCampaignQuestion(questionId, locale)} value={value} rows={multiline ? 5 : undefined} maxLength={multiline ? 1000 : 160} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value }))} placeholder={questionId === 'notes' ? ui(locale, 'notesPlaceholder') : ui(locale, 'customHighlightPlaceholder')} className={inputClass} />
+    <div className="flex flex-wrap gap-3"><ProductButton disabled={!value.trim()} onClick={() => commit({ answer: value.trim(), apply: () => setAnswers(current => ({ ...current, [field]: value.trim() })) })}>{copy.continue}</ProductButton><ProductButton variant="ghost" onClick={() => commit({ answer: ui(locale, 'doNotInform'), apply: () => setAnswers(current => ({ ...current, [field]: '' })) })}>{ui(locale, 'doNotInform')}</ProductButton></div>
   </div>
 }
 
-function CtaQuestion({ answers, setAnswers, commit }) {
-  return <ChoiceGrid>{TEXT_CAMPAIGN_CTA_OPTIONS.map(cta => <ChoiceButton key={cta} active={answers.cta === cta} onClick={() => commit({ answer: cta, apply: () => setAnswers(current => ({ ...current, cta })) })}>{cta}</ChoiceButton>)}</ChoiceGrid>
+function CtaQuestion({ answers, setAnswers, commit, locale }) {
+  return <ChoiceGrid>{TEXT_CAMPAIGN_CTA_OPTIONS.map(cta => <ChoiceButton key={cta} active={answers.cta === cta} onClick={() => commit({ answer: ctaLabel(cta, locale), apply: () => setAnswers(current => ({ ...current, cta })) })}>{ctaLabel(cta, locale)}</ChoiceButton>)}</ChoiceGrid>
 }
 
-function PhoneQuestion({ answers, setAnswers, commit, professionalPhone }) {
+function PhoneQuestion({ answers, setAnswers, commit, professionalPhone, locale }) {
   return <div className="space-y-4">
-    {!professionalPhone && <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">Nenhum telefone profissional foi encontrado no perfil. Você pode seguir sem telefone.</p>}
+    {!professionalPhone && <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">{ui(locale, 'phoneUnavailable')}</p>}
     <ChoiceGrid>
-      <ChoiceButton active={answers.includeProfessionalPhone === 'yes'} disabled={!professionalPhone} onClick={() => commit({ answer: 'Telefone profissional', apply: () => setAnswers(current => ({ ...current, includeProfessionalPhone: 'yes' })) })}>Usar telefone profissional</ChoiceButton>
-      <ChoiceButton active={answers.includeProfessionalPhone === 'no'} onClick={() => commit({ answer: 'Sem telefone', apply: () => setAnswers(current => ({ ...current, includeProfessionalPhone: 'no' })) })}>Não divulgar telefone</ChoiceButton>
+      <ChoiceButton active={answers.includeProfessionalPhone === 'yes'} disabled={!professionalPhone} onClick={() => commit({ answer: ui(locale, 'phoneAuthorized'), apply: () => setAnswers(current => ({ ...current, includeProfessionalPhone: 'yes' })) })}>{ui(locale, 'usePhone')}</ChoiceButton>
+      <ChoiceButton active={answers.includeProfessionalPhone === 'no'} onClick={() => commit({ answer: ui(locale, 'noPhone'), apply: () => setAnswers(current => ({ ...current, includeProfessionalPhone: 'no' })) })}>{ui(locale, 'noPhone')}</ChoiceButton>
     </ChoiceGrid>
   </div>
 }
 
-function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview }) {
-  const groups = buildReviewGroups(answers, briefing)
+function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview, locale, copy }) {
+  const groups = buildReviewGroups(answers, briefing, locale)
   const loading = generationStatus === 'loading'
   return <div className="space-y-5" aria-busy={busy || loading}>
-    <ProductSectionHeading eyebrow="Revisão final" title="Confira antes de criar" />
+    <ProductSectionHeading eyebrow={copy.reviewEyebrow} title={copy.reviewTitle} />
     <div className="grid gap-4 sm:grid-cols-2">{groups.map(group => <ProductCard key={group.id} variant="muted" className="p-4">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black text-slate-900">{group.title}</p><p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-slate-600">{group.value}</p></div><ProductButton size="sm" variant="ghost" onClick={() => onEdit(group.editId)}>Editar</ProductButton></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black text-slate-900">{group.title}</p><p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-slate-600">{group.value}</p></div><ProductButton size="sm" variant="ghost" onClick={() => onEdit(group.editId)}>{copy.edit}</ProductButton></div>
     </ProductCard>)}</div>
     {generationError && <ProductCard role="alert" variant="muted" className="border-rose-200 p-4">
       <p className="text-sm font-black text-rose-800">{generationError}</p>
-      <div className="mt-4 flex flex-wrap gap-3"><ProductButton variant="danger" disabled={loading} onClick={onRetry}>Tentar novamente</ProductButton><ProductButton variant="ghost" disabled={loading} onClick={onReview}>Voltar à revisão</ProductButton></div>
+      <div className="mt-4 flex flex-wrap gap-3"><ProductButton variant="danger" disabled={loading} onClick={onRetry}>{copy.retry}</ProductButton><ProductButton variant="ghost" disabled={loading} onClick={onReview}>{copy.backToReview}</ProductButton></div>
     </ProductCard>}
-    <SmartTokenEstimate cost={SMART_TOKEN_COSTS.textCampaign} quantityLabel="Google Ads incluído" />
-    <ProductButton disabled={!briefingValid || loading} loading={loading} onClick={onGenerate} className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />Criar Campanha de Textos</ProductButton>
+    <SmartTokenEstimate cost={SMART_TOKEN_COSTS.textCampaign} quantityLabel={locale === 'en-US' ? 'Google Ads included' : 'Google Ads incluído'} />
+    <ProductButton disabled={!briefingValid || loading} loading={loading} onClick={onGenerate} className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />{copy.create}</ProductButton>
   </div>
 }
 
@@ -548,51 +545,51 @@ async function readTextCampaignFunctionError(error) {
   }
 }
 
-function buildSummaryItems(answers) {
+function buildSummaryItems(answers, locale) {
   const city = getEffectiveTextCampaignCity(answers)
   return [
-    answers.purpose && { id: 'purpose', label: answers.purpose === 'sale' ? 'Venda' : 'Locação' },
-    answers.stage && { id: 'stage', label: answers.stage },
-    answers.type && { id: 'type', label: answers.type },
-    getTextCampaignMeasureFields(answers.type).some(field => answers[field]) && { id: 'facts', label: 'Ficha do imóvel' },
+    answers.purpose && { id: 'purpose', label: answers.purpose === 'sale' ? ui(locale, 'sale') : ui(locale, 'rentPurpose') },
+    answers.stage && { id: 'stage', label: stageLabel(answers.stage, locale) },
+    answers.type && { id: 'type', label: propertyTypeLabel(answers.type, locale) },
+    getTextCampaignMeasureFields(answers.type).some(field => answers[field]) && { id: 'facts', label: ui(locale, 'facts') },
     city && { id: 'location', label: [answers.district, city, answers.state].filter(Boolean).join(', ') },
-    (answers.saleValueMode || answers.rentValueMode) && { id: 'commercial', label: 'Valores e condições' },
-    { id: 'highlights', label: `${answers.highlights.length} destaques` },
+    (answers.saleValueMode || answers.rentValueMode) && { id: 'commercial', label: ui(locale, 'commercial') },
+    { id: 'highlights', label: `${answers.highlights.length} ${ui(locale, 'highlights')}` },
     answers.customHighlight && { id: 'custom_highlight', label: answers.customHighlight },
-    answers.notes && { id: 'notes', label: 'Observações adicionais' },
-    answers.cta && { id: 'cta', label: answers.cta },
-    answers.includeProfessionalPhone && { id: 'phone', label: answers.includeProfessionalPhone === 'yes' ? 'Com telefone' : 'Sem telefone' },
+    answers.notes && { id: 'notes', label: ui(locale, 'notes') },
+    answers.cta && { id: 'cta', label: ctaLabel(answers.cta, locale) },
+    answers.includeProfessionalPhone && { id: 'phone', label: answers.includeProfessionalPhone === 'yes' ? ui(locale, 'phoneAuthorized') : ui(locale, 'noPhone') },
   ].filter(Boolean)
 }
 
-function buildReviewGroups(answers, briefing) {
-  const facts = getTextCampaignMeasureFields(answers.type).map(field => `${fieldLabels[field]}: ${answers[field] || 'não informado'}${field === 'area' && answers[field] ? ' m²' : ''}`).join('\n')
+function buildReviewGroups(answers, briefing, locale) {
+  const facts = getTextCampaignMeasureFields(answers.type).map(field => `${fieldLabel(field, locale)}: ${answers[field] || (locale === 'en-US' ? 'not provided' : 'não informado')}${field === 'area' && answers[field] ? ' m²' : ''}`).join('\n')
   return [
-    { id: 'objective', title: 'Objetivo', editId: 'purpose', value: `${answers.purpose === 'sale' ? 'Venda' : 'Locação'} · ${answers.stage}` },
-    { id: 'property', title: 'Imóvel', editId: 'type', value: answers.type },
-    { id: 'location', title: 'Localização', editId: 'location', value: [briefing.district, briefing.city, briefing.state].filter(Boolean).join(', ') },
-    { id: 'facts', title: 'Ficha', editId: 'facts', value: facts },
-    { id: 'highlights', title: 'Diferenciais', editId: 'highlights', value: [...answers.highlights, answers.customHighlight].filter(Boolean).join(' · ') || 'Nenhum destaque informado' },
-    { id: 'commercial', title: 'Condições comerciais', editId: 'commercial', value: describeCommercial(answers) },
-    { id: 'notes', title: 'Observações', editId: 'notes', value: answers.notes || 'Sem observações adicionais' },
-    { id: 'communication', title: 'CTA/contato', editId: 'cta', value: `${answers.cta}\n${briefing.contact_authorized ? 'Telefone profissional autorizado' : 'Sem telefone'}` },
+    { id: 'objective', title: ui(locale, 'objective'), editId: 'purpose', value: `${answers.purpose === 'sale' ? ui(locale, 'sale') : ui(locale, 'rentPurpose')} · ${stageLabel(answers.stage, locale)}` },
+    { id: 'property', title: ui(locale, 'property'), editId: 'type', value: propertyTypeLabel(answers.type, locale) },
+    { id: 'location', title: ui(locale, 'location'), editId: 'location', value: [briefing.district, briefing.city, briefing.state].filter(Boolean).join(', ') },
+    { id: 'facts', title: ui(locale, 'details'), editId: 'facts', value: facts },
+    { id: 'highlights', title: ui(locale, 'features'), editId: 'highlights', value: [...answers.highlights, answers.customHighlight].filter(Boolean).map(item => highlightLabel(item, locale)).join(' · ') || ui(locale, 'noHighlights') },
+    { id: 'commercial', title: ui(locale, 'terms'), editId: 'commercial', value: describeCommercial(answers, locale) },
+    { id: 'notes', title: ui(locale, 'notes'), editId: 'notes', value: answers.notes || ui(locale, 'noNotes') },
+    { id: 'communication', title: ui(locale, 'communication'), editId: 'cta', value: `${ctaLabel(answers.cta, locale)}\n${briefing.contact_authorized ? ui(locale, 'phoneAuthorized') : ui(locale, 'noPhone')}` },
   ]
 }
 
-function describeCommercial(answers) {
+function describeCommercial(answers, locale) {
   if (answers.purpose === 'rent') {
-    if (answers.rentValueMode === 'hidden') return 'Valores não informados'
-    return [`Aluguel: ${formatTextCampaignCurrency(answers.rentPrice)}`, answers.condominium && `Condomínio: ${formatTextCampaignCurrency(answers.condominium)}`, answers.iptu && `IPTU: ${formatTextCampaignCurrency(answers.iptu)}`, answers.rentGuarantee && `Garantia: ${answers.rentGuarantee}`].filter(Boolean).join('\n')
+    if (answers.rentValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
+    return [`${ui(locale, 'rent')}: ${formatTextCampaignCurrency(answers.rentPrice)}`, answers.condominium && `${ui(locale, 'condominium')}: ${formatTextCampaignCurrency(answers.condominium)}`, answers.iptu && `${ui(locale, 'tax')}: ${formatTextCampaignCurrency(answers.iptu)}`, answers.rentGuarantee && `${ui(locale, 'guarantee')}: ${answers.rentGuarantee}`].filter(Boolean).join('\n')
   }
-  if (answers.saleValueMode === 'hidden') return 'Valores não informados'
-  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? 'A partir de' : 'Preço fixo'}: ${formatTextCampaignCurrency(answers.salePrice)}`
+  if (answers.saleValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
+  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')}: ${formatTextCampaignCurrency(answers.salePrice)}`
   return [...answers.saleConditions, ...TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS.map(field => answers.commercialTerms[field.id] && `${field.label}: ${formatTextCampaignCurrency(answers.commercialTerms[field.id])}`).filter(Boolean)].join('\n')
 }
 
-function saleCommercialLabel(answers) {
-  if (answers.saleValueMode === 'hidden') return 'Sem valores de venda'
-  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? 'A partir de' : 'Preço fixo'} ${formatTextCampaignCurrency(answers.salePrice)}`
-  return `${answers.saleConditions.length} condições comerciais`
+function saleCommercialLabel(answers, locale) {
+  if (answers.saleValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
+  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')} ${formatTextCampaignCurrency(answers.salePrice)}`
+  return `${answers.saleConditions.length} ${ui(locale, 'terms')}`
 }
 
 function resetAnswerForEdit(questionId, setAnswers, setManualCityMode) {
@@ -637,6 +634,8 @@ function propertyTypeLabel(value, locale) {
   if (locale !== 'en-US') return value
   return ({ Apartamento: 'Apartment', Casa: 'House', Cobertura: 'Penthouse', 'Studio / Loft': 'Studio / Loft', 'Terreno / Lote': 'Land / Lot', Comercial: 'Commercial', us_single_family_home: 'Single-family home', us_condo: 'Condo', us_townhouse: 'Townhouse', us_multi_family: 'Multi-family home', us_apartment: 'Apartment', us_studio: 'Studio', us_land_lot: 'Land / lot', us_commercial: 'Commercial property' })[value] || value
 }
+function stageLabel(value, locale) { return locale === 'en-US' ? ({ 'Pré-lançamento': 'Pre-launch', 'Lançamento': 'Launch', 'Em obras': 'Under construction', 'Pronto para morar': 'Move-in ready', 'Disponível já': 'Available now', Vago: 'Vacant' })[value] || value : value }
+function ctaLabel(value, locale) { return locale === 'en-US' ? ({ 'Fale comigo': 'Get in touch', 'Saiba mais': 'Learn more', 'Agende sua visita': 'Schedule a visit', 'Conheça as condições': 'Explore the terms', 'Quero informações': 'Request information', 'Chamar no WhatsApp': 'Message on WhatsApp' })[value] || value : value }
 function groupLabel(group, locale) { return locale === 'en-US' ? ({ location: 'Location', communityHoa: 'Community & HOA', propertyFeatures: 'Property features', parking: 'Parking', efficiencySmartHome: 'Efficiency & smart home', commercial: 'Commercial', landLot: 'Land / lot' })[group.id] || group.title : group.title }
 function highlightLabel(value, locale) { return locale === 'en-US' ? value.replace(/^us_/, '').split('_').map(word => word[0]?.toUpperCase() + word.slice(1)).join(' ') : value }
 

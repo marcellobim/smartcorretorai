@@ -75,8 +75,8 @@ test('preserves briefing on errors and offers manual review and retry', () => {
   const generationBlock = page.slice(page.indexOf('const generateCampaign'), page.indexOf('const createNewCampaign'))
   assert.match(generationBlock, /setGenerationError/)
   assert.doesNotMatch(generationBlock, /setAnswers|resetConversation/)
-  assert.match(page, />Tentar novamente</)
-  assert.match(page, />Voltar à revisão</)
+  assert.match(page, /\{copy\.retry\}/)
+  assert.match(page, /\{copy\.backToReview\}/)
   assert.match(page, /onRetry=\{generateCampaign\}/)
 })
 

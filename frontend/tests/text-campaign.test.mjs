@@ -71,8 +71,8 @@ test('uses the shared Estado, IBGE Cidade and typed Bairro controls', () => {
 test('supports a manual city fallback and one effective city', () => {
   assert.equal(config.getEffectiveTextCampaignCity({ city: 'Campinas', cityOther: '' }), 'Campinas')
   assert.equal(config.getEffectiveTextCampaignCity({ city: 'Campinas', cityOther: 'santos' }), 'Santos')
-  assert.match(page, /Não encontrou sua cidade\? Digite manualmente\./)
-  assert.match(page, /ariaLabel="Cidade manual"/)
+  assert.match(page, /ui\(locale, 'cityNotFound'\)/)
+  assert.match(page, /ariaLabel=\{locale === 'en-US' \? 'City \(manual\)' : 'Cidade manual'\}/)
 })
 
 test('clears dependent location values safely', () => {
@@ -83,8 +83,8 @@ test('clears dependent location values safely', () => {
 })
 
 test('keeps fixed and starting-at price in the original price contract', () => {
-  assert.match(page, /\['fixed', 'Preço fixo'\]/)
-  assert.match(page, /\['starting_at', 'A partir de'\]/)
+  assert.match(page, /\['fixed', ui\(locale, 'fixedPrice'\)\]/)
+  assert.match(page, /\['starting_at', ui\(locale, 'startingAt'\)\]/)
   const briefing = config.buildTextCampaignBriefing({ ...config.createEmptyTextCampaignAnswers(), purpose: 'sale', saleValueMode: 'price', salePriceMode: 'starting_at', salePrice: '500000' })
   assert.equal(briefing.commercial.price_mode, 'starting_at')
   assert.equal(briefing.commercial.price, '500000')
@@ -147,8 +147,8 @@ test('uses only the authenticated profile phone with explicit authorization', ()
 })
 
 test('renders an organized final review', () => {
-  for (const label of ['Objetivo', 'Imóvel', 'Localização', 'Ficha', 'Diferenciais', 'Condições comerciais', 'Observações', 'CTA/contato']) assert.ok(page.includes(label))
-  assert.match(page, /<ProductSectionHeading eyebrow="Revisão final"/)
+  for (const label of ['objective', 'property', 'location', 'details', 'features', 'terms', 'notes', 'communication']) assert.match(page, new RegExp(`ui\\(locale, '${label}'\\)`))
+  assert.match(page, /<ProductSectionHeading eyebrow=\{copy\.reviewEyebrow\}/)
 })
 
 test('keeps edit actions connected to GuidedConversation', () => {
