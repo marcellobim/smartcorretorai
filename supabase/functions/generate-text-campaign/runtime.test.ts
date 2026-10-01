@@ -6,6 +6,7 @@ import {
   applyFinalTextCampaignRules,
   buildTextCampaignHashtagContext,
   buildTextCampaignOpenAIRequest,
+  TEXT_CAMPAIGN_EN_US_SYSTEM_PROMPT,
   TEXT_CAMPAIGN_DELIVERY_KEYS,
   TEXT_CAMPAIGN_MODEL,
   TEXT_CAMPAIGN_SYSTEM_PROMPT,
@@ -93,6 +94,20 @@ test('normalizes absent or invalid locale fields to the BR defaults and accepts 
     ...validBriefing(), language: 'en-US', market: 'US', property_type: 'us_condo', state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '33101', neighborhood_community: 'Downtown',
   } })
   assert.deepEqual({ language: us.language, market: us.market, state: us.state, county: us.county, city: us.city, zip_code: us.zip_code, neighborhood_community: us.neighborhood_community }, { language: 'en-US', market: 'US', state: 'FL', county: 'Miami-Dade', city: 'Miami', zip_code: '33101', neighborhood_community: 'Downtown' })
+})
+
+test('keeps the PT-BR prompt and builds an EN-US prompt with presented business values', () => {
+  const pt = buildTextCampaignOpenAIRequest(validBriefing())
+  assert.equal(pt.messages[0].content, TEXT_CAMPAIGN_SYSTEM_PROMPT)
+  const us = {
+    ...validBriefing(), language: 'en-US' as const, market: 'US' as const, property_type: 'us_condo', state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '33101', neighborhood_community: 'Downtown', cta: 'Agende sua visita', highlights: ['us_near_parks'],
+  }
+  const request = buildTextCampaignOpenAIRequest(us)
+  assert.equal(request.messages[0].content, TEXT_CAMPAIGN_EN_US_SYSTEM_PROMPT)
+  const presented = JSON.parse(String(request.messages[1].content)).briefing
+  assert.equal(presented.property_type, 'Condo')
+  assert.equal(presented.cta, 'Schedule your visit')
+  assert.equal(presented.highlights[0], 'Near Parks')
 })
 
 test('recovers a completed delivery by its existing id without OpenAI, hashtags, reservation or a new claim', async () => {

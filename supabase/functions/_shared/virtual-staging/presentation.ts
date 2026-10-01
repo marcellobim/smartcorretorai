@@ -8,9 +8,9 @@ const present = (input: unknown, labels: Record<string, string>, language?: Supp
 }
 
 const PURPOSES = Object.freeze({ Venda: 'For Sale', Locação: 'For Rent', sale: 'For Sale', rent: 'For Rent', rental: 'For Rent' })
-const PROPERTY_TYPES = Object.freeze({ Apartamento: 'Apartment', Casa: 'House', Cobertura: 'Penthouse', 'Studio / Loft': 'Studio / Loft', 'Terreno / Lote': 'Land / Lot', Comercial: 'Commercial Property' })
+const PROPERTY_TYPES = Object.freeze({ Apartamento: 'Apartment', Casa: 'House', Cobertura: 'Penthouse', 'Studio / Loft': 'Studio / Loft', 'Terreno / Lote': 'Land / Lot', Comercial: 'Commercial Property', us_single_family_home: 'Single-family home', us_condo: 'Condo', us_townhouse: 'Townhouse', us_multi_family: 'Multi-family home', us_apartment: 'Apartment', us_studio: 'Studio', us_land_lot: 'Land / lot', us_commercial: 'Commercial property' })
 const STAGES = Object.freeze({ 'Pré-lançamento': 'Pre-launch', Lançamento: 'Launch', 'Em obras': 'Under construction', 'Pronto para morar': 'Move-in ready', 'Disponível já': 'Available now', Vago: 'Vacant' })
-const CTAS = Object.freeze({ 'Agende sua visita': 'Schedule a tour', 'Saiba mais': 'Learn more', 'Entre em contato agora': 'Contact us now', 'Fale comigo': 'Talk to me' })
+const CTAS = Object.freeze({ 'Agende sua visita': 'Schedule your visit', 'Saiba mais': 'Learn more', 'Entre em contato agora': 'Contact us now', 'Fale comigo': 'Get in touch', 'Conheça as condições': 'Explore the terms', 'Quero informações': 'Request information', 'Chamar no WhatsApp': 'Message on WhatsApp' })
 const LIFE_PROFILES_PT_BR: Record<LifeScene, string> = Object.freeze({ young: 'jovens', young_dog: 'jovens com cachorro', young_cat: 'jovens com gato', adult: 'adultos', adult_dog: 'adultos com cachorro', adult_cat: 'adultos com gato', senior: 'idosos', senior_dog: 'idosos com cachorro', senior_cat: 'idosos com gato' })
 const LIFE_PROFILES_EN_US: Record<LifeScene, string> = Object.freeze({ young: 'Young adults', young_dog: 'Young adults with a dog', young_cat: 'Young adults with a cat', adult: 'Adults', adult_dog: 'Adults with a dog', adult_cat: 'Adults with a cat', senior: 'Seniors', senior_dog: 'Seniors with a dog', senior_cat: 'Seniors with a cat' })
 const METRICS = Object.freeze({ bedrooms: 'bedrooms', suites: 'suites', parkingSpaces: 'parking spaces', area: 'sq ft' })
@@ -35,6 +35,10 @@ export const presentLifeProfile = (input: unknown, language?: SupportedLanguage)
   const profiles = locale(language) === 'en-US' ? LIFE_PROFILES_EN_US : LIFE_PROFILES_PT_BR
   return profiles[raw as LifeScene] || raw
 }
-export const presentHighlight = (input: unknown, language?: SupportedLanguage) => present(input, HIGHLIGHTS, language)
+export const presentHighlight = (input: unknown, language?: SupportedLanguage) => {
+  const raw = value(input)
+  if (locale(language) === 'en-US' && raw.startsWith('us_')) return raw.slice(3).split('_').map(part => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
+  return present(raw, HIGHLIGHTS, language)
+}
 export const presentHighlights = (inputs: unknown, language?: SupportedLanguage) => Array.isArray(inputs) ? inputs.map(item => presentHighlight(item, language)).filter(Boolean) : []
 export const presentMetricLabel = (metric: keyof typeof METRICS, language?: SupportedLanguage) => locale(language) === 'en-US' ? METRICS[metric] : ({ bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' } as const)[metric]
