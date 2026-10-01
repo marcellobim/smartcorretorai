@@ -50,3 +50,9 @@ test('Smart Carrossel formats professional phone numbers through the shared mark
   assert.match(page, /formatPhone\(user\?\.whatsapp.*market\)/)
   assert.match(page, /formatPhone\(profilePhone, market\)/)
 })
+
+test('Smart Carrossel uploads a language-specific CTA asset while preserving internal CTA values', () => {
+  for (const asset of ['cta-saiba-mais.png', 'cta-agende-sua-visita.png', 'cta-entre-em-contato-agora.png', 'cta-aguardo-seu-contato.png', 'cta-learn-more.png', 'cta-schedule-your-visit.png', 'cta-contact-us-now.png', 'cta-get-in-touch.png']) assert.ok(page.includes(asset), asset)
+  assert.match(page, /SMART_CAROUSEL_CTA_ASSETS\[language === 'en-US' \? 'en-US' : 'pt-BR'\]\[cta\]/)
+  assert.match(page, /uploadSmartCarouselFilesWithTimeout\(\{ photos, userId: user\.id, jobId, cta, language: locale \}\)/)
+})

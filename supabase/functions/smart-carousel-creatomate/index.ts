@@ -35,6 +35,7 @@ import {
   presentationLabel,
   presentationHighlights,
   presentationCta,
+  smartCarouselCtaFile,
   type SmartCarouselLocale,
 } from './localization.ts'
 
@@ -55,13 +56,6 @@ const OPENAI_MARKETING_TIMEOUT_MS = 55_000
 const RECEIPT_VERSION = 1
 const RECEIPT_CONTEXT = 'smart-carousel-creatomate:receipt:v1'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-const CTA_FILES: Record<string, string> = {
-  'Saiba Mais': 'cta-saiba-mais.png',
-  'Agende sua visita': 'cta-agende-sua-visita.png',
-  'Entre em contato agora': 'cta-entre-em-contato-agora.png',
-  'Aguardo seu contato': 'cta-aguardo-seu-contato.png',
-}
 
 type JsonRecord = Record<string, unknown>
 type ReceiptPayload = {
@@ -802,19 +796,20 @@ async function handleCreate(
   const ctaPath = cleanText(body.cta_path, 512)
   const sharePhone = body.share_phone === true || body.share_phone === 'yes'
   const locale = normalizeSmartCarouselLocale(body)
+  const expectedCtaFile = smartCarouselCtaFile(cta, locale.language)
 
   if (!isUuid(jobId)) return jsonResponse({ ok: false, error: 'Apresentação inválida.' }, 400)
   if (imagePaths.length < SMART_CAROUSEL_MIN_IMAGES || imagePaths.length > SMART_CAROUSEL_MAX_IMAGES) {
     return jsonResponse({ ok: false, error: 'Selecione entre 5 e 20 fotos.' }, 400)
   }
-  if (!CTA_FILES[cta]) return jsonResponse({ ok: false, error: 'Chamada final inválida.' }, 400)
+  if (!expectedCtaFile) return jsonResponse({ ok: false, error: 'Chamada final inválida.' }, 400)
   if (!imagePaths.every((path) => assertOwnedJobPath(path, userId, jobId))) {
     return jsonResponse({ ok: false, error: 'Arquivos inválidos.' }, 400)
   }
   if (new Set(imagePaths).size !== imagePaths.length) {
     return jsonResponse({ ok: false, error: 'Existem fotos duplicadas no envio.' }, 400)
   }
-  if (!assertOwnedJobPath(ctaPath, userId, jobId) || ctaPath.split('/').pop() !== CTA_FILES[cta]) {
+  if (!assertOwnedJobPath(ctaPath, userId, jobId) || ctaPath.split('/').pop() !== expectedCtaFile) {
     return jsonResponse({ ok: false, error: 'Chamada final inválida.' }, 400)
   }
   let executionClaimed = false

@@ -126,6 +126,12 @@ test('language and market are normalized, persisted with the job, and returned b
   assert.match(frontend, /language: locale,[\s\S]*market,/)
 })
 
+test('backend CTA validation binds the legacy CTA value to its language-specific filename', () => {
+  assert.match(source, /const expectedCtaFile = smartCarouselCtaFile\(cta, locale\.language\)/)
+  assert.match(source, /if \(!expectedCtaFile\).*Chamada final inv.lida/)
+  assert.match(source, /ctaPath\.split\('\/'\)\.pop\(\) !== expectedCtaFile/)
+})
+
 test('delivery is persisted before consumption and retries recover without providers', () => {
   const recordAt = source.indexOf('await recordSmartCarouselProvider')
   const createReturnAt = source.indexOf('return jsonResponse({', recordAt)

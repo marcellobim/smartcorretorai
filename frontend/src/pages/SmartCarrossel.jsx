@@ -83,10 +83,18 @@ const SMART_CAROUSEL_CTA_OPTIONS = [
   'Aguardo seu contato',
 ]
 const SMART_CAROUSEL_CTA_ASSETS = {
-  'Saiba Mais': '/studio-hero/cta/cta-saiba-mais.png',
-  'Agende sua visita': '/studio-hero/cta/cta-agende-sua-visita.png',
-  'Entre em contato agora': '/studio-hero/cta/cta-entre-em-contato-agora.png',
-  'Aguardo seu contato': '/studio-hero/cta/cta-aguardo-seu-contato.png',
+  'pt-BR': {
+    'Saiba Mais': '/studio-hero/cta/cta-saiba-mais.png',
+    'Agende sua visita': '/studio-hero/cta/cta-agende-sua-visita.png',
+    'Entre em contato agora': '/studio-hero/cta/cta-entre-em-contato-agora.png',
+    'Aguardo seu contato': '/studio-hero/cta/cta-aguardo-seu-contato.png',
+  },
+  'en-US': {
+    'Saiba Mais': '/studio-hero/cta/cta-learn-more.png',
+    'Agende sua visita': '/studio-hero/cta/cta-schedule-your-visit.png',
+    'Entre em contato agora': '/studio-hero/cta/cta-contact-us-now.png',
+    'Aguardo seu contato': '/studio-hero/cta/cta-get-in-touch.png',
+  },
 }
 const SMART_CAROUSEL_HIGHLIGHT_GROUPS = [
   {
@@ -197,7 +205,7 @@ async function removeUploadedJobFiles(paths) {
   await supabase.storage.from(SMART_CAROUSEL_BUCKET).remove(safePaths)
 }
 
-async function uploadSmartCarouselFiles({ photos, userId, jobId, cta }) {
+async function uploadSmartCarouselFiles({ photos, userId, jobId, cta, language }) {
   const prefix = `${userId}/smart-carousel/${jobId}`
   const uploadedPaths = []
   const imagePaths = []
@@ -217,7 +225,7 @@ async function uploadSmartCarouselFiles({ photos, userId, jobId, cta }) {
       imagePaths.push(path)
     }
 
-    const ctaAsset = SMART_CAROUSEL_CTA_ASSETS[cta]
+    const ctaAsset = SMART_CAROUSEL_CTA_ASSETS[language === 'en-US' ? 'en-US' : 'pt-BR'][cta]
     if (!ctaAsset) throw new Error('Escolha uma chamada final válida.')
     const ctaResponse = await fetch(ctaAsset)
     if (!ctaResponse.ok) throw new Error('Não foi possível preparar a chamada final.')
@@ -858,7 +866,7 @@ function SmartCarouselConversation({ user, accessToken, photos, flowDraft, refre
     setActiveJobId(jobId)
     let uploadedPaths = []
     try {
-      const uploaded = await uploadSmartCarouselFilesWithTimeout({ photos, userId: user.id, jobId, cta })
+      const uploaded = await uploadSmartCarouselFilesWithTimeout({ photos, userId: user.id, jobId, cta, language: locale })
       uploadedPaths = uploaded.uploadedPaths
       if (!mountedRef.current) return
       setGenerationStatus('creating')

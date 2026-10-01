@@ -47,6 +47,25 @@ export function presentationCta(value: unknown, language: SmartCarouselLocale['l
   return ({ 'Saiba Mais': 'Learn more', 'Agende sua visita': 'Schedule a tour', 'Entre em contato agora': 'Contact us now', 'Aguardo seu contato': 'Get in touch' } as Record<string, string>)[raw] || raw
 }
 
+const CTA_FILES: Record<SmartCarouselLocale['language'], Record<string, string>> = {
+  'pt-BR': {
+    'Saiba Mais': 'cta-saiba-mais.png',
+    'Agende sua visita': 'cta-agende-sua-visita.png',
+    'Entre em contato agora': 'cta-entre-em-contato-agora.png',
+    'Aguardo seu contato': 'cta-aguardo-seu-contato.png',
+  },
+  'en-US': {
+    'Saiba Mais': 'cta-learn-more.png',
+    'Agende sua visita': 'cta-schedule-your-visit.png',
+    'Entre em contato agora': 'cta-contact-us-now.png',
+    'Aguardo seu contato': 'cta-get-in-touch.png',
+  },
+}
+
+export function smartCarouselCtaFile(value: unknown, language: SmartCarouselLocale['language']) {
+  return CTA_FILES[language][String(value ?? '').trim()] || ''
+}
+
 export function formatSmartCarouselPhone(value: unknown, market: SmartCarouselLocale['market']) {
   let digits = String(value ?? '').replace(/\D/g, '')
   if (market === 'US') {
