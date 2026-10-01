@@ -30,6 +30,7 @@ export type TextCampaignRuntimeDependencies = {
   generateHashtags: (briefing: TextCampaignBriefing) => Promise<string[]>
   quote: () => EconomicQuote
   getAvailableBalance: (userId: string) => Promise<number>
+  recoverDelivery: (input: { userId: string; clientRequestId: string }) => Promise<DeliveryClaim | null>
   reserve: (input: { userId: string; amount: number; idempotencyKey: string; quote: EconomicQuote }) => Promise<EconomicReservation>
   cleanupDeliveries?: () => Promise<void>
   claimDelivery: (input: { userId: string; clientRequestId: string; smartTokenCost: number; catalogVersion: string }) => Promise<DeliveryClaim>
@@ -43,16 +44,20 @@ export type TextCampaignRuntimeDependencies = {
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 const parseRequest = (value: unknown) => {
-  if (!isRecord(value) || Object.keys(value).some(key => !['briefing', 'client_request_id'].includes(key))) {
+  if (!isRecord(value)) {
     throw new TextCampaignValidationError('invalid_payload')
   }
+  const recovery = value.recovery === true
+  const allowedKeys = recovery ? ['client_request_id', 'recovery'] : ['briefing', 'client_request_id']
+  if (Object.keys(value).some(key => !allowedKeys.includes(key)) || (!recovery && !('briefing' in value))) throw new TextCampaignValidationError('invalid_payload')
   const clientRequestId = typeof value.client_request_id === 'string' ? value.client_request_id.trim().toLowerCase() : ''
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(clientRequestId)) {
     throw new TextCampaignValidationError('invalid_client_request_id')
   }
   return {
-    briefing: validateTextCampaignRequest({ briefing: value.briefing }),
+    briefing: recovery ? null : validateTextCampaignRequest({ briefing: value.briefing }),
     clientRequestId,
+    recovery,
   }
 }
 
@@ -107,18 +112,33 @@ export async function handleGenerateTextCampaign(request: Request, dependencies:
   const user = await dependencies.authenticate(token).catch(() => null)
   if (!user) return jsonResponse({ ok: false, error: 'Sua sessão expirou.' }, 401)
 
-  let briefing: TextCampaignBriefing
+  let briefing: TextCampaignBriefing | null
   let clientRequestId = ''
+  let recovery = false
   try {
     const parsed = parseRequest(await request.json())
     briefing = parsed.briefing
     clientRequestId = parsed.clientRequestId
+    recovery = parsed.recovery
   } catch (error) {
     if (error instanceof TextCampaignValidationError || error instanceof SyntaxError) {
       return jsonResponse({ ok: false, error: 'Revise os dados do imóvel antes de continuar.' }, 400)
     }
     return jsonResponse({ ok: false, error: 'Não foi possível validar sua solicitação.' }, 400)
   }
+
+  if (recovery) {
+    try {
+      const delivery = await dependencies.recoverDelivery({ userId: user.id, clientRequestId })
+      if (delivery?.status === 'completed') return completedResponse(delivery)
+      if (delivery?.status === 'processing') return jsonResponse({ ok: false, error: 'Esta campanha ainda está sendo processada.', code: 'REQUEST_PROCESSING', retry_after_seconds: 2 }, 202)
+      return jsonResponse({ ok: false, error: 'Resultado da campanha não está disponível.', code: 'REQUEST_RESULT_UNAVAILABLE' }, 404)
+    } catch {
+      return jsonResponse({ ok: false, error: 'Não foi possível recuperar esta campanha agora. Tente novamente.' }, 503)
+    }
+  }
+
+  if (!briefing) return jsonResponse({ ok: false, error: 'Revise os dados do imóvel antes de continuar.' }, 400)
 
   let quote: EconomicQuote
   try {

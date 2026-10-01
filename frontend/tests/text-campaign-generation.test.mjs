@@ -145,11 +145,13 @@ test('clears generated text and restarts the briefing for a new campaign', () =>
   assert.match(resultComponent, /Criar nova campanha/)
 })
 
-test('keeps results in memory and persists only the opaque retry id across reload', () => {
+test('keeps result data server-side and persists only an opaque completed-delivery id for recovery', () => {
   const combined = `${page}\n${resultComponent}\n${resultHelperSource}`
   assert.match(page, /sessionStorage\.getItem\(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY\)/)
   assert.match(page, /sessionStorage\.setItem\(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY, created\)/)
   assert.match(page, /sessionStorage\.removeItem\(TEXT_CAMPAIGN_REQUEST_STORAGE_KEY\)/)
+  assert.match(page, /textDraft\.replace\(\{ completedRequestId: generationRequestRef\.current \}\)/)
+  assert.match(page, /body: \{ client_request_id: clientRequestId, recovery: true \}/)
   assert.doesNotMatch(combined, /localStorage|indexedDB|storage\.from|\.insert\(|\.upsert\(/)
   assert.doesNotMatch(page, /sessionStorage\.setItem\([^,]+,\s*(briefing|campaign|answers)/)
   assert.doesNotMatch(combined, /Smart Tokens|smart_tokens|token_balance/i)

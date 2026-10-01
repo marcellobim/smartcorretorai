@@ -2,6 +2,13 @@ import type { SafeUsage, TextCampaignResult } from './contract.ts'
 
 type SupabaseClientLike = {
   rpc(name: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>
+  from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: string): {
+        eq(column: string, value: string): { maybeSingle(): PromiseLike<{ data: unknown; error: unknown }> }
+      }
+    }
+  }
 }
 
 export type DeliveryClaim = {
@@ -51,6 +58,16 @@ const storedDelivery = (value: unknown): DeliveryClaim => {
 
 export function createTextCampaignDeliveryStore(client: SupabaseClientLike) {
   return {
+    async recoverDelivery(input: { userId: string; clientRequestId: string }) {
+      const { data, error } = await client
+        .from('text_campaign_delivery_requests')
+        .select('id,status,reservation_id,result,expires_at,smart_token_cost')
+        .eq('user_id', input.userId)
+        .eq('client_request_id', input.clientRequestId)
+        .maybeSingle()
+      if (error) throw new Error('text_campaign_delivery_recovery_failed')
+      return data ? storedDelivery(data) : null
+    },
     async cleanupDeliveries() {
       const { error } = await client.rpc('cleanup_text_campaign_deliveries')
       if (error) throw new Error('text_campaign_delivery_cleanup_failed')

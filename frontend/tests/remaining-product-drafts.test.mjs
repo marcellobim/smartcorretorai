@@ -98,10 +98,18 @@ test('Campanha de Textos saves/restores briefing and conversation without replac
 })
 
 test('Campanha de Textos restore does not generate or charge and price remains 25 ST', () => {
-  const draftEffect = textCampaign.slice(textCampaign.indexOf('useEffect(() => {', textCampaign.indexOf('const summaryItems')), textCampaign.indexOf('const commit'))
+  const draftEffectStart = textCampaign.indexOf('useEffect(() => {', textCampaign.indexOf('const summaryItems'))
+  const draftEffect = textCampaign.slice(draftEffectStart, textCampaign.indexOf('useEffect(() => {', draftEffectStart + 1))
   assert.doesNotMatch(draftEffect, /(?:functions\.invoke|generateCampaign|reserve|consume|client_request_id)/i)
   assert.match(smartTokens, /textCampaign:\s*25\b/)
   assert.match(textCampaign, /SMART_TOKEN_COSTS\.textCampaign/)
+})
+
+test('Campanha de Textos keeps only a completed-delivery reference for automatic recovery', () => {
+  assert.match(textCampaign, /completedRequestRef/)
+  assert.match(textCampaign, /textDraft\.replace\(\{ completedRequestId: generationRequestRef\.current \}\)/)
+  assert.match(textCampaign, /body: \{ client_request_id: clientRequestId, recovery: true \}/)
+  assert.doesNotMatch(textCampaign, /textDraft\.replace\(\{[^}]*campaign/i)
 })
 
 test('draft ownership, seven-day expiry and auth refresh protections remain shared', () => {

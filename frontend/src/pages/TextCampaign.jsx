@@ -108,6 +108,10 @@ export default function TextCampaign() {
   const [generationError, setGenerationError] = useState('')
   const generationLockRef = useRef(false)
   const generationRequestRef = useRef(null)
+  const completedRequestRef = useRef(
+    requestIdPattern.test(restoredTextDraft.completedRequestId || '') ? restoredTextDraft.completedRequestId : '',
+  )
+  const recoveryAttemptedRef = useRef(false)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTextDraft.conversation || null)
   const professionalPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const conversation = useGuidedConversation({
@@ -135,6 +139,43 @@ export default function TextCampaign() {
     if (!meaningful) { textDraft.clear(); return }
     textDraft.save({ answers, manualCityMode, conversation: conversationSnapshot })
   }, [answers, campaign, conversationSnapshot, generationStatus, manualCityMode, textDraft])
+
+  useEffect(() => {
+    const restoredRequestId = restoredTextDraft.completedRequestId || ''
+    if (!campaign && !completedRequestRef.current && requestIdPattern.test(restoredRequestId)) {
+      completedRequestRef.current = restoredRequestId
+      recoveryAttemptedRef.current = false
+    }
+  }, [campaign, restoredTextDraft.completedRequestId])
+
+  useEffect(() => {
+    const clientRequestId = completedRequestRef.current
+    if (!accessToken || !clientRequestId || campaign || recoveryAttemptedRef.current) return
+    recoveryAttemptedRef.current = true
+    let active = true
+    const recoverCompletedCampaign = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-text-campaign', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { client_request_id: clientRequestId, recovery: true },
+        })
+        if (error || !data?.ok || !isCompleteTextCampaignResult(data.campaign)) {
+          if (data?.code === 'REQUEST_RESULT_UNAVAILABLE') {
+            completedRequestRef.current = ''
+            textDraft.clear()
+          }
+          return
+        }
+        if (!active) return
+        setCampaign(data.campaign)
+        setGenerationStatus('success')
+      } catch {
+        // The persisted reference remains available for a later reload or retry.
+      }
+    }
+    recoverCompletedCampaign()
+    return () => { active = false }
+  }, [accessToken, campaign, textDraft])
 
   const commit = ({ id = questionId, answer, apply, nextQuestionId = getTextCampaignNextQuestion(id) }) => {
     const accepted = conversation.submitAnswer({
@@ -170,8 +211,8 @@ export default function TextCampaign() {
       }
       if (!data?.ok) throw new Error(data?.error || 'Não foi possível criar a campanha agora. Tente novamente.')
       if (!isCompleteTextCampaignResult(data.campaign)) throw new Error('A campanha retornou incompleta. Tente novamente.')
-      clearTextCampaignRequestId()
-      textDraft.clear()
+      completedRequestRef.current = generationRequestRef.current
+      textDraft.replace({ completedRequestId: generationRequestRef.current })
       setCampaign(data.campaign)
       setGenerationStatus('success')
     } catch (error) {
@@ -187,6 +228,8 @@ export default function TextCampaign() {
     textDraft.clear()
     generationLockRef.current = false
     generationRequestRef.current = null
+    completedRequestRef.current = ''
+    recoveryAttemptedRef.current = false
     clearTextCampaignRequestId()
     setCampaign(null)
     setGenerationStatus('idle')

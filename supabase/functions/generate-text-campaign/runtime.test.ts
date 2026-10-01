@@ -65,6 +65,7 @@ const dependencies = (overrides: Partial<TextCampaignRuntimeDependencies> = {}):
   generateHashtags: async () => validCampaign().hashtags,
   quote: () => ({ productCode: 'text_campaign', variant: 'standard', smartTokenCost: 25, providerCategory: 'openai_text', catalogVersion: '2026-08-16.phase1.v1' }),
   getAvailableBalance: async () => 500,
+  recoverDelivery: async () => null,
   reserve: async ({ amount }) => ({ id: 'reservation-id', status: 'reserved', amount }),
   cleanupDeliveries: async () => {},
   claimDelivery: async () => ({ id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '2026-08-17T12:15:00.000Z', smartTokenCost: 25 }),
@@ -78,6 +79,46 @@ test('accepts POST only and requires a valid Bearer user', async () => {
   assert.equal((await handleGenerateTextCampaign(request({}, 'GET'), dependencies())).status, 405)
   assert.equal((await handleGenerateTextCampaign(request(rawRequest(), 'POST', ''), dependencies())).status, 401)
   assert.equal((await handleGenerateTextCampaign(request(rawRequest()), dependencies({ authenticate: async () => null }))).status, 401)
+})
+
+test('recovers a completed delivery by its existing id without OpenAI, hashtags, reservation or a new claim', async () => {
+  const calls = { recover: 0, generate: 0, hashtags: 0, reserve: 0, claim: 0 }
+  const response = await handleGenerateTextCampaign(
+    request({ client_request_id: CLIENT_REQUEST_ID, recovery: true }),
+    dependencies({
+      recoverDelivery: async () => {
+        calls.recover += 1
+        return { id: 'delivery-id', status: 'completed', claimed: false, claimToken: null, reservationId: 'reservation-id', result: validCampaign(), expiresAt: '2026-08-18T12:00:00.000Z', smartTokenCost: 25 }
+      },
+      generate: async () => { calls.generate += 1; return { campaign: validCampaign() } },
+      generateHashtags: async () => { calls.hashtags += 1; return validCampaign().hashtags },
+      reserve: async ({ amount }) => { calls.reserve += 1; return { id: 'reservation-id', status: 'reserved', amount } },
+      claimDelivery: async () => { calls.claim += 1; return { id: 'delivery-id', status: 'processing', claimed: true, claimToken: 'claim-token', reservationId: null, result: null, expiresAt: '', smartTokenCost: 25 } },
+    }),
+  )
+  const body = await response.json()
+  assert.equal(response.status, 200)
+  assert.equal(body.ok, true)
+  assert.deepEqual(body.campaign, validCampaign())
+  assert.deepEqual(calls, { recover: 1, generate: 0, hashtags: 0, reserve: 0, claim: 0 })
+})
+
+test('does not restore a missing, failed or processing delivery as a completed campaign', async () => {
+  for (const delivery of [null, { id: 'delivery-id', status: 'failed', claimed: false, claimToken: null, reservationId: null, result: null, expiresAt: '', smartTokenCost: 25 }, { id: 'delivery-id', status: 'processing', claimed: false, claimToken: null, reservationId: null, result: null, expiresAt: '', smartTokenCost: 25 }]) {
+    let providerCalls = 0
+    let reserveCalls = 0
+    const response = await handleGenerateTextCampaign(
+      request({ client_request_id: CLIENT_REQUEST_ID, recovery: true }),
+      dependencies({
+        recoverDelivery: async () => delivery,
+        generate: async () => { providerCalls += 1; return { campaign: validCampaign() } },
+        reserve: async ({ amount }) => { reserveCalls += 1; return { id: 'reservation-id', status: 'reserved', amount } },
+      }),
+    )
+    assert.ok([202, 404].includes(response.status))
+    assert.equal(providerCalls, 0)
+    assert.equal(reserveCalls, 0)
+  }
 })
 
 test('fixes GPT-4.1 and rejects frontend model, provider or prompt controls', () => {
