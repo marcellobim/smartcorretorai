@@ -29,7 +29,7 @@ test('registers a private Campanha de Textos product and localized hero', () => 
   assert.match(app, /path="\/campanha-de-textos" element=\{<AccountAnalyticsRoute productId=\{PRODUCTS\.CAMPANHA_TEXTOS\}><TextCampaign \/><\/AccountAnalyticsRoute>\}/)
   assert.match(dashboard, /id: 'campanha-de-textos',[\s\S]*?title: t\('dashboard\.textCampaign\.title'\),[\s\S]*?to: '\/campanha-de-textos'/)
   assert.match(layout, /location\.pathname === '\/campanha-de-textos'/)
-  assert.match(page, /<ProductHero[\s\S]*?productName="Campanha de Textos"/)
+  assert.match(page, /<ProductHero[\s\S]*?productName=\{copy\.productName\}/)
   assert.match(page, /const \{ locale, market \} = useLocale\(\)/)
 })
 
@@ -166,7 +166,7 @@ test('enables the final action only for a valid briefing and keeps loading safe'
 })
 
 test('uses campaign-specific summary copy without changing the shared default', () => {
-  assert.match(page, /summaryTitle="Resumo da campanha"/)
+  assert.match(page, /summaryTitle=\{copy\.summaryTitle\}/)
   assert.match(guidedConversation, /summaryTitle = 'Resumo da apresentação'/)
   assert.match(guidedConversation, /<ProductSummary title=\{summaryTitle\}/)
 })
@@ -183,7 +183,7 @@ test('declares the complete multichannel contract with 18 preserved blocks plus 
 })
 
 test('presents a complete multichannel campaign without a fixed piece-count promise', () => {
-  assert.match(page, /Campanha completa multicanal/)
+  assert.match(page, /\{copy\.multichannel\}/)
   assert.doesNotMatch(page, /16 peças|18 peças/)
 })
 

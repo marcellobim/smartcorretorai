@@ -124,7 +124,7 @@ test('copies individual pieces and the complete campaign', async () => {
   assert.match(resultHelpers.formatCompleteTextCampaign(applicableLinkedIn), /LINKEDIN[\s\S]*LinkedIn aplicável/)
   assert.match(resultComponent, /formatCompleteTextCampaign\(editableCampaign\)[\s\S]*text\/plain;charset=utf-8/)
   assert.match(resultComponent, /download: 'campanha-de-textos\.txt'/)
-  assert.match(resultComponent, /Baixar TXT/)
+  assert.match(resultComponent, /\{copy\.download\}/)
   assert.match(resultComponent, /onClick=\{\(\) => copyValue\(id, content\)\}/)
   assert.match(resultComponent, /useState\(\(\) => structuredClone\(campaign\)\)/)
   assert.match(resultComponent, /textarea aria-label=\{label\}/)
@@ -143,8 +143,8 @@ test('uses a deterministic clipboard fallback without intrusive alerts', async (
 
 test('provides accessible copied feedback', () => {
   assert.match(resultComponent, /aria-live="polite"/)
-  assert.match(resultComponent, /'Copiado'/)
-  assert.match(resultComponent, /copiedId === 'complete'[\s\S]*?resultCopy\(locale\)\.copied/)
+  assert.match(resultComponent, /copy\.copied/)
+  assert.match(resultComponent, /copiedId === 'complete'[\s\S]*?copy\.copied/)
 })
 
 test('widens only generated results and preserves responsive one/two-column layout', () => {
@@ -159,7 +159,7 @@ test('clears generated text and restarts the briefing for a new campaign', () =>
   assert.match(resetBlock, /setCampaign\(null\)/)
   assert.match(resetBlock, /setAnswers\(createEmptyTextCampaignAnswers\(\)\)/)
   assert.match(resetBlock, /conversation\.resetConversation\(\)/)
-  assert.match(resultComponent, /Criar nova campanha/)
+  assert.match(resultComponent, /\{copy\.newCampaign\}/)
 })
 
 test('keeps result data server-side and persists only an opaque completed-delivery id for recovery', () => {

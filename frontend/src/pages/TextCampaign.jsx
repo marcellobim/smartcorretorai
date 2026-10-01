@@ -56,6 +56,8 @@ import {
 } from '../config/textCampaign'
 import {
   getTextCampaignConfirmation,
+  getTextCampaignQuestion,
+  getTextCampaignUiCopy,
   getTextCampaignNextQuestion,
   TEXT_CAMPAIGN_QUESTION_ORDER,
   TEXT_CAMPAIGN_QUESTIONS,
@@ -103,6 +105,7 @@ const emptyCommercial = () => ({
 export default function TextCampaign() {
   const { user, accessToken, reloadProfile } = useAuth()
   const { locale, market } = useLocale()
+  const copy = getTextCampaignUiCopy(locale)
   const textDraft = useProductDraft({ productKey: 'campanha-de-textos', schemaVersion: 1, userId: user?.id })
   const restoredTextDraft = textDraft.restoredDraft || {}
   const [answers, setAnswers] = useState(() => restoreProductDraftShape(createEmptyTextCampaignAnswers(), restoredTextDraft.answers))
@@ -184,7 +187,7 @@ export default function TextCampaign() {
   const commit = ({ id = questionId, answer, apply, nextQuestionId = getTextCampaignNextQuestion(id) }) => {
     const accepted = conversation.submitAnswer({
       questionId: id,
-      question: TEXT_CAMPAIGN_QUESTIONS[id],
+      question: getTextCampaignQuestion(id, locale),
       answer,
       confirmation: getTextCampaignConfirmation(id, answer),
       nextQuestionId,
@@ -244,23 +247,23 @@ export default function TextCampaign() {
   }
 
   return <div className="min-h-screen bg-slate-50">
-    <Header title="Campanha de Textos" subtitle="Briefing imobiliário completo" />
+    <Header title={copy.productName} subtitle={copy.headerSubtitle} />
     <main className={`${campaign ? 'mx-auto w-full max-w-[96rem] px-smart-page py-6 sm:py-8' : SMART_UI.page} min-w-0 space-y-6`}>
       {campaign ? <TextCampaignResult campaign={campaign} onNewCampaign={createNewCampaign} /> : <>
       <ProductCard className="overflow-hidden">
         <ProductHero
           id="text-campaign-title"
-          productName="Campanha de Textos"
-          headline="Um briefing. Todas as peças para divulgar seu imóvel."
-          description="Organize fatos, diferenciais e condições do imóvel em uma conversa guiada e receba uma campanha completa para diferentes canais."
-          visual={<DeliverablesPreview />}
+          productName={copy.productName}
+          headline={copy.heroHeadline}
+          description={copy.heroDescription}
+          visual={<DeliverablesPreview copy={copy} />}
         />
       </ProductCard>
 
       <ProductSteps
         steps={TEXT_CAMPAIGN_STEPS}
         activeStep={getTextCampaignVisualStep(questionId)}
-        label="Etapas da Campanha de Textos"
+        label={copy.stepsLabel}
         accent="primary"
       />
 
@@ -268,15 +271,15 @@ export default function TextCampaign() {
         history={conversation.history}
         phase={conversation.phase}
         questionId={questionId}
-          question={questionLabel(questionId, locale)}
+        question={getTextCampaignQuestion(questionId, locale)}
         questionNumber={questionNumber}
         totalQuestions={TEXT_CAMPAIGN_QUESTION_ORDER.length}
         onEdit={conversation.editAnswer}
         summaryItems={summaryItems}
-        eyebrow="Briefing da campanha"
-        title="Conte os fatos do imóvel"
-        description="As perguntas adaptam o briefing à venda ou locação sem inventar informações."
-        summaryTitle="Resumo da campanha"
+        eyebrow={copy.briefingEyebrow}
+        title={copy.briefingTitle}
+        description={copy.briefingDescription}
+        summaryTitle={copy.summaryTitle}
         review={questionId === 'review'}
         editDisabled={conversation.isTransitioning}
         designSystem
@@ -291,6 +294,7 @@ export default function TextCampaign() {
           professionalPhone={professionalPhone}
           locale={locale}
           market={market}
+          copy={copy}
           briefing={briefing}
           commit={commit}
           onEdit={conversation.editAnswer}
@@ -308,17 +312,17 @@ export default function TextCampaign() {
   </div>
 }
 
-function DeliverablesPreview() {
+function DeliverablesPreview({ copy }) {
   return <ProductCard variant="muted" className="h-full p-6 sm:p-7">
-    <p className={SMART_UI.eyebrow}>Entrega completa</p>
-    <p className="mt-2 text-2xl font-black text-slate-950">Campanha completa multicanal</p>
+    <p className={SMART_UI.eyebrow}>{copy.deliveryComplete}</p>
+    <p className="mt-2 text-2xl font-black text-slate-950">{copy.multichannel}</p>
     <div className="mt-5 grid grid-cols-2 gap-2">
       {TEXT_CAMPAIGN_DELIVERABLES.slice(0, 8).map(item => <div key={item.id} className="flex min-w-0 items-start gap-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary-700" aria-hidden="true" />
         <span>{item.label}</span>
       </div>)}
     </div>
-    <p className="mt-4 text-xs font-bold text-slate-500">Portais, redes sociais, WhatsApp, e-mail, CTA, hashtags, Reels e carrossel textual.</p>
+    <p className="mt-4 text-xs font-bold text-slate-500">{copy.deliverablesNote}</p>
   </ProductCard>
 }
 
