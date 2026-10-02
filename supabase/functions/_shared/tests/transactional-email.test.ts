@@ -16,7 +16,9 @@ test('approved purchase email uses the actual recharge amount and canonical vali
   assert.match(email.text, /2\.000 Smart Tokens/)
   assert.match(email.text, /Valor pago: R\$ 49,90/)
   assert.match(email.text, /Validade: 30 dias/)
-  assert.match(email.html, /https:\/\/www\.smartcorretorai\.com\/dashboard/)
+  assert.match(email.html, /https:\/\/snetia\.com\/dashboard/)
+  assert.match(email.html, /SNETIA/)
+  assert.match(email.text, /^SNETIA/m)
 })
 
 test('first invoice without discount uses the actual full amount and canonical grant', () => {
@@ -92,7 +94,7 @@ test('customer-facing templates do not use internal competência wording', () =>
   assert.doesNotMatch(templates.map(item => `${item.subject}\n${item.text}`).join('\n'), /competência/i)
 })
 
-test('Resend transport is server-only, fixed-sender and mocked in tests', async () => {
+test('Resend transport keeps the legacy sender fallbacks when SNETIA env vars are absent', async () => {
   let request: { url: string; init?: RequestInit } | null = null
   const content = buildTransactionalEmail({
     kind: 'subscription_welcome', economicKey: 'start', payment: { amountPaidBrlCents: 12_700 },
@@ -119,6 +121,46 @@ test('Resend transport is server-only, fixed-sender and mocked in tests', async 
   assert.equal(JSON.stringify(body).includes('test_key_not_real'), false)
 })
 
+test('Resend transport uses configured SNETIA sender values and ignores blank values', async () => {
+  const content = buildTransactionalEmail({ kind: 'purchase_confirmed', economicKey: 'brl_49_90' })
+  const delivery = async (environment: Record<string, string | undefined>) => {
+    let body: Record<string, unknown> | null = null
+    await sendTransactionalEmail({ ...content, to: 'usuario@example.com', idempotencyKey: 'test-configured-sender' }, {
+      readEnv: name => environment[name],
+      fetchImpl: async (_url, init) => {
+        body = JSON.parse(String(init?.body))
+        return new Response(JSON.stringify({ id: 'email_test' }), { status: 200 })
+      },
+    })
+    return body
+  }
+
+  const configured = await delivery({
+    RESEND_API_KEY: 'test_key_not_real',
+    TRANSACTIONAL_EMAIL_FROM: ' SNETIA <support@snetia.com> ',
+    TRANSACTIONAL_EMAIL_REPLY_TO: ' support@snetia.com ',
+  })
+  assert.equal(configured?.from, 'SNETIA <support@snetia.com>')
+  assert.equal(configured?.reply_to, 'support@snetia.com')
+
+  const blank = await delivery({
+    RESEND_API_KEY: 'test_key_not_real',
+    TRANSACTIONAL_EMAIL_FROM: '   ',
+    TRANSACTIONAL_EMAIL_REPLY_TO: '',
+  })
+  assert.equal(blank?.from, TRANSACTIONAL_EMAIL_FROM)
+  assert.equal(blank?.reply_to, TRANSACTIONAL_EMAIL_REPLY_TO)
+})
+
+test('template signature follows the configured reply-to without changing its public contract', () => {
+  const email = buildTransactionalEmail(
+    { kind: 'subscription_cancelled' },
+    name => name === 'TRANSACTIONAL_EMAIL_REPLY_TO' ? ' support@snetia.com ' : undefined,
+  )
+  assert.match(email.html, /mailto:support@snetia\.com/)
+  assert.match(email.text, /support@snetia\.com/)
+})
+
 test('Resend errors expose only sanitized error codes', async () => {
   const content = buildTransactionalEmail({ kind: 'purchase_confirmed', economicKey: 'brl_97_90' })
   await assert.rejects(() => sendTransactionalEmail({
@@ -135,6 +177,8 @@ test('email implementation remains absent from the frontend and reads only the s
   const source = readFileSync(new URL('../transactional-email.ts', import.meta.url), 'utf8')
   const webhook = readFileSync(new URL('../../stripe-webhook/index.ts', import.meta.url), 'utf8')
   assert.match(source, /RESEND_API_KEY/)
+  assert.match(source, /TRANSACTIONAL_EMAIL_FROM/)
+  assert.match(source, /TRANSACTIONAL_EMAIL_REPLY_TO/)
   assert.match(webhook, /auth\.admin\.getUserById\(notification\.userId\)/)
   assert.doesNotMatch(source, /VITE_|SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY/)
 })
