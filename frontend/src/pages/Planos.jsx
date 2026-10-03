@@ -5,11 +5,11 @@ import { ArrowLeft, Check, Coins, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
-import { SMART_TOKEN_RECHARGE_PACKAGES } from '../data/creditCosts'
+import { smartTokenRechargePackagesForMarket } from '../data/creditCosts'
 import BrandMark from '../components/brand/BrandMark'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 
-const PLANOS = [
+const PLANOS_BR = [
   {
     id: 'start',
     nome: 'START',
@@ -58,6 +58,12 @@ const PLANOS = [
   },
 ]
 
+const PLANOS_US = [
+  { id: 'usd_start', nome: 'START', preco: '24.90', description: 'Full platform access.', capacityLabel: 'Starting creation capacity', capacityDetail: '6,350 Smart Tokens per month', featured: false, cta: 'Subscribe to Start', bullets: ['Full platform access', 'Ideal for getting started with professional content', 'Starting creation capacity'] },
+  { id: 'usd_pro', nome: 'PRO', preco: '39.90', description: 'Most recommended.', capacityLabel: 'More freedom to create regularly', capacityDetail: '10,850 Smart Tokens per month', featured: true, badge: 'Most recommended', cta: 'Subscribe to Pro', bullets: ['Full platform access', 'More freedom for recurring campaigns', 'Ideal for active real estate professionals'] },
+  { id: 'usd_elite', nome: 'ELITE', preco: '99.90', description: 'More capacity for professionals and teams.', capacityLabel: 'Expanded creation volume', capacityDetail: '26,350 Smart Tokens per month', featured: false, cta: 'Subscribe to Elite', bullets: ['Full platform access', 'More capacity for professionals and teams', 'More room for campaigns, images and videos'] },
+]
+
 const RULES = [
   'Todos os planos dão acesso à plataforma completa.',
   'Smart Tokens representam sua capacidade de criação.',
@@ -70,14 +76,31 @@ const RULES = [
 const formatTokens = (value) => new Intl.NumberFormat('pt-BR').format(value)
 
 export default function Planos() {
-  const { user, isAuthenticated, loading, reloadProfile } = useAuth()
+  const { user, profile, isAuthenticated, loading, reloadProfile } = useAuth()
+  const market = profile?.market === 'US' ? 'US' : 'BR'
+  const isUS = market === 'US'
+  const planos = isUS ? PLANOS_US : PLANOS_BR
+  const rechargePackages = smartTokenRechargePackagesForMarket(market)
+  const copy = isUS ? {
+    back: 'Back', heading: 'Choose your plan', hero: 'Every plan includes full platform access. Choose the creation capacity that fits your pace.', monthly: 'Monthly',
+    rechargeEyebrow: 'Add Smart Tokens', rechargeTitle: 'Keep creating', rechargeDescription: 'Use recharges when you need more capacity before your plan renews.',
+    chooseRecharge: 'Choose your recharge', rechargeIntro: 'Start without a subscription or add capacity whenever you need it.', extra: 'Extra capacity', extraTitle: 'Extra Smart Tokens',
+  } : {
+    back: 'Voltar', heading: 'Escolha seu plano', hero: 'Todos os planos dão acesso à plataforma completa. Escolha a capacidade ideal para o seu ritmo de criação.', monthly: 'Mensal',
+    rechargeEyebrow: 'Adicionar Smart Tokens', rechargeTitle: 'Continue ou comece a criar', rechargeDescription: 'Use recargas para continuar criando quando precisar de mais capacidade antes da renovação do plano.',
+    chooseRecharge: 'Escolha sua recarga', rechargeIntro: 'Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar.', extra: 'Capacidade extra', extraTitle: 'Smart Tokens extras',
+  }
   const [searchParams] = useSearchParams()
   const [loadingItem, setLoadingItem] = useState(null)
-  const [selectedRechargeKey, setSelectedRechargeKey] = useState(SMART_TOKEN_RECHARGE_PACKAGES[0].id)
+  const [selectedRechargeKey, setSelectedRechargeKey] = useState(rechargePackages[0].id)
   const checkoutRefreshHandledRef = useRef(false)
   const plansViewTrackedRef = useRef(false)
   const { trackEvent } = useAnalytics()
-  const selectedRecharge = SMART_TOKEN_RECHARGE_PACKAGES.find(item => item.id === selectedRechargeKey)
+  const selectedRecharge = rechargePackages.find(item => item.id === selectedRechargeKey) ?? rechargePackages[0]
+
+  useEffect(() => {
+    setSelectedRechargeKey(rechargePackages[0].id)
+  }, [market, rechargePackages])
 
   useEffect(() => {
     if (!isAuthenticated || loading || searchParams.get('checkout') !== 'success' || checkoutRefreshHandledRef.current) return
@@ -160,7 +183,7 @@ export default function Planos() {
             className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
           >
             <ArrowLeft className="h-4 w-4" />
-            Voltar
+            {copy.back}
           </Link>
           <div className="flex items-center gap-2">
             <BrandMark size={32} decorative />
@@ -174,10 +197,10 @@ export default function Planos() {
               Planos / Smart Tokens
             </div>
             <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-5xl">
-              Escolha seu plano
+              {copy.heading}
             </h1>
             <p className="mt-4 text-base leading-relaxed text-gray-300 sm:text-lg">
-              Todos os planos dão acesso à plataforma completa. Escolha a capacidade ideal para o seu ritmo de criação.
+              {copy.hero}
             </p>
           </div>
         </section>
@@ -189,7 +212,7 @@ export default function Planos() {
             </p>
             <div className="lg:min-w-[180px]">
               <div className="rounded-2xl border border-primary-800 bg-primary-800 px-4 py-3 text-center text-white">
-                <p className="text-sm font-black">Mensal</p>
+                <p className="text-sm font-black">{copy.monthly}</p>
               </div>
             </div>
           </div>
@@ -213,8 +236,8 @@ export default function Planos() {
         </section>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-3">
-          {PLANOS.map((plano) => {
-            const atual = user?.plano === plano.id
+          {planos.map((plano) => {
+            const atual = user?.plano === plano.id.replace('usd_', '')
             return (
               <article
                 key={plano.id}
@@ -238,9 +261,9 @@ export default function Planos() {
                     <p className="text-xs font-black uppercase tracking-wide text-primary-700">{plano.description}</p>
                     <h2 className="mt-2 text-3xl font-black text-gray-950">{plano.nome}</h2>
                     <div className="mt-5 flex items-end gap-1">
-                      <span className="mb-1 text-sm font-bold text-gray-400">R$</span>
+                      <span className="mb-1 text-sm font-bold text-gray-400">{isUS ? '$' : 'R$'}</span>
                       <span className="text-5xl font-black text-gray-950">{plano.preco}</span>
-                      <span className="mb-2 text-sm font-semibold text-gray-500">/mês</span>
+                      <span className="mb-2 text-sm font-semibold text-gray-500">{isUS ? '/month' : '/mês'}</span>
                     </div>
                   </div>
 
@@ -278,10 +301,10 @@ export default function Planos() {
         <section className="mt-10 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Adicionar Smart Tokens</p>
-              <h2 className="mt-1 text-2xl font-black text-gray-950">Continue ou comece a criar</h2>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">{copy.rechargeEyebrow}</p>
+              <h2 className="mt-1 text-2xl font-black text-gray-950">{copy.rechargeTitle}</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">
-                Use recargas para continuar criando quando precisar de mais capacidade antes da renovação do plano.
+                {copy.rechargeDescription}
               </p>
             </div>
           </div>
@@ -295,14 +318,14 @@ export default function Planos() {
               </div>
 
               <h3 className="mt-5 text-xl font-black text-gray-950">
-                Escolha sua recarga
+                {copy.chooseRecharge}
               </h3>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar.
+                {copy.rechargeIntro}
               </p>
 
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {SMART_TOKEN_RECHARGE_PACKAGES.map((item) => (
+                {rechargePackages.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -315,23 +338,23 @@ export default function Planos() {
                   >
                     <span className="block text-lg font-black">{formatTokens(item.credits)} Smart Tokens</span>
                     <span className={`mt-1 block text-sm font-bold ${selectedRechargeKey === item.id ? 'text-blue-100' : 'text-gray-500'}`}>
-                      R$ {item.priceLabel}
+                      {isUS ? '$' : 'R$'} {item.priceLabel}
                     </span>
                     <span className={`mt-2 block text-xs font-bold ${selectedRechargeKey === item.id ? 'text-blue-100' : 'text-gray-500'}`}>
-                      Validade: 30 dias
+                      {isUS ? 'Valid for 30 days' : 'Validade: 30 dias'}
                     </span>
                   </button>
                 ))}
               </div>
 
               <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-gray-600">
-                Recarga selecionada: <span className="font-black text-primary-800">{formatTokens(selectedRecharge.credits)} Smart Tokens por R$ {selectedRecharge.priceLabel}</span>
+                {isUS ? 'Selected recharge:' : 'Recarga selecionada:'} <span className="font-black text-primary-800">{formatTokens(selectedRecharge.credits)} Smart Tokens {isUS ? `for $ ${selectedRecharge.priceLabel}` : `por R$ ${selectedRecharge.priceLabel}`}</span>
               </p>
             </div>
 
             <aside className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-wide text-primary-700">Capacidade extra</p>
-              <h3 className="mt-2 text-xl font-black text-gray-950">Smart Tokens extras</h3>
+              <p className="text-xs font-black uppercase tracking-wide text-primary-700">{copy.extra}</p>
+              <h3 className="mt-2 text-xl font-black text-gray-950">{copy.extraTitle}</h3>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
                 Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.
               </p>

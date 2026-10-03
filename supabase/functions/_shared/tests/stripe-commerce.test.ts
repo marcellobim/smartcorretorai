@@ -33,6 +33,11 @@ const env = new Map([
   ['STRIPE_PRICE_ELITE', 'price_testelite'],
   ['STRIPE_PRICE_RECHARGE_BRL_49_90', 'price_testrecharge'],
   ['STRIPE_PRICE_RECHARGE_BRL_97_90', 'price_testrechargelarge'],
+  ['STRIPE_PRICE_USD_START', 'price_testusdstart'],
+  ['STRIPE_PRICE_USD_PRO', 'price_testusdpro'],
+  ['STRIPE_PRICE_USD_ELITE', 'price_testusdelite'],
+  ['STRIPE_PRICE_RECHARGE_USD_9_90', 'price_testusdsmall'],
+  ['STRIPE_PRICE_RECHARGE_USD_19_90', 'price_testusdlarge'],
   ['STRIPE_CHECKOUT_SUCCESS_URL', 'https://smartcorretor.example/planos?checkout=success'],
   ['STRIPE_CHECKOUT_CANCEL_URL', 'https://smartcorretor.example/planos?checkout=cancel'],
 ])
@@ -46,12 +51,27 @@ test('Stripe catalog rejects arbitrary keys and resolves prices only through ser
   assert.equal(STRIPE_CHECKOUT_ITEMS.start.priceEnv, 'STRIPE_PRICE_START')
   assert.equal(resolveStripeCheckoutItem('start', readEnv).priceId, 'price_teststart')
   assert.throws(() => resolveStripeCheckoutItem('start_promotional', readEnv), /stripe_price_not_configured/)
-  const purchases = Object.values(STRIPE_CHECKOUT_ITEMS).filter(item => item.kind === 'payment')
+  const purchases = Object.values(STRIPE_CHECKOUT_ITEMS).filter(item => item.kind === 'payment' && item.market === 'BR')
   assert.deepEqual(purchases.map(item => item.key), ['brl_49_90', 'brl_97_90'])
   assert.deepEqual(purchases.map(item => item.priceEnv), [
     'STRIPE_PRICE_RECHARGE_BRL_49_90',
     'STRIPE_PRICE_RECHARGE_BRL_97_90',
   ])
+})
+
+test('USD catalog has server-owned prices, matches BR grants, and cannot be selected by a BR profile', () => {
+  assert.equal(resolveStripeCheckoutItem('usd_start', readEnv, 'US').priceId, 'price_testusdstart')
+  assert.equal(resolveStripeCheckoutItem('usd_pro', readEnv, 'US').priceId, 'price_testusdpro')
+  assert.equal(resolveStripeCheckoutItem('usd_elite', readEnv, 'US').priceId, 'price_testusdelite')
+  assert.equal(resolveStripeCheckoutItem('usd_9_90', readEnv, 'US').priceId, 'price_testusdsmall')
+  assert.equal(resolveStripeCheckoutItem('usd_19_90', readEnv, 'US').priceId, 'price_testusdlarge')
+  assert.equal(STRIPE_CHECKOUT_ITEMS.usd_start.grant.smartTokens, STRIPE_CHECKOUT_ITEMS.start.grant.smartTokens)
+  assert.equal(STRIPE_CHECKOUT_ITEMS.usd_pro.grant.smartTokens, STRIPE_CHECKOUT_ITEMS.pro.grant.smartTokens)
+  assert.equal(STRIPE_CHECKOUT_ITEMS.usd_elite.grant.smartTokens, STRIPE_CHECKOUT_ITEMS.elite.grant.smartTokens)
+  assert.equal(STRIPE_CHECKOUT_ITEMS.usd_9_90.grant.smartTokens, STRIPE_CHECKOUT_ITEMS.brl_49_90.grant.smartTokens)
+  assert.equal(STRIPE_CHECKOUT_ITEMS.usd_19_90.grant.smartTokens, STRIPE_CHECKOUT_ITEMS.brl_97_90.grant.smartTokens)
+  assert.throws(() => resolveStripeCheckoutItem('usd_start', readEnv, 'BR'), /stripe_market_item_mismatch/)
+  assert.throws(() => resolveStripeCheckoutItem('start', readEnv, 'US'), /stripe_market_item_mismatch/)
 })
 
 test('checkout keeps server prices and original currency by disabling Adaptive Pricing for every item', () => {
@@ -88,7 +108,7 @@ test('checkout endpoint accepts exactly one internal economic key', async () => 
   const dependencies = {
     readEnv,
     authenticate: async () => ({ id: USER_ID }),
-    findStripeCustomerId: async () => null,
+    findCheckoutProfile: async () => ({ customerId: null, market: 'BR' as const }),
     createCheckoutSession: async (params: URLSearchParams) => {
       captured = params
       return { id: 'cs_test', url: 'https://checkout.stripe.com/c/pay/test' }
@@ -422,8 +442,8 @@ test('webhook schedules the five transactional emails only after financial work 
   assert.equal(grants.length, 3)
   assert.equal(syncs.length, 4)
   assert.equal(notifications[0].amountPaidBrlCents, 4_990)
-  assert.deepEqual(notifications[1].payment, { amountPaidBrlCents: 12_700 })
-  assert.deepEqual(notifications[2].payment, { amountPaidBrlCents: 21_700 })
+  assert.deepEqual(notifications[1].payment, { amountPaidBrlCents: 12_700, currency: 'BRL' })
+  assert.deepEqual(notifications[2].payment, { amountPaidBrlCents: 21_700, currency: 'BRL' })
 })
 
 test('invoice email data uses actual Stripe amount and expanded promotion details', async () => {
@@ -460,6 +480,7 @@ test('invoice email data uses actual Stripe amount and expanded promotion detail
   assert.equal(grants.length, 1)
   assert.deepEqual(notifications[0].payment, {
     amountPaidBrlCents: 10_795,
+    currency: 'BRL',
     discount: {
       amountBrlCents: 1_905,
       percentOff: 15,
@@ -486,6 +507,7 @@ test('invoice enrichment failure keeps the financial grant and actual discounted
   assert.equal(grants.length, 1)
   assert.deepEqual(notifications[0].payment, {
     amountPaidBrlCents: 10_795,
+    currency: 'BRL',
     discount: { amountBrlCents: 1_905 },
   })
 })
@@ -493,8 +515,28 @@ test('invoice enrichment failure keeps the financial grant and actual discounted
 test('invoice parser never invents promotion data when Stripe reports no discount', () => {
   assert.deepEqual(invoicePaymentEmailData({ amount_paid: 12_700, total_discount_amounts: [] }), {
     amountPaidBrlCents: 12_700,
+    currency: 'BRL',
   })
   assert.equal(invoicePaymentEmailData({ amount_paid: null }), null)
+})
+
+test('USD webhook paths preserve invoice and checkout authorities with the matching grants', async () => {
+  const grants: any[] = []
+  const notifications: any[] = []
+  const usdSubscription = { ...subscription, metadata: { user_id: USER_ID, economic_key: 'usd_pro', purchase_type: 'subscription', market: 'US' } }
+  const dependencies: StripeWebhookDependencies = {
+    ...webhookDependencies(grants, []),
+    retrieveSubscription: async () => usdSubscription,
+    notify: async request => { notifications.push(request) },
+  }
+  assert.equal(await processStripeEvent({ id: 'evt_usd_invoice', type: 'invoice.paid', data: { object: { id: 'in_usd', subscription: 'sub_usd', amount_paid: 3_990, currency: 'usd', billing_reason: 'subscription_cycle' } } }, dependencies), 'subscription_granted')
+  assert.equal(grants[0].economicKey, 'usd_pro')
+  assert.equal(grants[0].smartTokens, 10_850)
+  assert.deepEqual(notifications[0].payment, { amountPaidBrlCents: 3_990, currency: 'USD' })
+
+  assert.equal(await processStripeEvent({ id: 'evt_usd_purchase', type: 'checkout.session.completed', data: { object: { id: 'cs_usd', mode: 'payment', payment_status: 'paid', amount_total: 990, metadata: { user_id: USER_ID, economic_key: 'usd_9_90', purchase_type: 'payment', market: 'US' } } } }, dependencies), 'purchase_granted')
+  assert.equal(grants[1].economicKey, 'usd_9_90')
+  assert.equal(grants[1].smartTokens, 2_000)
 })
 
 test('checkout subscription sends no email and Resend failure never breaks a completed grant', async () => {

@@ -62,6 +62,15 @@ export const CREDIT_RECHARGES = {
 
 export const SMART_TOKEN_RECHARGE_PACKAGES = Object.freeze(Object.values(CREDIT_RECHARGES))
 
+export const USD_SMART_TOKEN_RECHARGE_PACKAGES = Object.freeze([
+  Object.freeze({ id: 'usd_9_90', credits: 2000, price: 9.9, priceLabel: '9.90', expiresInDays: 30, expirationPolicy: 'recharge_credits_expire_after_30_days' }),
+  Object.freeze({ id: 'usd_19_90', credits: 4000, price: 19.9, priceLabel: '19.90', expiresInDays: 30, expirationPolicy: 'recharge_credits_expire_after_30_days' }),
+])
+
+export const smartTokenRechargePackagesForMarket = (market) => market === 'US'
+  ? USD_SMART_TOKEN_RECHARGE_PACKAGES
+  : SMART_TOKEN_RECHARGE_PACKAGES
+
 export const CREDIT_POLICIES = {
   multiplier: 10,
   targetMarginRange: {

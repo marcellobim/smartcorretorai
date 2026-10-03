@@ -22,10 +22,13 @@ serve(async (request) => {
         const { data: { user }, error } = await supabase.auth.getUser(token)
         return error || !user?.id ? null : { id: user.id }
       },
-      findStripeCustomerId: async userId => {
-        const { data, error } = await supabase.from('profiles').select('stripe_customer_id').eq('id', userId).maybeSingle()
+      findCheckoutProfile: async userId => {
+        const { data, error } = await supabase.from('profiles').select('stripe_customer_id, market').eq('id', userId).maybeSingle()
         if (error) throw new Error('stripe_customer_lookup_failed')
-        return typeof data?.stripe_customer_id === 'string' ? data.stripe_customer_id : null
+        return {
+          customerId: typeof data?.stripe_customer_id === 'string' ? data.stripe_customer_id : null,
+          market: data?.market === 'US' ? 'US' : 'BR',
+        }
       },
       createCheckoutSession: async params => {
         const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {

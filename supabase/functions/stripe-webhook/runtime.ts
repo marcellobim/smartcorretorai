@@ -82,21 +82,21 @@ function subscriptionPeriodEnd(subscription: StripeObject) {
 }
 
 function subscriptionPlans(economicKey: string) {
-  if (economicKey === 'start' || economicKey === 'start_promotional') {
+  if (economicKey === 'start' || economicKey === 'start_promotional' || economicKey === 'usd_start') {
     return { subscriptionPlan: 'start', profilePlan: 'start' } as const
   }
-  if (economicKey === 'pro') return { subscriptionPlan: 'pro', profilePlan: 'pro' } as const
-  if (economicKey === 'elite') return { subscriptionPlan: 'elite', profilePlan: 'imobiliaria' } as const
+  if (economicKey === 'pro' || economicKey === 'usd_pro') return { subscriptionPlan: 'pro', profilePlan: 'pro' } as const
+  if (economicKey === 'elite' || economicKey === 'usd_elite') return { subscriptionPlan: 'elite', profilePlan: 'imobiliaria' } as const
   throw new Error('stripe_subscription_plan_invalid')
 }
 
-function planEmailKey(economicKey: string): 'start' | 'pro' | 'elite' {
-  if (economicKey === 'start' || economicKey === 'pro' || economicKey === 'elite') return economicKey
+function planEmailKey(economicKey: string): 'start' | 'pro' | 'elite' | 'usd_start' | 'usd_pro' | 'usd_elite' {
+  if (economicKey === 'start' || economicKey === 'pro' || economicKey === 'elite' || economicKey === 'usd_start' || economicKey === 'usd_pro' || economicKey === 'usd_elite') return economicKey
   throw new Error('transactional_email_plan_invalid')
 }
 
-function purchaseEmailKey(economicKey: string): 'brl_49_90' | 'brl_97_90' {
-  if (economicKey === 'brl_49_90' || economicKey === 'brl_97_90') return economicKey
+function purchaseEmailKey(economicKey: string): 'brl_49_90' | 'brl_97_90' | 'usd_9_90' | 'usd_19_90' {
+  if (economicKey === 'brl_49_90' || economicKey === 'brl_97_90' || economicKey === 'usd_9_90' || economicKey === 'usd_19_90') return economicKey
   throw new Error('transactional_email_purchase_invalid')
 }
 
@@ -140,7 +140,8 @@ export function invoicePaymentEmailData(
   if (amountPaidBrlCents === null) return null
 
   const discountAmount = invoiceDiscountAmount(enrichedInvoice) || invoiceDiscountAmount(invoice)
-  if (discountAmount <= 0) return Object.freeze({ amountPaidBrlCents })
+  const currency = String(invoice.currency ?? '').toLowerCase() === 'usd' ? 'USD' as const : 'BRL' as const
+  if (discountAmount <= 0) return Object.freeze({ amountPaidBrlCents, currency })
 
   const discount = expandedInvoiceDiscounts(enrichedInvoice)[0]
     ?? expandedInvoiceDiscounts(invoice)[0]
@@ -152,6 +153,7 @@ export function invoicePaymentEmailData(
 
   return Object.freeze({
     amountPaidBrlCents,
+    currency,
     discount: Object.freeze({
       amountBrlCents: discountAmount,
       ...(Number.isFinite(percentOff) && percentOff > 0 ? { percentOff } : {}),

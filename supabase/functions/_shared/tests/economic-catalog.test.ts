@@ -83,9 +83,14 @@ test('plan and fixed purchase grants match the approved Scale A values', () => {
     start: { smartTokens: 6_350, monthlyPriceBrlCents: 12_700, displayName: 'START' },
     pro: { smartTokens: 10_850, monthlyPriceBrlCents: 21_700, displayName: 'PRO' },
     elite: { smartTokens: 26_350, monthlyPriceBrlCents: 54_700, displayName: 'ELITE' },
+    usd_start: { smartTokens: 6_350, monthlyPriceUsdCents: 2_490, displayName: 'START' },
+    usd_pro: { smartTokens: 10_850, monthlyPriceUsdCents: 3_990, displayName: 'PRO' },
+    usd_elite: { smartTokens: 26_350, monthlyPriceUsdCents: 9_990, displayName: 'ELITE' },
   })
   assert.deepEqual(PURCHASE_GRANTS, {
     brl_49_90: { smartTokens: 2_000, validityDays: 30, priceBrlCents: 4_990 },
     brl_97_90: { smartTokens: 4_000, validityDays: 30, priceBrlCents: 9_790 },
+    usd_9_90: { smartTokens: 2_000, validityDays: 30, priceUsdCents: 990 },
+    usd_19_90: { smartTokens: 4_000, validityDays: 30, priceUsdCents: 1_990 },
   })
 })

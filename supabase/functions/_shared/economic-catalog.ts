@@ -123,9 +123,14 @@ export const MONTHLY_PLAN_GRANTS = Object.freeze({
   start: Object.freeze({ smartTokens: 6_350, monthlyPriceBrlCents: 12_700, displayName: 'START' }),
   pro: Object.freeze({ smartTokens: 10_850, monthlyPriceBrlCents: 21_700, displayName: 'PRO' }),
   elite: Object.freeze({ smartTokens: 26_350, monthlyPriceBrlCents: 54_700, displayName: 'ELITE' }),
+  usd_start: Object.freeze({ smartTokens: 6_350, monthlyPriceUsdCents: 2_490, displayName: 'START' }),
+  usd_pro: Object.freeze({ smartTokens: 10_850, monthlyPriceUsdCents: 3_990, displayName: 'PRO' }),
+  usd_elite: Object.freeze({ smartTokens: 26_350, monthlyPriceUsdCents: 9_990, displayName: 'ELITE' }),
 })
 
 export const PURCHASE_GRANTS = Object.freeze({
   brl_49_90: Object.freeze({ smartTokens: 2_000, validityDays: 30, priceBrlCents: 4_990 }),
   brl_97_90: Object.freeze({ smartTokens: 4_000, validityDays: 30, priceBrlCents: 9_790 }),
+  usd_9_90: Object.freeze({ smartTokens: 2_000, validityDays: 30, priceUsdCents: 990 }),
+  usd_19_90: Object.freeze({ smartTokens: 4_000, validityDays: 30, priceUsdCents: 1_990 }),
 })

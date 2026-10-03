@@ -9,7 +9,7 @@ const DASHBOARD_URL = 'https://snetia.com/dashboard'
 const SETTINGS_URL = 'https://snetia.com/configuracoes'
 const HOME_URL = 'https://snetia.com'
 
-type PlanKey = 'start' | 'pro' | 'elite'
+type PlanKey = 'start' | 'pro' | 'elite' | 'usd_start' | 'usd_pro' | 'usd_elite'
 type PurchaseKey = keyof typeof PURCHASE_GRANTS
 
 export type AppliedInvoiceDiscount = Readonly<{
@@ -21,6 +21,7 @@ export type AppliedInvoiceDiscount = Readonly<{
 
 export type InvoicePaymentEmailData = Readonly<{
   amountPaidBrlCents: number
+  currency?: 'BRL' | 'USD'
   discount?: AppliedInvoiceDiscount
 }>
 
@@ -53,6 +54,9 @@ const formatInteger = (value: number) => new Intl.NumberFormat('pt-BR', { maximu
 const formatBrl = (cents: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', minimumFractionDigits: 2,
 }).format(cents / 100).replace(/\u00a0/g, ' ')
+const formatMoney = (cents: number, currency: 'BRL' | 'USD') => currency === 'USD'
+  ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(cents / 100)
+  : formatBrl(cents)
 const formatPercent = (value: number) => new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 }).format(value)
@@ -78,7 +82,7 @@ function content(subject: string, paragraphs: readonly string[], ctaLabel: strin
   })
 }
 
-function discountText(discount: AppliedInvoiceDiscount) {
+function discountText(discount: AppliedInvoiceDiscount, currency: 'BRL' | 'USD') {
   const label = discount.promotionCode ? `Oferta ${discount.promotionCode}:` : 'Desconto aplicado:'
   if (Number.isFinite(discount.percentOff) && Number(discount.percentOff) > 0) {
     const duration = Number.isInteger(discount.durationMonths) && Number(discount.durationMonths) > 0
@@ -86,7 +90,7 @@ function discountText(discount: AppliedInvoiceDiscount) {
       : ''
     return `${label} ${formatPercent(Number(discount.percentOff))}% de desconto${duration}`
   }
-  return `${label} ${formatBrl(discount.amountBrlCents)}`
+  return `${label} ${formatMoney(discount.amountBrlCents, currency)}`
 }
 
 export function buildTransactionalEmail(
@@ -124,7 +128,7 @@ export function buildTransactionalEmail(
       'Olá,',
       'Sua recarga foi confirmada.',
       `${formatInteger(purchase.smartTokens)} Smart Tokens já estão disponíveis na sua conta.`,
-      `Valor pago: ${formatBrl(input.amountPaidBrlCents ?? purchase.priceBrlCents)}`,
+      `Valor pago: ${formatMoney(input.amountPaidBrlCents ?? ('priceUsdCents' in purchase ? purchase.priceUsdCents : purchase.priceBrlCents), 'priceUsdCents' in purchase ? 'USD' : 'BRL')}`,
       `Validade: ${purchase.validityDays} dias`,
     ], 'Começar a criar', DASHBOARD_URL)
   }
@@ -143,15 +147,17 @@ export function buildTransactionalEmail(
     throw new Error('transactional_email_catalog_item_invalid')
   }
   const planName = plan.displayName
+  const currency: 'BRL' | 'USD' = 'monthlyPriceUsdCents' in plan ? 'USD' : 'BRL'
+  const regularPrice = 'monthlyPriceUsdCents' in plan ? plan.monthlyPriceUsdCents : plan.monthlyPriceBrlCents
   if (input.kind === 'subscription_welcome') {
     const paragraphs = [
       'Olá,',
       `Sua assinatura do plano ${planName} está ativa.`,
-      `Valor pago: ${formatBrl(input.payment.amountPaidBrlCents)}`,
+      `Valor pago: ${formatMoney(input.payment.amountPaidBrlCents, input.payment.currency ?? currency)}`,
     ]
     if (input.payment.discount) {
-      paragraphs.push(discountText(input.payment.discount))
-      paragraphs.push(`Valor normal do plano: ${formatBrl(plan.monthlyPriceBrlCents)}/mês`)
+      paragraphs.push(discountText(input.payment.discount, input.payment.currency ?? currency))
+      paragraphs.push(`Valor normal do plano: ${formatMoney(regularPrice, currency)}/mês`)
     }
     paragraphs.push(
       `Smart Tokens incluídos neste ciclo: ${formatInteger(plan.smartTokens)} ST`,
@@ -163,9 +169,9 @@ export function buildTransactionalEmail(
     const paragraphs = [
       'Olá,',
       `Sua renovação do plano ${planName} foi confirmada.`,
-      `Valor pago: ${formatBrl(input.payment.amountPaidBrlCents)}`,
+      `Valor pago: ${formatMoney(input.payment.amountPaidBrlCents, input.payment.currency ?? currency)}`,
     ]
-    if (input.payment.discount) paragraphs.push(discountText(input.payment.discount))
+    if (input.payment.discount) paragraphs.push(discountText(input.payment.discount, input.payment.currency ?? currency))
     paragraphs.push(
       `Smart Tokens adicionados neste ciclo: ${formatInteger(plan.smartTokens)} ST`,
       'Seu plano continua ativo.',

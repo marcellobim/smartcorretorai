@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { CREDIT_RECHARGES, SMART_TOKEN_RECHARGE_PACKAGES } from '../src/data/creditCosts.js'
+import { CREDIT_RECHARGES, SMART_TOKEN_RECHARGE_PACKAGES, USD_SMART_TOKEN_RECHARGE_PACKAGES } from '../src/data/creditCosts.js'
 import { getSmartTokenBalance } from '../src/lib/smart-tokens.js'
 
 const planos = readFileSync(new URL('../src/pages/Planos.jsx', import.meta.url), 'utf8')
@@ -17,7 +17,7 @@ const portalIndex = readFileSync(new URL('../../supabase/functions/stripe-custom
 const portalRuntime = readFileSync(new URL('../../supabase/functions/stripe-customer-portal/runtime.ts', import.meta.url), 'utf8')
 
 test('frontend plan cards keep final monthly prices, grants and operational economic keys', () => {
-  assert.equal((planos.match(/>Mensal</g) ?? []).length, 1)
+  assert.equal((planos.match(/monthly: 'Mensal'/g) ?? []).length, 1)
   assert.doesNotMatch(planos, /Trimestral|Anual|Em breve|em breve/)
 
   assert.match(planos, /id: 'start',[\s\S]*?preco: '127',[\s\S]*?capacityDetail: '6\.350 Smart Tokens por mês'/)
@@ -59,8 +59,8 @@ test('purchased Smart Token balance remains visible without requiring a subscrip
 
   assert.match(sidebar, /getSmartTokenBalance\(\{ saldo_creditos: profile\?\.saldo_creditos \}\)/)
   assert.match(sidebar, /const showBalance = balance !== null && \(!trial \|\| balance > 0\)/)
-  assert.match(sidebar, /Saldo: <span[^>]*>\{formatSmartTokens\(balance\)\} ST<\/span>/)
-  assert.match(sidebar, /Saldo:[\s\S]*?<NavLink[\s\S]*?Smart Tokens/)
+  assert.match(sidebar, /formatSmartTokens\(balance\).*sidebar\.smartTokens\.unit/)
+  assert.match(sidebar, /smartTokensItem\(t\)/)
   assert.doesNotMatch(planos, /Saldo:|getSmartTokenBalance|formatSmartTokens/)
 })
 
@@ -80,7 +80,9 @@ test('active users manage subscriptions through a server-authoritative Stripe Cu
   assert.match(portalIndex, /from\('subscriptions'\)[\s\S]*?eq\('user_id', userId\)[\s\S]*?eq\('status', 'ativo'\)/)
   assert.match(portalRuntime, /Object\.keys\(body\)\.length !== 0/)
   assert.match(portalRuntime, /portalUrl\.hostname !== 'billing\.stripe\.com'/)
-  assert.match(dashboard, /Gerenciar assinatura[\s\S]*?cancelamento tem efeito ao final do período vigente/)
+  assert.match(portalIndex, /STRIPE_CHECKOUT_SUCCESS_URL/)
+  assert.doesNotMatch(portalIndex, /smartcorretorai\.com/)
+  assert.match(dashboard, /PLANS_ROUTE = '\/planos'/)
 })
 
 test('Customer Portal does not mutate credits and the webhook remains cancellation authority', () => {
@@ -132,6 +134,19 @@ test('Planos copy exposes only current rules and the contact channel', () => {
 
   assert.match(planos, />Contato</)
   assert.match(planos, /Dúvidas ou sugestões\? Fale com a gente\./)
-  assert.match(planos, /Use este canal para suporte, sugestões ou qualquer assunto relacionado ao SmartCorretorAI\./)
-  assert.match(planos, /suporte@smartcorretorai\.com/)
+  assert.match(planos, /relacionado ao \{BRAND\.name\}/)
+  assert.match(planos, /BRAND\.supportEmail/)
+})
+
+test('US pricing uses distinct fixed USD keys and keeps the same Smart Token grants', () => {
+  assert.match(planos, /const PLANOS_US = \[/)
+  assert.match(planos, /id: 'usd_start',[\s\S]*?preco: '24\.90'/)
+  assert.match(planos, /id: 'usd_pro',[\s\S]*?preco: '39\.90'/)
+  assert.match(planos, /id: 'usd_elite',[\s\S]*?preco: '99\.90'/)
+  assert.deepEqual(USD_SMART_TOKEN_RECHARGE_PACKAGES.map(item => ({ id: item.id, credits: item.credits, price: item.price, expiresInDays: item.expiresInDays })), [
+    { id: 'usd_9_90', credits: 2000, price: 9.9, expiresInDays: 30 },
+    { id: 'usd_19_90', credits: 4000, price: 19.9, expiresInDays: 30 },
+  ])
+  assert.match(planos, /profile\?\.market === 'US'/)
+  assert.match(planos, /\{isUS \? '\$' : 'R\$'\}/)
 })

@@ -8,37 +8,57 @@ export const STRIPE_CHECKOUT_ITEMS = Object.freeze({
   start_promotional: Object.freeze({
     key: 'start_promotional',
     kind: 'subscription',
+    market: 'BR',
     priceEnv: 'STRIPE_PRICE_START_PROMOTIONAL',
     grant: MONTHLY_PLAN_GRANTS.start_promotional,
   }),
   start: Object.freeze({
     key: 'start',
     kind: 'subscription',
+    market: 'BR',
     priceEnv: 'STRIPE_PRICE_START',
     grant: MONTHLY_PLAN_GRANTS.start,
   }),
   pro: Object.freeze({
     key: 'pro',
     kind: 'subscription',
+    market: 'BR',
     priceEnv: 'STRIPE_PRICE_PRO',
     grant: MONTHLY_PLAN_GRANTS.pro,
   }),
   elite: Object.freeze({
     key: 'elite',
     kind: 'subscription',
+    market: 'BR',
     priceEnv: 'STRIPE_PRICE_ELITE',
     grant: MONTHLY_PLAN_GRANTS.elite,
   }),
   brl_49_90: Object.freeze({
-    key: 'brl_49_90', kind: 'payment', priceEnv: 'STRIPE_PRICE_RECHARGE_BRL_49_90', grant: PURCHASE_GRANTS.brl_49_90,
+    key: 'brl_49_90', kind: 'payment', market: 'BR', priceEnv: 'STRIPE_PRICE_RECHARGE_BRL_49_90', grant: PURCHASE_GRANTS.brl_49_90,
   }),
   brl_97_90: Object.freeze({
-    key: 'brl_97_90', kind: 'payment', priceEnv: 'STRIPE_PRICE_RECHARGE_BRL_97_90', grant: PURCHASE_GRANTS.brl_97_90,
+    key: 'brl_97_90', kind: 'payment', market: 'BR', priceEnv: 'STRIPE_PRICE_RECHARGE_BRL_97_90', grant: PURCHASE_GRANTS.brl_97_90,
+  }),
+  usd_start: Object.freeze({
+    key: 'usd_start', kind: 'subscription', market: 'US', priceEnv: 'STRIPE_PRICE_USD_START', grant: MONTHLY_PLAN_GRANTS.usd_start,
+  }),
+  usd_pro: Object.freeze({
+    key: 'usd_pro', kind: 'subscription', market: 'US', priceEnv: 'STRIPE_PRICE_USD_PRO', grant: MONTHLY_PLAN_GRANTS.usd_pro,
+  }),
+  usd_elite: Object.freeze({
+    key: 'usd_elite', kind: 'subscription', market: 'US', priceEnv: 'STRIPE_PRICE_USD_ELITE', grant: MONTHLY_PLAN_GRANTS.usd_elite,
+  }),
+  usd_9_90: Object.freeze({
+    key: 'usd_9_90', kind: 'payment', market: 'US', priceEnv: 'STRIPE_PRICE_RECHARGE_USD_9_90', grant: PURCHASE_GRANTS.usd_9_90,
+  }),
+  usd_19_90: Object.freeze({
+    key: 'usd_19_90', kind: 'payment', market: 'US', priceEnv: 'STRIPE_PRICE_RECHARGE_USD_19_90', grant: PURCHASE_GRANTS.usd_19_90,
   }),
 })
 
 export type StripeEconomicKey = keyof typeof STRIPE_CHECKOUT_ITEMS
 export type StripePurchaseKind = 'subscription' | 'payment'
+export type StripeMarket = 'BR' | 'US'
 export type EnvReader = (name: string) => string | undefined
 
 export type ResolvedStripeCheckoutItem = (typeof STRIPE_CHECKOUT_ITEMS)[StripeEconomicKey] & {
@@ -49,19 +69,21 @@ export function isStripeEconomicKey(value: unknown): value is StripeEconomicKey 
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(STRIPE_CHECKOUT_ITEMS, value)
 }
 
-export function resolveStripeCheckoutItem(value: unknown, readEnv: EnvReader): ResolvedStripeCheckoutItem {
+export function resolveStripeCheckoutItem(value: unknown, readEnv: EnvReader, market: StripeMarket = 'BR'): ResolvedStripeCheckoutItem {
   if (!isStripeEconomicKey(value)) throw new Error('invalid_economic_key')
   const item = STRIPE_CHECKOUT_ITEMS[value]
+  if (item.market !== market) throw new Error('stripe_market_item_mismatch')
   const priceId = String(readEnv(item.priceEnv) ?? '').trim()
   if (!/^price_[A-Za-z0-9]+$/.test(priceId)) throw new Error('stripe_price_not_configured')
   return { ...item, priceId }
 }
 
-export function checkoutMetadata(userId: string, item: Pick<ResolvedStripeCheckoutItem, 'key' | 'kind'>) {
+export function checkoutMetadata(userId: string, item: Pick<ResolvedStripeCheckoutItem, 'key' | 'kind' | 'market'>) {
   return Object.freeze({
     user_id: userId,
     economic_key: item.key,
     purchase_type: item.kind,
+    market: item.market,
     catalog_version: ECONOMIC_CATALOG_VERSION,
   })
 }
@@ -106,7 +128,12 @@ export function requireTrustedMetadata(metadata: unknown, expectedKind: StripePu
   }
   if (!isStripeEconomicKey(economicKey)) throw new Error('invalid_stripe_economic_metadata')
   const item = STRIPE_CHECKOUT_ITEMS[economicKey]
-  if (purchaseType !== expectedKind || item.kind !== expectedKind) throw new Error('invalid_stripe_purchase_type')
+  const metadataMarket = String(raw.market ?? '')
+  // Legacy BR subscriptions predate the market field. They remain valid; every
+  // new checkout receives explicit market metadata and USD never accepts a gap.
+  if (purchaseType !== expectedKind || item.kind !== expectedKind || (metadataMarket && metadataMarket !== item.market) || (!metadataMarket && item.market !== 'BR')) {
+    throw new Error('invalid_stripe_purchase_type')
+  }
   return { userId, economicKey, item }
 }
 

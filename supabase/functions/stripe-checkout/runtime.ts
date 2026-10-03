@@ -3,11 +3,12 @@ import {
   resolveStripeCheckoutItem,
   type EnvReader,
   type ResolvedStripeCheckoutItem,
+  type StripeMarket,
 } from '../_shared/stripe-commerce.ts'
 
 export type CheckoutDependencies = {
   authenticate(token: string): Promise<{ id: string } | null>
-  findStripeCustomerId(userId: string): Promise<string | null>
+  findCheckoutProfile(userId: string): Promise<{ customerId: string | null; market: StripeMarket }>
   createCheckoutSession(params: URLSearchParams): Promise<{ id: string; url: string | null }>
   readEnv: EnvReader
 }
@@ -30,8 +31,10 @@ export async function handleStripeCheckout(request: Request, dependencies: Check
   }
 
   let item: ResolvedStripeCheckoutItem
+  let profile: { customerId: string | null; market: StripeMarket }
   try {
-    item = resolveStripeCheckoutItem(body.economicKey, dependencies.readEnv)
+    profile = await dependencies.findCheckoutProfile(user.id)
+    item = resolveStripeCheckoutItem(body.economicKey, dependencies.readEnv, profile.market)
   } catch {
     return json({ ok: false, error: 'Item de checkout indisponível.' }, 400)
   }
@@ -42,10 +45,9 @@ export async function handleStripeCheckout(request: Request, dependencies: Check
     return json({ ok: false, error: 'Checkout indisponível.' }, 500)
   }
 
-  const customerId = await dependencies.findStripeCustomerId(user.id)
   const session = await dependencies.createCheckoutSession(buildStripeCheckoutParams({
     userId: user.id,
-    customerId,
+    customerId: profile!.customerId,
     item,
     successUrl,
     cancelUrl,

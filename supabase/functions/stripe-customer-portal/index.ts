@@ -4,12 +4,15 @@ import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-creden
 import { corsHeaders } from '../_shared/cors.ts'
 import { handleStripeCustomerPortal } from './runtime.ts'
 
-const CUSTOMER_PORTAL_RETURN_URL = 'https://www.smartcorretorai.com/planos'
-
 const requiredEnv = (name: string) => {
   const value = Deno.env.get(name)
   if (!value) throw new Error('stripe_customer_portal_configuration_missing')
   return value
+}
+
+const customerPortalReturnUrl = () => {
+  const successUrl = new URL(requiredEnv('STRIPE_CHECKOUT_SUCCESS_URL'))
+  return new URL('/planos', successUrl.origin).toString()
 }
 
 serve(async (request) => {
@@ -19,7 +22,7 @@ serve(async (request) => {
       auth: { persistSession: false },
     })
     const response = await handleStripeCustomerPortal(request, {
-      returnUrl: CUSTOMER_PORTAL_RETURN_URL,
+      returnUrl: customerPortalReturnUrl(),
       authenticate: async token => {
         const { data: { user }, error } = await supabase.auth.getUser(token)
         return error || !user?.id ? null : { id: user.id }
