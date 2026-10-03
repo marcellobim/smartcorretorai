@@ -48,7 +48,7 @@ export default function AuthCallbackPage() {
         navigate('/aceite-legal', { replace: true })
         return
       }
-      if (state === 'accepted' || state === 'not_google') {
+      if (state === 'accepted') {
         navigate(videoLoginDestination(sessionStorage, signedIn?.user?.id), { replace: true })
         return
       }

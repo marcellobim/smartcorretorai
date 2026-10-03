@@ -149,7 +149,7 @@ export default Object.freeze({
   }),
   register: Object.freeze({
     title: 'Create your free account',
-    subtitle: 'Get started for free with 200 Smart Tokens after confirming your email, no card required. Already have an account?',
+    subtitle: 'Create your account and start exploring SNETIA. Already have an account?',
     signIn: 'Sign in',
     or: 'or',
     name: Object.freeze({
@@ -283,7 +283,7 @@ export default Object.freeze({
         tokens: Object.freeze({ question: 'What are Smart Tokens?', answerPrefix: 'Smart Tokens represent your creation capacity within', answerSuffix: 'Each feature shows the required amount before you begin.' }),
         subscription: Object.freeze({ question: 'Do I need a subscription?', answer: 'No. Plans are recommended for people who create often, but you can also purchase Smart Tokens separately.' }),
         buyTokens: Object.freeze({ question: 'Can I buy Smart Tokens separately?', answer: 'Yes. Top-ups can be used to get started without a subscription or to supplement a plan.' }),
-        freeTrial: Object.freeze({ question: 'How does the free trial work?', answerPrefix: 'After confirming your email, you receive a one-time grant of 200 Smart Tokens, with no card required and no expiration date, to use on', answerSuffix: 'Other products may require a subscription or the purchase of Smart Tokens.' }),
+        freeTrial: Object.freeze({ question: 'How do I start exploring the platform?', answerPrefix: 'Create your account, confirm your email, and explore the resources available in', answerSuffix: 'Some products may require a subscription or the purchase of Smart Tokens.' }),
         generationFailure: Object.freeze({ question: 'What happens if a generation fails?', answer: 'When a generation fails and does not complete the corresponding delivery, the Smart Token reservation is released according to the product flow.' }),
         cancelSubscription: Object.freeze({ question: 'Can I cancel my subscription?', answer: 'Yes. Cancellation can be requested through the secure subscription portal and takes effect at the end of the period already paid for.' }),
         manageSubscription: Object.freeze({ question: 'How do I manage my subscription?', answer: 'Go to Settings → Plan and Subscription and select “Manage subscription” to open Stripe’s secure portal.' }),
@@ -291,7 +291,7 @@ export default Object.freeze({
         contactSupport: Object.freeze({ question: 'How do I contact support?', answerPrefix: 'Send your message to' }),
       }),
     }),
-    finalCta: Object.freeze({ eyebrow: 'Get started now', title: 'Promote more. Promote differently.', descriptionPrefix: 'Sales, rentals, new developments, or acquisition. Create new ways to present your opportunities with', cta: 'Try for free', note: 'Get started free with 200 Smart Tokens after confirming your email. No card required.' }),
+    finalCta: Object.freeze({ eyebrow: 'Get started now', title: 'Promote more. Promote differently.', descriptionPrefix: 'Sales, rentals, new developments, or acquisition. Create new ways to present your opportunities with', cta: 'Create an account', note: 'Create your account and start exploring SNETIA.' }),
     footer: Object.freeze({ faq: 'FAQ', plansAndTokens: 'Plans and Smart Tokens', supportAndLegal: 'Support and legal', contact: 'Contact', terms: 'Terms of Use', privacy: 'Privacy Policy', cookiePreferences: 'Cookie preferences', socialNetworks: 'Social media', tagline: 'Intelligence that sells', instagramAriaPrefix: 'Official Instagram of', facebookAriaPrefix: 'Official Facebook of', rights: 'All rights reserved.' }),
     comparison: Object.freeze({ interactiveAriaLabel: 'Interactive before-and-after comparison', phoneAriaLabel: 'before-and-after comparison', beforeImageAlt: 'Empty room before Smart Space', afterImageAlt: 'Furnished room after Smart Space', before: 'Before', after: 'After', beforeUppercase: 'BEFORE', afterUppercase: 'AFTER', sliderAriaLabel: 'Move the before-and-after comparison', beforeSmartSpaceAlt: 'before Smart Space', afterSmartSpaceAlt: 'after Smart Space', rooms: Object.freeze({ living: 'Connected living room', balcony: 'Balcony', bathroom: 'Bathroom', bedroom: 'Bedroom and home office', dining: 'Dining room', kitchen: 'Connected kitchen', office: 'Office' }) }),
     controls: Object.freeze({ textCampaignPreviewAriaLabel: 'Interactive preview of a complete text campaign', optionsPrefix: 'Options from', optionsTo: 'to' }),

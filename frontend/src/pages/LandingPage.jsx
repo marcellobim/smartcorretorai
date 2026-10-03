@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight, ChevronDown, Download, Facebook, FileText, Gauge,
-  Image as ImageIcon, Instagram, Layers3, LayoutTemplate, Menu,
+  Image as ImageIcon, Layers3, LayoutTemplate, Menu,
   Play, Radar, Route, UploadCloud, Video, Wand2, X,
 } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
@@ -188,7 +188,7 @@ const IMAGE_SHOWCASE_EXAMPLES = {
 const TEXT_CAMPAIGN_CHANNELS = [
   {
     id: 'hashtags', title: 'Hashtags',
-    pieces: [{ label: 'Hashtags estratégicas', type: 'tags', values: ['#ApartamentoAVenda', '#Moema', '#ImoveisSP', '#ApartamentoEmMoema', '#VarandaIntegrada', '#DuasVagas', '#ImovelComVaranda', '#Apartamento2Dormitorios', '#Suite', '#92m2', '#ComprarApartamento', '#SmartCorretorAI'] }],
+    pieces: [{ label: 'Hashtags estratégicas', type: 'tags', values: ['#ApartamentoAVenda', '#Moema', '#ImoveisSP', '#ApartamentoEmMoema', '#VarandaIntegrada', '#DuasVagas', '#ImovelComVaranda', '#Apartamento2Dormitorios', '#Suite', '#92m2', '#ComprarApartamento', '#SNETIA'] }],
   },
   {
     id: 'portal', title: 'Portal',
@@ -400,7 +400,7 @@ function Hero() {
             <Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link>
             <a href="#formas-de-criar" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />{t('landing.hero.explore')}</a>
           </div>
-          <p className="mt-5 text-xs font-bold text-slate-400">Comece grátis com 200 Smart Tokens após confirmar seu e-mail. Sem cartão.</p>
+          <p className="mt-5 text-xs font-bold text-slate-400">Crie sua conta e comece a explorar a {BRAND.name}.</p>
         </div>
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
           <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#0b1022] shadow-[0_50px_100px_-35px_rgba(76,29,149,.8)]">
@@ -648,7 +648,7 @@ function BenefitsSection() {
 function TokensSection() {
   const trackCta = useLandingCtaTracking('product_section')
   const facts = [
-    ['Teste grátis', 'Confirme seu e-mail e receba 200 Smart Tokens para experimentar recursos selecionados, sem cartão.'],
+    ['Comece a explorar', 'Crie sua conta para conhecer os recursos e as opções disponíveis na plataforma.'],
     ['Sem precisar assinar', 'Crie também sem plano mensal. Quando precisar, adicione Smart Tokens e continue criando.'],
     ['Tudo em um só lugar', 'Menos ferramentas para aprender e administrar. Vídeos, imagens e campanhas reunidos no mesmo ambiente.'],
   ]
@@ -679,7 +679,7 @@ function LandingFooter() {
     [BRAND.name, [{ label: t('landing.footer.faq'), href: '#faq' }, { label: t('landing.footer.plansAndTokens'), to: '/planos' }]],
     [t('landing.footer.supportAndLegal'), [{ label: t('landing.footer.contact'), href: `mailto:${BRAND.supportEmail}` }, { label: BRAND.supportEmail, href: `mailto:${BRAND.supportEmail}` }, { label: t('landing.footer.terms'), to: '/termos' }, { label: t('landing.footer.privacy'), to: '/privacidade' }]],
   ]
-  return <footer className="border-t border-white/10 bg-[#050816] text-white"><div className="mx-auto grid max-w-[92rem] gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.45fr_1fr_1.2fr_.7fr] lg:px-10"><div><div className="flex items-center gap-3"><BrandMark size={42} decorative /><span className="text-lg font-black">{BRAND.name}</span></div><p className="mt-4 text-sm font-black text-violet-300">{t('landing.footer.tagline')}</p></div>{groups.map(([title, links]) => <div key={title}><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{title}</h2><ul className="mt-5 space-y-3">{links.map(link => <li key={link.label}>{link.to ? <Link to={link.to} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</Link> : <a href={link.href} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</a>}</li>)}{title === t('landing.footer.supportAndLegal') && <li><button type="button" onClick={openCookiePreferences} className={`text-left text-sm font-semibold text-slate-400 hover:text-white ${focusRing}`}>{t('landing.footer.cookiePreferences')}</button></li>}</ul></div>)}<div><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{t('landing.footer.socialNetworks')}</h2><div className="mt-5 flex gap-3"><a href="https://www.instagram.com/smartcorretorai/" target="_blank" rel="noopener noreferrer" aria-label={`${t('landing.footer.instagramAriaPrefix')} ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Instagram className="h-4 w-4" /></a><a href="https://www.facebook.com/profile.php?id=61589717755129" target="_blank" rel="noopener noreferrer" aria-label={`${t('landing.footer.facebookAriaPrefix')} ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Facebook className="h-4 w-4" /></a></div></div></div><div className="border-t border-white/10"><div className="mx-auto max-w-[92rem] px-4 py-5 text-xs font-semibold text-slate-600 sm:px-6 lg:px-10">© 2026 {BRAND.name}. {t('landing.footer.rights')}</div></div></footer>
+  return <footer className="border-t border-white/10 bg-[#050816] text-white"><div className="mx-auto grid max-w-[92rem] gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.45fr_1fr_1.2fr_.7fr] lg:px-10"><div><div className="flex items-center gap-3"><BrandMark size={42} decorative /><span className="text-lg font-black">{BRAND.name}</span></div><p className="mt-4 text-sm font-black text-violet-300">{t('landing.footer.tagline')}</p></div>{groups.map(([title, links]) => <div key={title}><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{title}</h2><ul className="mt-5 space-y-3">{links.map(link => <li key={link.label}>{link.to ? <Link to={link.to} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</Link> : <a href={link.href} className="text-sm font-semibold text-slate-400 hover:text-white">{link.label}</a>}</li>)}{title === t('landing.footer.supportAndLegal') && <li><button type="button" onClick={openCookiePreferences} className={`text-left text-sm font-semibold text-slate-400 hover:text-white ${focusRing}`}>{t('landing.footer.cookiePreferences')}</button></li>}</ul></div>)}<div><h2 className="text-xs font-black uppercase tracking-[.16em] text-violet-300">{t('landing.footer.socialNetworks')}</h2><div className="mt-5 flex gap-3"><a href="https://www.facebook.com/profile.php?id=61589717755129" target="_blank" rel="noopener noreferrer" aria-label={`${t('landing.footer.facebookAriaPrefix')} ${BRAND.name}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-500"><Facebook className="h-4 w-4" /></a></div></div></div><div className="border-t border-white/10"><div className="mx-auto max-w-[92rem] px-4 py-5 text-xs font-semibold text-slate-600 sm:px-6 lg:px-10">© 2026 {BRAND.name}. {t('landing.footer.rights')}</div></div></footer>
 }
 
 export default function LandingPage() {

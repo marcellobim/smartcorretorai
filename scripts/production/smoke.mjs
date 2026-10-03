@@ -48,7 +48,8 @@ export function smoke(root=process.cwd(),transform=(p,s)=>s){
  check(sidebar.includes('items: visibleProducts(group.items)') && sidebar.includes('customerNavigationGroups(t).map(group =>'),'descoberta Sidebar')
  for(const marker of ['RAIO_X_AVAILABLE && <ListingXraySpotlight','const HERO_PRODUCT_SLIDES = visibleProducts([','const DELIVERY_GROUPS = visibleProducts([',"SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)",'items: visibleProducts(group.items)','Math.ceil(group.items.length / 2)',"group.items.length === 1 ? 'max-w-2xl grid-cols-1'"])check(landing.includes(marker),'descoberta/layout Landing '+marker)
  check(read('frontend/src/config/shortVideos.js').includes('SHORT_VIDEOS_VISIBLE = false'),'Short Videos congelado')
- check(landing.includes('TRIAL_OFFERED_LABEL') && read('frontend/src/pages/TermosDeUso.jsx').includes('QUICK_BANNERS_AVAILABLE && <li>'),'comunicação trial')
+ const terms=read('frontend/src/pages/TermosDeUso.jsx')
+ check(landing.includes('TRIAL_OFFERED_LABEL') && terms.includes('Créditos promocionais ou trial podem existir') && !/200 Smart Tokens|sem cartão/i.test(landing),'comunicação trial')
  check(read('frontend/src/pages/TransformarVideo.jsx').includes('QUICK_BANNERS_AVAILABLE && <Link to="/nova-campanha"'),'CTA secundário')
  for(const route of ['/login','/dashboard'])check(app.includes('path="'+route+'"'),'rota preservada '+route)
  const rows=[]

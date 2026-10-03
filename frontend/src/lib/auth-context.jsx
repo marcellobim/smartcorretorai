@@ -419,7 +419,7 @@ export function AuthProvider({ children }) {
     }
   }, [session?.access_token])
 
-  const acceptOAuthLegal = async () => {
+  const acceptLegalDocuments = async () => {
     const { data, error } = await supabase.rpc('accept_current_legal_documents')
     if (error || data !== true) throw new Error('legal_acceptance_failed')
     await refreshOnboardingState()
@@ -488,7 +488,7 @@ export function AuthProvider({ children }) {
     isUnlimitedTestAdmin,
     onboardingState,
     refreshOnboardingState,
-    acceptOAuthLegal,
+    acceptLegalDocuments,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

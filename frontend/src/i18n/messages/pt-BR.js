@@ -129,7 +129,7 @@ export default Object.freeze({
   }),
   register: Object.freeze({
     title: 'Crie sua conta grátis',
-    subtitle: 'Comece grátis com 200 Smart Tokens após confirmar seu e-mail, sem cartão. Já tem conta?',
+    subtitle: 'Crie sua conta e comece a explorar a SNETIA. Já tem conta?',
     signIn: 'Entrar',
     or: 'ou',
     name: Object.freeze({
@@ -263,7 +263,7 @@ export default Object.freeze({
         tokens: Object.freeze({ question: 'O que são Smart Tokens?', answerPrefix: 'Smart Tokens representam sua capacidade de criação dentro do', answerSuffix: 'Cada recurso informa a quantidade necessária antes de iniciar.' }),
         subscription: Object.freeze({ question: 'Preciso ter assinatura?', answer: 'Não. Os planos são indicados para quem cria com frequência, mas também é possível adquirir Smart Tokens separadamente.' }),
         buyTokens: Object.freeze({ question: 'Posso comprar Smart Tokens separadamente?', answer: 'Sim. As recargas podem ser usadas para começar sem assinatura ou complementar um plano.' }),
-        freeTrial: Object.freeze({ question: 'Como funciona o teste grátis?', answerPrefix: 'Após confirmar seu e-mail, você recebe uma única concessão de 200 Smart Tokens, sem cartão e sem prazo de expiração, para usar em', answerSuffix: 'Os demais produtos podem exigir assinatura ou compra de Smart Tokens.' }),
+        freeTrial: Object.freeze({ question: 'Como começo a explorar a plataforma?', answerPrefix: 'Crie sua conta, confirme seu e-mail e conheça os recursos disponíveis no', answerSuffix: 'Alguns recursos podem exigir assinatura ou compra de Smart Tokens.' }),
         generationFailure: Object.freeze({ question: 'O que acontece se uma geração falhar?', answer: 'Quando uma geração falha e não conclui a entrega correspondente, a reserva de Smart Tokens é liberada conforme o fluxo do produto.' }),
         cancelSubscription: Object.freeze({ question: 'Posso cancelar minha assinatura?', answer: 'Sim. O cancelamento pode ser solicitado pelo portal seguro de assinatura e ocorre ao final do período já pago.' }),
         manageSubscription: Object.freeze({ question: 'Como gerencio minha assinatura?', answer: 'Acesse Configurações → Plano e Assinatura e selecione “Gerenciar assinatura” para abrir o portal seguro da Stripe.' }),
@@ -271,7 +271,7 @@ export default Object.freeze({
         contactSupport: Object.freeze({ question: 'Como falar com o suporte?', answerPrefix: 'Envie sua mensagem para' }),
       }),
     }),
-    finalCta: Object.freeze({ eyebrow: 'Comece agora', title: 'Divulgue mais. Divulgue diferente.', descriptionPrefix: 'Venda, locação, lançamento ou captação. Crie novas formas de apresentar suas oportunidades com o', cta: 'Experimentar grátis', note: 'Comece grátis com 200 Smart Tokens após confirmar seu e-mail. Sem cartão.' }),
+    finalCta: Object.freeze({ eyebrow: 'Comece agora', title: 'Divulgue mais. Divulgue diferente.', descriptionPrefix: 'Venda, locação, lançamento ou captação. Crie novas formas de apresentar suas oportunidades com o', cta: 'Criar conta', note: 'Crie sua conta e comece a explorar a SNETIA.' }),
     footer: Object.freeze({ faq: 'FAQ', plansAndTokens: 'Planos e Smart Tokens', supportAndLegal: 'Suporte e legal', contact: 'Contato', terms: 'Termos de Uso', privacy: 'Política de Privacidade', cookiePreferences: 'Preferências de cookies', socialNetworks: 'Redes sociais', tagline: 'Inteligência que vende', instagramAriaPrefix: 'Instagram oficial do', facebookAriaPrefix: 'Facebook oficial do', rights: 'Todos os direitos reservados.' }),
     comparison: Object.freeze({ interactiveAriaLabel: 'Comparação interativa antes e depois', phoneAriaLabel: 'comparação antes e depois', beforeImageAlt: 'Ambiente vazio antes do Smart Space', afterImageAlt: 'Ambiente mobiliado depois do Smart Space', before: 'Antes', after: 'Depois', beforeUppercase: 'ANTES', afterUppercase: 'DEPOIS', sliderAriaLabel: 'Mover comparação entre antes e depois', beforeSmartSpaceAlt: 'antes do Smart Space', afterSmartSpaceAlt: 'depois do Smart Space', rooms: Object.freeze({ living: 'Sala integrada', balcony: 'Varanda', bathroom: 'Banheiro', bedroom: 'Quarto e home office', dining: 'Sala de jantar', kitchen: 'Cozinha integrada', office: 'Escritório' }) }),
     controls: Object.freeze({ textCampaignPreviewAriaLabel: 'Demonstração interativa de uma campanha completa de textos', optionsPrefix: 'Opções de', optionsTo: 'a' }),

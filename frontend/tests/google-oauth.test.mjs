@@ -101,9 +101,8 @@ test('provider tokens are neither retained in React state nor used by the applic
   }
 })
 
-test('privacy text distinguishes OAuth, Analytics and AI providers without broad Google access', () => {
+test('privacy text describes Google OAuth and AI providers without broad Google access', () => {
   assert.match(privacy, /Google OAuth/)
   assert.match(privacy, /sem acesso a Gmail, Drive, contatos ou Calendar/)
-  assert.match(privacy, /distinto do Google Analytics 4/)
-  assert.match(privacy, /Gemini ou Veo/)
+  assert.match(privacy, /Google\/Gemini/)
 })
