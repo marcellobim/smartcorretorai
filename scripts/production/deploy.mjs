@@ -21,7 +21,7 @@ import {
  validateKnownBannerDesignFailure,
 } from './edge-scope.mjs'
 import {verifyArchiveTree} from './archive-proof.mjs'
-import {deploymentTarget,dryRunPlan,assertTargetIdentity} from './targets.mjs'
+import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
 
 const root=fileURLToPath(new URL('../../',import.meta.url))
 let cli=null
@@ -599,9 +599,9 @@ async function promoteBanner(current,sha){
 
 export async function main(args=process.argv.slice(2)){
  target=deploymentTarget(args)
- const dryRun=args.includes('--dry-run')
+ const {dryRun,candidateOnly}=deploymentOptions(args)
  if(dryRun){
-  console.log(JSON.stringify(dryRunPlan(target,git('rev-parse','HEAD'))))
+  console.log(JSON.stringify(dryRunPlan(target,git('rev-parse','HEAD'),{candidateOnly})))
   return
  }
  cli=resolveVercelCli()
@@ -612,6 +612,7 @@ const deployAdminApi=mode==='--admin-api'
 const deployTikTokContentPosting=mode==='--tiktok-content-posting'
 const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
+ if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
 const selectedFunctions=edgeScope(args)
 const current=await official(),sha=git('rev-parse','HEAD')
@@ -734,6 +735,16 @@ if(deployBannerRecovery){
  await protectedCandidateSmoke(url)
  console.log('Candidato Banner pronto. Use --banner-recovery-promote somente após aprovação humana explícita.')
  process.exit(0)
+}
+
+if(candidateOnly){
+ for(const route of target.smokeRoutes){
+  const response=await fetch(new URL(route,url),{redirect:'manual',cache:'no-store'})
+  const body=await response.text()
+  if(response.status!==200||!String(responseHeader(response.headers,'content-type')||'').toLowerCase().startsWith('text/html')||!body.includes(target.brand))throw Error('Smoke candidate falhou: '+route)
+ }
+ console.log(JSON.stringify({target:target.name,projectId:target.projectId,deploymentUrl:url,deploymentId:info.id,sha,status:info.readyState,smoke:'PASS',promotion:'skipped by --candidate-only'}))
+ return
 }
 
 vc(['promote',url,'--yes'])

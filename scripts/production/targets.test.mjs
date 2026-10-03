@@ -1,10 +1,26 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {deploymentTarget,dryRunPlan,assertTargetIdentity} from './targets.mjs'
+import {readFileSync} from 'node:fs'
+import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
 
 test('target is mandatory and rejects unknown values',()=>{
  assert.throws(()=>deploymentTarget([]),/--target válido/)
  assert.throws(()=>deploymentTarget(['--target','other']),/target desconhecido/)
+})
+test('candidate-only is explicit and dry-run skips promotion',()=>{
+ const options=deploymentOptions(['--target','snetia','--candidate-only','--dry-run'])
+ assert.deepEqual(options,{candidateOnly:true,dryRun:true})
+ const plan=dryRunPlan(deploymentTarget(['--target','snetia']),'b'.repeat(40),options)
+ assert.equal(plan.promotion,'skipped by --candidate-only')
+ assert.throws(()=>deploymentOptions(['--candidate-only','--candidate-only']),/mais de uma vez/)
+})
+test('candidate-only returns before the generic promotion call',()=>{
+ const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
+ const candidate=source.indexOf('if(candidateOnly){',source.indexOf('if(deployBannerRecovery){'))
+ const promotion=source.indexOf("vc(['promote',url,'--yes'])",candidate)
+ assert.ok(candidate>=0)
+ assert.ok(promotion>candidate)
+ assert.ok(source.slice(candidate,promotion).includes('return'))
 })
 test('dry-run plans are isolated by target',()=>{
  const sha='a'.repeat(40),snetia=dryRunPlan(deploymentTarget(['--target','snetia']),sha),legacy=dryRunPlan(deploymentTarget(['--target','smartcorretorai']),sha)

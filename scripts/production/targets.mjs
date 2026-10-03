@@ -23,8 +23,14 @@ export function deploymentTarget(args=[]){
  return productionTargets[name]
 }
 
-export function dryRunPlan(target,sha){
- return {dryRun:true,target:target.name,projectId:target.projectId,teamId:target.teamId,branch:target.branch,sha,alias:target.alias,domain:target.domain,buildCommand:target.buildCommand,outputDirectory:target.outputDirectory,smokeRoutes:target.smokeRoutes}
+export function deploymentOptions(args=[]){
+ const count=args.filter(value=>value==='--candidate-only').length
+ if(count>1)throw Error('DEPLOY BLOQUEADO: --candidate-only foi informado mais de uma vez')
+ return {candidateOnly:count===1,dryRun:args.includes('--dry-run')}
+}
+
+export function dryRunPlan(target,sha,{candidateOnly=false}={}){
+ return {dryRun:true,candidateOnly,target:target.name,projectId:target.projectId,teamId:target.teamId,branch:target.branch,sha,alias:target.alias,domain:target.domain,buildCommand:target.buildCommand,outputDirectory:target.outputDirectory,smokeRoutes:target.smokeRoutes,promotion:candidateOnly?'skipped by --candidate-only':'enabled'}
 }
 
 export function assertTargetIdentity(target,detail){
