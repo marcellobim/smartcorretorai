@@ -11,6 +11,14 @@ test('admin release targets only admin-api and rejects combined/unrecognized sco
  assert.throws(()=>edgeScope(['--tiktok-content-posting','--admin-api']))
  assert.throws(()=>edgeScope(['--anything']))
 })
+test('contextual target and candidate-only flags do not change Edge scope',()=>{
+ for(const target of ['snetia','smartcorretorai']){
+  assert.deepEqual(edgeScope(['--target',target]),[])
+  assert.deepEqual(edgeScope(['--target',target,'--candidate-only']),[])
+ }
+ assert.deepEqual(edgeScope(['--target','snetia','--candidate-only','--admin-api']),['admin-api'])
+ assert.throws(()=>edgeScope(['--target','unknown']),/target desconhecido/)
+})
 test('TikTok release requires exactly the active JWT-protected function',()=>{
  const active={slug:'tiktok-content-posting',version:6,status:'ACTIVE',verify_jwt:true}
  assert.equal(tiktokContentPostingVersion([active]),6)

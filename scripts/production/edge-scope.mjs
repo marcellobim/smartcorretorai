@@ -21,9 +21,20 @@ export const BANNER_RECOVERY_RELEASE = Object.freeze({
 const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote']
 
 export function deploymentMode(args){
- if(args.some(arg=>!releaseModes.includes(arg)))throw Error('DEPLOY BLOQUEADO: opção desconhecida')
- if(args.length>1)throw Error('DEPLOY BLOQUEADO: selecione apenas um escopo de publicação')
- return args[0]||'frontend'
+ const modes=[]
+ for(let index=0;index<args.length;index++){
+  const arg=args[index]
+  if(arg==='--target'){
+   const name=args[++index]
+   deploymentTarget(['--target',name])
+   continue
+  }
+  if(arg==='--candidate-only')continue
+  if(!releaseModes.includes(arg))throw Error('DEPLOY BLOQUEADO: opção desconhecida')
+  modes.push(arg)
+ }
+ if(modes.length>1)throw Error('DEPLOY BLOQUEADO: selecione apenas um escopo de publicação')
+ return modes[0]||'frontend'
 }
 
 export function edgeScope(args) {
@@ -116,3 +127,4 @@ export function validateBannerPromotionCandidate({url,info,detail,sha,current,fr
  if(!Number.isSafeInteger(backendVersion)||backendVersion<=BANNER_RECOVERY_RELEASE.edgeVersion)throw Error('DEPLOY BLOQUEADO: gerar-hero-ia ainda não avançou além da versão 74')
  return true
 }
+import {deploymentTarget} from './targets.mjs'
