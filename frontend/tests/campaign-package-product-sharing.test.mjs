@@ -37,7 +37,7 @@ test('keeps active Virtual Staging results without public sharing activation', a
   assert.match(source, /isLifeInProperty = journey\.id === LIFE_IN_PROPERTY_JOURNEY_ID/)
   assert.match(source, /isBrokerPresentation = journey\.id === BROKER_PRESENTATION_JOURNEY_ID/)
   assert.match(source, /if \(isFurnishRenovate && status === 'completed'[^\n]+FurnishRenovateDelivery/)
-  assert.match(source, /if \(result\)[^\n]+mediaType: 'video'[^\n]+mediaPresentation="mobile"/)
+  assert.match(source, /if \(result\)\s*\{[\s\S]*?<CampaignPackage\s+data=\{\{[\s\S]*?mediaType: 'video'[\s\S]*?\}\}[\s\S]*?mediaPresentation="mobile"/)
   assert.doesNotMatch(source, /sharePublish\s*=|<SharePublishActions/)
   assert.match(source, /phone:requestBody\.includeProfessionalPhone \? phone : ''/)
 })

@@ -29,5 +29,8 @@ supabase/functions/_shared/*
 !supabase/functions/_shared/smart-tour
 supabase/functions/_shared/smart-tour/*
 !supabase/functions/_shared/smart-tour/publication-options.ts
+!supabase/functions/_shared/virtual-staging
+supabase/functions/_shared/virtual-staging/*
+!supabase/functions/_shared/virtual-staging/presentation.ts
 **/*.log
 **/test-results
