@@ -26,6 +26,7 @@ import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from
 const root=fileURLToPath(new URL('../../',import.meta.url))
 export const productionReleasesRoot=path.resolve(root,'experiments','production-releases')
 let cli=null
+let vercelEntrypoint=null
 let target=null
 const vercelReadyTimeoutMs=10*60*1000
 const vercelReadyPollIntervalMs=5*1000
@@ -172,8 +173,8 @@ export function parseSupabaseCliVersion({stdout='',stderr=''}={}){
  return version
 }
 
-function executeCliVersion(command,{cwd=root,spawn=spawnSync,platform=process.platform}={}){
- const invocation=commandInvocation(command,['--version'],{platform})
+function executeCliVersion(command,{cwd=root,spawn=spawnSync,platform=process.platform,args=['--version']}={}){
+ const invocation=commandInvocation(command,args,{platform})
  const result=spawn(invocation.command,invocation.args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe'],shell:invocation.shell,windowsVerbatimArguments:invocation.windowsVerbatimArguments})
  const label=path.basename(command)
  if(result.error){
@@ -216,6 +217,20 @@ export function resolveVercelCli({
  return command
 }
 
+export function resolveVercelRuntime({cwd=root,exists=existsSync,read=readFileSync,log=console.log}={}){
+ const packagePath=path.join(cwd,'node_modules','vercel','package.json')
+ if(!exists(packagePath))throw Error('DEPLOY BLOQUEADO: pacote Vercel local ausente')
+ let manifest
+ try {manifest=JSON.parse(read(packagePath,'utf8'))} catch {throw Error('DEPLOY BLOQUEADO: package.json da Vercel inválido')}
+ if(manifest?.version!==expectedVercelCliVersion)throw Error(`DEPLOY BLOQUEADO: Vercel CLI deve ser exatamente ${expectedVercelCliVersion}`)
+ const bin=typeof manifest.bin==='object'&&typeof manifest.bin.vercel==='string'?manifest.bin.vercel:''
+ const entrypoint=path.resolve(path.dirname(packagePath),bin)
+ if(!bin||path.isAbsolute(bin)||!inside(path.dirname(packagePath),entrypoint)||!exists(entrypoint))throw Error('DEPLOY BLOQUEADO: entrypoint da Vercel ausente')
+ const version=parseVercelCliVersion(executeCliVersion(process.execPath,{cwd,platform:'linux',args:[entrypoint,'--version']}))
+ log(JSON.stringify({vercelCli:{source:'package-entrypoint',path:entrypoint,executable:process.execPath,version}}))
+ return {command:process.execPath,entrypoint}
+}
+
 export function resolveSupabaseCli({
  env=process.env,
  cwd=root,
@@ -247,7 +262,7 @@ export function resolveSupabaseCli({
  return command
 }
 const git=(...args)=>run('git',args)
-const vc=(args,cwd=root)=>run(cli,[...args,'--cwd',path.resolve(cwd),'--scope',target.teamId],root)
+const vc=(args,cwd=root)=>run(cli,[vercelEntrypoint,...args,'--cwd',path.resolve(cwd),'--scope',target.teamId],root)
 
 const posix=value=>value.replaceAll('\\','/')
 const inside=(parent,target)=>{const relative=path.relative(parent,target);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))}
@@ -282,7 +297,7 @@ export function cleanupReleaseStage(stage,{repoRoot=root,rm=rmSync,isTracked=rel
  for(const [artifact,artifactRelative] of [[resolved,relative],[zip,zipRelative]]){
   if(isTracked(artifactRelative))throw Error('DEPLOY BLOQUEADO: stage temporário contém caminho rastreado')
   for(let attempt=0;exists(artifact);attempt++){
-   try {rm(artifact,{recursive:true,force:true,maxRetries:0});break}
+   try {rm(artifact,{recursive:true,force:true,maxRetries:5,retryDelay:200});break}
    catch(error){
     if(!cleanupRetryableCodes.has(error?.code)||attempt>=retries-1)throw error
     sleep(25*(attempt+1))
@@ -666,7 +681,7 @@ export async function main(args=process.argv.slice(2)){
   console.log(JSON.stringify(dryRunPlan(target,git('rev-parse','HEAD'),{candidateOnly})))
   return
  }
- cli=resolveVercelCli()
+ ;({command:cli,entrypoint:vercelEntrypoint}=resolveVercelRuntime())
 edgeCli=resolveSupabaseCli()
 const mode=deploymentMode(args)
 const deployVideoSocialMetadata=mode==='--video-social-metadata'

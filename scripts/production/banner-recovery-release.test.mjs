@@ -145,7 +145,7 @@ test('resolução da CLI não usa npx, download nem chamada remota antes de --ve
  const fixture=cliDouble()
  resolveVercelCli(fixture.values)
  assert.equal(fixture.calls.every(call=>call.args.at(-1).includes('"--version"')),true)
- const initialization=deploySource.indexOf('cli=resolveVercelCli()')
+ const initialization=deploySource.indexOf('resolveVercelRuntime()')
  const deploymentBaseline=deploySource.indexOf('const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()')
  assert.ok(initialization>0&&deploymentBaseline>initialization)
 })

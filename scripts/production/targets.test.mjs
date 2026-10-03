@@ -70,7 +70,8 @@ test('candidate-only returns before the generic promotion call',()=>{
 })
 test('staged Vercel execution passes an explicit portable --cwd and cleanup covers candidate completion',()=>{
  const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
- assert.match(source,/\[\.\.\.args,'--cwd',path\.resolve\(cwd\),'--scope',target\.teamId\]/)
+ assert.match(source,/\[vercelEntrypoint,\.\.\.args,'--cwd',path\.resolve\(cwd\),'--scope',target\.teamId\]/)
+ assert.match(source,/resolveVercelRuntime\(\)/)
  assert.match(source,/const stage=createReleaseStage\(\{sha\}\)\s*try \{/)
  assert.match(source,/if\(candidateOnly\)\{[\s\S]*?return\s*\}[\s\S]*?finally \{\s*cleanupReleaseStage\(stage\)/)
  assert.ok(source.indexOf('if(dryRun){')<source.indexOf('const stage=createReleaseStage({sha})'))
