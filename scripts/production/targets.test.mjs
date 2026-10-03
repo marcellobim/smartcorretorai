@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
-import {resolveVercelCli,resolveSupabaseCli,releaseStagePath,assertReleaseStagePath,createReleaseStage,cleanupReleaseStage,windowsCmdInvocation,executeCommand} from './deploy.mjs'
+import {resolveVercelCli,resolveSupabaseCli,releaseStagePath,assertReleaseStagePath,createReleaseStage,cleanupReleaseStage,vercelArguments,windowsCmdInvocation,executeCommand} from './deploy.mjs'
 
 test('release stage paths are portable and never end with an invalid separator',()=>{
  const sha='a'.repeat(40),name=`${sha}-123`
@@ -68,13 +68,22 @@ test('candidate-only returns before the generic promotion call',()=>{
  assert.ok(promotion>candidate)
  assert.ok(source.slice(candidate,promotion).includes('return'))
 })
-test('staged Vercel execution passes an explicit portable --cwd and cleanup covers candidate completion',()=>{
+test('staged Vercel execution uses global options before the command and cleanup covers candidate completion',()=>{
  const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
- assert.match(source,/\[vercelEntrypoint,\.\.\.args,'--cwd',path\.resolve\(cwd\),'--scope',target\.teamId\]/)
+ assert.match(source,/return \[entrypoint,'--cwd',path\.resolve\(cwd\),'--scope',teamId,\.\.\.command\]/)
  assert.match(source,/resolveVercelRuntime\(\)/)
  assert.match(source,/const stage=createReleaseStage\(\{sha\}\)\s*try \{/)
  assert.match(source,/if\(candidateOnly\)\{[\s\S]*?return\s*\}[\s\S]*?finally \{\s*cleanupReleaseStage\(stage\)/)
  assert.ok(source.indexOf('if(dryRun){')<source.indexOf('const stage=createReleaseStage({sha})'))
+})
+test('Vercel deploy defaults to the documented global --cwd form',()=>{
+ const stage='C:\\release work\\candidate-stage'
+ assert.deepEqual(vercelArguments(['deploy','--prod','--yes'],stage,'team-id','node_modules/vercel/dist/vc.js'),[
+  'node_modules/vercel/dist/vc.js','--cwd',stage,'--scope','team-id','--prod','--yes'
+ ])
+ assert.deepEqual(vercelArguments(['inspect','snetia.com','--json'],stage,'team-id','node_modules/vercel/dist/vc.js'),[
+  'node_modules/vercel/dist/vc.js','--cwd',stage,'--scope','team-id','inspect','snetia.com','--json'
+ ])
 })
 test('Windows and POSIX Vercel argument vectors preserve cwd as one exact argument',()=>{
  const stage='C:\\release work\\candidate-stage'

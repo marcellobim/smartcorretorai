@@ -262,7 +262,13 @@ export function resolveSupabaseCli({
  return command
 }
 const git=(...args)=>run('git',args)
-const vc=(args,cwd=root)=>run(cli,[vercelEntrypoint,...args,'--cwd',path.resolve(cwd),'--scope',target.teamId],root)
+export function vercelArguments(args,cwd=root,teamId=target?.teamId,entrypoint=vercelEntrypoint){
+ if(typeof teamId!=='string'||teamId==='')throw Error('DEPLOY BLOQUEADO: escopo Vercel ausente')
+ if(typeof entrypoint!=='string'||entrypoint==='')throw Error('DEPLOY BLOQUEADO: entrypoint Vercel ausente')
+ const command=args[0]==='deploy'?args.slice(1):args
+ return [entrypoint,'--cwd',path.resolve(cwd),'--scope',teamId,...command]
+}
+const vc=(args,cwd=root)=>run(cli,vercelArguments(args,cwd,target.teamId),root)
 
 const posix=value=>value.replaceAll('\\','/')
 const inside=(parent,target)=>{const relative=path.relative(parent,target);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))}
