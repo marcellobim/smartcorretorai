@@ -1,6 +1,9 @@
-import test from 'node:test'
+import test, { after, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import { createServer } from 'vite'
 import {
   buildBannerPublicationIntent,
   buildBannerPublicationRequest,
@@ -14,8 +17,25 @@ import {
   restorePendingBannerPublication,
   selectBannerMediaForOption,
 } from '../src/lib/banner-social-publish.js'
-import { buildCampaignPackage } from '../src/components/campaign/buildCampaignPackage.js'
 import { buildHeroNextCampaignPackageData } from '../src/lib/hero-next-recovery.js'
+
+const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+let vite
+let buildCampaignPackage
+
+before(async () => {
+  vite = await createServer({
+    root: frontendRoot,
+    appType: 'custom',
+    logLevel: 'silent',
+    server: { middlewareMode: true },
+  })
+  ;({ buildCampaignPackage } = await vite.ssrLoadModule('/src/components/campaign/buildCampaignPackage.js'))
+})
+
+after(async () => {
+  await vite?.close()
+})
 
 const sourceId = '6b66b517-8fea-4b62-a180-89f64c418cba'
 const captions = [
@@ -207,7 +227,7 @@ test('usuário sem sessão não inicia publicação', async () => {
 
 test('Cancelar usa o fechamento centralizado sem acionar o backend', () => {
   const dialogSource = readFileSync(new URL('../src/components/campaign/BannerPublishDialog.jsx', import.meta.url), 'utf8')
-  assert.match(dialogSource, /onClick=\{close\}[\s\S]{0,240}>Cancelar<\/button>/)
+  assert.match(dialogSource, /onClick=\{close\}[\s\S]{0,240}>\{uiLabels\?\.social\?\.cancel \?\? 'Cancelar'\}<\/button>/)
   assert.match(dialogSource, /shouldClearSocialPublishRecoveryOnClose\(results\)[\s\S]{0,120}onTerminalClose\?\.\(\)[\s\S]{0,120}onClose\?\.\(\)/)
   assert.equal((dialogSource.match(/onPublish\?\./g) || []).length, 1)
 })

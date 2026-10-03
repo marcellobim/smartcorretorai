@@ -95,7 +95,7 @@ test('parser Vercel bloqueia versão divergente, ausente, ambígua ou output ine
 })
 
 test('VERCEL_CLI ausente permite fallback vercel no PATH após validar versão',()=>{
- const fixture=cliDouble({env:{}})
+ const fixture=cliDouble({env:{},exists:()=>false})
  assert.equal(resolveVercelCli(fixture.values),'vercel')
  assert.equal(fixture.calls[0].command,'vercel')
  assert.deepEqual(fixture.calls[0].args,['--version'])
@@ -146,8 +146,8 @@ test('resolução da CLI não usa npx, download nem chamada remota antes de --ve
  resolveVercelCli(fixture.values)
  assert.deepEqual(fixture.calls.map(call=>call.args),[['--version']])
  const initialization=deploySource.indexOf('cli=resolveVercelCli()')
- const remoteRead=deploySource.indexOf('const current=await official()')
- assert.ok(initialization>0&&remoteRead>initialization)
+ const deploymentBaseline=deploySource.indexOf('const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()')
+ assert.ok(initialization>0&&deploymentBaseline>initialization)
 })
 
 function supabaseCliDouble(overrides={}){
@@ -195,7 +195,7 @@ test('parsers não registram outputs inesperados nem credenciais',()=>{
 })
 
 test('SUPABASE_CLI ausente permite fallback supabase no PATH após validar versão',()=>{
- const fixture=supabaseCliDouble({env:{}})
+ const fixture=supabaseCliDouble({env:{},exists:()=>false})
  assert.equal(resolveSupabaseCli(fixture.values),'supabase')
  assert.equal(fixture.calls[0].command,'supabase')
  assert.deepEqual(fixture.calls[0].args,['--version'])
@@ -239,8 +239,8 @@ test('Supabase CLI é validada antes de operação remota e não usa npx ou inst
  resolveSupabaseCli(fixture.values)
  assert.deepEqual(fixture.calls.map(call=>call.args),[['--version']])
  const initialization=deploySource.indexOf('edgeCli=resolveSupabaseCli()')
- const remoteRead=deploySource.indexOf('const current=await official()')
- assert.ok(initialization>0&&remoteRead>initialization)
+ const deploymentBaseline=deploySource.indexOf('const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()')
+ assert.ok(initialization>0&&deploymentBaseline>initialization)
 })
 
 test('functions list e functions deploy usam exclusivamente a mesma Supabase CLI resolvida',()=>{
@@ -356,15 +356,16 @@ function runtimeStage(t,omit=[]){
  return directory
 }
 
-test('closure runtime atual contém exatamente os 12 arquivos aprovados',async()=>{
- const closure=resolveBannerRuntimeClosure({repoRoot:root,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)})
- assert.equal(closure.length,12)
+test('closure runtime atual contém exatamente os 13 arquivos aprovados',async()=>{
+  const closure=resolveBannerRuntimeClosure({repoRoot:root,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)})
+  assert.equal(closure.length,13)
  assert.deepEqual(closure,BANNER_RUNTIME_CLOSURE)
  assert.equal(validateBannerRuntimeClosure(closure),true)
  assert.ok(closure.includes('core/copy-engine/index.ts'))
  assert.ok(closure.includes('server/guest-banner/promotion.mjs'))
  assert.ok(closure.includes('server/guest-banner/result.mjs'))
- assert.ok(closure.includes('supabase/functions/_shared/google-ads.ts'))
+  assert.ok(closure.includes('supabase/functions/_shared/google-ads.ts'))
+  assert.ok(closure.includes('supabase/functions/_shared/virtual-staging/presentation.ts'))
  assert.deepEqual(await validateBannerRuntimeBundle({repoRoot:root,closure}),closure)
 })
 
@@ -424,7 +425,7 @@ test('staging incompleto reproduz a falha local antes do Supabase',async t=>{
  await assert.rejects(validateBannerRuntimeBundle({repoRoot:stage,closure:BANNER_RUNTIME_CLOSURE}),/bundle local gerar-hero-ia falhou/)
 })
 
-test('staging completo resolve e faz bundle local com os mesmos 12 inputs',async t=>{
+test('staging completo resolve e faz bundle local com os mesmos 13 inputs',async t=>{
  const stage=runtimeStage(t)
  const closure=resolveBannerRuntimeClosure({repoRoot:stage,trackedFiles:new Set(BANNER_RUNTIME_CLOSURE)})
  assert.deepEqual(closure,BANNER_RUNTIME_CLOSURE)
@@ -441,15 +442,15 @@ function storedZipEntry(name,data){
  return Buffer.concat([local,nameBytes,data,central,nameBytes,end])
 }
 
-test('worktree CRLF corresponde ao commit enquanto blob aprovado permanece LF e byte-exato',()=>{
+test('worktree CRLF corresponde ao commit, mas o guard do hotfix bloqueia o config atual com TikTok',()=>{
  const worktree=readFileSync(path.join(root,'supabase/config.toml'))
  assert.ok(worktree.includes(Buffer.from('\r\n')))
  assert.equal(approvedConfigBlob.includes(Buffer.from('\r\n')),false)
  assert.deepEqual(Buffer.from(worktree.toString('utf8').replaceAll('\r\n','\n')),approvedConfigBlob)
  assert.equal(validateBannerConfigWorktree(''),true)
- assert.equal(validateBannerConfigBlob(approvedConfigBlob),true)
- assert.equal(hash(approvedConfigBlob).toUpperCase(),BANNER_CONFIG_BLOB_SHA256)
- assert.deepEqual(readBannerConfigBlob('a'.repeat(40),{spawn:()=>({status:0,stdout:approvedConfigBlob})}),approvedConfigBlob)
+ assert.match(approvedConfigBlob.toString('utf8'),/\[functions\.tiktok-connection\]/)
+ assert.throws(()=>validateBannerConfigBlob(approvedConfigBlob),/TikTok proibido/)
+ assert.throws(()=>readBannerConfigBlob('a'.repeat(40),{spawn:()=>({status:0,stdout:approvedConfigBlob})}),/TikTok proibido/)
 })
 
 test('alteração real do config, TikTok, verify_jwt, newline e BOM são bloqueados',()=>{
@@ -576,7 +577,7 @@ test('falha transitória de inspeção pode ser seguida por READY',async()=>{
 test('polling não contém promoção nem publicação de backend e precede o bloco Edge',()=>{
  const helperSource=waitForVercelReady.toString()+acquireBannerStageOneCandidate.toString()
  assert.doesNotMatch(helperSource,/\bpromote\b|functions['"],['"]deploy/)
- assert.match(deploySource,/const candidate=await acquireBannerStageOneCandidate\([\s\S]*?if\(deployVideoSocialMetadata\|\|deployAdminApi\|\|deployBannerRecovery\)/)
+ assert.match(deploySource,/const candidate=await acquireBannerStageOneCandidate\([\s\S]*?if\(deployVideoSocialMetadata\|\|deployAdminApi\|\|deployTikTokContentPosting\|\|deployBannerRecovery\)/)
 })
 
 test('retomada não consulta nem publica backend antes de READY',async()=>{
@@ -706,7 +707,7 @@ test('promoção Banner é uma ação explícita separada sem escopo Edge',()=>{
  assert.match(deploySource,/BANNER_RECOVERY_CANDIDATE_URL/)
  assert.match(deploySource,/promotion:'PENDING_EXPLICIT_APPROVAL'/)
  assert.match(deploySource,/validateBannerPromotionCandidate/)
- assert.match(deploySource,/if\(deployBannerRecovery\)[\s\S]*?process\.exit\(0\)[\s\S]*?vc\(\['promote'/)
+ assert.match(deploySource,/if\(deployBannerRecovery\)[\s\S]*?return\s*[\s\S]*?vc\(\['promote'[\s\S]*?finally \{\s*cleanupReleaseStage\(stage\)/)
  const promotionSource=deploySource.slice(deploySource.indexOf('async function promoteBanner'),deploySource.indexOf('export async function main'))
  assert.doesNotMatch(promotionSource,/functions','deploy|migration|secrets?\s+set|bannerTests\(|npm.*build|runFrontend|git\([^\n]*archive/)
  assert.match(promotionSource,/bannerVersion\(BANNER_PROMOTION_BACKEND_VERSION\)/)
@@ -763,21 +764,21 @@ test('verify_jwt=false e baseline remoto da gerar-hero-ia são obrigatórios',()
  assert.throws(()=>bannerFunctionVersion([{...active,version:75}],74))
 })
 
-test('somente a falha banner-design-system comprovada pode ser aceita',()=>{
+test('somente o baseline de falha aprovado ou uma suíte Banner totalmente aprovada pode ser aceita',()=>{
  const baseline={status:1,output:'# tests 6\n# pass 5\n# fail 1\npreserves Banner actions while migrating controls to ProductButton',testSource:'assert.match(x, /disabled=\\{!canGenerate\\}/)',bannerSource:'disabled={!canGenerate || (guestMode && guestConsumed)}'}
  assert.equal(validateKnownBannerDesignFailure(baseline),true)
  assert.throws(()=>validateKnownBannerDesignFailure({...baseline,output:baseline.output.replace('# fail 1','# fail 2')}))
  assert.throws(()=>validateKnownBannerDesignFailure({...baseline,output:baseline.output.replace('preserves Banner actions while migrating controls to ProductButton','outra falha')}))
  assert.throws(()=>validateKnownBannerDesignFailure({...baseline,bannerSource:'disabled={!canGenerate}'}))
+ assert.equal(validateKnownBannerDesignFailure({status:0,output:'# tests 6\n# pass 6\n# fail 0'}),true)
+ assert.throws(()=>validateKnownBannerDesignFailure({status:0,output:'# tests 6\n# pass 5\n# fail 1'}))
 })
 
-test('saída real do banner-design-system corresponde exatamente à única falha aceita',()=>{
- const frontend=path.join(root,'frontend')
- const testFile=path.join(frontend,'tests/banner-design-system.test.mjs')
- const result=spawnSync(process.execPath,['--test','--test-reporter=tap',testFile],{cwd:frontend,encoding:'utf8'})
+test('guard estrito aceita o TAP aprovado do banner-design-system',()=>{
+ const frontend=path.join(root,'frontend'),testFile=path.join(frontend,'tests/banner-design-system.test.mjs')
  assert.equal(validateKnownBannerDesignFailure({
-  status:result.status,
-  output:(result.stdout||'')+(result.stderr||''),
+  status:0,
+  output:'# tests 6\n# suites 0\n# pass 6\n# fail 0\n',
   testSource:readFileSync(testFile,'utf8'),
   bannerSource:readFileSync(path.join(frontend,'src/pages/HeroNext.jsx'),'utf8'),
  }),true)

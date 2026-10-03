@@ -1,5 +1,5 @@
 import {spawnSync} from 'node:child_process'
-import {existsSync,lstatSync,realpathSync,readFileSync,writeFileSync,mkdirSync,readdirSync,copyFileSync} from 'node:fs'
+import {existsSync,lstatSync,realpathSync,readFileSync,writeFileSync,mkdirSync,readdirSync,copyFileSync,rmSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {fileURLToPath,pathToFileURL} from 'node:url'
@@ -24,6 +24,7 @@ import {verifyArchiveTree} from './archive-proof.mjs'
 import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
 
 const root=fileURLToPath(new URL('../../',import.meta.url))
+export const productionReleasesRoot=path.resolve(root,'experiments','production-releases')
 let cli=null
 let target=null
 const vercelReadyTimeoutMs=10*60*1000
@@ -50,9 +51,10 @@ export const BANNER_RUNTIME_CLOSURE=Object.freeze([
  'supabase/functions/_shared/banner-publication-options.ts',
  'supabase/functions/_shared/economic-catalog.ts',
  'supabase/functions/_shared/google-ads.ts',
- 'supabase/functions/_shared/official-hashtags.ts',
- 'supabase/functions/_shared/supabase-admin-credential.ts',
- 'supabase/functions/gerar-hero-ia/economy.ts',
+  'supabase/functions/_shared/official-hashtags.ts',
+  'supabase/functions/_shared/supabase-admin-credential.ts',
+  'supabase/functions/_shared/virtual-staging/presentation.ts',
+  'supabase/functions/gerar-hero-ia/economy.ts',
  'supabase/functions/gerar-hero-ia/guest-input.ts',
  'supabase/functions/gerar-hero-ia/guest-runtime.ts',
  BANNER_RUNTIME_ENTRY,
@@ -226,10 +228,40 @@ export function resolveSupabaseCli({
  return command
 }
 const git=(...args)=>run('git',args)
-const vc=(args,cwd=root)=>run(cli,[...args,'--scope',target.teamId],cwd)
+const vc=(args,cwd=root)=>run(cli,[...args,'--cwd',path.resolve(cwd),'--scope',target.teamId],root)
 
 const posix=value=>value.replaceAll('\\','/')
 const inside=(parent,target)=>{const relative=path.relative(parent,target);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))}
+
+export function releaseStagePath({repoRoot=root,sha,now=Date.now(),pathApi=path}={}){
+ if(!/^[0-9a-f]{40}$/i.test(sha||''))throw Error('DEPLOY BLOQUEADO: SHA inválido para stage temporário')
+ if(!Number.isSafeInteger(now)||now<0)throw Error('DEPLOY BLOQUEADO: timestamp inválido para stage temporário')
+ return pathApi.resolve(repoRoot,'experiments','production-releases',`${sha}-${now}`)
+}
+
+export function assertReleaseStagePath(stage,{repoRoot=root,pathApi=path}={}){
+ const releasesRoot=pathApi.resolve(repoRoot,'experiments','production-releases')
+ const resolved=pathApi.resolve(stage)
+ const relative=pathApi.relative(releasesRoot,resolved)
+ if(!relative||relative==='..'||relative.startsWith(`..${pathApi.sep}`)||pathApi.isAbsolute(relative)||!new RegExp(`^[0-9a-f]{40}-\\d+$`,'i').test(relative))throw Error('DEPLOY BLOQUEADO: limpeza fora do stage temporário atual')
+ return {releasesRoot,resolved,relative}
+}
+
+export function createReleaseStage({repoRoot=root,sha,now=Date.now(),mkdir=mkdirSync,pathApi=path}={}){
+ const stage=releaseStagePath({repoRoot,sha,now,pathApi})
+ assertReleaseStagePath(stage,{repoRoot,pathApi})
+ mkdir(stage,{recursive:true})
+ return stage
+}
+
+export function cleanupReleaseStage(stage,{repoRoot=root,rm=rmSync,isTracked=relative=>git('ls-files','--',relative)!==''}={}){
+ const {resolved,relative}=assertReleaseStagePath(stage,{repoRoot})
+ const zip=resolved+'.zip',zipRelative=relative+'.zip'
+ for(const [artifact,artifactRelative] of [[resolved,relative],[zip,zipRelative]]){
+  if(isTracked(artifactRelative))throw Error('DEPLOY BLOQUEADO: stage temporário contém caminho rastreado')
+  if(existsSync(artifact))rm(artifact,{recursive:true,force:true})
+ }
+}
 
 function assertAllowedBannerRuntimePath(relative){
  const value=posix(relative),lower=value.toLowerCase(),base=path.posix.basename(lower)
@@ -650,7 +682,8 @@ if(deployVideoSocialMetadata)run(process.execPath,['--test','--test-isolation=no
 if(deployBannerRecovery)bannerTests()
 else run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
 
-const stage=path.join(root,'experiments','production-releases',sha+'-'+Date.now());mkdirSync(stage,{recursive:true})
+ const stage=createReleaseStage({sha})
+ try {
 const zip=stage+'.zip'
 const packagePaths=['frontend','core','api','server','scripts/production','supabase/functions/_shared','vercel.json','.vercelignore','package.json','package-lock.json']
 git('-c','core.autocrlf=false','archive','--format=zip','--output='+zip,sha,...packagePaths)
@@ -739,7 +772,7 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
 if(deployBannerRecovery){
  await protectedCandidateSmoke(url)
  console.log('Candidato Banner pronto. Use --banner-recovery-promote somente após aprovação humana explícita.')
- process.exit(0)
+  return
 }
 
 if(candidateOnly){
@@ -758,7 +791,10 @@ if(target.name==='smartcorretorai'){
  if(release.sha!==sha)throw Error('Smoke pós-deploy: SHA oficial divergente')
 }
 for(const route of target.smokeRoutes){const r=await fetch('https://'+target.alias+route);if(!r.ok)throw Error('Smoke pós-deploy falhou: '+route)}
-console.log(JSON.stringify({target:target.name,sha,deploymentId:info.id,ready:info.readyState,alias:target.alias,postSmoke:'PASS'}))
+ console.log(JSON.stringify({target:target.name,sha,deploymentId:info.id,ready:info.readyState,alias:target.alias,postSmoke:'PASS'}))
+ } finally {
+  cleanupReleaseStage(stage)
+ }
 }
 
 if(path.resolve(process.argv[1]||'')===fileURLToPath(import.meta.url))await main()

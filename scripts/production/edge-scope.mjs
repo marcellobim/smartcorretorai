@@ -111,6 +111,8 @@ export function validateBannerVerifyJwt(configText){
 
 export function validateKnownBannerDesignFailure({status,output,testSource,bannerSource}){
  const text=String(output||'')
+ const passing=/^(?:#|ℹ)\s*tests\s+6\b/m.test(text)&&/^(?:#|ℹ)\s*pass\s+6\b/m.test(text)&&/^(?:#|ℹ)\s*fail\s+0\b/m.test(text)
+ if(status===0&&passing)return true
  const exactName='preserves Banner actions while migrating controls to ProductButton'
  const baselineTest=/disabled=\\\{!canGenerate\\\}/.test(String(testSource||''))
  const baselineBanner=String(bannerSource||'').includes('disabled={!canGenerate || (guestMode && guestConsumed)}')

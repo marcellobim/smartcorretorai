@@ -1,8 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import {existsSync,mkdtempSync} from 'node:fs'
 import {readFileSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import path from 'node:path'
 import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
-import {resolveVercelCli,resolveSupabaseCli} from './deploy.mjs'
+import {resolveVercelCli,resolveSupabaseCli,releaseStagePath,assertReleaseStagePath,createReleaseStage,cleanupReleaseStage} from './deploy.mjs'
+
+test('release stage paths are portable and never end with an invalid separator',()=>{
+ const sha='a'.repeat(40),name=`${sha}-123`
+ assert.equal(releaseStagePath({repoRoot:'C:\\repo',sha,now:123,pathApi:path.win32}),`C:\\repo\\experiments\\production-releases\\${name}`)
+ assert.equal(releaseStagePath({repoRoot:'/repo',sha,now:123,pathApi:path.posix}),`/repo/experiments/production-releases/${name}`)
+ assert.equal(name.endsWith('\\,'),false)
+ assert.equal(name.endsWith('/,'),false)
+})
+
+test('release stage cleanup removes only its current untracked stage and zip',t=>{
+ const repoRoot=mkdtempSync(path.join(tmpdir(),'sca-release-stage-')),sha='b'.repeat(40)
+ const stage=createReleaseStage({repoRoot,sha,now:456})
+ t.after(()=>cleanupReleaseStage(stage,{repoRoot,isTracked:()=>false}))
+ assert.equal(existsSync(stage),true)
+ cleanupReleaseStage(stage,{repoRoot,isTracked:()=>false})
+ assert.equal(existsSync(stage),false)
+})
+
+test('release stage guard rejects roots, paths outside releases and tracked paths',()=>{
+ const repoRoot=path.join(tmpdir(),'sca-release-guard'),sha='c'.repeat(40)
+ assert.throws(()=>assertReleaseStagePath(path.join(repoRoot,'experiments','production-releases'),{repoRoot}),/fora do stage/)
+ assert.throws(()=>assertReleaseStagePath(path.join(repoRoot,'frontend',`${sha}-1`),{repoRoot}),/fora do stage/)
+ const stage=releaseStagePath({repoRoot,sha,now:1})
+ assert.throws(()=>cleanupReleaseStage(stage,{repoRoot,isTracked:()=>true}),/caminho rastreado/)
+})
 
 test('target is mandatory and rejects unknown values',()=>{
  assert.throws(()=>deploymentTarget([]),/--target válido/)
@@ -30,6 +58,13 @@ test('candidate-only returns before the generic promotion call',()=>{
  assert.ok(candidate>=0)
  assert.ok(promotion>candidate)
  assert.ok(source.slice(candidate,promotion).includes('return'))
+})
+test('staged Vercel execution passes an explicit portable --cwd and cleanup covers candidate completion',()=>{
+ const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
+ assert.match(source,/\[\.\.\.args,'--cwd',path\.resolve\(cwd\),'--scope',target\.teamId\]/)
+ assert.match(source,/const stage=createReleaseStage\(\{sha\}\)\s*try \{/)
+ assert.match(source,/if\(candidateOnly\)\{[\s\S]*?return\s*\}[\s\S]*?finally \{\s*cleanupReleaseStage\(stage\)/)
+ assert.ok(source.indexOf('if(dryRun){')<source.indexOf('const stage=createReleaseStage({sha})'))
 })
 test('Vercel CLI resolver deterministically prefers the pinned project binary',()=>{
  const logs=[]

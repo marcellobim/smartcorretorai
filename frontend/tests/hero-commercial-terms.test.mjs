@@ -9,6 +9,7 @@ const read = (relativePath) => readFileSync(path.join(repoRoot, relativePath), '
 
 const frontend = read('frontend/src/pages/HeroNext.jsx')
 const backend = read('supabase/functions/gerar-hero-ia/index.ts')
+const messages = read('frontend/src/i18n/messages/pt-BR.js')
 
 const commercialStages = frontend.match(/const COMMERCIAL_TERMS_STAGES = new Set\(\[([^\]]+)\]\)/)?.[1] || ''
 const frontendFields = frontend.match(/const COMMERCIAL_TERM_FIELDS = \[([\s\S]*?)\n\]/)?.[1] || ''
@@ -74,14 +75,16 @@ test('valores ausentes não são inventados nem enviados', () => {
 test('preço permanece exclusivamente no fluxo existente', () => {
   assert.match(frontend, /\['fixed', 'Preço fixo'\]/)
   assert.match(frontend, /\['starting_at', 'A partir de'\]/)
-  assert.match(frontend, /htmlFor="sale-price">Valor<\/label>/)
+  assert.match(frontend, /htmlFor="sale-price">\{b\('price'\)\}<\/label>/)
+  assert.match(messages, /price: 'Valor'/)
   assert.doesNotMatch(frontendFields, /starting_price/)
   assert.doesNotMatch(backendFields, /starting_price/)
 })
 
 test('interface usa a orientação comercial aprovada', () => {
-  assert.match(frontend, /Adicione chamadas comerciais ao banner, se quiser\./)
-  assert.doesNotMatch(frontend, /Chamadas opcionais para o empreendimento, sem montar tabela de pagamento\./)
+  assert.match(frontend, /\{b\('commercialHelp'\)\}/)
+  assert.match(messages, /commercialHelp: 'Adicione chamadas comerciais ao banner, se quiser\.'/)
+  assert.doesNotMatch(messages, /Chamadas opcionais para o empreendimento, sem montar tabela de pagamento\./)
 })
 
 test('backend aceita somente os três campos estruturados permitidos', () => {
