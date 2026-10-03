@@ -21,9 +21,11 @@ import {
  validateKnownBannerDesignFailure,
 } from './edge-scope.mjs'
 import {verifyArchiveTree} from './archive-proof.mjs'
+import {deploymentTarget,dryRunPlan,assertTargetIdentity} from './targets.mjs'
 
-const root=fileURLToPath(new URL('../../',import.meta.url)),scope='smart-corretor-ai-s-projects'
+const root=fileURLToPath(new URL('../../',import.meta.url))
 let cli=null
+let target=null
 const vercelReadyTimeoutMs=10*60*1000
 const vercelReadyPollIntervalMs=5*1000
 const vercelTransientStates=new Set(['QUEUED','BUILDING','INITIALIZING','COMPLETING'])
@@ -222,7 +224,7 @@ export function resolveSupabaseCli({
  return command
 }
 const git=(...args)=>run('git',args)
-const vc=(args,cwd=root)=>run(cli,[...args,'--scope',scope],cwd)
+const vc=(args,cwd=root)=>run(cli,[...args,'--scope',target.teamId],cwd)
 
 const posix=value=>value.replaceAll('\\','/')
 const inside=(parent,target)=>{const relative=path.relative(parent,target);return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))}
@@ -394,9 +396,10 @@ export function readZipEntryBytes(file,entryName){
 }
 
 async function official(){
- const info=JSON.parse(vc(['inspect','www.smartcorretorai.com','--json']))
+ const info=JSON.parse(vc(['inspect',target.alias,'--json']))
  const detail=JSON.parse(vc(['api','/v13/deployments/'+info.id,'--raw']))
  if(detail.readyState!=='READY'||!detail.meta?.githubCommitSha)throw Error('DEPLOY BLOQUEADO: SHA oficial indisponível')
+ assertTargetIdentity(target,detail)
  return {sha:detail.meta.githubCommitSha,id:info.id}
 }
 
@@ -595,7 +598,13 @@ async function promoteBanner(current,sha){
 }
 
 export async function main(args=process.argv.slice(2)){
-cli=resolveVercelCli()
+ target=deploymentTarget(args)
+ const dryRun=args.includes('--dry-run')
+ if(dryRun){
+  console.log(JSON.stringify(dryRunPlan(target,git('rev-parse','HEAD'))))
+  return
+ }
+ cli=resolveVercelCli()
 edgeCli=resolveSupabaseCli()
 const mode=deploymentMode(args)
 const deployVideoSocialMetadata=mode==='--video-social-metadata'
@@ -603,6 +612,7 @@ const deployAdminApi=mode==='--admin-api'
 const deployTikTokContentPosting=mode==='--tiktok-content-posting'
 const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
+ if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
 const selectedFunctions=edgeScope(args)
 const current=await official(),sha=git('rev-parse','HEAD')
 if(deployTikTokContentPosting)tiktokContentPostingVersionActive()
@@ -647,7 +657,11 @@ const revisions=[...git('rev-list',sha,'^'+current.sha).split('\n').filter(Boole
 const proof={sha,baseline:current.sha,bootstrap:current.sha==='75a6a0611c8cc7bbfa038817f129c3ad60477bb9',commits:revisions.map(id=>({sha:id,body:spawnSync('git',['cat-file','commit',id],{cwd:root}).stdout.toString('base64')})),files:{}}
 function walk(dir){for(const e of readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else {const relative=path.relative(stage,p).replaceAll('\\','/');if(e.name!=='vercel.json'&&e.name!=='.vercelignore'&&!e.name.startsWith('.env')&&!relative.startsWith('supabase/')&&!relative.endsWith('.log')&&!relative.includes('/node_modules/'))proof.files[relative]=hash(readFileSync(p))}}}
 walk(stage);verifyProof(proof,current.sha,stage);writeFileSync(path.join(stage,'.production-proof.json'),JSON.stringify(proof))
-mkdirSync(path.join(stage,'.vercel'),{recursive:true});copyFileSync(path.join(root,'.vercel/project.json'),path.join(stage,'.vercel/project.json'))
+const stagedVercelConfig=JSON.parse(readFileSync(path.join(stage,'vercel.json'),'utf8'))
+stagedVercelConfig.buildCommand=target.buildCommand
+stagedVercelConfig.outputDirectory=target.outputDirectory
+writeFileSync(path.join(stage,'vercel.json'),JSON.stringify(stagedVercelConfig,null,2))
+mkdirSync(path.join(stage,'.vercel'),{recursive:true});writeFileSync(path.join(stage,'.vercel/project.json'),JSON.stringify({projectId:target.projectId,orgId:target.teamId}))
 console.log('Guard PASS; candidato '+sha+' contém Production '+current.sha)
 let url,info,fresh,candidateSha=sha
 if(deployBannerRecovery){
@@ -669,12 +683,13 @@ if(deployBannerRecovery){
  ;({url,info,fresh,candidateSha}=candidate)
  console.log(candidate.reused?'Candidato Vercel explícito validado e reutilizado; nenhum novo deployment foi criado.':'Candidato Vercel criado e confirmado READY.')
 } else {
- const output=vc(['deploy','--prod','--skip-domain','--yes','--meta','githubCommitSha='+sha],stage)
- const match=output.match(/https:\/\/smartcorretorai-[a-z0-9]+-smart-corretor-ai-s-projects\.vercel\.app/g)
+ const output=vc(['deploy','--prod','--skip-domain','--yes','--build-env','PRODUCTION_TARGET='+target.name,'--meta','githubCommitSha='+sha],stage)
+ const match=output.match(/https:\/\/[a-z0-9-]+\.vercel\.app/g)
  if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
  url=match.at(-1)
  info=JSON.parse(vc(['inspect',url,'--json']))
  if(info.readyState!=='READY')throw Error('Deployment não está READY')
+ assertTargetIdentity(target,JSON.parse(vc(['api','/v13/deployments/'+info.id,'--raw'])))
  fresh=await official()
  if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
 }
@@ -722,10 +737,12 @@ if(deployBannerRecovery){
 }
 
 vc(['promote',url,'--yes'])
-const release=await fetch('https://www.smartcorretorai.com/production-release.json',{cache:'no-store'}).then(r=>r.json())
-if(release.sha!==sha)throw Error('Smoke pós-deploy: SHA oficial divergente')
-for(const route of ['/','/criar-anuncio','/dashboard','/admin']){const r=await fetch('https://www.smartcorretorai.com'+route);if(!r.ok)throw Error('Smoke pós-deploy falhou: '+route)}
-console.log(JSON.stringify({sha,deploymentId:info.id,ready:info.readyState,alias:'www.smartcorretorai.com',postSmoke:'PASS'}))
+if(target.name==='smartcorretorai'){
+ const release=await fetch('https://www.smartcorretorai.com/production-release.json',{cache:'no-store'}).then(r=>r.json())
+ if(release.sha!==sha)throw Error('Smoke pós-deploy: SHA oficial divergente')
+}
+for(const route of target.smokeRoutes){const r=await fetch('https://'+target.alias+route);if(!r.ok)throw Error('Smoke pós-deploy falhou: '+route)}
+console.log(JSON.stringify({target:target.name,sha,deploymentId:info.id,ready:info.readyState,alias:target.alias,postSmoke:'PASS'}))
 }
 
 if(path.resolve(process.argv[1]||'')===fileURLToPath(import.meta.url))await main()

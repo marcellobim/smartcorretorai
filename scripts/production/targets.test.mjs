@@ -1,0 +1,20 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {deploymentTarget,dryRunPlan,assertTargetIdentity} from './targets.mjs'
+
+test('target is mandatory and rejects unknown values',()=>{
+ assert.throws(()=>deploymentTarget([]),/--target válido/)
+ assert.throws(()=>deploymentTarget(['--target','other']),/target desconhecido/)
+})
+test('dry-run plans are isolated by target',()=>{
+ const sha='a'.repeat(40),snetia=dryRunPlan(deploymentTarget(['--target','snetia']),sha),legacy=dryRunPlan(deploymentTarget(['--target','smartcorretorai']),sha)
+ assert.equal(snetia.projectId,'prj_NdHb7sL026aEo0Qn9cvkM9MNLOlA')
+ assert.equal(snetia.alias,'snetia.com')
+ assert.equal(snetia.buildCommand,'npm --prefix frontend run build')
+ assert.equal(snetia.outputDirectory,'frontend/dist')
+ assert.deepEqual(snetia.smokeRoutes,['/','/login','/cadastro','/auth/callback','/redefinir-senha','/planos'])
+ assert.equal(legacy.projectId,'prj_U3MEwzheOk76LJzPIdx3OyLQbs5g')
+ assert.equal(legacy.alias,'www.smartcorretorai.com')
+ assert.equal(legacy.buildCommand,'node scripts/production/build.mjs')
+ assert.throws(()=>assertTargetIdentity(deploymentTarget(['--target','snetia']),{projectId:legacy.projectId,ownerId:legacy.teamId,name:legacy.target}),/identidade Vercel/)
+})
