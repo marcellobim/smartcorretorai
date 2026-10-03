@@ -65,9 +65,28 @@ const forbiddenBannerConfigSections=['[functions.tiktok-connection]','[functions
 const require=createRequire(import.meta.url)
 const babelParse=require(path.join(root,'frontend/node_modules/@babel/parser')).parse
 
-export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnSync,platform=process.platform,env}={}){
+function unsafeWindowsArgument(value){return /[\0\r\n&|<>^%!]/.test(String(value))}
+
+export function windowsCmdQuote(value){
+ const text=String(value)
+ if(unsafeWindowsArgument(text))throw Error('DEPLOY BLOQUEADO: argumento Windows contém caractere inseguro')
+ return '"'+text.replace(/(\\*)"/g,'$1$1\\"').replace(/(\\*)$/,'$1$1')+'"'
+}
+
+export function windowsCmdInvocation(command,args,{comspec=process.env.ComSpec||'cmd.exe'}={}){
+ if(!Array.isArray(args)||unsafeWindowsArgument(command))throw Error('DEPLOY BLOQUEADO: executável Windows inválido')
+ const commandLine=[windowsCmdQuote(command),...args.map(windowsCmdQuote)].join(' ')
+ return {command:comspec,args:['/d','/s','/c','"'+commandLine+'"'],shell:false,windowsVerbatimArguments:true}
+}
+
+function commandInvocation(command,args,{platform=process.platform}={}){
  const windowsCommand=platform==='win32'&&(['vercel','supabase'].includes(command)||command.endsWith('.cmd'))
- const r=spawn(command,args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:windowsCommand,...(env?{env}:{})})
+ return windowsCommand?windowsCmdInvocation(command,args):{command,args,shell:false,windowsVerbatimArguments:false}
+}
+
+export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnSync,platform=process.platform,env}={}){
+ const invocation=commandInvocation(command,args,{platform})
+ const r=spawn(invocation.command,invocation.args,{cwd,encoding:inherit?undefined:'utf8',stdio:inherit?'inherit':['ignore','pipe','inherit'],shell:invocation.shell,windowsVerbatimArguments:invocation.windowsVerbatimArguments,...(env?{env}:{})})
  const label=path.basename(command)
  if(r.error){
   const code=typeof r.error.code==='string'?r.error.code:'SPAWN_ERROR'
@@ -108,7 +127,7 @@ export function runBannerFrontendCommand(command,args,cwd,{execute=executeComman
  return execute(command,args,{cwd,inherit,env:createBannerFrontendTestEnv(parentEnv)})
 }
 
-function unsafeExecutableValue(value){return /[\0\r\n&|;<>`"']|\$\(/.test(value)}
+function unsafeExecutableValue(value){return /[\0\r\n&|;<>`"'^%!]|\$\(/.test(value)}
 
 const expectedVercelCliVersion='59.13.1'
 const expectedSupabaseCliVersion='2.116.0'
@@ -154,8 +173,8 @@ export function parseSupabaseCliVersion({stdout='',stderr=''}={}){
 }
 
 function executeCliVersion(command,{cwd=root,spawn=spawnSync,platform=process.platform}={}){
- const windowsCommand=platform==='win32'&&(['vercel','supabase'].includes(command)||command.endsWith('.cmd'))
- const result=spawn(command,['--version'],{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe'],shell:windowsCommand})
+ const invocation=commandInvocation(command,['--version'],{platform})
+ const result=spawn(invocation.command,invocation.args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe'],shell:invocation.shell,windowsVerbatimArguments:invocation.windowsVerbatimArguments})
  const label=path.basename(command)
  if(result.error){
   const code=typeof result.error.code==='string'?result.error.code:'SPAWN_ERROR'
@@ -254,12 +273,21 @@ export function createReleaseStage({repoRoot=root,sha,now=Date.now(),mkdir=mkdir
  return stage
 }
 
-export function cleanupReleaseStage(stage,{repoRoot=root,rm=rmSync,isTracked=relative=>git('ls-files','--',relative)!==''}={}){
+const cleanupRetryableCodes=new Set(['EPERM','EBUSY'])
+const sleepForCleanup=ms=>Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,ms)
+
+export function cleanupReleaseStage(stage,{repoRoot=root,rm=rmSync,isTracked=relative=>git('ls-files','--',relative)!=='',exists=existsSync,sleep=sleepForCleanup,retries=3}={}){
  const {resolved,relative}=assertReleaseStagePath(stage,{repoRoot})
  const zip=resolved+'.zip',zipRelative=relative+'.zip'
  for(const [artifact,artifactRelative] of [[resolved,relative],[zip,zipRelative]]){
   if(isTracked(artifactRelative))throw Error('DEPLOY BLOQUEADO: stage temporário contém caminho rastreado')
-  if(existsSync(artifact))rm(artifact,{recursive:true,force:true})
+  for(let attempt=0;exists(artifact);attempt++){
+   try {rm(artifact,{recursive:true,force:true,maxRetries:0});break}
+   catch(error){
+    if(!cleanupRetryableCodes.has(error?.code)||attempt>=retries-1)throw error
+    sleep(25*(attempt+1))
+   }
+  }
  }
 }
 

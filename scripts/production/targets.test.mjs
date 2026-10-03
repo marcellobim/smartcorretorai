@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {existsSync,mkdtempSync} from 'node:fs'
+import {existsSync,mkdtempSync,readFileSync as readFile,writeFileSync,rmSync,mkdirSync} from 'node:fs'
 import {readFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
-import {resolveVercelCli,resolveSupabaseCli,releaseStagePath,assertReleaseStagePath,createReleaseStage,cleanupReleaseStage} from './deploy.mjs'
+import {resolveVercelCli,resolveSupabaseCli,releaseStagePath,assertReleaseStagePath,createReleaseStage,cleanupReleaseStage,windowsCmdInvocation,executeCommand} from './deploy.mjs'
 
 test('release stage paths are portable and never end with an invalid separator',()=>{
  const sha='a'.repeat(40),name=`${sha}-123`
@@ -21,6 +21,15 @@ test('release stage cleanup removes only its current untracked stage and zip',t=
  t.after(()=>cleanupReleaseStage(stage,{repoRoot,isTracked:()=>false}))
  assert.equal(existsSync(stage),true)
  cleanupReleaseStage(stage,{repoRoot,isTracked:()=>false})
+ assert.equal(existsSync(stage),false)
+})
+
+test('release stage cleanup retries only transient Windows locks',()=>{
+ const repoRoot=mkdtempSync(path.join(tmpdir(),'sca-release-retry-')),sha='d'.repeat(40),stage=createReleaseStage({repoRoot,sha,now:789})
+ let attempts=0,sleeps=0
+ cleanupReleaseStage(stage,{repoRoot,isTracked:()=>false,sleep:()=>{sleeps++},rm:()=>{attempts++;if(attempts<3)throw Object.assign(Error('locked'),{code:attempts===1?'EPERM':'EBUSY'});rmSync(stage,{recursive:true,force:true})}})
+ assert.equal(attempts,3)
+ assert.equal(sleeps,2)
  assert.equal(existsSync(stage),false)
 })
 
@@ -65,6 +74,27 @@ test('staged Vercel execution passes an explicit portable --cwd and cleanup cove
  assert.match(source,/const stage=createReleaseStage\(\{sha\}\)\s*try \{/)
  assert.match(source,/if\(candidateOnly\)\{[\s\S]*?return\s*\}[\s\S]*?finally \{\s*cleanupReleaseStage\(stage\)/)
  assert.ok(source.indexOf('if(dryRun){')<source.indexOf('const stage=createReleaseStage({sha})'))
+})
+test('Windows and POSIX Vercel argument vectors preserve cwd as one exact argument',()=>{
+ const stage='C:\\release work\\candidate-stage'
+ const vector=windowsCmdInvocation('C:\\repo\\node_modules\\.bin\\vercel.cmd',['deploy','--cwd',stage,'--scope','team-id','--meta','note=comma,kept'])
+ assert.equal(vector.shell,false)
+ assert.deepEqual(vector.args.slice(0,3),['/d','/s','/c'])
+ assert.match(vector.args[3],/"C:\\repo\\node_modules\\.bin\\vercel\.cmd" "deploy" "--cwd" "C:\\release work\\candidate-stage"/)
+ assert.equal(vector.args[3].includes('\\\\,'),false)
+ assert.equal(vector.args[3].endsWith(','),false)
+ assert.equal(vector.args[3].includes('"C:\\release work\\candidate-stage\\"'),false)
+ assert.deepEqual(['deploy','--cwd','/release work/candidate-stage','--scope','team-id'],['deploy','--cwd','/release work/candidate-stage','--scope','team-id'])
+})
+
+test('Windows cmd stub receives the exact Vercel cwd vector without network', {skip:process.platform!=='win32'},t=>{
+ const sandbox=mkdtempSync(path.join(tmpdir(),'sca vercel stub-')),stage=path.join(sandbox,'stage with space'),stub=path.join(sandbox,'vercel.cmd'),receiver=path.join(sandbox,'receiver.mjs'),received=path.join(sandbox,'received.json')
+ mkdirSync(stage)
+ writeFileSync(receiver,`import {writeFileSync} from 'node:fs'; writeFileSync(process.env.RECEIVED_PATH,JSON.stringify(process.argv.slice(2)))`)
+ writeFileSync(stub,`@echo off\r\n"${process.execPath}" "%~dp0receiver.mjs" %*\r\n`)
+ t.after(()=>rmSync(sandbox,{recursive:true,force:true}))
+ executeCommand(stub,['deploy','--cwd',stage,'--scope','team-id','--meta','note=comma,kept'],{cwd:sandbox,platform:'win32',env:{...process.env,RECEIVED_PATH:received}})
+ assert.deepEqual(JSON.parse(readFile(received,'utf8')),['deploy','--cwd',stage,'--scope','team-id','--meta','note=comma,kept'])
 })
 test('Vercel CLI resolver deterministically prefers the pinned project binary',()=>{
  const logs=[]

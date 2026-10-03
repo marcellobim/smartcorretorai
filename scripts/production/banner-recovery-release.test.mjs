@@ -76,9 +76,9 @@ test('VERCEL_CLI válida é resolvida e usada sem concatenar argumentos',()=>{
  const command=resolveVercelCli(fixture.values)
  assert.equal(command,path.resolve(fixture.values.cwd,'tools/vercel.cmd'))
  assert.equal(fixture.calls.length,1)
- assert.equal(fixture.calls[0].command,command)
- assert.deepEqual(fixture.calls[0].args,['--version'])
- assert.equal(fixture.calls[0].options.shell,true)
+ assert.deepEqual(fixture.calls[0].args.slice(0,3),['/d','/s','/c'])
+ assert.match(fixture.calls[0].args[3],/vercel\.cmd" "--version""$/)
+ assert.equal(fixture.calls[0].options.shell,false)
 })
 
 test('parser Vercel identifica os formatos oficiais da versão instalada',()=>{
@@ -97,9 +97,9 @@ test('parser Vercel bloqueia versão divergente, ausente, ambígua ou output ine
 test('VERCEL_CLI ausente permite fallback vercel no PATH após validar versão',()=>{
  const fixture=cliDouble({env:{},exists:()=>false})
  assert.equal(resolveVercelCli(fixture.values),'vercel')
- assert.equal(fixture.calls[0].command,'vercel')
- assert.deepEqual(fixture.calls[0].args,['--version'])
- assert.equal(fixture.calls[0].options.shell,true)
+ assert.deepEqual(fixture.calls[0].args.slice(0,3),['/d','/s','/c'])
+ assert.match(fixture.calls[0].args[3],/"vercel" "--version""$/)
+ assert.equal(fixture.calls[0].options.shell,false)
 })
 
 test('VERCEL_CLI ausente e vercel fora do PATH aborta sem retry',()=>{
@@ -144,7 +144,7 @@ test('resolução da CLI não usa npx, download nem chamada remota antes de --ve
  assert.doesNotMatch(helper,/\bnpx\b|npm\s+install|https?:\/\//)
  const fixture=cliDouble()
  resolveVercelCli(fixture.values)
- assert.deepEqual(fixture.calls.map(call=>call.args),[['--version']])
+ assert.equal(fixture.calls.every(call=>call.args.at(-1).includes('"--version"')),true)
  const initialization=deploySource.indexOf('cli=resolveVercelCli()')
  const deploymentBaseline=deploySource.indexOf('const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()')
  assert.ok(initialization>0&&deploymentBaseline>initialization)
@@ -166,9 +166,9 @@ test('SUPABASE_CLI válida é resolvida e usada com argumentos separados',()=>{
  const command=resolveSupabaseCli(fixture.values)
  assert.equal(command,path.resolve(fixture.values.cwd,'tools/supabase.cmd'))
  assert.equal(fixture.calls.length,1)
- assert.equal(fixture.calls[0].command,command)
- assert.deepEqual(fixture.calls[0].args,['--version'])
- assert.equal(fixture.calls[0].options.shell,true)
+ assert.deepEqual(fixture.calls[0].args.slice(0,3),['/d','/s','/c'])
+ assert.match(fixture.calls[0].args[3],/supabase\.cmd" "--version""$/)
+ assert.equal(fixture.calls[0].options.shell,false)
 })
 
 test('parser Supabase separa versão instalada do aviso de atualização',()=>{
@@ -197,9 +197,9 @@ test('parsers não registram outputs inesperados nem credenciais',()=>{
 test('SUPABASE_CLI ausente permite fallback supabase no PATH após validar versão',()=>{
  const fixture=supabaseCliDouble({env:{},exists:()=>false})
  assert.equal(resolveSupabaseCli(fixture.values),'supabase')
- assert.equal(fixture.calls[0].command,'supabase')
- assert.deepEqual(fixture.calls[0].args,['--version'])
- assert.equal(fixture.calls[0].options.shell,true)
+ assert.deepEqual(fixture.calls[0].args.slice(0,3),['/d','/s','/c'])
+ assert.match(fixture.calls[0].args[3],/"supabase" "--version""$/)
+ assert.equal(fixture.calls[0].options.shell,false)
 })
 
 test('SUPABASE_CLI ausente e supabase fora do PATH aborta sem retry',()=>{
@@ -237,7 +237,7 @@ test('Supabase CLI é validada antes de operação remota e não usa npx ou inst
  assert.doesNotMatch(helper,/\bnpx\b|npm\s+install|https?:\/\//)
  const fixture=supabaseCliDouble()
  resolveSupabaseCli(fixture.values)
- assert.deepEqual(fixture.calls.map(call=>call.args),[['--version']])
+ assert.equal(fixture.calls.every(call=>call.args.at(-1).includes('"--version"')),true)
  const initialization=deploySource.indexOf('edgeCli=resolveSupabaseCli()')
  const deploymentBaseline=deploySource.indexOf('const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()')
  assert.ok(initialization>0&&deploymentBaseline>initialization)
