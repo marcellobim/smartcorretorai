@@ -617,7 +617,8 @@ const promoteBannerRecovery=mode==='--banner-recovery-promote'
  if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
 const selectedFunctions=edgeScope(args)
-const current=await official(),sha=git('rev-parse','HEAD')
+const sha=git('rev-parse','HEAD')
+const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
 if(deployTikTokContentPosting)tiktokContentPostingVersionActive()
 
 if(promoteBannerRecovery){
@@ -640,7 +641,7 @@ if(deployBannerRecovery){
  await validateBannerRuntimeBundle({repoRoot:root,closure:bannerRuntimeClosure})
 }
 else {
- if(!isAncestor(current.sha,sha))throw Error(ancestryError)
+ if(!candidateOnly&&!isAncestor(current.sha,sha))throw Error(ancestryError)
  if(git('diff','HEAD','--name-only'))throw Error('DEPLOY BLOQUEADO: crie checkpoint antes de publicar')
 }
 smoke(root)
@@ -656,8 +657,8 @@ git('-c','core.autocrlf=false','archive','--format=zip','--output='+zip,sha,...p
 if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',zip,'-DestinationPath',stage])
 else run('unzip',['-o',zip,'-d',stage])
 console.log(JSON.stringify({archiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--',...packagePaths),stage)}))
-const revisions=[...git('rev-list',sha,'^'+current.sha).split('\n').filter(Boolean),current.sha]
-const proof={sha,baseline:current.sha,bootstrap:current.sha==='75a6a0611c8cc7bbfa038817f129c3ad60477bb9',commits:revisions.map(id=>({sha:id,body:spawnSync('git',['cat-file','commit',id],{cwd:root}).stdout.toString('base64')})),files:{}}
+const revisions=candidateOnly?[sha]:[...git('rev-list',sha,'^'+current.sha).split('\n').filter(Boolean),current.sha]
+const proof={sha,baseline:current.sha,bootstrap:candidateOnly||current.sha==='75a6a0611c8cc7bbfa038817f129c3ad60477bb9',commits:revisions.map(id=>({sha:id,body:spawnSync('git',['cat-file','commit',id],{cwd:root}).stdout.toString('base64')})),files:{}}
 function walk(dir){for(const e of readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else {const relative=path.relative(stage,p).replaceAll('\\','/');if(e.name!=='vercel.json'&&e.name!=='.vercelignore'&&!e.name.startsWith('.env')&&!relative.startsWith('supabase/')&&!relative.endsWith('.log')&&!relative.includes('/node_modules/'))proof.files[relative]=hash(readFileSync(p))}}}
 walk(stage);verifyProof(proof,current.sha,stage);writeFileSync(path.join(stage,'.production-proof.json'),JSON.stringify(proof))
 const stagedVercelConfig=JSON.parse(readFileSync(path.join(stage,'vercel.json'),'utf8'))
@@ -665,7 +666,7 @@ stagedVercelConfig.buildCommand=target.buildCommand
 stagedVercelConfig.outputDirectory=target.outputDirectory
 writeFileSync(path.join(stage,'vercel.json'),JSON.stringify(stagedVercelConfig,null,2))
 mkdirSync(path.join(stage,'.vercel'),{recursive:true});writeFileSync(path.join(stage,'.vercel/project.json'),JSON.stringify({projectId:target.projectId,orgId:target.teamId}))
-console.log('Guard PASS; candidato '+sha+' contém Production '+current.sha)
+console.log(candidateOnly?'Guard PASS; production baseline: not required for candidate-only':'Guard PASS; candidato '+sha+' contém Production '+current.sha)
 let url,info,fresh,candidateSha=sha
 if(deployBannerRecovery){
  const candidate=await acquireBannerStageOneCandidate({
@@ -693,8 +694,10 @@ if(deployBannerRecovery){
  info=JSON.parse(vc(['inspect',url,'--json']))
  if(info.readyState!=='READY')throw Error('Deployment não está READY')
  assertTargetIdentity(target,JSON.parse(vc(['api','/v13/deployments/'+info.id,'--raw'])))
- fresh=await official()
- if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
+ if(!candidateOnly){
+  fresh=await official()
+  if(fresh.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante o build; execute novamente')
+ }
 }
 
 if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery){

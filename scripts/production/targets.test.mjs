@@ -13,7 +13,15 @@ test('candidate-only is explicit and dry-run skips promotion',()=>{
  assert.deepEqual(options,{candidateOnly:true,dryRun:true})
  const plan=dryRunPlan(deploymentTarget(['--target','snetia']),'b'.repeat(40),options)
  assert.equal(plan.promotion,'skipped by --candidate-only')
+ assert.equal(plan.productionAliasInspect,'skipped by --candidate-only')
+ assert.equal(plan.rollbackBaseline,'skipped by --candidate-only')
  assert.throws(()=>deploymentOptions(['--candidate-only','--candidate-only']),/mais de uma vez/)
+})
+test('candidate-only bootstrap skips alias proof while normal deploy retains it',()=>{
+ const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
+ assert.match(source,/const current=candidateOnly\?\{sha,id:null,bootstrap:true\}:await official\(\)/)
+ assert.match(source,/if\(!candidateOnly&&!isAncestor\(current\.sha,sha\)\)/)
+ assert.match(source,/if\(!candidateOnly\)\{\s*fresh=await official\(\)/)
 })
 test('candidate-only returns before the generic promotion call',()=>{
  const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')

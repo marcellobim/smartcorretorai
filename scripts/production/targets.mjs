@@ -30,7 +30,7 @@ export function deploymentOptions(args=[]){
 }
 
 export function dryRunPlan(target,sha,{candidateOnly=false}={}){
- return {dryRun:true,candidateOnly,target:target.name,projectId:target.projectId,teamId:target.teamId,branch:target.branch,sha,alias:target.alias,domain:target.domain,buildCommand:target.buildCommand,outputDirectory:target.outputDirectory,smokeRoutes:target.smokeRoutes,promotion:candidateOnly?'skipped by --candidate-only':'enabled'}
+ return {dryRun:true,candidateOnly,target:target.name,projectId:target.projectId,teamId:target.teamId,branch:target.branch,sha,alias:target.alias,domain:target.domain,buildCommand:target.buildCommand,outputDirectory:target.outputDirectory,smokeRoutes:target.smokeRoutes,productionAliasInspect:candidateOnly?'skipped by --candidate-only':'required',rollbackBaseline:candidateOnly?'skipped by --candidate-only':'required',candidateSmoke:'vercel.app',promotion:candidateOnly?'skipped by --candidate-only':'enabled'}
 }
 
 export function assertTargetIdentity(target,detail){
