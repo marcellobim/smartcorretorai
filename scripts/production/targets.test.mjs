@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
-import {resolveVercelCli} from './deploy.mjs'
+import {resolveVercelCli,resolveSupabaseCli} from './deploy.mjs'
 
 test('target is mandatory and rejects unknown values',()=>{
  assert.throws(()=>deploymentTarget([]),/--target válido/)
@@ -33,6 +33,18 @@ test('Vercel CLI resolver deterministically prefers the pinned project binary',(
   log:value=>logs.push(value),
  })
  assert.match(command,/node_modules\\.bin\\vercel\.cmd$/)
+ assert.match(logs[0],/project-local/)
+})
+test('Supabase CLI resolver deterministically prefers the pinned project binary',()=>{
+ const logs=[]
+ const command=resolveSupabaseCli({
+  cwd:'C:\\repo',platform:'win32',env:{},
+  exists:value=>value.endsWith('node_modules\\.bin\\supabase.cmd'),
+  stat:()=>({isFile:()=>true}),
+  spawn:()=>({status:0,stdout:'2.116.0\n',stderr:''}),
+  log:value=>logs.push(value),
+ })
+ assert.match(command,/node_modules\\.bin\\supabase\.cmd$/)
  assert.match(logs[0],/project-local/)
 })
 test('dry-run plans are isolated by target',()=>{

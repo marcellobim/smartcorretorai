@@ -191,7 +191,7 @@ export function resolveVercelCli({
   throw error
  }
  const version=parseVercelCliVersion(output)
- log(JSON.stringify({vercelCli:{source,path:explicit?command:'vercel',version}}))
+ log(JSON.stringify({vercelCli:{source,path:command,version}}))
  return command
 }
 
@@ -205,7 +205,8 @@ export function resolveSupabaseCli({
  log=console.log,
 }={}){
  const explicit=Object.prototype.hasOwnProperty.call(env,'SUPABASE_CLI')
- let command='supabase',source='PATH'
+ const localCommand=path.join(cwd,'node_modules','.bin',platform==='win32'?'supabase.cmd':'supabase')
+ let command=exists(localCommand)?localCommand:'supabase',source=exists(localCommand)?'project-local':'PATH'
  if(explicit){
   const configured=env.SUPABASE_CLI
   if(typeof configured!=='string'||configured.trim()==='')throw Error('DEPLOY BLOQUEADO: SUPABASE_CLI está vazia')
@@ -221,7 +222,7 @@ export function resolveSupabaseCli({
   throw error
  }
  const version=parseSupabaseCliVersion(output)
- log(JSON.stringify({supabaseCli:{source,path:explicit?command:'supabase',version}}))
+ log(JSON.stringify({supabaseCli:{source,path:command,version}}))
  return command
 }
 const git=(...args)=>run('git',args)

@@ -1,7 +1,7 @@
 {
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "supabase": "^2.98.2",
+    "supabase": "2.116.0",
     "vercel": "59.13.1"
   }
 }
