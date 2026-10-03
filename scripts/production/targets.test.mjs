@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {deploymentTarget,deploymentOptions,dryRunPlan,assertTargetIdentity} from './targets.mjs'
+import {resolveVercelCli} from './deploy.mjs'
 
 test('target is mandatory and rejects unknown values',()=>{
  assert.throws(()=>deploymentTarget([]),/--target válido/)
@@ -21,6 +22,18 @@ test('candidate-only returns before the generic promotion call',()=>{
  assert.ok(candidate>=0)
  assert.ok(promotion>candidate)
  assert.ok(source.slice(candidate,promotion).includes('return'))
+})
+test('Vercel CLI resolver deterministically prefers the pinned project binary',()=>{
+ const logs=[]
+ const command=resolveVercelCli({
+  cwd:'C:\\repo',platform:'win32',env:{},
+  exists:value=>value.endsWith('node_modules\\.bin\\vercel.cmd'),
+  stat:()=>({isFile:()=>true}),
+  spawn:(file,args)=>({status:0,stdout:'Vercel CLI 59.13.1\n',stderr:''}),
+  log:value=>logs.push(value),
+ })
+ assert.match(command,/node_modules\\.bin\\vercel\.cmd$/)
+ assert.match(logs[0],/project-local/)
 })
 test('dry-run plans are isolated by target',()=>{
  const sha='a'.repeat(40),snetia=dryRunPlan(deploymentTarget(['--target','snetia']),sha),legacy=dryRunPlan(deploymentTarget(['--target','smartcorretorai']),sha)

@@ -174,7 +174,8 @@ export function resolveVercelCli({
  log=console.log,
 }={}){
  const explicit=Object.prototype.hasOwnProperty.call(env,'VERCEL_CLI')
- let command='vercel',source='PATH'
+ const localCommand=path.join(cwd,'node_modules','.bin',platform==='win32'?'vercel.cmd':'vercel')
+ let command=exists(localCommand)?localCommand:'vercel',source=exists(localCommand)?'project-local':'PATH'
  if(explicit){
   const configured=env.VERCEL_CLI
   if(typeof configured!=='string'||configured.trim()==='')throw Error('DEPLOY BLOQUEADO: VERCEL_CLI está vazia')
