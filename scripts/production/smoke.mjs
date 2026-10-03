@@ -32,8 +32,20 @@ export function smoke(root=process.cwd(),transform=(p,s)=>s){
  for(const [route,id] of [['/raio-x-anuncio','raio-x'],['/nova-campanha','banners-rapidos']]){
   check(app.includes('path="'+route+'" element={<AvailableProductRoute product="'+id+'"><AccountAnalyticsRoute'),'guard externo '+route)
  }
- for(const marker of ['const mainActions = visibleProducts([','const homeGroups = visibleProducts([','const heroMediaItems = visibleProducts(['])check(home.includes(marker),'descoberta Home '+marker)
- check(sidebar.includes('items: visibleProducts(group.items)') && sidebar.includes('{customerNavigationGroups.map'),'descoberta Sidebar')
+ const dashboardCatalogMarkers=[
+  'const mainActions = t => visibleProducts([',
+  'const homeGroups = t => {',
+  'const heroMediaItems = t => visibleProducts([',
+  'const actions = mainActions(t)',
+  'const groups = homeGroups(t)',
+  'const mediaItems = heroMediaItems(t)',
+  "id: 'smart-tour-ai'",
+  "id: 'hero-ia'",
+  "id: 'banners-rapidos'",
+  "products: ['smart-tour-ai', 'comercial-imobiliario', 'video-criativo']",
+ ]
+ for(const marker of dashboardCatalogMarkers)check(home.includes(marker),'catálogo Dashboard '+marker)
+ check(sidebar.includes('items: visibleProducts(group.items)') && sidebar.includes('customerNavigationGroups(t).map(group =>'),'descoberta Sidebar')
  for(const marker of ['RAIO_X_AVAILABLE && <ListingXraySpotlight','const HERO_PRODUCT_SLIDES = visibleProducts([','const DELIVERY_GROUPS = visibleProducts([',"SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)",'items: visibleProducts(group.items)','Math.ceil(group.items.length / 2)',"group.items.length === 1 ? 'max-w-2xl grid-cols-1'"])check(landing.includes(marker),'descoberta/layout Landing '+marker)
  check(read('frontend/src/config/shortVideos.js').includes('SHORT_VIDEOS_VISIBLE = false'),'Short Videos congelado')
  check(landing.includes('TRIAL_OFFERED_LABEL') && read('frontend/src/pages/TermosDeUso.jsx').includes('QUICK_BANNERS_AVAILABLE && <li>'),'comunicação trial')
