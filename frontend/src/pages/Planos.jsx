@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase'
 import { smartTokenRechargePackagesForMarket } from '../data/creditCosts'
 import BrandMark from '../components/brand/BrandMark'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
+import { useLocale } from '../i18n/useLocale'
+import { getMarketConfig } from '../i18n/locale-config'
 
 const PLANOS_BR = [
   {
@@ -76,8 +78,8 @@ const RULES = [
 const formatTokens = (value) => new Intl.NumberFormat('pt-BR').format(value)
 
 export default function Planos() {
-  const { user, profile, isAuthenticated, loading, reloadProfile } = useAuth()
-  const market = profile?.market === 'US' ? 'US' : 'BR'
+  const { user, isAuthenticated, loading, reloadProfile } = useAuth()
+  const { locale, market, setLocale, setMarket } = useLocale()
   const isUS = market === 'US'
   const planos = isUS ? PLANOS_US : PLANOS_BR
   const rechargePackages = smartTokenRechargePackagesForMarket(market)
@@ -85,10 +87,12 @@ export default function Planos() {
     back: 'Back', heading: 'Choose your plan', hero: 'Every plan includes full platform access. Choose the creation capacity that fits your pace.', monthly: 'Monthly',
     rechargeEyebrow: 'Add Smart Tokens', rechargeTitle: 'Keep creating', rechargeDescription: 'Use recharges when you need more capacity before your plan renews.',
     chooseRecharge: 'Choose your recharge', rechargeIntro: 'Start without a subscription or add capacity whenever you need it.', extra: 'Extra capacity', extraTitle: 'Extra Smart Tokens',
+    included: 'Every plan includes full platform access. The only difference is the creation capacity available in each cycle.', capacity: 'Cycle capacity', details: 'View capacity details', currentPlan: 'Current plan',
   } : {
     back: 'Voltar', heading: 'Escolha seu plano', hero: 'Todos os planos dão acesso à plataforma completa. Escolha a capacidade ideal para o seu ritmo de criação.', monthly: 'Mensal',
     rechargeEyebrow: 'Adicionar Smart Tokens', rechargeTitle: 'Continue ou comece a criar', rechargeDescription: 'Use recargas para continuar criando quando precisar de mais capacidade antes da renovação do plano.',
     chooseRecharge: 'Escolha sua recarga', rechargeIntro: 'Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar.', extra: 'Capacidade extra', extraTitle: 'Smart Tokens extras',
+    included: 'Todos os planos incluem acesso completo à plataforma. A diferença está apenas na capacidade de criação disponível em cada ciclo.', capacity: 'Capacidade do ciclo', details: 'Ver detalhes da capacidade', currentPlan: 'Seu plano',
   }
   const [searchParams] = useSearchParams()
   const [loadingItem, setLoadingItem] = useState(null)
@@ -97,6 +101,12 @@ export default function Planos() {
   const plansViewTrackedRef = useRef(false)
   const { trackEvent } = useAnalytics()
   const selectedRecharge = rechargePackages.find(item => item.id === selectedRechargeKey) ?? rechargePackages[0]
+
+  const selectMarket = (nextMarket) => {
+    const next = getMarketConfig(nextMarket)
+    setMarket(nextMarket)
+    setLocale(next.locale)
+  }
 
   useEffect(() => {
     setSelectedRechargeKey(rechargePackages[0].id)
@@ -208,11 +218,30 @@ export default function Planos() {
         <section className="mt-6 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <p className="max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
-              Todos os planos incluem acesso completo à plataforma. A diferença está apenas na capacidade de criação disponível em cada ciclo.
+              {copy.included}
             </p>
             <div className="lg:min-w-[180px]">
-              <div className="rounded-2xl border border-primary-800 bg-primary-800 px-4 py-3 text-center text-white">
-                <p className="text-sm font-black">{copy.monthly}</p>
+              <div className="rounded-2xl border border-primary-100 bg-primary-50 p-2" aria-label="Market and language">
+                <p className="px-2 pb-1 text-xs font-black uppercase tracking-wide text-primary-800">Market and language</p>
+                <div className="grid grid-cols-2 gap-1" role="group" aria-label="Choose market and language">
+                  <button
+                    type="button"
+                    aria-pressed={market === 'BR'}
+                    onClick={() => selectMarket('BR')}
+                    className={`rounded-xl px-3 py-2 text-sm font-black transition ${market === 'BR' ? 'bg-primary-800 text-white' : 'bg-white text-primary-800 hover:bg-primary-100'}`}
+                  >
+                    Brasil / BR
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={market === 'US'}
+                    onClick={() => selectMarket('US')}
+                    className={`rounded-xl px-3 py-2 text-sm font-black transition ${market === 'US' ? 'bg-primary-800 text-white' : 'bg-white text-primary-800 hover:bg-primary-100'}`}
+                  >
+                    United States / US
+                  </button>
+                </div>
+                <p className="px-2 pt-2 text-center text-xs font-bold text-primary-800">{locale} · {isUS ? 'USD' : 'BRL'}</p>
               </div>
             </div>
           </div>
@@ -252,7 +281,7 @@ export default function Planos() {
                 )}
                 {atual && (
                   <div className="absolute right-4 top-4 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                    Seu plano
+                    {copy.currentPlan}
                   </div>
                 )}
 
@@ -268,7 +297,7 @@ export default function Planos() {
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-gray-400">Capacidade do ciclo</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-gray-400">{copy.capacity}</p>
                     <p className="mt-1 text-sm font-black text-gray-950">
                       {plano.capacityLabel}
                     </p>
@@ -276,7 +305,7 @@ export default function Planos() {
                       {plano.capacityDetail}
                     </p>
                     <p className="mt-3 text-xs font-black text-gray-500">
-                      Ver detalhes da capacidade
+                      {copy.details}
                     </p>
                   </div>
 

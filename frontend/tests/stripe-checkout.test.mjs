@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { CREDIT_RECHARGES, SMART_TOKEN_RECHARGE_PACKAGES, USD_SMART_TOKEN_RECHARGE_PACKAGES } from '../src/data/creditCosts.js'
 import { getSmartTokenBalance } from '../src/lib/smart-tokens.js'
+import { getMarketConfig } from '../src/i18n/locale-config.js'
 
 const planos = readFileSync(new URL('../src/pages/Planos.jsx', import.meta.url), 'utf8')
 const terms = readFileSync(new URL('../src/pages/TermosDeUso.jsx', import.meta.url), 'utf8')
@@ -138,6 +139,21 @@ test('Planos copy exposes only current rules and the contact channel', () => {
   assert.match(planos, /BRAND\.supportEmail/)
 })
 
+test('public market selector lets a visitor switch BR and US without checkout or authentication', () => {
+  assert.match(planos, /const \{ locale, market, setLocale, setMarket \} = useLocale\(\)/)
+  assert.match(planos, /aria-label="Choose market and language"/)
+  assert.match(planos, /Brasil \/ BR/)
+  assert.match(planos, /United States \/ US/)
+  assert.match(planos, /onClick=\{\(\) => selectMarket\('US'\)\}/)
+  assert.match(planos, /onClick=\{\(\) => selectMarket\('BR'\)\}/)
+  assert.match(planos, /setMarket\(nextMarket\)[\s\S]*setLocale\(next\.locale\)/)
+  assert.doesNotMatch(planos, /profile\?\.market/)
+  assert.deepEqual(getMarketConfig('US'), { locale: 'en-US', currency: 'USD', units: 'imperial' })
+  assert.deepEqual(getMarketConfig('BR'), { locale: 'pt-BR', currency: 'BRL', units: 'metric' })
+  assert.match(planos, /if \(!isAuthenticated\) \{[\s\S]*?<Link to="\/cadastro"/)
+  assert.doesNotMatch(planos.slice(planos.indexOf('const selectMarket'), planos.indexOf('const iniciarCheckout')), /stripe-checkout|functions\.invoke|supabase/)
+})
+
 test('US pricing uses distinct fixed USD keys and keeps the same Smart Token grants', () => {
   assert.match(planos, /const PLANOS_US = \[/)
   assert.match(planos, /id: 'usd_start',[\s\S]*?preco: '24\.90'/)
@@ -147,6 +163,6 @@ test('US pricing uses distinct fixed USD keys and keeps the same Smart Token gra
     { id: 'usd_9_90', credits: 2000, price: 9.9, expiresInDays: 30 },
     { id: 'usd_19_90', credits: 4000, price: 19.9, expiresInDays: 30 },
   ])
-  assert.match(planos, /profile\?\.market === 'US'/)
+  assert.match(planos, /const isUS = market === 'US'/)
   assert.match(planos, /\{isUS \? '\$' : 'R\$'\}/)
 })
