@@ -331,7 +331,7 @@ function getInitialVirtualStagingJourneyId() {
 
 export default function VirtualStagingAI() {
   const { user } = useAuth()
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const furnishCopy = getFurnishRenovateCopy(locale)
   const { trackEvent } = useAnalytics()
   const selectionDraft = useProductDraft({ productKey: 'virtual-staging:selection', schemaVersion: 1, userId: user?.id })
@@ -1263,6 +1263,7 @@ function VirtualStagingModules({ selectedJourneyId, onSelect, t }) {
 
 function Question(props) {
   const { id, journeyId, locale, market, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
+  const furnishCopy = getFurnishRenovateCopy(locale)
   const isFurnishRenovate = journeyId === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
   const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID

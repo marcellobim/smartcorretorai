@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { Linter } from 'eslint'
 import { getCountiesByState, isValidUsZipCode, normalizeUsZipCode } from '../src/config/locations/index.js'
 import { buildBrokerPresentationGenerationPayload } from '../src/config/virtualStagingBroker.js'
 import { buildLifeInPropertyGenerationPayload } from '../src/config/virtualStagingLife.js'
@@ -11,11 +12,20 @@ import { formatPhone } from '../src/utils/phoneFormatters.js'
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/VirtualStaging.jsx'), 'utf8')
 
+test('Smart Space initial route has no free references that could blank its render', () => {
+  const messages = new Linter().verify(page, {
+    env: { browser: true, es2021: true },
+    parserOptions: { ecmaVersion: 2022, sourceType: 'module', ecmaFeatures: { jsx: true } },
+    rules: { 'no-undef': 'error' },
+  })
+  assert.deepEqual(messages.filter(message => message.ruleId === 'no-undef'), [])
+})
+
 test('Vida no Imóvel and Apresentação pelo Corretor use the saved locale without changing their generation semantics', () => {
   assert.equal(buildLifeInPropertyGenerationPayload({ lifeScene: 'adult', captions: 'enabled', language: 'en-US' }).language, 'en-US')
   assert.equal(buildBrokerPresentationGenerationPayload({ captions: 'enabled', language: 'en-US' }).language, 'en-US')
   assert.match(page, /const \{ locale, market, t \} = useLocale\(\)/)
-  assert.match(page, /const draftLocale = supportsLocaleMarket \? normalizeLocale\(restoredJourneyDraft\.locale \|\| locale\) : 'pt-BR'/)
+  assert.match(page, /const draftLocale = supportsLocaleMarket \? normalizeLocale\(restoredJourneyDraft\.locale \|\| locale\) : normalizeLocale\(locale\)/)
   assert.match(page, /language: draftLocale/)
   assert.doesNotMatch(page.slice(page.indexOf('const requestBody ='), page.indexOf("supabase.functions.invoke('virtual-staging-generate'")), /market:/)
 })
