@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useSmartTokens } from '../../hooks/useSmartTokens'
 import { formatSmartTokens } from '../../lib/smart-tokens'
+import { useLocale } from '../../i18n/useLocale'
 
 export default function SmartTokenEstimate({ cost, quantityLabel = '', className = '' }) {
   const { balance, trial } = useSmartTokens()
+  const { locale, t } = useLocale()
   if (trial) return null
 
   const normalizedCost = Math.max(0, Number(cost) || 0)
@@ -12,8 +14,8 @@ export default function SmartTokenEstimate({ cost, quantityLabel = '', className
   return (
     <div className={`space-y-1 text-sm font-semibold text-slate-600 ${className}`.trim()} data-smart-token-estimate>
       {quantityLabel && <p className="text-xs text-slate-500">{quantityLabel}</p>}
-      <p>Esta criação: <strong className="text-slate-900">{formatSmartTokens(normalizedCost)} ST</strong></p>
-      {balance !== null && <p>Saldo disponível: <strong className="text-slate-900">{formatSmartTokens(balance)} ST</strong></p>}
+      <p>Esta criação: <strong className="text-slate-900">{formatSmartTokens(normalizedCost, locale)} {t('sidebar.smartTokens.unit')}</strong></p>
+      {balance !== null && <p>Saldo disponível: <strong className="text-slate-900">{formatSmartTokens(balance, locale)} {t('sidebar.smartTokens.unit')}</strong></p>}
       {insufficient && (
         <p className="text-amber-700" role="alert">
           Você precisa de mais Smart Tokens para esta criação.{' '}

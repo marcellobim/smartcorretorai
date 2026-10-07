@@ -34,7 +34,7 @@ test('reuses profiles saldo_creditos and reloadProfile without a parallel balanc
 
 test('shows an integer ST balance in Sidebar with no percentage or BRL equivalent', () => {
   assert.match(sidebar, /getSmartTokenBalance\(\{ saldo_creditos: profile\?\.saldo_creditos \}\)/)
-  assert.match(sidebar, /formatSmartTokens\(balance\).*ST/s)
+  assert.match(sidebar, /formatSmartTokens\(balance\).*sidebar\.smartTokens\.unit/s)
   assert.doesNotMatch(sidebar, /%|porcentagem|R\$/)
 })
 
@@ -42,6 +42,14 @@ test('uses one combined wallet while retaining the legacy trial display guard', 
   assert.match(economy, /trial_ends_at/)
   assert.match(sidebar, /showBalance = balance !== null && \(!trial \|\| balance > 0\)/)
   assert.match(estimate, /if \(trial\) return null/)
+})
+
+test('shared authenticated estimate resolves locale before formatting Smart Tokens', () => {
+  assert.match(estimate, /import \{ useLocale \} from ['"]\.\.\/\.\.\/i18n\/useLocale['"]/)
+  assert.match(estimate, /const \{ locale, t \} = useLocale\(\)/)
+  assert.match(estimate, /formatSmartTokens\(normalizedCost, locale\)/)
+  assert.match(estimate, /formatSmartTokens\(balance, locale\)/)
+  assert.match(estimate, /t\('sidebar\.smartTokens\.unit'\)/)
 })
 
 test('renders a compact insufficient-balance warning and existing recharge route', () => {
