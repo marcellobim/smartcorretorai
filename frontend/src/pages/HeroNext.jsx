@@ -18,10 +18,9 @@ import Header from '../components/layout/Header'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
-import { ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI } from '../components/design-system'
+import { ProductButton, ProductCard, SMART_UI } from '../components/design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
 import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
-import HeroShowcase from '../components/hero/HeroShowcase'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { useLocale } from '../i18n/useLocale'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
@@ -143,26 +142,6 @@ const PROPERTY_STAGE_OPTIONS = [
 const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+', 'Não informar']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+', 'Não informar']
 const PARKING_OPTIONS = ['0', '1', '2', '3+', 'Não informar']
-
-const BANNER_CREATION_STEPS = [
-  { title: 'Objetivo', subtitle: 'Conte sobre a campanha' },
-  { title: 'Formatos', subtitle: 'Escolha as entregas' },
-  { title: 'Revisão', subtitle: 'Confira as informações' },
-  { title: 'Imagens', subtitle: 'Envie seus arquivos' },
-  { title: 'Criação', subtitle: 'Acompanhe o resultado' },
-]
-
-const BANNER_STEP_BY_PHASE = {
-  goal: 1,
-  chat: 1,
-  values: 1,
-  destination: 2,
-  ideas: 2,
-  prompt: 3,
-  images: 4,
-  processing: 5,
-  recovery: 5,
-}
 
 const formatHeroPrice = (digits) => digits
   ? new Intl.NumberFormat('pt-BR', {
@@ -842,8 +821,81 @@ function buildHeroNextCopyInput(goal, answers, valueCondition) {
   }
 }
 
-function buildHeroNextCampaignCopy(goal, answers, valueCondition) {
-  return buildPublicationPackage(buildHeroNextCopyInput(goal, answers, valueCondition))
+function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR') {
+  if (market !== 'US') return buildPublicationPackage(buildHeroNextCopyInput(goal, answers, valueCondition))
+
+  const text = (value) => String(value || '').trim()
+  const normalized = (value) => normalizeComparable(value).replace(/_/g, ' ')
+  const usd = (value) => text(value).replace(/R\$\s*([\d.,]+)/g, (_, amount) => {
+    const number = Number(amount.replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+    return Number.isFinite(number) ? `USD $${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(number)}` : `USD $${amount}`
+  })
+  const propertyTypes = {
+    apartamento: 'Apartment', apartment: 'Apartment', casa: 'House', house: 'House', sobrado: 'Townhouse',
+    townhouse: 'Townhouse', cobertura: 'Penthouse', penthouse: 'Penthouse', studio: 'Studio', garden: 'Garden apartment',
+    kitnet: 'Studio apartment', 'terreno/lote': 'Land lot', terreno: 'Land', lote: 'Land lot',
+    'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse', comercial: 'Commercial property',
+    'us single family home': 'Single-family home', ussinglefamilyhome: 'Single-family home', 'single family home': 'Single-family home',
+    uscondo: 'Condominium', ustownhouse: 'Townhouse', usmultifamily: 'Multi-family home', usland: 'Land',
+  }
+  const stages = {
+    'pre lancamento': 'Pre-launch', lancamento: 'New launch', 'em obras': 'Under construction',
+    'pronto para morar': 'Move-in ready', 'move in ready': 'Move-in ready',
+  }
+  const ctas = {
+    'agende sua visita': 'Schedule your visit', 'saiba mais': 'Learn more', 'entre em contato agora': 'Contact me now',
+    'fale comigo': "Let's talk", 'solicitar contato': 'Request contact', 'entre em contato': 'Contact me',
+  }
+  const numberLabel = (value, singular, plural) => {
+    const current = text(value)
+    if (!/^\d+\+?$/.test(current) || current === '0') return ''
+    return `${current.replace('+', '+')} ${current === '1' ? singular : plural}`
+  }
+  const area = text(answers.area)
+  const areaNumber = Number(area.replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+  const sqft = Number.isFinite(areaNumber) && areaNumber > 0
+    ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber * 10.7639)} sqft`
+    : ''
+  const localizedType = propertyTypes[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
+  const localizedStage = stages[normalized(answers.stage)] || text(answers.stage)
+  const location = [text(answers.neighborhood || answers.neighborhoods), text(answers.city)].filter(Boolean).join(', ')
+  const facts = [
+    numberLabel(answers.bedrooms, 'bedroom', 'bedrooms'),
+    numberLabel(answers.suites, 'bathroom', 'bathrooms'),
+    numberLabel(answers.parking, 'parking space', 'parking spaces'),
+    sqft,
+  ].filter(Boolean)
+  const objective = goal === 'rent' ? 'for rent' : 'for sale'
+  const cta = ctas[normalized(answers.cta)] || text(answers.cta) || (isCaptureGoal(goal) ? 'Request contact' : 'Learn more')
+  const rawValue = text(valueCondition?.details)
+  const value = usd(rawValue)
+    .replace(/\bValor:\s*/gi, 'Price: ')
+    .replace(/\bAluguel:\s*/gi, 'Rent: ')
+    .replace(/\bCondom[ií]nio:\s*/gi, 'HOA fee: ')
+    .replace(/\bIPTU:\s*/gi, 'Property tax: ')
+    .replace(/\bCondições:\s*/gi, 'Terms: ')
+    .replace(/\bGarantia:\s*/gi, 'Lease guarantee: ')
+  const highlights = normalizeList(goal === 'property_capture' || goal === 'broker_capture'
+    ? getHeroNextCaptureFeatures(goal, answers)
+    : answers.differentials).join(', ')
+  const hashtags = ['#RealEstate', goal === 'rent' ? '#ForRent' : goal === 'sale' ? '#ForSale' : '#RealEstateMarketing', location ? `#${location.replace(/[^a-zA-Z0-9]/g, '')}` : '', '#SmartCorretorAI'].filter(Boolean).join(' ')
+
+  if (goal === 'property_capture' || goal === 'broker_capture') {
+    const audience = goal === 'broker_capture' ? 'real estate professionals' : 'property owners'
+    const message = goal === 'broker_capture'
+      ? `Opportunity for ${audience}${location ? ` in ${location}` : ''}.`
+      : `Do you own a property${location ? ` in ${location}` : ''}?`
+    return ['Commercial', 'Storytelling', 'Direct'].map((tone) => ({
+      label: `Instagram/Facebook ${tone}`,
+      text: [message, highlights && `Highlights: ${highlights}.`, cta, hashtags].filter(Boolean).join('\n\n'),
+    }))
+  }
+
+  const subject = [localizedType, localizedStage && `(${localizedStage})`, objective, location && `in ${location}`].filter(Boolean).join(' ')
+  return ['Commercial', 'Lifestyle', 'Direct'].map((tone) => ({
+    label: `Instagram/Facebook ${tone}`,
+    text: [subject ? `${subject}.` : '', facts.length ? `Featuring ${facts.join(', ')}.` : '', value && `Pricing details: ${value}.`, highlights && `Highlights: ${highlights}.`, cta, hashtags].filter(Boolean).join(tone === 'Direct' ? '\n' : '\n\n'),
+  }))
 }
 
 const normalizeComparable = (value) => String(value || '')
@@ -1168,12 +1220,66 @@ const getEconomicResolution = (destination) => (
       : '1024x1024'
 )
 
-const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeIdeaCount = 1) => {
+const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeIdeaCount = 1, market = 'BR') => {
   const isRent = goal === 'rent'
   const isPropertyCapture = goal === 'property_capture'
   const isBrokerCapture = goal === 'broker_capture'
   const selectedDestinations = Array.isArray(destinations) ? destinations : []
   const primaryDestination = selectedDestinations[0] || null
+  if (market === 'US') {
+    const text = (value) => String(value || '').trim()
+    const normalized = (value) => normalizeComparable(value).replace(/_/g, ' ')
+    const usd = (value) => text(value).replace(/R\$\s*([\d.,]+)/g, (_, amount) => {
+      const number = Number(amount.replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+      return Number.isFinite(number) ? `USD $${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(number)}` : `USD $${amount}`
+    })
+    const types = { apartamento: 'Apartment', casa: 'House', sobrado: 'Townhouse', cobertura: 'Penthouse', studio: 'Studio', garden: 'Garden apartment', kitnet: 'Studio apartment', 'terreno/lote': 'Land lot', terreno: 'Land', lote: 'Land lot', 'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse', comercial: 'Commercial property', 'us single family home': 'Single-family home', ussinglefamilyhome: 'Single-family home', uscondo: 'Condominium', ustownhouse: 'Townhouse', usmultifamily: 'Multi-family home', usland: 'Land' }
+    const stages = { 'pre lancamento': 'Pre-launch', lancamento: 'New launch', 'em obras': 'Under construction', 'pronto para morar': 'Move-in ready' }
+    const ctas = { 'agende sua visita': 'Schedule your visit', 'saiba mais': 'Learn more', 'entre em contato agora': 'Contact me now', 'fale comigo': "Let's talk", 'solicitar contato': 'Request contact' }
+    const numberLabel = (value, singular, plural) => /^\d+\+?$/.test(text(value)) && text(value) !== '0' ? `${text(value)} ${text(value) === '1' ? singular : plural}` : ''
+    const areaNumber = Number(text(answers.area).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+    const sqft = Number.isFinite(areaNumber) && areaNumber > 0 ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber * 10.7639)} sqft` : ''
+    const propertyType = types[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
+    const stage = stages[normalized(answers.stage)] || text(answers.stage)
+    const location = [text(answers.neighborhood || answers.neighborhoods), text(answers.city)].filter(Boolean).join(', ')
+    const cta = ctas[normalized(answers.cta)] || text(answers.cta) || (isPropertyCapture || isBrokerCapture ? 'Request contact' : 'Learn more')
+    const phone = answers.contactPhoneChoice === 'Sim, quero divulgar' ? text(answers.contactPhone) : ''
+    const facts = [numberLabel(answers.bedrooms, 'bedroom', 'bedrooms'), numberLabel(answers.suites, 'bathroom', 'bathrooms'), numberLabel(answers.parking, 'parking space', 'parking spaces'), sqft].filter(Boolean).join(', ')
+    const destination = primaryDestination?.label || 'the selected channel'
+    const detailLines = usd(text(valueCondition?.details))
+      .replace(/\bValor:\s*/gi, 'Price: ')
+      .replace(/\bAluguel:\s*/gi, 'Rent: ')
+      .replace(/\bCondom[ií]nio:\s*/gi, 'HOA fee: ')
+      .replace(/\bIPTU:\s*/gi, 'Property tax: ')
+      .replace(/\bCondições:\s*/gi, 'Terms: ')
+    if (isPropertyCapture || isBrokerCapture) {
+      const audience = isBrokerCapture ? 'real estate professionals' : 'property owners'
+      const highlights = normalizeList(getHeroNextCaptureFeatures(goal, answers)).join(', ')
+      return [
+        `Create one professional, modern, high-impact real estate campaign for ${destination}.`,
+        `Objective: attract ${audience}${location ? ` in ${location}` : ''}.`,
+        `Creation options: ${creativeIdeaCount}.`,
+        highlights && `Verified highlights: ${highlights}.`,
+        `CTA: ${cta}${phone ? `\n${phone}` : ''}.`,
+        phone ? `Use this phone number exactly as provided: ${phone}. Do not invent, complete, or reformat it.` : 'Do not display a phone number, WhatsApp, website, Instagram, or email.',
+        'Create one final publish-ready asset. Do not create a collage, mockup, or multiple formats inside one image.',
+        'Use only provided facts. Do not invent licenses, contact details, prices, claims, awards, commissions, or guarantees.',
+      ].filter(Boolean).join('\n')
+    }
+    return [
+      `Create one professional, modern, high-impact real estate campaign for ${destination}.`,
+      `Objective: advertise a property ${isRent ? 'for rent' : 'for sale'}.`,
+      `${propertyType}${stage ? ` — ${stage}` : ''}${location ? ` in ${location}` : ''}.`,
+      facts && `Property facts: ${facts}.`,
+      detailLines && `Pricing and optional terms: ${detailLines}.`,
+      normalizeList(answers.differentials).length ? `Verified highlights: ${normalizeList(answers.differentials).join(', ')}.` : '',
+      `CTA: ${cta}${phone ? `\n${phone}` : ''}.`,
+      phone ? `Use this phone number exactly as provided: ${phone}. Do not invent, complete, or reformat it.` : 'Do not display a phone number, WhatsApp, website, Instagram, or email.',
+      'Create one final publish-ready asset. Do not create a collage, mockup, or multiple formats inside one image.',
+      'Use a strong headline, a clear CTA, and only the real property facts supplied in the conversation.',
+      'Do not invent property features, prices, commercial terms, contact details, or other facts that were not provided.',
+    ].filter(Boolean).join('\n')
+  }
   if (isBrokerCapture) {
     const professionalProfiles = normalizeList(answers.professionalProfile)
     const businessDifferentials = normalizeList(answers.businessDifferentials)
@@ -1472,7 +1578,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       ? 'result'
       : restoredBannerDraft.phase === 'processing'
         ? 'recovery'
-        : restoredBannerDraft.phase || 'intro'))
+        : restoredBannerDraft.phase === 'intro' ? 'goal' : restoredBannerDraft.phase || 'goal'))
   const startCampaign = () => {
     if (!guestMode && user?.id && readHeroNextRecovery(window.localStorage, user.id)) {
       setRecoveryNotice('Existe uma criação preservada neste navegador. Atualize o status ou escolha Recomeçar.')
@@ -1588,7 +1694,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       ? uploadedImages.map(({ name, size, contentType, lastModified }, order) => ({ name, size, type: contentType, lastModified, order }))
       : missingImageMetadata
     const draft = { phase, goal, answers, showProfessionalIdentity, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
-    if (phase === 'intro' && !goal && !imageMetadata.length) { bannerDraft.clear(); return }
+    if (phase === 'goal' && !goal && !imageMetadata.length) { bannerDraft.clear(); return }
     bannerDraft.save(draft)
   }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, showProfessionalIdentity, textDraft, uploadedImages])
 
@@ -1720,7 +1826,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     && (condoMode !== 'show' || Boolean(normalizeValueText(condoFee)))
     && (iptuMode !== 'show' || Boolean(normalizeValueText(iptuValue)))
   )
-  const suggestedPrompt = useMemo(() => buildHumanPrompt(goal, answers, selectedDestination ? [selectedDestination] : [], valueCondition, creativeIdeaCount), [goal, answers, selectedDestination, valueCondition, creativeIdeaCount])
+  const suggestedPrompt = useMemo(() => buildHumanPrompt(goal, answers, selectedDestination ? [selectedDestination] : [], valueCondition, creativeIdeaCount, market), [goal, answers, selectedDestination, valueCondition, creativeIdeaCount, market])
   const effectivePrompt = promptTouched ? humanPrompt : suggestedPrompt
   const canGenerate = Boolean(
     effectivePrompt.trim()
@@ -1972,7 +2078,7 @@ export default function HeroNext({ guestMode = false } = {}) {
           sourceId: economicRequestIdRef.current || '',
           imageUrl,
           texts: data.texts || {},
-          campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition),
+          campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition, market),
         })
         setPhase('result')
         return
@@ -2056,7 +2162,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const commitGenerationResult = (jobs, sourceId, source = 'normal') => {
     const result = materializeHeroNextResult(
       jobs,
-      buildHeroNextCampaignCopy(goal, answers, valueCondition),
+      buildHeroNextCampaignCopy(goal, answers, valueCondition, market),
       { sourceId },
     )
     setGenerationJobs(result.jobs)
@@ -2211,8 +2317,8 @@ export default function HeroNext({ guestMode = false } = {}) {
     const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
     const promptForFormat = promptTouched
        ? buildFormatSpecificPrompt(effectivePrompt, destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
-      : buildFormatSpecificPrompt(buildHumanPrompt(goal, answers, [destination], valueCondition, creativeIdeaCount), destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
-    const publicationOptions = buildHeroNextCampaignCopy(goal, answers, valueCondition).slice(0, 3).map((item, index) => ({
+      : buildFormatSpecificPrompt(buildHumanPrompt(goal, answers, [destination], valueCondition, creativeIdeaCount, market), destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
+    const publicationOptions = buildHeroNextCampaignCopy(goal, answers, valueCondition, market).slice(0, 3).map((item, index) => ({
       id: `banner-caption-option-${index + 1}`,
       label: item.label || `Texto ${index + 1}`,
       text: item.text,
@@ -2386,7 +2492,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       economicRequestIdRef.current=clientRequestId
       try {
         const job=await startGenerationJob(selectedDestinations[0],CREATIVE_IDEAS[0],clientRequestId,1,1,1,1,{clientRequestId})
-        setGenerationResult({sourceId:clientRequestId,jobs:[job],imageUrl:job.imageUrl,texts:job.texts,campaignCopy:buildHeroNextCampaignCopy(goal,answers,valueCondition)})
+        setGenerationResult({sourceId:clientRequestId,jobs:[job],imageUrl:job.imageUrl,texts:job.texts,campaignCopy:buildHeroNextCampaignCopy(goal,answers,valueCondition,market)})
         setGuestConsumed(true);setPhase('result')
       } catch(error) {
           if(error.code==='promotion_used'){setGuestConsumed(true);requireGuestAccount()}
@@ -2519,7 +2625,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         jobs: settledJobs,
         imageUrl: firstCompleted.imageUrl || '',
         texts: firstCompleted.texts || {},
-        campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition),
+        campaignCopy: buildHeroNextCampaignCopy(goal, answers, valueCondition, market),
       }
       setGenerationResult(completedResult)
       writeStoredHeroNextResult(completedResult)
@@ -2542,7 +2648,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const campaignCopy = generationResult
     ? (Array.isArray(generationResult.campaignCopy) && generationResult.campaignCopy.length > 0
         ? generationResult.campaignCopy
-        : buildHeroNextCampaignCopy(goal, answers, valueCondition))
+        : buildHeroNextCampaignCopy(goal, answers, valueCondition, market))
     : []
 
   const downloadTexts = () => {
@@ -2575,7 +2681,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     generationViewActiveRef.current = false
     if (user?.id) clearHeroNextRecovery(window.localStorage, user.id)
     bannerDraft.clear()
-    setPhase('intro')
+    setPhase('goal')
     setGoal('')
     setAnswers({})
     setCityUf('')
@@ -2619,8 +2725,8 @@ export default function HeroNext({ guestMode = false } = {}) {
     generationViewActiveRef.current = false
     setGenerationLoading(false)
     setGenerationError('')
-    setRecoveryNotice('A criação foi preservada. Sair desta tela não cancela uma geração que já tenha sido iniciada.')
-    setPhase('intro')
+    setRecoveryNotice(market === 'US' ? 'This creation has been preserved. Leaving this screen will not cancel a generation that has already started.' : 'A criação foi preservada. Sair desta tela não cancela uma geração que já tenha sido iniciada.')
+    setPhase('goal')
   }
 
   const campaignPackageBuild = generationResult ? buildHeroNextCampaignPackageData({
@@ -2856,7 +2962,7 @@ export default function HeroNext({ guestMode = false } = {}) {
 
   return (
     <div className="min-h-screen bg-smart-canvas">
-      <Header title="Banner Imobiliário" subtitle="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto." />
+      <Header title={b('productName')} subtitle={b('productDescription')} />
 
       <main className={SMART_UI.page}>
         <div data-smart-conversation>
@@ -2867,31 +2973,8 @@ export default function HeroNext({ guestMode = false } = {}) {
           size="sm"
         >
           <ArrowLeft className="h-4 w-4" />
-          {guestMode ? 'Conhecer a plataforma' : 'Voltar para Home'}
+          {guestMode ? b('learnPlatform') : b('backHome')}
         </ProductButton>
-
-        {phase === 'intro' && (
-          <ProductHero
-            id="banner-imobiliario-title"
-            productName="Banner Imobiliário"
-            headline="Sua campanha, criada com"
-            highlight="direção profissional."
-            description="Nossa IA transforma as fotos e informações do imóvel em banners profissionais, prontos para divulgar seus imóveis com mais impacto."
-            actions={<ProductButton type="button" size="lg" onClick={startCampaign}>{b('startCampaign')}</ProductButton>}
-            className="mt-6"
-          />
-        )}
-
-        {phase === 'intro' && <HeroShowcase onStart={startCampaign} />}
-
-        {BANNER_STEP_BY_PHASE[phase] && (
-          <ProductSteps
-            steps={BANNER_CREATION_STEPS}
-            activeStep={BANNER_STEP_BY_PHASE[phase]}
-            label="Etapas da criação do Banner Imobiliário"
-            className="mt-6"
-          />
-        )}
 
         {phase === 'goal' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
@@ -2909,7 +2992,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                   <Building2 className="h-7 w-7 text-primary-600" />
                   <p className="mt-4 text-xl font-black text-gray-950">{optionLabel(item.label)}</p>
                   <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-500">
-                    {item.description || 'A conversa será adaptada para esse objetivo.'}
+                    {b(`goalDescriptions.${item.id}`) || b('goalDescriptionFallback')}
                   </p>
                 </button>
               ))}
@@ -2930,7 +3013,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                 title={b('tellUs')}
                 description={b('oneQuestion')}
                 accent="emerald"
-                trailing={<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{Math.min(chatIndex + 1, chatFlow.length)} de {chatFlow.length}</span>}
+                trailing={<span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{b('questionCount').replace('{current}', Math.min(chatIndex + 1, chatFlow.length)).replace('{total}', chatFlow.length)}</span>}
               />
             </div>
             <div className="min-w-0">
@@ -2951,7 +3034,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <div ref={activeQuestionRef} className="scroll-mt-6 space-y-4">
                       <ConversationQuestionCard
                         accent="emerald"
-                        label={`${Math.min(chatIndex + 1, chatFlow.length)} de ${chatFlow.length}`}
+                        label={b('questionCount').replace('{current}', Math.min(chatIndex + 1, chatFlow.length)).replace('{total}', chatFlow.length)}
                         title={currentQuestion.question}
                       >
                         {renderQuestionControls()}
@@ -3711,7 +3794,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {campaignPackageData.files.length > 0 && (
-                  <button type="button" disabled={downloadAllLoading} onClick={downloadAllImages} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"><Download className="h-4 w-4" />{downloadAllLoading ? 'Baixando artes...' : 'Baixar todas as artes'}</button>
+                  <button type="button" disabled={downloadAllLoading} onClick={downloadAllImages} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"><Download className="h-4 w-4" />{downloadAllLoading ? (market === 'US' ? 'Downloading assets...' : 'Baixando artes...') : (market === 'US' ? 'Download all assets' : 'Baixar todas as artes')}</button>
                 )}
                 {campaignCopy.length > 0 && (
                   <button type="button" onClick={downloadTexts} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />{b('downloadAllTexts')}</button>
@@ -3723,7 +3806,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               onRequireAccount={guestMode ? requireGuestAccount : undefined}
               data={campaignPackageData}
               onCreateNew={resetCampaign}
-              createNewLabel="Criar nova campanha"
+              createNewLabel={market === 'US' ? 'Create a new campaign' : 'Criar nova campanha'}
               onOpenImage={openExpandedPreview}
               bannerPublish={{
                 enabled: true,

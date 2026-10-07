@@ -3,13 +3,24 @@ import assert from 'node:assert/strict'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
 let vite
 let CampaignPackage
 let BannerPublishDialog
 
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
+  vite = await createServer({
+    root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+    appType: 'custom',
+    logLevel: 'silent',
+    define: {
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://project.example.test'),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('test-anon-key'),
+    },
+    server: { middlewareMode: true },
+  })
   ;({ CampaignPackage } = await vite.ssrLoadModule('/src/components/campaign/CampaignPackage.jsx'))
   ;({ default: BannerPublishDialog } = await vite.ssrLoadModule('/src/components/campaign/BannerPublishDialog.jsx'))
 })

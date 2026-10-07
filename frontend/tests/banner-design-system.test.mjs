@@ -12,17 +12,13 @@ const showcase = read('src/components/hero/HeroShowcase.jsx')
 const location = read('src/components/location/SmartCarouselCitySelect.jsx')
 
 test('uses the shared product design system throughout the Banner Imobiliário interface', () => {
-  assert.match(banner, /ProductButton, ProductCard, ProductHero, ProductSteps, SMART_UI/)
+  assert.match(banner, /ProductButton, ProductCard, SMART_UI/)
   assert.match(banner, /<main className=\{SMART_UI\.page\}>/)
-  assert.match(banner, /<ProductHero[\s\S]*?id="banner-imobiliario-title"/)
   assert.match(banner, /<ProductCard(?:\s|>)/)
-  assert.match(banner, /<ProductSteps[\s\S]*?steps=\{BANNER_CREATION_STEPS\}[\s\S]*?activeStep=\{BANNER_STEP_BY_PHASE\[phase\]\}/)
-  assert.match(banner, /const BANNER_CREATION_STEPS = \[[\s\S]*?Objetivo[\s\S]*?Formatos[\s\S]*?Revisão[\s\S]*?Imagens[\s\S]*?Criação[\s\S]*?\]/)
-  assert.match(banner, /const BANNER_STEP_BY_PHASE = \{[\s\S]*?goal: 1,[\s\S]*?chat: 1,[\s\S]*?values: 1,[\s\S]*?destination: 2,[\s\S]*?ideas: 2,[\s\S]*?prompt: 3,[\s\S]*?images: 4,[\s\S]*?processing: 5,[\s\S]*?\}/)
+  assert.doesNotMatch(banner, /<ProductHero|<ProductSteps|<HeroShowcase/)
 })
 
 test('preserves Banner actions while migrating controls to ProductButton', () => {
-  assert.match(banner, /actions=\{<ProductButton[^>]*onClick=\{startCampaign\}>\{b\('startCampaign'\)\}<\/ProductButton>\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => commitAnswer\(currentQuestion\.id, textDraft\)\}[^>]*disabled=\{!textDraft\.trim\(\)\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{goToDestinationStep\}[^>]*disabled=\{goal === 'sale' \? !saleValueReady : !rentValueReady\}/)
   assert.match(banner, /<ProductButton[^>]*onClick=\{\(\) => setPhase\('images'\)\}[^>]*disabled=\{!effectivePrompt\.trim\(\)\}/)
@@ -63,7 +59,7 @@ test('standardizes only the Banner location controls without replacing its conve
 test('presents the Banner conversation with the approved shared visual grammar while preserving its own engine', () => {
   assert.match(banner, /ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard/)
   assert.match(banner, /phase === 'chat'[\s\S]*?<section data-smart-conversation className="mt-6 overflow-visible">/)
-  assert.match(banner, /<ConversationQuestionCard[\s\S]*?label=\{`\$\{Math\.min\(chatIndex \+ 1, chatFlow\.length\)\} de \$\{chatFlow\.length\}`\}[\s\S]*?title=\{currentQuestion\.question\}/)
+  assert.match(banner, /<ConversationQuestionCard[\s\S]*?label=\{b\('questionCount'\)\.replace\('\{current\}'[\s\S]*?title=\{currentQuestion\.question\}/)
   assert.match(banner, /<UserBubble actions=\{<button[\s\S]*?goToQuestion\(index\)[\s\S]*?>\{b\('edit'\)\}<\/button>\}/)
   assert.match(banner, /const commitAnswer[\s\S]*?setChatIndex\(nextMissingIndex\)[\s\S]*?const goToQuestion/)
   assert.match(banner, /activeQuestionRef\.current\?\.scrollIntoView\(\{ behavior: 'smooth', block: 'nearest' \}\)/)
