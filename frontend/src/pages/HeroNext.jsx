@@ -1689,6 +1689,10 @@ export const buildHeroNextGenerationRequest = ({
 
 export const invokeHeroNextGenerationStart = (invokeGeneration, payload) => invokeGeneration({ body: payload })
 
+// A campaign can only begin from a browser-originated click/tap/keyboard activation.
+// This deliberately rejects direct calls from effects, restored state, or scripts.
+export const isExplicitGenerationActivation = (event) => event?.isTrusted === true || event?.nativeEvent?.isTrusted === true
+
 const formatFileSlug = (label) => normalizeComparable(label)
   .replace(/\s+/g, '-')
   .replace(/\//g, '-')
@@ -2698,7 +2702,8 @@ export default function HeroNext({ guestMode = false } = {}) {
     }
   }
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (event) => {
+    if (!isExplicitGenerationActivation(event)) return
       // Guest uses only the promotional backend, never authenticated ST routines.
     if (guestMode) {
       if(guestBusyRef.current || !canGenerate)return

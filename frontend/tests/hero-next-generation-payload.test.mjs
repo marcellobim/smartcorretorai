@@ -7,6 +7,7 @@ import path from 'node:path'
 let vite
 let buildHeroNextGenerationRequest
 let invokeHeroNextGenerationStart
+let isExplicitGenerationActivation
 
 const square = { id: 'instagram_feed', label: 'Instagram/Facebook square feed', format_group: 'square_feed' }
 const vertical = { id: 'story_reels', label: 'Reels/TikTok/Stories vertical', format_group: 'vertical' }
@@ -24,7 +25,7 @@ test.before(async () => {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://project.example.test'),
     'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('test-anon-key'),
   } })
-  ;({ buildHeroNextGenerationRequest, invokeHeroNextGenerationStart } = await vite.ssrLoadModule('/src/pages/HeroNext.jsx'))
+  ;({ buildHeroNextGenerationRequest, invokeHeroNextGenerationStart, isExplicitGenerationActivation } = await vite.ssrLoadModule('/src/pages/HeroNext.jsx'))
 })
 
 test.after(async () => vite?.close())
@@ -48,6 +49,14 @@ test('intercepts the exact US generation request after format instructions', asy
   assert.match(body.human_prompt, /US English only/)
   assert.match(body.human_prompt, /bedrooms, bathrooms, parking spaces, square feet, and USD/)
   assert.doesNotMatch(body.human_prompt, /Locação|Captação de Imóveis|Fale comigo|Pronto para morar|dormitórios|suítes|vagas|m²|R\$/i)
+})
+
+test('only a trusted browser activation may enter the final generation handler', () => {
+  assert.equal(isExplicitGenerationActivation(), false)
+  assert.equal(isExplicitGenerationActivation({ isTrusted: false }), false)
+  assert.equal(isExplicitGenerationActivation({ nativeEvent: { isTrusted: false } }), false)
+  assert.equal(isExplicitGenerationActivation({ isTrusted: true }), true)
+  assert.equal(isExplicitGenerationActivation({ nativeEvent: { isTrusted: true } }), true)
 })
 
 test('uses the market at submission time in both directions and keeps technical destination ids', () => {

@@ -73,7 +73,7 @@ test('completed incident materializes the existing generation and image', () => 
 })
 
 test('normal flow persists recovery before economic preparation', () => {
-  const normal = page.slice(page.indexOf('const handleGenerate = async () => {'), page.indexOf('\n  const campaignCopy ='))
+  const normal = page.slice(page.indexOf('const handleGenerate = async (event) => {'), page.indexOf('\n  const persistedCampaignCopy'))
   const persist = normal.indexOf("writeHeroNextRecovery(window.localStorage, user?.id, clientRequestId, 'processing')")
   const prepare = normal.indexOf("action: 'prepare_batch'")
   assert.ok(persist > -1 && prepare > persist)
@@ -98,10 +98,11 @@ test('mount recovery and manual refresh use only recover_batch and existing stat
 test('recovery interactions stay read-only until the final explicit generate handler', () => {
   const recovery = page.slice(page.indexOf('const recoverGenerationBatch'), page.indexOf('const startGenerationJob'))
   assert.doesNotMatch(recovery, /prepare_batch|startGenerationJob|randomUUID|trackGenerationClicked/)
-  const generate = page.slice(page.indexOf('const handleGenerate = async () => {'), page.indexOf('\n  const persistedCampaignCopy'))
-  assert.match(generate, /if \(generationStartRef\.current\) return/)
-  assert.match(generate, /generationStartRef\.current = true[\s\S]*trackGenerationClicked\(\)/)
-  assert.match(generate, /finally \{[\s\S]*generationStartRef\.current = false/)
+  const currentGenerate = page.slice(page.indexOf('const handleGenerate = async (event) => {'), page.indexOf('\n  const persistedCampaignCopy'))
+  assert.match(currentGenerate, /if \(!isExplicitGenerationActivation\(event\)\) return/)
+  assert.match(currentGenerate, /if \(generationStartRef\.current\) return/)
+  assert.match(currentGenerate, /generationStartRef\.current = true[\s\S]*trackGenerationClicked\(\)/)
+  assert.match(currentGenerate, /finally \{[\s\S]*generationStartRef\.current = false/)
 })
 
 test('US ZIP is optional, but a supplied ZIP is validated and reaches the request unchanged', () => {
