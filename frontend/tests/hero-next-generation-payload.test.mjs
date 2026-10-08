@@ -39,6 +39,8 @@ test('intercepts the exact US generation request after format instructions', asy
   assert.equal(body.format_generation.format_id, 'story_reels')
   assert.equal(body.property_profile, 'High-end')
   assert.equal(body.property_stage, 'Move-in ready')
+  assert.equal(body.bathrooms, '2')
+  assert.equal(body.suites, '2')
   assert.equal(body.cta, 'Contact us')
   assert.equal(body.display_area, '1,850 sqft')
   assert.match(body.value_condition.details, /USD \$850,000/)
@@ -78,4 +80,45 @@ test('keeps BR currency and area while US uses USD and square feet before the pr
   assert.equal(us.locale, 'en-US')
   assert.equal(us.display_area, '1,850 sqft')
   assert.match(us.value_condition.details, /USD \$850,000/)
+  assert.equal(br.bathrooms, '')
+  assert.equal(us.bathrooms, '2')
+})
+
+test('the intercepted handler receives only visible US commercial data', async () => {
+  const payload = buildHeroNextGenerationRequest({
+    ...base,
+    market: 'US',
+    destination: square,
+    answers: { ...base.answers, suites: '3' },
+    valueCondition: {
+      mode: 'hidden', label: 'No pricing details provided', details: '',
+      promptLines: ['Do not show prices in the campaign.'],
+    },
+    rentMode: 'hide', condoMode: 'hide', iptuMode: 'hide',
+    rentPrice: '$2,000', condoFee: '$300', iptuValue: '$100',
+  })
+  const sent = []
+  await invokeHeroNextGenerationStart(async (options) => { sent.push(options); return { data: { success: true } } }, payload)
+  const body = sent[0].body
+  assert.equal(body.market, 'US')
+  assert.equal(body.bathrooms, '3')
+  assert.equal(body.suites, '3') // legacy compatibility remains intact
+  assert.equal(body.rent_price, '')
+  assert.equal(body.condo_fee, '')
+  assert.equal(body.iptu, '')
+  assert.equal(body.value_condition.mode, 'hidden')
+  assert.doesNotMatch(body.human_prompt, /\$2,000|\$300|\$100/)
+})
+
+test('keeps the three commercial visibility modes distinct in the real request builder', () => {
+  const price = buildHeroNextGenerationRequest({ ...base, market: 'US', destination: square, valueCondition: { mode: 'price', label: 'Property price provided', details: 'Price: $850,000', promptLines: ['Price: $850,000.'] } })
+  const terms = buildHeroNextGenerationRequest({ ...base, market: 'US', destination: square, valueCondition: { mode: 'conditions', label: 'Commercial terms only', details: 'Financing available', promptLines: ['Commercial terms: Financing available.', 'Do not show a price.'] } })
+  const hidden = buildHeroNextGenerationRequest({ ...base, market: 'US', destination: square, valueCondition: { mode: 'hidden', label: 'No pricing details provided', details: '', promptLines: ['Do not show prices in the campaign.'] } })
+  assert.equal(price.value_condition.mode, 'price')
+  assert.match(price.human_prompt, /\$850,000/)
+  assert.equal(terms.value_condition.mode, 'conditions')
+  assert.match(terms.human_prompt, /Financing available/)
+  assert.doesNotMatch(terms.human_prompt, /\$850,000/)
+  assert.equal(hidden.value_condition.mode, 'hidden')
+  assert.doesNotMatch(hidden.human_prompt, /\$850,000/)
 })

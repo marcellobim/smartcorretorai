@@ -144,10 +144,10 @@ const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+', 'Não informar']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+', 'Não informar']
 const PARKING_OPTIONS = ['0', '1', '2', '3+', 'Não informar']
 
-const formatHeroPrice = (digits) => digits
-  ? new Intl.NumberFormat('pt-BR', {
+const formatHeroPrice = (digits, market = 'BR') => digits
+  ? new Intl.NumberFormat(market === 'US' ? 'en-US' : 'pt-BR', {
       style: 'currency',
-      currency: 'BRL',
+      currency: market === 'US' ? 'USD' : 'BRL',
       maximumFractionDigits: 0,
     }).format(Number(digits))
   : ''
@@ -219,6 +219,13 @@ const SALE_CONDITION_OPTIONS = [
   'Últimas unidades',
   'Unidades limitadas',
 ]
+const US_SALE_CONDITION_OPTIONS = [
+  'Aceita financiamento',
+  'Condições especiais',
+  'Últimas unidades',
+  'Unidades limitadas',
+]
+const getSaleConditionOptions = (market = 'BR') => market === 'US' ? US_SALE_CONDITION_OPTIONS : SALE_CONDITION_OPTIONS
 
 const COMMERCIAL_TERMS_STAGES = new Set(['Pré-lançamento', 'Lançamento', 'Em obras'])
 const COMMERCIAL_TERM_FIELDS = [
@@ -238,10 +245,10 @@ const normalizeCommercialTerms = (value) => Object.fromEntries(
     .filter(([, amount]) => amount),
 )
 
-const formatCommercialTermCalls = (value) => {
+const formatCommercialTermCalls = (value, market = 'BR') => {
   const terms = normalizeCommercialTerms(value)
   return COMMERCIAL_TERM_FIELDS
-    .map(({ id, prefix }) => terms[id] ? `${prefix} ${formatHeroPrice(terms[id])}` : '')
+    .map(({ id, prefix }) => terms[id] ? `${prefix} ${formatHeroPrice(terms[id], market)}` : '')
     .filter(Boolean)
 }
 
@@ -869,6 +876,13 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     .replace(/\bCondom[ií]nio:\s*/gi, 'HOA fee: ')
     .replace(/\bIPTU:\s*/gi, 'Property tax: ')
     .replace(/\bCondições:\s*/gi, 'Terms: ')
+    .replace(/\bEntrada de\s*/gi, 'Down payment of ')
+    .replace(/\bMensais a partir de\s*/gi, 'Monthly payments from ')
+    .replace(/\bAnuais de\s*/gi, 'Annual payments of ')
+    .replace(/\bAceita financiamento\b/gi, 'Financing available')
+    .replace(/\bCondições especiais\b/gi, 'Special terms')
+    .replace(/\bÚltimas unidades\b/gi, 'Last units')
+    .replace(/\bUnidades limitadas\b/gi, 'Limited units')
     .replace(/\bGarantia:\s*/gi, 'Lease guarantee: ')
   const highlights = localizeHeroNextSystemList(normalizeList(goal === 'property_capture' || goal === 'broker_capture'
     ? getHeroNextCaptureFeatures(goal, answers)
@@ -978,6 +992,13 @@ const localizeHeroNextValueCondition = (valueCondition = {}, market = 'BR') => {
     .replace(/ou condições ausentes/gi, 'or missing terms')
     .replace(/Pode mostrar o valor informado na campanha\./gi, 'You may show the provided price in the campaign.')
     .replace(/Chamadas comerciais informadas:\s*/gi, 'Commercial calls: ')
+    .replace(/\bEntrada de\s*/gi, 'Down payment of ')
+    .replace(/\bMensais a partir de\s*/gi, 'Monthly payments from ')
+    .replace(/\bAnuais de\s*/gi, 'Annual payments of ')
+    .replace(/\bAceita financiamento\b/gi, 'Financing available')
+    .replace(/\bCondições especiais\b/gi, 'Special terms')
+    .replace(/\bÚltimas unidades\b/gi, 'Last units')
+    .replace(/\bUnidades limitadas\b/gi, 'Limited units')
     .replace(/R\$\s*([\d.]+(?:,[\d]{1,2})?)/g, (_, rawAmount) => {
       const numeric = Number(String(rawAmount).replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
       return Number.isFinite(numeric) ? `USD $${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric)}` : `USD $${rawAmount}`
@@ -1286,8 +1307,8 @@ const getFormatVisualStrategy = (destination, imageCount = 0) => {
 
 const getCreativeIdea = (number = 1) => CREATIVE_IDEAS.find((idea) => idea.number === Number(number)) || CREATIVE_IDEAS[0]
 
-const formatCreativeIdeaCount = (count) => `${count} ${count === 1 ? 'ideia' : 'ideias'}`
-const formatCreationOptionCount = (count) => `${count} ${count === 1 ? 'opção' : 'opções'}`
+const formatCreativeIdeaCount = (count, market = 'BR') => `${count} ${count === 1 ? (market === 'US' ? 'idea' : 'ideia') : (market === 'US' ? 'ideas' : 'ideias')}`
+const formatCreationOptionCount = (count, market = 'BR') => `${count} ${count === 1 ? (market === 'US' ? 'option' : 'opção') : (market === 'US' ? 'options' : 'opções')}`
 const getCreationOptionLabel = (number = 1, compact = false) => {
   const option = getCreativeIdea(number)
   if (compact) return `Opção ${option.number}`
@@ -1630,7 +1651,9 @@ export const buildHeroNextGenerationRequest = ({
     market: resolvedMarket,
     locale: resolvedLocale,
     state: answers.state || '', county: answers.county || '', city: answers.city || '', zip_code: answers.zipCode || '', district: answers.neighborhood || answers.neighborhoods || '',
-    bedrooms: answers.bedrooms || '', suites: answers.suites || '', parking: answers.parking || '', area: answers.area || '', display_area: displayArea,
+    // `suites` remains the legacy cross-market contract.  For US campaigns the
+    // same answer is explicitly carried as bathrooms, without rewriting old data.
+    bedrooms: answers.bedrooms || '', suites: answers.suites || '', bathrooms: isUS ? answers.suites || '' : '', parking: answers.parking || '', area: answers.area || '', display_area: displayArea,
     rent_price: rentMode === 'show' ? normalizeValueText(rentPrice) : '', display_rent_price: rentMode === 'show' ? money(normalizeValueText(rentPrice), 'locacao') : '',
     condo_fee: condoMode === 'show' ? normalizeValueText(condoFee) : '', display_condo_fee: condoMode === 'show' ? money(normalizeValueText(condoFee), 'locacao') : '',
     iptu: iptuMode === 'show' ? normalizeValueText(iptuValue) : '', display_iptu: iptuMode === 'show' ? money(normalizeValueText(iptuValue), 'locacao') : '',
@@ -1670,7 +1693,7 @@ const downloadPlainTextFile = (filename, content) => {
   }
 }
 
-const formatPieceCount = (count) => `${count} ${count === 1 ? 'peça' : 'peças'}`
+const formatPieceCount = (count, market = 'BR') => `${count} ${count === 1 ? (market === 'US' ? 'piece' : 'peça') : (market === 'US' ? 'pieces' : 'peças')}`
 
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader()
@@ -1750,6 +1773,31 @@ export default function HeroNext({ guestMode = false } = {}) {
   const optionLabels = t('banner.optionLabels')
   const optionLabel = (value) => optionLabels?.[value] || value
   const isUSMarket = market === 'US'
+  const marketText = isUSMarket ? {
+    valuesQuestion: 'What pricing details would you like to show?', price: 'Show the property price', conditions: 'Show terms only', hidden: 'Do not show pricing',
+    priceHelp: 'The entered price may appear in the campaign.', conditionsHelp: 'No price. Only real commercial terms.', hiddenHelp: 'The campaign must not show a price or terms.',
+    fixed: 'Fixed price', startingAt: 'Starting at', additionalTerms: 'Additional terms, if any', realTerms: 'Real commercial terms',
+    entry: 'Down payment', monthly: 'Monthly payments', annual: 'Annual payments', optional: 'optional', back: 'Back', continue: 'Continue', yes: 'Yes', no: 'No', edit: 'Edit',
+    value: 'Price', valuesConditions: 'Pricing and terms', total: 'Total', optionsIntro: 'You can receive one or more versions of this campaign to compare before choosing.',
+    uploadQuestion: 'Do you have real photos of this property?', uploadWithout: 'No, create the campaign without photos', uploadDescription: 'One image is enough to use as a visual reference.',
+    confirmedInfo: 'The campaign will be created from the information you confirmed.', uploadImages: 'Upload property photos', uploadHelp: 'JPG, PNG, or WebP. Up to 4 images. The first will be the main image.',
+    restored: 'Draft restored. Select the images again; physical files are not stored.', primary: 'Primary', supporting: 'Supporting', removeImage: 'Remove image', selected: 'selected', generate: 'Generate', campaign: 'campaign',
+    objective: 'Objective selected', information: 'Information organized', formats: 'Formats selected', creative: 'Creative options', answers: 'confirmed answers',
+    showRent: 'Show rent', hideRent: 'Do not show rent', showHoa: 'Show HOA fee', hideHoa: 'Do not show HOA fee', showTax: 'Show property tax', hideTax: 'Do not show property tax', notApplicable: 'Not applicable',
+    rentPlaceholder: 'Rent amount. E.g. $3,500', hoaPlaceholder: 'HOA fee. E.g. $780', taxPlaceholder: 'Property tax. E.g. $120/month', hoa: 'HOA fee', propertyTax: 'Property tax',
+  } : {
+    valuesQuestion: 'Quais valores deseja divulgar?', price: 'Mostrar valor do imóvel', conditions: 'Mostrar apenas condições', hidden: 'Não mostrar valores',
+    priceHelp: 'O valor informado poderá aparecer na campanha.', conditionsHelp: 'Sem preço. Apenas condições comerciais reais.', hiddenHelp: 'A campanha não deve mostrar preço nem condições.',
+    fixed: 'Preço fixo', startingAt: 'A partir de', additionalTerms: 'Condições adicionais, se quiser', realTerms: 'Condições comerciais reais',
+    entry: 'Entrada', monthly: 'Mensais', annual: 'Anuais', optional: 'opcional', back: 'Voltar', continue: 'Continuar', yes: 'Sim', no: 'Não', edit: 'Editar',
+    value: 'Valor', valuesConditions: 'Valores e condições', total: 'Total', optionsIntro: 'Você pode receber uma ou mais versões da mesma campanha para comparar antes de escolher.',
+    uploadQuestion: 'Você possui imagens reais deste imóvel?', uploadWithout: 'Não, gerar campanha sem imagens', uploadDescription: 'Uma imagem já é suficiente para este teste.',
+    confirmedInfo: 'A campanha será criada a partir das informações que você confirmou.', uploadImages: 'Enviar imagens do imóvel', uploadHelp: 'JPG, PNG ou WebP. Até 4 imagens. A primeira será a principal.',
+    restored: 'Rascunho restaurado. Selecione novamente as imagens; os arquivos físicos não são armazenados.', primary: 'Principal', supporting: 'Apoio', removeImage: 'Remover imagem', selected: 'selecionada', generate: 'Gerar', campaign: 'da campanha',
+    objective: 'Objetivo definido', information: 'Informações organizadas', formats: 'Formatos escolhidos', creative: 'Opções criativas', answers: 'respostas confirmadas',
+    showRent: 'Mostrar aluguel', hideRent: 'Não mostrar aluguel', showHoa: 'Mostrar condomínio', hideHoa: 'Não mostrar condomínio', showTax: 'Mostrar IPTU', hideTax: 'Não mostrar IPTU', notApplicable: 'Não se aplica',
+    rentPlaceholder: 'Valor do aluguel. Ex: R$ 3.500', hoaPlaceholder: 'Valor do condomínio. Ex: R$ 780', taxPlaceholder: 'Valor do IPTU. Ex: R$ 120/mês', hoa: 'Condomínio', propertyTax: 'IPTU',
+  }
   const heroNextCampaignLabels = isUSMarket
     ? {
         completedStatus: 'Completed', ctaUsed: 'CTA used', copyCta: 'Copy CTA', phone: 'Phone', copyPhone: 'Copy phone', copyText: 'Copy text', copyMessage: 'Copy message', copyDescription: 'Copy description', copySubject: 'Copy subject', copyHashtags: 'Copy hashtags',
@@ -1845,6 +1893,10 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [guestSignupGate, setGuestSignupGate] = useState(false)
   const [guestConsumed, setGuestConsumed] = useState(false)
   const requireGuestAccount = () => setGuestSignupGate(true)
+  const saleConditionOptions = getSaleConditionOptions(market)
+  useEffect(() => {
+    setSaleConditions((current) => current.filter((condition) => saleConditionOptions.includes(condition)))
+  }, [market])
   useEffect(() => {
     if (!guestMode) return
     let active=true
@@ -2014,8 +2066,8 @@ export default function HeroNext({ guestMode = false } = {}) {
   const pieceLimitExceeded = totalPieceCount > MAX_HERO_NEXT_PIECES
   const commercialTermsAvailable = goal === 'sale' && COMMERCIAL_TERMS_STAGES.has(answers.stage)
   const commercialTermsEnabled = commercialTermsAvailable && commercialTermsChoice === 'yes'
-  const commercialTermCalls = formatCommercialTermCalls(commercialTermsEnabled ? commercialTerms : {})
-  const valueCondition = useMemo(() => buildValueCondition(goal, {
+  const commercialTermCalls = formatCommercialTermCalls(commercialTermsEnabled ? commercialTerms : {}, market)
+  const valueCondition = useMemo(() => localizeHeroNextValueCondition(buildValueCondition(goal, {
     mode: saleValueMode,
     price: salePrice,
     conditions: saleConditions,
@@ -2028,8 +2080,8 @@ export default function HeroNext({ guestMode = false } = {}) {
     iptuMode,
     iptu: iptuValue,
     guarantee: rentGuarantee,
-  }), [goal, saleValueMode, salePrice, saleConditions, commercialTermsEnabled, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee])
-  const formattedSalePrice = formatHeroPrice(salePriceDigits)
+  }), market), [goal, saleValueMode, salePrice, saleConditions, commercialTermsEnabled, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, market])
+  const formattedSalePrice = formatHeroPrice(salePriceDigits, market)
   const saleValueReady = goal !== 'sale'
     || saleValueMode === 'hidden'
     || (saleValueMode === 'price' && Boolean(salePricePresentationMode) && Boolean(salePriceDigits) && Boolean(normalizeValueText(salePrice)))
@@ -3236,15 +3288,15 @@ export default function HeroNext({ guestMode = false } = {}) {
 
         {phase === 'values' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
-            <AssistantBubble>{goal === 'rent' ? 'Quais valores deseja divulgar' : 'Deseja divulgar valor ou condições'}</AssistantBubble>
+            <AssistantBubble>{marketText.valuesQuestion}</AssistantBubble>
 
             {goal === 'sale' && (
               <>
                 <div className="mt-5 grid gap-3 lg:grid-cols-3">
                   {[
-                    { id: 'price', title: 'Mostrar valor do imóvel', description: 'O valor informado poderá aparecer na campanha.' },
-                    { id: 'conditions', title: 'Mostrar apenas condições', description: 'Sem preço. Apenas condições comerciais reais.' },
-                    { id: 'hidden', title: 'Não mostrar valores', description: 'A campanha não deve mostrar preço nem condições.' },
+                    { id: 'price', title: marketText.price, description: marketText.priceHelp },
+                    { id: 'conditions', title: marketText.conditions, description: marketText.conditionsHelp },
+                    { id: 'hidden', title: marketText.hidden, description: marketText.hiddenHelp },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -3280,15 +3332,15 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <p className="text-sm font-black text-gray-950">{b('pricePresentation')}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {[
-                        ['fixed', 'Preço fixo'],
-                        ['starting_at', 'A partir de'],
+                        ['fixed', marketText.fixed],
+                        ['starting_at', marketText.startingAt],
                       ].map(([id, label]) => (
                         <button
                           key={id}
                           type="button"
                           onClick={() => {
                             setSalePricePresentationMode(id)
-                            setSalePrice(salePriceDigits ? `${id === 'starting_at' ? 'A partir de ' : ''}${formatHeroPrice(salePriceDigits)}` : '')
+                            setSalePrice(salePriceDigits ? `${id === 'starting_at' ? `${marketText.startingAt} ` : ''}${formatHeroPrice(salePriceDigits, market)}` : '')
                             setPromptTouched(false)
                             setHumanPrompt('')
                           }}
@@ -3307,12 +3359,12 @@ export default function HeroNext({ guestMode = false } = {}) {
                       onChange={(event) => {
                         const nextDigits = event.target.value.replace(/\D/g, '').slice(0, 12)
                         setSalePriceDigits(nextDigits)
-                        setSalePrice(nextDigits ? `${salePricePresentationMode === 'starting_at' ? 'A partir de ' : ''}${formatHeroPrice(nextDigits)}` : '')
+                        setSalePrice(nextDigits ? `${salePricePresentationMode === 'starting_at' ? `${marketText.startingAt} ` : ''}${formatHeroPrice(nextDigits, market)}` : '')
                         setPromptTouched(false)
                         setHumanPrompt('')
                       }}
                       inputMode="numeric"
-                      placeholder="R$ 0"
+                      placeholder={isUSMarket ? '$0' : 'R$ 0'}
                       className="mt-3 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                     />
                   </div>
@@ -3321,10 +3373,10 @@ export default function HeroNext({ guestMode = false } = {}) {
                 {(saleValueMode === 'price' || saleValueMode === 'conditions') && (
                   <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5">
                     <p className="text-sm font-black text-gray-950">
-                      {saleValueMode === 'price' ? 'Condições adicionais, se quiser' : 'Condições comerciais reais'}
+                      {saleValueMode === 'price' ? marketText.additionalTerms : marketText.realTerms}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {SALE_CONDITION_OPTIONS.map((condition) => {
+                      {saleConditionOptions.map((condition) => {
                         const active = saleConditions.includes(condition)
                         return (
                           <button
@@ -3335,7 +3387,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                               active ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                             }`}
                           >
-                            {condition}
+                            {optionLabel(condition)}
                           </button>
                         )
                       })}
@@ -3349,8 +3401,8 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <p className="mt-1 text-sm font-semibold text-gray-500">{b('commercialHelp')}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {[
-                        ['yes', 'Sim'],
-                        ['no', 'Não'],
+                        ['yes', marketText.yes],
+                        ['no', marketText.no],
                       ].map(([id, label]) => (
                         <button
                           key={id}
@@ -3375,12 +3427,12 @@ export default function HeroNext({ guestMode = false } = {}) {
                       <div className="mt-5 grid gap-4 sm:grid-cols-2">
                         {COMMERCIAL_TERM_FIELDS.map(({ id, label }) => (
                           <label key={id} className="text-sm font-black text-gray-950">
-                            {label} <span className="font-semibold text-gray-400">(opcional)</span>
+                            {({ entry_amount: marketText.entry, monthly_amount: marketText.monthly, annual_amount: marketText.annual })[id] || label} <span className="font-semibold text-gray-400">({marketText.optional})</span>
                             <input
-                              value={formatHeroPrice(commercialTerms[id])}
+                              value={formatHeroPrice(commercialTerms[id], market)}
                               onChange={(event) => updateCommercialTerm(id, event.target.value)}
                               inputMode="numeric"
-                              placeholder="R$ 0"
+                              placeholder={isUSMarket ? '$0' : 'R$ 0'}
                               className="mt-2 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                             />
                           </label>
@@ -3404,8 +3456,8 @@ export default function HeroNext({ guestMode = false } = {}) {
                   <p className="text-sm font-black text-gray-950">{b('rent')}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {[
-                      ['show', 'Mostrar aluguel'],
-                      ['hide', 'Não mostrar aluguel'],
+                      ['show', marketText.showRent],
+                      ['hide', marketText.hideRent],
                     ].map(([id, label]) => (
                       <button
                         key={id}
@@ -3432,7 +3484,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                         setPromptTouched(false)
                         setHumanPrompt('')
                       }}
-                      placeholder="Valor do aluguel. Ex: R$ 3.500"
+                      placeholder={marketText.rentPlaceholder}
                       className="mt-3 min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                     />
                   )}
@@ -3440,29 +3492,29 @@ export default function HeroNext({ guestMode = false } = {}) {
 
                 {[
                   {
-                    title: 'Condomínio',
+                    title: marketText.hoa,
                     mode: condoMode,
                     setMode: setCondoMode,
                     value: condoFee,
                     setValue: setCondoFee,
-                    placeholder: 'Valor do condomínio. Ex: R$ 780',
+                    placeholder: marketText.hoaPlaceholder,
                     options: [
-                      ['show', 'Mostrar condomínio'],
-                      ['hide', 'Não mostrar condomínio'],
-                      ['na', 'Não se aplica'],
+                      ['show', marketText.showHoa],
+                      ['hide', marketText.hideHoa],
+                      ['na', marketText.notApplicable],
                     ],
                   },
                   {
-                    title: 'IPTU',
+                    title: marketText.propertyTax,
                     mode: iptuMode,
                     setMode: setIptuMode,
                     value: iptuValue,
                     setValue: setIptuValue,
-                    placeholder: 'Valor do IPTU. Ex: R$ 120/mês',
+                    placeholder: marketText.taxPlaceholder,
                     options: [
-                      ['show', 'Mostrar IPTU'],
-                      ['hide', 'Não mostrar IPTU'],
-                      ['na', 'Não se aplica'],
+                      ['show', marketText.showTax],
+                      ['hide', marketText.hideTax],
+                      ['na', marketText.notApplicable],
                     ],
                   },
                 ].map((section) => (
@@ -3552,10 +3604,10 @@ export default function HeroNext({ guestMode = false } = {}) {
                 <p className="mt-2 text-sm font-semibold text-slate-600">{b('reviewBeforeImages')}</p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {[
-                    ['Objetivo definido', getGoalLabel(goal)],
-                    ['Informações organizadas', `${chatFlow.filter((question) => answers[question.id]).length} respostas confirmadas`],
-                    ['Formatos escolhidos', selectedDestinations.map((item) => item.label).join(', ')],
-                    ['Opções criativas', formatCreationOptionCount(creativeIdeaCount)],
+                    [marketText.objective, optionLabel(getGoalLabel(goal))],
+                    [marketText.information, `${chatFlow.filter((question) => answers[question.id]).length} ${marketText.answers}`],
+                    [marketText.formats, selectedDestinations.map((item) => item.id === 'instagram_feed' ? (isUSMarket ? 'Instagram/Facebook Feed' : 'Feed Instagram/Facebook') : item.label).join(', ')],
+                    [marketText.creative, formatCreationOptionCount(creativeIdeaCount, market)],
                   ].map(([title, detail]) => (
                     <div key={title} className="flex gap-3 rounded-2xl bg-emerald-50/70 p-4">
                       <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
@@ -3567,7 +3619,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               </div>
               <div className="mt-5 flex flex-wrap justify-end gap-3">
                 <ProductButton type="button" variant="secondary" onClick={() => setPhase('ideas')}>
-                  Voltar
+                  {marketText.back}
                 </ProductButton>
                 <ProductButton type="button" onClick={() => setPhase('images')} disabled={!effectivePrompt.trim()}>
                 {b('continueToImages')}
@@ -3577,13 +3629,13 @@ export default function HeroNext({ guestMode = false } = {}) {
             <ProductCard as="aside" variant="flat" className="p-5">
               <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{b('campaignSummary')}</p>
               <div className="mt-4 space-y-3 text-sm font-semibold text-slate-600">
-                <p><strong>{b('objective')}:</strong> {getGoalLabel(goal)}</p>
+                <p><strong>{marketText.objective}:</strong> {optionLabel(getGoalLabel(goal))}</p>
                 {chatFlow.map((question, index) => answers[question.id] ? (
                   <div key={question.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>{question.question}</strong><br />
-                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id])}
+                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id], optionLabel)}
                       </p>
                       <button
                         type="button"
@@ -3600,16 +3652,16 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>{b('formatsOptions')}</strong><br />
-                        {selectedDestinations.map((item) => item.label).join(', ')}
+                        {selectedDestinations.map((item) => item.id === 'instagram_feed' ? (isUSMarket ? 'Instagram/Facebook Feed' : 'Feed Instagram/Facebook') : item.label).join(', ')}
                         <br />
-                        {formatCreationOptionCount(creativeIdeaCount)} - Total: {formatPieceCount(totalPieceCount)} IA
+                        {formatCreationOptionCount(creativeIdeaCount, market)} - {marketText.total}: {formatPieceCount(totalPieceCount, market)} IA
                       </p>
                       <button
                         type="button"
                         onClick={() => setPhase('ideas')}
                         className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700 hover:bg-emerald-50"
                       >
-                        Editar
+                        {marketText.edit}
                       </button>
                     </div>
                   </div>
@@ -3618,10 +3670,10 @@ export default function HeroNext({ guestMode = false } = {}) {
                   <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p>
-                        <strong>{goal === 'sale' && saleValueMode === 'price' ? 'Valor' : 'Valores e condições'}</strong><br />
+                        <strong>{goal === 'sale' && saleValueMode === 'price' ? marketText.value : marketText.valuesConditions}</strong><br />
                         {goal === 'sale' && saleValueMode === 'price' ? (
                           <>
-                            {salePricePresentationMode === 'starting_at' ? 'A partir de' : 'Preço fixo'}<br />
+                            {salePricePresentationMode === 'starting_at' ? marketText.startingAt : marketText.fixed}<br />
                             {formattedSalePrice}
                           </>
                         ) : (
@@ -3636,7 +3688,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                         onClick={() => setPhase('values')}
                         className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700 hover:bg-emerald-50"
                       >
-                        Editar
+                        {marketText.edit}
                       </button>
                     </div>
                   </div>
@@ -3650,7 +3702,7 @@ export default function HeroNext({ guestMode = false } = {}) {
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>{b('optionsQuestion')}</AssistantBubble>
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
-              Você pode receber uma ou mais versões da mesma campanha para comparar antes de escolher.
+              {marketText.optionsIntro}
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {(guestMode ? CREATIVE_IDEAS.slice(0,1) : CREATIVE_IDEAS).map((idea) => (
@@ -3671,13 +3723,13 @@ export default function HeroNext({ guestMode = false } = {}) {
                         : 'border-slate-200 bg-white text-slate-700 hover:border-[#0E7490]'
                   }`}
                 >
-                  <p className="text-lg font-black">{formatCreationOptionCount(idea.number)}</p>
-                  <p className={`mt-2 text-sm font-black ${creativeIdeaCount === idea.number ? 'text-cyan-50' : 'text-slate-900'}`}>{idea.publicTitle}</p>
+                  <p className="text-lg font-black">{formatCreationOptionCount(idea.number, market)}</p>
+                  <p className={`mt-2 text-sm font-black ${creativeIdeaCount === idea.number ? 'text-cyan-50' : 'text-slate-900'}`}>{isUSMarket ? ({ 1: 'Essential creation', 2: 'Two visual alternatives', 3: 'Three complete concepts' })[idea.number] : idea.publicTitle}</p>
                   <p className={`mt-2 text-sm font-semibold leading-relaxed ${creativeIdeaCount === idea.number ? 'text-cyan-50/90' : 'text-slate-500'}`}>
-                    {idea.publicDescription}
+                    {isUSMarket ? ({ 1: 'One piece per format, following the campaign strategy.', 2: 'Receive two distinct versions to compare.', 3: 'More variety in style, composition, and messaging.' })[idea.number] : idea.publicDescription}
                   </p>
                   <p className={`mt-3 text-xs font-black ${creativeIdeaCount === idea.number ? 'text-cyan-50/90' : optionBlocked ? 'text-slate-400' : 'text-primary-700'}`}>
-                    Total: {formatPieceCount(optionTotal)}
+                    {marketText.total}: {formatPieceCount(optionTotal, market)}
                   </p>
                 </button>
                   )
@@ -3685,9 +3737,9 @@ export default function HeroNext({ guestMode = false } = {}) {
               ))}
             </div>
             <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-600">
-              <p><strong>{b('formatsSelected')}</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
-              <p className="mt-1"><strong>{b('creationOptions')}</strong> {formatCreationOptionCount(creativeIdeaCount)}</p>
-              <p className="mt-1"><strong>{b('expectedTotal')}</strong> {formatPieceCount(totalPieceCount)} IA</p>
+              <p><strong>{marketText.formats}:</strong> {selectedDestinations.map((item) => item.id === 'instagram_feed' ? (isUSMarket ? 'Instagram/Facebook Feed' : 'Feed Instagram/Facebook') : item.label).join(', ')}</p>
+              <p className="mt-1"><strong>{marketText.creative}:</strong> {formatCreationOptionCount(creativeIdeaCount, market)}</p>
+              <p className="mt-1"><strong>{marketText.total}:</strong> {formatPieceCount(totalPieceCount, market)} IA</p>
               <p className="mt-1"><strong>{b('expectedConsumption')}</strong> {totalPieceCount} {b('generations')}</p>
             </div>
             {(pieceLimitNotice || pieceLimitExceeded) && (
@@ -3697,10 +3749,10 @@ export default function HeroNext({ guestMode = false } = {}) {
             )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <ProductButton type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' || goal === 'rent' ? 'values' : 'chat')}>
-                Voltar
+                {marketText.back}
               </ProductButton>
               <ProductButton type="button" onClick={() => setPhase('prompt')} disabled={pieceLimitExceeded}>
-                Continuar
+                {marketText.continue}
               </ProductButton>
             </div>
           </ProductCard>
@@ -3709,7 +3761,7 @@ export default function HeroNext({ guestMode = false } = {}) {
         {phase === 'images' && (
           <ProductCard className="mt-6 p-5 sm:p-8">
             <p className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{b('imageStep')}</p>
-            <AssistantBubble>{isAnyCaptureGoal ? 'Deseja anexar logo ou foto institucional?' : 'Você possui imagens reais deste imóvel?'}</AssistantBubble>
+            <AssistantBubble>{isAnyCaptureGoal ? (isUSMarket ? 'Would you like to attach a logo or institutional image?' : 'Deseja anexar logo ou foto institucional?') : marketText.uploadQuestion}</AssistantBubble>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -3738,9 +3790,9 @@ export default function HeroNext({ guestMode = false } = {}) {
                 }`}
               >
                 <Image className="h-7 w-7 text-primary-600" />
-                <p className="mt-4 text-lg font-black">{isAnyCaptureGoal ? 'Não, seguir sem arquivos' : 'Não, gerar campanha sem imagens'}</p>
+                <p className="mt-4 text-lg font-black">{isAnyCaptureGoal ? (isUSMarket ? 'No, continue without files' : 'Não, seguir sem arquivos') : marketText.uploadWithout}</p>
                 <p className={`mt-2 text-sm font-semibold leading-relaxed ${imageChoice === 'no' ? 'text-gray-300' : 'text-gray-500'}`}>
-                  A campanha será criada a partir das informações que você confirmou.
+                  {marketText.confirmedInfo}
                 </p>
               </button>
             </div>
@@ -3749,11 +3801,11 @@ export default function HeroNext({ guestMode = false } = {}) {
               <div className="mt-5 rounded-3xl border border-dashed border-gray-300 bg-white p-5">
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl bg-gray-50 px-6 py-10 text-center transition hover:bg-gray-100">
                   <Upload className="h-8 w-8 text-gray-500" />
-                  <span className="mt-3 text-sm font-black text-gray-950">{isAnyCaptureGoal ? 'Enviar logo ou foto institucional' : 'Enviar imagens do imóvel'}</span>
+                  <span className="mt-3 text-sm font-black text-gray-950">{isAnyCaptureGoal ? (isUSMarket ? 'Upload a logo or institutional image' : 'Enviar logo ou foto institucional') : marketText.uploadImages}</span>
                   <span className="mt-1 text-xs font-semibold text-gray-500">
                     {isAnyCaptureGoal
                       ? 'JPG, PNG ou WebP. Até 2 arquivos: logo e foto institucional.'
-                      : 'JPG, PNG ou WebP. Até 4 imagens. A primeira será a principal.'}
+                      : marketText.uploadHelp}
                   </span>
                   <input
                     type="file"
@@ -3764,7 +3816,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                   />
                 </label>
                 {missingImageMetadata.length > 0 && uploadedImages.length === 0 && (
-                  <p role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Rascunho restaurado. Selecione novamente {missingImageMetadata.length} {missingImageMetadata.length === 1 ? 'imagem' : 'imagens'}; os arquivos físicos não são armazenados.</p>
+                  <p role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{marketText.restored}</p>
                 )}
                 {uploadedImages.length > 0 && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -3775,11 +3827,11 @@ export default function HeroNext({ guestMode = false } = {}) {
                           <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
                             index === 0 ? 'bg-cyan-100 text-primary-900' : 'bg-white/90 text-gray-700'
                           }`}>
-                            {isAnyCaptureGoal ? (index === 0 ? 'Logo' : 'Institucional') : (index === 0 ? 'Principal' : 'Apoio')}
+                            {isAnyCaptureGoal ? (index === 0 ? 'Logo' : (isUSMarket ? 'Institutional' : 'Institucional')) : (index === 0 ? marketText.primary : marketText.supporting)}
                           </span>
                         </div>
                         <p className="truncate px-3 py-2 text-xs font-bold text-gray-600">{item.name}</p>
-                        <button type="button" className="px-3 pb-3 text-xs font-bold text-red-700" onClick={() => { setUploadedImages(uploadedImages.filter((image) => image.id !== item.id)); setGenerationError('') }}>Remover imagem {index + 1}</button>
+                        <button type="button" className="px-3 pb-3 text-xs font-bold text-red-700" onClick={() => { setUploadedImages(uploadedImages.filter((image) => image.id !== item.id)); setGenerationError('') }}>{marketText.removeImage} {index + 1}</button>
                       </div>
                     ))}
                   </div>
@@ -3800,18 +3852,18 @@ export default function HeroNext({ guestMode = false } = {}) {
 
             {!guestMode && <SmartTokenEstimate
               cost={(totalPieceCount || 0) * SMART_TOKEN_COSTS.realEstateBannerItem}
-              quantityLabel={`${formatPieceCount(totalPieceCount || 0)} selecionada${totalPieceCount === 1 ? '' : 's'}`}
+              quantityLabel={isUSMarket ? `${formatPieceCount(totalPieceCount || 0, market)} selected` : `${formatPieceCount(totalPieceCount || 0, market)} selecionada${totalPieceCount === 1 ? '' : 's'}`}
               className="mt-6"
             />}
             <div className="mt-4 flex flex-wrap justify-end gap-3">
               <ProductButton type="button" variant="secondary" onClick={() => setPhase('prompt')}>
-                Voltar
+                {marketText.back}
               </ProductButton>
               <ProductButton type="button" onClick={handleGenerate} disabled={!canGenerate || (guestMode && guestConsumed)} loading={generationLoading}>
                 <Wand2 className="h-4 w-4" />
                 {guestMode ? (generationLoading ? 'Criando anúncio...' : 'Criar anúncio') : generationLoading
-                   ? `Gerando ${formatPieceCount(totalPieceCount)}...`
-                  : `Gerar ${formatPieceCount(totalPieceCount || 1)} da campanha`}
+                   ? `${isUSMarket ? 'Generating' : 'Gerando'} ${formatPieceCount(totalPieceCount, market)}...`
+                  : `${marketText.generate} ${formatPieceCount(totalPieceCount || 1, market)} ${marketText.campaign}`}
               </ProductButton>
             </div>
           </ProductCard>
@@ -4164,11 +4216,11 @@ export default function HeroNext({ guestMode = false } = {}) {
                 <div className="rounded-[2rem] border border-gray-200 bg-white p-5 shadow-sm">
                   <p className="text-xs font-black uppercase tracking-wide text-primary-700">{b('summary')}</p>
                   <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
-                    <p><strong>{b('objective')}:</strong> {getGoalLabel(goal)}</p>
-                    <p><strong>{b('type')}:</strong> {isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType}</p>
+                    <p><strong>{b('objective')}:</strong> {optionLabel(getGoalLabel(goal))}</p>
+                    <p><strong>{b('type')}:</strong> {isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds, optionLabel) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile, optionLabel) : optionLabel(answers.propertyType)}</p>
                     <p><strong>{b('location')}:</strong> {[answers.neighborhood || answers.neighborhoods, answers.city].filter(Boolean).join(', ')}</p>
-                    {isPropertyCaptureGoal && <p><strong>{b('services')}:</strong> {formatAnswer(answers.services) || b('noInformation')}</p>}
-                    <p><strong>{b('highlights')}:</strong> {formatAnswer(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials) || b('noInformation')}</p>
+                    {isPropertyCaptureGoal && <p><strong>{b('services')}:</strong> {formatAnswer(answers.services, optionLabel) || b('noInformation')}</p>}
+                    <p><strong>{b('highlights')}:</strong> {formatAnswer(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials, optionLabel) || b('noInformation')}</p>
                     {!isAnyCaptureGoal && <p><strong>{b('valuesConditions')}:</strong> {valueCondition.label}{valueCondition.details ? `: ${valueCondition.details}` : ''}</p>}
                     <p><strong>{t('banner.review.cta')}</strong> {answers.cta}</p>
                     {answers.contactPhoneChoice === 'Sim, quero divulgar' && answers.contactPhone && (
