@@ -9,6 +9,7 @@ export type OfficialHashtagContext = {
   state?: unknown
   bedrooms?: unknown
   suites?: unknown
+  bathrooms?: unknown
   parkingSpaces?: unknown
   highlights?: unknown
   cta?: unknown
@@ -81,7 +82,7 @@ const englishGroups = (context: OfficialHashtagContext): OfficialHashtagGroups =
   const highlights = Array.isArray(context.highlights) ? context.highlights.map(item => presentHighlight(item, 'en-US')).filter(Boolean) : []
   const stage = presentStage(context.propertyStage, 'en-US')
   const cta = presentCta(context.cta, 'en-US')
-  return { location: uniqueGroup([district, city, district && city && `${district} ${city}`], 3, ''), purpose: uniqueGroup([`${propertyType} ${purpose}`, city && `${purpose} ${city}`], 2, ''), market: uniqueGroup([city && `${propertyType} in ${city}`, district && `Living in ${district}`, city && `Homes in ${city}`], 3, ''), characteristics: uniqueGroup([clean(context.bedrooms) && `${context.bedrooms} Bedrooms`, clean(context.suites) && `${context.suites} Suites`, clean(context.parkingSpaces) && `${context.parkingSpaces} Parking Spaces`, ...highlights, stage, propertyType], 4, ''), commercialAppeal: uniqueGroup([/schedule|tour/i.test(cta) ? 'Schedule a Tour' : '', 'Find Your Home'], 2, ''), brand: ['#SmartCorretorAI'] }
+  return { location: uniqueGroup([district, city, district && city && `${district} ${city}`], 3, ''), purpose: uniqueGroup([`${propertyType} ${purpose}`, city && `${purpose} ${city}`], 2, ''), market: uniqueGroup([city && `${propertyType} in ${city}`, district && `Living in ${district}`, city && `Homes in ${city}`], 3, ''), characteristics: uniqueGroup([clean(context.bedrooms) && `${context.bedrooms} Bedrooms`, clean(context.bathrooms) && `${context.bathrooms} Bathrooms`, clean(context.parkingSpaces) && `${context.parkingSpaces} Parking Spaces`, ...highlights, stage, propertyType], 4, ''), commercialAppeal: uniqueGroup([/schedule|tour/i.test(cta) ? 'Schedule a Tour' : '', 'Find Your Home'], 2, ''), brand: ['#SmartCorretorAI'] }
 }
 
 export function buildOfficialHashtagGroups(context: OfficialHashtagContext = {}): OfficialHashtagGroups {

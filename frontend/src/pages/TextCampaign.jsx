@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Sparkles } from 'lucide-react'
 import Header from '../components/layout/Header'
 import GuidedConversation from '../components/conversation/GuidedConversation'
@@ -19,7 +19,7 @@ import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
 import { useLocale } from '../i18n/useLocale'
 import { formatPhone } from '../utils/phoneFormatters'
-import { getCountiesByState, getStatesForMarket, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
+import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { restoreProductDraftShape } from '../lib/product-draft'
 import { supabase } from '../lib/supabase'
 import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
@@ -35,10 +35,12 @@ import {
   changeTextCampaignState,
   createEmptyTextCampaignAnswers,
   formatTextCampaignCurrencyForMarket,
+  getTextCampaignDeliverableLabel,
   getEffectiveTextCampaignCity,
   getTextCampaignHighlightGroups,
   getTextCampaignMeasureFields,
   getTextCampaignPropertyTypes,
+  getTextCampaignSaleConditions,
   getTextCampaignStageOptions,
   getTextCampaignVisualStep,
   isTextCampaignBriefingValid,
@@ -51,7 +53,6 @@ import {
   TEXT_CAMPAIGN_DELIVERABLES,
   TEXT_CAMPAIGN_MAX_HIGHLIGHTS,
   TEXT_CAMPAIGN_RENT_GUARANTEES,
-  TEXT_CAMPAIGN_SALE_CONDITIONS,
   TEXT_CAMPAIGN_STEPS,
 } from '../config/textCampaign'
 import {
@@ -65,8 +66,18 @@ import {
   TEXT_CAMPAIGN_QUESTIONS,
 } from '../config/textCampaignConversation'
 
-const fieldLabel = (field, locale) => ({ bedrooms: locale === 'en-US' ? 'Bedrooms' : 'Dormitórios', suites: locale === 'en-US' ? 'Suites' : 'Suítes', parkingSpaces: locale === 'en-US' ? 'Parking spaces' : 'Vagas', area: locale === 'en-US' ? 'Area' : 'Área' })[field]
+const fieldLabel = (field, locale) => ({ bedrooms: locale === 'en-US' ? 'Bedrooms' : 'Dormitórios', suites: 'Suítes', bathrooms: 'Bathrooms', parkingSpaces: locale === 'en-US' ? 'Parking spaces' : 'Vagas', area: locale === 'en-US' ? 'Square feet (sqft)' : 'Área (m²)' })[field]
 const ui = (locale, key) => getTextCampaignUiLabel(locale, key)
+const commercialTermLabel = (id, market) => market === 'US'
+  ? ({ entry_amount: 'Down payment', monthly_amount: 'Monthly payment', annual_amount: 'Annual payment' })[id]
+  : ({ entry_amount: 'Entrada', monthly_amount: 'Mensais', annual_amount: 'Anuais' })[id]
+const TEXT_CAMPAIGN_EN_US_STEPS = Object.freeze([
+  { title: 'Purpose', subtitle: 'Sale or rent' },
+  { title: 'Property', subtitle: 'Type and details' },
+  { title: 'Location', subtitle: 'State, county, and city' },
+  { title: 'Features and terms', subtitle: 'Confirmed facts' },
+  { title: 'Review and create', subtitle: 'Check the brief' },
+])
 
 const TEXT_CAMPAIGN_REQUEST_STORAGE_KEY = 'smartcorretor:text-campaign:client-request-id'
 const requestIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -118,6 +129,7 @@ export default function TextCampaign() {
   )
   const recoveryAttemptedRef = useRef(false)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTextDraft.conversation || null)
+  const previousMarketRef = useRef(market)
   const professionalPhone = formatPhone(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '', market)
   const conversation = useGuidedConversation({
     initialQuestionId: 'purpose',
@@ -136,7 +148,21 @@ export default function TextCampaign() {
     [answers, locale, market, professionalPhone],
   )
   const briefingValid = useMemo(() => isTextCampaignBriefingValid(briefing), [briefing])
-  const summaryItems = useMemo(() => buildSummaryItems(answers, locale), [answers, locale])
+
+  useEffect(() => {
+    const previousMarket = previousMarketRef.current
+    if (previousMarket === market) return
+    previousMarketRef.current = market
+    setAnswers(current => {
+      if (market === 'US') {
+        const conditions = current.saleConditions.flatMap(condition => ({
+          'Condições especiais': 'Special terms available',
+        }[condition] || []))
+        return { ...current, bathrooms: current.bathrooms || current.suites, suites: '', saleConditions: conditions, rentGuarantee: '' }
+      }
+      return { ...current, suites: current.suites || current.bathrooms, bathrooms: '', saleConditions: current.saleConditions.filter(condition => getTextCampaignSaleConditions('BR').includes(condition)) }
+    })
+  }, [market])
 
   useEffect(() => {
     if (campaign || generationStatus === 'loading') return
@@ -212,9 +238,9 @@ export default function TextCampaign() {
           generationRequestRef.current = null
           clearTextCampaignRequestId()
         }
-        throw new Error(body?.error || ui(locale, 'generationFailed'))
+        throw new Error(locale === 'en-US' ? ui(locale, 'generationFailed') : body?.error || ui(locale, 'generationFailed'))
       }
-      if (!data?.ok) throw new Error(data?.error || ui(locale, 'generationFailed'))
+      if (!data?.ok) throw new Error(locale === 'en-US' ? ui(locale, 'generationFailed') : data?.error || ui(locale, 'generationFailed'))
       if (!isCompleteTextCampaignResult(data.campaign)) throw new Error(ui(locale, 'incompleteCampaign'))
       completedRequestRef.current = generationRequestRef.current
       textDraft.replace({ completedRequestId: generationRequestRef.current })
@@ -254,12 +280,12 @@ export default function TextCampaign() {
           productName={copy.productName}
           headline={copy.heroHeadline}
           description={copy.heroDescription}
-          visual={<DeliverablesPreview copy={copy} />}
+          visual={<DeliverablesPreview copy={copy} locale={locale} />}
         />
       </ProductCard>
 
       <ProductSteps
-        steps={TEXT_CAMPAIGN_STEPS}
+        steps={market === 'US' ? TEXT_CAMPAIGN_EN_US_STEPS : TEXT_CAMPAIGN_STEPS}
         activeStep={getTextCampaignVisualStep(questionId)}
         label={copy.stepsLabel}
         accent="primary"
@@ -273,11 +299,10 @@ export default function TextCampaign() {
         questionNumber={questionNumber}
         totalQuestions={TEXT_CAMPAIGN_QUESTION_ORDER.length}
         onEdit={conversation.editAnswer}
-        summaryItems={summaryItems}
         eyebrow={copy.briefingEyebrow}
         title={copy.briefingTitle}
         description={copy.briefingDescription}
-        summaryTitle={copy.summaryTitle}
+        showSummary={false}
         review={questionId === 'review'}
         editDisabled={conversation.isTransitioning}
         designSystem
@@ -310,14 +335,14 @@ export default function TextCampaign() {
   </div>
 }
 
-function DeliverablesPreview({ copy }) {
+function DeliverablesPreview({ copy, locale }) {
   return <ProductCard variant="muted" className="h-full p-6 sm:p-7">
     <p className={SMART_UI.eyebrow}>{copy.deliveryComplete}</p>
     <p className="mt-2 text-2xl font-black text-slate-950">{copy.multichannel}</p>
     <div className="mt-5 grid grid-cols-2 gap-2">
       {TEXT_CAMPAIGN_DELIVERABLES.slice(0, 8).map(item => <div key={item.id} className="flex min-w-0 items-start gap-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary-700" aria-hidden="true" />
-        <span>{item.label}</span>
+        <span>{getTextCampaignDeliverableLabel(item.id, locale)}</span>
       </div>)}
     </div>
     <p className="mt-4 text-xs font-bold text-slate-500">{copy.deliverablesNote}</p>
@@ -363,12 +388,12 @@ function TypeQuestion({ answers, setAnswers, commit, market, locale }) {
     const label = propertyTypeLabel(type, locale)
     return <ChoiceButton key={type} active={answers.type === type} onClick={() => commit({
     answer: label,
-    apply: () => setAnswers(current => ({ ...current, type, bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [], customHighlight: '' })),
+    apply: () => setAnswers(current => ({ ...current, type, bedrooms: '', suites: '', bathrooms: '', parkingSpaces: '', area: '', highlights: [], customHighlight: '' })),
   })}>{label}</ChoiceButton>})}</ChoiceGrid>
 }
 
-function FactsQuestion({ answers, setAnswers, commit, locale, copy }) {
-  const fields = getTextCampaignMeasureFields(answers.type)
+function FactsQuestion({ answers, setAnswers, commit, market, locale, copy }) {
+  const fields = getTextCampaignMeasureFields(answers.type, market)
   const ready = fields.every(field => answers[field] !== '')
   return <div className="space-y-5">
     <div className="grid gap-4 sm:grid-cols-2">
@@ -387,7 +412,7 @@ function FactsQuestion({ answers, setAnswers, commit, locale, copy }) {
         </select>}
       </label>)}
     </div>
-    <ProductButton disabled={!ready} onClick={() => commit({ answer: fields.map(field => `${fieldLabel(field, locale)}: ${answers[field]}${field === 'area' ? ' m²' : ''}`).join(' · ') })}>{copy.continue}</ProductButton>
+    <ProductButton disabled={!ready} onClick={() => commit({ answer: fields.map(field => `${fieldLabel(field, locale)}: ${answers[field]}${field === 'area' ? (market === 'US' ? ' sqft' : ' m²') : ''}`).join(' · ') })}>{copy.continue}</ProductButton>
   </div>
 }
 
@@ -426,13 +451,32 @@ function LocationQuestion({ answers, setAnswers, manualCityMode, setManualCityMo
 function UsLocationQuestion({ answers, setAnswers, commit }) {
   const counties = getCountiesByState(answers.state)
   const zipCode = normalizeUsZipCode(answers.zipCode)
-  const ready = Boolean(answers.state && isValidCountyForState(answers.state, answers.county) && answers.city.trim() && isValidUsZipCode(zipCode))
+  const [cities, setCities] = useState([])
+  const [cityStatus, setCityStatus] = useState('idle')
+  const [cityError, setCityError] = useState('')
+  const loadCities = useCallback(() => {
+    if (!isValidCountyForState(answers.state, answers.county)) {
+      setCities([])
+      setCityStatus('idle')
+      setCityError('')
+      return undefined
+    }
+    const controller = new AbortController()
+    setCityStatus('loading')
+    setCityError('')
+    getUsCitiesByCounty(answers.state, answers.county, { signal: controller.signal })
+      .then(items => { setCities(items); setCityStatus('ready') })
+      .catch(error => { if (error?.name !== 'AbortError') { setCities([]); setCityStatus('error'); setCityError('We could not load cities for this county.') } })
+    return () => controller.abort()
+  }, [answers.county, answers.state])
+  useEffect(() => loadCities(), [loadCities])
+  const ready = Boolean(answers.state && isValidCountyForState(answers.state, answers.county) && cities.includes(answers.city) && (!zipCode || isValidUsZipCode(zipCode)))
   return <div className="space-y-4">
     <div className="grid gap-4 sm:grid-cols-2">
       <FieldLabel label="State"><select aria-label="State" value={answers.state} onChange={event => setAnswers(current => ({ ...current, state: event.target.value, county: '', city: '', zipCode: '', neighborhoodCommunity: '' }))} className={inputClass}><option value="">Select state</option>{getStatesForMarket('US').map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></FieldLabel>
-      <FieldLabel label="County"><input aria-label="County" list="text-campaign-us-counties" disabled={!answers.state} value={answers.county} onChange={event => setAnswers(current => ({ ...current, county: event.target.value, city: '' }))} placeholder={answers.state ? 'Search county' : 'Select state first'} className={inputClass} /><datalist id="text-campaign-us-counties">{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</datalist></FieldLabel>
-      <FieldLabel label="City"><SmartLocationTextInput ariaLabel="City" disabled={!isValidCountyForState(answers.state, answers.county)} placeholder="City" accent="primary" value={answers.city} onChange={event => setAnswers(current => ({ ...current, city: event.target.value, cityOther: '' }))} /></FieldLabel>
-      <FieldLabel label="ZIP Code"><SmartLocationTextInput ariaLabel="ZIP Code" inputMode="numeric" placeholder="12345" accent="primary" value={answers.zipCode} onChange={event => setAnswers(current => ({ ...current, zipCode: normalizeUsZipCode(event.target.value) }))} />{answers.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs font-bold text-rose-700">Enter a valid ZIP Code.</span>}</FieldLabel>
+      <FieldLabel label="County"><select aria-label="County" disabled={!answers.state} value={answers.county} onChange={event => setAnswers(current => ({ ...current, county: event.target.value, city: '' }))} className={inputClass}><option value="">{answers.state ? 'Select county' : 'Select state first'}</option>{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</select></FieldLabel>
+      <FieldLabel label="City"><select aria-label="City" disabled={cityStatus !== 'ready'} value={answers.city} onChange={event => setAnswers(current => ({ ...current, city: event.target.value, cityOther: '' }))} className={inputClass}><option value="">{cityStatus === 'loading' ? 'Loading cities…' : cityStatus === 'error' ? 'Cities unavailable' : 'Select city'}</option>{cities.map(city => <option key={city} value={city}>{city}</option>)}</select>{cityStatus === 'error' && <ProductButton type="button" variant="ghost" size="sm" onClick={loadCities}>Try again</ProductButton>}{cityError && <span className="mt-1 block text-xs font-bold text-rose-700">{cityError}</span>}{cityStatus === 'ready' && !cities.length && <span className="mt-1 block text-xs font-bold text-slate-600">No cities were found for this county.</span>}</FieldLabel>
+      <FieldLabel label="ZIP Code (optional)"><SmartLocationTextInput ariaLabel="ZIP Code" inputMode="numeric" placeholder="12345" accent="primary" value={answers.zipCode} onChange={event => setAnswers(current => ({ ...current, zipCode: normalizeUsZipCode(event.target.value) }))} />{answers.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs font-bold text-rose-700">Enter a valid ZIP Code.</span>}</FieldLabel>
       <FieldLabel label="Neighborhood / Community (optional)"><SmartLocationTextInput ariaLabel="Neighborhood or community" placeholder="Neighborhood or community" accent="primary" value={answers.neighborhoodCommunity} onChange={event => setAnswers(current => ({ ...current, neighborhoodCommunity: event.target.value }))} /></FieldLabel>
     </div>
     <ProductButton disabled={!ready} onClick={() => commit({ answer: [answers.neighborhoodCommunity, answers.city, answers.county, answers.state, zipCode].filter(Boolean).join(', '), apply: () => setAnswers(current => ({ ...current, zipCode })) })}>Continue</ProductButton>
@@ -443,7 +487,7 @@ function CommercialQuestion(props) {
   return props.answers.purpose === 'rent' ? <RentalCommercialQuestion {...props} /> : <SaleCommercialQuestion {...props} />
 }
 
-function SaleCommercialQuestion({ answers, setAnswers, commit, locale, copy }) {
+function SaleCommercialQuestion({ answers, setAnswers, commit, market, locale, copy }) {
   const termsAvailable = textCampaignCommercialTermsAvailable(answers.stage)
   const normalizedTerms = Object.values(answers.commercialTerms).some(Boolean)
   const valid = answers.saleValueMode === 'hidden'
@@ -462,28 +506,28 @@ function SaleCommercialQuestion({ answers, setAnswers, commit, locale, copy }) {
     ].map(([id, label]) => <ChoiceButton key={id} active={answers.saleValueMode === id} onClick={() => chooseMode(id)}>{label}</ChoiceButton>)}</ChoiceGrid>
     {answers.saleValueMode === 'price' && <ProductCard variant="muted" className="space-y-4 p-4">
       <ChoiceGrid>{[['fixed', ui(locale, 'fixedPrice')], ['starting_at', ui(locale, 'startingAt')]].map(([id, label]) => <ChoiceButton key={id} active={answers.salePriceMode === id} onClick={() => setAnswers(current => ({ ...current, salePriceMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
-      <input aria-label={ui(locale, 'salePrice')} inputMode="numeric" value={formatTextCampaignCurrency(answers.salePrice)} onChange={event => setAnswers(current => ({ ...current, salePrice: event.target.value.replace(/\D/g, '').slice(0, 12) }))} placeholder={ui(locale, 'pricePlaceholder')} className={inputClass} />
+      <input aria-label={ui(locale, 'salePrice')} inputMode="numeric" value={formatTextCampaignCurrencyForMarket(answers.salePrice, locale, market)} onChange={event => setAnswers(current => ({ ...current, salePrice: event.target.value.replace(/\D/g, '').slice(0, 12) }))} placeholder={ui(locale, 'pricePlaceholder')} className={inputClass} />
     </ProductCard>}
     {answers.saleValueMode === 'conditions' && <div className="space-y-4">
-      <ChipCollection items={TEXT_CAMPAIGN_SALE_CONDITIONS} selected={answers.saleConditions} onToggle={item => setAnswers(current => ({ ...current, saleConditions: toggleValue(current.saleConditions, item) }))} />
+      <ChipCollection items={getTextCampaignSaleConditions(market)} selected={answers.saleConditions} onToggle={item => setAnswers(current => ({ ...current, saleConditions: toggleValue(current.saleConditions, item) }))} />
       {termsAvailable && <ProductCard variant="muted" className="p-4">
         <p className="mb-3 text-sm font-black text-slate-700">{ui(locale, 'addTerms')}</p>
-        <div className="grid gap-3 sm:grid-cols-3">{TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS.map(field => <label key={field.id} className="text-xs font-black text-slate-600">{field.label}<input inputMode="numeric" aria-label={field.label} value={formatTextCampaignCurrency(answers.commercialTerms[field.id])} onChange={event => setAnswers(current => ({ ...current, commercialTerms: { ...current.commercialTerms, [field.id]: event.target.value.replace(/\D/g, '').slice(0, 12) } }))} className={inputClass} /></label>)}</div>
+        <div className="grid gap-3 sm:grid-cols-3">{TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS.map(field => <label key={field.id} className="text-xs font-black text-slate-600">{commercialTermLabel(field.id, market)}<input inputMode="numeric" aria-label={commercialTermLabel(field.id, market)} value={formatTextCampaignCurrencyForMarket(answers.commercialTerms[field.id], locale, market)} onChange={event => setAnswers(current => ({ ...current, commercialTerms: { ...current.commercialTerms, [field.id]: event.target.value.replace(/\D/g, '').slice(0, 12) } }))} className={inputClass} /></label>)}</div>
       </ProductCard>}
     </div>}
-    <ProductButton disabled={!valid} onClick={() => commit({ answer: saleCommercialLabel(answers, locale) })}>{copy.continue}</ProductButton>
+    <ProductButton disabled={!valid} onClick={() => commit({ answer: saleCommercialLabel(answers, locale, market) })}>{copy.continue}</ProductButton>
   </div>
 }
 
-function RentalCommercialQuestion({ answers, setAnswers, commit, locale, copy }) {
-  const valid = answers.rentValueMode === 'hidden' || (answers.rentValueMode === 'show' && answers.rentPrice && answers.rentGuarantee)
+function RentalCommercialQuestion({ answers, setAnswers, commit, market, locale, copy }) {
+  const valid = answers.rentValueMode === 'hidden' || (answers.rentValueMode === 'show' && answers.rentPrice && (market === 'US' || answers.rentGuarantee))
   return <div className="space-y-5">
     <ChoiceGrid>{[['show', ui(locale, 'showPrice')], ['hidden', ui(locale, 'hideValues')]].map(([id, label]) => <ChoiceButton key={id} active={answers.rentValueMode === id} onClick={() => setAnswers(current => ({ ...current, ...emptyCommercial(), rentValueMode: id }))}>{label}</ChoiceButton>)}</ChoiceGrid>
     {answers.rentValueMode === 'show' && <ProductCard variant="muted" className="grid gap-4 p-4 sm:grid-cols-2">
-      {[['rentPrice', 'rent'], ['condominium', 'condominium'], ['iptu', 'tax']].map(([field, labelKey]) => <label key={field} className="text-sm font-black text-slate-700">{ui(locale, labelKey)}<input aria-label={ui(locale, labelKey)} inputMode="numeric" value={formatTextCampaignCurrency(answers[field])} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value.replace(/\D/g, '').slice(0, 12) }))} className={inputClass} /></label>)}
-      <label className="text-sm font-black text-slate-700">{ui(locale, 'guarantee')}<select aria-label={ui(locale, 'rentalGuarantee')} value={answers.rentGuarantee} onChange={event => setAnswers(current => ({ ...current, rentGuarantee: event.target.value }))} className={inputClass}><option value="">{copy.select}</option>{TEXT_CAMPAIGN_RENT_GUARANTEES.map(item => <option key={item.id} value={item.id}>{getTextCampaignRentalGuaranteeLabel(locale, item.id, item.label)}</option>)}</select></label>
+      {[['rentPrice', 'rent'], ['condominium', 'condominium'], ['iptu', 'tax']].map(([field, labelKey]) => <label key={field} className="text-sm font-black text-slate-700">{ui(locale, labelKey)}<input aria-label={ui(locale, labelKey)} inputMode="numeric" value={formatTextCampaignCurrencyForMarket(answers[field], locale, market)} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value.replace(/\D/g, '').slice(0, 12) }))} className={inputClass} /></label>)}
+      {market !== 'US' && <label className="text-sm font-black text-slate-700">{ui(locale, 'guarantee')}<select aria-label={ui(locale, 'rentalGuarantee')} value={answers.rentGuarantee} onChange={event => setAnswers(current => ({ ...current, rentGuarantee: event.target.value }))} className={inputClass}><option value="">{copy.select}</option>{TEXT_CAMPAIGN_RENT_GUARANTEES.map(item => <option key={item.id} value={item.id}>{getTextCampaignRentalGuaranteeLabel(locale, item.id, item.label)}</option>)}</select></label>}
     </ProductCard>}
-    <ProductButton disabled={!valid} onClick={() => commit({ answer: answers.rentValueMode === 'hidden' ? ui(locale, 'rentalPricesNotProvided') : `${ui(locale, 'rent')} ${formatTextCampaignCurrency(answers.rentPrice)}` })}>{copy.continue}</ProductButton>
+    <ProductButton disabled={!valid} onClick={() => commit({ answer: answers.rentValueMode === 'hidden' ? ui(locale, 'rentalPricesNotProvided') : `${ui(locale, 'rent')} ${formatTextCampaignCurrencyForMarket(answers.rentPrice, locale, market)}` })}>{copy.continue}</ProductButton>
   </div>
 }
 
@@ -521,8 +565,8 @@ function PhoneQuestion({ answers, setAnswers, commit, professionalPhone, locale 
   </div>
 }
 
-function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview, locale, copy }) {
-  const groups = buildReviewGroups(answers, briefing, locale)
+function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview, locale, market, copy }) {
+  const groups = buildReviewGroups(answers, briefing, locale, market)
   const loading = generationStatus === 'loading'
   return <div className="space-y-5" aria-busy={busy || loading}>
     <ProductSectionHeading eyebrow={copy.reviewEyebrow} title={copy.reviewTitle} />
@@ -546,50 +590,33 @@ async function readTextCampaignFunctionError(error) {
   }
 }
 
-function buildSummaryItems(answers, locale) {
-  const city = getEffectiveTextCampaignCity(answers)
-  return [
-    answers.purpose && { id: 'purpose', label: answers.purpose === 'sale' ? ui(locale, 'sale') : ui(locale, 'rentPurpose') },
-    answers.stage && { id: 'stage', label: stageLabel(answers.stage, locale) },
-    answers.type && { id: 'type', label: propertyTypeLabel(answers.type, locale) },
-    getTextCampaignMeasureFields(answers.type).some(field => answers[field]) && { id: 'facts', label: ui(locale, 'facts') },
-    city && { id: 'location', label: [answers.district, city, answers.state].filter(Boolean).join(', ') },
-    (answers.saleValueMode || answers.rentValueMode) && { id: 'commercial', label: ui(locale, 'commercial') },
-    { id: 'highlights', label: `${answers.highlights.length} ${ui(locale, 'highlights')}` },
-    answers.customHighlight && { id: 'custom_highlight', label: answers.customHighlight },
-    answers.notes && { id: 'notes', label: ui(locale, 'notes') },
-    answers.cta && { id: 'cta', label: ctaLabel(answers.cta, locale) },
-    answers.includeProfessionalPhone && { id: 'phone', label: answers.includeProfessionalPhone === 'yes' ? ui(locale, 'phoneAuthorized') : ui(locale, 'noPhone') },
-  ].filter(Boolean)
-}
-
-function buildReviewGroups(answers, briefing, locale) {
-  const facts = getTextCampaignMeasureFields(answers.type).map(field => `${fieldLabel(field, locale)}: ${answers[field] || (locale === 'en-US' ? 'not provided' : 'não informado')}${field === 'area' && answers[field] ? ' m²' : ''}`).join('\n')
+function buildReviewGroups(answers, briefing, locale, market) {
+  const facts = getTextCampaignMeasureFields(answers.type, market).map(field => `${fieldLabel(field, locale)}: ${answers[field] || (locale === 'en-US' ? 'not provided' : 'não informado')}${field === 'area' && answers[field] ? (market === 'US' ? ' sqft' : ' m²') : ''}`).join('\n')
   return [
     { id: 'objective', title: ui(locale, 'objective'), editId: 'purpose', value: `${answers.purpose === 'sale' ? ui(locale, 'sale') : ui(locale, 'rentPurpose')} · ${stageLabel(answers.stage, locale)}` },
     { id: 'property', title: ui(locale, 'property'), editId: 'type', value: propertyTypeLabel(answers.type, locale) },
-    { id: 'location', title: ui(locale, 'location'), editId: 'location', value: [briefing.district, briefing.city, briefing.state].filter(Boolean).join(', ') },
+    { id: 'location', title: ui(locale, 'location'), editId: 'location', value: market === 'US' ? [briefing.neighborhood_community, briefing.city, briefing.county, briefing.state, briefing.zip_code].filter(Boolean).join(', ') : [briefing.district, briefing.city, briefing.state].filter(Boolean).join(', ') },
     { id: 'facts', title: ui(locale, 'details'), editId: 'facts', value: facts },
     { id: 'highlights', title: ui(locale, 'features'), editId: 'highlights', value: [...answers.highlights, answers.customHighlight].filter(Boolean).map(item => highlightLabel(item, locale)).join(' · ') || ui(locale, 'noHighlights') },
-    { id: 'commercial', title: ui(locale, 'terms'), editId: 'commercial', value: describeCommercial(answers, locale) },
+    { id: 'commercial', title: ui(locale, 'terms'), editId: 'commercial', value: describeCommercial(answers, locale, market) },
     { id: 'notes', title: ui(locale, 'notes'), editId: 'notes', value: answers.notes || ui(locale, 'noNotes') },
     { id: 'communication', title: ui(locale, 'communication'), editId: 'cta', value: `${ctaLabel(answers.cta, locale)}\n${briefing.contact_authorized ? ui(locale, 'phoneAuthorized') : ui(locale, 'noPhone')}` },
   ]
 }
 
-function describeCommercial(answers, locale) {
+function describeCommercial(answers, locale, market = 'BR') {
   if (answers.purpose === 'rent') {
     if (answers.rentValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
-    return [`${ui(locale, 'rent')}: ${formatTextCampaignCurrency(answers.rentPrice)}`, answers.condominium && `${ui(locale, 'condominium')}: ${formatTextCampaignCurrency(answers.condominium)}`, answers.iptu && `${ui(locale, 'tax')}: ${formatTextCampaignCurrency(answers.iptu)}`, answers.rentGuarantee && `${ui(locale, 'guarantee')}: ${getTextCampaignRentalGuaranteeLabel(locale, answers.rentGuarantee)}`].filter(Boolean).join('\n')
+    return [`${ui(locale, 'rent')}: ${formatTextCampaignCurrencyForMarket(answers.rentPrice, locale, market)}`, answers.condominium && `${ui(locale, 'condominium')}: ${formatTextCampaignCurrencyForMarket(answers.condominium, locale, market)}`, answers.iptu && `${ui(locale, 'tax')}: ${formatTextCampaignCurrencyForMarket(answers.iptu, locale, market)}`, answers.rentGuarantee && `${ui(locale, 'guarantee')}: ${getTextCampaignRentalGuaranteeLabel(locale, answers.rentGuarantee)}`].filter(Boolean).join('\n')
   }
   if (answers.saleValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
-  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')}: ${formatTextCampaignCurrency(answers.salePrice)}`
-  return [...answers.saleConditions, ...TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS.map(field => answers.commercialTerms[field.id] && `${field.label}: ${formatTextCampaignCurrency(answers.commercialTerms[field.id])}`).filter(Boolean)].join('\n')
+  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')}: ${formatTextCampaignCurrencyForMarket(answers.salePrice, locale, market)}`
+  return [...answers.saleConditions, ...TEXT_CAMPAIGN_COMMERCIAL_TERM_FIELDS.map(field => answers.commercialTerms[field.id] && `${commercialTermLabel(field.id, market)}: ${formatTextCampaignCurrencyForMarket(answers.commercialTerms[field.id], locale, market)}`).filter(Boolean)].join('\n')
 }
 
-function saleCommercialLabel(answers, locale) {
+function saleCommercialLabel(answers, locale, market = 'BR') {
   if (answers.saleValueMode === 'hidden') return ui(locale, 'valuesNotProvided')
-  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')} ${formatTextCampaignCurrency(answers.salePrice)}`
+  if (answers.saleValueMode === 'price') return `${answers.salePriceMode === 'starting_at' ? ui(locale, 'startingAt') : ui(locale, 'fixedPrice')} ${formatTextCampaignCurrencyForMarket(answers.salePrice, locale, market)}`
   return `${answers.saleConditions.length} ${ui(locale, 'terms')}`
 }
 
@@ -597,8 +624,8 @@ function resetAnswerForEdit(questionId, setAnswers, setManualCityMode) {
   setAnswers(current => {
     if (questionId === 'purpose') return createEmptyTextCampaignAnswers()
     if (questionId === 'stage') return { ...current, stage: '', ...emptyCommercial() }
-    if (questionId === 'type') return { ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [], customHighlight: '' }
-    if (questionId === 'facts') return { ...current, bedrooms: '', suites: '', parkingSpaces: '', area: '' }
+    if (questionId === 'type') return { ...current, type: '', bedrooms: '', suites: '', bathrooms: '', parkingSpaces: '', area: '', highlights: [], customHighlight: '' }
+    if (questionId === 'facts') return { ...current, bedrooms: '', suites: '', bathrooms: '', parkingSpaces: '', area: '' }
     if (questionId === 'location') return { ...current, state: '', city: '', cityOther: '', district: '' }
     if (questionId === 'commercial') return { ...current, ...emptyCommercial() }
     if (questionId === 'highlights') return { ...current, highlights: [], customHighlight: '' }

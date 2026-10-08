@@ -45,28 +45,44 @@ export function isCompleteTextCampaignResult(campaign) {
     && campaign.google_ads.suggested_keywords.every(value => typeof value === 'string' && value.length > 0 && value.length <= 80)
 }
 
-export function formatTextCampaignPiece(campaign, id) {
+const resultCopy = locale => locale === 'en-US'
+  ? {
+      subject: 'Subject', notApplicable: 'Not applicable', contextNotSuitable: 'context is not suitable.', slide: 'Slide',
+      headlines: 'Headlines', longHeadline: 'Long headline', descriptions: 'Descriptions', suggestedCta: 'Suggested CTA', suggestedKeywords: 'Suggested keywords',
+    }
+  : {
+      subject: 'Assunto', notApplicable: 'Não aplicável', contextNotSuitable: 'contexto não adequado.', slide: 'Slide',
+      headlines: 'Títulos', longHeadline: 'Título longo', descriptions: 'Descrições', suggestedCta: 'CTA sugerido', suggestedKeywords: 'Palavras-chave sugeridas',
+    }
+
+export function formatTextCampaignPiece(campaign, id, locale = 'pt-BR') {
+  const copy = resultCopy(locale)
   const value = campaign?.[id]
-  if (id === 'email') return `Assunto: ${value?.subject || ''}\n\n${value?.body || ''}`.trim()
-  if (id === 'linkedin') return value?.applicable ? String(value.text || '') : `Não aplicável: ${value?.reason || 'contexto não adequado.'}`
+  if (id === 'email') return `${copy.subject}: ${value?.subject || ''}\n\n${value?.body || ''}`.trim()
+  if (id === 'linkedin') return value?.applicable ? String(value.text || '') : `${copy.notApplicable}: ${value?.reason || copy.contextNotSuitable}`
   if (id === 'hashtags') return Array.isArray(value) ? value.join(' ') : ''
-  if (id === 'text_carousel') return (value?.slides || []).map((slide, index) => `Slide ${index + 1} — ${slide.title}\n${slide.text}`).join('\n\n')
+  if (id === 'text_carousel') return (value?.slides || []).map((slide, index) => `${copy.slide} ${index + 1} — ${slide.title}\n${slide.text}`).join('\n\n')
   if (id === 'google_ads') return [
-    `Títulos:\n${(value?.headlines || []).map(item => `- ${item}`).join('\n')}`,
-    `Título longo:\n${value?.long_headline || ''}`,
-    `Descrições:\n${(value?.descriptions || []).map(item => `- ${item}`).join('\n')}`,
-    `CTA sugerido:\n${value?.cta || ''}`,
-    `Palavras-chave sugeridas:\n${(value?.suggested_keywords || []).map(item => `- ${item}`).join('\n')}`,
+    `${copy.headlines}:\n${(value?.headlines || []).map(item => `- ${item}`).join('\n')}`,
+    `${copy.longHeadline}:\n${value?.long_headline || ''}`,
+    `${copy.descriptions}:\n${(value?.descriptions || []).map(item => `- ${item}`).join('\n')}`,
+    `${copy.suggestedCta}:\n${value?.cta || ''}`,
+    `${copy.suggestedKeywords}:\n${(value?.suggested_keywords || []).map(item => `- ${item}`).join('\n')}`,
   ].join('\n\n')
   return String(value || '')
 }
 
-export function formatCompleteTextCampaign(campaign) {
+export function formatCompleteTextCampaign(campaign, locale = 'pt-BR') {
   return TEXT_CAMPAIGN_RESULT_GROUPS
     .flatMap(group => group.pieces)
     .filter(id => id !== 'linkedin' || campaign?.linkedin?.applicable)
-    .map(id => `${TEXT_CAMPAIGN_RESULT_LABELS[id].toUpperCase()}\n${formatTextCampaignPiece(campaign, id)}`)
+    .map(id => `${textCampaignResultLabel(id, locale).toUpperCase()}\n${formatTextCampaignPiece(campaign, id, locale)}`)
     .join('\n\n────────────────────\n\n')
+}
+
+export function textCampaignResultLabel(id, locale = 'pt-BR') {
+  if (locale !== 'en-US') return TEXT_CAMPAIGN_RESULT_LABELS[id]
+  return ({ listing_title: 'Listing title', portal_description: 'Portal description', short_listing: 'Short listing', instagram_commercial: 'Instagram — commercial', instagram_emotional: 'Instagram — emotional', instagram_opportunity: 'Instagram — opportunity', facebook_commercial: 'Facebook — commercial', facebook_emotional: 'Facebook — emotional', facebook_opportunity: 'Facebook — opportunity', linkedin: 'LinkedIn', whatsapp_individual: 'WhatsApp individual', whatsapp_list: 'WhatsApp list', whatsapp_short: 'Short WhatsApp', email: 'Email', cta: 'CTA', hashtags: 'Strategic hashtags', reels_script: 'Reels script', text_carousel: 'Text carousel — 5 slides', google_ads: 'Google Ads' })[id] || id
 }
 
 export async function copyTextCampaignValue(value, { navigatorRef = globalThis.navigator, documentRef = globalThis.document } = {}) {

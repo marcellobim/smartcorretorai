@@ -56,13 +56,41 @@ test('builds BR and US briefing payloads with explicit language and market', () 
   assert.equal(br.language, 'pt-BR')
   assert.equal(br.market, 'BR')
   const us = config.buildTextCampaignBriefing({
-    ...config.createEmptyTextCampaignAnswers(), purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', bedrooms: '2', suites: '1', parkingSpaces: '1', area: '90',
-    state: 'FL', county: 'Miami-Dade', city: 'Miami', zipCode: '33101', neighborhoodCommunity: 'Downtown', saleValueMode: 'hidden', cta: 'Agende sua visita', includeProfessionalPhone: 'no',
+    ...config.createEmptyTextCampaignAnswers(), purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', bedrooms: '2', bathrooms: '2', parkingSpaces: '1', area: '900',
+    state: 'FL', county: 'Miami-Dade', city: 'Miami', zipCode: '', neighborhoodCommunity: 'Downtown', saleValueMode: 'hidden', cta: 'Agende sua visita', includeProfessionalPhone: 'no',
   }, '', { language: 'en-US', market: 'US' })
   assert.equal(us.language, 'en-US')
   assert.equal(us.market, 'US')
-  assert.deepEqual({ state: us.state, county: us.county, city: us.city, zip_code: us.zip_code, neighborhood_community: us.neighborhood_community }, { state: 'FL', county: 'Miami-Dade', city: 'Miami', zip_code: '33101', neighborhood_community: 'Downtown' })
+  assert.deepEqual({ state: us.state, county: us.county, city: us.city, zip_code: us.zip_code, neighborhood_community: us.neighborhood_community, bathrooms: us.bathrooms, suites: us.suites, area_unit: us.area_unit }, { state: 'FL', county: 'Miami-Dade', city: 'Miami', zip_code: '', neighborhood_community: 'Downtown', bathrooms: '2', suites: '', area_unit: 'sqft' })
   assert.equal(config.isTextCampaignBriefingValid(us), true)
+})
+
+test('keeps US bathrooms and ZIP optional while excluding Brazilian commercial options', () => {
+  const us = config.buildTextCampaignBriefing({
+    ...config.createEmptyTextCampaignAnswers(), purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', bedrooms: '2', bathrooms: '2', parkingSpaces: '1', area: '900',
+    state: 'FL', county: 'Miami-Dade', city: 'Miami', zipCode: '', saleValueMode: 'conditions', saleConditions: ['Special terms available'], cta: 'Agende sua visita', includeProfessionalPhone: 'no',
+  }, '', { language: 'en-US', market: 'US' })
+  assert.equal(config.isTextCampaignBriefingValid(us), true)
+  assert.equal(config.isTextCampaignBriefingValid({ ...us, zip_code: 'invalid' }), false)
+  assert.deepEqual(config.getTextCampaignMeasureFields('us_condo', 'US'), ['bedrooms', 'bathrooms', 'parkingSpaces', 'area'])
+  assert.ok(!config.getTextCampaignSaleConditions('US').includes('Usa FGTS'))
+  assert.match(page, /getUsCitiesByCounty/)
+  assert.match(page, /ZIP Code \(optional\)/)
+  assert.match(page, /Loading cities…/)
+  assert.match(page, /No cities were found for this county\./)
+  assert.match(page, /Try again/)
+  assert.match(page, /formatTextCampaignCurrencyForMarket/)
+})
+
+test('keeps the localized multichannel hero and removes only the intermediate sidebar summary', () => {
+  assert.match(page, /visual=\{<DeliverablesPreview copy=\{copy\} locale=\{locale\} \/>\}/)
+  assert.match(page, /showSummary=\{false\}/)
+  assert.doesNotMatch(page, /summaryItems=\{summaryItems\}/)
+  assert.equal(config.getTextCampaignDeliverableLabel('listing_title', 'pt-BR'), 'Título do anúncio')
+  assert.equal(config.getTextCampaignDeliverableLabel('portal_description', 'pt-BR'), 'Descrição completa para portal')
+  assert.equal(config.getTextCampaignDeliverableLabel('listing_title', 'en-US'), 'Listing title')
+  assert.equal(config.getTextCampaignDeliverableLabel('portal_description', 'en-US'), 'Full portal description')
+  assert.equal(config.getTextCampaignDeliverableLabel('instagram_commercial', 'en-US'), 'Instagram — commercial')
 })
 
 test('exposes loading, disabled and aria-busy states', () => {
@@ -122,7 +150,7 @@ test('copies individual pieces and the complete campaign', async () => {
   assert.ok(orderedHeadings.every((heading, index) => index === 0 || complete.indexOf(orderedHeadings[index - 1]) < complete.indexOf(heading)))
   const applicableLinkedIn = { ...result(), linkedin: { applicable: true, text: 'LinkedIn aplicável', reason: '' } }
   assert.match(resultHelpers.formatCompleteTextCampaign(applicableLinkedIn), /LINKEDIN[\s\S]*LinkedIn aplicável/)
-  assert.match(resultComponent, /formatCompleteTextCampaign\(editableCampaign\)[\s\S]*text\/plain;charset=utf-8/)
+  assert.match(resultComponent, /formatCompleteTextCampaign\(editableCampaign, locale\)[\s\S]*text\/plain;charset=utf-8/)
   assert.match(resultComponent, /download: 'campanha-de-textos\.txt'/)
   assert.match(resultComponent, /\{copy\.download\}/)
   assert.match(resultComponent, /onClick=\{\(\) => copyValue\(id, content\)\}/)
@@ -130,6 +158,16 @@ test('copies individual pieces and the complete campaign', async () => {
   assert.match(resultComponent, /textarea aria-label=\{label\}/)
   assert.match(resultComponent, /campaign\.text_carousel\.slides\.map/)
   assert.match(resultComponent, /campaign\.google_ads\.headlines\.join/)
+})
+
+test('formats US result controls without translating the generated campaign text', () => {
+  const usPiece = resultHelpers.formatTextCampaignPiece(result(), 'email', 'en-US')
+  assert.match(usPiece, /^Subject: Assunto[\s\S]*Corpo/)
+  const complete = resultHelpers.formatCompleteTextCampaign(result(), 'en-US')
+  assert.match(complete, /LISTING TITLE/)
+  assert.match(complete, /STRATEGIC HASHTAGS/)
+  assert.match(complete, /GOOGLE ADS[\s\S]*Headlines:[\s\S]*Suggested keywords:/)
+  assert.doesNotMatch(complete, /TÍTULO DO ANÚNCIO|PALAVRAS-CHAVE SUGERIDAS/)
 })
 
 test('uses a deterministic clipboard fallback without intrusive alerts', async () => {

@@ -176,8 +176,8 @@ test('enables the final action only for a valid briefing and keeps loading safe'
   assert.doesNotMatch(page, /token_cost|smart_token_cost|required_tokens/)
 })
 
-test('uses campaign-specific summary copy without changing the shared default', () => {
-  assert.match(page, /summaryTitle=\{copy\.summaryTitle\}/)
+test('keeps the shared summary component available but disables the intermediate campaign sidebar', () => {
+  assert.match(page, /showSummary=\{false\}/)
   assert.match(guidedConversation, /summaryTitle = 'Resumo da apresentação'/)
   assert.match(guidedConversation, /<ProductSummary title=\{summaryTitle\}/)
 })

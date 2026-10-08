@@ -21,7 +21,7 @@ import { handleGenerateTextCampaign, type TextCampaignRuntimeDependencies } from
 
 const validBriefing = (): TextCampaignBriefing => ({
   language: 'pt-BR', market: 'BR',
-  purpose: 'sale', stage: 'Pronto para morar', property_type: 'Apartamento', bedrooms: '3', suites: '1', parking_spaces: '2', area: '120',
+  purpose: 'sale', stage: 'Pronto para morar', property_type: 'Apartamento', bedrooms: '3', suites: '1', bathrooms: '', parking_spaces: '2', area: '120', area_unit: 'm²',
   state: 'SP', county: '', city: 'São Paulo', district: 'Vila Mariana', zip_code: '', neighborhood_community: '', highlights: ['Piscina', 'Varanda gourmet'], custom_highlight: null, notes: null,
   cta: 'Agende sua visita', contact_authorized: false, professional_phone: '',
   commercial: { mode: 'price', price_mode: 'fixed', price: '950000', conditions: [], commercial_terms: {} },
@@ -92,7 +92,7 @@ test('normalizes absent or invalid locale fields to the BR defaults and accepts 
   assert.equal(invalid.language, 'pt-BR')
   assert.equal(invalid.market, 'BR')
   const us = validateTextCampaignRequest({ language: 'en-US', market: 'US', briefing: {
-    ...validBriefing(), language: 'en-US', market: 'US', property_type: 'us_condo', state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '33101', neighborhood_community: 'Downtown',
+    ...validBriefing(), language: 'en-US', market: 'US', property_type: 'us_condo', suites: '', bathrooms: '2', area_unit: 'sqft', state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '33101', neighborhood_community: 'Downtown',
   } })
   assert.deepEqual({ language: us.language, market: us.market, state: us.state, county: us.county, city: us.city, zip_code: us.zip_code, neighborhood_community: us.neighborhood_community }, { language: 'en-US', market: 'US', state: 'FL', county: 'Miami-Dade', city: 'Miami', zip_code: '33101', neighborhood_community: 'Downtown' })
 })
@@ -101,7 +101,7 @@ test('keeps the PT-BR prompt and builds an EN-US prompt with presented business 
   const pt = buildTextCampaignOpenAIRequest(validBriefing())
   assert.equal(pt.messages[0].content, TEXT_CAMPAIGN_SYSTEM_PROMPT)
   const us = {
-    ...validBriefing(), language: 'en-US' as const, market: 'US' as const, property_type: 'us_condo', state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '33101', neighborhood_community: 'Downtown', cta: 'Agende sua visita', highlights: ['us_near_parks'],
+    ...validBriefing(), language: 'en-US' as const, market: 'US' as const, property_type: 'us_condo', suites: '', bathrooms: '2', area_unit: 'sqft' as const, state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '', neighborhood_community: 'Downtown', cta: 'Agende sua visita', highlights: ['us_near_parks'],
   }
   const request = buildTextCampaignOpenAIRequest(us)
   assert.equal(request.messages[0].content, TEXT_CAMPAIGN_EN_US_SYSTEM_PROMPT)
@@ -109,6 +109,11 @@ test('keeps the PT-BR prompt and builds an EN-US prompt with presented business 
   assert.equal(presented.property_type, 'Condo')
   assert.equal(presented.cta, 'Schedule your visit')
   assert.equal(presented.highlights[0], 'Near Parks')
+  assert.equal(presented.bathrooms, '2')
+  assert.equal(presented.area_unit, 'sqft')
+  assert.equal(presented.suites, '')
+  assert.doesNotMatch(JSON.stringify(presented), /FGTS|m²|CRECI|R\$/)
+  assert.match(String(request.messages[0].content), /never call bathrooms suites or use m²/)
 })
 
 test('formats complete BR and US professional identities without accepting client input', () => {
@@ -186,6 +191,41 @@ test('keeps sale and rental contracts separate', () => {
   }))
   assert.equal(rent.purpose, 'rent')
   assert.throws(() => validateTextCampaignRequest(rawRequest({ purpose: 'rent', stage: 'Vago', property_type: 'Terreno / Lote', bedrooms: '', suites: '', parking_spaces: '', commercial: { mode: 'hidden', rent: '', condominium: '', iptu: '', guarantee: '' } })), /invalid_rental_land/)
+})
+
+test('accepts an optional US ZIP and blocks Brazilian facts from the US provider payload', async () => {
+  const usBriefing = {
+    ...validBriefing(), language: 'en-US', market: 'US', property_type: 'us_condo', suites: '', bathrooms: '2', area_unit: 'sqft',
+    state: 'FL', county: 'Miami-Dade', city: 'Miami', district: '', zip_code: '', neighborhood_community: 'Downtown', cta: 'Agende sua visita',
+    commercial: { mode: 'conditions', price_mode: '', price: '', conditions: ['Special terms available'], commercial_terms: {} },
+  }
+  const validated = validateTextCampaignRequest({ language: 'en-US', market: 'US', briefing: usBriefing })
+  assert.equal(validated.zip_code, '')
+  assert.equal(validated.bathrooms, '2')
+  assert.equal(validated.suites, '')
+  assert.throws(
+    () => validateTextCampaignRequest({ language: 'en-US', market: 'US', briefing: { ...usBriefing, commercial: { ...usBriefing.commercial, conditions: ['Usa FGTS'] } } }),
+    /invalid_sale_conditions/,
+  )
+  assert.throws(
+    () => validateTextCampaignRequest({ language: 'en-US', market: 'US', briefing: { ...usBriefing, bathrooms: '', suites: '2' } }),
+    /invalid_residential_facts/,
+  )
+
+  let providerCalls = 0
+  const response = await handleGenerateTextCampaign(request({ language: 'en-US', market: 'US', briefing: usBriefing }), dependencies({
+    generate: async briefing => {
+      providerCalls += 1
+      const providerRequest = buildTextCampaignOpenAIRequest(briefing)
+      const providerBriefing = String(providerRequest.messages[1].content)
+      assert.match(providerBriefing, /"bathrooms":"2"/)
+      assert.match(providerBriefing, /"area_unit":"sqft"/)
+      assert.doesNotMatch(providerBriefing, /FGTS|CRECI|R\$|m²|"suites":"[1-9]/)
+      return { campaign: validCampaign() }
+    },
+  }))
+  assert.equal(response.status, 200)
+  assert.equal(providerCalls, 1)
 })
 
 test('uses strict structured JSON with the 18 preserved contracts plus Google Ads', () => {
