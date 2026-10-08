@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import MarketSelector from '../i18n/MarketSelector'
 
 export default function AppLayout() {
   const location = useLocation()
@@ -48,6 +49,10 @@ export default function AppLayout() {
         >
           <Menu className="h-5 w-5" />
         </button>
+      )}
+
+      {!mobileMenuOpen && (
+        <MarketSelector compact className="fixed right-3 top-3 z-30 w-[226px] shadow-lg lg:hidden" />
       )}
 
       {mobileMenuOpen && (

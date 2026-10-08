@@ -1,6 +1,8 @@
 import { Loader2 } from 'lucide-react'
+import { useLocale } from '../../i18n/useLocale'
 
 export default function GoogleAuthButton({ onClick, loading = false }) {
+  const { t } = useLocale()
   return (
     <button
       type="button"
@@ -18,7 +20,7 @@ export default function GoogleAuthButton({ onClick, loading = false }) {
           <path fill="#EA4335" d="M12 6.01c1.47 0 2.79.51 3.83 1.5l2.87-2.88A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.96 5.51l3.35 2.62C7.18 7.77 9.39 6.01 12 6.01Z" />
         </svg>
       )}
-      Continuar com Google
+      {t('login.continueGoogle')}
     </button>
   )
 }

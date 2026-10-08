@@ -28,13 +28,14 @@ import { useAuth } from '../lib/auth-context'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import { buildCampaignTextFile } from '../lib/campaign-text-file'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
+import { createHeroNextVerticalNineBySixteenBlob, isHeroNextVerticalFormat, triggerBlobDownload, withNineBySixteenSuffix } from '../lib/hero-next-export'
 import { supabase } from '../lib/supabase'
 import { guestBannerRequest, guestResultForBanner, GUEST_CLAIM_PENDING } from '../lib/guest-banner-client'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
-import { getCountiesByState, getStatesForMarket, normalizeUsZipCode } from '../config/locations'
+import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
 import {
   buildHeroNextCampaignPackageData,
@@ -711,13 +712,9 @@ const HERO_NEXT_PIECE_LIMIT_MESSAGE = 'Para manter a qualidade da campanha, esco
 
 const DESTINATIONS = [
   { id: 'instagram_feed', label: 'Feed Instagram', format_group: 'square_feed' },
-  { id: 'story_reels', label: 'Story/Reels', format_group: 'vertical' },
-  { id: 'whatsapp', label: 'WhatsApp', format_group: 'square_feed' },
-  { id: 'facebook', label: 'Facebook', format_group: 'landscape' },
-  { id: 'google_ads', label: 'Google Ads', format_group: 'landscape' },
-  { id: 'landing_page', label: 'Landing Page', format_group: 'landscape' },
-  { id: 'portal_imobiliario', label: 'Portal Imobiliário', format_group: 'landscape' },
+  { id: 'story_reels', label: 'Reels / TikTok / Stories', format_group: 'vertical' },
 ]
+const DEFAULT_DESTINATION_IDS = Object.freeze(DESTINATIONS.map((item) => item.id))
 
 const CREATIVE_IDEAS = [
   {
@@ -791,8 +788,10 @@ const getHeroNextCaptureFeatures = (goal, answers) => {
   return normalizeList(answers.differentials)
 }
 
-const getHeroNextDefaultCta = (goal) => (
-  isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale comigo'
+const getHeroNextDefaultCta = (goal, market = 'BR') => (
+  market === 'US'
+    ? (isCaptureGoal(goal) ? 'Request contact' : 'Learn more')
+    : (isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale comigo')
 )
 
 function buildHeroNextCopyInput(goal, answers, valueCondition) {
@@ -842,10 +841,6 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     'pre lancamento': 'Pre-launch', lancamento: 'New launch', 'em obras': 'Under construction',
     'pronto para morar': 'Move-in ready', 'move in ready': 'Move-in ready',
   }
-  const ctas = {
-    'agende sua visita': 'Schedule your visit', 'saiba mais': 'Learn more', 'entre em contato agora': 'Contact me now',
-    'fale comigo': "Let's talk", 'solicitar contato': 'Request contact', 'entre em contato': 'Contact me',
-  }
   const numberLabel = (value, singular, plural) => {
     const current = text(value)
     if (!/^\d+\+?$/.test(current) || current === '0') return ''
@@ -854,7 +849,7 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
   const area = text(answers.area)
   const areaNumber = Number(area.replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
   const sqft = Number.isFinite(areaNumber) && areaNumber > 0
-    ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber * 10.7639)} sqft`
+    ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber)} sqft`
     : ''
   const localizedType = propertyTypes[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
   const localizedStage = stages[normalized(answers.stage)] || text(answers.stage)
@@ -866,7 +861,7 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     sqft,
   ].filter(Boolean)
   const objective = goal === 'rent' ? 'for rent' : 'for sale'
-  const cta = ctas[normalized(answers.cta)] || text(answers.cta) || (isCaptureGoal(goal) ? 'Request contact' : 'Learn more')
+  const cta = localizeHeroNextSystemValue(answers.cta, 'US') || getHeroNextDefaultCta(goal, 'US')
   const rawValue = text(valueCondition?.details)
   const value = usd(rawValue)
     .replace(/\bValor:\s*/gi, 'Price: ')
@@ -875,9 +870,9 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     .replace(/\bIPTU:\s*/gi, 'Property tax: ')
     .replace(/\bCondições:\s*/gi, 'Terms: ')
     .replace(/\bGarantia:\s*/gi, 'Lease guarantee: ')
-  const highlights = normalizeList(goal === 'property_capture' || goal === 'broker_capture'
+  const highlights = localizeHeroNextSystemList(normalizeList(goal === 'property_capture' || goal === 'broker_capture'
     ? getHeroNextCaptureFeatures(goal, answers)
-    : answers.differentials).join(', ')
+    : answers.differentials), 'US').join(', ')
   const hashtags = ['#RealEstate', goal === 'rent' ? '#ForRent' : goal === 'sale' ? '#ForSale' : '#RealEstateMarketing', location ? `#${location.replace(/[^a-zA-Z0-9]/g, '')}` : '', '#SmartCorretorAI'].filter(Boolean).join(' ')
 
   if (goal === 'property_capture' || goal === 'broker_capture') {
@@ -905,6 +900,101 @@ const normalizeComparable = (value) => String(value || '')
   .replace(/[^a-z0-9\s/-]/g, '')
   .replace(/\s+/g, ' ')
   .trim()
+
+const HERO_NEXT_US_SYSTEM_VALUES = Object.freeze({
+  'locacao': 'Rental',
+  'captacao de imoveis': 'Property acquisition',
+  'captacao de corretores': 'Agent recruitment',
+  'fale comigo': 'Contact us',
+  'fale com o corretor': 'Contact us',
+  'solicitar contato': 'Request contact',
+  'agende sua visita': 'Schedule a showing',
+  'saiba mais': 'Learn more',
+  'entre em contato agora': 'Contact us now',
+  'conheca as condicoes': 'Explore the terms',
+  'faca sua simulacao': 'Get an estimate',
+  'quero informacoes': 'Get details',
+  'chamar no whatsapp': 'Contact us',
+  'alto padrao': 'High-end',
+  'pronto para morar': 'Move-in ready',
+  'pre lancamento': 'Pre-launch',
+  lancamento: 'New launch',
+  'em obras': 'Under construction',
+  'aceita financiamento': 'Financing available',
+  'entrada facilitada': 'Flexible down payment options',
+  'condicoes especiais': 'Special terms available',
+  'ultimas unidades': 'Limited availability',
+  'unidades limitadas': 'Limited availability',
+  'documentacao em ordem': 'Documentation ready',
+  'aceita pet': 'Pet friendly',
+  mobiliado: 'Furnished',
+  reformado: 'Renovated',
+  varanda: 'Balcony',
+  'varanda gourmet': 'Outdoor entertaining area',
+  'planta inteligente': 'Thoughtful layout',
+  'ambientes integrados': 'Open-concept living',
+  'cozinha americana': 'Open kitchen',
+  suite: 'Primary suite',
+  closet: 'Walk-in closet',
+  'acabamento premium': 'Premium finishes',
+  'iluminacao natural': 'Natural light',
+  'vista livre': 'Open views',
+  'vista panoramica': 'Panoramic views',
+})
+
+const HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES = new Set([
+  'minha casa minha vida',
+  'mcmv',
+  'usa fgts',
+  'subsidio do governo',
+  'parcelamento durante a obra',
+])
+
+const localizeHeroNextSystemValue = (value, market = 'BR') => {
+  const text = String(value || '').trim()
+  if (!text || market !== 'US') return text
+  const normalized = normalizeComparable(text)
+  if (HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES.has(normalized)) return ''
+  return HERO_NEXT_US_SYSTEM_VALUES[normalized] || text
+}
+
+const localizeHeroNextSystemList = (values, market = 'BR') => normalizeList(values)
+  .map((value) => localizeHeroNextSystemValue(value, market))
+  .filter(Boolean)
+
+const localizeHeroNextValueCondition = (valueCondition = {}, market = 'BR') => {
+  if (market !== 'US') return valueCondition
+  const translate = (value) => String(value || '')
+    .replace(/\bAluguel:\s*/gi, 'Rent: ')
+    .replace(/\bValor informado:\s*/gi, 'Price: ')
+    .replace(/\bValor:\s*/gi, 'Price: ')
+    .replace(/\bCondom[ií]nio:\s*/gi, 'HOA fee: ')
+    .replace(/\bIPTU:\s*/gi, 'Property tax: ')
+    .replace(/\bGarantia:\s*/gi, 'Lease guarantee: ')
+    .replace(/\bCondições comerciais informadas:\s*/gi, 'Commercial terms: ')
+    .replace(/\bCondições:\s*/gi, 'Terms: ')
+    .replace(/Não mostrar valores na campanha\./gi, 'Do not show prices in the campaign.')
+    .replace(/Não inventar/gi, 'Do not invent')
+    .replace(/ou condições ausentes/gi, 'or missing terms')
+    .replace(/Pode mostrar o valor informado na campanha\./gi, 'You may show the provided price in the campaign.')
+    .replace(/Chamadas comerciais informadas:\s*/gi, 'Commercial calls: ')
+    .replace(/R\$\s*([\d.]+(?:,[\d]{1,2})?)/g, (_, rawAmount) => {
+      const numeric = Number(String(rawAmount).replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+      return Number.isFinite(numeric) ? `USD $${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric)}` : `USD $${rawAmount}`
+    })
+  return {
+    ...valueCondition,
+    label: ({
+      'Valores de locação informados': 'Rental pricing details provided',
+      'Valor do imóvel informado': 'Property price provided',
+      'Apenas condições comerciais': 'Commercial terms only',
+      'Condições comerciais informadas': 'Commercial terms provided',
+      'Não mostrar valores': 'No pricing details provided',
+    })[valueCondition.label] || valueCondition.label,
+    details: translate(valueCondition.details),
+    promptLines: Array.isArray(valueCondition.promptLines) ? valueCondition.promptLines.map(translate) : valueCondition.promptLines,
+  }
+}
 
 const LOCATION_CORRECTIONS = {
   'sao paulo': 'São Paulo',
@@ -1235,18 +1325,17 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeI
     })
     const types = { apartamento: 'Apartment', casa: 'House', sobrado: 'Townhouse', cobertura: 'Penthouse', studio: 'Studio', garden: 'Garden apartment', kitnet: 'Studio apartment', 'terreno/lote': 'Land lot', terreno: 'Land', lote: 'Land lot', 'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse', comercial: 'Commercial property', 'us single family home': 'Single-family home', ussinglefamilyhome: 'Single-family home', uscondo: 'Condominium', ustownhouse: 'Townhouse', usmultifamily: 'Multi-family home', usland: 'Land' }
     const stages = { 'pre lancamento': 'Pre-launch', lancamento: 'New launch', 'em obras': 'Under construction', 'pronto para morar': 'Move-in ready' }
-    const ctas = { 'agende sua visita': 'Schedule your visit', 'saiba mais': 'Learn more', 'entre em contato agora': 'Contact me now', 'fale comigo': "Let's talk", 'solicitar contato': 'Request contact' }
     const numberLabel = (value, singular, plural) => /^\d+\+?$/.test(text(value)) && text(value) !== '0' ? `${text(value)} ${text(value) === '1' ? singular : plural}` : ''
     const areaNumber = Number(text(answers.area).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
-    const sqft = Number.isFinite(areaNumber) && areaNumber > 0 ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber * 10.7639)} sqft` : ''
+    const sqft = Number.isFinite(areaNumber) && areaNumber > 0 ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber)} sqft` : ''
     const propertyType = types[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
     const stage = stages[normalized(answers.stage)] || text(answers.stage)
     const location = [text(answers.neighborhood || answers.neighborhoods), text(answers.city)].filter(Boolean).join(', ')
-    const cta = ctas[normalized(answers.cta)] || text(answers.cta) || (isPropertyCapture || isBrokerCapture ? 'Request contact' : 'Learn more')
+    const cta = localizeHeroNextSystemValue(answers.cta, 'US') || getHeroNextDefaultCta(goal, 'US')
     const phone = answers.contactPhoneChoice === 'Sim, quero divulgar' ? text(answers.contactPhone) : ''
     const facts = [numberLabel(answers.bedrooms, 'bedroom', 'bedrooms'), numberLabel(answers.suites, 'bathroom', 'bathrooms'), numberLabel(answers.parking, 'parking space', 'parking spaces'), sqft].filter(Boolean).join(', ')
     const destination = primaryDestination?.label || 'the selected channel'
-    const detailLines = usd(text(valueCondition?.details))
+    const detailLines = usd(text(localizeHeroNextValueCondition(valueCondition, 'US')?.details))
       .replace(/\bValor:\s*/gi, 'Price: ')
       .replace(/\bAluguel:\s*/gi, 'Rent: ')
       .replace(/\bCondom[ií]nio:\s*/gi, 'HOA fee: ')
@@ -1254,7 +1343,7 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeI
       .replace(/\bCondições:\s*/gi, 'Terms: ')
     if (isPropertyCapture || isBrokerCapture) {
       const audience = isBrokerCapture ? 'real estate professionals' : 'property owners'
-      const highlights = normalizeList(getHeroNextCaptureFeatures(goal, answers)).join(', ')
+      const highlights = localizeHeroNextSystemList(getHeroNextCaptureFeatures(goal, answers), 'US').join(', ')
       return [
         `Create one professional, modern, high-impact real estate campaign for ${destination}.`,
         `Objective: attract ${audience}${location ? ` in ${location}` : ''}.`,
@@ -1272,7 +1361,7 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeI
       `${propertyType}${stage ? ` — ${stage}` : ''}${location ? ` in ${location}` : ''}.`,
       facts && `Property facts: ${facts}.`,
       detailLines && `Pricing and optional terms: ${detailLines}.`,
-      normalizeList(answers.differentials).length ? `Verified highlights: ${normalizeList(answers.differentials).join(', ')}.` : '',
+      normalizeList(answers.differentials).length ? `Verified highlights: ${localizeHeroNextSystemList(answers.differentials, 'US').join(', ')}.` : '',
       `CTA: ${cta}${phone ? `\n${phone}` : ''}.`,
       phone ? `Use this phone number exactly as provided: ${phone}. Do not invent, complete, or reformat it.` : 'Do not display a phone number, WhatsApp, website, Instagram, or email.',
       'Create one final publish-ready asset. Do not create a collage, mockup, or multiple formats inside one image.',
@@ -1435,8 +1524,28 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeI
   return lines.filter(Boolean).join('\n')
 }
 
-const buildFormatSpecificPrompt = (basePrompt, destination, imageCount = 0, creativeIdea = getCreativeIdea(1), ideaCount = 1) => {
+const buildFormatSpecificPrompt = (basePrompt, destination, imageCount = 0, creativeIdea = getCreativeIdea(1), ideaCount = 1, market = 'BR') => {
   const strategy = getFormatVisualStrategy(destination, imageCount)
+
+  if (market === 'US') {
+    return [
+      String(basePrompt || '').trim(),
+      '',
+      'FORMAT RULE FOR THIS GENERATION:',
+      `Create one final ${destination?.format_group === 'vertical' ? 'vertical' : 'square feed'} asset for ${destination?.label || 'the selected channel'}.`,
+      '',
+      'CREATIVE DIRECTION:',
+      `This is creative option ${creativeIdea.number} of ${ideaCount}.`,
+      `Visual direction: ${creativeIdea.title}.`,
+      'Keep the same verified facts and CTA while creating a composition made for this format.',
+      '',
+      'OUTPUT LANGUAGE REQUIREMENT:',
+      'All generated text in the final asset must be natural US English only.',
+      'Do not use Portuguese, Brazilian real-estate terminology, Brazilian currency, or Brazilian commercial programs.',
+      'Use bedrooms, bathrooms, parking spaces, square feet, and USD when those facts are shown.',
+      'Create one final asset only. Do not create a collage, mockup, presentation board, or multiple formats in one image.',
+    ].filter(Boolean).join('\n')
+  }
 
   return [
   String(basePrompt || '')
@@ -1466,6 +1575,78 @@ const buildFormatSpecificPrompt = (basePrompt, destination, imageCount = 0, crea
   'Não criar mosaico, mockup, prancha de apresentação ou múltiplas versões dentro da mesma imagem.',
   ].filter(Boolean).join('\n')
 }
+
+// This is deliberately kept outside the component so the exact request used by
+// startGenerationJob can be exercised without calling the paid Edge Function.
+export const buildHeroNextGenerationRequest = ({
+  market = 'BR', locale, goal, answers, valueCondition, destination, creativeIdea,
+  creativeIdeaCount = 1, uploadedImages = [], promptTouched = false, effectivePrompt = '',
+  campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext = {},
+  rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee,
+  showProfessionalIdentity = false, professionalIdentity = '', professionalMarket = 'BR',
+}) => {
+  const resolvedMarket = market === 'US' ? 'US' : 'BR'
+  const resolvedLocale = resolvedMarket === 'US' ? 'en-US' : 'pt-BR'
+  const imageCount = uploadedImages.length
+  const formatId = destination.id
+  const formatStrategy = getFormatVisualStrategy(destination, imageCount)
+  const basePrompt = promptTouched
+    ? effectivePrompt
+    : buildHumanPrompt(goal, answers, [destination], valueCondition, creativeIdeaCount, resolvedMarket)
+  const humanPrompt = buildFormatSpecificPrompt(basePrompt, destination, imageCount, creativeIdea, creativeIdeaCount, resolvedMarket).trim()
+  const publicationOptions = buildHeroNextCampaignCopy(goal, answers, valueCondition, resolvedMarket).slice(0, 3).map((item, index) => ({
+    id: `banner-caption-option-${index + 1}`,
+    label: item.label || (resolvedMarket === 'US' ? `Copy ${index + 1}` : `Texto ${index + 1}`),
+    text: item.text,
+  }))
+  const isUS = resolvedMarket === 'US'
+  const displayArea = answers.area
+    ? (isUS
+        ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(String(answers.area).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.')))} sqft`
+        : formatAreaForDisplay(answers.area))
+    : ''
+  const money = (value, kind) => {
+    if (!value) return ''
+    if (!isUS) return formatCurrencyForDisplay(value, kind)
+    const parsed = Number(String(value).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
+    return Number.isFinite(parsed) ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parsed) : String(value)
+  }
+  const rawProfile = answers.profile || (goal === 'rent' ? 'Locação' : goal === 'property_capture' ? 'Captação de Imóveis' : goal === 'broker_capture' ? 'Captação de Corretores' : '')
+  const localizedCondition = localizeHeroNextValueCondition(valueCondition, resolvedMarket)
+  const cta = localizeHeroNextSystemValue(answers.cta, resolvedMarket) || getHeroNextDefaultCta(goal, resolvedMarket)
+  const showPhone = answers.contactPhoneChoice === 'Sim, quero divulgar'
+
+  return {
+    human_prompt: humanPrompt,
+    image_mode: imageCount > 0 ? 'reference_photos' : 'new_image',
+    image_mode_label: imageCount > 0 ? (isCaptureGoal(goal) ? (isUS ? 'Brand or institutional image attached' : 'Marca ou foto institucional anexada') : (isUS ? 'Real property photos attached' : 'Imagens reais anexadas')) : (isUS ? 'Campaign without attached images' : 'Campanha sem imagens anexadas'),
+    inline_images: uploadedImages.map((item) => ({ name: item.name, content_type: item.contentType, data: item.data })),
+    hero_next_experimental: true,
+    campaign_objective: getHeroNextCampaignObjective(goal),
+    publication_options: publicationOptions,
+    property_type: answers.propertyType || normalizeList(answers.propertyKinds).join(', '),
+    property_profile: localizeHeroNextSystemValue(rawProfile, resolvedMarket),
+    property_stage: localizeHeroNextSystemValue(answers.stage || '', resolvedMarket),
+    market: resolvedMarket,
+    locale: resolvedLocale,
+    state: answers.state || '', county: answers.county || '', city: answers.city || '', zip_code: answers.zipCode || '', district: answers.neighborhood || answers.neighborhoods || '',
+    bedrooms: answers.bedrooms || '', suites: answers.suites || '', parking: answers.parking || '', area: answers.area || '', display_area: displayArea,
+    rent_price: rentMode === 'show' ? normalizeValueText(rentPrice) : '', display_rent_price: rentMode === 'show' ? money(normalizeValueText(rentPrice), 'locacao') : '',
+    condo_fee: condoMode === 'show' ? normalizeValueText(condoFee) : '', display_condo_fee: condoMode === 'show' ? money(normalizeValueText(condoFee), 'locacao') : '',
+    iptu: iptuMode === 'show' ? normalizeValueText(iptuValue) : '', display_iptu: iptuMode === 'show' ? money(normalizeValueText(iptuValue), 'locacao') : '',
+    guarantee_id: rentGuarantee, guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '', guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
+    highlights: localizeHeroNextSystemList(getHeroNextCaptureFeatures(goal, answers), resolvedMarket), cta,
+    contact_phone: showPhone ? answers.contactPhone || '' : '', display_phone: showPhone ? formatPhone(answers.contactPhone || '', professionalMarket) : '', campaign_contact_phone: showPhone ? answers.contactPhone || '' : '',
+    show_professional_identity: showProfessionalIdentity === true, professional_identity: showProfessionalIdentity === true ? professionalIdentity : '', professional_identity_placement: showProfessionalIdentity === true ? 'discreet_footer' : '',
+    deliverables: { hero_image: true, instagram_text: true, hashtags: true, cta: true, whatsapp: true, portal_description: true },
+    value_condition: localizedCondition, primary_destination: destination, compatible_destinations: [], campaign_batch_id: campaignBatchId,
+    format_generation: { index: formatIndex, total: totalFormats, job_index: jobIndex, total_jobs: totalJobs, format_id: formatId, format_label: destination.label },
+    creative_idea: { number: creativeIdea.number, title: creativeIdea.title, description: creativeIdea.description, visual_angle: creativeIdea.visualAngle },
+    format_strategy: formatStrategy, additional_info: '', client_request_id: economicContext.clientRequestId, economic_claim_token: economicContext.claimToken, economic_item_id: economicContext.itemId,
+  }
+}
+
+export const invokeHeroNextGenerationStart = (invokeGeneration, payload) => invokeGeneration({ body: payload })
 
 const formatFileSlug = (label) => normalizeComparable(label)
   .replace(/\s+/g, '-')
@@ -1567,6 +1748,26 @@ export default function HeroNext({ guestMode = false } = {}) {
   const b = (key) => t(`banner.ui.${key}`)
   const optionLabels = t('banner.optionLabels')
   const optionLabel = (value) => optionLabels?.[value] || value
+  const isUSMarket = market === 'US'
+  const heroNextCampaignLabels = isUSMarket
+    ? {
+        completedStatus: 'Completed', ctaUsed: 'CTA used', copyCta: 'Copy CTA', phone: 'Phone', copyPhone: 'Copy phone', copyText: 'Copy text', copyMessage: 'Copy message', copyDescription: 'Copy description', copySubject: 'Copy subject', copyHashtags: 'Copy hashtags',
+        instagramFacebook: 'Instagram and Facebook', portal: 'Real estate portal', email: 'Email', emailSubject: 'Suggested subject', message: 'Message',
+        formatLabels: { instagram_feed: 'Instagram/Facebook feed', story_reels: 'Reels / TikTok / Stories' }, creationOptionLabels: { 1: 'Option 1 — Essential creation', 2: 'Option 2 — Visual alternative', 3: 'Option 3 — Featured concept' },
+        packageTitle: 'Campaign package', ready: 'Your campaign is ready.', description: 'Media and copy are organized for publishing.',
+        generated: 'Generated media', campaignArts: 'Campaign assets', art: 'Asset {n}', unavailable: 'File unavailable', waiting: 'Waiting to render', rendering: 'Rendering...',
+        promotionTexts: 'Promotional copy', chooseChannel: 'Choose a channel and publish', ctaContact: 'CTA and contact', usedInformation: 'Information used',
+        promotionTips: 'Promotion tips', nextSteps: 'Next steps', copy: 'Copy', copied: 'Copied!', publish: 'Publish',
+        image: 'Download', loading: 'Downloading...', creationError: 'We could not safely identify the selected creation and copy.',
+      }
+    : {}
+  const heroNextCampaignStrategy = isUSMarket
+    ? [
+        'Publish the assets in the channel that best fits your audience.',
+        'Reuse the approved copy across compatible social channels.',
+        'Respond quickly to interested contacts after publishing.',
+      ]
+    : []
   const processingSteps = [t('banner.status.analyzingBrief'), t('banner.status.generatingVisual'), t('banner.status.finalizingDelivery'), t('banner.status.preparingCampaign')]
   // This fixed draft owner is only a local storage namespace, never an auth/user_id
   // or server credential. The guest session remains exclusively in HttpOnly cookies.
@@ -1598,6 +1799,9 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [citySelection, setCitySelection] = useState(() => restoredBannerDraft.citySelection || '')
   const [cities, setCities] = useState([])
   const [citiesLoading, setCitiesLoading] = useState(false)
+  const [usCities, setUsCities] = useState([])
+  const [usCitiesLoading, setUsCitiesLoading] = useState(false)
+  const [usCitiesError, setUsCitiesError] = useState('')
   const [saleValueMode, setSaleValueMode] = useState(() => restoredBannerDraft.saleValueMode || '')
   const [salePrice, setSalePrice] = useState(() => restoredBannerDraft.salePrice || '')
   const [salePricePresentationMode, setSalePricePresentationMode] = useState(() => restoredBannerDraft.salePricePresentationMode || '')
@@ -1614,7 +1818,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [rentGuarantee, setRentGuarantee] = useState(() => restoredBannerDraft.rentGuarantee || '')
   const [promptTouched, setPromptTouched] = useState(() => restoredBannerDraft.promptTouched === true)
   const [humanPrompt, setHumanPrompt] = useState(() => restoredBannerDraft.humanPrompt || '')
-  const [destinationIds, setDestinationIds] = useState(() => guestMode ? (restoredBannerDraft.destinationIds || []).slice(0,1) : restoredBannerDraft.destinationIds || [])
+  const [destinationIds, setDestinationIds] = useState(() => DEFAULT_DESTINATION_IDS)
   const [creativeIdeaCount, setCreativeIdeaCount] = useState(() => guestMode ? 1 : restoredBannerDraft.creativeIdeaCount || 1)
   const [imageChoice, setImageChoice] = useState(() => restoredBannerDraft.imageChoice || '')
   const [uploadedImages, setUploadedImages] = useState([])
@@ -1698,6 +1902,17 @@ export default function HeroNext({ guestMode = false } = {}) {
     bannerDraft.save(draft)
   }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, showProfessionalIdentity, textDraft, uploadedImages])
 
+  useEffect(() => {
+    if (market !== 'US' || !answers.state || !answers.county) { setUsCities([]); setUsCitiesError(''); return undefined }
+    const controller = new AbortController()
+    setUsCitiesLoading(true); setUsCitiesError('')
+    getUsCitiesByCounty(answers.state, answers.county, { signal: controller.signal })
+      .then(setUsCities)
+      .catch(error => { if (error.name !== 'AbortError') setUsCitiesError(error.message) })
+      .finally(() => { if (!controller.signal.aborted) setUsCitiesLoading(false) })
+    return () => controller.abort()
+  }, [answers.county, answers.state, market])
+
   const closeExpandedPreview = () => {
     setExpandedPreview(null)
     window.requestAnimationFrame(() => expandedPreviewTriggerRef.current?.focus())
@@ -1770,9 +1985,9 @@ export default function HeroNext({ guestMode = false } = {}) {
       ? [
           { id: 'state', question: t('banner.location.state'), type: 'state' },
           { id: 'county', question: t('banner.location.county'), type: 'county' },
-          { id: 'city', question: t('banner.location.city'), type: 'text', placeholder: t('banner.location.cityPlaceholder') },
+          { id: 'city', question: t('banner.location.city'), type: 'usCity' },
           { id: 'zipCode', question: t('banner.location.zipCode'), type: 'text', placeholder: t('banner.location.zipPlaceholder') },
-          { id: 'neighborhood', question: t('banner.location.neighborhood'), type: 'text', placeholder: t('banner.location.neighborhoodPlaceholder') },
+          { id: 'neighborhood', question: t('banner.location.neighborhood'), type: 'text', placeholder: t('banner.location.neighborhoodPlaceholder'), optional: true, optionalLabel: t('banner.location.skipNeighborhood') },
         ]
       : null
     const flow = locationQuestions
@@ -1867,7 +2082,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     setRentGuarantee('')
     setPromptTouched(false)
     setHumanPrompt('')
-    setDestinationIds([])
+    setDestinationIds(DEFAULT_DESTINATION_IDS)
     setCreativeIdeaCount(1)
     setImageChoice('')
     setUploadedImages([])
@@ -1887,7 +2102,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     }
     const normalizedValue = normalizeAnswerValue(questionId, value)
     const isEmpty = !normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)
-    const allowsEmpty = baseChatFlow.find((question) => question.id === questionId)?.optional === true
+    const allowsEmpty = localizedBaseChatFlow.find((question) => question.id === questionId)?.optional === true
     if (isEmpty && !allowsEmpty) return
 
     const updatedAnswers = { ...answers }
@@ -1906,7 +2121,8 @@ export default function HeroNext({ guestMode = false } = {}) {
       delete updatedAnswers.parking
       delete updatedAnswers.area
     }
-    if (questionId === 'state') delete updatedAnswers.county
+    if (questionId === 'state') { delete updatedAnswers.county; delete updatedAnswers.city; delete updatedAnswers.zipCode }
+    if (questionId === 'county') { delete updatedAnswers.city; delete updatedAnswers.zipCode }
     const updatedChatFlow = getChatFlowForAnswers(localizedBaseChatFlow, updatedAnswers).filter((question) => question.id === 'contactPhone' && guestMode ? updatedAnswers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, updatedAnswers))
     const currentUpdatedIndex = updatedChatFlow.findIndex((question) => question.id === questionId)
     const nextMissingIndex = updatedChatFlow.findIndex((question, index) => (
@@ -1924,7 +2140,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 
     if (nextMissingIndex === -1) {
-      setPhase(isAnyCaptureGoal ? 'destination' : 'values')
+    setPhase(isAnyCaptureGoal ? 'ideas' : 'values')
     } else {
       setChatIndex(nextMissingIndex)
     }
@@ -2000,10 +2216,13 @@ export default function HeroNext({ guestMode = false } = {}) {
   const goToDestinationStep = () => {
     if (goal === 'sale' && !saleValueReady) return
     if (goal === 'rent' && !rentValueReady) return
+    // New campaigns always use the two supported deliverables. A restored
+    // legacy draft must not reintroduce a removed destination into a request.
+    setDestinationIds(DEFAULT_DESTINATION_IDS)
     setPromptTouched(false)
     setHumanPrompt('')
     setGenerationError('')
-    setPhase('destination')
+    setPhase('ideas')
   }
 
   const handlePromptChange = (value) => {
@@ -2315,14 +2534,12 @@ export default function HeroNext({ guestMode = false } = {}) {
     const formatId = destination.id
     const jobId = `idea-${creativeIdea.number}-${formatId}`
     const formatStrategy = getFormatVisualStrategy(destination, uploadedImages.length)
-    const promptForFormat = promptTouched
-       ? buildFormatSpecificPrompt(effectivePrompt, destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
-      : buildFormatSpecificPrompt(buildHumanPrompt(goal, answers, [destination], valueCondition, creativeIdeaCount, market), destination, uploadedImages.length, creativeIdea, creativeIdeaCount)
-    const publicationOptions = buildHeroNextCampaignCopy(goal, answers, valueCondition, market).slice(0, 3).map((item, index) => ({
-      id: `banner-caption-option-${index + 1}`,
-      label: item.label || `Texto ${index + 1}`,
-      text: item.text,
-    }))
+    const generationPayload = buildHeroNextGenerationRequest({
+      market, locale, goal, answers, valueCondition, destination, creativeIdea, creativeIdeaCount,
+      uploadedImages, promptTouched, effectivePrompt, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext,
+      rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee,
+      showProfessionalIdentity, professionalIdentity, professionalMarket,
+    })
 
     updateGenerationJob(jobId, {
       status: 'starting',
@@ -2358,86 +2575,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       if(result.status!=='completed')throw Error('Seu anúncio ainda está sendo criado. Volte em instantes.')
       return {data:{success:true,status:'completed',generation_id:result.requestId,image_url:result.imageUrl,texts:result.texts}}
     } : (options) => supabase.functions.invoke('gerar-hero-ia',options)
-    const { data, error } = await invokeGeneration({
-      body: {
-        human_prompt: promptForFormat.trim(),
-        image_mode: uploadedImages.length > 0 ? 'reference_photos' : 'new_image',
-        image_mode_label: uploadedImages.length > 0
-          ? (isCaptureGoal(goal) ? 'Marca ou foto institucional anexada' : 'Imagens reais anexadas')
-          : 'Campanha sem imagens anexadas',
-        inline_images: uploadedImages.map((item) => ({
-          name: item.name,
-          content_type: item.contentType,
-          data: item.data,
-        })),
-        hero_next_experimental: true,
-        campaign_objective: getHeroNextCampaignObjective(goal),
-        publication_options: publicationOptions,
-        property_type: answers.propertyType || normalizeList(answers.propertyKinds).join(', '),
-        property_profile: answers.profile || (goal === 'rent' ? 'Locação' : goal === 'property_capture' ? 'Captação de Imóveis' : goal === 'broker_capture' ? 'Captação de Corretores' : ''),
-        property_stage: answers.stage || '',
-        market: professionalMarket,
-        locale,
-        state: answers.state || cityUf || '',
-        county: answers.county || '',
-        city: answers.city || '',
-        zip_code: answers.zipCode || '',
-        district: answers.neighborhood || answers.neighborhoods || '',
-        bedrooms: answers.bedrooms || '',
-        suites: answers.suites || '',
-        parking: answers.parking || '',
-        area: answers.area || '',
-        display_area: formatAreaForDisplay(answers.area || ''),
-        rent_price: rentMode === 'show' ? normalizeValueText(rentPrice) : '',
-        display_rent_price: rentMode === 'show' ? formatCurrencyForDisplay(normalizeValueText(rentPrice), 'locacao') : '',
-        condo_fee: condoMode === 'show' ? normalizeValueText(condoFee) : '',
-        display_condo_fee: condoMode === 'show' ? formatCurrencyForDisplay(normalizeValueText(condoFee), 'locacao') : '',
-        iptu: iptuMode === 'show' ? normalizeValueText(iptuValue) : '',
-        display_iptu: iptuMode === 'show' ? formatCurrencyForDisplay(normalizeValueText(iptuValue), 'locacao') : '',
-        guarantee_id: rentGuarantee,
-        guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '',
-        guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
-        highlights: getHeroNextCaptureFeatures(goal, answers),
-        cta: answers.cta || (isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale com o corretor'),
-        contact_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? answers.contactPhone || '' : '',
-        display_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? formatPhone(answers.contactPhone || '', professionalMarket) : '',
-        campaign_contact_phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? answers.contactPhone || '' : '',
-        show_professional_identity: showProfessionalIdentity === true,
-        professional_identity: showProfessionalIdentity === true ? professionalIdentity : '',
-        professional_identity_placement: showProfessionalIdentity === true ? 'discreet_footer' : '',
-        deliverables: {
-          hero_image: true,
-          instagram_text: true,
-          hashtags: true,
-          cta: true,
-          whatsapp: true,
-          portal_description: true,
-        },
-        value_condition: valueCondition,
-        primary_destination: destination,
-        compatible_destinations: [],
-        campaign_batch_id: campaignBatchId,
-        format_generation: {
-          index: formatIndex,
-          total: totalFormats,
-          job_index: jobIndex,
-          total_jobs: totalJobs,
-          format_id: formatId,
-          format_label: destination.label,
-        },
-        creative_idea: {
-          number: creativeIdea.number,
-          title: creativeIdea.title,
-          description: creativeIdea.description,
-          visual_angle: creativeIdea.visualAngle,
-        },
-        format_strategy: formatStrategy,
-        additional_info: '',
-        client_request_id: economicContext.clientRequestId,
-        economic_claim_token: economicContext.claimToken,
-        economic_item_id: economicContext.itemId,
-      },
-    })
+    const { data, error } = await invokeHeroNextGenerationStart(invokeGeneration, generationPayload)
 
     if (error) throw new Error(await getEdgeFunctionErrorMessage(error, `Nao foi possivel iniciar ${destination.label}.`))
     if (!data.success) throw new Error(data.message || data.error || `Não foi possível iniciar ${destination.label}.`)
@@ -2657,6 +2795,18 @@ export default function HeroNext({ guestMode = false } = {}) {
     downloadPlainTextFile('campanha-hero-ia.txt', content)
   }
 
+  const downloadHeroNextAsset = async (url, filename, asset = {}) => {
+    if (!isHeroNextVerticalFormat(asset.formatId, asset.formatGroup)) {
+      return downloadImageFile(url, filename)
+    }
+    const response = await fetch(url, { credentials: 'same-origin' })
+    if (!response.ok) throw new Error('download_request_failed')
+    const sourceBlob = await response.blob()
+    if (!sourceBlob.size) throw new Error('download_empty_file')
+    const exportBlob = await createHeroNextVerticalNineBySixteenBlob(sourceBlob)
+    triggerBlobDownload(exportBlob, withNineBySixteenSuffix(filename))
+  }
+
   const downloadAllImages = async () => {
     if(guestMode){requireGuestAccount();return}
     const completedJobs = (generationResult.jobs || []).filter((job) => job.status === 'completed' && job.imageUrl)
@@ -2664,9 +2814,10 @@ export default function HeroNext({ guestMode = false } = {}) {
     setDownloadAllLoading(true)
     try {
       for (const job of completedJobs) {
-        await downloadImageFile(
+        await downloadHeroNextAsset(
           job.imageUrl,
           `smartcorretorai-hero-ia-${job.ideaNumber || 1}-${formatFileSlug(job.formatLabel)}.png`,
+          job,
         )
       }
     } catch {
@@ -2742,10 +2893,12 @@ export default function HeroNext({ guestMode = false } = {}) {
       parking: answers.parking,
       area: answers.area,
       highlights: isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials,
-      cta: answers.cta,
       contactAuthorized: answers.contactPhoneChoice === 'Sim, quero divulgar' && Boolean(profilePhone),
       phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? profilePhone : '',
+      cta: localizeHeroNextSystemValue(answers.cta, market),
     },
+    labels: heroNextCampaignLabels,
+    strategy: heroNextCampaignStrategy,
     buildGoogleAds: buildPublicationGoogleAds,
     googleAdsInput: buildHeroNextCopyInput(goal, answers, valueCondition),
     creationOptionLabel: getCreationOptionLabel,
@@ -2843,6 +2996,18 @@ export default function HeroNext({ guestMode = false } = {}) {
               {cities.map((item) => <option key={item} value={item}>{item}</option>)}
             </SmartLocationSelect>
           </div>
+        </div>
+      )
+    }
+
+    if (currentQuestion.type === 'usCity') {
+      return (
+        <div className="mt-4 space-y-3">
+          <SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.city')} value={answers.city || ''} disabled={!answers.county || usCitiesLoading || Boolean(usCitiesError)} onChange={(city) => commitAnswer('city', city)}>
+            <option value="">{usCitiesLoading ? t('banner.location.loadingCities') : !answers.county ? t('banner.location.selectCountyFirst') : t('banner.location.selectCity')}</option>
+            {usCities.map(city => <option key={city} value={city}>{city}</option>)}
+          </SmartLocationSelect>
+          {usCitiesError && <p className="text-sm font-semibold text-red-700">{t('banner.location.cityLoadError')}</p>}
         </div>
       )
     }
@@ -3459,62 +3624,6 @@ export default function HeroNext({ guestMode = false } = {}) {
           </section>
         )}
 
-        {phase === 'destination' && (
-          <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
-            <AssistantBubble>{b('formatsQuestion')}</AssistantBubble>
-            <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-gray-600">
-              Cada formato selecionado gera uma peça IA própria, otimizada para aquele canal.
-            </p>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-primary-700">
-              Limite: até {MAX_HERO_NEXT_PIECES} peças por geração.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {DESTINATIONS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => toggleDestination(item.id)}
-                  className={`rounded-3xl border p-5 text-left transition ${
-                    destinationIds.includes(item.id) ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-lg font-black">{item.label}</p>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
-                      destinationIds.includes(item.id) ? 'bg-cyan-100 text-primary-900' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      1 geração
-                    </span>
-                  </div>
-                  <p className={`mt-2 text-sm font-semibold ${destinationIds.includes(item.id) ? 'text-gray-300' : 'text-gray-500'}`}>
-                    {item.format_group === 'vertical' ? 'Formato vertical principal.' : item.format_group === 'landscape' ? 'Formato horizontal principal.' : 'Formato quadrado principal.'}
-                  </p>
-                </button>
-              ))}
-            </div>
-            {selectedDestinations.length > 0 && (
-              <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-600">
-                <p><strong>{b('formatsSelected')}</strong> {selectedDestinations.map((item) => item.label).join(', ')}</p>
-                <p className="mt-1"><strong>{b('nextStep')}</strong> {b('chooseCreationOptions')}</p>
-                <p className="mt-1"><strong>{b('currentTotal')}</strong> {formatPieceCount(totalPieceCount)} IA</p>
-              </div>
-            )}
-            {(pieceLimitNotice || pieceLimitExceeded) && (
-              <p className="mt-4 rounded-2xl border border-blue-100 bg-primary-50 p-3 text-sm font-bold text-primary-800">
-                {HERO_NEXT_PIECE_LIMIT_MESSAGE}
-              </p>
-            )}
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <ProductButton type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' || goal === 'rent' ? 'values' : 'chat')}>
-                Voltar
-              </ProductButton>
-              <ProductButton type="button" onClick={() => setPhase('ideas')} disabled={!selectedDestination || pieceLimitExceeded}>
-                Continuar
-              </ProductButton>
-            </div>
-          </ProductCard>
-        )}
-
         {phase === 'ideas' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">
             <AssistantBubble>{b('optionsQuestion')}</AssistantBubble>
@@ -3565,7 +3674,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               </p>
             )}
             <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <ProductButton type="button" variant="secondary" onClick={() => setPhase('destination')}>
+              <ProductButton type="button" variant="secondary" onClick={() => setPhase(goal === 'sale' || goal === 'rent' ? 'values' : 'chat')}>
                 Voltar
               </ProductButton>
               <ProductButton type="button" onClick={() => setPhase('prompt')} disabled={pieceLimitExceeded}>
@@ -3808,6 +3917,16 @@ export default function HeroNext({ guestMode = false } = {}) {
               onCreateNew={resetCampaign}
               createNewLabel={market === 'US' ? 'Create a new campaign' : 'Criar nova campanha'}
               onOpenImage={openExpandedPreview}
+              onWithdrawDownload={(filename, file) => downloadHeroNextAsset(file?.downloadUrl || file?.url, filename, file || {})}
+              uiLabels={isUSMarket ? {
+                campaign: {
+                  packageTitle: 'Campaign package', ready: 'Your campaign is ready.', description: 'Media and copy are organized for publishing.',
+                  promotionTexts: 'Promotional copy', chooseChannel: 'Choose a channel and publish', ctaContact: 'CTA and contact', usedInformation: 'Information used', promotionTips: 'Promotion tips', nextSteps: 'Next steps',
+                },
+                media: { generated: 'Generated media', campaignArts: 'Campaign assets', art: 'Asset {n}', unavailable: 'File unavailable', waiting: 'Waiting to render', rendering: 'Rendering...' },
+                download: { image: 'Download', loading: 'Downloading...' },
+                actions: { copy: 'Copy', copied: 'Copied!', publish: 'Publish', creationError: 'We could not safely identify the selected creation and copy.' },
+              } : undefined}
               bannerPublish={{
                 enabled: true,
                 captionEditable: true,

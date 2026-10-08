@@ -38,6 +38,25 @@ export function isValidCountyForState(state, county) {
   return getCountiesByState(state).some(option => option.value === county)
 }
 
+// TIGERweb is the Census Bureau's public geography service. We first fetch the
+// selected county boundary, then intersect it with incorporated places and CDPs.
+// This makes the city list genuinely dependent on the County selection.
+export async function getUsCitiesByCounty(state, county, { signal } = {}) {
+  const countyOption = getCountiesByState(state).find(option => option.value === county)
+  if (!countyOption) return []
+  const countyQuery = new URLSearchParams({ where: `STATE='${countyOption.stateFips}' AND COUNTY='${countyOption.countyFips}'`, outFields: 'NAME', returnGeometry: 'true', outSR: '4326', f: 'json' })
+  const countyResponse = await fetch(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1/query?${countyQuery}`, { signal })
+  const countyJson = await countyResponse.json()
+  const geometry = countyJson.features?.[0]?.geometry
+  if (!countyResponse.ok || !geometry) throw new Error('Census county geometry is unavailable')
+  const placeQuery = new URLSearchParams({ where: '1=1', geometry: JSON.stringify(geometry), geometryType: 'esriGeometryPolygon', spatialRel: 'esriSpatialRelIntersects', inSR: '4326', outFields: 'BASENAME,NAME', returnGeometry: 'false', f: 'json' })
+  const layers = [4, 5]
+  const responses = await Promise.all(layers.map(layer => fetch(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/${layer}/query?${placeQuery}`, { signal })))
+  const payloads = await Promise.all(responses.map(response => response.json()))
+  if (responses.some(response => !response.ok)) throw new Error('Census place data is unavailable')
+  return payloads.flatMap(payload => payload.features || []).map(feature => String(feature.attributes?.BASENAME || feature.attributes?.NAME || '').trim()).filter(Boolean).filter((city, index, items) => items.indexOf(city) === index).sort((a, b) => a.localeCompare(b, 'en-US'))
+}
+
 export function normalizeUsZipCode(value = '') {
   const digits = String(value).replace(/\D/g, '').slice(0, 9)
   return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits

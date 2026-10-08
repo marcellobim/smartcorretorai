@@ -9,7 +9,6 @@ import { smartTokenRechargePackagesForMarket } from '../data/creditCosts'
 import BrandMark from '../components/brand/BrandMark'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import { useLocale } from '../i18n/useLocale'
-import { getMarketConfig } from '../i18n/locale-config'
 
 const PLANOS_BR = [
   {
@@ -79,7 +78,7 @@ const formatTokens = (value) => new Intl.NumberFormat('pt-BR').format(value)
 
 export default function Planos() {
   const { user, isAuthenticated, loading, reloadProfile } = useAuth()
-  const { locale, market, setLocale, setMarket } = useLocale()
+  const { locale, market, setMarket } = useLocale()
   const isUS = market === 'US'
   const planos = isUS ? PLANOS_US : PLANOS_BR
   const rechargePackages = smartTokenRechargePackagesForMarket(market)
@@ -103,9 +102,7 @@ export default function Planos() {
   const selectedRecharge = rechargePackages.find(item => item.id === selectedRechargeKey) ?? rechargePackages[0]
 
   const selectMarket = (nextMarket) => {
-    const next = getMarketConfig(nextMarket)
     setMarket(nextMarket)
-    setLocale(next.locale)
   }
 
   useEffect(() => {

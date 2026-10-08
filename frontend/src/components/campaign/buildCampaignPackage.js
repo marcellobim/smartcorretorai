@@ -236,6 +236,8 @@ export function normalizeCampaignPackageInput(input = {}) {
       assetId: clean(file?.assetId || file?.asset_id || file?.id || file?.piece_id),
       optionId: clean(file?.optionId || file?.option_id),
       optionNumber: Number(file?.optionNumber || file?.option_number) || 0,
+      formatId: clean(file?.formatId || file?.format_id),
+      formatGroup: clean(file?.formatGroup || file?.format_group),
     }))
     : []
   const highlights = Array.isArray(input.highlights) ? compact(input.highlights) : []
@@ -248,6 +250,8 @@ export function normalizeCampaignPackageInput(input = {}) {
     unifiedSocialPublishing: input.unifiedSocialPublishing === true,
     mediaType: input.mediaType === 'images' ? 'images' : 'video',
     files,
+    campaignLabels: input.campaignLabels && typeof input.campaignLabels === 'object' ? input.campaignLabels : {},
+    strategy: Array.isArray(input.strategy) ? compact(input.strategy) : [],
     previewUrl: clean(input.previewUrl),
     downloadUrl: clean(input.downloadUrl),
     downloadName: clean(input.downloadName) || 'campanha-smartcorretorai',
@@ -284,10 +288,10 @@ export function buildCampaignPackage(input = {}) {
       ...campaign,
       modules: [...aiCampaignModules, ...(googleAdsModule ? [googleAdsModule] : [])],
       contact: [
-        campaign.cta && { id: 'cta', label: 'CTA utilizado', value: campaign.cta, copyLabel: 'Copiar CTA' },
-        campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
+        campaign.cta && { id: 'cta', label: campaign.campaignLabels.ctaUsed || 'CTA utilizado', value: campaign.cta, copyLabel: campaign.campaignLabels.copyCta || 'Copiar CTA' },
+        campaign.contactAuthorized && { id: 'phone', label: campaign.campaignLabels.phone || 'Telefone', value: campaign.phone, copyLabel: campaign.campaignLabels.copyPhone || 'Copiar telefone' },
       ].filter(Boolean),
-      strategy: [
+      strategy: campaign.strategy.length ? campaign.strategy : [
         `💡 Dica ${BRAND.name} — Sua campanha está pronta! Agora é o momento de colocá-la em ação. Baixe seus materiais para mantê-los sempre disponíveis e publique o quanto antes. Depois, aproveite este mesmo imóvel para criar novos vídeos, banners e campanhas com os outros produtos do ${BRAND.name}. Assim, você mantém suas redes sempre atualizadas com conteúdos variados e aumenta suas oportunidades de alcançar novos clientes.`,
         '🚀 Continue gerando resultados — Quem publica com frequência permanece em evidência. Aproveite que todas as informações deste imóvel já estão organizadas e crie novas versões da campanha em diferentes formatos. Em poucos minutos você terá conteúdo suficiente para vários dias de divulgação, economizando tempo e fortalecendo sua presença nas redes sociais.',
         'Lembre-se: quanto mais conteúdos de qualidade você publicar, maiores serão suas oportunidades de gerar novos contatos e negócios.',
@@ -295,11 +299,11 @@ export function buildCampaignPackage(input = {}) {
     }
   }
   const existingItems = normalizeExistingTextItems(campaign.existingTexts)
-  const existingSocial = existingFields(existingItems, /instagram|facebook/i, 'Copiar texto')
-  const existingWhatsapp = existingFields(existingItems, /whatsapp/i, 'Copiar mensagem')
-  const existingPortal = existingFields(existingItems, /portal/i, 'Copiar descrição')
-  const existingLinkedin = existingFields(existingItems, /linkedin/i, 'Copiar texto')
-  const existingEmail = existingFields(existingItems, /e-?mail|assunto/i, 'Copiar')
+  const existingSocial = existingFields(existingItems, /instagram|facebook/i, campaign.campaignLabels.copyText || 'Copiar texto')
+  const existingWhatsapp = existingFields(existingItems, /whatsapp/i, campaign.campaignLabels.copyMessage || 'Copiar mensagem')
+  const existingPortal = existingFields(existingItems, /portal/i, campaign.campaignLabels.copyDescription || 'Copiar descrição')
+  const existingLinkedin = existingFields(existingItems, /linkedin/i, campaign.campaignLabels.copyText || 'Copiar texto')
+  const existingEmail = existingFields(existingItems, /e-?mail|assunto/i, campaign.campaignLabels.copy || 'Copiar')
   const location = locationText(campaign)
   const purpose = purposeText(campaign.purpose)
   const subject = compact([campaign.propertyType, purpose, location ? `em ${location}` : '']).join(' ')
@@ -367,32 +371,32 @@ export function buildCampaignPackage(input = {}) {
 
   const fallbackModules = [
     existingSocial.length
-      ? { id: 'social', title: 'Instagram e Facebook', fields: existingSocial }
-      : hasCampaignContext && instagram && { id: 'instagram', title: 'Instagram', copyLabel: 'Copiar texto', text: instagram },
-    !existingSocial.length && hasCampaignContext && facebook && { id: 'facebook', title: 'Facebook', copyLabel: 'Copiar texto', text: facebook },
+      ? { id: 'social', title: campaign.campaignLabels.instagramFacebook || 'Instagram e Facebook', fields: existingSocial }
+      : hasCampaignContext && instagram && { id: 'instagram', title: 'Instagram', copyLabel: campaign.campaignLabels.copyText || 'Copiar texto', text: instagram },
+    !existingSocial.length && hasCampaignContext && facebook && { id: 'facebook', title: 'Facebook', copyLabel: campaign.campaignLabels.copyText || 'Copiar texto', text: facebook },
     existingWhatsapp.length
       ? { id: 'whatsapp', title: 'WhatsApp', fields: existingWhatsapp }
-      : (hasPropertyContext || campaign.cta) && whatsapp && { id: 'whatsapp', title: 'WhatsApp', copyLabel: 'Copiar mensagem', text: whatsapp },
-    existingPortal.length && { id: 'portal', title: 'Portal imobiliário', fields: existingPortal },
+      : (hasPropertyContext || campaign.cta) && whatsapp && { id: 'whatsapp', title: 'WhatsApp', copyLabel: campaign.campaignLabels.copyMessage || 'Copiar mensagem', text: whatsapp },
+    existingPortal.length && { id: 'portal', title: campaign.campaignLabels.portal || 'Portal imobiliário', fields: existingPortal },
     existingLinkedin.length
       ? { id: 'linkedin', title: 'LinkedIn', fields: existingLinkedin }
       : hasProfessionalContext && facebook && {
       id: 'linkedin',
       title: 'LinkedIn',
-      copyLabel: 'Copiar texto',
+      copyLabel: campaign.campaignLabels.copyText || 'Copiar texto',
       text: compact([opening, campaign.description ? sentence(campaign.description) : '', ...detailLines, ctaLine]).join('\n\n'),
     },
     existingEmail.length
       ? { id: 'email', title: 'E-mail', fields: existingEmail }
       : (hasPropertyContext || hasProfessionalContext) && emailSubject && emailBody && {
       id: 'email',
-      title: 'E-mail',
+      title: campaign.campaignLabels.email || 'E-mail',
       fields: [
-        { id: 'email-subject', label: 'Assunto sugerido', text: emailSubject, copyLabel: 'Copiar assunto' },
-        { id: 'email-body', label: 'Mensagem', text: emailBody, copyLabel: 'Copiar mensagem' },
+        { id: 'email-subject', label: campaign.campaignLabels.emailSubject || 'Assunto sugerido', text: emailSubject, copyLabel: campaign.campaignLabels.copySubject || 'Copiar assunto' },
+        { id: 'email-body', label: campaign.campaignLabels.message || 'Mensagem', text: emailBody, copyLabel: campaign.campaignLabels.copyMessage || 'Copiar mensagem' },
       ],
     },
-    hashtags && { id: 'hashtags', title: 'Hashtags', copyLabel: 'Copiar hashtags', text: hashtags },
+    hashtags && { id: 'hashtags', title: 'Hashtags', copyLabel: campaign.campaignLabels.copyHashtags || 'Copiar hashtags', text: hashtags },
   ].filter(Boolean)
   const googleAdsModule = buildGoogleAdsModule(campaign.googleAds)
   const modules = [...fallbackModules, ...(googleAdsModule ? [googleAdsModule] : [])]
@@ -401,10 +405,10 @@ export function buildCampaignPackage(input = {}) {
     ...campaign,
     modules,
     contact: [
-      campaign.cta && { id: 'cta', label: 'CTA utilizado', value: campaign.cta, copyLabel: 'Copiar CTA' },
-      campaign.contactAuthorized && { id: 'phone', label: 'Telefone', value: campaign.phone, copyLabel: 'Copiar telefone' },
+      campaign.cta && { id: 'cta', label: campaign.campaignLabels.ctaUsed || 'CTA utilizado', value: campaign.cta, copyLabel: campaign.campaignLabels.copyCta || 'Copiar CTA' },
+      campaign.contactAuthorized && { id: 'phone', label: campaign.campaignLabels.phone || 'Telefone', value: campaign.phone, copyLabel: campaign.campaignLabels.copyPhone || 'Copiar telefone' },
     ].filter(Boolean),
-    strategy: (() => {
+    strategy: campaign.strategy.length ? campaign.strategy : (() => {
       const moduleIds = new Set(modules.map((module) => module.id))
       const hasSocial = moduleIds.has('social') || moduleIds.has('instagram') || moduleIds.has('facebook')
       return [

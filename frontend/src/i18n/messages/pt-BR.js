@@ -90,7 +90,7 @@ export default Object.freeze({
       question: 'Deseja mostrar seus dados profissionais no banner?',
       description: 'Usaremos seu nome de divulgação (ou nome cadastrado) e seu registro profissional.',
     }),
-    location: Object.freeze({ state: 'Estado (UF)', county: 'Condado', city: 'Cidade', zipCode: 'CEP', neighborhood: 'Bairro', selectState: 'Selecione o estado', selectCounty: 'Selecione o condado', cityPlaceholder: 'Ex: São Paulo', zipPlaceholder: 'Ex: 01000-000', neighborhoodPlaceholder: 'Ex: Vila Mariana' }),
+    location: Object.freeze({ state: 'Estado (UF)', county: 'Condado', city: 'Cidade', zipCode: 'CEP', neighborhood: 'Bairro', selectState: 'Selecione o estado', selectCounty: 'Selecione o condado', selectCountyFirst: 'Selecione primeiro o condado', selectCity: 'Selecione a cidade', loadingCities: 'Carregando cidades…', cityLoadError: 'Não foi possível carregar as cidades deste condado.', skipNeighborhood: 'Continuar sem informar o bairro', cityPlaceholder: 'Ex: São Paulo', zipPlaceholder: 'Ex: 01000-000', neighborhoodPlaceholder: 'Ex: Vila Mariana' }),
   }),
   brand: Object.freeze({
     name: 'SNETIA',
@@ -121,6 +121,8 @@ export default Object.freeze({
       required: 'Senha obrigatória',
     }),
     forgotPassword: 'Esqueceu a senha?',
+    continueGoogle: 'Continuar com Google',
+    security: Object.freeze({ label: 'Verificação de segurança', loading: 'Carregando verificação segura…', waiting: 'Conclua a verificação para continuar.', verified: 'Verificação concluída.', unavailable: 'A verificação não está disponível neste ambiente.', failed: 'Não foi possível concluir a verificação. Tente novamente.', retry: 'Recarregar', diagnostic: 'Diagnóstico de desenvolvimento: erro Turnstile {code}' }),
     submit: 'Entrar',
     resend: Object.freeze({
       title: 'Ainda não confirmou seu e-mail?',

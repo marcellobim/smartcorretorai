@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
 import { useLocale } from '../i18n/useLocale'
+import MarketSelector from '../components/i18n/MarketSelector'
 
 export default function ForgotPasswordPage() {
   const { t } = useLocale()
@@ -39,7 +40,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <MarketSelector compact className="absolute right-4 top-4 z-10 w-[226px] shadow-lg" />
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl">
         <div className="flex items-center gap-3"><BrandMark size={36} decorative /><span className="font-black">{BRAND.name}</span></div>
         <h1 className="mt-7 text-2xl font-black text-slate-950">{t('forgotPassword.title')}</h1>

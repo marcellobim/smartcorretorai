@@ -14,6 +14,7 @@ import TurnstileWidget from '../components/auth/TurnstileWidget'
 import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import { useLocale } from '../i18n/useLocale'
+import MarketSelector from '../components/i18n/MarketSelector'
 
 const GENERIC_LOGIN_ERROR = 'Não foi possível entrar. Verifique os dados informados ou tente novamente mais tarde.'
 const GENERIC_RESEND_MESSAGE = 'Se houver um cadastro pendente para este e-mail, enviaremos novas instruções quando o envio estiver disponível.'
@@ -93,7 +94,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="relative min-h-screen flex">
+      <MarketSelector compact className="absolute right-4 top-4 z-10 w-[226px] shadow-lg" />
       <div className="hidden lg:flex flex-1 gradient-hero items-center justify-center p-12">
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-10">

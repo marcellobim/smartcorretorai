@@ -13,6 +13,7 @@ import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { LEGAL_ACCEPTANCE_CONTEXT, LEGAL_DOCUMENT_VERSIONS } from '../config/legalDocuments'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import { useLocale } from '../i18n/useLocale'
+import MarketSelector from '../components/i18n/MarketSelector'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -93,7 +94,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
+    <div className="relative min-h-screen flex items-center justify-center p-8 bg-gray-50">
+      <MarketSelector compact className="absolute right-4 top-4 z-10 w-[226px] shadow-lg" />
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2 mb-8">
           <BrandMark size={32} decorative />

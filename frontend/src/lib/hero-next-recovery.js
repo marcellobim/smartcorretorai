@@ -82,6 +82,8 @@ export function buildHeroNextCampaignPackageData({
   result,
   campaignCopy = [],
   context = {},
+  labels = {},
+  strategy = [],
   buildGoogleAds,
   googleAdsInput,
   creationOptionLabel,
@@ -91,17 +93,24 @@ export function buildHeroNextCampaignPackageData({
   }
   const files = result.jobs
     .filter((job) => job?.status === 'completed' && asText(job?.imageUrl))
-    .map((job, index) => ({
-      id: asText(job.jobId) || `${asText(job.formatId) || 'hero'}-${index}`,
-      name: `${asText(job.formatLabel) || `Arte ${index + 1}`}${job.ideaNumber && typeof creationOptionLabel === 'function' ? ` · ${creationOptionLabel(job.ideaNumber)}` : ''}`,
-      type: 'image',
-      status: 'Concluída',
-      previewUrl: asText(job.imageUrl),
-      downloadUrl: asText(job.imageUrl),
-      assetId: asText(job.pieceId || job.jobId),
-      optionId: `banner-caption-option-${Number(job.ideaNumber) || index + 1}`,
-      optionNumber: Number(job.ideaNumber) || index + 1,
-    }))
+    .map((job, index) => {
+      const formatId = asText(job.formatId)
+      const localizedFormatLabel = asText(labels.formatLabels?.[formatId]) || asText(job.formatLabel) || `Arte ${index + 1}`
+      const localizedCreationLabel = asText(labels.creationOptionLabels?.[String(job.ideaNumber)]) || (job.ideaNumber && typeof creationOptionLabel === 'function' ? creationOptionLabel(job.ideaNumber) : '')
+      return {
+        id: asText(job.jobId) || `${formatId || 'hero'}-${index}`,
+        name: `${localizedFormatLabel}${localizedCreationLabel ? ` · ${localizedCreationLabel}` : ''}`,
+        type: 'image',
+        status: asText(labels.completedStatus) || 'Concluída',
+        previewUrl: asText(job.imageUrl),
+        downloadUrl: asText(job.imageUrl),
+        assetId: asText(job.pieceId || job.jobId),
+        optionId: `banner-caption-option-${Number(job.ideaNumber) || index + 1}`,
+        optionNumber: Number(job.ideaNumber) || index + 1,
+        formatId,
+        formatGroup: asText(job.formatGroup),
+      }
+    })
   if (!files.length) return { data: null, error: 'hero_next_campaign_media_missing', warning: '' }
 
   let googleAds = null
@@ -134,6 +143,8 @@ export function buildHeroNextCampaignPackageData({
       cta: asText(safeContext.cta),
       contactAuthorized: Boolean(safeContext.contactAuthorized && asText(safeContext.phone)),
       phone: asText(safeContext.phone),
+      campaignLabels: labels,
+      strategy: Array.isArray(strategy) ? strategy : [],
       existingTexts: safeCopy.map((item, index) => ({
         id: `banner-caption-option-${index + 1}`,
         label: asText(item?.label) || `Texto ${index + 1}`,

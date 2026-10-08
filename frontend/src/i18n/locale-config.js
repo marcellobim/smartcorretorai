@@ -17,3 +17,18 @@ export const MARKET_CONFIG = Object.freeze({
 export function getMarketConfig(market) {
   return MARKET_CONFIG[market] || DEFAULT_LOCALE_CONFIG
 }
+
+// `market` is the persisted source of truth. Locale is always derived from it
+// so an old or partially persisted preference cannot create a mixed state.
+export function normalizeMarketPreferences(preferences = {}) {
+  const market = SUPPORTED_MARKETS.includes(preferences.market)
+    ? preferences.market
+    : preferences.locale === 'en-US'
+      ? 'US'
+      : 'BR'
+
+  return {
+    market,
+    locale: getMarketConfig(market).locale,
+  }
+}

@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
+import MarketSelector from '../i18n/MarketSelector'
 import toast from 'react-hot-toast'
 import { formatSmartTokens, getSmartTokenBalance, isTrialUser } from '../../lib/smart-tokens'
 import BrandMark from '../brand/BrandMark'
@@ -190,6 +191,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
+        <MarketSelector />
         {customerNavigationGroups(t).map(group => (
           <NavigationGroup key={group.id} group={group} onNavigate={onClose} />
         ))}

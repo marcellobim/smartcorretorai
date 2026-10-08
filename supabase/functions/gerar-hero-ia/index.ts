@@ -5,6 +5,7 @@ import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/off
 import { normalizeBannerPublicationOptions } from '../_shared/banner-publication-options.ts'
 import { handleGuestBanner } from './guest-runtime.ts'
 import { validGuestImages } from './guest-input.ts'
+import { buildHeroNextUSSinglePiecePrompt } from './hero-next-prompt.ts'
 import {
   createRealEstateBannerEconomy,
   normalizeBannerClientRequestId,
@@ -588,6 +589,9 @@ function buildHeroNextSinglePiecePrompt(humanPrompt: string, briefing: JsonRecor
   const property = briefing.property && typeof briefing.property === 'object'
      ? briefing.property as JsonRecord
     : {}
+  // Market is the authoritative switch. Locale is deliberately not consulted:
+  // legacy requests without a market retain the established Brazilian path.
+  if (choices.market === 'US') return buildHeroNextUSSinglePiecePrompt(humanPrompt, choices, property)
   const destination = choices.primary_destination && typeof choices.primary_destination === 'object'
      ? choices.primary_destination as JsonRecord
     : {}
@@ -1694,6 +1698,7 @@ function buildPromptBriefing(property: JsonRecord, masterProperty: JsonRecord, p
 }
 
 function buildStandalonePromptBriefing(payload: JsonRecord) {
+  const market = payload.market === 'US' ? 'US' : 'BR'
   const inlineImages = normalizeInlineImages(payload.inline_images, HERO_NEXT_MAX_INLINE_IMAGES)
   const primaryDestination = normalizeLabeledItem(payload.primary_destination)
   const compatibleDestinations = normalizeLabeledItems(payload.compatible_destinations, 6)
@@ -1711,14 +1716,16 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       purpose: campaignObjective,
       price: null,
       area: null,
-      display_area: formatAreaForDisplay(payload.display_area || payload.area),
+      display_area: market === 'US'
+        ? normalizeText(payload.display_area || payload.area, 80)
+        : formatAreaForDisplay(payload.display_area || payload.area),
       bedrooms: normalizeText(payload.bedrooms, 40),
       suites: normalizeText(payload.suites, 40),
       bathrooms: null,
       parking_spaces: normalizeText(payload.parking, 40),
       neighborhood: normalizeText(payload.district || payload.neighborhood, 120),
       city: normalizeText(payload.city, 120),
-      state: '',
+      state: normalizeText(payload.state, 120),
       photo_count: inlineImages.length,
       photo_urls: [],
       master_profile: normalizeText(payload.property_profile, 120),
@@ -1726,6 +1733,7 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       master_highlights: highlights,
     },
     choices: {
+      market,
       image_mode: inlineImages.length > 0 ? 'reference_photos' : normalizeId(payload.image_mode, IMAGE_MODES) || 'new_image',
       image_mode_label: normalizeText(payload.image_mode_label, 120),
       human_prompt: normalizeLongText(payload.human_prompt, 5000),
@@ -1745,10 +1753,15 @@ function buildStandalonePromptBriefing(payload: JsonRecord) {
       display_phone: normalizeContactPhoneForDisplay(payload.display_phone || payload.contact_phone || payload.campaign_contact_phone),
       show_professional_identity: payload.show_professional_identity === true,
       professional_identity: payload.show_professional_identity === true ? normalizeProfessionalIdentity(payload.professional_identity) : '',
-      value_condition: normalizeValueCondition(
-        payload.value_condition,
-        campaignObjective === 'venda' && isCommercialTermsStage(payload.property_stage),
-      ),
+      value_condition: market === 'US'
+        ? (() => {
+            const source = payload.value_condition && typeof payload.value_condition === 'object' ? payload.value_condition as JsonRecord : {}
+            return { mode: normalizeId(source.mode) || 'hide_values', label: normalizeText(source.label, 120), details: normalizeText(source.details, 280) }
+          })()
+        : normalizeValueCondition(
+            payload.value_condition,
+            campaignObjective === 'venda' && isCommercialTermsStage(payload.property_stage),
+          ),
       primary_destination: primaryDestination,
       compatible_destinations: compatibleDestinations,
       campaign_batch_id: normalizeText(payload.campaign_batch_id, 160),

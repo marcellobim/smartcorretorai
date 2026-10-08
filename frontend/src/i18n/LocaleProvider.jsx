@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 
-import { DEFAULT_LOCALE_CONFIG, MARKET_CONFIG, SUPPORTED_LOCALES, SUPPORTED_MARKETS } from './locale-config'
+import { DEFAULT_LOCALE_CONFIG, MARKET_CONFIG, SUPPORTED_LOCALES, SUPPORTED_MARKETS, normalizeMarketPreferences } from './locale-config'
 import { formatArea, formatCurrency, formatDate, formatNumber } from './formatters'
 import { getMessage } from './messages'
 
@@ -19,10 +19,7 @@ function readPreferences() {
 
   try {
     const preferences = JSON.parse(window.localStorage.getItem(LOCALE_PREFERENCES_KEY) || '{}')
-    return {
-      locale: isSupportedLocale(preferences.locale) ? preferences.locale : DEFAULT_LOCALE_CONFIG.locale,
-      market: isSupportedMarket(preferences.market) ? preferences.market : DEFAULT_LOCALE_CONFIG.market,
-    }
+    return normalizeMarketPreferences(preferences)
   } catch {
     return DEFAULT_LOCALE_CONFIG
   }
@@ -56,12 +53,12 @@ export function LocaleProvider({ children }) {
 
   const setLocale = useCallback((nextLocale) => {
     if (!isSupportedLocale(nextLocale)) return
-    setPreferences((current) => ({ ...current, locale: nextLocale }))
+    setPreferences(() => normalizeMarketPreferences({ locale: nextLocale }))
   }, [])
 
   const setMarket = useCallback((nextMarket) => {
     if (!isSupportedMarket(nextMarket)) return
-    setPreferences((current) => ({ ...current, market: nextMarket }))
+    setPreferences(() => normalizeMarketPreferences({ market: nextMarket }))
   }, [])
 
   const value = useMemo(() => ({
