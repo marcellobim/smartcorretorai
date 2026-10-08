@@ -50,6 +50,8 @@ test('shared authenticated estimate resolves locale before formatting Smart Toke
   assert.match(estimate, /formatSmartTokens\(normalizedCost, locale\)/)
   assert.match(estimate, /formatSmartTokens\(balance, locale\)/)
   assert.match(estimate, /t\('sidebar\.smartTokens\.unit'\)/)
+  assert.match(estimate, /This creation/)
+  assert.match(estimate, /Available balance/)
 })
 
 test('renders a compact insufficient-balance warning and existing recharge route', () => {
