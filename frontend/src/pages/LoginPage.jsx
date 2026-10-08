@@ -56,7 +56,7 @@ export default function LoginPage() {
       setUserEmail(data.email)
       const signedIn = await signIn(data.email, data.senha, captchaToken)
       trackEvent('login_completed')
-      toast.success('Bem-vindo de volta!')
+      toast.success(t('login.welcomeBack'))
       navigate(videoLoginDestination(sessionStorage, signedIn?.user?.id))
     } catch {
       setShowResendButton(true)
@@ -94,8 +94,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex">
-      <MarketSelector compact className="absolute right-4 top-4 z-10 w-[226px] shadow-lg" />
+    <div className="min-h-screen flex">
       <div className="hidden lg:flex flex-1 gradient-hero items-center justify-center p-12">
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-10">
@@ -135,7 +134,9 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <div className="mt-8">
+          <MarketSelector className="mt-6 w-full" />
+
+          <div className="mt-6">
             <GoogleAuthButton onClick={handleGoogle} loading={googleLoading} />
             <div className="my-6 flex items-center gap-3" aria-hidden="true">
               <div className="h-px flex-1 bg-slate-200" />

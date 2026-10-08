@@ -94,8 +94,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-8 bg-gray-50">
-      <MarketSelector compact className="absolute right-4 top-4 z-10 w-[226px] shadow-lg" />
+    <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2 mb-8">
           <BrandMark size={32} decorative />
@@ -110,7 +109,9 @@ export default function RegisterPage() {
           </Link>
         </p>
 
-        <div className="mt-8">
+        <MarketSelector className="mt-6 w-full" />
+
+        <div className="mt-6">
           <GoogleAuthButton onClick={handleGoogle} loading={googleLoading} />
           <div className="my-6 flex items-center gap-3" aria-hidden="true">
             <div className="h-px flex-1 bg-slate-200" />

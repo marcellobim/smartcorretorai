@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BRAND } from '../config/brand'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Building2,
@@ -1745,6 +1745,7 @@ function UserBubble({ children, actions }) {
 export default function HeroNext({ guestMode = false } = {}) {
   const { user, profile, reloadProfile } = useAuth()
   const { locale, market, t } = useLocale()
+  const navigate = useNavigate()
   const b = (key) => t(`banner.ui.${key}`)
   const optionLabels = t('banner.optionLabels')
   const optionLabel = (value) => optionLabels?.[value] || value
@@ -2881,6 +2882,19 @@ export default function HeroNext({ guestMode = false } = {}) {
     setPhase('goal')
   }
 
+  const handleBackToHome = (event) => {
+    const generationStarted = generationLoading
+      || Boolean(generationResult)
+      || Boolean(economicRequestIdRef.current)
+      || ['processing', 'recovery', 'result'].includes(phase)
+
+    if (generationStarted) return
+
+    event.preventDefault()
+    bannerDraft.discard()
+    navigate(guestMode ? '/' : '/dashboard')
+  }
+
   const campaignPackageBuild = generationResult ? buildHeroNextCampaignPackageData({
     result: generationResult,
     campaignCopy,
@@ -3136,12 +3150,18 @@ export default function HeroNext({ guestMode = false } = {}) {
         <ProductButton
           as={Link}
           to={guestMode ? '/' : '/dashboard'}
+          onClick={handleBackToHome}
           variant="secondary"
           size="sm"
         >
           <ArrowLeft className="h-4 w-4" />
           {guestMode ? b('learnPlatform') : b('backHome')}
         </ProductButton>
+        {!generationLoading && !generationResult && !['processing', 'recovery', 'result'].includes(phase) && (
+          <p className="mt-2 text-xs font-semibold text-slate-500">
+            {market === 'US' ? 'Leaving discards this in-progress form.' : 'Ao sair, este formulário em preenchimento será descartado.'}
+          </p>
+        )}
 
         {phase === 'goal' && (
           <ProductCard variant="muted" className="mt-6 p-5 sm:p-8">

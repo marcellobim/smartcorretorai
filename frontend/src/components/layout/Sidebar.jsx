@@ -191,7 +191,12 @@ export default function Sidebar({ mobile = false, onClose }) {
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
-        <MarketSelector />
+        <section aria-labelledby="sidebar-language">
+          <h2 id="sidebar-language" className="px-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+            Idioma / Language
+          </h2>
+          <MarketSelector className="mt-1.5" />
+        </section>
         {customerNavigationGroups(t).map(group => (
           <NavigationGroup key={group.id} group={group} onNavigate={onClose} />
         ))}

@@ -10,6 +10,7 @@ export function useProductDraft({ productKey, schemaVersion = 1, userId, debounc
   optionsRef.current = { productKey, schemaVersion, userId, enabled }
   const timerRef = useRef(null)
   const pendingRef = useRef(null)
+  const discardedRef = useRef(false)
   const [restoredDraft, setRestoredDraft] = useState(() => enabled
     ? readProductDraft(getSessionStorage(), { productKey, schemaVersion, userId })
     : null)
@@ -23,6 +24,7 @@ export function useProductDraft({ productKey, schemaVersion = 1, userId, debounc
   }, [])
 
   useEffect(() => {
+    discardedRef.current = false
     flushPending()
     setRestoredDraft(enabled
       ? readProductDraft(getSessionStorage(), { productKey, schemaVersion, userId })
@@ -34,7 +36,7 @@ export function useProductDraft({ productKey, schemaVersion = 1, userId, debounc
   const save = useCallback((data) => {
     if (timerRef.current) window.clearTimeout(timerRef.current)
     const options = optionsRef.current
-    if (!options.enabled || !options.userId) return false
+    if (discardedRef.current || !options.enabled || !options.userId) return false
     pendingRef.current = { ...options, data }
     timerRef.current = window.setTimeout(() => {
       flushPending()
@@ -47,13 +49,23 @@ export function useProductDraft({ productKey, schemaVersion = 1, userId, debounc
     timerRef.current = null
     pendingRef.current = null
     const options = optionsRef.current
-    if (!options.enabled || !options.userId) return false
+    if (discardedRef.current || !options.enabled || !options.userId) return false
     const written = writeProductDraft(getSessionStorage(), { ...options, data })
     if (written) setRestoredDraft(data)
     return written
   }, [])
 
   const clear = useCallback(() => {
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+    timerRef.current = null
+    pendingRef.current = null
+    const options = optionsRef.current
+    if (options.productKey) clearProductDraft(getSessionStorage(), options)
+    setRestoredDraft(null)
+  }, [])
+
+  const discard = useCallback(() => {
+    discardedRef.current = true
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = null
     pendingRef.current = null
@@ -72,7 +84,7 @@ export function useProductDraft({ productKey, schemaVersion = 1, userId, debounc
   }, [])
 
   return useMemo(
-    () => ({ restoredDraft, save, replace, clear, restore }),
-    [clear, replace, restore, restoredDraft, save],
+    () => ({ restoredDraft, save, replace, clear, discard, restore }),
+    [clear, discard, replace, restore, restoredDraft, save],
   )
 }

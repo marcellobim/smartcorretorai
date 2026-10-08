@@ -73,9 +73,11 @@ test('never serializes credentials, CAPTCHA, binary objects, base64 or signed UR
   assert.equal(sanitizeProductDraftValue({ safe: ['choice', 2, true] }).safe[0], 'choice')
 })
 
-test('stores only inert file metadata and exposes explicit clear/restore/save/replace operations', () => {
+test('stores only inert file metadata and exposes explicit clear/discard/restore/save/replace operations', () => {
   assert.deepEqual(toFileMetadata({ name: 'foto.jpg', size: 42, type: 'image/jpeg', lastModified: 7 }, 2), { name: 'foto.jpg', size: 42, type: 'image/jpeg', lastModified: 7, order: 2 })
-  assert.match(hook, /\(\) => \(\{ restoredDraft, save, replace, clear, restore \}\)/)
+  assert.match(hook, /discardedRef\.current = true/)
+  assert.match(hook, /discardedRef\.current \|\| !options\.enabled/)
+  assert.match(hook, /\(\) => \(\{ restoredDraft, save, replace, clear, discard, restore \}\)/)
   assert.match(hook, /useEffect\(\(\) => \(\) => flushPending\(\)/)
   const storage = new MemoryStorage()
   writeProductDraft(storage, { ...options, data: { files: [{ name: 'foto.jpg', size: 42, type: 'image/jpeg', lastModified: 7, order: 0 }] } })

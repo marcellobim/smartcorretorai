@@ -126,6 +126,7 @@ export default Object.freeze({
       }),
     }),
     title: 'Sign in to your account',
+    welcomeBack: 'Welcome back!',
     resumeVideo: 'Sign in again with the same account to resume your Real Estate Video brief. Once signed in, review and confirm; no generation will be resubmitted automatically.',
     noAccount: "Don't have an account?",
     signUp: 'Sign up for free',

@@ -106,6 +106,7 @@ export default Object.freeze({
       }),
     }),
     title: 'Entrar na sua conta',
+    welcomeBack: 'Bem-vindo de volta!',
     resumeVideo: 'Entre novamente com a mesma conta para retomar seu briefing de Vídeo Imobiliário. Após entrar, revise e confirme; nenhuma geração será reenviada automaticamente.',
     noAccount: 'Não tem conta?',
     signUp: 'Cadastre-se grátis',
