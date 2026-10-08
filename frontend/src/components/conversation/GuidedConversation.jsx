@@ -39,6 +39,7 @@ export default function GuidedConversation({
   summaryTitle = 'Resumo da apresentação',
   questionProgressLabel = (number, total) => `Pergunta ${number} de ${total}`,
   finalReviewLabel = 'Revisão final',
+  editLabel = 'Voltar e corrigir',
   review = false,
   editDisabled = false,
   designSystem = false,
@@ -60,7 +61,7 @@ export default function GuidedConversation({
   }, [history.length, phase, questionId])
 
   const conversation = <div className="min-w-0 space-y-4" aria-live="polite">
-    {history.map(turn => <ConversationTurn key={turn.questionId} turn={turn} onEdit={onEdit} editDisabled={editDisabled} isEmerald={isEmerald} />)}
+    {history.map(turn => <ConversationTurn key={turn.questionId} turn={turn} onEdit={onEdit} editDisabled={editDisabled} isEmerald={isEmerald} editLabel={editLabel} />)}
     {phase === CONVERSATION_PHASE.TYPING && <TypingIndicator designSystem={designSystem} isEmerald={isEmerald} />}
     {phase === CONVERSATION_PHASE.QUESTION && (designSystem ? (
       <ConversationQuestionCard
@@ -101,10 +102,10 @@ export default function GuidedConversation({
   </section>
 }
 
-function ConversationTurn({ turn, onEdit, editDisabled, isEmerald }) {
+function ConversationTurn({ turn, onEdit, editDisabled, isEmerald, editLabel }) {
   return <div className="space-y-3">
     <ConversationAssistantBubble accent={isEmerald ? 'emerald' : 'primary'}>{turn.question}</ConversationAssistantBubble>
-    <ConversationUserBubble actions={<button type="button" disabled={editDisabled} onClick={() => onEdit(turn.questionId)} className={`mt-2 inline-flex items-center gap-1 text-xs font-black hover:text-white disabled:cursor-not-allowed disabled:opacity-60 ${isEmerald ? 'text-emerald-200' : 'text-cyan-200'}`}><RotateCcw className="h-3.5 w-3.5" />Voltar e corrigir</button>}>
+    <ConversationUserBubble actions={<button type="button" disabled={editDisabled} onClick={() => onEdit(turn.questionId)} className={`mt-2 inline-flex items-center gap-1 text-xs font-black hover:text-white disabled:cursor-not-allowed disabled:opacity-60 ${isEmerald ? 'text-emerald-200' : 'text-cyan-200'}`}><RotateCcw className="h-3.5 w-3.5" />{editLabel}</button>}>
       <p>{turn.answer}</p>
     </ConversationUserBubble>
     <ConversationAssistantBubble accent={isEmerald ? 'emerald' : 'primary'} confirmation>{turn.confirmation}</ConversationAssistantBubble>

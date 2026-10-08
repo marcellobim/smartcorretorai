@@ -164,6 +164,8 @@ test('renders an organized final review', () => {
 
 test('keeps edit actions connected to GuidedConversation', () => {
   assert.match(page, /onEdit=\{conversation\.editAnswer\}/)
+  assert.match(page, /editLabel=\{locale === 'en-US' \? 'Back and edit' : 'Voltar e corrigir'\}/)
+  assert.match(guidedConversation, /editLabel = 'Voltar e corrigir'/)
   assert.match(page, /onClick=\{\(\) => onEdit\(group\.editId\)\}/)
   assert.match(page, /resetAnswerForEdit/)
 })
