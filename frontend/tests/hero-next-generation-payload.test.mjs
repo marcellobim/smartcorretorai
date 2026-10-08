@@ -84,6 +84,15 @@ test('keeps BR currency and area while US uses USD and square feet before the pr
   assert.equal(us.bathrooms, '2')
 })
 
+test('permits an absent optional US ZIP without inventing a value in the intercepted payload', async () => {
+  const payload = buildHeroNextGenerationRequest({ ...base, market: 'US', destination: square, answers: { ...base.answers, zipCode: '' } })
+  const sent = []
+  await invokeHeroNextGenerationStart(async (options) => { sent.push(options); return { data: { success: true } } }, payload)
+  assert.equal(sent.length, 1)
+  assert.equal(sent[0].body.zip_code, '')
+  assert.doesNotMatch(JSON.stringify(sent[0].body), /00000|33139/)
+})
+
 test('the intercepted handler receives only visible US commercial data', async () => {
   const payload = buildHeroNextGenerationRequest({
     ...base,

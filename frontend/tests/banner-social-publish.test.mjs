@@ -199,6 +199,18 @@ test('legenda original, edição parcial, substituição total e vazio são envi
   }
 })
 
+test('a cópia persistida do job vence a sugestão local, e o modal preserva edição inclusive vazia', () => {
+  const page = readFileSync(new URL('../src/pages/HeroNext.jsx', import.meta.url), 'utf8')
+  const dialog = readFileSync(new URL('../src/components/campaign/BannerPublishDialog.jsx', import.meta.url), 'utf8')
+  const packageSource = readFileSync(new URL('../src/components/campaign/CampaignPackage.jsx', import.meta.url), 'utf8')
+  assert.match(page, /function readPersistedBannerPublicationCopy\(result\)/)
+  assert.match(page, /job\?\.texts\?\.publication_options/)
+  assert.match(page, /persistedCampaignCopy\.length > 0[\s\S]*persistedCampaignCopy/)
+  assert.match(dialog, /captionEditedRef\.current = true; setCaption\(value\); onCaptionChange\?\.\(value\)/)
+  assert.match(packageSource, /captionDraftsRef\.current\.has\(captionKey\)/)
+  assert.match(packageSource, /onCaptionChange=\{caption => captionDraftsRef\.current\.set/)
+})
+
 test('publicação e recovery usam apenas social-publish-banner com sessão autenticada e ST zero', async () => {
   const calls = []
   const client = {

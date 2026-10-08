@@ -35,7 +35,7 @@ import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-token
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
-import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, normalizeUsZipCode } from '../config/locations'
+import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
 import {
   buildHeroNextCampaignPackageData,
@@ -905,6 +905,24 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     label: `Instagram/Facebook ${tone}`,
     text: [subject ? `${subject}.` : '', facts.length ? `Featuring ${facts.join(', ')}.` : '', value && `Pricing details: ${value}.`, highlights && `Highlights: ${highlights}.`, cta, hashtags].filter(Boolean).join(tone === 'Direct' ? '\n' : '\n\n'),
   }))
+}
+
+// The completed job owns the original publication copy.  Only fall back to the
+// deterministic local suggestion when an older job did not persist that copy.
+function readPersistedBannerPublicationCopy(result) {
+  const jobs = Array.isArray(result?.jobs) ? result.jobs : []
+  for (const job of jobs) {
+    const options = job?.texts?.publication_options
+    if (!Array.isArray(options) || options.length !== 3) continue
+    const copy = options.map((option, index) => ({
+      label: String(option?.label || '').trim(),
+      text: typeof option?.text === 'string' ? option.text.trim() : '',
+      id: String(option?.id || '').trim(),
+      index,
+    })).filter((option) => option.id === `banner-caption-option-${option.index + 1}` && option.label && option.text)
+    if (copy.length === 3) return copy.map(({ label, text }) => ({ label, text }))
+  }
+  return []
 }
 
 const normalizeComparable = (value) => String(value || '')
@@ -1890,6 +1908,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const recoveryStartedRef = useRef(false)
   const generationViewActiveRef = useRef(true)
   const guestBusyRef = useRef(false)
+  const generationStartRef = useRef(false)
   const [guestSignupGate, setGuestSignupGate] = useState(false)
   const [guestConsumed, setGuestConsumed] = useState(false)
   const requireGuestAccount = () => setGuestSignupGate(true)
@@ -2040,7 +2059,7 @@ export default function HeroNext({ guestMode = false } = {}) {
           { id: 'state', question: t('banner.location.state'), type: 'state' },
           { id: 'county', question: t('banner.location.county'), type: 'county' },
           { id: 'city', question: t('banner.location.city'), type: 'usCity' },
-          { id: 'zipCode', question: t('banner.location.zipCode'), type: 'text', placeholder: t('banner.location.zipPlaceholder') },
+          { id: 'zipCode', question: 'ZIP Code (optional)', type: 'text', placeholder: t('banner.location.zipPlaceholder'), optional: true, optionalLabel: 'Continue without a ZIP Code' },
           { id: 'neighborhood', question: t('banner.location.neighborhood'), type: 'text', placeholder: t('banner.location.neighborhoodPlaceholder'), optional: true, optionalLabel: t('banner.location.skipNeighborhood') },
         ]
       : null
@@ -2155,6 +2174,10 @@ export default function HeroNext({ guestMode = false } = {}) {
       value = value === 'yes' ? t('common.yes') : t('common.no')
     }
     const normalizedValue = normalizeAnswerValue(questionId, value)
+    if (questionId === 'zipCode' && normalizedValue && !isValidUsZipCode(normalizedValue)) {
+      setGenerationError(market === 'US' ? 'Enter a valid ZIP Code.' : 'Informe um CEP válido.')
+      return
+    }
     const isEmpty = !normalizedValue || (Array.isArray(normalizedValue) && normalizedValue.length === 0)
     const allowsEmpty = localizedBaseChatFlow.find((question) => question.id === questionId)?.optional === true
     if (isEmpty && !allowsEmpty) return
@@ -2579,7 +2602,8 @@ export default function HeroNext({ guestMode = false } = {}) {
       if (phase === 'recovery') setPhase(goal ? 'images' : 'intro')
       return
     }
-    recoverGenerationBatch({ resumePolling: true })
+    // Recovering a known job is read-only. Polling is a deliberate user action.
+    recoverGenerationBatch({ resumePolling: false })
     // Recovery is intentionally keyed only by the authenticated user on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestMode, user?.id])
@@ -2694,12 +2718,14 @@ export default function HeroNext({ guestMode = false } = {}) {
       } finally {guestBusyRef.current=false;setGenerationLoading(false)}
       return
     }
+    if (generationStartRef.current) return
     if (pieceLimitExceeded) {
       setGenerationError(HERO_NEXT_PIECE_LIMIT_MESSAGE)
       return
     }
     if (!canGenerate) return
 
+    generationStartRef.current = true
     trackGenerationClicked()
     setGenerationLoading(true)
     setGenerationError('')
@@ -2832,15 +2858,19 @@ export default function HeroNext({ guestMode = false } = {}) {
       setRecoveryNotice('A referência foi preservada. Use Atualizar status para consultar a mesma criação.')
       setPhase('recovery')
     } finally {
+      generationStartRef.current = false
       setGenerationLoading(false)
       await reloadProfile()
     }
   }
 
+  const persistedCampaignCopy = readPersistedBannerPublicationCopy(generationResult)
   const campaignCopy = generationResult
-    ? (Array.isArray(generationResult.campaignCopy) && generationResult.campaignCopy.length > 0
-        ? generationResult.campaignCopy
-        : buildHeroNextCampaignCopy(goal, answers, valueCondition, market))
+    ? (persistedCampaignCopy.length > 0
+        ? persistedCampaignCopy
+        : (Array.isArray(generationResult.campaignCopy) && generationResult.campaignCopy.length > 0
+            ? generationResult.campaignCopy
+            : buildHeroNextCampaignCopy(goal, answers, valueCondition, market)))
     : []
 
   const downloadTexts = () => {
@@ -4005,6 +4035,12 @@ export default function HeroNext({ guestMode = false } = {}) {
                 media: { generated: 'Generated media', campaignArts: 'Campaign assets', art: 'Asset {n}', unavailable: 'File unavailable', waiting: 'Waiting to render', rendering: 'Rendering...' },
                 download: { image: 'Download', loading: 'Downloading...' },
                 actions: { copy: 'Copy', copied: 'Copied!', publish: 'Publish', creationError: 'We could not safely identify the selected creation and copy.' },
+                social: {
+                  freePublication: 'Free publishing', confirm: 'Confirm publication', chooseDestination: 'Where would you like to publish?', checkingConnections: 'Checking connected accounts…', cancel: 'Cancel', publish: 'Publish now',
+                  creationPreparationError: 'Could not prepare this banner for publishing. Your creation has been preserved.', multipleAccounts: 'More than one account is available. Select the account you want first in Settings.', connectMetaHelp: 'Connect your Meta account once to publish on Instagram and Facebook.', connectMeta: 'Connect Instagram and Facebook',
+                  caption: { label: 'POST CAPTION (OPTIONAL)', help: 'You can edit, replace, or delete all of the text.', limit: 'Caption limit' },
+                  progress: { publishing: 'Publishing...', published: 'Published', confirming: 'Confirming publication...', failed: 'Could not publish', cancelled: 'Canceled', waitingConfirmation: 'Waiting for confirmation', finishing: 'We are finalizing your publication. Wait for confirmation before leaving this screen.', completed: 'Publication complete.', partialActive: 'One publication is complete. We are finalizing the other one. Wait for confirmation before leaving this screen.', partialFailed: 'One publication is complete. Check the destination that was not published below.', failedNotice: 'Could not complete the publication. Check the affected destination below.' },
+                },
               } : undefined}
               bannerPublish={{
                 enabled: true,

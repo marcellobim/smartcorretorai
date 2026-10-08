@@ -88,8 +88,27 @@ test('mount recovery and manual refresh use only recover_batch and existing stat
   assert.doesNotMatch(recovery, /crypto\.randomUUID|prepare_batch|startGenerationJob|discover_recoverable_batch/)
   assert.match(page, /recoveryStartedRef\.current/)
   assert.match(page, /recoverGenerationBatch\(\{ resumePolling: true \}\)/)
-  const mount = page.slice(page.indexOf('useEffect(() => {', page.indexOf('const recoverGenerationBatch')), page.indexOf('const startGenerationJob'))
-  assert.doesNotMatch(mount, /generationResult\) return/)
+  const mount = page.slice(page.indexOf('recoveryStartedRef.current = true'), page.indexOf('const startGenerationJob'))
+  assert.match(mount, /recoverGenerationBatch\(\{ resumePolling: false \}\)/)
+  assert.doesNotMatch(mount, /recoverGenerationBatch\(\{ resumePolling: true \}\)/)
+  const recoveryMount = page.slice(page.indexOf('useEffect(() => {', page.indexOf('const recoverGenerationBatch')), page.indexOf('const startGenerationJob'))
+  assert.doesNotMatch(recoveryMount, /generationResult\) return/)
+})
+
+test('recovery interactions stay read-only until the final explicit generate handler', () => {
+  const recovery = page.slice(page.indexOf('const recoverGenerationBatch'), page.indexOf('const startGenerationJob'))
+  assert.doesNotMatch(recovery, /prepare_batch|startGenerationJob|randomUUID|trackGenerationClicked/)
+  const generate = page.slice(page.indexOf('const handleGenerate = async () => {'), page.indexOf('\n  const persistedCampaignCopy'))
+  assert.match(generate, /if \(generationStartRef\.current\) return/)
+  assert.match(generate, /generationStartRef\.current = true[\s\S]*trackGenerationClicked\(\)/)
+  assert.match(generate, /finally \{[\s\S]*generationStartRef\.current = false/)
+})
+
+test('US ZIP is optional, but a supplied ZIP is validated and reaches the request unchanged', () => {
+  assert.match(page, /ZIP Code \(optional\)[\s\S]*optional: true/)
+  assert.match(page, /questionId === 'zipCode' && normalizedValue && !isValidUsZipCode\(normalizedValue\)/)
+  assert.match(page, /zip_code: answers\.zipCode \|\| ''/)
+  assert.match(page, /if \(questionId === 'county'\) \{ delete updatedAnswers\.city; delete updatedAnswers\.zipCode \}/)
 })
 
 test('found false clears only obsolete local recovery and never generates', () => {

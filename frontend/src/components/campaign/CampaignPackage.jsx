@@ -196,6 +196,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
   const [downloadError, setDownloadError] = useState('')
   const [bannerPublishIntent, setBannerPublishIntent] = useState(null)
   const resumedBannerPublishRef = useRef('')
+  const captionDraftsRef = useRef(new Map())
   const videoRef = useRef(null)
 
   useEffect(() => {
@@ -289,13 +290,15 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
   const openBannerPublish = (field, optionIndex) => {
     if(onRequireAccount){onRequireAccount();return}
     try {
-      setBannerPublishIntent(smartSpacePublish?.enabled
+      const intent = smartSpacePublish?.enabled
         ? buildSmartSpaceCampaignPublicationIntent({ campaign, field })
         : studioPublish?.enabled
         ? buildStudioPublicationIntent({ campaign, field, optionIndex })
         : campaign.sourceType === 'video_imobiliario'
         ? buildSmartTourPublicationIntent({ campaign, field, optionIndex })
-        : buildBannerPublicationIntent({ campaign, field, optionIndex }))
+        : buildBannerPublicationIntent({ campaign, field, optionIndex })
+      const captionKey = `${intent.sourceId}:${intent.mediaAssetId}:${intent.optionId}`
+      setBannerPublishIntent({ ...intent, captionSnapshot: captionDraftsRef.current.has(captionKey) ? captionDraftsRef.current.get(captionKey) : intent.captionSnapshot })
     } catch {
       setDownloadError(uiLabels?.actions?.creationError ?? 'Não foi possível identificar a criação e o texto selecionado com segurança.')
     }
@@ -370,7 +373,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       <TestimonialInvite />
 
       {onCreateNew && <button type="button" onClick={onCreateNew} className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50">{createNewLabel}</button>}
-      {bannerPublishIntent && <BannerPublishDialog uiLabels={uiLabels} intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} onTerminalClose={smartSpacePublish?.onTerminalClose} captionEditable={smartSpacePublish?.enabled === true || bannerPublish?.captionEditable === true || videoPublish?.captionEditable === true || studioPublish?.captionEditable === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
+      {bannerPublishIntent && <BannerPublishDialog uiLabels={uiLabels} intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} onTerminalClose={smartSpacePublish?.onTerminalClose} onCaptionChange={caption => captionDraftsRef.current.set(`${bannerPublishIntent.sourceId}:${bannerPublishIntent.mediaAssetId}:${bannerPublishIntent.optionId}`, caption)} captionEditable={smartSpacePublish?.enabled === true || bannerPublish?.captionEditable === true || videoPublish?.captionEditable === true || studioPublish?.captionEditable === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
     </section>
   )
 }

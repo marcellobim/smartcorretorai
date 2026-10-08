@@ -20,7 +20,7 @@ export function SocialPublishProgress({ results, submissionStarted = false, conf
   return <>{notice && <p role="status" className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{notice}</p>}{results.length > 0 && <div className="mt-4 grid gap-2" aria-label={uiLabels?.accessibility?.resultByDestination ?? 'Resultado por destino'}>{results.map(result => <p key={result.destination} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700"><span className="capitalize">{result.destination}</span>: {getSocialPublishResultLabel(result.status, uiLabels?.social?.progress)}</p>)}</div>}</>
 }
 
-export default function BannerPublishDialog({ intent, loadConnection, onConnect, onClose, onPublish, onRecover, onConfirmed, onTerminalClose, captionEditable = false, captionPlaceholder = '', uiLabels }) {
+export default function BannerPublishDialog({ intent, loadConnection, onConnect, onClose, onPublish, onRecover, onConfirmed, onTerminalClose, onCaptionChange, captionEditable = false, captionPlaceholder = '', uiLabels }) {
   const [connection, setConnection] = useState({ ...unavailableConnection, status: 'loading' })
   const [selected, setSelected] = useState([])
   const [results, setResults] = useState([])
@@ -30,6 +30,8 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
   const [confirmationPending, setConfirmationPending] = useState(false)
   const [caption, setCaption] = useState(() => typeof intent?.captionSnapshot === 'string' ? intent.captionSnapshot : '')
   const submissionLockRef = useRef(false)
+  const captionEditedRef = useRef(false)
+  const updateCaption = value => { captionEditedRef.current = true; setCaption(value); onCaptionChange?.(value) }
 
   useEffect(() => {
     let active = true
@@ -50,7 +52,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
     const recovered = Array.isArray(value?.results) ? value.results.filter(result => result?.job_id) : []
     if (recovered.length) {
       const frozenCaptions = [...new Set(recovered.map(result => result.caption_snapshot).filter(value => typeof value === 'string'))]
-      if (captionEditable && frozenCaptions.length === 1) setCaption(frozenCaptions[0])
+      if (captionEditable && !captionEditedRef.current && frozenCaptions.length === 1) setCaption(frozenCaptions[0])
       submissionLockRef.current = true
       setSubmissionStarted(true)
       setConfirmationPending(false)
@@ -69,7 +71,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
         const recovered = Array.isArray(value?.results) ? value.results.filter(result => result?.job_id) : []
         if (recovered.length) {
           const frozenCaptions = [...new Set(recovered.map(result => result.caption_snapshot).filter(value => typeof value === 'string'))]
-          if (captionEditable && frozenCaptions.length === 1) setCaption(frozenCaptions[0])
+          if (captionEditable && !captionEditedRef.current && frozenCaptions.length === 1) setCaption(frozenCaptions[0])
           submissionLockRef.current = true
           setSubmissionStarted(true)
           setConfirmationPending(false)
@@ -133,7 +135,7 @@ export default function BannerPublishDialog({ intent, loadConnection, onConnect,
         <div className="mt-5 grid gap-5 sm:grid-cols-[180px_1fr]">
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">{intent.mediaType === 'video' ? <video src={intent.mediaPreviewUrl} aria-label={intent.mediaName} controls playsInline preload="metadata" className="aspect-video h-full w-full bg-slate-950 object-contain" /> : <img src={intent.mediaPreviewUrl} alt={intent.mediaName} className="aspect-square h-full w-full object-contain" />}</div>
           <div>{captionEditable
-            ? <SocialCaptionEditor value={caption} onChange={setCaption} disabled={submissionLocked} placeholder={captionPlaceholder} uiLabels={uiLabels?.social?.caption} />
+            ? <SocialCaptionEditor value={caption} onChange={updateCaption} disabled={submissionLocked} placeholder={captionPlaceholder} uiLabels={uiLabels?.social?.caption} />
             : <><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{intent.optionLabel}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{intent.captionSnapshot}</p></>}</div>
         </div>
 

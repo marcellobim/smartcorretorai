@@ -40,14 +40,14 @@ test('locação permanece fora da funcionalidade no frontend e backend', () => {
 
 test('os três campos são opcionais e não entram na validação como obrigatórios', () => {
   assert.equal((frontendFields.match(/\(opcional\)/g) || []).length, 0)
-  assert.match(frontend, /\{label\} <span className="font-semibold text-gray-400">\(opcional\)<\/span>/)
+  assert.match(frontend, /\{marketText\.optional\}/)
   assert.match(frontend, /saleValueMode === 'conditions' && \(saleConditions\.length > 0 \|\| commercialTermsEnabled\)/)
   assert.doesNotMatch(frontend, /commercialTermCalls\.length\s*>\s*0\)\s*\?\s*false/)
 })
 
 test('é possível informar somente Mensais', () => {
   assert.match(frontendFields, /id: 'monthly_amount'[\s\S]*?prefix: 'Mensais a partir de'/)
-  assert.match(frontend, /terms\[id\] \? `\$\{prefix\} \$\{formatHeroPrice\(terms\[id\]\)\}` : ''/)
+  assert.match(frontend, /formatHeroPrice\(terms\[id\], market\)/)
 })
 
 test('é possível informar somente Entrada', () => {
@@ -73,8 +73,8 @@ test('valores ausentes não são inventados nem enviados', () => {
 })
 
 test('preço permanece exclusivamente no fluxo existente', () => {
-  assert.match(frontend, /\['fixed', 'Preço fixo'\]/)
-  assert.match(frontend, /\['starting_at', 'A partir de'\]/)
+  assert.match(frontend, /\['fixed', marketText\.fixed\]/)
+  assert.match(frontend, /\['starting_at', marketText\.startingAt\]/)
   assert.match(frontend, /htmlFor="sale-price">\{b\('price'\)\}<\/label>/)
   assert.match(messages, /price: 'Valor'/)
   assert.doesNotMatch(frontendFields, /starting_price/)
