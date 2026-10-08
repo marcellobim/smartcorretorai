@@ -60,6 +60,10 @@ test('candidate-only bootstrap skips alias proof while normal deploy retains it'
  assert.match(source,/if\(!candidateOnly&&!isAncestor\(current\.sha,sha\)\)/)
  assert.match(source,/if\(!candidateOnly\)\{\s*fresh=await official\(\)/)
 })
+test('generic frontend publication waits for Vercel READY before inspecting candidate identity',()=>{
+ const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
+ assert.match(source,/info=await waitForVercelReady\(\{[\s\S]*?inspect:\(\)=>JSON\.parse\(vc\(\['inspect',url,'--json'\]\)\)[\s\S]*?\}\)\s*assertTargetIdentity/)
+})
 test('candidate-only returns before the generic promotion call',()=>{
  const source=readFileSync(new URL('./deploy.mjs',import.meta.url),'utf8')
  const candidate=source.indexOf('if(candidateOnly){',source.indexOf('if(deployBannerRecovery){'))

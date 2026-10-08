@@ -773,8 +773,10 @@ if(deployBannerRecovery){
  const match=output.match(/https:\/\/[a-z0-9-]+\.vercel\.app/g)
  if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
  url=match.at(-1)
- info=JSON.parse(vc(['inspect',url,'--json']))
- if(info.readyState!=='READY')throw Error('Deployment não está READY')
+ info=await waitForVercelReady({
+  inspect:()=>JSON.parse(vc(['inspect',url,'--json'])),
+  onWait:({state})=>console.log('Aguardando Vercel READY: '+state),
+ })
  assertTargetIdentity(target,JSON.parse(vc(['api','/v13/deployments/'+info.id,'--raw'])))
  if(!candidateOnly){
   fresh=await official()
