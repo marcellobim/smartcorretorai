@@ -33,6 +33,7 @@ import AdminMfaGate from './components/auth/AdminMfaGate'
 import AccountAnalyticsRoute from './components/analytics/AccountAnalyticsRoute'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS } from './lib/account-analytics'
 import { TIKTOK_LOGIN_KIT_ENABLED } from './config/tiktok'
+import SiteMetadata from './components/seo/SiteMetadata'
 
 function AdminRoute({ children }) {
   const { user, loading, isAdmin, onboardingState } = useAuthStore()
@@ -89,7 +90,7 @@ export default function App() {
   // (lib/auth-context.jsx). Antes havia um useAuthStore(s => s.init) aqui
   // que duplicava a hidratação — removido junto com a função init.
   return (
-    <><GuestClaimResume /><Routes>
+    <><SiteMetadata /><GuestClaimResume /><Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/criar-anuncio" element={<GuestBannerEntry />} />
       <Route path="/planos" element={<Planos />} />
