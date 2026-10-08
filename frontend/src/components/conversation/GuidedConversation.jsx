@@ -37,6 +37,8 @@ export default function GuidedConversation({
   title = 'Converse com a IA',
   description = 'Uma pergunta por vez para construir sua apresentação.',
   summaryTitle = 'Resumo da apresentação',
+  questionProgressLabel = (number, total) => `Pergunta ${number} de ${total}`,
+  finalReviewLabel = 'Revisão final',
   review = false,
   editDisabled = false,
   designSystem = false,
@@ -63,7 +65,7 @@ export default function GuidedConversation({
     {phase === CONVERSATION_PHASE.QUESTION && (designSystem ? (
       <ConversationQuestionCard
         accent={isEmerald ? 'emerald' : 'primary'}
-        label={review ? 'Revisão final' : `Pergunta ${questionNumber} de ${totalQuestions}`}
+        label={review ? finalReviewLabel : questionProgressLabel(questionNumber, totalQuestions)}
         title={<TypewriterText text={question} active cursorClass={isEmerald ? 'bg-emerald-700' : 'bg-cyan-700'} />}
       >
         {children}
@@ -73,7 +75,7 @@ export default function GuidedConversation({
         <div className="flex gap-3">
           <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${isEmerald ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-primary-50 text-primary-700 ring-primary-100'}`}><BrandMark size={24} alt={BRAND.name} /></span>
           <div className="min-w-0 flex-1">
-            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isEmerald ? 'bg-emerald-50 text-emerald-800' : 'bg-primary-50 text-primary-800'}`}>{review ? 'Revisão final' : `Pergunta ${questionNumber} de ${totalQuestions}`}</span>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isEmerald ? 'bg-emerald-50 text-emerald-800' : 'bg-primary-50 text-primary-800'}`}>{review ? finalReviewLabel : questionProgressLabel(questionNumber, totalQuestions)}</span>
             <h3 className="mt-3 text-xl font-black leading-tight text-slate-950 sm:text-2xl"><TypewriterText text={question} active /></h3>
             <div className="mt-6">{children}</div>
           </div>

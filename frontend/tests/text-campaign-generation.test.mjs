@@ -85,6 +85,8 @@ test('keeps US bathrooms and ZIP optional while excluding Brazilian commercial o
 test('keeps the localized multichannel hero and removes only the intermediate sidebar summary', () => {
   assert.match(page, /visual=\{<DeliverablesPreview copy=\{copy\} locale=\{locale\} \/>\}/)
   assert.match(page, /showSummary=\{false\}/)
+  assert.match(page, /Question \$\{number\} of \$\{total\}/)
+  assert.match(page, /Final review/)
   assert.doesNotMatch(page, /summaryItems=\{summaryItems\}/)
   assert.equal(config.getTextCampaignDeliverableLabel('listing_title', 'pt-BR'), 'Título do anúncio')
   assert.equal(config.getTextCampaignDeliverableLabel('portal_description', 'pt-BR'), 'Descrição completa para portal')
