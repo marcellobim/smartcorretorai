@@ -397,6 +397,7 @@ function TypeQuestion({ answers, setAnswers, commit, market, locale }) {
 function FactsQuestion({ answers, setAnswers, commit, market, locale, copy }) {
   const fields = getTextCampaignMeasureFields(answers.type, market)
   const ready = fields.every(field => answers[field] !== '')
+  const measureOptions = field => SMART_TOUR_MEASURE_OPTIONS[field === 'bathrooms' ? 'suites' : field] || []
   return <div className="space-y-5">
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map(field => <label key={field} className="block text-sm font-black text-slate-700">
@@ -410,7 +411,7 @@ function FactsQuestion({ answers, setAnswers, commit, market, locale, copy }) {
           className={inputClass}
         /> : <select aria-label={fieldLabel(field, locale)} value={answers[field]} onChange={event => setAnswers(current => ({ ...current, [field]: event.target.value }))} className={inputClass}>
           <option value="">{copy.select}</option>
-          {SMART_TOUR_MEASURE_OPTIONS[field].map(value => <option key={value} value={value}>{value}</option>)}
+          {measureOptions(field).map(value => <option key={value} value={value}>{value}</option>)}
         </select>}
       </label>)}
     </div>

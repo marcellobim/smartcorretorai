@@ -73,6 +73,7 @@ test('keeps US bathrooms and ZIP optional while excluding Brazilian commercial o
   assert.equal(config.isTextCampaignBriefingValid(us), true)
   assert.equal(config.isTextCampaignBriefingValid({ ...us, zip_code: 'invalid' }), false)
   assert.deepEqual(config.getTextCampaignMeasureFields('us_condo', 'US'), ['bedrooms', 'bathrooms', 'parkingSpaces', 'area'])
+  assert.match(page, /field === 'bathrooms' \? 'suites' : field/)
   assert.ok(!config.getTextCampaignSaleConditions('US').includes('Usa FGTS'))
   assert.match(page, /getUsCitiesByCounty/)
   assert.match(page, /ZIP Code \(optional\)/)
