@@ -1081,9 +1081,9 @@ const formatCountLabel = (value, singular, plural) => {
   return `${text} ${text === '1' ? singular : plural}`
 }
 
-const formatAnswer = (answer) => {
-  if (Array.isArray(answer)) return answer.join(', ')
-  return String(answer || '').trim()
+const formatAnswer = (answer, localize = value => value) => {
+  if (Array.isArray(answer)) return answer.map(localize).join(', ')
+  return localize(String(answer || '').trim())
 }
 
 const buildValueCondition = (goal, saleValues, rentValues) => {
@@ -1802,6 +1802,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [usCities, setUsCities] = useState([])
   const [usCitiesLoading, setUsCitiesLoading] = useState(false)
   const [usCitiesError, setUsCitiesError] = useState('')
+  const [usCitiesAttempt, setUsCitiesAttempt] = useState(0)
   const [saleValueMode, setSaleValueMode] = useState(() => restoredBannerDraft.saleValueMode || '')
   const [salePrice, setSalePrice] = useState(() => restoredBannerDraft.salePrice || '')
   const [salePricePresentationMode, setSalePricePresentationMode] = useState(() => restoredBannerDraft.salePricePresentationMode || '')
@@ -1911,7 +1912,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       .catch(error => { if (error.name !== 'AbortError') setUsCitiesError(error.message) })
       .finally(() => { if (!controller.signal.aborted) setUsCitiesLoading(false) })
     return () => controller.abort()
-  }, [answers.county, answers.state, market])
+  }, [answers.county, answers.state, market, usCitiesAttempt])
 
   const closeExpandedPreview = () => {
     setExpandedPreview(null)
@@ -3003,11 +3004,12 @@ export default function HeroNext({ guestMode = false } = {}) {
     if (currentQuestion.type === 'usCity') {
       return (
         <div className="mt-4 space-y-3">
-          <SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.city')} value={answers.city || ''} disabled={!answers.county || usCitiesLoading || Boolean(usCitiesError)} onChange={(city) => commitAnswer('city', city)}>
+          <SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.city')} value={answers.city || ''} disabled={!answers.county || usCitiesLoading || Boolean(usCitiesError) || (!usCitiesLoading && usCities.length === 0)} onChange={(city) => commitAnswer('city', city)}>
             <option value="">{usCitiesLoading ? t('banner.location.loadingCities') : !answers.county ? t('banner.location.selectCountyFirst') : t('banner.location.selectCity')}</option>
             {usCities.map(city => <option key={city} value={city}>{city}</option>)}
           </SmartLocationSelect>
-          {usCitiesError && <p className="text-sm font-semibold text-red-700">{t('banner.location.cityLoadError')}</p>}
+          {usCitiesError && <div className="flex flex-wrap items-center gap-3"><p className="text-sm font-semibold text-red-700">{t('banner.location.cityLoadError')}</p><ProductButton type="button" variant="secondary" onClick={() => setUsCitiesAttempt(value => value + 1)}>{t('banner.location.retryCities')}</ProductButton></div>}
+          {!usCitiesLoading && !usCitiesError && answers.county && usCities.length === 0 && <p className="text-sm font-semibold text-slate-600">{t('banner.location.noCities')}</p>}
         </div>
       )
     }
@@ -3190,8 +3192,8 @@ export default function HeroNext({ guestMode = false } = {}) {
                   {chatFlow.slice(0, chatIndex).map((question, index) => (
                     <div key={question.id} className="space-y-4">
                       <AssistantBubble>{question.question}</AssistantBubble>
-                      <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-2 inline-flex items-center text-xs font-black text-emerald-200 hover:text-white">{b('edit')}</button>}>
-                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id])}
+                      <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-3 inline-flex rounded-lg border border-emerald-200/70 bg-emerald-950/30 px-2.5 py-1 text-xs font-black text-emerald-100 hover:bg-emerald-950/50 hover:text-white">{b('edit')}</button>}>
+                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id], optionLabel)}
                       </UserBubble>
                     </div>
                   ))}

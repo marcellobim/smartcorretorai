@@ -4,6 +4,7 @@ import test from 'node:test'
 import { restoreProductDraftShape } from '../src/lib/product-draft.js'
 import {
   getCountiesByState,
+  getUsCitiesByCounty,
   getStatesForMarket,
   isValidCountyForState,
   isValidState,
@@ -51,6 +52,23 @@ test('normalizes and validates ZIP Code values without a remote lookup', () => {
   assert.equal(isValidUsZipCode('33101'), true)
   assert.equal(isValidUsZipCode('33101-1234'), true)
   assert.equal(isValidUsZipCode('3310'), false)
+})
+
+test('queries real county geometry through POST so large counties do not overflow a URL', async () => {
+  const calls = []
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url, init })
+    if (calls.length === 1) return new Response(JSON.stringify({ features: [{ geometry: { rings: [[[0, 0], [1, 0], [0, 1], [0, 0]]] } }] }), { status: 200 })
+    return new Response(JSON.stringify({ features: [{ attributes: { BASENAME: calls.length === 2 ? 'Tampa' : 'Temple Terrace' } }] }), { status: 200 })
+  }
+  const cities = await getUsCitiesByCounty('FL', 'Hillsborough County', { fetchImpl })
+  assert.deepEqual(cities, ['Tampa', 'Temple Terrace'])
+  assert.equal(calls.length, 3)
+  for (const call of calls.slice(1)) {
+    assert.equal(call.init.method, 'POST')
+    assert.ok(call.init.body instanceof URLSearchParams)
+    assert.equal(call.init.body.get('spatialRel'), 'esriSpatialRelIntersects')
+  }
 })
 
 test('preserves US location fields in drafts while legacy BR drafts retain their existing shape', () => {
