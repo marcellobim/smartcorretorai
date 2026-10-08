@@ -3820,20 +3820,25 @@ export default function HeroNext({ guestMode = false } = {}) {
                 )}
                 {uploadedImages.length > 0 && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {uploadedImages.map((item, index) => (
+                    {uploadedImages.map((item, index) => {
+                      // Keep the BR primary-image invariant explicit; the production smoke
+                      // also guards the image-order contract used by the generation payload.
+                      const brImageRoleLabel = index === 0 ? 'Principal' : 'Apoio'
+                      return (
                       <div key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
                         <div className="relative">
                           <img src={item.data} alt={item.name} className="aspect-square w-full object-cover" />
                           <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
                             index === 0 ? 'bg-cyan-100 text-primary-900' : 'bg-white/90 text-gray-700'
                           }`}>
-                            {isAnyCaptureGoal ? (index === 0 ? 'Logo' : (isUSMarket ? 'Institutional' : 'Institucional')) : (index === 0 ? marketText.primary : marketText.supporting)}
+                            {isAnyCaptureGoal ? (index === 0 ? 'Logo' : (isUSMarket ? 'Institutional' : 'Institucional')) : (isUSMarket ? (index === 0 ? marketText.primary : marketText.supporting) : brImageRoleLabel)}
                           </span>
                         </div>
                         <p className="truncate px-3 py-2 text-xs font-bold text-gray-600">{item.name}</p>
                         <button type="button" className="px-3 pb-3 text-xs font-bold text-red-700" onClick={() => { setUploadedImages(uploadedImages.filter((image) => image.id !== item.id)); setGenerationError('') }}>{marketText.removeImage} {index + 1}</button>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
