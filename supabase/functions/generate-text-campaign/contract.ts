@@ -1,7 +1,7 @@
 import type { OfficialHashtagContext } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_RESPONSE_SCHEMA } from '../_shared/google-ads.ts'
 import { presentCta, presentHighlight, presentPropertyType, presentPurpose, presentStage } from '../_shared/virtual-staging/presentation.ts'
-import { formatProfessionalIdentity } from '../_shared/professional-identity.ts'
+import { resolveProfessionalIdentity, type ProfessionalIdentitySelection } from '../_shared/professional-identity.ts'
 
 export const TEXT_CAMPAIGN_MODEL = 'gpt-4.1'
 export const TEXT_CAMPAIGN_TIMEOUT_MS = 60_000
@@ -38,7 +38,8 @@ const SALE_CONDITIONS = ['Entrada facilitada', 'Usa FGTS', 'Subsídio do governo
 const US_SALE_CONDITIONS = ['Special terms available', 'Flexible terms available', 'Contact for pricing details']
 const RENT_GUARANTEES = ['seguro_fianca', 'fiador', 'caucao', 'titulo_capitalizacao', 'a_combinar', 'nao_informar']
 const COMMERCIAL_TERM_KEYS = ['entry_amount', 'monthly_amount', 'annual_amount']
-const BRIEFING_KEYS = ['language', 'market', 'purpose', 'stage', 'property_type', 'bedrooms', 'suites', 'bathrooms', 'parking_spaces', 'area', 'area_unit', 'state', 'county', 'city', 'district', 'zip_code', 'neighborhood_community', 'highlights', 'custom_highlight', 'notes', 'cta', 'contact_authorized', 'professional_phone', 'commercial']
+const BRIEFING_KEYS = ['language', 'market', 'purpose', 'stage', 'property_type', 'bedrooms', 'suites', 'bathrooms', 'parking_spaces', 'area', 'area_unit', 'state', 'county', 'city', 'district', 'zip_code', 'neighborhood_community', 'highlights', 'custom_highlight', 'notes', 'cta', 'contact_authorized', 'professional_phone', 'commercial', 'professional_identity']
+const REQUIRED_BRIEFING_KEYS = BRIEFING_KEYS.filter(key => key !== 'professional_identity')
 const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+']
 const PARKING_OPTIONS = ['0', '1', '2', '3', '4+']
@@ -68,7 +69,7 @@ export type TextCampaignBriefing = {
   contact_authorized: boolean
   professional_phone: string
   commercial: Record<string, unknown>
-  professional_identity?: string
+  professional_identity?: ProfessionalIdentitySelection | { enabled: true; name_source: 'real' | 'display'; formatted: string }
 }
 
 export type TextCampaignResult = {
@@ -170,7 +171,7 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
     bathrooms: value.briefing.bathrooms ?? '',
     area_unit: value.briefing.area_unit ?? (value.market === 'US' || value.briefing.market === 'US' ? 'sqft' : 'm²'),
   }
-  if (!exactKeys(raw, BRIEFING_KEYS)) throw new TextCampaignValidationError('invalid_briefing_keys')
+  if (!Object.keys(raw).every(key => BRIEFING_KEYS.includes(key)) || !REQUIRED_BRIEFING_KEYS.every(key => key in raw)) throw new TextCampaignValidationError('invalid_briefing_keys')
   const purpose = assertAllowed(clean(raw.purpose, 10), ['sale', 'rent'], 'invalid_purpose') as 'sale' | 'rent'
   const language = raw.language === 'en-US' ? 'en-US' : 'pt-BR'
   const market = raw.market === 'US' ? 'US' : 'BR'
@@ -194,6 +195,10 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
   const contactAuthorized = raw.contact_authorized === true
   const phone = clean(raw.professional_phone, 32)
   if (typeof raw.contact_authorized !== 'boolean' || (contactAuthorized && !/^[+\d][\d\s().-]{7,31}$/.test(phone)) || (!contactAuthorized && phone)) throw new TextCampaignValidationError('invalid_contact')
+  if (raw.professional_identity !== undefined && !isRecord(raw.professional_identity)) throw new TextCampaignValidationError('invalid_professional_identity')
+  const professionalIdentity = isRecord(raw.professional_identity) && raw.professional_identity.enabled === true
+    ? { enabled: true as const, name_source: raw.professional_identity.name_source === 'display' ? 'display' as const : raw.professional_identity.name_source === 'real' ? 'real' as const : (() => { throw new TextCampaignValidationError('invalid_professional_identity') })() }
+    : undefined
 
   return {
     language,
@@ -220,6 +225,7 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
     contact_authorized: contactAuthorized,
     professional_phone: contactAuthorized ? phone : '',
     commercial: validateCommercial(raw.commercial, purpose, market),
+    ...(professionalIdentity ? { professional_identity: professionalIdentity } : {}),
   }
 }
 
@@ -264,8 +270,10 @@ export function presentTextCampaignBriefing(briefing: TextCampaignBriefing) {
 }
 
 export function attachTextCampaignProfessionalIdentity(briefing: TextCampaignBriefing, profile: Record<string, unknown> | null | undefined) {
-  const professionalIdentity = formatProfessionalIdentity(profile, briefing.market)
-  return professionalIdentity ? { ...briefing, professional_identity: professionalIdentity } : briefing
+  const professionalIdentity = resolveProfessionalIdentity(profile, briefing.professional_identity, briefing.market)
+  return professionalIdentity
+    ? { ...briefing, professional_identity: { enabled: true, name_source: professionalIdentity.name_source, formatted: professionalIdentity.formatted } }
+    : { ...briefing, professional_identity: undefined }
 }
 
 export const TEXT_CAMPAIGN_RESPONSE_SCHEMA = {
@@ -288,7 +296,7 @@ export const TEXT_CAMPAIGN_RESPONSE_SCHEMA = {
 } as const
 
 export function buildTextCampaignOpenAIRequest(briefing: TextCampaignBriefing) {
-  const identityInstruction = briefing.professional_identity
+  const identityInstruction = briefing.professional_identity?.enabled
     ? briefing.language === 'en-US'
       ? ' Include the provided professional_identity exactly once, only where a professional signature is natural (such as portal, email, LinkedIn, or a social closing). Never put it in hashtags, CTA text, Google Ads headlines, or every carousel slide. Do not repeat the phone number or CTA.'
       : ' Inclua a professional_identity fornecida exatamente uma vez, apenas onde uma assinatura profissional for natural (como portal, e-mail, LinkedIn ou fechamento social). Nunca a coloque em hashtags, CTA, headline de Google Ads ou em todos os slides do carrossel. Não repita telefone ou CTA.'

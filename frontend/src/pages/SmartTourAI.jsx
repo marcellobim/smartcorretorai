@@ -24,7 +24,8 @@ import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, parseLatestCompl
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext, shouldAskProfessionalIdentity } from '../config/smartTourConversation'
-import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, formatProfessionalIdentity } from '../config/professionalProfile'
+import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
@@ -108,7 +109,7 @@ function smartTourConfirmation(id, answer, isShortVideos = false, t = key => key
 }
 
 export default function SmartTourAI() {
-  const { user, profile, reloadProfile } = useAuth()
+  const { user, profile, reloadProfile, updateUser } = useAuth()
   const { locale, market, t } = useLocale()
   const tourDraft = useProductDraft({ productKey: 'video-imobiliario', schemaVersion: 1, userId: user?.id })
   const restoredTourDraft = tourDraft.restoredDraft || {}
@@ -140,6 +141,16 @@ export default function SmartTourAI() {
   const [cta, setCta] = useState(() => typeof restoredTourDraft.cta === 'string' ? restoredTourDraft.cta : '')
   const [includePhone, setIncludePhone] = useState(() => typeof restoredTourDraft.includePhone === 'boolean' ? restoredTourDraft.includePhone : null)
   const [showProfessionalIdentity, setShowProfessionalIdentity] = useState(() => typeof restoredTourDraft.showProfessionalIdentity === 'boolean' ? restoredTourDraft.showProfessionalIdentity : null)
+  // The legacy boolean is retained exclusively for the frozen Short Videos path.
+  // A photo-flow legacy draft that opted in is deliberately incomplete: we ask the
+  // name choice again rather than inventing it.
+  const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => {
+    const saved = restoredTourDraft.professionalIdentity
+    if (saved?.enabled === false) return { enabled: false, name_source: null }
+    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source }
+    if (restoredTourDraft.showProfessionalIdentity === false) return { enabled: false, name_source: null }
+    return { enabled: null, name_source: null }
+  })
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
@@ -150,9 +161,9 @@ export default function SmartTourAI() {
   const isShortVideos = activeInputFlow === SHORT_VIDEOS_MODULE_ID
   const questions = useMemo(() => questionsFor(isShortVideos, t), [isShortVideos, t])
   const professionalMarket = user?.market === 'US' || market === 'US' ? 'US' : 'BR'
-  const professionalIdentity = formatProfessionalIdentity(profile || user || {}, professionalMarket)
-  const hasCompleteIdentity = hasCompleteProfessionalIdentity(profile || user || {}, professionalMarket)
-  const canAskProfessionalIdentity = hasCompleteIdentity && shouldAskProfessionalIdentity({ captions: generation.captions, identity: professionalIdentity })
+  const legacyProfessionalIdentity = formatProfessionalIdentity(profile || user || {}, professionalMarket)
+  const professionalIdentity = buildProfessionalIdentity(profile || user || {}, professionalIdentitySelection, professionalMarket)
+  const canAskProfessionalIdentity = !isShortVideos && shouldAskProfessionalIdentity({ captions: generation.captions, identity: true })
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
   const phone = formatPhone(rawPhone, professionalMarket)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
@@ -198,7 +209,10 @@ export default function SmartTourAI() {
       if (questionId === 'presenter_custom_speech') setGeneration(current => ({ ...current, presenterCustomSpeech: '' }))
       if (questionId === 'narration') setGeneration(current => ({ ...current, narration: '' }))
       if (questionId === 'captions') setGeneration(current => ({ ...current, captions: '' }))
-      if (questionId === 'professional_identity') setShowProfessionalIdentity(null)
+      if (questionId === 'professional_identity') {
+        if (isShortVideos) setShowProfessionalIdentity(null)
+        else setProfessionalIdentitySelection({ enabled: null, name_source: null })
+      }
       if (questionId === 'cta_enabled') { setCtaEnabled(null); setCta(''); setIncludePhone(null) }
       if (questionId === 'cta') setCta('')
       if (questionId === 'phone') setIncludePhone(null)
@@ -220,7 +234,10 @@ export default function SmartTourAI() {
       ...(shouldReset('captions') ? { captions: '' } : {}),
       furniture: 'original', stagingPresentation: 'final_only',
     }))
-    if (shouldReset('professional_identity')) setShowProfessionalIdentity(null)
+    if (shouldReset('professional_identity')) {
+      if (isShortVideos) setShowProfessionalIdentity(null)
+      else setProfessionalIdentitySelection({ enabled: null, name_source: null })
+    }
     if (shouldReset('cta_enabled')) setCtaEnabled(null)
     if (shouldReset('cta')) setCta('')
     if (shouldReset('phone')) setIncludePhone(null)
@@ -248,15 +265,15 @@ export default function SmartTourAI() {
     const shortVideoMetadata = shortVideo?.file
       ? { ...toFileMetadata(shortVideo.file, 0), duration: shortVideo.duration }
       : missingShortVideoMetadata
-    const draft = { activeInputFlow, property, generation, locale, market, ctaEnabled, cta, includePhone, showProfessionalIdentity, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
+    const draft = { activeInputFlow, property, generation, locale, market, ctaEnabled, cta, includePhone, showProfessionalIdentity, professionalIdentity: professionalIdentitySelection, imageMetadata, shortVideoMetadata, conversation: conversationSnapshot, uploads, resumeAfterLogin }
     const meaningful = activeInputFlow || conversationSnapshot?.history?.length || imageMetadata.length || shortVideoMetadata || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
     if (!meaningful) { tourDraft.clear(); return }
     tourDraft.save(draft)
-  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, property, shortVideo, showProfessionalIdentity, status, tourDraft, uploads, resumeAfterLogin])
+  }, [activeInputFlow, conversationSnapshot, cta, ctaEnabled, generation, images, includePhone, missingImageMetadata, missingShortVideoMetadata, professionalIdentitySelection, property, shortVideo, showProfessionalIdentity, status, tourDraft, uploads, resumeAfterLogin])
   const answerQuestion = ({ answer, answerId = '', nextQuestionId = getSmartTourNextQuestion({ questionId: question[0], answerId, mode: generation.mode }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
     const shouldShowProfessionalIdentity = question[0] === 'captions'
-      ? hasCompleteIdentity && shouldAskProfessionalIdentity({ captions: answerId, identity: professionalIdentity })
+      ? (!isShortVideos && shouldAskProfessionalIdentity({ captions: answerId, identity: true }))
       : canAskProfessionalIdentity
     if (resolvedNextQuestionId === 'professional_identity' && !shouldShowProfessionalIdentity) resolvedNextQuestionId = 'cta_enabled'
     if (reviewEditRef.current) {
@@ -392,7 +409,7 @@ export default function SmartTourAI() {
   }
 
   const preserveBriefing = (resume = true) => tourDraft.replace({
-    activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity,
+    activeInputFlow, property, generation, ctaEnabled, cta, includePhone, showProfessionalIdentity, professionalIdentity: professionalIdentitySelection,
     imageMetadata: images.length ? images.map((item, order) => toFileMetadata(item.file, order)) : missingImageMetadata,
     shortVideoMetadata: shortVideo?.file ? { ...toFileMetadata(shortVideo.file), duration: shortVideo.duration } : missingShortVideoMetadata,
     conversation: conversationSnapshot, uploads: uploadsRef.current, resumeAfterLogin: resume,
@@ -413,6 +430,11 @@ export default function SmartTourAI() {
   }
   const createTour = async () => {
     if (generationLockRef.current || authRequired) return
+    if (!isShortVideos && professionalIdentitySelection.enabled === null) {
+      setStatus('error')
+      setMessage(market === 'US' ? 'Choose whether to include professional information before creating the video.' : 'Escolha se deseja incluir identificação profissional antes de criar o vídeo.')
+      return
+    }
     if (isShortVideos) {
       if (shortVideoGenerationLockRef.current) {
         setMessage(t('smartTour.status.shortAlreadyStarted'))
@@ -486,7 +508,7 @@ export default function SmartTourAI() {
       setStatus('generating'); setMessage(t('smartTour.status.creating'))
       let campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: apiGeneration.language, market } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, professional_identity: { enabled: professionalIdentitySelection.enabled === true, ...(professionalIdentitySelection.enabled === true ? { name_source: professionalIdentitySelection.name_source } : {}) }, language: apiGeneration.language, market } })
       if (await isVideoSessionInvalid(error, data)) {
         clearSmartTourActiveJob(sessionStorage)
         requireLogin()
@@ -526,6 +548,7 @@ export default function SmartTourAI() {
     setCta('')
     setIncludePhone(null)
     setShowProfessionalIdentity(null)
+    setProfessionalIdentitySelection({ enabled: null, name_source: null })
     conversation.resetConversation()
     setStatus('idle')
     setMessage('')
@@ -562,7 +585,7 @@ export default function SmartTourAI() {
     ...(!isShortVideos ? [{ id: 'presenter_speech_mode', label: generation.presenterSpeechMode === 'custom' ? t('smartTour.speechMode.custom') : t('smartTour.speechMode.automatic') }] : []),
     ...(!isShortVideos && generation.presenterSpeechMode === 'custom' && generation.presenterCustomSpeech ? [{ id: 'presenter_custom_speech', label: generation.presenterCustomSpeech }] : []),
     { id: 'narration', label: generation.presenterSpeechMode === 'custom' ? t('smartTour.review.implicitYes') : generation.narration === 'enabled' ? t('smartTour.options.yes') : generation.narration === 'disabled' ? t('smartTour.options.no') : '' }, { id: 'captions', label: generation.captions === 'enabled' ? t('smartTour.options.yes') : generation.captions === 'disabled' ? t('smartTour.options.no') : '' },
-    { id: 'professional_identity', label: showProfessionalIdentity === true ? professionalIdentity : showProfessionalIdentity === false ? t('smartTour.options.no') : '' },
+    { id: 'professional_identity', label: isShortVideos ? (showProfessionalIdentity === true ? legacyProfessionalIdentity : showProfessionalIdentity === false ? t('smartTour.options.no') : '') : (professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : professionalIdentitySelection.enabled === false ? t('smartTour.options.no') : '') },
     { id: 'cta_enabled', label: ctaEnabled === true ? t('smartTour.options.yes') : ctaEnabled === false ? t('smartTour.options.no') : '' },
     { id: 'cta', label: ctaEnabled === true ? cta : '' },
     { id: 'phone', label: ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? t('smartTour.phone.none') : '') : '' },
@@ -607,7 +630,7 @@ export default function SmartTourAI() {
       designSystem
       eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')}
     >
-      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
+      <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, legacyProfessionalIdentity, professionalIdentitySelection, profile: profile || user, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setProfessionalIdentitySelection, updateUser, reloadProfile, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
       </div>}
     </main>
@@ -847,7 +870,7 @@ function UsSmartTourLocationQuestion({ property, setPropertyField, t, cont }) {
 }
 
 function Question(props) {
-  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
+  const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, legacyProfessionalIdentity, professionalIdentitySelection, profile, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setProfessionalIdentitySelection, updateUser, reloadProfile, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; const itemValue = item.value ?? item.id; const label = item.labelKey ? t(item.labelKey) : item.label; return <button key={itemValue} type="button" onClick={() => select(itemValue, label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === itemValue ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
   const explainedChoices = (explanation, items, value, select) => <><p className="mb-3 text-xs font-semibold leading-5 text-slate-500">{explanation}</p>{choices(items, value, select)}</>
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <ProductButton type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">{t('smartTour.continue')}</ProductButton>
@@ -925,7 +948,28 @@ function Question(props) {
   }
   if (id === 'narration') return explainedChoices(t('smartTour.narrationDescription'), [{id:'enabled',label:t('smartTour.options.yes')},{id:'disabled',label:t('smartTour.options.no')}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices(t('smartTour.captions.description'), [{id:'enabled',label:t('smartTour.options.yes')},{id:'disabled',label:t('smartTour.options.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
-  if (id === 'professional_identity') return explainedChoices(t('smartTour.professionalIdentity.description'), [{id:'yes',label:t('smartTour.options.yes'),description:professionalIdentity},{id:'no',label:t('smartTour.options.no')}], showProfessionalIdentity === true ? 'yes' : showProfessionalIdentity === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setShowProfessionalIdentity(value === 'yes') }))
+  if (id === 'professional_identity') {
+    // Do not route the new selection through Short Videos. Its legacy boolean
+    // contract remains its only professional-identity representation.
+    if (isShortVideos) return explainedChoices(t('smartTour.professionalIdentity.description'), [{id:'yes',label:t('smartTour.options.yes'),description:legacyProfessionalIdentity},{id:'no',label:t('smartTour.options.no')}], showProfessionalIdentity === true ? 'yes' : showProfessionalIdentity === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setShowProfessionalIdentity(value === 'yes') }))
+    return <ProfessionalIdentityQuestion
+      market={market}
+      profile={profile || {}}
+      value={professionalIdentitySelection}
+      onChange={setProfessionalIdentitySelection}
+      onSaveProfile={async patch => {
+        const { error } = await supabase.from('profiles').update(patch).eq('id', profile?.id)
+        if (error) throw error
+        updateUser?.(patch)
+        await reloadProfile?.()
+      }}
+      onComplete={(selection, formatted) => answerQuestion({
+        answer: selection.enabled ? formatted : t('smartTour.options.no'),
+        answerId: selection.enabled ? 'yes' : 'no',
+        apply: () => setProfessionalIdentitySelection(selection),
+      })}
+    />
+  }
   if (id === 'cta_enabled') return explainedChoices(t('smartTour.ctaDescription'), [{id:'yes',label:t('smartTour.options.yes')},{id:'no',label:t('smartTour.options.no')}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
   if (id === 'cta') return choices((CTA_OPTIONS[market] || CTA_OPTIONS.BR).map(option => ({ ...option, value: option.label })), cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(label) }))
   if (id === 'phone') return choices([{id:'yes',label:t('smartTour.options.yes'),description:phone || t('smartTour.phone.missing')},{id:'no',label:t('smartTour.options.no')}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? t('smartTour.review.phone') : t('smartTour.phone.none'), answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
@@ -935,7 +979,7 @@ function Question(props) {
     { label: t('smartTour.review.narration'), value: generation.presenterSpeechMode === 'custom' ? t('smartTour.review.implicitYes') : generation.narration === 'enabled' ? t('smartTour.options.yes') : t('smartTour.options.no') },
     { label: t('smartTour.captions.reviewLabel'), value: generation.captions === 'enabled' ? t('smartTour.options.yes') : t('smartTour.options.no') },
     { label: 'CTA', value: ctaEnabled === true ? (cta || t('smartTour.options.yes')) : t('smartTour.options.no') },
-    ...(showProfessionalIdentity !== null ? [{ label: t('smartTour.professionalIdentity.reviewLabel'), value: showProfessionalIdentity ? professionalIdentity : t('smartTour.options.no') }] : []),
+    ...(isShortVideos ? (showProfessionalIdentity !== null ? [{ label: t('smartTour.professionalIdentity.reviewLabel'), value: showProfessionalIdentity ? legacyProfessionalIdentity : t('smartTour.options.no') }] : []) : (professionalIdentitySelection.enabled !== null ? [{ label: t('smartTour.professionalIdentity.reviewLabel'), value: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : t('smartTour.options.no') }] : [])),
     ...(ctaEnabled === true ? [{ label: t('smartTour.review.phone'), value: includePhone === true ? phone : t('smartTour.options.no') }] : []),
   ]
   return <>

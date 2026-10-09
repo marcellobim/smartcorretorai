@@ -93,3 +93,67 @@ export function hasCompleteProfessionalIdentity(profile = {}, market = 'BR') {
   if (config.market !== 'BR') return true
   return ['F', 'J'].includes(String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase())
 }
+
+// Creation-scoped contract.  A formatted string is deliberately derived only
+// at the edge (a caption or a provider prompt); drafts and persisted jobs keep
+// this object so the selected name source is never lost or guessed later.
+export function normalizeProfessionalIdentity(selection = {}, market = 'BR') {
+  const resolvedMarket = market === 'US' ? 'US' : 'BR'
+  const enabled = selection?.enabled === true
+  // `legal` was used by an early local draft.  Read it only for migration;
+  // every newly written contract uses the product-wide `real | display` pair.
+  const nameSource = selection?.name_source === 'display' ? 'display' : (selection?.name_source === 'real' || selection?.name_source === 'legal') ? 'real' : null
+  return { enabled, name_source: enabled ? nameSource : null, market: resolvedMarket }
+}
+
+export function professionalIdentityMissingFields(profile = {}, selection = {}, market = 'BR') {
+  const normalized = normalizeProfessionalIdentity(selection, market)
+  if (!normalized.enabled || !normalized.name_source) return []
+  const config = getProfessionalProfileConfig(normalized.market)
+  const nameField = normalized.name_source === 'display' ? 'displayName' : 'professionalName'
+  const missing = []
+  if (!String(readProfileField(profile, config, nameField) || profile.full_name || '').trim()) missing.push(nameField)
+  if (!String(readProfileField(profile, config, config.identity.credentialKey) || '').trim()) missing.push(config.identity.credentialKey)
+  if (!String(readProfileField(profile, config, 'state') || '').trim()) missing.push('state')
+  if (normalized.market === 'BR' && !['F', 'J'].includes(String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase())) missing.push('creciType')
+  return missing
+}
+
+export function buildProfessionalIdentity(profile = {}, selection = {}, market = 'BR') {
+  const normalized = normalizeProfessionalIdentity(selection, market)
+  if (!normalized.enabled || !normalized.name_source || professionalIdentityMissingFields(profile, normalized, normalized.market).length) return null
+  const config = getProfessionalProfileConfig(normalized.market)
+  const legalName = String(readProfileField(profile, config, 'professionalName') || profile.full_name || '').trim()
+  const displayName = String(readProfileField(profile, config, 'displayName') || '').trim()
+  const state = String(readProfileField(profile, config, 'state') || '').trim().toUpperCase()
+  const identity = {
+    ...normalized,
+    legal_name: legalName,
+    display_name: displayName,
+    creci_type: normalized.market === 'BR' ? String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase() : '',
+    creci_number: normalized.market === 'BR' ? String(readProfileField(profile, config, 'creciNumber') || '').trim() : '',
+    creci_state: normalized.market === 'BR' ? state : '',
+    license_number: normalized.market === 'US' ? String(readProfileField(profile, config, 'licenseNumber') || '').trim() : '',
+    license_state: normalized.market === 'US' ? state : '',
+  }
+  const chosenName = normalized.name_source === 'display' ? displayName : legalName
+  return {
+    ...identity,
+    formatted: normalized.market === 'US'
+      ? `${chosenName} · License #${identity.license_number} · ${identity.license_state}`
+      : `${chosenName} · CRECI-${identity.creci_type} ${identity.creci_number}/${identity.creci_state}`,
+  }
+}
+
+export function professionalIdentityProfilePatch(profile = {}, pending = {}, market = 'BR') {
+  const config = getProfessionalProfileConfig(market)
+  const patch = {}
+  const entries = Object.entries(pending || {})
+  for (const [field, value] of entries) {
+    const text = String(value || '').trim()
+    if (!text || String(readProfileField(profile, config, field) || '').trim()) continue
+    const column = config.fieldMap[field]
+    if (column) patch[column] = field === 'creciType' ? text.toUpperCase() : field === 'state' ? text.toUpperCase() : text
+  }
+  return patch
+}

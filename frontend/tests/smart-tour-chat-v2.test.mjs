@@ -34,10 +34,10 @@ test('3. parking spaces use the approved clickable choices', () => {
 })
 
 test('4. area remains the only numeric input and requires a positive value', () => {
-  assert.match(page, /aria-label="Área do imóvel"/)
-  assert.match(page, /placeholder="Ex\.: 85"/)
+  assert.match(page, /aria-label=\{t\('smartTour\.fields\.area'\)\}/)
+  assert.match(page, /placeholder=\{t\('smartTour\.areaPlaceholder'\)\}/)
   assert.match(page, /Number\(property\.area\) <= 0/)
-  assert.match(page, />m²<\/span>/)
+  assert.match(page, /const areaUnit = market === 'US' \? 'sqft' : 'm²'/)
 })
 
 test('5. commercial shows parking and area without bedrooms or suites', () => {
@@ -106,8 +106,8 @@ test('8c. master library contains every approved highlight from all seven catego
 test('9. highlight selection remains limited to ten', () => {
   assert.match(page, /property\.highlights\.length < 10/)
   assert.match(page, /property\.highlights\.length >= 10/)
-  assert.match(page, /Selecione até 10 características/)
-  assert.match(page, /Somente os itens escolhidos serão enviados como contexto/)
+  assert.match(page, /smartTour\.highlightSelection\.instruction/)
+  assert.match(page, /smartTour\.highlightSelection\.selectedCount/)
 })
 
 test('10. highlight lists change coherently with property type', () => {
@@ -138,16 +138,16 @@ test('14. frontend forces the original property without virtual staging', () => 
 
 test('15. asks the formal independent questions with localized caption and identity prompts', () => {
   for (const question of [
-    'Deseja um apresentador virtual durante o vídeo?',
-    'Deseja narração durante o vídeo?',
-    'Deseja uma chamada para ação no final do vídeo?',
+    'smartTour.questions.presenter',
+    'smartTour.questions.narration',
+    'smartTour.questions.ctaEnabled',
   ]) assert.ok(page.includes(question), question)
   assert.match(page, /smartTour\.captions\.question/)
   assert.match(page, /smartTour\.professionalIdentity\.question/)
 })
 
 test('16. history, summary and review reflect every independent choice', () => {
-  for (const label of ['Apresentador', 'Narração', 'CTA final', 'Chamada escolhida', 'Telefone']) assert.ok(page.includes(label), label)
+  for (const label of ['smartTour.review.presenter', 'smartTour.review.narration', 'smartTour.review.finalCta', 'smartTour.review.selectedCta', 'smartTour.review.phone']) assert.ok(page.includes(label), label)
   assert.match(page, /smartTour\.captions\.reviewLabel/)
   assert.match(page, /smartTour\.professionalIdentity\.reviewLabel/)
   assert.match(page, /ctaEnabled === true \? cta : ''/)
@@ -173,5 +173,5 @@ test('19. generation integrations keep the approved endpoints', () => {
   assert.match(page, /supabase\.functions\.invoke\('smart-tour-generate'/)
   assert.match(page, /supabase\.functions\.invoke\('smart-tour-status'/)
   assert.match(page, /buildSmartTourCampaignPackage/)
-  assert.match(page, /normalizeGeneration\(generation\)/)
+  assert.match(page, /normalizeGeneration\(\{ \.\.\.generation, language:/)
 })

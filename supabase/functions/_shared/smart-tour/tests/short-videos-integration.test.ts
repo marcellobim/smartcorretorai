@@ -41,6 +41,19 @@ const rawRequest = {
   language: 'pt-BR',
 }
 
+// This fixture is intentionally the frozen public Short Videos contract. Keep
+// it literal so a photo-flow contract addition cannot silently reshape it.
+const LEGACY_SHORT_VIDEOS_CONTRACT = {
+  inputFlow: 'short-videos',
+  clientRequestId: '123e4567-e89b-12d3-a456-426614174000',
+  videoPath: 'user/short-videos/123e4567-e89b-12d3-a456-426614174000/input.mp4',
+  videoMetadata: { durationSeconds: 42.5, mimeType: 'video/mp4' },
+  includeProfessionalPhone: true,
+  showProfessionalIdentity: false,
+  language: 'pt-BR',
+  market: 'BR',
+}
+
 const validationSource = readFileSync(new URL('../validation.ts', import.meta.url), 'utf8')
 const generateSource = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
 
@@ -52,6 +65,21 @@ test('validates one MP4 and preserves the five-minute product contract', () => {
   assert.equal(input.generation.presenterGender, 'none')
   assert.throws(() => validateShortVideosRequest({ ...rawRequest, videoMetadata: { durationSeconds: 300.01, mimeType: 'video/mp4' } }), /invalid_video_duration/)
   assert.throws(() => validateShortVideosRequest({ ...rawRequest, videoMetadata: { durationSeconds: 10, mimeType: 'video\/quicktime' } }), /invalid_video_type/)
+})
+
+test('keeps the frozen Short Videos identity contract literal when photo identity fields exist', () => {
+  const legacy = validateShortVideosRequest({ ...rawRequest, showProfessionalIdentity: false })
+  const withPhotoField = validateShortVideosRequest({
+    ...rawRequest,
+    showProfessionalIdentity: false,
+    professional_identity: { enabled: true, name_source: 'display' },
+  })
+  for (const [key, value] of Object.entries(LEGACY_SHORT_VIDEOS_CONTRACT)) {
+    assert.deepEqual(legacy[key as keyof typeof legacy], value)
+    assert.deepEqual(withPhotoField[key as keyof typeof withPhotoField], value)
+  }
+  assert.equal('professional_identity' in legacy, false)
+  assert.equal('professional_identity' in withPhotoField, false)
 })
 
 test('accepts 30-second and 60-second inputs and keeps long input metadata in the Gemini path', () => {

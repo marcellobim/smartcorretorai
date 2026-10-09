@@ -14,7 +14,8 @@ const LINEAR_NEXT_QUESTION = Object.freeze({
   narration: 'captions',
   captions: 'cta_enabled',
   cta: 'phone',
-  phone: 'review',
+  phone: 'professional_identity',
+  professional_identity: 'review',
 })
 
 const LIFE_IN_PROPERTY_NEXT_QUESTION = Object.freeze({
@@ -29,7 +30,8 @@ const LIFE_IN_PROPERTY_NEXT_QUESTION = Object.freeze({
   life_scene: 'captions',
   captions: 'cta',
   cta: 'phone',
-  phone: 'review',
+  phone: 'professional_identity',
+  professional_identity: 'review',
 })
 
 const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
@@ -47,7 +49,8 @@ const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
   captions: 'cta_enabled',
   cta_enabled: 'cta',
   cta: 'phone',
-  phone: 'review',
+  phone: 'professional_identity',
+  professional_identity: 'review',
 })
 
 const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({

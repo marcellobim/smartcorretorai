@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
+import { resolveProfessionalIdentity, type ProfessionalIdentitySelection } from '../_shared/professional-identity.ts'
 import { normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_PROMPT_RULES, validateGoogleAdsDelivery } from '../_shared/google-ads.ts'
 import {
@@ -38,6 +39,7 @@ import {
   smartCarouselCtaFile,
   type SmartCarouselLocale,
 } from './localization.ts'
+import { buildProfessionalIdentityRenderElement } from './professional-identity-render.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -555,7 +557,7 @@ Responda somente com JSON valido no formato:
   }
 }
 
-function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, narrationText: string, voiceProvider: string, locale: SmartCarouselLocale) {
+function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRecord, phone: string, professionalIdentity: string, narrationText: string, voiceProvider: string, locale: SmartCarouselLocale) {
   const captions = buildSmartCarouselCaptions(answers, locale)
   const transitionDuration = SMART_CAROUSEL_TRANSITION_DURATION_SECONDS
   const ctaSceneDuration = SMART_CAROUSEL_CTA_SCENE_DURATION_SECONDS
@@ -730,6 +732,8 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
       ],
     })
   }
+  const professionalIdentityElement = buildProfessionalIdentityRenderElement(professionalIdentity, ctaTime, Boolean(phone))
+  if (professionalIdentityElement) finalElements.push(professionalIdentityElement)
 
   return {
     output_format: 'mp4',
@@ -747,6 +751,7 @@ async function buildPresentationPlan(
   ctaUrl: string,
   answers: JsonRecord,
   phone: string,
+  professionalIdentity: string,
   cta: string,
   openaiApiKey: string,
   jobId: string,
@@ -765,8 +770,22 @@ async function buildPresentationPlan(
     locale,
   )
   const voice = selectNarrationVoice(imageUrls.length, intelligence.narrationHighlights.length)
+  // These publication captions are post-provider composition.  Identity never
+  // enters the marketing prompt and remains absent when opt-in is disabled.
+  const appendProfessionalIdentity = (caption) => professionalIdentity && caption
+    ? `${caption}\n\n${professionalIdentity}`
+    : caption
+  const campaigns = professionalIdentity
+    ? intelligence.campaigns.map(campaign => ({
+      ...campaign,
+      instagram: appendProfessionalIdentity(campaign.instagram),
+      facebook: appendProfessionalIdentity(campaign.facebook),
+      whatsapp: appendProfessionalIdentity(campaign.whatsapp),
+      linkedin: appendProfessionalIdentity(campaign.linkedin),
+    }))
+    : intelligence.campaigns
   return {
-    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, intelligence.narration, voice.provider, locale),
+    renderScript: buildRenderScript(imageUrls, ctaUrl, answers, phone, professionalIdentity, intelligence.narration, voice.provider, locale),
     narration: {
       source: 'openai_marketing_director',
       text: intelligence.narration,
@@ -778,7 +797,7 @@ async function buildPresentationPlan(
       },
       voice,
     },
-    campaigns: intelligence.campaigns,
+    campaigns,
     googleAds: intelligence.googleAds,
   }
 }
@@ -796,10 +815,22 @@ async function handleCreate(
   const cta = cleanText(body.cta, 80)
   const ctaPath = cleanText(body.cta_path, 512)
   const sharePhone = body.share_phone === true || body.share_phone === 'yes'
+  const rawProfessionalIdentity = body.professional_identity
+  const professionalIdentitySelection: ProfessionalIdentitySelection | null = !rawProfessionalIdentity
+    ? { enabled: false }
+    : typeof rawProfessionalIdentity === 'object' && !Array.isArray(rawProfessionalIdentity)
+      && (rawProfessionalIdentity as JsonRecord).enabled === false
+      ? { enabled: false }
+      : typeof rawProfessionalIdentity === 'object' && !Array.isArray(rawProfessionalIdentity)
+        && (rawProfessionalIdentity as JsonRecord).enabled === true
+        && (((rawProfessionalIdentity as JsonRecord).name_source === 'real') || ((rawProfessionalIdentity as JsonRecord).name_source === 'display'))
+        ? { enabled: true, name_source: (rawProfessionalIdentity as JsonRecord).name_source as 'real' | 'display' }
+        : null
   const locale = normalizeSmartCarouselLocale(body)
   const expectedCtaFile = smartCarouselCtaFile(cta, locale.language)
 
   if (!isUuid(jobId)) return jsonResponse({ ok: false, error: 'Apresentação inválida.' }, 400)
+  if (!professionalIdentitySelection) return jsonResponse({ ok: false, error: 'Identificação profissional inválida.' }, 400)
   if (imagePaths.length < SMART_CAROUSEL_MIN_IMAGES || imagePaths.length > SMART_CAROUSEL_MAX_IMAGES) {
     return jsonResponse({ ok: false, error: 'Selecione entre 5 e 20 fotos.' }, 400)
   }
@@ -866,13 +897,17 @@ async function handleCreate(
     const ctaUrl = await createSignedUrl(supabase, ctaPath)
 
     let phone = ''
-    if (sharePhone) {
+    let professionalIdentity = ''
+    if (sharePhone || professionalIdentitySelection.enabled) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('whatsapp, telefone')
+        .select(professionalIdentitySelection.enabled ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, license_number' : 'whatsapp, telefone')
         .eq('id', userId)
         .maybeSingle()
-      phone = formatSmartCarouselPhone(profile?.whatsapp || profile?.telefone || '', locale.market)
+      if (sharePhone) phone = formatSmartCarouselPhone(profile?.whatsapp || profile?.telefone || '', locale.market)
+      const resolved = resolveProfessionalIdentity(profile, professionalIdentitySelection, locale.market)
+      if (professionalIdentitySelection.enabled && !resolved) return jsonResponse({ ok: false, error: 'Complete sua identificação profissional antes de criar.' }, 400)
+      professionalIdentity = resolved?.formatted || ''
     }
 
     const presentationPlan = await buildPresentationPlan(
@@ -880,6 +915,7 @@ async function handleCreate(
       ctaUrl,
       answers,
       phone,
+      professionalIdentity,
       cta,
       openaiApiKey,
       jobId,

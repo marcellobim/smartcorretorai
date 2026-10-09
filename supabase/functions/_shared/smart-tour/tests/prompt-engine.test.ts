@@ -352,13 +352,14 @@ test('request payload validation contract remains unchanged', () => {
     generation: normalizeGeneration({ mode: 'narrated_tour' }),
     selectedCta: 'CTA',
     includeProfessionalPhone: false,
+    professional_identity: { enabled: false },
     language: 'pt-BR',
   }
   const validated = validateSmartTourRequest(base)
   assert.deepEqual(validated.imagePaths, paths)
   assert.deepEqual(validated.imageOrder, paths)
-  assert.equal(validated.showProfessionalIdentity, false)
-  assert.equal(validateSmartTourRequest({ ...base, showProfessionalIdentity: true }).showProfessionalIdentity, true)
+  assert.deepEqual(validated.professional_identity, { enabled: false })
+  assert.deepEqual(validateSmartTourRequest({ ...base, professional_identity: { enabled: true, name_source: 'real' } }).professional_identity, { enabled: true, name_source: 'real' })
   const six = Array.from({ length: 6 }, (_, index) => `u/${index + 1}.jpg`)
   assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: six, imageOrder: six }), /invalid_image_count/)
   assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: ['u/1.jpg', 'u/1.jpg'], imageOrder: ['u/1.jpg', 'u/1.jpg'] }), /invalid_image_count/)
@@ -373,6 +374,7 @@ test('custom presenter speech is literal, enables narration, and is limited to 2
     property,
     selectedCta: '',
     includeProfessionalPhone: false,
+    professional_identity: { enabled: false },
     language: 'pt-BR',
   }
   const exactSpeech = '  Conheça este imóvel incrível, pronto para receber seus melhores momentos.  '

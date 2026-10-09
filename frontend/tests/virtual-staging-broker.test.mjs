@@ -43,6 +43,7 @@ test('Apresentacao pelo Corretor starts with the own-image decision and never en
     'captions',
     'cta_enabled',
     'phone',
+    'professional_identity',
     'review',
   ])
   assert.equal(sequence.includes('life_scene'), false)
@@ -109,7 +110,8 @@ test('broker journey keeps phone independent, CTA optional, rental states and fi
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta_enabled', answerId: 'yes', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'cta')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta_enabled', answerId: 'no', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'phone')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'phone')
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'phone', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'review')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'phone', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'professional_identity')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'professional_identity', journeyId: BROKER_PRESENTATION_JOURNEY_ID }), 'review')
   assert.match(page, /virtualStaging\.lifeBroker\.presentation/)
   assert.match(page, /virtualStaging\.lifeBroker\.ownImage/)
   assert.match(page, /virtualStaging\.presenter\.photo/)

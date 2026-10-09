@@ -5,6 +5,7 @@ import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-creden
 import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
 import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, formatSmartTourProfessionalIdentity, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+import { resolveProfessionalIdentity } from '../_shared/professional-identity.ts'
 import { applySmartTourCustomPresenterSpeech, applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
 import { buildShortVideosCleanGeminiPrompt, buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
 import { jsonResponse as json, withCors } from '../_shared/cors.ts'
@@ -137,9 +138,13 @@ serve(withCors(async req => {
       if (existing.status === 'completed' || existing.status === 'failed') await settleGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,status:existing.status})
       return json({ok:true,jobId:existing.id,status:existing.status,hashtags:existing.marketing_hashtags || [],idempotent:true})
     }
-    const {data:profile} = await supabase.from('profiles').select(input.showProfessionalIdentity ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
+    const {data:profile} = await supabase.from('profiles').select(input.professional_identity.enabled ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
-    const professionalIdentity = input.showProfessionalIdentity ? formatSmartTourProfessionalIdentity(profile) : ''
+    const resolvedProfessionalIdentity = resolveProfessionalIdentity(profile, input.professional_identity, input.market)
+    // A direct authenticated call cannot turn an incomplete opted-in profile into
+    // a silent no-identity creation. The chat collects these fields first.
+    if (input.professional_identity.enabled && !resolvedProfessionalIdentity) throw new Error('professional_identity_incomplete')
+    const professionalIdentity = resolvedProfessionalIdentity?.formatted || ''
     const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.market === 'US' ? input.property.neighborhoodCommunity : input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.market === 'US' ? input.property.bathrooms : input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = buildOfficialHashtags(hashtagContext)
     const baseBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,professionalIdentity,imagePaths:input.imagePaths,language:input.language})
@@ -230,7 +235,7 @@ serve(withCors(async req => {
   } catch (error) {
     console.warn('[smart-tour-generate]',safeError(error))
     const code = safeError(error)
-    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
+    const messages: Record<string,string> = {invalid_image_count:'Envie de 1 a 5 imagens válidas.',invalid_image_order:'A ordem das imagens é inválida.',invalid_image_owner:'Uma imagem não pertence à sua conta.',image_unavailable:'Uma das imagens não está disponível.',professional_identity_incomplete:'Complete sua identificação profissional antes de continuar.',gemini_omni_missing_environment:'A criação de vídeos está temporariamente indisponível.'}
     Object.assign(messages, {
       invalid_video_path: 'Envie um vídeo MP4 válido.',
       invalid_video_owner: 'O vídeo não pertence à sua conta.',

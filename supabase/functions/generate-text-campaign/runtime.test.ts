@@ -160,13 +160,13 @@ const unsupportedUsCampaign = (): TextCampaignResult => ({
   },
 })
 
-test('formats complete BR and US professional identities without accepting client input', () => {
-  assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { display_name: 'Ana Lima', creci: '12345', creci_type: 'F', estado: 'SC' }).professional_identity, 'Ana Lima — CRECI F 12345/SC')
-  assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { nome: 'Ana Lima', creci: '12345', creci_type: 'X', estado: 'SC' }).professional_identity, undefined)
-  const us = { ...validBriefing(), language: 'en-US' as const, market: 'US' as const }
-  assert.equal(attachTextCampaignProfessionalIdentity(us, { display_name: 'Alex Smith', license_number: '123456', estado: 'FL' }).professional_identity, 'Alex Smith — License 123456, FL')
+test('includes a professional identity only after explicit opt-in and only with the selected name source', () => {
+  const optedIn = { ...validBriefing(), professional_identity: { enabled: true as const, name_source: 'display' as const } }
+  assert.equal(attachTextCampaignProfessionalIdentity(optedIn, { display_name: 'Ana Lima', nome: 'Ana Real', creci: '12345', creci_type: 'F', estado: 'SC' }).professional_identity?.formatted, 'Ana Lima · CRECI-F 12345/SC')
+  assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { display_name: 'Ana Lima', creci: '12345', creci_type: 'F', estado: 'SC' }).professional_identity, undefined)
+  const us = { ...validBriefing(), language: 'en-US' as const, market: 'US' as const, professional_identity: { enabled: true as const, name_source: 'real' as const } }
+  assert.equal(attachTextCampaignProfessionalIdentity(us, { display_name: 'Alex Display', nome: 'Alex Smith', license_number: '123456', estado: 'FL' }).professional_identity?.formatted, 'Alex Smith · License #123456 · FL')
   assert.equal(attachTextCampaignProfessionalIdentity(us, { nome: 'Alex Smith', license_number: '123456' }).professional_identity, undefined)
-  assert.equal(attachTextCampaignProfessionalIdentity(us, { license_number: '123456', estado: 'FL' }).professional_identity, undefined)
 })
 
 test('sanitizes unsupported factual claims across all text campaign deliveries without a provider retry', async () => {

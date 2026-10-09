@@ -23,22 +23,13 @@ import { supabase } from '../lib/supabase'
 import { TIKTOK_LOGIN_KIT_ENABLED } from '../config/tiktok'
 import TurnstileWidget from '../components/auth/TurnstileWidget'
 import { useLocale } from '../i18n/useLocale'
+import { formatPhone, isPhoneCompatibleWithMarket, normalizePhone } from '../utils/phoneFormatters'
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
   'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
-
-function formatBrazilianPhone(value = '') {
-  const rawDigits = String(value).replace(/\D/g, '')
-  const digits = (rawDigits.length > 11 && rawDigits.startsWith('55') ? rawDigits.slice(2) : rawDigits).slice(0, 11)
-  if (!digits) return ''
-  if (digits.length <= 2) return `(${digits}`
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-}
 
 const tabs = [
   { id: 'cadastro', label: 'Cadastro', icon: User },
@@ -59,7 +50,8 @@ function resolveSettingsTab(value) {
   return tabs.some(tab => tab.id === resolved) ? resolved : 'cadastro'
 }
 
-function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
+function ImageUploader({ label, value, onChange, shape = 'circle', hint, market = 'BR' }) {
+  const us = market === 'US'
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(value || null)
 
@@ -70,11 +62,11 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
   const handleFile = (file) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      toast.error('Envie uma imagem em JPG, PNG ou WebP.')
+      toast.error(us ? 'Upload a JPG, PNG, or WebP image.' : 'Envie uma imagem em JPG, PNG ou WebP.')
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Envie uma imagem com até 5MB.')
+      toast.error(us ? 'Upload an image up to 5 MB.' : 'Envie uma imagem com até 5MB.')
       return
     }
     setPreview(URL.createObjectURL(file))
@@ -105,7 +97,7 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
                 type="button"
                 onClick={clear}
                 className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-900/75 text-white"
-                aria-label={`Remover ${label}`}
+                aria-label={`${us ? 'Remove' : 'Remover'} ${label}`}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -123,7 +115,7 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
             className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-primary-700 hover:text-primary-800"
           >
             <Upload className="h-3.5 w-3.5" />
-            {preview ? 'Trocar imagem' : 'Enviar imagem'}
+            {preview ? (us ? 'Change image' : 'Trocar imagem') : (us ? 'Upload image' : 'Enviar imagem')}
           </button>
         </div>
       </div>
@@ -138,12 +130,13 @@ function ImageUploader({ label, value, onChange, shape = 'circle', hint }) {
   )
 }
 
-function StatusBadge({ complete, optional = false }) {
+function StatusBadge({ complete, optional = false, market = 'BR' }) {
+  const us = market === 'US'
   if (optional) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
         <CheckCircle2 className="h-3.5 w-3.5" />
-        Opcional
+        {us ? 'Optional' : 'Opcional'}
       </span>
     )
   }
@@ -153,12 +146,12 @@ function StatusBadge({ complete, optional = false }) {
       complete ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
     }`}>
       {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-      {complete ? 'Perfil básico pronto' : 'Complete os dados básicos'}
+      {complete ? (us ? 'Basic profile ready' : 'Perfil básico pronto') : (us ? 'Complete your basic profile' : 'Complete os dados básicos')}
     </span>
   )
 }
 
-function SectionCard({ icon: Icon, eyebrow, title, description, complete, optional = false, children }) {
+function SectionCard({ icon: Icon, eyebrow, title, description, complete, optional = false, children, market }) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -172,7 +165,7 @@ function SectionCard({ icon: Icon, eyebrow, title, description, complete, option
             {description && <p className="mt-1 text-sm leading-relaxed text-gray-500">{description}</p>}
           </div>
         </div>
-        {(typeof complete === 'boolean' || optional) && <StatusBadge complete={complete} optional={optional} />}
+        {(typeof complete === 'boolean' || optional) && <StatusBadge complete={complete} optional={optional} market={market} />}
       </div>
       {children}
     </section>
@@ -192,7 +185,7 @@ export default function Configuracoes() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(() => resolveSettingsTab(searchParams.get('tab')))
   const { user, session, updateUser, reloadProfile, isAdmin } = useAuth()
-  const { t } = useLocale()
+  const { t, market } = useLocale()
   const [avatarFile, setAvatarFile] = useState(undefined)
   const [logoFile, setLogoFile] = useState(undefined)
   const [openingPortal, setOpeningPortal] = useState(false)
@@ -222,6 +215,7 @@ export default function Configuracoes() {
       instagram: '',
       facebook: '',
       linkedin: '',
+      license_number: '',
     },
   })
 
@@ -247,16 +241,17 @@ export default function Configuracoes() {
       creci: user?.creci || '',
       creci_type: user?.creci_type || '',
       estado: user?.estado || '',
-      telefone: user?.telefone || '',
-      whatsapp: formatBrazilianPhone(user?.whatsapp || user?.telefone || ''),
+      telefone: formatPhone(user?.telefone || '', market, user?.market),
+      whatsapp: formatPhone(user?.whatsapp || user?.telefone || '', market, user?.market),
       imobiliaria: user?.imobiliaria || '',
       instagram: user?.instagram || '',
       facebook: user?.facebook || '',
       linkedin: user?.linkedin || '',
+      license_number: user?.license_number || '',
     })
     setAvatarFile(undefined)
     setLogoFile(undefined)
-  }, [user?.id, user?.nome, user?.display_name, user?.email, user?.creci, user?.creci_type, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
+  }, [market, user?.id, user?.nome, user?.display_name, user?.email, user?.creci, user?.creci_type, user?.license_number, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
 
   const watched = watch()
   const profileComplete = useMemo(() => Boolean(
@@ -267,25 +262,25 @@ export default function Configuracoes() {
 
   const uploadProfileImage = async (file, slot) => {
     if (!file || !(file instanceof File)) return null
-    if (!user?.id) throw new Error('Sessão expirada. Faça login novamente.')
+    if (!user?.id) throw new Error(copy.sessionExpired)
     const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
     const path = `${user.id}/profile/${slot}-${Date.now()}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('smartcorretor-assets')
       .upload(path, file, { contentType: file.type, upsert: true })
 
-    if (uploadError) throw new Error(`Falha ao enviar ${slot}: ${uploadError.message}`)
-    if (!path.startsWith(`${user.id}/`)) throw new Error('Caminho de upload inválido.')
+    if (uploadError) throw new Error(copy.uploadFailed)
+    if (!path.startsWith(`${user.id}/`)) throw new Error(copy.invalidUploadPath)
 
     const { data: signed, error: signedError } = await supabase.storage
       .from('smartcorretor-assets')
       .createSignedUrl(path, 60 * 60 * 24)
 
-    if (signedError) throw new Error(`Falha ao preparar ${slot}: ${signedError.message}`)
+    if (signedError) throw new Error(copy.uploadPrepareFailed)
     return signed.signedUrl
   }
 
-  const onSavePerfil = async (data, successMessage = 'Cadastro profissional atualizado.') => {
+  const onSavePerfil = async (data, successMessage = copy.saved) => {
     try {
       let avatar_url = user?.avatar_url || null
       let logo_url = user?.logo_url || null
@@ -302,8 +297,10 @@ export default function Configuracoes() {
         email: data.email,
         creci: data.creci,
         estado: data.estado,
-        telefone: data.telefone,
-        whatsapp: formatBrazilianPhone(data.whatsapp || user?.telefone || ''),
+        // Store digits only. Presentation is reconstructed by the shared
+        // market formatter, so a mask never becomes the source of truth.
+        telefone: data.telefone ? normalizePhone(data.telefone, market) : null,
+        whatsapp: data.whatsapp ? normalizePhone(data.whatsapp, market) : null,
         imobiliaria: data.imobiliaria,
         avatar_url,
         logo_url,
@@ -316,6 +313,7 @@ export default function Configuracoes() {
           instagram: data.instagram || null,
           facebook: data.facebook || null,
           linkedin: data.linkedin || null,
+          ...(market === 'US' ? { license_number: data.license_number || null } : {}),
         })
       }
 
@@ -333,53 +331,63 @@ export default function Configuracoes() {
       setLogoFile(undefined)
       toast.success(successMessage)
     } catch (err) {
-      toast.error(err.message || 'Erro ao salvar perfil.')
+      toast.error(err.message || copy.saveError)
     }
   }
 
   const onSaveBasicProfile = async (data) => {
     clearProfileErrors(['nome', 'email', 'whatsapp'])
     let hasError = false
-    const phoneDigits = String(data.whatsapp || '').replace(/\D/g, '')
+    const phoneValues = [['telefone', data.telefone], ['whatsapp', data.whatsapp]]
 
     if (!data.nome?.trim()) {
-      setProfileError('nome', { type: 'required', message: 'Informe seu nome profissional.' })
+      setProfileError('nome', { type: 'required', message: copy.requiredName })
       hasError = true
     }
     if (!data.email?.trim()) {
-      setProfileError('email', { type: 'required', message: 'Informe seu e-mail profissional.' })
+      setProfileError('email', { type: 'required', message: copy.requiredEmail })
       hasError = true
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
-      setProfileError('email', { type: 'validate', message: 'Informe um e-mail profissional válido.' })
+      setProfileError('email', { type: 'validate', message: copy.invalidEmail })
       hasError = true
     }
-    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
-      setProfileError('whatsapp', { type: 'validate', message: 'Informe um telefone com DDD.' })
-      hasError = true
+    for (const [field, value] of phoneValues) {
+      if (value && !isPhoneCompatibleWithMarket(value, market)) {
+        setProfileError(field, { type: 'validate', message: market === 'US' ? 'Enter a valid 10-digit phone number.' : 'Informe um telefone com DDD.' })
+        hasError = true
+      }
     }
 
     if (hasError) {
-      toast.error('Revise os dados obrigatórios destacados.')
+      toast.error(copy.requiredReview)
       return
     }
 
     await onSavePerfil(data)
   }
 
+  const us = market === 'US'
+  const copy = us ? {
+    title: 'Settings', subtitle: 'Manage your professional profile, access, plan, and subscription in one place.', registration: 'Profile', access: 'Access & password', plan: 'Plan & subscription', keepUpdated: 'Keep your professional profile current. These details are used only when a product and layout support them.', profile: 'Professional profile', profileDescription: 'Your professional email is for marketing materials and does not change your sign-in email.', photo: 'Professional photo', photoHint: 'Optional. Used only when a layout supports a visual signature.', legalName: 'Professional / legal name', legalPlaceholder: 'Your legal professional name', displayPlaceholder: 'E.g., Alex Realty', displayHint: 'Your display name can be used in materials when you choose that option.', license: 'License number', company: 'Company identity', companyDescription: 'Add information only if you want to use your brokerage or company in generated materials.', logo: 'Company logo', logoHint: 'Optional. Use it only when you want to identify your company in materials.', brokeragePlaceholder: 'E.g., Alex Realty Group', optionalNotice: 'All details in this section are optional and never replace your personal professional details automatically.', save: 'Save profile', saved: 'Professional profile updated.', saveError: 'We could not save your profile.', requiredName: 'Enter your professional name.', requiredEmail: 'Enter your professional email.', invalidEmail: 'Enter a valid professional email.', requiredReview: 'Review the highlighted required details.', sessionExpired: 'Your session has expired. Please sign in again.', uploadFailed: 'Could not upload the image.', uploadPrepareFailed: 'Could not prepare the image.', invalidUploadPath: 'Invalid upload path.', accessTitle: 'Access & password', accessDescription: 'The email below identifies your sign-in. It is different from the professional email in your profile.', loginEmail: 'Sign-in email', loginUnavailable: 'Sign-in email unavailable', loginHint: 'This email identifies your account and cannot be changed here.', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm new password', passwordPlaceholder: 'At least 12 characters', repeatPassword: 'Repeat your new password', currentRequired: 'Enter your current password.', newRequired: 'Enter your new password.', passwordMin: 'Use at least 12 characters.', confirmRequired: 'Confirm your new password.', passwordsMismatch: 'Passwords do not match.', captchaRequired: 'Complete the security verification to continue.', sessionInvalid: 'Invalid session. Sign in again.', passwordIncorrect: 'Current password is incorrect.', identityFailed: 'We could not confirm your identity.', passwordUpdated: 'Password changed. Sign in again on all devices.', passwordSecureFailed: 'We could not change your password securely. Try again.', allSessionsFailed: 'Password changed, but we could not sign out every session. Contact support.', planTitle: 'Plan & subscription', planDescription: 'Review your current plan and securely manage your Stripe subscription.', currentPlan: 'Current plan', reportedStatus: 'Reported status', manageDescription: 'Update your payment method or cancel your subscription.', manage: 'Manage subscription', viewPlans: 'View available plans and terms', portalFailed: 'We could not open subscription management. Try again.', select: 'Select', phoneHint: 'Official phone used only when you choose to share it.', emailHint: 'Professional information for your materials. This is not your login email.',
+  } : {
+    title: 'Configurações', subtitle: 'Gerencie seu cadastro, acesso, plano e assinatura em um só lugar.', registration: 'Cadastro', access: 'Acesso e senha', plan: 'Plano e assinatura', keepUpdated: 'Mantenha seu cadastro profissional atualizado. Esses dados podem ser usados nos materiais somente quando o produto e o layout comportarem essa identificação.', profile: 'Dados profissionais', profileDescription: 'Seu e-mail profissional é um dado de divulgação e não altera o e-mail usado para acessar sua conta.', photo: 'Foto profissional', photoHint: 'Foto opcional, usada apenas quando o layout comportar assinatura visual.', legalName: 'Nome profissional / real', legalPlaceholder: 'Seu nome profissional real', displayPlaceholder: 'Ex: Riccieri', displayHint: 'O nome comercial pode ser usado nas peças quando você escolher essa opção.', license: 'Número da licença', company: 'Identidade da empresa', companyDescription: 'Preencha apenas se desejar utilizar os dados da sua imobiliária, construtora ou empresa nos materiais gerados.', logo: 'Logo da empresa', logoHint: 'Opcional. Use apenas quando desejar identificar a empresa nos materiais.', brokeragePlaceholder: 'Ex: Silva Imóveis', optionalNotice: 'Todos os dados desta seção são opcionais e nunca substituem automaticamente seus dados profissionais pessoais.', save: 'Salvar Cadastro', saved: 'Cadastro profissional atualizado.', saveError: 'Erro ao salvar perfil.', requiredName: 'Informe seu nome profissional.', requiredEmail: 'Informe seu e-mail profissional.', invalidEmail: 'Informe um e-mail profissional válido.', requiredReview: 'Revise os dados obrigatórios destacados.', sessionExpired: 'Sessão expirada. Faça login novamente.', uploadFailed: 'Falha ao enviar a imagem.', uploadPrepareFailed: 'Falha ao preparar a imagem.', invalidUploadPath: 'Caminho de upload inválido.', accessTitle: 'Acesso e Senha', accessDescription: 'O e-mail abaixo identifica seu login. Ele é diferente do e-mail profissional informado no Cadastro.', loginEmail: 'E-mail de acesso/login', loginUnavailable: 'E-mail de acesso indisponível', loginHint: 'Este e-mail identifica sua conta e não pode ser alterado nesta tela.', currentPassword: 'Senha atual', newPassword: 'Nova senha', confirmPassword: 'Confirmar nova senha', passwordPlaceholder: 'Mínimo 12 caracteres', repeatPassword: 'Repita a nova senha', changePassword: 'Alterar senha', currentRequired: 'Informe sua senha atual.', newRequired: 'Informe a nova senha.', passwordMin: 'Use pelo menos 12 caracteres.', confirmRequired: 'Confirme a nova senha.', passwordsMismatch: 'As senhas não conferem.', captchaRequired: 'Conclua a verificação de segurança para continuar.', sessionInvalid: 'Sessão inválida. Entre novamente.', passwordIncorrect: 'Senha atual incorreta.', identityFailed: 'Não foi possível confirmar sua identidade.', passwordUpdated: 'Senha alterada. Entre novamente em todos os dispositivos.', passwordSecureFailed: 'Não foi possível alterar a senha com segurança. Tente novamente.', allSessionsFailed: 'Senha alterada, mas não foi possível encerrar todas as sessões. Contate o suporte.', planTitle: 'Plano e Assinatura', planDescription: 'Consulte seu plano atual e gerencie sua assinatura com segurança pelo Stripe.', currentPlan: 'Plano atual', reportedStatus: 'Status informado', manageDescription: 'Altere sua forma de pagamento ou cancele sua assinatura.', manage: 'Gerenciar assinatura', viewPlans: 'Ver planos e condições disponíveis', portalFailed: 'Não foi possível abrir o gerenciamento da assinatura. Tente novamente.', select: 'Selecione', phoneHint: 'Telefone oficial usado somente quando você escolher divulgá-lo.', emailHint: 'Dado profissional para seus materiais. Não é o e-mail de acesso/login.',
+  }
+  const localizedTabs = [{ id: 'cadastro', label: copy.registration, icon: User }, { id: 'acesso', label: copy.access, icon: Lock }, { id: 'plano', label: copy.plan, icon: CreditCard }]
+
   const onSaveSenha = async (data) => {
     clearPasswordErrors()
     if (data.nova_senha !== data.confirmar_senha) {
-      setPasswordError('confirmar_senha', { type: 'validate', message: 'As senhas não conferem.' })
-      toast.error('As senhas não conferem.')
+      setPasswordError('confirmar_senha', { type: 'validate', message: copy.passwordsMismatch })
+      toast.error(copy.passwordsMismatch)
       return
     }
     if (!passwordCaptchaToken) {
-      setPasswordError('root', { type: 'captcha', message: 'Conclua a verificação de segurança para continuar.' })
+      setPasswordError('root', { type: 'captcha', message: copy.captchaRequired })
       return
     }
     try {
       const accessEmailValue = session?.user?.email
-      if (!accessEmailValue) throw new Error('Sessão inválida. Entre novamente.')
+    if (!accessEmailValue) throw new Error(copy.sessionInvalid)
       const { error: reauthError } = await supabase.auth.signInWithPassword({
         email: accessEmailValue,
         password: data.senha_atual,
@@ -387,21 +395,21 @@ export default function Configuracoes() {
       })
       passwordCaptchaRef.current?.reset()
       if (reauthError) {
-        setPasswordError('senha_atual', { type: 'auth', message: 'Senha atual incorreta.' })
-        toast.error('Não foi possível confirmar sua identidade.')
+        setPasswordError('senha_atual', { type: 'auth', message: copy.passwordIncorrect })
+        toast.error(copy.identityFailed)
         return
       }
       const { error } = await supabase.auth.updateUser({ password: data.nova_senha })
       if (error) throw error
       const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
-      if (signOutError) throw new Error('Senha alterada, mas não foi possível encerrar todas as sessões. Contate o suporte.')
-      toast.success('Senha alterada. Entre novamente em todos os dispositivos.')
+      if (signOutError) throw new Error(copy.allSessionsFailed)
+      toast.success(copy.passwordUpdated)
       resetSenha()
       navigate('/login', { replace: true })
     } catch (err) {
-      const message = err.message?.startsWith('Senha alterada,')
+      const message = err.message === copy.allSessionsFailed
         ? err.message
-        : 'Não foi possível alterar a senha com segurança. Tente novamente.'
+        : copy.passwordSecureFailed
       setPasswordError('root', { type: 'auth', message })
       toast.error(message)
     } finally {
@@ -425,23 +433,23 @@ export default function Configuracoes() {
       }
       window.location.assign(portalUrl.toString())
     } catch {
-      toast.error('Não foi possível abrir o gerenciamento da assinatura. Tente novamente.')
+      toast.error(copy.portalFailed)
       setOpeningPortal(false)
     }
   }
 
-  const accessEmail = session?.user?.email || 'E-mail de acesso indisponível'
+  const accessEmail = session?.user?.email || copy.loginUnavailable
   const subscriptionStatus = user?.subscription_status || user?.assinatura_status || null
   const hasActiveSubscription = ACTIVE_SUBSCRIPTION_PLANS.has(String(user?.plano || '').trim().toLowerCase())
 
   return (
     <div>
-      <Header title="Configurações" subtitle="Gerencie seu cadastro, acesso, plano e assinatura em um só lugar." />
+      <Header title={copy.title} subtitle={copy.subtitle} />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-7 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
           <nav className="space-y-1 lg:sticky lg:top-6 lg:self-start">
-            {tabs.map(({ id, label, icon: Icon }) => (
+            {localizedTabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
@@ -478,79 +486,83 @@ export default function Configuracoes() {
                       <CheckCircle2 className="h-5 w-5" />
                     </div>
                     <p className="pt-1 text-sm font-semibold leading-6 text-slate-700">
-                      Mantenha seu cadastro profissional atualizado. Esses dados podem ser usados nos materiais somente quando o produto e o layout comportarem essa identificação.
+                      {copy.keepUpdated}
                     </p>
                   </div>
                 </div>
 
                 <SectionCard
                   icon={Briefcase}
-                  eyebrow="Cadastro"
-                  title="Dados profissionais"
-                  description="Seu e-mail profissional é um dado de divulgação e não altera o e-mail usado para acessar sua conta."
+                  eyebrow={copy.registration}
+                  title={copy.profile}
+                  description={copy.profileDescription}
                   complete={profileComplete}
+                  market={market}
                 >
                   <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <ImageUploader
-                      label="Foto profissional"
-                      hint="Foto opcional, usada apenas quando o layout comportar assinatura visual."
+                      label={copy.photo}
+                      hint={copy.photoHint}
                       value={avatarFile === null ? null : (avatarFile instanceof File ? null : user?.avatar_url)}
                       onChange={setAvatarFile}
                       shape="circle"
+                      market={market}
                     />
                     <div className="grid gap-4 md:grid-cols-2">
                       <Input
-                        label={t('profile.professionalName')}
-                        placeholder="Seu nome de divulgação"
+                        label={copy.legalName}
+                        placeholder={copy.legalPlaceholder}
                         error={profileErrors.nome?.message}
                         {...regPerfil('nome')}
                       />
                       <Input
                         label={t('profile.displayName')}
-                        placeholder="Ex: Riccieri"
-                        hint={t('profile.displayNameDescription')}
+                        placeholder={copy.displayPlaceholder}
+                        hint={copy.displayHint}
                         {...regPerfil('display_name')}
                       />
-                      <Input label="CRECI" placeholder="Ex: 12345" {...regPerfil('creci')} />
+                      {us ? <Input label={copy.license} placeholder="E.g., SL123456" {...regPerfil('license_number')} /> : <><Input label="CRECI" placeholder="Ex: 12345" {...regPerfil('creci')} />
                       <Select label={t('profile.creciType')} {...regPerfil('creci_type')}>
-                        <option value="">Selecione</option>
+                        <option value="">{copy.select}</option>
                         <option value="F">{t('profile.creciTypes.F')}</option>
                         <option value="J">{t('profile.creciTypes.J')}</option>
-                      </Select>
+                      </Select></>}
                       <Input
                         label={t('profile.phone')}
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
-                        maxLength={15}
-                        placeholder="(11) 99999-9999"
-                        {...regPerfil('telefone')}
+                        maxLength={market === 'US' ? 14 : 15}
+                        placeholder={market === 'US' ? '(999) 999-9999' : '(99) 99999-9999'}
+                        error={profileErrors.telefone?.message}
+                        {...regPerfil('telefone', { onChange: (event) => { event.target.value = formatPhone(event.target.value, market) } })}
                       />
+                      {user?.market && user.market !== market && (user?.telefone || user?.whatsapp) && <FieldNotice>{market === 'US' ? 'Your saved phone is from the other market. It was preserved; confirm or replace it before using it in this market.' : 'Seu telefone salvo é do outro mercado. Ele foi preservado; confirme ou substitua antes de usá-lo neste mercado.'}</FieldNotice>}
                       <Input
                         label={t('profile.whatsapp')}
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
-                        maxLength={15}
-                        placeholder="(11) 99999-9999"
-                        hint="Telefone oficial usado somente quando você escolher divulgá-lo."
+                        maxLength={market === 'US' ? 14 : 15}
+                        placeholder={market === 'US' ? '(999) 999-9999' : '(99) 99999-9999'}
+                        hint={copy.phoneHint}
                         error={profileErrors.whatsapp?.message}
                         {...regPerfil('whatsapp', {
                           onChange: (event) => {
-                            event.target.value = formatBrazilianPhone(event.target.value)
+                            event.target.value = formatPhone(event.target.value, market)
                           },
                         })}
                       />
                       <Input
                         label={t('profile.email')}
                         type="email"
-                        placeholder="contato@seudominio.com.br"
-                        hint="Dado profissional para seus materiais. Não é o e-mail de acesso/login."
+                        placeholder={us ? 'contact@yourdomain.com' : 'contato@seudominio.com.br'}
+                        hint={copy.emailHint}
                         error={profileErrors.email?.message}
                         {...regPerfil('email')}
                       />
                       <Select label={t('profile.state')} {...regPerfil('estado')}>
-                        <option value="">Selecione</option>
+                        <option value="">{copy.select}</option>
                         {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                       </Select>
                     </div>
@@ -559,26 +571,28 @@ export default function Configuracoes() {
 
                 <SectionCard
                   icon={Palette}
-                  eyebrow="Marca"
-                  title="Identidade da empresa"
-                  description="Preencha apenas se desejar utilizar os dados da sua imobiliária, construtora ou empresa nos materiais gerados."
+                  eyebrow={us ? 'Brand' : 'Marca'}
+                  title={copy.company}
+                  description={copy.companyDescription}
                   optional
+                  market={market}
                 >
                   <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <ImageUploader
-                      label="Logo da empresa"
-                      hint="Opcional. Use apenas quando desejar identificar a empresa nos materiais."
+                      label={copy.logo}
+                      hint={copy.logoHint}
                       value={logoFile === null ? null : (logoFile instanceof File ? null : user?.logo_url)}
                       onChange={setLogoFile}
                       shape="square"
+                      market={market}
                     />
                     <div className="space-y-4">
-                      <Input label={t('profile.brokerage')} placeholder="Ex: Silva Imóveis" {...regPerfil('imobiliaria')} />
+                      <Input label={t('profile.brokerage')} placeholder={copy.brokeragePlaceholder} {...regPerfil('imobiliaria')} />
                       <Input label={t('profile.instagram')} placeholder="@seuperfil" {...regPerfil('instagram')} />
                       <Input label={t('profile.facebook')} placeholder="facebook.com/seuperfil" {...regPerfil('facebook')} />
                       <Input label={t('profile.linkedin')} placeholder="linkedin.com/in/seuperfil" {...regPerfil('linkedin')} />
                       <FieldNotice>
-                        Todos os dados desta seção são opcionais e nunca substituem automaticamente seus dados profissionais pessoais.
+                        {copy.optionalNotice}
                       </FieldNotice>
                     </div>
                   </div>
@@ -586,7 +600,7 @@ export default function Configuracoes() {
 
                 <div className="flex justify-center sm:justify-end">
                   <Button type="submit" loading={savingPerfil} className="w-full px-8 shadow-lg shadow-primary-900/10 sm:w-auto">
-                    Salvar Cadastro
+                    {copy.save}
                   </Button>
                 </div>
               </form>
@@ -594,40 +608,40 @@ export default function Configuracoes() {
 
             {activeTab === 'acesso' && (
               <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-gray-950">Acesso e Senha</h2>
-                <p className="mt-1 text-sm text-gray-500">O e-mail abaixo identifica seu login. Ele é diferente do e-mail profissional informado no Cadastro.</p>
+                <h2 className="text-lg font-black text-gray-950">{copy.accessTitle}</h2>
+                <p className="mt-1 text-sm text-gray-500">{copy.accessDescription}</p>
                 <form onSubmit={handleSenha(onSaveSenha)} className="mt-6 max-w-xl space-y-4">
                   <Input
-                    label="E-mail de acesso/login"
+                    label={copy.loginEmail}
                     type="email"
                     value={accessEmail}
                     readOnly
                     aria-readonly="true"
                     className="cursor-not-allowed bg-slate-50 text-slate-600"
-                    hint="Este e-mail identifica sua conta e não pode ser alterado nesta tela."
+                    hint={copy.loginHint}
                   />
                   <Input
-                    label="Senha atual"
+                    label={copy.currentPassword}
                     type="password"
                     autoComplete="current-password"
                     error={passwordErrors.senha_atual?.message}
-                    {...regSenha('senha_atual', { required: 'Informe sua senha atual.' })}
+                    {...regSenha('senha_atual', { required: copy.currentRequired })}
                   />
                   <Input
-                    label="Nova senha"
+                    label={copy.newPassword}
                     type="password"
                     autoComplete="new-password"
-                    placeholder="Mínimo 12 caracteres"
+                    placeholder={copy.passwordPlaceholder}
                     error={passwordErrors.nova_senha?.message}
-                    {...regSenha('nova_senha', { required: 'Informe a nova senha.', minLength: { value: 12, message: 'Use pelo menos 12 caracteres.' } })}
+                    {...regSenha('nova_senha', { required: copy.newRequired, minLength: { value: 12, message: copy.passwordMin } })}
                   />
                   <Input
-                    label="Confirmar nova senha"
+                    label={copy.confirmPassword}
                     type="password"
                     autoComplete="new-password"
-                    placeholder="Repita a nova senha"
+                    placeholder={copy.repeatPassword}
                     error={passwordErrors.confirmar_senha?.message}
-                    {...regSenha('confirmar_senha', { required: 'Confirme a nova senha.' })}
+                    {...regSenha('confirmar_senha', { required: copy.confirmRequired })}
                   />
                   {passwordErrors.root?.message && (
                     <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -635,31 +649,31 @@ export default function Configuracoes() {
                     </p>
                   )}
                   <TurnstileWidget ref={passwordCaptchaRef} onTokenChange={handlePasswordCaptchaToken} />
-                  <Button type="submit" loading={savingSenha} disabled={!passwordCaptchaToken}>Alterar senha</Button>
+                  <Button type="submit" loading={savingSenha} disabled={!passwordCaptchaToken}>{copy.changePassword}</Button>
                 </form>
               </section>
             )}
 
             {activeTab === 'plano' && (
               <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-black text-gray-950">Plano e Assinatura</h2>
-                <p className="mt-1 text-sm text-gray-500">Consulte seu plano atual e gerencie sua assinatura com segurança pelo Stripe.</p>
+                <h2 className="text-lg font-black text-gray-950">{copy.planTitle}</h2>
+                <p className="mt-1 text-sm text-gray-500">{copy.planDescription}</p>
                 <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4">
-                  <p className="text-sm font-black text-primary-800">Plano atual: {user?.plano || 'Starter'}</p>
+                  <p className="text-sm font-black text-primary-800">{copy.currentPlan}: {user?.plano || 'Starter'}</p>
                   {subscriptionStatus && (
-                    <p className="mt-1 text-xs font-semibold text-primary-600">Status informado: {subscriptionStatus}</p>
+                    <p className="mt-1 text-xs font-semibold text-primary-600">{copy.reportedStatus}: {subscriptionStatus}</p>
                   )}
                 </div>
                 {hasActiveSubscription && (
                   <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-sm font-semibold text-gray-600">Altere sua forma de pagamento ou cancele sua assinatura.</p>
+                    <p className="text-sm font-semibold text-gray-600">{copy.manageDescription}</p>
                     <Button type="button" loading={openingPortal} onClick={openSubscriptionPortal} className="mt-3">
-                      Gerenciar assinatura
+                      {copy.manage}
                     </Button>
                   </div>
                 )}
                 <Link to="/planos" className="mt-5 inline-flex text-sm font-black text-primary-700 hover:text-primary-900 hover:underline">
-                  Ver planos e condições disponíveis
+                  {copy.viewPlans}
                 </Link>
               </section>
             )}

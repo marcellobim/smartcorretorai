@@ -1,6 +1,7 @@
 ﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
+import { resolveProfessionalIdentity, type ProfessionalIdentitySelection } from '../_shared/professional-identity.ts'
 import { startVeoVideo } from '../_shared/veoClient.ts'
 import { isAuthorizedAdmin } from '../_shared/admin-authorization.ts'
 import {
@@ -2015,6 +2016,24 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   }
 }
 
+function parseProfessionalIdentity(value: unknown): ProfessionalIdentitySelection | null {
+  if (value === undefined || value === null) return { enabled: false }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const selection = value as JsonRecord
+  if (selection.enabled === false) return { enabled: false }
+  if (selection.enabled === true && (selection.name_source === 'real' || selection.name_source === 'display')) {
+    return { enabled: true, name_source: selection.name_source }
+  }
+  return null
+}
+
+function studioProfessionalIdentityInstruction(identity: string, language: string) {
+  if (!identity) return ''
+  return language === 'en-US'
+    ? `\n\nPROFESSIONAL IDENTIFICATION (EXPLICIT OPT-IN): show this exact text only once as a small, readable visual signature in the final CTA/closing. Do not narrate it, do not put it in property scenes, and do not add, alter, infer, or repeat any professional data: ${identity}`
+    : `\n\nIDENTIFICAÇÃO PROFISSIONAL (OPT-IN EXPLÍCITO): mostre este texto exatamente uma vez apenas como assinatura visual discreta no CTA/encerramento final. Não narre, não coloque nas cenas do imóvel e não acrescente, altere, infira ou repita dados profissionais: ${identity}`
+}
+
 function buildOfficialLandInstruction(
   briefing: ReturnType<typeof buildStructuredStudioHeroBriefing>,
   hasImage: boolean,
@@ -3683,6 +3702,21 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({})) as JsonRecord
     const style = normalizeText(body.style, 40) || 'alto_padrao'
     const briefing = buildStructuredStudioHeroBriefing(body)
+    const professionalIdentitySelection = parseProfessionalIdentity((body.briefing && typeof body.briefing === 'object' ? body.briefing as JsonRecord : {}).professional_identity)
+    if (!professionalIdentitySelection) return jsonResponse({ success: false, error: 'Identificação profissional inválida.' }, 400)
+    const market = String(body.market || '').toUpperCase() === 'US' ? 'US' : 'BR'
+    let professionalIdentity = ''
+    if (professionalIdentitySelection.enabled) {
+      const { data: professionalProfile, error: professionalProfileError } = await supabase
+        .from('profiles')
+        .select('nome, display_name, creci, creci_type, estado, license_number')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (professionalProfileError) throw new Error('professional_identity_profile_lookup_failed')
+      const resolvedIdentity = resolveProfessionalIdentity(professionalProfile, professionalIdentitySelection, market)
+      if (!resolvedIdentity) return jsonResponse({ success: false, error: 'Complete sua identificação profissional antes de continuar.' }, 400)
+      professionalIdentity = resolvedIdentity.formatted
+    }
     const isFreeAiRequest = briefing.creativeMode === 'free_ai'
       || normalizeText(body.mode, 40).toLowerCase() === 'free_ai'
       || normalizeText(body.creativeMode, 40).toLowerCase() === 'free_ai'
@@ -3835,7 +3869,7 @@ serve(async (req) => {
         input_image_1_path: inputImage1Path || null,
         input_image_2_path: inputImage2Path || null,
         publication_options: publicationOptions,
-        output_media_metadata: { language: briefing.language },
+        output_media_metadata: { language: briefing.language, professional_identity: professionalIdentitySelection },
         tokens_reserved: 0,
       })
       .select('id')
@@ -4098,6 +4132,11 @@ serve(async (req) => {
           visualPromptForDebug = `${visualPromptForDebug}\n\n---\n\n${languagePresentation}`
         }
       }
+      const professionalIdentityInstruction = studioProfessionalIdentityInstruction(professionalIdentity, briefing.language)
+      if (professionalIdentityInstruction) {
+        promptFinal = `${promptFinal}${professionalIdentityInstruction}`
+        visualPromptForDebug = `${visualPromptForDebug}${studioProfessionalIdentityInstruction('[redacted professional identity]', briefing.language)}`
+      }
       const promptLanguage = briefing.language
       promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json', promptLanguage)
       visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json', promptLanguage)
@@ -4142,7 +4181,7 @@ serve(async (req) => {
       await uploadStudioHeroPromptDebug(supabase, {
         userId: user.id,
         jobId: job.id,
-        prompt: promptFinal,
+        prompt: professionalIdentity ? promptFinal.replace(professionalIdentity, '[redacted professional identity]') : promptFinal,
         visualPrompt: visualPromptForDebug,
         voiceoverPrompt: voiceoverPromptForDebug,
         model,

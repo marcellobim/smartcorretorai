@@ -35,6 +35,8 @@ import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-token
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity } from '../config/professionalProfile'
+import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
 import {
@@ -1788,7 +1790,7 @@ function UserBubble({ children, actions }) {
 }
 
 export default function HeroNext({ guestMode = false } = {}) {
-  const { user, profile, reloadProfile } = useAuth()
+  const { user, profile, reloadProfile, updateUser } = useAuth()
   const { locale, market, t } = useLocale()
   const navigate = useNavigate()
   const b = (key) => t(`banner.ui.${key}`)
@@ -1862,6 +1864,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [goal, setGoal] = useState(() => restoredBannerDraft.goal || '')
   const [answers, setAnswers] = useState(() => restoredBannerDraft.answers || {})
   const [showProfessionalIdentity, setShowProfessionalIdentity] = useState(() => typeof restoredBannerDraft.showProfessionalIdentity === 'boolean' ? restoredBannerDraft.showProfessionalIdentity : null)
+  const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => restoredBannerDraft.professionalIdentitySelection || { enabled: null, name_source: null })
   const [chatIndex, setChatIndex] = useState(() => restoredBannerDraft.chatIndex || 0)
   const [textDraft, setTextDraft] = useState(() => restoredBannerDraft.textDraft || '')
   const [multiDraft, setMultiDraft] = useState(() => restoredBannerDraft.multiDraft || [])
@@ -1957,8 +1960,8 @@ export default function HeroNext({ guestMode = false } = {}) {
   const isAnyCaptureGoal = isPropertyCaptureGoal || isBrokerCaptureGoal
   const profilePhoneRaw = String(guestMode ? answers.contactPhone || '' : user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '').trim()
   const professionalMarket = market === 'US' ? 'US' : 'BR'
-  const professionalIdentity = formatProfessionalIdentity(profile || user || {}, professionalMarket)
-  const canAskProfessionalIdentity = !guestMode && hasCompleteProfessionalIdentity(profile || user || {}, professionalMarket)
+  const professionalIdentity = buildProfessionalIdentity(profile || user || {}, professionalIdentitySelection, professionalMarket)?.formatted || ''
+  const canAskProfessionalIdentity = !guestMode
   const profilePhone = formatPhone(profilePhoneRaw, professionalMarket)
 
   useEffect(() => {
@@ -1974,10 +1977,10 @@ export default function HeroNext({ guestMode = false } = {}) {
     const imageMetadata = uploadedImages.length
       ? uploadedImages.map(({ name, size, contentType, lastModified }, order) => ({ name, size, type: contentType, lastModified, order }))
       : missingImageMetadata
-    const draft = { phase, goal, answers, showProfessionalIdentity, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
+    const draft = { phase, goal, answers, showProfessionalIdentity, professionalIdentitySelection, chatIndex, textDraft, multiDraft, customDifferential, cityUf, citySelection, saleValueMode, salePrice, salePricePresentationMode, salePriceDigits, saleConditions, commercialTermsChoice, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, promptTouched, humanPrompt, destinationIds, creativeIdeaCount, imageChoice, imageMetadata }
     if (phase === 'goal' && !goal && !imageMetadata.length) { bannerDraft.clear(); return }
     bannerDraft.save(draft)
-  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, showProfessionalIdentity, textDraft, uploadedImages])
+  }, [answers, bannerDraft, chatIndex, citySelection, cityUf, commercialTerms, commercialTermsChoice, condoFee, condoMode, creativeIdeaCount, customDifferential, destinationIds, generationResult, goal, humanPrompt, imageChoice, iptuMode, iptuValue, missingImageMetadata, multiDraft, phase, professionalIdentitySelection, promptTouched, rentGuarantee, rentMode, rentPrice, saleConditions, salePrice, salePriceDigits, salePricePresentationMode, saleValueMode, showProfessionalIdentity, textDraft, uploadedImages])
 
   useEffect(() => {
     if (market !== 'US' || !answers.state || !answers.county) { setUsCities([]); setUsCitiesError(''); return undefined }
@@ -2173,10 +2176,6 @@ export default function HeroNext({ guestMode = false } = {}) {
   }
 
   const commitAnswer = (questionId, value) => {
-    if (questionId === 'professionalIdentity') {
-      setShowProfessionalIdentity(value === 'yes')
-      value = value === 'yes' ? t('common.yes') : t('common.no')
-    }
     const normalizedValue = normalizeAnswerValue(questionId, value)
     if (questionId === 'zipCode' && normalizedValue && !isValidUsZipCode(normalizedValue)) {
       setGenerationError(market === 'US' ? 'Enter a valid ZIP Code.' : 'Informe um CEP válido.')
@@ -2620,7 +2619,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       market, locale, goal, answers, valueCondition, destination, creativeIdea, creativeIdeaCount,
       uploadedImages, promptTouched, effectivePrompt, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext,
       rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee,
-      showProfessionalIdentity, professionalIdentity, professionalMarket,
+      showProfessionalIdentity: professionalIdentitySelection.enabled === true, professionalIdentity, professionalMarket,
     })
 
     updateGenerationJob(jobId, {
@@ -3010,22 +3009,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const renderQuestionControls = () => {
     if (!currentQuestion) return null
 
-    if (currentQuestion.id === 'professionalIdentity') {
-      return (
-        <div className="mt-5">
-          <p className="mb-3 text-sm font-semibold text-slate-600">{t('banner.professionalIdentity.description')}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => commitAnswer(currentQuestion.id, 'yes')} className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50">
-            <p className="text-base font-black text-slate-950">{t('common.yes')}</p>
-            <p className="mt-2 text-sm font-semibold text-slate-600">{professionalIdentity}</p>
-          </button>
-          <button type="button" onClick={() => commitAnswer(currentQuestion.id, 'no')} className="rounded-3xl border border-slate-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50">
-            <p className="text-base font-black text-slate-950">{t('common.no')}</p>
-          </button>
-          </div>
-        </div>
-      )
-    }
+    if (currentQuestion.id === 'professionalIdentity') return <ProfessionalIdentityQuestion market={professionalMarket} profile={profile || user} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select().single(); if (error) throw error; updateUser(data); await reloadProfile(); return data }} onComplete={(selection, formatted) => { setProfessionalIdentitySelection(selection); setShowProfessionalIdentity(selection.enabled); commitAnswer(currentQuestion.id, selection.enabled ? formatted : 'no') }} />
 
     if (currentQuestion.id === 'state') {
       return <div className="mt-4"><SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.state')} value={answers.state || ''} onChange={(state) => commitAnswer('state', state)}><option value="">{t('banner.location.selectState')}</option>{getStatesForMarket('US').map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</SmartLocationSelect></div>

@@ -34,7 +34,7 @@ export function mergeVirtualStagingCampaignHashtags(campaignPackage, generatedHa
   }
 }
 
-export function buildVirtualStagingCampaignPackage({ property, language, cta, phone, videoUrl = '', hashtags: generatedHashtags = [], journeyId = '', lifeScene = '' }) {
+export function buildVirtualStagingCampaignPackage({ property, language, cta, phone, professionalIdentity = '', videoUrl = '', hashtags: generatedHashtags = [], journeyId = '', lifeScene = '' }) {
   const socialLanguage = language === 'en-US' ? 'en-US' : 'pt-BR'
   const text = translations[socialLanguage]
   const isLife = journeyId === 'life-in-property'
@@ -46,7 +46,8 @@ export function buildVirtualStagingCampaignPackage({ property, language, cta, ph
   const lifeProfile = isLife && socialLanguage === 'en-US' ? presentLifeProfile(lifeScene, socialLanguage) : ''
   const detail = [factLine, localizedHighlights.length ? `${text.details}: ${localizedHighlights.slice(0, 3).join(', ')}` : '', lifeProfile && `Lifestyle: ${lifeProfile}`, socialLanguage === 'pt-BR' ? clean(property.description) : '', clean(property.price)].filter(Boolean).join('\n\n')
   const localizedCta = clean(cta) ? presentCta(cta, socialLanguage) : isLife ? text.contact : ''
-  const close = [localizedCta, phone].filter(Boolean).join('\n')
+  // Text-only publication context. It is never forwarded into visual creation.
+  const close = [localizedCta, phone, clean(professionalIdentity)].filter(Boolean).join('\n')
   const variants = [
     `${subject}.\n\n${detail}\n\n${close}`,
     `${localizedHighlights[0] || subject}.\n\n${subject}.\n\n${detail}\n\n${close}`,

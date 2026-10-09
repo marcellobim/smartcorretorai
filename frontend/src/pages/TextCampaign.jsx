@@ -24,6 +24,7 @@ import { supabase } from '../lib/supabase'
 import { isCompleteTextCampaignResult } from '../lib/text-campaign-result'
 import TextCampaignResult from '../components/text-campaign/TextCampaignResult'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
+import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
@@ -101,7 +102,7 @@ const emptyCommercial = () => ({
 })
 
 export default function TextCampaign() {
-  const { user, accessToken, reloadProfile } = useAuth()
+  const { user, profile, accessToken, reloadProfile, updateUser } = useAuth()
   const { locale, market } = useLocale()
   const copy = getTextCampaignUiCopy(locale)
   const textDraft = useProductDraft({ productKey: 'campanha-de-textos', schemaVersion: 1, userId: user?.id })
@@ -300,6 +301,14 @@ export default function TextCampaign() {
           manualCityMode={manualCityMode}
           setManualCityMode={setManualCityMode}
           professionalPhone={professionalPhone}
+          profile={profile || user}
+          onSaveProfessionalProfile={async patch => {
+            const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select().single()
+            if (error) throw error
+            updateUser(data)
+            await reloadProfile()
+            return data
+          }}
           locale={locale}
           market={market}
           copy={copy}
@@ -347,6 +356,7 @@ function QuestionContent(props) {
   if (questionId === 'notes') return <OptionalTextQuestion {...props} field="notes" placeholder="Inclua somente fatos confirmados sobre o imóvel" multiline />
   if (questionId === 'cta') return <CtaQuestion {...props} />
   if (questionId === 'phone') return <PhoneQuestion {...props} />
+  if (questionId === 'professional_identity') return <ProfessionalIdentityQuestion market={props.market} profile={props.profile} value={props.answers.professionalIdentity} busy={props.busy} onChange={professionalIdentity => props.setAnswers(current => ({ ...current, professionalIdentity }))} onSaveProfile={props.onSaveProfessionalProfile} onComplete={(professionalIdentity, formatted) => props.commit({ answer: professionalIdentity.enabled ? formatted : props.locale === 'en-US' ? 'No professional information' : 'Sem identificação profissional', apply: () => props.setAnswers(current => ({ ...current, professionalIdentity })) })} />
   return <ReviewQuestion {...props} />
 }
 
@@ -619,6 +629,7 @@ function resetAnswerForEdit(questionId, setAnswers, setManualCityMode) {
     if (questionId === 'notes') return { ...current, notes: '' }
     if (questionId === 'cta') return { ...current, cta: '' }
     if (questionId === 'phone') return { ...current, includeProfessionalPhone: '' }
+    if (questionId === 'professional_identity') return { ...current, professionalIdentity: { enabled: null, name_source: null } }
     return current
   })
   if (['purpose', 'location'].includes(questionId)) setManualCityMode(false)

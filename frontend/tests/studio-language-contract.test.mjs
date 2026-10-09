@@ -24,7 +24,7 @@ test('backend accepts only supported Studio languages and safely defaults legacy
   assert.match(createVideo, /function normalizeStudioLanguage\(value: unknown\) \{\s*return value === 'en-US' \? 'en-US' : 'pt-BR'/)
   assert.match(createVideo, /const language = normalizeStudioLanguage\(body\.language \?\? briefing\.language\)/)
   assert.match(createVideo, /language,\s*objective,/)
-  assert.match(createVideo, /output_media_metadata: \{ language: briefing\.language \}/)
+  assert.match(createVideo, /output_media_metadata: \{ language: briefing\.language, professional_identity: professionalIdentitySelection \}/)
 })
 
 test('status recovers the language persisted on the job and defaults older jobs to pt-BR', () => {

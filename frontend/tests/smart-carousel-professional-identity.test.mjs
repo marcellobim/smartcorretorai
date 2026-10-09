@@ -1,0 +1,39 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { buildProfessionalIdentity } from '../src/config/professionalProfile.js'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const carousel = readFileSync(path.join(root, 'src/pages/SmartCarrossel.jsx'), 'utf8')
+const renderer = readFileSync(path.join(root, '../supabase/functions/smart-carousel-creatomate/index.ts'), 'utf8')
+
+test('Smart Carousel persists the explicit professional identity selection and sends only that contract', () => {
+  assert.match(carousel, /professionalIdentity: professionalIdentitySelection/)
+  assert.match(carousel, /professional_identity: \{ enabled: professionalIdentitySelection\.enabled === true/)
+  assert.match(carousel, /name_source: professionalIdentitySelection\.name_source/)
+  assert.match(carousel, /<ProfessionalIdentityQuestion/)
+  assert.match(carousel, /flowDraft\.clear\(\)/)
+})
+
+test('Smart Carousel resolves BR and US identities by the chosen name source, or sends none when disabled', () => {
+  const brProfile = { nome: 'Ana Legal', display_name: 'Ana Prime', creci: '12345', creci_type: 'F', estado: 'SP' }
+  const usProfile = { nome: 'Alex Legal', display_name: 'Alex Homes', license_number: 'LIC-77', estado: 'FL' }
+  assert.equal(buildProfessionalIdentity(brProfile, { enabled: false }, 'BR'), null)
+  assert.equal(buildProfessionalIdentity(brProfile, { enabled: true, name_source: 'real' }, 'BR').formatted, 'Ana Legal · CRECI-F 12345/SP')
+  assert.equal(buildProfessionalIdentity(brProfile, { enabled: true, name_source: 'display' }, 'BR').formatted, 'Ana Prime · CRECI-F 12345/SP')
+  assert.equal(buildProfessionalIdentity(usProfile, { enabled: false }, 'US'), null)
+  assert.equal(buildProfessionalIdentity(usProfile, { enabled: true, name_source: 'real' }, 'US').formatted, 'Alex Legal · License #LIC-77 · FL')
+  assert.equal(buildProfessionalIdentity(usProfile, { enabled: true, name_source: 'display' }, 'US').formatted, 'Alex Homes · License #LIC-77 · FL')
+})
+
+test('Smart Carousel backend validates the structured contract, resolves from profile, and uses it only in final CTA and captions', () => {
+  assert.match(renderer, /resolveProfessionalIdentity\(profile, professionalIdentitySelection, locale\.market\)/)
+  assert.match(renderer, /Identificação profissional inválida/)
+  assert.match(renderer, /buildProfessionalIdentityRenderElement\(professionalIdentity, ctaTime, Boolean\(phone\)\)/)
+  assert.match(renderer, /appendProfessionalIdentity\(campaign\.instagram\)/)
+  const marketingInvocation = renderer.slice(renderer.indexOf('const intelligence = await generateMarketingIntelligence('), renderer.indexOf('const voice = selectNarrationVoice'))
+  assert.doesNotMatch(marketingInvocation, /professionalIdentity/)
+  assert.match(renderer, /select\(professionalIdentitySelection\.enabled \? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, license_number' : 'whatsapp, telefone'\)/)
+})

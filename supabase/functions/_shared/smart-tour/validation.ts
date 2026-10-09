@@ -1,9 +1,16 @@
-import type { ShortVideosRequest, SmartTourGenerationConfig, SmartTourRequest, SupportedMarket } from './types.ts'
+import type { ProfessionalIdentitySelection, ShortVideosRequest, SmartTourGenerationConfig, SmartTourRequest, SupportedMarket } from './types.ts'
 const MODES = new Set(['guided_tour','narrated_tour','smart_staging','cinematic_tour'])
 const LANGUAGES = new Set(['pt-BR','en-US','es'])
 const MARKETS = new Set(['BR','US'])
 const market = (value: unknown): SupportedMarket => MARKETS.has(String(value)) ? value as SupportedMarket : 'BR'
 const clean = (value: unknown, max = 160) => String(value ?? '').replace(/[{}<>]/g, '').replace(/\s+/g, ' ').trim().slice(0,max)
+const professionalIdentity = (value: unknown): ProfessionalIdentitySelection => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_professional_identity')
+  const raw = value as Record<string, unknown>
+  if (raw.enabled !== true) return { enabled: false }
+  if (raw.name_source !== 'real' && raw.name_source !== 'display') throw new Error('invalid_professional_identity')
+  return { enabled: true, name_source: raw.name_source }
+}
 
 export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): SmartTourGenerationConfig {
   const mode = MODES.has(String(value.mode)) ? value.mode as SmartTourGenerationConfig['mode'] : 'narrated_tour'
@@ -38,7 +45,7 @@ export function validateSmartTourRequest(input: unknown): SmartTourRequest {
     const wordCount = String(generation.presenterCustomSpeech ?? '').trim().split(/\s+/).filter(Boolean).length
     if (wordCount < 1 || wordCount > 25) throw new Error('invalid_presenter_custom_speech')
   }
-  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, showProfessionalIdentity: raw.showProfessionalIdentity === true, language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR', market: market(raw.market) }
+  return { clientRequestId: clean(raw.clientRequestId,80), imagePaths: paths, imageOrder: order, property: { ...property, highlights }, generation, selectedCta: clean(raw.selectedCta,120), includeProfessionalPhone: raw.includeProfessionalPhone === true, professional_identity: professionalIdentity(raw.professional_identity), language: LANGUAGES.has(String(raw.language)) ? raw.language as SmartTourRequest['language'] : 'pt-BR', market: market(raw.market) }
 }
 
 export function validateShortVideosRequest(input: unknown): ShortVideosRequest {

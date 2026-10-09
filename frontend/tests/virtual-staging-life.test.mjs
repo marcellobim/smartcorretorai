@@ -55,6 +55,7 @@ test('keeps Vida no Imovel CTA mandatory while broker CTA remains independent', 
     'captions',
     'cta',
     'phone',
+    'professional_identity',
     'review',
   ])
   assert.equal(sequence.includes('presenter'), false)
@@ -65,7 +66,8 @@ test('keeps Vida no Imovel CTA mandatory while broker CTA remains independent', 
   assert.equal(next('life_scene'), 'captions')
   assert.equal(next('captions'), 'cta')
   assert.equal(next('cta'), 'phone')
-  assert.equal(next('phone'), 'review')
+  assert.equal(next('phone'), 'professional_identity')
+  assert.equal(next('professional_identity'), 'review')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'furnish-renovate' }), 'review')
   assert.match(page, /\['life_scene', 3, 'Quem deseja incluir para valorizar ainda mais a apresentação do seu imóvel\?'\]/)
   assert.match(page, /\['captions', 3, 'Deseja destacar algumas informações importantes durante o vídeo\?'\]/)

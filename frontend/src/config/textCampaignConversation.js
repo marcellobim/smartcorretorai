@@ -10,6 +10,7 @@ export const TEXT_CAMPAIGN_QUESTION_ORDER = Object.freeze([
   'notes',
   'cta',
   'phone',
+  'professional_identity',
   'review',
 ])
 
@@ -25,11 +26,12 @@ export const TEXT_CAMPAIGN_QUESTIONS = Object.freeze({
   notes: 'Tem algo importante sobre o imóvel que ainda não perguntamos?',
   cta: 'Qual chamada deve conduzir a campanha?',
   phone: 'Deseja divulgar seu telefone profissional?',
+  professional_identity: 'Deseja incluir sua identificação profissional?',
   review: 'Tudo pronto. Revise o briefing da Campanha de Textos.',
 })
 
 const EN_US_QUESTIONS = Object.freeze({
-  purpose: 'What is the property purpose?', stage: 'What is the property status?', type: 'What type of property are you marketing?', facts: 'What are the key property details?', location: 'Where is the property located?', commercial: 'How would you like to present price and terms?', highlights: 'Which features should appear in the campaign?', custom_highlight: 'Would you like to add a custom feature?', notes: 'Any other confirmed property information?', cta: 'Which call to action should guide the campaign?', phone: 'Would you like to show your professional phone number?', review: 'Everything is ready. Review your text campaign brief.',
+  purpose: 'What is the property purpose?', stage: 'What is the property status?', type: 'What type of property are you marketing?', facts: 'What are the key property details?', location: 'Where is the property located?', commercial: 'How would you like to present price and terms?', highlights: 'Which features should appear in the campaign?', custom_highlight: 'Would you like to add a custom feature?', notes: 'Any other confirmed property information?', cta: 'Which call to action should guide the campaign?', phone: 'Would you like to show your professional phone number?', professional_identity: 'Would you like to include your professional information?', review: 'Everything is ready. Review your text campaign brief.',
 })
 
 // Supplementary labels for the same Text Campaign UI catalogue. Values remain business-stable elsewhere.

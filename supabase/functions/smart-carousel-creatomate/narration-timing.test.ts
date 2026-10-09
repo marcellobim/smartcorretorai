@@ -34,7 +34,7 @@ function extractBuildPresentationPlan() {
     .slice(start, end)
     .replace(
       /async function buildPresentationPlan\([\s\S]*?\) \{/,
-      "async function buildPresentationPlan(imageUrls, ctaUrl, answers, phone, cta, openaiApiKey, jobId, locale = { language: 'pt-BR', market: 'BR' }) {",
+      "async function buildPresentationPlan(imageUrls, ctaUrl, answers, phone, professionalIdentity, cta, openaiApiKey, jobId, locale = { language: 'pt-BR', market: 'BR' }) {",
     )
 }
 
@@ -43,7 +43,7 @@ function compileBuildPresentationPlan(dependencies: Record<string, unknown>) {
   const values = Object.values(dependencies)
   return new Function(...names, `return (${extractBuildPresentationPlan()})`)(...values) as (
     imageUrls: string[], ctaUrl: string, answers: Record<string, unknown>, phone: string,
-    cta: string, openaiApiKey: string, jobId: string,
+    professionalIdentity: string, cta: string, openaiApiKey: string, jobId: string,
   ) => Promise<Record<string, any>>
 }
 
@@ -144,6 +144,7 @@ test('buildPresentationPlan completo preenche metadata e fica pronto para o Crea
       imageUrls,
       'https://example.test/cta.png',
       { purpose: 'Venda' },
+      '',
       '',
       'Saiba Mais',
       'test-api-key-not-used',

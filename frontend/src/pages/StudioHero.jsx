@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
+import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
+import { buildProfessionalIdentity } from '../config/professionalProfile'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useLocale } from '../i18n/useLocale'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
@@ -629,6 +631,7 @@ const initialAnswers = {
   atmosphere: '',
   pace: '',
   creativeFreedom: '',
+  professionalIdentity: { enabled: null, name_source: null },
 }
 
 const getStudioHeroAccess = (user, isAuthorizedAdmin = false) => {
@@ -1162,7 +1165,7 @@ export default function StudioHero() {
     actions: { copy: t('virtualStaging.actions.copy'), copied: t('virtualStaging.actions.copied'), publish: t('virtualStaging.actions.publish'), creationError: t('virtualStaging.actions.creationError') },
     campaign: t('virtualStaging.campaign'),
   }
-  const { user, isAdmin, reloadProfile } = useAuth()
+  const { user, isAdmin, reloadProfile, updateUser } = useAuth()
   const navigate = useNavigate()
   const pollTimerRef = useRef(null)
   const pollInFlightRef = useRef('')
@@ -1265,8 +1268,9 @@ export default function StudioHero() {
   const atmosphereStep = isFreeAiMode ? ctaStep + 2 : null
   const paceStep = isFreeAiMode ? ctaStep + 3 : null
   const creativeFreedomStep = isFreeAiMode ? ctaStep + 4 : null
+  const professionalIdentityStep = isFreeAiMode ? ctaStep + 5 : ctaStep + (hasCinematicPropertyPreparationStep ? 3 : 1)
   const imageCountStep = null
-  const uploadStep = isFreeAiMode ? ctaStep + 5 : ctaStep + (hasCinematicPropertyPreparationStep ? 3 : 1)
+  const uploadStep = professionalIdentityStep + 1
   const imageErrorTarget = getImageErrorTarget(message)
   const studioHeroAccess = getStudioHeroAccess(user, isAdmin)
   const generationMessage = GENERATION_MESSAGES[generationMessageIndex % GENERATION_MESSAGES.length]
@@ -1278,6 +1282,7 @@ export default function StudioHero() {
   const propertyFeaturesSummary = isCommercialProperty
     ? [answers.area, answers.parking].filter(Boolean).join(', ')
     : [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
+  const professionalIdentity = buildProfessionalIdentity(user || {}, answers.professionalIdentity, market)
   const stepSummaries = {
     1: answers.objective ? optionLabel('objectives', answers.objective) : '',
     2: isPropertyCampaign ? optionLabel('propertyTypes', answers.propertyType) : displayLocation,
@@ -1310,6 +1315,11 @@ export default function StudioHero() {
     [atmosphereStep]: isFreeAiMode ? optionLabel('atmosphere', answers.atmosphere) : '',
     [paceStep]: isFreeAiMode ? optionLabel('pace', answers.pace) : '',
     [creativeFreedomStep]: isFreeAiMode ? optionLabel('creativeFreedom', answers.creativeFreedom) : '',
+    [professionalIdentityStep]: answers.professionalIdentity?.enabled
+      ? professionalIdentity?.formatted || ''
+      : answers.professionalIdentity?.enabled === false
+        ? (market === 'US' ? 'No professional information' : 'Sem identificação profissional')
+        : '',
     [uploadStep]: isFreeAiMode
       ? 'Criacao livre com IA'
       : IMAGE_SLOTS.every((slot) => files[slot.key])
@@ -1362,6 +1372,8 @@ export default function StudioHero() {
     answers.differentials.length > 0 &&
     (!isBrokerCapture || answers.brokerHasBenefits) &&
     answers.cta &&
+    answers.professionalIdentity?.enabled !== null &&
+    (!answers.professionalIdentity?.enabled || Boolean(professionalIdentity)) &&
     hasRequiredModeInputs
   )
   const canGenerate = canGenerateBriefing && (isFreeAiMode || studioHeroAccess.canGenerate)
@@ -1405,6 +1417,7 @@ export default function StudioHero() {
       atmosphere: '',
       pace: '',
       creativeFreedom: '',
+      professionalIdentity: { enabled: null, name_source: null },
     }))
     setStep(2)
   }
@@ -1601,7 +1614,7 @@ export default function StudioHero() {
       pace: '',
       creativeFreedom: '',
     }))
-    setStep(isFreeAiMode ? visualStyleStep : hasCinematicPropertyPreparationStep ? furnishingStep : uploadStep)
+    setStep(isFreeAiMode ? visualStyleStep : hasCinematicPropertyPreparationStep ? furnishingStep : professionalIdentityStep)
   }
 
   const updatePropertyCharacteristic = (field, value) => {
@@ -1633,7 +1646,7 @@ export default function StudioHero() {
       ...current,
       decorationPolicy: value,
     }))
-    setStep(uploadStep)
+    setStep(professionalIdentityStep)
   }
 
   const updateFreeAiAnswer = (field, value, nextStep) => {
@@ -1911,6 +1924,7 @@ export default function StudioHero() {
 
       const payload = {
         language,
+        market,
         mode: isFreeAiMode ? 'free_ai' : 'cinematic',
         creativeMode: isFreeAiMode ? 'free_ai' : 'cinematic',
         style: answers.profile || 'ALTO PADRAO',
@@ -1954,12 +1968,16 @@ export default function StudioHero() {
           atmosphere: answers.atmosphere,
           pace: answers.pace,
           creativeFreedom: answers.creativeFreedom,
+          professional_identity: {
+            enabled: answers.professionalIdentity?.enabled === true,
+            ...(answers.professionalIdentity?.enabled === true ? { name_source: answers.professionalIdentity.name_source } : {}),
+          },
         },
         jobId: draftId,
         publicationOptions: buildDeliveryTexts({ answers, districtValue, cityValue, language })
           .filter(item => /instagram|facebook/i.test(item.label))
           .slice(0, 3)
-          .map((item, index) => ({ id: `studio-caption-option-${index + 1}`, label: item.label, text: item.text })),
+          .map((item, index) => ({ id: `studio-caption-option-${index + 1}`, label: item.label, text: answers.professionalIdentity?.enabled ? `${item.text}\n\n${professionalIdentity?.formatted || ''}`.trim() : item.text })),
         ...(requiresImages ? { inputImage1Path } : {}),
       }
 
@@ -3042,13 +3060,42 @@ export default function StudioHero() {
                     <ChipButton
                       key={option}
                       active={answers.creativeFreedom === option}
-                      onClick={() => updateFreeAiAnswer('creativeFreedom', option, uploadStep)}
+                    onClick={() => updateFreeAiAnswer('creativeFreedom', option, professionalIdentityStep)}
                     >
                     {optionLabel('creativeFreedom', option)}
                     </ChipButton>
                   ))}
                 </ChipGrid>
               </div>
+            </AssistantStep>
+          )}
+
+          {((isFreeAiMode && answers.creativeFreedom) || (!isFreeAiMode && (hasCinematicPropertyPreparationStep ? answers.decorationPolicy : answers.cta))) && step >= professionalIdentityStep && (
+            <AssistantStep
+              number={professionalIdentityStep}
+              currentStep={step}
+              summary={stepSummaries[professionalIdentityStep]}
+              onEdit={() => setStep(professionalIdentityStep)}
+              message={market === 'US' ? 'Choose whether to include your professional information in the closing and publication copy.' : 'Escolha se deseja incluir sua identificação profissional no encerramento e no texto de publicação.'}
+            >
+              <ProfessionalIdentityQuestion
+                market={market}
+                profile={user || {}}
+                value={answers.professionalIdentity}
+                busy={isGenerating}
+                onChange={(professionalIdentity) => setAnswers((current) => ({ ...current, professionalIdentity }))}
+                onSaveProfile={async (patch) => {
+                  const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single()
+                  if (error) throw error
+                  updateUser?.(data)
+                  await reloadProfile()
+                  return data
+                }}
+                onComplete={(professionalIdentity) => {
+                  setAnswers((current) => ({ ...current, professionalIdentity }))
+                  setStep(uploadStep)
+                }}
+              />
             </AssistantStep>
           )}
 
