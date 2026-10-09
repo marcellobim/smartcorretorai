@@ -100,6 +100,18 @@ test('returns fallback signal for missing key, provider failure or invalid conte
   }), null)
 })
 
+test('US narration is deterministic, factual and does not make an extra provider call', async () => {
+  let calls = 0
+  const result = await generateSmartTourDynamicNarration({
+    apiKey: 'test-key', language: 'en-US', selectedCta: 'Schedule a visit',
+    property: { purpose: 'sale', type: 'us_single_family_home', city: 'Tampa', bedrooms: '3', bathrooms: '2', parkingSpaces: '2', suites: '9', area: '1850', highlights: ['us_pool'] },
+    fetchImpl: async () => { calls += 1; throw new Error('US narration must not call the provider') },
+  })
+  assert.equal(calls, 0)
+  assert.equal(result, 'For sale Single-Family Home in Tampa. 3 bedrooms, 2 bathrooms.')
+  assert.doesNotMatch(result || '', /suite|m²|R\$|IPTU|Condomínio|Schedule a visit/i)
+})
+
 test('inserts the literal dynamic narration in both briefings without changing disabled narration', () => {
   const narration = 'Uma opção prática no Klabin: apartamento para alugar com varanda e fácil acesso ao metrô. Agende sua visita.'
   const images = buildSmartTourStructuredBriefing({

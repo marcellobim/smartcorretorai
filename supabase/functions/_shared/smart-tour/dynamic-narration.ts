@@ -34,6 +34,19 @@ const validNarration = (value: unknown, purpose: string) => {
   return narration
 }
 
+// Unlike free prose, this stays provably bounded to captured US facts and avoids
+// an additional model call solely to write a ten-second voiceover.
+const buildUsNarration = (property: PropertyContext) => {
+  const facts = [
+    clean(property.bedrooms) && `${clean(property.bedrooms)} ${clean(property.bedrooms) === '1' ? 'bedroom' : 'bedrooms'}`,
+    clean(property.bathrooms) && `${clean(property.bathrooms)} ${clean(property.bathrooms) === '1' ? 'bathroom' : 'bathrooms'}`,
+    clean(property.parkingSpaces) && `${clean(property.parkingSpaces)} ${clean(property.parkingSpaces) === '1' ? 'parking space' : 'parking spaces'}`,
+  ].filter(Boolean).slice(0, 2)
+  const subject = [clean(presentSmartTourPropertyType(property.type)), clean(property.city)].filter(Boolean).join(' in ')
+  const purpose = property.purpose === 'rent' ? 'For rent' : 'For sale'
+  return [purpose, subject && `${subject}.`, facts.length && `${facts.join(', ')}.`].filter(Boolean).join(' ')
+}
+
 export async function generateSmartTourDynamicNarration(input: {
   apiKey: string
   property: PropertyContext
@@ -43,6 +56,7 @@ export async function generateSmartTourDynamicNarration(input: {
 }) {
   if (!input.apiKey) return null
   const english = input.language === 'en-US'
+  if (english) return buildUsNarration(input.property)
   const finalidade = english ? (input.property.purpose === 'rent' ? 'For rent' : 'For sale') : purposeLabel(input.property.purpose)
   const characteristics = [
     clean(input.property.bedrooms) && `${clean(input.property.bedrooms)} dormitórios`,
