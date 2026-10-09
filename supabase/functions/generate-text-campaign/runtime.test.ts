@@ -132,11 +132,11 @@ const unsupportedUsCampaign = (): TextCampaignResult => ({
   portal_description: 'Discover this well-maintained condo in a sought-after area with 2 bedrooms, 2 bathrooms, and 1 parking space. With 900 sqft, it offers comfortable living. Special terms available. Schedule your visit.',
   short_listing: 'A spacious condo in Tampa with room to grow.',
   instagram_commercial: 'Tampa condo with 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
-  instagram_emotional: 'A fresh start could begin here. See if this Tampa condo fits your next move.',
+  instagram_emotional: 'A fresh start could begin here. See if this Tampa condo fits your next move with your own parking space.',
   instagram_opportunity: 'See this Tampa condo and schedule your visit.',
   facebook_commercial: 'Tampa condo: 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
   facebook_emotional: 'Imagine a spacious Tampa condo with room to grow.',
-  facebook_opportunity: 'Explore this Tampa condo before making your next move.',
+  facebook_opportunity: 'Don’t miss out on this Tampa condo before making your next move.',
   whatsapp_individual: 'I can share details of this Tampa condo with 2 bedrooms and 2 bathrooms.',
   whatsapp_list: 'Tampa condo with 900 sqft. Special terms available.',
   whatsapp_short: 'Tampa condo: 2 beds, 2 baths. Schedule your visit.',
@@ -146,7 +146,7 @@ const unsupportedUsCampaign = (): TextCampaignResult => ({
   text_carousel: { slides: [
     { title: 'Tampa condo', text: '2 bedrooms and 2 bathrooms.' },
     { title: 'Comfort', text: 'Comfortable condo living with 900 sqft.' },
-    { title: 'Parking', text: 'One dedicated parking space.' },
+    { title: 'Convenient Parking', text: 'One dedicated parking space.' },
     { title: 'Terms', text: 'Special terms available.' },
     { title: 'Visit', text: 'Schedule your visit.' },
   ] },
@@ -173,7 +173,7 @@ test('sanitizes unsupported factual claims across all text campaign deliveries w
   const unsafe = unsupportedUsCampaign()
   const sanitized = sanitizeTextCampaignFactualClaims(unsafe, briefing)
   const rendered = JSON.stringify(sanitized)
-  const unsupported = /well-maintained|sought-after|spacious|room to grow|comfortable living|dedicated parking|perfect place to call home/i
+  const unsupported = /well-maintained|sought-after|spacious|room to grow|comfortable living|dedicated parking|convenient parking|own parking space|don['’]t miss out|perfect place to call home/i
   assert.doesNotMatch(rendered, unsupported)
   assert.match(rendered, /Condo/i)
   assert.match(rendered, /2 bedrooms/i)
@@ -185,6 +185,7 @@ test('sanitizes unsupported factual claims across all text campaign deliveries w
   assert.match(rendered, /fresh start could begin here/i)
   assert.equal(sanitized.text_carousel.slides.length, 5)
   assert.ok(sanitized.google_ads.headlines.every(value => value.length <= 30))
+  assert.doesNotThrow(() => applyFinalTextCampaignRules(unsafe, briefing, unsafe.hashtags))
 
   let providerCalls = 0
   const response = await handleGenerateTextCampaign(request({ briefing }), dependencies({

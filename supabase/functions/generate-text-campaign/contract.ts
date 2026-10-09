@@ -399,10 +399,10 @@ type FactualityGuard = {
 const FACTUALITY_GUARDS: readonly FactualityGuard[] = [
   { category: 'condition_quality', pattern: /\b(?:well-maintained|pristine|immaculate|renovated|remodeled|upgraded|updated|brand-new|like new)\b|\b(?:bem conservad[oa]|impecável|reformad[oa]|modernizad[oa]|novinh[oa])\b/gi },
   { category: 'subjective_size_comfort', pattern: /\b(?:spacious|roomy|expansive|ample|generous(?:ly)? sized|room to grow|comfortable living|comfortable condo living|cozy|perfect place to call home|ideal place to call home|dream home)\b|\b(?:ampl[oa]|espaços[oa]|confortável|espaço para crescer|lar perfeito|casa dos sonhos)\b/gi },
-  { category: 'parking_characterization', pattern: /\b(?:dedicated|assigned|covered|garage|private|valet) parking\b|\b(?:vaga (?:dedicada|demarcada|coberta|privativa)|garagem exclusiva)\b/gi },
-  { category: 'location_reputation_proximity', pattern: /\b(?:sought-after|desirable|prestigious|prime) (?:area|neighborhood|location)\b|\b(?:near|close to|minutes from) [^,.!;:]+|\b(?:região valorizada|bairro desejado|localização privilegiada|perto de|próximo a) [^,.!;:]*/gi },
+  { category: 'parking_characterization', pattern: /\b(?:dedicated|assigned|covered|garage|private|valet|convenient|own) parking(?: space)?\b|\b(?:vaga (?:dedicada|demarcada|coberta|privativa|conveniente)|garagem exclusiva)\b/gi },
+  { category: 'location_reputation_proximity', pattern: /\b(?:sought-after|desirable|prestigious|prime|convenient) (?:area|neighborhood|location)\b|\b(?:near|close to|minutes from|conveniently located) [^,.!;:]+|\b(?:região valorizada|bairro desejado|localização privilegiada|perto de|próximo a) [^,.!;:]*/gi },
   { category: 'amenities', pattern: /\b(?:pool|fitness (?:center|room)|clubhouse|gated community|fireplace|gourmet kitchen|high ceilings|smart home|rooftop|ocean view|city view)\b|\b(?:piscina|academia|salão de festas|condomínio fechado|lareira|cozinha gourmet|pé-direito alto|vista para)\b/gi },
-  { category: 'financial_demand_exclusivity', pattern: /\b(?:investment potential|appreciation|high demand|exclusive|rare|last chance|limited availability|hot market)\b|\b(?:potencial de investimento|valorização|alta demanda|exclusiv[oa]|raro|última chance|poucas unidades)\b/gi },
+  { category: 'financial_demand_exclusivity', pattern: /\b(?:investment potential|appreciation|high demand|exclusive|rare|last chance|limited availability|hot market|don['’]t miss out|act now|available now|immediately available)\b|\b(?:potencial de investimento|valorização|alta demanda|exclusiv[oa]|raro|última chance|poucas unidades|não perca|aproveite agora|disponível imediatamente)\b/gi },
 ]
 
 const normalizeFactText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim()
@@ -471,23 +471,43 @@ function sanitizeFactualText(text: string, briefing: TextCampaignBriefing, max =
   return (sanitized || factualFallback(briefing, max)).slice(0, max)
 }
 
+function preserveChannelDistinction(values: readonly string[], briefing: TextCampaignBriefing) {
+  const suffixes = briefing.language === 'en-US'
+    ? [' Explore the property.', ' See if it fits your needs.', ' Schedule your visit.']
+    : [' Conheça o imóvel.', ' Veja se ele combina com o que você procura.', ' Agende sua visita.']
+  const seen = new Set<string>()
+  return values.map((value, index) => {
+    const normalized = value.replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR')
+    if (!seen.has(normalized)) {
+      seen.add(normalized)
+      return value
+    }
+    const distinct = `${value.replace(/[.!?\s]+$/, '')}.${suffixes[index]}`.replace(/\.\s*\./g, '.').trim()
+    seen.add(distinct.replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR'))
+    return distinct
+  })
+}
+
 /** Deterministic post-provider guard: no retry, no additional model call, no extra ST. */
 export function sanitizeTextCampaignFactualClaims(result: TextCampaignResult, briefing: TextCampaignBriefing): TextCampaignResult {
   const clean = (value: string, max?: number) => sanitizeFactualText(value, briefing, max)
+  const instagram = preserveChannelDistinction([clean(result.instagram_commercial), clean(result.instagram_emotional), clean(result.instagram_opportunity)], briefing)
+  const facebook = preserveChannelDistinction([clean(result.facebook_commercial), clean(result.facebook_emotional), clean(result.facebook_opportunity)], briefing)
+  const whatsapp = preserveChannelDistinction([clean(result.whatsapp_individual), clean(result.whatsapp_list), clean(result.whatsapp_short)], briefing)
   return {
     ...result,
     listing_title: clean(result.listing_title, 200),
     portal_description: clean(result.portal_description, 6000),
     short_listing: clean(result.short_listing),
-    instagram_commercial: clean(result.instagram_commercial),
-    instagram_emotional: clean(result.instagram_emotional),
-    instagram_opportunity: clean(result.instagram_opportunity),
-    facebook_commercial: clean(result.facebook_commercial),
-    facebook_emotional: clean(result.facebook_emotional),
-    facebook_opportunity: clean(result.facebook_opportunity),
-    whatsapp_individual: clean(result.whatsapp_individual),
-    whatsapp_list: clean(result.whatsapp_list),
-    whatsapp_short: clean(result.whatsapp_short),
+    instagram_commercial: instagram[0],
+    instagram_emotional: instagram[1],
+    instagram_opportunity: instagram[2],
+    facebook_commercial: facebook[0],
+    facebook_emotional: facebook[1],
+    facebook_opportunity: facebook[2],
+    whatsapp_individual: whatsapp[0],
+    whatsapp_list: whatsapp[1],
+    whatsapp_short: whatsapp[2],
     email: { subject: clean(result.email.subject, 200), body: clean(result.email.body, 4000) },
     linkedin: { ...result.linkedin, text: result.linkedin.text ? clean(result.linkedin.text, 2500) : null },
     reels_script: clean(result.reels_script),
