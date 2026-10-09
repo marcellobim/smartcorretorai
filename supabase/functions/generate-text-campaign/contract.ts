@@ -385,11 +385,11 @@ export function isLinkedInContextApplicable(briefing: TextCampaignBriefing) {
 
 export function buildTextCampaignHashtagContext(briefing: TextCampaignBriefing): OfficialHashtagContext {
   const localized = presentTextCampaignBriefing(briefing)
-  return { purpose: localized.purpose, propertyType: localized.property_type, propertyStage: localized.stage, city: briefing.city, district: briefing.language === 'en-US' ? briefing.neighborhood_community : briefing.district, state: briefing.state, bedrooms: briefing.bedrooms, suites: briefing.suites, bathrooms: briefing.bathrooms, parkingSpaces: briefing.parking_spaces, highlights: [...localized.highlights, localized.custom_highlight].filter(Boolean), cta: localized.cta, language: briefing.language }
+  return { purpose: localized.purpose, propertyType: localized.property_type, propertyStage: localized.stage, city: briefing.city, district: briefing.language === 'en-US' ? briefing.neighborhood_community : briefing.district, state: briefing.state, bedrooms: briefing.bedrooms, suites: briefing.suites, bathrooms: briefing.bathrooms, parkingSpaces: briefing.parking_spaces, highlights: [...localized.highlights, localized.custom_highlight].filter(Boolean), cta: localized.cta, language: briefing.language, brand: 'SNETIA' }
 }
 
 type FactualityGuard = {
-  category: 'condition_quality' | 'subjective_size_comfort' | 'parking_characterization' | 'location_reputation_proximity' | 'amenities' | 'financial_demand_exclusivity'
+  category: 'condition_quality' | 'subjective_size_comfort' | 'layout_benefit' | 'parking_characterization' | 'location_reputation_proximity' | 'amenities' | 'financial_demand_exclusivity'
   pattern: RegExp
 }
 
@@ -399,6 +399,7 @@ type FactualityGuard = {
 const FACTUALITY_GUARDS: readonly FactualityGuard[] = [
   { category: 'condition_quality', pattern: /\b(?:well-maintained|pristine|immaculate|renovated|remodeled|upgraded|updated|brand-new|like new)\b|\b(?:bem conservad[oa]|impecável|reformad[oa]|modernizad[oa]|novinh[oa])\b/gi },
   { category: 'subjective_size_comfort', pattern: /\b(?:spacious|roomy|expansive|ample|generous(?:ly)? sized|room to grow|comfortable living|comfortable condo living|cozy|perfect place to call home|ideal place to call home|dream home)\b|\b(?:ampl[oa]|espaços[oa]|confortável|espaço para crescer|lar perfeito|casa dos sonhos)\b/gi },
+  { category: 'layout_benefit', pattern: /\b(?:practical|functional|smart|well[- ](?:laid out|distributed)|versatile|flexible) (?:layout|space)\b|\b(?:layout|space) (?:that )?(?:fits|fit|adapts? to|is tailored to|works for) (?:your|different) needs\b|\b(?:fit|fits|adapt(?:ed|s)?|tailored|designed|works?) (?:to|for) (?:your|different) needs\b|\b(?:easy to use|effortless|efficient use of space|maximi[sz]es? (?:the )?space|space[- ]saving)\b|\b(?:layout (?:prático|funcional|inteligente|bem distribuído)|espaço (?:versátil|flexível)|(?:se adapta|adaptado) às? necessidades|fácil de usar|aproveitamento (?:do|de) espaço)\b/gi },
   { category: 'parking_characterization', pattern: /\b(?:dedicated|assigned|covered|garage|private|valet|convenient|own) parking(?: space)?\b|\b(?:vaga (?:dedicada|demarcada|coberta|privativa|conveniente)|garagem exclusiva)\b/gi },
   { category: 'location_reputation_proximity', pattern: /\b(?:sought-after|desirable|prestigious|prime|convenient) (?:area|neighborhood|location)\b|\b(?:near|close to|minutes from|conveniently located) [^,.!;:]+|\b(?:região valorizada|bairro desejado|localização privilegiada|perto de|próximo a) [^,.!;:]*/gi },
   { category: 'amenities', pattern: /\b(?:pool|fitness (?:center|room)|clubhouse|gated community|fireplace|gourmet kitchen|high ceilings|smart home|rooftop|ocean view|city view)\b|\b(?:piscina|academia|salão de festas|condomínio fechado|lareira|cozinha gourmet|pé-direito alto|vista para)\b/gi },

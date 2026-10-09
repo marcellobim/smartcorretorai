@@ -134,3 +134,17 @@ test('EN-US official hashtags use natural real-estate terms without legacy Portu
   assert.ok(hashtags.some(tag => /ApartmentForSale|ScheduleATour|RealEstate/.test(tag)))
   assert.equal(hashtags.some(tag => /apartamento|venda|imovel|visita/i.test(tag)), false)
 })
+
+test('SNETIA uses its own institutional hashtag while legacy SmartCorretorAI contexts stay unchanged', () => {
+  const context = {
+    language: 'en-US', purpose: 'sale', propertyType: 'Condo', propertyStage: 'Move-in ready',
+    city: 'Tampa', state: 'FL', bedrooms: '2', bathrooms: '2', parkingSpaces: '1', cta: 'Schedule a visit',
+  }
+  const snetia = normalizeOfficialHashtags(['#Tampa', '#SmartCorretorAI', '#SNETIA'], { ...context, brand: 'SNETIA' })
+  assert.equal(snetia.filter(tag => tag === '#SNETIA').length, 1)
+  assert.equal(snetia.includes('#SmartCorretorAI'), false)
+
+  const legacy = normalizeOfficialHashtags(['#Tampa', '#SNETIA', '#SmartCorretorAI'], context)
+  assert.equal(legacy.filter(tag => tag === '#SmartCorretorAI').length, 1)
+  assert.equal(legacy.includes('#SNETIA'), false)
+})

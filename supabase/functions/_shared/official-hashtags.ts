@@ -14,6 +14,9 @@ export type OfficialHashtagContext = {
   highlights?: unknown
   cta?: unknown
   language?: unknown
+  // SmartCorretorAI remains the compatibility default for legacy products.
+  // SNETIA products must opt in explicitly instead of inheriting that brand.
+  brand?: 'SNETIA' | 'SmartCorretorAI'
 }
 
 export type OfficialHashtagGroups = {
@@ -22,7 +25,7 @@ export type OfficialHashtagGroups = {
   market: string[]
   characteristics: string[]
   commercialAppeal: string[]
-  brand: ['#SmartCorretorAI']
+  brand: string[]
 }
 
 const clean = (value: unknown) => String(value ?? '').replace(/\s+/g, ' ').trim()
@@ -74,6 +77,8 @@ const isResidentialType = (value: unknown) => /apartamento|casa|cobertura|studio
 const isCommercialType = (value: unknown) => /comercial|sala|loja|galpao|escritorio/.test(fold(value))
 
 const isEnUs = (context: OfficialHashtagContext) => context.language === 'en-US'
+const brandHashtag = (context: OfficialHashtagContext) => context.brand === 'SNETIA' ? '#SNETIA' : '#SmartCorretorAI'
+const isInstitutionalBrandTag = (tag: string) => ['#snetia', '#smartcorretorai'].includes(fold(tag))
 const englishGroups = (context: OfficialHashtagContext): OfficialHashtagGroups => {
   const propertyType = presentPropertyType(context.propertyType || 'Property', 'en-US')
   const purpose = presentPurpose(context.purpose, 'en-US')
@@ -82,7 +87,7 @@ const englishGroups = (context: OfficialHashtagContext): OfficialHashtagGroups =
   const highlights = Array.isArray(context.highlights) ? context.highlights.map(item => presentHighlight(item, 'en-US')).filter(Boolean) : []
   const stage = presentStage(context.propertyStage, 'en-US')
   const cta = presentCta(context.cta, 'en-US')
-  return { location: uniqueGroup([district, city, district && city && `${district} ${city}`], 3, ''), purpose: uniqueGroup([`${propertyType} ${purpose}`, city && `${purpose} ${city}`], 2, ''), market: uniqueGroup([city && `${propertyType} in ${city}`, district && `Living in ${district}`, city && `Homes in ${city}`], 3, ''), characteristics: uniqueGroup([clean(context.bedrooms) && `${context.bedrooms} Bedrooms`, clean(context.bathrooms) && `${context.bathrooms} Bathrooms`, clean(context.parkingSpaces) && `${context.parkingSpaces} Parking Spaces`, ...highlights, stage, propertyType], 4, ''), commercialAppeal: uniqueGroup([/schedule|tour/i.test(cta) ? 'Schedule a Tour' : '', 'Find Your Home'], 2, ''), brand: ['#SmartCorretorAI'] }
+  return { location: uniqueGroup([district, city, district && city && `${district} ${city}`], 3, ''), purpose: uniqueGroup([`${propertyType} ${purpose}`, city && `${purpose} ${city}`], 2, ''), market: uniqueGroup([city && `${propertyType} in ${city}`, district && `Living in ${district}`, city && `Homes in ${city}`], 3, ''), characteristics: uniqueGroup([clean(context.bedrooms) && `${context.bedrooms} Bedrooms`, clean(context.bathrooms) && `${context.bathrooms} Bathrooms`, clean(context.parkingSpaces) && `${context.parkingSpaces} Parking Spaces`, ...highlights, stage, propertyType], 4, ''), commercialAppeal: uniqueGroup([/schedule|tour/i.test(cta) ? 'Schedule a Tour' : '', 'Find Your Home'], 2, ''), brand: [brandHashtag(context)] }
 }
 
 export function buildOfficialHashtagGroups(context: OfficialHashtagContext = {}): OfficialHashtagGroups {
@@ -130,7 +135,7 @@ export function buildOfficialHashtagGroups(context: OfficialHashtagContext = {})
       categoryTag,
     ], 4, purpose),
     commercialAppeal: uniqueGroup([ctaTag, lifestyleTag, `Busca por ${propertyType}`], 2, purpose),
-    brand: ['#SmartCorretorAI'],
+    brand: [brandHashtag(context)],
   }
 }
 
@@ -146,8 +151,8 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
       if (!unique.has(fold(tag))) unique.set(fold(tag), tag)
       if (unique.size >= 14) break
     }
-    const english = [...unique.values()].filter(tag => fold(tag) !== '#smartcorretorai').slice(0, 14)
-    english.splice(Math.max(1, Math.floor(english.length / 2)), 0, '#SmartCorretorAI')
+    const english = [...unique.values()].filter(tag => !isInstitutionalBrandTag(tag)).slice(0, 14)
+    english.splice(Math.max(1, Math.floor(english.length / 2)), 0, brandHashtag(context))
     return english.slice(0, 15)
   }
   const propertyType = clean(context.propertyType) || 'Imovel'
@@ -161,7 +166,7 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
     `Busca por ${propertyType}`,
     purpose === 'rental' ? 'Aluguel residencial' : purpose === 'launch' ? 'Imovel na planta' : 'Oferta imobiliaria',
     city && `Morar em ${city}`,
-    '#SmartCorretorAI',
+    brandHashtag(context),
   ]
   for (const value of supplemental) {
     const tag = toOfficialHashtag(String(value || '').replace(/^#/, ''))
@@ -169,8 +174,8 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
     if (tag && !contradictsPurpose(tag, purpose) && !unique.has(key)) unique.set(key, tag)
     if (unique.size >= 14) break
   }
-  const result = [...unique.values()].filter(tag => fold(tag) !== '#smartcorretorai').slice(0, 14)
-  result.splice(Math.max(1, Math.floor(result.length / 2)), 0, '#SmartCorretorAI')
+  const result = [...unique.values()].filter(tag => !isInstitutionalBrandTag(tag)).slice(0, 14)
+  result.splice(Math.max(1, Math.floor(result.length / 2)), 0, brandHashtag(context))
   return result.slice(0, 15)
 }
 
@@ -186,7 +191,7 @@ export function normalizeOfficialHashtags(input: unknown, context: OfficialHasht
   for (const value of values) {
     const tag = toOfficialHashtag(String(value || '').replace(/^#/, ''))
     const key = fold(tag)
-    if (!tag || key === '#smartcorretorai' || contradictsPurpose(tag, purpose) || unique.has(key)) continue
+    if (!tag || isInstitutionalBrandTag(tag) || contradictsPurpose(tag, purpose) || unique.has(key)) continue
     if (excessiveGeneric.has(key) && genericCount >= 1) continue
     if (excessiveGeneric.has(key)) genericCount += 1
     unique.set(key, tag)
@@ -194,10 +199,10 @@ export function normalizeOfficialHashtags(input: unknown, context: OfficialHasht
   }
   for (const tag of buildOfficialHashtags(context)) {
     const key = fold(tag)
-    if (key !== '#smartcorretorai' && !unique.has(key)) unique.set(key, tag)
+    if (!isInstitutionalBrandTag(tag) && !unique.has(key)) unique.set(key, tag)
     if (unique.size >= 14) break
   }
   const result = [...unique.values()].slice(0, 14)
-  result.splice(Math.max(1, Math.floor(result.length / 2)), 0, '#SmartCorretorAI')
+  result.splice(Math.max(1, Math.floor(result.length / 2)), 0, brandHashtag(context))
   return result.slice(0, 15)
 }

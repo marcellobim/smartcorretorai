@@ -143,9 +143,10 @@ const unsupportedUsCampaign = (): TextCampaignResult => ({
   email: { subject: 'Well-maintained Tampa condo', body: 'A comfortable condo with 2 bedrooms, 2 bathrooms, 1 dedicated parking space, and 900 sqft.' },
   linkedin: { applicable: false, text: null, reason: 'Residential context.' },
   reels_script: 'Take a look at the perfect place to call home: a Tampa condo with 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
+  hashtags: ['#Tampa', '#CondoForSale', '#ForSaleTampa', '#CondoInTampa', '#HomesInTampa', '#2Bedrooms', '#2Bathrooms', '#SmartCorretorAI', '#1ParkingSpaces', '#MoveInReady', '#ScheduleATour', '#FindYourHome'],
   text_carousel: { slides: [
     { title: 'Tampa condo', text: '2 bedrooms and 2 bathrooms.' },
-    { title: 'Comfort', text: 'Comfortable condo living with 900 sqft.' },
+    { title: 'Practical Layout', text: 'Enjoy a condo with 2 bedrooms and 2 bathrooms, fit for your needs.' },
     { title: 'Convenient Parking', text: 'One dedicated parking space.' },
     { title: 'Terms', text: 'Special terms available.' },
     { title: 'Visit', text: 'Schedule your visit.' },
@@ -173,7 +174,7 @@ test('sanitizes unsupported factual claims across all text campaign deliveries w
   const unsafe = unsupportedUsCampaign()
   const sanitized = sanitizeTextCampaignFactualClaims(unsafe, briefing)
   const rendered = JSON.stringify(sanitized)
-  const unsupported = /well-maintained|sought-after|spacious|room to grow|comfortable living|dedicated parking|convenient parking|own parking space|don['’]t miss out|perfect place to call home/i
+  const unsupported = /well-maintained|sought-after|spacious|room to grow|comfortable living|dedicated parking|convenient parking|own parking space|don['’]t miss out|perfect place to call home|practical layout|fit for your needs/i
   assert.doesNotMatch(rendered, unsupported)
   assert.match(rendered, /Condo/i)
   assert.match(rendered, /2 bedrooms/i)
@@ -183,6 +184,7 @@ test('sanitizes unsupported factual claims across all text campaign deliveries w
   assert.match(rendered, /Tampa/i)
   assert.match(rendered, /Special terms available/i)
   assert.match(rendered, /fresh start could begin here/i)
+  assert.match(rendered, /2 bedrooms, 2 bathrooms/i)
   assert.equal(sanitized.text_carousel.slides.length, 5)
   assert.ok(sanitized.google_ads.headlines.every(value => value.length <= 30))
   assert.doesNotThrow(() => applyFinalTextCampaignRules(unsafe, briefing, unsafe.hashtags))
@@ -196,6 +198,8 @@ test('sanitizes unsupported factual claims across all text campaign deliveries w
   assert.equal(providerCalls, 1)
   const body = await response.json()
   assert.doesNotMatch(JSON.stringify(body.campaign), unsupported)
+  assert.doesNotMatch(JSON.stringify(body.campaign), /#SmartCorretorAI/i)
+  assert.equal(body.campaign.hashtags.filter((tag: string) => tag === '#SNETIA').length, 1)
   assert.deepEqual(Object.keys(body.campaign), [...TEXT_CAMPAIGN_DELIVERY_KEYS])
   assert.equal(body.campaign.text_carousel.slides.length, 5)
   assert.equal(body.campaign.google_ads.cta, 'Schedule your visit')
