@@ -301,6 +301,26 @@ test('Gemini Omni receives the exact JSON as the only briefing text and remains 
   assert.deepEqual(payload.input.at(-1), { type: 'text', text: JSON.stringify(briefing) })
 })
 
+test('US video brief uses bathrooms, sqft and USD without Brazilian system vocabulary', () => {
+  const us = buildSmartTourStructuredBriefing({
+    generation: { ...generation, language: 'en-US' },
+    property: {
+      purpose: 'sale', type: 'us_single_family_home', stage: 'move_in_ready', state: 'FL', county: 'Hillsborough County', city: 'Tampa', neighborhoodCommunity: 'Hyde Park', zipCode: '33606',
+      bedrooms: '3', bathrooms: '2', suites: '', parkingSpaces: '2', area: '1850', price: '$650,000', hoa: '$225', propertyTaxes: '$6,400', condominium: '', iptu: '',
+      highlights: ['us_garage'], description: '',
+    },
+    selectedCta: 'Schedule a visit', phone: '', professionalIdentity: '', imagePaths, language: 'en-US',
+  })
+  const prompt = buildSmartTourVideoPrompt(us)
+  assert.match(prompt, /"bathrooms":"2"/)
+  assert.match(prompt, /"areaSqft":"1850"/)
+  assert.match(prompt, /"priceUsd":"\$650,000"/)
+  assert.match(prompt, /"hoa":"\$225"/)
+  assert.match(prompt, /"propertyTaxes":"\$6,400"/)
+  assert.match(prompt, /Schedule a visit/)
+  assert.doesNotMatch(prompt, /Suítes|m²|R\$|IPTU|Condomínio|Pré-lançamento|Lançamento|Em obras|Pronto para morar|Agende sua visita|CRECI|FGTS|us_single_family_home/i)
+})
+
 test('active generation builds JSON locally, generates Gemini video, then composes selected text deterministically', () => {
   const source = readFileSync(new URL('../../../smart-tour-generate/index.ts', import.meta.url), 'utf8')
   assert.match(source, /formatSmartTourProfessionalIdentity\(profile\)/)

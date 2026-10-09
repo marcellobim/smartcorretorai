@@ -105,7 +105,9 @@ You are a professional real-estate videographer. Film the supplied property fait
 GOLDEN RULE
 All supplied images are the definitive representation of the property. Architecture, furniture, decor, objects, finishes, colors, lighting, proportions and perspective are final.
 
-You may use creativity only for cinematic camera movement, continuity, natural presenter movement, framing, pacing and smooth transitions. Never redesign, reconstruct, replace, remove or alter any part of the property.`
+Use only confirmed facts from this briefing. Do not infer or claim condition, luxury, spaciousness, amenities, neighborhood reputation, proximity, exclusivity, potential, lifestyle benefits, views, finishes or lighting that are not explicitly provided.
+
+You may use creativity only for low-amplitude cinematic camera movement, continuity, natural presenter movement, framing, pacing and smooth transitions. Do not add people, furniture, decoration, pools, views, rooms, finishes, lighting, objects or any architectural element. Never redesign, reconstruct, replace, remove or alter any part of the property.`
 
 type Presenter = 'corretora' | 'corretor' | 'nenhum'
 export type SmartTourSceneType = 'abertura' | 'caracteristicas' | 'diferencial' | 'localizacao' | 'encerramento'
@@ -342,7 +344,7 @@ const selectPhrase = (input: {
 
 const technicalCaption = (property: PropertyContext, language: SupportedLanguage) => unique([
   labelQuantity(property.bedrooms, language === 'en-US' ? 'Bedroom' : 'Dormitório', language === 'en-US' ? 'Bedrooms' : 'Dormitórios'),
-  labelQuantity(property.suites, language === 'en-US' ? 'Suite' : 'Suíte', language === 'en-US' ? 'Suites' : 'Suítes'),
+  labelQuantity(language === 'en-US' ? property.bathrooms : property.suites, language === 'en-US' ? 'Bathroom' : 'Suíte', language === 'en-US' ? 'Bathrooms' : 'Suítes'),
   labelQuantity(property.parkingSpaces, language === 'en-US' ? 'Parking Space' : 'Vaga', language === 'en-US' ? 'Parking Spaces' : 'Vagas'),
 ]).join(' • ')
 
@@ -359,6 +361,12 @@ const purposePresentation = (value: unknown, language: SupportedLanguage) => {
   if (normalized === 'sale') return language === 'en-US' ? 'For Sale' : 'À venda'
   if (normalized === 'rent') return language === 'en-US' ? 'For Rent' : 'Para alugar'
   return ''
+}
+
+const presentStage = (value: unknown, language: SupportedLanguage) => {
+  const stage = literal(value)
+  if (language !== 'en-US') return stage
+  return ({ preconstruction: 'Pre-construction', new_development: 'New development', under_construction: 'Under construction', move_in_ready: 'Move-in ready' } as Record<string, string>)[stage] || stage
 }
 
 const narrationWithPurpose = (text: string, displayedPurpose: string) => {
@@ -378,7 +386,7 @@ const commercialCaption = (blockNumber: number, property: PropertyContext, langu
     const displayedPurpose = includePurposePresentation ? purposePresentation(property.purpose, language) : ''
     return [displayedPurpose, location].filter(Boolean).join('\n')
   }
-  if (blockNumber === 2) return unique([literal(property.stage), technicalCaption(property, language)]).join('\n')
+  if (blockNumber === 2) return unique([presentStage(property.stage, language), technicalCaption(property, language)]).join('\n')
   if (blockNumber === 3) {
     const highlights = commercialHighlights(property)
     return highlights.location[0] || highlights.differentials[0] || highlights.condominium[0] || ''
@@ -606,16 +614,16 @@ export function buildSmartTourStructuredBriefing(input: {
     imovel: {
       finalidade,
       tipo: tipoImovel,
-      estadoDoImovel: literal(input.property.stage),
-      localizacao: { estado: literal(input.property.state), cidade: literal(input.property.city), bairro: literal(input.property.district) },
+      estadoDoImovel: presentStage(input.property.stage, input.language),
+      localizacao: { estado: literal(input.property.state), cidade: literal(input.property.city), bairro: literal(english ? input.property.neighborhoodCommunity : input.property.district) },
       dormitorios: literal(input.property.bedrooms),
-      suites: literal(input.property.suites),
-      banheiros: null,
+      suites: english ? '' : literal(input.property.suites),
+      banheiros: english ? literal(input.property.bathrooms) : null,
       vagas: literal(input.property.parkingSpaces),
       area: literal(input.property.area),
       preco: literal(input.property.price),
-      condominio: literal(input.property.condominium),
-      iptu: literal(input.property.iptu),
+      condominio: english ? literal(input.property.hoa) : literal(input.property.condominium),
+      iptu: english ? literal(input.property.propertyTaxes) : literal(input.property.iptu),
       destaques: unique(presentSmartTourHighlights(input.property.highlights).map(literal)).slice(0, 10),
       descricao: literal(input.property.description),
     },

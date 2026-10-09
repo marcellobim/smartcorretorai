@@ -47,6 +47,7 @@ export const SMART_TOUR_MEASURE_FIELDS = Object.freeze({
 export const SMART_TOUR_MEASURE_OPTIONS = Object.freeze({
   bedrooms: ['0', '1', '2', '3', '4', '5+'],
   suites: ['0', '1', '2', '3', '4+'],
+  bathrooms: ['0', '1', '2', '3', '4+'],
   parkingSpaces: ['0', '1', '2', '3', '4+'],
 })
 
@@ -221,9 +222,10 @@ export function getSmartTourPropertyKind(type) {
   return 'residential'
 }
 
-export function getSmartTourMeasureFields(type) {
+export function getSmartTourMeasureFields(type, { market = 'BR' } = {}) {
   const kind = getSmartTourPropertyKind(type)
-  return SMART_TOUR_MEASURE_FIELDS[kind === 'house' ? 'residential' : kind]
+  const fields = SMART_TOUR_MEASURE_FIELDS[kind === 'house' ? 'residential' : kind]
+  return market === 'US' ? fields.map(field => field === 'suites' ? 'bathrooms' : field) : fields
 }
 
 export function getSmartTourHighlights(type, options = {}) {
@@ -254,7 +256,9 @@ export function formatSmartTourLocation({ district = '', city = '', state = '' }
   return [normalizedDistrict, city].filter(Boolean).join(', ') + (state ? ` - ${state}` : '')
 }
 
-export function formatSmartTourCurrency(value = '') {
+export function formatSmartTourCurrency(value = '', market = 'BR') {
   const digits = String(value).replace(/\D/g, '').slice(0, 12)
-  return digits ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
+  if (!digits) return ''
+  const isUs = market === 'US'
+  return new Intl.NumberFormat(isUs ? 'en-US' : 'pt-BR', { style: 'currency', currency: isUs ? 'USD' : 'BRL', maximumFractionDigits: 0 }).format(Number(digits))
 }

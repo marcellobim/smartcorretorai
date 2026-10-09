@@ -1,11 +1,11 @@
 import { VIDEO_REAUTH_MESSAGE, isVideoSessionInvalid, requireVideoSession, validVideoUploads, verifyVideoUploads } from '../lib/smart-tour-auth-recovery'
 import { BRAND } from '../config/brand'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, PlayCircle, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import Header from '../components/layout/Header'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
-import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
+import { ProductButton, ProductCard, ProductHero, ProductSectionHeading } from '../components/design-system'
 import { buildSmartTourCampaignPackage } from '../components/campaign/buildSmartTourCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation, { getConversationScrollBehavior } from '../components/conversation/GuidedConversation'
@@ -26,14 +26,15 @@ import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } f
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext, shouldAskProfessionalIdentity } from '../config/smartTourConversation'
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
-import { getCountiesByState, getStatesForMarket, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
+import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
 import { adaptQuestionsForShortVideos, buildShortVideoInputPath, cleanupShortVideoInput, formatShortVideoDuration, getShortVideosPropertyTypes, getShortVideosStageOptions, getShortVideoTerminalActions, readShortVideoDuration, SHORT_VIDEOS_INPUT_BUCKET, SHORT_VIDEOS_MODULE_ID, SHORT_VIDEOS_VISIBLE, validateShortVideoDuration, validateShortVideoFile } from '../config/shortVideos'
 
 const BUCKET = 'studio-videos'
 const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para morar']
-const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
-const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
+const CTA_OPTIONS = Object.freeze({ BR: [{ id: 'schedule_visit', label: 'Agende sua visita' }, { id: 'learn_more', label: 'Saiba mais' }, { id: 'contact_now', label: 'Entre em contato agora' }, { id: 'contact_me', label: 'Fale comigo' }], US: [{ id: 'schedule_visit', label: 'Schedule a visit' }, { id: 'learn_more', label: 'Learn more' }, { id: 'contact_now', label: 'Contact us' }, { id: 'contact_me', label: 'Contact me' }] })
+const US_STAGES = Object.freeze([{ id: 'preconstruction', label: 'Pre-construction' }, { id: 'new_development', label: 'New development' }, { id: 'under_construction', label: 'Under construction' }, { id: 'move_in_ready', label: 'Move-in ready' }])
+const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', bathrooms: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', hoa: '', propertyTaxes: '', highlights: [], description: '' }
 const visibleExamples = SMART_TOUR_EXAMPLES.filter(example => SHORT_VIDEOS_VISIBLE || example.id !== SHORT_VIDEOS_MODULE_ID).map(example => ({
   ...example,
   ...(example.id === 'animate-images' ? {
@@ -91,15 +92,15 @@ function questionsFor(isShortVideos = false, t = key => key) {
 
 function smartTourConfirmation(id, answer, isShortVideos = false, t = key => key) {
   const withValue = (key) => t(key).replace('{value}', answer)
-  if (id === 'purpose') return answer === 'Locação' ? t('smartTour.confirmations.rent') : t('smartTour.confirmations.sale')
+  if (id === 'purpose') return answer === t('smartTour.purpose.rent') ? t('smartTour.confirmations.rent') : t('smartTour.confirmations.sale')
   const confirmations = {
     images: withValue(isShortVideos ? 'smartTour.confirmations.videoValidated' : 'smartTour.confirmations.photosOrdered'),
     stage: withValue('smartTour.confirmations.stage'), type: withValue('smartTour.confirmations.type'),
     facts: t('smartTour.confirmations.facts'),
     location: withValue('smartTour.confirmations.location'),
-    commercial: answer === 'Sem informações comerciais' ? t('smartTour.confirmations.commercialEmpty') : t('smartTour.confirmations.commercial'),
+    commercial: !answer ? t('smartTour.confirmations.commercialEmpty') : t('smartTour.confirmations.commercial'),
     highlights: withValue('smartTour.confirmations.highlights'), presenter: answer === t('smartTour.presenter.none') ? t('smartTour.confirmations.noPresenter') : withValue('smartTour.confirmations.presenter'),
-    presenter_speech_mode: answer === 'Usar sugestão da SNETIA' ? 'Perfeito! A SNETIA criará a narração usando as informações do imóvel.' : 'Perfeito! Você definirá exatamente o que será narrado.',
+    presenter_speech_mode: answer === t('smartTour.speechMode.automatic') ? t('smartTour.confirmations.automaticSpeech') : t('smartTour.confirmations.customSpeechMode'),
     presenter_custom_speech: t('smartTour.confirmations.customSpeech'),
     narration: answer === t('smartTour.options.yes') ? t('smartTour.confirmations.narrationOn') : t('smartTour.confirmations.narrationOff'), captions: answer === t('smartTour.options.yes') ? t('smartTour.confirmations.captionsOn') : t('smartTour.confirmations.captionsOff'), cta_enabled: answer === t('smartTour.options.yes') ? t('smartTour.confirmations.ctaOn') : t('smartTour.confirmations.ctaOff'), cta: withValue('smartTour.confirmations.cta'), phone: answer === t('smartTour.review.phone') ? t('smartTour.confirmations.phoneOn') : t('smartTour.confirmations.phoneOff'),
   }
@@ -119,6 +120,7 @@ export default function SmartTourAI() {
     ? restoreProductDraftShape({ ...emptyFileMetadata, duration: 0 }, restoredTourDraft.shortVideoMetadata)
     : null
   const inputRef = useRef(null)
+  const previousMarketRef = useRef(market)
   const pollRef = useRef(null)
   const recoveryStartedRef = useRef(false)
   const reviewEditRef = useRef(null)
@@ -141,7 +143,9 @@ export default function SmartTourAI() {
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [result, setResult] = useState(null)
-  const [activeInputFlow, setActiveInputFlow] = useState(restoredInputFlow)
+  const [recoverableJob, setRecoverableJob] = useState(null)
+  // Real Estate Video is photo-first. Short Videos remain isolated and disabled here.
+  const [activeInputFlow, setActiveInputFlow] = useState(restoredInputFlow || 'images')
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTourDraft.conversation || null)
   const isShortVideos = activeInputFlow === SHORT_VIDEOS_MODULE_ID
   const questions = useMemo(() => questionsFor(isShortVideos, t), [isShortVideos, t])
@@ -166,15 +170,28 @@ export default function SmartTourAI() {
     if (shortVideo?.preview) URL.revokeObjectURL(shortVideo.preview)
   }, [shortVideo?.preview])
 
+  useEffect(() => {
+    if (previousMarketRef.current === market) return
+    previousMarketRef.current = market
+    // Counts for bedrooms and parking remain meaningful; market-specific facts do not.
+    setProperty(current => ({
+      ...current,
+      stage: '', type: '', suites: '', bathrooms: '', area: '', state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '',
+      price: '', condominium: '', iptu: '', hoa: '', propertyTaxes: '', highlights: [],
+    }))
+    setCta('')
+    setConversationSnapshot(null)
+  }, [market])
+
   const resetTourFromQuestion = (questionId) => {
     if (reviewEditRef.current) {
       if (questionId === 'images') clearInputMedia()
       if (questionId === 'purpose') setProperty(current => ({ ...current, purpose: '', stage: '' }))
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
-      if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [] }))
-      if (questionId === 'facts') setProperty(current => ({ ...current, bedrooms: '', suites: '', parkingSpaces: '', area: '' }))
+      if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', bathrooms: '', parkingSpaces: '', area: '', highlights: [] }))
+      if (questionId === 'facts') setProperty(current => ({ ...current, bedrooms: '', suites: '', bathrooms: '', parkingSpaces: '', area: '' }))
       if (questionId === 'location') setProperty(current => ({ ...current, state: '', county: '', city: '', district: '', zipCode: '', neighborhoodCommunity: '' }))
-      if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '' }))
+      if (questionId === 'commercial') setProperty(current => ({ ...current, price: '', condominium: '', iptu: '', hoa: '', propertyTaxes: '' }))
       if (questionId === 'highlights') setProperty(current => ({ ...current, highlights: [] }))
       if (questionId === 'presenter') setGeneration(current => ({ ...current, presenterGender: '' }))
       if (questionId === 'presenter_speech_mode') setGeneration(current => ({ ...current, presenterSpeechMode: 'automatic', presenterCustomSpeech: '' }))
@@ -192,7 +209,7 @@ export default function SmartTourAI() {
     const targetIndex = SMART_TOUR_QUESTION_ORDER.indexOf(questionId)
     const shouldReset = id => SMART_TOUR_QUESTION_ORDER.indexOf(id) >= targetIndex
     if (shouldReset('images')) clearInputMedia()
-    const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'county'], ['location', 'city'], ['location', 'district'], ['location', 'zipCode'], ['location', 'neighborhoodCommunity'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
+    const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'bathrooms'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'county'], ['location', 'city'], ['location', 'district'], ['location', 'zipCode'], ['location', 'neighborhoodCommunity'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['commercial', 'hoa'], ['commercial', 'propertyTaxes'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
     setGeneration(current => ({
       ...current,
@@ -290,10 +307,9 @@ export default function SmartTourAI() {
       return
     }
     recoveryStartedRef.current = true
-    setActiveInputFlow(activeJob.inputFlow)
-    setStatus('generating')
-    setMessage(t('smartTour.status.resuming'))
-    poll(activeJob.jobId)
+    // Reading recovery metadata must never re-enter tracking or dispatch work.
+    setRecoverableJob(activeJob)
+    setMessage(t('smartTour.status.recoveryAvailable'))
   }, [])
 
   const addImages = files => {
@@ -417,7 +433,7 @@ export default function SmartTourAI() {
       if (pendingJob) { await poll(pendingJob.jobId); return }
       const savedUploads = !isShortVideos && validVideoUploads(uploadsRef.current, user.id)
       const requestId = savedUploads?.requestId || crypto.randomUUID()
-      const apiGeneration = normalizeGeneration({ ...generation, language: locale === 'en-US' ? 'en-US' : 'pt-BR' })
+      const apiGeneration = normalizeGeneration({ ...generation, language: market === 'US' ? 'en-US' : 'pt-BR' })
       const videoCtaEnabled = ctaEnabled === true
       const selectedCta = videoCtaEnabled ? cta : ''
       if (isShortVideos) {
@@ -450,6 +466,9 @@ export default function SmartTourAI() {
         writeSmartTourActiveJob(sessionStorage, { jobId:data.jobId, campaignPackage, inputFlow: SHORT_VIDEOS_MODULE_ID, phase:'active', updatedAt:Date.now() }); poll(data.jobId)
         return
       }
+      const propertyPayload = market === 'US'
+        ? { ...property, suites: '', condominium: '', iptu: '', district: '' }
+        : { ...property, bathrooms: '', hoa: '', propertyTaxes: '', county: '', zipCode: '', neighborhoodCommunity: '' }
       const orderedImages = images.slice()
       if (!savedUploads && !orderedImages.length) throw new Error('Selecione as fotos novamente; seu briefing foi preservado.')
       if (savedUploads) await verifyVideoUploads(supabase, savedUploads, user.id)
@@ -467,7 +486,7 @@ export default function SmartTourAI() {
       setStatus('generating'); setMessage(t('smartTour.status.creating'))
       let campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: apiGeneration.language, market } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, showProfessionalIdentity: showProfessionalIdentity === true, language: apiGeneration.language, market } })
       if (await isVideoSessionInvalid(error, data)) {
         clearSmartTourActiveJob(sessionStorage)
         requireLogin()
@@ -500,7 +519,7 @@ export default function SmartTourAI() {
     shortVideoGenerationLockRef.current = false
     clearInputMedia()
     reviewEditRef.current = null
-    setActiveInputFlow(null)
+    setActiveInputFlow('images')
     setProperty(initialProperty)
     setGeneration(initialGeneration)
     setCtaEnabled(null)
@@ -521,26 +540,30 @@ export default function SmartTourAI() {
   }
   if (result) { const isShortVideoResult = result.inputFlow === SHORT_VIDEOS_MODULE_ID; return <><Header title={SMART_TOUR_PRODUCT_NAME} subtitle={t('smartTour.resultSubtitle')} /><main className="mx-auto max-w-6xl px-4 py-6 sm:px-7"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: SMART_TOUR_PRODUCT_NAME, ...(!isShortVideoResult ? { sourceType:'video_imobiliario', sourceId:result.jobId, mediaAssetId:result.jobId } : {}), mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, downloadName: isShortVideoResult ? 'short-smartcorretorai.mp4' : 'smartcorretorai-apresentacao.mp4' }} videoPublish={!isShortVideoResult ? { enabled:true, captionEditable:true, loadConnection:() => getMetaConnectionStatus(supabase), resumeIntent:user?.id ? readPendingSmartTourPublication(window.sessionStorage,user.id) : null, onPublish:(intent,destinations) => publishSmartTourPublication(supabase,intent,destinations), onRecover:(intent,destinations) => recoverSmartTourPublication(supabase,intent,destinations), onResumed:() => clearPendingSmartTourPublication(window.sessionStorage,user?.id), onConnect:async intent => { if (!preservePendingSmartTourPublication(window.sessionStorage,user?.id,intent)) throw new Error('video_publication_pending_not_saved'); await redirectToMetaOAuth(supabase,url => window.location.assign(url)) } } : undefined} mediaPresentation={isShortVideoResult ? 'mobile' : 'default'} protectVideoDownload={isShortVideoResult} onCreateNew={reset} createNewLabel={t('smartTour.createNew')} /></main></> }
 
-  const measureFields = getSmartTourMeasureFields(property.type)
-  const measureLabels = { bedrooms: 'dormitórios', suites: 'suítes', parkingSpaces: 'vagas', area: 'm²' }
+  const measureFields = getSmartTourMeasureFields(property.type, { market })
+  const measureLabels = { bedrooms: t('smartTour.fields.bedrooms'), suites: t('smartTour.fields.suites'), bathrooms: t('smartTour.fields.bathrooms'), parkingSpaces: t('smartTour.fields.parkingSpaces'), area: market === 'US' ? 'sqft' : 'm²' }
   const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${measureLabels[field]}`).filter(Boolean).join(' · ')
-  const valuesSummary = [property.price && `${property.purpose === 'rent' ? 'Locação' : 'Preço'} ${property.price}`, property.condominium && `Condomínio ${property.condominium}`, property.iptu && `IPTU ${property.iptu}`].filter(Boolean).join(' · ')
+  const stageLabel = market === 'US' ? (US_STAGES.find(option => option.id === property.stage)?.label || property.stage) : property.stage
+  const propertyTypeLabel = getSmartTourPropertyTypes(property.purpose, { market }).find(option => option.value === property.type)?.labelKey ? t(getSmartTourPropertyTypes(property.purpose, { market }).find(option => option.value === property.type).labelKey) : property.type
+  const valuesSummary = market === 'US'
+    ? [property.price && `${property.purpose === 'rent' ? t('smartTour.commercial.rent') : t('smartTour.commercial.price')} ${property.price}`, property.hoa && `${t('smartTour.commercial.hoa')} ${property.hoa}`, property.propertyTaxes && `${t('smartTour.commercial.propertyTaxes')} ${property.propertyTaxes}`].filter(Boolean).join(' · ')
+    : [property.price && `${property.purpose === 'rent' ? t('smartTour.commercial.rent') : t('smartTour.commercial.price')} ${property.price}`, property.condominium && `${t('smartTour.commercial.condominium')} ${property.condominium}`, property.iptu && `${t('smartTour.commercial.iptu')} ${property.iptu}`].filter(Boolean).join(' · ')
   const isReviewContext = question[0] === 'review' || Boolean(reviewEditRef.current)
   const summary = [
     { id: 'images', label: isShortVideos ? (shortVideo && `${shortVideo.file.name} · ${formatShortVideoDuration(shortVideo.duration)} · saída em formato Short vertical`) : ((images.length || uploads?.paths.length) && `${images.length || uploads.paths.length} fotos`) },
     { id: 'purpose', label: property.purpose && (property.purpose === 'sale' ? t('smartTour.purpose.sale') : t('smartTour.purpose.rent')) },
-    { id: 'stage', label: property.stage },
-    { id: 'type', label: property.type },
+    { id: 'stage', label: stageLabel },
+    { id: 'type', label: propertyTypeLabel },
     { id: 'facts', label: measuresSummary },
     { id: 'location', label: market === 'US' ? formatUsLocation(property) : formatSmartTourLocation(property) },
-    { id: 'commercial', label: valuesSummary || (isReviewContext ? 'Sem valores informados' : '') },
+    { id: 'commercial', label: valuesSummary || (isReviewContext ? t('smartTour.commercial.none') : '') },
     { id: 'highlights', label: property.highlights.length ? t('smartTour.highlightSelection.selectedCount').replace('{count}', property.highlights.length) : (isReviewContext ? t('smartTour.highlightSelection.none') : '') },
-    ...(!isShortVideos ? [{ id: 'presenter', label: generation.presenterGender === 'female' ? 'Corretora' : generation.presenterGender === 'male' ? 'Corretor' : (isReviewContext ? 'Nenhum' : '') }] : []),
-    ...(!isShortVideos ? [{ id: 'presenter_speech_mode', label: generation.presenterSpeechMode === 'custom' ? 'Escrever minha própria fala' : 'Usar sugestão da SNETIA' }] : []),
+    ...(!isShortVideos ? [{ id: 'presenter', label: generation.presenterGender === 'female' ? t('smartTour.presenter.female') : generation.presenterGender === 'male' ? t('smartTour.presenter.male') : (isReviewContext ? t('smartTour.presenter.none') : '') }] : []),
+    ...(!isShortVideos ? [{ id: 'presenter_speech_mode', label: generation.presenterSpeechMode === 'custom' ? t('smartTour.speechMode.custom') : t('smartTour.speechMode.automatic') }] : []),
     ...(!isShortVideos && generation.presenterSpeechMode === 'custom' && generation.presenterCustomSpeech ? [{ id: 'presenter_custom_speech', label: generation.presenterCustomSpeech }] : []),
     { id: 'narration', label: generation.presenterSpeechMode === 'custom' ? t('smartTour.review.implicitYes') : generation.narration === 'enabled' ? t('smartTour.options.yes') : generation.narration === 'disabled' ? t('smartTour.options.no') : '' }, { id: 'captions', label: generation.captions === 'enabled' ? t('smartTour.options.yes') : generation.captions === 'disabled' ? t('smartTour.options.no') : '' },
     { id: 'professional_identity', label: showProfessionalIdentity === true ? professionalIdentity : showProfessionalIdentity === false ? t('smartTour.options.no') : '' },
-    { id: 'cta_enabled', label: ctaEnabled === true ? 'Sim' : ctaEnabled === false ? 'Não' : '' },
+    { id: 'cta_enabled', label: ctaEnabled === true ? t('smartTour.options.yes') : ctaEnabled === false ? t('smartTour.options.no') : '' },
     { id: 'cta', label: ctaEnabled === true ? cta : '' },
     { id: 'phone', label: ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? t('smartTour.phone.none') : '') : '' },
   ].filter(item => Boolean(item.label))
@@ -555,6 +578,8 @@ export default function SmartTourAI() {
         description={t('smartTour.heroDescription')}
       />
 
+      {recoverableJob && <ProductCard className="mt-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-slate-950">{t('smartTour.status.recoveryAvailable')}</p><p className="mt-1 text-sm text-slate-600">{t('smartTour.status.recoveryReadOnly')}</p></div><ProductButton type="button" variant="secondary" onClick={() => { setStatus('generating'); setMessage(t('smartTour.status.resuming')); poll(recoverableJob.jobId); setRecoverableJob(null) }}>{t('smartTour.status.resumeTracking')}</ProductButton></ProductCard>}
+
       <ProductCard className="mt-8 p-5 sm:p-7">
         <ProductSectionHeading
           eyebrow={t('smartTour.showcase.eyebrow')}
@@ -566,21 +591,8 @@ export default function SmartTourAI() {
 
       <SmartTourGuide />
 
-      <SmartTourStartChoice
-        onSelectImages={() => selectInputFlow('images')}
-        onSelectShortVideos={() => selectInputFlow(SHORT_VIDEOS_MODULE_ID)}
-        shortVideosVisible={SHORT_VIDEOS_VISIBLE}
-      />
-
       {activeInputFlow && <div id="smart-tour-creation" className="mt-10 space-y-8 scroll-mt-6">
         <ProductSectionHeading eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')} title={t('smartTour.creationTitle')} />
-        <ProductSteps steps={[
-          { title: isShortVideos ? 'Vídeo' : 'Fotos', subtitle: 'Envio' },
-          { title: 'Imóvel', subtitle: 'Informações' },
-          { title: 'Estilo', subtitle: 'Apresentação' },
-          { title: 'Revisão', subtitle: 'Conferência' },
-          { title: 'Criar', subtitle: 'Vídeo' },
-        ]} activeStep={visualStep} />
     <GuidedConversation
       history={conversation.history}
       phase={conversation.phase}
@@ -593,7 +605,7 @@ export default function SmartTourAI() {
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating'].includes(status)}
       designSystem
-      eyebrow={isShortVideos ? 'Short Videos' : 'Criação guiada'}
+      eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')}
     >
       <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
@@ -603,9 +615,11 @@ export default function SmartTourAI() {
 }
 
 function SmartTourGuide() {
-  const { t } = useLocale()
+  const { t, market } = useLocale()
   const [activeGuideId, setActiveGuideId] = useState(null)
   const [hoveredGuideId, setHoveredGuideId] = useState(null)
+  const examples = market === 'US' ? [] : guideExamples
+  if (!examples.length) return null
   return <ProductCard className="mt-8 p-5 sm:p-7">
     <ProductSectionHeading
       eyebrow={t('smartTour.guide.eyebrow')}
@@ -613,7 +627,7 @@ function SmartTourGuide() {
       description={t('smartTour.guide.description')}
     />
     <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-      {guideExamples.map((example, index) => {
+      {examples.map((example, index) => {
         const isActive = activeGuideId === example.id || hoveredGuideId === example.id
         return <div key={example.id} className="relative" onMouseEnter={() => setHoveredGuideId(example.id)} onMouseLeave={() => setHoveredGuideId(current => current === example.id ? null : current)}>
           <button
@@ -660,25 +674,26 @@ function SmartTourStartChoice({ onSelectImages, onSelectShortVideos, shortVideos
 }
 
 function SmartTourShowcase() {
-  const { t } = useLocale()
+  const { t, market } = useLocale()
   const [activeIndex, setActiveIndex] = useState(null)
   const modalVideoRef = useRef(null)
   const closeButtonRef = useRef(null)
-  const activeExample = activeIndex === null ? null : visibleExamples[activeIndex]
+  const examples = market === 'US' ? [] : visibleExamples
+  const activeExample = activeIndex === null ? null : examples[activeIndex]
   const close = () => {
     modalVideoRef.current?.pause()
     setActiveIndex(null)
   }
-  const showPrevious = () => setActiveIndex(current => (current - 1 + SMART_TOUR_EXAMPLES.length) % SMART_TOUR_EXAMPLES.length)
-  const showNext = () => setActiveIndex(current => (current + 1) % SMART_TOUR_EXAMPLES.length)
+  const showPrevious = () => setActiveIndex(current => (current - 1 + examples.length) % examples.length)
+  const showNext = () => setActiveIndex(current => (current + 1) % examples.length)
 
   useEffect(() => {
     if (activeIndex === null) return undefined
     const previousOverflow = document.body.style.overflow
     const handleKeyDown = event => {
       if (event.key === 'Escape') setActiveIndex(null)
-      if (event.key === 'ArrowLeft') setActiveIndex(current => (current - 1 + SMART_TOUR_EXAMPLES.length) % SMART_TOUR_EXAMPLES.length)
-      if (event.key === 'ArrowRight') setActiveIndex(current => (current + 1) % SMART_TOUR_EXAMPLES.length)
+      if (event.key === 'ArrowLeft') setActiveIndex(current => (current - 1 + examples.length) % examples.length)
+      if (event.key === 'ArrowRight') setActiveIndex(current => (current + 1) % examples.length)
     }
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', handleKeyDown)
@@ -687,11 +702,12 @@ function SmartTourShowcase() {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [activeIndex])
+  }, [activeIndex, examples.length])
 
+  if (!examples.length) return <p className="mt-6 text-sm font-semibold leading-6 text-slate-600">{t('smartTour.showcase.usAssetsPending')}</p>
   return <>
     <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-      {visibleExamples.map((example, exampleIndex) => (
+      {examples.map((example, exampleIndex) => (
         <ProductCard as="article" key={example.id} variant="flat" className="flex min-w-0 flex-col p-4">
           <button
             type="button"
@@ -748,7 +764,7 @@ function SmartTourShowcase() {
           <div className="mb-3 flex w-full items-center justify-between gap-3 text-white">
             <div className="min-w-0">
               <p className="truncate text-lg font-black">{activeExample.title}</p>
-              <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} {t('smartTour.showcase.of')} {SMART_TOUR_EXAMPLES.length}</p>
+              <p className="text-xs font-semibold text-slate-300">{activeIndex + 1} {t('smartTour.showcase.of')} {examples.length}</p>
             </div>
             <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950" aria-label={t('smartTour.showcase.close')}>
               <X className="h-5 w-5" />
@@ -797,6 +813,39 @@ function ExamplePlaceholder({ example, large = false }) {
   </div>
 }
 
+function UsSmartTourLocationQuestion({ property, setPropertyField, t, cont }) {
+  const counties = getCountiesByState(property.state)
+  const zipCode = normalizeUsZipCode(property.zipCode)
+  const [cities, setCities] = useState([])
+  const [cityStatus, setCityStatus] = useState('idle')
+  const [cityError, setCityError] = useState('')
+  const requestRef = useRef(0)
+  const loadCities = useCallback(() => {
+    const request = ++requestRef.current
+    if (!isValidCountyForState(property.state, property.county)) {
+      setCities([]); setCityStatus('idle'); setCityError('')
+      return undefined
+    }
+    const controller = new AbortController()
+    setCities([]); setCityStatus('loading'); setCityError('')
+    getUsCitiesByCounty(property.state, property.county, { signal: controller.signal })
+      .then(items => { if (request === requestRef.current) { setCities(items); setCityStatus('ready') } })
+      .catch(error => { if (error?.name !== 'AbortError' && request === requestRef.current) { setCities([]); setCityStatus('error'); setCityError(t('smartTour.location.cityLoadError')) } })
+    return () => controller.abort()
+  }, [property.county, property.state, t])
+  useEffect(() => loadCities(), [loadCities])
+  const location = formatUsLocation({ ...property, zipCode })
+  const ready = Boolean(property.state && isValidCountyForState(property.state, property.county) && cities.includes(property.city) && (!zipCode || isValidUsZipCode(zipCode)))
+  return <div className="space-y-3">
+    <label className="block text-xs font-black">{t('smartTour.location.state')}<SmartLocationSelect ariaLabel={t('smartTour.location.state')} value={property.state} onChange={value => { setPropertyField('state', value); setPropertyField('county', ''); setPropertyField('city', ''); setPropertyField('zipCode', ''); setPropertyField('neighborhoodCommunity', '') }} className="mt-1"><option value="">{t('smartTour.location.selectState')}</option>{getStatesForMarket('US').map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</SmartLocationSelect></label>
+    <label className="block text-xs font-black">{t('smartTour.location.county')}<SmartLocationSelect ariaLabel={t('smartTour.location.county')} value={property.county} disabled={!property.state} onChange={value => { setPropertyField('county', value); setPropertyField('city', ''); setPropertyField('zipCode', ''); setPropertyField('neighborhoodCommunity', '') }} className="mt-1"><option value="">{property.state ? t('smartTour.location.selectCounty') : t('smartTour.location.selectStateFirst')}</option>{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</SmartLocationSelect></label>
+    <label className="block text-xs font-black">{t('smartTour.location.city')}<SmartLocationSelect ariaLabel={t('smartTour.location.city')} value={property.city} disabled={cityStatus !== 'ready'} onChange={value => setPropertyField('city', value)} className="mt-1"><option value="">{cityStatus === 'loading' ? t('smartTour.location.loadingCities') : cityStatus === 'error' ? t('smartTour.location.citiesUnavailable') : t('smartTour.location.selectCity')}</option>{cities.map(city => <option key={city} value={city}>{city}</option>)}</SmartLocationSelect>{cityStatus === 'error' && <ProductButton type="button" variant="ghost" size="sm" onClick={loadCities} className="mt-2">{t('smartTour.location.tryAgain')}</ProductButton>}{cityError && <span role="alert" className="mt-1 block text-xs text-red-600">{cityError}</span>}{cityStatus === 'ready' && cities.length === 0 && <span className="mt-1 block text-xs text-slate-600">{t('smartTour.location.noCities')}</span>}</label>
+    <label className="block text-xs font-black">{t('smartTour.location.zipCodeOptional')}<input aria-label={t('smartTour.location.zipCodeOptional')} value={property.zipCode} onChange={event => setPropertyField('zipCode', normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-xl border p-3" />{property.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs text-red-600">{t('smartTour.location.zipCodeHint')}</span>}</label>
+    <label className="block text-xs font-black">{t('smartTour.location.neighborhoodCommunityOptional')}<input aria-label={t('smartTour.location.neighborhoodCommunityOptional')} value={property.neighborhoodCommunity} onChange={event => setPropertyField('neighborhoodCommunity', event.target.value)} placeholder={t('smartTour.location.optional')} className="mt-1 w-full rounded-xl border p-3" /></label>
+    {cont(!ready, location, 'commercial', () => setPropertyField('zipCode', zipCode))}
+  </div>
+}
+
 function Question(props) {
   const { id, images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setShortVideo, createTour, resetCreation, reviewItems, onReviewEdit } = props
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; const itemValue = item.value ?? item.id; const label = item.labelKey ? t(item.labelKey) : item.label; return <button key={itemValue} type="button" onClick={() => select(itemValue, label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value === itemValue ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-slate-200 bg-white hover:border-primary-300'}`}><b className="text-sm">{label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
@@ -815,12 +864,13 @@ function Question(props) {
   </>
   if (id === 'images') return <><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png" hidden onChange={event => { addImages(event.target.files); event.target.value = '' }} />{missingImageMetadata.length > 0 && images.length === 0 && <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{t('smartTour.upload.photosDraftRestored')} {missingImageMetadata.length} {t(missingImageMetadata.length === 1 ? 'smartTour.upload.photo' : 'smartTour.upload.photos')} {t('smartTour.upload.inOrder')}; {t('smartTour.upload.fileNotStored')}</p>}<button type="button" onClick={() => inputRef.current?.click()} className="flex min-h-32 w-full flex-col items-center justify-center rounded-smart-card border-2 border-dashed border-primary-200 bg-primary-50/60 transition hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"><UploadCloud className="text-primary-600" /><b className="mt-2 text-sm">{t('smartTour.upload.selectPhotos')}</b><span className="text-xs text-slate-500">{t('smartTour.upload.photosLimit')} {SMART_TOUR_MAX_IMAGES} {t('smartTour.upload.photos')}</span><span className="mt-1 text-xs text-slate-400">{t('smartTour.upload.photoFormat')}</span></button><p className="mt-3 text-xs font-bold">{images.length} {t('smartTour.showcase.of')} {SMART_TOUR_MAX_IMAGES} {t('smartTour.upload.photos')}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{images.map((item, position) => <div key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2"><img src={item.preview} alt={`${t('smartTour.upload.photo')} ${position + 1}`} className="h-14 w-16 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-xs font-bold">{position + 1}. {item.file.name}</span>{[-1,1].map(offset => <button key={offset} type="button" aria-label={offset < 0 ? t('smartTour.upload.moveUp') : t('smartTour.upload.moveDown')} disabled={position + offset < 0 || position + offset >= images.length} onClick={() => move(position, offset)}>{offset < 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</button>)}<button type="button" aria-label={t('smartTour.upload.removePhoto')} onClick={() => remove(position)}><Trash2 className="h-4 w-4" /></button></div>)}</div>{message && <p className="mt-3 text-sm font-bold text-red-600">{message}</p>}{images.length > 0 && cont(false, `${images.length} ${t(images.length === 1 ? 'smartTour.upload.photo' : 'smartTour.upload.photos')}`, 'purpose')}</>
   if (id === 'purpose') return choices([{id:'sale',label:t('smartTour.purpose.sale')},{id:'rent',label:t('smartTour.purpose.rent')}], property.purpose, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'stage', apply: () => setPropertyField('purpose', value) }))
-  if (id === 'stage') { const stageOptions = isShortVideos ? getShortVideosStageOptions(property.purpose, STAGES) : getSmartTourStageOptions(property.purpose, STAGES); return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
+  if (id === 'stage') { const stageOptions = isShortVideos ? getShortVideosStageOptions(property.purpose, STAGES) : market === 'US' ? US_STAGES : getSmartTourStageOptions(property.purpose, STAGES); return choices(stageOptions, property.stage, (value, label) => answerQuestion({ answer: label, nextQuestionId: 'type', apply: () => setPropertyField('stage', value) })) }
   if (id === 'type') { const propertyTypes = isShortVideos ? getShortVideosPropertyTypes(property.purpose, SMART_TOUR_PROPERTY_TYPES) : getSmartTourPropertyTypes(property.purpose, { market }); return <>{choices(propertyTypes, property.type, value => setPropertyField('type', value))}{cont(!property.type, property.type, 'facts')}</> }
   if (id === 'facts') {
-    const fields = getSmartTourMeasureFields(property.type)
-    const fieldLabels = { bedrooms:t('smartTour.fields.bedrooms'), suites:t('smartTour.fields.suites'), parkingSpaces:t('smartTour.fields.parkingSpaces'), area:t('smartTour.fields.area') }
-    const answer = fields.map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ' m²' : ''}`).join(' · ')
+    const fields = getSmartTourMeasureFields(property.type, { market })
+    const fieldLabels = { bedrooms:t('smartTour.fields.bedrooms'), suites:t('smartTour.fields.suites'), bathrooms:t('smartTour.fields.bathrooms'), parkingSpaces:t('smartTour.fields.parkingSpaces'), area:t('smartTour.fields.area') }
+    const areaUnit = market === 'US' ? 'sqft' : 'm²'
+    const answer = fields.map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ` ${areaUnit}` : ''}`).join(' · ')
     const isIncomplete = fields.some(field => field === 'area' ? Number(property.area) <= 0 : property[field] === '')
     return <>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -836,13 +886,13 @@ function Question(props) {
                 placeholder={t('smartTour.areaPlaceholder')}
                 className="min-w-0 flex-1 rounded-xl border-0 p-3 outline-none"
               />
-              <span className="pr-3 text-sm font-black text-slate-500">m²</span>
+              <span className="pr-3 text-sm font-black text-slate-500">{areaUnit}</span>
             </div>
           </label>
         ) : (
           <fieldset key={field} className="min-w-0">
             <legend className="text-xs font-black">{fieldLabels[field]}</legend>
-            <div className="mt-1 flex flex-wrap gap-2" aria-label={`Opções de ${fieldLabels[field].toLocaleLowerCase('pt-BR')}`}>
+            <div className="mt-1 flex flex-wrap gap-2" aria-label={`${t('smartTour.fields.optionsFor')} ${fieldLabels[field].toLocaleLowerCase(market === 'US' ? 'en-US' : 'pt-BR')}`}>
               {SMART_TOUR_MEASURE_OPTIONS[field].map(option => <button key={option} type="button" onClick={() => setPropertyField(field, option)} className={`min-w-11 rounded-smart-control border px-3 py-2 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${property[field] === option ? 'border-primary-500 bg-primary-50 text-primary-800 ring-2 ring-primary-100' : 'border-slate-200 bg-white text-slate-700 hover:border-primary-300'}`}>{option}</button>)}
             </div>
           </fieldset>
@@ -852,23 +902,10 @@ function Question(props) {
     </>
   }
   if (id === 'location') {
-    if (market === 'US') {
-      const states = getStatesForMarket('US')
-      const counties = getCountiesByState(property.state)
-      const zipCode = normalizeUsZipCode(property.zipCode)
-      const location = formatUsLocation({ ...property, zipCode })
-      return <div className="space-y-3">
-        <label className="block text-xs font-black">{t('smartTour.location.state')}<SmartLocationSelect ariaLabel={t('smartTour.location.state')} value={property.state} onChange={value => { setPropertyField('state', value); setPropertyField('county', '') }} className="mt-1"><option value="">{t('smartTour.location.selectState')}</option>{states.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</SmartLocationSelect></label>
-        <label className="block text-xs font-black">{t('smartTour.location.county')}<SmartLocationSelect ariaLabel={t('smartTour.location.county')} value={property.county} disabled={!property.state} onChange={value => setPropertyField('county', value)} className="mt-1"><option value="">{property.state ? t('smartTour.location.selectCounty') : t('smartTour.location.selectStateFirst')}</option>{counties.map(option => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</SmartLocationSelect></label>
-        <label className="block text-xs font-black">{t('smartTour.location.city')}<input aria-label={t('smartTour.location.city')} value={property.city} onChange={event => setPropertyField('city', event.target.value)} placeholder={t('smartTour.location.city')} className="mt-1 w-full rounded-xl border p-3" /></label>
-        <label className="block text-xs font-black">{t('smartTour.location.zipCode')}<input aria-label={t('smartTour.location.zipCode')} value={property.zipCode} onChange={event => setPropertyField('zipCode', normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-xl border p-3" />{property.zipCode && !isValidUsZipCode(zipCode) && <span className="mt-1 block text-xs text-red-600">{t('smartTour.location.zipCodeHint')}</span>}</label>
-        <label className="block text-xs font-black">{t('smartTour.location.neighborhoodCommunity')}<input aria-label={t('smartTour.location.neighborhoodCommunity')} value={property.neighborhoodCommunity} onChange={event => setPropertyField('neighborhoodCommunity', event.target.value)} placeholder={t('smartTour.location.optional')} className="mt-1 w-full rounded-xl border p-3" /></label>
-        {cont(!property.state || !property.county || !property.city.trim() || !isValidUsZipCode(zipCode), location, 'commercial', () => setPropertyField('zipCode', zipCode))}
-      </div>
-    }
+    if (market === 'US') return <UsSmartTourLocationQuestion property={property} setPropertyField={setPropertyField} t={t} cont={cont} />
     const normalizedDistrict = normalizeSmartTourDistrict(property.district); const location = formatSmartTourLocation({ ...property, district: normalizedDistrict }); return <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state',value); setPropertyField('city','') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city',value)} />}<input value={property.district} onChange={event => setPropertyField('district',event.target.value)} placeholder={t('smartTour.fields.district')} className="w-full rounded-xl border p-3" />{cont(!property.state || !property.city || !normalizedDistrict, location, 'commercial', () => setPropertyField('district', normalizedDistrict))}</div>
   }
-  if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || 'Sem informações comerciais'; const commercialFields = [['price', property.purpose === 'rent' ? 'Valor da locação' : 'Preço'], ['condominium','Condomínio'], ['iptu','IPTU']]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value))} inputMode="numeric" placeholder="R$ 0" className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
+  if (id === 'commercial') { const commercialFields = market === 'US' ? [['price', property.purpose === 'rent' ? t('smartTour.commercial.rent') : t('smartTour.commercial.price')], ['hoa', t('smartTour.commercial.hoa')], ['propertyTaxes', t('smartTour.commercial.propertyTaxes')]] : [['price', property.purpose === 'rent' ? t('smartTour.commercial.rent') : t('smartTour.commercial.price')], ['condominium', t('smartTour.commercial.condominium')], ['iptu', t('smartTour.commercial.iptu')]]; const commercialAnswer = commercialFields.map(([field, label]) => property[field] && `${label}: ${property[field]}`).filter(Boolean).join(' · '); return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input value={property[field]} onChange={event => setPropertyField(field, formatSmartTourCurrency(event.target.value, market))} inputMode="numeric" placeholder={market === 'US' ? '$0' : 'R$ 0'} className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights')}</> }
   if (id === 'highlights') { const highlightGroups = getSmartTourHighlightGroups(property.type, { market }); return <><p className="mb-3 text-xs font-bold text-slate-500">{t('smartTour.highlightSelection.instruction')}</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.id || group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{group.labelKey ? t(group.labelKey) : group.title}</h4><div className="flex flex-wrap gap-2">{group.items.map(rawItem => { const item = typeof rawItem === 'string' ? { value: rawItem, label: rawItem } : rawItem; const label = item.labelKey ? t(item.labelKey) : item.label; return <button key={item.value} type="button" disabled={!property.highlights.includes(item.value) && property.highlights.length >= 10} onClick={() => toggleHighlight(item.value)} className={`rounded-full border px-3 py-2 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item.value) ? 'border-primary-400 bg-primary-50 text-primary-900' : 'border-slate-200 bg-white hover:border-primary-300'}`}>{label}</button> })}</div></section>)}</div>{cont(false, property.highlights.length ? t('smartTour.highlightSelection.selectedCount').replace('{count}', property.highlights.length) : t('smartTour.highlightSelection.none'), 'presenter')}</> }
   if (id === 'presenter') return explainedChoices(t('smartTour.presenter.description'), [{id:'female',label:t('smartTour.presenter.female')},{id:'male',label:t('smartTour.presenter.male')},{id:'none',label:t('smartTour.presenter.none')}], generation.presenterGender, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGeneration(current => ({ ...current, presenterGender: value })) }))
   if (id === 'presenter_speech_mode') return explainedChoices(t('smartTour.speechMode.description'), [
@@ -890,7 +927,7 @@ function Question(props) {
   if (id === 'captions') return explainedChoices(t('smartTour.captions.description'), [{id:'enabled',label:t('smartTour.options.yes')},{id:'disabled',label:t('smartTour.options.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
   if (id === 'professional_identity') return explainedChoices(t('smartTour.professionalIdentity.description'), [{id:'yes',label:t('smartTour.options.yes'),description:professionalIdentity},{id:'no',label:t('smartTour.options.no')}], showProfessionalIdentity === true ? 'yes' : showProfessionalIdentity === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setShowProfessionalIdentity(value === 'yes') }))
   if (id === 'cta_enabled') return explainedChoices(t('smartTour.ctaDescription'), [{id:'yes',label:t('smartTour.options.yes')},{id:'no',label:t('smartTour.options.no')}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) { setCta(''); setIncludePhone(false) } } }))
-  if (id === 'cta') return choices(CTAS, cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))
+  if (id === 'cta') return choices((CTA_OPTIONS[market] || CTA_OPTIONS.BR).map(option => ({ ...option, value: option.label })), cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(label) }))
   if (id === 'phone') return choices([{id:'yes',label:t('smartTour.options.yes'),description:phone || t('smartTour.phone.missing')},{id:'no',label:t('smartTour.options.no')}], includePhone === true ? 'yes' : includePhone === false ? 'no' : '', value => { if (value === 'yes' && !phone) return; answerQuestion({ answer: value === 'yes' ? t('smartTour.review.phone') : t('smartTour.phone.none'), answerId: value, apply: () => setIncludePhone(value === 'yes') }) })
   const finalChoiceItems = [
     ...(!isShortVideos ? [{ label: t('smartTour.review.presenter'), value: generation.presenterGender === 'female' ? t('smartTour.presenter.female') : generation.presenterGender === 'male' ? t('smartTour.presenter.male') : t('smartTour.presenter.none') }] : []),

@@ -271,7 +271,43 @@ export function buildSmartTourPrompt(input: {generation: SmartTourGenerationConf
   return prompt
 }
 
-export function buildSmartTourVideoPrompt(briefing: SmartTourStructuredBriefing) { return JSON.stringify(briefing) }
+const US_PROVIDER_KEYS: Record<string, string> = {
+  versao: 'version', tarefa: 'mission', configuracoes: 'configuration', modo: 'mode', idioma: 'language', formato: 'format', duracaoSegundos: 'durationSeconds', quantidadeImagens: 'imageCount', narracaoAtiva: 'narrationEnabled', legendasAtivas: 'captionsEnabled', ctaAtivo: 'ctaEnabled', identificacaoProfissionalAtiva: 'professionalIdentityEnabled', imovel: 'property', finalidade: 'purpose', tipo: 'propertyType', estadoDoImovel: 'propertyStatus', localizacao: 'location', estado: 'state', cidade: 'city', bairro: 'neighborhood', dormitorios: 'bedrooms', suites: 'suites', banheiros: 'bathrooms', vagas: 'parkingSpaces', area: 'areaSqft', preco: 'priceUsd', condominio: 'hoa', iptu: 'propertyTaxes', destaques: 'highlights', descricao: 'description', apresentador: 'presenter', unicoHumanoAutorizado: 'onlyAuthorizedPerson', musica: 'music', configurada: 'configured', instrucao: 'instruction', sequenciaDasImagens: 'imageSequence', movimentosDesejados: 'requestedMovements', cenas: 'scenes', numero: 'number', frase_id: 'phraseId', imagem: 'image', movimento: 'movement', legenda: 'caption', narracao: 'narration', duracaoNarracaoSegundos: 'narrationDurationSeconds', tempoTelefoneVisivelAposNarracaoSegundos: 'phoneVisibleAfterNarrationSeconds', timeline: 'timeline', duracaoTotalSegundos: 'totalDurationSeconds', legendas: 'captions', cta: 'cta', identificacaoProfissional: 'professionalIdentity', ativas: 'enabled', titulo: 'title', telefone: 'phone', texto: 'text', regrasPreservacao: 'preservationRules', cenarioProtegido: 'protectedScene', umaImagemPorCena: 'oneImagePerScene', respeitarOrdemDasImagens: 'respectImageOrder', elementosImutaveis: 'immutableElements', transformacoesPermitidas: 'allowedTransformations', regrasObrigatorias: 'mandatoryRules', codigo: 'code', valor: 'value', bloco: 'block', inicioSegundos: 'startSeconds', fimSegundos: 'endSeconds', tipo: 'type', identificacaoProfissionalVisualDeterministica: 'deterministicProfessionalIdentity',
+}
+
+const US_PROVIDER_VALUES: Record<string, string> = {
+  corretora: 'female_real_estate_agent', corretor: 'male_real_estate_agent', nenhum: 'none', preservar_comportamento_atual: 'preserve_current_behavior',
+  movimento_linear_baixa_amplitude: 'low_amplitude_linear_movement', pan_suave: 'gentle_pan', push_in_minimo: 'minimal_push_in', pull_back_minimo: 'minimal_pull_back',
+  abertura: 'opening', caracteristicas: 'features', diferencial: 'highlight', localizacao: 'location', encerramento: 'closing',
+  usar_json_como_fonte_unica: 'use_json_as_only_source', sem_invencao: 'no_invention', apresentador_obrigatorio: 'presenter_required', apresentador_excecao_unica: 'presenter_only_exception', apresentador_preserva_imovel: 'presenter_preserves_property', idioma: 'language', formato_vertical: 'vertical_format', duracao_total_segundos: 'total_duration_seconds', legendas_obrigatorias_quando_ativas: 'captions_required_when_enabled', timeline_temporal_fonte_efetiva: 'timeline_is_effective_temporal_source', identificacao_profissional_visual_deterministica: 'deterministic_professional_identity_overlay', legendas_sem_valores_comerciais_automaticos: 'no_automatic_commercial_values_in_captions', narracao_complementar: 'complementary_narration', cta_deterministico: 'deterministic_cta', ultima_narracao_curta: 'short_final_narration',
+}
+
+const US_PROVIDER_SENTENCE_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/Renderizar no próprio vídeo final exclusivamente timeline\.legendas, timeline\.narracao, timeline\.cta e timeline\.identificacaoProfissional como fonte efetiva dos textos, da narração e de seus tempos\. As trocas de texto são independentes das trocas de imagem\. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline\./g, 'Render only timeline captions, narration, CTA and professional identity as the effective source of timed text and voice. Scene text fields are compatibility-only and do not control the timeline.'],
+  [/Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel\. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário\./g, 'Never automatically use prices, HOA, property taxes, fees or property codes in captions. Use only confirmed selected highlights, never a monetary value.'],
+  [/a narração não pode repetir exatamente a legenda/g, 'narration must not exactly repeat the caption'],
+  [/reservar a última cena para a legenda formada somente por cta\.titulo e cta\.telefone, sem alterar caracteres/g, 'reserve the last scene for the exact CTA title and phone only'],
+  [/limitar a narração final a 1,2 segundo e manter somente o telefone visível por aproximadamente 0,8 segundo após a fala/g, 'limit final narration to 1.2 seconds and keep only the phone visible for about 0.8 seconds after narration'],
+]
+
+const translateUsProviderString = (value: string) => {
+  let translated = US_PROVIDER_VALUES[value] || value
+  for (const [pattern, replacement] of US_PROVIDER_SENTENCE_REPLACEMENTS) translated = translated.replace(pattern, replacement)
+  return translated
+}
+
+function englishProviderPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(englishProviderPayload)
+  if (typeof value === 'string') return translateUsProviderString(value)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([key, item]) => key !== 'suites' && !(key === 'condominio' && !item) && !(key === 'iptu' && !item))
+    .map(([key, item]) => [US_PROVIDER_KEYS[key] || key, englishProviderPayload(item)]))
+}
+
+export function buildSmartTourVideoPrompt(briefing: SmartTourStructuredBriefing) {
+  return JSON.stringify(briefing.configuracoes.idioma === 'en-US' ? englishProviderPayload(briefing) : briefing)
+}
 
 export function assertNoContradictions(prompt: string, config: SmartTourGenerationConfig, hasCta = false, hasPhone = false) {
   const conflicts = [

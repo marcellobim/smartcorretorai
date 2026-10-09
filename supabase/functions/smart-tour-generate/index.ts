@@ -119,7 +119,14 @@ serve(withCors(async req => {
       })
       return json({ok:true,jobId:input.clientRequestId,status:'generating',hashtags:pipeline.briefing.hashtags})
     }
-    const input = validateSmartTourRequest(rawInput)
+    const parsedInput = validateSmartTourRequest(rawInput)
+    // Market is the canonical product decision; the client locale is never trusted
+    // to turn a US briefing into pt-BR (or the reverse).
+    const input = {
+      ...parsedInput,
+      language: parsedInput.market === 'US' ? 'en-US' as const : 'pt-BR' as const,
+      generation: { ...parsedInput.generation, language: parsedInput.market === 'US' ? 'en-US' as const : 'pt-BR' as const },
+    }
     if (!/^[0-9a-f-]{36}$/i.test(input.clientRequestId)) throw new Error('invalid_request_id')
     if (input.imagePaths.some(path => !path.startsWith(`${user.id}/smart-tour/${input.clientRequestId}/`) || !/\.(jpg|jpeg|png)$/i.test(path))) throw new Error('invalid_image_owner')
     const {data:objects,error:objectsError} = await supabase.storage.from('studio-videos').list(`${user.id}/smart-tour/${input.clientRequestId}`,{limit:10})
@@ -133,7 +140,7 @@ serve(withCors(async req => {
     const {data:profile} = await supabase.from('profiles').select(input.showProfessionalIdentity ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
     const professionalIdentity = input.showProfessionalIdentity ? formatSmartTourProfessionalIdentity(profile) : ''
-    const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
+    const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.market === 'US' ? input.property.neighborhoodCommunity : input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.market === 'US' ? input.property.bathrooms : input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = buildOfficialHashtags(hashtagContext)
     const baseBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,professionalIdentity,imagePaths:input.imagePaths,language:input.language})
     const fallbackBriefing = input.generation.presenterSpeechMode === 'custom'

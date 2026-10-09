@@ -7,7 +7,7 @@ export type StagingPresentation = 'final_only' | 'before_after'
 export type SupportedLanguage = 'pt-BR' | 'en-US' | 'es'
 export type SupportedMarket = 'BR' | 'US'
 export interface SmartTourGenerationConfig { mode: GenerationMode; presenterGender: PresenterGender; presenterSpeechMode?: PresenterSpeechMode; presenterCustomSpeech?: string; narration: ToggleMode; captions: ToggleMode; furniture: FurnitureMode; stagingPresentation: StagingPresentation; language: SupportedLanguage }
-export interface PropertyContext { purpose?: string; stage?: string; type?: string; bedrooms?: string; suites?: string; parkingSpaces?: string; area?: string; state?: string; city?: string; district?: string; price?: string; condominium?: string; iptu?: string; highlights?: string[]; description?: string }
+export interface PropertyContext { purpose?: string; stage?: string; type?: string; bedrooms?: string; suites?: string; bathrooms?: string; parkingSpaces?: string; area?: string; state?: string; county?: string; city?: string; district?: string; zipCode?: string; neighborhoodCommunity?: string; price?: string; condominium?: string; iptu?: string; hoa?: string; propertyTaxes?: string; highlights?: string[]; description?: string }
 export interface SmartTourRequest { clientRequestId: string; imagePaths: string[]; imageOrder: string[]; property: PropertyContext; generation: SmartTourGenerationConfig; selectedCta: string; includeProfessionalPhone: boolean; showProfessionalIdentity: boolean; language: SupportedLanguage; market: SupportedMarket }
 export interface ShortVideosRequest {
   inputFlow: 'short-videos'
