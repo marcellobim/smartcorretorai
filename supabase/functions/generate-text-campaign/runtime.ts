@@ -253,7 +253,9 @@ export async function handleGenerateTextCampaign(request: Request, dependencies:
       hashtags = buildOfficialHashtags(hashtagContext)
       dependencies.log?.('hashtags_fallback', { model: TEXT_CAMPAIGN_MODEL })
     }
-    const campaign = applyFinalTextCampaignRules(generated.campaign, briefing, hashtags)
+    // Reject malformed provider output before factual sanitization so sanitation never
+    // converts a broken provider contract into a chargeable delivery.
+    const campaign = applyFinalTextCampaignRules(validateTextCampaignResult(generated.campaign), briefing, hashtags)
     const completed = await dependencies.completeDelivery({
       userId: user.id,
       clientRequestId,

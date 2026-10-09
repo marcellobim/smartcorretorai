@@ -11,7 +11,6 @@ import {
   ProductCard,
   ProductHero,
   ProductSectionHeading,
-  ProductSteps,
   SMART_UI,
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
@@ -42,7 +41,6 @@ import {
   getTextCampaignPropertyTypes,
   getTextCampaignSaleConditions,
   getTextCampaignStageOptions,
-  getTextCampaignVisualStep,
   isTextCampaignBriefingValid,
   normalizeTextCampaignLocation,
   textCampaignCommercialTermsAvailable,
@@ -53,7 +51,6 @@ import {
   TEXT_CAMPAIGN_DELIVERABLES,
   TEXT_CAMPAIGN_MAX_HIGHLIGHTS,
   TEXT_CAMPAIGN_RENT_GUARANTEES,
-  TEXT_CAMPAIGN_STEPS,
 } from '../config/textCampaign'
 import {
   getTextCampaignConfirmation,
@@ -71,14 +68,6 @@ const ui = (locale, key) => getTextCampaignUiLabel(locale, key)
 const commercialTermLabel = (id, market) => market === 'US'
   ? ({ entry_amount: 'Down payment', monthly_amount: 'Monthly payment', annual_amount: 'Annual payment' })[id]
   : ({ entry_amount: 'Entrada', monthly_amount: 'Mensais', annual_amount: 'Anuais' })[id]
-const TEXT_CAMPAIGN_EN_US_STEPS = Object.freeze([
-  { title: 'Purpose', subtitle: 'Sale or rent' },
-  { title: 'Property', subtitle: 'Type and details' },
-  { title: 'Location', subtitle: 'State, county, and city' },
-  { title: 'Features and terms', subtitle: 'Confirmed facts' },
-  { title: 'Review and create', subtitle: 'Check the brief' },
-])
-
 const TEXT_CAMPAIGN_REQUEST_STORAGE_KEY = 'smartcorretor:text-campaign:client-request-id'
 const requestIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -283,13 +272,6 @@ export default function TextCampaign() {
           visual={<DeliverablesPreview copy={copy} locale={locale} />}
         />
       </ProductCard>
-
-      <ProductSteps
-        steps={market === 'US' ? TEXT_CAMPAIGN_EN_US_STEPS : TEXT_CAMPAIGN_STEPS}
-        activeStep={getTextCampaignVisualStep(questionId)}
-        label={copy.stepsLabel}
-        accent="primary"
-      />
 
       <GuidedConversation
         history={conversation.history}

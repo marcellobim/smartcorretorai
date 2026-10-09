@@ -33,11 +33,9 @@ test('registers a private Campanha de Textos product and localized hero', () => 
   assert.match(page, /const \{ locale, market \} = useLocale\(\)/)
 })
 
-test('defines exactly five approved visual steps', () => {
-  assert.deepEqual(config.TEXT_CAMPAIGN_STEPS.map(item => item.title), [
-    'Objetivo', 'Imóvel', 'Localização', 'Diferenciais e condições', 'Revisão e criação',
-  ])
-  assert.match(page, /<ProductSteps/)
+test('does not render an intermediate visual step guide', () => {
+  assert.doesNotMatch(page, /<ProductSteps/)
+  assert.doesNotMatch(page, /TEXT_CAMPAIGN_EN_US_STEPS/)
 })
 
 test('supports localized sale and rent labels with stable internal values', () => {
@@ -225,7 +223,7 @@ test('does not persist a campaign or a result history', () => {
 })
 
 test('reuses the consolidated Design System and guided conversation', () => {
-  for (const component of ['ProductHero', 'ProductCard', 'ProductSteps', 'ProductButton', 'ProductSectionHeading', 'GuidedConversation', 'SMART_UI']) assert.ok(page.includes(component))
+  for (const component of ['ProductHero', 'ProductCard', 'ProductButton', 'ProductSectionHeading', 'GuidedConversation', 'SMART_UI']) assert.ok(page.includes(component))
   assert.match(guidedConversation, /ConversationAssistantBubble/)
   assert.match(guidedConversation, /ProductSummary/)
   assert.match(page, /designSystem[\s\S]*?accent="primary"/)

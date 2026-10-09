@@ -11,6 +11,7 @@ import {
   TEXT_CAMPAIGN_MODEL,
   TEXT_CAMPAIGN_SYSTEM_PROMPT,
   TextCampaignValidationError,
+  sanitizeTextCampaignFactualClaims,
   type TextCampaignBriefing,
   type TextCampaignResult,
   validateTextCampaignRequest,
@@ -116,12 +117,103 @@ test('keeps the PT-BR prompt and builds an EN-US prompt with presented business 
   assert.match(String(request.messages[0].content), /never call bathrooms suites or use m²/)
 })
 
+const auditedUsBriefing = (): TextCampaignBriefing => ({
+  ...validBriefing(),
+  language: 'en-US', market: 'US', purpose: 'sale', stage: 'Pronto para morar', property_type: 'us_condo',
+  bedrooms: '2', suites: '', bathrooms: '2', parking_spaces: '1', area: '900', area_unit: 'sqft',
+  state: 'FL', county: 'Hillsborough County', city: 'Tampa', district: '', zip_code: '', neighborhood_community: '',
+  highlights: [], custom_highlight: null, notes: null, cta: 'Agende sua visita',
+  commercial: { mode: 'conditions', price_mode: '', price: '', conditions: ['Special terms available'], commercial_terms: {} },
+})
+
+const unsupportedUsCampaign = (): TextCampaignResult => ({
+  ...validCampaign(),
+  listing_title: 'Spacious Tampa Condo',
+  portal_description: 'Discover this well-maintained condo in a sought-after area with 2 bedrooms, 2 bathrooms, and 1 parking space. With 900 sqft, it offers comfortable living. Special terms available. Schedule your visit.',
+  short_listing: 'A spacious condo in Tampa with room to grow.',
+  instagram_commercial: 'Tampa condo with 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
+  instagram_emotional: 'A fresh start could begin here. See if this Tampa condo fits your next move.',
+  instagram_opportunity: 'See this Tampa condo and schedule your visit.',
+  facebook_commercial: 'Tampa condo: 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
+  facebook_emotional: 'Imagine a spacious Tampa condo with room to grow.',
+  facebook_opportunity: 'Explore this Tampa condo before making your next move.',
+  whatsapp_individual: 'I can share details of this Tampa condo with 2 bedrooms and 2 bathrooms.',
+  whatsapp_list: 'Tampa condo with 900 sqft. Special terms available.',
+  whatsapp_short: 'Tampa condo: 2 beds, 2 baths. Schedule your visit.',
+  email: { subject: 'Well-maintained Tampa condo', body: 'A comfortable condo with 2 bedrooms, 2 bathrooms, 1 dedicated parking space, and 900 sqft.' },
+  linkedin: { applicable: false, text: null, reason: 'Residential context.' },
+  reels_script: 'Take a look at the perfect place to call home: a Tampa condo with 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
+  text_carousel: { slides: [
+    { title: 'Tampa condo', text: '2 bedrooms and 2 bathrooms.' },
+    { title: 'Comfort', text: 'Comfortable condo living with 900 sqft.' },
+    { title: 'Parking', text: 'One dedicated parking space.' },
+    { title: 'Terms', text: 'Special terms available.' },
+    { title: 'Visit', text: 'Schedule your visit.' },
+  ] },
+  google_ads: {
+    headlines: ['Spacious Tampa Condo', 'Dedicated Parking'],
+    long_headline: 'Well-maintained Tampa condo with 2 bedrooms, 2 bathrooms, and 900 sqft',
+    descriptions: ['Comfortable living with a dedicated parking space.', 'See this Tampa condo and schedule your visit.'],
+    cta: 'Schedule your visit',
+    suggested_keywords: ['spacious tampa condo', 'tampa condo 2 bedrooms', 'condo 900 sqft tampa'],
+  },
+})
+
 test('formats complete BR and US professional identities without accepting client input', () => {
   assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { display_name: 'Ana Lima', creci: '12345', creci_type: 'F', estado: 'SC' }).professional_identity, 'Ana Lima — CRECI F 12345/SC')
   assert.equal(attachTextCampaignProfessionalIdentity(validBriefing(), { nome: 'Ana Lima', creci: '12345', creci_type: 'X', estado: 'SC' }).professional_identity, undefined)
   const us = { ...validBriefing(), language: 'en-US' as const, market: 'US' as const }
   assert.equal(attachTextCampaignProfessionalIdentity(us, { display_name: 'Alex Smith', license_number: '123456', estado: 'FL' }).professional_identity, 'Alex Smith — License 123456, FL')
   assert.equal(attachTextCampaignProfessionalIdentity(us, { nome: 'Alex Smith', license_number: '123456' }).professional_identity, undefined)
+  assert.equal(attachTextCampaignProfessionalIdentity(us, { license_number: '123456', estado: 'FL' }).professional_identity, undefined)
+})
+
+test('sanitizes unsupported factual claims across all text campaign deliveries without a provider retry', async () => {
+  const briefing = auditedUsBriefing()
+  const unsafe = unsupportedUsCampaign()
+  const sanitized = sanitizeTextCampaignFactualClaims(unsafe, briefing)
+  const rendered = JSON.stringify(sanitized)
+  const unsupported = /well-maintained|sought-after|spacious|room to grow|comfortable living|dedicated parking|perfect place to call home/i
+  assert.doesNotMatch(rendered, unsupported)
+  assert.match(rendered, /Condo/i)
+  assert.match(rendered, /2 bedrooms/i)
+  assert.match(rendered, /2 bathrooms/i)
+  assert.match(rendered, /1 parking space/i)
+  assert.match(rendered, /900 sqft/i)
+  assert.match(rendered, /Tampa/i)
+  assert.match(rendered, /Special terms available/i)
+  assert.match(rendered, /fresh start could begin here/i)
+  assert.equal(sanitized.text_carousel.slides.length, 5)
+  assert.ok(sanitized.google_ads.headlines.every(value => value.length <= 30))
+
+  let providerCalls = 0
+  const response = await handleGenerateTextCampaign(request({ briefing }), dependencies({
+    generate: async () => { providerCalls += 1; return { campaign: unsafe } },
+    generateHashtags: async () => unsafe.hashtags,
+  }))
+  assert.equal(response.status, 200)
+  assert.equal(providerCalls, 1)
+  const body = await response.json()
+  assert.doesNotMatch(JSON.stringify(body.campaign), unsupported)
+  assert.deepEqual(Object.keys(body.campaign), [...TEXT_CAMPAIGN_DELIVERY_KEYS])
+  assert.equal(body.campaign.text_carousel.slides.length, 5)
+  assert.equal(body.campaign.google_ads.cta, 'Schedule your visit')
+})
+
+test('keeps confirmed BR facts while removing unsupported condition, amenity and location claims', () => {
+  const unsafe = {
+    ...validCampaign(),
+    portal_description: 'Apartamento impecável em localização privilegiada, com 120 m², três dormitórios e varanda gourmet.',
+    facebook_emotional: 'Imagine uma rotina confortável neste apartamento com piscina.',
+    text_carousel: { slides: validCampaign().text_carousel.slides.map((slide, index) => index === 1 ? { ...slide, text: 'Vista para a cidade e varanda gourmet.' } : slide) },
+  }
+  const sanitized = sanitizeTextCampaignFactualClaims(unsafe, validBriefing())
+  const rendered = JSON.stringify(sanitized)
+  assert.doesNotMatch(rendered, /impecável|localização privilegiada|confortável|vista para a cidade/i)
+  assert.match(rendered, /120 m²/i)
+  assert.match(rendered, /varanda gourmet/i)
+  assert.match(rendered, /Piscina/i)
+  assert.equal(sanitized.text_carousel.slides.length, 5)
 })
 
 test('recovers a completed delivery by its existing id without OpenAI, hashtags, reservation or a new claim', async () => {
