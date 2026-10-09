@@ -12,6 +12,8 @@ let vite
 let GuidedConversation
 let getConversationScrollBehavior
 let CONVERSATION_PHASE
+let getConversationControls
+let formatConversationSystemAnswer
 
 before(async () => {
   vite = await createServer({
@@ -20,13 +22,16 @@ before(async () => {
     logLevel: 'silent',
     server: { middlewareMode: true },
   })
-  const [conversationModule, flowModule] = await Promise.all([
+  const [conversationModule, flowModule, controlsModule] = await Promise.all([
     vite.ssrLoadModule('/src/components/conversation/GuidedConversation.jsx'),
     vite.ssrLoadModule('/src/components/conversation/conversationFlow.js'),
+    vite.ssrLoadModule('/src/config/conversationControls.js'),
   ])
   GuidedConversation = conversationModule.default
   getConversationScrollBehavior = conversationModule.getConversationScrollBehavior
   CONVERSATION_PHASE = flowModule.CONVERSATION_PHASE
+  getConversationControls = controlsModule.getConversationControls
+  formatConversationSystemAnswer = controlsModule.formatConversationSystemAnswer
 })
 
 after(async () => {
@@ -53,6 +58,28 @@ function renderConversation(props = {}) {
     ...props,
   }, element('button', { type: 'button' }, 'Selecionar apartamento')))
 }
+
+test('uses the current US market for structural labels, including an existing answer', () => {
+  const markup = renderConversation({ market: 'US', history: [{ questionId: 'type', question: 'What type of property?', answer: 'us_single_family_home', confirmation: 'Saved.' }] })
+  assert.match(markup, /Question 2 of 4/)
+  assert.match(markup, /Edit \/ Change answer/)
+  assert.match(markup, /Single-family home/)
+  assert.doesNotMatch(markup, /PERGUNTA|Voltar e corrigir|us_single_family_home/)
+})
+
+test('shared controls change with market without changing free-text answers', () => {
+  const br = getConversationControls('BR')
+  const us = getConversationControls('US')
+  assert.equal(br.back, 'Voltar')
+  assert.equal(br.retry, 'Tentar novamente')
+  assert.equal(br.question(3, 8), 'Pergunta 3 de 8')
+  assert.equal(us.back, 'Back')
+  assert.equal(us.continue, 'Continue')
+  assert.equal(us.question(3, 8), 'Question 3 of 8')
+  assert.equal(formatConversationSystemAnswer('us_single_family_home', 'US'), 'Single-family home')
+  assert.equal(formatConversationSystemAnswer('us_single_family_home', 'BR'), 'Casa unifamiliar')
+  assert.equal(formatConversationSystemAnswer('Nome próprio livre', 'US'), 'Nome próprio livre')
+})
 
 test('renders the legacy conversation with its emerald default', () => {
   const markup = renderConversation()
@@ -100,7 +127,7 @@ test('renders the typing status with its accessible label', () => {
     phase: CONVERSATION_PHASE.TYPING,
     designSystem: true,
   })
-  assert.match(markup, /aria-label="SmartCorretorAI está digitando"/)
+  assert.match(markup, /aria-label="SNETIA está digitando"/)
   assert.match(markup, /animate-spin/)
   assert.match(markup, /animate-pulse/)
 })

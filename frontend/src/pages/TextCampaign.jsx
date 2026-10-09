@@ -275,6 +275,7 @@ export default function TextCampaign() {
       </ProductCard>
 
       <GuidedConversation
+        market={market}
         history={conversation.history}
         phase={conversation.phase}
         questionId={questionId}
@@ -286,9 +287,6 @@ export default function TextCampaign() {
         title={copy.briefingTitle}
         description={copy.briefingDescription}
         showSummary={false}
-        questionProgressLabel={(number, total) => locale === 'en-US' ? `Question ${number} of ${total}` : `Pergunta ${number} de ${total}`}
-        finalReviewLabel={locale === 'en-US' ? 'Final review' : 'Revisão final'}
-        editLabel={locale === 'en-US' ? 'Back and edit' : 'Voltar e corrigir'}
         review={questionId === 'review'}
         editDisabled={conversation.isTransitioning}
         designSystem

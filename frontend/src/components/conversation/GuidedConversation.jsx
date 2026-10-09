@@ -5,6 +5,7 @@ import { CONVERSATION_PHASE } from './conversationFlow'
 import { ProductCard, ProductFlowLayout, ProductSummary } from '../design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from './ConversationPrimitives'
 import BrandMark from '../brand/BrandMark'
+import { formatConversationSystemAnswer, getConversationControls } from '../../config/conversationControls'
 
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
@@ -37,14 +38,19 @@ export default function GuidedConversation({
   title = 'Converse com a IA',
   description = 'Uma pergunta por vez para construir sua apresentação.',
   summaryTitle = 'Resumo da apresentação',
-  questionProgressLabel = (number, total) => `Pergunta ${number} de ${total}`,
-  finalReviewLabel = 'Revisão final',
-  editLabel = 'Voltar e corrigir',
+  questionProgressLabel,
+  finalReviewLabel,
+  editLabel,
+  market = 'BR',
   review = false,
   editDisabled = false,
   designSystem = false,
   accent,
 }) {
+  const controls = getConversationControls(market)
+  const resolvedQuestionProgressLabel = questionProgressLabel || controls.question
+  const resolvedFinalReviewLabel = finalReviewLabel || controls.finalReview
+  const resolvedEditLabel = editLabel || controls.editAnswer
   const anchorRef = useRef(null)
   const resolvedAccent = accent || (designSystem ? 'primary' : 'emerald')
   const isEmerald = resolvedAccent === 'emerald'
@@ -61,12 +67,12 @@ export default function GuidedConversation({
   }, [history.length, phase, questionId])
 
   const conversation = <div className="min-w-0 space-y-4" aria-live="polite">
-    {history.map(turn => <ConversationTurn key={turn.questionId} turn={turn} onEdit={onEdit} editDisabled={editDisabled} isEmerald={isEmerald} editLabel={editLabel} />)}
+    {history.map(turn => <ConversationTurn key={turn.questionId} turn={turn} market={market} onEdit={onEdit} editDisabled={editDisabled} isEmerald={isEmerald} editLabel={resolvedEditLabel} />)}
     {phase === CONVERSATION_PHASE.TYPING && <TypingIndicator designSystem={designSystem} isEmerald={isEmerald} />}
     {phase === CONVERSATION_PHASE.QUESTION && (designSystem ? (
       <ConversationQuestionCard
         accent={isEmerald ? 'emerald' : 'primary'}
-        label={review ? finalReviewLabel : questionProgressLabel(questionNumber, totalQuestions)}
+        label={review ? resolvedFinalReviewLabel : resolvedQuestionProgressLabel(questionNumber, totalQuestions)}
         title={<TypewriterText text={question} active cursorClass={isEmerald ? 'bg-emerald-700' : 'bg-cyan-700'} />}
       >
         {children}
@@ -76,7 +82,7 @@ export default function GuidedConversation({
         <div className="flex gap-3">
           <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${isEmerald ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-primary-50 text-primary-700 ring-primary-100'}`}><BrandMark size={24} alt={BRAND.name} /></span>
           <div className="min-w-0 flex-1">
-            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isEmerald ? 'bg-emerald-50 text-emerald-800' : 'bg-primary-50 text-primary-800'}`}>{review ? finalReviewLabel : questionProgressLabel(questionNumber, totalQuestions)}</span>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isEmerald ? 'bg-emerald-50 text-emerald-800' : 'bg-primary-50 text-primary-800'}`}>{review ? resolvedFinalReviewLabel : resolvedQuestionProgressLabel(questionNumber, totalQuestions)}</span>
             <h3 className="mt-3 text-xl font-black leading-tight text-slate-950 sm:text-2xl"><TypewriterText text={question} active /></h3>
             <div className="mt-6">{children}</div>
           </div>
@@ -102,11 +108,11 @@ export default function GuidedConversation({
   </section>
 }
 
-function ConversationTurn({ turn, onEdit, editDisabled, isEmerald, editLabel }) {
+function ConversationTurn({ turn, market, onEdit, editDisabled, isEmerald, editLabel }) {
   return <div className="space-y-3">
     <ConversationAssistantBubble accent={isEmerald ? 'emerald' : 'primary'}>{turn.question}</ConversationAssistantBubble>
     <ConversationUserBubble actions={<button type="button" disabled={editDisabled} onClick={() => onEdit(turn.questionId)} className={`mt-2 inline-flex items-center gap-1 text-xs font-black hover:text-white disabled:cursor-not-allowed disabled:opacity-60 ${isEmerald ? 'text-emerald-200' : 'text-cyan-200'}`}><RotateCcw className="h-3.5 w-3.5" />{editLabel}</button>}>
-      <p>{turn.answer}</p>
+      <p>{formatConversationSystemAnswer(turn.answer, market)}</p>
     </ConversationUserBubble>
     <ConversationAssistantBubble accent={isEmerald ? 'emerald' : 'primary'} confirmation>{turn.confirmation}</ConversationAssistantBubble>
   </div>

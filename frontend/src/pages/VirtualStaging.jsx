@@ -1115,6 +1115,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       />
     <ProductSteps steps={journeySteps} activeStep={visualStep} accent="emerald" />
     <GuidedConversation
+      market={market}
       history={conversation.history}
       phase={conversation.phase}
       questionId={question[0]}

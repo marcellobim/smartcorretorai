@@ -165,6 +165,8 @@ test('17. Smart Carrossel keeps its approved conversational and generation flow'
 test('18. the shared conversational engine remains in use and unchanged in responsibility', () => {
   assert.match(sharedUi, /summaryItems\.map/)
   assert.match(sharedUi, /CONVERSATION_PHASE\.QUESTION/)
+  assert.match(sharedUi, /getConversationControls\(market\)/)
+  assert.match(page, /market=\{isShortVideos \? undefined : market\}/)
   assert.match(sharedHook, /appendConversationTurn/)
   assert.match(sharedHook, /truncateConversationAt/)
 })

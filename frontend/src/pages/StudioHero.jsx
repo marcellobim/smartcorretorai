@@ -18,6 +18,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
+import { getConversationControls } from '../config/conversationControls'
 import { buildProfessionalIdentity } from '../config/professionalProfile'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useLocale } from '../i18n/useLocale'
@@ -1136,7 +1137,7 @@ async function invokeStudioFunction(name, body) {
 
 export default function StudioHero() {
   const { locale, market, t } = useLocale()
-  void market
+  const conversationControls = getConversationControls(market)
   const language = locale === 'en-US' ? 'en-US' : 'pt-BR'
   const optionLabel = (group, value) => (value ? t(`studio.options.${group}.${value}`) : '')
   const studioUiLabels = {
@@ -2402,7 +2403,7 @@ export default function StudioHero() {
                   </span>
                 </label>
                 <ProductButton type="button" disabled={!hasValidLandArea(answers.area)} onClick={confirmLandArea}>
-                  Confirmar metragem
+                  {conversationControls.confirm}
                 </ProductButton>
               </div>
             </AssistantStep>
@@ -2588,7 +2589,7 @@ export default function StudioHero() {
                             setAnswers((current) => changeStudioSelectedCity(current, ''))
                           }}
                         >
-                          Voltar para a lista de cidades
+                          {market === 'US' ? 'Back to the city list' : 'Voltar para a lista de cidades'}
                         </ProductButton>
                       </div>
                     ) : (
@@ -2670,7 +2671,7 @@ export default function StudioHero() {
                     disabled={!answers.uf || !cityValue || (isCapture ? (!answers.captureHasDistrict || (answers.captureHasDistrict === 'yes' && !districtValue)) : !districtValue)}
                     onClick={() => setStep(isCapture ? captureTypeStep : differentialsStep)}
                   >
-                    Confirmar localizacao
+                    {conversationControls.confirm}
                   </ProductButton>
                 </div>
               </div>
@@ -2747,7 +2748,7 @@ export default function StudioHero() {
                     disabled={answers.differentials.length === 0}
                     onClick={() => setStep(propertyFeaturesStep || ctaStep)}
                   >
-                    Confirmar palavra
+                    {conversationControls.confirm}
                   </ProductButton>
                 </div>
               </div>
@@ -2820,7 +2821,7 @@ export default function StudioHero() {
                     disabled={!hasRequiredFreeAiPropertyFeatures}
                     onClick={() => setStep(ctaStep)}
                   >
-                    Confirmar caracteristicas
+                    {conversationControls.confirm}
                   </ProductButton>
                 </div>
               </div>
@@ -2890,7 +2891,7 @@ export default function StudioHero() {
 
                 <div className="flex justify-end">
                   <ProductButton type="button" onClick={() => setStep(ctaStep)}>
-                    Continuar
+                    {conversationControls.continue}
                   </ProductButton>
                 </div>
               </div>
@@ -3418,7 +3419,8 @@ function StudioGalleryInvitation() {
 }
 
 function AssistantStep({ number, currentStep, summary, onEdit, message, children }) {
-  const { t } = useLocale()
+  const { t, market } = useLocale()
+  const controls = getConversationControls(market)
   if (number > currentStep) return null
 
   const answered = Boolean(summary) && number < currentStep
@@ -3431,7 +3433,7 @@ function AssistantStep({ number, currentStep, summary, onEdit, message, children
         <div className="flex justify-end">
           <ConversationUserBubble
             className="max-w-xl"
-            actions={<ProductButton type="button" onClick={onEdit} variant="ghost" size="sm" className="mt-2 min-h-0 border-0 p-0 text-xs uppercase tracking-wide text-cyan-200 hover:bg-transparent hover:text-white"><RotateCcw className="h-3.5 w-3.5" />Editar resposta</ProductButton>}
+            actions={<ProductButton type="button" onClick={onEdit} variant="ghost" size="sm" className="mt-2 min-h-0 border-0 p-0 text-xs uppercase tracking-wide text-cyan-200 hover:bg-transparent hover:text-white"><RotateCcw className="h-3.5 w-3.5" />{controls.editAnswer}</ProductButton>}
           >
             <p>{summary}</p>
           </ConversationUserBubble>
@@ -3443,8 +3445,8 @@ function AssistantStep({ number, currentStep, summary, onEdit, message, children
   return <ConversationQuestionCard
     accent="cyan"
     className="transition duration-300 ease-out animate-in fade-in slide-in-from-bottom-2"
-    label={`Etapa ${number}`}
-    labelTrailing="Direcao criativa"
+    label={market === 'US' ? `Question ${number}` : `Pergunta ${number}`}
+    labelTrailing={market === 'US' ? 'Creative direction' : 'Direção criativa'}
     title={<TypewriterText text={message} active={active} />}
     description={getAssistantHint(number, t)}
   >
@@ -3453,6 +3455,8 @@ function AssistantStep({ number, currentStep, summary, onEdit, message, children
 }
 
 function UserReply({ children, onEdit }) {
+  const { market } = useLocale()
+  const controls = getConversationControls(market)
   return (
     <div className="flex justify-end">
       <ConversationUserBubble
@@ -3463,7 +3467,7 @@ function UserReply({ children, onEdit }) {
         variant="ghost"
         size="sm"
         className={`mt-2 min-h-0 border-0 p-0 text-xs uppercase tracking-wide text-cyan-200 hover:bg-transparent hover:text-white ${SMART_UI.focus}`}
-      >Editar resposta</ProductButton>}
+      >{controls.editAnswer}</ProductButton>}
       >
         <div className="flex flex-col gap-1 text-sm leading-relaxed">
           {children}

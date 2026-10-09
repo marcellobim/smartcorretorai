@@ -1066,6 +1066,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   )
 
   return <GuidedConversation
+    market={market}
     designSystem
     accent="emerald"
     history={conversation.history}

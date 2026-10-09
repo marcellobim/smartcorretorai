@@ -617,6 +617,7 @@ export default function SmartTourAI() {
       {activeInputFlow && <div id="smart-tour-creation" className="mt-10 space-y-8 scroll-mt-6">
         <ProductSectionHeading eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')} title={t('smartTour.creationTitle')} />
     <GuidedConversation
+      market={isShortVideos ? undefined : market}
       history={conversation.history}
       phase={conversation.phase}
       questionId={question[0]}

@@ -37,6 +37,7 @@ import { clearPendingBannerPublication, preservePendingBannerPublication, publis
 import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
 import { buildProfessionalIdentity } from '../config/professionalProfile'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
+import { formatConversationSystemAnswer, getConversationControls } from '../config/conversationControls'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
 import {
@@ -1794,8 +1795,9 @@ export default function HeroNext({ guestMode = false } = {}) {
   const { locale, market, t } = useLocale()
   const navigate = useNavigate()
   const b = (key) => t(`banner.ui.${key}`)
+  const conversationControls = getConversationControls(market)
   const optionLabels = t('banner.optionLabels')
-  const optionLabel = (value) => optionLabels?.[value] || value
+  const optionLabel = (value) => optionLabels?.[value] || formatConversationSystemAnswer(value, market)
   const isUSMarket = market === 'US'
   const marketText = isUSMarket ? {
     valuesQuestion: 'What pricing details would you like to show?', price: 'Show the property price', conditions: 'Show terms only', hidden: 'Do not show pricing',
@@ -2076,12 +2078,14 @@ export default function HeroNext({ guestMode = false } = {}) {
     const localizedFlow = flow.map(question => ({
       ...question,
       ...(question.id === 'profile' && market === 'US' ? { options: question.options.filter(option => option !== 'Minha Casa Minha Vida') } : {}),
+      ...(market === 'US' && question.confirmLabel ? { confirmLabel: conversationControls.confirm } : {}),
+      ...(market === 'US' && question.optionalLabel ? { optionalLabel: conversationControls.continue } : {}),
       question: t(`banner.questions.${question.id}`) === `banner.questions.${question.id}` ? question.question : t(`banner.questions.${question.id}`),
     }))
     return canAskProfessionalIdentity
       ? [...localizedFlow, { id: 'professionalIdentity', question: t('banner.professionalIdentity.question'), type: 'professionalIdentity' }]
       : localizedFlow
-  }, [baseChatFlow, canAskProfessionalIdentity, market, t])
+  }, [baseChatFlow, canAskProfessionalIdentity, conversationControls.confirm, conversationControls.continue, market, t])
   const chatFlow = getChatFlowForAnswers(localizedBaseChatFlow, answers).filter((question) => question.id === 'contactPhone' && guestMode ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
   const currentQuestion = chatFlow[chatIndex]
   const selectedDestinations = destinationIds
@@ -3009,7 +3013,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const renderQuestionControls = () => {
     if (!currentQuestion) return null
 
-    if (currentQuestion.id === 'professionalIdentity') return <ProfessionalIdentityQuestion market={professionalMarket} profile={profile || user} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select().single(); if (error) throw error; updateUser(data); await reloadProfile(); return data }} onComplete={(selection, formatted) => { setProfessionalIdentitySelection(selection); setShowProfessionalIdentity(selection.enabled); commitAnswer(currentQuestion.id, selection.enabled ? formatted : 'no') }} />
+    if (currentQuestion.id === 'professionalIdentity') return <ProfessionalIdentityQuestion market={market} profile={profile || user} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select().single(); if (error) throw error; updateUser(data); await reloadProfile(); return data }} onComplete={(selection, formatted) => { setProfessionalIdentitySelection(selection); setShowProfessionalIdentity(selection.enabled); commitAnswer(currentQuestion.id, selection.enabled ? formatted : 'no') }} />
 
     if (currentQuestion.id === 'state') {
       return <div className="mt-4"><SmartLocationSelect autoFocus accent="primary" ariaLabel={t('banner.location.state')} value={answers.state || ''} onChange={(state) => commitAnswer('state', state)}><option value="">{t('banner.location.selectState')}</option>{getStatesForMarket('US').map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</SmartLocationSelect></div>
@@ -3188,7 +3192,7 @@ export default function HeroNext({ guestMode = false } = {}) {
             className="min-h-12 w-full rounded-2xl border border-blue-100 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
           />
           <ProductButton type="button" onClick={() => commitAnswer(currentQuestion.id, selectedWithCustom)} disabled={selectedWithCustom.length === 0}>
-            {optionLabel(currentQuestion.confirmLabel || 'Confirmar diferenciais')}
+            {optionLabel(currentQuestion.confirmLabel || conversationControls.confirm)}
           </ProductButton>
         </div>
       )
@@ -3605,10 +3609,10 @@ export default function HeroNext({ guestMode = false } = {}) {
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <ProductButton type="button" variant="secondary" onClick={() => setPhase('chat')}>
-                Voltar
+                {conversationControls.back}
               </ProductButton>
               <ProductButton type="button" onClick={goToDestinationStep} disabled={goal === 'sale' ? !saleValueReady : !rentValueReady}>
-                Continuar
+                {conversationControls.continue}
               </ProductButton>
             </div>
           </ProductCard>
@@ -3661,7 +3665,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                         onClick={() => goToQuestion(index)}
                         className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700 hover:bg-emerald-50"
                       >
-                        Editar
+                        {conversationControls.edit}
                       </button>
                     </div>
                   </div>
