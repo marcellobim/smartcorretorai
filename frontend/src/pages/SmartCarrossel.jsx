@@ -20,7 +20,8 @@ import { getSmartCarouselCopy } from '../i18n/smart-carousel'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
-import { getCountiesByState, getStatesForMarket, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
+import { isValidCountyForState, normalizeUsZipCode } from '../config/locations'
+import StudioUsLocation from '../components/location/StudioUsLocation'
 import { formatPhone } from '../utils/phoneFormatters'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { buildProfessionalIdentity } from '../config/professionalProfile'
@@ -30,7 +31,6 @@ import {
   ProductCard,
   ProductHero,
   ProductSectionHeading,
-  ProductSteps,
   SMART_UI,
 } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
@@ -53,12 +53,6 @@ const SMART_CAROUSEL_MAX_HIGHLIGHTS = 10
 const SMART_CAROUSEL_MIN_IMAGES = 5
 const SMART_CAROUSEL_MAX_IMAGES = 20
 const SMART_CAROUSEL_HERO_VIDEO = '/showcase/smartcarrossel/showcase-carrossel.mp4'
-const SMART_CAROUSEL_STEPS = [
-  { title: 'Fotos', subtitle: 'Selecione e organize' },
-  { title: 'Informações', subtitle: 'Preencha os dados' },
-  { title: 'Criar apresentação', subtitle: 'Prepare sua apresentação' },
-  { title: 'Preview', subtitle: 'Confira o resultado' },
-]
 
 function normalizeDistrictName(value) {
   return value
@@ -483,13 +477,6 @@ export default function SmartCarrossel() {
           />
         </section>
 
-        <ProductSteps
-          steps={copy.steps.map(([title, subtitle]) => ({ title, subtitle }))}
-          activeStep={currentStep}
-          label={copy.stepsLabel}
-          accent="emerald"
-        />
-
         {recoveredCreation && (
           <CampaignPackage
             mediaPresentation="mobile"
@@ -649,6 +636,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   const [propertyType, setPropertyType] = useState(() => restoredFlow.propertyType || '')
   const [bedrooms, setBedrooms] = useState(() => restoredFlow.bedrooms || '')
   const [suites, setSuites] = useState(() => restoredFlow.suites || '')
+  const [bathrooms, setBathrooms] = useState(() => restoredFlow.bathrooms || '')
   const [parkingSpaces, setParkingSpaces] = useState(() => restoredFlow.parkingSpaces || '')
   const [uf, setUf] = useState(() => restoredFlow.uf || '')
   const [city, setCity] = useState(() => restoredFlow.city || '')
@@ -685,7 +673,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   const resetCarouselFromStep = (targetStep) => {
     const resetters = [
       [1, () => setPurpose('')], [2, () => setPropertyStage('')], [3, () => setPropertyType('')],
-      [4, () => setBedrooms('')], [5, () => setSuites('')], [6, () => setParkingSpaces('')],
+      [4, () => setBedrooms('')], [5, () => { setSuites(''); setBathrooms('') }], [6, () => setParkingSpaces('')],
       [7, () => { setUf(''); setCounty(''); setCity(''); setDistrict(''); setZipCode(''); setNeighborhoodCommunity('') }], [8, () => setCity('')], [9, () => setDistrict('')],
       [10, () => { setPriceMode(''); setPriceDigits('') }], [11, () => setArea('')],
       [12, () => setHighlights([])], [13, () => setCta('')], [14, () => { setSharePhone(''); setProfessionalIdentitySelection({ enabled: null, name_source: null }) }],
@@ -704,7 +692,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   }
   const conversation = useGuidedConversation({ initialQuestionId: 1, initialState: restoredFlow.conversation, onEdit: resetCarouselFromStep, onStateChange: setConversationSnapshot })
   const step = Number(conversation.activeQuestionId)
-  const reachedStep = step >= 15
+  const reachedStep = step >= 16
     ? STEPS.REVIEW
     : conversation.history.length > 1 ? STEPS.DETAILS : conversation.history.length ? STEPS.FLOW_STARTED : null
   const { trackStep, trackGenerationClicked } = useAccountAnalytics(PRODUCTS.SMART_CARROSSEL, reachedStep)
@@ -715,13 +703,13 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
 
   useEffect(() => {
     const terminalStatus = ['failed', 'cancelled'].includes(generationStatus) ? generationStatus : ''
-    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, parkingSpaces, uf, county, city, district, zipCode, neighborhoodCommunity, priceMode, priceDigits, area, highlights, cta, sharePhone, professionalIdentity: professionalIdentitySelection, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage, terminalStatus, terminalError: terminalStatus ? generationError : '' }
+    const draft = { purpose, propertyStage, propertyType, bedrooms, suites, bathrooms, parkingSpaces, uf, county, city, district, zipCode, neighborhoodCommunity, priceMode, priceDigits, area, highlights, cta, sharePhone, professionalIdentity: professionalIdentitySelection, conversation: conversationSnapshot, receipt, activeJobId, completedJobId, videoUrl, campaignPackage, terminalStatus, terminalError: terminalStatus ? generationError : '' }
     if (!conversationSnapshot?.history?.length && !Object.values(draft).some(value => typeof value === 'string' ? value : Array.isArray(value) ? value.length : false)) {
       flowDraft.clear()
       return
     }
     flowDraft.save(draft)
-  }, [activeJobId, area, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, county, cta, district, flowDraft, generationError, generationStatus, highlights, neighborhoodCommunity, parkingSpaces, priceDigits, priceMode, professionalIdentitySelection, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl, zipCode])
+  }, [activeJobId, area, bathrooms, bedrooms, campaignPackage, city, completedJobId, conversationSnapshot, county, cta, district, flowDraft, generationError, generationStatus, highlights, neighborhoodCommunity, parkingSpaces, priceDigits, priceMode, professionalIdentitySelection, propertyStage, propertyType, purpose, receipt, sharePhone, suites, uf, videoUrl, zipCode])
 
   const createNewPresentation = () => {
     flowDraft.clear()
@@ -734,7 +722,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   const formatPrice = (digits) => digits ? new Intl.NumberFormat(locale, { style: 'currency', currency: market === 'US' ? 'USD' : 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
   const normalizedDistrict = normalizeDistrictName(district)
   const normalizedZipCode = normalizeUsZipCode(zipCode)
-  const isUsLocationComplete = Boolean(uf && isValidCountyForState(uf, county) && city.trim() && isValidUsZipCode(normalizedZipCode))
+  const isUsLocationComplete = Boolean(uf && isValidCountyForState(uf, county) && city.trim() && (!normalizedZipCode || /^\d{5}(?:-\d{4})?$/.test(normalizedZipCode)))
   const formattedLocation = market === 'US'
     ? [neighborhoodCommunity.trim(), [city.trim(), county, uf, normalizedZipCode].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
     : [normalizedDistrict, city, uf].filter(Boolean).join(', ')
@@ -763,7 +751,9 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     sharePhone === 'yes' ? copy.phone.professional : sharePhone === 'no' ? copy.phone.none : '',
     professionalIdentitySelection.enabled ? professionalIdentity?.formatted : professionalIdentitySelection.enabled === false ? (market === 'US' ? 'No professional information' : 'Sem identificação profissional') : '',
   ].filter(Boolean).join(' · ')
-  const summaryItems = [[1, purpose ? copy.purpose[purpose][0].replace(/^\S+\s/, '') : ''], [2, copy.stage[propertyStage] || propertyStage], [3, copy.labelFor(propertyType)], [4, bedrooms ? `${bedrooms} ${locale === 'en-US' ? 'bedroom' : 'dormitório'}${bedrooms === '1' ? '' : 's'}` : ''], [5, suites ? `${suites} ${locale === 'en-US' ? 'suite' : 'suíte'}${suites === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} ${locale === 'en-US' ? 'parking space' : 'vaga'}${parkingSpaces === '1' ? '' : 's'}` : ''], [7, formattedLocation], [10, priceLabel], [11, area ? `${area} ${copy.areaUnit}` : ''], [12, highlights.length ? copy.text(copy.highlightsSummary, { count: highlights.length }) : ''], [13, copy.labelFor(cta)], [14, contactAndIdentitySummary]].filter(([, value]) => Boolean(value))
+  const factsValue = market === 'US' ? bathrooms : suites
+  const factsLabel = market === 'US' ? 'bathroom' : 'suíte'
+  const summaryItems = [[1, purpose ? copy.purpose[purpose][0].replace(/^\S+\s/, '') : ''], [2, copy.stage[propertyStage] || propertyStage], [3, copy.labelFor(propertyType)], [4, bedrooms ? `${bedrooms} ${locale === 'en-US' ? 'bedroom' : 'dormitório'}${bedrooms === '1' ? '' : 's'}` : ''], [5, factsValue ? `${factsValue} ${factsLabel}${factsValue === '1' ? '' : 's'}` : ''], [6, parkingSpaces ? `${parkingSpaces} ${locale === 'en-US' ? 'parking space' : 'vaga'}${parkingSpaces === '1' ? '' : 's'}` : ''], [7, formattedLocation], [10, priceLabel], [11, area ? `${area} ${copy.areaUnit}` : ''], [12, highlights.length ? copy.text(copy.highlightsSummary, { count: highlights.length }) : ''], [13, copy.labelFor(cta)], [14, contactAndIdentitySummary]].filter(([, value]) => Boolean(value))
 
   const submitCarouselAnswer = ({ setter, value, answer = value, nextStep }) => {
     const accepted = conversation.submitAnswer({ questionId: step, question: messages[step], answer, confirmation: smartCarouselConfirmation(copy, step, answer, value), nextQuestionId: nextStep })
@@ -777,8 +767,10 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     property_type: propertyType,
     bedrooms,
     suites,
+    bathrooms,
     parking_spaces: parkingSpaces,
     uf,
+    state: market === 'US' ? uf : '',
     city,
     district: normalizedDistrict,
     county,
@@ -870,7 +862,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       stopWithError(copy.text(copy.maxImages, { max: SMART_CAROUSEL_MAX_IMAGES }))
       return
     }
-    if (step < 15 || !cta || !sharePhone || professionalIdentitySelection.enabled === null) {
+    if (step < 16 || !cta || !sharePhone || professionalIdentitySelection.enabled === null) {
       stopWithError(copy.completeQuestions)
       return
     }
@@ -969,17 +961,9 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   if (step === 1) questionContent = <OptionGrid><ChoiceButton active={purpose === 'sale'} title={copy.purpose.sale[0]} description={copy.purpose.sale[1]} onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'sale', answer: copy.purpose.sale[0], nextStep: 2 })} /><ChoiceButton active={purpose === 'rent'} title={copy.purpose.rent[0]} description={copy.purpose.rent[1]} onClick={() => submitCarouselAnswer({ setter: setPurpose, value: 'rent', answer: copy.purpose.rent[0], nextStep: 2 })} /></OptionGrid>
   else if (step === 2) questionContent = <ChipGrid>{stageOptions.map((item) => <ChipButton key={item} active={propertyStage === item} onClick={() => submitCarouselAnswer({ setter: setPropertyStage, value: item, answer: copy.stage[item], nextStep: 3 })}>{copy.stage[item]}</ChipButton>)}</ChipGrid>
   else if (step === 3) questionContent = <ChipGrid>{SMART_CAROUSEL_PROPERTY_TYPES.map((item) => <ChipButton key={item} active={propertyType === item} onClick={() => submitCarouselAnswer({ setter: setPropertyType, value: item, answer: copy.labelFor(item), nextStep: 4 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
-  else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? suites : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? setSuites : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => submitCarouselAnswer({ setter, value: item, nextStep: step + 1 })}>{item}</ChipButton>)}</ChipGrid> }
+  else if ([4, 5, 6].includes(step)) { const value = step === 4 ? bedrooms : step === 5 ? (market === 'US' ? bathrooms : suites) : parkingSpaces; const setter = step === 4 ? setBedrooms : step === 5 ? (market === 'US' ? setBathrooms : setSuites) : setParkingSpaces; questionContent = <ChipGrid>{numberOptions.map((item) => <ChipButton key={item} active={value === item} onClick={() => submitCarouselAnswer({ setter, value: item, nextStep: step + 1 })}>{item}</ChipButton>)}</ChipGrid> }
   else if (step === 7 && market === 'US') {
-    const counties = getCountiesByState(uf)
-    questionContent = <div className="space-y-4">
-      <label className="block text-sm font-black">State<select aria-label="State" value={uf} onChange={(event) => { setUf(event.target.value); setCounty(''); setCity('') }} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold"><option value="">Select state</option>{getStatesForMarket('US').map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-      <label className="block text-sm font-black">County<input aria-label="County" list="smart-carousel-us-counties" value={county} disabled={!uf} onChange={(event) => setCounty(event.target.value)} placeholder={uf ? 'Search county' : 'Select state first'} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold disabled:bg-slate-50" /><datalist id="smart-carousel-us-counties">{counties.map((option) => <option key={option.countyFips} value={option.value}>{option.label}</option>)}</datalist></label>
-      <label className="block text-sm font-black">City<input aria-label="City" value={city} disabled={!isValidCountyForState(uf, county)} onChange={(event) => setCity(event.target.value)} placeholder="City" className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold disabled:bg-slate-50" /></label>
-      <label className="block text-sm font-black">ZIP Code<input aria-label="ZIP Code" value={zipCode} onChange={(event) => setZipCode(normalizeUsZipCode(event.target.value))} inputMode="numeric" placeholder="12345" className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold" />{zipCode && !isValidUsZipCode(normalizedZipCode) && <span className="mt-1 block text-xs font-bold text-rose-700">Enter a valid ZIP Code.</span>}</label>
-      <label className="block text-sm font-black">Neighborhood / Community <span className="font-normal">(optional)</span><input aria-label="Neighborhood / Community" value={neighborhoodCommunity} onChange={(event) => setNeighborhoodCommunity(event.target.value)} placeholder="Neighborhood or community" className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold" /></label>
-      <ProductButton type="button" variant="success" disabled={!isUsLocationComplete} onClick={() => submitCarouselAnswer({ setter: () => {}, value: formattedLocation, answer: formattedLocation, nextStep: 10 })}>{copy.continue}</ProductButton>
-    </div>
+    questionContent = <StudioUsLocation value={{ state: uf, county, city, zipCode, neighborhoodCommunity }} onChange={(next) => { setUf(next.state); setCounty(next.county); setCity(next.city); setZipCode(next.zipCode); setNeighborhoodCommunity(next.neighborhoodCommunity) }} onContinue={() => submitCarouselAnswer({ setter: () => {}, value: formattedLocation, answer: formattedLocation, nextStep: 10 })} />
   }
   else if (step === 7) questionContent = <SmartCarouselStateSelect value={uf} onChange={(nextUf) => { if (nextUf && submitCarouselAnswer({ setter: setUf, value: nextUf, nextStep: 8 })) setCity('') }} />
   else if (step === 8) questionContent = <SmartCarouselCitySelect uf={uf} value={city} onChange={(nextCity) => { if (nextCity) submitCarouselAnswer({ setter: setCity, value: nextCity, nextStep: 9 }) }} />
@@ -988,7 +972,8 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder={copy.areaPlaceholder} className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">{copy.areaUnit}</span></div><ProductButton type="button" variant="success" disabled={!area} onClick={() => submitCarouselAnswer({ setter: () => {}, value: area, answer: `${area} ${copy.areaUnit}`, nextStep: 12 })} className="mt-4">{copy.continue}</ProductButton></div>
   else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <ProductCard as="section" key={group.title} variant="muted" className="p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{copy.labelFor(group.title)}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{copy.labelFor(item)}</ChipButton>)}</div></ProductCard>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{copy.text(copy.highlightsSelected, { count: highlights.length, max: SMART_CAROUSEL_MAX_HIGHLIGHTS })}</span><ProductButton type="button" variant="success" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: copy.text(copy.highlightsSummary, { count: highlights.length }), nextStep: 13 })}>{copy.continue}</ProductButton></div></div>
   else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, answer: copy.labelFor(item), nextStep: 14 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
-  else if (step === 14) questionContent = <div className="space-y-5"><OptionGrid><ChoiceButton disabled={!profilePhone} active={sharePhone === 'yes'} title={copy.phone.yes} description={profilePhone || copy.phone.missing} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 14 })} /><ChoiceButton active={sharePhone === 'no'} title={copy.phone.no} description={copy.phone.noDescription} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 14 })} /></OptionGrid>{sharePhone && <ProfessionalIdentityQuestion market={market} profile={profile || user || {}} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); return data }} onComplete={(selection, formatted) => submitCarouselAnswer({ setter: setProfessionalIdentitySelection, value: selection, answer: selection.enabled ? formatted : market === 'US' ? 'No professional information' : 'Sem identificação profissional', nextStep: 15 })} />}</div>
+  else if (step === 14) questionContent = <OptionGrid><ChoiceButton disabled={!profilePhone} active={sharePhone === 'yes'} title={copy.phone.yes} description={profilePhone || copy.phone.missing} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title={copy.phone.no} description={copy.phone.noDescription} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 15 })} /></OptionGrid>
+  else if (step === 15) questionContent = <ProfessionalIdentityQuestion market={market} profile={profile || user || {}} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); return data }} onComplete={(selection, formatted) => submitCarouselAnswer({ setter: setProfessionalIdentitySelection, value: selection, answer: selection.enabled ? formatted : market === 'US' ? 'No professional information' : 'Sem identificação profissional', nextStep: 16 })} />
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
       <SmartTokenEstimate cost={SMART_TOKEN_COSTS.smartCarousel} quantityLabel={copy.text(copy.reviewMeta.quantity, { count: photos.length })} />
@@ -1073,12 +1058,12 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     phase={conversation.phase}
     questionId={step}
     question={messages[step]}
-    questionNumber={Math.min(step, 14)}
-    totalQuestions={14}
+    questionNumber={Math.min(step, 15)}
+    totalQuestions={15}
     onEdit={conversation.editAnswer}
     summaryItems={summaryItems.map(([id, label]) => ({ id, label }))}
     eyebrow={copy.step}
-    review={step >= 15}
+    review={step >= 16}
     editDisabled={isGenerating}
   >
     {questionContent}

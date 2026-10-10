@@ -7,13 +7,12 @@ import path from 'node:path'
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const carousel = readFileSync(path.join(frontendRoot, 'src/pages/SmartCarrossel.jsx'), 'utf8')
 
-test('uses the shared Design System and the four approved visual steps', () => {
-  assert.match(carousel, /import \{[\s\S]*?ProductButton,[\s\S]*?ProductCard,[\s\S]*?ProductHero,[\s\S]*?ProductSectionHeading,[\s\S]*?ProductSteps,[\s\S]*?SMART_UI,[\s\S]*?\} from '\.\.\/components\/design-system'/)
+test('uses the shared Design System without an intermediate step rail', () => {
+  assert.match(carousel, /import \{[\s\S]*?ProductButton,[\s\S]*?ProductCard,[\s\S]*?ProductHero,[\s\S]*?ProductSectionHeading,[\s\S]*?SMART_UI,[\s\S]*?\} from '\.\.\/components\/design-system'/)
   assert.match(carousel, /<ProductHero[\s\S]*?productName=\{copy\.productName\}[\s\S]*?headline=\{copy\.headline\}/)
   assert.match(carousel, /<ProductCard(?:\s|>)/)
   assert.match(carousel, /<ProductButton(?:\s|>)/)
-  assert.match(carousel, /const SMART_CAROUSEL_STEPS = \[[\s\S]*?Fotos[\s\S]*?Informações[\s\S]*?Criar apresentação[\s\S]*?Preview[\s\S]*?\]/)
-  assert.match(carousel, /<ProductSteps[\s\S]*?steps=\{copy\.steps\.map\([\s\S]*?activeStep=\{currentStep\}[\s\S]*?accent="emerald"/)
+  assert.doesNotMatch(carousel, /<ProductSteps/)
 })
 
 test('presents the hero and generated campaign in the shared mobile format', () => {
@@ -23,9 +22,9 @@ test('presents the hero and generated campaign in the shared mobile format', () 
   assert.match(carousel, /<CampaignPackage[\s\S]*?mediaPresentation="mobile"/)
 })
 
-test('keeps the shared conversation and State, City and neighborhood contracts', () => {
+test('keeps BR location and uses the shared structured US location control', () => {
   assert.match(carousel, /<GuidedConversation[\s\S]*?designSystem[\s\S]*?accent="emerald"/)
-  assert.match(carousel, /<SmartCarouselStateSelect value=\{uf\}[\s\S]*?setter: setUf[\s\S]*?setCity\(''\)/)
+  assert.match(carousel, /<StudioUsLocation value=\{\{ state: uf, county, city, zipCode, neighborhoodCommunity \}\}/)
   assert.match(carousel, /<SmartCarouselCitySelect uf=\{uf\} value=\{city\}[\s\S]*?setter: setCity/)
   assert.match(carousel, /const normalizedDistrict = normalizeDistrictName\(district\)/)
   assert.match(carousel, /<SmartLocationTextInput value=\{district\} onChange=\{\(event\) => setDistrict\(event\.target\.value\)\}/)

@@ -2161,6 +2161,12 @@ export default function StudioHero() {
     resetFlow(nextMode)
   }
 
+  // Leaving a pre-generation draft must not cancel or erase an existing job.
+  const backToStudio = () => {
+    resetFlow(studioMode)
+    setStudioMode('')
+  }
+
   const selectStudioMode = (mode) => {
     if (!mode.active) {
       setModeNotice('Este modo estara disponivel em breve.')
@@ -2365,10 +2371,7 @@ export default function StudioHero() {
             secondaryDescription={`${isFreeAiMode
               ? t('studio.hero.creativeSecondary')
               : t('studio.hero.commercialSecondary')} ${t('studio.hero.sharedSecondary')}`}
-            actions={<ProductButton type="button" variant="secondary" disabled={isGenerating} onClick={() => {
-              createNewStudioVersion()
-              setStudioMode('')
-            }}>{t('studio.landing.chooseAnother')}</ProductButton>}
+            actions={<ProductButton type="button" variant="secondary" disabled={isGenerating} onClick={backToStudio}>{t('studio.actions.backToStudio')}</ProductButton>}
             visual={<StudioHeroGuideCard title={t('studio.hero.guideTitle')} items={guideItems} icon={ShieldCheck} />}
           />
         </section>

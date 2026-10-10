@@ -14,7 +14,7 @@ test('EN-US/US localizes deterministic captions without leaking legacy values', 
   assert.equal(presentationLabel('Pronto para morar', locale.language), 'Move-in ready')
   assert.equal(presentationCta('Agende sua visita', locale.language), 'Schedule a tour')
   assert.deepEqual(presentationHighlights(['Piscina', 'Varanda gourmet'], locale.language), ['Pool', 'Outdoor entertaining balcony'])
-  assert.deepEqual(buildSmartCarouselCaptions({ property_stage: 'Pronto para morar', city: 'Austin', county: 'Travis County', uf: 'TX', zip_code: '78701', neighborhood_community: 'Downtown', bedrooms: '2', suites: '1', parking_spaces: '1', area: '1200' }, locale), ['Downtown · Austin, Travis County, TX, 78701', 'Move-in ready', '2 bedrooms · 1 suite · 1 parking space', '1200 sq ft'])
+  assert.deepEqual(buildSmartCarouselCaptions({ property_stage: 'Pronto para morar', city: 'Austin', county: 'Travis County', state: 'TX', zip_code: '78701', neighborhood_community: 'Downtown', bedrooms: '2', bathrooms: '1', parking_spaces: '1', area: '1200' }, locale), ['Downtown · Austin, Travis County, TX, 78701', 'Move-in ready', '2 bedrooms · 1 bathroom · 1 parking space', '1200 sq ft'])
 })
 
 test('phone presentation follows market without changing stored values', () => {

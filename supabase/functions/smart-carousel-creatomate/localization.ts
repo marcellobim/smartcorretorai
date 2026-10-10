@@ -83,13 +83,14 @@ export function formatSmartCarouselPhone(value: unknown, market: SmartCarouselLo
 export function buildSmartCarouselCaptions(answers: JsonRecord, locale: SmartCarouselLocale) {
   const text = (value: unknown, length: number) => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, length)
   const location = locale.market === 'US'
-    ? [text(answers.neighborhood_community, 60), [text(answers.city, 60), text(answers.county, 60), text(answers.uf, 40), text(answers.zip_code, 12)].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
+    ? [text(answers.neighborhood_community, 60), [text(answers.city, 60), text(answers.county, 60), text(answers.state, 40), text(answers.zip_code, 12)].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
     : [text(answers.district, 60), text(answers.city, 60), text(answers.uf, 2)].filter(Boolean).join(' · ')
   const bedrooms = text(answers.bedrooms, 8)
   const suites = text(answers.suites, 8)
+  const bathrooms = text(answers.bathrooms, 8)
   const parking = text(answers.parking_spaces, 8)
   const details = locale.language === 'en-US'
-    ? [bedrooms && `${bedrooms} bedroom${bedrooms === '1' ? '' : 's'}`, suites && `${suites} suite${suites === '1' ? '' : 's'}`, parking && `${parking} parking space${parking === '1' ? '' : 's'}`].filter(Boolean).join(' · ')
+    ? [bedrooms && `${bedrooms} bedroom${bedrooms === '1' ? '' : 's'}`, bathrooms && `${bathrooms} bathroom${bathrooms === '1' ? '' : 's'}`, parking && `${parking} parking space${parking === '1' ? '' : 's'}`].filter(Boolean).join(' · ')
     : [bedrooms && `${bedrooms} dormitório${bedrooms === '1' ? '' : 's'}`, suites && `${suites} suíte${suites === '1' ? '' : 's'}`, parking && `${parking} vaga${parking === '1' ? '' : 's'}`].filter(Boolean).join(' · ')
   const area = text(answers.area, 10)
   return [location, presentationLabel(answers.property_stage, locale.language), details, area && `${area} ${locale.market === 'US' ? 'sq ft' : 'm²'}`, text(answers.price_label, 50)].filter(Boolean).slice(0, 5)
