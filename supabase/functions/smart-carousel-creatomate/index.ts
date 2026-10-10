@@ -331,12 +331,14 @@ async function generateMarketingIntelligence(
     property_stage: presentationLabel(answers.property_stage, locale.language),
     property_type: presentationLabel(answers.property_type, locale.language),
     bedrooms: cleanText(answers.bedrooms, 8),
-    suites: cleanText(answers.suites, 8),
+    suites: locale.market === 'BR' ? cleanText(answers.suites, 8) : '',
+    bathrooms: locale.market === 'US' ? cleanText(answers.bathrooms, 8) : '',
     parking_spaces: cleanText(answers.parking_spaces, 8),
     area: cleanText(answers.area, 10),
     district: locale.market === 'BR' ? normalizeDistrictName(answers.district) : '',
     city: cleanText(answers.city, 60),
-    uf: cleanText(answers.uf, 2),
+    uf: locale.market === 'BR' ? cleanText(answers.uf, 2) : '',
+    state: locale.market === 'US' ? cleanText(answers.state, 40) : '',
     county: locale.market === 'US' ? cleanText(answers.county, 60) : '',
     zip_code: locale.market === 'US' ? cleanText(answers.zip_code, 12) : '',
     neighborhood_community: locale.market === 'US' ? cleanText(answers.neighborhood_community, 60) : '',
@@ -352,10 +354,23 @@ async function generateMarketingIntelligence(
     maximumWords: maxNarrationWords,
   } = calculateNarrationWordTargets(availableSeconds)
 
-  const languageDirective = locale.language === 'en-US'
-    ? `Write every deliverable in natural US English. Use US real-estate terminology. Use city, county, state, ZIP Code, and neighborhood/community only when supplied. Never use CRECI, MCMV, FGTS, Brazilian financing concepts, or literal Brazilian translations. Do not invent currency or area conversions.\n\n`
-    : ''
-  const systemPrompt = `${languageDirective}Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
+  const usSystemPrompt = `You are SNETIA's US real-estate marketing director.
+Use only the confirmed facts in the user's JSON. Never invent location, proximity, views, finishes, security, appreciation, amenities, financing, buyer profile, investment potential, or any missing characteristic.
+
+Create a concise natural-English voice narration and three complete, genuinely distinct campaigns. Use US real-estate terminology. Do not read a technical sheet aloud, do not describe photos, and do not repeat the visual CTA mechanically. Use short, natural spoken sentences and stay within the supplied word range.
+
+Campaign 1 is emotional, campaign 2 commercial, and campaign 3 curiosity-led. Adapt Instagram, Facebook, WhatsApp, email, and LinkedIn to the channel. Leave LinkedIn empty when confirmed professional, commercial, institutional, or investment context is absent. Include a phone only when contact_authorized is true. Use city, county, state, ZIP Code, and neighborhood/community only when supplied. Never use CRECI, MCMV, FGTS, Brazilian financing concepts, Brazilian Portuguese, or literal Brazilian translations.
+
+${GOOGLE_ADS_PROMPT_RULES}
+
+Reply only with valid JSON in exactly this shape:
+{
+  "narration":"final voice-ready text",
+  "narration_highlights":["confirmed highlights actually used"],
+  "campaigns":[{"style":"emotional|commercial|curiosity","name":"memorable name","objective":"specific persuasion approach","instagram":"ready-to-post text","whatsapp":"ready-to-send text","facebook":"ready-to-post text","email":{"subject":"subject","body":"message"},"linkedin":"ready-to-post text or empty string","hashtags":["#SNETIA","other hashtags"],"cta":"strategy CTA"}],
+  "google_ads":{"headlines":["short headline"],"long_headline":"long headline","descriptions":["description"],"cta":"exact briefing CTA","suggested_keywords":["keyword"]}
+}`
+  const systemPrompt = locale.language === 'en-US' ? usSystemPrompt : `Voc\u00ea \u00e9 o Diretor de Marketing Imobili\u00e1rio do SmartCorretorAI.
 Sua miss\u00e3o \u00e9 entregar uma narra\u00e7\u00e3o e tr\u00eas campanhas completas que um corretor publicaria exatamente como recebeu.
 
 REGRA ABSOLUTA: use somente os fatos confirmados no JSON do usu\u00e1rio. Nunca invente localiza\u00e7\u00e3o, proximidade, vista, acabamento, seguran\u00e7a, valoriza\u00e7\u00e3o, lazer, financiamento, perfil familiar, investimento ou qualquer caracter\u00edstica ausente.
@@ -489,7 +504,9 @@ Responda somente com JSON v\u00e1lido neste formato:
               messages: [
                 {
                   role: 'system',
-                  content: `Voce e um revisor de narracao imobiliaria para voz ${locale.language === 'en-US' ? 'americana. Preserve ingles natural dos Estados Unidos.' : 'brasileira.'}
+                  content: locale.language === 'en-US'
+                    ? `You revise US real-estate narration. Preserve natural US English. Revise the received narration once to fit the supplied target word range. Preserve confirmed facts, the hook, and the natural invitation. Do not add information, invent facts, or make mechanical cuts. Use concise spoken sentences and natural pauses. Reply only with valid JSON: {"narration":"revised text","narration_highlights":["confirmed highlights actually used"]}.`
+                    : `Voce e um revisor de narracao imobiliaria para voz brasileira.
 Revise uma unica vez a narracao recebida para caber rigorosamente na faixa informada.
 Entregue exatamente a contagem-alvo informada sempre que semanticamente possivel.
 Preserve os fatos confirmados, o gancho e o convite natural.
@@ -525,8 +542,8 @@ Responda somente com JSON valido no formato:
       ...campaign,
       hashtags: normalizeOfficialHashtags(campaign.hashtags, {
         purpose:facts.purpose, propertyType:facts.property_type, propertyStage:facts.property_stage,
-        city:facts.city, district:facts.district, state:facts.uf, bedrooms:facts.bedrooms,
-        suites:facts.suites, parkingSpaces:facts.parking_spaces, highlights:facts.highlights, cta:campaign.cta,
+        city:facts.city, district:facts.district, state:locale.market === 'US' ? facts.state : facts.uf, bedrooms:facts.bedrooms,
+        ...(locale.market === 'US' ? { bathrooms:facts.bathrooms } : { suites:facts.suites }), parkingSpaces:facts.parking_spaces, highlights:facts.highlights, cta:campaign.cta,
         language: locale.language,
       }),
     }))

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildSmartCarouselCaptions, formatSmartCarouselPhone, normalizeSmartCarouselLocale, presentationCta, presentationHighlights, presentationLabel, smartCarouselCtaFile } from './localization.ts'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 test('PT-BR/BR is the safe locale fallback and preserves legacy presentation values', () => {
   assert.deepEqual(normalizeSmartCarouselLocale({}), { language: 'pt-BR', market: 'BR' })
@@ -35,4 +37,14 @@ test('CTA file mapping preserves legacy values and selects only the matching lan
   }
   assert.equal(smartCarouselCtaFile('Saiba Mais', normalizeSmartCarouselLocale({}).language), 'cta-saiba-mais.png')
   assert.equal(smartCarouselCtaFile('invalid', 'en-US'), '')
+})
+
+test('US marketing prompt starts from an English base and only receives US facts', () => {
+  const source = readFileSync(fileURLToPath(new URL('./index.ts', import.meta.url)), 'utf8')
+  const usPrompt = source.slice(source.indexOf('const usSystemPrompt'), source.indexOf("const systemPrompt ="))
+  assert.match(usPrompt, /US real-estate marketing director/)
+  assert.doesNotMatch(usPrompt, /Você|suítes|Português/i)
+  assert.match(source, /bathrooms: locale\.market === 'US'/)
+  assert.match(source, /state: locale\.market === 'US'/)
+  assert.match(source, /locale\.language === 'en-US'\s*\? `You revise US real-estate narration/)
 })

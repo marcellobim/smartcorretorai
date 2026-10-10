@@ -22,7 +22,7 @@ import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import { isValidCountyForState, normalizeUsZipCode } from '../config/locations'
 import StudioUsLocation from '../components/location/StudioUsLocation'
-import { formatPhone } from '../utils/phoneFormatters'
+import { formatPhone, isPhoneCompatibleWithMarket, normalizePhone } from '../utils/phoneFormatters'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { buildProfessionalIdentity } from '../config/professionalProfile'
 import GuidedConversation from '../components/conversation/GuidedConversation'
@@ -41,6 +41,7 @@ import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEP
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingStudioPublication, preservePendingStudioPublication, publishStudioPublication, readPendingStudioPublication, recoverStudioPublication } from '../lib/studio-social-publish'
+import { buildSmartCarouselCreateBody } from '../lib/smart-carousel-request'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
@@ -562,8 +563,8 @@ function PhotoSection({ copy, photos, missingPhotoMetadata, inputRef, isDragActi
             description={copy.upload.description}
           />
           <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /><span>A primeira foto será a <strong className="font-black text-emerald-700">CAPA</strong></span></div>
-            <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg font-black text-emerald-600">↔</span><span>Você pode alterar a ordem a qualquer momento</span></div>
+            <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /><span>{copy.upload.cover} <strong className="font-black text-emerald-700">{copy.upload.coverWord}</strong></span></div>
+            <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-sm font-bold leading-5 text-slate-700"><span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg font-black text-emerald-600">↔</span><span>{copy.upload.reorder}</span></div>
           </div>
         </div>
       </div>
@@ -650,6 +651,8 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   const [highlights, setHighlights] = useState(() => restoredFlow.highlights || [])
   const [cta, setCta] = useState(() => restoredFlow.cta || '')
   const [sharePhone, setSharePhone] = useState(() => restoredFlow.sharePhone || '')
+  const [phoneDraft, setPhoneDraft] = useState('')
+  const [phoneSaveError, setPhoneSaveError] = useState('')
   const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => {
     const saved = restoredFlow.professionalIdentity
     if (saved?.enabled === false) return { enabled: false, name_source: null }
@@ -676,7 +679,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       [4, () => setBedrooms('')], [5, () => { setSuites(''); setBathrooms('') }], [6, () => setParkingSpaces('')],
       [7, () => { setUf(''); setCounty(''); setCity(''); setDistrict(''); setZipCode(''); setNeighborhoodCommunity('') }], [8, () => setCity('')], [9, () => setDistrict('')],
       [10, () => { setPriceMode(''); setPriceDigits('') }], [11, () => setArea('')],
-      [12, () => setHighlights([])], [13, () => setCta('')], [14, () => { setSharePhone(''); setProfessionalIdentitySelection({ enabled: null, name_source: null }) }],
+      [12, () => setHighlights([])], [13, () => setCta('')], [14, () => setSharePhone('')], [15, () => setProfessionalIdentitySelection({ enabled: null, name_source: null })],
     ]
     resetters.filter(([itemStep]) => itemStep >= Number(targetStep)).forEach(([, resetValue]) => resetValue())
     generationInFlightRef.current = false
@@ -766,16 +769,13 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     property_stage: propertyStage,
     property_type: propertyType,
     bedrooms,
-    suites,
-    bathrooms,
+    ...(market === 'US' ? { bathrooms } : { suites }),
     parking_spaces: parkingSpaces,
-    uf,
-    state: market === 'US' ? uf : '',
+    ...(market === 'US' ? { state: uf } : { uf }),
     city,
-    district: normalizedDistrict,
-    county,
-    zip_code: normalizedZipCode,
-    neighborhood_community: neighborhoodCommunity.trim(),
+    ...(market === 'US'
+      ? { county, ...(normalizedZipCode ? { zip_code: normalizedZipCode } : {}), ...(neighborhoodCommunity.trim() ? { neighborhood_community: neighborhoodCommunity.trim() } : {}) }
+      : { district: normalizedDistrict }),
     price_label: priceLabel,
     area,
     highlights,
@@ -888,18 +888,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       if (!mountedRef.current) return
       setGenerationStatus('creating')
 
-      const data = await invokeSmartCarouselFunction(accessToken, {
-        action: 'create',
-        job_id: jobId,
-        image_paths: uploaded.imagePaths,
-        cta_path: uploaded.ctaPath,
-        answers: confirmedAnswers,
-        cta,
-        share_phone: sharePhone === 'yes',
-        professional_identity: { enabled: professionalIdentitySelection.enabled === true, ...(professionalIdentitySelection.enabled === true ? { name_source: professionalIdentitySelection.name_source } : {}) },
-        language: locale,
-        market,
-      })
+      const data = await invokeSmartCarouselFunction(accessToken, buildSmartCarouselCreateBody({ jobId, uploaded, answers: confirmedAnswers, cta, sharePhone, professionalIdentity: professionalIdentitySelection, locale, market }))
       if (!mountedRef.current) return
       if (data.status === 'succeeded' && data.video_url) {
         generationInFlightRef.current = false
@@ -972,11 +961,12 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   else if (step === 11) questionContent = <div><div className="relative"><input value={area} onChange={(event) => setArea(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder={copy.areaPlaceholder} className="w-full rounded-2xl border border-emerald-100 px-4 py-3 pr-14 text-sm font-semibold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">{copy.areaUnit}</span></div><ProductButton type="button" variant="success" disabled={!area} onClick={() => submitCarouselAnswer({ setter: () => {}, value: area, answer: `${area} ${copy.areaUnit}`, nextStep: 12 })} className="mt-4">{copy.continue}</ProductButton></div>
   else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <ProductCard as="section" key={group.title} variant="muted" className="p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{copy.labelFor(group.title)}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{copy.labelFor(item)}</ChipButton>)}</div></ProductCard>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{copy.text(copy.highlightsSelected, { count: highlights.length, max: SMART_CAROUSEL_MAX_HIGHLIGHTS })}</span><ProductButton type="button" variant="success" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: copy.text(copy.highlightsSummary, { count: highlights.length }), nextStep: 13 })}>{copy.continue}</ProductButton></div></div>
   else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, answer: copy.labelFor(item), nextStep: 14 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
-  else if (step === 14) questionContent = <OptionGrid><ChoiceButton disabled={!profilePhone} active={sharePhone === 'yes'} title={copy.phone.yes} description={profilePhone || copy.phone.missing} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title={copy.phone.no} description={copy.phone.noDescription} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 15 })} /></OptionGrid>
+  else if (step === 14) questionContent = !profilePhone && phoneDraft !== 'saved' ? <div className="space-y-3"><p className="text-sm font-semibold text-slate-700">{copy.phone.missing}</p><input value={phoneDraft} inputMode="tel" placeholder={market === 'US' ? '(555) 555-5555' : '(11) 99999-9999'} onChange={event => { setPhoneDraft(formatPhone(event.target.value, market)); setPhoneSaveError('') }} className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold" />{phoneSaveError && <p role="alert" className="text-sm font-semibold text-rose-700">{phoneSaveError}</p>}<div className="flex flex-wrap gap-2"><ProductButton type="button" disabled={!isPhoneCompatibleWithMarket(phoneDraft, market)} onClick={async () => { try { const field = market === 'US' ? 'telefone' : 'telefone'; const normalized = normalizePhone(phoneDraft, market); const { data, error } = await supabase.from('profiles').update({ [field]: normalized }).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); setPhoneDraft('saved'); submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 15 }) } catch { setPhoneSaveError(market === 'US' ? 'We could not save your phone number. Your draft is still here.' : 'Não foi possível salvar seu telefone. Seu rascunho foi preservado.') } }}>{market === 'US' ? 'Save and use this phone number' : 'Salvar e usar este telefone'}</ProductButton><ProductButton type="button" variant="secondary" onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 15 })}>{copy.phone.no}</ProductButton></div></div> : <OptionGrid><ChoiceButton active={sharePhone === 'yes'} title={copy.phone.yes} description={profilePhone || phoneDraft} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title={copy.phone.no} description={copy.phone.noDescription} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 15 })} /></OptionGrid>
   else if (step === 15) questionContent = <ProfessionalIdentityQuestion market={market} profile={profile || user || {}} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); return data }} onComplete={(selection, formatted) => submitCarouselAnswer({ setter: setProfessionalIdentitySelection, value: selection, answer: selection.enabled ? formatted : market === 'US' ? 'No professional information' : 'Sem identificação profissional', nextStep: 16 })} />
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
       <SmartTokenEstimate cost={SMART_TOKEN_COSTS.smartCarousel} quantityLabel={copy.text(copy.reviewMeta.quantity, { count: photos.length })} />
+      <div className="flex flex-wrap justify-center gap-2"><ProductButton type="button" variant="ghost" disabled={isGenerating} onClick={createNewPresentation}>{copy.startOver}</ProductButton><ProductButton type="button" variant="ghost" disabled={isGenerating} onClick={onCreateNew}>{copy.backToCarousel}</ProductButton></div>
       <ProductButton
         type="button"
         variant="success"
@@ -1027,9 +1017,9 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
             propertyStage,
             propertyType,
             bedrooms,
-            suites,
+            ...(market === 'US' ? { bathrooms, county, zipCode: normalizedZipCode, neighborhoodCommunity } : { suites }),
             parkingSpaces,
-            state: uf,
+            ...(market === 'US' ? { state: uf } : { uf }),
             city,
             district: normalizedDistrict,
             price: priceLabel,
@@ -1062,7 +1052,10 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     totalQuestions={15}
     onEdit={conversation.editAnswer}
     summaryItems={summaryItems.map(([id, label]) => ({ id, label }))}
-    eyebrow={copy.step}
+    showSummary={false}
+    eyebrow={copy.conversation.eyebrow}
+    title={copy.conversation.title}
+    description={copy.conversation.description}
     review={step >= 16}
     editDisabled={isGenerating}
   >

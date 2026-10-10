@@ -7,12 +7,13 @@ import { buildProfessionalIdentity } from '../src/config/professionalProfile.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const carousel = readFileSync(path.join(root, 'src/pages/SmartCarrossel.jsx'), 'utf8')
+const request = readFileSync(path.join(root, 'src/lib/smart-carousel-request.js'), 'utf8')
 const renderer = readFileSync(path.join(root, '../supabase/functions/smart-carousel-creatomate/index.ts'), 'utf8')
 
 test('Smart Carousel persists the explicit professional identity selection and sends only that contract', () => {
   assert.match(carousel, /professionalIdentity: professionalIdentitySelection/)
-  assert.match(carousel, /professional_identity: \{ enabled: professionalIdentitySelection\.enabled === true/)
-  assert.match(carousel, /name_source: professionalIdentitySelection\.name_source/)
+  assert.match(request, /professional_identity: professionalIdentity\?\.enabled === true/)
+  assert.match(request, /name_source: professionalIdentity\.name_source/)
   assert.match(carousel, /<ProfessionalIdentityQuestion/)
   assert.match(carousel, /flowDraft\.clear\(\)/)
 })

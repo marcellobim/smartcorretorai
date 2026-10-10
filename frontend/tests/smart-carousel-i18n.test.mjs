@@ -53,6 +53,21 @@ test('Smart Carrossel keeps Phone and professional identity as distinct conversa
   assert.match(catalog, /Would you like to include your professional information\?/)
 })
 
+test('Smart Carrossel keeps US and BR renderer payloads semantically isolated', () => {
+  assert.match(page, /buildSmartCarouselCreateBody/)
+})
+
+test('Smart Carrossel localizes its own upload and conversation chrome without Portuguese fallbacks in US', () => {
+  const en = getSmartCarouselCopy('en-US')
+  assert.equal(en.upload.cover, 'The first photo will be the')
+  assert.equal(en.upload.reorder, 'You can change the order at any time')
+  assert.equal(en.conversation.title, 'Build your presentation')
+  assert.equal(en.startOver, 'Start over')
+  assert.equal(en.backToCarousel, 'Back to Carousel')
+  assert.match(page, /title=\{copy\.conversation\.title\}/)
+  assert.match(page, /description=\{copy\.conversation\.description\}/)
+})
+
 test('Smart Carrossel formats professional phone numbers through the shared market helper', () => {
   assert.match(page, /formatPhone\(user\?\.whatsapp.*market\)/)
   assert.match(page, /formatPhone\(profilePhone, market\)/)

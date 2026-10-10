@@ -6,6 +6,7 @@ import path from 'node:path'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const carousel = readFileSync(path.join(frontendRoot, 'src/pages/SmartCarrossel.jsx'), 'utf8')
+const request = readFileSync(path.join(frontendRoot, 'src/lib/smart-carousel-request.js'), 'utf8')
 
 test('uses the shared Design System without an intermediate step rail', () => {
   assert.match(carousel, /import \{[\s\S]*?ProductButton,[\s\S]*?ProductCard,[\s\S]*?ProductHero,[\s\S]*?ProductSectionHeading,[\s\S]*?SMART_UI,[\s\S]*?\} from '\.\.\/components\/design-system'/)
@@ -44,7 +45,8 @@ test('preserves upload controls, loading lock and retry callbacks', () => {
 
 test('preserves generation, polling, receipt and download contracts', () => {
   assert.match(carousel, /SMART_CAROUSEL_FUNCTION = 'smart-carousel-creatomate'/)
-  assert.match(carousel, /action: 'create'[\s\S]*?job_id: jobId[\s\S]*?image_paths: uploaded\.imagePaths[\s\S]*?cta_path: uploaded\.ctaPath[\s\S]*?answers: confirmedAnswers/)
+  assert.match(carousel, /buildSmartCarouselCreateBody\(\{ jobId, uploaded, answers: confirmedAnswers/)
+  assert.match(request, /action: 'create'[\s\S]*?job_id: jobId[\s\S]*?image_paths: uploaded\.imagePaths[\s\S]*?cta_path: uploaded\.ctaPath/)
   assert.match(carousel, /isValidSmartCarouselReceipt\(data\.receipt\)[\s\S]*?setReceipt\(data\.receipt\)[\s\S]*?pollRenderStatus\(data\.receipt \|\| '', jobId\)/)
   assert.match(carousel, /const resumeStatus = \(\) => \{[\s\S]*?pollRenderStatus\(receipt, activeJobId\)/)
   assert.match(carousel, /previewUrl: videoUrl,[\s\S]*?downloadUrl: videoUrl,[\s\S]*?downloadName: 'smart-carrossel-apresentacao\.mp4'/)

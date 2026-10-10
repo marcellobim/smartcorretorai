@@ -117,12 +117,12 @@ test('recovery defensively resumes the existing job before any new UUID, upload 
   const uuidAt = carousel.indexOf('crypto.randomUUID()', createStart)
   const recoveryGuardAt = carousel.indexOf('if (hasRecoverableActiveJob) {', createStart)
   const uploadAt = carousel.indexOf('uploadSmartCarouselFilesWithTimeout', createStart)
-  const createCallAt = carousel.indexOf("action: 'create'", createStart)
+  const createCallAt = carousel.indexOf('buildSmartCarouselCreateBody', createStart)
   assert.ok(createStart >= 0 && recoveryGuardAt > createStart)
   assert.ok(uuidAt > recoveryGuardAt && uploadAt > recoveryGuardAt && createCallAt > recoveryGuardAt)
   const guard = carousel.slice(recoveryGuardAt, uuidAt)
   assert.match(guard, /resumeStatus\(\)/)
-  assert.doesNotMatch(guard, /randomUUID|uploadSmartCarouselFiles|action: 'create'/)
+  assert.doesNotMatch(guard, /randomUUID|uploadSmartCarouselFiles|buildSmartCarouselCreateBody/)
 })
 
 test('restored completed and terminal jobs render their existing terminal state without a new job', () => {
