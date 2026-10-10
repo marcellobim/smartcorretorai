@@ -17,8 +17,8 @@ export function buildSmartCarouselCreateBody({ jobId, uploaded, answers, cta, sh
     action: 'create', job_id: jobId, image_paths: uploaded.imagePaths, cta_path: uploaded.ctaPath,
     answers: { purpose: answers.purpose || '', property_stage: answers.property_stage || '', property_type: answers.property_type || '', ...facts, ...location, price_label: answers.price_label || '', area: answers.area || '', highlights: answers.highlights || [] },
     cta, share_phone: sharePhone === 'yes',
-    professional_identity: professionalIdentity?.enabled === true
-      ? { enabled: true, name_source: professionalIdentity.name_source }
+    professional_identity: professionalIdentity?.enabled === true && (professionalIdentity.credential_source === 'br_creci' || professionalIdentity.credential_source === 'us_license')
+      ? { enabled: true, name_source: professionalIdentity.name_source, credential_source: professionalIdentity.credential_source }
       : { enabled: false },
     language: locale, market,
   }

@@ -13,6 +13,7 @@ const USER_ID = '11111111-1111-4111-8111-111111111111'
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222'
 const source = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
 const frontend = readFileSync(new URL('../../../frontend/src/pages/SmartCarrossel.jsx', import.meta.url), 'utf8')
+const requestBuilder = readFileSync(new URL('../../../frontend/src/lib/smart-carousel-request.js', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../../migrations/20260817060000_create_smart_carousel_economy.sql', import.meta.url), 'utf8')
 
 test('every valid 5-20 image delivery has one fixed 100 ST server quote', () => {
@@ -123,7 +124,8 @@ test('language and market are normalized, persisted with the job, and returned b
   assert.match(source, /const locale = normalizeSmartCarouselLocale\(body\)/)
   assert.match(source, /language: locale\.language,[\s\S]*market: locale\.market/)
   assert.match(source, /localeFromCampaignPackage\(recovered\.campaignPackage\)/)
-  assert.match(frontend, /language: locale,[\s\S]*market,/)
+  assert.match(frontend, /buildSmartCarouselCreateBody\(\{ jobId, uploaded, answers: confirmedAnswers,[\s\S]*locale, market \}\)/)
+  assert.match(requestBuilder, /language: locale, market/)
 })
 
 test('backend CTA validation binds the legacy CTA value to its language-specific filename', () => {

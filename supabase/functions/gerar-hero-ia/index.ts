@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
+import { resolveProfessionalIdentity } from '../_shared/professional-identity.ts'
 import { buildOfficialHashtags, normalizeOfficialHashtags } from '../_shared/official-hashtags.ts'
 import { normalizeBannerPublicationOptions } from '../_shared/banner-publication-options.ts'
 import { handleGuestBanner } from './guest-runtime.ts'
@@ -2362,7 +2363,20 @@ serve(async (req) => {
       return jsonResponse({ error: 'Nao autorizado' }, 401)
     }
 
-    const payload = await req.json().catch(() => ({})) as JsonRecord
+    let payload = await req.json().catch(() => ({})) as JsonRecord
+    // Never trust a browser-formatted credential.  The creation market only
+    // controls the campaign language/content; identity source is explicit.
+    if (payload.show_professional_identity === true) {
+      const selected = payload.professional_identity
+      const valid = selected && typeof selected === 'object' && !Array.isArray(selected)
+        && ((selected as JsonRecord).name_source === 'real' || (selected as JsonRecord).name_source === 'display')
+        && ((selected as JsonRecord).credential_source === 'br_creci' || (selected as JsonRecord).credential_source === 'us_license')
+      const { data: profile } = valid
+        ? await supabase.from('profiles').select('nome, display_name, creci, creci_type, estado, license_number, license_state').eq('id', user.id).maybeSingle()
+        : { data: null }
+      const identity = valid ? resolveProfessionalIdentity(profile, selected as JsonRecord, payload.market === 'US' ? 'US' : 'BR') : null
+      payload = { ...payload, show_professional_identity: Boolean(identity), professional_identity: identity?.formatted || '' }
+    }
     if (normalizeId(payload.action) === 'prepare_batch') {
       return await handleRealEstateBannerPrepare(supabase, user.id, payload)
     }

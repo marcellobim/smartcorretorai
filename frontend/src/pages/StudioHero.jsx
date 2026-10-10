@@ -645,7 +645,7 @@ const initialAnswers = {
   atmosphere: '',
   pace: '',
   creativeFreedom: '',
-  professionalIdentity: { enabled: null, name_source: null },
+  professionalIdentity: { enabled: null, name_source: null, credential_source: null },
 }
 
 const getStudioHeroAccess = (user, isAuthorizedAdmin = false) => {
@@ -1161,7 +1161,7 @@ export function buildStudioGenerationPayload({
     creativeFreedom: answers.creativeFreedom,
     professional_identity: {
       enabled: answers.professionalIdentity?.enabled === true,
-      ...(answers.professionalIdentity?.enabled === true ? { name_source: answers.professionalIdentity.name_source } : {}),
+      ...(answers.professionalIdentity?.enabled === true ? { name_source: answers.professionalIdentity.name_source, credential_source: answers.professionalIdentity.credential_source } : {}),
     },
   }
   return {
@@ -1560,7 +1560,7 @@ export default function StudioHero() {
       atmosphere: '',
       pace: '',
       creativeFreedom: '',
-      professionalIdentity: { enabled: null, name_source: null },
+      professionalIdentity: { enabled: null, name_source: null, credential_source: null },
     }))
     setStep(2)
   }

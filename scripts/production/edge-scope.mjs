@@ -18,7 +18,14 @@ export const BANNER_RECOVERY_RELEASE = Object.freeze({
  ]),
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote']
+export const PROFESSIONAL_IDENTITY_FUNCTIONS=Object.freeze([
+ 'smart-carousel-creatomate','smart-tour-generate','criar-video-ia','generate-text-campaign','gerar-hero-ia',
+])
+export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
+ 'smart-carousel-creatomate':54,'smart-tour-generate':87,'criar-video-ia':213,'generate-text-campaign':44,'gerar-hero-ia':87,
+})
+
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity']
 
 export function deploymentMode(args){
  const modes=[]
@@ -41,9 +48,23 @@ export function edgeScope(args) {
  const mode=deploymentMode(args)
  if(mode==='--admin-api')return ['admin-api']
  if(mode==='--tiktok-content-posting')return ['tiktok-content-posting']
+ if(mode==='--professional-identity')return [...PROFESSIONAL_IDENTITY_FUNCTIONS]
  if(mode==='--video-social-metadata')return ['smart-tour-generate','social-publish-video']
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []
+}
+
+export function professionalIdentityFunctionVersions(functions,expected=PROFESSIONAL_IDENTITY_BASELINES){
+ const list=Array.isArray(functions)?functions:functions?.functions
+ if(!Array.isArray(list))throw Error('DEPLOY BLOQUEADO: lista de funções inválida')
+ const versions={}
+ for(const slug of PROFESSIONAL_IDENTITY_FUNCTIONS){
+  const fn=list.find(item=>item?.slug===slug)
+  if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: função profissional inativa ou sem versão: '+slug)
+  if(expected&&fn.version!==expected[slug])throw Error('DEPLOY BLOQUEADO: versão de baseline divergente: '+slug)
+  versions[slug]=fn.version
+ }
+ return Object.freeze(versions)
 }
 
 export function adminApiVersion(functions) {

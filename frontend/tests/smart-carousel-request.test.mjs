@@ -5,13 +5,18 @@ import { buildSmartCarouselCreateBody } from '../src/lib/smart-carousel-request.
 const uploaded = { imagePaths: ['safe/photo.jpg'], ctaPath: 'safe/cta.png' }
 const common = { purpose: 'sale', property_stage: 'Pronto para morar', property_type: 'Apartamento', bedrooms: '3', parking_spaces: '2', area: '1200', highlights: ['Piscina'] }
 
-test('US handler payload carries only US facts and optional location values when supplied', () => {
-  const body = buildSmartCarouselCreateBody({ jobId: 'job', uploaded, cta: 'Saiba Mais', sharePhone: 'yes', professionalIdentity: { enabled: true, name_source: 'display' }, locale: 'en-US', market: 'US', answers: { ...common, bathrooms: '2', state: 'FL', county: 'Hillsborough County', city: 'Tampa', zip_code: '33602', neighborhood_community: 'Downtown', suites: '9', uf: 'SP', district: 'Centro' } })
-  assert.deepEqual(body.professional_identity, { enabled: true, name_source: 'display' })
+test('US handler payload carries only US facts and the explicit selected credential source', () => {
+  const body = buildSmartCarouselCreateBody({ jobId: 'job', uploaded, cta: 'Saiba Mais', sharePhone: 'yes', professionalIdentity: { enabled: true, name_source: 'display', credential_source: 'br_creci' }, locale: 'en-US', market: 'US', answers: { ...common, bathrooms: '2', state: 'FL', county: 'Hillsborough County', city: 'Tampa', zip_code: '33602', neighborhood_community: 'Downtown', suites: '9', uf: 'SP', district: 'Centro' } })
+  assert.deepEqual(body.professional_identity, { enabled: true, name_source: 'display', credential_source: 'br_creci' })
   assert.equal(body.share_phone, true)
   assert.equal(body.answers.state, 'FL')
   assert.equal(body.answers.bathrooms, '2')
   for (const forbidden of ['uf', 'suites', 'district']) assert.equal(forbidden in body.answers, false)
+})
+
+test('enabled legacy identity without credential source is safely sent as disabled', () => {
+  const body = buildSmartCarouselCreateBody({ jobId: 'job', uploaded, cta: 'Saiba Mais', sharePhone: 'no', professionalIdentity: { enabled: true, name_source: 'real' }, locale: 'en-US', market: 'US', answers: { ...common, bathrooms: '2', state: 'FL', county: 'Orange County', city: 'Orlando' } })
+  assert.deepEqual(body.professional_identity, { enabled: false })
 })
 
 test('empty US ZIP and community never become placeholders and disabled identity sends no profile data', () => {

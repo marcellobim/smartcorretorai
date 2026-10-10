@@ -216,6 +216,7 @@ export default function Configuracoes() {
       facebook: '',
       linkedin: '',
       license_number: '',
+      license_state: '',
     },
   })
 
@@ -248,10 +249,11 @@ export default function Configuracoes() {
       facebook: user?.facebook || '',
       linkedin: user?.linkedin || '',
       license_number: user?.license_number || '',
+      license_state: user?.license_state || '',
     })
     setAvatarFile(undefined)
     setLogoFile(undefined)
-  }, [market, user?.id, user?.nome, user?.display_name, user?.email, user?.creci, user?.creci_type, user?.license_number, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
+  }, [market, user?.id, user?.nome, user?.display_name, user?.email, user?.creci, user?.creci_type, user?.license_number, user?.license_state, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
 
   const watched = watch()
   const profileComplete = useMemo(() => Boolean(
@@ -291,7 +293,7 @@ export default function Configuracoes() {
       if (logoFile instanceof File) logo_url = await uploadProfileImage(logoFile, 'logo')
       else if (logoFile === null) logo_url = null
 
-      const supportsProfessionalProfileSchema = ['display_name', 'creci_type', 'facebook', 'linkedin'].every((field) => Object.prototype.hasOwnProperty.call(user || {}, field))
+      const supportsProfessionalProfileSchema = ['display_name', 'creci_type', 'facebook', 'linkedin', 'license_state'].every((field) => Object.prototype.hasOwnProperty.call(user || {}, field))
       const profileUpdate = {
         nome: data.nome,
         email: data.email,
@@ -313,7 +315,8 @@ export default function Configuracoes() {
           instagram: data.instagram || null,
           facebook: data.facebook || null,
           linkedin: data.linkedin || null,
-          ...(market === 'US' ? { license_number: data.license_number || null } : {}),
+          license_number: data.license_number || null,
+          license_state: data.license_state ? String(data.license_state).trim().toUpperCase() : null,
         })
       }
 
@@ -521,7 +524,7 @@ export default function Configuracoes() {
                         hint={copy.displayHint}
                         {...regPerfil('display_name')}
                       />
-                      {us ? <Input label={copy.license} placeholder="E.g., SL123456" {...regPerfil('license_number')} /> : <><Input label="CRECI" placeholder="Ex: 12345" {...regPerfil('creci')} />
+                      {us ? <><Input label={copy.license} placeholder="E.g., SL123456" {...regPerfil('license_number')} /><Input label="License state" placeholder="FL" maxLength={2} {...regPerfil('license_state', { onChange: event => { event.target.value = event.target.value.toUpperCase() } })} /></> : <><Input label="CRECI" placeholder="Ex: 12345" {...regPerfil('creci')} />
                       <Select label={t('profile.creciType')} {...regPerfil('creci_type')}>
                         <option value="">{copy.select}</option>
                         <option value="F">{t('profile.creciTypes.F')}</option>

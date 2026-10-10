@@ -1,15 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {edgeScope,adminApiVersion,tiktokContentPostingVersion} from './edge-scope.mjs'
+import {edgeScope,adminApiVersion,tiktokContentPostingVersion,professionalIdentityFunctionVersions,PROFESSIONAL_IDENTITY_FUNCTIONS,PROFESSIONAL_IDENTITY_BASELINES} from './edge-scope.mjs'
 import {validatePublicText} from './public-artifacts.mjs'
 test('admin release targets only admin-api and rejects combined/unrecognized scopes',()=>{
  assert.deepEqual(edgeScope(['--admin-api']),['admin-api'])
  assert.deepEqual(edgeScope([]),[])
  assert.deepEqual(edgeScope(['--video-social-metadata']),['smart-tour-generate','social-publish-video'])
  assert.deepEqual(edgeScope(['--tiktok-content-posting']),['tiktok-content-posting'])
+ assert.deepEqual(edgeScope(['--professional-identity']),[...PROFESSIONAL_IDENTITY_FUNCTIONS])
  assert.throws(()=>edgeScope(['--admin-api','--video-social-metadata']))
  assert.throws(()=>edgeScope(['--tiktok-content-posting','--admin-api']))
  assert.throws(()=>edgeScope(['--anything']))
+})
+
+test('professional identity scope is fixed to the five validated active functions',()=>{
+ const functions=PROFESSIONAL_IDENTITY_FUNCTIONS.map(slug=>({slug,status:'ACTIVE',version:PROFESSIONAL_IDENTITY_BASELINES[slug]}))
+ assert.deepEqual(professionalIdentityFunctionVersions(functions),PROFESSIONAL_IDENTITY_BASELINES)
+ assert.throws(()=>professionalIdentityFunctionVersions(functions.slice(1)),/inativa ou sem versão/)
+ assert.throws(()=>professionalIdentityFunctionVersions(functions.map(fn=>fn.slug==='gerar-hero-ia'?{...fn,version:88}:fn)),/baseline divergente/)
 })
 test('contextual target and candidate-only flags do not change Edge scope',()=>{
  for(const target of ['snetia','smartcorretorai']){

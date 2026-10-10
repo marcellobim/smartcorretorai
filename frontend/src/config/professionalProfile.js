@@ -39,7 +39,9 @@ const MARKET_EXTENSIONS = Object.freeze({
 
 export const PROFESSIONAL_PROFILE_CONFIG = Object.freeze({
   BR: Object.freeze({ market: 'BR', ...MARKET_EXTENSIONS.BR, fieldMap: Object.freeze({ ...COMMON_FIELD_MAP, ...MARKET_EXTENSIONS.BR.fieldMap }), fields: Object.freeze([...COMMON_FIELDS, ...MARKET_EXTENSIONS.BR.fields]) }),
-  US: Object.freeze({ market: 'US', ...MARKET_EXTENSIONS.US, fieldMap: Object.freeze({ ...COMMON_FIELD_MAP, ...MARKET_EXTENSIONS.US.fieldMap }), fields: Object.freeze([...COMMON_FIELDS, ...MARKET_EXTENSIONS.US.fields]) }),
+  // `estado` remains the Brazilian CRECI UF. US licensing has its own field so
+  // a BR profile can create US material without turning e.g. SP into a licence state.
+  US: Object.freeze({ market: 'US', ...MARKET_EXTENSIONS.US, fieldMap: Object.freeze({ ...COMMON_FIELD_MAP, state: 'license_state', ...MARKET_EXTENSIONS.US.fieldMap }), fields: Object.freeze([...COMMON_FIELDS, ...MARKET_EXTENSIONS.US.fields]) }),
 })
 
 export const PROFESSIONAL_ROLES = Object.freeze(['agent', 'realtor', 'broker'])
@@ -71,7 +73,10 @@ export function formatProfessionalIdentity(profile = {}, market = 'BR') {
   const state = String(readProfileField(profile, config, 'state') || '').trim().toUpperCase()
   const credentialNumber = String(readProfileField(profile, config, config.identity.credentialKey) || '').trim()
 
-  if (!credentialNumber) return [name, state].filter(Boolean).join(' — ')
+  // A partial credential must never become a visual identity or a fallback
+  // signature.  The guided question can collect it, otherwise creation goes on
+  // without professional information.
+  if (!name || !credentialNumber || !state) return ''
 
   const credentialType = config.market === 'BR' ? String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase() : ''
   const credential = [config.identity.credentialPrefix, credentialType, credentialNumber].filter(Boolean).join(' ')
@@ -98,31 +103,36 @@ export function hasCompleteProfessionalIdentity(profile = {}, market = 'BR') {
 // at the edge (a caption or a provider prompt); drafts and persisted jobs keep
 // this object so the selected name source is never lost or guessed later.
 export function normalizeProfessionalIdentity(selection = {}, market = 'BR') {
-  const resolvedMarket = market === 'US' ? 'US' : 'BR'
   const enabled = selection?.enabled === true
   // `legal` was used by an early local draft.  Read it only for migration;
   // every newly written contract uses the product-wide `real | display` pair.
   const nameSource = selection?.name_source === 'display' ? 'display' : (selection?.name_source === 'real' || selection?.name_source === 'legal') ? 'real' : null
-  return { enabled, name_source: enabled ? nameSource : null, market: resolvedMarket }
+  const credentialSource = selection?.credential_source === 'br_creci' || selection?.credential_source === 'us_license'
+    ? selection.credential_source
+    : null
+  return { enabled, name_source: enabled ? nameSource : null, credential_source: enabled ? credentialSource : 'none' }
 }
 
 export function professionalIdentityMissingFields(profile = {}, selection = {}, market = 'BR') {
   const normalized = normalizeProfessionalIdentity(selection, market)
   if (!normalized.enabled || !normalized.name_source) return []
-  const config = getProfessionalProfileConfig(normalized.market)
+  const credentialMarket = normalized.credential_source === 'us_license' ? 'US' : normalized.credential_source === 'br_creci' ? 'BR' : null
+  if (!credentialMarket) return ['credentialSource']
+  const config = getProfessionalProfileConfig(credentialMarket)
   const nameField = normalized.name_source === 'display' ? 'displayName' : 'professionalName'
   const missing = []
   if (!String(readProfileField(profile, config, nameField) || profile.full_name || '').trim()) missing.push(nameField)
   if (!String(readProfileField(profile, config, config.identity.credentialKey) || '').trim()) missing.push(config.identity.credentialKey)
   if (!String(readProfileField(profile, config, 'state') || '').trim()) missing.push('state')
-  if (normalized.market === 'BR' && !['F', 'J'].includes(String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase())) missing.push('creciType')
+  if (credentialMarket === 'BR' && !['F', 'J'].includes(String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase())) missing.push('creciType')
   return missing
 }
 
 export function buildProfessionalIdentity(profile = {}, selection = {}, market = 'BR') {
   const normalized = normalizeProfessionalIdentity(selection, market)
-  if (!normalized.enabled || !normalized.name_source || professionalIdentityMissingFields(profile, normalized, normalized.market).length) return null
-  const config = getProfessionalProfileConfig(normalized.market)
+  const credentialMarket = normalized.credential_source === 'us_license' ? 'US' : normalized.credential_source === 'br_creci' ? 'BR' : null
+  if (!credentialMarket || !normalized.enabled || !normalized.name_source || professionalIdentityMissingFields(profile, normalized, credentialMarket).length) return null
+  const config = getProfessionalProfileConfig(credentialMarket)
   const legalName = String(readProfileField(profile, config, 'professionalName') || profile.full_name || '').trim()
   const displayName = String(readProfileField(profile, config, 'displayName') || '').trim()
   const state = String(readProfileField(profile, config, 'state') || '').trim().toUpperCase()
@@ -130,23 +140,23 @@ export function buildProfessionalIdentity(profile = {}, selection = {}, market =
     ...normalized,
     legal_name: legalName,
     display_name: displayName,
-    creci_type: normalized.market === 'BR' ? String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase() : '',
-    creci_number: normalized.market === 'BR' ? String(readProfileField(profile, config, 'creciNumber') || '').trim() : '',
-    creci_state: normalized.market === 'BR' ? state : '',
-    license_number: normalized.market === 'US' ? String(readProfileField(profile, config, 'licenseNumber') || '').trim() : '',
-    license_state: normalized.market === 'US' ? state : '',
+    creci_type: credentialMarket === 'BR' ? String(readProfileField(profile, config, 'creciType') || '').trim().toUpperCase() : '',
+    creci_number: credentialMarket === 'BR' ? String(readProfileField(profile, config, 'creciNumber') || '').trim() : '',
+    creci_state: credentialMarket === 'BR' ? state : '',
+    license_number: credentialMarket === 'US' ? String(readProfileField(profile, config, 'licenseNumber') || '').trim() : '',
+    license_state: credentialMarket === 'US' ? state : '',
   }
   const chosenName = normalized.name_source === 'display' ? displayName : legalName
   return {
     ...identity,
-    formatted: normalized.market === 'US'
+    formatted: credentialMarket === 'US'
       ? `${chosenName} · License #${identity.license_number} · ${identity.license_state}`
       : `${chosenName} · CRECI-${identity.creci_type} ${identity.creci_number}/${identity.creci_state}`,
   }
 }
 
-export function professionalIdentityProfilePatch(profile = {}, pending = {}, market = 'BR') {
-  const config = getProfessionalProfileConfig(market)
+export function professionalIdentityProfilePatch(profile = {}, pending = {}, credentialSource = 'br_creci') {
+  const config = getProfessionalProfileConfig(credentialSource === 'us_license' ? 'US' : 'BR')
   const patch = {}
   const entries = Object.entries(pending || {})
   for (const [field, value] of entries) {

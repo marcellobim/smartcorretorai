@@ -36,6 +36,17 @@ test('saves only real profile columns used by Cadastro', () => {
   assert.match(settings, /formatPhone\(event\.target\.value, market\)/)
 })
 
+test('keeps Brazilian CRECI fields and US license fields independently in Settings', () => {
+  assert.match(settings, /license_number: user\?\.license_number \|\| ''/)
+  assert.match(settings, /license_state: user\?\.license_state \|\| ''/)
+  assert.match(settings, /license_number: data\.license_number \|\| null/)
+  assert.match(settings, /license_state: data\.license_state/)
+  assert.match(settings, /regPerfil\('creci'/)
+  assert.match(settings, /regPerfil\('estado'/)
+  assert.match(settings, /regPerfil\('license_number'/)
+  assert.match(settings, /regPerfil\('license_state'/)
+})
+
 test('shows the real access email and requires current password before changing it', () => {
   assert.match(settings, /accessEmail = session\?\.user\?\.email/)
   assert.match(settings, /label=\{copy\.loginEmail\}[\s\S]*readOnly/)

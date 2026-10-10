@@ -2034,8 +2034,8 @@ function parseProfessionalIdentity(value: unknown): ProfessionalIdentitySelectio
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const selection = value as JsonRecord
   if (selection.enabled === false) return { enabled: false }
-  if (selection.enabled === true && (selection.name_source === 'real' || selection.name_source === 'display')) {
-    return { enabled: true, name_source: selection.name_source }
+  if (selection.enabled === true && (selection.name_source === 'real' || selection.name_source === 'display') && (selection.credential_source === 'br_creci' || selection.credential_source === 'us_license')) {
+    return { enabled: true, name_source: selection.name_source, credential_source: selection.credential_source }
   }
   return null
 }
@@ -3722,13 +3722,12 @@ serve(async (req) => {
     if (professionalIdentitySelection.enabled) {
       const { data: professionalProfile, error: professionalProfileError } = await supabase
         .from('profiles')
-        .select('nome, display_name, creci, creci_type, estado, license_number')
+        .select('nome, display_name, creci, creci_type, estado, license_number, license_state')
         .eq('id', user.id)
         .maybeSingle()
       if (professionalProfileError) throw new Error('professional_identity_profile_lookup_failed')
       const resolvedIdentity = resolveProfessionalIdentity(professionalProfile, professionalIdentitySelection, market)
-      if (!resolvedIdentity) return jsonResponse({ success: false, error: 'Complete sua identificação profissional antes de continuar.' }, 400)
-      professionalIdentity = resolvedIdentity.formatted
+      professionalIdentity = resolvedIdentity?.formatted || ''
     }
     const isFreeAiRequest = briefing.creativeMode === 'free_ai'
       || normalizeText(body.mode, 40).toLowerCase() === 'free_ai'

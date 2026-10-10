@@ -14,7 +14,7 @@ const baseAnswers = {
   bedrooms: '3', bathrooms: '2', suites: '1', parking: '2', area: '', differentials: ['waterfront'],
   brokerHasBenefits: '', brokerCommission: '', brokerBenefits: [], brokerBenefitOther: '', cta: 'LEARN MORE',
   creativeMode: 'cinematic', furnishingStatus: '', decorationPolicy: '', visualStyle: 'modern', atmosphere: 'warm', pace: 'dynamic', creativeFreedom: 'guided',
-  professionalIdentity: { enabled: true, name_source: 'display' },
+  professionalIdentity: { enabled: true, name_source: 'display', credential_source: 'us_license' },
 }
 
 function buildInput(overrides = {}) {
@@ -41,7 +41,7 @@ test('the real Studio payload builder and dispatch boundary keep US cinematic ge
   assert.equal(payload.market, 'US')
   assert.equal(payload.language, 'en-US')
   assert.equal(payload.mode, 'cinematic')
-  assert.deepEqual(payload.briefing.professional_identity, { enabled: true, name_source: 'display' })
+  assert.deepEqual(payload.briefing.professional_identity, { enabled: true, name_source: 'display', credential_source: 'us_license' })
   assert.deepEqual({ state: payload.briefing.state, county: payload.briefing.county, city: payload.briefing.city }, { state: 'FL', county: 'Hillsborough County', city: 'Tampa' })
   assert.equal('zipCode' in payload.briefing, false)
   assert.equal('neighborhoodCommunity' in payload.briefing, false)

@@ -655,9 +655,9 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   const [phoneSaveError, setPhoneSaveError] = useState('')
   const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => {
     const saved = restoredFlow.professionalIdentity
-    if (saved?.enabled === false) return { enabled: false, name_source: null }
-    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source }
-    return { enabled: null, name_source: null }
+    if (saved?.enabled === false) return { enabled: false, name_source: null, credential_source: 'none' }
+    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source, credential_source: saved.credential_source === 'br_creci' || saved.credential_source === 'us_license' ? saved.credential_source : null }
+    return { enabled: null, name_source: null, credential_source: null }
   })
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredFlow.conversation || null)
   const pollTimerRef = useRef(null)

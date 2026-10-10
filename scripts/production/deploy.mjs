@@ -16,6 +16,7 @@ import {
  validateBannerAncestry,
  validateBannerRecoveryManifest,
  validateBannerPromotionCandidate,
+ professionalIdentityFunctionVersions,
  validateBannerVerifyJwt,
  validateBannerWorktreeStatus,
  validateKnownBannerDesignFailure,
@@ -487,7 +488,7 @@ async function official(){
 }
 
 let edgeCli=null
-function functionsList(){return JSON.parse(run(edgeCli,['functions','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json']))}
+function functionsList(){const result=JSON.parse(run(edgeCli,['functions','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json']));return Array.isArray(result)?result:result.functions}
 function adminVersion(){return adminApiVersion(functionsList())}
 function tiktokContentPostingVersionActive(){return tiktokContentPostingVersion(functionsList())}
 function bannerVersion(expected=null){return bannerFunctionVersion(functionsList(),expected)}
@@ -695,8 +696,10 @@ const deployAdminApi=mode==='--admin-api'
 const deployTikTokContentPosting=mode==='--tiktok-content-posting'
 const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
+const deployProfessionalIdentity=mode==='--professional-identity'
  if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
+ if(deployProfessionalIdentity&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: lote profissional pertence somente ao target snetia')
 const selectedFunctions=edgeScope(args)
 const sha=git('rev-parse','HEAD')
 const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
@@ -709,6 +712,7 @@ if(promoteBannerRecovery){
 
 const previousAdminVersion=deployAdminApi?adminVersion():null
 const previousBannerVersion=deployBannerRecovery?bannerVersion(BANNER_RECOVERY_RELEASE.edgeVersion):null
+const previousProfessionalIdentityVersions=deployProfessionalIdentity?professionalIdentityFunctionVersions(functionsList()):null
 if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
 let bannerRuntimeClosure=null,bannerConfigBlob=null
 if(deployBannerRecovery){
@@ -784,7 +788,7 @@ if(deployBannerRecovery){
  }
 }
 
-if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery){
+if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
@@ -803,6 +807,11 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  const deployArgs=['functions','deploy',...selectedFunctions,'--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--use-api','--workdir',edgeStage]
  if(deployBannerRecovery)deployArgs.push('--no-verify-jwt')
  run(edgeCli,deployArgs,root,true)
+ if(deployProfessionalIdentity){
+  const current=professionalIdentityFunctionVersions(functionsList(),null)
+  for(const [slug,version] of Object.entries(current))if(version<=previousProfessionalIdentityVersions[slug])throw Error('DEPLOY BLOQUEADO: versão não avançou: '+slug)
+  console.log(JSON.stringify({mode:'professional-identity',previousProfessionalIdentityVersions,currentProfessionalIdentityVersions:current}))
+ }
  if(deployAdminApi){
   const version=adminVersion()
   if(version<=previousAdminVersion)throw Error('DEPLOY BLOQUEADO: versão da admin-api não avançou')

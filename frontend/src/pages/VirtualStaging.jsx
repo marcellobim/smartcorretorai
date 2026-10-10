@@ -446,9 +446,9 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [includePhone, setIncludePhone] = useState(() => restoredJourneyDraft.includePhone ?? null)
   const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => {
     const saved = restoredJourneyDraft.professionalIdentity
-    if (saved?.enabled === false) return { enabled: false, name_source: null }
-    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source }
-    return { enabled: null, name_source: null }
+    if (saved?.enabled === false) return { enabled: false, name_source: null, credential_source: 'none' }
+    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source, credential_source: saved.credential_source === 'br_creci' || saved.credential_source === 'us_license' ? saved.credential_source : null }
+    return { enabled: null, name_source: null, credential_source: null }
   })
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState(() => restoredJourneyDraft.imageMetadata?.length ? `Rascunho restaurado. Selecione novamente ${restoredJourneyDraft.imageMetadata.length} ${restoredJourneyDraft.imageMetadata.length === 1 ? 'imagem' : 'imagens'} para continuar.` : '')
@@ -560,7 +560,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (questionId === 'cta_enabled') { setCtaEnabled(null); setCta('') }
       if (questionId === 'cta') setCta('')
       if (questionId === 'phone') setIncludePhone(null)
-      if (questionId === 'professional_identity') setProfessionalIdentitySelection({ enabled: null, name_source: null })
+      if (questionId === 'professional_identity') setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
       setStatus('idle')
       setMessage('')
       return
@@ -586,7 +586,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (shouldReset('cta_enabled')) setCtaEnabled(null)
     if (shouldReset('cta')) setCta('')
     if (shouldReset('phone')) setIncludePhone(null)
-    if (shouldReset('professional_identity')) setProfessionalIdentitySelection({ enabled: null, name_source: null })
+    if (shouldReset('professional_identity')) setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
     if (pollRef.current) clearTimeout(pollRef.current)
     setStatus('idle')
     setMessage('')

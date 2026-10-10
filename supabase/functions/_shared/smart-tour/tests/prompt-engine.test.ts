@@ -359,7 +359,7 @@ test('request payload validation contract remains unchanged', () => {
   assert.deepEqual(validated.imagePaths, paths)
   assert.deepEqual(validated.imageOrder, paths)
   assert.deepEqual(validated.professional_identity, { enabled: false })
-  assert.deepEqual(validateSmartTourRequest({ ...base, professional_identity: { enabled: true, name_source: 'real' } }).professional_identity, { enabled: true, name_source: 'real' })
+  assert.deepEqual(validateSmartTourRequest({ ...base, professional_identity: { enabled: true, name_source: 'real', credential_source: 'br_creci' } }).professional_identity, { enabled: true, name_source: 'real', credential_source: 'br_creci' })
   const six = Array.from({ length: 6 }, (_, index) => `u/${index + 1}.jpg`)
   assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: six, imageOrder: six }), /invalid_image_count/)
   assert.throws(() => validateSmartTourRequest({ ...base, imagePaths: ['u/1.jpg', 'u/1.jpg'], imageOrder: ['u/1.jpg', 'u/1.jpg'] }), /invalid_image_count/)

@@ -16,18 +16,18 @@ const photoRequest = (professional_identity: unknown) => ({
   market: 'US',
 })
 
-test('photo Real Estate Video requires its structured professional_identity selection', () => {
+test('photo Real Estate Video requires its explicit credential source', () => {
   assert.deepEqual(validateSmartTourRequest(photoRequest({ enabled: false })).professional_identity, { enabled: false })
-  assert.deepEqual(validateSmartTourRequest(photoRequest({ enabled: true, name_source: 'real' })).professional_identity, { enabled: true, name_source: 'real' })
-  assert.deepEqual(validateSmartTourRequest(photoRequest({ enabled: true, name_source: 'display' })).professional_identity, { enabled: true, name_source: 'display' })
+  assert.deepEqual(validateSmartTourRequest(photoRequest({ enabled: true, name_source: 'real', credential_source: 'br_creci' })).professional_identity, { enabled: true, name_source: 'real', credential_source: 'br_creci' })
+  assert.deepEqual(validateSmartTourRequest(photoRequest({ enabled: true, name_source: 'display', credential_source: 'us_license' })).professional_identity, { enabled: true, name_source: 'display', credential_source: 'us_license' })
   assert.throws(() => validateSmartTourRequest(photoRequest(undefined)), /invalid_professional_identity/)
   assert.throws(() => validateSmartTourRequest(photoRequest({ enabled: true })), /invalid_professional_identity/)
 })
 
-test('the server resolves only the chosen identity and market credential', () => {
-  const profile = { nome: 'Alex Legal', display_name: 'Alex Homes', license_number: 'FL-123', creci: '9999', creci_type: 'F', estado: 'FL', telefone: '5559991234' }
-  assert.deepEqual(resolveProfessionalIdentity(profile, { enabled: true, name_source: 'real' }, 'US'), {
-    enabled: true, name_source: 'real', market: 'US', name: 'Alex Legal', creci_type: '', creci_number: '', creci_state: '', license_number: 'FL-123', license_state: 'FL', formatted: 'Alex Legal · License #FL-123 · FL',
-  })
+test('the server resolves the selected credential independently of creation market', () => {
+  const profile = { nome: 'Alex Legal', display_name: 'Alex Homes', license_number: 'FL-123', license_state: 'FL', creci: '9999', creci_type: 'F', estado: 'SP', telefone: '5559991234' }
+  assert.equal(resolveProfessionalIdentity(profile, { enabled: true, name_source: 'real', credential_source: 'us_license' }, 'BR')?.formatted, 'Alex Legal · License #FL-123 · FL')
+  assert.equal(resolveProfessionalIdentity(profile, { enabled: true, name_source: 'display', credential_source: 'br_creci' }, 'US')?.formatted, 'Alex Homes · CRECI-F 9999/SP')
+  assert.equal(resolveProfessionalIdentity(profile, { enabled: true, name_source: 'real' }, 'US'), null)
   assert.equal(resolveProfessionalIdentity(profile, { enabled: false }, 'US'), null)
 })

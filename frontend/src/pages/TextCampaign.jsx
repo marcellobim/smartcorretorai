@@ -627,7 +627,7 @@ function resetAnswerForEdit(questionId, setAnswers, setManualCityMode) {
     if (questionId === 'notes') return { ...current, notes: '' }
     if (questionId === 'cta') return { ...current, cta: '' }
     if (questionId === 'phone') return { ...current, includeProfessionalPhone: '' }
-    if (questionId === 'professional_identity') return { ...current, professionalIdentity: { enabled: null, name_source: null } }
+    if (questionId === 'professional_identity') return { ...current, professionalIdentity: { enabled: null, name_source: null, credential_source: null } }
     return current
   })
   if (['purpose', 'location'].includes(questionId)) setManualCityMode(false)

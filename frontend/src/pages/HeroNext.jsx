@@ -1625,7 +1625,7 @@ export const buildHeroNextGenerationRequest = ({
   creativeIdeaCount = 1, uploadedImages = [], promptTouched = false, effectivePrompt = '',
   campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext = {},
   rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee,
-  showProfessionalIdentity = false, professionalIdentity = '', professionalMarket = 'BR',
+  showProfessionalIdentity = false, professionalIdentitySelection = null, professionalMarket = 'BR',
 }) => {
   const resolvedMarket = market === 'US' ? 'US' : 'BR'
   const resolvedLocale = resolvedMarket === 'US' ? 'en-US' : 'pt-BR'
@@ -1681,7 +1681,7 @@ export const buildHeroNextGenerationRequest = ({
     guarantee_id: rentGuarantee, guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '', guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
     highlights: localizeHeroNextSystemList(getHeroNextCaptureFeatures(goal, answers), resolvedMarket), cta,
     contact_phone: showPhone ? answers.contactPhone || '' : '', display_phone: showPhone ? formatPhone(answers.contactPhone || '', professionalMarket) : '', campaign_contact_phone: showPhone ? answers.contactPhone || '' : '',
-    show_professional_identity: showProfessionalIdentity === true, professional_identity: showProfessionalIdentity === true ? professionalIdentity : '', professional_identity_placement: showProfessionalIdentity === true ? 'discreet_footer' : '',
+    show_professional_identity: showProfessionalIdentity === true, professional_identity: showProfessionalIdentity === true ? professionalIdentitySelection : { enabled: false }, professional_identity_placement: showProfessionalIdentity === true ? 'discreet_footer' : '',
     deliverables: { hero_image: true, instagram_text: true, hashtags: true, cta: true, whatsapp: true, portal_description: true },
     value_condition: localizedCondition, primary_destination: destination, compatible_destinations: [], campaign_batch_id: campaignBatchId,
     format_generation: { index: formatIndex, total: totalFormats, job_index: jobIndex, total_jobs: totalJobs, format_id: formatId, format_label: destination.label },
@@ -1866,7 +1866,11 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [goal, setGoal] = useState(() => restoredBannerDraft.goal || '')
   const [answers, setAnswers] = useState(() => restoredBannerDraft.answers || {})
   const [showProfessionalIdentity, setShowProfessionalIdentity] = useState(() => typeof restoredBannerDraft.showProfessionalIdentity === 'boolean' ? restoredBannerDraft.showProfessionalIdentity : null)
-  const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => restoredBannerDraft.professionalIdentitySelection || { enabled: null, name_source: null })
+  const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => {
+    const saved = restoredBannerDraft.professionalIdentitySelection
+    if (saved?.enabled === true) return { enabled: true, name_source: saved.name_source || null, credential_source: saved.credential_source === 'br_creci' || saved.credential_source === 'us_license' ? saved.credential_source : null }
+    return saved?.enabled === false ? { enabled: false, name_source: null, credential_source: 'none' } : { enabled: null, name_source: null, credential_source: null }
+  })
   const [chatIndex, setChatIndex] = useState(() => restoredBannerDraft.chatIndex || 0)
   const [textDraft, setTextDraft] = useState(() => restoredBannerDraft.textDraft || '')
   const [multiDraft, setMultiDraft] = useState(() => restoredBannerDraft.multiDraft || [])
@@ -2623,7 +2627,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       market, locale, goal, answers, valueCondition, destination, creativeIdea, creativeIdeaCount,
       uploadedImages, promptTouched, effectivePrompt, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext,
       rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee,
-      showProfessionalIdentity: professionalIdentitySelection.enabled === true, professionalIdentity, professionalMarket,
+      showProfessionalIdentity: professionalIdentitySelection.enabled === true, professionalIdentitySelection, professionalMarket,
     })
 
     updateGenerationJob(jobId, {

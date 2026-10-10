@@ -197,7 +197,7 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
   if (typeof raw.contact_authorized !== 'boolean' || (contactAuthorized && !/^[+\d][\d\s().-]{7,31}$/.test(phone)) || (!contactAuthorized && phone)) throw new TextCampaignValidationError('invalid_contact')
   if (raw.professional_identity !== undefined && !isRecord(raw.professional_identity)) throw new TextCampaignValidationError('invalid_professional_identity')
   const professionalIdentity = isRecord(raw.professional_identity) && raw.professional_identity.enabled === true
-    ? { enabled: true as const, name_source: raw.professional_identity.name_source === 'display' ? 'display' as const : raw.professional_identity.name_source === 'real' ? 'real' as const : (() => { throw new TextCampaignValidationError('invalid_professional_identity') })() }
+    ? { enabled: true as const, name_source: raw.professional_identity.name_source === 'display' ? 'display' as const : raw.professional_identity.name_source === 'real' ? 'real' as const : (() => { throw new TextCampaignValidationError('invalid_professional_identity') })(), credential_source: raw.professional_identity.credential_source === 'br_creci' ? 'br_creci' as const : raw.professional_identity.credential_source === 'us_license' ? 'us_license' as const : (() => { throw new TextCampaignValidationError('invalid_professional_identity') })() }
     : undefined
 
   return {
@@ -272,7 +272,7 @@ export function presentTextCampaignBriefing(briefing: TextCampaignBriefing) {
 export function attachTextCampaignProfessionalIdentity(briefing: TextCampaignBriefing, profile: Record<string, unknown> | null | undefined) {
   const professionalIdentity = resolveProfessionalIdentity(profile, briefing.professional_identity, briefing.market)
   return professionalIdentity
-    ? { ...briefing, professional_identity: { enabled: true, name_source: professionalIdentity.name_source, formatted: professionalIdentity.formatted } }
+    ? { ...briefing, professional_identity: { enabled: true, name_source: professionalIdentity.name_source, credential_source: briefing.professional_identity?.credential_source, formatted: professionalIdentity.formatted } }
     : { ...briefing, professional_identity: undefined }
 }
 

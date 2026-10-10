@@ -160,7 +160,7 @@ export const createEmptyTextCampaignAnswers = () => ({
   notes: '',
   cta: '',
   includeProfessionalPhone: '',
-  professionalIdentity: { enabled: null, name_source: null },
+  professionalIdentity: { enabled: null, name_source: null, credential_source: null },
 })
 
 export const getTextCampaignStageOptions = purpose => getSmartTourStageOptions(purpose, TEXT_CAMPAIGN_SALE_STAGES)
@@ -259,7 +259,7 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '', 
     cta: answers.cta,
     contact_authorized: contactAuthorized,
     professional_phone: contactAuthorized ? professionalPhone : '',
-    ...(answers.professionalIdentity?.enabled === true && answers.professionalIdentity.name_source ? { professional_identity: { enabled: true, name_source: answers.professionalIdentity.name_source } } : {}),
+    ...(answers.professionalIdentity?.enabled === true && answers.professionalIdentity.name_source && answers.professionalIdentity.credential_source ? { professional_identity: { enabled: true, name_source: answers.professionalIdentity.name_source, credential_source: answers.professionalIdentity.credential_source } } : {}),
     commercial: sale
       ? {
           mode: answers.saleValueMode,

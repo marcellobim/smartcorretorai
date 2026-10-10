@@ -25,6 +25,7 @@ import {
 } from './narration-timing.ts'
 import {
   MarketingOpenAIError,
+  MarketingSchemaValidationError,
   createMarketingOpenAICallBudget,
   logMarketingLocalFailure,
   requestMarketingOpenAIJson,
@@ -245,7 +246,8 @@ function selectNarrationVoice(imageCount: number, highlightCount: number) {
 }
 
 function sanitizeStringList(value: unknown, maxItems: number, maxLength: number) {
-  return (Array.isArray(value) ? value : [])
+  const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[\n,]/g) : []
+  return values
     .slice(0, maxItems)
     .map((item) => cleanText(item, maxLength))
     .filter(Boolean)
@@ -269,7 +271,10 @@ function sanitizeCampaign(value: unknown, index: number) {
       body: cleanText(email.body, 3000),
     },
     linkedin: cleanText(campaign.linkedin, 2400),
-    hashtags: sanitizeStringList(campaign.hashtags, 12, 80),
+    hashtags: (() => {
+      const hashtags = sanitizeStringList(campaign.hashtags, 12, 80)
+      return hashtags.some(tag => tag.toLowerCase() === '#smartcorretorai') ? hashtags.map(tag => tag.toLowerCase() === '#smartcorretorai' ? '#SmartCorretorAI' : tag) : [...hashtags, '#SmartCorretorAI'].slice(0, 12)
+    })(),
     cta: cleanText(campaign.cta, 220),
   }
 }
@@ -282,7 +287,8 @@ function validateMarketingIntelligence(value: unknown, expectedCta: string) {
     .map(sanitizeCampaign)
   const googleAds = validateGoogleAdsDelivery(result.google_ads, { expectedCta })
 
-  if (!narration || campaigns.length !== 3) throw new Error('invalid_marketing_response')
+  if (!narration) throw new MarketingSchemaValidationError({ fieldPath: 'narration', expectedType: 'nonempty string', receivedType: typeof result.narration, missingRequired: !result.narration })
+  if (campaigns.length !== 3) throw new MarketingSchemaValidationError({ fieldPath: 'campaigns', expectedType: 'array[3]', receivedType: Array.isArray(result.campaigns) ? `array[${result.campaigns.length}]` : typeof result.campaigns, missingRequired: !result.campaigns })
   for (const campaign of campaigns) {
     if (
       !campaign.name
@@ -294,7 +300,7 @@ function validateMarketingIntelligence(value: unknown, expectedCta: string) {
       || !campaign.email.body
       || !campaign.hashtags.includes('#SmartCorretorAI')
       || !campaign.cta
-    ) throw new Error('invalid_marketing_response')
+    ) throw new MarketingSchemaValidationError({ fieldPath: `campaigns[${campaigns.indexOf(campaign)}]`, expectedType: 'complete campaign', receivedType: 'partial object', missingRequired: true })
   }
 
   return {
@@ -841,7 +847,14 @@ async function handleCreate(
       : typeof rawProfessionalIdentity === 'object' && !Array.isArray(rawProfessionalIdentity)
         && (rawProfessionalIdentity as JsonRecord).enabled === true
         && (((rawProfessionalIdentity as JsonRecord).name_source === 'real') || ((rawProfessionalIdentity as JsonRecord).name_source === 'display'))
-        ? { enabled: true, name_source: (rawProfessionalIdentity as JsonRecord).name_source as 'real' | 'display' }
+        && (((rawProfessionalIdentity as JsonRecord).credential_source === 'br_creci') || ((rawProfessionalIdentity as JsonRecord).credential_source === 'us_license'))
+        ? {
+          enabled: true,
+          name_source: (rawProfessionalIdentity as JsonRecord).name_source as 'real' | 'display',
+          ...(((rawProfessionalIdentity as JsonRecord).credential_source === 'br_creci' || (rawProfessionalIdentity as JsonRecord).credential_source === 'us_license')
+            ? { credential_source: (rawProfessionalIdentity as JsonRecord).credential_source as 'br_creci' | 'us_license' }
+            : {}),
+        }
         : null
   const locale = normalizeSmartCarouselLocale(body)
   const expectedCtaFile = smartCarouselCtaFile(cta, locale.language)
@@ -918,13 +931,15 @@ async function handleCreate(
     if (sharePhone || professionalIdentitySelection.enabled) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select(professionalIdentitySelection.enabled ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, license_number' : 'whatsapp, telefone')
+        .select(professionalIdentitySelection.enabled ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, license_number, license_state' : 'whatsapp, telefone')
         .eq('id', userId)
         .maybeSingle()
       if (sharePhone) phone = formatSmartCarouselPhone(profile?.whatsapp || profile?.telefone || '', locale.market)
       const resolved = resolveProfessionalIdentity(profile, professionalIdentitySelection, locale.market)
-      if (professionalIdentitySelection.enabled && !resolved) return jsonResponse({ ok: false, error: 'Complete sua identificação profissional antes de criar.' }, 400)
-      professionalIdentity = resolved?.formatted || ''
+        // A missing or incompatible identity is optional metadata, never a
+        // generation prerequisite. In particular, a BR UF must not become a
+        // US licence state merely because the creation market is US.
+        professionalIdentity = resolved?.formatted || ''
     }
 
     const presentationPlan = await buildPresentationPlan(

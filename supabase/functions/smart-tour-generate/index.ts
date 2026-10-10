@@ -138,12 +138,9 @@ serve(withCors(async req => {
       if (existing.status === 'completed' || existing.status === 'failed') await settleGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,status:existing.status})
       return json({ok:true,jobId:existing.id,status:existing.status,hashtags:existing.marketing_hashtags || [],idempotent:true})
     }
-    const {data:profile} = await supabase.from('profiles').select(input.professional_identity.enabled ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
+    const {data:profile} = await supabase.from('profiles').select(input.professional_identity.enabled ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, license_number, license_state' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
     const resolvedProfessionalIdentity = resolveProfessionalIdentity(profile, input.professional_identity, input.market)
-    // A direct authenticated call cannot turn an incomplete opted-in profile into
-    // a silent no-identity creation. The chat collects these fields first.
-    if (input.professional_identity.enabled && !resolvedProfessionalIdentity) throw new Error('professional_identity_incomplete')
     const professionalIdentity = resolvedProfessionalIdentity?.formatted || ''
     const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.market === 'US' ? input.property.neighborhoodCommunity : input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.market === 'US' ? input.property.bathrooms : input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = buildOfficialHashtags(hashtagContext)

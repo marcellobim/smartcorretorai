@@ -146,10 +146,9 @@ export default function SmartTourAI() {
   // name choice again rather than inventing it.
   const [professionalIdentitySelection, setProfessionalIdentitySelection] = useState(() => {
     const saved = restoredTourDraft.professionalIdentity
-    if (saved?.enabled === false) return { enabled: false, name_source: null }
-    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source }
-    if (restoredTourDraft.showProfessionalIdentity === false) return { enabled: false, name_source: null }
-    return { enabled: null, name_source: null }
+    if (saved?.enabled === false || restoredTourDraft.showProfessionalIdentity === false) return { enabled: false, name_source: null, credential_source: 'none' }
+    if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source, credential_source: saved.credential_source === 'br_creci' || saved.credential_source === 'us_license' ? saved.credential_source : null }
+    return { enabled: null, name_source: null, credential_source: null }
   })
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
@@ -211,7 +210,7 @@ export default function SmartTourAI() {
       if (questionId === 'captions') setGeneration(current => ({ ...current, captions: '' }))
       if (questionId === 'professional_identity') {
         if (isShortVideos) setShowProfessionalIdentity(null)
-        else setProfessionalIdentitySelection({ enabled: null, name_source: null })
+        else setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
       }
       if (questionId === 'cta_enabled') { setCtaEnabled(null); setCta(''); setIncludePhone(null) }
       if (questionId === 'cta') setCta('')
@@ -236,7 +235,7 @@ export default function SmartTourAI() {
     }))
     if (shouldReset('professional_identity')) {
       if (isShortVideos) setShowProfessionalIdentity(null)
-      else setProfessionalIdentitySelection({ enabled: null, name_source: null })
+      else setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
     }
     if (shouldReset('cta_enabled')) setCtaEnabled(null)
     if (shouldReset('cta')) setCta('')
@@ -508,7 +507,7 @@ export default function SmartTourAI() {
       setStatus('generating'); setMessage(t('smartTour.status.creating'))
       let campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, professional_identity: { enabled: professionalIdentitySelection.enabled === true, ...(professionalIdentitySelection.enabled === true ? { name_source: professionalIdentitySelection.name_source } : {}) }, language: apiGeneration.language, market } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, professional_identity: { enabled: professionalIdentitySelection.enabled === true, ...(professionalIdentitySelection.enabled === true ? { name_source: professionalIdentitySelection.name_source, credential_source: professionalIdentitySelection.credential_source } : {}) }, language: apiGeneration.language, market } })
       if (await isVideoSessionInvalid(error, data)) {
         clearSmartTourActiveJob(sessionStorage)
         requireLogin()
@@ -548,7 +547,7 @@ export default function SmartTourAI() {
     setCta('')
     setIncludePhone(null)
     setShowProfessionalIdentity(null)
-    setProfessionalIdentitySelection({ enabled: null, name_source: null })
+    setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
     conversation.resetConversation()
     setStatus('idle')
     setMessage('')

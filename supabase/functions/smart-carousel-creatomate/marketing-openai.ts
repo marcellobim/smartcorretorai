@@ -25,6 +25,7 @@ export type MarketingOpenAIDiagnostic = Readonly<{
   failure_type: string | null
   will_retry: boolean
   stack: string | null
+  schema: Readonly<{ schema_version: 'smart_carousel_marketing_v1'; field_path: string; expected_type: string; received_type: string; missing_required: boolean; extra_fields: number }> | null
 }>
 
 export type MarketingOpenAICallBudget = {
@@ -59,6 +60,7 @@ type MarketingOpenAIErrorInput = Readonly<{
   contentPresent?: boolean
   failureType?: string | null
   publicErrorCode?: string | null
+  schemaError?: MarketingSchemaValidationError | null
 }>
 
 export class MarketingOpenAIError extends Error {
@@ -69,6 +71,7 @@ export class MarketingOpenAIError extends Error {
   readonly contentPresent: boolean
   readonly failureType: string | null
   readonly publicErrorCode: string | null
+  readonly schemaError: MarketingSchemaValidationError | null
 
   constructor(input: MarketingOpenAIErrorInput) {
     super(input.code)
@@ -80,6 +83,27 @@ export class MarketingOpenAIError extends Error {
     this.contentPresent = input.contentPresent === true
     this.failureType = input.failureType ?? null
     this.publicErrorCode = input.publicErrorCode ?? null
+    this.schemaError = input.schemaError ?? null
+  }
+}
+
+// This error deliberately contains schema metadata only; it never carries raw
+// provider content, prompts, property facts, identity, or contact data.
+export class MarketingSchemaValidationError extends Error {
+  readonly fieldPath: string
+  readonly expectedType: string
+  readonly receivedType: string
+  readonly missingRequired: boolean
+  readonly extraFields: number
+
+  constructor(input: Readonly<{ fieldPath: string; expectedType: string; receivedType: string; missingRequired?: boolean; extraFields?: number }>) {
+    super('invalid_marketing_response')
+    this.name = 'MarketingSchemaValidationError'
+    this.fieldPath = input.fieldPath.replace(/[^a-zA-Z0-9_[\].]/g, '').slice(0, 120) || 'root'
+    this.expectedType = input.expectedType.slice(0, 40)
+    this.receivedType = input.receivedType.slice(0, 40)
+    this.missingRequired = input.missingRequired === true
+    this.extraFields = Math.max(0, Math.min(100, Math.floor(input.extraFields || 0)))
   }
 }
 
@@ -112,6 +136,7 @@ function diagnosticFor(
   durationMs: number,
   willRetry: boolean,
 ): MarketingOpenAIDiagnostic {
+  const schemaError = error.schemaError
   return Object.freeze({
     event: 'smart_carousel_marketing_openai',
     job_id: jobId,
@@ -124,6 +149,7 @@ function diagnosticFor(
     failure_type: error.failureType,
     will_retry: willRetry,
     stack: sanitizeStack(error),
+    schema: schemaError ? Object.freeze({ schema_version: 'smart_carousel_marketing_v1', field_path: schemaError.fieldPath, expected_type: schemaError.expectedType, received_type: schemaError.receivedType, missing_required: schemaError.missingRequired, extra_fields: schemaError.extraFields }) : null,
   })
 }
 
@@ -157,17 +183,21 @@ function responseContent(body: unknown) {
   return typeof message.content === 'string' ? message.content.trim() : ''
 }
 
-function validationError(stage: MarketingOpenAIStage) {
+function validationError(stage: MarketingOpenAIStage, schemaError?: MarketingSchemaValidationError) {
   return new MarketingOpenAIError({
     code: stage === 'revision' ? 'marketing_revision_invalid' : 'marketing_schema_invalid',
     stage,
-    retryable: stage === 'initial',
+    // Schema repair is deterministic and local.  A second provider request
+    // would be a paid retry and cannot repair a missing required fact safely.
+    retryable: false,
     contentPresent: true,
-    failureType: 'schema',
+    failureType: schemaError ? `schema:${schemaError.fieldPath}` : 'schema',
+    schemaError: schemaError ?? null,
   })
 }
 
 function isKnownSchemaValidationError(error: unknown) {
+  if (error instanceof MarketingSchemaValidationError) return true
   if (!(error instanceof Error)) return false
   return error.message === 'invalid_marketing_response'
     || error.message === 'invalid_google_ads'
@@ -253,7 +283,7 @@ export async function requestMarketingOpenAIJson<T>(input: MarketingOpenAIReques
         validated = input.validate(parsed)
       } catch (error) {
         if (error instanceof MarketingOpenAIError) throw error
-        if (isKnownSchemaValidationError(error)) throw validationError(input.stage)
+        if (isKnownSchemaValidationError(error)) throw validationError(input.stage, error instanceof MarketingSchemaValidationError ? error : undefined)
         throw new MarketingOpenAIError({
           code: 'marketing_local_deterministic_error', stage: input.stage, retryable: false,
           providerStatus, contentPresent: true, failureType: 'local_validation',
@@ -264,7 +294,7 @@ export async function requestMarketingOpenAIJson<T>(input: MarketingOpenAIReques
         event: 'smart_carousel_marketing_openai', job_id: input.jobId, stage: input.stage,
         code: 'marketing_openai_ok', provider_status: providerStatus, attempt,
         duration_ms: Math.max(0, Math.round(now() - startedAt)), content_present: true,
-        failure_type: null, will_retry: false, stack: null,
+        failure_type: null, will_retry: false, stack: null, schema: null,
       }))
       return validated
     } catch (caughtError) {
@@ -278,6 +308,7 @@ export async function requestMarketingOpenAIJson<T>(input: MarketingOpenAIReques
         contentPresent: error.contentPresent || contentPresent,
         failureType: error.failureType,
         publicErrorCode: error.publicErrorCode,
+        schemaError: error.schemaError,
       }), attempt, now() - startedAt, willRetry))
       if (!willRetry) throw error
       await sleep(250 * attempt)

@@ -9,7 +9,8 @@ const professionalIdentity = (value: unknown): ProfessionalIdentitySelection => 
   const raw = value as Record<string, unknown>
   if (raw.enabled !== true) return { enabled: false }
   if (raw.name_source !== 'real' && raw.name_source !== 'display') throw new Error('invalid_professional_identity')
-  return { enabled: true, name_source: raw.name_source }
+  if (raw.credential_source !== 'br_creci' && raw.credential_source !== 'us_license') throw new Error('invalid_professional_identity')
+  return { enabled: true, name_source: raw.name_source, credential_source: raw.credential_source }
 }
 
 export function normalizeGeneration(value: Partial<SmartTourGenerationConfig>): SmartTourGenerationConfig {

@@ -9,7 +9,8 @@ const quickBanners = read('../src/pages/NovaCampanha.jsx')
 
 test('passes a chosen professional identity from Banner Imobiliário into the renderer contract', () => {
   assert.match(frontend, /show_professional_identity: showProfessionalIdentity === true/)
-  assert.match(frontend, /professional_identity: showProfessionalIdentity === true \? professionalIdentity : ''/)
+  assert.match(frontend, /professional_identity: showProfessionalIdentity === true \? professionalIdentitySelection : \{ enabled: false \}/)
+  assert.match(renderer, /resolveProfessionalIdentity\(profile, selected as JsonRecord, payload\.market === 'US' \? 'US' : 'BR'\)/)
   assert.match(renderer, /show_professional_identity: payload\.show_professional_identity === true/)
   assert.match(renderer, /professional_identity: payload\.show_professional_identity === true \? normalizeProfessionalIdentity\(payload\.professional_identity\) : ''/)
   assert.match(renderer, /IDENTIFICACAO PROFISSIONAL OBRIGATORIA NA ARTE: \$\{professionalIdentity\}/)
