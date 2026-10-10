@@ -22,7 +22,9 @@ export const PROFESSIONAL_IDENTITY_FUNCTIONS=Object.freeze([
  'smart-carousel-creatomate','smart-tour-generate','criar-video-ia','generate-text-campaign','gerar-hero-ia',
 ])
 export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
- 'smart-carousel-creatomate':54,'smart-tour-generate':87,'criar-video-ia':213,'generate-text-campaign':44,'gerar-hero-ia':87,
+ // Four functions advanced before the batch guard rejected the unchanged Hero version.
+ // Resume only from the remote state observed immediately before this guarded retry.
+ 'smart-carousel-creatomate':55,'smart-tour-generate':88,'criar-video-ia':214,'generate-text-campaign':45,'gerar-hero-ia':87,
 })
 
 const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity']
