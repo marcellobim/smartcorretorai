@@ -7,6 +7,7 @@ test('admin release targets only admin-api and rejects combined/unrecognized sco
  assert.deepEqual(edgeScope([]),[])
  assert.deepEqual(edgeScope(['--video-social-metadata']),['smart-tour-generate','social-publish-video'])
  assert.deepEqual(edgeScope(['--tiktok-content-posting']),['tiktok-content-posting'])
+ assert.deepEqual(edgeScope(['--smart-carousel-renderer']),['smart-carousel-creatomate'])
  assert.throws(()=>edgeScope(['--admin-api','--video-social-metadata']))
  assert.throws(()=>edgeScope(['--tiktok-content-posting','--admin-api']))
  assert.throws(()=>edgeScope(['--anything']))

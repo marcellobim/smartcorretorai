@@ -18,7 +18,7 @@ export const BANNER_RECOVERY_RELEASE = Object.freeze({
  ]),
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote']
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--smart-carousel-renderer','--banner-recovery-hotfix','--banner-recovery-promote']
 
 export function deploymentMode(args){
  const modes=[]
@@ -42,6 +42,7 @@ export function edgeScope(args) {
  if(mode==='--admin-api')return ['admin-api']
  if(mode==='--tiktok-content-posting')return ['tiktok-content-posting']
  if(mode==='--video-social-metadata')return ['smart-tour-generate','social-publish-video']
+ if(mode==='--smart-carousel-renderer')return ['smart-carousel-creatomate']
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []
 }

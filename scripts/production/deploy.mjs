@@ -491,6 +491,7 @@ function functionsList(){return JSON.parse(run(edgeCli,['functions','list','--pr
 function adminVersion(){return adminApiVersion(functionsList())}
 function tiktokContentPostingVersionActive(){return tiktokContentPostingVersion(functionsList())}
 function bannerVersion(expected=null){return bannerFunctionVersion(functionsList(),expected)}
+function smartCarouselRendererVersion(){const fn=functionsList().find(item=>item.slug==='smart-carousel-creatomate');if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: smart-carousel-creatomate deve estar ACTIVE');return fn.version}
 function isAncestor(ancestor,descendant){return spawnSync('git',['merge-base','--is-ancestor',ancestor,descendant],{cwd:root}).status===0}
 
 function validateBannerLocal(current,sha){
@@ -693,10 +694,11 @@ const mode=deploymentMode(args)
 const deployVideoSocialMetadata=mode==='--video-social-metadata'
 const deployAdminApi=mode==='--admin-api'
 const deployTikTokContentPosting=mode==='--tiktok-content-posting'
+const deploySmartCarouselRenderer=mode==='--smart-carousel-renderer'
 const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
- if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
- if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
+ if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploySmartCarouselRenderer||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
+ if(target.name!=='smartcorretorai'&&!(target.name==='snetia'&&deploySmartCarouselRenderer)&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploySmartCarouselRenderer||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modo Edge incompatível com o target')
 const selectedFunctions=edgeScope(args)
 const sha=git('rev-parse','HEAD')
 const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
@@ -730,6 +732,23 @@ if(deployAdminApi)run(process.execPath,['--test','--test-isolation=none','script
 if(deployVideoSocialMetadata)run(process.execPath,['--test','--test-isolation=none','frontend/tests/video-social-metadata.test.mjs','supabase/functions/social-publish-video/runtime.test.ts','frontend/tests/social-publish-ui-state.test.mjs'],root,true)
 if(deployBannerRecovery)bannerTests()
 else run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
+
+if(deploySmartCarouselRenderer){
+ const previous=smartCarouselRendererVersion()
+ if(previous!==53)throw Error('DEPLOY BLOQUEADO: smart-carousel-creatomate não está na v53 esperada')
+ if(git('diff','88c50f7','HEAD','--','supabase/functions/smart-carousel-creatomate'))throw Error('DEPLOY BLOQUEADO: renderer diverge do commit 88c50f7 aprovado')
+ const edgeStage=createReleaseStage({sha})+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
+ try {
+  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,'supabase/functions','supabase/config.toml')
+  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
+  else run('unzip',['-o',edgeZip,'-d',edgeStage])
+  run(edgeCli,['functions','deploy','smart-carousel-creatomate','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--use-api','--workdir',edgeStage],root,true)
+  const version=smartCarouselRendererVersion()
+  if(version!==54)throw Error('DEPLOY BLOQUEADO: smart-carousel-creatomate não alcançou v54 ACTIVE')
+  console.log(JSON.stringify({mode:'smart-carousel-renderer',sourceCommit:'88c50f7',previousVersion:previous,newVersion:version,status:'ACTIVE'}))
+  return
+ } finally {rmSync(edgeStage,{recursive:true,force:true});rmSync(edgeZip,{force:true})}
+}
 
  const stage=createReleaseStage({sha})
  try {
