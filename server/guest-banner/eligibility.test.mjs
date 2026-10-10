@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs'
 import {sessionCookie} from './security.mjs'
 // Run with PGLITE_MODULE pointing to an isolated @electric-sql/pglite installation.
 const {PGlite}=await import(process.env.PGLITE_MODULE || '@electric-sql/pglite')
-const sql=name=>readFileSync(new URL('../../supabase/migrations/'+name,import.meta.url),'utf8')
+const sql=name=>readFileSync(new URL(name.startsWith('20260913')||name.startsWith('20260914')?'../../experiments/deferred-migrations/guest-banner/'+name:'../../supabase/migrations/'+name,import.meta.url),'utf8')
 test('different guests share a day; only success consumes individual eligibility',async()=>{
  const db=new PGlite()
  try {
