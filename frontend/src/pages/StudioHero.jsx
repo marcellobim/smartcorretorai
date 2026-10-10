@@ -26,11 +26,8 @@ import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEP
 import {
   ProductButton,
   ProductCard,
-  ProductFlowLayout,
   ProductHero,
   ProductSectionHeading,
-  ProductSteps,
-  ProductSummary,
   SMART_UI,
 } from '../components/design-system'
 import { buildPublicationGoogleAds } from '../../../core/copy-engine'
@@ -38,6 +35,7 @@ import { buildStudioPublicationOptions } from '../lib/studio-publication-content
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
+import StudioUsLocation from '../components/location/StudioUsLocation'
 import { ConversationAssistantBubble, ConversationHeader, ConversationQuestionCard, ConversationUserBubble } from '../components/conversation/ConversationPrimitives'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
@@ -62,13 +60,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const TYPEWRITER_INITIAL_DELAY_MS = 350
 const TYPEWRITER_CHAR_DELAY_MS = 30
 const TYPEWRITER_FINAL_CURSOR_MS = 400
-const STUDIO_PRODUCT_STEPS = [
-  { title: 'Objetivo', subtitle: 'Defina a campanha' },
-  { title: 'Imóvel', subtitle: 'Organize o contexto' },
-  { title: 'Direção', subtitle: 'Escolha o estilo' },
-  { title: 'Revisão', subtitle: 'Confira as escolhas' },
-  { title: 'Criação', subtitle: 'Receba o vídeo' },
-]
 function logStudioHero(level, event, payload) {
   if (!IS_DEV) return
   console[level](event, payload)
@@ -408,6 +399,13 @@ const OBJECTIVE_OPTIONS = [
   },
 ]
 
+const US_OBJECTIVE_DESCRIPTIONS = Object.freeze({
+  sale: 'Create a commercial that attracts buyers.',
+  rent: 'Create a commercial that attracts renters.',
+  property_capture: 'Attract owners who want to sell or rent.',
+  broker_capture: 'Attract agents and real estate professionals to your team.',
+})
+
 const RESIDENTIAL_PROPERTY_TYPES = ['APARTAMENTO', 'CASA']
 const COMMERCIAL_PROPERTY_TYPES = ['SALA COMERCIAL', 'LOJA', 'LAJE CORPORATIVA', 'GALPAO']
 const LAND_PROPERTY_TYPES = ['LOTE', 'TERRENO']
@@ -434,6 +432,16 @@ const FREE_AI_PARKING_OPTIONS = ['NENHUMA', '1', '2', '3', '4+']
 const AREA_OPTIONS = ['ATE 50 M2', '50 A 100 M2', '100 A 200 M2', 'ACIMA DE 200 M2']
 const COMMERCIAL_ROOM_OPTIONS = ['1 SALA/CONJUNTO', '2 SALAS/CONJUNTOS', '3 SALAS/CONJUNTOS', 'ANDAR INTEIRO']
 const BATHROOM_OPTIONS = ['1 BANHEIRO', '2 BANHEIROS', '3 BANHEIROS', '4 BANHEIROS OU MAIS']
+
+const STUDIO_US_SYSTEM_LABELS = Object.freeze({
+  NENHUMA: 'None', '4+': '4+', 'ATE 50 M2': 'Up to 50 sqft', '50 A 100 M2': '50 to 100 sqft', '100 A 200 M2': '100 to 200 sqft', 'ACIMA DE 200 M2': 'Over 200 sqft',
+  'CONDOMINIO FECHADO': 'Gated community', 'BAIRRO ABERTO': 'Open neighborhood',
+  'LEADS FORNECIDOS': 'Provided leads', 'MARKETING DIGITAL': 'Digital marketing', TREINAMENTO: 'Training', 'PLANO DE CARREIRA': 'Career plan', 'ESTRUTURA MODERNA': 'Modern structure', TECNOLOGIA: 'Technology', 'AMBIENTE COLABORATIVO': 'Collaborative environment', FLEXIBILIDADE: 'Flexibility', OUTRO: 'Other',
+})
+
+function formatStudioSystemOption(value, market) {
+  return market === 'US' ? (STUDIO_US_SYSTEM_LABELS[value] || value) : value
+}
 
 const SALE_DIFFERENTIAL_OPTIONS = [
   'LOCALIZACAO',
@@ -613,6 +621,7 @@ const initialAnswers = {
   suites: '',
   parking: '',
   area: '',
+  sqft: '',
   commercialRooms: '',
   bathrooms: '',
   differentials: [],
@@ -620,6 +629,10 @@ const initialAnswers = {
   cta: '',
   houseLocationType: '',
   uf: '',
+  state: '',
+  county: '',
+  zipCode: '',
+  neighborhoodCommunity: '',
   imageCount: 1,
   furnishingStatus: '',
   decorationPolicy: '',
@@ -795,6 +808,19 @@ function getNormalizedLocation({ district, city, uf, isCapture }) {
   return [normalizedDistrict, cityUf].filter(Boolean).join('-')
 }
 
+function getStudioUsLocation(answers = {}) {
+  return [
+    answers.neighborhoodCommunity,
+    answers.city,
+    answers.county,
+    answers.state,
+    answers.zipCode,
+  ]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
 function normalizeImpactText(value, fallback, maxWords = 1) {
   const words = normalizeVideoTextToken(value)
     .split(/\s+/)
@@ -917,11 +943,11 @@ function getPropertyTypeOptions(objective) {
   return objective === 'rent' ? RENT_PROPERTY_TYPES : SALE_PROPERTY_TYPES
 }
 
-function getProfileOptions(answers) {
+function getProfileOptions(answers, market = 'BR') {
   if (answers.objective === 'rent') {
     return isResidentialType(answers.propertyType) ? ['PRONTOS', 'ALTO PADRAO'] : []
   }
-  return isResidentialType(answers.propertyType) ? RESIDENTIAL_PROFILES : []
+  return isResidentialType(answers.propertyType) ? RESIDENTIAL_PROFILES.filter(profile => market !== 'US' || profile !== 'MCMV') : []
 }
 
 function getStudioHeroMatrixId(answers) {
@@ -993,7 +1019,7 @@ function getConfiguration(answers) {
   return [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
 }
 
-function getFinalFeatureText(answers) {
+function getFinalFeatureText(answers, market = 'BR') {
   const objectiveLabel = getObjectiveSummaryLabel(answers.objective)
   const items = [
     objectiveLabel,
@@ -1005,7 +1031,7 @@ function getFinalFeatureText(answers) {
     answers.city,
     answers.district,
     answers.bedrooms,
-    answers.suites,
+    market === 'US' ? answers.bathrooms : answers.suites,
     answers.parking,
     ...answers.differentials,
     ...answers.rentConditions,
@@ -1079,6 +1105,88 @@ function buildDeliveryTexts(input) {
   return buildStudioPublicationOptions(buildDeliveryInput(input))
 }
 
+// This is deliberately the same payload builder used by the final UI handler.
+// Keeping it side-effect-free lets tests inspect the real request body without creating a job.
+export function buildStudioGenerationPayload({
+  answers, language, market, isFreeAiMode, usLocation, normalizedLocation,
+  displayLocation, cityValue, districtValue, finalFeatures, professionalIdentity,
+  draftId, inputImage1Path,
+}) {
+  const requiresImages = !isFreeAiMode
+  const nativeVideoText = {
+    offer: normalizeVideoTextToken(answers.oferta),
+    feature: normalizeVideoTextToken(finalFeatures),
+    cta: normalizeVideoTextToken(answers.cta),
+  }
+  const briefing = {
+    language,
+    objective: answers.objective,
+    objectiveLabel: getObjectiveSummaryLabel(answers.objective),
+    propertyType: answers.propertyType,
+    ...(isLandType(answers.propertyType) ? {
+      imagineConstruction: answers.imagineConstruction,
+      imaginedConstructionType: answers.imaginedConstructionType,
+      area: answers.area,
+    } : {}),
+    profile: answers.profile,
+    stage: answers.stage,
+    houseLocationType: answers.houseLocationType,
+    ...(market === 'US'
+      ? {
+          state: answers.state || '', county: answers.county || '', city: answers.city || '',
+          location: usLocation, normalizedLocation: usLocation,
+          ...(answers.zipCode ? { zipCode: answers.zipCode } : {}),
+          ...(answers.neighborhoodCommunity ? { neighborhoodCommunity: answers.neighborhoodCommunity } : {}),
+        }
+      : { uf: answers.uf, city: cityValue, district: districtValue, location: displayLocation, normalizedLocation }),
+    bedrooms: answers.bedrooms,
+    ...(market === 'US'
+      ? { bathrooms: answers.bathrooms || '', sqft: answers.sqft || '' }
+      : { suites: answers.suites, area: answers.area }),
+    parking: answers.parking,
+    differentials: answers.differentials,
+    brokerHasBenefits: answers.brokerHasBenefits,
+    brokerCommission: answers.brokerCommission,
+    brokerBenefits: answers.brokerBenefits,
+    brokerBenefitOther: answers.brokerBenefitOther,
+    offer: nativeVideoText.offer,
+    cta: nativeVideoText.cta,
+    finalFeatures: nativeVideoText.feature,
+    creativeMode: answers.creativeMode,
+    furnishingStatus: answers.furnishingStatus,
+    decorationPolicy: answers.decorationPolicy,
+    visualStyle: answers.visualStyle,
+    atmosphere: answers.atmosphere,
+    pace: answers.pace,
+    creativeFreedom: answers.creativeFreedom,
+    professional_identity: {
+      enabled: answers.professionalIdentity?.enabled === true,
+      ...(answers.professionalIdentity?.enabled === true ? { name_source: answers.professionalIdentity.name_source } : {}),
+    },
+  }
+  return {
+    language, market,
+    mode: isFreeAiMode ? 'free_ai' : 'cinematic',
+    creativeMode: isFreeAiMode ? 'free_ai' : 'cinematic',
+    style: answers.profile || 'ALTO PADRAO',
+    bairro: market === 'US' ? usLocation : normalizedLocation,
+    caracteristica: nativeVideoText.feature,
+    oferta: nativeVideoText.offer,
+    cta: nativeVideoText.cta,
+    briefing,
+    jobId: draftId,
+    publicationOptions: buildDeliveryTexts({ answers, districtValue, cityValue, language })
+      .filter(item => /instagram|facebook/i.test(item.label))
+      .slice(0, 3)
+      .map((item, index) => ({ id: `studio-caption-option-${index + 1}`, label: item.label, text: answers.professionalIdentity?.enabled ? `${item.text}\n\n${professionalIdentity?.formatted || ''}`.trim() : item.text })),
+    ...(requiresImages ? { inputImage1Path } : {}),
+  }
+}
+
+export async function dispatchStudioGeneration(invoke, payload) {
+  return invoke('criar-video-ia', payload)
+}
+
 async function invokeStudioFunction(name, body) {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
@@ -1139,7 +1247,12 @@ export default function StudioHero() {
   const { locale, market, t } = useLocale()
   const conversationControls = getConversationControls(market)
   const language = locale === 'en-US' ? 'en-US' : 'pt-BR'
-  const optionLabel = (group, value) => (value ? t(`studio.options.${group}.${value}`) : '')
+  const optionLabel = (group, value) => {
+    if (!value) return ''
+    const key = `studio.options.${group}.${value}`
+    const translated = t(key)
+    return translated === key ? '' : translated
+  }
   const studioUiLabels = {
     preview: {
       loading: t('virtualStaging.preview.loading'),
@@ -1171,6 +1284,7 @@ export default function StudioHero() {
   const pollTimerRef = useRef(null)
   const pollInFlightRef = useRef('')
   const componentMountedRef = useRef(false)
+  const previousMarketRef = useRef(market)
   const initialActiveJobRef = useRef(undefined)
   if (initialActiveJobRef.current === undefined) {
     initialActiveJobRef.current = typeof window === 'undefined'
@@ -1188,11 +1302,38 @@ export default function StudioHero() {
   const [manualCityMode, setManualCityMode] = useState(() => Boolean(formatDisplayText(initialAnswers.cityOther)))
   const [files, setFiles] = useState({ image1: null })
   const [status, setStatus] = useState(() => initialActiveJobRef.current ? 'generating' : 'idle')
-  const [message, setMessage] = useState(() => initialActiveJobRef.current ? 'Retomando sua criação...' : '')
+  const [message, setMessage] = useState(() => initialActiveJobRef.current ? t('studio.recovery.resuming') : '')
   const [videoUrl, setVideoUrl] = useState('')
   const [publicationOptions, setPublicationOptions] = useState([])
   const [isRecoveredJob, setIsRecoveredJob] = useState(() => Boolean(initialActiveJobRef.current))
   const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
+
+  useEffect(() => {
+    const previousMarket = previousMarketRef.current
+    if (previousMarket === market) return
+    previousMarketRef.current = market
+
+    setManualCityMode(false)
+    setAnswers(current => {
+      if (market === 'US') {
+        return {
+          ...current,
+          profile: current.profile === 'MCMV' ? '' : current.profile,
+          // A Brazilian location is not meaningful in the US hierarchy.
+          uf: '', city: '', cityOther: '', district: '', captureHasDistrict: '',
+          state: '', county: '', zipCode: '', neighborhoodCommunity: '',
+        }
+      }
+
+      // Likewise, do not retain US-only geography when returning to the
+      // existing BR/IBGE controls. Other free-form briefing fields remain.
+      return {
+        ...current,
+        uf: '', city: '', cityOther: '', district: '', captureHasDistrict: '',
+        state: '', county: '', zipCode: '', neighborhoodCommunity: '',
+      }
+    })
+  }, [market])
 
   const isSale = answers.objective === 'sale'
   const isRent = answers.objective === 'rent'
@@ -1220,7 +1361,7 @@ export default function StudioHero() {
   const isCommercialProperty = isCommercialType(answers.propertyType)
   const isCapture = isCaptureObjective(answers.objective)
   const propertyTypeOptions = getPropertyTypeOptions(answers.objective)
-  const profileOptions = getProfileOptions(answers)
+  const profileOptions = getProfileOptions(answers, market)
   const stageOptions = getStageOptions(answers)
   const differentialOptions = getDifferentialOptions(answers)
   const ctaOptions = getCtaOptions(answers)
@@ -1229,12 +1370,16 @@ export default function StudioHero() {
   const districtValue = formatDisplayText(answers.district)
   const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const normalizedLocation = getNormalizedLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
+  const usLocation = getStudioUsLocation(answers)
+  const hasCompletedLocation = market === 'US'
+    ? Boolean(answers.state && answers.county && answers.city)
+    : (isCapture ? Boolean(cityValue && answers.captureHasDistrict) : Boolean(cityValue && districtValue))
   const configuration = getConfiguration(answers)
   const finalFeatures = getFinalFeatureText({
     ...answers,
     city: cityValue,
     district: districtValue,
-  })
+  }, market)
   const isGenerating = ['uploading', 'generating'].includes(status)
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
@@ -1282,7 +1427,7 @@ export default function StudioHero() {
   const progressMessage = getCreativeProgressMessage(step, uploadStep, isFreeAiMode, t)
   const propertyFeaturesSummary = isCommercialProperty
     ? [answers.area, answers.parking].filter(Boolean).join(', ')
-    : [answers.bedrooms, answers.suites, answers.parking].filter(Boolean).join(', ')
+    : [answers.bedrooms, market === 'US' ? answers.bathrooms : answers.suites, answers.parking].filter(Boolean).join(', ')
   const professionalIdentity = buildProfessionalIdentity(user || {}, answers.professionalIdentity, market)
   const stepSummaries = {
     1: answers.objective ? optionLabel('objectives', answers.objective) : '',
@@ -1351,7 +1496,7 @@ export default function StudioHero() {
   const hasRequiredCinematicImage = IMAGE_SLOTS.every((slot) => files[slot.key])
   const hasRequiredFreeAiBriefing = Boolean(answers.visualStyle && answers.atmosphere && answers.pace && answers.creativeFreedom)
   const hasRequiredFreeAiPropertyFeatures = !hasFreeAiPropertyFeaturesStep
-    || (isCommercialProperty ? Boolean(answers.area && answers.parking) : Boolean(answers.bedrooms && answers.suites && answers.parking))
+    || (isCommercialProperty ? Boolean(answers.area && answers.parking) : Boolean(answers.bedrooms && (market === 'US' ? answers.bathrooms : answers.suites) && answers.parking))
   const hasRequiredModeInputs = isFreeAiMode
     ? Boolean(hasRequiredFreeAiBriefing && hasRequiredFreeAiPropertyFeatures)
     : Boolean(hasRequiredCinematicImage && (!hasCinematicPropertyPreparationStep || (answers.furnishingStatus && answers.decorationPolicy)))
@@ -1366,10 +1511,7 @@ export default function StudioHero() {
     (!hasLandImaginationStep || answers.imagineConstruction) &&
     (!hasLandConceptStep || answers.imaginedConstructionType) &&
     (!hasStageStep || answers.stage) &&
-    answers.uf &&
-    cityValue &&
-    (!isCapture || answers.captureHasDistrict) &&
-    (isCapture ? (answers.captureHasDistrict === 'no' || districtValue) : districtValue) &&
+    hasCompletedLocation &&
     answers.differentials.length > 0 &&
     (!isBrokerCapture || answers.brokerHasBenefits) &&
     answers.cta &&
@@ -1718,7 +1860,7 @@ export default function StudioHero() {
     if (activeJob) {
       setStudioMode(getStudioUiMode(activeJob.mode))
       setStatus('generating')
-      setMessage('Retomando sua criação...')
+      setMessage(t('studio.recovery.resuming'))
       scheduleVideoPoll(activeJob.jobId, 0, { mode: 'recovery' })
     }
     return () => {
@@ -1784,7 +1926,7 @@ export default function StudioHero() {
       })
       clearPolling()
       setStatus('failed')
-      setMessage('Nao foi possivel preparar o comercial neste momento.')
+      setMessage(t('studio.errors.unavailable'))
       return
     }
 
@@ -1833,7 +1975,7 @@ export default function StudioHero() {
         setStatus('completed')
         setVideoUrl(nextVideoUrl)
         setPublicationOptions(Array.isArray(data.publicationOptions) ? data.publicationOptions : [])
-        setMessage('Seu comercial esta pronto.')
+        setMessage(t('studio.status.ready'))
         void reloadProfile()
         return
       }
@@ -1859,7 +2001,7 @@ export default function StudioHero() {
       }
 
       setStatus('generating')
-      setMessage(isRecovery ? 'Retomamos sua criação. Ela ainda está em processamento...' : (data.message || 'Criando seu comercial...'))
+      setMessage(isRecovery ? t('studio.recovery.resumed') : (data.message || t('studio.status.generating')))
       scheduleVideoPoll(normalizedJobId)
     } catch (error) {
       logStudioHero('error', 'studio_hero_status_error', {
@@ -1868,7 +2010,7 @@ export default function StudioHero() {
       })
       if (componentMountedRef.current && activeJobRef.current?.jobId === normalizedJobId) {
         setStatus('generating')
-        setMessage('Não foi possível atualizar o andamento agora. Continuaremos tentando automaticamente.')
+        setMessage(t('studio.status.checking'))
         scheduleVideoPoll(normalizedJobId)
       }
     } finally {
@@ -1884,20 +2026,20 @@ export default function StudioHero() {
       setIsRecoveredJob(true)
       setStudioMode(getStudioUiMode(storedActiveJob.mode))
       setStatus('generating')
-      setMessage('Retomando sua criação...')
+      setMessage(t('studio.recovery.resuming'))
       scheduleVideoPoll(storedActiveJob.jobId, 0, { mode: 'recovery' })
       return
     }
     if (!isFreeAiMode && !studioHeroAccess.canGenerate) {
       setStatus('failed')
-      setMessage('Disponivel para assinantes ou usuarios com Smart Tokens suficientes. Veja o exemplo e ative quando quiser.')
+      setMessage(t('studio.errors.access'))
       return
     }
 
     trackGenerationClicked()
     clearPolling()
     setStatus(isFreeAiMode ? 'generating' : 'uploading')
-    setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Preparando seu comercial...')
+    setMessage(isFreeAiMode ? t('studio.status.generatingCreative') : t('studio.status.preparing'))
     setVideoUrl('')
 
     try {
@@ -1915,72 +2057,13 @@ export default function StudioHero() {
         : ''
 
       setStatus('generating')
-      setMessage(isFreeAiMode ? 'Criando seu comercial livre...' : 'Criando seu comercial...')
+      setMessage(isFreeAiMode ? t('studio.status.generatingCreative') : t('studio.status.generating'))
 
-      const nativeVideoText = {
-        offer: normalizeVideoTextToken(answers.oferta),
-        feature: normalizeVideoTextToken(finalFeatures),
-        cta: normalizeVideoTextToken(answers.cta),
-      }
-
-      const payload = {
-        language,
-        market,
-        mode: isFreeAiMode ? 'free_ai' : 'cinematic',
-        creativeMode: isFreeAiMode ? 'free_ai' : 'cinematic',
-        style: answers.profile || 'ALTO PADRAO',
-        bairro: normalizedLocation,
-        caracteristica: nativeVideoText.feature,
-        oferta: nativeVideoText.offer,
-        cta: nativeVideoText.cta,
-        briefing: {
-          language,
-          objective: answers.objective,
-          objectiveLabel: getObjectiveSummaryLabel(answers.objective),
-          propertyType: answers.propertyType,
-          ...(isLandType(answers.propertyType) ? {
-            imagineConstruction: answers.imagineConstruction,
-            imaginedConstructionType: answers.imaginedConstructionType,
-            area: answers.area,
-          } : {}),
-          profile: answers.profile,
-          stage: answers.stage,
-          houseLocationType: answers.houseLocationType,
-          uf: answers.uf,
-          city: cityValue,
-          district: districtValue,
-          location: displayLocation,
-          normalizedLocation,
-          bedrooms: answers.bedrooms,
-          suites: answers.suites,
-          parking: answers.parking,
-          differentials: answers.differentials,
-          brokerHasBenefits: answers.brokerHasBenefits,
-          brokerCommission: answers.brokerCommission,
-          brokerBenefits: answers.brokerBenefits,
-          brokerBenefitOther: answers.brokerBenefitOther,
-          offer: nativeVideoText.offer,
-          cta: nativeVideoText.cta,
-          finalFeatures: nativeVideoText.feature,
-          creativeMode: answers.creativeMode,
-          furnishingStatus: answers.furnishingStatus,
-          decorationPolicy: answers.decorationPolicy,
-          visualStyle: answers.visualStyle,
-          atmosphere: answers.atmosphere,
-          pace: answers.pace,
-          creativeFreedom: answers.creativeFreedom,
-          professional_identity: {
-            enabled: answers.professionalIdentity?.enabled === true,
-            ...(answers.professionalIdentity?.enabled === true ? { name_source: answers.professionalIdentity.name_source } : {}),
-          },
-        },
-        jobId: draftId,
-        publicationOptions: buildDeliveryTexts({ answers, districtValue, cityValue, language })
-          .filter(item => /instagram|facebook/i.test(item.label))
-          .slice(0, 3)
-          .map((item, index) => ({ id: `studio-caption-option-${index + 1}`, label: item.label, text: answers.professionalIdentity?.enabled ? `${item.text}\n\n${professionalIdentity?.formatted || ''}`.trim() : item.text })),
-        ...(requiresImages ? { inputImage1Path } : {}),
-      }
+      const payload = buildStudioGenerationPayload({
+        answers, language, market, isFreeAiMode, usLocation, normalizedLocation,
+        displayLocation, cityValue, districtValue, finalFeatures, professionalIdentity,
+        draftId, inputImage1Path,
+      })
 
       logStudioHero('info', 'studio_hero_generate_payload_ready', {
         mode: payload.mode,
@@ -2016,7 +2099,7 @@ export default function StudioHero() {
         }),
       })
 
-      const result = await invokeStudioFunction('criar-video-ia', payload)
+      const result = await dispatchStudioGeneration(invokeStudioFunction, payload)
       const data = result.body
 
       if (!result.ok) {
@@ -2036,7 +2119,7 @@ export default function StudioHero() {
       activeJobRef.current = activeJob
       setVideoUrl('')
       setStatus('generating')
-      setMessage(data.message || 'Criando seu comercial...')
+      setMessage(data.message || t('studio.status.generating'))
       scheduleVideoPoll(nextJobId)
     } catch (error) {
       logStudioHero('error', 'studio_hero_generate_error', {
@@ -2130,7 +2213,7 @@ export default function StudioHero() {
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {VISIBLE_STUDIO_MODE_EXAMPLES.map((example) => {
+              {(market === 'US' ? VISIBLE_STUDIO_MODE_EXAMPLES.filter(example => ['cinematic', 'free_ai'].includes(example.id)) : VISIBLE_STUDIO_MODE_EXAMPLES).map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
                 const localizedExample = example.id === 'cinematic'
                   ? t('studio.demo.cinematic')
@@ -2146,7 +2229,7 @@ export default function StudioHero() {
                           <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
                           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{localizedExample.label}</p>
                         </div>
-                        {example.media && (
+                        {example.media && market !== 'US' && (
                           <video
                             src={example.media}
                             aria-label={t('studio.accessibility.demo').replace('{title}', localizedExample.title)}
@@ -2172,7 +2255,7 @@ export default function StudioHero() {
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
                         <p className="flex items-center gap-2 text-xs font-black text-slate-950">
                           <span className="h-px w-4 bg-slate-400" aria-hidden="true" />
-                          Você conversa com a IA e envia:
+                          {market === 'US' ? 'You talk with AI and send:' : 'Você conversa com a IA e envia:'}
                         </p>
                         <ul className="mt-2 space-y-1.5">
                           {localizedExample.send.map((item) => (
@@ -2186,7 +2269,7 @@ export default function StudioHero() {
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
                         <p className="flex items-center gap-2 text-xs font-black text-slate-950">
                           <span className="h-px w-4 bg-slate-400" aria-hidden="true" />
-                          E recebe:
+                          {market === 'US' ? 'You receive:' : 'E recebe:'}
                         </p>
                         <ul className="mt-2 space-y-1.5">
                           {localizedExample.receive.map((item) => (
@@ -2214,6 +2297,8 @@ export default function StudioHero() {
                   ? { title: t('studio.mode.commercial'), description: t('studio.mode.commercialDescription'), cta: t('studio.mode.commercialAction') }
                   : mode.id === 'free_ai'
                     ? { title: t('studio.mode.creative'), description: t('studio.mode.creativeDescription'), cta: t('studio.mode.creativeAction') }
+                    : mode.id === 'smart_carousel' && market === 'US'
+                      ? { title: 'Ad Carousel', description: 'Create a polished carousel presentation for social media and real estate campaigns.', cta: 'Open Ad Carousel' }
                     : mode
               const cardContent = (
                 <>
@@ -2292,11 +2377,7 @@ export default function StudioHero() {
 
         <StudioGalleryInvitation />
 
-        <ProductSteps steps={STUDIO_PRODUCT_STEPS} activeStep={studioVisualStep} label="Etapas da criação no Studio IA" />
-
-        <ProductFlowLayout
-          className="pb-12"
-          main={<section data-smart-conversation className="space-y-5">
+        <section data-smart-conversation className="space-y-5 pb-12">
           {isRecoveredJob && (
             <RecoveredStudioJobPanel
               status={status}
@@ -2318,14 +2399,14 @@ export default function StudioHero() {
           <div className={isRecoveredJob ? 'hidden' : 'contents'}>
           <div className="space-y-4">
             <ConversationHeader
-              eyebrow="Direcao criativa"
-              title="Converse com a IA"
+              eyebrow={market === 'US' ? 'Creative direction' : 'Direção criativa'}
+              title={market === 'US' ? 'Talk with AI' : 'Converse com a IA'}
               description={progressMessage}
               accent="cyan"
               trailing={<span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800"><MessageSquareText className="h-4 w-4" />{progressPercent}%</span>}
             />
             <ProductCard variant="flat" className="p-3 backdrop-blur">
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-label={`Progresso da conversa: ${progressPercent}%`}>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-label={t('studio.accessibility.progress').replace('{percent}', progressPercent)}>
               <div
                 className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-primary-700 transition-all duration-500"
                 style={{ width: `${progressPercent}%` }}
@@ -2341,7 +2422,7 @@ export default function StudioHero() {
                   key={option.id}
                   active={answers.objective === option.id}
                   title={optionLabel('objectives', option.id)}
-                  description={option.description}
+                  description={market === 'US' ? US_OBJECTIVE_DESCRIPTIONS[option.id] : option.description}
                   onClick={() => updateObjective(option)}
                 />
               ))}
@@ -2388,7 +2469,7 @@ export default function StudioHero() {
             >
               <div className="max-w-sm space-y-4">
                 <label className="block">
-                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">Área aproximada</span>
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-500">{market === 'US' ? 'Approximate area' : 'Área aproximada'}</span>
                   <span className="mt-3 flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-primary-500">
                     <input
                       value={answers.area}
@@ -2399,7 +2480,7 @@ export default function StudioHero() {
                       aria-label={t('studio.questions.landAreaAria')}
                       className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
                     />
-                    <span className="ml-2 text-sm font-black text-slate-500">m²</span>
+                    <span className="ml-2 text-sm font-black text-slate-500">{market === 'US' ? 'sqft' : 'm²'}</span>
                   </span>
                 </label>
                 <ProductButton type="button" disabled={!hasValidLandArea(answers.area)} onClick={confirmLandArea}>
@@ -2422,13 +2503,13 @@ export default function StudioHero() {
                   active={answers.imagineConstruction === 'yes'}
                   onClick={() => updateImagineConstruction('yes')}
                 >
-                  Sim
+                  {conversationControls.yes}
                 </ChipButton>
                 <ChipButton
                   active={answers.imagineConstruction === 'no'}
                   onClick={() => updateImagineConstruction('no')}
                 >
-                  Não
+                  {conversationControls.no}
                 </ChipButton>
               </ChipGrid>
             </AssistantStep>
@@ -2464,7 +2545,7 @@ export default function StudioHero() {
                     active={answers.profile === option}
                     onClick={() => updateProfile(option)}
                   >
-                    {option}
+                    {optionLabel('profiles', option)}
                   </ChipButton>
                 ))}
               </ChipGrid>
@@ -2549,7 +2630,16 @@ export default function StudioHero() {
               onEdit={() => setStep(locationStep)}
               message={isCapture ? t('studio.questions.captureLocation') : t('studio.questions.location')}
             >
-              <div className="space-y-5">
+              {market === 'US' ? <StudioUsLocation value={answers} onChange={next => {
+                resetGenerationState()
+                setManualCityMode(false)
+                setAnswers({
+                  ...next,
+                  // The US hierarchy owns this answer. Do not retain values
+                  // from the Brazilian UF/city/neighborhood controls.
+                  uf: '', cityOther: '', district: '', captureHasDistrict: '',
+                })
+              }} onContinue={() => setStep(isCapture ? captureTypeStep : differentialsStep)} /> : <div className="space-y-5">
                 <div>
                   <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{t('virtualStaging.location.state')}</p>
                   <SmartCarouselStateSelect
@@ -2674,7 +2764,7 @@ export default function StudioHero() {
                     {conversationControls.confirm}
                   </ProductButton>
                 </div>
-              </div>
+              </div>}
             </AssistantStep>
           )}
 
@@ -2712,7 +2802,7 @@ export default function StudioHero() {
             </UserReply>
           )}
 
-          {(isCapture ? (cityValue && answers.captureHasDistrict) : (cityValue && districtValue)) && (!isCapture || answers.propertyType) && step >= differentialsStep && (
+          {hasCompletedLocation && (!isCapture || answers.propertyType) && step >= differentialsStep && (
             <AssistantStep
               number={differentialsStep}
               currentStep={step}
@@ -2721,7 +2811,7 @@ export default function StudioHero() {
               message={t('studio.questions.impact')}
             >
               <div className="space-y-4">
-                <p className="text-sm font-black text-slate-600">Escolha uma palavra curta para criar o impacto inicial do vídeo.</p>
+                <p className="text-sm font-black text-slate-600">{market === 'US' ? 'Choose one short word for the opening impact.' : 'Escolha uma palavra curta para criar o impacto inicial do vídeo.'}</p>
                 <ChipGrid>
                   {differentialOptions.map((option) => {
                     const selected = answers.differentials.includes(option)
@@ -2741,7 +2831,7 @@ export default function StudioHero() {
                 </ChipGrid>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-slate-500">
-                    {answers.differentials.length}/{MAX_DIFFERENTIALS} selecionado
+                    {answers.differentials.length}/{MAX_DIFFERENTIALS} {market === 'US' ? 'selected' : 'selecionado'}
                   </span>
                   <ProductButton
                     type="button"
@@ -2765,10 +2855,10 @@ export default function StudioHero() {
             >
               <ChipGrid>
                 <ChipButton active={answers.brokerHasBenefits === 'no'} onClick={() => updateBrokerHasBenefits('no')}>
-                  Nao
+                  {conversationControls.no}
                 </ChipButton>
                 <ChipButton active={answers.brokerHasBenefits === 'yes'} onClick={() => updateBrokerHasBenefits('yes')}>
-                  Sim
+                  {conversationControls.yes}
                 </ChipButton>
               </ChipGrid>
             </AssistantStep>
@@ -2784,33 +2874,33 @@ export default function StudioHero() {
             >
               <div className="space-y-5">
                 <p className="text-sm font-bold text-slate-500">
-                  Esses dados ajudam a narrativa do comercial sem inventar informacoes.
+                  {market === 'US' ? 'These facts guide the commercial without inventing details.' : 'Esses dados ajudam a narrativa do comercial sem inventar informacoes.'}
                 </p>
                 {isCommercialProperty ? (
                   <OptionGroup
-                    title="Área útil (m²)"
-                    options={AREA_OPTIONS}
-                    value={answers.area}
-                    onSelect={(value) => updatePropertyCharacteristic('area', value)}
+                      title={market === 'US' ? 'Area (sqft)' : 'Área útil (m²)'}
+                      options={AREA_OPTIONS}
+                      value={market === 'US' ? answers.sqft : answers.area}
+                      onSelect={(value) => updatePropertyCharacteristic(market === 'US' ? 'sqft' : 'area', value)}
                   />
                 ) : (
                   <>
                     <OptionGroup
-                      title="Dormitorios"
+                      title={market === 'US' ? 'Bedrooms' : 'Dormitórios'}
                       options={FREE_AI_BEDROOM_OPTIONS}
                       value={answers.bedrooms}
                       onSelect={(value) => updatePropertyCharacteristic('bedrooms', value)}
                     />
                     <OptionGroup
-                      title="Suites"
+                      title={market === 'US' ? 'Bathrooms' : 'Suítes'}
                       options={FREE_AI_SUITE_OPTIONS}
-                      value={answers.suites}
-                      onSelect={(value) => updatePropertyCharacteristic('suites', value)}
+                      value={market === 'US' ? answers.bathrooms : answers.suites}
+                      onSelect={(value) => updatePropertyCharacteristic(market === 'US' ? 'bathrooms' : 'suites', value)}
                     />
                   </>
                 )}
                 <OptionGroup
-                  title="Vagas"
+                  title={market === 'US' ? 'Parking spaces' : 'Vagas'}
                   options={FREE_AI_PARKING_OPTIONS}
                   value={answers.parking}
                   onSelect={(value) => updatePropertyCharacteristic('parking', value)}
@@ -2838,7 +2928,7 @@ export default function StudioHero() {
             >
               <div className="space-y-5">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Percentual de comissao</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">{market === 'US' ? 'Commission percentage' : 'Percentual de comissão'}</p>
                   <div className="mt-3 flex max-w-xs items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-primary-500">
                     <input
                       value={answers.brokerCommission}
@@ -2852,7 +2942,7 @@ export default function StudioHero() {
                 </div>
 
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Outros beneficios</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">{market === 'US' ? 'Other benefits' : 'Outros benefícios'}</p>
                   <ChipGrid className="mt-3">
                     {BROKER_BENEFIT_OPTIONS.map((option) => {
                       const selected = answers.brokerBenefits.includes(option)
@@ -2870,20 +2960,20 @@ export default function StudioHero() {
                     })}
                   </ChipGrid>
                   <p className="mt-2 text-sm font-bold text-slate-500">
-                    {answers.brokerBenefits.length}/{MAX_BROKER_BENEFITS} selecionados
+                    {answers.brokerBenefits.length}/{MAX_BROKER_BENEFITS} {market === 'US' ? 'selected' : 'selecionados'}
                   </p>
                 </div>
 
                 {answers.brokerBenefits.includes('OUTRO') && (
                   <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Qual outro beneficio?</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">{market === 'US' ? 'What other benefit?' : 'Qual outro benefício?'}</p>
                     <input
                       value={answers.brokerBenefitOther}
                       onChange={(event) => {
                         resetGenerationState()
                         setAnswers((current) => ({ ...current, brokerBenefitOther: normalizeFreeText(event.target.value), cta: '', imageCount: 1 }))
                       }}
-                      placeholder="DIGITE O BENEFICIO"
+                      placeholder={market === 'US' ? 'ENTER THE BENEFIT' : 'DIGITE O BENEFÍCIO'}
                       className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary-500"
                     />
                   </div>
@@ -3054,7 +3144,7 @@ export default function StudioHero() {
             >
               <div className="space-y-4">
                 <p className="text-sm font-bold text-slate-500">
-                  Isso ajuda a definir quanto o comercial pode explorar cenas criadas pela IA.
+                  {market === 'US' ? 'This defines how freely the commercial can explore AI-created scenes.' : 'Isso ajuda a definir quanto o comercial pode explorar cenas criadas pela IA.'}
                 </p>
                 <ChipGrid>
                   {FREE_AI_FREEDOM_OPTIONS.map((option) => (
@@ -3151,7 +3241,7 @@ export default function StudioHero() {
           )}
 
           {!isFreeAiMode && (hasCinematicPropertyPreparationStep ? answers.decorationPolicy : answers.cta) && step >= uploadStep && (
-            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message={`Envie a melhor imagem do imovel. O ${BRAND.name} adiciona automaticamente o encerramento profissional do video.`}>
+            <AssistantStep number={uploadStep} currentStep={step} summary={stepSummaries[uploadStep]} onEdit={() => setStep(uploadStep)} message={t('studio.upload.instruction').replace('{brand}', BRAND.name)}>
               <div ref={uploadSectionRef} className="space-y-5 scroll-mt-8">
                 {isGenerating && !videoUrl ? (
                   <LoadingCard generationMessage={localizedGenerationMessage} />
@@ -3187,7 +3277,7 @@ export default function StudioHero() {
                         ))}
                       </div>
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold leading-5 text-slate-500">
-                        Escolha a foto que melhor representa o imovel. Ela abre o comercial; o encerramento profissional e aplicado automaticamente pelo {BRAND.name}.
+                        {t('studio.upload.helper').replace('{brand}', BRAND.name)}
                       </div>
                     </div>
 
@@ -3216,19 +3306,11 @@ export default function StudioHero() {
               size="sm"
             >
               <RotateCcw className="h-4 w-4" />
-              Reiniciar conversa
+              {t('studio.actions.reset')}
             </ProductButton>
           </div>
           </div>
-        </section>}
-          aside={<ProductSummary
-            title="Resumo da criação"
-            items={studioSummaryItems}
-            emptyText="Suas escolhas aparecerão aqui durante a conversa."
-            onEdit={setStep}
-            editDisabled={isGenerating}
-          />}
-        />
+        </section>
       </div>
     </main>
   )
@@ -3320,7 +3402,7 @@ function StudioHeroRepresentativePhone() {
 }
 
 function StudioPossibilitiesShowcase() {
-  const { t } = useLocale()
+  const { t, market } = useLocale()
   return (
     <ProductCard className="overflow-hidden p-5 sm:p-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
@@ -3351,7 +3433,8 @@ function StudioPossibilitiesShowcase() {
           </ProductCard>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          {STUDIO_POSSIBILITY_EXAMPLES.map((example, index) => (
+          {market === 'US' && <p className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-sm font-bold text-cyan-900">{t('smartTour.showcase.usAssetsPending')}</p>}
+          {(market === 'US' ? [] : STUDIO_POSSIBILITY_EXAMPLES).map((example, index) => (
             <ProductCard as="article" key={example.id} variant="muted" className="p-3">
               <div className="rounded-[1.6rem] border border-slate-200 bg-slate-950 p-2 shadow-lg shadow-slate-200/70">
                 <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.15rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#0e7490_100%)]">
@@ -3522,6 +3605,7 @@ function ChipButton({ active, disabled = false, children, onClick }) {
 }
 
 function OptionGroup({ title, options, value, onSelect }) {
+  const { market } = useLocale()
   return (
     <div>
       <p className="text-xs font-black uppercase tracking-wide text-slate-500">{title}</p>
@@ -3532,7 +3616,7 @@ function OptionGroup({ title, options, value, onSelect }) {
             active={value === option}
             onClick={() => onSelect(option)}
           >
-            {option}
+            {formatStudioSystemOption(option, market)}
           </ChipButton>
         ))}
       </ChipGrid>
@@ -3621,9 +3705,9 @@ function UploadReadyPanel({
     isCapture: isCaptureObjective(answers.objective),
   })
   const summaryItems = [
-    ['Localizacao', displayLocation],
-    ['Abertura', answers.differentials[0] || getCommercialImpactWord(answers)],
-    ['Encerramento', answers.cta],
+    [t('studio.summary.location'), displayLocation],
+    [t('studio.summary.impact'), answers.differentials[0] || getCommercialImpactWord(answers)],
+    [t('studio.summary.closing'), answers.cta],
   ]
 
   return (
@@ -3739,7 +3823,7 @@ function TypewriterText({ text, active }) {
 }
 
 function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, propertyFeaturesSummary = '', onEdit, onEditImages, onGenerate, mode = 'cinematic' }) {
-  const { t } = useLocale()
+  const { t, market } = useLocale()
   const isSale = answers.objective === 'sale'
   const isFreeAiMode = mode === 'free_ai'
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
@@ -3784,45 +3868,45 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const imageErrorTarget = getImageErrorTarget(message)
   const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const visibleTextPreview = [
-    ['Localizacao', displayLocation],
-    ['Abertura', answers.differentials[0] || getCommercialImpactWord(answers)],
-    ['Encerramento', answers.cta],
+    [t('studio.summary.location'), displayLocation],
+    [t('studio.summary.impact'), answers.differentials[0] || getCommercialImpactWord(answers)],
+    [t('studio.summary.closing'), answers.cta],
   ]
   const rows = [
-    ['Objetivo', getObjectiveSummaryLabel(answers.objective), 1],
-    ...(isPropertyCampaign ? [[isCommercialType(answers.propertyType) ? 'Tipo comercial' : 'Imovel', answers.propertyType, 2]] : []),
-    ...(isPropertyCapture ? [['Tipo desejado', answers.propertyType, captureTypeStep]] : []),
-    ...(isBrokerCapture ? [['Profissional', answers.propertyType, captureTypeStep]] : []),
-    ...(hasProfileStep ? [['Perfil', answers.profile, profileStep]] : []),
-    ...(hasHouseLocationStep ? [['Localizacao da casa', answers.houseLocationType, houseLocationStep]] : []),
-    ...(hasLandAreaStep ? [['Área aproximada', formatLandArea(answers.area), landAreaStep]] : []),
-    ...(hasLandImaginationStep ? [['Imaginar construção', answers.imagineConstruction === 'yes' ? 'Sim' : 'Não', landImaginationStep]] : []),
-    ...(hasLandConceptStep ? [['Proposta conceitual', answers.imaginedConstructionType, landConceptStep]] : []),
-    ...(hasStageStep ? [['Estagio', answers.stage, stageStep]] : []),
-    [isCapture ? 'Area de atuacao' : 'Localizacao', displayLocation, locationStep],
-    ['Abertura', answers.differentials.join(', '), differentialsStep],
-    ...(isBrokerCapture ? [['Beneficios', answers.brokerHasBenefits === 'yes' ? 'Sim' : answers.brokerHasBenefits === 'no' ? 'Nao' : '', benefitQuestionStep]] : []),
-    ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && answers.brokerCommission ? [['Comissao', `${answers.brokerCommission}%`, benefitDetailsStep]] : []),
+    [t('studio.summary.objective'), getObjectiveSummaryLabel(answers.objective), 1],
+    ...(isPropertyCampaign ? [[isCommercialType(answers.propertyType) ? t('studio.summary.commercialType') : t('studio.summary.property'), answers.propertyType, 2]] : []),
+    ...(isPropertyCapture ? [[market === 'US' ? 'Requested property type' : 'Tipo desejado', answers.propertyType, captureTypeStep]] : []),
+    ...(isBrokerCapture ? [[market === 'US' ? 'Professional' : 'Profissional', answers.propertyType, captureTypeStep]] : []),
+    ...(hasProfileStep ? [[t('studio.summary.profile'), answers.profile, profileStep]] : []),
+    ...(hasHouseLocationStep ? [[market === 'US' ? 'House location' : 'Localização da casa', answers.houseLocationType, houseLocationStep]] : []),
+    ...(hasLandAreaStep ? [[market === 'US' ? 'Approximate area' : 'Área aproximada', formatLandArea(answers.area), landAreaStep]] : []),
+    ...(hasLandImaginationStep ? [[market === 'US' ? 'Imagine construction' : 'Imaginar construção', answers.imagineConstruction === 'yes' ? t('common.yes') : t('common.no'), landImaginationStep]] : []),
+    ...(hasLandConceptStep ? [[market === 'US' ? 'Concept proposal' : 'Proposta conceitual', answers.imaginedConstructionType, landConceptStep]] : []),
+    ...(hasStageStep ? [[market === 'US' ? 'Status' : 'Estágio', answers.stage, stageStep]] : []),
+    [isCapture ? t('studio.summary.captureArea') : t('studio.summary.location'), displayLocation, locationStep],
+    [t('studio.summary.impact'), answers.differentials.join(', '), differentialsStep],
+    ...(isBrokerCapture ? [[market === 'US' ? 'Benefits' : 'Benefícios', answers.brokerHasBenefits === 'yes' ? t('common.yes') : answers.brokerHasBenefits === 'no' ? t('common.no') : '', benefitQuestionStep]] : []),
+    ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && answers.brokerCommission ? [[market === 'US' ? 'Commission' : 'Comissão', `${answers.brokerCommission}%`, benefitDetailsStep]] : []),
     ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && (answers.brokerBenefits.length > 0 || answers.brokerBenefitOther)
-      ? [['Beneficios destacados', [
+      ? [[market === 'US' ? 'Highlighted benefits' : 'Benefícios destacados', [
         ...answers.brokerBenefits.filter((item) => item !== 'OUTRO'),
         answers.brokerBenefitOther,
       ].filter(Boolean).join(', '), benefitDetailsStep]]
       : []),
-    ...(hasFreeAiPropertyFeaturesStep ? [['Caracteristicas', propertyFeaturesSummary, propertyFeaturesStep]] : []),
-    ['Encerramento', answers.cta, ctaStep],
+    ...(hasFreeAiPropertyFeaturesStep ? [[t('studio.summary.characteristics'), propertyFeaturesSummary, propertyFeaturesStep]] : []),
+    [t('studio.summary.closing'), answers.cta, ctaStep],
     ...(isFreeAiMode ? [
-      ['Modo', 'Criacao livre com IA', uploadStep],
-      ['Estilo visual', answers.visualStyle, visualStyleStep],
-      ['Atmosfera', answers.atmosphere, atmosphereStep],
-      ['Ritmo', answers.pace, paceStep],
-      ['Liberdade criativa', answers.creativeFreedom, creativeFreedomStep],
+      [market === 'US' ? 'Mode' : 'Modo', t('studio.answers.freeCreation'), uploadStep],
+      [t('studio.summary.visualStyle'), answers.visualStyle, visualStyleStep],
+      [t('studio.summary.atmosphere'), answers.atmosphere, atmosphereStep],
+      [t('studio.summary.pace'), answers.pace, paceStep],
+      [t('studio.summary.creativeFreedom'), answers.creativeFreedom, creativeFreedomStep],
     ] : [
       ...(hasCinematicPropertyPreparationStep ? [
-        ['Mobiliario', answers.furnishingStatus, furnishingStep],
-        ['Ambientacao', answers.decorationPolicy, decorationStep],
+        [t('studio.summary.furnishing'), answers.furnishingStatus, furnishingStep],
+        [t('studio.summary.decoration'), answers.decorationPolicy, decorationStep],
       ] : []),
-      ['Imagem do imovel', files.image1?.name, uploadStep],
+      [t('studio.summary.image'), files.image1?.name, uploadStep],
     ]),
   ].filter((row) => row[2])
 
@@ -3900,7 +3984,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
             key={label}
             type="button"
             variant="flat"
-            onClick={() => (label.startsWith('Imagem') ? onEditImages() : onEdit(editStep))}
+            onClick={() => (label === t('studio.summary.image') ? onEditImages() : onEdit(editStep))}
             className={`group p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50/50 ${SMART_UI.focus}`}
           >
             <div className="flex items-start gap-3">
@@ -3990,7 +4074,7 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
 }
 
 function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, uiLabels, language = 'pt-BR', onReset }) {
-  const { t } = useLocale()
+  const { t, market } = useLocale()
   const completed = Boolean(videoUrl)
   const deliveryInput = { answers, districtValue, cityValue, language }
   const deliveryTexts = completed
@@ -4005,7 +4089,7 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
     return (
       <CampaignPackage
         data={{
-          sourceProduct: 'Studio Hero Cinematográfico',
+          sourceProduct: market === 'US' ? 'Real Estate Commercial' : 'Studio Hero Cinematográfico',
           sourceType,
           sourceId,
           mediaAssetId: sourceId,
@@ -4018,11 +4102,10 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
           propertyType: getStudioCopyPropertyType(answers),
           district: districtValue,
           city: cityValue,
-          state: answers.uf,
+          state: market === 'US' ? answers.state : answers.uf,
           bedrooms: answers.bedrooms,
-          suites: answers.suites,
+          ...(market === 'US' ? { bathrooms: answers.bathrooms, area: answers.sqft } : { suites: answers.suites, area: answers.area }),
           parkingSpaces: answers.parking,
-          area: answers.area,
           highlights: getStudioCopyFeatures(answers),
           cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
           contactAuthorized: false,
@@ -4042,7 +4125,7 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
     return (
       <CampaignPackage
         data={{
-          sourceProduct: 'IA Livre',
+          sourceProduct: market === 'US' ? 'Creative Video' : 'IA Livre',
           sourceType,
           sourceId,
           mediaAssetId: sourceId,
@@ -4055,11 +4138,10 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
           propertyType: getStudioCopyPropertyType(answers),
           district: districtValue,
           city: cityValue,
-          state: answers.uf,
+          state: market === 'US' ? answers.state : answers.uf,
           bedrooms: answers.bedrooms,
-          suites: answers.suites,
+          ...(market === 'US' ? { bathrooms: answers.bathrooms, area: answers.sqft } : { suites: answers.suites, area: answers.area }),
           parkingSpaces: answers.parking,
-          area: answers.area,
           highlights: getStudioCopyFeatures(answers),
           cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
           contactAuthorized: false,

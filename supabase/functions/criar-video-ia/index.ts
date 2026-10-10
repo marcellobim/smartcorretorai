@@ -15,6 +15,7 @@ import {
   buildFreeAiSpokenCtaInstruction,
   withFreeAiSpokenCta,
 } from './free-ai-spoken-cta.ts'
+import { buildStudioMarketPrompt } from './studio-market-prompt.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1958,6 +1959,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const city = getBriefingValue(briefing, 'city', '')
   const district = getBriefingValue(briefing, 'district', '')
   const uf = getBriefingValue(briefing, 'uf', '')
+  const state = getBriefingValue(briefing, 'state', '')
+  const county = getBriefingValue(briefing, 'county', '')
+  const zipCode = getBriefingValue(briefing, 'zipCode', '')
+  const neighborhoodCommunity = getBriefingValue(briefing, 'neighborhoodCommunity', '')
   const location = getBriefingValue(briefing, 'location', body.bairro)
   const normalizedLocation = normalizePromptText(briefing.normalizedLocation ?? body.bairro, 60)
   const differentials = normalizeTextArray(briefing.differentials, 5, 80)
@@ -1972,8 +1977,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
   const creativeFreedom = getBriefingValue(briefing, 'creativeFreedom', '')
   const bedrooms = getBriefingValue(briefing, 'bedrooms', body.bedrooms)
   const suites = getBriefingValue(briefing, 'suites', body.suites)
+  const bathrooms = getBriefingValue(briefing, 'bathrooms', body.bathrooms)
   const parking = getBriefingValue(briefing, 'parking', body.parking)
   const area = getBriefingValue(briefing, 'area', body.area)
+  const sqft = getBriefingValue(briefing, 'sqft', body.sqft || area)
   const brokerHasBenefits = getBriefingValue(briefing, 'brokerHasBenefits', '')
   const brokerCommission = getBriefingValue(briefing, 'brokerCommission', '')
   const brokerBenefits = normalizeTextArray(briefing.brokerBenefits, 5, 80)
@@ -1992,6 +1999,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     city,
     district,
     uf,
+    state,
+    county,
+    zipCode,
+    neighborhoodCommunity,
     location,
     normalizedLocation,
     differentials,
@@ -2006,8 +2017,10 @@ function buildStructuredStudioHeroBriefing(body: JsonRecord) {
     creativeFreedom,
     bedrooms,
     suites,
+    bathrooms,
     parking,
     area,
+    sqft,
     brokerHasBenefits,
     brokerCommission,
     brokerBenefits,
@@ -4136,6 +4149,28 @@ serve(async (req) => {
       if (professionalIdentityInstruction) {
         promptFinal = `${promptFinal}${professionalIdentityInstruction}`
         visualPromptForDebug = `${visualPromptForDebug}${studioProfessionalIdentityInstruction('[redacted professional identity]', briefing.language)}`
+      }
+      // US requests use a dedicated provider-facing base. Do not compose a
+      // Portuguese prompt and attempt to repair it after the fact.
+      if (briefing.language === 'en-US') {
+        const usProviderPrompt = buildStudioMarketPrompt({
+          language: briefing.language,
+          mode: isFreeAiRequest ? 'free_ai' : 'cinematic',
+          briefing,
+          professionalIdentity,
+        })
+        promptFinal = usProviderPrompt
+        visualPromptForDebug = buildStudioMarketPrompt({
+          language: briefing.language,
+          mode: isFreeAiRequest ? 'free_ai' : 'cinematic',
+          briefing,
+          professionalIdentity: professionalIdentity ? '[redacted professional identity]' : '',
+        })
+        voiceoverPromptForDebug = ''
+        if (isFreeAiRequest) {
+          promptFinal = withFreeAiSpokenCta(promptFinal, metadataChat.cta, false, briefing.language)
+          visualPromptForDebug = withFreeAiSpokenCta(visualPromptForDebug, metadataChat.cta, false, briefing.language)
+        }
       }
       const promptLanguage = briefing.language
       promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json', promptLanguage)

@@ -35,7 +35,7 @@ test('registers the canonical completed MP4 before returning its signed URL', ()
 })
 
 test('frontend ignores creation metadata and keeps product choice on the backend', () => {
-  const payload = studio.slice(studio.indexOf('const payload = {'), studio.indexOf("invokeStudioFunction('criar-video-ia'"))
+  const payload = studio.slice(studio.indexOf('export function buildStudioGenerationPayload'), studio.indexOf('export async function dispatchStudioGeneration'))
   assert.doesNotMatch(payload, /product_key|delivery_kind|result_manifest|creation_id/)
   assert.doesNotMatch(studio, /creationId|creation-download|onWithdrawDownload/)
 })
