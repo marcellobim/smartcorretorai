@@ -604,7 +604,7 @@ const GENERATION_MESSAGES = [
   { Icon: CheckCircle2, text: 'Assim que ficar pronto, o video aparece aqui.' },
 ]
 
-const DELIVERY_PACKAGE_ITEMS = ['Instagram', 'WhatsApp', 'Facebook', 'Portal', 'LinkedIn quando aplicavel', 'Hashtags', 'CTA']
+const DELIVERY_PACKAGE_ITEMS = ['instagram', 'whatsapp', 'facebook', 'portal', 'linkedin', 'hashtags', 'cta']
 const initialAnswers = {
   objective: '',
   oferta: '',
@@ -3824,6 +3824,12 @@ function TypewriterText({ text, active }) {
 
 function StudioChecklist({ answers, cityValue, districtValue, configuration, files, studioHeroAccess, canGenerate, isGenerating, status, message, generationMessage, videoUrl, propertyFeaturesSummary = '', onEdit, onEditImages, onGenerate, mode = 'cinematic' }) {
   const { t, market } = useLocale()
+  const optionLabel = (group, value) => {
+    if (!value) return ''
+    const key = `studio.options.${group}.${value}`
+    const translated = t(key)
+    return translated === key ? formatStudioSystemOption(value, market) : translated
+  }
   const isSale = answers.objective === 'sale'
   const isFreeAiMode = mode === 'free_ai'
   const isPropertyCampaign = isPropertyCampaignObjective(answers.objective)
@@ -3869,22 +3875,22 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
   const displayLocation = getDisplayLocation({ district: districtValue, city: cityValue, uf: answers.uf, isCapture })
   const visibleTextPreview = [
     [t('studio.summary.location'), displayLocation],
-    [t('studio.summary.impact'), answers.differentials[0] || getCommercialImpactWord(answers)],
-    [t('studio.summary.closing'), answers.cta],
+    [t('studio.summary.impact'), optionLabel('differentials', answers.differentials[0] || getCommercialImpactWord(answers))],
+    [t('studio.summary.closing'), optionLabel('cta', answers.cta)],
   ]
   const rows = [
     [t('studio.summary.objective'), getObjectiveSummaryLabel(answers.objective), 1],
-    ...(isPropertyCampaign ? [[isCommercialType(answers.propertyType) ? t('studio.summary.commercialType') : t('studio.summary.property'), answers.propertyType, 2]] : []),
-    ...(isPropertyCapture ? [[market === 'US' ? 'Requested property type' : 'Tipo desejado', answers.propertyType, captureTypeStep]] : []),
-    ...(isBrokerCapture ? [[market === 'US' ? 'Professional' : 'Profissional', answers.propertyType, captureTypeStep]] : []),
-    ...(hasProfileStep ? [[t('studio.summary.profile'), answers.profile, profileStep]] : []),
-    ...(hasHouseLocationStep ? [[market === 'US' ? 'House location' : 'Localização da casa', answers.houseLocationType, houseLocationStep]] : []),
+    ...(isPropertyCampaign ? [[isCommercialType(answers.propertyType) ? t('studio.summary.commercialType') : t('studio.summary.property'), optionLabel('propertyTypes', answers.propertyType), 2]] : []),
+    ...(isPropertyCapture ? [[market === 'US' ? 'Requested property type' : 'Tipo desejado', optionLabel('propertyTypes', answers.propertyType), captureTypeStep]] : []),
+    ...(isBrokerCapture ? [[market === 'US' ? 'Professional' : 'Profissional', optionLabel('propertyTypes', answers.propertyType), captureTypeStep]] : []),
+    ...(hasProfileStep ? [[t('studio.summary.profile'), optionLabel('profiles', answers.profile), profileStep]] : []),
+    ...(hasHouseLocationStep ? [[market === 'US' ? 'House location' : 'Localização da casa', formatStudioSystemOption(answers.houseLocationType, market), houseLocationStep]] : []),
     ...(hasLandAreaStep ? [[market === 'US' ? 'Approximate area' : 'Área aproximada', formatLandArea(answers.area), landAreaStep]] : []),
     ...(hasLandImaginationStep ? [[market === 'US' ? 'Imagine construction' : 'Imaginar construção', answers.imagineConstruction === 'yes' ? t('common.yes') : t('common.no'), landImaginationStep]] : []),
     ...(hasLandConceptStep ? [[market === 'US' ? 'Concept proposal' : 'Proposta conceitual', answers.imaginedConstructionType, landConceptStep]] : []),
     ...(hasStageStep ? [[market === 'US' ? 'Status' : 'Estágio', answers.stage, stageStep]] : []),
     [isCapture ? t('studio.summary.captureArea') : t('studio.summary.location'), displayLocation, locationStep],
-    [t('studio.summary.impact'), answers.differentials.join(', '), differentialsStep],
+    [t('studio.summary.impact'), answers.differentials.map((value) => optionLabel('differentials', value)).join(', '), differentialsStep],
     ...(isBrokerCapture ? [[market === 'US' ? 'Benefits' : 'Benefícios', answers.brokerHasBenefits === 'yes' ? t('common.yes') : answers.brokerHasBenefits === 'no' ? t('common.no') : '', benefitQuestionStep]] : []),
     ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && answers.brokerCommission ? [[market === 'US' ? 'Commission' : 'Comissão', `${answers.brokerCommission}%`, benefitDetailsStep]] : []),
     ...(isBrokerCapture && answers.brokerHasBenefits === 'yes' && (answers.brokerBenefits.length > 0 || answers.brokerBenefitOther)
@@ -3894,17 +3900,17 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
       ].filter(Boolean).join(', '), benefitDetailsStep]]
       : []),
     ...(hasFreeAiPropertyFeaturesStep ? [[t('studio.summary.characteristics'), propertyFeaturesSummary, propertyFeaturesStep]] : []),
-    [t('studio.summary.closing'), answers.cta, ctaStep],
+    [t('studio.summary.closing'), optionLabel('cta', answers.cta), ctaStep],
     ...(isFreeAiMode ? [
       [market === 'US' ? 'Mode' : 'Modo', t('studio.answers.freeCreation'), uploadStep],
-      [t('studio.summary.visualStyle'), answers.visualStyle, visualStyleStep],
-      [t('studio.summary.atmosphere'), answers.atmosphere, atmosphereStep],
-      [t('studio.summary.pace'), answers.pace, paceStep],
-      [t('studio.summary.creativeFreedom'), answers.creativeFreedom, creativeFreedomStep],
+      [t('studio.summary.visualStyle'), optionLabel('visualStyle', answers.visualStyle), visualStyleStep],
+      [t('studio.summary.atmosphere'), optionLabel('atmosphere', answers.atmosphere), atmosphereStep],
+      [t('studio.summary.pace'), optionLabel('pace', answers.pace), paceStep],
+      [t('studio.summary.creativeFreedom'), optionLabel('creativeFreedom', answers.creativeFreedom), creativeFreedomStep],
     ] : [
       ...(hasCinematicPropertyPreparationStep ? [
-        [t('studio.summary.furnishing'), answers.furnishingStatus, furnishingStep],
-        [t('studio.summary.decoration'), answers.decorationPolicy, decorationStep],
+        [t('studio.summary.furnishing'), optionLabel('furnishing', answers.furnishingStatus === FURNISHING_OPTIONS[0] ? 'furnished' : 'empty'), furnishingStep],
+        [t('studio.summary.decoration'), optionLabel('decoration', answers.decorationPolicy === DECORATION_POLICY_OPTIONS[0] ? 'preserve' : answers.decorationPolicy === DECORATION_POLICY_OPTIONS[1] ? 'light' : 'free'), decorationStep],
       ] : []),
       [t('studio.summary.image'), files.image1?.name, uploadStep],
     ]),
@@ -3971,7 +3977,7 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
         <div className="mt-3 flex flex-wrap gap-2">
           {DELIVERY_PACKAGE_ITEMS.map((item) => (
             <span key={item} className="rounded-full border border-white/80 bg-white px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm">
-              {item}
+              {t(`studio.delivery.items.${item}`)}
             </span>
           ))}
         </div>

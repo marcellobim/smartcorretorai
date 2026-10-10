@@ -13,7 +13,7 @@ const getVideoSource = Function(`const GALLERY_ROOT = '/showcase/smart-studio-ga
 
 test('uses only the shared Design System for the Studio Gallery hierarchy', () => {
   assert.match(gallery, /import \{ ProductButton, ProductCard, ProductHero, ProductSectionHeading, SMART_UI \} from '\.\.\/components\/design-system'/)
-  assert.match(gallery, /<ProductHero[\s\S]*?productName="Studio IA"[\s\S]*?headline="Inspire-se"/)
+  assert.match(gallery, /<ProductHero[\s\S]*?productName=\{t\('studioGallery\.productName'\)\}[\s\S]*?headline=\{t\('studioGallery\.headline'\)\}/)
   assert.match(gallery, /<ProductSectionHeading[\s\S]*?title=\{section\.title\}/)
   assert.match(gallery, /<ProductCard[\s\S]*?as="button"/)
   assert.match(gallery, /<ProductButton[\s\S]*?onClick=\{\(\) => navigate\('\/studio-hero'\)\}/)
@@ -64,8 +64,8 @@ test('opens and closes the modal with mouse and keyboard while preserving body s
 
 test('manages initial focus, restores the trigger and resets video playback safely', () => {
   assert.match(gallery, /lastTriggerRef\.current = trigger[\s\S]*?setSelectedVideo\(video\)/)
-  assert.match(gallery, /aria-label="Fechar vídeo"[\s\S]*?autoFocus/)
+  assert.match(gallery, /aria-label=\{t\('studioGallery\.closeVideo'\)\}[\s\S]*?autoFocus/)
   assert.match(gallery, /modalVideoRef\.current\.pause\(\)[\s\S]*?modalVideoRef\.current\.currentTime = 0/)
   assert.match(gallery, /setSelectedVideo\(null\)[\s\S]*?requestAnimationFrame\(\(\) => lastTriggerRef\.current\?\.focus\(\)\)/)
-  assert.match(gallery, /aria-label=\{`Abrir exemplo \$\{index \+ 1\} de \$\{categoryTitle\}`\}/)
+  assert.match(gallery, /aria-label=\{t\('studioGallery\.openExample'\)/)
 })

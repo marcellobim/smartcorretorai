@@ -29,3 +29,13 @@ test('US Studio does not retain known Portuguese hard-coded text in its active u
   assert.match(page, /market === 'US' \? 'Bathrooms' : 'Suítes'/)
   assert.match(page, /market === 'US' \? 'sqft' : 'm²'/)
 })
+
+test('US Studio resolves saved enum IDs in the same catalog used by questions and delivery chips', () => {
+  for (const value of ["EXCLUSIVO: 'Exclusive'", "LANCAMENTO: 'New release'", "CONTRATAMOS: 'We are hiring'", "linkedin: 'LinkedIn when applicable'"]) {
+    assert.match(en, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  assert.match(page, /optionLabel\('propertyTypes', answers\.propertyType\)/)
+  assert.match(page, /optionLabel\('profiles', answers\.profile\)/)
+  assert.match(page, /optionLabel\('visualStyle', answers\.visualStyle\)/)
+  assert.match(page, /t\(`studio\.delivery\.items\.\$\{item\}`\)/)
+})

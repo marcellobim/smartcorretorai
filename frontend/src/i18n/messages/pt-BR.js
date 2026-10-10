@@ -8,6 +8,10 @@ export default Object.freeze({
     yes: 'Sim',
     no: 'Não',
   }),
+  studioGallery: Object.freeze({
+    productName: 'Studio IA', headline: 'Inspire-se', description: 'Veja alguns exemplos do que o Smart Studio pode criar para você.', expandedVideo: 'Vídeo ampliado da galeria', closeVideo: 'Fechar vídeo', expandedPlayback: 'Reprodução ampliada do exemplo', example: 'Exemplo {count}', openExample: 'Abrir exemplo {count} de {category}', count: Object.freeze({ one: '{count} exemplo real', many: '{count} exemplos reais' }),
+    sections: Object.freeze({ 'with-images': Object.freeze({ title: 'Criadas a partir das imagens do imóvel', description: 'Você envia as imagens. A IA cria a campanha.' }), 'ai-only': Object.freeze({ title: 'Criadas apenas com IA', description: 'Você informa apenas uma ideia. A IA cria toda a campanha.' }), 'smart-carousel': Object.freeze({ title: 'Carrossel de Anúncios', description: 'Você envia as imagens do imóvel. O Studio IA cria uma apresentação dinâmica pronta para divulgação.' }) }),
+  }),
   studio: Object.freeze({
     mode: Object.freeze({ commercial: 'Comercial Imobiliário', creative: 'Vídeo Criativo', commercialDescription: 'Transforme uma imagem do imóvel em um comercial profissional, com movimentos, narração, música e chamada para divulgação.', commercialAction: 'Criar comercial', creativeDescription: 'Descreva sua ideia e transforme-a em um vídeo criativo exclusivo, pronto para divulgação.', creativeAction: 'Criar vídeo criativo' }),
     landing: Object.freeze({ title: 'Seu estúdio inteligente de criação de vídeos imobiliários.', description: 'Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em poucos minutos com IA.', chooseMode: 'Escolha o que deseja criar', chooseAnother: 'Escolher outro tipo de criação' }),

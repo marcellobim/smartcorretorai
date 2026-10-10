@@ -3,6 +3,7 @@ import { BRAND } from '../config/brand'
 import { ArrowLeft, Play, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, SMART_UI } from '../components/design-system'
+import { useLocale } from '../i18n/useLocale'
 
 const GALLERY_ROOT = '/showcase/smart-studio-gallery'
 const SMART_CAROUSEL_GALLERY_VIDEO = '/showcase/smartcarrossel/showcase-carrossel.mp4'
@@ -68,6 +69,10 @@ const GALLERY_SECTIONS = [
   },
 ]
 
+function getGallerySections(t) {
+  return GALLERY_SECTIONS.map((section) => ({ ...section, title: t(`studioGallery.sections.${section.id}.title`), description: t(`studioGallery.sections.${section.id}.description`) }))
+}
+
 export function getVideoSource(fileName) {
   if (fileName.startsWith('/')) return fileName
   return `${GALLERY_ROOT}/${fileName}`
@@ -75,6 +80,7 @@ export function getVideoSource(fileName) {
 
 export default function StudioGallery() {
   const navigate = useNavigate()
+  const { t } = useLocale()
   const [selectedVideo, setSelectedVideo] = useState(null)
   const modalVideoRef = useRef(null)
   const lastTriggerRef = useRef(null)
@@ -119,22 +125,22 @@ export default function StudioGallery() {
           variant="secondary"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Voltar
+          {t('common.back')}
         </ProductButton>
 
         <header className="mt-5 overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ffffff_0%,#f0f7ff_52%,#faf5ff_100%)] text-slate-900 shadow-2xl shadow-blue-100/70">
           <ProductHero
             id="studio-gallery-title"
             eyebrow={BRAND.name}
-            productName="Studio IA"
-            headline="Inspire-se"
-            description="Veja alguns exemplos do que o Smart Studio pode criar para você."
+            productName={t('studioGallery.productName')}
+            headline={t('studioGallery.headline')}
+            description={t('studioGallery.description')}
           />
         </header>
 
         <div className="mt-8 space-y-10 pb-12">
-          {GALLERY_SECTIONS.map((section) => (
-            <GallerySection key={section.id} section={section} onOpen={openModal} />
+          {getGallerySections(t).map((section) => (
+            <GallerySection key={section.id} section={section} onOpen={openModal} t={t} />
           ))}
         </div>
       </div>
@@ -144,7 +150,7 @@ export default function StudioGallery() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm sm:p-6"
           role="dialog"
           aria-modal="true"
-          aria-label="Vídeo ampliado da galeria"
+          aria-label={t('studioGallery.expandedVideo')}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeModal()
           }}
@@ -153,7 +159,7 @@ export default function StudioGallery() {
             <ProductButton
               type="button"
               onClick={closeModal}
-              aria-label="Fechar vídeo"
+              aria-label={t('studioGallery.closeVideo')}
               autoFocus
               variant="secondary"
               className="absolute -top-2 right-0 z-10 h-11 w-11 -translate-y-full rounded-full p-0 shadow-xl focus:ring-offset-slate-950"
@@ -168,7 +174,7 @@ export default function StudioGallery() {
                 ref={modalVideoRef}
                 key={selectedVideo}
                 src={getVideoSource(selectedVideo)}
-                aria-label="Reprodução ampliada do exemplo"
+                aria-label={t('studioGallery.expandedPlayback')}
                 autoPlay
                 controls
                 playsInline
@@ -188,7 +194,7 @@ export default function StudioGallery() {
   )
 }
 
-function GallerySection({ section, onOpen }) {
+function GallerySection({ section, onOpen, t }) {
   const accent = {
     violet: {
       section: 'bg-violet-50/30',
@@ -211,7 +217,7 @@ function GallerySection({ section, onOpen }) {
     <ProductCard className={`p-4 sm:p-6 ${accent.section}`}>
       <div className="mb-6 sm:flex sm:items-end sm:justify-between sm:gap-6">
         <ProductSectionHeading
-          eyebrow={`${section.videos.length} ${section.videos.length === 1 ? 'exemplo real' : 'exemplos reais'}`}
+          eyebrow={t(section.videos.length === 1 ? 'studioGallery.count.one' : 'studioGallery.count.many').replace('{count}', section.videos.length)}
           title={section.title}
           description={section.description}
         />
@@ -226,6 +232,7 @@ function GallerySection({ section, onOpen }) {
             categoryTitle={section.title}
             accentClassName={accent.phone}
             onOpen={onOpen}
+            t={t}
           />
         ))}
       </div>
@@ -233,7 +240,7 @@ function GallerySection({ section, onOpen }) {
   )
 }
 
-function GalleryPhone({ fileName, index, categoryTitle, accentClassName, onOpen }) {
+function GalleryPhone({ fileName, index, categoryTitle, accentClassName, onOpen, t }) {
   return (
     <ProductCard
       as="button"
@@ -241,7 +248,7 @@ function GalleryPhone({ fileName, index, categoryTitle, accentClassName, onOpen 
       type="button"
       onClick={(event) => onOpen(fileName, event.currentTarget)}
       className={`group min-w-0 p-2.5 text-left transition hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 sm:p-3 ${accentClassName}`}
-      aria-label={`Abrir exemplo ${index + 1} de ${categoryTitle}`}
+      aria-label={t('studioGallery.openExample').replace('{count}', index + 1).replace('{category}', categoryTitle)}
     >
       <span className="relative block overflow-hidden rounded-[1.35rem] bg-slate-950 p-1.5 shadow-lg sm:rounded-[1.65rem] sm:p-2">
         <span className="relative block aspect-[9/16] overflow-hidden rounded-[1.05rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_55%,#0e7490_100%)] sm:rounded-[1.3rem]">
@@ -270,7 +277,7 @@ function GalleryPhone({ fileName, index, categoryTitle, accentClassName, onOpen 
         </span>
       </span>
       <span className="block px-1 pb-1 pt-3 text-xs font-black uppercase tracking-wide text-slate-600">
-        Exemplo {index + 1}
+        {t('studioGallery.example').replace('{count}', index + 1)}
       </span>
     </ProductCard>
   )

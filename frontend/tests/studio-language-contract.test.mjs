@@ -94,6 +94,7 @@ test('US Studio keeps structural copy localized and excludes Brazilian-only inte
   assert.doesNotMatch(page, /<ProductSummary/)
   assert.match(page, /market === 'US' \? \[\] : STUDIO_POSSIBILITY_EXAMPLES/)
   assert.match(page, /translated === key \? '' : translated/)
+  assert.match(page, /const DELIVERY_PACKAGE_ITEMS = \['instagram', 'whatsapp', 'facebook', 'portal', 'linkedin', 'hashtags', 'cta'\]/)
 })
 
 test('Studio uses the real US state/county/city hierarchy and does not require optional fields', () => {
