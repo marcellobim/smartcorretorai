@@ -24,7 +24,7 @@ import { isValidCountyForState, normalizeUsZipCode } from '../config/locations'
 import StudioUsLocation from '../components/location/StudioUsLocation'
 import { formatPhone, isPhoneCompatibleWithMarket, normalizePhone } from '../utils/phoneFormatters'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
-import { buildProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, sanitizeRestoredProfessionalIdentity } from '../config/professionalProfile'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import {
   ProductButton,
@@ -42,6 +42,7 @@ import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-token
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingStudioPublication, preservePendingStudioPublication, publishStudioPublication, readPendingStudioPublication, recoverStudioPublication } from '../lib/studio-social-publish'
 import { buildSmartCarouselCreateBody } from '../lib/smart-carousel-request'
+import { createSmartCarouselDiagnostic, parseSmartCarouselErrorResponse, smartCarouselResponseDiagnostic } from '../lib/smart-carousel-diagnostics'
 
 const SMART_CAROUSEL_MAX_FILE_BYTES = 15 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
@@ -174,13 +175,14 @@ async function waitWithTimeout(promise, timeoutMs, message) {
   }
 }
 
-async function invokeSmartCarouselFunction(accessToken, body) {
+async function invokeSmartCarouselFunction(accessToken, body, diagnostic = () => {}) {
   if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente para continuar.')
 
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), SMART_CAROUSEL_FUNCTION_TIMEOUT_MS)
 
   try {
+    diagnostic('carousel_request_started', { client_request_id: body.job_id })
     const response = await fetch(`${supabase.supabaseUrl}/functions/v1/${SMART_CAROUSEL_FUNCTION}`, {
       method: 'POST',
       headers: {
@@ -191,15 +193,22 @@ async function invokeSmartCarouselFunction(accessToken, body) {
       body: JSON.stringify(body),
       signal: controller.signal,
     })
-    const data = await response.json().catch(() => null)
+    const data = await parseSmartCarouselErrorResponse(response)
+    const responseDiagnostic = smartCarouselResponseDiagnostic(response, data)
+    diagnostic('carousel_request_response', { client_request_id: body.job_id, ...responseDiagnostic })
     if (!response.ok || !data?.ok) {
-      throw new Error(data?.error || 'Não foi possível continuar. Tente novamente.')
+      const error = new Error(data?.error || 'Não foi possível continuar. Tente novamente.')
+      error.smartCarouselRequestRecorded = true
+      diagnostic('carousel_request_failed', { client_request_id: body.job_id, ...responseDiagnostic })
+      throw error
     }
     return data
   } catch (error) {
     if (error?.name === 'AbortError') {
+      diagnostic('carousel_request_failed', { client_request_id: body.job_id, error_code: 'request_timeout' })
       throw new Error('A solicitação demorou mais que o esperado. Tente novamente.')
     }
+    if (!error?.smartCarouselRequestRecorded) diagnostic('carousel_request_failed', { client_request_id: body.job_id, error_code: 'network_error' })
     throw error
   } finally {
     window.clearTimeout(timeoutId)
@@ -212,12 +221,13 @@ async function removeUploadedJobFiles(paths) {
   await supabase.storage.from(SMART_CAROUSEL_BUCKET).remove(safePaths)
 }
 
-async function uploadSmartCarouselFiles({ photos, userId, jobId, cta, language }) {
+async function uploadSmartCarouselFiles({ photos, userId, jobId, cta, language, diagnostic = () => {} }) {
   const prefix = `${userId}/smart-carousel/${jobId}`
   const uploadedPaths = []
   const imagePaths = []
 
   try {
+    diagnostic('uploads_started', { client_request_id: jobId })
     for (let index = 0; index < photos.length; index += 1) {
       const photo = photos[index]
       const extension = getPhotoExtension(photo.file)
@@ -247,8 +257,10 @@ async function uploadSmartCarouselFiles({ photos, userId, jobId, cta, language }
     if (ctaError) throw new Error('Não foi possível preparar a chamada final.')
     uploadedPaths.push(ctaPath)
 
+    diagnostic('uploads_completed', { client_request_id: jobId })
     return { imagePaths, ctaPath, uploadedPaths }
   } catch (error) {
+    diagnostic('upload_failed', { client_request_id: jobId, error_code: 'upload_failed' })
     await removeUploadedJobFiles(uploadedPaths)
     throw error
   }
@@ -659,6 +671,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     if (saved?.enabled === true && ['real', 'display'].includes(saved.name_source)) return { enabled: true, name_source: saved.name_source, credential_source: saved.credential_source === 'br_creci' || saved.credential_source === 'us_license' ? saved.credential_source : null }
     return { enabled: null, name_source: null, credential_source: null }
   })
+  const restoredIdentityNeedsValidationRef = useRef(Boolean(restoredFlow.professionalIdentity))
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredFlow.conversation || null)
   const pollTimerRef = useRef(null)
   const mountedRef = useRef(true)
@@ -679,7 +692,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       [4, () => setBedrooms('')], [5, () => { setSuites(''); setBathrooms('') }], [6, () => setParkingSpaces('')],
       [7, () => { setUf(''); setCounty(''); setCity(''); setDistrict(''); setZipCode(''); setNeighborhoodCommunity('') }], [8, () => setCity('')], [9, () => setDistrict('')],
       [10, () => { setPriceMode(''); setPriceDigits('') }], [11, () => setArea('')],
-      [12, () => setHighlights([])], [13, () => setCta('')], [14, () => setSharePhone('')], [15, () => setProfessionalIdentitySelection({ enabled: null, name_source: null })],
+      [12, () => setHighlights([])], [13, () => setCta('')], [14, () => setSharePhone('')], [15, () => setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })],
     ]
     resetters.filter(([itemStep]) => itemStep >= Number(targetStep)).forEach(([, resetValue]) => resetValue())
     generationInFlightRef.current = false
@@ -721,6 +734,20 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   }
 
   const profilePhone = formatPhone(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '', market)
+
+  useEffect(() => {
+    // A local draft is not proof that a credential remains complete.  Wait for
+    // the profile to be available, then discard an invalid legacy selection.
+    if (!restoredIdentityNeedsValidationRef.current || !profile) return
+    restoredIdentityNeedsValidationRef.current = false
+    const sanitized = sanitizeRestoredProfessionalIdentity(profile, professionalIdentitySelection, market)
+    if (sanitized.enabled !== professionalIdentitySelection.enabled
+      || sanitized.name_source !== professionalIdentitySelection.name_source
+      || sanitized.credential_source !== professionalIdentitySelection.credential_source) {
+      setProfessionalIdentitySelection(sanitized)
+    }
+  }, [market, profile, professionalIdentitySelection])
+
   const professionalIdentity = buildProfessionalIdentity(profile || user || {}, professionalIdentitySelection, market)
   const formatPrice = (digits) => digits ? new Intl.NumberFormat(locale, { style: 'currency', currency: market === 'US' ? 'USD' : 'BRL', maximumFractionDigits: 0 }).format(Number(digits)) : ''
   const normalizedDistrict = normalizeDistrictName(district)
@@ -854,22 +881,30 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       resumeStatus()
       return
     }
+    const jobId = crypto.randomUUID()
+    const diagnostic = createSmartCarouselDiagnostic()
+    diagnostic('validation_started', { client_request_id: jobId })
     if (photos.length < SMART_CAROUSEL_MIN_IMAGES) {
+      diagnostic('validation_failed', { client_request_id: jobId, error_code: 'min_images' })
       stopWithError(copy.minImages)
       return
     }
     if (photos.length > SMART_CAROUSEL_MAX_IMAGES) {
+      diagnostic('validation_failed', { client_request_id: jobId, error_code: 'max_images' })
       stopWithError(copy.text(copy.maxImages, { max: SMART_CAROUSEL_MAX_IMAGES }))
       return
     }
     if (step < 16 || !cta || !sharePhone || professionalIdentitySelection.enabled === null) {
+      diagnostic('validation_failed', { client_request_id: jobId, error_code: 'incomplete_questions' })
       stopWithError(copy.completeQuestions)
       return
     }
     if (!user?.id || !accessToken) {
+      diagnostic('validation_failed', { client_request_id: jobId, error_code: 'session_missing' })
       stopWithError(copy.sessionExpired)
       return
     }
+    diagnostic('validation_passed', { client_request_id: jobId })
 
     trackGenerationClicked()
     generationInFlightRef.current = true
@@ -879,16 +914,17 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     setVideoUrl('')
     setCampaignPackage(null)
 
-    const jobId = crypto.randomUUID()
     setActiveJobId(jobId)
     let uploadedPaths = []
     try {
-      const uploaded = await uploadSmartCarouselFilesWithTimeout({ photos, userId: user.id, jobId, cta, language: locale })
+      const uploaded = await uploadSmartCarouselFilesWithTimeout({ photos, userId: user.id, jobId, cta, language: locale, diagnostic })
       uploadedPaths = uploaded.uploadedPaths
       if (!mountedRef.current) return
       setGenerationStatus('creating')
 
-      const data = await invokeSmartCarouselFunction(accessToken, buildSmartCarouselCreateBody({ jobId, uploaded, answers: confirmedAnswers, cta, sharePhone, professionalIdentity: professionalIdentitySelection, locale, market }))
+      const requestBody = buildSmartCarouselCreateBody({ jobId, uploaded, answers: confirmedAnswers, cta, sharePhone, professionalIdentity: professionalIdentitySelection, locale, market })
+      diagnostic('request_body_built', { client_request_id: jobId })
+      const data = await invokeSmartCarouselFunction(accessToken, requestBody, diagnostic)
       if (!mountedRef.current) return
       if (data.status === 'succeeded' && data.video_url) {
         generationInFlightRef.current = false

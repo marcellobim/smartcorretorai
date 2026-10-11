@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildProfessionalIdentity, formatProfessionalIdentity, hasCompleteProfessionalIdentity, professionalIdentityProfilePatch } from '../src/config/professionalProfile.js'
+import { buildProfessionalIdentity, formatProfessionalIdentity, hasCompleteProfessionalIdentity, professionalIdentityProfilePatch, sanitizeRestoredProfessionalIdentity } from '../src/config/professionalProfile.js'
 
 test('formats a complete Brazilian identity with display name and never puts it in narration', () => {
   const profile = { nome: 'Marcello Bim', display_name: 'Riccieri', creci: '12345', creci_type: 'F', estado: 'SC' }
@@ -29,6 +29,14 @@ test('a Brazilian UF is never used as a US licence state', () => {
   const mixedProfile = { market: 'BR', nome: 'Riccieri', license_number: '123456', estado: 'SP', creci: '0000000', creci_type: 'F' }
   assert.equal(hasCompleteProfessionalIdentity(mixedProfile, 'US'), false)
   assert.equal(formatProfessionalIdentity(mixedProfile, 'US'), '')
+})
+
+test('a legacy US-license draft without license_state is reduced to no identity', () => {
+  const profile = { nome: 'Riccieri', display_name: 'Riccieri', license_number: '123456', estado: 'SP' }
+  assert.deepEqual(
+    sanitizeRestoredProfessionalIdentity(profile, { enabled: true, name_source: 'display', credential_source: 'us_license' }, 'US'),
+    { enabled: false, name_source: null, credential_source: 'none' },
+  )
 })
 
 test('a multi-market profile retains both credentials through independent edits and reload', () => {

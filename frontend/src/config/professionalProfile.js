@@ -155,6 +155,18 @@ export function buildProfessionalIdentity(profile = {}, selection = {}, market =
   }
 }
 
+// Restored browser drafts are untrusted UI state.  A formerly valid US
+// selection must not revive a BR UF as its licensing state after a profile
+// change or a cross-market migration.
+export function sanitizeRestoredProfessionalIdentity(profile = {}, selection = {}, market = 'BR') {
+  const normalized = normalizeProfessionalIdentity(selection, market)
+  if (!normalized.enabled) return normalized
+  if (!normalized.credential_source || !normalized.name_source || professionalIdentityMissingFields(profile, normalized, market).length) {
+    return { enabled: false, name_source: null, credential_source: 'none' }
+  }
+  return normalized
+}
+
 export function professionalIdentityProfilePatch(profile = {}, pending = {}, credentialSource = 'br_creci') {
   const config = getProfessionalProfileConfig(credentialSource === 'us_license' ? 'US' : 'BR')
   const patch = {}
