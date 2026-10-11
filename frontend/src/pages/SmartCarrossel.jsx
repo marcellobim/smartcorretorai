@@ -24,7 +24,7 @@ import { isValidCountyForState, normalizeUsZipCode } from '../config/locations'
 import StudioUsLocation from '../components/location/StudioUsLocation'
 import { formatPhone, isPhoneCompatibleWithMarket, normalizePhone } from '../utils/phoneFormatters'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
-import { buildProfessionalIdentity, sanitizeRestoredProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, normalizeProfessionalIdentity, professionalIdentityForRequest } from '../config/professionalProfile'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import {
   ProductButton,
@@ -79,6 +79,7 @@ function localizeSmartCarouselError(copy, message) {
   if (/chamada final/i.test(value)) return copy.errors.cta
   if (/acompanhar|consultar sua apresentação/i.test(value)) return copy.errors.status
   if (/campanha completa/i.test(value)) return copy.errors.campaign
+  if (/identifica[çc][ãa]o profissional inv[áa]lida|professional identity invalid/i.test(value)) return copy.errors.professionalIdentity
   if (/sessão expirou/i.test(value)) return copy.sessionExpired
   return copy.errors.creation
 }
@@ -672,6 +673,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     return { enabled: null, name_source: null, credential_source: null }
   })
   const restoredIdentityNeedsValidationRef = useRef(Boolean(restoredFlow.professionalIdentity))
+  const [restoredIdentityIncomplete, setRestoredIdentityIncomplete] = useState(false)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredFlow.conversation || null)
   const pollTimerRef = useRef(null)
   const mountedRef = useRef(true)
@@ -736,15 +738,17 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   const profilePhone = formatPhone(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '', market)
 
   useEffect(() => {
-    // A local draft is not proof that a credential remains complete.  Wait for
-    // the profile to be available, then discard an invalid legacy selection.
+    // A local draft is not proof that a credential remains complete. Wait for
+    // the profile, then mark an invalid legacy choice for guided recovery.
     if (!restoredIdentityNeedsValidationRef.current || !profile) return
     restoredIdentityNeedsValidationRef.current = false
-    const sanitized = sanitizeRestoredProfessionalIdentity(profile, professionalIdentitySelection, market)
-    if (sanitized.enabled !== professionalIdentitySelection.enabled
-      || sanitized.name_source !== professionalIdentitySelection.name_source
-      || sanitized.credential_source !== professionalIdentitySelection.credential_source) {
-      setProfessionalIdentitySelection(sanitized)
+    const normalized = normalizeProfessionalIdentity(professionalIdentitySelection, market)
+    const incomplete = normalized.enabled && !buildProfessionalIdentity(profile, normalized, market)
+    setRestoredIdentityIncomplete(incomplete)
+    if (normalized.enabled !== professionalIdentitySelection.enabled
+      || normalized.name_source !== professionalIdentitySelection.name_source
+      || normalized.credential_source !== professionalIdentitySelection.credential_source) {
+      setProfessionalIdentitySelection(normalized)
     }
   }, [market, profile, professionalIdentitySelection])
 
@@ -904,6 +908,13 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       stopWithError(copy.sessionExpired)
       return
     }
+    const requestProfessionalIdentity = professionalIdentityForRequest(profile || user || {}, professionalIdentitySelection, market)
+    if (professionalIdentitySelection.enabled && !requestProfessionalIdentity.enabled) {
+      // The user can resolve the warning in the review, but creation itself
+      // remains available and never submits a stale credential contract.
+      setProfessionalIdentitySelection(requestProfessionalIdentity)
+      setRestoredIdentityIncomplete(false)
+    }
     diagnostic('validation_passed', { client_request_id: jobId })
 
     trackGenerationClicked()
@@ -922,7 +933,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       if (!mountedRef.current) return
       setGenerationStatus('creating')
 
-      const requestBody = buildSmartCarouselCreateBody({ jobId, uploaded, answers: confirmedAnswers, cta, sharePhone, professionalIdentity: professionalIdentitySelection, locale, market })
+      const requestBody = buildSmartCarouselCreateBody({ jobId, uploaded, answers: confirmedAnswers, cta, sharePhone, professionalIdentity: requestProfessionalIdentity, locale, market })
       diagnostic('request_body_built', { client_request_id: jobId })
       const data = await invokeSmartCarouselFunction(accessToken, requestBody, diagnostic)
       if (!mountedRef.current) return
@@ -998,9 +1009,18 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
   else if (step === 12) questionContent = <div className="space-y-4">{SMART_CAROUSEL_HIGHLIGHT_GROUPS.map((group) => <ProductCard as="section" key={group.title} variant="muted" className="p-4"><p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">{copy.labelFor(group.title)}</p><div className="flex flex-wrap gap-2">{group.items.map((item) => <ChipButton key={item} active={highlights.includes(item)} disabled={!highlights.includes(item) && highlights.length >= SMART_CAROUSEL_MAX_HIGHLIGHTS} onClick={() => toggleHighlight(item)}>{copy.labelFor(item)}</ChipButton>)}</div></ProductCard>)}<div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-500">{copy.text(copy.highlightsSelected, { count: highlights.length, max: SMART_CAROUSEL_MAX_HIGHLIGHTS })}</span><ProductButton type="button" variant="success" disabled={!highlights.length} onClick={() => submitCarouselAnswer({ setter: () => {}, value: highlights, answer: copy.text(copy.highlightsSummary, { count: highlights.length }), nextStep: 13 })}>{copy.continue}</ProductButton></div></div>
   else if (step === 13) questionContent = <ChipGrid>{SMART_CAROUSEL_CTA_OPTIONS.map((item) => <ChipButton key={item} active={cta === item} onClick={() => submitCarouselAnswer({ setter: setCta, value: item, answer: copy.labelFor(item), nextStep: 14 })}>{copy.labelFor(item)}</ChipButton>)}</ChipGrid>
   else if (step === 14) questionContent = !profilePhone && phoneDraft !== 'saved' ? <div className="space-y-3"><p className="text-sm font-semibold text-slate-700">{copy.phone.missing}</p><input value={phoneDraft} inputMode="tel" placeholder={market === 'US' ? '(555) 555-5555' : '(11) 99999-9999'} onChange={event => { setPhoneDraft(formatPhone(event.target.value, market)); setPhoneSaveError('') }} className="w-full rounded-2xl border border-emerald-100 px-4 py-3 text-sm font-semibold" />{phoneSaveError && <p role="alert" className="text-sm font-semibold text-rose-700">{phoneSaveError}</p>}<div className="flex flex-wrap gap-2"><ProductButton type="button" disabled={!isPhoneCompatibleWithMarket(phoneDraft, market)} onClick={async () => { try { const field = market === 'US' ? 'telefone' : 'telefone'; const normalized = normalizePhone(phoneDraft, market); const { data, error } = await supabase.from('profiles').update({ [field]: normalized }).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); setPhoneDraft('saved'); submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 15 }) } catch { setPhoneSaveError(market === 'US' ? 'We could not save your phone number. Your draft is still here.' : 'Não foi possível salvar seu telefone. Seu rascunho foi preservado.') } }}>{market === 'US' ? 'Save and use this phone number' : 'Salvar e usar este telefone'}</ProductButton><ProductButton type="button" variant="secondary" onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 15 })}>{copy.phone.no}</ProductButton></div></div> : <OptionGrid><ChoiceButton active={sharePhone === 'yes'} title={copy.phone.yes} description={profilePhone || phoneDraft} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'yes', answer: copy.phone.professional, nextStep: 15 })} /><ChoiceButton active={sharePhone === 'no'} title={copy.phone.no} description={copy.phone.noDescription} onClick={() => submitCarouselAnswer({ setter: setSharePhone, value: 'no', answer: copy.phone.none, nextStep: 15 })} /></OptionGrid>
-  else if (step === 15) questionContent = <ProfessionalIdentityQuestion market={market} profile={profile || user || {}} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); return data }} onComplete={(selection, formatted) => submitCarouselAnswer({ setter: setProfessionalIdentitySelection, value: selection, answer: selection.enabled ? formatted : market === 'US' ? 'No professional information' : 'Sem identificação profissional', nextStep: 16 })} />
+  else if (step === 15) questionContent = <ProfessionalIdentityQuestion market={market} profile={profile || user || {}} value={professionalIdentitySelection} onChange={setProfessionalIdentitySelection} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single(); if (error) throw error; updateUser?.(data); await refreshBalance(); return data }} onComplete={(selection, formatted) => { setRestoredIdentityIncomplete(false); return submitCarouselAnswer({ setter: setProfessionalIdentitySelection, value: selection, answer: selection.enabled ? formatted : market === 'US' ? 'No professional information' : 'Sem identificação profissional', nextStep: 16 }) }} />
   else questionContent = (
     <div className="space-y-4 text-center sm:space-y-5">
+      {restoredIdentityIncomplete && (
+        <ProductCard variant="flat" className="border-amber-200 bg-amber-50 p-5 text-left">
+          <p className="text-sm font-bold leading-6 text-amber-900">{copy.errors.professionalIdentity}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <ProductButton type="button" variant="secondary" onClick={() => conversation.editAnswer(15)}>{market === 'US' ? 'Update professional information' : 'Atualizar identificação profissional'}</ProductButton>
+            <ProductButton type="button" variant="ghost" onClick={() => { setProfessionalIdentitySelection({ enabled: false, name_source: null, credential_source: 'none' }); setRestoredIdentityIncomplete(false) }}>{market === 'US' ? 'Continue without professional information' : 'Continuar sem identificação profissional'}</ProductButton>
+          </div>
+        </ProductCard>
+      )}
       <SmartTokenEstimate cost={SMART_TOKEN_COSTS.smartCarousel} quantityLabel={copy.text(copy.reviewMeta.quantity, { count: photos.length })} />
       <div className="flex flex-wrap justify-center gap-2"><ProductButton type="button" variant="ghost" disabled={isGenerating} onClick={createNewPresentation}>{copy.startOver}</ProductButton><ProductButton type="button" variant="ghost" disabled={isGenerating} onClick={onCreateNew}>{copy.backToCarousel}</ProductButton></div>
       <ProductButton

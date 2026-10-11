@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildProfessionalIdentity, formatProfessionalIdentity, hasCompleteProfessionalIdentity, professionalIdentityProfilePatch, sanitizeRestoredProfessionalIdentity } from '../src/config/professionalProfile.js'
+import { buildProfessionalIdentity, formatProfessionalIdentity, hasCompleteProfessionalIdentity, professionalIdentityForRequest, professionalIdentityProfilePatch, sanitizeRestoredProfessionalIdentity } from '../src/config/professionalProfile.js'
 
 test('formats a complete Brazilian identity with display name and never puts it in narration', () => {
   const profile = { nome: 'Marcello Bim', display_name: 'Riccieri', creci: '12345', creci_type: 'F', estado: 'SC' }
@@ -37,6 +37,21 @@ test('a legacy US-license draft without license_state is reduced to no identity'
     sanitizeRestoredProfessionalIdentity(profile, { enabled: true, name_source: 'display', credential_source: 'us_license' }, 'US'),
     { enabled: false, name_source: null, credential_source: 'none' },
   )
+})
+
+test('the request boundary disables an incomplete US license without inferring a BR UF', () => {
+  const profile = { nome: 'Riccieri', display_name: 'Riccieri', license_number: '123456', estado: 'SP' }
+  assert.deepEqual(
+    professionalIdentityForRequest(profile, { enabled: true, name_source: 'display', credential_source: 'us_license' }, 'US'),
+    { enabled: false, name_source: null, credential_source: 'none' },
+  )
+})
+
+test('the request boundary preserves explicit cross-market credentials and none', () => {
+  const multiMarket = { nome: 'Riccieri', display_name: 'Riccieri', creci: '12345', creci_type: 'F', estado: 'SP', license_number: 'US-123', license_state: 'FL' }
+  assert.deepEqual(professionalIdentityForRequest(multiMarket, { enabled: true, name_source: 'display', credential_source: 'br_creci' }, 'US'), { enabled: true, name_source: 'display', credential_source: 'br_creci' })
+  assert.deepEqual(professionalIdentityForRequest(multiMarket, { enabled: true, name_source: 'real', credential_source: 'us_license' }, 'BR'), { enabled: true, name_source: 'real', credential_source: 'us_license' })
+  assert.deepEqual(professionalIdentityForRequest(multiMarket, { enabled: false }, 'US'), { enabled: false, name_source: null, credential_source: 'none' })
 })
 
 test('a multi-market profile retains both credentials through independent edits and reload', () => {

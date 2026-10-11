@@ -167,6 +167,17 @@ export function sanitizeRestoredProfessionalIdentity(profile = {}, selection = {
   return normalized
 }
 
+// The request boundary accepts only an identity that can be reconstructed from
+// the current profile.  A browser draft stores a choice, never credential
+// values; an incomplete or legacy choice is therefore safely sent as none.
+export function professionalIdentityForRequest(profile = {}, selection = {}, market = 'BR') {
+  const normalized = normalizeProfessionalIdentity(selection, market)
+  if (!normalized.enabled) return { enabled: false, name_source: null, credential_source: 'none' }
+  return buildProfessionalIdentity(profile, normalized, market)
+    ? normalized
+    : { enabled: false, name_source: null, credential_source: 'none' }
+}
+
 export function professionalIdentityProfilePatch(profile = {}, pending = {}, credentialSource = 'br_creci') {
   const config = getProfessionalProfileConfig(credentialSource === 'us_license' ? 'US' : 'BR')
   const patch = {}

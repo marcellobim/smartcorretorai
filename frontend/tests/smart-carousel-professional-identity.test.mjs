@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildProfessionalIdentity } from '../src/config/professionalProfile.js'
+import { buildProfessionalIdentity, professionalIdentityForRequest } from '../src/config/professionalProfile.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const carousel = readFileSync(path.join(root, 'src/pages/SmartCarrossel.jsx'), 'utf8')
@@ -27,6 +27,23 @@ test('Smart Carousel resolves BR and US identities by the chosen name source, or
   assert.equal(buildProfessionalIdentity(usProfile, { enabled: false }, 'US'), null)
   assert.equal(buildProfessionalIdentity(usProfile, { enabled: true, name_source: 'real', credential_source: 'us_license' }, 'BR').formatted, 'Alex Legal · License #LIC-77 · FL')
   assert.equal(buildProfessionalIdentity(usProfile, { enabled: true, name_source: 'display', credential_source: 'us_license' }, 'US').formatted, 'Alex Homes · License #LIC-77 · FL')
+})
+
+test('Smart Carousel revalidates restored identities against the current profile before building a request', () => {
+  const legacyDraftProfile = { nome: 'Riccieri', display_name: 'Riccieri', license_number: '123456', estado: 'SP', creci: '12345', creci_type: 'F' }
+  assert.equal(buildProfessionalIdentity(legacyDraftProfile, { enabled: true, name_source: 'display', credential_source: 'us_license' }, 'US'), null)
+  assert.deepEqual(professionalIdentityForRequest(legacyDraftProfile, { enabled: true, name_source: 'display', credential_source: 'us_license' }, 'US'), { enabled: false, name_source: null, credential_source: 'none' })
+  assert.equal(buildProfessionalIdentity(legacyDraftProfile, { enabled: true, name_source: 'display', credential_source: 'br_creci' }, 'US').formatted, 'Riccieri · CRECI-F 12345/SP')
+})
+
+test('Smart Carousel provides draft recovery choices and maps the backend identity error', () => {
+  assert.match(carousel, /professionalIdentityForRequest\(profile \|\| user \|\| \{\}, professionalIdentitySelection, market\)/)
+  assert.match(carousel, /conversation\.editAnswer\(15\)/)
+  assert.match(carousel, /Continue without professional information/)
+  assert.match(carousel, /professionalIdentity/)
+  const question = readFileSync(path.join(root, 'src/components/professional/ProfessionalIdentityQuestion.jsx'), 'utf8')
+  assert.match(question, /alternativeCredential/)
+  assert.match(question, /copy\.brazil/)
 })
 
 test('Smart Carousel backend validates the structured contract, resolves from profile, and uses it only in final CTA and captions', () => {
