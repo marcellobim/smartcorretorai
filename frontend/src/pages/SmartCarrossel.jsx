@@ -24,7 +24,7 @@ import { isValidCountyForState, normalizeUsZipCode } from '../config/locations'
 import StudioUsLocation from '../components/location/StudioUsLocation'
 import { formatPhone, isPhoneCompatibleWithMarket, normalizePhone } from '../utils/phoneFormatters'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
-import { buildProfessionalIdentity, normalizeProfessionalIdentity, professionalIdentityForRequest } from '../config/professionalProfile'
+import { buildProfessionalIdentity, normalizeProfessionalIdentity, professionalIdentityForRequest, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import {
   ProductButton,
@@ -745,6 +745,7 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
     const normalized = normalizeProfessionalIdentity(professionalIdentitySelection, market)
     const incomplete = normalized.enabled && !buildProfessionalIdentity(profile, normalized, market)
     setRestoredIdentityIncomplete(incomplete)
+    if (incomplete) conversation.editAnswer(15)
     if (normalized.enabled !== professionalIdentitySelection.enabled
       || normalized.name_source !== professionalIdentitySelection.name_source
       || normalized.credential_source !== professionalIdentitySelection.credential_source) {
@@ -908,13 +909,13 @@ function SmartCarouselConversation({ user, profile, accessToken, photos, flowDra
       stopWithError(copy.sessionExpired)
       return
     }
-    const requestProfessionalIdentity = professionalIdentityForRequest(profile || user || {}, professionalIdentitySelection, market)
-    if (professionalIdentitySelection.enabled && !requestProfessionalIdentity.enabled) {
-      // The user can resolve the warning in the review, but creation itself
-      // remains available and never submits a stale credential contract.
-      setProfessionalIdentitySelection(requestProfessionalIdentity)
-      setRestoredIdentityIncomplete(false)
+    if (professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, market)) {
+      diagnostic('validation_failed', { client_request_id: jobId, error_code: 'professional_identity_incomplete' })
+      setRestoredIdentityIncomplete(true)
+      conversation.editAnswer(15)
+      return
     }
+    const requestProfessionalIdentity = professionalIdentityForRequest(profile || user || {}, professionalIdentitySelection, market)
     diagnostic('validation_passed', { client_request_id: jobId })
 
     trackGenerationClicked()

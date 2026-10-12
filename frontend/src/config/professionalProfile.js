@@ -178,6 +178,11 @@ export function professionalIdentityForRequest(profile = {}, selection = {}, mar
     : { enabled: false, name_source: null, credential_source: 'none' }
 }
 
+export function professionalIdentityNeedsAttention(profile = {}, selection = {}, market = 'BR') {
+  const normalized = normalizeProfessionalIdentity(selection, market)
+  return normalized.enabled && !buildProfessionalIdentity(profile, normalized, market)
+}
+
 export function professionalIdentityProfilePatch(profile = {}, pending = {}, credentialSource = 'br_creci') {
   const config = getProfessionalProfileConfig(credentialSource === 'us_license' ? 'US' : 'BR')
   const patch = {}

@@ -16,6 +16,7 @@ import {
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { useAuth } from '../lib/auth-context'
+import { professionalIdentityForRequest, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import { useLocale } from '../i18n/useLocale'
 import { formatPhone } from '../utils/phoneFormatters'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
@@ -107,7 +108,17 @@ export default function TextCampaign() {
   const copy = getTextCampaignUiCopy(locale)
   const textDraft = useProductDraft({ productKey: 'campanha-de-textos', schemaVersion: 1, userId: user?.id })
   const restoredTextDraft = textDraft.restoredDraft || {}
-  const [answers, setAnswers] = useState(() => restoreProductDraftShape(createEmptyTextCampaignAnswers(), restoredTextDraft.answers))
+  const [answers, setAnswers] = useState(() => {
+    const restored = restoreProductDraftShape(createEmptyTextCampaignAnswers(), restoredTextDraft.answers)
+    const savedIdentity = restored.professionalIdentity
+    // A formatted legacy answer is not a credential selection. Returning it to
+    // the question makes the user choose a current credential explicitly.
+    if (savedIdentity?.enabled === true && (!['real', 'display'].includes(savedIdentity.name_source)
+      || !['br_creci', 'us_license'].includes(savedIdentity.credential_source))) {
+      return { ...restored, professionalIdentity: { enabled: null, name_source: null, credential_source: null } }
+    }
+    return restored
+  })
   const [manualCityMode, setManualCityMode] = useState(() => restoredTextDraft.manualCityMode === true)
   const [campaign, setCampaign] = useState(null)
   const [generationStatus, setGenerationStatus] = useState('idle')
@@ -118,6 +129,10 @@ export default function TextCampaign() {
     requestIdPattern.test(restoredTextDraft.completedRequestId || '') ? restoredTextDraft.completedRequestId : '',
   )
   const recoveryAttemptedRef = useRef(false)
+  const restoredIdentityNeedsValidationRef = useRef(restoredTextDraft.answers?.professionalIdentity?.enabled === true)
+  const restoredIdentityNeedsExplicitChoiceRef = useRef(restoredTextDraft.answers?.professionalIdentity?.enabled === true
+    && (!['real', 'display'].includes(restoredTextDraft.answers?.professionalIdentity?.name_source)
+      || !['br_creci', 'us_license'].includes(restoredTextDraft.answers?.professionalIdentity?.credential_source)))
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredTextDraft.conversation || null)
   const previousMarketRef = useRef(market)
   const professionalPhone = formatPhone(user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '', market)
@@ -133,11 +148,26 @@ export default function TextCampaign() {
     : conversation.history.length > 1 ? STEPS.DETAILS : conversation.history.length ? STEPS.FLOW_STARTED : null
   const { trackGenerationClicked } = useAccountAnalytics(PRODUCTS.CAMPANHA_TEXTOS, reachedStep)
   const questionNumber = TEXT_CAMPAIGN_QUESTION_ORDER.indexOf(questionId) + 1
+  const requestProfessionalIdentity = useMemo(
+    () => professionalIdentityForRequest(profile || user || {}, answers.professionalIdentity, market),
+    [answers.professionalIdentity, market, profile, user],
+  )
   const briefing = useMemo(
-    () => buildTextCampaignBriefing(answers, professionalPhone, { language: locale, market }),
-    [answers, locale, market, professionalPhone],
+    () => buildTextCampaignBriefing({ ...answers, professionalIdentity: requestProfessionalIdentity }, professionalPhone, { language: locale, market }),
+    [answers, locale, market, professionalPhone, requestProfessionalIdentity],
   )
   const briefingValid = useMemo(() => isTextCampaignBriefingValid(briefing), [briefing])
+
+  useEffect(() => {
+    if (!restoredIdentityNeedsValidationRef.current || (!profile && !user)) return
+    restoredIdentityNeedsValidationRef.current = false
+    const needsAttention = restoredIdentityNeedsExplicitChoiceRef.current
+      || professionalIdentityNeedsAttention(profile || user || {}, answers.professionalIdentity, market)
+    restoredIdentityNeedsExplicitChoiceRef.current = false
+    if (!needsAttention) return
+    setAnswers(current => ({ ...current, professionalIdentity: { enabled: null, name_source: null, credential_source: null } }))
+    conversation.editAnswer('professional_identity')
+  }, [answers.professionalIdentity, conversation, market, profile, user])
 
   useEffect(() => {
     const previousMarket = previousMarketRef.current
@@ -211,6 +241,10 @@ export default function TextCampaign() {
 
   const generateCampaign = async () => {
     if (generationLockRef.current || !briefingValid) return
+    if (professionalIdentityNeedsAttention(profile || user || {}, answers.professionalIdentity, market)) {
+      conversation.editAnswer('professional_identity')
+      return
+    }
     trackGenerationClicked()
     generationLockRef.current = true
     setGenerationStatus('loading')
@@ -595,6 +629,11 @@ function buildReviewGroups(answers, briefing, locale, market) {
     { id: 'commercial', title: ui(locale, 'terms'), editId: 'commercial', value: describeCommercial(answers, locale, market) },
     { id: 'notes', title: ui(locale, 'notes'), editId: 'notes', value: answers.notes || ui(locale, 'noNotes') },
     { id: 'communication', title: ui(locale, 'communication'), editId: 'cta', value: `${ctaLabel(answers.cta, locale)}\n${briefing.contact_authorized ? ui(locale, 'phoneAuthorized') : ui(locale, 'noPhone')}` },
+    { id: 'professional_identity', title: locale === 'en-US' ? 'Professional information' : 'Identificação profissional', editId: 'professional_identity', value: answers.professionalIdentity?.enabled === false
+      ? (locale === 'en-US' ? 'No professional information' : 'Sem identificação profissional')
+      : briefing.professional_identity?.enabled === true
+        ? (locale === 'en-US' ? 'Professional credential selected' : 'Credencial profissional selecionada')
+        : (locale === 'en-US' ? 'Professional information needs completion' : 'Identificação profissional pendente') },
   ]
 }
 

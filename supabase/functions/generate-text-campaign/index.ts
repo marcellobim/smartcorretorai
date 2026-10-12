@@ -50,7 +50,7 @@ serve(withCors(async (request) => {
     getProfessionalProfile: async (userId) => {
       const { data, error } = await serviceClient
         .from('profiles')
-        .select('display_name,nome,full_name,creci,creci_type,estado,license_number')
+        .select('display_name,nome,full_name,creci,creci_type,estado,license_number,license_state')
         .eq('id', userId)
         .maybeSingle()
       return error ? null : data as Record<string, unknown> | null

@@ -32,7 +32,7 @@ import { formatVirtualStagingCurrency, formatVirtualStagingLocation, getVirtualS
 import { getVirtualStagingHighlightGroupLabel, getVirtualStagingHighlightLabel, isVirtualStagingHighlightAvailableForMarket } from '../config/virtualStagingHighlightLabels'
 import { getCountiesByState, getStatesForMarket, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
-import { buildProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { buildSmartSpaceRecovery, getSmartSpaceRecoveryKey, normalizeSmartSpaceResult, normalizeSmartSpaceVideo, parseSmartSpaceRecovery, readSmartSpaceRecoveryClientRequestId, resolveSmartSpaceRecoveryInputs } from '../lib/smart-space-results'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
@@ -427,6 +427,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const furnishRecoveryPollRef = useRef(null)
   const furnishVideoPollsRef = useRef(new Map())
   const furnishRecoveryStartedRef = useRef(false)
+  const restoredIdentityNeedsValidationRef = useRef(restoredJourneyDraft.professionalIdentity?.enabled === true)
   const [hasStartedFurnish, setHasStartedFurnish] = useState(() => restoredJourneyDraft.hasStartedFurnish === true)
   const [images, setImages] = useState([])
   const [missingImageMetadata, setMissingImageMetadata] = useState(() => restoredJourneyDraft.imageMetadata || [])
@@ -594,6 +595,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }
   const conversation = useGuidedConversation({ initialQuestionId: isBrokerPresentation ? 'presenter_reference' : isFurnishRenovate ? 'transformation_type' : 'images', initialState: restoredConversation, onEdit: resetTourFromQuestion, onStateChange: setConversationSnapshot })
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
+
+  useEffect(() => {
+    if (isFurnishRenovate || !restoredIdentityNeedsValidationRef.current || (!profile && !user)) return
+    restoredIdentityNeedsValidationRef.current = false
+    if (!professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, draftMarket)) return
+    setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
+    editConversationAnswer('professional_identity')
+  }, [draftMarket, isFurnishRenovate, profile, professionalIdentitySelection, user])
 
   useEffect(() => {
     if (!['idle', 'error'].includes(status)) return
@@ -986,6 +995,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (isFurnishRenovate) return createFurnishRenovateImage()
     if (isBrokerPresentation && !presenterReference?.file) return setMessage(lifeBrokerCopy('presenterRequired'))
     if (professionalIdentitySelection.enabled === null) return setMessage(draftMarket === 'US' ? 'Choose whether to include professional information before creating.' : 'Escolha se deseja incluir identificação profissional antes de criar.')
+    if (professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, draftMarket)) {
+      setMessage(draftMarket === 'US' ? 'Choose a complete professional credential or continue without professional information.' : 'Escolha uma credencial profissional completa ou continue sem identificação profissional.')
+      editConversationAnswer('professional_identity')
+      return
+    }
     trackGenerationClicked()
     setStatus('uploading'); setMessage(lifeBrokerCopy('uploading'))
     try {
@@ -1083,7 +1097,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     ...(!isLifeInProperty ? [{ id: 'cta_enabled', label: ctaEnabled === true ? t('virtualStaging.yes') : ctaEnabled === false ? t('virtualStaging.no') : '' }] : []),
     { id: 'cta', label: isLifeInProperty || ctaEnabled === true ? getVirtualStagingOptionLabel(cta, t) : '' },
     { id: 'phone', label: includePhone === true ? phone : includePhone === false ? t('virtualStaging.cta.phoneNone') : '' },
-    { id: 'professional_identity', label: professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : professionalIdentitySelection.enabled === false ? (draftMarket === 'US' ? 'No professional information' : 'Sem identificação profissional') : '' },
+    { id: 'professional_identity', label: professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || (draftMarket === 'US' ? 'Professional information needs completion' : 'Identificação profissional pendente') : professionalIdentitySelection.enabled === false ? (draftMarket === 'US' ? 'No professional information' : 'Sem identificação profissional') : '' },
   ].filter(item => Boolean(item.label))
   const summary = isFurnishRenovate ? furnishSummary : standardSummary
   const furnishHasStyleStep = !transformationType || furnishRenovateRequiresStyle(transformationType)

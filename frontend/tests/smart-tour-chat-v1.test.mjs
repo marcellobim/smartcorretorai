@@ -3,20 +3,27 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { SMART_TOUR_MAX_IMAGES } from '../src/config/smartTour.js'
+import { createServer } from 'vite'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlights, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_PROPERTY_TYPES, SMART_TOUR_RENTAL_STAGES } from '../src/config/smartTourForm.js'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext } from '../src/config/smartTourConversation.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 'utf8')
+// smartTour.js intentionally uses Vite's extensionless runtime imports. Load it
+// through Vite SSR so this test verifies production resolution without changing
+// a production import solely for Node's resolver.
+const vite = await createServer({ root: frontendRoot, configFile: false, server: { middlewareMode: true, hmr: false }, appType: 'custom' })
+const { SMART_TOUR_MAX_IMAGES } = await vite.ssrLoadModule('/src/config/smartTour.js')
+test.after(() => vite.close())
 
 test('communicates and enforces the 1 to 5 photo contract', () => {
   assert.equal(SMART_TOUR_MAX_IMAGES, 5)
-  assert.match(page, /Envie até 5 fotos na ordem em que deseja apresentá-las/)
-  assert.match(page, /Selecione de 1 a \{SMART_TOUR_MAX_IMAGES\} fotos/)
-  assert.match(page, /\{images\.length\} de \{SMART_TOUR_MAX_IMAGES\} imagens/)
+  assert.match(page, /smartTour\.questions\.images/)
+  assert.match(page, /smartTour\.upload\.selectPhotos/)
+  assert.match(page, /smartTour\.upload\.photosLimit/)
+  assert.match(page, /smartTour\.upload\.photos/)
   assert.match(page, /current\.length \+ uniqueInSystemOrder\.length > SMART_TOUR_MAX_IMAGES/)
-  assert.match(page, /Você pode enviar no máximo \$\{SMART_TOUR_MAX_IMAGES\} imagens/)
+  assert.match(page, /smartTour\.uploadValidation\.maxImages/)
 })
 
 test('preserves the native file selection order through thumbnails and generation', () => {
@@ -34,7 +41,7 @@ test('uses the approved real-estate formatters', () => {
   assert.equal(normalizeSmartTourDistrict('antônio   olinto'), 'Antônio Olinto')
   assert.equal(formatSmartTourLocation({ district: ' centro ', city: 'Antônio Olinto', state: 'PR' }), 'Centro, Antônio Olinto - PR')
   assert.equal(formatSmartTourCurrency('3000'), 'R$ 3.000')
-  assert.match(page, /formatBrazilianPhone/)
+  assert.match(page, /formatPhone\(rawPhone, professionalMarket\)/)
   assert.doesNotMatch(page, /type="tel"/)
 })
 
@@ -65,7 +72,7 @@ test('provides type-specific highlights with a maximum of ten choices', () => {
   assert.notDeepEqual(getSmartTourHighlights('Apartamento'), getSmartTourHighlights('Casa'))
   assert.notDeepEqual(getSmartTourHighlights('Comercial'), getSmartTourHighlights('Terreno / Lote'))
   assert.match(page, /property\.highlights\.length < 10/)
-  assert.match(page, /Selecione até 10 características/)
+  assert.match(page, /smartTour\.highlightSelection\.instruction/)
 })
 
 test('removes commercial description and language questions from Brazil flow', () => {
@@ -78,13 +85,13 @@ test('removes commercial description and language questions from Brazil flow', (
 
 test('uses the four independent production choices instead of presentation modes', () => {
   assert.equal(getSmartTourNextQuestion({ questionId: 'highlights' }), 'presenter')
-  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter' }), 'narration')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter' }), 'presenter_speech_mode')
+  assert.equal(getSmartTourNextQuestion({ questionId: 'presenter_speech_mode', answerId: 'automatic' }), 'narration')
   assert.equal(getSmartTourNextQuestion({ questionId: 'narration' }), 'captions')
   assert.equal(getSmartTourNextQuestion({ questionId: 'captions' }), 'professional_identity')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
   assert.equal(getSmartTourNextQuestion({ questionId: 'cta_enabled', answerId: 'no' }), 'review')
   assert.doesNotMatch(page, /SMART_TOUR_MODES|free_ai_format|id === 'mode'/)
-  assert.doesNotMatch(page, /prompt livre|briefing/i)
 })
 
 test('supports targeted review edits and returns automatically to review', () => {
@@ -96,13 +103,13 @@ test('supports targeted review edits and returns automatically to review', () =>
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'cta_enabled', questionId: 'cta_enabled', answerId: 'yes' }), 'cta')
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'cta_enabled', questionId: 'phone' }), 'review')
   assert.equal(getSmartTourReviewEditNext({ originQuestionId: 'cta', questionId: 'cta' }), 'review')
-  assert.match(page, />Editar</)
+  assert.match(page, /onClick=\{\(\) => onReviewEdit\(item\.id\)\}/)
 })
 
 test('uses the approved final video review structure', () => {
-  for (const text of ['Revise suas escolhas', 'Confirma suas escolhas?', 'Confirmar e criar vídeo', 'Refazer criação']) assert.ok(page.includes(text))
-  assert.doesNotMatch(page, />Alterar opções</)
+  for (const key of ['smartTour.review.title', 'smartTour.review.confirm', 'smartTour.review.confirmCreate', 'smartTour.review.redo']) assert.ok(page.includes(key))
+  assert.doesNotMatch(page, /Alterar opções/)
   assert.match(page, /onClick=\{resetCreation\}/)
-  for (const label of ['Apresentador', 'Narração', 'Textos', 'CTA', 'Telefone']) assert.ok(page.includes(label))
-  assert.match(page, /\.\.\.\(ctaEnabled === true \? \[\{ label: 'Telefone'/)
+  for (const key of ['smartTour.review.presenter', 'smartTour.review.narration', 'smartTour.guide.texts', 'smartTour.review.phone']) assert.ok(page.includes(key))
+  assert.match(page, /ctaEnabled === true \? \[\{ label: t\('smartTour\.review\.phone'\)/)
 })

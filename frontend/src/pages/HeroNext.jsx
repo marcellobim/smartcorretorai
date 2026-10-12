@@ -34,8 +34,7 @@ import { guestBannerRequest, guestResultForBanner, GUEST_CLAIM_PENDING } from '.
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-connection'
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
-import { formatProfessionalIdentity, hasCompleteProfessionalIdentity } from '../config/professionalProfile'
-import { buildProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, formatProfessionalIdentity, hasCompleteProfessionalIdentity, professionalIdentityForRequest, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { formatConversationSystemAnswer, getConversationControls } from '../config/conversationControls'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
@@ -1922,6 +1921,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const generationViewActiveRef = useRef(true)
   const guestBusyRef = useRef(false)
   const generationStartRef = useRef(false)
+  const restoredIdentityNeedsValidationRef = useRef(restoredBannerDraft.professionalIdentitySelection?.enabled === true)
   const [guestSignupGate, setGuestSignupGate] = useState(false)
   const [guestConsumed, setGuestConsumed] = useState(false)
   const requireGuestAccount = () => setGuestSignupGate(true)
@@ -1967,6 +1967,7 @@ export default function HeroNext({ guestMode = false } = {}) {
   const profilePhoneRaw = String(guestMode ? answers.contactPhone || '' : user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || '').trim()
   const professionalMarket = market === 'US' ? 'US' : 'BR'
   const professionalIdentity = buildProfessionalIdentity(profile || user || {}, professionalIdentitySelection, professionalMarket)?.formatted || ''
+  const requestProfessionalIdentity = professionalIdentityForRequest(profile || user || {}, professionalIdentitySelection, professionalMarket)
   const canAskProfessionalIdentity = !guestMode
   const profilePhone = formatPhone(profilePhoneRaw, professionalMarket)
 
@@ -2092,6 +2093,17 @@ export default function HeroNext({ guestMode = false } = {}) {
   }, [baseChatFlow, canAskProfessionalIdentity, conversationControls.confirm, conversationControls.continue, market, t])
   const chatFlow = getChatFlowForAnswers(localizedBaseChatFlow, answers).filter((question) => question.id === 'contactPhone' && guestMode ? answers.contactPhoneChoice === 'Sim, quero divulgar' : shouldShowChatQuestion(question, answers))
   const currentQuestion = chatFlow[chatIndex]
+  const professionalIdentityPending = professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, professionalMarket)
+
+  useEffect(() => {
+    if (guestMode || !restoredIdentityNeedsValidationRef.current || (!profile && !user)) return
+    restoredIdentityNeedsValidationRef.current = false
+    if (!professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, professionalMarket)) return
+    setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
+    setShowProfessionalIdentity(null)
+    const professionalQuestionIndex = chatFlow.findIndex((question) => question.id === 'professionalIdentity')
+    if (professionalQuestionIndex >= 0) goToQuestion(professionalQuestionIndex)
+  }, [chatFlow, guestMode, professionalIdentitySelection, professionalMarket, profile, user])
   const selectedDestinations = destinationIds
     .map((id) => DESTINATIONS.find((item) => item.id === id))
     .filter(Boolean)
@@ -2627,7 +2639,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       market, locale, goal, answers, valueCondition, destination, creativeIdea, creativeIdeaCount,
       uploadedImages, promptTouched, effectivePrompt, campaignBatchId, formatIndex, totalFormats, jobIndex, totalJobs, economicContext,
       rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee,
-      showProfessionalIdentity: professionalIdentitySelection.enabled === true, professionalIdentitySelection, professionalMarket,
+      showProfessionalIdentity: requestProfessionalIdentity.enabled === true, professionalIdentitySelection: requestProfessionalIdentity, professionalMarket,
     })
 
     updateGenerationJob(jobId, {
@@ -2733,6 +2745,14 @@ export default function HeroNext({ guestMode = false } = {}) {
     if (generationStartRef.current) return
     if (pieceLimitExceeded) {
       setGenerationError(HERO_NEXT_PIECE_LIMIT_MESSAGE)
+      return
+    }
+    if (professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, professionalMarket)) {
+      const professionalQuestionIndex = chatFlow.findIndex((question) => question.id === 'professionalIdentity')
+      setGenerationError(market === 'US'
+        ? 'Choose a complete professional credential or continue without professional information.'
+        : 'Escolha uma credencial profissional completa ou continue sem identificação profissional.')
+      if (professionalQuestionIndex >= 0) goToQuestion(professionalQuestionIndex)
       return
     }
     if (!canGenerate) return
@@ -3292,7 +3312,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <div key={question.id} className="space-y-4">
                       <AssistantBubble>{question.question}</AssistantBubble>
                       <UserBubble actions={<button type="button" onClick={() => goToQuestion(index)} className="mt-3 inline-flex rounded-lg border border-emerald-200/70 bg-emerald-950/30 px-2.5 py-1 text-xs font-black text-emerald-100 hover:bg-emerald-950/50 hover:text-white">{b('edit')}</button>}>
-                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id], optionLabel)}
+                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity || (professionalIdentityPending ? (market === 'US' ? 'Professional information needs completion' : 'Identificação profissional pendente') : '') : formatAnswer(answers[question.id], optionLabel)}
                       </UserBubble>
                     </div>
                   ))}
@@ -3662,7 +3682,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                     <div className="flex items-start justify-between gap-3">
                       <p>
                         <strong>{question.question}</strong><br />
-                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity : formatAnswer(answers[question.id], optionLabel)}
+                        {question.id === 'professionalIdentity' && showProfessionalIdentity ? professionalIdentity || (professionalIdentityPending ? (market === 'US' ? 'Professional information needs completion' : 'Identificação profissional pendente') : '') : formatAnswer(answers[question.id], optionLabel)}
                       </p>
                       <button
                         type="button"

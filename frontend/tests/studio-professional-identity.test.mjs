@@ -13,7 +13,7 @@ test('AI Studio asks for the shared structured identity before either commercial
   assert.match(studio, /professionalIdentity: \{ enabled: null, name_source: null, credential_source: null \}/)
   assert.match(studio, /const professionalIdentityStep = isFreeAiMode/)
   assert.match(studio, /market=\{market\}/)
-  assert.match(studio, /professional_identity: \{/)
+  assert.match(studio, /professional_identity: selectedProfessionalIdentity/)
   assert.match(studio, /name_source: answers\.professionalIdentity\.name_source/)
   assert.match(studio, /onEdit=\{\(\) => setStep\(professionalIdentityStep\)\}/)
 })

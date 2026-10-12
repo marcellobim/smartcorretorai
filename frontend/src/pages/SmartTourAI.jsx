@@ -24,7 +24,7 @@ import { clearSmartTourActiveJob, getSmartTourStatusHttpStatus, parseLatestCompl
 import { mergeSmartTourCampaignHashtags } from '../lib/smart-tour-hashtags'
 import { SMART_TOUR_EXAMPLES, SMART_TOUR_MAX_IMAGES, SMART_TOUR_PRODUCT_NAME } from '../config/smartTour'
 import { getSmartTourNextQuestion, getSmartTourReviewEditNext, shouldAskProfessionalIdentity } from '../config/smartTourConversation'
-import { buildProfessionalIdentity, formatProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, formatProfessionalIdentity, professionalIdentityForRequest, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { formatSmartTourCurrency, formatSmartTourLocation, getSmartTourHighlightGroups, getSmartTourMeasureFields, getSmartTourPropertyTypes, getSmartTourStageOptions, normalizeSmartTourDistrict, SMART_TOUR_MEASURE_OPTIONS, SMART_TOUR_PROPERTY_TYPES } from '../config/smartTourForm'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidCountyForState, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
@@ -124,6 +124,7 @@ export default function SmartTourAI() {
   const previousMarketRef = useRef(market)
   const pollRef = useRef(null)
   const recoveryStartedRef = useRef(false)
+  const restoredIdentityNeedsValidationRef = useRef(restoredTourDraft.professionalIdentity?.enabled === true)
   const reviewEditRef = useRef(null)
   const shortVideoGenerationLockRef = useRef(false)
   const generationLockRef = useRef(false)
@@ -247,6 +248,14 @@ export default function SmartTourAI() {
   }
   const conversation = useGuidedConversation({ initialQuestionId: 'images', initialState: restoredTourDraft.conversation, onEdit: resetTourFromQuestion, onStateChange: setConversationSnapshot })
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
+
+  useEffect(() => {
+    if (isShortVideos || !restoredIdentityNeedsValidationRef.current || (!profile && !user)) return
+    restoredIdentityNeedsValidationRef.current = false
+    if (!professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, professionalMarket)) return
+    setProfessionalIdentitySelection({ enabled: null, name_source: null, credential_source: null })
+    editConversationAnswer('professional_identity')
+  }, [isShortVideos, profile, professionalIdentitySelection, professionalMarket, user])
   const question = questions[questionIndex] || questions[0]
   const reachedStep = !activeInputFlow
     ? null
@@ -434,6 +443,12 @@ export default function SmartTourAI() {
       setMessage(market === 'US' ? 'Choose whether to include professional information before creating the video.' : 'Escolha se deseja incluir identificação profissional antes de criar o vídeo.')
       return
     }
+    if (!isShortVideos && professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, professionalMarket)) {
+      setStatus('idle')
+      setMessage(market === 'US' ? 'Choose a complete professional credential or continue without professional information.' : 'Escolha uma credencial profissional completa ou continue sem identificação profissional.')
+      editConversationAnswer('professional_identity')
+      return
+    }
     if (isShortVideos) {
       if (shortVideoGenerationLockRef.current) {
         setMessage(t('smartTour.status.shortAlreadyStarted'))
@@ -491,6 +506,7 @@ export default function SmartTourAI() {
         ? { ...property, suites: '', condominium: '', iptu: '', district: '' }
         : { ...property, bathrooms: '', hoa: '', propertyTaxes: '', county: '', zipCode: '', neighborhoodCommunity: '' }
       const orderedImages = images.slice()
+      const requestProfessionalIdentity = professionalIdentityForRequest(profile || user || {}, professionalIdentitySelection, professionalMarket)
       if (!savedUploads && !orderedImages.length) throw new Error('Selecione as fotos novamente; seu briefing foi preservado.')
       if (savedUploads) await verifyVideoUploads(supabase, savedUploads, user.id)
       const imagePaths = savedUploads ? [...savedUploads.paths] : new Array(orderedImages.length)
@@ -507,7 +523,7 @@ export default function SmartTourAI() {
       setStatus('generating'); setMessage(t('smartTour.status.creating'))
       let campaignPackage = buildSmartTourCampaignPackage({ property, language:apiGeneration.language, cta:selectedCta, phone:videoCtaEnabled && includePhone ? phone : '', unifiedSocialPublishing:true })
       writeSmartTourActiveJob(sessionStorage, { jobId:requestId, campaignPackage, inputFlow:'images', phase:'starting', updatedAt:Date.now() })
-      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, professional_identity: { enabled: professionalIdentitySelection.enabled === true, ...(professionalIdentitySelection.enabled === true ? { name_source: professionalIdentitySelection.name_source, credential_source: professionalIdentitySelection.credential_source } : {}) }, language: apiGeneration.language, market } })
+      const { data, error } = await supabase.functions.invoke('smart-tour-generate', { body: { clientRequestId: requestId, imagePaths, imageOrder: imagePaths, property: propertyPayload, generation: apiGeneration, selectedCta, includeProfessionalPhone: videoCtaEnabled && includePhone === true, professional_identity: { enabled: requestProfessionalIdentity.enabled === true, ...(requestProfessionalIdentity.enabled === true ? { name_source: requestProfessionalIdentity.name_source, credential_source: requestProfessionalIdentity.credential_source } : {}) }, language: apiGeneration.language, market } })
       if (await isVideoSessionInvalid(error, data)) {
         clearSmartTourActiveJob(sessionStorage)
         requireLogin()
@@ -584,7 +600,7 @@ export default function SmartTourAI() {
     ...(!isShortVideos ? [{ id: 'presenter_speech_mode', label: generation.presenterSpeechMode === 'custom' ? t('smartTour.speechMode.custom') : t('smartTour.speechMode.automatic') }] : []),
     ...(!isShortVideos && generation.presenterSpeechMode === 'custom' && generation.presenterCustomSpeech ? [{ id: 'presenter_custom_speech', label: generation.presenterCustomSpeech }] : []),
     { id: 'narration', label: generation.presenterSpeechMode === 'custom' ? t('smartTour.review.implicitYes') : generation.narration === 'enabled' ? t('smartTour.options.yes') : generation.narration === 'disabled' ? t('smartTour.options.no') : '' }, { id: 'captions', label: generation.captions === 'enabled' ? t('smartTour.options.yes') : generation.captions === 'disabled' ? t('smartTour.options.no') : '' },
-    { id: 'professional_identity', label: isShortVideos ? (showProfessionalIdentity === true ? legacyProfessionalIdentity : showProfessionalIdentity === false ? t('smartTour.options.no') : '') : (professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : professionalIdentitySelection.enabled === false ? t('smartTour.options.no') : '') },
+    { id: 'professional_identity', label: isShortVideos ? (showProfessionalIdentity === true ? legacyProfessionalIdentity : showProfessionalIdentity === false ? t('smartTour.options.no') : '') : (professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || (market === 'US' ? 'Professional information needs completion' : 'Identificação profissional pendente') : professionalIdentitySelection.enabled === false ? t('smartTour.options.no') : '') },
     { id: 'cta_enabled', label: ctaEnabled === true ? t('smartTour.options.yes') : ctaEnabled === false ? t('smartTour.options.no') : '' },
     { id: 'cta', label: ctaEnabled === true ? cta : '' },
     { id: 'phone', label: ctaEnabled === true ? (includePhone === true ? phone : includePhone === false ? t('smartTour.phone.none') : '') : '' },

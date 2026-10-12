@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url'
 
 async function loadStudio() {
   const vite = await import('vite')
-  const server = await vite.createServer({ root: fileURLToPath(new URL('../', import.meta.url)), server: { middlewareMode: true, hmr: false }, appType: 'custom' })
+  const react = (await import('@vitejs/plugin-react')).default
+  const server = await vite.createServer({ root: fileURLToPath(new URL('../', import.meta.url)), configFile: false, plugins: [react()], server: { middlewareMode: true, hmr: false }, appType: 'custom' })
   try { return await server.ssrLoadModule('/src/pages/StudioHero.jsx') } finally { await server.close() }
 }
 

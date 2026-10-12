@@ -19,7 +19,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth-context'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
 import { getConversationControls } from '../config/conversationControls'
-import { buildProfessionalIdentity } from '../config/professionalProfile'
+import { buildProfessionalIdentity, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useLocale } from '../i18n/useLocale'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
@@ -1113,6 +1113,19 @@ export function buildStudioGenerationPayload({
   draftId, inputImage1Path,
 }) {
   const requiresImages = !isFreeAiMode
+  // `professionalIdentity` is the resolved profile credential.  Keep the
+  // request contract sourced from the explicit conversation selection, never
+  // from the creation market or a legacy formatted string.
+  const selectedProfessionalIdentity = professionalIdentity
+    && answers.professionalIdentity?.enabled === true
+    && ['real', 'display'].includes(answers.professionalIdentity.name_source)
+    && ['br_creci', 'us_license'].includes(answers.professionalIdentity.credential_source)
+    ? {
+        enabled: true,
+        name_source: answers.professionalIdentity.name_source,
+        credential_source: answers.professionalIdentity.credential_source,
+      }
+    : { enabled: false }
   const nativeVideoText = {
     offer: normalizeVideoTextToken(answers.oferta),
     feature: normalizeVideoTextToken(finalFeatures),
@@ -1159,10 +1172,7 @@ export function buildStudioGenerationPayload({
     atmosphere: answers.atmosphere,
     pace: answers.pace,
     creativeFreedom: answers.creativeFreedom,
-    professional_identity: {
-      enabled: answers.professionalIdentity?.enabled === true,
-      ...(answers.professionalIdentity?.enabled === true ? { name_source: answers.professionalIdentity.name_source, credential_source: answers.professionalIdentity.credential_source } : {}),
-    },
+    professional_identity: selectedProfessionalIdentity,
   }
   return {
     language, market,
@@ -2033,6 +2043,12 @@ export default function StudioHero() {
     if (!isFreeAiMode && !studioHeroAccess.canGenerate) {
       setStatus('failed')
       setMessage(t('studio.errors.access'))
+      return
+    }
+    if (professionalIdentityNeedsAttention(user || {}, answers.professionalIdentity, market)) {
+      setStep(professionalIdentityStep)
+      setStatus('idle')
+      setMessage(market === 'US' ? 'Choose a complete professional credential or continue without professional information.' : 'Escolha uma credencial profissional completa ou continue sem identificação profissional.')
       return
     }
 
