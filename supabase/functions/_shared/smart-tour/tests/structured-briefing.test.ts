@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { buildGeminiOmniInlineRequestBody } from '../../geminiOmniClient.ts'
-import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, SMART_TOUR_GEMINI_MISSION, SMART_TOUR_PHRASE_LIBRARY } from '../index.ts'
+import { applySmartTourCustomPresenterSpeech, buildSmartTourBaseVideoBriefing, buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, SMART_TOUR_GEMINI_MISSION, SMART_TOUR_PHRASE_LIBRARY } from '../index.ts'
 
 const property = {
   purpose: 'sale',
@@ -286,7 +286,7 @@ test('professional identity is a separate visual timeline block, never narration
   assert.equal(briefing.timeline.cta.texto.includes('Riccieri'), false)
   assert.deepEqual(
     briefing.regrasObrigatorias.find(rule => rule.codigo === 'texto_visual_apenas_no_compositor'),
-    { codigo: 'texto_visual_apenas_no_compositor', valor: 'O vídeo-base não pode renderizar textos visuais, CTA, telefone ou identificação profissional. Essas sobreposições são aplicadas uma única vez pelo compositor determinístico final. A narração e o áudio devem permanecer conforme timeline.narracao.' },
+    { codigo: 'texto_visual_apenas_no_compositor', valor: 'O vídeo-base não pode renderizar textos visuais, CTA, telefone ou identificação profissional. Essas sobreposições são aplicadas uma única vez pelo compositor determinístico final.' },
   )
 })
 
@@ -303,6 +303,23 @@ test('Gemini Omni receives the exact JSON as the only briefing text and remains 
   assert.deepEqual(payload.response_modalities, ['video'])
   assert.deepEqual(payload.input.slice(0, 5), images)
   assert.deepEqual(payload.input.at(-1), { type: 'text', text: JSON.stringify(briefing) })
+})
+
+test('custom narration is excluded from the Gemini base-video briefing while preserving the final literal TTS briefing', () => {
+  const literalSpeech = 'This exact sentence belongs only to the user.'
+  const finalBriefing = applySmartTourCustomPresenterSpeech(build({
+    generation: { ...generation, presenterSpeechMode: 'custom', presenterCustomSpeech: literalSpeech, narration: 'enabled', captions: 'disabled', language: 'en-US' },
+    selectedCta: 'Schedule a visit',
+    phone: '+1 813 555 0100',
+    professionalIdentity: 'Alex Rivera · License #123456 · FL',
+    language: 'en-US',
+  }), literalSpeech)
+  const prompt = buildSmartTourVideoPrompt(buildSmartTourBaseVideoBriefing(finalBriefing))
+  assert.equal(finalBriefing.timeline.narracao[0].texto, literalSpeech)
+  assert.doesNotMatch(prompt, /This exact sentence belongs only to the user\./)
+  assert.doesNotMatch(prompt, /813 555 0100|License #123456|Alex Rivera/)
+  assert.match(prompt, /base_video_without_text_or_contact/)
+  assert.match(prompt, /base_video_without_custom_audio/)
 })
 
 test('US video brief uses bathrooms, sqft and USD without Brazilian system vocabulary', () => {
@@ -331,6 +348,7 @@ test('active generation builds JSON locally, generates Gemini video, then compos
   assert.match(source, /professionalIdentity,imagePaths:input\.imagePaths,language:input\.language/)
   assert.match(source, /generateGeminiOmniVideoInline\(\{[\s\S]{0,100}prompt,[\s\S]{0,100}images,[\s\S]{0,160}timeoutMs:/)
   assert.match(source, /hasDeterministicSmartTourText\(briefing\)/)
+  assert.match(source, /buildSmartTourBaseVideoBriefing\(briefing\)/)
   assert.match(source, /startSmartTourCaptionRender\(creatomateKey, rawUrl\.signedUrl, briefing\)/)
   assert.match(source, /encodeSmartTourCaptionRenderId\(startedRender\.renderId\)/)
   assert.doesNotMatch(source, /credentialProfile|video-imobiliario|GEMINI_API_KEY_2/)

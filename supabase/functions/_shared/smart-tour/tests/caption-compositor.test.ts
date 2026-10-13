@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildSmartTourCaptionRenderScript,
+  applySmartTourCustomPresenterSpeech,
+  buildSmartTourBaseVideoBriefing,
   buildShortVideosCaptionPlan,
   buildShortVideosStructuredBriefing,
   buildSmartTourStructuredBriefing,
@@ -176,6 +178,42 @@ test('final compositor renders exactly one lower contact and one lower professio
   assert.deepEqual({ text: contact?.text, time: contact?.time, duration: contact?.duration, track: contact?.track, y: contact?.y }, { text: 'Fale comigo', time: 8, duration: 2, track: 2, y: '79%' })
   assert.equal(identityBriefing.timeline.narracao.some(block => block.texto.includes('Riccieri')), false)
   assert.equal(identityBriefing.timeline.cta.texto.includes('Riccieri'), false)
+})
+
+test('US custom narration is sent byte-for-byte to deterministic TTS and never to the base-video model', () => {
+  const literalSpeech = 'Welcome home. Schedule your private tour today.'
+  const finalBriefing = applySmartTourCustomPresenterSpeech(buildSmartTourStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'female', presenterSpeechMode: 'custom', presenterCustomSpeech: literalSpeech, narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'en-US' },
+    property: { purpose: 'sale', type: 'us_single_family_home', state: 'FL', county: 'Hillsborough County', city: 'Tampa', neighborhoodCommunity: 'Hyde Park', bedrooms: '3', bathrooms: '2', area: '1850' },
+    selectedCta: 'Schedule a visit', phone: '+1 813 555 0100', professionalIdentity: 'Alex Rivera · License #123456 · FL', imagePaths: ['home.jpg'], language: 'en-US',
+  }), literalSpeech)
+  const finalScript = buildSmartTourCaptionRenderScript('https://example.com/base.mp4', finalBriefing)
+  const tts = finalScript.elements.find(element => element.name === 'Broker-Custom-Literal-Speech')
+  const baseVideo = finalScript.elements[0]
+  const text = finalScript.elements.filter(element => element.type === 'text')
+  const baseBriefing = buildSmartTourBaseVideoBriefing(finalBriefing)
+
+  assert.equal(tts?.source, literalSpeech)
+  assert.equal(tts?.provider, 'openai model=tts-1 voice=nova')
+  assert.equal(baseVideo.volume, '0%')
+  assert.equal(baseBriefing.timeline.narracao.every(block => block.texto === ''), true)
+  assert.equal(baseBriefing.timeline.cta.texto, '')
+  assert.equal(baseBriefing.timeline.cta.telefone, '')
+  assert.equal(baseBriefing.timeline.identificacaoProfissional.texto, '')
+  assert.equal(baseBriefing.configuracoes.narracaoAtiva, false)
+  assert.deepEqual(text.map(element => element.text), ['☎ Schedule a visit\n+1 813 555 0100', 'Alex Rivera · License #123456 · FL'])
+  assert.equal(text.some(element => /example realtor|sample|demo|@|www\.|brokerage/i.test(String(element.text))), false)
+})
+
+test('final compositor never emits a phone when the user did not authorize one', () => {
+  const noPhone = buildSmartTourStructuredBriefing({
+    generation: { mode: 'guided_tour', presenterGender: 'male', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'en-US' },
+    property: { purpose: 'sale', type: 'us_single_family_home', state: 'FL', city: 'Tampa' },
+    selectedCta: 'Schedule a visit', phone: '', professionalIdentity: 'Alex Rivera · License #123456 · FL', imagePaths: ['home.jpg'], language: 'en-US',
+  })
+  const text = buildSmartTourCaptionRenderScript('https://example.com/base.mp4', noPhone).elements.filter(element => element.type === 'text')
+  assert.deepEqual(text.map(element => element.text), ['Schedule a visit', 'Alex Rivera · License #123456 · FL'])
+  assert.equal(text.some(element => /\+\d|\(\d{2,3}\)/.test(String(element.text))), false)
 })
 
 test('Short Videos controlled plan limits information and turns the last two seconds into the CTA screen', () => {

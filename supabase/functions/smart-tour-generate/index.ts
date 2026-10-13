@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveSupabaseAdminCredential } from '../_shared/supabase-admin-credential.ts'
 import { GEMINI_VIDEO_SHORT_VIDEOS_MAX_BYTES, generateGeminiOmniVideoInline, prepareGeminiImages, SMART_TOUR_GEMINI_OMNI_MODEL } from '../_shared/geminiOmniClient.ts'
 import { prepareGeminiVideo, startGeminiOmniShortVideo } from '../_shared/geminiOmniClient.ts'
-import { buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, formatSmartTourProfessionalIdentity, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
+import { buildSmartTourBaseVideoBriefing, buildSmartTourStructuredBriefing, buildSmartTourVideoPrompt, encodeSmartTourCaptionRenderId, formatSmartTourProfessionalIdentity, hasDeterministicSmartTourText, resolveSmartTourProfessionalPhone, startSmartTourCaptionRender, validateSmartTourRequest } from '../_shared/smart-tour/index.ts'
 import { resolveProfessionalIdentity } from '../_shared/professional-identity.ts'
 import { applySmartTourCustomPresenterSpeech, applySmartTourDynamicNarration, generateSmartTourDynamicNarration } from '../_shared/smart-tour/index.ts'
 import { buildShortVideosCleanGeminiPrompt, buildShortVideosStructuredBriefing, validateShortVideosRequest } from '../_shared/smart-tour/index.ts'
@@ -148,7 +148,7 @@ serve(withCors(async req => {
     const fallbackBriefing = input.generation.presenterSpeechMode === 'custom'
       ? applySmartTourCustomPresenterSpeech(baseBriefing,input.generation.presenterCustomSpeech)
       : baseBriefing
-    const fallbackPrompt = buildSmartTourVideoPrompt(fallbackBriefing)
+    const fallbackPrompt = buildSmartTourVideoPrompt(buildSmartTourBaseVideoBriefing(fallbackBriefing))
     const {error:insertError} = await supabase.from('video_jobs').insert({id:input.clientRequestId,user_id:user.id,status:'pending',mode:'smart_tour_gemini_omni',style:input.generation.mode,model:SMART_TOUR_GEMINI_OMNI_MODEL,prompt_final:fallbackPrompt,input_image_1_path:input.imagePaths[0],input_image_2_path:input.imagePaths.at(-1),marketing_hashtags:fallbackHashtags,publication_options:buildSmartTourPublicationOptions({property:input.property,language:input.language,cta:input.selectedCta,phone}),tokens_reserved:0})
     if (insertError) throw new Error('job_create_failed')
     const economy = await claimGeminiVideoEconomy(supabase,{userId:user.id,clientRequestId:input.clientRequestId,productCode:'real_estate_video',metadata:{image_count:input.imagePaths.length,output_duration_seconds:10,resolution:'1280x720',fps:24,audio:input.generation.narration === 'enabled',captions:input.generation.captions === 'enabled',presenter:['female','male'].includes(input.generation.presenterGender)}})
@@ -166,7 +166,7 @@ serve(withCors(async req => {
         ? await generateSmartTourDynamicNarration({apiKey:Deno.env.get('OPENAI_API_KEY') || '',property:input.property,selectedCta:input.selectedCta,language:input.language === 'en-US' ? 'en-US' : 'pt-BR'})
         : null
       const briefing = dynamicNarration ? applySmartTourDynamicNarration(fallbackBriefing,dynamicNarration) : fallbackBriefing
-      const prompt = buildSmartTourVideoPrompt(briefing)
+      const prompt = buildSmartTourVideoPrompt(buildSmartTourBaseVideoBriefing(briefing))
       const hashtags = await generateStrategicHashtags({apiKey:Deno.env.get('OPENAI_API_KEY') || '',variationKey:input.clientRequestId,context:hashtagContext})
       const {error:briefingUpdateError} = await supabase.from('video_jobs').update({prompt_final:prompt,marketing_hashtags:hashtags}).eq('id',input.clientRequestId).eq('user_id',user.id)
       if (briefingUpdateError) throw new Error('job_briefing_persist_failed')

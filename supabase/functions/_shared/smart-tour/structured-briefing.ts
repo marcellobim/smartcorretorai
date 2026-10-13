@@ -2,7 +2,6 @@ import type { PropertyContext, SmartTourGenerationConfig, SupportedLanguage } fr
 import { removeNonOfficialPhoneNumbers } from './professional-phone.ts'
 import { presentSmartTourHighlights, presentSmartTourPropertyType } from './presentation.ts'
 import { normalizeGeneration } from './validation.ts'
-import { GEMINI_VIDEO_TEXT_RULES } from '../gemini-video-text-rules.ts'
 
 export const SMART_TOUR_GEMINI_MISSION = `MISSÃO PRINCIPAL
 Você é um cinegrafista profissional especializado em imóveis.
@@ -491,12 +490,12 @@ export function applySmartTourCustomPresenterSpeech(
     ...block,
     ...(index === 0 ? { inicioSegundos: 0, fimSegundos: briefing.timeline.duracaoTotalSegundos } : {}),
     texto: index === 0 ? text : '',
-    frase_id: index === 0 ? 'CUSTOM_PRESENTER_SPEECH' : '',
+    frase_id: index === 0 ? 'PRESENTER_CUSTOM_SPEECH' : '',
   }))
   const scenes = briefing.cenas.map((scene, index) => ({
     ...scene,
     narracao: narrationBlocks[index]?.texto || '',
-    frase_id: narrationBlocks[index]?.texto ? 'CUSTOM_PRESENTER_SPEECH' : scene.frase_id,
+    frase_id: narrationBlocks[index]?.texto ? 'PRESENTER_CUSTOM_SPEECH' : scene.frase_id,
   }))
   return {
     ...briefing,
@@ -505,6 +504,52 @@ export function applySmartTourCustomPresenterSpeech(
     regrasObrigatorias: [
       ...briefing.regrasObrigatorias,
       { codigo: 'fala_personalizada', valor: 'A narração deve usar exatamente o texto literal de timeline.narracao, sem reescrever, resumir, corrigir, completar ou adicionar palavras.' },
+    ],
+  }
+}
+
+/**
+ * The video model produces only the visual base.  Text, contact details and
+ * professional identity belong to the deterministic compositor.  In the
+ * custom-speech path this also removes the literal text from the video-model
+ * prompt, so the compositor's TTS is the sole narration source.
+ */
+export function buildSmartTourBaseVideoBriefing(briefing: SmartTourStructuredBriefing): SmartTourStructuredBriefing {
+  const hasLiteralCustomSpeech = briefing.timeline.narracao.some(block =>
+    block.frase_id === 'PRESENTER_CUSTOM_SPEECH' && Boolean(block.texto),
+  )
+  return {
+    ...briefing,
+    configuracoes: {
+      ...briefing.configuracoes,
+      narracaoAtiva: hasLiteralCustomSpeech ? false : briefing.configuracoes.narracaoAtiva,
+      legendasAtivas: false,
+      ctaAtivo: false,
+      identificacaoProfissionalAtiva: false,
+    },
+    cenas: briefing.cenas.map(scene => ({
+      ...scene,
+      legenda: '',
+      narracao: hasLiteralCustomSpeech ? '' : scene.narracao,
+      frase_id: hasLiteralCustomSpeech ? '' : scene.frase_id,
+      duracaoNarracaoSegundos: hasLiteralCustomSpeech ? 0 : scene.duracaoNarracaoSegundos,
+      tempoTelefoneVisivelAposNarracaoSegundos: 0,
+    })),
+    timeline: {
+      ...briefing.timeline,
+      legendas: briefing.timeline.legendas.map(block => ({ ...block, texto: '' })),
+      narracao: briefing.timeline.narracao.map(block => hasLiteralCustomSpeech
+        ? { ...block, texto: '', frase_id: '' }
+        : block),
+      cta: { ...briefing.timeline.cta, texto: '', titulo: '', telefone: '' },
+      identificacaoProfissional: { ...briefing.timeline.identificacaoProfissional, texto: '' },
+    },
+    cta: { titulo: '', telefone: '' },
+    identificacaoProfissional: { texto: '' },
+    regrasObrigatorias: [
+      ...briefing.regrasObrigatorias.filter(rule => rule.codigo !== 'timeline_temporal_fonte_efetiva' && rule.codigo !== 'texto_visual_apenas_no_compositor'),
+      { codigo: 'video_base_sem_texto_ou_contato', valor: 'O vídeo-base não pode renderizar texto visível, CTA, telefone, nome, empresa, site, e-mail, endereço, dados de demonstração ou identificação profissional. Não criar lower thirds, cartões de contato, marcas, placeholders ou sobreposições. Essas informações são aplicadas somente uma vez pelo compositor determinístico final.' },
+      ...(hasLiteralCustomSpeech ? [{ codigo: 'video_base_sem_audio_personalizado', valor: 'Não narrar, vocalizar ou gerar áudio. A fala personalizada será inserida literalmente por TTS no compositor final.' }] : []),
     ],
   }
 }
@@ -656,15 +701,14 @@ export function buildSmartTourStructuredBriefing(input: {
     },
     regrasObrigatorias: [
       { codigo: 'usar_json_como_fonte_unica', valor: english ? 'Use only information in this JSON. Do not invent, complete, alter, correct or replace any information.' : 'Utilizar exclusivamente as informações existentes neste JSON. Não inventar. Não completar. Não alterar. Não corrigir. Não substituir. Todas as informações utilizadas na geração deverão ser obtidas exclusivamente deste JSON.' },
-      ...(english ? [] : GEMINI_VIDEO_TEXT_RULES),
       { codigo: 'sem_invencao', valor: english ? (hasPresenter ? `Do not invent data, contacts, rooms, additional people or elements; the only mandatory authorized person is the presenter.` : 'Do not invent data, contacts, rooms, people or elements.') : (hasPresenter ? `não inventar dados, contatos, ambientes, pessoas adicionais ou elementos; a única pessoa autorizada e obrigatória é a ${presenterType} definida em apresentador.tipo` : 'não inventar dados, contatos, ambientes, pessoas ou elementos') },
       ...presenterRules,
       { codigo: 'idioma', valor: input.language },
       { codigo: 'formato_vertical', valor: '9:16' },
       { codigo: 'duracao_total_segundos', valor: 10 },
       { codigo: 'legendas_obrigatorias_quando_ativas', valor: config.captions === 'enabled' },
-      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'Renderizar no próprio vídeo final exclusivamente timeline.legendas, timeline.narracao, timeline.cta e timeline.identificacaoProfissional como fonte efetiva dos textos, da narração e de seus tempos. As trocas de texto são independentes das trocas de imagem. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a timeline.' },
-      { codigo: 'texto_visual_apenas_no_compositor', valor: 'O vídeo-base não pode renderizar textos visuais, CTA, telefone ou identificação profissional. Essas sobreposições são aplicadas uma única vez pelo compositor determinístico final. A narração e o áudio devem permanecer conforme timeline.narracao.' },
+      { codigo: 'timeline_temporal_fonte_efetiva', valor: 'O compositor determinístico final é a única fonte dos textos, CTA, telefone, identificação profissional e seus tempos. Os campos textuais de cenas existem somente para compatibilidade temporária e não controlam a camada visual.' },
+      { codigo: 'texto_visual_apenas_no_compositor', valor: 'O vídeo-base não pode renderizar textos visuais, CTA, telefone ou identificação profissional. Essas sobreposições são aplicadas uma única vez pelo compositor determinístico final.' },
       { codigo: 'identificacao_profissional_visual_deterministica', valor: professionalIdentity ? 'timeline.identificacaoProfissional é uma sobreposição visual discreta do compositor determinístico. Nunca narrar, reescrever, completar ou incluir esse texto em legendas sociais.' : false },
       { codigo: 'legendas_sem_valores_comerciais_automaticos', valor: 'Nunca usar automaticamente em legendas: valor do condomínio, IPTU, preço, taxas ou código do imóvel. Condomínio somente pode aparecer como benefício selecionado, como lazer completo, piscina, academia, portaria 24 horas ou condomínio clube; nunca como valor monetário.' },
       { codigo: 'narracao_complementar', valor: 'a narração não pode repetir exatamente a legenda' },

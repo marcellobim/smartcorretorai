@@ -36,7 +36,9 @@ export function hasDeterministicSmartTourText(briefing: SmartTourComposableBrief
     ...(briefing.timeline?.cta ? [briefing.timeline.cta] : []),
     ...(briefing.timeline?.identificacaoProfissional ? [briefing.timeline.identificacaoProfissional] : []),
   ]
-  return timedText.some(block => Boolean(block.texto)) || briefing.cenas.some(scene => Boolean(scene.legenda))
+  const hasLiteralCustomSpeech = briefing.versao === 'smart-tour-structured-briefing-v1' && briefing.timeline?.narracao
+    .some(block => block.frase_id === 'PRESENTER_CUSTOM_SPEECH' && Boolean(block.texto))
+  return hasLiteralCustomSpeech || timedText.some(block => Boolean(block.texto)) || briefing.cenas.some(scene => Boolean(scene.legenda))
 }
 
 export function parseSmartTourStructuredBriefing(value: unknown): SmartTourComposableBriefing {
@@ -120,6 +122,25 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
       background_border_radius: '18%',
     }]
   })
+  const literalCustomSpeech = briefing.versao === 'smart-tour-structured-briefing-v1' && briefing.timeline
+    ? briefing.timeline.narracao
+      .filter(block => block.frase_id === 'PRESENTER_CUSTOM_SPEECH')
+      .map(block => block.texto)
+      .filter(Boolean)
+      .join(' ')
+    : ''
+  const literalSpeechElements = literalCustomSpeech ? [{
+    name: 'Broker-Custom-Literal-Speech',
+    type: 'audio',
+    track: 4,
+    time: 0,
+    duration,
+    source: literalCustomSpeech,
+    provider: 'openai model=tts-1 voice=nova',
+    volume: '100%',
+    audio_fade_in: 0.15,
+    audio_fade_out: 0.2,
+  }] : []
 
   return {
     output_format: 'mp4',
@@ -136,9 +157,10 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
         duration,
         source: videoUrl,
         fit: 'cover',
-        volume: '100%',
+        volume: literalCustomSpeech ? '0%' : '100%',
       },
       ...captionElements,
+      ...literalSpeechElements,
     ],
   }
 }
