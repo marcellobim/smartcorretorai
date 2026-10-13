@@ -41,6 +41,7 @@ import {
   type SmartCarouselLocale,
 } from './localization.ts'
 import { buildProfessionalIdentityRenderElement } from './professional-identity-render.ts'
+import { buildSmartCarouselPhotoLayers } from './photo-layout.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -586,84 +587,14 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   const timing = calculateSmartCarouselTiming(imageUrls.length)
   const duration = timing.totalSeconds
   const narrationDuration = timing.narrationSeconds
-  const imageMovements = [
-    {
-      easing: 'cubic-in-out',
-      type: 'pan',
-      scope: 'element',
-      start_x: '47%',
-      end_x: '53%',
-      start_y: '53%',
-      end_y: '47%',
-      start_scale: '110%',
-      end_scale: '132%',
-      fade: false,
-    },
-    {
-      easing: 'cubic-in-out',
-      type: 'pan',
-      scope: 'element',
-      start_x: '40%',
-      end_x: '60%',
-      start_scale: '126%',
-      end_scale: '126%',
-      fade: false,
-    },
-    {
-      easing: 'cubic-in-out',
-      type: 'scale',
-      scope: 'element',
-      start_scale: '132%',
-      end_scale: '108%',
-      fade: false,
-    },
-    {
-      easing: 'cubic-in-out',
-      type: 'pan',
-      scope: 'element',
-      start_x: '60%',
-      end_x: '40%',
-      start_y: '48%',
-      end_y: '52%',
-      start_scale: '128%',
-      end_scale: '124%',
-      fade: false,
-    },
-    {
-      easing: 'cubic-in-out',
-      type: 'pan',
-      scope: 'element',
-      start_x: '44%',
-      end_x: '56%',
-      start_y: '54%',
-      end_y: '46%',
-      start_scale: '114%',
-      end_scale: '128%',
-      fade: false,
-    },
-  ]
-  const imageElements = imageUrls.map((source, index) => ({
-    type: 'image',
-    track: 1,
-    duration: SMART_CAROUSEL_SCENE_DURATION_SECONDS,
-    source,
-    fit: 'cover',
-    clip: true,
-    x: index % 2 === 0 ? '49%' : '51%',
-    animations: [
-      ...(index > 0 ? [{
-        duration: transitionDuration,
-        easing: 'cubic-in-out',
-        transition: true,
-        type: 'fade',
-      }] : []),
-      imageMovements[index % imageMovements.length],
-    ],
-  }))
+  const photoLayers = buildSmartCarouselPhotoLayers(imageUrls, {
+    sceneDuration: SMART_CAROUSEL_SCENE_DURATION_SECONDS,
+    transitionDuration,
+  })
 
   const textElements = captions.slice(0, imageUrls.length).map((text, index) => ({
     type: 'text',
-    track: 2,
+    track: 3,
     time: index * (SMART_CAROUSEL_SCENE_DURATION_SECONDS - transitionDuration) + transitionDuration,
     duration: 2.6,
     x: '50%',
@@ -764,7 +695,7 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
     frame_rate: 30,
     duration,
     snapshot_time: Math.min(1, Math.max(0, duration - 0.1)),
-    elements: [...imageElements, ...textElements, ...voiceoverElements, ...finalElements],
+    elements: [...photoLayers.backgrounds, ...photoLayers.foregrounds, ...textElements, ...voiceoverElements, ...finalElements],
   }
 }
 
