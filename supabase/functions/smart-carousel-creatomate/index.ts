@@ -273,7 +273,7 @@ function sanitizeCampaign(value: unknown, index: number) {
     linkedin: cleanText(campaign.linkedin, 2400),
     hashtags: (() => {
       const hashtags = sanitizeStringList(campaign.hashtags, 12, 80)
-      return hashtags.some(tag => tag.toLowerCase() === '#smartcorretorai') ? hashtags.map(tag => tag.toLowerCase() === '#smartcorretorai' ? '#SmartCorretorAI' : tag) : [...hashtags, '#SmartCorretorAI'].slice(0, 12)
+      return hashtags.filter(tag => !['#smartcorretorai', '#snetia'].includes(tag.toLowerCase()))
     })(),
     cta: cleanText(campaign.cta, 220),
   }
@@ -298,7 +298,6 @@ function validateMarketingIntelligence(value: unknown, expectedCta: string) {
       || !campaign.facebook
       || !campaign.email.subject
       || !campaign.email.body
-      || !campaign.hashtags.includes('#SmartCorretorAI')
       || !campaign.cta
     ) throw new MarketingSchemaValidationError({ fieldPath: `campaigns[${campaigns.indexOf(campaign)}]`, expectedType: 'complete campaign', receivedType: 'partial object', missingRequired: true })
   }
@@ -769,6 +768,17 @@ function buildRenderScript(imageUrls: string[], ctaUrl: string, answers: JsonRec
   }
 }
 
+// Provider copy is not a source of truth for a legal credential. Remove any
+// fragment it may have improvised, then append the profile-resolved signature.
+function withProfessionalIdentity(text: string, professionalIdentity: string) {
+  if (!professionalIdentity || !text) return text
+  const withoutFragments = text
+    .replace(/(?:^|\n)\s*[^\n]*\bLicense(?:\s*#?\s*[A-Za-z0-9-]+)?\s*(?:·|,)?\s*[A-Z]{2}\s*(?=$|\n)/gim, '')
+    .replace(/(?:^|\n)\s*[^\n]*\bCRECI(?:-[FJ]|\s+[FJ])?(?:\s+\S+)?\s*\/?\s*[A-Z]{2}\s*(?=$|\n)/gim, '')
+    .trim()
+  return `${withoutFragments}\n\n${professionalIdentity}`
+}
+
 async function buildPresentationPlan(
   imageUrls: string[],
   ctaUrl: string,
@@ -795,9 +805,7 @@ async function buildPresentationPlan(
   const voice = selectNarrationVoice(imageUrls.length, intelligence.narrationHighlights.length)
   // These publication captions are post-provider composition.  Identity never
   // enters the marketing prompt and remains absent when opt-in is disabled.
-  const appendProfessionalIdentity = (caption) => professionalIdentity && caption
-    ? `${caption}\n\n${professionalIdentity}`
-    : caption
+  const appendProfessionalIdentity = (caption) => withProfessionalIdentity(caption, professionalIdentity)
   const campaigns = professionalIdentity
     ? intelligence.campaigns.map(campaign => ({
       ...campaign,

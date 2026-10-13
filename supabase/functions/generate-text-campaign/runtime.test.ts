@@ -17,6 +17,7 @@ import {
   validateTextCampaignRequest,
   validateTextCampaignResult,
   attachTextCampaignProfessionalIdentity,
+  applyExactProfessionalIdentity,
 } from './contract.ts'
 import { handleGenerateTextCampaign, type TextCampaignRuntimeDependencies } from './runtime.ts'
 
@@ -396,6 +397,18 @@ test('requires distinct Instagram, Facebook and WhatsApp content without literal
   assert.throws(() => validateTextCampaignResult({ ...validCampaign(), facebook_commercial: validCampaign().instagram_commercial }), /duplicate_channel_content/)
 })
 
+test('replaces a partial license signature with the exact resolved identity in publication copy', () => {
+  const identity = 'Smart Corretor AI · License #123456 · FL'
+  const result = applyExactProfessionalIdentity({
+    ...validCampaign(),
+    instagram_commercial: 'Conheça o imóvel.\n\nSmart Corretor AI · License · FL',
+    email: { ...validCampaign().email, body: 'Detalhes do imóvel.\nLicense · FL' },
+  }, identity)
+  assert.doesNotMatch(result.instagram_commercial, /License\s*·\s*FL/)
+  assert.equal(result.instagram_commercial.split(identity).length - 1, 1)
+  assert.equal(result.email.body.split(identity).length - 1, 1)
+})
+
 test('requires five carousel slides and a coherent conditional LinkedIn structure', () => {
   assert.equal(validateTextCampaignResult(validCampaign()).text_carousel.slides.length, 5)
   assert.throws(() => validateTextCampaignResult({ ...validCampaign(), text_carousel: { slides: validCampaign().text_carousel.slides.slice(0, 4) } }), /invalid_carousel/)
@@ -404,7 +417,7 @@ test('requires five carousel slides and a coherent conditional LinkedIn structur
   assert.deepEqual(forced.linkedin, { applicable: false, text: null, reason: 'Não aplicável ao contexto informado.' })
 })
 
-test('enforces 12–15 normalized hashtags with the brand in the middle', () => {
+test('enforces 12–15 normalized hashtags without an institutional platform brand', () => {
   const briefing = validBriefing()
   const final = applyFinalTextCampaignRules(validCampaign(), briefing, validCampaign().hashtags)
   assert.ok(final.hashtags.length >= 12 && final.hashtags.length <= 15)

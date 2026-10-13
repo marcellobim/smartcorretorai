@@ -77,7 +77,7 @@ const isResidentialType = (value: unknown) => /apartamento|casa|cobertura|studio
 const isCommercialType = (value: unknown) => /comercial|sala|loja|galpao|escritorio/.test(fold(value))
 
 const isEnUs = (context: OfficialHashtagContext) => context.language === 'en-US'
-const brandHashtag = (context: OfficialHashtagContext) => context.brand === 'SNETIA' ? '#SNETIA' : '#SmartCorretorAI'
+const brandHashtag = (context: OfficialHashtagContext) => context.brand === 'SNETIA' ? '#SNETIA' : context.brand === 'SmartCorretorAI' ? '#SmartCorretorAI' : ''
 const isInstitutionalBrandTag = (tag: string) => ['#snetia', '#smartcorretorai'].includes(fold(tag))
 const englishGroups = (context: OfficialHashtagContext): OfficialHashtagGroups => {
   const propertyType = presentPropertyType(context.propertyType || 'Property', 'en-US')
@@ -135,7 +135,7 @@ export function buildOfficialHashtagGroups(context: OfficialHashtagContext = {})
       categoryTag,
     ], 4, purpose),
     commercialAppeal: uniqueGroup([ctaTag, lifestyleTag, `Busca por ${propertyType}`], 2, purpose),
-    brand: [brandHashtag(context)],
+    brand: [brandHashtag(context)].filter(Boolean),
   }
 }
 
@@ -152,7 +152,8 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
       if (unique.size >= 14) break
     }
     const english = [...unique.values()].filter(tag => !isInstitutionalBrandTag(tag)).slice(0, 14)
-    english.splice(Math.max(1, Math.floor(english.length / 2)), 0, brandHashtag(context))
+    const brand = brandHashtag(context)
+    if (brand) english.splice(Math.max(1, Math.floor(english.length / 2)), 0, brand)
     return english.slice(0, 15)
   }
   const propertyType = clean(context.propertyType) || 'Imovel'
@@ -175,7 +176,8 @@ export function buildOfficialHashtags(context: OfficialHashtagContext = {}): str
     if (unique.size >= 14) break
   }
   const result = [...unique.values()].filter(tag => !isInstitutionalBrandTag(tag)).slice(0, 14)
-  result.splice(Math.max(1, Math.floor(result.length / 2)), 0, brandHashtag(context))
+  const brand = brandHashtag(context)
+  if (brand) result.splice(Math.max(1, Math.floor(result.length / 2)), 0, brand)
   return result.slice(0, 15)
 }
 
@@ -203,6 +205,7 @@ export function normalizeOfficialHashtags(input: unknown, context: OfficialHasht
     if (unique.size >= 14) break
   }
   const result = [...unique.values()].slice(0, 14)
-  result.splice(Math.max(1, Math.floor(result.length / 2)), 0, brandHashtag(context))
+  const brand = brandHashtag(context)
+  if (brand) result.splice(Math.max(1, Math.floor(result.length / 2)), 0, brand)
   return result.slice(0, 15)
 }

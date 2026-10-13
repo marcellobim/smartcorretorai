@@ -537,5 +537,29 @@ export function applyFinalTextCampaignRules(result: TextCampaignResult, briefing
     : { applicable: false, text: null, reason: briefing.language === 'en-US' ? 'Not applicable to the provided context.' : 'Não aplicável ao contexto informado.' }
   const cta = briefing.language === 'en-US' ? presentCta(briefing.cta, 'en-US') : briefing.cta
   const factual = sanitizeTextCampaignFactualClaims({ ...result, linkedin }, briefing)
-  return validateTextCampaignResult({ ...factual, hashtags, cta, google_ads: { ...factual.google_ads, cta } })
+  const identity = briefing.professional_identity?.enabled === true && 'formatted' in briefing.professional_identity
+    ? briefing.professional_identity.formatted
+    : ''
+  const signed = identity ? applyExactProfessionalIdentity(factual, identity) : factual
+  return validateTextCampaignResult({ ...signed, hashtags, cta, google_ads: { ...signed.google_ads, cta } })
+}
+
+// The profile resolver is the sole authority for credentials. Provider prose
+// may not turn a complete License/CRECI into a partial signature.
+export function applyExactProfessionalIdentity(result: TextCampaignResult, identity: string): TextCampaignResult {
+  const signature = String(identity || '').trim()
+  if (!signature) return result
+  const replaceFragments = (value: string) => String(value || '')
+    .replace(/(?:^|\n)\s*[^\n]*\bLicense(?:\s*#?\s*[A-Za-z0-9-]+)?\s*(?:·|,)?\s*[A-Z]{2}\s*(?=$|\n)/gim, '')
+    .replace(/(?:^|\n)\s*[^\n]*\bCRECI(?:-[FJ]|\s+[FJ])?(?:\s+\S+)?\s*\/?\s*[A-Z]{2}\s*(?=$|\n)/gim, '')
+    .trim()
+  const sign = (value: string) => `${replaceFragments(value)}\n\n${signature}`
+  return {
+    ...result,
+    instagram_commercial: sign(result.instagram_commercial), instagram_emotional: sign(result.instagram_emotional), instagram_opportunity: sign(result.instagram_opportunity),
+    facebook_commercial: sign(result.facebook_commercial), facebook_emotional: sign(result.facebook_emotional), facebook_opportunity: sign(result.facebook_opportunity),
+    whatsapp_individual: sign(result.whatsapp_individual), whatsapp_list: sign(result.whatsapp_list), whatsapp_short: sign(result.whatsapp_short),
+    email: { ...result.email, body: sign(result.email.body) },
+    linkedin: result.linkedin.text ? { ...result.linkedin, text: sign(result.linkedin.text) } : result.linkedin,
+  }
 }

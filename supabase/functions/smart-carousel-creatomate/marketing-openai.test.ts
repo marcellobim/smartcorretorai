@@ -409,7 +409,7 @@ test('integrado: resposta recuperavel percorre marketing, normalizacao e payload
   assert.match(serialized, /"uf":"SP"/)
   assert.match(serialized, /CRECI-F 12345\/SP/)
   assert.doesNotMatch(serialized, /ignored_(provider|root)_field/)
-  assert.match(serialized, /#SmartCorretorAI/)
+  assert.doesNotMatch(serialized, /#SmartCorretorAI|#SNETIA/)
 })
 
 test('integrado: schema irrecuperavel nao chama Creatomate e libera reserva sem consumo', async () => {
