@@ -284,6 +284,10 @@ test('professional identity is a separate visual timeline block, never narration
   assert.deepEqual(briefing.timeline.identificacaoProfissional, { bloco: 6, inicioSegundos: 6, fimSegundos: 8, texto: 'Riccieri — CRECI F 12345/SC' })
   assert.ok(briefing.timeline.narracao.every(block => !block.texto.includes('Riccieri')))
   assert.equal(briefing.timeline.cta.texto.includes('Riccieri'), false)
+  assert.deepEqual(
+    briefing.regrasObrigatorias.find(rule => rule.codigo === 'texto_visual_apenas_no_compositor'),
+    { codigo: 'texto_visual_apenas_no_compositor', valor: 'O vídeo-base não pode renderizar textos visuais, CTA, telefone ou identificação profissional. Essas sobreposições são aplicadas uma única vez pelo compositor determinístico final. A narração e o áudio devem permanecer conforme timeline.narracao.' },
+  )
 })
 
 test('Gemini Omni receives the exact JSON as the only briefing text and remains the video generator', () => {

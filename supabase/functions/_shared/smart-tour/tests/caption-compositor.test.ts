@@ -157,7 +157,7 @@ test('deterministic compositor activates only for the selected captions and CTA 
   assert.equal(buildSmartTourCaptionRenderScript('https://example.com/base.mp4', neither).elements.filter(item => item.type === 'text').length, 0)
 })
 
-test('deterministic compositor renders a professional identity independently, before the CTA and outside narration', () => {
+test('final compositor renders exactly one lower contact and one lower professional identity without narration changes', () => {
   const identityBriefing = buildSmartTourStructuredBriefing({
     generation: { mode: 'guided_tour', presenterGender: 'none', narration: 'enabled', captions: 'disabled', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' },
     property: { purpose: 'sale', type: 'Apartamento', city: 'São Paulo', district: 'Moema' },
@@ -166,9 +166,14 @@ test('deterministic compositor renders a professional identity independently, be
     professionalIdentity: 'Riccieri — CRECI F 12345/SC',
     language: 'pt-BR',
   })
-  const identity = buildSmartTourCaptionRenderScript('https://example.com/base.mp4', identityBriefing).elements.find(item => item.name === 'Smart-Tour-Professional-Identity')
+  const textElements = buildSmartTourCaptionRenderScript('https://example.com/base.mp4', identityBriefing).elements.filter(item => item.type === 'text')
+  const identity = textElements.find(item => item.name === 'Smart-Tour-Professional-Identity')
+  const contact = textElements.find(item => item.name === 'Smart-Tour-Contact-CTA')
   assert.equal(hasDeterministicSmartTourText(identityBriefing), true)
-  assert.deepEqual({ text: identity?.text, time: identity?.time, duration: identity?.duration, track: identity?.track, y: identity?.y }, { text: 'Riccieri — CRECI F 12345/SC', time: 6, duration: 2, track: 3, y: '16%' })
+  assert.equal(textElements.filter(item => item.name === 'Smart-Tour-Professional-Identity').length, 1)
+  assert.equal(textElements.filter(item => item.name === 'Smart-Tour-Contact-CTA').length, 1)
+  assert.deepEqual({ text: identity?.text, time: identity?.time, duration: identity?.duration, track: identity?.track, y: identity?.y }, { text: 'Riccieri — CRECI F 12345/SC', time: 6, duration: 2, track: 3, y: '79%' })
+  assert.deepEqual({ text: contact?.text, time: contact?.time, duration: contact?.duration, track: contact?.track, y: contact?.y }, { text: 'Fale comigo', time: 8, duration: 2, track: 2, y: '79%' })
   assert.equal(identityBriefing.timeline.narracao.some(block => block.texto.includes('Riccieri')), false)
   assert.equal(identityBriefing.timeline.cta.texto.includes('Riccieri'), false)
 })

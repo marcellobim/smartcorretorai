@@ -93,13 +93,15 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
     const isProfessionalIdentity = Boolean(block.isProfessionalIdentity)
     const isControlledClosing = Boolean(controlledPlan) && isClosing
     return [{
-      name: isProfessionalIdentity ? 'Smart-Tour-Professional-Identity' : `Smart-Tour-Caption-${block.bloco}`,
+      name: isProfessionalIdentity ? 'Smart-Tour-Professional-Identity' : isClosing ? 'Smart-Tour-Contact-CTA' : `Smart-Tour-Caption-${block.bloco}`,
       type: 'text',
       track: isProfessionalIdentity ? 3 : 2,
       time: block.inicioSegundos,
       duration: blockDuration,
       x: '50%',
-      y: isProfessionalIdentity ? '16%' : isControlledClosing ? '50%' : isClosing ? '79%' : '82%',
+      // The final compositor is the sole visual text layer. Both the contact
+      // CTA and credential live in the lower safe area, in separate windows.
+      y: isProfessionalIdentity ? '79%' : isControlledClosing ? '50%' : isClosing ? '79%' : '82%',
       width: isProfessionalIdentity ? '74%' : '88%',
       height: isProfessionalIdentity ? '9%' : isControlledClosing ? '70%' : isClosing ? '18%' : '14%',
       x_alignment: '50%',
