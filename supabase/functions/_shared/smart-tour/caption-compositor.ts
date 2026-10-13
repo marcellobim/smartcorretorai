@@ -92,6 +92,7 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
     const isClosing = block.isClosing
     const isProfessionalIdentity = Boolean(block.isProfessionalIdentity)
     const isControlledClosing = Boolean(controlledPlan) && isClosing
+    const isRealEstateVideoContact = isClosing && briefing.versao === 'smart-tour-structured-briefing-v1' && Boolean('telefone' in block && block.telefone)
     return [{
       name: isProfessionalIdentity ? 'Smart-Tour-Professional-Identity' : isClosing ? 'Smart-Tour-Contact-CTA' : `Smart-Tour-Caption-${block.bloco}`,
       type: 'text',
@@ -106,7 +107,7 @@ export function buildSmartTourCaptionRenderScript(videoUrl: string, briefing: Sm
       height: isProfessionalIdentity ? '9%' : isControlledClosing ? '70%' : isClosing ? '18%' : '14%',
       x_alignment: '50%',
       y_alignment: '50%',
-      text: block.texto,
+      text: isRealEstateVideoContact ? `☎ ${block.texto}` : block.texto,
       fill_color: '#ffffff',
       font_family: 'Inter',
       font_weight: isProfessionalIdentity ? 600 : 700,

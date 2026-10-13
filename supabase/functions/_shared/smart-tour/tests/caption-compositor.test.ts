@@ -35,10 +35,10 @@ test('deterministic compositor applies every active caption literally and once',
   assert.equal(script.elements[0].volume, '100%')
   const captions = script.elements.slice(1)
   assert.equal(captions.length, 5)
-  assert.deepEqual(captions.map(element => element.text), [...briefing.timeline.legendas.map(block => block.texto), briefing.timeline.cta.texto])
+  assert.deepEqual(captions.map(element => element.text), [...briefing.timeline.legendas.map(block => block.texto), `☎ ${briefing.timeline.cta.texto}`])
   assert.deepEqual(captions.map(element => element.time), [0, 2, 4, 6, 8])
   assert.ok(captions.every(element => element.duration === 2 && element.track === 2))
-  assert.equal(captions.at(-1)?.text, 'Agende sua visita\n(11) 99999-9999')
+  assert.equal(captions.at(-1)?.text, '☎ Agende sua visita\n(11) 99999-9999')
 })
 
 test('deterministic text timeline always renders five blocks for every image count', () => {
@@ -62,7 +62,7 @@ test('deterministic text timeline always renders five blocks for every image cou
     assert.equal(captions.length, 5)
     assert.deepEqual(captions.map(element => element.time), [0, 2, 4, 6, 8])
     assert.deepEqual(captions.map(element => element.duration), [2, 2, 2, 2, 2])
-    assert.equal(captions.at(-1)?.text, 'Agende sua visita\n(11) 99999-9999')
+    assert.equal(captions.at(-1)?.text, '☎ Agende sua visita\n(11) 99999-9999')
   }
 })
 
