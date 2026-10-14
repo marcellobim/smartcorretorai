@@ -66,6 +66,11 @@ test('Vida no Imóvel and Apresentação pelo Corretor receive the block without
   assert.equal(buildCampaignPackage(built).modules.at(-1).title, 'Google Ads')
 })
 
+test('uses English delivery option labels for US Virtual Staging campaigns', () => {
+  const built = buildVirtualStagingCampaignPackage({ property, language: 'en-US', cta: 'Schedule a tour', phone: '' })
+  assert.equal(built.aiCampaigns[0].name, 'Option 1')
+})
+
 test('Banner Imobiliário and both eligible Studio modes use the shared copy-engine contract', async () => {
   const input = {
     objective: 'sale', propertyType: property.type, district: property.district, city: property.city,

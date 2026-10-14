@@ -51,7 +51,7 @@ test('applies the official foundation to Virtual Staging de imagens and Vídeo I
 })
 
 test('keeps the Virtual Staging image comparison integrated into the light Hero', () => {
-  assert.match(virtualStaging, /VIRTUAL_STAGING_COMPARISON_SLIDES/)
+  assert.match(virtualStaging, /virtualStaging\.smartSpace\.before/)
   assert.match(virtualStaging, /VirtualStagingBeforeAfterPhone/)
   assert.doesNotMatch(virtualStaging, /reimagine-1\.mp4/)
   assert.match(read('src/components/design-system/ProductHero.jsx'), /gap-10[\s\S]*leading-\[1\.06\][\s\S]*tracking-\[-0\.04em\]/)

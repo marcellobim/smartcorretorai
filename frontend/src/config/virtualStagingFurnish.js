@@ -48,6 +48,7 @@ export const FURNISH_RENOVATE_COPY = Object.freeze({
   uploadDescription: 'Adicione de 1 a 5 fotos. Cada imagem será analisada e transformada individualmente.',
   uploadHint: 'Para melhores resultados, use fotos nítidas, bem iluminadas e que mostrem claramente o ambiente.',
   reviewNotice: FURNISH_RENOVATE_AI_NOTICE,
+  imagesConfirmation: 'Ótimo! As fotos serão usadas na ordem escolhida.',
 })
 
 const FURNISH_RENOVATE_EN_COPY = Object.freeze({
@@ -55,6 +56,7 @@ const FURNISH_RENOVATE_EN_COPY = Object.freeze({
   uploadDescription: 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.',
   uploadHint: 'For best results, use sharp, well-lit photos that clearly show the space.',
   reviewNotice: 'Because the result is created with artificial intelligence, some details of the space may change to improve the visual composition.',
+  imagesConfirmation: 'Great! The photos will be used in the selected order.',
 })
 
 const FURNISH_RENOVATE_EN_TRANSFORMATION_OPTIONS = Object.freeze([

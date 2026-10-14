@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BRAND } from '../config/brand'
 import { ArrowDown, ArrowUp, Download, Expand, Instagram, Loader2, PlayCircle, Sparkles, Trash2, UploadCloud, Video, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
@@ -22,7 +21,7 @@ import { toFileMetadata } from '../lib/product-draft'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
-import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
+import { VIRTUAL_STAGING_MAX_IMAGES } from '../config/virtualStaging'
 import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
@@ -58,6 +57,7 @@ const VIRTUAL_STAGING_OPTION_KEYS = Object.freeze({ 'Pré-lançamento': 'preLaun
 const getVirtualStagingOptionLabel = (value, t) => VIRTUAL_STAGING_OPTION_KEYS[value] ? t(`virtualStaging.options.${VIRTUAL_STAGING_OPTION_KEYS[value]}`) : value
 const isLifeOrBrokerJourney = journeyId => journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
 const getJourneyPresentation = (journey, t) => {
+  if (journey.id === FURNISH_RENOVATE_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.smartSpace.title'), description: t('virtualStaging.journey.smartSpace.description') }
   if (journey.id === LIFE_IN_PROPERTY_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.life.title'), description: t('virtualStaging.journey.life.description') }
   if (journey.id === BROKER_PRESENTATION_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.broker.title'), description: t('virtualStaging.journey.broker.description') }
   return journey
@@ -98,7 +98,7 @@ function questionsFor(journeyId) {
 
 function virtualStagingConfirmation(id, answer, journeyId, { t, locale = 'pt-BR', answerId = '' } = {}) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
-    if (id === 'images') return 'Ótimo! As fotografias serão usadas na ordem escolhida.'
+    if (id === 'images') return getFurnishRenovateCopy(locale).imagesConfirmation
   }
   const isLifeOrBroker = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
   if (isLifeOrBroker && t) {
@@ -175,15 +175,11 @@ async function materializeSmartSpaceResult({ rawResult, inputPath, originalIndex
   }
 }
 
-const smartSpaceText = locale => locale === 'en-US' ? {
-  image: 'Image', original: 'Original', result: 'Image result', enlarge: 'Enlarge', download: 'Download', publish: 'Publish', transformationVideo: 'Transformation video', recommended: 'Recommended', videoTip: 'Show the before and after in a short video, ideal for Instagram and Facebook.', downloadVideo: 'Download transformation video', publishVideo: 'Publish transformation video', partial: 'We created the open space, but could not complete the new design.', videoFinishing: 'Your images are ready. We are finalizing the transformation video.', videoFailed: 'Your images are available, but the transformation video could not be completed.',
-} : {
-  image: 'Imagem', original: 'Original', result: 'Resultado da imagem', enlarge: 'Ampliar', download: 'Baixar', publish: 'Publicar', transformationVideo: 'Vídeo da transformação', recommended: 'Recomendado', videoTip: 'Mostre o antes e depois em um vídeo curto, ideal para Instagram e Facebook.', downloadVideo: 'Baixar vídeo da transformação', publishVideo: 'Publicar vídeo da transformação', partial: 'Conseguimos criar o espaço livre, mas não foi possível concluir a nova decoração.', videoFinishing: 'Suas imagens estão prontas. Estamos finalizando o vídeo da transformação.', videoFailed: 'As imagens estão disponíveis, mas o vídeo da transformação não pôde ser concluído.',
-}
+const smartSpaceText = t => Object.fromEntries(['image', 'original', 'result', 'enlarge', 'download', 'publish', 'transformationVideo', 'recommended', 'videoTip', 'downloadVideo', 'publishVideo', 'partial', 'videoFinishing', 'videoFailed'].map(key => [key, t(`virtualStaging.smartSpace.${key}`)]))
 
-function FurnishRenovateResultCard({ result, publication, locale }) {
-  const copy = smartSpaceText(locale)
-  const stageLabel = stage => locale === 'en-US' ? ({ free_space: 'Open space', new_decoration: 'New design', clear_area: 'Cleared area', remove_furniture: 'Open space', furnish: 'Furnished room', remove_and_redecorate: 'New design' }[stage.kind] || stage.label) : stage.label
+function FurnishRenovateResultCard({ result, publication, locale, t }) {
+  const copy = smartSpaceText(t)
+  const stageLabel = stage => t(`virtualStaging.smartSpace.stage.${stage.kind}`) || stage.label
   const [downloading, setDownloading] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [publishIntent, setPublishIntent] = useState(null)
@@ -229,7 +225,7 @@ function FurnishRenovateResultCard({ result, publication, locale }) {
         previewUrl: result.video?.signedUrl,
       }))
     } catch {
-      setDownloadError(locale === 'en-US' ? 'We could not safely identify the transformation video.' : 'Não foi possível identificar o vídeo da transformação com segurança.')
+      setDownloadError(t('virtualStaging.smartSpace.videoUnavailable'))
     }
   }
   const openImagePublication = stage => {
@@ -242,7 +238,7 @@ function FurnishRenovateResultCard({ result, publication, locale }) {
         previewUrl: stage.url,
       }))
     } catch {
-      setDownloadError(locale === 'en-US' ? 'We could not safely identify the image.' : 'Não foi possível identificar a imagem com segurança.')
+      setDownloadError(t('virtualStaging.smartSpace.imageUnavailable'))
     }
   }
 
@@ -280,9 +276,8 @@ function FurnishRenovateResultCard({ result, publication, locale }) {
   </article>
 }
 
-function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication, locale }) {
-  const en = locale === 'en-US'
-  const copy = en ? { failedSome: 'Some images could not be completed.', loadingSome: 'Some results were created and are loading again.', loadingResult: 'Image result loading', transformed: 'The transformation was completed, but the result could not be loaded yet.', retry: 'Try loading the result again', failedImage: 'Image failed', notCompleted: 'not completed', transformFailed: 'This image could not be transformed.', otherProducts: `You can use these results in other ${BRAND.name} products to create videos, banners, carousels, and campaigns.`, none: 'No image could be completed.' } : { failedSome: 'Algumas imagens não puderam ser concluídas.', loadingSome: 'Alguns resultados foram criados e estão sendo carregados novamente.', loadingResult: 'Resultado da imagem aguardando carregamento', transformed: 'A transformação foi concluída, mas o resultado ainda não pôde ser carregado.', retry: 'Tentar carregar resultado novamente', failedImage: 'Falha na imagem', notCompleted: 'não concluída', transformFailed: 'Não foi possível transformar esta imagem.', otherProducts: `Você poderá usar estes resultados em outros produtos do ${BRAND.name} para criar vídeos, banners, carrosséis e campanhas.`, none: 'Nenhuma imagem pôde ser concluída.' }
+function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication, locale, t }) {
+  const copy = key => t(`virtualStaging.smartSpace.delivery.${key}`)
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
   const unavailableResults = results.filter(result => result.status === 'result_unavailable')
@@ -290,36 +285,34 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
       <ProductCard className="p-5 sm:p-7">
-        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{en ? 'Your Smart Space is ready' : 'Seu Smart Space está pronto'}</h2>
-        {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy.failedSome}</p>}
-        {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy.loadingSome}</p>}
+        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{t('virtualStaging.smartSpace.resultReady')}</h2>
+        {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy('failedSome')}</p>}
+        {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy('loadingSome')}</p>}
         <div className="mt-6 space-y-6">
           {results.map(result => result.status === 'completed'
-            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} locale={locale} />
+            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} locale={locale} t={t} />
             : result.status === 'result_unavailable'
-              ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`${copy.loadingResult} ${result.originalIndex + 1}`}><h3 className="font-black text-primary-950">{en ? 'Image' : 'Imagem'} {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`${en ? 'Original image' : 'Imagem original'} ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">{copy.transformed}</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">{copy.retry}</ProductButton></article>
-              : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`${copy.failedImage} ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">{en ? 'Image' : 'Imagem'} {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`${en ? 'Original image' : 'Imagem original'} ${result.originalIndex + 1} ${copy.notCompleted}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">{copy.transformFailed}</p></article>)}
+              ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`${copy('loadingResult')} ${result.originalIndex + 1}`}><h3 className="font-black text-primary-950">{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`${t('virtualStaging.smartSpace.originalImage')} ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">{copy('transformed')}</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">{copy('retry')}</ProductButton></article>
+              : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`${copy('failedImage')} ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`${t('virtualStaging.smartSpace.originalImage')} ${result.originalIndex + 1} ${copy('notCompleted')}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">{copy('transformFailed')}</p></article>)}
         </div>
-        <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">{copy.otherProducts}</p>
-        {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{copy.none}</p>}
-        <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">{en ? 'Create a new project' : 'Criar novo projeto'}</ProductButton>
+        <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">{copy('otherProducts')}</p>
+        {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{copy('none')}</p>}
+        <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">{t('virtualStaging.smartSpace.createNewProject')}</ProductButton>
       </ProductCard>
     </section>
   )
 }
 
-function FurnishRenovateProcessing({ results, locale }) {
-  const en = locale === 'en-US'
-  const statusLabels = en ? { pending: 'Waiting', uploading: 'Uploading', generating: 'Creating', stage_1_completed: 'Open space ready', completed: 'Ready', result_unavailable: 'Result ready', failed: 'Not completed' } : { pending: 'Aguardando', uploading: 'Enviando', generating: 'Criando', stage_1_completed: 'Espaço livre pronto', completed: 'Pronta', result_unavailable: 'Resultado pronto', failed: 'Não concluída' }
+function FurnishRenovateProcessing({ results, t }) {
   const activeIndex = Math.max(0, results.findIndex(result => ['uploading', 'generating'].includes(result.status)))
   return <section className="mt-10" aria-labelledby="virtual-staging-processing-title">
     <ProductCard className="p-6 sm:p-8">
       <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{en ? 'Creating your Smart Space' : 'Criando seu Smart Space'}</h2>
-      <p className="mt-3 text-base font-semibold text-slate-600">{en ? 'We are analyzing and transforming each space.' : 'Estamos analisando e transformando cada ambiente.'}</p>
-      <p className="mt-2 text-sm font-black text-primary-800">{en ? 'Processing image' : 'Processando imagem'} {Math.min(activeIndex + 1, results.length)} {en ? 'of' : 'de'} {results.length}</p>
+      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{t('virtualStaging.smartSpace.processingTitle')}</h2>
+      <p className="mt-3 text-base font-semibold text-slate-600">{t('virtualStaging.smartSpace.processingDescription')}</p>
+      <p className="mt-2 text-sm font-black text-primary-800">{t('virtualStaging.smartSpace.processingImage')} {Math.min(activeIndex + 1, results.length)} {t('virtualStaging.smartSpace.of')} {results.length}</p>
       <ol className="mt-6 grid gap-3 sm:grid-cols-2">
-        {results.map(result => <li key={result.id} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-black ${['uploading', 'generating', 'stage_1_completed'].includes(result.status) ? 'border-primary-300 bg-primary-50 text-primary-900' : result.status === 'completed' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : result.status === 'failed' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-500'}`}><img src={result.originalPreview} alt="" className="h-12 w-12 rounded-xl object-cover" /><span>Imagem {result.originalIndex + 1}<span className="block text-xs">{statusLabels[result.status]}</span></span></li>)}
+        {results.map(result => <li key={result.id} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-black ${['uploading', 'generating', 'stage_1_completed'].includes(result.status) ? 'border-primary-300 bg-primary-50 text-primary-900' : result.status === 'completed' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : result.status === 'failed' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-500'}`}><img src={result.originalPreview} alt="" className="h-12 w-12 rounded-xl object-cover" /><span>{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}<span className="block text-xs">{t(`virtualStaging.smartSpace.status.${result.status}`)}</span></span></li>)}
       </ol>
     </ProductCard>
   </section>
@@ -333,8 +326,7 @@ function getInitialVirtualStagingJourneyId() {
 
 export default function VirtualStagingAI() {
   const { user } = useAuth()
-  const { locale, t } = useLocale()
-  const furnishCopy = getFurnishRenovateCopy(locale)
+  const { t } = useLocale()
   const { trackEvent } = useAnalytics()
   const selectionDraft = useProductDraft({ productKey: 'virtual-staging:selection', schemaVersion: 1, userId: user?.id })
   const [selectedJourneyId, setSelectedJourneyId] = useState(getInitialVirtualStagingJourneyId)
@@ -370,24 +362,23 @@ export default function VirtualStagingAI() {
   }
 
   return <>
-    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle="Experiências imobiliárias com inteligência artificial." />
+    <Header title={t('virtualStaging.journey.smartSpace.title')} subtitle={t('virtualStaging.journey.smartSpace.description')} />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="virtual-space-title"
-        title="Smart Space"
-        description="Transforme ambientes, mostre novas possibilidades e apresente seus imóveis de forma mais envolvente com inteligência artificial."
+        title={t('virtualStaging.journey.smartSpace.title')}
+        description={t('virtualStaging.journey.smartSpace.description')}
         visual={<VirtualSpaceHeroVisual t={t} />}
       />
 
       <ProductCard ref={modulesRef} className="mt-8 scroll-mt-6 p-5 sm:p-7">
         <ProductSectionHeading
-          eyebrow="Três experiências em um só espaço"
-          title="Escolha como deseja apresentar seu imóvel"
-          description="Cada módulo cria uma experiência diferente, preservando a mesma jornada simples e guiada."
+          eyebrow={interpolate(t('virtualStaging.journey.selected'), { title: t('virtualStaging.journey.smartSpace.title') })}
+          title={t('virtualStaging.journey.heading')}
+          description={t('virtualStaging.journey.description')}
         />
         <VirtualStagingModules selectedJourneyId={selectedJourneyId} onSelect={selectJourney} t={t} />
       </ProductCard>
-
       {selectedJourney && <div ref={chatRef} className="scroll-mt-6">
         <VirtualStagingJourney
           key={selectedJourney.id}
@@ -404,9 +395,9 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const { locale, market, t } = useLocale()
   const journeyDraft = useProductDraft({ productKey: `virtual-staging:${journey.id}`, schemaVersion: 1, userId: user?.id })
   const restoredJourneyDraft = journeyDraft.restoredDraft || {}
-  const supportsLocaleMarket = journey.id === LIFE_IN_PROPERTY_JOURNEY_ID || journey.id === BROKER_PRESENTATION_JOURNEY_ID
-  const draftLocale = supportsLocaleMarket ? normalizeLocale(restoredJourneyDraft.locale || locale) : normalizeLocale(locale)
-  const draftMarket = supportsLocaleMarket ? normalizeMarket(restoredJourneyDraft.market || market) : 'BR'
+  const supportsLocaleMarket = journey.id === FURNISH_RENOVATE_JOURNEY_ID || journey.id === LIFE_IN_PROPERTY_JOURNEY_ID || journey.id === BROKER_PRESENTATION_JOURNEY_ID
+  const draftLocale = normalizeLocale(locale)
+  const draftMarket = normalizeMarket(market)
   const lifeBrokerCopy = key => t(`virtualStaging.lifeBroker.${key}`)
   const restoredConversation = journey.id === FURNISH_RENOVATE_JOURNEY_ID && restoredJourneyDraft.conversation
     ? {
@@ -721,20 +712,20 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 
     const recover = async () => {
       setStatus('generating')
-      setMessage('Recuperando seu Smart Space...')
+      setMessage(t('virtualStaging.smartSpace.recovering'))
       const { data, error } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
         action: 'recover', client_request_id: recovery.clientRequestId,
       } })
       if (error || !data?.ok) {
         setStatus('error')
-        setMessage(data?.error || 'Não foi possível recuperar esta criação agora.')
+        setMessage(t('virtualStaging.smartSpace.recoveryFailed'))
         return
       }
       const byIndex = new Map((data.items || []).map(item => [Number(item.item_index), item]))
       const recoveryInputs = resolveSmartSpaceRecoveryInputs(data.items, recovery.inputs)
       if (!recoveryInputs.length) {
         setStatus('error')
-        setMessage('O resultado existe, mas os arquivos desta criação não estão disponíveis.')
+        setMessage(t('virtualStaging.smartSpace.recoveryUnavailable'))
         return
       }
       for (const item of isExplicitRecovery ? [] : (data.items || [])) {
@@ -775,7 +766,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         await reloadProfile()
         return
       }
-      setMessage('Sua transformação continua em andamento...')
+      setMessage(t('virtualStaging.smartSpace.recoveryInProgress'))
       furnishRecoveryPollRef.current = setTimeout(recover, 5000)
     }
     void recover()
@@ -803,7 +794,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     activeJobIdRef.current = jobId
     try {
       const { data, error } = await supabase.functions.invoke('virtual-staging-status', { body: { jobId } })
-      if (error || !data?.ok) throw new Error(data?.error || 'Não foi possível consultar a criação.')
+      if (error || !data?.ok) throw new Error(data?.error || lifeBrokerCopy('completeFailed'))
       if (data.status === 'completed') {
         const stored = parseVirtualStagingJobRecord(sessionStorage.getItem(activeJobKey)) || { jobId }
         sessionStorage.removeItem(activeJobKey)
@@ -823,8 +814,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         sessionStorage.removeItem(activeJobKey)
         throw new Error(data.error)
       }
-      setMessage(data.message || lifeBrokerCopy('generating')); pollRef.current = setTimeout(() => poll(jobId), 9000)
-    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('completeFailed'))); void reloadProfile() }
+      setMessage(lifeBrokerCopy('generating')); pollRef.current = setTimeout(() => poll(jobId), 9000)
+    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('completeFailed'), draftLocale)); void reloadProfile() }
   }
 
   const retryResultStatus = () => {
@@ -845,7 +836,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     trackGenerationClicked()
     if (!isFurnishRenovate || furnishGenerationInFlightRef.current) return
     if (!canGenerateFurnish) {
-      setMessage('Revise as escolhas e envie de uma a cinco imagens para continuar.')
+      setMessage(t('virtualStaging.smartSpace.reviewToContinue'))
       return
     }
 
@@ -893,7 +884,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         transformation_type: transformationType,
         decoration_style: furnishRenovateRequiresStyle(transformationType) ? decorationStyle : null,
       } })
-      if (prepareError || !prepared?.ok) throw new Error(prepared?.error || 'Não foi possível reservar os Smart Tokens desta criação.')
+      if (prepareError || !prepared?.ok) throw new Error(prepared?.error || t('virtualStaging.smartSpace.startFailed'))
       economyPrepared = true
       if (furnishRecoveryKey) sessionStorage.setItem(furnishRecoveryKey, JSON.stringify(buildSmartSpaceRecovery({ clientRequestId: sessionId, transformationType, decorationStyle, inputs: recoveryInputs })))
       const failReservedItem = async (itemIndex, reason) => {
@@ -964,7 +955,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         } })))
       }
       setStatus('error')
-      setMessage(getSmartTokenErrorMessage(error, 'Não foi possível iniciar seu Smart Space. Crie um novo projeto para tentar novamente.'))
+      setMessage(getSmartTokenErrorMessage(error, t('virtualStaging.smartSpace.startFailed'), draftLocale))
       await reloadProfile()
     }
   }
@@ -1034,7 +1025,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       // receive professional identity, including Life and Broker visual renders.
       const campaignPackage = buildVirtualStagingCampaignPackage({ property, language: draftLocale, cta:requestBody.selectedCta, phone:requestBody.includeProfessionalPhone ? phone : '', professionalIdentity: professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : '', hashtags:data.hashtags, journeyId: journey.id, lifeScene: isLifeInProperty ? lifeScene : '' })
       sessionStorage.setItem(activeJobKey, JSON.stringify({ jobId:data.jobId, status:'generating', campaignPackage, updatedAt:Date.now() })); poll(data.jobId)
-    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('createFailed'))); void reloadProfile() }
+    } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('createFailed'), draftLocale)); void reloadProfile() }
   }
 
   const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
@@ -1053,8 +1044,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       await redirectToMetaOAuth(supabase, url => window.location.assign(url))
     },
   } : undefined
-  if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} locale={draftLocale} />
-  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} locale={draftLocale} />
+  if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} t={t} />
+  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} locale={draftLocale} t={t} />
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
     return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: getJourneyPresentation(journey, t).title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel={t('virtualStaging.lifeBroker.newProject')} uiLabels={videoUiLabels} /></section>
@@ -1107,7 +1098,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const visualStep = status === 'idle'
     ? (isFurnishRenovate ? (furnishStepByQuestion[question[0]] || 1) : question[1])
     : (isFurnishRenovate ? (furnishHasStyleStep ? 4 : 3) : 5)
-  const isLocalizedJourney = isLifeOrBrokerJourney(journey.id)
+  const isLocalizedJourney = supportsLocaleMarket
   const presentedJourney = getJourneyPresentation(journey, t)
   const chooseAnotherButton = <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>{isLocalizedJourney ? t('virtualStaging.journey.chooseAnother') : 'Escolher outro módulo'}</ProductButton>
   const journeySteps = isFurnishRenovate
@@ -1149,15 +1140,15 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 }
 
 function VirtualSpaceHeroVisual({ t }) {
-  return <div aria-label="Os três módulos do Smart Space" className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
+  return <div aria-label={t('virtualStaging.smartSpace.heroAria')} className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
     <div className="absolute inset-y-2 right-0 w-[88%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
     <div className="relative grid w-full grid-cols-3 items-end gap-2 px-1 sm:gap-3 sm:px-4">
       {VIRTUAL_STAGING_JOURNEYS.map((journey, index) => { const presentedJourney = getJourneyPresentation(journey, t); return <article key={journey.id} className={`min-w-0 ${index === 1 ? '-translate-y-4' : ''}`}>
         <div className="mx-auto w-full max-w-[132px] rounded-[1.65rem] border border-slate-700 bg-slate-950 p-1.5 shadow-[0_22px_48px_-18px_rgba(15,23,42,0.68)] ring-2 ring-white">
           <div className="relative aspect-[9/16] overflow-hidden rounded-[1.25rem] bg-slate-900">
             {journey.id === FURNISH_RENOVATE_JOURNEY_ID
-              ? <VirtualStagingBeforeAfterPhone initialIndex={0} roundedClass="rounded-[1.25rem]" />
-              : <video src={journey.demoVideo} aria-label={isLifeOrBrokerJourney(journey.id) ? interpolate(t('virtualStaging.demo.example'), { title: presentedJourney.title }) : `Exemplo do módulo ${journey.title}`} autoPlay muted loop playsInline controls={false} preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-phone-media absolute inset-0 bg-black" />}
+              ? <VirtualStagingBeforeAfterPhone t={t} initialIndex={0} roundedClass="rounded-[1.25rem]" />
+              : <video src={journey.demoVideo} aria-label={interpolate(t('virtualStaging.demo.example'), { title: presentedJourney.title })} autoPlay muted loop playsInline controls={false} preload="metadata" disablePictureInPicture disableRemotePlayback controlsList="nodownload noremoteplayback" onContextMenu={event => event.preventDefault()} className="smart-phone-media absolute inset-0 bg-black" />}
           </div>
         </div>
         <p className="mx-auto mt-3 max-w-[132px] text-center text-[10px] font-black leading-4 text-slate-700 sm:text-xs">{presentedJourney.title}</p>
@@ -1183,15 +1174,14 @@ function usePrefersReducedMotion() {
   return prefersReducedMotion
 }
 
-const VIRTUAL_STAGING_COMPARISON_SLIDES = Object.freeze([
-  Object.freeze({ src: VIRTUAL_STAGING_BEFORE_IMAGE, label: 'Antes', alt: 'Ambiente antes do Smart Space' }),
-  Object.freeze({ src: VIRTUAL_STAGING_AFTER_IMAGE, label: 'Depois', alt: 'Ambiente depois do Smart Space' }),
-])
-
-function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass }) {
+function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass, t }) {
+  const slides = [
+    { src: VIRTUAL_STAGING_BEFORE_IMAGE, label: t('virtualStaging.smartSpace.before'), alt: `${t('virtualStaging.smartSpace.before')} Smart Space` },
+    { src: VIRTUAL_STAGING_AFTER_IMAGE, label: t('virtualStaging.smartSpace.after'), alt: `${t('virtualStaging.smartSpace.after')} Smart Space` },
+  ]
   const [activeIndex, setActiveIndex] = useState(initialIndex)
   const prefersReducedMotion = usePrefersReducedMotion()
-  const advance = useCallback(() => setActiveIndex(current => (current + 1) % VIRTUAL_STAGING_COMPARISON_SLIDES.length), [])
+  const advance = useCallback(() => setActiveIndex(current => (current + 1) % slides.length), [slides.length])
 
   useEffect(() => {
     if (prefersReducedMotion) return undefined
@@ -1199,11 +1189,11 @@ function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass }) {
     return () => window.clearInterval(intervalId)
   }, [advance, prefersReducedMotion])
 
-  const activeSlide = VIRTUAL_STAGING_COMPARISON_SLIDES[activeIndex]
-  return <button type="button" onClick={advance} aria-label={`Exibir ${activeIndex === 0 ? 'Depois' : 'Antes'} no Smart Space`} className={`group absolute inset-0 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${roundedClass}`}>
-    {VIRTUAL_STAGING_COMPARISON_SLIDES.map((slide, index) => <img key={slide.label} src={slide.src} alt={slide.alt} draggable={false} loading="eager" decoding="async" className={`absolute inset-0 h-full w-full object-cover object-center ${prefersReducedMotion ? 'transition-none' : 'transition-opacity duration-500 ease-out'} ${index === activeIndex ? 'opacity-100' : 'opacity-0'}`} />)}
+  const activeSlide = slides[activeIndex]
+  return <button type="button" onClick={advance} aria-label={activeIndex === 0 ? t('virtualStaging.smartSpace.showAfter') : t('virtualStaging.smartSpace.showBefore')} className={`group absolute inset-0 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${roundedClass}`}>
+    {slides.map((slide, index) => <img key={slide.label} src={slide.src} alt={slide.alt} draggable={false} loading="eager" decoding="async" className={`absolute inset-0 h-full w-full object-cover object-center ${prefersReducedMotion ? 'transition-none' : 'transition-opacity duration-500 ease-out'} ${index === activeIndex ? 'opacity-100' : 'opacity-0'}`} />)}
     <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:text-[10px]">{activeSlide.label}</span>
-    <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-slate-950/50 px-2 py-1 backdrop-blur-sm" aria-hidden="true">{VIRTUAL_STAGING_COMPARISON_SLIDES.map((slide, index) => <span key={slide.label} className={`h-1.5 w-1.5 rounded-full ${index === activeIndex ? 'bg-white' : 'bg-white/45'}`} />)}</span>
+    <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-slate-950/50 px-2 py-1 backdrop-blur-sm" aria-hidden="true">{slides.map((slide, index) => <span key={slide.label} className={`h-1.5 w-1.5 rounded-full ${index === activeIndex ? 'bg-white' : 'bg-white/45'}`} />)}</span>
     <span className={`pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10 transition group-hover:ring-white/35 motion-reduce:transition-none ${roundedClass}`} aria-hidden="true" />
   </button>
 }
@@ -1239,13 +1229,13 @@ function VirtualStagingModules({ selectedJourneyId, onSelect, t }) {
     <div className="mt-7 grid gap-5 md:grid-cols-3">
       {VIRTUAL_STAGING_JOURNEYS.map(journey => {
       const isSelected = selectedJourneyId === journey.id
-      const isLocalizedJourney = isLifeOrBrokerJourney(journey.id)
+      const isLocalizedJourney = true
       const presentedJourney = getJourneyPresentation(journey, t)
       const hasOfficialDemo = journey.demoAssetStatus === 'official'
       const isVirtualStagingDemo = journey.id === FURNISH_RENOVATE_JOURNEY_ID
       const preview = <div className="mx-auto w-full max-w-[190px] rounded-[2rem] border border-slate-700 bg-slate-950 p-2 shadow-xl shadow-slate-200/70">
         <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.45rem] bg-slate-900">
-          {isVirtualStagingDemo ? <VirtualStagingBeforeAfterPhone initialIndex={1} roundedClass="rounded-[1.45rem]" /> : <video
+          {isVirtualStagingDemo ? <VirtualStagingBeforeAfterPhone t={t} initialIndex={1} roundedClass="rounded-[1.45rem]" /> : <video
             src={journey.demoVideo}
             aria-label={isLocalizedJourney ? interpolate(t('virtualStaging.demo.preview'), { title: presentedJourney.title }) : `Demonstração: ${journey.title}`}
             autoPlay
@@ -1314,7 +1304,7 @@ function Question(props) {
     <input ref={presenterInputRef} type="file" accept="image/jpeg,image/png" aria-label={t('virtualStaging.presenter.select')} hidden onChange={event => { addPresenterReference(event.target.files); event.target.value = '' }} />
     {!presenterReference ? <button type="button" aria-label={t('virtualStaging.presenter.select')} onClick={() => presenterInputRef.current?.click()} className="mt-3 flex min-h-36 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 text-center"><UploadCloud className="text-emerald-600" /><b className="mt-2 text-sm">{t('virtualStaging.presenter.select')}</b><span className="mt-1 text-xs text-slate-500">{t('virtualStaging.presenter.format')}</span></button> : <div className="mt-3 overflow-hidden rounded-3xl border border-emerald-200 bg-white p-3 shadow-sm"><img src={presenterReference.preview} alt={t('virtualStaging.presenter.photo')} className="mx-auto aspect-square max-h-72 w-full rounded-2xl object-cover sm:max-w-72" /><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center"><button type="button" aria-label={t('virtualStaging.presenter.replace')} onClick={() => presenterInputRef.current?.click()} className="min-h-11 rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-800 hover:bg-emerald-50">{t('virtualStaging.presenter.replace')}</button><button type="button" aria-label={t('virtualStaging.presenter.remove')} onClick={clearPresenterReference} className="min-h-11 rounded-xl border border-red-200 px-4 py-2 text-sm font-black text-red-700 hover:bg-red-50">{t('virtualStaging.presenter.remove')}</button></div></div>}
     {presenterReferenceMessage && <p className="mt-3 text-sm font-bold text-red-600">{presenterReferenceMessage}</p>}
-    {presenterReference && cont(false, '1 foto do apresentador', 'images')}
+    {presenterReference && cont(false, t('virtualStaging.lifeBroker.temporaryImage'), 'images')}
   </>
   if (id === 'presenter_reference_required') return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="text-sm font-semibold leading-6 text-amber-950">{t('virtualStaging.lifeBroker.presenterRequiredNotice')}</p><Button type="button" onClick={navigateToVideoProduct} className="mt-5">{t('virtualStaging.lifeBroker.goToVideo')}</Button></div>
   if (id === 'images') {
@@ -1450,6 +1440,6 @@ function reviewLabel(id, { t, journeyId } = {}) {
     location: 'Localização', commercial: 'Valores', highlights: 'Destaques',
     presenter_reference: 'Apresentação pelo Corretor', presenter_photo: 'Foto do apresentador', life_scene: 'Vida no Imóvel', narration: 'Narração', captions: 'Destaques no vídeo', cta_enabled: 'CTA final', cta: 'Chamada escolhida', phone: 'Telefone',
   }
-  if ((journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID) && t) return t(`virtualStaging.review.${id}`)
+  if ((journeyId === FURNISH_RENOVATE_JOURNEY_ID || journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID) && t) return t(`virtualStaging.review.${id}`)
   return labels[id] || id
 }

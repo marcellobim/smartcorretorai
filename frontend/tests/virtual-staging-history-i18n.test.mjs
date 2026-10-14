@@ -36,8 +36,10 @@ test('localized life-scene presentation leaves the persisted scene ID unchanged'
   assert.match(lifeConfig, /life_scene: LIFE_SCENE_IDS\.has\(lifeScene\) \? lifeScene : ''/)
 })
 
-test('Smart Space retains the legacy confirmation and review-label paths', () => {
-  assert.match(page, /if \(journeyId === FURNISH_RENOVATE_JOURNEY_ID\) \{\s+if \(id === 'images'\) return 'Ótimo! As fotografias serão usadas na ordem escolhida\.'/)
+test('Smart Space uses localized confirmation and review-label paths', () => {
+  assert.match(page, /if \(journeyId === FURNISH_RENOVATE_JOURNEY_ID\) \{\s+if \(id === 'images'\) return getFurnishRenovateCopy\(locale\)\.imagesConfirmation/)
+  assert.ok(enUS.virtualStaging.smartSpace.before)
+  assert.ok(enUS.virtualStaging.smartSpace.delivery.transformed)
   assert.match(page, /item\.displayLabel \|\| reviewLabel\(item\.id\)/)
 })
 

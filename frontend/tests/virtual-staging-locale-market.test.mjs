@@ -21,18 +21,19 @@ test('Smart Space initial route has no free references that could blank its rend
   assert.deepEqual(messages.filter(message => message.ruleId === 'no-undef'), [])
 })
 
-test('Vida no Imóvel and Apresentação pelo Corretor use the saved locale without changing their generation semantics', () => {
+test('Vida no Imóvel and Apresentação pelo Corretor use the active locale without changing their generation semantics', () => {
   assert.equal(buildLifeInPropertyGenerationPayload({ lifeScene: 'adult', captions: 'enabled', language: 'en-US' }).language, 'en-US')
   assert.equal(buildBrokerPresentationGenerationPayload({ captions: 'enabled', language: 'en-US' }).language, 'en-US')
   assert.match(page, /const \{ locale, market, t \} = useLocale\(\)/)
-  assert.match(page, /const draftLocale = supportsLocaleMarket \? normalizeLocale\(restoredJourneyDraft\.locale \|\| locale\) : normalizeLocale\(locale\)/)
+  assert.match(page, /const draftLocale = normalizeLocale\(locale\)/)
   assert.match(page, /language: draftLocale/)
   assert.doesNotMatch(page.slice(page.indexOf('const requestBody ='), page.indexOf("supabase.functions.invoke('virtual-staging-generate'")), /market:/)
 })
 
-test('new drafts save locale and market while legacy drafts fall back to BR and pt-BR', () => {
+test('all Smart Space modules follow the active market and locale', () => {
   assert.match(page, /supportsLocaleMarket \? \{ locale: draftLocale, market: draftMarket \} : \{\}/)
-  assert.match(page, /const draftMarket = supportsLocaleMarket \? normalizeMarket\(restoredJourneyDraft\.market \|\| market\) : 'BR'/)
+  assert.match(page, /const draftMarket = normalizeMarket\(market\)/)
+  assert.match(page, /const supportsLocaleMarket = journey\.id === FURNISH_RENOVATE_JOURNEY_ID/)
   assert.match(page, /const normalizeLocale = value => value === 'en-US' \? 'en-US' : 'pt-BR'/)
   assert.match(page, /const normalizeMarket = value => value === 'US' \? 'US' : 'BR'/)
 })

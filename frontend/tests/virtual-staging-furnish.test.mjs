@@ -15,6 +15,7 @@ import {
   FURNISH_RENOVATE_STYLE_OPTIONS,
   FURNISH_RENOVATE_TRANSFORMATION_OPTIONS,
   furnishRenovateRequiresStyle,
+  getFurnishRenovateCopy,
   getFurnishRenovateTransformationLabel,
   getFurnishRenovateTransformationOptions,
   getSmartSpaceQuote,
@@ -37,7 +38,7 @@ test('uses Smart Space as the public name while preserving the internal id', () 
     description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
     action: 'Começar',
   })
-  assert.match(page, /<Header title=\{VIRTUAL_STAGING_PRODUCT_NAME\}/)
+  assert.match(page, /<Header title=\{t\('virtualStaging\.journey\.smartSpace\.title'\)\}/)
   assert.doesNotMatch(read('frontend/src/config/virtualStagingJourneys.js'), /Reimagine AI/)
 })
 
@@ -200,16 +201,16 @@ test('calcula 30 ou 60 ST por imagem conforme a transformação e atualiza o per
 })
 
 test('mostra progresso real, comparação de duas ou três etapas e downloads individuais', () => {
-  assert.match(page, /Creating your Smart Space/)
-  assert.match(page, /We are analyzing and transforming each space\./)
-  assert.match(page, /\{en \? 'Processing image' : 'Processando imagem'\}/)
-  for (const stage of ['Aguardando', 'Enviando', 'Criando', 'Pronta', 'Não concluída']) assert.match(page, new RegExp(stage))
-  assert.match(page, /Your Smart Space is ready/)
+  assert.match(page, /virtualStaging\.smartSpace\.processingTitle/)
+  assert.match(page, /virtualStaging\.smartSpace\.processingDescription/)
+  assert.match(page, /virtualStaging\.smartSpace\.processingImage/)
+  assert.match(page, /t\(`virtualStaging\.smartSpace\.status\.\$\{result\.status\}`\)/)
+  assert.match(page, /virtualStaging\.smartSpace\.resultReady/)
   assert.match(page, /label: copy\.original[\s\S]*\.\.\.result\.stages/)
   assert.match(page, /xl:grid-cols-3/)
   assert.match(page, /downloadFileFromPrivateUrl\(stage\.url, fallbackName\)/)
   assert.match(page, /\{copy\.download\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
-  assert.match(page, /Create a new project/)
+  assert.match(page, /virtualStaging\.smartSpace\.createNewProject/)
 })
 
 test('persiste somente identificadores e caminhos para recovery idempotente do Smart Space', () => {
@@ -224,12 +225,21 @@ test('persiste somente identificadores e caminhos para recovery idempotente do S
   assert.match(page, /\['awaiting_processing', 'free_space_completed'\]\.includes\(item\.stage_state\)/)
   assert.match(page, /action: 'resume'/)
   assert.match(page, /materializeSmartSpaceResult/)
-  assert.match(page, /Criar novo projeto/)
+  assert.match(page, /virtualStaging\.smartSpace\.createNewProject/)
   assert.match(page, /setFurnishResults\(\[\]\)/)
   assert.match(page, /setHasAttemptedFurnishGeneration\(false\)/)
   assert.doesNotMatch(page, /furnish(?:Gallery|History)|virtualStaging(?:Gallery|History)/i)
 })
 
+test('uses market-localized Smart Space copy with the current module selector', () => {
+  const en = getFurnishRenovateCopy('en-US')
+  assert.equal(en.uploadQuestion, 'Upload property photos')
+  assert.equal(en.uploadDescription, 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.')
+  assert.equal(getFurnishRenovateTransformationLabel('remove_and_redecorate', 'en-US'), 'Create a completely new design')
+  assert.match(page, /<Header title=\{t\('virtualStaging\.journey\.smartSpace\.title'\)\} subtitle=\{t\('virtualStaging\.journey\.smartSpace\.description'\)\}/)
+  assert.match(page, /<ProductHero/)
+  assert.match(page, /<VirtualStagingModules selectedJourneyId=\{selectedJourneyId\} onSelect=\{selectJourney\} t=\{t\}/)
+})
 test('opens Smart Space directly on transformation without the internal start card', () => {
   assert.doesNotMatch(page, /virtual-staging-chat-intro-title/)
   assert.doesNotMatch(page, /VIRTUAL_STAGING_CHAT_INTRO\.action/)
@@ -244,7 +254,7 @@ test('mantém resultado concluído separado de falha real quando a URL assinada 
   assert.match(page, /rawResult: pendingResult\.rawResult/)
   assert.doesNotMatch(page.slice(page.indexOf('const retryFurnishResultMaterialization'), page.indexOf('const createTour')), /functions\.invoke\('virtual-staging-image-test'/)
   assert.match(page, /result\.status === 'result_unavailable'/)
-  assert.match(page, /A transformação foi concluída, mas o resultado ainda não pôde ser carregado\./)
+  assert.match(page, /copy\('transformed'\)/)
 })
 
 test('recovery mantém item concluído com URL indisponível recuperável sem reclassificá-lo como falha de geração', () => {
@@ -274,15 +284,15 @@ test('keeps Vida no Imóvel and Apresentação pelo Corretor isolated', () => {
 test('uses the same real Before and After mini carousel in the two separate Virtual Staging phones', () => {
   assert.match(page, /const VIRTUAL_STAGING_BEFORE_IMAGE = '\/virtual-staging\/virtual-staging-before\.jpg'/)
   assert.match(page, /const VIRTUAL_STAGING_AFTER_IMAGE = '\/virtual-staging\/virtual-staging-after\.png'/)
-  assert.match(page, /alt: 'Ambiente antes do Smart Space'/)
-  assert.match(page, /alt: 'Ambiente depois do Smart Space'/)
-  assert.equal((page.match(/<VirtualStagingBeforeAfterPhone initialIndex=/g) || []).length, 2)
+  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.before'\)\} Smart Space`/)
+  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.after'\)\} Smart Space`/)
+  assert.equal((page.match(/<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=/g) || []).length, 2)
   const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function usePrefersReducedMotion'))
   const lowerPhone = page.slice(page.indexOf('function VirtualStagingModules'), page.indexOf('function Question'))
-  assert.match(upperPhone, /journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone initialIndex=\{0\}/)
-  assert.match(lowerPhone, /isVirtualStagingDemo = journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone initialIndex=\{1\}/)
+  assert.match(upperPhone, /journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{0\}/)
+  assert.match(lowerPhone, /isVirtualStagingDemo = journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{1\}/)
   assert.doesNotMatch(upperPhone, /grid-cols-2|sm:grid-cols-2/)
-  assert.doesNotMatch(lowerPhone, /VirtualStagingBeforeAfterPhone initialIndex=\{0\}[\s\S]*VirtualStagingBeforeAfterPhone initialIndex=\{1\}/)
+  assert.doesNotMatch(lowerPhone, /VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{0\}[\s\S]*VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{1\}/)
 })
 
 test('auto-advances every 2.5 seconds, remains clickable and respects reduced motion', () => {

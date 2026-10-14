@@ -52,6 +52,17 @@ test('preserva erros úteis de negócio com mensagens públicas fixas', () => {
   )
 })
 
+test('returns public Smart Token errors in English when the active locale is en-US', () => {
+  assert.equal(
+    getSmartTokenErrorMessage({ code: 'INSUFFICIENT_SMART_TOKENS' }, 'Could not complete this creation.', 'en-US'),
+    'You need more Smart Tokens for this creation.',
+  )
+  assert.equal(
+    getSmartTokenErrorMessage(new Error('Sessão expirada'), 'Could not complete this creation.', 'en-US'),
+    'Your session has expired. Please sign in again.',
+  )
+})
+
 test('fluxos ativos passam falhas desconhecidas pelo limite público compartilhado', () => {
   for (const path of [
     'src/pages/NovaCampanha.jsx',
