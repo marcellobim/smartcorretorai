@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { Linter } from 'eslint'
-import { getCountiesByState, isValidUsZipCode, normalizeUsZipCode } from '../src/config/locations/index.js'
+import { getCountiesByState, getUsCitiesByCounty, isValidUsZipCode, normalizeUsZipCode } from '../src/config/locations/index.js'
 import { buildBrokerPresentationGenerationPayload } from '../src/config/virtualStagingBroker.js'
 import { buildLifeInPropertyGenerationPayload } from '../src/config/virtualStagingLife.js'
 import { formatPhone } from '../src/utils/phoneFormatters.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/VirtualStaging.jsx'), 'utf8')
+const usLocation = readFileSync(path.join(frontendRoot, 'src/components/location/StudioUsLocation.jsx'), 'utf8')
 
 test('Smart Space initial route has no free references that could blank its render', () => {
   const messages = new Linter().verify(page, {
@@ -38,17 +39,30 @@ test('all Smart Space modules follow the active market and locale', () => {
   assert.match(page, /const normalizeMarket = value => value === 'US' \? 'US' : 'BR'/)
 })
 
-test('BR preserves UF, city, district and its phone mask; US uses dependent county and ZIP validation', () => {
+test('Vida no Imóvel and Apresentação pelo Corretor reuse the shared structured US location control', async () => {
   assert.match(page, /<SmartCarouselStateSelect/)
   assert.match(page, /<SmartCarouselCitySelect uf=\{property\.state\}/)
   assert.match(page, /placeholder=\{t\('virtualStaging\.location\.neighborhood'\)\}/)
-  assert.match(page, /getCountiesByState\(property\.state\)/)
-  assert.match(page, /disabled=\{!property\.state\}/)
-  assert.match(page, /normalizeUsZipCode\(property\.zipCode\)/)
-  assert.match(page, /isValidUsZipCode\(zipCode\)/)
+  assert.match(page, /import StudioUsLocation from '\.\.\/components\/location\/StudioUsLocation'/)
+  assert.match(page, /return <StudioUsLocation value=\{property\} onChange=\{setProperty\} onContinue=\{\(\) => answerQuestion\(\{ answer: location, nextQuestionId: 'commercial' \}\)\} \/>/)
+  assert.doesNotMatch(page, /aria-label="City" value=\{property\.city\}/)
+  assert.match(usLocation, /getUsCitiesByCounty/)
+  assert.match(usLocation, /aria-label="City" disabled=\{status !== 'ready'\}/)
+  assert.match(usLocation, /\(!value\.zipCode \|\| isValidUsZipCode\(value\.zipCode\)\)/)
+  assert.match(usLocation, /ZIP Code \(optional\)/)
+  assert.match(usLocation, /Neighborhood \/ Community \(optional\)/)
   assert.ok(getCountiesByState('CA').length > 0)
   assert.equal(normalizeUsZipCode('902101234'), '90210-1234')
   assert.equal(isValidUsZipCode('90210-1234'), true)
+  assert.equal(isValidUsZipCode(''), false)
+
+  const responses = [
+    { ok: true, json: async () => ({ features: [{ geometry: { rings: [] } }] }) },
+    { ok: true, json: async () => ({ features: [{ attributes: { BASENAME: 'Tampa' } }] }) },
+    { ok: true, json: async () => ({ features: [] }) },
+  ]
+  const cities = await getUsCitiesByCounty('FL', 'Hillsborough County', { fetchImpl: async () => responses.shift() })
+  assert.deepEqual(cities, ['Tampa'])
   assert.equal(formatPhone('11987654321', 'BR'), '(11) 98765-4321')
   assert.equal(formatPhone('4155552671', 'US'), '(415) 555-2671')
   assert.match(page, /formatPhone\(rawPhone, draftMarket\)/)
