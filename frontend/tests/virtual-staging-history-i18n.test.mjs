@@ -43,6 +43,23 @@ test('Smart Space uses localized confirmation and review-label paths', () => {
   assert.match(page, /item\.displayLabel \|\| reviewLabel\(item\.id\)/)
 })
 
+test('the three Smart Space modules hide intermediate chrome and keep US system copy in English', () => {
+  const smartSpaceConfirmation = page.slice(page.indexOf('function virtualStagingConfirmation'), page.indexOf('async function downloadFurnishRenovateResult'))
+  const journey = page.slice(page.indexOf('function VirtualStagingJourney'), page.indexOf('function VirtualSpaceHeroVisual'))
+  assert.match(smartSpaceConfirmation, /locale === 'en-US'/)
+  assert.match(smartSpaceConfirmation, /Great choice\. The transformation has been selected\./)
+  assert.match(smartSpaceConfirmation, /Your choice has been saved\./)
+  assert.doesNotMatch(smartSpaceConfirmation, /Perfeito! Informação registrada\./)
+  assert.match(journey, /showHeader=\{false\}/)
+  assert.match(journey, /showSummary=\{false\}/)
+  assert.doesNotMatch(journey, /<ProductSteps|journeySteps|summaryItems=/)
+  assert.match(journey, /Final review|review=\{question\[0\] === 'review'\}/)
+  assert.ok(enUS.virtualStaging.history.default.includes('Perfect!'))
+  assert.ok(enUS.virtualStaging.ui.restoreDraft.includes('Draft restored'))
+  assert.ok(enUS.virtualStaging.lifeBroker.uploading.includes('Uploading'))
+  assert.ok(enUS.virtualStaging.lifeBroker.recoveryFailed.includes('could not be recovered'))
+})
+
 test('Life and Broker journey chrome, review values, demos, and result actions use presentation labels', () => {
   for (const messages of [ptBR, enUS]) {
     assert.ok(messages.virtualStaging.photos.one)

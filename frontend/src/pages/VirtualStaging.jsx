@@ -10,7 +10,7 @@ import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildVirtualStagingCampaignPackage, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import GuidedConversation from '../components/conversation/GuidedConversation'
-import { ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps } from '../components/design-system'
+import { ProductButton, ProductCard, ProductHero, ProductSectionHeading } from '../components/design-system'
 import { useGuidedConversation } from '../hooks/useGuidedConversation'
 import { useProductDraft } from '../hooks/useProductDraft'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
@@ -99,6 +99,12 @@ function questionsFor(journeyId) {
 function virtualStagingConfirmation(id, answer, journeyId, { t, locale = 'pt-BR', answerId = '' } = {}) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
     if (id === 'images') return getFurnishRenovateCopy(locale).imagesConfirmation
+    const isEnglish = locale === 'en-US'
+    const confirmations = {
+      transformation_type: isEnglish ? 'Great choice. The transformation has been selected.' : 'Ótimo. A transformação foi selecionada.',
+      decoration_style: isEnglish ? 'Great choice. The style has been selected.' : 'Ótimo. O estilo foi selecionado.',
+    }
+    return confirmations[id] || (isEnglish ? 'Your choice has been saved.' : 'Sua escolha foi salva.')
   }
   const isLifeOrBroker = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
   if (isLifeOrBroker && t) {
@@ -142,7 +148,7 @@ function virtualStagingConfirmation(id, answer, journeyId, { t, locale = 'pt-BR'
     cta: `Ótimo! A chamada final será “${answer}”.`,
     phone: answer === 'Telefone profissional' ? 'Perfeito! Seu telefone profissional será incluído.' : 'Tudo certo! A apresentação seguirá sem telefone.',
   }
-  return confirmations[id] || 'Perfeito! Informação registrada.'
+  return confirmations[id] || (locale === 'en-US' ? 'Your choice has been saved.' : 'Sua escolha foi salva.')
 }
 
 async function downloadFurnishRenovateResult(result, stage) {
@@ -443,7 +449,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     return { enabled: null, name_source: null, credential_source: null }
   })
   const [status, setStatus] = useState('idle')
-  const [message, setMessage] = useState(() => restoredJourneyDraft.imageMetadata?.length ? `Rascunho restaurado. Selecione novamente ${restoredJourneyDraft.imageMetadata.length} ${restoredJourneyDraft.imageMetadata.length === 1 ? 'imagem' : 'imagens'} para continuar.` : '')
+  const restoredImageCount = restoredJourneyDraft.imageMetadata?.length || 0
+  const restoredDraftMessage = restoredImageCount
+    ? interpolate(t('virtualStaging.ui.restoreDraft'), { count: restoredImageCount, photos: t(restoredImageCount === 1 ? 'virtualStaging.photos.one' : 'virtualStaging.photos.many').replace('{count}', restoredImageCount) })
+    : ''
+  const [message, setMessage] = useState(restoredDraftMessage)
   const [result, setResult] = useState(null)
   const [furnishResults, setFurnishResults] = useState([])
   const [hasAttemptedFurnishGeneration, setHasAttemptedFurnishGeneration] = useState(false)
@@ -588,6 +598,10 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const questionIndex = Math.max(0, questions.findIndex(item => item[0] === conversation.activeQuestionId))
 
   useEffect(() => {
+    if (restoredImageCount && images.length === 0 && status === 'idle') setMessage(restoredDraftMessage)
+  }, [draftLocale, images.length, restoredDraftMessage, restoredImageCount, status])
+
+  useEffect(() => {
     if (isFurnishRenovate || !restoredIdentityNeedsValidationRef.current || (!profile && !user)) return
     restoredIdentityNeedsValidationRef.current = false
     if (!professionalIdentityNeedsAttention(profile || user || {}, professionalIdentitySelection, draftMarket)) return
@@ -613,7 +627,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     images: 'images', purpose: 'purpose', stage: 'stage', type: 'type', facts: 'facts', location: 'location', commercial: 'commercial', highlights: 'highlights', life_scene: 'lifeScene', captions: 'captions', cta: 'cta', phone: 'phone', review: 'review', presenter_reference: 'presenterReference', presenter_photo: 'presenterPhoto', presenter_speech_mode: 'speech', presenter_custom_speech: 'customSpeech', cta_enabled: 'ctaEnabled',
   }[question[0]]
   const smartSpaceQuestions = draftLocale === 'en-US' ? { transformation_type: 'What would you like to do with the space in these images?', decoration_style: 'Which style do you prefer for the rooms?', images: 'Upload property photos', review: 'Review your project' } : null
-  const localizedQuestion = question[0] === 'professional_identity' ? (draftMarket === 'US' ? 'Would you like to include your professional information?' : 'Deseja incluir sua identificação profissional?') : isFurnishRenovate && smartSpaceQuestions ? smartSpaceQuestions[question[0]] : localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[2]
+  const localizedQuestion = question[0] === 'professional_identity' ? (draftMarket === 'US' ? 'Would you like to include your professional information?' : 'Deseja incluir sua identificação profissional?') : isFurnishRenovate && smartSpaceQuestions ? smartSpaceQuestions[question[0]] : localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[0] === 'presenter_reference_required' ? (draftLocale === 'en-US' ? 'This module uses your photo as a reference to create the presenter. Without a reference photo, use Real Estate Video to create your presentation.' : 'Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.') : question[2]
   const reachedStep = isFurnishRenovate && !hasStartedFurnish
     ? null
     : question[0] === 'review' ? STEPS.REVIEW
@@ -1090,35 +1104,18 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'phone', label: includePhone === true ? phone : includePhone === false ? t('virtualStaging.cta.phoneNone') : '' },
     { id: 'professional_identity', label: professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || (draftMarket === 'US' ? 'Professional information needs completion' : 'Identificação profissional pendente') : professionalIdentitySelection.enabled === false ? (draftMarket === 'US' ? 'No professional information' : 'Sem identificação profissional') : '' },
   ].filter(item => Boolean(item.label))
-  const summary = isFurnishRenovate ? furnishSummary : standardSummary
-  const furnishHasStyleStep = !transformationType || furnishRenovateRequiresStyle(transformationType)
-  const furnishStepByQuestion = furnishHasStyleStep
-    ? { transformation_type: 1, decoration_style: 2, images: 3, review: 4 }
-    : { transformation_type: 1, images: 2, review: 3 }
-  const visualStep = status === 'idle'
-    ? (isFurnishRenovate ? (furnishStepByQuestion[question[0]] || 1) : question[1])
-    : (isFurnishRenovate ? (furnishHasStyleStep ? 4 : 3) : 5)
+  const reviewItems = isFurnishRenovate ? furnishSummary : standardSummary
   const isLocalizedJourney = supportsLocaleMarket
   const presentedJourney = getJourneyPresentation(journey, t)
   const chooseAnotherButton = <ProductButton type="button" variant="secondary" onClick={onChooseAnother}>{isLocalizedJourney ? t('virtualStaging.journey.chooseAnother') : 'Escolher outro módulo'}</ProductButton>
-  const journeySteps = isFurnishRenovate
-    ? [
-        { title: draftLocale === 'en-US' ? 'Transformation' : 'Transformação', subtitle: draftLocale === 'en-US' ? 'Type' : 'Tipo' },
-        ...(furnishHasStyleStep ? [{ title: draftLocale === 'en-US' ? 'Style' : 'Estilo', subtitle: draftLocale === 'en-US' ? 'Design' : 'Decoração' }] : []),
-        { title: draftLocale === 'en-US' ? 'Images' : 'Imagens', subtitle: 'Upload' },
-        { title: draftLocale === 'en-US' ? 'Review' : 'Revisão', subtitle: draftLocale === 'en-US' ? 'Project' : 'Projeto' },
-      ]
-    : (isBrokerPresentation ? ['reference', 'property', 'style', 'review', 'create'] : ['photos', 'property', 'style', 'review', 'create'])
-        .map(key => ({ title: t(`virtualStaging.steps.${key}`), subtitle: '' }))
   return <section aria-labelledby={`virtual-staging-chat-${journey.id}`} className="mt-10 space-y-8">
       <ProductSectionHeading
         id={`virtual-staging-chat-${journey.id}`}
         eyebrow={isLocalizedJourney ? interpolate(t('virtualStaging.journey.selected'), { title: presentedJourney.title }) : `Jornada selecionada · ${journey.title}`}
         title={isLocalizedJourney ? t('virtualStaging.journey.heading') : 'Agora, conte como deseja transformar seu imóvel'}
-        description={isLocalizedJourney ? t('virtualStaging.journey.description') : 'Responda uma pergunta por vez. Suas escolhas ficam organizadas no resumo ao lado.'}
+        description={isLocalizedJourney ? (draftLocale === 'en-US' ? 'Answer one question at a time.' : 'Responda uma pergunta por vez.') : 'Responda uma pergunta por vez.'}
         action={chooseAnotherButton}
       />
-    <ProductSteps steps={journeySteps} activeStep={visualStep} accent="emerald" />
     <GuidedConversation
       market={market}
       history={conversation.history}
@@ -1128,13 +1125,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       questionNumber={questionIndex + 1}
       totalQuestions={questions.length}
       onEdit={editConversationAnswer}
-      summaryItems={summary}
+      showHeader={false}
+      showSummary={false}
       review={question[0] === 'review'}
       editDisabled={['uploading', 'generating', 'preparing_result'].includes(status)}
       designSystem
       accent="emerald"
     >
-      <Question id={question[0]} {...{ journeyId: journey.id, locale: draftLocale, market: draftMarket, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentitySelection, profile: profile || user, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setProfessionalIdentitySelection, updateUser, reloadProfile, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : summary, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
+      <Question id={question[0]} {...{ journeyId: journey.id, locale: draftLocale, market: draftMarket, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentitySelection, profile: profile || user, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setProfessionalIdentitySelection, updateUser, reloadProfile, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : reviewItems, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
     </GuidedConversation>
   </section>
 }
@@ -1364,7 +1362,7 @@ function Question(props) {
   if (id === 'commercial') { const commercialAnswer = [property.price, property.condominium, property.iptu].filter(Boolean).join(' · ') || t('virtualStaging.lifeBroker.noCommercial'); const commercialFields = [['price', property.purpose === 'rent' ? t('virtualStaging.lifeBroker.rent') : t('virtualStaging.lifeBroker.price')], ['condominium',t('virtualStaging.lifeBroker.condominium')], ['iptu',t('virtualStaging.lifeBroker.tax')]]; return <><div className="grid gap-3 sm:grid-cols-3">{commercialFields.map(([field,label]) => <label key={field} className="text-xs font-black">{label}<input aria-label={label} value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.currencyPlaceholder')} className="mt-1 w-full rounded-xl border p-3" /></label>)}</div>{cont(false, commercialAnswer, 'highlights', undefined, commercialAnswer === t('virtualStaging.lifeBroker.noCommercial') ? 'empty' : 'provided')}</> }
   if (id === 'highlights') { const highlightGroups = getVirtualStagingHighlightGroups(property.type).map(group => ({ ...group, items: group.items.filter(item => isVirtualStagingHighlightAvailableForMarket(item, market)) })).filter(group => group.items.length); const selectedLabels = property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale, market })).join(' · '); const nextQuestionId = isLifeInProperty ? 'life_scene' : 'captions'; return <><p className="mb-3 text-xs font-bold text-slate-500">{t('virtualStaging.highlights.instruction')}</p><div className="space-y-4">{highlightGroups.map(group => <section key={group.title}><h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">{getVirtualStagingHighlightGroupLabel(group.title, { locale })}</h4><div className="flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : ''}`}>{getVirtualStagingHighlightLabel(item, { locale, market })}</button>)}</div></section>)}</div>{cont(false, selectedLabels || t('virtualStaging.highlights.none'), nextQuestionId)}</> }
   if (id === 'life_scene') return choices(LIFE_SCENE_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.lifeScene.${option.id}`) })), lifeScene, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setLifeScene(value) }))
-  if (id === 'narration') return explainedChoices('Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:'Sim'},{id:'disabled',label:'Não'}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
+  if (id === 'narration') return explainedChoices(locale === 'en-US' ? 'A natural, synchronized English narration will present the property.' : 'Uma narração em português do Brasil apresentará o imóvel de forma natural e sincronizada com as imagens.', [{id:'enabled',label:t('virtualStaging.yes')},{id:'disabled',label:t('virtualStaging.no')}], generation.narration, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('narration', value) }))
   if (id === 'captions') return explainedChoices(t('virtualStaging.lifeBroker.captionsHelp'), [{id:'enabled',label:t('virtualStaging.yes')},{id:'disabled',label:t('virtualStaging.no')}], generation.captions, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setGenerationField('captions', value) }))
   if (id === 'cta_enabled') return explainedChoices(t('virtualStaging.lifeBroker.ctaHelp'), [{id:'yes',label:t('virtualStaging.yes')},{id:'no',label:t('virtualStaging.no')}], ctaEnabled === true ? 'yes' : ctaEnabled === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { const enabled = value === 'yes'; setCtaEnabled(enabled); if (!enabled) setCta('') } }))
   if (id === 'cta') return choices(CTAS.map(value => ({ id: value, label: optionLabel(value) })), cta, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setCta(value) }))

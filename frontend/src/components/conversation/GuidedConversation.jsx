@@ -34,6 +34,7 @@ export default function GuidedConversation({
   children,
   summaryItems = [],
   showSummary = true,
+  showHeader = true,
   eyebrow = 'Criação guiada',
   title = 'Converse com a IA',
   description = 'Uma pergunta por vez para construir sua apresentação.',
@@ -96,9 +97,9 @@ export default function GuidedConversation({
   const summary = showSummary ? <ProductSummary title={summaryTitle} items={summaryItems} onEdit={onEdit} editDisabled={editDisabled} emptyText={summaryEmptyText || (market === 'US' ? 'Your choices will appear here as you answer.' : 'Suas escolhas aparecerão aqui durante a conversa.')} accent={isEmerald ? 'emerald' : 'primary'} /> : null
 
   return <section data-smart-conversation className={designSystem ? 'overflow-visible' : 'overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-transparent shadow-[0_24px_60px_-42px_rgba(15,23,42,0.5)] sm:rounded-[2rem]'}>
-    <div className={designSystem ? 'mb-5' : 'border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6'}>
+    {showHeader && <div className={designSystem ? 'mb-5' : 'border-b border-slate-100 px-5 py-5 sm:px-8 sm:py-6'}>
       <ConversationHeader eyebrow={eyebrow} title={title} description={description} accent={isEmerald ? 'emerald' : 'primary'} />
-    </div>
+    </div>}
     {designSystem ? (showSummary ? <ProductFlowLayout main={conversation} aside={summary} /> : <div className="min-w-0">{conversation}</div>) : <div className={showSummary ? 'grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8' : 'p-4 sm:p-6 lg:p-8'}>
       {conversation}
       {showSummary && <aside className={`rounded-3xl border p-5 lg:sticky lg:top-6 lg:self-start ${isEmerald ? 'border-emerald-100 bg-[linear-gradient(145deg,#f0fdf4,#ffffff)]' : 'border-primary-100 bg-[linear-gradient(145deg,#eff6ff,#ffffff)]'}`}>

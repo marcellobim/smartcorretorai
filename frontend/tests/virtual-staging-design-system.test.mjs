@@ -13,22 +13,19 @@ const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const read = relativePath => readFileSync(path.join(frontendRoot, relativePath), 'utf8')
 const page = read('src/pages/VirtualStaging.jsx')
 
-test('uses the shared visual foundation for every Virtual Staging journey', () => {
-  assert.match(page, /import \{ ProductButton, ProductCard, ProductHero, ProductSectionHeading, ProductSteps \}/)
-  assert.match(page, /<ProductSectionHeading[\s\S]*?<ProductSteps steps=\{journeySteps\}/)
+test('uses the shared visual foundation without an intermediate progress rail', () => {
+  assert.match(page, /import \{ ProductButton, ProductCard, ProductHero, ProductSectionHeading \}/)
+  assert.doesNotMatch(page, /<ProductSteps/)
   assert.match(page, /<GuidedConversation[\s\S]*?designSystem[\s\S]*?accent="emerald"/)
+  assert.match(page, /showHeader=\{false\}/)
+  assert.match(page, /showSummary=\{false\}/)
   assert.match(page, /const chooseAnotherButton = <ProductButton/)
 })
 
-test('defines the shortened visual steps for image Virtual Staging', () => {
-  const stepsStart = page.indexOf('const journeySteps = isFurnishRenovate')
-  const stepsDefinition = page.slice(stepsStart, page.indexOf('return <section aria-labelledby', stepsStart))
-  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Transformation' : 'Transformação'/)
-  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Style' : 'Estilo'/)
-  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Images' : 'Imagens'/)
-  assert.match(stepsDefinition, /draftLocale === 'en-US' \? 'Review' : 'Revisão'/)
-  assert.doesNotMatch(stepsDefinition, /title: 'Aviso'/)
-  assert.doesNotMatch(stepsDefinition, /title: 'Destinos'/)
+test('keeps only the discrete question counter and final review in the conversation', () => {
+  assert.match(page, /review=\{question\[0\] === 'review'\}/)
+  assert.match(page, /reviewItems: isFurnishRenovate \? furnishReviewItems : reviewItems/)
+  assert.doesNotMatch(page, /journeySteps|visualStep|summaryItems=\{reviewItems\}/)
 })
 
 test('maps transformation, style and images directly to review', () => {

@@ -42,12 +42,12 @@ test('provides reusable Hero, card, progress, grid, heading and summary componen
 })
 
 test('applies the official foundation to Virtual Staging de imagens and Vídeo Imobiliário', () => {
-  assert.match(virtualStaging, /<ProductHero[\s\S]*visual=\{<VirtualSpaceHeroVisual \/>\}/)
-  assert.match(virtualStaging, /const journeySteps = isFurnishRenovate[\s\S]*\['Fotos', 'Imóvel', 'Estilo', 'Revisão', 'Criar'\][\s\S]*\.map\(title => \(\{ title, subtitle: '' \}\)\)/)
-  assert.match(virtualStaging, /<ProductSteps steps=\{journeySteps\}/)
+  assert.match(virtualStaging, /<ProductHero[\s\S]*visual=\{<VirtualSpaceHeroVisual t=\{t\} \/>\}/)
+  assert.doesNotMatch(virtualStaging, /<ProductSteps|journeySteps/)
   assert.match(virtualStaging, /<GuidedConversation[\s\S]*?designSystem[\s\S]*?accent="emerald"/)
+  assert.match(virtualStaging, /showHeader=\{false\}[\s\S]*?showSummary=\{false\}/)
   assert.match(conversation, /designSystem = false/)
-  assert.match(conversation, /designSystem \? <ProductFlowLayout/)
+  assert.match(conversation, /designSystem \? \(showSummary \? <ProductFlowLayout/)
 })
 
 test('keeps the Virtual Staging image comparison integrated into the light Hero', () => {
