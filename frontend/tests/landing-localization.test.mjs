@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import ptBRMessages from '../src/i18n/messages/pt-BR.js'
+import enUSMessages from '../src/i18n/messages/en-US.js'
 
 const read = file => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8')
 const landing = read('pages/LandingPage.jsx')
@@ -25,6 +27,21 @@ test('Landing data is sourced from locale catalogs for all visible product secti
   assert.match(landing, /const DELIVERY_GROUPS = visibleProducts\(\[/)
   assert.match(landing, /const localizedDeliveryGroups = t =>/)
   assert.match(landing, /const TEXT_CAMPAIGN_CHANNELS = t =>/)
+})
+
+test('Landing delivery catalogs keep the same item contract in BR and US', () => {
+  const deliveryGroups = ['videos', 'images', 'text']
+  for (const messages of [ptBRMessages, enUSMessages]) {
+    const delivery = messages.landing.showcase.delivery
+    for (const group of deliveryGroups) {
+      assert.equal(typeof delivery[group].items, 'object', `${group} items must exist`)
+    }
+    assert.deepEqual(
+      Object.keys(delivery.text.items),
+      ['item'],
+      'the text campaign item must be available through the same items contract as the other delivery groups',
+    )
+  }
 })
 
 test('First creation entry follows the selected market instead of rendering Portuguese copy', () => {
