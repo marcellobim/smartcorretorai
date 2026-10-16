@@ -1,12 +1,10 @@
-import { RAIO_X_AVAILABLE, visibleProducts, TRIAL_OFFERED_LABEL } from '../config/productAvailability'
+import { QUICK_BANNERS_AVAILABLE, RAIO_X_AVAILABLE, visibleProducts } from '../config/productAvailability'
 import { BRAND } from '../config/brand'
 import { SHORT_VIDEOS_VISIBLE } from '../config/shortVideos'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowRight, ChevronDown, Download, Facebook, FileText, Gauge,
-  Image as ImageIcon, Layers3, LayoutTemplate, Menu,
-  Play, Radar, Route, UploadCloud, Video, Wand2, X,
+  ArrowRight, ChevronDown, Facebook, Menu, Play, Radar, Video, X,
 } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
 import FirstCreationEntry from '../components/landing/FirstCreationEntry'
@@ -34,6 +32,12 @@ const NAV_ITEMS = t => [
   { id: 'plans', label: t('landing.navigation.plans'), to: '/planos' },
   { id: 'faq', label: t('landing.navigation.faq'), href: '#faq' },
 ]
+const trialOfferedLabel = (t, locale) => new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format([
+  t('landing.showcase.productNames.textCampaign'),
+  ...(QUICK_BANNERS_AVAILABLE ? [t('landing.showcase.productNames.quickBanners')] : []),
+  t('landing.showcase.productNames.smartCarousel'),
+])
+// TRIAL_OFFERED_LABEL is intentionally localized at render time by trialOfferedLabel.
 const VIDEO_POSTERS = Object.freeze({
   '/demos-videos/animar-imagens.mp4': '/landing/posters/animar-imagens.webp',
   '/demos-videos/video-campanha.mp4': '/landing/posters/video-campanha.webp',
@@ -50,122 +54,54 @@ const VIDEO_POSTERS = Object.freeze({
 })
 const HERO_ROTATION_INTERVAL_MS = 5200
 const HERO_PRODUCT_SLIDES = visibleProducts([
-  { id: 'video-imobiliario', name: 'Vídeo Imobiliário', type: 'video', src: '/demos-videos/video-campanha.mp4', label: `Vídeo imobiliário criado no ${BRAND.name}` },
-  { id: 'virtual-staging', name: 'Smart Space', type: 'image', src: VIRTUAL_STAGING_AFTER_IMAGE, label: `Ambiente criado com Smart Space no ${BRAND.name}` },
-  { id: 'banner-imobiliario', name: 'Banner Imobiliário', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', label: `Banner imobiliário criado no ${BRAND.name}` },
-  { id: 'banners-rapidos', name: 'Banners Rápidos', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', label: `Banner rápido criado no ${BRAND.name}` },
-  { id: 'studio-ia', name: 'Studio IA', type: 'video', src: '/showcase/smart-studio-gallery/venda1lapa.mp4', label: 'Comercial imobiliário criado no Studio IA' },
+  { id: 'video-imobiliario', copyKey: 'video', type: 'video', src: '/demos-videos/video-campanha.mp4' },
+  { id: 'virtual-staging', copyKey: 'smartSpace', type: 'image', src: VIRTUAL_STAGING_AFTER_IMAGE },
+  { id: 'banner-imobiliario', copyKey: 'banner', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg' },
+  { id: 'banners-rapidos', copyKey: 'quickBanners', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg' },
+  { id: 'studio-ia', copyKey: 'studio', type: 'video', src: '/showcase/smart-studio-gallery/venda1lapa.mp4' },
 ])
-const PRODUCT_FAMILIES = visibleProducts([
-  {
-    id: 'video-imobiliario', name: 'Vídeo Imobiliário', number: '01',
-    headline: 'Faça suas fotos ganharem movimento.',
-    description: 'Transforme imagens e informações do imóvel em apresentações profissionais prontas para divulgação.',
-    icon: Video,
-    items: [
-      { id: 'movimento', title: 'Fotos em Movimento', type: 'video', src: '/demos-videos/animar-imagens.mp4' },
-      { id: 'legendas', title: 'Legendas na Tela', type: 'video', src: '/demos-videos/video-campanha.mp4' },
-      { id: 'narracao', title: 'Narração Profissional', type: 'video', src: '/demos-videos/video-narrado.mp4' },
-      { id: 'corretor', title: 'Corretor Virtual IA', type: 'video', src: '/demos-videos/corretor-virtual.mp4' },
-      { id: 'shorts', title: 'Short Videos', type: 'video', src: '/demos-videos/short-video-1.mp4' },
-    ],
-  },
-  {
-    id: 'banner-imobiliario', name: 'Banner Imobiliário', number: '02',
-    headline: 'Do imóvel para uma campanha visual profissional.',
-    description: 'Responda às perguntas sobre o imóvel e prepare peças profissionais para diferentes formatos de divulgação.',
-    icon: ImageIcon,
-    items: [
-      { id: 'vertical', title: 'Vertical', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg' },
-      { id: 'quadrado', title: 'Quadrado', type: 'image', src: '/showcase/hero/hero-captacao3.jpg' },
-      { id: 'horizontal', title: 'Horizontal', type: 'image', src: '/showcase/hero/hero-principal 1.jpg' },
-      { id: 'premium', title: 'Peça premium', type: 'image', src: '/showcase/hero/hero-teste5.jpg' },
-    ],
-  },
-  {
-    id: 'studio-ia', name: 'Studio IA', number: '03',
-    headline: 'Quando o imóvel pede uma apresentação com mais impacto.',
-    description: 'Crie peças cinematográficas para apresentar imóveis, oportunidades e sua atuação profissional.',
-    icon: Wand2,
-    items: [
-      { id: 'comercial', title: 'Comercial Imobiliário', type: 'video', src: '/showcase/smart-studio-gallery/venda1lapa.mp4' },
-      { id: 'criativo', title: 'Vídeo Criativo', type: 'video', src: '/showcase/studio/showcase-captacao-venda.mp4' },
-      { id: 'carrossel', title: 'Carrossel de Anúncios', type: 'video', src: '/showcase/smartcarrossel/showcase-carrossel.mp4' },
-    ],
-  },
-  {
-    id: 'virtual-staging', name: 'Smart Space', number: '04',
-    headline: 'Mostre o que aquele espaço pode se tornar.',
-    description: 'Transforme ambientes vazios, represente cenas de uso ou apresente o imóvel com sua própria imagem.',
-    icon: Layers3,
-    items: [
-      { id: 'staging', title: 'Smart Space', type: 'comparison', beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE, src: VIRTUAL_STAGING_AFTER_IMAGE },
-      { id: 'vida', title: 'Vida no Imóvel', type: 'video', src: '/demos-videos/vida-no-imovel.mp4' },
-      { id: 'apresentacao', title: 'Apresentação pelo Corretor', type: 'video', src: '/demos-videos/apresentacao-pelo-proprio-corretor.mp4' },
-    ],
-  },
-  {
-    id: 'banners-rapidos', name: 'Banners Rápidos', number: '05',
-    headline: 'Precisa divulgar agora?',
-    description: 'Escolha o formato, informe os dados e prepare seu material em poucos passos.',
-    icon: LayoutTemplate,
-    items: [
-      { id: 'anuncio', title: 'Anúncio premium', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg' },
-      { id: 'story', title: 'Story premium', type: 'video', src: '/previews/produto3/story-premium-preview-1x1.mp4' },
-      { id: 'card', title: 'Card imobiliário', type: 'video', src: '/previews/produto3/card-imobiliario-premium-preview-1x1.mp4' },
-    ],
-  },
-  {
-    id: 'campanha-de-textos', name: 'Campanha de Textos', number: '06',
-    headline: 'Uma informação. Várias formas de comunicar.',
-    description: 'Transforme os mesmos dados do imóvel em textos para portal, redes sociais, WhatsApp e Google Ads.',
-    icon: FileText,
-    items: [{ id: 'campanha', title: 'Campanha completa', type: 'text' }],
-  },
-]).map(group => ({ ...group, items: visibleProducts(group.items).filter(item => SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)) }))
+const localizedHeroProductSlides = t => HERO_PRODUCT_SLIDES.map(slide => ({
+  ...slide,
+  name: t(`landing.showcase.heroSlides.${slide.copyKey}.name`),
+  label: t(`landing.showcase.heroSlides.${slide.copyKey}.label`),
+}))
 const DELIVERY_GROUPS = visibleProducts([
   {
     id: 'videos',
-    eyebrow: 'Criações em vídeo',
-    title: 'Veja tudo o que você pode criar.',
-    ctaTitle: 'Quer apresentar seus imóveis de novas formas?',
-    ctaLabel: 'Experimentar grátis',
+    copyKey: 'videos',
     items: [
-      { id: 'fotos-em-movimento', title: 'Fotos em Movimento', description: 'Transforme fotos do imóvel em cenas com movimento para criar uma apresentação mais dinâmica.', type: 'video', orientation: 'vertical', src: '/demos-videos/animar-imagens.mp4', campaignIncluded: true },
-      { id: 'legendas-na-tela', title: 'Legendas na Tela', description: 'Apresente informações e destaques do imóvel diretamente no vídeo.', type: 'video', orientation: 'vertical', src: '/demos-videos/video-campanha.mp4', campaignIncluded: true },
-      { id: 'narracao-profissional', title: 'Narração Profissional', description: 'Dê voz à apresentação do imóvel com uma narração preparada para acompanhar as cenas.', type: 'video', orientation: 'vertical', src: '/demos-videos/video-narrado.mp4', campaignIncluded: true },
-      { id: 'corretor-virtual-ia', title: 'Corretor Virtual IA', description: 'Apresente o imóvel com um corretor virtual integrado ao vídeo.', type: 'video', orientation: 'vertical', src: '/demos-videos/corretor-virtual.mp4', campaignIncluded: true },
-      { id: 'short-videos', title: 'Short Videos', description: 'Crie vídeos curtos para manter seus imóveis presentes em formatos rápidos de divulgação.', type: 'video', orientation: 'vertical', src: '/demos-videos/short-video-1.mp4', campaignIncluded: true },
-      { id: 'comercial-imobiliario', title: 'Comercial Imobiliário', description: 'Crie uma apresentação com linguagem de comercial para imóveis e oportunidades que pedem mais impacto.', type: 'video', orientation: 'vertical', src: '/showcase/smart-studio-gallery/venda1lapa.mp4', campaignIncluded: true },
-      { id: 'video-criativo', title: 'Vídeo Criativo', description: 'Explore uma apresentação mais criativa para destacar imóveis, campanhas e oportunidades.', type: 'video', orientation: 'vertical', src: '/showcase/studio/showcase-captacao-venda.mp4', campaignIncluded: true },
-      { id: 'vida-no-imovel', title: 'Vida no Imóvel', description: 'Mostre situações e cenas que ajudam a imaginar como aquele espaço pode ser vivido.', type: 'video', orientation: 'vertical', src: '/demos-videos/vida-no-imovel.mp4', campaignIncluded: true },
-      { id: 'apresentacao-corretor', title: 'Apresentação pelo Corretor', description: 'Use a imagem do corretor no contexto previsto pelo produto para apresentar o imóvel de forma mais pessoal.', type: 'video', orientation: 'vertical', src: '/demos-videos/apresentacao-pelo-proprio-corretor.mp4', campaignIncluded: true },
-      { id: 'carrossel-anuncios', title: 'Carrossel de Anúncios', description: 'Organize imagens e informações em uma apresentação em movimento para divulgar a oportunidade.', type: 'video', orientation: 'vertical', src: '/showcase/smartcarrossel/showcase-carrossel.mp4', campaignIncluded: true },
+      { id: 'fotos-em-movimento', copyKey: 'motion', type: 'video', orientation: 'vertical', src: '/demos-videos/animar-imagens.mp4', campaignIncluded: true },
+      { id: 'legendas-na-tela', copyKey: 'captions', type: 'video', orientation: 'vertical', src: '/demos-videos/video-campanha.mp4', campaignIncluded: true },
+      { id: 'narracao-profissional', copyKey: 'narration', type: 'video', orientation: 'vertical', src: '/demos-videos/video-narrado.mp4', campaignIncluded: true },
+      { id: 'corretor-virtual-ia', copyKey: 'virtualAgent', type: 'video', orientation: 'vertical', src: '/demos-videos/corretor-virtual.mp4', campaignIncluded: true },
+      { id: 'short-videos', copyKey: 'shorts', type: 'video', orientation: 'vertical', src: '/demos-videos/short-video-1.mp4', campaignIncluded: true },
+      { id: 'comercial-imobiliario', copyKey: 'commercial', type: 'video', orientation: 'vertical', src: '/showcase/smart-studio-gallery/venda1lapa.mp4', campaignIncluded: true },
+      { id: 'video-criativo', copyKey: 'creative', type: 'video', orientation: 'vertical', src: '/showcase/studio/showcase-captacao-venda.mp4', campaignIncluded: true },
+      { id: 'vida-no-imovel', copyKey: 'life', type: 'video', orientation: 'vertical', src: '/demos-videos/vida-no-imovel.mp4', campaignIncluded: true },
+      { id: 'apresentacao-corretor', copyKey: 'agentPresentation', type: 'video', orientation: 'vertical', src: '/demos-videos/apresentacao-pelo-proprio-corretor.mp4', campaignIncluded: true },
+      { id: 'carrossel-anuncios', copyKey: 'carousel', type: 'video', orientation: 'vertical', src: '/showcase/smartcarrossel/showcase-carrossel.mp4', campaignIncluded: true },
     ],
   },
   {
     id: 'imagens-campanhas',
-    eyebrow: 'Criações em imagens',
-    title: 'Veja tudo o que você pode criar.',
-    ctaTitle: 'Faça mais com as imagens que você já tem.',
-    ctaLabel: 'Começar a criar',
+    copyKey: 'images',
     items: [
-      { id: 'banner-imobiliario', title: 'Banner Imobiliário', description: 'Prepare uma campanha visual profissional em diferentes formatos de divulgação.', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', campaignIncluded: true },
-      { id: 'banners-rapidos', title: 'Banners Rápidos', description: 'Escolha o formato, informe os dados e prepare peças para divulgar em poucos passos.', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', campaignIncluded: true },
+      { id: 'banner-imobiliario', copyKey: 'banner', type: 'image', src: '/showcase/hero/hero-18semimagem.jpg', campaignIncluded: true },
+      { id: 'banners-rapidos', copyKey: 'quickBanners', type: 'image', src: '/previews/produto3/anuncio-premium-preview-1x1.jpg', campaignIncluded: true },
     ],
   },
   {
     id: 'textos-campanhas',
-    eyebrow: 'Textos e campanhas',
-    title: 'Textos e campanhas',
-    description: 'Uma informação se transforma em mensagens coerentes para diferentes canais.',
-    ctaTitle: 'Da imagem ao texto, sua campanha em um só lugar.',
-    ctaLabel: 'Experimentar grátis',
+    copyKey: 'text',
     items: [
-      { id: 'campanha-completa', title: 'Campanha de Textos', description: 'Crie uma campanha completa para Portal, Redes sociais, WhatsApp e Google Ads.', type: 'text' },
+      { id: 'campanha-completa', copyKey: 'item', type: 'text' },
     ],
   },
 ]).map(group => ({ ...group, items: visibleProducts(group.items).filter(item => SHORT_VIDEOS_VISIBLE || !['shorts', 'short-videos'].includes(item.id)) }))
+const localizedDeliveryGroups = t => DELIVERY_GROUPS.map(group => {
+  const copy = t(`landing.showcase.delivery.${group.copyKey}`)
+  return { ...group, ...copy, items: group.items.map(item => ({ ...item, ...copy.items[item.copyKey] })) }
+})
 const REAL_USES = t => [
   { id: 'sale', title: t('landing.benefits.uses.sale.title'), copy: t('landing.benefits.uses.sale.description') },
   { id: 'rental', title: t('landing.benefits.uses.rental.title'), copy: t('landing.benefits.uses.rental.description') },
@@ -186,68 +122,55 @@ const IMAGE_SHOWCASE_EXAMPLES = {
     { type: 'video', src: '/previews/produto3/imovel-detalhes-preview-1x1.mp4' },
   ],
 }
-const TEXT_CAMPAIGN_CHANNELS = [
+const TEXT_CAMPAIGN_CHANNELS = t => [
   {
     id: 'hashtags', title: 'Hashtags',
-    pieces: [{ label: 'Hashtags estratégicas', type: 'tags', values: ['#ApartamentoAVenda', '#Moema', '#ImoveisSP', '#ApartamentoEmMoema', '#VarandaIntegrada', '#DuasVagas', '#ImovelComVaranda', '#Apartamento2Dormitorios', '#Suite', '#92m2', '#ComprarApartamento', '#SNETIA'] }],
+    pieces: [{ label: t('landing.showcase.textPreview.hashtags'), type: 'tags', values: t('landing.showcase.textPreviewHashtagsValues') }],
   },
   {
-    id: 'portal', title: 'Portal',
+    id: 'portal', title: t('landing.showcase.textPreview.portal.title'),
     pieces: [
-      { label: 'Título do anúncio', text: 'Apartamento com varanda integrada e duas vagas em Moema' },
-      { label: 'Descrição para portal', text: 'Apartamento de 92 m² em Moema, com dois dormitórios, uma suíte e duas vagas. A varanda integrada amplia a área de convivência e favorece a entrada de luz natural. Uma opção para quem procura ambientes bem distribuídos e praticidade para a rotina.' },
-      { label: 'Anúncio curto', text: '92 m² em Moema, varanda integrada, dois dormitórios, uma suíte e duas vagas.' },
+      { label: t('landing.showcase.textPreview.portal.listingTitle'), text: t('landing.showcase.textPreview.portal.titleText') },
+      { label: t('landing.showcase.textPreview.portal.listingDescription'), text: t('landing.showcase.textPreview.portal.descriptionText') },
+      { label: t('landing.showcase.textPreview.portal.shortListing'), text: t('landing.showcase.textPreview.portal.shortText') },
     ],
   },
   {
-    id: 'redes', title: 'Redes sociais',
+    id: 'redes', title: t('landing.showcase.textPreview.social.title'),
     pieces: [
-      { label: 'Instagram — comercial', text: 'Apartamento de 92 m² em Moema, com varanda integrada, dois dormitórios, uma suíte e duas vagas. Conheça esta oportunidade.' },
-      { label: 'Instagram — emocional', text: 'Luz natural, varanda integrada e ambientes que se conectam para acompanhar diferentes momentos da rotina.' },
-      { label: 'Instagram — oportunidade', text: 'Procurando um apartamento com dois dormitórios e duas vagas em Moema? Veja os detalhes desta opção de 92 m².' },
-      { label: 'Facebook — comercial', text: 'Conheça este apartamento em Moema: 92 m², dois dormitórios, uma suíte, duas vagas e varanda integrada.' },
-      { label: 'Facebook — emocional', text: 'Uma varanda integrada e espaços bem distribuídos criam um ambiente convidativo para viver e receber.' },
-      { label: 'Facebook — oportunidade', text: 'Uma opção em Moema para quem valoriza dois dormitórios, suíte, duas vagas e boa integração entre os ambientes.' },
+      { label: t('landing.showcase.textPreview.social.instagramCommercial'), text: t('landing.showcase.textPreview.social.instagramCommercialText') },
+      { label: t('landing.showcase.textPreview.social.instagramEmotional'), text: t('landing.showcase.textPreview.social.instagramEmotionalText') },
+      { label: t('landing.showcase.textPreview.social.instagramOpportunity'), text: t('landing.showcase.textPreview.social.instagramOpportunityText') },
+      { label: t('landing.showcase.textPreview.social.facebookCommercial'), text: t('landing.showcase.textPreview.social.facebookCommercialText') },
+      { label: t('landing.showcase.textPreview.social.facebookEmotional'), text: t('landing.showcase.textPreview.social.facebookEmotionalText') },
+      { label: t('landing.showcase.textPreview.social.facebookOpportunity'), text: t('landing.showcase.textPreview.social.facebookOpportunityText') },
     ],
   },
   {
     id: 'whatsapp', title: 'WhatsApp',
     pieces: [
-      { label: 'WhatsApp individual', text: 'Olá! Separei um apartamento de 92 m² em Moema, com varanda integrada, dois dormitórios, uma suíte e duas vagas. Quer conhecer os detalhes?' },
-      { label: 'WhatsApp carteira/lista', text: 'Nova oportunidade em Moema: apartamento de 92 m², varanda integrada, dois dormitórios, uma suíte e duas vagas. Fale comigo para saber mais.' },
-      { label: 'WhatsApp curto', text: 'Apartamento em Moema com 92 m², varanda integrada e duas vagas. Quer receber mais informações?' },
+      { label: t('landing.showcase.textPreview.whatsapp.individual'), text: t('landing.showcase.textPreview.whatsapp.individualText') },
+      { label: t('landing.showcase.textPreview.whatsapp.list'), text: t('landing.showcase.textPreview.whatsapp.listText') },
+      { label: t('landing.showcase.textPreview.whatsapp.short'), text: t('landing.showcase.textPreview.whatsapp.shortText') },
     ],
   },
   {
     id: 'google-ads', title: 'Google Ads',
     pieces: [
-      { label: 'Títulos curtos — 3 opções', type: 'list', values: ['Apartamento em Moema', 'Varanda e Duas Vagas', 'Apartamento de 92 m²'] },
-      { label: 'Título longo', text: 'Apartamento de 92 m² em Moema com varanda integrada, suíte e duas vagas' },
-      { label: 'Descrições — 2 opções', type: 'list', values: ['Conheça um apartamento em Moema com varanda integrada e ambientes bem distribuídos.', 'São 92 m², dois dormitórios, uma suíte e duas vagas. Solicite mais informações.'] },
-      { label: 'Chamada', text: 'Saiba mais' },
-      { label: 'Palavras-chave sugeridas', type: 'tags', values: ['apartamento à venda em Moema', 'comprar apartamento em Moema', 'apartamento com varanda em Moema', 'apartamento 2 dormitórios em Moema', 'apartamento com duas vagas em Moema'] },
+      { label: t('landing.showcase.textPreview.ads.shortHeadlines'), type: 'list', values: t('landing.showcase.textPreview.ads.headlines') },
+      { label: t('landing.showcase.textPreview.ads.longHeadline'), text: t('landing.showcase.textPreview.ads.longHeadlineText') },
+      { label: t('landing.showcase.textPreview.ads.descriptions'), type: 'list', values: t('landing.showcase.textPreview.ads.descriptionOptions') },
+      { label: t('landing.showcase.textPreview.ads.cta'), text: t('landing.showcase.textPreview.ads.ctaText') },
+      { label: t('landing.showcase.textPreview.ads.keywords'), type: 'tags', values: t('landing.showcase.textPreview.ads.keywordsList') },
     ],
   },
 ]
-const POSITIONING = [
-  ['6', 'SOLUÇÕES', 'Para diferentes momentos da divulgação.'],
-  ['∞', 'POSSIBILIDADES', 'Para criar e apresentar seus imóveis.'],
-  ['1', 'PLATAFORMA', 'Vídeos, imagens e textos em um só lugar.'],
-  ['100%', 'IMOBILIÁRIA', 'Criada para quem trabalha divulgando imóveis.'],
-]
-const BENEFITS = [
-  ['Feito para divulgação imobiliária', 'Produtos e perguntas pensados para imóveis, corretores e campanhas reais.', LayoutTemplate],
-  ['Você é guiado do início ao fim', 'Cada fluxo mostra o que enviar, o que responder e o que acontece depois.', Route],
-  ['Um imóvel, várias formas de apresentar', 'O mesmo material pode ganhar movimento, imagem, voz, formato e texto.', Layers3],
-  ['Resultado profissional com menos ferramentas', 'Crie sem precisar dominar vários editores e serviços separados.', Wand2],
-]
-// Conteúdo ilustrativo separado para aprovação visual local; substituir ou remover antes de produção.
 const DEMO_TESTIMONIALS = t => [
-  [t('landing.testimonials.quotes.unifiedFlow'), 'Nome ilustrativo', 'Corretor(a) de imóveis — conteúdo demo'],
-  [t('landing.testimonials.quotes.guidedFormat'), 'Nome ilustrativo', 'Profissional imobiliário — conteúdo demo'],
-  [t('landing.testimonials.quotes.organizedCampaign'), 'Nome ilustrativo', 'Corretor(a) de imóveis — conteúdo demo'],
+  t('landing.testimonials.quotes.unifiedFlow'),
+  t('landing.testimonials.quotes.guidedFormat'),
+  t('landing.testimonials.quotes.organizedCampaign'),
 ]
-const FAQ_ITEMS = t => [
+const FAQ_ITEMS = (t, locale) => [
   [t('landing.faq.items.useAi.question'), t('landing.faq.items.useAi.answer')],
   [t('landing.faq.items.images.question'), t('landing.faq.items.images.answer')],
   [t('landing.faq.items.saleAndRental.question'), t('landing.faq.items.saleAndRental.answer')],
@@ -259,7 +182,7 @@ const FAQ_ITEMS = t => [
   [t('landing.faq.items.tokens.question'), `${t('landing.faq.items.tokens.answerPrefix')} ${BRAND.name}. ${t('landing.faq.items.tokens.answerSuffix')}`],
   [t('landing.faq.items.subscription.question'), t('landing.faq.items.subscription.answer')],
   [t('landing.faq.items.buyTokens.question'), t('landing.faq.items.buyTokens.answer')],
-  [t('landing.faq.items.freeTrial.question'), `${t('landing.faq.items.freeTrial.answerPrefix')} ${TRIAL_OFFERED_LABEL}. ${t('landing.faq.items.freeTrial.answerSuffix')}`],
+  [t('landing.faq.items.freeTrial.question'), `${t('landing.faq.items.freeTrial.answerPrefix')} ${trialOfferedLabel(t, locale)}. ${t('landing.faq.items.freeTrial.answerSuffix')}`],
   [t('landing.faq.items.generationFailure.question'), t('landing.faq.items.generationFailure.answer')],
   [t('landing.faq.items.cancelSubscription.question'), t('landing.faq.items.cancelSubscription.answer')],
   [t('landing.faq.items.manageSubscription.question'), t('landing.faq.items.manageSubscription.answer')],
@@ -306,11 +229,12 @@ function BeforeAfter({ beforeSrc, afterSrc, compact = false, contain = false }) 
 function TextCampaignPreview() {
   const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(0)
-  const active = TEXT_CAMPAIGN_CHANNELS[activeIndex]
+  const channels = TEXT_CAMPAIGN_CHANNELS(t)
+  const active = channels[activeIndex]
   return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b1022] lg:grid-cols-[320px_minmax(0,1fr)]" aria-label={t('landing.controls.textCampaignPreviewAriaLabel')}>
     <div className="min-w-0 border-b border-white/10 p-4 lg:border-b-0 lg:border-r lg:p-5">
       <div className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible">
-        {TEXT_CAMPAIGN_CHANNELS.map((channel, index) => <button key={channel.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`flex min-w-[150px] items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-black lg:min-w-0 ${activeIndex === index ? 'border-violet-400 bg-violet-600 text-white' : 'border-white/10 bg-white/[.03] text-slate-300 hover:bg-white/[.06]'} ${focusRing}`}><span className="text-[10px] text-violet-200">0{index + 1}</span>{channel.title}</button>)}
+        {channels.map((channel, index) => <button key={channel.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`flex min-w-[150px] items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-black lg:min-w-0 ${activeIndex === index ? 'border-violet-400 bg-violet-600 text-white' : 'border-white/10 bg-white/[.03] text-slate-300 hover:bg-white/[.06]'} ${focusRing}`}><span className="text-[10px] text-violet-200">0{index + 1}</span>{channel.title}</button>)}
       </div>
     </div>
     <div className="min-h-[320px] min-w-0 p-5 sm:p-7 lg:h-[430px] lg:p-6">
@@ -378,15 +302,16 @@ function Hero() {
   const trackCta = useLandingCtaTracking('hero')
   const reducedMotion = useReducedMotion()
   const [activeIndex, setActiveIndex] = useState(0)
-  const activeSlide = HERO_PRODUCT_SLIDES[activeIndex]
+  const slides = localizedHeroProductSlides(t)
+  const activeSlide = slides[activeIndex]
 
   useEffect(() => {
-    if (reducedMotion || HERO_PRODUCT_SLIDES.length < 2) return undefined
+    if (reducedMotion || slides.length < 2) return undefined
     const timer = window.setInterval(() => {
-      setActiveIndex(index => (index + 1) % HERO_PRODUCT_SLIDES.length)
+      setActiveIndex(index => (index + 1) % slides.length)
     }, HERO_ROTATION_INTERVAL_MS)
     return () => window.clearInterval(timer)
-  }, [reducedMotion])
+  }, [reducedMotion, slides.length])
 
   return (
     <section className="relative overflow-hidden bg-[#050816] text-white">
@@ -401,7 +326,7 @@ function Hero() {
             <Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link>
             <a href="#formas-de-criar" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />{t('landing.hero.explore')}</a>
           </div>
-          <p className="mt-5 text-xs font-bold text-slate-400">Crie sua conta e comece a explorar a {BRAND.name}.</p>
+          <p className="mt-5 text-xs font-bold text-slate-400">{t('landing.showcase.heroAccountNote')}</p>
         </div>
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
           <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#0b1022] shadow-[0_50px_100px_-35px_rgba(76,29,149,.8)]">
@@ -409,7 +334,7 @@ function Hero() {
               <span className="text-xs font-black" data-hero-product-title>{activeSlide.name}</span>
               <span className="flex gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-400" /><i className="h-2 w-2 rounded-full bg-amber-300" /><i className="h-2 w-2 rounded-full bg-emerald-400" /></span>
             </div>
-            <div className="h-full pt-10"><div className="relative h-full overflow-hidden bg-[#050816]">{HERO_PRODUCT_SLIDES.map((slide, index) => {
+            <div className="h-full pt-10"><div className="relative h-full overflow-hidden bg-[#050816]">{slides.map((slide, index) => {
               const active = activeIndex === index
               return <div key={slide.id} aria-hidden={!active} className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${active ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><HeroMedia slide={slide} active={active} /></div>
             })}</div></div>
@@ -453,28 +378,23 @@ function PositioningStrip() {
 }
 
 function ListingXraySpotlight() {
-  const capabilities = [
-    'Análise pelo link ou por capturas',
-    'Qualidade do Anúncio',
-    'Potencial de Atração',
-    'Sugestões prontas para melhorar',
-    'Recomendações para ampliar a divulgação',
-  ]
+  const { t } = useLocale()
+  const capabilities = t('landing.showcase.listingXray.capabilities')
 
   return <section id="raio-x" className="bg-[#07111f] py-16 text-white sm:py-20">
     <div className="mx-auto grid max-w-[92rem] gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)] lg:items-center lg:px-10">
       <div>
         <div className="flex items-center gap-3 text-cyan-300">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-cyan-300/10 ring-1 ring-cyan-200/20"><Radar className="h-6 w-6" aria-hidden="true" /></span>
-          <p className="text-xs font-black uppercase tracking-[.2em]">Raio-X</p>
+          <p className="text-xs font-black uppercase tracking-[.2em]">{t('landing.showcase.listingXray.eyebrow')}</p>
         </div>
-        <p className="mt-5 text-sm font-black text-cyan-100">Não sabe por onde começar?</p>
-        <h2 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] sm:text-5xl">Seu anúncio está publicado, mas poderia chamar mais atenção?</h2>
-        <p className="mt-6 max-w-3xl text-base font-medium leading-8 text-slate-300">Envie o link ou capturas. O {BRAND.name} analisa a qualidade do anúncio, o potencial de atração, mostra o que pode melhorar e entrega sugestões prontas para usar.</p>
-        <Link to="/raio-x-anuncio" className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-200 ${focusRing}`}>Experimentar o Raio-X<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+        <p className="mt-5 text-sm font-black text-cyan-100">{t('landing.showcase.listingXray.question')}</p>
+        <h2 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] sm:text-5xl">{t('landing.showcase.listingXray.title')}</h2>
+        <p className="mt-6 max-w-3xl text-base font-medium leading-8 text-slate-300">{t('landing.showcase.listingXray.descriptionPrefix')}{BRAND.name}{t('landing.showcase.listingXray.descriptionSuffix')}</p>
+        <Link to="/raio-x-anuncio" className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-200 ${focusRing}`}>{t('landing.showcase.listingXray.cta')}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
       </div>
       <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[.06] p-6 shadow-[0_35px_80px_-45px_rgba(34,211,238,.55)] sm:p-8">
-        <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-300">Analisar → Melhorar → Criar → Divulgar</p>
+        <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-300">{t('landing.showcase.listingXray.flow')}</p>
         <ul className="mt-6 space-y-3">
           {capabilities.map(capability => <li key={capability} className="flex items-start gap-3 rounded-2xl bg-white/[.05] px-4 py-3 text-sm font-bold leading-6 text-slate-100"><span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-cyan-300" />{capability}</li>)}
         </ul>
@@ -508,6 +428,7 @@ function DeliveryPanel({ group }) {
 }
 
 function ImagePreviewCard({ item }) {
+  const { t } = useLocale()
   const reducedMotion = useReducedMotion()
   const examples = IMAGE_SHOWCASE_EXAMPLES[item.id] || [item.src]
   const [exampleIndex, setExampleIndex] = useState(0)
@@ -520,7 +441,7 @@ function ImagePreviewCard({ item }) {
   return <article className="mx-auto w-full">
     <div className="h-[310px] overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-[0_24px_54px_-34px_rgba(15,23,42,.55)] sm:h-[330px]">
       <div className="h-full overflow-hidden rounded-[1.35rem] bg-slate-100">
-        {item.type === 'comparison' ? <BeforeAfter beforeSrc={item.beforeSrc} afterSrc={item.src} compact contain /> : example.type === 'video' ? <video key={example.src} src={example.src} aria-label={`Exemplo real animado de ${item.title}`} autoPlay muted loop playsInline preload="auto" className="h-full w-full bg-slate-100 object-contain" /> : <img key={example.src} src={example.src} alt={`Exemplo real de ${item.title}`} loading="lazy" className="h-full w-full object-contain transition-opacity duration-500 motion-reduce:transition-none" />}
+        {item.type === 'comparison' ? <BeforeAfter beforeSrc={item.beforeSrc} afterSrc={item.src} compact contain /> : example.type === 'video' ? <video key={example.src} src={example.src} aria-label={`${t('landing.showcase.media.animatedExamplePrefix')} ${item.title}`} autoPlay muted loop playsInline preload="auto" className="h-full w-full bg-slate-100 object-contain" /> : <img key={example.src} src={example.src} alt={`${t('landing.showcase.media.imageExamplePrefix')} ${item.title}`} loading="lazy" className="h-full w-full object-contain transition-opacity duration-500 motion-reduce:transition-none" />}
       </div>
     </div>
     <h3 className="mt-4 text-center text-lg font-black tracking-[-.03em] text-slate-950">{item.title}</h3>
@@ -550,27 +471,8 @@ function TextCampaignSection() {
 
 function DeliveryShowcase() {
   const { t } = useLocale()
-  return <div id="produtos"><section className="bg-[#f4f3f8] pb-14 pt-12 text-slate-950 sm:pb-16 sm:pt-14"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.products.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">{t('landing.products.title')}</h2><p className="mt-6 max-w-4xl text-base font-medium leading-7 text-slate-600">{t('landing.products.description')}</p><p className="mt-6 text-xs font-black uppercase tracking-[.12em] text-violet-700">{t('landing.products.uses.sale')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.rental')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.developments')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.properties')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.professionals')}</p></div></section>{DELIVERY_GROUPS.map((group, index) => group.id === 'videos' ? <DeliveryPanel key={group.id} group={group} /> : group.id === 'imagens-campanhas' ? <ImageShowcase key={group.id} group={group} /> : <TextCampaignSection key={group.id} />)}</div>
-}
-
-function ProductShowcase() {
-  const [productIndex, setProductIndex] = useState(0)
-  const [itemIndex, setItemIndex] = useState(0)
-  const tabRefs = useRef([])
-  const product = PRODUCT_FAMILIES[productIndex]
-  const item = product.items[itemIndex] || product.items[0]
-  const selectProduct = index => { setProductIndex(index); setItemIndex(0) }
-  const handleTabs = event => {
-    const last = PRODUCT_FAMILIES.length - 1
-    let next = productIndex
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = productIndex === last ? 0 : productIndex + 1
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = productIndex === 0 ? last : productIndex - 1
-    else if (event.key === 'Home') next = 0
-    else if (event.key === 'End') next = last
-    else return
-    event.preventDefault(); selectProduct(next); tabRefs.current[next]?.focus()
-  }
-  return <section id="produtos" className="scroll-mt-20 bg-[#f4f3f8] py-20 text-slate-950 sm:py-28"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><div className="max-w-4xl"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">Produtos</p><h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-[-.05em] sm:text-6xl">Crie do seu jeito.<br />Divulgue em qualquer canal.</h2><p className="mt-5 max-w-2xl text-base font-medium leading-7 text-slate-600">Seis soluções conectadas por uma experiência guiada e feita para o mercado imobiliário.</p></div><div className="mt-12 grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_35px_100px_-60px_rgba(15,23,42,.45)] lg:grid-cols-[310px_minmax(0,1fr)]"><div role="tablist" aria-label={`Produtos do ${BRAND.name}`} onKeyDown={handleTabs} className="flex gap-2 overflow-x-auto border-b border-slate-200 p-3 lg:block lg:overflow-visible lg:border-b-0 lg:border-r lg:p-4">{PRODUCT_FAMILIES.map((entry, index) => { const Icon = entry.icon; const selected = productIndex === index; return <button ref={node => { tabRefs.current[index] = node }} key={entry.id} id={`product-tab-${entry.id}`} type="button" role="tab" aria-selected={selected} aria-controls="product-panel" tabIndex={selected ? 0 : -1} onClick={() => selectProduct(index)} className={`min-w-[220px] rounded-2xl p-4 text-left transition lg:min-w-0 lg:w-full ${selected ? 'bg-[#0b1022] text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'} ${focusRing}`}><span className="flex items-center gap-3"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${selected ? 'bg-violet-500 text-white' : 'bg-violet-50 text-violet-700'}`}><Icon className="h-4 w-4" /></span><span><span className="block text-[10px] font-black text-violet-400">{entry.number}</span><span className="block text-sm font-black">{entry.name}</span></span></span></button> })}</div><div id="product-panel" role="tabpanel" aria-labelledby={`product-tab-${product.id}`} className="min-w-0 bg-[#080c19] text-white"><div className="grid min-h-[650px] lg:grid-cols-[minmax(300px,.72fr)_minmax(0,1.28fr)]"><div className="flex flex-col justify-between p-6 sm:p-9 lg:p-10"><div><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{product.number} · {product.name}</p><h3 className="mt-5 text-3xl font-black leading-[1.06] tracking-[-.045em] sm:text-4xl">{product.headline}</h3><p className="mt-5 text-sm font-medium leading-7 text-slate-300 sm:text-base">{product.description}</p></div><div className="mt-9"><p className="text-[10px] font-black uppercase tracking-[.16em] text-slate-500">Explore as entregas</p><div className="mt-3 flex flex-wrap gap-2">{product.items.map((entry, index) => <button key={entry.id} type="button" onClick={() => setItemIndex(index)} aria-pressed={itemIndex === index} className={`rounded-full border px-3.5 py-2 text-xs font-black ${itemIndex === index ? 'border-violet-400 bg-violet-500 text-white' : 'border-white/15 bg-white/[.04] text-slate-300'} ${focusRing}`}>{entry.title}</button>)}</div><Link to="/cadastro" className={`mt-7 inline-flex items-center gap-2 text-sm font-black text-violet-300 ${focusRing}`}>Experimentar grátis<ArrowRight className="h-4 w-4" /></Link></div></div><div className="min-h-[430px] border-t border-white/10 p-3 sm:p-5 lg:border-l lg:border-t-0"><div className="h-full overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#050816]"><ProductMedia item={item} active /></div></div></div></div></div></div></section>
+  const groups = localizedDeliveryGroups(t)
+  return <div id="produtos"><section className="bg-[#f4f3f8] pb-14 pt-12 text-slate-950 sm:pb-16 sm:pt-14"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.products.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">{t('landing.products.title')}</h2><p className="mt-6 max-w-4xl text-base font-medium leading-7 text-slate-600">{t('landing.products.description')}</p><p className="mt-6 text-xs font-black uppercase tracking-[.12em] text-violet-700">{t('landing.products.uses.sale')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.rental')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.developments')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.properties')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.professionals')}</p></div></section>{groups.map(group => group.id === 'videos' ? <DeliveryPanel key={group.id} group={group} /> : group.id === 'imagens-campanhas' ? <ImageShowcase key={group.id} group={group} /> : <TextCampaignSection key={group.id} />)}</div>
 }
 
 function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
@@ -647,24 +549,25 @@ function BenefitsSection() {
 }
 
 function TokensSection() {
+  const { t } = useLocale()
   const trackCta = useLandingCtaTracking('product_section')
   const facts = [
-    ['Comece a explorar', 'Crie sua conta para conhecer os recursos e as opções disponíveis na plataforma.'],
-    ['Sem precisar assinar', 'Crie também sem plano mensal. Quando precisar, adicione Smart Tokens e continue criando.'],
-    ['Tudo em um só lugar', 'Menos ferramentas para aprender e administrar. Vídeos, imagens e campanhas reunidos no mesmo ambiente.'],
+    [t('landing.showcase.tokens.facts.explore.title'), t('landing.showcase.tokens.facts.explore.description')],
+    [t('landing.showcase.tokens.facts.noSubscription.title'), t('landing.showcase.tokens.facts.noSubscription.description')],
+    [t('landing.showcase.tokens.facts.allInOne.title'), t('landing.showcase.tokens.facts.allInOne.description')],
   ]
-  return <section className="relative overflow-hidden bg-gradient-to-br from-[#11152d] via-[#15132f] to-[#090b18] py-20 text-white sm:py-24"><div className="relative mx-auto grid max-w-[92rem] gap-12 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10"><div><p className="text-xs font-black uppercase tracking-[.18em] text-violet-200">Smart Tokens</p><h2 className="mt-5 text-4xl font-black leading-[1.05] tracking-[-.05em] sm:text-5xl">Crie no seu ritmo.</h2><p className="mt-5 text-xl font-black leading-8 text-white">Comece grátis, escolha um plano quando fizer sentido ou adicione Smart Tokens quando precisar.</p><p className="mt-4 text-sm font-medium leading-7 text-slate-400">Em vez de depender de várias ferramentas de IA para criar seus materiais, concentre diferentes formas de criação para marketing imobiliário no {BRAND.name}.</p><Link to="/planos" onClick={() => trackCta('view_plans')} className={`mt-8 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white ${focusRing}`}>Ver planos e Smart Tokens<ArrowRight className="h-4 w-4" /></Link></div><div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[.04]">{facts.map(([title, copy], index) => <div key={title} className={`p-6 ${index ? 'border-t border-white/10' : ''}`}><h3 className="text-sm font-black uppercase tracking-[.1em] text-violet-200">{title}</h3><p className="mt-2 text-sm font-medium leading-6 text-slate-300">{copy}</p></div>)}</div></div></section>
+  return <section className="relative overflow-hidden bg-gradient-to-br from-[#11152d] via-[#15132f] to-[#090b18] py-20 text-white sm:py-24"><div className="relative mx-auto grid max-w-[92rem] gap-12 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-10"><div><p className="text-xs font-black uppercase tracking-[.18em] text-violet-200">{t('landing.showcase.tokens.eyebrow')}</p><h2 className="mt-5 text-4xl font-black leading-[1.05] tracking-[-.05em] sm:text-5xl">{t('landing.showcase.tokens.title')}</h2><p className="mt-5 text-xl font-black leading-8 text-white">{t('landing.showcase.tokens.lead')}</p><p className="mt-4 text-sm font-medium leading-7 text-slate-400">{t('landing.showcase.tokens.descriptionPrefix')} {BRAND.name}.</p><Link to="/planos" onClick={() => trackCta('view_plans')} className={`mt-8 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white ${focusRing}`}>{t('landing.showcase.tokens.cta')}<ArrowRight className="h-4 w-4" /></Link></div><div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[.04]">{facts.map(([title, copy], index) => <div key={title} className={`p-6 ${index ? 'border-t border-white/10' : ''}`}><h3 className="text-sm font-black uppercase tracking-[.1em] text-violet-200">{title}</h3><p className="mt-2 text-sm font-medium leading-6 text-slate-300">{copy}</p></div>)}</div></div></section>
 }
 
 function SocialProof() {
   const { t } = useLocale()
-  return <section className="bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><h2 className="max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.testimonials.titlePrefix')} {BRAND.name}</h2><div className="mt-10 grid gap-4 lg:grid-cols-3">{DEMO_TESTIMONIALS(t).map(([quote], index) => <blockquote key={quote} data-demo-placeholder="true" data-demo-index={index + 1} className="flex min-h-[280px] flex-col justify-center rounded-[1.75rem] border border-slate-200 bg-[#f7f6fa] p-7"><p className="text-xl font-bold leading-8 text-slate-900">“{quote}”</p></blockquote>)}</div></div></section>
+  return <section className="bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><h2 className="max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.testimonials.titlePrefix')} {BRAND.name}</h2><div className="mt-10 grid gap-4 lg:grid-cols-3">{DEMO_TESTIMONIALS(t).map((quote, index) => <blockquote key={quote} data-demo-placeholder="true" data-demo-index={index + 1} className="flex min-h-[280px] flex-col justify-center rounded-[1.75rem] border border-slate-200 bg-[#f7f6fa] p-7"><p className="text-xl font-bold leading-8 text-slate-900">“{quote}”</p></blockquote>)}</div></div></section>
 }
 
 function FaqSection() {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const [openIndex, setOpenIndex] = useState(0)
-  return <section id="faq" className="scroll-mt-20 bg-[#f4f3f8] py-20 sm:py-24"><div className="mx-auto grid max-w-[92rem] gap-10 px-4 sm:px-6 lg:grid-cols-[.65fr_1.35fr] lg:px-10"><h2 className="text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.faq.title')}</h2><div className="border-t border-slate-300">{FAQ_ITEMS(t).map(([question, answer, link], index) => { const open = openIndex === index; const answerId = `landing-faq-answer-${index}`; return <div key={question} className="border-b border-slate-300"><button type="button" onClick={() => setOpenIndex(current => current === index ? -1 : index)} aria-expanded={open} aria-controls={answerId} className={`flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-black text-slate-950 sm:text-base ${focusRing}`}>{question}<ChevronDown className={`h-5 w-5 shrink-0 text-violet-700 transition motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} /></button>{open && <div id={answerId} className="max-w-2xl pb-6 text-sm font-medium leading-7 text-slate-600"><p>{answer}</p>{link && <a href={link} className={`mt-3 inline-flex font-black text-violet-700 underline ${focusRing}`}>{t('landing.faq.contactLink')}</a>}</div>}</div> })}</div></div></section>
+  return <section id="faq" className="scroll-mt-20 bg-[#f4f3f8] py-20 sm:py-24"><div className="mx-auto grid max-w-[92rem] gap-10 px-4 sm:px-6 lg:grid-cols-[.65fr_1.35fr] lg:px-10"><h2 className="text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.faq.title')}</h2><div className="border-t border-slate-300">{FAQ_ITEMS(t, locale).map(([question, answer, link], index) => { const open = openIndex === index; const answerId = `landing-faq-answer-${index}`; return <div key={question} className="border-b border-slate-300"><button type="button" onClick={() => setOpenIndex(current => current === index ? -1 : index)} aria-expanded={open} aria-controls={answerId} className={`flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-black text-slate-950 sm:text-base ${focusRing}`}>{question}<ChevronDown className={`h-5 w-5 shrink-0 text-violet-700 transition motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} /></button>{open && <div id={answerId} className="max-w-2xl pb-6 text-sm font-medium leading-7 text-slate-600"><p>{answer}</p>{link && <a href={link} className={`mt-3 inline-flex font-black text-violet-700 underline ${focusRing}`}>{t('landing.faq.contactLink')}</a>}</div>}</div> })}</div></div></section>
 }
 
 function FinalCta() {
