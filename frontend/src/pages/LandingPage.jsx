@@ -109,8 +109,15 @@ const REAL_USES = t => [
   { id: 'propertyAcquisition', title: t('landing.benefits.uses.propertyAcquisition.title'), copy: t('landing.benefits.uses.propertyAcquisition.description') },
   { id: 'professionalRecruiting', title: t('landing.benefits.uses.professionalRecruiting.title'), copy: t('landing.benefits.uses.professionalRecruiting.description') },
 ]
-const IMAGE_SHOWCASE_EXAMPLES = {
-  'banner-imobiliario': [
+const IMAGE_SHOWCASE_EXAMPLES = (market = 'BR') => ({
+  'banner-imobiliario': market === 'US' ? [
+    '/landing/banners/us/snetia-us-banner-01.jpg',
+    '/landing/banners/us/snetia-us-banner-02.jpg',
+    '/landing/banners/us/snetia-us-banner-03.jpg',
+    '/landing/banners/us/snetia-us-banner-04.jpg',
+    '/landing/banners/us/snetia-us-banner-05.jpg',
+    '/landing/banners/us/snetia-us-banner-06.jpg',
+  ] : [
     '/showcase/hero/hero-18semimagem.jpg',
     '/showcase/hero/hero-captacao3.jpg',
     '/showcase/hero/hero-principal 1.jpg',
@@ -121,7 +128,7 @@ const IMAGE_SHOWCASE_EXAMPLES = {
     { type: 'video', src: '/previews/produto3/video-tour-preview-1x1.mp4' },
     { type: 'video', src: '/previews/produto3/imovel-detalhes-preview-1x1.mp4' },
   ],
-}
+})
 const TEXT_CAMPAIGN_CHANNELS = t => [
   {
     id: 'hashtags', title: 'Hashtags',
@@ -428,11 +435,12 @@ function DeliveryPanel({ group }) {
 }
 
 function ImagePreviewCard({ item }) {
-  const { t } = useLocale()
+  const { market, t } = useLocale()
   const reducedMotion = useReducedMotion()
-  const examples = IMAGE_SHOWCASE_EXAMPLES[item.id] || [item.src]
+  const examples = IMAGE_SHOWCASE_EXAMPLES(market)[item.id] || [item.src]
   const [exampleIndex, setExampleIndex] = useState(0)
   const example = typeof examples[exampleIndex] === 'string' ? { type: 'image', src: examples[exampleIndex] } : examples[exampleIndex]
+  useEffect(() => setExampleIndex(0), [market, item.id])
   useEffect(() => {
     if (reducedMotion || examples.length < 2) return undefined
     const timer = window.setInterval(() => setExampleIndex(index => (index + 1) % examples.length), 5200)

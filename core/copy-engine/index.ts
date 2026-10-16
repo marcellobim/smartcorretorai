@@ -1,6 +1,7 @@
 import { buildGoogleAdsDelivery, type GoogleAdsDelivery } from '../../supabase/functions/_shared/google-ads.ts'
 
 export type CopyEngineInput = {
+  language?: 'pt-BR' | 'en-US'
   objective?: string
   objectiveLabel?: string
   propertyType?: string
@@ -727,7 +728,7 @@ function buildHashtags(input: CopyEngineInput, kind: CampaignKind): string[] {
       'LocacaoDeImoveis',
       'MercadoImobiliario',
       'CorretorDeImoveis',
-      'SmartCorretorAI',
+      'SNETIA',
     ]
     return [...new Set(captureTags.filter(Boolean).map((tag) => `#${tag}`))].slice(0, 8)
   }
@@ -755,10 +756,10 @@ function buildHashtags(input: CopyEngineInput, kind: CampaignKind): string[] {
     'Imoveis',
     'MercadoImobiliario',
     'MorarBem',
-    'SmartCorretorAI',
+    'SNETIA',
   ]
   const unique = [...new Set(tags.filter(Boolean).map((tag) => `#${tag}`))]
-  const smartTag = '#SmartCorretorAI'
+  const smartTag = '#SNETIA'
   return unique.includes(smartTag)
     ? [...unique.filter((tag) => tag !== smartTag).slice(0, 7), smartTag]
     : unique.slice(0, 8)
@@ -781,5 +782,6 @@ export function buildPublicationGoogleAds(input: CopyEngineInput): GoogleAdsDeli
     bedrooms: input.bedrooms,
     suites: input.suites,
     cta: input.cta || 'Entre em contato',
+    language: input.language,
   })
 }

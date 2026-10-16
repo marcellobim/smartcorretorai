@@ -42,7 +42,7 @@ const validCampaign = (): TextCampaignResult => ({
   email: { subject: 'Apartamento na Vila Mariana', body: 'Conheça os detalhes deste apartamento de três dormitórios.' },
   linkedin: { applicable: false, text: null, reason: 'Contexto residencial sem recorte corporativo.' },
   cta: 'Agende sua visita',
-  hashtags: ['#VilaMariana', '#SaoPaulo', '#ApartamentoAVenda', '#ImovelResidencial', '#TresDormitorios', '#VarandaGourmet', '#SmartCorretorAI', '#ProntoParaMorar', '#SeuNovoLar', '#MercadoImobiliarioSP', '#AgendeSuaVisita', '#ImoveisEmSaoPaulo'],
+  hashtags: ['#VilaMariana', '#SaoPaulo', '#ApartamentoAVenda', '#ImovelResidencial', '#TresDormitorios', '#VarandaGourmet', '#SNETIA', '#ProntoParaMorar', '#SeuNovoLar', '#MercadoImobiliarioSP', '#AgendeSuaVisita', '#ImoveisEmSaoPaulo'],
   reels_script: 'Mostre a sala, a varanda e finalize com o convite para visita.',
   text_carousel: { slides: [1, 2, 3, 4, 5].map(index => ({ title: `Slide ${index}`, text: index === 5 ? 'Agende sua visita.' : `Informação ${index}.` })) },
   google_ads: {
@@ -144,7 +144,7 @@ const unsupportedUsCampaign = (): TextCampaignResult => ({
   email: { subject: 'Well-maintained Tampa condo', body: 'A comfortable condo with 2 bedrooms, 2 bathrooms, 1 dedicated parking space, and 900 sqft.' },
   linkedin: { applicable: false, text: null, reason: 'Residential context.' },
   reels_script: 'Take a look at the perfect place to call home: a Tampa condo with 2 bedrooms, 2 bathrooms, 1 parking space, and 900 sqft.',
-  hashtags: ['#Tampa', '#CondoForSale', '#ForSaleTampa', '#CondoInTampa', '#HomesInTampa', '#2Bedrooms', '#2Bathrooms', '#SmartCorretorAI', '#1ParkingSpaces', '#MoveInReady', '#ScheduleATour', '#FindYourHome'],
+  hashtags: ['#Tampa', '#CondoForSale', '#ForSaleTampa', '#CondoInTampa', '#HomesInTampa', '#2Bedrooms', '#2Bathrooms', '#SNETIA', '#1ParkingSpaces', '#MoveInReady', '#ScheduleATour', '#FindYourHome'],
   text_carousel: { slides: [
     { title: 'Tampa condo', text: '2 bedrooms and 2 bathrooms.' },
     { title: 'Practical Layout', text: 'Enjoy a condo with 2 bedrooms and 2 bathrooms, fit for your needs.' },
@@ -422,7 +422,7 @@ test('enforces 12–15 normalized hashtags without an institutional platform bra
   const final = applyFinalTextCampaignRules(validCampaign(), briefing, validCampaign().hashtags)
   assert.ok(final.hashtags.length >= 12 && final.hashtags.length <= 15)
   assert.equal(new Set(final.hashtags.map(tag => tag.toLowerCase())).size, final.hashtags.length)
-  const brand = final.hashtags.indexOf('#SmartCorretorAI')
+  const brand = final.hashtags.indexOf('#SNETIA')
   assert.ok(brand > 0 && brand < final.hashtags.length - 1)
 })
 

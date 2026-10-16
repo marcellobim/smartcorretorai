@@ -17,6 +17,7 @@ export type GoogleAdsBriefing = {
   suites?: unknown
   highlights?: unknown
   cta?: unknown
+  language?: 'pt-BR' | 'en-US' | unknown
 }
 
 export const GOOGLE_ADS_LIMITS = Object.freeze({
@@ -92,7 +93,73 @@ function purposeContext(value: unknown) {
 const fit = (values: string[], maximum: number) => unique(values.map(clean)).filter(value => value.length <= maximum)
 const sentence = (value: string) => /[.!?]$/.test(value) ? value : `${value}.`
 
+const englishPropertyType = (value: unknown) => ({
+  apartamento: 'Apartment', casa: 'House', sobrado: 'Townhouse', cobertura: 'Penthouse',
+  'studio / loft': 'Studio', studio: 'Studio', 'terreno / lote': 'Land', terreno: 'Land', lote: 'Land lot',
+  comercial: 'Commercial property', 'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse',
+  us_single_family_home: 'Single-family home', us_condo: 'Condominium', us_townhouse: 'Townhouse',
+  us_multi_family: 'Multi-family home', us_apartment: 'Apartment', us_studio: 'Studio', us_land_lot: 'Land lot', us_commercial: 'Commercial property',
+})[lower(value)] || clean(value) || 'Property'
+
+const englishCta = (value: unknown) => ({
+  'fale comigo': 'Get in touch', 'saiba mais': 'Learn more', 'agende sua visita': 'Schedule a tour',
+  'entre em contato': 'Contact us', 'entre em contato agora': 'Contact us now',
+  'conheça as condições': 'Explore the terms', 'conheca as condicoes': 'Explore the terms',
+  'quero informações': 'Request information', 'quero informacoes': 'Request information', 'chamar no whatsapp': 'Message us on WhatsApp',
+})[lower(value)] || clean(value) || 'Learn more'
+
+function buildEnglishGoogleAdsDelivery(input: GoogleAdsBriefing): GoogleAdsDelivery {
+  const propertyType = englishPropertyType(input.propertyType)
+  const district = clean(input.district)
+  const city = clean(input.city)
+  const state = clean(input.state)
+  const location = district || city || state
+  const extendedLocation = unique([district, city, state]).join(', ')
+  const bedrooms = clean(input.bedrooms)
+  const bathrooms = clean(input.suites)
+  const highlights = Array.isArray(input.highlights) ? unique(input.highlights.map(clean)).slice(0, 2) : []
+  const cta = bounded(englishCta(input.cta), 30, 'invalid_google_ads_cta')
+  const isRent = /rent|rental|loca[cç][aã]o|alug/.test(lower(input.purpose))
+  const purpose = isRent ? 'for rent' : 'for sale'
+  const action = isRent ? 'Rent' : 'Buy'
+  const subject = `${propertyType} ${purpose}${location ? ` in ${location}` : ''}`
+  const headlines = fit([
+    subject,
+    `${propertyType}${location ? ` in ${location}` : ''}`,
+    bedrooms ? `${bedrooms} bedroom ${propertyType}` : '',
+    bathrooms ? `${bathrooms} bathroom ${propertyType}` : '',
+    highlights[0] ? `${propertyType} with ${highlights[0]}` : '',
+    cta,
+  ], GOOGLE_ADS_LIMITS.headlines.itemMax).slice(0, GOOGLE_ADS_LIMITS.headlines.max)
+  for (const fallback of fit([propertyType, `${action} ${propertyType}`, cta], 30)) {
+    if (headlines.length >= GOOGLE_ADS_LIMITS.headlines.min) break
+    if (!headlines.some(item => lower(item) === lower(fallback))) headlines.push(fallback)
+  }
+  const fact = bedrooms ? `${bedrooms} ${bedrooms === '1' ? 'bedroom' : 'bedrooms'}` : bathrooms ? `${bathrooms} ${bathrooms === '1' ? 'bathroom' : 'bathrooms'}` : ''
+  const longHeadline = fit([
+    `${subject}${highlights[0] ? ` with ${highlights[0]}` : ''}`,
+    subject,
+    `${propertyType}${extendedLocation ? ` in ${extendedLocation}` : ''}`,
+  ], GOOGLE_ADS_LIMITS.longHeadlineMax)[0]
+  const descriptions = fit([
+    sentence(`Explore this ${subject.toLocaleLowerCase('en-US')}`),
+    sentence([fact, highlights[0]].filter(Boolean).join(' with ') || `${cta} for details`),
+    highlights[1] ? sentence(`${propertyType} with ${highlights[1]}${location ? ` in ${location}` : ''}`) : '',
+  ], GOOGLE_ADS_LIMITS.descriptions.itemMax).slice(0, GOOGLE_ADS_LIMITS.descriptions.max)
+  const place = location ? ` ${location.toLocaleLowerCase('en-US')}` : ''
+  const keywords = fit([
+    `${propertyType.toLocaleLowerCase('en-US')} ${purpose}${place}`,
+    `${action.toLocaleLowerCase('en-US')} ${propertyType.toLocaleLowerCase('en-US')}${place}`,
+    bedrooms ? `${bedrooms} bedroom ${propertyType.toLocaleLowerCase('en-US')}${place}` : '',
+    bathrooms ? `${bathrooms} bathroom ${propertyType.toLocaleLowerCase('en-US')}${place}` : '',
+    highlights[0] ? `${propertyType.toLocaleLowerCase('en-US')} ${highlights[0].toLocaleLowerCase('en-US')}${place}` : '',
+    `real estate ${propertyType.toLocaleLowerCase('en-US')}${place}`,
+  ], GOOGLE_ADS_LIMITS.suggestedKeywords.itemMax).slice(0, GOOGLE_ADS_LIMITS.suggestedKeywords.max)
+  return validateGoogleAdsDelivery({ headlines, long_headline: longHeadline, descriptions, cta, suggested_keywords: keywords }, { expectedCta: cta })
+}
+
 export function buildGoogleAdsDelivery(input: GoogleAdsBriefing): GoogleAdsDelivery {
+  if (input.language === 'en-US') return buildEnglishGoogleAdsDelivery(input)
   const propertyType = clean(input.propertyType) || 'Imóvel'
   const district = clean(input.district)
   const city = clean(input.city)

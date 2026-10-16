@@ -65,7 +65,7 @@ function buildEnglishHashtags({ objective, propertyType, district, city, feature
   const featureTags = (features || []).map(present).filter(Boolean).slice(0, 2).map(value => value.replace(/[^a-zA-Z0-9]/g, ''))
   const primaryTag = objective === 'sale' || objective === 'rent' ? `${type}${objectiveTags[0]}` : objectiveTags[0]
   return [...new Set([
-    hashtagToken(district), hashtagToken(city), primaryTag, ...objectiveTags.slice(1), ...featureTags, 'SmartCorretorAI',
+    hashtagToken(district), hashtagToken(city), primaryTag, ...objectiveTags.slice(1), ...featureTags, 'SNETIA',
   ].filter(Boolean).map(value => `#${value}`))].join(' ')
 }
 

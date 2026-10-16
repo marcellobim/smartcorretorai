@@ -1,4 +1,4 @@
-import type { OfficialHashtagContext } from '../_shared/official-hashtags.ts'
+import { normalizeOfficialHashtags, type OfficialHashtagContext } from '../_shared/official-hashtags.ts'
 import { GOOGLE_ADS_RESPONSE_SCHEMA } from '../_shared/google-ads.ts'
 import { presentCta, presentHighlight, presentPropertyType, presentPurpose, presentStage } from '../_shared/virtual-staging/presentation.ts'
 import { resolveProfessionalIdentity, type ProfessionalIdentitySelection } from '../_shared/professional-identity.ts'
@@ -541,7 +541,8 @@ export function applyFinalTextCampaignRules(result: TextCampaignResult, briefing
     ? briefing.professional_identity.formatted
     : ''
   const signed = identity ? applyExactProfessionalIdentity(factual, identity) : factual
-  return validateTextCampaignResult({ ...signed, hashtags, cta, google_ads: { ...signed.google_ads, cta } })
+  const normalizedHashtags = normalizeOfficialHashtags(hashtags, buildTextCampaignHashtagContext(briefing))
+  return validateTextCampaignResult({ ...signed, hashtags: normalizedHashtags, cta, google_ads: { ...signed.google_ads, cta } })
 }
 
 // The profile resolver is the sole authority for credentials. Provider prose

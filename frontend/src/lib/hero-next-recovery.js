@@ -128,6 +128,7 @@ export function buildHeroNextCampaignPackageData({
     data: {
       sourceProduct: 'Banner Imobiliário',
       sourceType: 'banner_imobiliario',
+      language: asText(safeContext.language) === 'en-US' ? 'en-US' : 'pt-BR',
       sourceId: asText(result.sourceId),
       mediaType: 'images',
       files,

@@ -889,8 +889,10 @@ function buildTextBriefing(briefing: JsonRecord) {
   const highlights = normalizeTextArray(choices.highlights, 8, 120)
   const subcategories = normalizeTextArray(choices.subcategories, 8, 120)
   const creativeConcepts = normalizeTextArray(choices.creative_concepts, 12, 120)
+  const market = choices.market === 'US' ? 'US' : 'BR'
 
   return {
+    market,
     tipo: normalizeText(property.type, 80),
     localizacao: buildLocation(property),
     area: formatAreaForDisplay(property.display_area || property.area) || (property.area ?? null),
@@ -922,8 +924,9 @@ function buildHeroHashtagContext(briefing: JsonRecord, textBriefing: JsonRecord,
   return {
     purpose:property.purpose, propertyType:textBriefing.tipo, propertyStage:textBriefing.estado_imovel,
     city:property.city, district:property.neighborhood || property.district, state:property.state,
-    bedrooms:textBriefing.dormitorios, suites:textBriefing.suites, parkingSpaces:textBriefing.vagas,
-    highlights:textBriefing.destaques, cta,
+    bedrooms:textBriefing.dormitorios, suites:textBriefing.suites, bathrooms:property.bathrooms,
+    parkingSpaces:textBriefing.vagas, highlights:textBriefing.destaques, cta,
+    language:textBriefing.market === 'US' ? 'en-US' : 'pt-BR', brand:'SNETIA',
   }
 }
 
@@ -963,9 +966,10 @@ function buildChannelCtaGuidance(destinationLabel: string) {
 
 function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string, boolean>, briefing: JsonRecord) {
   const textBriefing = buildTextBriefing(briefing)
-  const cta = normalizeText(value.cta, 120) || normalizeText(textBriefing.cta_escolhido, 120) || 'Agende sua visita'
+  const isUs = textBriefing.market === 'US'
+  const cta = normalizeText(value.cta, 120) || normalizeText(textBriefing.cta_escolhido, 120) || (isUs ? 'Schedule a tour' : 'Agende sua visita')
   const contactPhone = normalizeContactPhoneForDisplay(textBriefing.telefone_exibicao || textBriefing.telefone_contato)
-  const contactLine = contactPhone ? ` Para mais informacoes: ${contactPhone}.` : ''
+  const contactLine = contactPhone ? (isUs ? ` Contact: ${contactPhone}.` : ` Para mais informacoes: ${contactPhone}.`) : ''
   const hashtagsRaw = Array.isArray(value.hashtags)
      ? value.hashtags.join(' ')
     : normalizeText(value.hashtags, 500)
@@ -982,16 +986,24 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
   }
 
   if (!texts.instagram) {
-    texts.instagram = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao especial'} com uma apresentacao visual pensada para destacar o que realmente importa. ${cta}.${contactLine}`
+    texts.instagram = isUs
+      ? `${textBriefing.tipo || 'Property'} in ${textBriefing.localizacao || 'the selected location'}, presented to highlight the confirmed details. ${cta}.${contactLine}`
+      : `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao especial'} com uma apresentacao visual pensada para destacar o que realmente importa. ${cta}.${contactLine}`
   }
   if (!texts.whatsapp) {
-    texts.whatsapp = `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${textBriefing.tipo || 'imovel'} em ${textBriefing.localizacao || 'uma excelente localizacao'}.${contactPhone ? ` Meu contato: ${contactPhone}.` : ''} Posso te enviar mais detalhes`
+    texts.whatsapp = isUs
+      ? `Hi! I have a ${textBriefing.tipo || 'property'} ${textBriefing.localizacao ? `in ${textBriefing.localizacao}` : 'in the selected location'} that may be a good fit.${contactPhone ? ` My contact number is ${contactPhone}.` : ''} Would you like more details?`
+      : `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${textBriefing.tipo || 'imovel'} em ${textBriefing.localizacao || 'uma excelente localizacao'}.${contactPhone ? ` Meu contato: ${contactPhone}.` : ''} Posso te enviar mais detalhes`
   }
   if (!texts.facebook) {
-    texts.facebook = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'uma localizacao especial'}, com informacoes claras para quem busca uma boa oportunidade. ${cta}.${contactLine}`
+    texts.facebook = isUs
+      ? `${textBriefing.tipo || 'Property'} ${textBriefing.localizacao ? `in ${textBriefing.localizacao}` : 'in the selected location'}, with clear information for interested buyers or renters. ${cta}.${contactLine}`
+      : `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'uma localizacao especial'}, com informacoes claras para quem busca uma boa oportunidade. ${cta}.${contactLine}`
   }
   if (!texts.portal) {
-    texts.portal = `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao privilegiada'}, com diferenciais selecionados para uma divulgacao clara e profissional.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`
+    texts.portal = isUs
+      ? `${textBriefing.tipo || 'Property'} ${textBriefing.localizacao ? `in ${textBriefing.localizacao}` : 'in the selected location'}, with the confirmed details presented clearly.${contactPhone ? ` Contact ${contactPhone} for more information.` : ''}`
+      : `${textBriefing.tipo || 'Imovel'} em ${textBriefing.localizacao || 'localizacao privilegiada'}, com diferenciais selecionados para uma divulgacao clara e profissional.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`
   }
   if (!texts.hashtags) texts.hashtags = buildOfficialHashtags(hashtagContext).join(' ')
 
@@ -1000,18 +1012,19 @@ function normalizeGeneratedTexts(value: JsonRecord, deliverables: Record<string,
 
 function buildFallbackHeroTexts(briefing: JsonRecord) {
   const textBriefing = buildTextBriefing(briefing)
-  const cta = normalizeText(textBriefing.cta_escolhido, 120) || 'Fale com o corretor'
-  const tipo = normalizeText(textBriefing.tipo, 80) || 'Imovel'
+  const isUs = textBriefing.market === 'US'
+  const cta = normalizeText(textBriefing.cta_escolhido, 120) || (isUs ? 'Contact us' : 'Fale com o corretor')
+  const tipo = normalizeText(textBriefing.tipo, 80) || (isUs ? 'Property' : 'Imovel')
   const localizacao = normalizeText(textBriefing.localizacao, 160)
   const contactPhone = normalizeContactPhoneForDisplay(textBriefing.telefone_exibicao || textBriefing.telefone_contato)
-  const contactLine = contactPhone ? ` Para mais informacoes: ${contactPhone}.` : ''
+  const contactLine = contactPhone ? (isUs ? ` Contact: ${contactPhone}.` : ` Para mais informacoes: ${contactPhone}.`) : ''
 
   return {
-    instagram: `${tipo}${localizacao ? ` em ${localizacao}` : ''} para quem busca uma oportunidade imobiliaria bem localizada. ${cta}.${contactLine}`,
-    whatsapp: `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${tipo}${localizacao ? ` em ${localizacao}` : ''}.${contactPhone ? ` Meu contato: ${contactPhone}.` : ''} Posso te enviar mais detalhes`,
-    facebook: `${tipo}${localizacao ? ` em ${localizacao}` : ''} com apresentacao clara, visual forte e convite para contato. ${cta}.${contactLine}`,
+    instagram: isUs ? `${tipo}${localizacao ? ` in ${localizacao}` : ''} with a clear presentation of the confirmed property details. ${cta}.${contactLine}` : `${tipo}${localizacao ? ` em ${localizacao}` : ''} para quem busca uma oportunidade imobiliaria bem localizada. ${cta}.${contactLine}`,
+    whatsapp: isUs ? `Hi! I have a ${tipo}${localizacao ? ` in ${localizacao}` : ''} that may be a good fit.${contactPhone ? ` My contact number is ${contactPhone}.` : ''} Would you like more details?` : `Ola, tudo bem Tenho uma oportunidade que pode fazer sentido para voce: ${tipo}${localizacao ? ` em ${localizacao}` : ''}.${contactPhone ? ` Meu contato: ${contactPhone}.` : ''} Posso te enviar mais detalhes`,
+    facebook: isUs ? `${tipo}${localizacao ? ` in ${localizacao}` : ''} with a clear presentation and an invitation to get in touch. ${cta}.${contactLine}` : `${tipo}${localizacao ? ` em ${localizacao}` : ''} com apresentacao clara, visual forte e convite para contato. ${cta}.${contactLine}`,
     cta,
-    portal: `${tipo}${localizacao ? ` em ${localizacao}` : ''}, com apresentacao profissional e informacoes objetivas para interessados no imovel.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`,
+    portal: isUs ? `${tipo}${localizacao ? ` in ${localizacao}` : ''}, with a professional presentation and confirmed property information.${contactPhone ? ` Contact ${contactPhone} for more information.` : ''}` : `${tipo}${localizacao ? ` em ${localizacao}` : ''}, com apresentacao profissional e informacoes objetivas para interessados no imovel.${contactPhone ? ` Para mais informacoes, entre em contato pelo telefone ${contactPhone}.` : ''}`,
     hashtags: buildOfficialHashtags(buildHeroHashtagContext(briefing, textBriefing, cta)).join(' '),
   }
 }
@@ -1023,6 +1036,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
   }
 
   const textBriefing = buildTextBriefing(briefing)
+  const isUs = textBriefing.market === 'US'
   const humanPrompt = typeof textBriefing.prompt_humano === 'string' ? textBriefing.prompt_humano : ''
   const ctaGuidance = buildChannelCtaGuidance(textBriefing.destino_principal)
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1036,12 +1050,20 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
       messages: [
         {
           role: 'system',
-          content: [
+          content: (isUs ? [
+            'You are a senior U.S. real-estate copywriter for SNETIA.',
+            'Write every field in natural American English with a clear, professional real-estate advertising tone.',
+            'Use only facts provided in the briefing. Do not invent contact details, amenities, financing, schools, transit, views, or neighborhood claims.',
+            'If a contact phone is supplied, reproduce it exactly. If it is not supplied, do not invent a phone number, WhatsApp, website, Instagram, or email.',
+            'Hashtags: provide 12 to 15 useful, varied English hashtags from confirmed property type, intent, location, bedrooms, bathrooms, parking, and confirmed highlights. Do not use Portuguese or Brazilian real-estate terms. Include #SNETIA naturally in the middle, never first or last.',
+            'Always generate Instagram, WhatsApp, Facebook, CTA, portal, and hashtags. WhatsApp must be a concise message from the agent to a lead; Facebook must be informative; the portal text must be factual and clear.',
+            'Return valid JSON only with: instagram, whatsapp, facebook, cta, portal, hashtags.',
+          ] : [
             'Voce e um redator de marketing imobiliario premium do SmartCorretorAI.',
             'Escreva em portugues do Brasil, com linguagem comercial, clara e correta.',
             'Nao invente informacoes nao fornecidas. Nao invente CRECI, telefone, email, metro, escola, shopping, vista, lazer, financiamento ou condominio.',
             'Se houver telefone de contato no briefing, use exatamente o numero informado, sem alterar DDD, completar, encurtar ou reformatar. Se nao houver telefone, nao inclua nenhum numero de contato.',
-            'Hashtags: gere de 12 a 15, sem acentos, naturais e coerentes com o briefing. Misture localizacao, tipo, finalidade, estilo de vida sustentado, diferenciais reais, intencao de busca e termos amplos, medios e especificos. Nao apenas coloque # na frente dos campos. Varie entre imoveis semelhantes, nao repita e evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario. Inclua #SmartCorretorAI no meio da lista, nunca no inicio ou no final.',
+            'Hashtags: gere de 12 a 15, sem acentos, naturais e coerentes com o briefing. Misture localizacao, tipo, finalidade, estilo de vida sustentado, diferenciais reais, intencao de busca e termos amplos, medios e especificos. Nao apenas coloque # na frente dos campos. Varie entre imoveis semelhantes, nao repita e evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario. Inclua #SNETIA no meio da lista, nunca no inicio ou no final.',
             'Sempre gere Instagram, WhatsApp, Facebook, CTA, portal e hashtags, mesmo que o pacote visual tenha sido ajustado.',
             'O CTA escolhido deve ser o eixo principal da campanha e aparecer de forma forte nos textos.',
             'Use emojis com bom gosto em Instagram e WhatsApp, sem exagero. Portal deve ter pouco ou nenhum emoji.',
@@ -1051,7 +1073,7 @@ async function generateHeroTexts(briefing: JsonRecord, deliverables: Record<stri
             'Portal: descritivo, claro, sem exagero e quase sem emojis.',
             'Chamada curta/CTA: frase curta para card ou anuncio.',
             'Retorne somente JSON valido com as chaves: instagram, whatsapp, facebook, cta, portal, hashtags.',
-          ].join(' '),
+          ]).join(' '),
         },
         {
           role: 'user',

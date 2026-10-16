@@ -12,15 +12,15 @@ const sentence = (value) => {
   return /[.!?]$/.test(text) ? text : `${text}.`
 }
 
-const lowerFirst = (value) => {
+const lowerFirst = (value, language = 'pt-BR') => {
   const text = clean(value)
-  return text ? `${text.charAt(0).toLocaleLowerCase('pt-BR')}${text.slice(1)}` : ''
+  return text ? `${text.charAt(0).toLocaleLowerCase(language)}${text.slice(1)}` : ''
 }
 
-const joinNatural = (values) => {
+const joinNatural = (values, language = 'pt-BR') => {
   const items = compact(values)
   if (items.length < 2) return items[0] || ''
-  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
+  return `${items.slice(0, -1).join(', ')} ${language === 'en-US' ? 'and' : 'e'} ${items.at(-1)}`
 }
 
 const locationText = ({ district, city, state }) => {
@@ -28,25 +28,53 @@ const locationText = ({ district, city, state }) => {
   return compact([district, cityState]).join(', ')
 }
 
-const purposeText = (purpose) => {
+const purposeText = (purpose, language = 'pt-BR') => {
   const normalized = clean(purpose).toLocaleLowerCase('pt-BR')
+  if (language === 'en-US') {
+    if (['rental', 'rent', 'locação', 'locacao', 'aluguel', 'alugar'].includes(normalized)) return 'for rent'
+    if (['sale', 'venda', 'vender'].includes(normalized)) return 'for sale'
+    return ''
+  }
   if (normalized === 'rental') return 'para locação'
   if (['sale', 'venda', 'vender'].includes(normalized)) return 'à venda'
   if (['rent', 'locação', 'locacao', 'aluguel', 'alugar'].includes(normalized)) return 'para locação'
   return ''
 }
 
-const factsText = ({ bedrooms, suites, parkingSpaces, area }) => {
+const factsText = ({ bedrooms, suites, parkingSpaces, area }, language = 'pt-BR') => {
   const plural = (value, singular, pluralLabel) => value
     ? `${value} ${String(value) === '1' ? singular : pluralLabel}`
     : ''
+
+  if (language === 'en-US') {
+    return joinNatural([
+      plural(bedrooms, 'bedroom', 'bedrooms'),
+      plural(suites, 'bathroom', 'bathrooms'),
+      plural(parkingSpaces, 'parking space', 'parking spaces'),
+      area ? `${area} sqft` : '',
+    ], language)
+  }
 
   return joinNatural([
     plural(bedrooms, 'dormitório', 'dormitórios'),
     plural(suites, 'suíte', 'suítes'),
     plural(parkingSpaces, 'vaga', 'vagas'),
     area ? `${area} m²` : '',
-  ])
+  ], language)
+}
+
+const presentPropertyType = (value, language = 'pt-BR') => {
+  const propertyType = clean(value)
+  if (language !== 'en-US') return propertyType
+  const normalized = propertyType.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('en-US')
+  return ({
+    apartamento: 'Apartment', casa: 'House', sobrado: 'Townhouse', cobertura: 'Penthouse',
+    'studio / loft': 'Studio', studio: 'Studio', 'terreno / lote': 'Land', terreno: 'Land', lote: 'Land lot',
+    comercial: 'Commercial property', 'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse',
+    us_single_family_home: 'Single-family home', us_condo: 'Condominium', us_townhouse: 'Townhouse',
+    us_multi_family: 'Multi-family home', us_apartment: 'Apartment', us_studio: 'Studio',
+    us_land_lot: 'Land lot', us_commercial: 'Commercial property',
+  })[normalized] || propertyType
 }
 
 const HASHTAG_PATTERN = /#[\p{L}\p{N}_]+/gu
@@ -67,8 +95,14 @@ const normalizeHashtagBlock = (values) => {
     .flatMap(extractHashtags)
     .filter((hashtag) => !REJECTED_DISCOVERY_HASHTAGS.has(hashtag.toLocaleLowerCase('pt-BR')))
     .map((hashtag) => [hashtag.toLocaleLowerCase('pt-BR'), hashtag])).values()]
-  let brandIndex = hashtags.findIndex((hashtag) => hashtag.toLocaleLowerCase('pt-BR') === '#smartcorretorai')
-  const brand = brandIndex >= 0 ? hashtags.splice(brandIndex, 1)[0] : '#SmartCorretorAI'
+  const brandIndices = hashtags
+    .map((hashtag, index) => ['#smartcorretorai', '#snetia'].includes(hashtag.toLocaleLowerCase('pt-BR')) ? index : -1)
+    .filter(index => index >= 0)
+    .reverse()
+  for (const index of brandIndices) hashtags.splice(index, 1)
+  // The package owns this institutional insertion. Do not preserve the legacy brand
+  // when it appears in older generated copy.
+  const brand = '#SNETIA'
   const limited = hashtags.slice(0, 14)
   limited.splice(Math.max(1, Math.floor(limited.length / 2)), 0, brand)
   return limited.join(' ')
@@ -175,7 +209,7 @@ const mergeCampaignHashtags = (campaigns) => normalizeHashtagBlock(campaigns.fla
   campaign.linkedin,
 ]))
 
-const buildAiCampaignModules = (campaigns, unifiedSocialPublishing = false) => {
+const buildAiCampaignModules = (campaigns, unifiedSocialPublishing = false, language = 'pt-BR') => {
   const unifiedSocial = unifiedSocialPublishing
     ? [{
         id: 'social',
@@ -197,7 +231,7 @@ const buildAiCampaignModules = (campaigns, unifiedSocialPublishing = false) => {
       id: 'email',
       title: 'Email',
       fields: campaignOptions(campaigns, 'emailBody', 'Copiar', (body, campaign) => compact([
-        campaign.emailSubject ? `Assunto: ${campaign.emailSubject}` : '',
+        campaign.emailSubject ? `${language === 'en-US' ? 'Subject' : 'Assunto'}: ${campaign.emailSubject}` : '',
         body,
       ]).join('\n\n')),
     },
@@ -243,6 +277,7 @@ export function normalizeCampaignPackageInput(input = {}) {
   const highlights = Array.isArray(input.highlights) ? compact(input.highlights) : []
   const cta = clean(input.cta)
   return {
+    language: input.language === 'en-US' || input.market === 'US' ? 'en-US' : 'pt-BR',
     sourceProduct: clean(input.sourceProduct),
     sourceType: clean(input.sourceType || input.source_type),
     sourceId: clean(input.sourceId || input.source_id),
@@ -280,7 +315,7 @@ export function normalizeCampaignPackageInput(input = {}) {
 export function buildCampaignPackage(input = {}) {
   const campaign = normalizeCampaignPackageInput(input)
   const aiCampaignModules = campaign.aiCampaigns.length === 3
-    ? buildAiCampaignModules(campaign.aiCampaigns, campaign.unifiedSocialPublishing)
+    ? buildAiCampaignModules(campaign.aiCampaigns, campaign.unifiedSocialPublishing, campaign.language)
     : []
   if (aiCampaignModules.length) {
     const googleAdsModule = buildGoogleAdsModule(campaign.googleAds)
@@ -304,10 +339,12 @@ export function buildCampaignPackage(input = {}) {
   const existingPortal = existingFields(existingItems, /portal/i, campaign.campaignLabels.copyDescription || 'Copiar descrição')
   const existingLinkedin = existingFields(existingItems, /linkedin/i, campaign.campaignLabels.copyText || 'Copiar texto')
   const existingEmail = existingFields(existingItems, /e-?mail|assunto/i, campaign.campaignLabels.copy || 'Copiar')
+  const isEnglish = campaign.language === 'en-US'
   const location = locationText(campaign)
-  const purpose = purposeText(campaign.purpose)
-  const subject = compact([campaign.propertyType, purpose, location ? `em ${location}` : '']).join(' ')
-  const facts = factsText(campaign)
+  const purpose = purposeText(campaign.purpose, campaign.language)
+  const propertyType = presentPropertyType(campaign.propertyType, campaign.language)
+  const subject = compact([propertyType, purpose, location ? (isEnglish ? `in ${location}` : `em ${location}`) : '']).join(' ')
+  const facts = factsText(campaign, campaign.language)
   const highlights = joinNatural(campaign.highlights)
   const hasCampaignContext = Boolean(subject || campaign.description || highlights || campaign.cta)
   const contextText = compact([
@@ -320,13 +357,13 @@ export function buildCampaignPackage(input = {}) {
   const hasPropertyContext = Boolean(purpose || campaign.propertyType)
   const hasInstitutionalContext = /(institucional|empresa|empresarial|marca|posicionamento|profissional)/.test(contextText)
   const hasProfessionalContext = isLinkedInApplicable(campaign) || hasInstitutionalContext
-  const contactLine = campaign.contactAuthorized ? `Contato: ${campaign.phone}` : ''
+  const contactLine = campaign.contactAuthorized ? `${isEnglish ? 'Contact' : 'Contato'}: ${campaign.phone}` : ''
   const ctaLine = compact([campaign.cta, contactLine]).join(' · ')
   const opening = subject ? sentence(subject) : ''
   const detailLines = compact([
     campaign.propertyStage ? sentence(campaign.propertyStage) : '',
-    facts ? sentence(`O imóvel conta com ${facts}`) : '',
-    highlights ? sentence(`Entre os destaques estão ${lowerFirst(highlights)}`) : '',
+    facts ? sentence(isEnglish ? `Features ${facts}` : `O imóvel conta com ${facts}`) : '',
+    highlights ? sentence(isEnglish ? `Highlights: ${highlights}` : `Entre os destaques estão ${lowerFirst(highlights)}`) : '',
     campaign.price ? sentence(campaign.price) : '',
   ])
   const hashtags = normalizeHashtagBlock(existingItems.map((item) => item.text))
@@ -339,10 +376,10 @@ export function buildCampaignPackage(input = {}) {
   ]).join('\n\n')
 
   const whatsapp = compact([
-    'Olá! Tudo bem?',
-    subject ? sentence(`Quero apresentar este ${lowerFirst(subject)}`) : '',
+    isEnglish ? 'Hi! I hope you are well.' : 'Olá! Tudo bem?',
+    subject ? sentence(isEnglish ? `I would like to share this ${lowerFirst(subject, campaign.language)}` : `Quero apresentar este ${lowerFirst(subject)}`) : '',
     facts ? sentence(facts) : '',
-    highlights ? sentence(`Destaques: ${highlights}`) : '',
+    highlights ? sentence(isEnglish ? `Highlights: ${highlights}` : `Destaques: ${highlights}`) : '',
     campaign.price ? sentence(campaign.price) : '',
     campaign.cta,
     contactLine,
@@ -361,7 +398,7 @@ export function buildCampaignPackage(input = {}) {
       ? sentence(campaign.description).replace(/[.]$/, '')
       : ''
   const emailBody = compact([
-    'Olá,',
+    isEnglish ? 'Hello,' : 'Olá,',
     opening,
     campaign.description ? sentence(campaign.description) : '',
     ...detailLines,
@@ -392,8 +429,8 @@ export function buildCampaignPackage(input = {}) {
       id: 'email',
       title: campaign.campaignLabels.email || 'E-mail',
       fields: [
-        { id: 'email-subject', label: campaign.campaignLabels.emailSubject || 'Assunto sugerido', text: emailSubject, copyLabel: campaign.campaignLabels.copySubject || 'Copiar assunto' },
-        { id: 'email-body', label: campaign.campaignLabels.message || 'Mensagem', text: emailBody, copyLabel: campaign.campaignLabels.copyMessage || 'Copiar mensagem' },
+        { id: 'email-subject', label: campaign.campaignLabels.emailSubject || (isEnglish ? 'Suggested subject' : 'Assunto sugerido'), text: emailSubject, copyLabel: campaign.campaignLabels.copySubject || (isEnglish ? 'Copy subject' : 'Copiar assunto') },
+        { id: 'email-body', label: campaign.campaignLabels.message || (isEnglish ? 'Message' : 'Mensagem'), text: emailBody, copyLabel: campaign.campaignLabels.copyMessage || (isEnglish ? 'Copy message' : 'Copiar mensagem') },
       ],
     },
     hashtags && { id: 'hashtags', title: 'Hashtags', copyLabel: campaign.campaignLabels.copyHashtags || 'Copiar hashtags', text: hashtags },

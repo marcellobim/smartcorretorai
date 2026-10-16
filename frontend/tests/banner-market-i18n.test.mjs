@@ -47,7 +47,7 @@ test('Banner header, return action, compact counter, and initial goals are local
 })
 
 test('Banner prompt and new campaign copy use market semantics without rewriting stored campaigns', () => {
-  assert.match(page, /function buildHeroNextCampaignCopy\(goal, answers, valueCondition, market = 'BR'\)[\s\S]*?market !== 'US'\) return buildPublicationPackage\(buildHeroNextCopyInput\(goal, answers, valueCondition\)\)/)
+  assert.match(page, /function buildHeroNextCampaignCopy\(goal, answers, valueCondition, market = 'BR'\)[\s\S]*?market !== 'US'\) return buildPublicationPackage\(buildHeroNextCopyInput\(goal, answers, valueCondition, market\)\)/)
   assert.match(page, /const buildHumanPrompt = \(goal, answers, destinations, valueCondition, creativeIdeaCount = 1, market = 'BR'\)[\s\S]*?if \(market === 'US'\)/)
   assert.match(page, /ussinglefamilyhome: 'Single-family home'/)
   assert.match(page, /bathroom', 'bathrooms'/)

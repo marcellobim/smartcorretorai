@@ -49,6 +49,7 @@ import {
   writeHeroNextRecovery,
 } from '../lib/hero-next-recovery'
 import { buildPublicationGoogleAds, buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
+import { buildOfficialHashtags } from '../../../supabase/functions/_shared/official-hashtags.ts'
 
 const GOALS = [
   { id: 'sale', label: 'Venda de imóvel', description: 'Campanha para divulgar um imóvel à venda.' },
@@ -809,11 +810,12 @@ const getHeroNextDefaultCta = (goal, market = 'BR') => (
     : (isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale comigo')
 )
 
-function buildHeroNextCopyInput(goal, answers, valueCondition) {
+function buildHeroNextCopyInput(goal, answers, valueCondition, market = 'BR') {
   const objectiveLabel = getHeroNextObjectiveLabel(goal)
   const features = getHeroNextCaptureFeatures(goal, answers)
 
   return {
+    language: market === 'US' ? 'en-US' : 'pt-BR',
     objective: goal,
     objectiveLabel,
     propertyType: answers.propertyType || normalizeList(answers.propertyKinds)[0] || normalizeList(answers.professionalProfile)[0] || 'Imóvel',
@@ -836,7 +838,7 @@ function buildHeroNextCopyInput(goal, answers, valueCondition) {
 }
 
 function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR') {
-  if (market !== 'US') return buildPublicationPackage(buildHeroNextCopyInput(goal, answers, valueCondition))
+  if (market !== 'US') return buildPublicationPackage(buildHeroNextCopyInput(goal, answers, valueCondition, market))
 
   const text = (value) => String(value || '').trim()
   const normalized = (value) => normalizeComparable(value).replace(/_/g, ' ')
@@ -895,7 +897,20 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
   const highlights = localizeHeroNextSystemList(normalizeList(goal === 'property_capture' || goal === 'broker_capture'
     ? getHeroNextCaptureFeatures(goal, answers)
     : answers.differentials), 'US').join(', ')
-  const hashtags = ['#RealEstate', goal === 'rent' ? '#ForRent' : goal === 'sale' ? '#ForSale' : '#RealEstateMarketing', location ? `#${location.replace(/[^a-zA-Z0-9]/g, '')}` : '', '#SmartCorretorAI'].filter(Boolean).join(' ')
+  const hashtags = buildOfficialHashtags({
+    purpose: goal,
+    propertyType: answers.propertyType,
+    city: answers.city,
+    district: answers.neighborhood || answers.neighborhoods,
+    state: answers.state,
+    bedrooms: answers.bedrooms,
+    bathrooms: answers.bathrooms || answers.suites,
+    parkingSpaces: answers.parking,
+    highlights: localizeHeroNextSystemList(normalizeList(goal === 'property_capture' || goal === 'broker_capture' ? getHeroNextCaptureFeatures(goal, answers) : answers.differentials), 'US'),
+    cta,
+    language: 'en-US',
+    brand: 'SNETIA',
+  }).join(' ')
 
   if (goal === 'property_capture' || goal === 'broker_capture') {
     const audience = goal === 'broker_capture' ? 'real estate professionals' : 'property owners'
@@ -3045,6 +3060,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     result: generationResult,
     campaignCopy,
     context: {
+      language: market === 'US' ? 'en-US' : 'pt-BR',
       purpose: getGoalLabel(goal),
       propertyType: isPropertyCaptureGoal ? formatAnswer(answers.propertyKinds) : isBrokerCaptureGoal ? formatAnswer(answers.professionalProfile) : answers.propertyType,
       neighborhood: answers.neighborhood || answers.neighborhoods,
@@ -3061,7 +3077,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     labels: heroNextCampaignLabels,
     strategy: heroNextCampaignStrategy,
     buildGoogleAds: buildPublicationGoogleAds,
-    googleAdsInput: buildHeroNextCopyInput(goal, answers, valueCondition),
+    googleAdsInput: buildHeroNextCopyInput(goal, answers, valueCondition, market),
     creationOptionLabel: getCreationOptionLabel,
   }) : { data: null, error: null, warning: '' }
   const campaignPackageData = campaignPackageBuild.data

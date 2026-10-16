@@ -72,7 +72,7 @@ REGRAS PARA HASHTAGS:
 - Misture hashtags amplas, médias e específicas sem apenas colocar # na frente dos campos recebidos.
 - Varie a seleção e as combinações entre imóveis semelhantes.
 - Não repita hashtags e evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario.
-- Inclua #SmartCorretorAI naturalmente no meio da lista, nunca no início ou no final.
+- Inclua #SNETIA naturalmente no meio da lista, nunca no início ou no final.
 - Prefira hashtags sem acentos e sem cedilha: use #ImoveisSP, #SaoPauloImoveis, #ApartamentoAVenda.
 - Não use palavras estranhas, traduções ruins ou termos inexistentes como #AparelhoImobiliario.
 - Não use Premium, Luxo, AltoPadrao ou similares se a categoria/perfil não for luxo, alto padrão ou premium.
@@ -102,7 +102,7 @@ REGRAS DE FINALIDADE (estas regras substituem qualquer regra anterior conflitant
 - Em sale, use exclusivamente linguagem de venda e nunca use badge ou linguagem de locacao.
 - Em imovel comercial, use linguagem empresarial e nunca "novo lar", "familia" ou "pronto para morar".
 - Preserve literalmente a disponibilidade, o condominio e o IPTU quando informados; nao invente periodicidade para IPTU.
-- Nao inclua hashtags no corpo dos textos. Inclua #SmartCorretorAI no bloco de hashtags.`
+- Nao inclua hashtags no corpo dos textos. Inclua #SNETIA no bloco de hashtags.`
 
 function stripDiacritics(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -189,9 +189,9 @@ function normalizeHashtags(input: unknown, dados: Record<string, unknown>, tipo:
     if (!normalized.includes(tag)) normalized.push(tag)
   }
 
-  const brandIndex = normalized.findIndex((tag) => tag.toLocaleLowerCase('pt-BR') === '#smartcorretorai')
+  const brandIndex = normalized.findIndex((tag) => ['#smartcorretorai', '#snetia'].includes(tag.toLocaleLowerCase('pt-BR')))
   if (brandIndex >= 0) normalized.splice(brandIndex, 1)
-  normalized.splice(Math.floor(normalized.length / 2), 0, '#SmartCorretorAI')
+  normalized.splice(Math.floor(normalized.length / 2), 0, '#SNETIA')
 
   return normalized.slice(0, 15)
 }
