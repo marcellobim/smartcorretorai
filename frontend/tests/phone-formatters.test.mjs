@@ -25,6 +25,19 @@ test('keeps incompatible legacy values intact during a market switch', () => {
   assert.equal(isPhoneCompatibleWithMarket(american, 'BR'), true)
 })
 
+test('formats a replacement with the current market mask without changing the preserved foreign value', () => {
+  const brazilian = '11999998888'
+  const american = '3055550199'
+
+  assert.equal(formatPhone(brazilian, 'US', 'BR'), brazilian)
+  assert.equal(formatPhone(american, 'US'), '(305) 555-0199')
+  assert.equal(normalizePhone(american, 'US'), american)
+
+  assert.equal(formatPhone(american, 'BR', 'US'), american)
+  assert.equal(formatPhone(brazilian, 'BR'), '(11) 99999-8888')
+  assert.equal(normalizePhone(brazilian, 'BR'), brazilian)
+})
+
 test('accepts legacy country codes only for their own market', () => {
   assert.equal(formatPhone('+55 11 99999-8888', 'BR'), '(11) 99999-8888')
   assert.equal(isPhoneCompatibleWithMarket('+55 11 99999-8888', 'BR'), true)

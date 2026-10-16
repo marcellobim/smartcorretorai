@@ -256,6 +256,24 @@ export default function Configuracoes() {
   }, [market, user?.id, user?.nome, user?.display_name, user?.email, user?.creci, user?.creci_type, user?.license_number, user?.license_state, user?.telefone, user?.whatsapp, user?.imobiliaria, user?.instagram, user?.facebook, user?.linkedin, user?.estado, session?.user?.email, resetPerfil])
 
   const watched = watch()
+  const savedPhoneValues = useMemo(() => ({
+    telefone: user?.telefone || '',
+    whatsapp: user?.whatsapp || user?.telefone || '',
+  }), [user?.telefone, user?.whatsapp])
+  const savedPhoneIsFromAnotherMarket = useCallback((field) => Boolean(
+    savedPhoneValues[field]
+    && (user?.market === 'BR' || user?.market === 'US')
+    && user.market !== market
+  ), [market, savedPhoneValues, user?.market])
+  const isPreservedForeignPhone = useCallback((field, value) => (
+    savedPhoneIsFromAnotherMarket(field)
+    && String(value || '').replace(/\D/g, '') === String(savedPhoneValues[field] || '').replace(/\D/g, '')
+  ), [savedPhoneIsFromAnotherMarket, savedPhoneValues])
+  const formatProfilePhone = useCallback((field, value) => formatPhone(
+    value,
+    market,
+    isPreservedForeignPhone(field, value) ? user?.market : market,
+  ), [isPreservedForeignPhone, market, user?.market])
   const profileComplete = useMemo(() => Boolean(
     watched.nome?.trim()
     && watched.email?.trim()
@@ -355,7 +373,7 @@ export default function Configuracoes() {
       hasError = true
     }
     for (const [field, value] of phoneValues) {
-      if (value && !isPhoneCompatibleWithMarket(value, market)) {
+      if (value && !isPhoneCompatibleWithMarket(value, market) && !isPreservedForeignPhone(field, value)) {
         setProfileError(field, { type: 'validate', message: market === 'US' ? 'Enter a valid 10-digit phone number.' : 'Informe um telefone com DDD.' })
         hasError = true
       }
@@ -538,9 +556,9 @@ export default function Configuracoes() {
                         maxLength={market === 'US' ? 14 : 15}
                         placeholder={market === 'US' ? '(999) 999-9999' : '(99) 99999-9999'}
                         error={profileErrors.telefone?.message}
-                        {...regPerfil('telefone', { onChange: (event) => { event.target.value = formatPhone(event.target.value, market) } })}
+                        {...regPerfil('telefone', { onChange: (event) => { event.target.value = formatProfilePhone('telefone', event.target.value) } })}
                       />
-                      {user?.market && user.market !== market && (user?.telefone || user?.whatsapp) && <FieldNotice>{market === 'US' ? 'Your saved phone is from the other market. It was preserved; confirm or replace it before using it in this market.' : 'Seu telefone salvo é do outro mercado. Ele foi preservado; confirme ou substitua antes de usá-lo neste mercado.'}</FieldNotice>}
+                      {isPreservedForeignPhone('telefone', watched.telefone) && <FieldNotice>{us ? 'This saved phone number belongs to the other market. It was preserved as entered; confirm or replace it before using it in this market.' : 'Este telefone salvo pertence ao outro mercado. Ele foi preservado como informado; confirme ou substitua antes de usá-lo neste mercado.'}</FieldNotice>}
                       <Input
                         label={t('profile.whatsapp')}
                         type="tel"
@@ -552,10 +570,11 @@ export default function Configuracoes() {
                         error={profileErrors.whatsapp?.message}
                         {...regPerfil('whatsapp', {
                           onChange: (event) => {
-                            event.target.value = formatPhone(event.target.value, market)
+                            event.target.value = formatProfilePhone('whatsapp', event.target.value)
                           },
                         })}
                       />
+                      {isPreservedForeignPhone('whatsapp', watched.whatsapp) && <FieldNotice>{us ? 'This saved WhatsApp number belongs to the other market. It was preserved as entered; confirm or replace it before using it in this market.' : 'Este WhatsApp salvo pertence ao outro mercado. Ele foi preservado como informado; confirme ou substitua antes de usá-lo neste mercado.'}</FieldNotice>}
                       <Input
                         label={t('profile.email')}
                         type="email"
@@ -564,10 +583,10 @@ export default function Configuracoes() {
                         error={profileErrors.email?.message}
                         {...regPerfil('email')}
                       />
-                      <Select label={t('profile.state')} {...regPerfil('estado')}>
+                      {!us && <Select label={t('profile.state')} {...regPerfil('estado')}>
                         <option value="">{copy.select}</option>
                         {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-                      </Select>
+                      </Select>}
                     </div>
                   </div>
                 </SectionCard>

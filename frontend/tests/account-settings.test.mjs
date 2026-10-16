@@ -33,7 +33,7 @@ test('saves only real profile columns used by Cadastro', () => {
   assert.doesNotMatch(updatePayload, /\b(?:facebook|linkedin|instagram|site)\b/)
   assert.match(settings, /normalizePhone\(data\.telefone, market\)/)
   assert.match(settings, /normalizePhone\(data\.whatsapp, market\)/)
-  assert.match(settings, /formatPhone\(event\.target\.value, market\)/)
+  assert.match(settings, /formatPhone\([\s\S]*?value,[\s\S]*?market,/)
 })
 
 test('keeps Brazilian CRECI fields and US license fields independently in Settings', () => {
@@ -45,6 +45,20 @@ test('keeps Brazilian CRECI fields and US license fields independently in Settin
   assert.match(settings, /regPerfil\('estado'/)
   assert.match(settings, /regPerfil\('license_number'/)
   assert.match(settings, /regPerfil\('license_state'/)
+  assert.match(settings, /\{!us && <Select label=\{t\('profile\.state'\)\}/)
+  assert.match(settings, /license_state: data\.license_state \? String\(data\.license_state\)\.trim\(\)\.toUpperCase\(\) : null/)
+})
+
+test('keeps a foreign saved phone or WhatsApp intact until the user replaces it', () => {
+  assert.match(settings, /formatPhone\(user\?\.telefone \|\| '', market, user\?\.market\)/)
+  assert.match(settings, /formatPhone\(user\?\.whatsapp \|\| user\?\.telefone \|\| '', market, user\?\.market\)/)
+  assert.match(settings, /const savedPhoneIsFromAnotherMarket/)
+  assert.match(settings, /const isPreservedForeignPhone/)
+  assert.match(settings, /formatProfilePhone\('telefone', event\.target\.value\)/)
+  assert.match(settings, /formatProfilePhone\('whatsapp', event\.target\.value\)/)
+  assert.match(settings, /This saved phone number belongs to the other market/)
+  assert.match(settings, /This saved WhatsApp number belongs to the other market/)
+  assert.match(settings, /!isPreservedForeignPhone\(field, value\)/)
 })
 
 test('shows the real access email and requires current password before changing it', () => {
