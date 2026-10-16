@@ -4172,8 +4172,12 @@ serve(async (req) => {
         }
       }
       const promptLanguage = briefing.language
-      promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, promptMode === 'json', promptLanguage)
-      visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, promptMode === 'json', promptLanguage)
+      // The US branch intentionally replaces the structured JSON prompt with a
+      // provider-facing English text prompt. It must not enter the JSON-only
+      // final-quality lock when STUDIO_HERO_PROMPT_MODE remains `json`.
+      const shouldUseJsonFinalQualityLock = promptMode === 'json' && promptLanguage !== 'en-US'
+      promptFinal = withStudioHeroFinalVisualQualityLock(promptFinal, isFreeAiRequest, shouldUseJsonFinalQualityLock, promptLanguage)
+      visualPromptForDebug = withStudioHeroFinalVisualQualityLock(visualPromptForDebug, isFreeAiRequest, shouldUseJsonFinalQualityLock, promptLanguage)
       voiceoverPromptForDebug = voiceoverPromptForDebug
         ? `${voiceoverPromptForDebug}\n\n${voiceoverLanguageLock(promptLanguage)}`
         : voiceoverLanguageLock(promptLanguage)

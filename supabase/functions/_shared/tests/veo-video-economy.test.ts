@@ -107,6 +107,16 @@ test('lost responses recover provider identity and consumption follows persisted
   assert.match(status, /job\.status === 'failed'[\s\S]*settleJobEconomy/)
 })
 
+test('a failure before provider acceptance releases the reservation and recovery remains settlement-only', () => {
+  const startFailure = creator.slice(creator.indexOf('} catch (error) {', creator.indexOf('let acceptedProviderJobId')), creator.indexOf("return jsonResponse({\n        success: false,\n        job_id: job.id", creator.indexOf('let acceptedProviderJobId')))
+  assert.match(startFailure, /if \(acceptedProviderJobId\)/)
+  assert.match(startFailure, /status: 'failed'/)
+  assert.match(startFailure, /settleVeoVideoEconomy\(supabase, \{[\s\S]*status: 'failed'/)
+  assert.match(startFailure, /failed_before_provider_acceptance: true/)
+  assert.match(status, /if \(job\.status === 'failed'\) \{[\s\S]*settleJobEconomy\([\s\S]*finalStatus: 'failed'/)
+  assert.match(migration, /p_final_status = 'completed'[\s\S]*?else[\s\S]*cancel_credit_reservation_from_lots[\s\S]*smart_tokens_refunded = case when admin_bypass or reservation_id is null then 0 else 120 end/)
+})
+
 test('Veo product contract remains one 8s 720p generation with current inputs and lastFrame', () => {
   assert.match(creator, /durationSeconds: 8/)
   assert.match(creator, /resolution: '720p'/)

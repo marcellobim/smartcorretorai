@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {CAMPAIGN_LOCALIZATION_FUNCTIONS,edgeScope,adminApiVersion,tiktokContentPostingVersion,professionalIdentityFunctionVersions,PROFESSIONAL_IDENTITY_FUNCTIONS,PROFESSIONAL_IDENTITY_BASELINES} from './edge-scope.mjs'
+import {AI_STUDIO_COMMERCIAL_FUNCTIONS,CAMPAIGN_LOCALIZATION_FUNCTIONS,edgeScope,adminApiVersion,tiktokContentPostingVersion,professionalIdentityFunctionVersions,PROFESSIONAL_IDENTITY_FUNCTIONS,PROFESSIONAL_IDENTITY_BASELINES} from './edge-scope.mjs'
 import {validatePublicText} from './public-artifacts.mjs'
 test('admin release targets only admin-api and rejects combined/unrecognized scopes',()=>{
  assert.deepEqual(edgeScope(['--admin-api']),['admin-api'])
@@ -10,6 +10,7 @@ test('admin release targets only admin-api and rejects combined/unrecognized sco
  assert.deepEqual(edgeScope(['--tiktok-content-posting']),['tiktok-content-posting'])
  assert.deepEqual(edgeScope(['--professional-identity']),[...PROFESSIONAL_IDENTITY_FUNCTIONS])
  assert.deepEqual(edgeScope(['--campaign-localization']),[...CAMPAIGN_LOCALIZATION_FUNCTIONS])
+ assert.deepEqual(edgeScope(['--ai-studio-commercial-hotfix']),[...AI_STUDIO_COMMERCIAL_FUNCTIONS])
  assert.throws(()=>edgeScope(['--admin-api','--video-social-metadata']))
  assert.throws(()=>edgeScope(['--tiktok-content-posting','--admin-api']))
  assert.throws(()=>edgeScope(['--anything']))

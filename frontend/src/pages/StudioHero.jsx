@@ -2004,14 +2004,14 @@ export default function StudioHero() {
         activeJobRef.current = null
         setStatus('failed')
         setMessage(IS_DEV && diagnosticMessage
-          ? `Erro tecnico da geracao: ${diagnosticMessage}`
-          : 'Nao foi possivel criar o comercial neste momento.')
+          ? `Generation technical error: ${diagnosticMessage}`
+          : t('studio.errors.generation'))
         void reloadProfile()
         return
       }
 
       setStatus('generating')
-      setMessage(isRecovery ? t('studio.recovery.resumed') : (data.message || t('studio.status.generating')))
+      setMessage(isRecovery ? t('studio.recovery.resumed') : t('studio.status.generating'))
       scheduleVideoPoll(normalizedJobId)
     } catch (error) {
       logStudioHero('error', 'studio_hero_status_error', {
@@ -2048,7 +2048,7 @@ export default function StudioHero() {
     if (professionalIdentityNeedsAttention(user || {}, answers.professionalIdentity, market)) {
       setStep(professionalIdentityStep)
       setStatus('idle')
-      setMessage(market === 'US' ? 'Choose a complete professional credential or continue without professional information.' : 'Escolha uma credencial profissional completa ou continue sem identificação profissional.')
+      setMessage(t('studio.errors.professionalIdentity'))
       return
     }
 
@@ -2135,7 +2135,7 @@ export default function StudioHero() {
       activeJobRef.current = activeJob
       setVideoUrl('')
       setStatus('generating')
-      setMessage(data.message || t('studio.status.generating'))
+      setMessage(t('studio.status.generating'))
       scheduleVideoPoll(nextJobId)
     } catch (error) {
       logStudioHero('error', 'studio_hero_generate_error', {
@@ -2143,8 +2143,8 @@ export default function StudioHero() {
         error: sanitizeStudioHeroDiagnostic(error),
       })
       setStatus('failed')
-      const publicFallback = 'Não foi possível concluir seu comercial neste momento. Seus Smart Tokens não serão consumidos se a criação não for concluída. Tente novamente mais tarde.'
-      const friendlyMessage = getSmartTokenErrorMessage(error, publicFallback)
+      const publicFallback = t('studio.errors.generation')
+      const friendlyMessage = getSmartTokenErrorMessage(error, publicFallback, language)
       setMessage(friendlyMessage)
       void reloadProfile()
     }
@@ -2185,7 +2185,7 @@ export default function StudioHero() {
 
   const selectStudioMode = (mode) => {
     if (!mode.active) {
-      setModeNotice('Este modo estara disponivel em breve.')
+      setModeNotice(t('studio.errors.modeUnavailable'))
       return
     }
     setModeNotice('')

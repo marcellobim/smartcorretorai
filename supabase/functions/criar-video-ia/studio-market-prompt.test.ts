@@ -39,3 +39,8 @@ test('the real Edge Function replaces, rather than post-translates, the US provi
   assert.match(edgeSource, /mode: isFreeAiRequest \? 'free_ai' : 'cinematic'/)
   assert.match(edgeSource, /professionalIdentity,/)
 })
+
+test('US provider prompt does not enter the JSON-only final-quality parser', () => {
+  assert.match(edgeSource, /const shouldUseJsonFinalQualityLock = promptMode === 'json' && promptLanguage !== 'en-US'/)
+  assert.match(edgeSource, /withStudioHeroFinalVisualQualityLock\(promptFinal, isFreeAiRequest, shouldUseJsonFinalQualityLock, promptLanguage\)/)
+})

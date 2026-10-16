@@ -8,11 +8,19 @@ const en = readFileSync(new URL('../src/i18n/messages/en-US.js', import.meta.url
 test('US Studio routes upload, recovery, errors, review and loading copy through the English catalog', () => {
   for (const key of [
     "t('studio.recovery.resuming')", "t('studio.recovery.resumed')", "t('studio.errors.unavailable')",
-    "t('studio.errors.access')", "t('studio.status.checking')", "t('studio.upload.instruction')", "t('studio.upload.helper')",
+    "t('studio.errors.access')", "t('studio.errors.generation')", "t('studio.errors.professionalIdentity')", "t('studio.errors.modeUnavailable')", "t('studio.status.checking')", "t('studio.upload.instruction')", "t('studio.upload.helper')",
   ]) assert.match(page, new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
-  for (const value of ['Resuming your creation...', 'We could not prepare the commercial right now.', 'Upload the best property image. {brand} automatically adds the professional video ending.']) {
+  for (const value of ['Resuming your creation...', 'We could not prepare the commercial right now.', "We couldn't complete your commercial right now. Your Smart Tokens won't be charged if the creation isn't completed. Please try again later.", 'Upload the best property image. {brand} automatically adds the professional video ending.']) {
     assert.match(en, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
+})
+
+test('Studio maps generation and terminal errors through the active locale rather than provider copy', () => {
+  assert.match(page, /const publicFallback = t\('studio\.errors\.generation'\)/)
+  assert.match(page, /getSmartTokenErrorMessage\(error, publicFallback, language\)/)
+  assert.match(page, /: t\('studio\.errors\.generation'\)/)
+  assert.match(page, /setMessage\(isRecovery \? t\('studio\.recovery\.resumed'\) : t\('studio\.status\.generating'\)\)/)
+  assert.doesNotMatch(page, /const publicFallback = 'Não foi possível concluir seu comercial/)
 })
 
 test('US Studio does not retain known Portuguese hard-coded text in its active upload and property-facts controls', () => {
