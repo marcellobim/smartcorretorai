@@ -326,6 +326,15 @@ export default function Configuracoes() {
         logo_url,
       }
 
+      // `profiles.market` is the existing source-market marker used by the
+      // shared formatter. Move it only after every saved contact is current
+      // market data; otherwise a preserved foreign number could be remasked
+      // as if it belonged to the new market on the next reload.
+      const preservesForeignPhone = ['telefone', 'whatsapp'].some((field) => (
+        data[field] && isPreservedForeignPhone(field, data[field])
+      ))
+      if (!preservesForeignPhone && (data.telefone || data.whatsapp)) profileUpdate.market = market
+
       if (supportsProfessionalProfileSchema) {
         Object.assign(profileUpdate, {
           display_name: data.display_name || null,

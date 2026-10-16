@@ -59,6 +59,8 @@ test('keeps a foreign saved phone or WhatsApp intact until the user replaces it'
   assert.match(settings, /This saved phone number belongs to the other market/)
   assert.match(settings, /This saved WhatsApp number belongs to the other market/)
   assert.match(settings, /!isPreservedForeignPhone\(field, value\)/)
+  assert.match(settings, /const preservesForeignPhone = \['telefone', 'whatsapp'\]\.some/)
+  assert.match(settings, /if \(!preservesForeignPhone && \(data\.telefone \|\| data\.whatsapp\)\) profileUpdate\.market = market/)
 })
 
 test('shows the real access email and requires current password before changing it', () => {
