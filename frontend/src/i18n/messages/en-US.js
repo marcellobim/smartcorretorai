@@ -324,6 +324,7 @@ export default Object.freeze({
     guidedCreation: 'Guided creation',
     shortVideos: 'Short Videos',
     creationTitle: 'Now, tell us what your video should be like',
+    conversation: Object.freeze({ title: 'Chat with AI', description: 'One question at a time to create your presentation.' }),
     showcase: Object.freeze({ eyebrow: 'Experience examples', title: 'Choose the result you want', description: 'These are the most common combinations. While creating the video, you can personalize each option and create the combination that best fits your needs.', usAssetsPending: 'US example videos are being prepared. We do not show examples with embedded Portuguese text in this market.', expand: 'Expand preview', expanded: 'Expanded preview', viewExample: 'View example', of: 'of', close: 'Close preview' }),
     guide: Object.freeze({ eyebrow: 'Quick guide', title: 'How to create each video type', description: 'Hover or tap an option to see how it is configured.', texts: 'Text overlays' }),
     start: Object.freeze({ title: 'How would you like to start?', photosTitle: 'Create a video from photos', photosDescription: 'Use up to 5 property photos to create a professional presentation.', photosAction: 'Create video from photos', shortTitle: 'Turn a video into a Short', shortDescription: 'Upload a property video and turn it into a Short automatically.', shortAction: 'Create Short from video' }),

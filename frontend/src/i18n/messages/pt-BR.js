@@ -304,6 +304,7 @@ export default Object.freeze({
     guidedCreation: 'Criação guiada',
     shortVideos: 'Short Videos',
     creationTitle: 'Agora, conte como será o seu vídeo',
+    conversation: Object.freeze({ title: 'Converse com a IA', description: 'Uma pergunta por vez para construir sua apresentação.' }),
     showcase: Object.freeze({ eyebrow: 'Exemplos de experiências', title: 'Escolha o resultado que você deseja', description: 'Estas são as combinações mais utilizadas. Durante a criação do vídeo você pode personalizar cada opção e criar a combinação que melhor atende à sua necessidade.', usAssetsPending: 'Os exemplos em inglês estão em preparação.', expand: 'Ampliar demonstração', expanded: 'Demonstração ampliada', viewExample: 'Ver exemplo', of: 'de', close: 'Fechar demonstração' }),
     guide: Object.freeze({ eyebrow: 'Guia rápido', title: 'Como criar cada tipo de vídeo', description: 'Passe o mouse ou toque em uma opção para ver como ela foi configurada.', texts: 'Textos' }),
     start: Object.freeze({ title: 'Como deseja começar?', photosTitle: 'Criar um vídeo com fotos', photosDescription: 'Utilize até 5 fotos do imóvel para criar uma apresentação profissional.', photosAction: 'Criar vídeo com fotos', shortTitle: 'Transformar um vídeo em Short', shortDescription: 'Envie um vídeo do imóvel e transforme-o em um Short automaticamente.', shortAction: 'Criar Short com vídeo' }),

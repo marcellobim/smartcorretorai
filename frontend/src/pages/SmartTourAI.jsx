@@ -656,6 +656,8 @@ export default function SmartTourAI() {
       editDisabled={['uploading', 'generating'].includes(status)}
       designSystem
       eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')}
+      title={t('smartTour.conversation.title')}
+      description={t('smartTour.conversation.description')}
     >
       <Question id={question[0]} {...{ images, missingImageMetadata, shortVideo, missingShortVideoMetadata, isShortVideos, authRequired, loginAgain, uploads, resumeAfterLogin, market, property, generation, ctaEnabled, cta, includePhone, phone, professionalIdentity, legacyProfessionalIdentity, professionalIdentitySelection, profile: profile || user, showProfessionalIdentity, t, inputRef, message, status, addImages, addShortVideo, move, remove, answerQuestion, setPropertyField, setGeneration, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setShowProfessionalIdentity, setProfessionalIdentitySelection, updateUser, reloadProfile, setShortVideo, createTour, resetCreation: reset, reviewItems: summary, onReviewEdit: editConversationAnswer }} />
     </GuidedConversation>
