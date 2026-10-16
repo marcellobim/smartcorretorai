@@ -823,7 +823,10 @@ if(deployBannerRecovery){
 
 if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity||deployCampaignLocalization){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
- const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:['supabase/functions','supabase/config.toml']
+ // gerar-hero-ia shares the Banner publication fallback with the campaign
+ // release. Include its tracked non-Supabase runtime closure when this
+ // narrowly-scoped release deploys that function from the isolated archive.
+ const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:deployCampaignLocalization?['supabase/functions','supabase/config.toml','core/copy-engine/index.ts','server/guest-banner/promotion.mjs','server/guest-banner/result.mjs']:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
  if(deployBannerRecovery)validateBannerConfigArtifact(readZipEntryBytes(edgeZip,bannerConfigPath),bannerConfigBlob,'ZIP Edge')
  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
