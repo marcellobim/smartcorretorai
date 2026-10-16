@@ -46,6 +46,15 @@ const sectionIcons = {
   portal: { Icon: Home, iconClass: 'bg-primary-800 text-cyan-100' },
 }
 
+const replaceLabelToken = (template, values) => Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, value), template)
+const campaignModuleLabel = (module, uiLabels) => uiLabels?.delivery?.modules?.[module.id] ?? module.title
+const campaignFieldLabel = (module, field, index, uiLabels) => {
+  const labels = uiLabels?.delivery
+  if (['social', 'instagram', 'whatsapp', 'facebook', 'linkedin'].includes(module.id) && labels?.textOption) return replaceLabelToken(labels.textOption, { n: index + 1 })
+  return labels?.fieldLabels?.[field.id] ?? field.label
+}
+const campaignContactLabel = (item, uiLabels) => uiLabels?.delivery?.contact?.[item.id] ?? item.label
+
 function CopyButton({ value, label = 'Copiar', copiedLabel = 'Copiado!', copyKey, copiedKey, onCopy }) {
   const copied = copiedKey === copyKey
   return (
@@ -190,6 +199,10 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
 
 export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, onRequireAccount, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, uiLabels, children }) {
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
+  const deliveryStrategy =
+    Array.isArray(data?.strategy) && data.strategy.length > 0
+      ? campaign.strategy
+      : uiLabels?.delivery?.strategy ?? campaign.strategy
   const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
   const [downloadingKey, setDownloadingKey] = useState('')
@@ -339,12 +352,12 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
               return (
                 <details key={module.id} open={index === 0} className="group rounded-2xl border border-slate-200 bg-slate-50/70 open:bg-white">
                   <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 focus:outline-none focus:ring-4 focus:ring-inset focus:ring-emerald-100">
-                    <span className="flex items-center gap-3 text-sm font-black text-slate-900"><span aria-hidden="true" className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm ${iconClass}`}><Icon className="h-5 w-5" /></span>{module.title}</span>
+                    <span className="flex items-center gap-3 text-sm font-black text-slate-900"><span aria-hidden="true" className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm ${iconClass}`}><Icon className="h-5 w-5" /></span>{campaignModuleLabel(module, uiLabels)}</span>
                     <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
                   </summary>
                   <div className="border-t border-slate-100 p-4">
                     {module.fields ? (
-                      <div className="space-y-4">{module.fields.map((field, fieldIndex) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{field.label}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4 flex flex-wrap gap-2"><CopyButton value={field.text} label={uiLabels?.actions?.copy ?? field.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} />{((bannerPublish?.enabled && campaign.sourceProduct === 'Banner Imobiliário' && canBuildBannerPublicationIntent({ campaign, field })) || (videoPublish?.enabled && campaign.sourceType === 'video_imobiliario') || studioPublish?.enabled || smartSpacePublish?.enabled) && module.id === 'social' && <button type="button" onClick={() => openBannerPublish(field, fieldIndex)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"><Send className="h-4 w-4" />{uiLabels?.actions?.publish ?? 'Publicar'}</button>}</div></div>)}</div>
+                      <div className="space-y-4">{module.fields.map((field, fieldIndex) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{campaignFieldLabel(module, field, fieldIndex, uiLabels)}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4 flex flex-wrap gap-2"><CopyButton value={field.text} label={uiLabels?.actions?.copy ?? field.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} />{((bannerPublish?.enabled && campaign.sourceProduct === 'Banner Imobiliário' && canBuildBannerPublicationIntent({ campaign, field })) || (videoPublish?.enabled && campaign.sourceType === 'video_imobiliario') || studioPublish?.enabled || smartSpacePublish?.enabled) && module.id === 'social' && <button type="button" onClick={() => openBannerPublish(field, fieldIndex)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"><Send className="h-4 w-4" />{uiLabels?.actions?.publish ?? 'Publicar'}</button>}</div></div>)}</div>
                     ) : (
                       <><p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{module.text}</p><div className="mt-4"><CopyButton value={module.text} label={uiLabels?.actions?.copy ?? module.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={module.id} copiedKey={copiedKey} onCopy={copy} /></div></>
                     )}
@@ -360,14 +373,14 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-contact-title">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{uiLabels?.campaign?.ctaContact ?? 'CTA e contato'}</p>
           <h3 id="campaign-contact-title" className="mt-1 text-lg font-black text-slate-950">{uiLabels?.campaign?.usedInformation ?? 'Informações utilizadas'}</h3>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.contact.map((item) => <div key={item.id} className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">{item.label}</p><p className="mt-2 text-sm font-black text-slate-800">{item.value}</p><div className="mt-3"><CopyButton value={item.value} label={uiLabels?.actions?.copy ?? item.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={`contact-${item.id}`} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.contact.map((item) => <div key={item.id} className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">{campaignContactLabel(item, uiLabels)}</p><p className="mt-2 text-sm font-black text-slate-800">{item.value}</p><div className="mt-3"><CopyButton value={item.value} label={uiLabels?.actions?.copy ?? item.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={`contact-${item.id}`} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
         </section>
       )}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-strategy-title">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{uiLabels?.campaign?.promotionTips ?? 'Dicas para divulgar'}</p>
         <h3 id="campaign-strategy-title" className="mt-1 text-lg font-black text-slate-950">{uiLabels?.campaign?.nextSteps ?? 'Próximos passos'}</h3>
-        <ol className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.strategy.map((item, index) => <li key={item} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">{index + 1}</span>{item}</li>)}</ol>
+        <ol className="mt-4 grid gap-3 sm:grid-cols-2">{deliveryStrategy.map((item, index) => <li key={item} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">{index + 1}</span>{item}</li>)}</ol>
       </section>
 
       <TestimonialInvite />
