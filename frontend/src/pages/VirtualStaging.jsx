@@ -1067,7 +1067,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   if (status === 'result_unavailable') return <section role="alert" className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm sm:p-7"><p className="text-sm font-black text-amber-900">{message}</p><div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row"><Button type="button" onClick={retryResultStatus}>{lifeBrokerCopy('checkResult')}</Button><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-900">{lifeBrokerCopy('newProject')}</button></div></section>
 
   const measureFields = getVirtualStagingMeasureFields(property.type)
-  const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${field === 'area' ? 'm²' : t(`virtualStaging.measures.${field}`).toLocaleLowerCase(draftLocale)}`).filter(Boolean).join(' · ')
+  const areaUnit = draftMarket === 'US' ? 'sqft' : 'm²'
+  const measuresSummary = measureFields.map(field => property[field] && `${property[field]} ${field === 'area' ? areaUnit : t(`virtualStaging.measures.${field}`).toLocaleLowerCase(draftLocale)}`).filter(Boolean).join(' · ')
   const valuesSummary = [property.price && `${property.purpose === 'rent' ? t('virtualStaging.ui.rent') : t('virtualStaging.ui.price')} ${property.price}`, property.condominium && `${t('virtualStaging.ui.condominium')} ${property.condominium}`, property.iptu && `${t('virtualStaging.ui.tax')} ${property.iptu}`].filter(Boolean).join(' · ')
   const selectedHighlightLabels = property.highlights
     .map(value => getVirtualStagingHighlightLabel(value, { locale: draftLocale, market: draftMarket }))
@@ -1285,6 +1286,7 @@ function Question(props) {
   const isFurnishRenovate = journeyId === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
   const isBrokerPresentation = journeyId === BROKER_PRESENTATION_JOURNEY_ID
+  const areaUnit = market === 'US' ? 'sqft' : 'm²'
   const { t } = useLocale()
   const optionLabel = value => getVirtualStagingOptionLabel(value, t)
   const choices = (items, value, select) => <div className="grid gap-3 sm:grid-cols-2">{items.map(raw => { const item = typeof raw === 'string' ? { id: raw, label: raw } : raw; return <button key={item.id} type="button" onClick={() => select(item.id, item.label)} className={`rounded-smart-control border p-4 text-left font-bold transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${value === item.id ? (isFurnishRenovate ? 'border-primary-500 bg-primary-50 text-primary-950 ring-2 ring-primary-100' : 'border-emerald-400 bg-emerald-50') : `border-slate-200 bg-white ${isFurnishRenovate ? 'hover:border-primary-300 focus:ring-primary-500' : ''}`}`}><b className="text-sm">{item.label}</b>{item.description && <span className="mt-1 block text-xs text-slate-500">{item.description}</span>}</button>})}</div>
@@ -1318,11 +1320,11 @@ function Question(props) {
     const labels = { bedrooms: t('virtualStaging.measures.bedrooms').toLocaleLowerCase(locale), suites: t('virtualStaging.measures.suites').toLocaleLowerCase(locale), parkingSpaces: t('virtualStaging.measures.parkingSpaces').toLocaleLowerCase(locale) }
     return choices(VIRTUAL_STAGING_MEASURE_OPTIONS[id], property[id], value => answerQuestion({ answer: `${value} ${labels[id]}`, answerId: value, apply: () => setPropertyField(id, value) }))
   }
-  if (id === 'area') return <><label className="text-xs font-black">{t('virtualStaging.lifeBroker.areaLabel')}<div className="mt-1 flex items-center rounded-smart-control border bg-white focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100"><input aria-label={t('virtualStaging.lifeBroker.areaLabel')} value={property.area} onChange={event => { const digits = event.target.value.replace(/\D/g, '').slice(0, 6); setPropertyField('area', Number(digits) > 0 ? String(Number(digits)) : '') }} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.areaPlaceholder')} className="min-w-0 flex-1 rounded-smart-control border-0 p-3 outline-none" /><span className="pr-3 text-sm font-black text-slate-500">m²</span></div></label>{cont(Number(property.area) <= 0, `${property.area} m²`, 'location')}</>
+  if (id === 'area') return <><label className="text-xs font-black">{t('virtualStaging.lifeBroker.areaLabel')}<div className="mt-1 flex items-center rounded-smart-control border bg-white focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100"><input aria-label={t('virtualStaging.lifeBroker.areaLabel')} value={property.area} onChange={event => { const digits = event.target.value.replace(/\D/g, '').slice(0, 6); setPropertyField('area', Number(digits) > 0 ? String(Number(digits)) : '') }} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.areaPlaceholder')} className="min-w-0 flex-1 rounded-smart-control border-0 p-3 outline-none" /><span className="pr-3 text-sm font-black text-slate-500">{areaUnit}</span></div></label>{cont(Number(property.area) <= 0, `${property.area} ${areaUnit}`, 'location')}</>
   if (id === 'facts') {
     const fields = getVirtualStagingMeasureFields(property.type)
     const fieldLabels = { bedrooms:t('virtualStaging.measures.bedrooms'), suites:t('virtualStaging.measures.suites'), parkingSpaces:t('virtualStaging.measures.parkingSpaces'), area:t('virtualStaging.measures.area') }
-    const answer = fields.filter(field => property[field] !== '').map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ' m²' : ''}`).join(' · ') || t('virtualStaging.lifeBroker.noMeasures')
+    const answer = fields.filter(field => property[field] !== '').map(field => `${fieldLabels[field]}: ${property[field]}${field === 'area' ? ` ${areaUnit}` : ''}`).join(' · ') || t('virtualStaging.lifeBroker.noMeasures')
     const isIncomplete = fields.some(field => field === 'area' ? (!isFurnishRenovate && Number(property.area) <= 0) : property[field] === '')
     return <>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -1338,7 +1340,7 @@ function Question(props) {
                 placeholder={t('virtualStaging.lifeBroker.areaPlaceholder')}
                 className="min-w-0 flex-1 rounded-xl border-0 p-3 outline-none"
               />
-              <span className="pr-3 text-sm font-black text-slate-500">m²</span>
+              <span className="pr-3 text-sm font-black text-slate-500">{areaUnit}</span>
             </div>
           </label>
         ) : (

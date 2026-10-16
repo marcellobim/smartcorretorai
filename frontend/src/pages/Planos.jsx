@@ -74,7 +74,16 @@ const RULES = [
   'Cancelamento pode ser feito pela conta.',
 ]
 
-const formatTokens = (value) => new Intl.NumberFormat('pt-BR').format(value)
+const RULES_US = [
+  'Every plan includes full platform access.',
+  'Smart Tokens represent your creation capacity.',
+  'Before each creation, the system checks your available balance.',
+  'Use extra Smart Tokens to get started without a subscription or supplement your plan.',
+  'Top-up Smart Tokens are valid for 30 days.',
+  'You can cancel through your account.',
+]
+
+const formatTokens = (value, locale) => new Intl.NumberFormat(locale).format(value)
 
 export default function Planos() {
   const { user, isAuthenticated, loading, reloadProfile } = useAuth()
@@ -87,11 +96,13 @@ export default function Planos() {
     rechargeEyebrow: 'Add Smart Tokens', rechargeTitle: 'Keep creating', rechargeDescription: 'Use recharges when you need more capacity before your plan renews.',
     chooseRecharge: 'Choose your recharge', rechargeIntro: 'Start without a subscription or add capacity whenever you need it.', extra: 'Extra capacity', extraTitle: 'Extra Smart Tokens',
     included: 'Every plan includes full platform access. The only difference is the creation capacity available in each cycle.', capacity: 'Cycle capacity', details: 'View capacity details', currentPlan: 'Current plan',
+    pageEyebrow: 'Plans / Smart Tokens', marketLanguage: 'Market and language', chooseMarketLanguage: 'Choose market and language', perMonth: '/month', launchOffer: 'Launch offer', couponPrefix: 'Use the code', couponSuffix: 'at checkout and get 15% off your first 3 months.', validFor: 'Valid for 30 days', selectedRecharge: 'Selected recharge:', for: 'for', extraDescription: 'Use extra Smart Tokens to get started without a subscription or supplement your plan.', extraValidity: 'Each top-up is valid for 30 days from purchase.', premiumAccess: 'Premium features are available to subscribers or users with enough Smart Tokens.', upgradeHint: 'Need Smart Tokens often? Upgrading your plan may offer better value.', faqRules: 'FAQ / Rules', howItWorks: 'How it works', contact: 'Contact', contactLead: 'Questions or suggestions? Talk to us.', contactDescription: `Use this channel for support, suggestions, or any matter related to ${BRAND.name}.`, addTokens: 'Add Smart Tokens', wait: 'Please wait…', checkoutError: 'We could not start checkout. Please try again.',
   } : {
     back: 'Voltar', heading: 'Escolha seu plano', hero: 'Todos os planos dão acesso à plataforma completa. Escolha a capacidade ideal para o seu ritmo de criação.', monthly: 'Mensal',
     rechargeEyebrow: 'Adicionar Smart Tokens', rechargeTitle: 'Continue ou comece a criar', rechargeDescription: 'Use recargas para continuar criando quando precisar de mais capacidade antes da renovação do plano.',
     chooseRecharge: 'Escolha sua recarga', rechargeIntro: 'Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar.', extra: 'Capacidade extra', extraTitle: 'Smart Tokens extras',
-    included: 'Todos os planos incluem acesso completo à plataforma. A diferença está apenas na capacidade de criação disponível em cada ciclo.', capacity: 'Capacidade do ciclo', details: 'Ver detalhes da capacidade', currentPlan: 'Seu plano',
+    included: 'Todos os planos incluem acesso completo à plataforma. A diferença está apenas na capacidade de criação disponível em cada ciclo.', capacity: 'Capacidade do ciclo', details: 'Ver detalhes da capacidade', currentPlan: 'Plano atual',
+    pageEyebrow: 'Planos / Smart Tokens', marketLanguage: 'Mercado e idioma', chooseMarketLanguage: 'Escolha o mercado e o idioma', perMonth: '/mês', launchOffer: 'Oferta de lançamento', couponPrefix: 'Use o código', couponSuffix: 'no checkout e ganhe 15% de desconto nos 3 primeiros meses.', validFor: 'Validade: 30 dias', selectedRecharge: 'Recarga selecionada:', for: 'por', extraDescription: 'Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.', extraValidity: 'Cada recarga tem validade de 30 dias a partir da compra.', premiumAccess: 'Recursos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.', upgradeHint: 'Precisa de Smart Tokens com frequência? Fazer upgrade do plano pode oferecer melhor custo-benefício.', faqRules: 'FAQ / Regras', howItWorks: 'Como funciona', contact: 'Contato', contactLead: 'Dúvidas ou sugestões? Fale com a gente.', contactDescription: `Use este canal para suporte, sugestões ou qualquer assunto relacionado ao ${BRAND.name}.`, addTokens: 'Adicionar Smart Tokens', wait: 'Aguarde...', checkoutError: 'Não foi possível iniciar o checkout. Tente novamente.',
   }
   const [searchParams] = useSearchParams()
   const [loadingItem, setLoadingItem] = useState(null)
@@ -138,7 +149,7 @@ export default function Planos() {
       trackEvent('checkout_started')
       window.location.assign(checkoutUrl.toString())
     } catch {
-      toast.error('Não foi possível iniciar o checkout. Tente novamente.')
+      toast.error(copy.checkoutError)
       setLoadingItem(null)
     }
   }
@@ -146,11 +157,11 @@ export default function Planos() {
   const renderAction = (item, featured = false, recharge = false) => {
     const atual = user?.plano === item.id
     const label = loadingItem === item.id
-      ? 'Aguarde...'
+      ? copy.wait
       : atual
-        ? 'Plano atual'
+        ? copy.currentPlan
         : recharge
-          ? 'Adicionar Smart Tokens'
+          ? copy.addTokens
           : item.cta
 
     const className = `inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-black transition ${
@@ -164,7 +175,7 @@ export default function Planos() {
     if (!isAuthenticated) {
       return (
         <Link to="/cadastro" className={className}>
-          {recharge ? 'Adicionar Smart Tokens' : item.cta}
+          {recharge ? copy.addTokens : item.cta}
         </Link>
       )
     }
@@ -201,7 +212,7 @@ export default function Planos() {
         <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-7 text-white shadow-xl shadow-primary-900/10 sm:p-10">
           <div className="mx-auto max-w-3xl text-center">
             <div className="inline-flex items-center rounded-full border border-cyan-100/20 bg-cyan-100/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-50">
-              Planos / Smart Tokens
+              {copy.pageEyebrow}
             </div>
             <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-5xl">
               {copy.heading}
@@ -218,9 +229,9 @@ export default function Planos() {
               {copy.included}
             </p>
             <div className="lg:min-w-[180px]">
-              <div className="rounded-2xl border border-primary-100 bg-primary-50 p-2" aria-label="Market and language">
-                <p className="px-2 pb-1 text-xs font-black uppercase tracking-wide text-primary-800">Market and language</p>
-                <div className="grid grid-cols-2 gap-1" role="group" aria-label="Choose market and language">
+              <div className="rounded-2xl border border-primary-100 bg-primary-50 p-2" aria-label={copy.marketLanguage}>
+                <p className="px-2 pb-1 text-xs font-black uppercase tracking-wide text-primary-800">{copy.marketLanguage}</p>
+                <div className="grid grid-cols-2 gap-1" role="group" aria-label={copy.chooseMarketLanguage}>
                   <button
                     type="button"
                     aria-pressed={market === 'BR'}
@@ -248,14 +259,14 @@ export default function Planos() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-primary-700">
-                Oferta de lançamento
+                {copy.launchOffer}
               </p>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-700 sm:text-base">
-                Use o código{' '}
+                {copy.couponPrefix}{' '}
                 <span className="inline-flex rounded-lg border border-primary-200 bg-white px-2.5 py-1 font-black tracking-[0.12em] text-primary-900 shadow-sm">
                   SMART15
                 </span>{' '}
-                no checkout e ganhe 15% de desconto nos 3 primeiros meses.
+                {copy.couponSuffix}
               </p>
             </div>
           </div>
@@ -289,7 +300,7 @@ export default function Planos() {
                     <div className="mt-5 flex items-end gap-1">
                       <span className="mb-1 text-sm font-bold text-gray-400">{isUS ? '$' : 'R$'}</span>
                       <span className="text-5xl font-black text-gray-950">{plano.preco}</span>
-                      <span className="mb-2 text-sm font-semibold text-gray-500">{isUS ? '/month' : '/mês'}</span>
+                      <span className="mb-2 text-sm font-semibold text-gray-500">{copy.perMonth}</span>
                     </div>
                   </div>
 
@@ -362,19 +373,19 @@ export default function Planos() {
                         : 'border-white bg-white text-primary-800 hover:border-primary-200'
                     }`}
                   >
-                    <span className="block text-lg font-black">{formatTokens(item.credits)} Smart Tokens</span>
+                    <span className="block text-lg font-black">{formatTokens(item.credits, locale)} Smart Tokens</span>
                     <span className={`mt-1 block text-sm font-bold ${selectedRechargeKey === item.id ? 'text-blue-100' : 'text-gray-500'}`}>
                       {isUS ? '$' : 'R$'} {item.priceLabel}
                     </span>
                     <span className={`mt-2 block text-xs font-bold ${selectedRechargeKey === item.id ? 'text-blue-100' : 'text-gray-500'}`}>
-                      {isUS ? 'Valid for 30 days' : 'Validade: 30 dias'}
+                      {copy.validFor}
                     </span>
                   </button>
                 ))}
               </div>
 
               <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-gray-600">
-                {isUS ? 'Selected recharge:' : 'Recarga selecionada:'} <span className="font-black text-primary-800">{formatTokens(selectedRecharge.credits)} Smart Tokens {isUS ? `for $ ${selectedRecharge.priceLabel}` : `por R$ ${selectedRecharge.priceLabel}`}</span>
+                {copy.selectedRecharge} <span className="font-black text-primary-800">{formatTokens(selectedRecharge.credits, locale)} Smart Tokens {copy.for} {isUS ? '$' : 'R$'} {selectedRecharge.priceLabel}</span>
               </p>
             </div>
 
@@ -382,19 +393,19 @@ export default function Planos() {
               <p className="text-xs font-black uppercase tracking-wide text-primary-700">{copy.extra}</p>
               <h3 className="mt-2 text-xl font-black text-gray-950">{copy.extraTitle}</h3>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
-                Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano.
+                {copy.extraDescription}
               </p>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
-                Cada recarga tem validade de 30 dias a partir da compra.
+                {copy.extraValidity}
               </p>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-500">
-                Recursos premium ficam disponíveis para assinantes ou usuários com Smart Tokens suficientes.
+                {copy.premiumAccess}
               </p>
               <p className="mt-3 text-xs font-semibold leading-relaxed text-primary-700">
-                Precisa de Smart Tokens com frequência? Fazer upgrade do plano pode oferecer melhor custo-benefício.
+                {copy.upgradeHint}
               </p>
               <div className="mt-5">
-                {renderAction({ id: `recarga_${selectedRecharge.id}`, cta: 'Adicionar Smart Tokens' }, false, true)}
+                {renderAction({ id: `recarga_${selectedRecharge.id}`, cta: copy.addTokens }, false, true)}
               </div>
             </aside>
           </div>
@@ -402,10 +413,10 @@ export default function Planos() {
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-gray-500">FAQ / Regras</p>
-            <h2 className="mt-1 text-xl font-black text-gray-950">Como funciona</h2>
+            <p className="text-xs font-black uppercase tracking-wide text-gray-500">{copy.faqRules}</p>
+            <h2 className="mt-1 text-xl font-black text-gray-950">{copy.howItWorks}</h2>
             <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-              {RULES.map((rule) => (
+              {(isUS ? RULES_US : RULES).map((rule) => (
                 <li key={rule} className="flex items-start gap-2 rounded-2xl bg-gray-50 p-3 text-sm font-semibold leading-relaxed text-gray-600">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                   {rule}
@@ -418,12 +429,12 @@ export default function Planos() {
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-cyan-100">
               <Mail className="h-5 w-5" />
             </div>
-            <h2 className="mt-5 text-xl font-black">Contato</h2>
+            <h2 className="mt-5 text-xl font-black">{copy.contact}</h2>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
-              Dúvidas ou sugestões? Fale com a gente.
+              {copy.contactLead}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
-              Use este canal para suporte, sugestões ou qualquer assunto relacionado ao {BRAND.name}.
+              {copy.contactDescription}
             </p>
             <a
               href={`mailto:${BRAND.supportEmail}`}

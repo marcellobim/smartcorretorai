@@ -65,7 +65,7 @@ import {
   TEXT_CAMPAIGN_QUESTIONS,
 } from '../config/textCampaignConversation'
 
-const fieldLabel = (field, locale) => ({ bedrooms: locale === 'en-US' ? 'Bedrooms' : 'Dormitórios', suites: 'Suítes', bathrooms: 'Bathrooms', parkingSpaces: locale === 'en-US' ? 'Parking spaces' : 'Vagas', area: locale === 'en-US' ? 'Square feet (sqft)' : 'Área (m²)' })[field]
+const fieldLabel = (field, locale) => ({ bedrooms: locale === 'en-US' ? 'Bedrooms' : 'Dormitórios', suites: locale === 'en-US' ? 'Bathrooms' : 'Suítes', bathrooms: 'Bathrooms', parkingSpaces: locale === 'en-US' ? 'Parking spaces' : 'Vagas', area: locale === 'en-US' ? 'Square feet (sqft)' : 'Área (m²)' })[field]
 const ui = (locale, key) => getTextCampaignUiLabel(locale, key)
 const commercialTermLabel = (id, market) => market === 'US'
   ? ({ entry_amount: 'Down payment', monthly_amount: 'Monthly payment', annual_amount: 'Annual payment' })[id]
