@@ -15,7 +15,7 @@ export function smoke(root=process.cwd(),transform=(p,s)=>s){
  const read=p=>transform(p,readFileSync(path.join(root,p),'utf8'))
  const check=(ok,label)=>{if(!ok)throw Error('DEPLOY BLOQUEADO: smoke obrigatório falhou: '+label)}
  const app=read('frontend/src/App.jsx'),admin=read('frontend/src/pages/AdminDashboard.jsx'),hero=read('frontend/src/pages/HeroNext.jsx')
- check(read('frontend/src/components/landing/FirstCreationEntry.jsx').includes('Criar agora grátis'),'Landing CTA')
+ check(read('frontend/src/components/landing/FirstCreationEntry.jsx').includes("t('landing.firstCreation.cta')"),'Landing CTA')
  check(app.includes('path="/criar-anuncio"') && read('frontend/src/pages/GuestBannerEntry.jsx').includes('guestMode'),'rota guest')
  check(hero.includes('currentQuestion.question') && !hero.includes('questionDrafts'),'chat humanizado')
  check(hero.includes('MAX_HERO_NEXT_IMAGES = 4') && hero.includes("index === 0 ? 'Principal'") && hero.includes('inline_images: uploadedImages.map'),'0–4 imagens/principal/payload')
