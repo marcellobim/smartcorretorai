@@ -8,6 +8,7 @@ import {hash,verifyProof,ancestryError} from './proof.mjs'
 import {smoke} from './smoke.mjs'
 import {
  BANNER_RECOVERY_RELEASE,
+ CAMPAIGN_LOCALIZATION_FUNCTIONS,
  adminApiVersion,
  tiktokContentPostingVersion,
  bannerFunctionVersion,
@@ -698,10 +699,12 @@ const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
 const deployProfessionalIdentity=mode==='--professional-identity'
 const deployRealEstateVideoLocalization=mode==='--real-estate-video-localization'
- if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
+const deployCampaignLocalization=mode==='--campaign-localization'
+ if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization||deployCampaignLocalization))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
  if(deployProfessionalIdentity&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: lote profissional pertence somente ao target snetia')
  if(deployRealEstateVideoLocalization&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: localização de Real Estate Video pertence somente ao target snetia')
+ if(deployCampaignLocalization&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: localização de campanhas pertence somente ao target snetia')
 const selectedFunctions=edgeScope(args)
 const sha=git('rev-parse','HEAD')
 const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
@@ -715,6 +718,11 @@ if(promoteBannerRecovery){
 const previousAdminVersion=deployAdminApi?adminVersion():null
 const previousBannerVersion=deployBannerRecovery?bannerVersion(BANNER_RECOVERY_RELEASE.edgeVersion):null
 const previousProfessionalIdentityVersions=deployProfessionalIdentity?professionalIdentityFunctionVersions(functionsList()):null
+const previousCampaignLocalizationVersions=deployCampaignLocalization?Object.fromEntries(CAMPAIGN_LOCALIZATION_FUNCTIONS.map(slug=>{
+ const fn=functionsList().find(item=>item?.slug===slug)
+ if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: função de campanha inativa ou sem versão: '+slug)
+ return [slug,fn.version]
+})):null
 if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
 let bannerRuntimeClosure=null,bannerConfigBlob=null
 if(deployBannerRecovery){
@@ -813,7 +821,7 @@ if(deployBannerRecovery){
  }
 }
 
-if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity){
+if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity||deployCampaignLocalization){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
@@ -836,6 +844,14 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
   const current=professionalIdentityFunctionVersions(functionsList(),null)
   for(const [slug,version] of Object.entries(current))if(version<=previousProfessionalIdentityVersions[slug])throw Error('DEPLOY BLOQUEADO: versão não avançou: '+slug)
   console.log(JSON.stringify({mode:'professional-identity',previousProfessionalIdentityVersions,currentProfessionalIdentityVersions:current}))
+ }
+ if(deployCampaignLocalization){
+  const current=Object.fromEntries(CAMPAIGN_LOCALIZATION_FUNCTIONS.map(slug=>{
+   const fn=functionsList().find(item=>item?.slug===slug)
+   if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version)||fn.version<=previousCampaignLocalizationVersions[slug])throw Error('DEPLOY BLOQUEADO: versão não avançou: '+slug)
+   return [slug,fn.version]
+  }))
+  console.log(JSON.stringify({mode:'campaign-localization',previousCampaignLocalizationVersions,currentCampaignLocalizationVersions:current}))
  }
  if(deployAdminApi){
   const version=adminVersion()

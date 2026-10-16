@@ -10,7 +10,7 @@ test('descendant accepted; old/divergent commit blocked with exact message',()=>
  assert.throws(()=>verifyProof({sha:next.sha,commits:[{...next,body:old.body},base]},base.sha),{message:ancestryError})
 })
 test('mandatory smoke rejects removed CTA, route, Home group and Admin funnel',()=>{
- for(const [file,marker] of [['components/landing/FirstCreationEntry.jsx','Criar agora grátis'],['App.jsx','path="/criar-anuncio"'],['pages/Dashboard.jsx','imagem'],['pages/AdminDashboard.jsx','Funil do cliente']]){
+ for(const [file,marker] of [['components/landing/FirstCreationEntry.jsx',"t('landing.firstCreation.cta')"],['App.jsx','path="/criar-anuncio"'],['pages/Dashboard.jsx','imagem'],['pages/AdminDashboard.jsx','Funil do cliente']]){
   assert.throws(()=>smoke(process.cwd(),(p,s)=>p==='frontend/src/'+file?s.replaceAll(marker,'REMOVED'):s),/DEPLOY BLOQUEADO/)
  }
 })
