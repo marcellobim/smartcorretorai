@@ -263,8 +263,14 @@ const RENT_GUARANTEE_OPTIONS = [
   { id: 'nao_informar', label: 'Não informar garantia' },
 ]
 
-const getRentalGuaranteeLabel = (id) => (
-  RENT_GUARANTEE_OPTIONS.find((item) => item.id === id)?.label || ''
+export const getHeroNextRentalGuaranteeOptions = (market = 'BR') => (
+  market === 'US'
+    ? RENT_GUARANTEE_OPTIONS.filter(({ id }) => ['fiador', 'caucao', 'a_combinar', 'nao_informar'].includes(id))
+    : RENT_GUARANTEE_OPTIONS
+)
+
+const getRentalGuaranteeLabel = (id, market = 'BR') => (
+  getHeroNextRentalGuaranteeOptions(market).find((item) => item.id === id)?.label || ''
 )
 
 const DIFFERENTIAL_GROUPS = [
@@ -982,7 +988,22 @@ const HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES = new Set([
   'usa fgts',
   'subsidio do governo',
   'parcelamento durante a obra',
+  'proximo a cptm/trem',
+  'seguro-fianca',
+  'titulo de capitalizacao',
 ])
+
+export const filterHeroNextCatalogOptions = (options, market = 'BR') => (
+  market === 'US'
+    ? (Array.isArray(options) ? options : []).filter((option) => !HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES.has(normalizeComparable(option)))
+    : (Array.isArray(options) ? options : [])
+)
+
+export const filterHeroNextCatalogGroups = (groups, market = 'BR') => (
+  (Array.isArray(groups) ? groups : [])
+    .map((group) => ({ ...group, options: filterHeroNextCatalogOptions(group?.options, market) }))
+    .filter((group) => group.options.length > 0)
+)
 
 const localizeHeroNextSystemValue = (value, market = 'BR') => {
   const text = String(value || '').trim()
@@ -1127,10 +1148,10 @@ const formatAnswer = (answer, localize = value => value) => {
   return localize(String(answer || '').trim())
 }
 
-const buildValueCondition = (goal, saleValues, rentValues) => {
+const buildValueCondition = (goal, saleValues, rentValues, market = 'BR') => {
   if (goal === 'rent') {
     const guaranteeLabel = rentValues.guarantee && rentValues.guarantee !== 'nao_informar'
-       ? getRentalGuaranteeLabel(rentValues.guarantee)
+       ? getRentalGuaranteeLabel(rentValues.guarantee, market)
       : ''
     const details = [
       rentValues.rentMode === 'show' && normalizeValueText(rentValues.rentPrice) ? `Aluguel: ${formatCurrencyForDisplay(normalizeValueText(rentValues.rentPrice), 'locacao')}` : '',
@@ -1677,7 +1698,7 @@ export const buildHeroNextGenerationRequest = ({
     rent_price: rentMode === 'show' ? normalizeValueText(rentPrice) : '', display_rent_price: rentMode === 'show' ? money(normalizeValueText(rentPrice), 'locacao') : '',
     condo_fee: condoMode === 'show' ? normalizeValueText(condoFee) : '', display_condo_fee: condoMode === 'show' ? money(normalizeValueText(condoFee), 'locacao') : '',
     iptu: iptuMode === 'show' ? normalizeValueText(iptuValue) : '', display_iptu: iptuMode === 'show' ? money(normalizeValueText(iptuValue), 'locacao') : '',
-    guarantee_id: rentGuarantee, guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '', guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee) : '',
+    guarantee_id: rentGuarantee, guarantee: rentGuarantee !== 'nao_informar' ? rentGuarantee : '', guarantee_label: rentGuarantee !== 'nao_informar' ? getRentalGuaranteeLabel(rentGuarantee, resolvedMarket) : '',
     highlights: localizeHeroNextSystemList(getHeroNextCaptureFeatures(goal, answers), resolvedMarket), cta,
     contact_phone: showPhone ? answers.contactPhone || '' : '', display_phone: showPhone ? formatPhone(answers.contactPhone || '', professionalMarket) : '', campaign_contact_phone: showPhone ? answers.contactPhone || '' : '',
     show_professional_identity: showProfessionalIdentity === true, professional_identity: showProfessionalIdentity === true ? professionalIdentitySelection : { enabled: false }, professional_identity_placement: showProfessionalIdentity === true ? 'discreet_footer' : '',
@@ -1796,7 +1817,11 @@ export default function HeroNext({ guestMode = false } = {}) {
   const b = (key) => t(`banner.ui.${key}`)
   const conversationControls = getConversationControls(market)
   const optionLabels = t('banner.optionLabels')
-  const optionLabel = (value) => optionLabels?.[value] || formatConversationSystemAnswer(value, market)
+  const optionLabel = (value) => (
+    market === 'US' && HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES.has(normalizeComparable(value))
+      ? ''
+      : optionLabels?.[value] || formatConversationSystemAnswer(value, market)
+  )
   const isUSMarket = market === 'US'
   const marketText = isUSMarket ? {
     valuesQuestion: 'What pricing details would you like to show?', price: 'Show the property price', conditions: 'Show terms only', hidden: 'Do not show pricing',
@@ -1926,8 +1951,12 @@ export default function HeroNext({ guestMode = false } = {}) {
   const [guestConsumed, setGuestConsumed] = useState(false)
   const requireGuestAccount = () => setGuestSignupGate(true)
   const saleConditionOptions = getSaleConditionOptions(market)
+  const rentalGuaranteeOptions = getHeroNextRentalGuaranteeOptions(market)
   useEffect(() => {
     setSaleConditions((current) => current.filter((condition) => saleConditionOptions.includes(condition)))
+  }, [market])
+  useEffect(() => {
+    setRentGuarantee((current) => rentalGuaranteeOptions.some(({ id }) => id === current) ? current : '')
   }, [market])
   useEffect(() => {
     if (!guestMode) return
@@ -2082,7 +2111,10 @@ export default function HeroNext({ guestMode = false } = {}) {
       : baseChatFlow
     const localizedFlow = flow.map(question => ({
       ...question,
-      ...(question.id === 'profile' && market === 'US' ? { options: question.options.filter(option => option !== 'Minha Casa Minha Vida') } : {}),
+      ...(market === 'US' ? {
+        options: filterHeroNextCatalogOptions(question.options, market),
+        ...(question.groups ? { groups: filterHeroNextCatalogGroups(question.groups, market) } : {}),
+      } : {}),
       ...(market === 'US' && question.confirmLabel ? { confirmLabel: conversationControls.confirm } : {}),
       ...(market === 'US' && question.optionalLabel ? { optionalLabel: conversationControls.continue } : {}),
       question: t(`banner.questions.${question.id}`) === `banner.questions.${question.id}` ? question.question : t(`banner.questions.${question.id}`),
@@ -2126,7 +2158,7 @@ export default function HeroNext({ guestMode = false } = {}) {
     iptuMode,
     iptu: iptuValue,
     guarantee: rentGuarantee,
-  }), market), [goal, saleValueMode, salePrice, saleConditions, commercialTermsEnabled, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, market])
+  }, market), market), [goal, saleValueMode, salePrice, saleConditions, commercialTermsEnabled, commercialTerms, rentMode, rentPrice, condoMode, condoFee, iptuMode, iptuValue, rentGuarantee, market])
   const formattedSalePrice = formatHeroPrice(salePriceDigits, market)
   const saleValueReady = goal !== 'sale'
     || saleValueMode === 'hidden'
@@ -3604,7 +3636,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                 <div className="rounded-3xl border border-gray-200 bg-white p-5">
                   <p className="text-sm font-black text-gray-950">{b('guarantee')}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {RENT_GUARANTEE_OPTIONS.map(({ id, label }) => (
+                    {rentalGuaranteeOptions.map(({ id, label }) => (
                       <button
                         key={id}
                         type="button"
@@ -3617,7 +3649,7 @@ export default function HeroNext({ guestMode = false } = {}) {
                           rentGuarantee === id ? 'border-primary-800 bg-primary-800 text-white' : 'border-blue-100 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
                         }`}
                       >
-                        {label}
+                        {optionLabel(label)}
                       </button>
                     ))}
                   </div>
