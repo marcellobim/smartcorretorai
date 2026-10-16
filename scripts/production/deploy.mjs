@@ -697,9 +697,11 @@ const deployTikTokContentPosting=mode==='--tiktok-content-posting'
 const deployBannerRecovery=mode==='--banner-recovery-hotfix'
 const promoteBannerRecovery=mode==='--banner-recovery-promote'
 const deployProfessionalIdentity=mode==='--professional-identity'
- if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
+const deployRealEstateVideoLocalization=mode==='--real-estate-video-localization'
+ if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
  if(deployProfessionalIdentity&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: lote profissional pertence somente ao target snetia')
+ if(deployRealEstateVideoLocalization&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: localização de Real Estate Video pertence somente ao target snetia')
 const selectedFunctions=edgeScope(args)
 const sha=git('rev-parse','HEAD')
 const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
@@ -733,7 +735,30 @@ smoke(root)
 if(deployAdminApi)run(process.execPath,['--test','--test-isolation=none','scripts/production/admin-release.test.mjs','scripts/production/guard.test.mjs'],root,true)
 if(deployVideoSocialMetadata)run(process.execPath,['--test','--test-isolation=none','frontend/tests/video-social-metadata.test.mjs','supabase/functions/social-publish-video/runtime.test.ts','frontend/tests/social-publish-ui-state.test.mjs'],root,true)
 if(deployBannerRecovery)bannerTests()
-else run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
+else if(!deployRealEstateVideoLocalization)run(process.execPath,['--test','--test-isolation=none','frontend/tests/home-groups.test.mjs','frontend/tests/account-analytics.test.mjs','frontend/tests/banner-conversational-guest.test.mjs'],root,true)
+
+if(deployRealEstateVideoLocalization){
+ const stage=createReleaseStage({sha})
+ try {
+  const zip=stage+'.zip'
+  const edgeArchivePaths=['supabase/functions','supabase/config.toml']
+  const previous=functionsList().find(item=>item?.slug==='smart-tour-generate')
+  if(!previous||previous.status!=='ACTIVE'||!Number.isSafeInteger(previous.version))throw Error('DEPLOY BLOQUEADO: smart-tour-generate deve estar ativa e versionada')
+  git('-c','core.autocrlf=false','archive','--format=zip','--output='+zip,sha,...edgeArchivePaths)
+  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',zip,'-DestinationPath',stage])
+  else run('unzip',['-o',zip,'-d',stage])
+  console.log(JSON.stringify({edgeArchiveFilesVerified:verifyArchiveTree(git('ls-tree','-r','-z',sha,'--',...edgeArchivePaths),stage)}))
+  run(edgeCli,['functions','deploy','smart-tour-generate','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--use-api','--workdir',stage],root,true)
+  const currentFunction=functionsList().find(item=>item?.slug==='smart-tour-generate')
+  if(!currentFunction||currentFunction.status!=='ACTIVE'||!Number.isSafeInteger(currentFunction.version)||currentFunction.version<=previous.version)throw Error('DEPLOY BLOQUEADO: versão de smart-tour-generate não avançou')
+  const afterEdges=await official()
+  if(afterEdges.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a publicação da função')
+  console.log(JSON.stringify({mode:'real-estate-video-localization',sha,previousSmartTourVersion:previous.version,newSmartTourVersion:currentFunction.version,alias:target.alias,frontendDeploymentChanged:false}))
+  return
+ } finally {
+  cleanupReleaseStage(stage)
+ }
+}
 
  const stage=createReleaseStage({sha})
  try {

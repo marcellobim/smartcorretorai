@@ -18,14 +18,13 @@ Não transforme mecanicamente cada campo em hashtag. Crie combinações naturais
 Não invente metrô, vista, lazer, padrão, investimento ou qualquer característica ausente.
 Não repita hashtags. Evite excesso de #Imoveis, #CorretorDeImoveis e #MercadoImobiliario.
 Use hashtags sem acentos ou cedilha.
-Inclua sempre #SmartCorretorAI misturada no meio da lista, nunca no início ou no final.
+Não inclua hashtags institucionais da plataforma, incluindo #SmartCorretorAI ou #SNETIA.
 Responda somente com JSON válido no formato {"hashtags":["#Exemplo"]}.`
 
 export const STRATEGIC_HASHTAG_EN_US_SYSTEM_PROMPT = `You are a U.S. real-estate social discovery strategist.
 Generate 12 to 15 natural, publication-ready English hashtags.
 Use only the supplied property data. Mix location, property type, purpose, verified lifestyle, highlights, and search intent.
-Do not translate Brazilian hashtags word for word, invent features, repeat tags, or use Portuguese.
-Always include #SmartCorretorAI in the middle of the list, never first or last.
+Do not translate Brazilian hashtags word for word, invent features, repeat tags, use Portuguese, or include platform hashtags such as #SmartCorretorAI or #SNETIA.
 Respond only with valid JSON in the format {"hashtags":["#Example"]}.`
 
 export async function generateStrategicHashtags({ apiKey, context, variationKey = '', model = 'gpt-4.1' }: StrategicHashtagRequest) {

@@ -159,6 +159,8 @@ test('an active presenter is mandatory, unique, natural and the only person exce
   assert.match(femaleRules, /Não criar, exibir ou sugerir nenhuma pessoa adicional/)
   assert.match(femaleRules, /aparecer naturalmente durante a apresentação/)
   assert.match(femaleRules, /O imóvel deve ser preservado integralmente/)
+  assert.match(femaleRules, /ritmo claro e moderadamente ágil/)
+  assert.match(femaleRules, /movimentos faciais e labiais acompanharem a fala/)
   assert.match(female.regrasPreservacao.transformacoesPermitidas.join(' '), /única corretora autorizada/)
 
   const male = build({ generation: { ...generation, presenterGender: 'male' } })
@@ -166,6 +168,17 @@ test('an active presenter is mandatory, unique, natural and the only person exce
   assert.deepEqual(male.apresentador, { tipo: 'corretor', unicoHumanoAutorizado: true })
   assert.match(maleRules, /exibir obrigatoriamente exatamente uma pessoa: um corretor/)
   assert.match(maleRules, /O corretor é a única exceção autorizada/)
+
+  const usFemale = build({ language: 'en-US', generation: { ...generation, presenterGender: 'female', language: 'en-US' } })
+  const usRules = JSON.stringify(usFemale.regrasObrigatorias)
+  assert.match(usRules, /natural American English/)
+  assert.match(usRules, /moderately brisk/)
+  assert.match(usRules, /Avoid slow, solemn, monotone, or dramatic delivery/)
+  assert.match(usRules, /without implying deterministic lip-sync/)
+  assert.match(buildSmartTourVideoPrompt(usFemale), /natural American English/)
+
+  const noPresenter = build({ generation: { ...generation, presenterGender: 'none' } })
+  assert.equal(noPresenter.regrasObrigatorias.some(item => item.codigo === 'direcao_de_voz_apresentador'), false)
 })
 
 test('CTA title and phone preserve every supplied character in the final scene', () => {

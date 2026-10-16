@@ -27,7 +27,7 @@ export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
  'smart-carousel-creatomate':55,'smart-tour-generate':88,'criar-video-ia':214,'generate-text-campaign':45,'gerar-hero-ia':87,
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity']
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization']
 
 export function deploymentMode(args){
  const modes=[]
@@ -52,6 +52,7 @@ export function edgeScope(args) {
  if(mode==='--tiktok-content-posting')return ['tiktok-content-posting']
  if(mode==='--professional-identity')return [...PROFESSIONAL_IDENTITY_FUNCTIONS]
  if(mode==='--video-social-metadata')return ['smart-tour-generate','social-publish-video']
+ if(mode==='--real-estate-video-localization')return ['smart-tour-generate']
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []
 }

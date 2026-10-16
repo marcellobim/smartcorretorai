@@ -56,7 +56,9 @@ serve(withCors(async req => {
       const {data:profile} = await supabase.from('profiles').select(input.showProfessionalIdentity ? 'whatsapp, telefone, nome, display_name, creci, creci_type, estado, market, license_number' : 'whatsapp, telefone').eq('id',user.id).maybeSingle()
       const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
       const professionalIdentity = input.showProfessionalIdentity ? formatSmartTourProfessionalIdentity(profile) : ''
-      const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
+      // The market is the canonical source for publication metadata as well. Do
+      // not let a stale client locale turn US hashtags into the PT-BR fallback.
+      const hashtagContext = {language:input.market === 'US' ? 'en-US' as const : 'pt-BR' as const,purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
       const fallbackHashtags = buildOfficialHashtags(hashtagContext)
       const fallbackBriefing = buildShortVideosStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,professionalIdentity,videoPath:input.videoPath,language:input.language})
       const fallbackPrompt = JSON.stringify(fallbackBriefing)
@@ -142,7 +144,7 @@ serve(withCors(async req => {
     const phone = resolveSmartTourProfessionalPhone(input.includeProfessionalPhone, profile?.whatsapp, profile?.telefone)
     const resolvedProfessionalIdentity = resolveProfessionalIdentity(profile, input.professional_identity, input.market)
     const professionalIdentity = resolvedProfessionalIdentity?.formatted || ''
-    const hashtagContext = {purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.market === 'US' ? input.property.neighborhoodCommunity : input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.market === 'US' ? input.property.bathrooms : input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
+    const hashtagContext = {language:input.language,purpose:input.property.purpose,propertyType:input.property.type,propertyStage:input.property.stage,city:input.property.city,district:input.market === 'US' ? input.property.neighborhoodCommunity : input.property.district,state:input.property.state,bedrooms:input.property.bedrooms,suites:input.market === 'US' ? input.property.bathrooms : input.property.suites,parkingSpaces:input.property.parkingSpaces,highlights:input.property.highlights,cta:input.selectedCta}
     const fallbackHashtags = buildOfficialHashtags(hashtagContext)
     const baseBriefing = buildSmartTourStructuredBriefing({generation:input.generation,property:input.property,selectedCta:input.selectedCta,phone,professionalIdentity,imagePaths:input.imagePaths,language:input.language})
     const fallbackBriefing = input.generation.presenterSpeechMode === 'custom'
