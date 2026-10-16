@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs'
 
 const read = file => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8')
 const landing = read('pages/LandingPage.jsx')
+const firstCreation = read('components/landing/FirstCreationEntry.jsx')
 const ptBR = read('i18n/messages/pt-BR.js')
 const enUS = read('i18n/messages/en-US.js')
+const enUSLandingCatalog = enUS.slice(enUS.lastIndexOf('  landing: Object.freeze({'))
 
 test('Landing data is sourced from locale catalogs for all visible product sections', () => {
   for (const source of [ptBR, enUS]) {
@@ -23,6 +25,21 @@ test('Landing data is sourced from locale catalogs for all visible product secti
   assert.match(landing, /const DELIVERY_GROUPS = visibleProducts\(\[/)
   assert.match(landing, /const localizedDeliveryGroups = t =>/)
   assert.match(landing, /const TEXT_CAMPAIGN_CHANNELS = t =>/)
+})
+
+test('First creation entry follows the selected market instead of rendering Portuguese copy', () => {
+  assert.match(firstCreation, /useLocale/)
+  for (const key of ['title', 'cta', 'explorePrefix', 'exploreSuffix']) {
+    assert.match(firstCreation, new RegExp(`landing\\.firstCreation\\.${key}`))
+  }
+  for (const copy of ['Crie seu primeiro anúncio imobiliário.', 'Criar agora grátis', 'Prefere conhecer a plataforma primeiro?', 'Continue abaixo.']) assert.doesNotMatch(firstCreation, new RegExp(copy))
+  for (const copy of ['Create your first real estate listing.', 'Create now for free', 'Would you rather get to know the platform first?', 'Keep scrolling.']) assert.ok(enUS.includes(copy), copy)
+  for (const copy of ['Crie seu primeiro anúncio imobiliário.', 'Criar agora grátis', 'Prefere conhecer a plataforma primeiro?', 'Continue abaixo.']) assert.ok(ptBR.includes(copy), copy)
+})
+
+test('US text campaign demo uses US terminology and location', () => {
+  for (const copy of ['Tampa, Florida', '990 sq ft', '#TampaRealEstate', '#FloridaRealEstate', 'Social media']) assert.ok(enUSLandingCatalog.includes(copy), copy)
+  for (const copy of ['Moema', 'm²', 'Redes sociais', '#RealEstateSP']) assert.doesNotMatch(enUSLandingCatalog, new RegExp(copy))
 })
 
 test('US landing does not render Portuguese hard-coded UI from the active page', () => {
