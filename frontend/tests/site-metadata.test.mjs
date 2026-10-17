@@ -14,7 +14,7 @@ test('uses neutral SNETIA fallback metadata without legacy Portuguese branding',
 test('defines market-aware public SEO and stable product titles', () => {
   assert.match(source, /Real Estate AI for marketing/)
   assert.match(source, /IA para marketing imobiliário/)
-  for (const title of ['Real Estate Banners | SNETIA', 'Real Estate Video | SNETIA', 'Smart Space | SNETIA', 'Text Campaign | SNETIA']) {
+  for (const title of ['Real Estate Banners | SNETIA', 'Real Estate Video | SNETIA', 'Smart Snetia | SNETIA', 'Text Campaign | SNETIA']) {
     assert.ok(source.includes(title), title)
   }
   assert.match(source, /application\/ld\+json/)

@@ -22,7 +22,7 @@ import { toFileMetadata } from '../lib/product-draft'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
-import { VIRTUAL_STAGING_MAX_IMAGES } from '../config/virtualStaging'
+import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
@@ -57,7 +57,7 @@ const VIRTUAL_STAGING_OPTION_KEYS = Object.freeze({ 'Pré-lançamento': 'preLaun
 const getVirtualStagingOptionLabel = (value, t) => VIRTUAL_STAGING_OPTION_KEYS[value] ? t(`virtualStaging.options.${VIRTUAL_STAGING_OPTION_KEYS[value]}`) : value
 const isLifeOrBrokerJourney = journeyId => journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
 const getJourneyPresentation = (journey, t) => {
-  if (journey.id === FURNISH_RENOVATE_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.smartSpace.title'), description: t('virtualStaging.journey.smartSpace.description') }
+  if (journey.id === FURNISH_RENOVATE_JOURNEY_ID) return { ...journey, title: VIRTUAL_STAGING_PRODUCT_NAME, description: VIRTUAL_STAGING_PRODUCT_DESCRIPTOR }
   if (journey.id === LIFE_IN_PROPERTY_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.life.title'), description: t('virtualStaging.journey.life.description') }
   if (journey.id === BROKER_PRESENTATION_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.broker.title'), description: t('virtualStaging.journey.broker.description') }
   return journey
@@ -181,7 +181,8 @@ async function materializeSmartSpaceResult({ rawResult, inputPath, originalIndex
   }
 }
 
-const smartSpaceText = t => Object.fromEntries(['image', 'original', 'result', 'enlarge', 'download', 'publish', 'transformationVideo', 'recommended', 'videoTip', 'downloadVideo', 'publishVideo', 'partial', 'videoFinishing', 'videoFailed'].map(key => [key, t(`virtualStaging.smartSpace.${key}`)]))
+const smartSpaceCopy = (t, key) => t(key).replaceAll('Smart Space', VIRTUAL_STAGING_PRODUCT_NAME)
+const smartSpaceText = t => Object.fromEntries(['image', 'original', 'result', 'enlarge', 'download', 'publish', 'transformationVideo', 'recommended', 'videoTip', 'downloadVideo', 'publishVideo', 'partial', 'videoFinishing', 'videoFailed'].map(key => [key, smartSpaceCopy(t, `virtualStaging.smartSpace.${key}`)]))
 
 function FurnishRenovateResultCard({ result, publication, locale, t }) {
   const copy = smartSpaceText(t)
@@ -231,7 +232,7 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
         previewUrl: result.video?.signedUrl,
       }))
     } catch {
-      setDownloadError(t('virtualStaging.smartSpace.videoUnavailable'))
+      setDownloadError(smartSpaceCopy(t, 'virtualStaging.smartSpace.videoUnavailable'))
     }
   }
   const openImagePublication = stage => {
@@ -244,7 +245,7 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
         previewUrl: stage.url,
       }))
     } catch {
-      setDownloadError(t('virtualStaging.smartSpace.imageUnavailable'))
+      setDownloadError(smartSpaceCopy(t, 'virtualStaging.smartSpace.imageUnavailable'))
     }
   }
 
@@ -291,7 +292,7 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
       <ProductCard className="p-5 sm:p-7">
-        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{t('virtualStaging.smartSpace.resultReady')}</h2>
+        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{smartSpaceCopy(t, 'virtualStaging.smartSpace.resultReady')}</h2>
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy('failedSome')}</p>}
         {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy('loadingSome')}</p>}
         <div className="mt-6 space-y-6">
@@ -303,7 +304,7 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
         </div>
         <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">{copy('otherProducts')}</p>
         {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{copy('none')}</p>}
-        <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">{t('virtualStaging.smartSpace.createNewProject')}</ProductButton>
+        <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">{smartSpaceCopy(t, 'virtualStaging.smartSpace.createNewProject')}</ProductButton>
       </ProductCard>
     </section>
   )
@@ -314,7 +315,7 @@ function FurnishRenovateProcessing({ results, t }) {
   return <section className="mt-10" aria-labelledby="virtual-staging-processing-title">
     <ProductCard className="p-6 sm:p-8">
       <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{t('virtualStaging.smartSpace.processingTitle')}</h2>
+      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{smartSpaceCopy(t, 'virtualStaging.smartSpace.processingTitle')}</h2>
       <p className="mt-3 text-base font-semibold text-slate-600">{t('virtualStaging.smartSpace.processingDescription')}</p>
       <p className="mt-2 text-sm font-black text-primary-800">{t('virtualStaging.smartSpace.processingImage')} {Math.min(activeIndex + 1, results.length)} {t('virtualStaging.smartSpace.of')} {results.length}</p>
       <ol className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -368,18 +369,18 @@ export default function VirtualStagingAI() {
   }
 
   return <>
-    <Header title={t('virtualStaging.journey.smartSpace.title')} subtitle={t('virtualStaging.journey.smartSpace.description')} />
+    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle={VIRTUAL_STAGING_PRODUCT_DESCRIPTOR} />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="virtual-space-title"
-        title={t('virtualStaging.journey.smartSpace.title')}
-        description={t('virtualStaging.journey.smartSpace.description')}
+        title={VIRTUAL_STAGING_PRODUCT_NAME}
+        description={VIRTUAL_STAGING_PRODUCT_DESCRIPTOR}
         visual={<VirtualSpaceHeroVisual t={t} />}
       />
 
       <ProductCard ref={modulesRef} className="mt-8 scroll-mt-6 p-5 sm:p-7">
         <ProductSectionHeading
-          eyebrow={interpolate(t('virtualStaging.journey.selected'), { title: t('virtualStaging.journey.smartSpace.title') })}
+          eyebrow={interpolate(t('virtualStaging.journey.selected'), { title: VIRTUAL_STAGING_PRODUCT_NAME })}
           title={t('virtualStaging.journey.heading')}
           description={t('virtualStaging.journey.description')}
         />
@@ -726,20 +727,20 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 
     const recover = async () => {
       setStatus('generating')
-      setMessage(t('virtualStaging.smartSpace.recovering'))
+      setMessage(smartSpaceCopy(t, 'virtualStaging.smartSpace.recovering'))
       const { data, error } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
         action: 'recover', client_request_id: recovery.clientRequestId,
       } })
       if (error || !data?.ok) {
         setStatus('error')
-        setMessage(t('virtualStaging.smartSpace.recoveryFailed'))
+        setMessage(smartSpaceCopy(t, 'virtualStaging.smartSpace.recoveryFailed'))
         return
       }
       const byIndex = new Map((data.items || []).map(item => [Number(item.item_index), item]))
       const recoveryInputs = resolveSmartSpaceRecoveryInputs(data.items, recovery.inputs)
       if (!recoveryInputs.length) {
         setStatus('error')
-        setMessage(t('virtualStaging.smartSpace.recoveryUnavailable'))
+        setMessage(smartSpaceCopy(t, 'virtualStaging.smartSpace.recoveryUnavailable'))
         return
       }
       for (const item of isExplicitRecovery ? [] : (data.items || [])) {
@@ -780,7 +781,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         await reloadProfile()
         return
       }
-      setMessage(t('virtualStaging.smartSpace.recoveryInProgress'))
+      setMessage(smartSpaceCopy(t, 'virtualStaging.smartSpace.recoveryInProgress'))
       furnishRecoveryPollRef.current = setTimeout(recover, 5000)
     }
     void recover()
@@ -850,7 +851,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     trackGenerationClicked()
     if (!isFurnishRenovate || furnishGenerationInFlightRef.current) return
     if (!canGenerateFurnish) {
-      setMessage(t('virtualStaging.smartSpace.reviewToContinue'))
+      setMessage(smartSpaceCopy(t, 'virtualStaging.smartSpace.reviewToContinue'))
       return
     }
 
@@ -898,7 +899,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         transformation_type: transformationType,
         decoration_style: furnishRenovateRequiresStyle(transformationType) ? decorationStyle : null,
       } })
-      if (prepareError || !prepared?.ok) throw new Error(prepared?.error || t('virtualStaging.smartSpace.startFailed'))
+      if (prepareError || !prepared?.ok) throw new Error(prepared?.error || smartSpaceCopy(t, 'virtualStaging.smartSpace.startFailed'))
       economyPrepared = true
       if (furnishRecoveryKey) sessionStorage.setItem(furnishRecoveryKey, JSON.stringify(buildSmartSpaceRecovery({ clientRequestId: sessionId, transformationType, decorationStyle, inputs: recoveryInputs })))
       const failReservedItem = async (itemIndex, reason) => {
@@ -969,7 +970,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         } })))
       }
       setStatus('error')
-      setMessage(getSmartTokenErrorMessage(error, t('virtualStaging.smartSpace.startFailed'), draftLocale))
+      setMessage(getSmartTokenErrorMessage(error, smartSpaceCopy(t, 'virtualStaging.smartSpace.startFailed'), draftLocale))
       await reloadProfile()
     }
   }
@@ -1139,7 +1140,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 }
 
 function VirtualSpaceHeroVisual({ t }) {
-  return <div aria-label={t('virtualStaging.smartSpace.heroAria')} className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
+  return <div aria-label={smartSpaceCopy(t, 'virtualStaging.smartSpace.heroAria')} className="relative flex min-h-[290px] items-center justify-center overflow-hidden lg:min-h-[275px]">
     <div className="absolute inset-y-2 right-0 w-[88%] opacity-30 [background-image:radial-gradient(circle_at_center,#3b82f6_1.5px,transparent_1.5px)] [background-size:18px_18px]" aria-hidden="true" />
     <div className="relative grid w-full grid-cols-3 items-end gap-2 px-1 sm:gap-3 sm:px-4">
       {VIRTUAL_STAGING_JOURNEYS.map((journey, index) => { const presentedJourney = getJourneyPresentation(journey, t); return <article key={journey.id} className={`min-w-0 ${index === 1 ? '-translate-y-4' : ''}`}>
@@ -1175,8 +1176,8 @@ function usePrefersReducedMotion() {
 
 function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass, t }) {
   const slides = [
-    { src: VIRTUAL_STAGING_BEFORE_IMAGE, label: t('virtualStaging.smartSpace.before'), alt: `${t('virtualStaging.smartSpace.before')} Smart Space` },
-    { src: VIRTUAL_STAGING_AFTER_IMAGE, label: t('virtualStaging.smartSpace.after'), alt: `${t('virtualStaging.smartSpace.after')} Smart Space` },
+    { src: VIRTUAL_STAGING_BEFORE_IMAGE, label: t('virtualStaging.smartSpace.before'), alt: `${t('virtualStaging.smartSpace.before')} ${VIRTUAL_STAGING_PRODUCT_NAME}` },
+    { src: VIRTUAL_STAGING_AFTER_IMAGE, label: t('virtualStaging.smartSpace.after'), alt: `${t('virtualStaging.smartSpace.after')} ${VIRTUAL_STAGING_PRODUCT_NAME}` },
   ]
   const [activeIndex, setActiveIndex] = useState(initialIndex)
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -1189,7 +1190,7 @@ function VirtualStagingBeforeAfterPhone({ initialIndex, roundedClass, t }) {
   }, [advance, prefersReducedMotion])
 
   const activeSlide = slides[activeIndex]
-  return <button type="button" onClick={advance} aria-label={activeIndex === 0 ? t('virtualStaging.smartSpace.showAfter') : t('virtualStaging.smartSpace.showBefore')} className={`group absolute inset-0 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${roundedClass}`}>
+  return <button type="button" onClick={advance} aria-label={activeIndex === 0 ? smartSpaceCopy(t, 'virtualStaging.smartSpace.showAfter') : smartSpaceCopy(t, 'virtualStaging.smartSpace.showBefore')} className={`group absolute inset-0 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${roundedClass}`}>
     {slides.map((slide, index) => <img key={slide.label} src={slide.src} alt={slide.alt} draggable={false} loading="eager" decoding="async" className={`absolute inset-0 h-full w-full object-cover object-center ${prefersReducedMotion ? 'transition-none' : 'transition-opacity duration-500 ease-out'} ${index === activeIndex ? 'opacity-100' : 'opacity-0'}`} />)}
     <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:text-[10px]">{activeSlide.label}</span>
     <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-slate-950/50 px-2 py-1 backdrop-blur-sm" aria-hidden="true">{slides.map((slide, index) => <span key={slide.label} className={`h-1.5 w-1.5 rounded-full ${index === activeIndex ? 'bg-white' : 'bg-white/45'}`} />)}</span>

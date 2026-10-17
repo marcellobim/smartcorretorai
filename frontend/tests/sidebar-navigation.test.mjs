@@ -40,7 +40,7 @@ test('preserves product definitions behind the customer navigation filter', () =
     ["'/smart-tour-ai'", "'Vídeo Imobiliário'"],
     ["'/hero'", "'Banner Imobiliário'"],
     ["'/studio-hero'", "'Studio IA'"],
-    ["'/virtual-staging'", "'Smart Space'"],
+    ["'/virtual-staging'", 'VIRTUAL_STAGING_PRODUCT_NAME'],
     ["'/nova-campanha'", "'Banners Rápidos'"],
     ["'/campanha-de-textos'", "'Campanha de Textos'"],
   ]

@@ -1,4 +1,7 @@
-export const VIRTUAL_STAGING_PRODUCT_NAME = 'Smart Space'
+// Presentation-only naming. Keep the route, IDs and all integration keys under
+// their existing virtual-staging/smart-space identifiers for backwards compatibility.
+export const VIRTUAL_STAGING_PRODUCT_NAME = 'Smart Snetia'
+export const VIRTUAL_STAGING_PRODUCT_DESCRIPTOR = 'Virtual Staging'
 export const VIRTUAL_STAGING_ROUTE = '/virtual-staging'
 export const VIRTUAL_STAGING_MAX_IMAGES = 5
 export const VIRTUAL_STAGING_LANGUAGES = [

@@ -119,7 +119,7 @@ const productLabels = {
   banner_imobiliario: 'Banner Imobiliário',
   studio_ia: 'Studio IA',
   smart_carrossel: 'Smart Carrossel',
-  smart_space: 'Smart Space',
+  smart_space: 'Smart Snetia',
   banners_rapidos: 'Banners Rápidos',
   campanha_textos: 'Campanha de Textos',
 }

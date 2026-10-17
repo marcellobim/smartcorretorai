@@ -30,15 +30,15 @@ const repositoryRoot = path.resolve(frontendRoot, '..')
 const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 const page = read('frontend/src/pages/VirtualStaging.jsx')
 
-test('uses Smart Space as the public name while preserving the internal id', () => {
+test('uses Smart Snetia as the public name while preserving the internal id', () => {
   assert.equal(FURNISH_RENOVATE_JOURNEY_ID, 'furnish-renovate')
-  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Smart Space')
+  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Smart Snetia')
   assert.deepEqual(VIRTUAL_STAGING_CHAT_INTRO, {
-    title: 'Smart Space',
-    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
+    title: 'Smart Snetia',
+    description: 'Virtual Staging',
     action: 'Começar',
   })
-  assert.match(page, /<Header title=\{t\('virtualStaging\.journey\.smartSpace\.title'\)\}/)
+  assert.match(page, /<Header title=\{VIRTUAL_STAGING_PRODUCT_NAME\} subtitle=\{VIRTUAL_STAGING_PRODUCT_DESCRIPTOR\}/)
   assert.doesNotMatch(read('frontend/src/config/virtualStagingJourneys.js'), /Reimagine AI/)
 })
 
@@ -231,12 +231,12 @@ test('persiste somente identificadores e caminhos para recovery idempotente do S
   assert.doesNotMatch(page, /furnish(?:Gallery|History)|virtualStaging(?:Gallery|History)/i)
 })
 
-test('uses market-localized Smart Space copy with the current module selector', () => {
+test('uses market-localized copy with the current Smart Snetia module selector', () => {
   const en = getFurnishRenovateCopy('en-US')
   assert.equal(en.uploadQuestion, 'Upload property photos')
   assert.equal(en.uploadDescription, 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.')
   assert.equal(getFurnishRenovateTransformationLabel('remove_and_redecorate', 'en-US'), 'Create a completely new design')
-  assert.match(page, /<Header title=\{t\('virtualStaging\.journey\.smartSpace\.title'\)\} subtitle=\{t\('virtualStaging\.journey\.smartSpace\.description'\)\}/)
+  assert.match(page, /<Header title=\{VIRTUAL_STAGING_PRODUCT_NAME\} subtitle=\{VIRTUAL_STAGING_PRODUCT_DESCRIPTOR\}/)
   assert.match(page, /<ProductHero/)
   assert.match(page, /<VirtualStagingModules selectedJourneyId=\{selectedJourneyId\} onSelect=\{selectJourney\} t=\{t\}/)
 })
@@ -284,8 +284,8 @@ test('keeps Vida no Imóvel and Apresentação pelo Corretor isolated', () => {
 test('uses the same real Before and After mini carousel in the two separate Virtual Staging phones', () => {
   assert.match(page, /const VIRTUAL_STAGING_BEFORE_IMAGE = '\/virtual-staging\/virtual-staging-before\.jpg'/)
   assert.match(page, /const VIRTUAL_STAGING_AFTER_IMAGE = '\/virtual-staging\/virtual-staging-after\.png'/)
-  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.before'\)\} Smart Space`/)
-  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.after'\)\} Smart Space`/)
+  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.before'\)\} \$\{VIRTUAL_STAGING_PRODUCT_NAME\}`/)
+  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.after'\)\} \$\{VIRTUAL_STAGING_PRODUCT_NAME\}`/)
   assert.equal((page.match(/<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=/g) || []).length, 2)
   const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function usePrefersReducedMotion'))
   const lowerPhone = page.slice(page.indexOf('function VirtualStagingModules'), page.indexOf('function Question'))

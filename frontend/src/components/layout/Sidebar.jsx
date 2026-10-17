@@ -1,5 +1,6 @@
 import { visibleProducts } from '../../config/productAvailability'
 import { BRAND } from '../../config/brand'
+import { VIRTUAL_STAGING_PRODUCT_NAME } from '../../config/virtualStaging'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -40,7 +41,7 @@ const navigationGroups = t => [
       { to: '/smart-tour-ai', icon: Video, label: t('navigation.realEstateVideo') },
       { to: '/hero', icon: Image, label: t('navigation.realEstateBanner') },
       { to: '/studio-hero', icon: Sparkles, label: t('navigation.aiStudio') },
-      { to: '/virtual-staging', icon: Box, label: t('navigation.smartSpace') },
+      { to: '/virtual-staging', icon: Box, label: VIRTUAL_STAGING_PRODUCT_NAME },
       { to: '/nova-campanha', icon: LayoutTemplate, label: t('navigation.quickBanners') },
       { to: '/campanha-de-textos', icon: FileText, label: t('navigation.textCampaign') },
     ],

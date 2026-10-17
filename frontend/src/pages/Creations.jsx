@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth-context'
 import { supabase } from '../lib/supabase'
 import { formatCompleteTextCampaign, isCompleteTextCampaignResult } from '../lib/text-campaign-result'
 import { downloadFileFromPrivateUrl } from '../lib/download-file'
+import { VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 
 const CREATION_SELECT = 'id,product_key,title,delivery_kind,completed_at,expires_at'
 
@@ -29,7 +30,7 @@ const creationProducts = {
     tone: 'blue',
   },
   virtual_staging: {
-    label: 'Smart Space',
+    label: VIRTUAL_STAGING_PRODUCT_NAME,
     icon: Image,
     tone: 'cyan',
   },

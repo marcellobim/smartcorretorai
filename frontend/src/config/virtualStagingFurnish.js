@@ -1,9 +1,11 @@
+import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from './virtualStaging.js'
+
 export const FURNISH_RENOVATE_JOURNEY_ID = 'furnish-renovate'
 export const FURNISH_RENOVATE_MAX_IMAGES = 5
 
 export const VIRTUAL_STAGING_CHAT_INTRO = Object.freeze({
-  title: 'Smart Space',
-  description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
+  title: VIRTUAL_STAGING_PRODUCT_NAME,
+  description: VIRTUAL_STAGING_PRODUCT_DESCRIPTOR,
   action: 'Começar',
 })
 

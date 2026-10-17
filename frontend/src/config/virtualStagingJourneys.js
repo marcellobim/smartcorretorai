@@ -1,10 +1,11 @@
 import { FURNISH_RENOVATE_JOURNEY_ID } from './virtualStagingFurnish.js'
+import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from './virtualStaging.js'
 
 export const VIRTUAL_STAGING_JOURNEYS = Object.freeze([
   {
     id: FURNISH_RENOVATE_JOURNEY_ID,
-    title: 'Smart Space',
-    description: 'Transforme ambientes e mostre novas possibilidades para cada espaço.',
+    title: VIRTUAL_STAGING_PRODUCT_NAME,
+    description: VIRTUAL_STAGING_PRODUCT_DESCRIPTOR,
   },
   {
     id: 'life-in-property',

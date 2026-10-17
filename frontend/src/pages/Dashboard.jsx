@@ -1,5 +1,6 @@
 import { QUICK_BANNERS_AVAILABLE, visibleProducts } from '../config/productAvailability'
 import { BRAND } from '../config/brand'
+import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -90,8 +91,8 @@ const mainActions = t => visibleProducts([
   },
   {
     id: 'smart-space',
-    title: t('dashboard.actions.smartSpace.title'),
-    description: t('dashboard.actions.smartSpace.description'),
+    title: VIRTUAL_STAGING_PRODUCT_NAME,
+    description: VIRTUAL_STAGING_PRODUCT_DESCRIPTOR,
     to: '/virtual-staging',
     label: t('dashboard.actions.smartSpace.label'),
     tone: 'cyan',
@@ -169,7 +170,7 @@ const heroMediaItems = t => visibleProducts([
   },
   {
     id: 'virtual-space',
-    label: t('dashboard.carousel.smartSpace'),
+    label: VIRTUAL_STAGING_PRODUCT_NAME,
     beforeSrc: VIRTUAL_STAGING_BEFORE_IMAGE,
     src: VIRTUAL_STAGING_AFTER_IMAGE,
     type: 'comparison',
@@ -214,7 +215,7 @@ const benefits = t => [
 const faqItems = t => [
   {
     question: t('dashboard.faq.items.product.question'),
-    answer: t(QUICK_BANNERS_AVAILABLE ? 'dashboard.faq.items.product.answerWithQuickBanners' : 'dashboard.faq.items.product.answerWithoutQuickBanners'),
+    answer: t(QUICK_BANNERS_AVAILABLE ? 'dashboard.faq.items.product.answerWithQuickBanners' : 'dashboard.faq.items.product.answerWithoutQuickBanners').replaceAll('Smart Space', VIRTUAL_STAGING_PRODUCT_NAME),
   },
   {
     question: t('dashboard.faq.items.plan.question'), answer: t('dashboard.faq.items.plan.answer'), link: { to: PLANS_ROUTE, label: t('dashboard.faq.items.plan.link') },
