@@ -262,6 +262,10 @@ export default function TextCampaign() {
           generationRequestRef.current = null
           clearTextCampaignRequestId()
         }
+        if (body?.code === 'INVALID_BRIEFING') {
+          conversation.editAnswer('review')
+          throw new Error(locale === 'en-US' ? 'Review the property details and try again.' : 'Revise os dados do imóvel e tente novamente.')
+        }
         throw new Error(locale === 'en-US' ? ui(locale, 'generationFailed') : body?.error || ui(locale, 'generationFailed'))
       }
       if (!data?.ok) throw new Error(locale === 'en-US' ? ui(locale, 'generationFailed') : data?.error || ui(locale, 'generationFailed'))

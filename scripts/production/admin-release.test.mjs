@@ -10,6 +10,7 @@ test('admin release targets only admin-api and rejects combined/unrecognized sco
  assert.deepEqual(edgeScope(['--tiktok-content-posting']),['tiktok-content-posting'])
  assert.deepEqual(edgeScope(['--professional-identity']),[...PROFESSIONAL_IDENTITY_FUNCTIONS])
  assert.deepEqual(edgeScope(['--campaign-localization']),[...CAMPAIGN_LOCALIZATION_FUNCTIONS])
+ assert.deepEqual(edgeScope(['--text-campaign-hotfix']),['generate-text-campaign'])
  assert.deepEqual(edgeScope(['--ai-studio-commercial-hotfix']),[...AI_STUDIO_COMMERCIAL_FUNCTIONS])
  assert.throws(()=>edgeScope(['--admin-api','--video-social-metadata']))
  assert.throws(()=>edgeScope(['--tiktok-content-posting','--admin-api']))

@@ -13,12 +13,14 @@ const resultHelperSource = read('src/lib/text-campaign-result.js')
 let vite
 let config
 let resultHelpers
+let conversationCopy
 
 before(async () => {
   vite = await createServer({ root: frontendRoot, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true } })
-  ;[config, resultHelpers] = await Promise.all([
+  ;[config, resultHelpers, conversationCopy] = await Promise.all([
     vite.ssrLoadModule('/src/config/textCampaign.js'),
     vite.ssrLoadModule('/src/lib/text-campaign-result.js'),
+    vite.ssrLoadModule('/src/config/textCampaignConversation.js'),
   ])
 })
 
@@ -65,6 +67,17 @@ test('builds BR and US briefing payloads with explicit language and market', () 
   assert.equal(config.isTextCampaignBriefingValid(us), true)
 })
 
+test('normalizes legacy US draft labels to the canonical Edge contract before generating', () => {
+  const briefing = config.buildTextCampaignBriefing({
+    ...config.createEmptyTextCampaignAnswers(), purpose: 'For sale', stage: 'Move-in ready', type: 'Condo', bedrooms: '2', bathrooms: '2', parkingSpaces: '1', area: '900',
+    state: 'FL', county: 'Hillsborough County', city: 'Tampa', saleValueMode: 'hidden', cta: 'Schedule a visit', includeProfessionalPhone: 'no',
+  }, '', { language: 'en-US', market: 'US' })
+  assert.deepEqual(
+    { purpose: briefing.purpose, stage: briefing.stage, type: briefing.property_type, cta: briefing.cta },
+    { purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', cta: 'Agende sua visita' },
+  )
+})
+
 test('keeps US bathrooms and ZIP optional while excluding Brazilian commercial options', () => {
   const us = config.buildTextCampaignBriefing({
     ...config.createEmptyTextCampaignAnswers(), purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', bedrooms: '2', bathrooms: '2', parkingSpaces: '1', area: '900',
@@ -86,8 +99,9 @@ test('keeps US bathrooms and ZIP optional while excluding Brazilian commercial o
 test('keeps the localized multichannel hero and removes only the intermediate sidebar summary', () => {
   assert.match(page, /visual=\{<DeliverablesPreview copy=\{copy\} locale=\{locale\} \/>\}/)
   assert.match(page, /showSummary=\{false\}/)
-  assert.match(page, /Question \$\{number\} of \$\{total\}/)
-  assert.match(page, /Final review/)
+  assert.match(page, /questionNumber=\{questionNumber\}/)
+  assert.match(page, /totalQuestions=\{TEXT_CAMPAIGN_QUESTION_ORDER\.length\}/)
+  assert.equal(conversationCopy.getTextCampaignUiCopy('en-US').reviewEyebrow, 'Final review')
   assert.doesNotMatch(page, /summaryItems=\{summaryItems\}/)
   assert.equal(config.getTextCampaignDeliverableLabel('listing_title', 'pt-BR'), 'Título do anúncio')
   assert.equal(config.getTextCampaignDeliverableLabel('portal_description', 'pt-BR'), 'Descrição completa para portal')

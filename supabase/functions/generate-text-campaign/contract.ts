@@ -44,6 +44,16 @@ const BEDROOM_OPTIONS = ['0', '1', '2', '3', '4', '5+']
 const SUITE_OPTIONS = ['0', '1', '2', '3', '4+']
 const PARKING_OPTIONS = ['0', '1', '2', '3', '4+']
 
+// Accept only these finite aliases from drafts created while US labels were
+// persisted as answers. The normalized value remains the existing canonical
+// contract; arbitrary browser text is never accepted.
+const US_LEGACY_REQUEST_VALUES = {
+  purpose: { 'For sale': 'sale', 'For rent': 'rent' },
+  stage: { 'Pre-launch': 'Pré-lançamento', Launch: 'Lançamento', 'Under construction': 'Em obras', 'Move-in ready': 'Pronto para morar', 'Available now': 'Disponível já', Vacant: 'Vago' },
+  property_type: { 'Single-family home': 'us_single_family_home', Condo: 'us_condo', Townhouse: 'us_townhouse', 'Multi-family home': 'us_multi_family', Apartment: 'us_apartment', Studio: 'us_studio', 'Land / lot': 'us_land_lot', 'Commercial property': 'us_commercial' },
+  cta: { 'Get in touch': 'Fale comigo', 'Learn more': 'Saiba mais', 'Schedule a visit': 'Agende sua visita', 'Explore the terms': 'Conheça as condições', 'Request information': 'Quero informações', 'Message on WhatsApp': 'Chamar no WhatsApp' },
+} as const
+
 export type TextCampaignBriefing = {
   language: 'pt-BR' | 'en-US'
   market: 'BR' | 'US'
@@ -127,6 +137,10 @@ const assertAllowed = (value: string, allowed: readonly string[], code: string) 
   if (!allowed.includes(value)) throw new TextCampaignValidationError(code)
   return value
 }
+const normalizeLegacyUsRequestValue = (value: unknown, field: keyof typeof US_LEGACY_REQUEST_VALUES, market: 'BR' | 'US') => {
+  const normalized = clean(value, 100)
+  return market === 'US' ? US_LEGACY_REQUEST_VALUES[field][normalized as never] || normalized : normalized
+}
 
 function validateCommercial(value: unknown, purpose: 'sale' | 'rent', market: 'BR' | 'US') {
   if (!isRecord(value)) throw new TextCampaignValidationError('invalid_commercial')
@@ -172,11 +186,11 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
     area_unit: value.briefing.area_unit ?? (value.market === 'US' || value.briefing.market === 'US' ? 'sqft' : 'm²'),
   }
   if (!Object.keys(raw).every(key => BRIEFING_KEYS.includes(key)) || !REQUIRED_BRIEFING_KEYS.every(key => key in raw)) throw new TextCampaignValidationError('invalid_briefing_keys')
-  const purpose = assertAllowed(clean(raw.purpose, 10), ['sale', 'rent'], 'invalid_purpose') as 'sale' | 'rent'
   const language = raw.language === 'en-US' ? 'en-US' : 'pt-BR'
   const market = raw.market === 'US' ? 'US' : 'BR'
-  const stage = assertAllowed(clean(raw.stage, 50), purpose === 'sale' ? SALE_STAGES : RENT_STAGES, 'invalid_stage')
-  const propertyType = assertAllowed(clean(raw.property_type, 50), PROPERTY_TYPES, 'invalid_property_type')
+  const purpose = assertAllowed(normalizeLegacyUsRequestValue(raw.purpose, 'purpose', market), ['sale', 'rent'], 'invalid_purpose') as 'sale' | 'rent'
+  const stage = assertAllowed(normalizeLegacyUsRequestValue(raw.stage, 'stage', market), purpose === 'sale' ? SALE_STAGES : RENT_STAGES, 'invalid_stage')
+  const propertyType = assertAllowed(normalizeLegacyUsRequestValue(raw.property_type, 'property_type', market), PROPERTY_TYPES, 'invalid_property_type')
   if (purpose === 'rent' && ['Terreno / Lote', 'us_land_lot'].includes(propertyType)) throw new TextCampaignValidationError('invalid_rental_land')
   const bedrooms = clean(raw.bedrooms, 3)
   const suites = clean(raw.suites, 3)
@@ -221,7 +235,7 @@ export function validateTextCampaignRequest(value: unknown): TextCampaignBriefin
     highlights,
     custom_highlight: optionalText(raw.custom_highlight, 160),
     notes: optionalText(raw.notes, 1000),
-    cta: assertAllowed(clean(raw.cta, 80), CTA_OPTIONS, 'invalid_cta'),
+    cta: assertAllowed(normalizeLegacyUsRequestValue(raw.cta, 'cta', market), CTA_OPTIONS, 'invalid_cta'),
     contact_authorized: contactAuthorized,
     professional_phone: contactAuthorized ? phone : '',
     commercial: validateCommercial(raw.commercial, purpose, market),

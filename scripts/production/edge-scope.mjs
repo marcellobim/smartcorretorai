@@ -33,7 +33,7 @@ export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
  'smart-carousel-creatomate':55,'smart-tour-generate':88,'criar-video-ia':214,'generate-text-campaign':45,'gerar-hero-ia':87,
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization','--campaign-localization','--ai-studio-commercial-hotfix']
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization','--campaign-localization','--text-campaign-hotfix','--ai-studio-commercial-hotfix']
 
 export function deploymentMode(args){
  const modes=[]
@@ -60,6 +60,7 @@ export function edgeScope(args) {
  if(mode==='--video-social-metadata')return ['smart-tour-generate','social-publish-video']
  if(mode==='--real-estate-video-localization')return ['smart-tour-generate']
  if(mode==='--campaign-localization')return [...CAMPAIGN_LOCALIZATION_FUNCTIONS]
+ if(mode==='--text-campaign-hotfix')return ['generate-text-campaign']
  if(mode==='--ai-studio-commercial-hotfix')return [...AI_STUDIO_COMMERCIAL_FUNCTIONS]
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []

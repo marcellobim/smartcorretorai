@@ -326,6 +326,18 @@ test('accepts an optional US ZIP and blocks Brazilian facts from the US provider
   assert.equal(providerCalls, 1)
 })
 
+test('normalizes finite legacy US draft labels before strict request validation', () => {
+  const briefing = validateTextCampaignRequest({ language: 'en-US', market: 'US', briefing: {
+    ...validBriefing(), language: 'en-US', market: 'US', purpose: 'For sale', stage: 'Move-in ready', property_type: 'Condo',
+    suites: '', bathrooms: '2', area_unit: 'sqft', state: 'FL', county: 'Hillsborough County', city: 'Tampa', district: '', zip_code: '', neighborhood_community: '',
+    cta: 'Schedule a visit', commercial: { mode: 'conditions', price_mode: '', price: '', conditions: ['Special terms available'], commercial_terms: {} },
+  } })
+  assert.deepEqual(
+    { purpose: briefing.purpose, stage: briefing.stage, type: briefing.property_type, cta: briefing.cta },
+    { purpose: 'sale', stage: 'Pronto para morar', type: 'us_condo', cta: 'Agende sua visita' },
+  )
+})
+
 test('uses strict structured JSON with the 18 preserved contracts plus Google Ads', () => {
   const body = buildTextCampaignOpenAIRequest(validateTextCampaignRequest(rawRequest()))
   assert.equal(body.response_format.type, 'json_schema')
@@ -624,6 +636,7 @@ test('charges once for the complete campaign including Google Ads and ignores fr
     reserve: async ({ amount }) => { reservedAmount = amount; return { id: 'reservation-id', status: 'reserved', amount } },
   }))
   assert.equal(response.status, 400)
+  assert.equal((await response.json()).code, 'INVALID_BRIEFING')
   assert.equal(reservedAmount, 0)
   assert.ok(validCampaign().google_ads)
 })

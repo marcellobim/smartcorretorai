@@ -124,7 +124,10 @@ export async function handleGenerateTextCampaign(request: Request, dependencies:
     recovery = parsed.recovery
   } catch (error) {
     if (error instanceof TextCampaignValidationError || error instanceof SyntaxError) {
-      return jsonResponse({ ok: false, error: 'Revise os dados do imóvel antes de continuar.' }, 400)
+      dependencies.log?.('request_validation_failed', {
+        reason: error instanceof TextCampaignValidationError ? error.message : 'invalid_json',
+      })
+      return jsonResponse({ ok: false, error: 'Revise os dados do imóvel antes de continuar.', code: 'INVALID_BRIEFING' }, 400)
     }
     return jsonResponse({ ok: false, error: 'Não foi possível validar sua solicitação.' }, 400)
   }

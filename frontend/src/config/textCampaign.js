@@ -37,6 +37,20 @@ export const TEXT_CAMPAIGN_CTA_OPTIONS = Object.freeze([
   'Chamar no WhatsApp',
 ])
 
+// Drafts may survive a market switch or a deployed copy update. Keep the
+// persisted business values canonical even when an older US draft stored the
+// localized label that was shown to the user.
+const TEXT_CAMPAIGN_US_LEGACY_VALUES = Object.freeze({
+  purpose: Object.freeze({ 'For sale': 'sale', 'For rent': 'rent' }),
+  stage: Object.freeze({ 'Pre-launch': 'Pré-lançamento', Launch: 'Lançamento', 'Under construction': 'Em obras', 'Move-in ready': 'Pronto para morar', 'Available now': 'Disponível já', Vacant: 'Vago' }),
+  type: Object.freeze({ 'Single-family home': 'us_single_family_home', Condo: 'us_condo', Townhouse: 'us_townhouse', 'Multi-family home': 'us_multi_family', Apartment: 'us_apartment', Studio: 'us_studio', 'Land / lot': 'us_land_lot', 'Commercial property': 'us_commercial' }),
+  cta: Object.freeze({ 'Get in touch': 'Fale comigo', 'Learn more': 'Saiba mais', 'Schedule a visit': 'Agende sua visita', 'Explore the terms': 'Conheça as condições', 'Request information': 'Quero informações', 'Message on WhatsApp': 'Chamar no WhatsApp' }),
+})
+
+const canonicalTextCampaignValue = (value, field, market) => market === 'US'
+  ? TEXT_CAMPAIGN_US_LEGACY_VALUES[field]?.[String(value || '').trim()] || value
+  : value
+
 export const TEXT_CAMPAIGN_SALE_CONDITIONS = Object.freeze([
   'Entrada facilitada',
   'Usa FGTS',
@@ -232,15 +246,19 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '', 
   const city = getEffectiveTextCampaignCity(answers)
   const district = normalizeTextCampaignLocation(answers.district)
   const commercialTerms = normalizeTextCampaignCommercialTerms(answers.commercialTerms)
-  const sale = answers.purpose === 'sale'
+  const purpose = canonicalTextCampaignValue(answers.purpose, 'purpose', market)
+  const stage = canonicalTextCampaignValue(answers.stage, 'stage', market)
+  const propertyType = canonicalTextCampaignValue(answers.type, 'type', market)
+  const cta = canonicalTextCampaignValue(answers.cta, 'cta', market)
+  const sale = purpose === 'sale'
   const contactAuthorized = answers.includeProfessionalPhone === 'yes' && Boolean(professionalPhone)
 
   return {
     language: language === 'en-US' ? 'en-US' : 'pt-BR',
     market: market === 'US' ? 'US' : 'BR',
-    purpose: answers.purpose,
-    stage: answers.stage,
-    property_type: answers.type,
+    purpose,
+    stage,
+    property_type: propertyType,
     bedrooms: answers.bedrooms,
     suites: answers.suites,
     bathrooms: market === 'US' ? answers.bathrooms : '',
@@ -256,7 +274,7 @@ export function buildTextCampaignBriefing(answers = {}, professionalPhone = '', 
     highlights: [...(answers.highlights || [])],
     custom_highlight: String(answers.customHighlight || '').trim() || null,
     notes: String(answers.notes || '').trim() || null,
-    cta: answers.cta,
+    cta,
     contact_authorized: contactAuthorized,
     professional_phone: contactAuthorized ? professionalPhone : '',
     ...(answers.professionalIdentity?.enabled === true && answers.professionalIdentity.name_source && answers.professionalIdentity.credential_source ? { professional_identity: { enabled: true, name_source: answers.professionalIdentity.name_source, credential_source: answers.professionalIdentity.credential_source } } : {}),
