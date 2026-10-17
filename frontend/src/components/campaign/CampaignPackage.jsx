@@ -26,6 +26,7 @@ import { buildBannerPublicationIntent, canBuildBannerPublicationIntent, restoreP
 import { buildSmartTourPublicationIntent, restorePendingSmartTourPublication } from '../../lib/smart-tour-social-publish'
 import { buildStudioPublicationIntent, restorePendingStudioPublication } from '../../lib/studio-social-publish'
 import { buildSmartSpaceCampaignPublicationIntent, restorePendingSmartSpaceCampaignPublication } from '../../lib/smart-space-social-publish'
+import { useLocale } from '../../i18n/useLocale'
 
 function WhatsAppIcon({ className = '' }) {
   return (
@@ -54,6 +55,36 @@ const campaignFieldLabel = (module, field, index, uiLabels) => {
   return labels?.fieldLabels?.[field.id] ?? field.label
 }
 const campaignContactLabel = (item, uiLabels) => uiLabels?.delivery?.contact?.[item.id] ?? item.label
+
+function campaignPackageLabels(t) {
+  return {
+    preview: { loading: t('campaignPackage.preview.loading'), unavailable: t('campaignPackage.preview.unavailable'), retry: t('campaignPackage.preview.retry'), enlarge: t('campaignPackage.preview.enlarge') },
+    media: { generated: t('campaignPackage.media.generated'), campaignArts: t('campaignPackage.media.campaignArts'), art: t('campaignPackage.media.art'), unavailable: t('campaignPackage.media.unavailable'), waiting: t('campaignPackage.media.waiting'), rendering: t('campaignPackage.media.rendering') },
+    result: { temporarilyUnavailable: t('campaignPackage.result.temporarilyUnavailable'), reloadInstruction: t('campaignPackage.result.reloadInstruction'), generatedMedia: t('campaignPackage.result.generatedMedia'), presentation: t('campaignPackage.result.presentation'), play: t('campaignPackage.result.play') },
+    download: { loading: t('campaignPackage.download.loading'), image: t('campaignPackage.download.image'), video: t('campaignPackage.download.video'), errors: ['download_url_missing', 'download_url_invalid', 'download_url_expired', 'download_request_blocked', 'download_request_failed', 'download_unexpected_content', 'download_empty_file', 'download_timeout'].reduce((errors, code) => ({ ...errors, [code]: t(`campaignPackage.download.errors.${code}`) }), {}) },
+    actions: { copy: t('campaignPackage.actions.copy'), copied: t('campaignPackage.actions.copied'), publish: t('campaignPackage.actions.publish'), creationError: t('campaignPackage.actions.creationError'), createNew: t('campaignPackage.actions.createNew') },
+    campaign: { packageTitle: t('campaignPackage.campaign.packageTitle'), ready: t('campaignPackage.campaign.ready'), description: t('campaignPackage.campaign.description'), promotionTexts: t('campaignPackage.campaign.promotionTexts'), chooseChannel: t('campaignPackage.campaign.chooseChannel'), ctaContact: t('campaignPackage.campaign.ctaContact'), usedInformation: t('campaignPackage.campaign.usedInformation'), promotionTips: t('campaignPackage.campaign.promotionTips'), nextSteps: t('campaignPackage.campaign.nextSteps') },
+    delivery: { modules: ['social', 'instagram', 'whatsapp', 'facebook', 'email', 'linkedin', 'hashtags', 'portal', 'google-ads'].reduce((modules, id) => ({ ...modules, [id]: t(`campaignPackage.delivery.modules.${id}`) }), {}), textOption: t('campaignPackage.delivery.textOption'), fieldLabels: ['email-subject', 'email-body', 'google-ads-headlines', 'google-ads-long-headline', 'google-ads-descriptions', 'google-ads-cta', 'google-ads-keywords'].reduce((fieldLabels, id) => ({ ...fieldLabels, [id]: t(`campaignPackage.delivery.fieldLabels.${id}`) }), {}), contact: { cta: t('campaignPackage.delivery.contact.cta'), copyCta: t('campaignPackage.delivery.contact.copyCta'), phone: t('campaignPackage.delivery.contact.phone') }, strategy: [t('campaignPackage.delivery.strategy.first'), t('campaignPackage.delivery.strategy.second'), t('campaignPackage.delivery.strategy.third')] },
+    social: { freePublication: t('virtualStaging.social.freePublication'), confirm: t('virtualStaging.social.confirm'), chooseDestination: t('virtualStaging.social.chooseDestination'), checkingConnections: t('virtualStaging.social.checkingConnections'), cancel: t('virtualStaging.social.cancel'), publish: t('virtualStaging.social.publish'), creationPreparationError: t('virtualStaging.social.creationPreparationError'), multipleAccounts: t('virtualStaging.social.multipleAccounts'), connectMetaHelp: t('virtualStaging.social.connectMetaHelp'), connectMeta: t('virtualStaging.social.connectMeta'), caption: { label: t('virtualStaging.social.caption.label'), help: t('virtualStaging.social.caption.help'), limit: t('virtualStaging.social.caption.limit') }, progress: ['publishing', 'published', 'confirming', 'failed', 'cancelled', 'waitingConfirmation', 'finishing', 'completed', 'partialActive', 'partialFailed', 'failedNotice'].reduce((progress, key) => ({ ...progress, [key]: t(`virtualStaging.social.progress.${key}`) }), {}) },
+    accessibility: { cancelPublish: t('virtualStaging.accessibility.cancelPublish'), resultByDestination: t('virtualStaging.accessibility.resultByDestination') },
+  }
+}
+
+function mergeCampaignPackageLabels(defaults, overrides = {}) {
+  return {
+    ...defaults,
+    ...overrides,
+    preview: { ...defaults.preview, ...overrides.preview },
+    media: { ...defaults.media, ...overrides.media },
+    result: { ...defaults.result, ...overrides.result },
+    download: { ...defaults.download, ...overrides.download, errors: { ...defaults.download.errors, ...overrides.download?.errors } },
+    actions: { ...defaults.actions, ...overrides.actions },
+    campaign: { ...defaults.campaign, ...overrides.campaign },
+    delivery: { ...defaults.delivery, ...overrides.delivery, modules: { ...defaults.delivery.modules, ...overrides.delivery?.modules }, fieldLabels: { ...defaults.delivery.fieldLabels, ...overrides.delivery?.fieldLabels }, contact: { ...defaults.delivery.contact, ...overrides.delivery?.contact } },
+    social: { ...defaults.social, ...overrides.social, caption: { ...defaults.social.caption, ...overrides.social?.caption }, progress: { ...defaults.social.progress, ...overrides.social?.progress } },
+    accessibility: { ...defaults.accessibility, ...overrides.accessibility },
+  }
+}
 
 function CopyButton({ value, label = 'Copiar', copiedLabel = 'Copiado!', copyKey, copiedKey, onCopy }) {
   const copied = copiedKey === copyKey
@@ -197,12 +228,14 @@ function MediaPanel({ campaign, videoRef, downloadingKey, onDownload, onRefreshM
   )
 }
 
-export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel = 'Criar nova campanha', preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, onRequireAccount, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, uiLabels, children }) {
+export function CampaignPackage({ data, className = '', onCreateNew, createNewLabel, preserveExistingContent = false, onRefreshMedia, onOpenImage, mediaPresentation = 'default', protectVideoDownload = false, onWithdrawDownload, onRequireAccount, sharePublish, bannerPublish, videoPublish, studioPublish, smartSpacePublish, uiLabels, children }) {
+  const { t } = useLocale()
+  const labels = useMemo(() => mergeCampaignPackageLabels(campaignPackageLabels(t), uiLabels), [t, uiLabels])
   const campaign = useMemo(() => buildCampaignPackage(data), [data])
   const deliveryStrategy =
     Array.isArray(data?.strategy) && data.strategy.length > 0
       ? campaign.strategy
-      : uiLabels?.delivery?.strategy ?? campaign.strategy
+      : labels.delivery.strategy
   const sharePublishProps = useMemo(() => buildCampaignPackageShareProps(campaign, sharePublish), [campaign, sharePublish])
   const [copiedKey, setCopiedKey] = useState('')
   const [downloadingKey, setDownloadingKey] = useState('')
@@ -211,6 +244,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
   const resumedBannerPublishRef = useRef('')
   const captionDraftsRef = useRef(new Map())
   const videoRef = useRef(null)
+  const localizedDownloadError = error => labels.download.errors[error?.code || error?.message] || getDownloadErrorMessage(error)
 
   useEffect(() => {
     if (bannerPublishIntent || !bannerPublish?.resumeIntent) return
@@ -283,10 +317,10 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
           if (!renewedUrl) throw error
           await downloadFileFromPrivateUrl(renewedUrl, filename)
         } catch (refreshError) {
-          setDownloadError(getDownloadErrorMessage(refreshError))
+          setDownloadError(localizedDownloadError(refreshError))
         }
       } else {
-        setDownloadError(getDownloadErrorMessage(error))
+        setDownloadError(localizedDownloadError(error))
       }
     } finally {
       setDownloadingKey('')
@@ -313,7 +347,7 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       const captionKey = `${intent.sourceId}:${intent.mediaAssetId}:${intent.optionId}`
       setBannerPublishIntent({ ...intent, captionSnapshot: captionDraftsRef.current.has(captionKey) ? captionDraftsRef.current.get(captionKey) : intent.captionSnapshot })
     } catch {
-      setDownloadError(uiLabels?.actions?.creationError ?? 'Não foi possível identificar a criação e o texto selecionado com segurança.')
+      setDownloadError(labels.actions.creationError)
     }
   }
 
@@ -322,15 +356,15 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       <header className="overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_55%,#f0fdfa_100%)] p-5 shadow-sm sm:p-7">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{uiLabels?.campaign?.packageTitle ?? 'Pacote da Campanha'}</p>
-            <h2 id="campaign-package-title" className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{uiLabels?.campaign?.ready ?? 'Sua campanha está pronta.'}</h2>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{uiLabels?.campaign?.description ?? 'Mídia e textos organizados para você divulgar com mais agilidade.'}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{labels.campaign.packageTitle}</p>
+            <h2 id="campaign-package-title" className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{labels.campaign.ready}</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{labels.campaign.description}</p>
           </div>
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200"><Share2 className="h-6 w-6" /></span>
         </div>
       </header>
 
-      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} uiLabels={uiLabels} />}
+      {preserveExistingContent ? children : <MediaPanel campaign={campaign} videoRef={videoRef} downloadingKey={downloadingKey} onDownload={download} onRefreshMedia={onRefreshMedia} onOpenImage={onOpenImage} mediaPresentation={mediaPresentation} protectVideoDownload={protectVideoDownload} uiLabels={labels} />}
 
       {sharePublishProps && <SharePublishActions {...sharePublishProps} onDownload={downloadSharedMedia} />}
 
@@ -343,8 +377,8 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
       {!preserveExistingContent && campaign.modules.length > 0 && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-copy-title">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{uiLabels?.campaign?.promotionTexts ?? 'Textos para divulgação'}</p>
-            <h3 id="campaign-copy-title" className="mt-1 text-lg font-black text-slate-950">{uiLabels?.campaign?.chooseChannel ?? 'Escolha o canal e publique'}</h3>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{labels.campaign.promotionTexts}</p>
+            <h3 id="campaign-copy-title" className="mt-1 text-lg font-black text-slate-950">{labels.campaign.chooseChannel}</h3>
           </div>
           <div className="mt-5 space-y-3">
             {campaign.modules.map((module, index) => {
@@ -352,14 +386,14 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
               return (
                 <details key={module.id} open={index === 0} className="group rounded-2xl border border-slate-200 bg-slate-50/70 open:bg-white">
                   <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 focus:outline-none focus:ring-4 focus:ring-inset focus:ring-emerald-100">
-                    <span className="flex items-center gap-3 text-sm font-black text-slate-900"><span aria-hidden="true" className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm ${iconClass}`}><Icon className="h-5 w-5" /></span>{campaignModuleLabel(module, uiLabels)}</span>
+                    <span className="flex items-center gap-3 text-sm font-black text-slate-900"><span aria-hidden="true" className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm ${iconClass}`}><Icon className="h-5 w-5" /></span>{campaignModuleLabel(module, labels)}</span>
                     <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
                   </summary>
                   <div className="border-t border-slate-100 p-4">
                     {module.fields ? (
-                      <div className="space-y-4">{module.fields.map((field, fieldIndex) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{campaignFieldLabel(module, field, fieldIndex, uiLabels)}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4 flex flex-wrap gap-2"><CopyButton value={field.text} label={uiLabels?.actions?.copy ?? field.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} />{((bannerPublish?.enabled && campaign.sourceProduct === 'Banner Imobiliário' && canBuildBannerPublicationIntent({ campaign, field })) || (videoPublish?.enabled && campaign.sourceType === 'video_imobiliario') || studioPublish?.enabled || smartSpacePublish?.enabled) && module.id === 'social' && <button type="button" onClick={() => openBannerPublish(field, fieldIndex)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"><Send className="h-4 w-4" />{uiLabels?.actions?.publish ?? 'Publicar'}</button>}</div></div>)}</div>
+                      <div className="space-y-4">{module.fields.map((field, fieldIndex) => <div key={field.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{campaignFieldLabel(module, field, fieldIndex, labels)}</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{field.text}</p><div className="mt-4 flex flex-wrap gap-2"><CopyButton value={field.text} label={labels.actions.copy} copiedLabel={labels.actions.copied} copyKey={field.id} copiedKey={copiedKey} onCopy={copy} />{((bannerPublish?.enabled && campaign.sourceProduct === 'Banner Imobiliário' && canBuildBannerPublicationIntent({ campaign, field })) || (videoPublish?.enabled && campaign.sourceType === 'video_imobiliario') || studioPublish?.enabled || smartSpacePublish?.enabled) && module.id === 'social' && <button type="button" onClick={() => openBannerPublish(field, fieldIndex)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"><Send className="h-4 w-4" />{labels.actions.publish}</button>}</div></div>)}</div>
                     ) : (
-                      <><p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{module.text}</p><div className="mt-4"><CopyButton value={module.text} label={uiLabels?.actions?.copy ?? module.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={module.id} copiedKey={copiedKey} onCopy={copy} /></div></>
+                      <><p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{module.text}</p><div className="mt-4"><CopyButton value={module.text} label={labels.actions.copy} copiedLabel={labels.actions.copied} copyKey={module.id} copiedKey={copiedKey} onCopy={copy} /></div></>
                     )}
                   </div>
                 </details>
@@ -371,22 +405,22 @@ export function CampaignPackage({ data, className = '', onCreateNew, createNewLa
 
       {!preserveExistingContent && campaign.contact.length > 0 && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-contact-title">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{uiLabels?.campaign?.ctaContact ?? 'CTA e contato'}</p>
-          <h3 id="campaign-contact-title" className="mt-1 text-lg font-black text-slate-950">{uiLabels?.campaign?.usedInformation ?? 'Informações utilizadas'}</h3>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.contact.map((item) => <div key={item.id} className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">{campaignContactLabel(item, uiLabels)}</p><p className="mt-2 text-sm font-black text-slate-800">{item.value}</p><div className="mt-3"><CopyButton value={item.value} label={uiLabels?.actions?.copy ?? item.copyLabel} copiedLabel={uiLabels?.actions?.copied ?? 'Copiado!'} copyKey={`contact-${item.id}`} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{labels.campaign.ctaContact}</p>
+          <h3 id="campaign-contact-title" className="mt-1 text-lg font-black text-slate-950">{labels.campaign.usedInformation}</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">{campaign.contact.map((item) => <div key={item.id} className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">{campaignContactLabel(item, labels)}</p><p className="mt-2 text-sm font-black text-slate-800">{item.value}</p><div className="mt-3"><CopyButton value={item.value} label={item.id === 'cta' ? labels.delivery.contact.copyCta : labels.actions.copy} copiedLabel={labels.actions.copied} copyKey={`contact-${item.id}`} copiedKey={copiedKey} onCopy={copy} /></div></div>)}</div>
         </section>
       )}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="campaign-strategy-title">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{uiLabels?.campaign?.promotionTips ?? 'Dicas para divulgar'}</p>
-        <h3 id="campaign-strategy-title" className="mt-1 text-lg font-black text-slate-950">{uiLabels?.campaign?.nextSteps ?? 'Próximos passos'}</h3>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{labels.campaign.promotionTips}</p>
+        <h3 id="campaign-strategy-title" className="mt-1 text-lg font-black text-slate-950">{labels.campaign.nextSteps}</h3>
         <ol className="mt-4 grid gap-3 sm:grid-cols-2">{deliveryStrategy.map((item, index) => <li key={item} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">{index + 1}</span>{item}</li>)}</ol>
       </section>
 
       <TestimonialInvite />
 
-      {onCreateNew && <button type="button" onClick={onCreateNew} className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50">{createNewLabel}</button>}
-      {bannerPublishIntent && <BannerPublishDialog uiLabels={uiLabels} intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} onTerminalClose={smartSpacePublish?.onTerminalClose} onCaptionChange={caption => captionDraftsRef.current.set(`${bannerPublishIntent.sourceId}:${bannerPublishIntent.mediaAssetId}:${bannerPublishIntent.optionId}`, caption)} captionEditable={smartSpacePublish?.enabled === true || bannerPublish?.captionEditable === true || videoPublish?.captionEditable === true || studioPublish?.captionEditable === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
+      {onCreateNew && <button type="button" onClick={onCreateNew} className="flex min-h-14 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50">{createNewLabel || labels.actions.createNew}</button>}
+      {bannerPublishIntent && <BannerPublishDialog uiLabels={labels} intent={bannerPublishIntent} loadConnection={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.loadConnection} onConnect={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onConnect} onPublish={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onPublish} onRecover={(smartSpacePublish?.enabled ? smartSpacePublish : studioPublish?.enabled ? studioPublish : campaign.sourceType === 'video_imobiliario' ? videoPublish : bannerPublish)?.onRecover} onConfirmed={smartSpacePublish?.onConfirmed} onTerminalClose={smartSpacePublish?.onTerminalClose} onCaptionChange={caption => captionDraftsRef.current.set(`${bannerPublishIntent.sourceId}:${bannerPublishIntent.mediaAssetId}:${bannerPublishIntent.optionId}`, caption)} captionEditable={smartSpacePublish?.enabled === true || bannerPublish?.captionEditable === true || videoPublish?.captionEditable === true || studioPublish?.captionEditable === true} captionPlaceholder={bannerPublishIntent.captionPlaceholder || smartSpacePublish?.captionPlaceholder || ''} onClose={() => setBannerPublishIntent(null)} />}
     </section>
   )
 }

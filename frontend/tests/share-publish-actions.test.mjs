@@ -247,9 +247,10 @@ test('copies the existing legend through a mocked clipboard', async () => {
 
 test('announces the visible Copiado feedback through the polite live region', async () => {
   const source = await fs.readFile(path.join(frontendRoot, 'src/components/share/SharePublishActions.jsx'), 'utf8')
-  assert.match(source, /announce\('Copiado'\)/)
+  assert.match(source, /const copiedFeedback = share\('copied'\)/)
+  assert.match(source, /announce\(copiedFeedback\)/)
   assert.match(source, /aria-live="polite"/)
-  assert.match(source, /feedback === 'Copiado'/)
+  assert.match(source, /feedback === copiedFeedback/)
 })
 
 test('reports a recoverable copy failure when clipboard access is denied', async () => {

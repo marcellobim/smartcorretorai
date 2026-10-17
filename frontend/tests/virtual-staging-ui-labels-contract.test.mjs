@@ -13,14 +13,21 @@ const socialState = read('components/campaign/socialPublishUiState.js')
 const ptBR = read('i18n/messages/pt-BR.js')
 const enUS = read('i18n/messages/en-US.js')
 
-test('CampaignPackage keeps download defaults and forwards optional uiLabels', () => {
-  for (const text of ['Baixando...', 'Baixar', 'Baixar vídeo']) assert.match(campaignPackage, new RegExp(`uiLabels\\?\\.download[\\s\\S]*?${text}`))
-  assert.match(campaignPackage, /<BannerPublishDialog uiLabels=\{uiLabels\} intent=\{bannerPublishIntent\}/)
+test('CampaignPackage resolves delivery labels from the active locale and merges optional product labels', () => {
+  assert.match(campaignPackage, /const \{ t \} = useLocale\(\)/)
+  assert.match(campaignPackage, /campaignPackageLabels\(t\)/)
+  assert.match(campaignPackage, /mergeCampaignPackageLabels\(campaignPackageLabels\(t\), uiLabels\)/)
+  assert.match(campaignPackage, /<BannerPublishDialog uiLabels=\{labels\} intent=\{bannerPublishIntent\}/)
+  assert.match(enUS, /campaignPackage: Object\.freeze\(\{/)
+  assert.match(enUS, /copyCta: 'Copy CTA'/)
+  assert.match(ptBR, /copyCta: 'Copiar CTA'/)
 })
 
-test('CampaignPackage preserves all legacy visual defaults when uiLabels is absent', () => {
-  for (const text of ['Carregando prévia...', 'Não foi possível carregar a prévia.', 'Tentar novamente', 'Mídias geradas', 'Artes da campanha', 'Arquivo indisponível', 'Aguardando renderização', 'Renderizando...', 'Resultado temporariamente indisponível.', 'Pacote da Campanha', 'Textos para divulgação', 'Dicas para divulgar']) assert.match(campaignPackage, new RegExp(text.replaceAll('.', '\\.')))
-  for (const section of ['preview', 'media', 'result', 'actions', 'campaign']) assert.match(campaignPackage, new RegExp(`uiLabels\\?\\.${section}\\?\\.`))
+test('CampaignPackage keeps saved content intact while localizing system delivery labels', () => {
+  for (const section of ['preview', 'media', 'result', 'actions', 'campaign', 'delivery']) assert.match(campaignPackage, new RegExp(`campaignPackage\\.${section}`))
+  assert.match(campaignPackage, /Array\.isArray\(data\?\.strategy\) && data\.strategy\.length > 0/)
+  assert.match(campaignPackage, /labels\.delivery\.strategy/)
+  assert.match(campaignPackage, /\{field\.text\}/)
 })
 
 test('BannerPublishDialog keeps literal fallbacks and accepts custom labels without changing handlers', () => {

@@ -38,10 +38,13 @@ test('Real Estate Video passes a current-locale delivery contract to the shared 
 })
 
 test('shared delivery localizes system labels without rewriting saved campaign text', () => {
-  assert.match(packageView, /campaignModuleLabel\(module, uiLabels\)/)
-  assert.match(packageView, /campaignFieldLabel\(module, field, fieldIndex, uiLabels\)/)
+  assert.match(packageView, /const \{ t \} = useLocale\(\)/)
+  assert.match(packageView, /mergeCampaignPackageLabels\(campaignPackageLabels\(t\), uiLabels\)/)
+  assert.match(packageView, /campaignModuleLabel\(module, labels\)/)
+  assert.match(packageView, /campaignFieldLabel\(module, field, fieldIndex, labels\)/)
   assert.match(packageView, /\{field\.text\}/)
   assert.match(packageView, /Array\.isArray\(data\?\.strategy\) && data\.strategy\.length > 0/)
+  assert.match(packageView, /labels\.delivery\.strategy/)
   assert.match(page, /latest\.publicationOptions\.map\(\(option, index\) => \(\{/)
   assert.match(page, /instagram: option\.text/)
 })

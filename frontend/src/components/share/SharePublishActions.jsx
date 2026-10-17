@@ -20,6 +20,7 @@ import {
   SHARE_PUBLISH_NETWORK_IDS,
 } from '../../config/sharePublishNetworks'
 import SocialNetworkIcon from './SocialNetworkIcon'
+import { useLocale } from '../../i18n/useLocale'
 
 const EMPTY_LIST = Object.freeze([])
 
@@ -38,6 +39,14 @@ export function SharePublishActions({
   defaultExpanded = false,
   className = '',
 }) {
+  const { t } = useLocale()
+  const share = key => t(`campaignPackage.share.${key}`)
+  const shareError = error => {
+    const code = error?.code || error?.message
+    const localized = share(`errors.${code}`)
+    return localized === `campaignPackage.share.errors.${code}` ? getShareErrorMessage(error) : localized
+  }
+  const copiedFeedback = share('copied')
   const normalizedMedia = useMemo(() => normalizeShareMedia(media, { downloadUrl, downloadName, mimeType }), [media, downloadUrl, downloadName, mimeType])
   const finalShareText = useMemo(() => composeShareText({ shareText, hashtags, cta }), [shareText, hashtags, cta])
   const compatibleNetworks = useMemo(() => getCompatibleShareNetworks(normalizedMedia, supportedNetworks), [normalizedMedia, supportedNetworks])
@@ -77,9 +86,9 @@ export function SharePublishActions({
       for (const item of normalizedMedia) {
         await downloadShareMedia(item, { onDownload, downloadRef: downloadFileFromPrivateUrl })
       }
-      announce(normalizedMedia.length > 1 ? 'Downloads iniciados.' : 'Download iniciado.')
+      announce(normalizedMedia.length > 1 ? share('downloadsMany') : share('downloadsOne'))
     } catch (error) {
-      setErrorMessage(getShareErrorMessage(error))
+      setErrorMessage(shareError(error))
     } finally {
       setDownloading(false)
     }
@@ -88,9 +97,9 @@ export function SharePublishActions({
   const handleCopy = async () => {
     try {
       await copyShareText(finalShareText)
-      announce('Copiado')
+      announce(copiedFeedback)
     } catch (error) {
-      setErrorMessage(getShareErrorMessage(error))
+      setErrorMessage(shareError(error))
     }
   }
 
@@ -98,7 +107,7 @@ export function SharePublishActions({
     if (!normalizedMedia.length || preparing) return
     setPreparing(true)
     setErrorMessage('')
-    setFeedback('Preparando a mídia para compartilhar...')
+    setFeedback(share('preparing'))
     try {
       const result = await prepareShareFiles(normalizedMedia, { renewMediaUrl })
       const nextCapabilities = getFileShareCapabilities(result.files)
@@ -106,16 +115,16 @@ export function SharePublishActions({
       setCapabilities(nextCapabilities)
       if (!result.files.length) {
         const firstError = result.failures[0]?.error
-        setErrorMessage(getShareErrorMessage(firstError))
+        setErrorMessage(shareError(firstError))
       } else if (nextCapabilities.all) {
-        announce(result.files.length > 1 ? 'Mídias preparadas. Toque em Compartilhar agora.' : 'Mídia preparada. Toque em Compartilhar agora.')
+        announce(result.files.length > 1 ? share('preparedMany') : share('preparedOne'))
       } else if (nextCapabilities.individual.some(Boolean)) {
-        announce('Mídias preparadas. Este dispositivo permite compartilhar uma por vez.')
+        announce(share('preparedIndividual'))
       } else {
-        setErrorMessage('Os arquivos foram preparados, mas este dispositivo não aceita esse formato no compartilhamento. Use Baixar.')
+        setErrorMessage(share('errors.share_unavailable'))
       }
     } catch (error) {
-      setErrorMessage(getShareErrorMessage(error))
+      setErrorMessage(shareError(error))
     } finally {
       setPreparing(false)
     }
@@ -124,11 +133,11 @@ export function SharePublishActions({
   const handleShare = async files => {
     try {
       const result = await sharePreparedFiles({ files, title: shareTitle, text: finalShareText })
-      if (result === 'cancelled') announce('Compartilhamento cancelado. Você pode tentar novamente.')
-      else if (result === 'shared') announce('Compartilhamento aberto. Revise antes de publicar.')
-      else setErrorMessage(getShareErrorMessage({ code: 'share_unavailable' }))
+      if (result === 'cancelled') announce(share('cancelled'))
+      else if (result === 'shared') announce(share('shared'))
+      else setErrorMessage(share('errors.share_unavailable'))
     } catch (error) {
-      setErrorMessage(getShareErrorMessage(error))
+      setErrorMessage(shareError(error))
     }
   }
 
@@ -136,14 +145,14 @@ export function SharePublishActions({
     <ProductCard className={`p-4 sm:p-6 ${className}`} aria-labelledby="share-publish-actions-title">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className={SMART_UI.eyebrow}>Divulgação</p>
-          <h3 id="share-publish-actions-title" className="mt-1 text-lg font-black text-slate-950">Compartilhar / Publicar</h3>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Baixe a mídia ou prepare o compartilhamento e revise tudo antes de publicar.</p>
+          <p className={SMART_UI.eyebrow}>{share('eyebrow')}</p>
+          <h3 id="share-publish-actions-title" className="mt-1 text-lg font-black text-slate-950">{share('title')}</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{share('description')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ProductButton type="button" variant="success" loading={downloading} disabled={!normalizedMedia.length} onClick={handleDownload}>
             <Download className="h-4 w-4" aria-hidden="true" />
-            {normalizedMedia.length > 1 ? 'Baixar mídias' : 'Baixar mídia'}
+            {normalizedMedia.length > 1 ? share('downloadMany') : share('downloadOne')}
           </ProductButton>
           <ProductButton
             type="button"
@@ -153,33 +162,33 @@ export function SharePublishActions({
             onClick={() => setExpanded(current => !current)}
           >
             <Share2 className="h-4 w-4" aria-hidden="true" />
-            Compartilhar / Publicar
+            {share('title')}
           </ProductButton>
         </div>
       </div>
 
       {expanded && (
         <div id="share-publish-actions-panel" className="mt-5 border-t border-slate-200 pt-5">
-          <p className="text-sm font-semibold leading-6 text-slate-600 sm:hidden">Escolha o aplicativo e revise antes de publicar.</p>
-          <p className="hidden text-sm font-semibold leading-6 text-slate-600 sm:block">Baixe a mídia, copie a legenda e finalize a publicação na rede escolhida.</p>
+          <p className="text-sm font-semibold leading-6 text-slate-600 sm:hidden">{share('chooseApp')}</p>
+          <p className="hidden text-sm font-semibold leading-6 text-slate-600 sm:block">{share('downloadAndCopy')}</p>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {finalShareText && (
               <ProductButton type="button" variant="secondary" size="sm" onClick={handleCopy}>
-                {feedback === 'Copiado' ? <Check className="h-4 w-4" aria-hidden="true" /> : <Clipboard className="h-4 w-4" aria-hidden="true" />}
-                {feedback === 'Copiado' ? 'Copiado' : 'Copiar legenda'}
+                {feedback === copiedFeedback ? <Check className="h-4 w-4" aria-hidden="true" /> : <Clipboard className="h-4 w-4" aria-hidden="true" />}
+                {feedback === copiedFeedback ? copiedFeedback : share('copyCaption')}
               </ProductButton>
             )}
             {webShareAvailable && !preparedFiles.length && (
               <ProductButton type="button" variant="primary" size="sm" loading={preparing} onClick={handlePrepare}>
                 <Share2 className="h-4 w-4" aria-hidden="true" />
-                Preparar compartilhamento
+                {share('prepare')}
               </ProductButton>
             )}
             {capabilities.all && preparedFiles.length > 0 && (
               <ProductButton type="button" variant="primary" size="sm" onClick={() => handleShare(preparedFiles)}>
                 <Share2 className="h-4 w-4" aria-hidden="true" />
-                Compartilhar agora
+                {share('shareNow')}
               </ProductButton>
             )}
           </div>
@@ -189,14 +198,14 @@ export function SharePublishActions({
               {preparedFiles.map((file, index) => capabilities.individual[index] && (
                 <ProductButton key={`${file.name}-${index}`} type="button" variant="secondary" size="sm" onClick={() => handleShare([file])}>
                   <Share2 className="h-4 w-4" aria-hidden="true" />
-                  Compartilhar {file.name}
+                  {share('shareFile').replace('{name}', file.name)}
                 </ProductButton>
               ))}
             </div>
           )}
 
           <div className="mt-5">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Abrir rede para finalizar</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{share('openNetwork')}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {compatibleNetworks.map(network => (
                 <ProductButton
@@ -207,8 +216,8 @@ export function SharePublishActions({
                   rel="noopener noreferrer"
                   variant="secondary"
                   size="sm"
-                  title={network.guidance}
-                  aria-label={`Abrir ${network.label} para finalizar a publicação`}
+                  title={share(`networkGuidance.${network.id}`)}
+                  aria-label={share('openNetworkFor').replace('{network}', network.label)}
                   className="w-full"
                 >
                   <SocialNetworkIcon network={network} />
@@ -220,9 +229,9 @@ export function SharePublishActions({
           </div>
 
           {!webShareAvailable && (
-            <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-600">O compartilhamento de arquivos não está disponível neste navegador. Baixar e copiar legenda continuam disponíveis.</p>
+            <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-600">{share('fileUnavailable')}</p>
           )}
-          <p className="mt-4 text-xs font-semibold leading-5 text-slate-500">A mídia não é enviada automaticamente. A rede escolhida será aberta para você revisar e concluir.</p>
+          <p className="mt-4 text-xs font-semibold leading-5 text-slate-500">{share('manualReview')}</p>
         </div>
       )}
 
