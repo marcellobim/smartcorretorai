@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(frontendRoot, '..')
 const page = readFileSync(path.join(frontendRoot, 'src/pages/StudioHero.jsx'), 'utf8')
+const ptBrMessages = readFileSync(path.join(frontendRoot, 'src/i18n/messages/pt-BR.js'), 'utf8')
+const enUsMessages = readFileSync(path.join(frontendRoot, 'src/i18n/messages/en-US.js'), 'utf8')
 const usLocation = readFileSync(path.join(frontendRoot, 'src/components/location/StudioUsLocation.jsx'), 'utf8')
 const createVideo = readFileSync(path.join(repositoryRoot, 'supabase/functions/criar-video-ia/index.ts'), 'utf8')
 const getVideoStatus = readFileSync(path.join(repositoryRoot, 'supabase/functions/get-video-job-status/index.ts'), 'utf8')
@@ -125,6 +127,27 @@ test('Studio runtime copy stays localized when US mode begins', () => {
   assert.match(page, /optionLabel\('profiles', option\)/)
   assert.match(page, /t\('studio\.accessibility\.progress'\)/)
   assert.match(page, /t\('smartTour\.showcase\.usAssetsPending'\)/)
-  assert.match(page, /mode\.id === 'smart_carousel' && market === 'US'/)
+  assert.match(page, /mode\.id === 'smart_carousel'\s*\? \{ title: t\('studio\.mode\.carousel'\)/)
   assert.match(page, /const \{ t, market \} = useLocale\(\)/)
+})
+
+test('Studio landing presents the localized Ad Carousel example in both markets', () => {
+  assert.match(page, /VISIBLE_STUDIO_MODE_EXAMPLES\.map\(\(example\) =>/)
+  assert.doesNotMatch(page, /VISIBLE_STUDIO_MODE_EXAMPLES\.filter\(example => \['cinematic', 'free_ai'\]/)
+  assert.match(page, /example\.id === 'smart_carousel'\s*\? t\('studio\.demo\.carousel'\)/)
+  assert.match(page, /example\.media && \(/)
+  assert.doesNotMatch(page, /example\.media && market !== 'US'/)
+  assert.match(page, /t\('studio\.demo\.sendLabel'\)/)
+  assert.match(page, /t\('studio\.demo\.receiveLabel'\)/)
+  assert.match(page, /navigate\('\/smart-carrossel'\)/)
+  assert.ok(readFileSync(path.join(frontendRoot, 'public/showcase/smartcarrossel/showcase-carrossel.mp4')).byteLength > 0)
+
+  for (const [messages, title, action] of [
+    [ptBrMessages, 'Carrossel de Anúncios', 'Abrir Carrossel de Anúncios'],
+    [enUsMessages, 'Ad Carousel', 'Open Ad Carousel'],
+  ]) {
+    assert.match(messages, new RegExp(`carousel: '${title}'`))
+    assert.match(messages, new RegExp(`carouselAction: '${action}'`))
+    assert.match(messages, /carousel: Object\.freeze\(\{ title:/)
+  }
 })

@@ -2235,13 +2235,15 @@ export default function StudioHero() {
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {(market === 'US' ? VISIBLE_STUDIO_MODE_EXAMPLES.filter(example => ['cinematic', 'free_ai'].includes(example.id)) : VISIBLE_STUDIO_MODE_EXAMPLES).map((example) => {
+              {VISIBLE_STUDIO_MODE_EXAMPLES.map((example) => {
                 const accent = STUDIO_MODE_ACCENTS[example.accent] || STUDIO_MODE_ACCENTS.cyan
                 const localizedExample = example.id === 'cinematic'
                   ? t('studio.demo.cinematic')
                   : example.id === 'free_ai'
                     ? t('studio.demo.creative')
-                    : example
+                    : example.id === 'smart_carousel'
+                      ? t('studio.demo.carousel')
+                      : example
                 return (
                   <ProductCard key={example.id} variant="flat" className={`overflow-hidden p-4 ${accent.card}`}>
                     <div className="mx-auto max-w-[190px] rounded-[2rem] border border-slate-200 bg-slate-950 p-2 shadow-xl shadow-slate-200/60">
@@ -2251,7 +2253,7 @@ export default function StudioHero() {
                           <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
                           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-white/70">{localizedExample.label}</p>
                         </div>
-                        {example.media && market !== 'US' && (
+                        {example.media && (
                           <video
                             src={example.media}
                             aria-label={t('studio.accessibility.demo').replace('{title}', localizedExample.title)}
@@ -2277,7 +2279,7 @@ export default function StudioHero() {
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
                         <p className="flex items-center gap-2 text-xs font-black text-slate-950">
                           <span className="h-px w-4 bg-slate-400" aria-hidden="true" />
-                          {market === 'US' ? 'You talk with AI and send:' : 'Você conversa com a IA e envia:'}
+                          {t('studio.demo.sendLabel')}
                         </p>
                         <ul className="mt-2 space-y-1.5">
                           {localizedExample.send.map((item) => (
@@ -2291,7 +2293,7 @@ export default function StudioHero() {
                       <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3">
                         <p className="flex items-center gap-2 text-xs font-black text-slate-950">
                           <span className="h-px w-4 bg-slate-400" aria-hidden="true" />
-                          {market === 'US' ? 'You receive:' : 'E recebe:'}
+                          {t('studio.demo.receiveLabel')}
                         </p>
                         <ul className="mt-2 space-y-1.5">
                           {localizedExample.receive.map((item) => (
@@ -2319,9 +2321,9 @@ export default function StudioHero() {
                   ? { title: t('studio.mode.commercial'), description: t('studio.mode.commercialDescription'), cta: t('studio.mode.commercialAction') }
                   : mode.id === 'free_ai'
                     ? { title: t('studio.mode.creative'), description: t('studio.mode.creativeDescription'), cta: t('studio.mode.creativeAction') }
-                    : mode.id === 'smart_carousel' && market === 'US'
-                      ? { title: 'Ad Carousel', description: 'Create a polished carousel presentation for social media and real estate campaigns.', cta: 'Open Ad Carousel' }
-                    : mode
+                    : mode.id === 'smart_carousel'
+                      ? { title: t('studio.mode.carousel'), description: t('studio.mode.carouselDescription'), cta: t('studio.mode.carouselAction') }
+                      : mode
               const cardContent = (
                 <>
                   <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${accent.glow}`} />

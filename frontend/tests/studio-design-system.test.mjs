@@ -97,7 +97,7 @@ test('Studio IA keeps a spacious light landing Hero and uses minimal markers ins
   assert.match(studio, /function StudioHeroRepresentativePhone[\s\S]*?<video[\s\S]*?src=\{STUDIO_HERO_REPRESENTATIVE_VIDEO\}[\s\S]*?autoPlay[\s\S]*?muted[\s\S]*?loop[\s\S]*?playsInline[\s\S]*?controls=\{false\}/)
   assert.doesNotMatch(studio, /O que voce pode criar/)
   assert.doesNotMatch(studio, /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
-  assert.match(studio, /Você conversa com a IA e envia:/)
+  assert.match(studio, /t\('studio\.demo\.sendLabel'\)/)
   assert.match(studio, /h-px w-4 bg-slate-400/)
   assert.match(studio, /h-1 w-1 shrink-0 rounded-full bg-slate-400/)
 })
