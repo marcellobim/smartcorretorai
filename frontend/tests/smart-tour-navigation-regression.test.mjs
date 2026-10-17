@@ -19,7 +19,7 @@ function filesBelow(relativePath) {
 
 test('keeps every production route, removes public experiments and preserves Smart Tour', () => {
   const app = read('frontend/src/App.jsx')
-  const expectedRoutes = ['/', '/planos', '/termos', '/privacidade', '/login', '/cadastro', '/admin', '/dashboard', '/hero', '/studio-hero', '/studio-galeria', '/smart-carrossel', '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha', '/configuracoes']
+  const expectedRoutes = ['/', '/planos', '/termos', '/privacidade', '/login', '/cadastro', '/admin', '/dashboard', '/hero', '/studio-hero', '/smart-carrossel', '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha', '/configuracoes']
   for (const route of expectedRoutes) assert.match(app, new RegExp(`path=["']${route.replace('/', '\\/')}["']`), `missing route ${route}`)
   assert.doesNotMatch(app, /home-frankenstein|home-opus|HomeFrankenstein|HomeOpusExperiment/)
   assert.match(app, /import SmartTourAI from ['"]\.\/pages\/SmartTourAI['"]/)
@@ -69,7 +69,7 @@ test('shows only the three approved Studio IA modules without changing internal 
   assert.match(studio, /onClick=\{\(\) => selectStudioMode\(mode\)\}[\s\S]*?cursor-pointer/)
   assert.doesNotMatch(studio, /const isSmartCarousel/)
   assert.doesNotMatch(studio, /Smart Tour AI|Comercial Cinematográfico|Comercial IA Livre/)
-  const examples = studio.slice(studio.indexOf('const STUDIO_MODE_EXAMPLES'), studio.indexOf('const STUDIO_POSSIBILITY_EXAMPLES'))
+  const examples = studio.slice(studio.indexOf('const STUDIO_MODE_EXAMPLES'), studio.indexOf('const VISIBLE_STUDIO_CREATION_MODES'))
   const examplePositions = ids.map(id => examples.indexOf(`id: '${id}'`))
   assert.ok(examplePositions.every(position => position >= 0))
   assert.deepEqual([...examplePositions].sort((a, b) => a - b), examplePositions)

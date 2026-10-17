@@ -277,33 +277,6 @@ const STUDIO_MODE_EXAMPLES = [
 const VISIBLE_STUDIO_CREATION_MODES = STUDIO_CREATION_MODES.filter((mode) => STUDIO_PRODUCT_VISIBILITY[mode.id]?.enabled !== false)
 const VISIBLE_STUDIO_MODE_EXAMPLES = STUDIO_MODE_EXAMPLES.filter((example) => STUDIO_PRODUCT_VISIBILITY[example.id]?.enabled !== false)
 
-const STUDIO_POSSIBILITY_EXAMPLES = [
-  {
-    id: 'sale',
-    media: '/showcase/studio/showcase-venda.mp4',
-    title: 'Vender um imóvel',
-    description: 'Ideal para apresentar imóveis, destacar diferenciais e atrair compradores.',
-  },
-  {
-    id: 'rent',
-    media: '/showcase/studio/showcase-locacao.mp4',
-    title: 'Alugar um imóvel',
-    description: 'Ideal para valorizar imóveis disponíveis para locação e aumentar o interesse de futuros inquilinos.',
-  },
-  {
-    id: 'capture_property',
-    media: '/showcase/studio/showcase-captacao-venda.mp4',
-    title: 'Captar imóveis',
-    description: 'Ideal para conquistar proprietários e ampliar sua carteira com apresentações profissionais.',
-  },
-  {
-    id: 'capture_brokers',
-    media: '/showcase/studio/showcase-captacao-corretores.mp4',
-    title: 'Captar corretores',
-    description: 'Ideal para divulgar oportunidades, fortalecer sua equipe e atrair novos profissionais.',
-  },
-]
-
 const STUDIO_GUIDE_ITEMS_BY_MODE = {
   cinematic: [
     'Criar direção criativa para o comercial',
@@ -2361,8 +2334,6 @@ export default function StudioHero() {
             </div>
           </ProductCard>
 
-          <StudioGalleryInvitation />
-
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {VISIBLE_STUDIO_CREATION_MODES.map((mode) => {
                 const ModeIcon = mode.Icon
@@ -2443,10 +2414,6 @@ export default function StudioHero() {
             visual={<StudioHeroGuideCard title={t('studio.hero.guideTitle')} items={guideItems} icon={ShieldCheck} />}
           />
         </section>
-
-        <StudioPossibilitiesShowcase />
-
-        <StudioGalleryInvitation />
 
         <section data-smart-conversation className="space-y-5 pb-12">
           {isRecoveredJob && (
@@ -3469,106 +3436,6 @@ function StudioHeroRepresentativePhone() {
         </div>
       </div>
     </div>
-  )
-}
-
-function StudioPossibilitiesShowcase() {
-  const { t, market } = useLocale()
-  return (
-    <ProductCard className="overflow-hidden p-5 sm:p-6">
-      <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
-        <div>
-          <ProductSectionHeading
-            eyebrow={t('studio.showcase.eyebrow')}
-            title={t('studio.gallery.title')}
-            description={t('studio.gallery.description')}
-          />
-          <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
-            {t('studio.gallery.instruction')}
-          </p>
-          <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-slate-500">
-            {t('studio.showcase.examplesNotice')}
-          </p>
-          <ProductCard variant="muted" className="mt-5 border-cyan-100 bg-cyan-50/70 p-4">
-            <p className="text-sm font-black text-cyan-950">{t('studio.showcase.uniqueTitle')}</p>
-            <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
-              {t('studio.showcase.uniqueDescription')}
-            </p>
-            <p className="mt-4 flex items-center gap-2 text-sm font-black text-cyan-950">
-              <span className="h-px w-4 bg-cyan-600" aria-hidden="true" />
-              {t('studio.showcase.uniqueCampaignTitle')}
-            </p>
-            <p className="mt-2 text-xs font-bold leading-5 text-cyan-900">
-              {t('studio.showcase.uniqueCampaignDescription')}
-            </p>
-          </ProductCard>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {market === 'US' && <p className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-sm font-bold text-cyan-900">{t('smartTour.showcase.usAssetsPending')}</p>}
-          {(market === 'US' ? [] : STUDIO_POSSIBILITY_EXAMPLES).map((example, index) => (
-            <ProductCard as="article" key={example.id} variant="muted" className="p-3">
-              <div className="rounded-[1.6rem] border border-slate-200 bg-slate-950 p-2 shadow-lg shadow-slate-200/70">
-                <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[1.15rem] bg-[linear-gradient(160deg,#0f172a_0%,#1e293b_52%,#0e7490_100%)]">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(103,232,249,0.22),transparent_36%)]" />
-                  <div className="relative px-4 text-center text-white" aria-hidden="true">
-                    <PlayCircle className="mx-auto h-9 w-9 opacity-90" />
-                    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
-                      {t('studio.showcase.demo')}
-                    </p>
-                  </div>
-                  <video
-                    src={example.media}
-                    aria-label={t('studio.accessibility.demo').replace('{title}', example.title)}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    controls={false}
-                    preload="metadata"
-                    disablePictureInPicture
-                    className="smart-phone-media absolute inset-0"
-                    onError={(event) => {
-                      event.currentTarget.style.display = 'none'
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="px-1 pb-1 pt-4">
-                <p className="text-xs font-black uppercase tracking-wide text-primary-700">{t('studio.showcase.example').replace('{count}', index + 1)}</p>
-                <h3 className="mt-2 text-base font-black leading-tight text-slate-950">{example.title}</h3>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{example.description}</p>
-              </div>
-            </ProductCard>
-          ))}
-        </div>
-      </div>
-    </ProductCard>
-  )
-}
-
-function StudioGalleryInvitation() {
-  const navigate = useNavigate()
-  const { t } = useLocale()
-
-  return (
-    <ProductCard variant="muted" className="p-6 sm:p-8">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-slate-950">{t('studio.gallery.invitationTitle')}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {t('studio.gallery.invitationDescription')}
-          </p>
-        </div>
-        <ProductButton
-          type="button"
-          onClick={() => navigate('/studio-galeria')}
-          size="lg"
-          className="shrink-0"
-        >
-          {t('studio.gallery.invitationAction')}
-        </ProductButton>
-      </div>
-    </ProductCard>
   )
 }
 

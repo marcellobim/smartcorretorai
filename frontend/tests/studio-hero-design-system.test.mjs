@@ -98,14 +98,8 @@ test('keeps mobile result media and the authorized download unchanged', () => {
   assert.match(studio, /as="a"[\s\S]*href=\{videoUrl\}[\s\S]*download="studio-hero-video\.mp4"/)
 })
 
-test('keeps both Gallery invitations in distinct landing and internal contexts', () => {
-  const invitations = [...studio.matchAll(/<StudioGalleryInvitation \/>/g)].map(match => match.index)
-  const landingStart = studio.indexOf('if (!studioMode)')
-  const internalStart = studio.indexOf('\n  return (\n    <main', landingStart)
-
-  assert.equal(invitations.length, 2)
-  assert.ok(invitations[0] > landingStart && invitations[0] < internalStart)
-  assert.ok(invitations[1] > internalStart)
+test('does not retain a gallery invitation in either Studio context', () => {
+  assert.doesNotMatch(studio, /StudioGalleryInvitation|studio-galeria/)
 })
 
 test('keeps responsive containment in the StudioHero residual', () => {

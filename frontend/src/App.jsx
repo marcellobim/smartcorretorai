@@ -16,7 +16,6 @@ import Dashboard from './pages/Dashboard'
 import HeroNext from './pages/HeroNext'
 import TransformarVideo from './pages/TransformarVideo'
 import StudioHero from './pages/StudioHero'
-import StudioGallery from './pages/StudioGallery'
 import SmartCarrossel from './pages/SmartCarrossel'
 import SmartTourAI from './pages/SmartTourAI'
 import VirtualStaging from './pages/VirtualStaging'
@@ -119,7 +118,6 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/hero" element={<AccountAnalyticsRoute productId={PRODUCTS.BANNER_IMOBILIARIO}><HeroNext /></AccountAnalyticsRoute>} />
         <Route path="/studio-hero" element={<AccountAnalyticsRoute productId={PRODUCTS.STUDIO_IA}><StudioHero /></AccountAnalyticsRoute>} />
-        <Route path="/studio-galeria" element={<StudioGallery />} />
         <Route path="/smart-carrossel" element={<AccountAnalyticsRoute productId={PRODUCTS.SMART_CARROSSEL}><SmartCarrossel /></AccountAnalyticsRoute>} />
         <Route path="/smart-tour-ai" element={<AccountAnalyticsRoute productId={PRODUCTS.VIDEO_IMOBILIARIO}><SmartTourAI /></AccountAnalyticsRoute>} />
         <Route path="/virtual-staging" element={<AccountAnalyticsRoute productId={PRODUCTS.SMART_SPACE}><VirtualStaging /></AccountAnalyticsRoute>} />

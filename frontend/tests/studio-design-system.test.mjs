@@ -56,7 +56,7 @@ test('Studio IA reuses the shared Design System across its landing and internal 
 test('Studio IA internal hero hierarchy identifies each module without repeating the Studio title', () => {
   const studio = read('src/pages/StudioHero.jsx')
   const carousel = read('src/pages/SmartCarrossel.jsx')
-  const internalHero = studio.slice(studio.indexOf('id="studio-ia-flow-title"'), studio.indexOf('<StudioPossibilitiesShowcase />'))
+  const internalHero = studio.slice(studio.indexOf('id="studio-ia-flow-title"'), studio.indexOf('<section data-smart-conversation'))
 
   assert.doesNotMatch(internalHero, /eyebrow=/)
   assert.match(internalHero, /productName=\{isFreeAiMode \? 'Vídeo Criativo' : 'Comercial Imobiliário'\}/)
@@ -67,16 +67,14 @@ test('Studio IA internal hero hierarchy identifies each module without repeating
   assert.match(carousel, /headline="Apresentação Profissional"/)
 })
 
-test('Studio IA preserves every declared module and example while sharing internal controls', () => {
+test('Studio IA preserves the declared module cards while sharing internal controls', () => {
   const studio = read('src/pages/StudioHero.jsx')
   const carousel = read('src/pages/SmartCarrossel.jsx')
   const creationModes = studio.slice(studio.indexOf('const STUDIO_CREATION_MODES'), studio.indexOf('const STUDIO_MODE_EXAMPLES'))
   const modeExamples = studio.slice(studio.indexOf('const STUDIO_MODE_EXAMPLES'), studio.indexOf('const VISIBLE_STUDIO_CREATION_MODES'))
-  const possibilityExamples = studio.slice(studio.indexOf('const STUDIO_POSSIBILITY_EXAMPLES'), studio.indexOf('const STUDIO_MODE_ACCENTS'))
 
   assert.equal(creationModes.match(/\bid: '/g)?.length, 5)
   assert.equal(modeExamples.match(/\bid: '/g)?.length, 5)
-  assert.equal(possibilityExamples.match(/\bid: '/g)?.length, 4)
   assert.doesNotMatch(studio, /<button|<article|object-contain/)
   assert.doesNotMatch(carousel, /<button|object-contain/)
   assert.match(studio, /function UserReply[\s\S]*?<ConversationUserBubble/)
@@ -105,7 +103,6 @@ test('Studio IA keeps a spacious light landing Hero and uses minimal markers ins
 test('Studio IA internal heroes use the approved light color language without changing shared components', () => {
   const studio = read('src/pages/StudioHero.jsx')
   const carousel = read('src/pages/SmartCarrossel.jsx')
-  const gallery = read('src/pages/StudioGallery.jsx')
 
   assert.match(studio, /#ffffff_0%,#f0f7ff_52%,#ecfeff_100%/)
   assert.match(studio, /#ffffff_0%,#faf5ff_52%,#eef7ff_100%/)
@@ -113,40 +110,21 @@ test('Studio IA internal heroes use the approved light color language without ch
   assert.equal(studio.match(/tone="dark"/g)?.length || 0, 0)
   assert.match(carousel, /#ffffff_0%,#ecfdf5_52%,#ecfeff_100%/)
   assert.doesNotMatch(carousel, /tone="dark"/)
-  assert.match(gallery, /#ffffff_0%,#f0f7ff_52%,#faf5ff_100%/)
-  assert.doesNotMatch(gallery, /tone="dark"/)
 })
 
-test('Studio IA phone mockups and expanded presentations inherit the official media classes', () => {
+test('Studio IA main phone previews inherit the official media classes', () => {
   const studio = read('src/pages/StudioHero.jsx')
-  const gallery = read('src/pages/StudioGallery.jsx')
 
-  assert.equal(studio.match(/smart-phone-media/g)?.length, 3)
+  assert.equal(studio.match(/smart-phone-media/g)?.length, 2)
   assert.doesNotMatch(studio, /object-contain/)
-  assert.match(gallery, /smart-phone-media absolute inset-0/)
-  assert.match(gallery, /<ProductCard[\s\S]*?as="button"[\s\S]*?aria-label=\{`Abrir exemplo/)
-  assert.match(gallery, /grid-cols-2[\s\S]*?sm:grid-cols-3[\s\S]*?xl:grid-cols-4[\s\S]*?2xl:grid-cols-5/)
-  assert.match(gallery, /smart-presentation-media/)
-  assert.match(gallery, /aspect-\[9\/16\]/)
-  assert.match(gallery, /controlsList="nodownload noremoteplayback"/)
-  assert.match(gallery, /disablePictureInPicture/)
-  assert.match(gallery, /aria-label="Vídeo ampliado da galeria"/)
-  assert.match(gallery, /<ProductButton[\s\S]*?aria-label="Fechar vídeo"[\s\S]*?autoFocus/)
-  assert.match(gallery, /document\.body\.style\.overflow = 'hidden'/)
-  assert.match(gallery, /lastTriggerRef\.current\?\.focus\(\)/)
 })
 
-test('Studio IA keeps the complete example gallery available from the landing page', () => {
+test('Studio IA removes the example gallery and its integration points', () => {
   const studio = read('src/pages/StudioHero.jsx')
-  const gallery = read('src/pages/StudioGallery.jsx')
+  const app = read('src/App.jsx')
 
-  assert.equal(studio.match(/<StudioGalleryInvitation \/>/g)?.length, 2)
-  assert.match(studio, /onClick=\{\(\) => navigate\('\/studio-galeria'\)\}/)
-  assert.match(gallery, /title: 'Criadas a partir das imagens do imóvel'/)
-  assert.match(gallery, /title: 'Criadas apenas com IA'/)
-  assert.match(gallery, /title: 'Carrossel de Anúncios'/)
-  assert.match(gallery, /SMART_CAROUSEL_GALLERY_VIDEO = '\/showcase\/smartcarrossel\/showcase-carrossel\.mp4'/)
-  assert.equal((gallery.match(/'[^']+\.mp4'/g) || []).length, 32)
+  assert.doesNotMatch(studio, /StudioGalleryInvitation|StudioPossibilitiesShowcase|STUDIO_POSSIBILITY_EXAMPLES|studio-galeria/)
+  assert.doesNotMatch(app, /StudioGallery|studio-galeria/)
 })
 
 test('Carrossel de Anúncios inherits the Studio Design System and the official vertical media presentation', () => {

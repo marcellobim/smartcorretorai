@@ -26,7 +26,7 @@ test('disabled route redirects with replace before mounting the TikTok page', ()
 test('existing private routes remain declared', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
   for (const route of [
-    '/dashboard', '/hero', '/studio-hero', '/studio-galeria', '/smart-carrossel',
+    '/dashboard', '/hero', '/studio-hero', '/smart-carrossel',
     '/smart-tour-ai', '/virtual-staging', '/transformar-video', '/nova-campanha',
     '/campanha-de-textos', '/raio-x-anuncio', '/configuracoes',
   ]) assert.match(app, new RegExp(`path="${route}"`), route)

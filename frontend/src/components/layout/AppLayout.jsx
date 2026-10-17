@@ -7,8 +7,8 @@ export default function AppLayout() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const isBannersRapidos = location.pathname === '/nova-campanha'
-  const usesFullWidthMobileLayout = location.pathname === '/dashboard' || isBannersRapidos || location.pathname === '/campanha-de-textos' || location.pathname === '/smart-carrossel' || location.pathname === '/studio-hero' || location.pathname === '/studio-galeria' || location.pathname === '/smart-tour-ai' || location.pathname === '/virtual-staging' || location.pathname === '/hero'
-  const usesStandaloneMobileMenuButton = location.pathname === '/smart-carrossel' || location.pathname === '/studio-hero' || location.pathname === '/studio-galeria'
+  const usesFullWidthMobileLayout = location.pathname === '/dashboard' || isBannersRapidos || location.pathname === '/campanha-de-textos' || location.pathname === '/smart-carrossel' || location.pathname === '/studio-hero' || location.pathname === '/smart-tour-ai' || location.pathname === '/virtual-staging' || location.pathname === '/hero'
+  const usesStandaloneMobileMenuButton = location.pathname === '/smart-carrossel' || location.pathname === '/studio-hero'
 
   useEffect(() => {
     setMobileMenuOpen(false)
