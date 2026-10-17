@@ -30,11 +30,11 @@ const repositoryRoot = path.resolve(frontendRoot, '..')
 const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 const page = read('frontend/src/pages/VirtualStaging.jsx')
 
-test('uses Smart Snetia as the public name while preserving the internal id', () => {
+test('uses Snetia Space as the public name while preserving the internal id', () => {
   assert.equal(FURNISH_RENOVATE_JOURNEY_ID, 'furnish-renovate')
-  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Smart Snetia')
+  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Snetia Space')
   assert.deepEqual(VIRTUAL_STAGING_CHAT_INTRO, {
-    title: 'Smart Snetia',
+    title: 'Snetia Space',
     description: 'Virtual Staging',
     action: 'Começar',
   })
@@ -231,7 +231,7 @@ test('persiste somente identificadores e caminhos para recovery idempotente do S
   assert.doesNotMatch(page, /furnish(?:Gallery|History)|virtualStaging(?:Gallery|History)/i)
 })
 
-test('uses market-localized copy with the current Smart Snetia module selector', () => {
+test('uses market-localized copy with the current Snetia Space module selector', () => {
   const en = getFurnishRenovateCopy('en-US')
   assert.equal(en.uploadQuestion, 'Upload property photos')
   assert.equal(en.uploadDescription, 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.')

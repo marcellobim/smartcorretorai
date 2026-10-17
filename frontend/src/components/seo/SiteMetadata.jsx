@@ -22,7 +22,7 @@ const PRODUCT_TITLES = {
   '/nova-campanha': 'Real Estate Banners | SNETIA',
   '/smart-tour-ai': 'Real Estate Video | SNETIA',
   '/transformar-video': 'Real Estate Video | SNETIA',
-  '/virtual-staging': 'Smart Snetia | SNETIA',
+  '/virtual-staging': 'Snetia Space | SNETIA',
   '/campanha-de-textos': 'Text Campaign | SNETIA',
 }
 

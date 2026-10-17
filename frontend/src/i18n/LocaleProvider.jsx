@@ -6,6 +6,13 @@ import { getMessage } from './messages'
 
 export const LOCALE_PREFERENCES_KEY = 'snetia:locale-preferences'
 
+// Product naming is presentation-only. Keep the existing catalog keys and all
+// persisted smart-space identifiers stable while every localized UI surface
+// renders the current customer-facing name.
+const presentProductNames = value => typeof value === 'string'
+  ? value.replaceAll('Smart Space', 'Snetia Space')
+  : value
+
 function isSupportedLocale(locale) {
   return SUPPORTED_LOCALES.includes(locale)
 }
@@ -27,7 +34,7 @@ function readPreferences() {
 
 export const DEFAULT_LOCALE_CONTEXT = Object.freeze({
   ...DEFAULT_LOCALE_CONFIG,
-  t: (key) => getMessage(key, DEFAULT_LOCALE_CONFIG.locale),
+  t: (key) => presentProductNames(getMessage(key, DEFAULT_LOCALE_CONFIG.locale)),
   formatCurrency: (value) => formatCurrency(value, DEFAULT_LOCALE_CONFIG.locale, DEFAULT_LOCALE_CONFIG.currency),
   formatDate: (value) => formatDate(value, DEFAULT_LOCALE_CONFIG.locale),
   formatNumber: (value) => formatNumber(value, DEFAULT_LOCALE_CONFIG.locale),
@@ -66,7 +73,7 @@ export function LocaleProvider({ children }) {
     market,
     currency,
     units,
-    t: (key) => getMessage(key, locale),
+    t: (key) => presentProductNames(getMessage(key, locale)),
     formatCurrency: (amount) => formatCurrency(amount, locale, currency),
     formatDate: (date) => formatDate(date, locale),
     formatNumber: (number) => formatNumber(number, locale),

@@ -1,6 +1,7 @@
 import { QUICK_BANNERS_AVAILABLE, RAIO_X_AVAILABLE, visibleProducts } from '../config/productAvailability'
 import { BRAND } from '../config/brand'
 import { SHORT_VIDEOS_VISIBLE } from '../config/shortVideos'
+import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR } from '../config/virtualStaging'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -529,7 +530,7 @@ function VirtualStagingSpotlight() {
   return <section id="virtual-staging-destaque" className="scroll-mt-20 overflow-hidden bg-white py-20 text-slate-950 sm:py-28">
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:items-end">
-        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.smartSpace.eyebrow')}</p><p className="mt-3 text-sm font-black text-slate-500">{t('landing.smartSpace.subtitle')}</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">{t('landing.smartSpace.title')}<br /><span className="text-violet-700">{t('landing.smartSpace.titleHighlight')}</span></h2></div>
+        <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.smartSpace.eyebrow')}</p><p className="mt-3 text-sm font-black text-slate-500">{VIRTUAL_STAGING_PRODUCT_DESCRIPTOR}</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">{t('landing.smartSpace.title')}<br /><span className="text-violet-700">{t('landing.smartSpace.titleHighlight')}</span></h2></div>
         <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">{t('landing.smartSpace.description')}</p><Link to="/virtual-staging" onClick={() => trackCta('explore_products')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.smartSpace.cta')}<ArrowRight className="h-4 w-4" /></Link></div>
       </div>
       <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">

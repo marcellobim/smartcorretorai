@@ -19,7 +19,7 @@ test('registers Virtual Staging on its preserved technical route', () => {
   assert.match(layout, /location\.pathname === '\/virtual-staging'/)
 })
 
-test('places Smart Snetia before Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
+test('places Snetia Space before Banners Rapidos and keeps Smart Tokens only in the sidebar', () => {
   const dashboard = read('frontend/src/pages/Dashboard.jsx')
   const sidebar = read('frontend/src/components/layout/Sidebar.jsx')
   const catalog = dashboard.match(/const mainActions = \[([\s\S]*?)\n\]/)?.[0] || ''
@@ -113,7 +113,7 @@ test('exposes exactly the three approved Virtual Staging modules in order', () =
     'broker-presentation',
   ])
   assert.deepEqual(VIRTUAL_STAGING_JOURNEYS.map(journey => journey.title), [
-    'Smart Snetia',
+    'Snetia Space',
     'Vida no Imóvel',
     'Apresentação pelo Corretor',
   ])
@@ -145,7 +145,7 @@ test('opens one keyed journey at a time and isolates every active job namespace'
   assert.match(staging, />\s*Escolher outro módulo\s*</)
 })
 
-test('uses the approved Smart Snetia identity and preserves its three modules', () => {
+test('uses the approved Snetia Space identity and preserves its three modules', () => {
   const staging = read('frontend/src/pages/VirtualStaging.jsx')
   const tour = read('frontend/src/pages/SmartTourAI.jsx')
 

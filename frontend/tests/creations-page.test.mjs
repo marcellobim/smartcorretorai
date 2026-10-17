@@ -115,7 +115,7 @@ test('downloads Banners Rápidos from the Creatomate result and preserves URL re
   assert.doesNotMatch(quickBanners, /creation_id|creation-download|onWithdrawDownload|SharePublishActions/)
 })
 
-test('maps Smart Snetia while preserving individual downloads on its original screen', () => {
+test('maps Snetia Space while preserving individual downloads on its original screen', () => {
   assert.match(page, /virtual_staging:[\s\S]*?label: VIRTUAL_STAGING_PRODUCT_NAME[\s\S]*?icon: Image[\s\S]*?tone: 'cyan'/)
   assert.match(page, /cyan:[\s\S]*?bg-cyan-500[\s\S]*?bg-cyan-100 text-cyan-700/)
   assert.match(virtualStaging, /downloadFurnishRenovateResult[\s\S]*downloadFileFromPrivateUrl\(result\.afterUrl, fallbackName\)/)

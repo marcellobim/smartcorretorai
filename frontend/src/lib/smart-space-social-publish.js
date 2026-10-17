@@ -57,10 +57,10 @@ export function buildSmartSpaceImagePublicationIntent({ clientRequestId, itemInd
     sourceId,
     mediaAssetId: imageMediaAssetId(index, kind),
     optionId: OPTION_ID,
-    optionLabel: 'Imagem Smart Snetia',
+    optionLabel: 'Imagem Snetia Space',
     captionSnapshot: '',
     captionPlaceholder: 'Conte um pouco sobre esta transformação ou sobre o imóvel…',
-    mediaName: text(stageLabel) || `Resultado Smart Snetia ${index + 1}`,
+    mediaName: text(stageLabel) || `Resultado Snetia Space ${index + 1}`,
     mediaPreviewUrl: text(previewUrl),
     mediaType: 'image',
   }
