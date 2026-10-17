@@ -754,6 +754,16 @@ export function getEffectiveStudioCity(answers = {}) {
   return formatDisplayText(answers.cityOther) || formatDisplayText(answers.city)
 }
 
+// Capture uses a different location contract per market.  The US selector owns
+// its State → County → City hierarchy and deliberately has no Brazilian
+// district confirmation; requiring `captureHasDistrict` here would hide the
+// next question after a valid US city.
+export function canAdvanceStudioCaptureLocation({ market, state, county, city, cityValue, captureHasDistrict } = {}) {
+  return market === 'US'
+    ? Boolean(state && county && city)
+    : Boolean(cityValue && captureHasDistrict)
+}
+
 export function changeStudioStateLocation(current, uf) {
   return {
     ...current,
@@ -1384,6 +1394,14 @@ export default function StudioHero() {
   const hasCompletedLocation = market === 'US'
     ? Boolean(answers.state && answers.county && answers.city)
     : (isCapture ? Boolean(cityValue && answers.captureHasDistrict) : Boolean(cityValue && districtValue))
+  const hasCaptureLocation = isCapture && canAdvanceStudioCaptureLocation({
+    market,
+    state: answers.state,
+    county: answers.county,
+    city: answers.city,
+    cityValue,
+    captureHasDistrict: answers.captureHasDistrict,
+  })
   const configuration = getConfiguration(answers)
   const finalFeatures = getFinalFeatureText({
     ...answers,
@@ -2789,7 +2807,7 @@ export default function StudioHero() {
             </AssistantStep>
           )}
 
-          {isCapture && cityValue && answers.captureHasDistrict && step >= captureTypeStep && (
+          {hasCaptureLocation && step >= captureTypeStep && (
             <AssistantStep
               number={captureTypeStep}
               currentStep={step}

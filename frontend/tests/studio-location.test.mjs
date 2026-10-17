@@ -10,7 +10,7 @@ const location = readFileSync(path.join(frontendRoot, 'src/components/location/S
 const helperSource = studio
   .slice(studio.indexOf('function formatDisplayText'), studio.indexOf('function getDisplayLocation'))
   .replaceAll('export function', 'function')
-const studioModule = Function(`${helperSource}; return { getEffectiveStudioCity, changeStudioStateLocation, changeStudioSelectedCity, changeStudioManualCity }`)()
+const studioModule = Function(`${helperSource}; return { getEffectiveStudioCity, canAdvanceStudioCaptureLocation, changeStudioStateLocation, changeStudioSelectedCity, changeStudioManualCity }`)()
 
 test('keeps all 27 states and the shared State, City and editable neighborhood flow', () => {
   const stateList = location.slice(
@@ -84,4 +84,24 @@ test('uses the effective City once in summary, payload and result delivery', () 
   assert.match(studio, /<StudioChecklist[\s\S]*?cityValue=\{cityValue\}/)
   assert.match(studio, /<ResultPanel[\s\S]*?cityValue=\{cityValue\}/)
   assert.match(studio, /disabled=\{!answers\.uf \|\| !cityValue/)
+})
+
+test('Creative Video capture continues after a valid US city without a Brazilian district answer', () => {
+  assert.equal(studioModule.canAdvanceStudioCaptureLocation({
+    market: 'US', state: 'FL', county: 'Hillsborough County', city: 'Tampa', cityValue: 'Tampa', captureHasDistrict: '',
+  }), true)
+  assert.equal(studioModule.canAdvanceStudioCaptureLocation({
+    market: 'US', state: 'FL', county: 'Hillsborough County', city: '', cityValue: '', captureHasDistrict: '',
+  }), false)
+  assert.equal(studioModule.canAdvanceStudioCaptureLocation({
+    market: 'BR', cityValue: 'São Paulo', captureHasDistrict: 'no',
+  }), true)
+  assert.equal(studioModule.canAdvanceStudioCaptureLocation({
+    market: 'BR', cityValue: 'São Paulo', captureHasDistrict: '',
+  }), false)
+
+  assert.match(studio, /onContinue=\{\(\) => setStep\(isCapture \? captureTypeStep : differentialsStep\)\}/)
+  assert.match(studio, /\{hasCaptureLocation && step >= captureTypeStep && \(/)
+  assert.match(studio, /onEdit=\{\(\) => setStep\(captureTypeStep\)\}/)
+  assert.match(studio, /captureHasDistrict: ''/)
 })

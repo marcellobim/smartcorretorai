@@ -76,7 +76,7 @@ test('recovery only polls status and never starts a generation or a new reservat
   const recovery = page.slice(page.indexOf('const activeJob = initialActiveJobRef.current'), page.indexOf('return () => {', page.indexOf('const activeJob = initialActiveJobRef.current')))
   assert.match(recovery, /scheduleVideoPoll/)
   assert.doesNotMatch(recovery, /criar-video-ia|handleGenerate|reserve|Smart Tokens/)
-  assert.equal((page.match(/invokeStudioFunction\('criar-video-ia'/g) || []).length, 1)
+  assert.equal((page.match(/dispatchStudioGeneration\(invokeStudioFunction, payload\)/g) || []).length, 1)
   assert.match(page, /invokeStudioFunction\('get-video-job-status', \{ jobId: normalizedJobId \}\)/)
   assert.match(page, /const jobLanguage = data\.language === 'en-US' \? 'en-US' : 'pt-BR'/)
   assert.match(page, /activeJobRef\.current\.language !== jobLanguage/)
