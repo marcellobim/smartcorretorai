@@ -49,3 +49,8 @@ test('StudioUsLocation uses the real request state machine for loading, empty, r
   await new Promise(resolve => setImmediate(resolve))
   assert.deepEqual(events.at(-1), { cities: ['Orlando'], status: 'ready', error: '' })
 })
+
+test('StudioUsLocation forwards the validated State, County and City snapshot on Continue', async () => {
+  const source = await (await import('node:fs/promises')).readFile(fileURLToPath(new URL('../src/components/location/StudioUsLocation.jsx', import.meta.url)), 'utf8')
+  assert.match(source, /onClick=\{\(\) => onContinue\?\.\(value\)\}/)
+})

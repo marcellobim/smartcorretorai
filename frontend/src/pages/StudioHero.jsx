@@ -764,6 +764,24 @@ export function canAdvanceStudioCaptureLocation({ market, state, county, city, c
     : Boolean(cityValue && captureHasDistrict)
 }
 
+// The US location component has already verified State → County → City before
+// enabling Continue. Keep that exact snapshot when changing steps so the
+// capture branch cannot be evaluated against an outdated parent render.
+export function confirmStudioUsLocation(current = {}, location = {}) {
+  return {
+    ...current,
+    state: location.state || '',
+    county: location.county || '',
+    city: location.city || '',
+    zipCode: location.zipCode || '',
+    neighborhoodCommunity: location.neighborhoodCommunity || '',
+    uf: '',
+    cityOther: '',
+    district: '',
+    captureHasDistrict: '',
+  }
+}
+
 export function changeStudioStateLocation(current, uf) {
   return {
     ...current,
@@ -1826,6 +1844,20 @@ export default function StudioHero() {
     setStep(nextStep)
   }
 
+  const confirmUsLocation = (location) => {
+    const next = confirmStudioUsLocation(answers, location)
+    if (!canAdvanceStudioCaptureLocation({
+      market,
+      state: next.state,
+      county: next.county,
+      city: next.city,
+      cityValue: getEffectiveStudioCity(next),
+      captureHasDistrict: next.captureHasDistrict,
+    })) return
+    setAnswers(next)
+    setStep(isCapture ? captureTypeStep : differentialsStep)
+  }
+
   const uploadImage = async (slot, file, jobDraftId) => {
     const contentType = getUploadContentType(file)
 
@@ -2678,7 +2710,7 @@ export default function StudioHero() {
                   // from the Brazilian UF/city/neighborhood controls.
                   uf: '', cityOther: '', district: '', captureHasDistrict: '',
                 })
-              }} onContinue={() => setStep(isCapture ? captureTypeStep : differentialsStep)} /> : <div className="space-y-5">
+              }} onContinue={confirmUsLocation} /> : <div className="space-y-5">
                 <div>
                   <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{t('virtualStaging.location.state')}</p>
                   <SmartCarouselStateSelect

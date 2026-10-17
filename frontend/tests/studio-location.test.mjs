@@ -10,7 +10,7 @@ const location = readFileSync(path.join(frontendRoot, 'src/components/location/S
 const helperSource = studio
   .slice(studio.indexOf('function formatDisplayText'), studio.indexOf('function getDisplayLocation'))
   .replaceAll('export function', 'function')
-const studioModule = Function(`${helperSource}; return { getEffectiveStudioCity, canAdvanceStudioCaptureLocation, changeStudioStateLocation, changeStudioSelectedCity, changeStudioManualCity }`)()
+const studioModule = Function(`${helperSource}; return { getEffectiveStudioCity, canAdvanceStudioCaptureLocation, confirmStudioUsLocation, changeStudioStateLocation, changeStudioSelectedCity, changeStudioManualCity }`)()
 
 test('keeps all 27 states and the shared State, City and editable neighborhood flow', () => {
   const stateList = location.slice(
@@ -87,6 +87,17 @@ test('uses the effective City once in summary, payload and result delivery', () 
 })
 
 test('Creative Video capture continues after a valid US city without a Brazilian district answer', () => {
+  const restored = studioModule.confirmStudioUsLocation({
+    objective: 'property_capture',
+    state: '', county: '', city: '', uf: 'SP', cityOther: 'São Paulo', district: 'Centro', captureHasDistrict: 'yes',
+  }, {
+    state: 'FL', county: 'Hillsborough County', city: 'Tampa', zipCode: '', neighborhoodCommunity: '',
+  })
+  assert.deepEqual(restored, {
+    objective: 'property_capture',
+    state: 'FL', county: 'Hillsborough County', city: 'Tampa', zipCode: '', neighborhoodCommunity: '',
+    uf: '', cityOther: '', district: '', captureHasDistrict: '',
+  })
   assert.equal(studioModule.canAdvanceStudioCaptureLocation({
     market: 'US', state: 'FL', county: 'Hillsborough County', city: 'Tampa', cityValue: 'Tampa', captureHasDistrict: '',
   }), true)
@@ -100,7 +111,8 @@ test('Creative Video capture continues after a valid US city without a Brazilian
     market: 'BR', cityValue: 'São Paulo', captureHasDistrict: '',
   }), false)
 
-  assert.match(studio, /onContinue=\{\(\) => setStep\(isCapture \? captureTypeStep : differentialsStep\)\}/)
+  assert.match(studio, /onContinue=\{confirmUsLocation\}/)
+  assert.match(studio, /const confirmUsLocation = \(location\) => \{[\s\S]*?confirmStudioUsLocation\(answers, location\)[\s\S]*?setStep\(isCapture \? captureTypeStep : differentialsStep\)/)
   assert.match(studio, /\{hasCaptureLocation && step >= captureTypeStep && \(/)
   assert.match(studio, /onEdit=\{\(\) => setStep\(captureTypeStep\)\}/)
   assert.match(studio, /captureHasDistrict: ''/)
