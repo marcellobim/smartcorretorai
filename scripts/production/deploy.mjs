@@ -103,6 +103,13 @@ export function executeCommand(command,args,{cwd=root,inherit=false,spawn=spawnS
  return inherit?'':r.stdout.trim()
 }
 function run(command,args,cwd=root,inherit=false){return executeCommand(command,args,{cwd,inherit})}
+function runCaptured(command,args,cwd=root){
+ const invocation=commandInvocation(command,args)
+ const result=spawnSync(invocation.command,invocation.args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe'],shell:invocation.shell,windowsVerbatimArguments:invocation.windowsVerbatimArguments})
+ if(result.error)throw Error('Comando obrigatório não encontrado: '+path.basename(command))
+ if(result.status!==0)throw Error('Comando obrigatório falhou: '+path.basename(command)+' '+args[0])
+ return `${result.stdout||''}\n${result.stderr||''}`
+}
 
 export const BANNER_FRONTEND_TEST_ENV=Object.freeze({
  VITE_SUPABASE_URL:'https://smartcorretorai-banner-tests.invalid',
@@ -890,10 +897,10 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  if(deployVirtualStagingTrial){
   const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/'))
   if(!existsSync(migrationPath)||hash(readFileSync(migrationPath))!==hash(readFileSync(path.join(root,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de trial divergente no artefato isolado')
-  const beforeMigrations=verifyVirtualStagingTrialMigrationList(run(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root))
+  const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root))
   if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261017010000']))throw Error('DEPLOY BLOQUEADO: migration de trial não está isolada')
   run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
-  const afterMigrations=verifyVirtualStagingTrialMigrationList(run(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root),[])
+  const afterMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root),[])
   if(afterMigrations.pending.length)throw Error('DEPLOY BLOQUEADO: migration pendente após publicação do trial')
   const afterMigration=await official()
   if(afterMigration.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a migration do trial')
