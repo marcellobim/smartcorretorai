@@ -11,8 +11,8 @@ const textCampaign = read('pages/TextCampaign.jsx')
 const enUS = read('i18n/messages/en-US.js')
 
 test('Plans and Smart Tokens supplies the entire current-market UI from BR and US copy', () => {
-  for (const usCopy of ['Plans / Smart Tokens', 'Launch offer', 'Add Smart Tokens', 'FAQ / Rules', 'How it works', 'Questions or suggestions? Talk to us.']) assert.ok(plans.includes(usCopy), usCopy)
-  for (const brCopy of ['Planos / Smart Tokens', 'Oferta de lançamento', 'Adicionar Smart Tokens', 'FAQ / Regras', 'Como funciona', 'Dúvidas ou sugestões? Fale com a gente.']) assert.ok(plans.includes(brCopy), brCopy)
+  for (const usCopy of ['Plans / Smart Tokens', 'Launch offer', 'Add Smart Tokens', 'FAQ / Rules', 'Choose your plan', 'Need more capacity?', 'Questions?']) assert.ok(plans.includes(usCopy), usCopy)
+  for (const brCopy of ['Planos / Smart Tokens', 'Oferta de lançamento', 'Adicionar Smart Tokens', 'FAQ / Regras', 'Escolha seu plano', 'Precisa de mais capacidade?', 'Dúvidas?']) assert.ok(plans.includes(brCopy), brCopy)
   assert.match(plans, /const RULES_US = \[/)
   assert.match(plans, /formatTokens\(item\.credits, locale\)/)
   assert.match(plans, /toast\.error\(copy\.checkoutError\)/)

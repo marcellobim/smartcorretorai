@@ -45,8 +45,8 @@ test('Planos sends only the internal economic key to the authenticated checkout 
 test('Planos presents SMART15 once above subscriptions without adding a coupon field or changing recharges', () => {
   assert.equal((planos.match(/Oferta de lançamento/g) ?? []).length, 1)
   assert.equal((planos.match(/SMART15/g) ?? []).length, 1)
-  assert.match(planos, /Use o código\{' '\}[\s\S]*?SMART15[\s\S]*?no checkout e ganhe 15% de desconto nos 3 primeiros meses\./)
-  assert.match(planos, /Oferta de lançamento[\s\S]*?SMART15[\s\S]*?<section className="mt-8 grid gap-5 lg:grid-cols-3">/)
+  assert.match(planos, /couponPrefix: 'Use o código'[\s\S]*?couponSuffix: 'no checkout e ganhe 15% de desconto nos 3 primeiros meses\.'/)
+  assert.match(planos, /copy\.launchOffer[\s\S]*?SMART15[\s\S]*?<section className="mt-8 grid gap-5 lg:grid-cols-3">/)
   assert.doesNotMatch(planos, /<input|aplicar cupom|preço promocional|precoPromocional/i)
 
   const rechargeSection = planos.slice(planos.indexOf('<section className="mt-10 rounded-3xl'))
@@ -72,7 +72,7 @@ test('successful checkout return refreshes the authenticated profile once', () =
 })
 
 test('active users manage subscriptions through a server-authoritative Stripe Customer Portal', () => {
-  assert.match(settings, /hasActiveSubscription && \([\s\S]*?Gerenciar assinatura/)
+  assert.match(settings, /hasActiveSubscription && \([\s\S]*?\{copy\.manage\}/)
   assert.match(settings, /functions\.invoke\('stripe-customer-portal'\)/)
   assert.doesNotMatch(settings, /functions\.invoke\('stripe-customer-portal',[\s\S]{0,120}body:/)
   assert.doesNotMatch(settings, /customer_id|STRIPE_SECRET_KEY|sk_live_|sk_test_/)
@@ -110,48 +110,53 @@ test('frontend exposes exactly the two approved recharge packages', () => {
     { id: 'brl_49_90', credits: 2000, price: 49.9, expiresInDays: 30 },
     { id: 'brl_97_90', credits: 4000, price: 97.9, expiresInDays: 30 },
   ])
-  assert.match(planos, /Continue ou comece a criar/)
-  assert.match(planos, /Escolha sua recarga/)
-  assert.match(planos, /Comece sem assinatura ou complemente seu plano sempre que precisar de mais capacidade para criar\./)
-  assert.match(planos, /Recarga selecionada:/)
-  assert.match(planos, /Smart Tokens extras/)
-  assert.match(planos, /Use Smart Tokens extras para começar a criar sem assinatura ou complementar seu plano\./)
-  assert.match(planos, /Fazer upgrade do plano pode oferecer melhor custo-benefício/)
+  assert.match(planos, /Precisa de mais capacidade\?/)
+  assert.match(planos, /Adicione Smart Tokens quando quiser sem mudar seu plano\./)
+  assert.match(planos, /Need more capacity\?/)
+  assert.match(planos, /Add Smart Tokens anytime without changing your plan\./)
+  assert.match(planos, /rechargePackages\.map\(\(item\) => \(/)
+  assert.match(planos, /renderAction\(\{ id: `recarga_\$\{item\.id\}`/)
+  assert.doesNotMatch(planos, /Recarga selecionada:|Smart Tokens extras|Fazer upgrade do plano pode oferecer melhor custo-benefício/)
   assert.doesNotMatch(planos, /2 opções simples|Use em Banner Imobiliário, Studio IA, Banners e Textos\.|pacote|Outro valor|quickAmounts|tokensPerReal/i)
   assert.match(terms, /2\.000 Smart Tokens — R\$ 49,90/)
   assert.match(terms, /4\.000 Smart Tokens — R\$ 97,90/)
   assert.match(terms, /expiram em 30 dias/)
   assert.match(planos, /Validade: 30 dias/)
-  assert.match(planos, /Cada recarga tem validade de 30 dias a partir da compra/)
   assert.doesNotMatch(terms, /500 créditos — R\$ 59|1\.000 créditos — R\$ 99|2\.000 créditos — R\$ 179|expiram em 180 dias/)
 })
 
 test('Planos copy exposes only current rules and the contact channel', () => {
   assert.match(planos, /Todos os planos dão acesso à plataforma completa\./)
   assert.match(planos, /Smart Tokens representam sua capacidade de criação\./)
-  assert.match(planos, /Antes de cada criação, o sistema verifica seu saldo disponível\./)
   assert.match(planos, /Cancelamento pode ser feito pela conta\./)
+  assert.equal((planos.match(/Smart Tokens de recargas têm validade de 30 dias\./g) ?? []).length, 1)
   assert.doesNotMatch(planos, /Landing IA|landings|7 dias|24 horas|download|armazenamento/i)
 
-  assert.match(planos, />Contato</)
-  assert.match(planos, /Dúvidas ou sugestões\? Fale com a gente\./)
-  assert.match(planos, /relacionado ao \{BRAND\.name\}/)
+  assert.match(planos, /contact: 'Dúvidas\?'/)
+  assert.match(planos, /contact: 'Questions\?'/)
   assert.match(planos, /BRAND\.supportEmail/)
 })
 
 test('public market selector lets a visitor switch BR and US without checkout or authentication', () => {
-  assert.match(planos, /const \{ locale, market, setLocale, setMarket \} = useLocale\(\)/)
-  assert.match(planos, /aria-label="Choose market and language"/)
+  assert.match(planos, /const \{ locale, market, setMarket \} = useLocale\(\)/)
+  assert.match(planos, /aria-label=\{copy\.chooseMarketLanguage\}/)
   assert.match(planos, /Brasil \/ BR/)
   assert.match(planos, /United States \/ US/)
   assert.match(planos, /onClick=\{\(\) => selectMarket\('US'\)\}/)
   assert.match(planos, /onClick=\{\(\) => selectMarket\('BR'\)\}/)
-  assert.match(planos, /setMarket\(nextMarket\)[\s\S]*setLocale\(next\.locale\)/)
+  assert.match(planos, /setMarket\(nextMarket\)/)
   assert.doesNotMatch(planos, /profile\?\.market/)
   assert.deepEqual(getMarketConfig('US'), { locale: 'en-US', currency: 'USD', units: 'imperial' })
   assert.deepEqual(getMarketConfig('BR'), { locale: 'pt-BR', currency: 'BRL', units: 'metric' })
   assert.match(planos, /if \(!isAuthenticated\) \{[\s\S]*?<Link to="\/cadastro"/)
   assert.doesNotMatch(planos.slice(planos.indexOf('const selectMarket'), planos.indexOf('const iniciarCheckout')), /stripe-checkout|functions\.invoke|supabase/)
+})
+
+test('current plan is shown only for an authenticated matching subscription', () => {
+  assert.match(planos, /const atual = !recharge && user\?\.plano === item\.id\.replace\('usd_', ''\)/)
+  assert.match(planos, /atual\s*\? copy\.currentPlan/)
+  assert.match(planos, /if \(!isAuthenticated\) \{[\s\S]*?<Link to="\/cadastro"/)
+  assert.match(planos, /disabled=\{atual \|\| loadingItem === item\.id\}/)
 })
 
 test('US pricing uses distinct fixed USD keys and keeps the same Smart Token grants', () => {
@@ -165,4 +170,12 @@ test('US pricing uses distinct fixed USD keys and keeps the same Smart Token gra
   ])
   assert.match(planos, /const isUS = market === 'US'/)
   assert.match(planos, /\{isUS \? '\$' : 'R\$'\}/)
+})
+
+test('plan cards show only concise approximate monthly capacity examples', () => {
+  for (const value of ['capacity: { videos: 19, banners: 84 }', 'capacity: { videos: 33, banners: 144 }', 'capacity: { videos: 81, banners: 351 }']) assert.ok(planos.includes(value), value)
+  assert.match(planos, /~\{plano\.capacity\.videos\} \{copy\.videos\}/)
+  assert.match(planos, /~\{plano\.capacity\.banners\} \{copy\.banners\}/)
+  for (const value of ['Approximate monthly capacity:', 'Capacidade mensal aproximada:', 'Mix products however you want.', 'Combine os produtos como quiser.', 'Examples only — use your Smart Tokens across SNETIA.', 'Apenas exemplos — use seus Smart Tokens em toda a SNETIA.']) assert.ok(planos.includes(value), value)
+  assert.doesNotMatch(planos, /Cycle capacity|Starting creation capacity|More freedom to create regularly|Expanded creation volume|Ad Carousel|Text Campaign/)
 })
