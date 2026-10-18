@@ -137,19 +137,14 @@ test('Planos copy exposes only current rules and the contact channel', () => {
   assert.match(planos, /BRAND\.supportEmail/)
 })
 
-test('public market selector lets a visitor switch BR and US without checkout or authentication', () => {
-  assert.match(planos, /const \{ locale, market, setMarket \} = useLocale\(\)/)
-  assert.match(planos, /aria-label=\{copy\.chooseMarketLanguage\}/)
-  assert.match(planos, /Brasil \/ BR/)
-  assert.match(planos, /United States \/ US/)
-  assert.match(planos, /onClick=\{\(\) => selectMarket\('US'\)\}/)
-  assert.match(planos, /onClick=\{\(\) => selectMarket\('BR'\)\}/)
-  assert.match(planos, /setMarket\(nextMarket\)/)
+test('Planos follows the global market without rendering a duplicate selector', () => {
+  assert.match(planos, /const \{ locale, market \} = useLocale\(\)/)
+  assert.match(planos, /const isUS = market === 'US'/)
+  assert.doesNotMatch(planos, /setMarket|selectMarket|marketLanguage|chooseMarketLanguage|Brasil \/ BR|United States \/ US/)
   assert.doesNotMatch(planos, /profile\?\.market/)
   assert.deepEqual(getMarketConfig('US'), { locale: 'en-US', currency: 'USD', units: 'imperial' })
   assert.deepEqual(getMarketConfig('BR'), { locale: 'pt-BR', currency: 'BRL', units: 'metric' })
   assert.match(planos, /if \(!isAuthenticated\) \{[\s\S]*?<Link to="\/cadastro"/)
-  assert.doesNotMatch(planos.slice(planos.indexOf('const selectMarket'), planos.indexOf('const iniciarCheckout')), /stripe-checkout|functions\.invoke|supabase/)
 })
 
 test('current plan is shown only for an authenticated matching subscription', () => {

@@ -68,19 +68,19 @@ const formatTokens = (value, locale) => new Intl.NumberFormat(locale).format(val
 
 export default function Planos() {
   const { user, isAuthenticated, loading, reloadProfile } = useAuth()
-  const { locale, market, setMarket } = useLocale()
+  const { locale, market } = useLocale()
   const isUS = market === 'US'
   const planos = isUS ? PLANOS_US : PLANOS_BR
   const rechargePackages = smartTokenRechargePackagesForMarket(market)
   const copy = isUS ? {
     back: 'Back', heading: 'Choose your plan', hero: 'All plans include full platform access. Choose the creation capacity that fits your business.', monthly: 'Monthly',
     capacity: 'Approximate monthly capacity:', videos: 'Real Estate Videos', banners: 'Real Estate Banners', mix: 'Mix products however you want.', examples: 'Examples only — use your Smart Tokens across SNETIA.', currentPlan: 'Current plan',
-    pageEyebrow: 'Plans / Smart Tokens', marketLanguage: 'Market and language', chooseMarketLanguage: 'Choose market and language', perMonth: '/month', launchOffer: 'Launch offer', couponPrefix: 'Use the code', couponSuffix: 'at checkout and get 15% off your first 3 months.', validFor: 'Valid for 30 days',
+    pageEyebrow: 'Plans / Smart Tokens', perMonth: '/month', launchOffer: 'Launch offer', couponPrefix: 'Use the code', couponSuffix: 'at checkout and get 15% off your first 3 months.', validFor: 'Valid for 30 days',
     rechargeTitle: 'Need more capacity?', rechargeDescription: 'Add Smart Tokens anytime without changing your plan.', addTokens: 'Add Smart Tokens', faqRules: 'FAQ / Rules', contact: 'Questions?', wait: 'Please wait…', checkoutError: 'We could not start checkout. Please try again.',
   } : {
     back: 'Voltar', heading: 'Escolha seu plano', hero: 'Todos os planos incluem acesso completo à plataforma. Escolha a capacidade de criação ideal para o seu negócio.', monthly: 'Mensal',
     capacity: 'Capacidade mensal aproximada:', videos: 'Vídeos Imobiliários', banners: 'Banners Imobiliários', mix: 'Combine os produtos como quiser.', examples: 'Apenas exemplos — use seus Smart Tokens em toda a SNETIA.', currentPlan: 'Plano atual',
-    pageEyebrow: 'Planos / Smart Tokens', marketLanguage: 'Mercado e idioma', chooseMarketLanguage: 'Escolha o mercado e o idioma', perMonth: '/mês', launchOffer: 'Oferta de lançamento', couponPrefix: 'Use o código', couponSuffix: 'no checkout e ganhe 15% de desconto nos 3 primeiros meses.', validFor: 'Validade: 30 dias',
+    pageEyebrow: 'Planos / Smart Tokens', perMonth: '/mês', launchOffer: 'Oferta de lançamento', couponPrefix: 'Use o código', couponSuffix: 'no checkout e ganhe 15% de desconto nos 3 primeiros meses.', validFor: 'Validade: 30 dias',
     rechargeTitle: 'Precisa de mais capacidade?', rechargeDescription: 'Adicione Smart Tokens quando quiser sem mudar seu plano.', addTokens: 'Adicionar Smart Tokens', faqRules: 'FAQ / Regras', contact: 'Dúvidas?', wait: 'Aguarde...', checkoutError: 'Não foi possível iniciar o checkout. Tente novamente.',
   }
   const [searchParams] = useSearchParams()
@@ -88,10 +88,6 @@ export default function Planos() {
   const checkoutRefreshHandledRef = useRef(false)
   const plansViewTrackedRef = useRef(false)
   const { trackEvent } = useAnalytics()
-
-  const selectMarket = (nextMarket) => {
-    setMarket(nextMarket)
-  }
 
   useEffect(() => {
     if (!isAuthenticated || loading || searchParams.get('checkout') !== 'success' || checkoutRefreshHandledRef.current) return
@@ -196,7 +192,7 @@ export default function Planos() {
           </div>
         </section>
 
-        <section className="mt-5 flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-1 rounded-2xl bg-primary-50 px-4 py-3 text-left sm:flex-row sm:items-center sm:gap-3">
             <p className="text-xs font-black uppercase tracking-wide text-primary-700">{copy.launchOffer}</p>
             <p className="text-sm font-semibold text-gray-700">
@@ -204,30 +200,6 @@ export default function Planos() {
               <span className="rounded-md bg-white px-2 py-1 font-black tracking-[0.12em] text-primary-900">SMART15</span>{' '}
               {copy.couponSuffix}
             </p>
-          </div>
-          <div className="sm:min-w-[180px]">
-              <div className="rounded-2xl border border-primary-100 bg-primary-50 p-2" aria-label={copy.marketLanguage}>
-                <p className="px-2 pb-1 text-xs font-black uppercase tracking-wide text-primary-800">{copy.marketLanguage}</p>
-                <div className="grid grid-cols-2 gap-1" role="group" aria-label={copy.chooseMarketLanguage}>
-                  <button
-                    type="button"
-                    aria-pressed={market === 'BR'}
-                    onClick={() => selectMarket('BR')}
-                    className={`rounded-xl px-3 py-2 text-sm font-black transition ${market === 'BR' ? 'bg-primary-800 text-white' : 'bg-white text-primary-800 hover:bg-primary-100'}`}
-                  >
-                    Brasil / BR
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={market === 'US'}
-                    onClick={() => selectMarket('US')}
-                    className={`rounded-xl px-3 py-2 text-sm font-black transition ${market === 'US' ? 'bg-primary-800 text-white' : 'bg-white text-primary-800 hover:bg-primary-100'}`}
-                  >
-                    United States / US
-                  </button>
-                </div>
-                <p className="px-2 pt-2 text-center text-xs font-bold text-primary-800">{locale} · {isUS ? 'USD' : 'BRL'}</p>
-              </div>
           </div>
         </section>
 
