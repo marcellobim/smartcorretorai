@@ -49,7 +49,6 @@ import {
 } from '../lib/studio-active-job'
 
 const BUCKET = 'studio-videos'
-const STUDIO_HERO_REPRESENTATIVE_VIDEO = '/showcase/studio/showcase-captacao-corretores.mp4'
 const MAX_DIFFERENTIALS = 1
 const MAX_CAPTURE_DIFFERENTIALS = 3
 const MAX_BROKER_BENEFITS = 3
@@ -2235,11 +2234,9 @@ export default function StudioHero() {
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
             <ProductHero
               id="studio-ia-title"
-              productName={<span>Studio IA</span>}
-              headline={t('studio.landing.title')}
+              productName={t('studio.landing.title')}
               description={t('studio.landing.description')}
-              visual={<StudioHeroRepresentativePhone />}
-              className="min-h-[440px] gap-8 px-7 py-12 sm:px-11 sm:py-14 lg:min-h-[440px] lg:grid-cols-[minmax(0,1.45fr)_minmax(190px,.55fr)] lg:gap-6 lg:px-12 lg:py-12 xl:grid-cols-[minmax(0,1.5fr)_minmax(220px,.5fr)] xl:gap-10 xl:px-14 [&>div.relative.z-10]:max-w-[52rem] [&_h1]:max-w-[52rem] [&_h2]:mt-5 [&_h2]:max-w-[52rem] [&_h2]:text-[2rem] [&_h2]:leading-[1.08] sm:[&_h2]:text-[2.75rem] lg:[&_h2]:text-[2.75rem] xl:[&_h2]:text-[3.25rem] lg:[&_h2]:leading-[1.04] [&_h2+p]:mt-6 [&_h2+p]:max-w-2xl"
+              className="px-7 py-10 sm:px-11 sm:py-12 lg:px-12 xl:px-14 [&>div.relative.z-10]:max-w-[52rem] [&_h1]:max-w-[52rem] [&>div.relative.z-10>p]:mt-6 [&>div.relative.z-10>p]:max-w-2xl"
             />
           </section>
 
@@ -2252,7 +2249,7 @@ export default function StudioHero() {
           <ProductCard className="p-5 sm:p-6">
             <div className="mb-6">
               <ProductSectionHeading
-                eyebrow="Soluções Studio IA"
+                eyebrow={t('studio.landing.title')}
                 title={t('studio.showcase.title')}
                 description={t('studio.showcase.description')}
               />
@@ -3404,39 +3401,6 @@ function StudioHeroGuideCard({ title, items, icon: Icon = Film }) {
       </li>)}
     </ul>
   </ProductCard>
-}
-
-function StudioHeroRepresentativePhone() {
-  const { t } = useLocale()
-  return (
-    <div
-      aria-label={t('studio.showcase.visualExample')}
-      className="pointer-events-none relative flex min-h-[245px] items-center justify-center sm:min-h-[285px] lg:min-h-[310px]"
-    >
-      <div className="absolute h-52 w-52 rounded-full bg-cyan-300/15 blur-3xl sm:h-64 sm:w-64" aria-hidden="true" />
-      <div className="relative w-[132px] rounded-[1.8rem] border border-white/20 bg-slate-950 p-1.5 shadow-[0_30px_70px_-24px_rgba(34,211,238,0.55)] ring-1 ring-white/10 sm:w-[150px] sm:rounded-[2rem] sm:p-2 lg:w-[170px]">
-        <div className="relative aspect-[9/16] overflow-hidden rounded-[1.4rem] bg-slate-950 sm:rounded-[1.55rem]">
-          <video
-            src={STUDIO_HERO_REPRESENTATIVE_VIDEO}
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls={false}
-            preload="metadata"
-            controlsList="nodownload noremoteplayback"
-            disablePictureInPicture
-            disableRemotePlayback
-            tabIndex={-1}
-            aria-hidden="true"
-            onContextMenu={(event) => event.preventDefault()}
-            className="smart-phone-media absolute inset-0"
-          />
-          <span className="absolute left-1/2 top-1.5 h-1.5 w-10 -translate-x-1/2 rounded-full bg-slate-950/85 sm:top-2" aria-hidden="true" />
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function AssistantStep({ number, currentStep, summary, onEdit, message, children }) {

@@ -24,6 +24,15 @@ test('AI Studio retains its three operational modes with concise localized copy'
   for (const key of ['studio.mode.commercial', 'studio.mode.creative', 'studio.mode.carousel']) assert.match(studio, new RegExp(key.replaceAll('.', '\\.')))
 })
 
+test('AI Studio uses one localized title and no longer renders a separate top demonstration', () => {
+  assert.match(studio, /productName=\{t\('studio\.landing\.title'\)\}/)
+  assert.match(studio, /description=\{t\('studio\.landing\.description'\)\}/)
+  assert.doesNotMatch(studio, /Studio IA/)
+  assert.doesNotMatch(studio, /StudioHeroRepresentativePhone|STUDIO_HERO_REPRESENTATIVE_VIDEO/)
+  assert.match(studio, /VISIBLE_STUDIO_MODE_EXAMPLES\.map/)
+  assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES\.map/)
+})
+
 test('Studio and Ad Carousel keep shared design-system components and routes', () => {
   for (const component of ['ProductHero', 'ProductButton', 'ProductCard', 'ProductSectionHeading']) assert.match(studio, new RegExp(`<${component}`))
   assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES/)
