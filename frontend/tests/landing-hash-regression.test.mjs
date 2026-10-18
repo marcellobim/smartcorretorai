@@ -56,18 +56,23 @@ function renderLanding(market) {
   )
 }
 
-test('Landing renders direct hash reload state in BR and US without undefined list entries', async () => {
+test('Landing renders direct hash reload state in BR and US without undefined list entries or mixed Hero copy', async () => {
   const originalConsoleError = console.error
   console.error = (...args) => {
     if (String(args[0]).includes('useLayoutEffect does nothing on the server')) return
     originalConsoleError(...args)
   }
   try {
-    for (const [market, expectedCopy] of [['BR', 'Criações em vídeo'], ['US', 'Video creations']]) {
+    for (const [market, expectedCopy, heroCopy, otherMarketHeroCopy] of [
+      ['BR', 'Criações em vídeo', 'Crie marketing imobiliário pronto para publicar.', 'Create real estate marketing that’s ready to publish.'],
+      ['US', 'Video creations', 'Create real estate marketing that’s ready to publish.', 'Crie marketing imobiliário pronto para publicar.'],
+    ]) {
       for (const viewport of ['desktop', 'mobile']) {
         const html = renderLanding(market)
         assert.match(html, /id="conheca-a-plataforma"/)
         assert.match(html, new RegExp(expectedCopy))
+        assert.match(html, new RegExp(heroCopy))
+        assert.doesNotMatch(html, new RegExp(otherMarketHeroCopy))
         assert.doesNotMatch(html, /undefined/)
 
         const reloadedHtml = renderLanding(market)

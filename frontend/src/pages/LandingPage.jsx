@@ -1,14 +1,13 @@
-import { QUICK_BANNERS_AVAILABLE, RAIO_X_AVAILABLE, visibleProducts } from '../config/productAvailability'
+import { RAIO_X_AVAILABLE, visibleProducts } from '../config/productAvailability'
 import { BRAND } from '../config/brand'
 import { SHORT_VIDEOS_VISIBLE } from '../config/shortVideos'
-import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR } from '../config/virtualStaging'
+import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight, ChevronDown, Facebook, Menu, Play, Radar, Video, X,
 } from 'lucide-react'
 import BrandMark from '../components/brand/BrandMark'
-import FirstCreationEntry from '../components/landing/FirstCreationEntry'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import { useLocale } from '../i18n/useLocale'
 import MarketSelector from '../components/i18n/MarketSelector'
@@ -34,9 +33,8 @@ const NAV_ITEMS = t => [
   { id: 'faq', label: t('landing.navigation.faq'), href: '#faq' },
 ]
 const trialOfferedLabel = (t, locale) => new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format([
-  t('landing.showcase.productNames.textCampaign'),
-  ...(QUICK_BANNERS_AVAILABLE ? [t('landing.showcase.productNames.quickBanners')] : []),
-  t('landing.showcase.productNames.smartCarousel'),
+  t('landing.trial.banner'),
+  t('landing.trial.virtualStaging'),
 ])
 // TRIAL_OFFERED_LABEL is intentionally localized at render time by trialOfferedLabel.
 const VIDEO_POSTERS = Object.freeze({
@@ -108,7 +106,6 @@ const REAL_USES = t => [
   { id: 'rental', title: t('landing.benefits.uses.rental.title'), copy: t('landing.benefits.uses.rental.description') },
   { id: 'developments', title: t('landing.benefits.uses.developments.title'), copy: t('landing.benefits.uses.developments.description') },
   { id: 'propertyAcquisition', title: t('landing.benefits.uses.propertyAcquisition.title'), copy: t('landing.benefits.uses.propertyAcquisition.description') },
-  { id: 'professionalRecruiting', title: t('landing.benefits.uses.professionalRecruiting.title'), copy: t('landing.benefits.uses.professionalRecruiting.description') },
 ]
 const IMAGE_SHOWCASE_EXAMPLES = (market = 'BR') => ({
   'banner-imobiliario': market === 'US' ? [
@@ -327,14 +324,13 @@ function Hero() {
       <div className="relative mx-auto grid min-h-[700px] max-w-[92rem] items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:min-h-[720px] lg:grid-cols-[minmax(0,.85fr)_minmax(560px,1.15fr)] lg:px-10 lg:py-16">
         <div className="relative z-10 max-w-2xl">
           <p className="inline-flex rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.18em] text-violet-200">{t('landing.hero.eyebrow')}</p>
-          <h1 className="mt-6 text-[2rem] font-black leading-[1.05] tracking-[-.055em] sm:text-5xl sm:leading-[1.03] lg:text-[3.55rem]"><span className="block [text-wrap:balance]">{t('landing.hero.title')}</span><span className="mt-4 block text-[.58em] leading-[1.2] tracking-[-.035em] text-white [text-wrap:balance]">{t('landing.hero.publishPrefix')} <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">{t('landing.hero.publishHighlight')}</span> {t('landing.hero.publishSuffix')}</span></h1>
-          <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300 sm:text-lg">{t('landing.hero.descriptionPrefix')} {BRAND.name} {t('landing.hero.descriptionSuffix')}</p>
-          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-violet-200 sm:text-base">{t('landing.hero.platformPrefix')} {BRAND.name}.</p>
+          <h1 className="mt-6 text-[2rem] font-black leading-[1.05] tracking-[-.055em] sm:text-5xl sm:leading-[1.03] lg:text-[3.55rem]"><span className="block [text-wrap:balance]">{t('landing.hero.title')}</span></h1>
+          <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300 sm:text-lg">{t('landing.hero.description')}</p>
+          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-violet-200 sm:text-base">{t('landing.hero.distribution')}</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link>
-            <a href="#formas-de-criar" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />{t('landing.hero.explore')}</a>
+            <a href="#produtos" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}><Play className="h-4 w-4" />{t('landing.hero.explore')}</a>
           </div>
-          <p className="mt-5 text-xs font-bold text-slate-400">{t('landing.showcase.heroAccountNote')}</p>
         </div>
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
           <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#0b1022] shadow-[0_50px_100px_-35px_rgba(76,29,149,.8)]">
@@ -355,12 +351,7 @@ function Hero() {
 
 function PositioningStrip() {
   const { t } = useLocale()
-  const startingPoints = [
-    [t('landing.positioning.startingPoints.media.title'), t('landing.positioning.startingPoints.media.description')],
-    [t('landing.positioning.startingPoints.information.title'), t('landing.positioning.startingPoints.information.description')],
-  ]
-  return <>
-    <section id="formas-de-criar" className="scroll-mt-20 border-y border-white/10 bg-[#090d1b] text-white">
+  return <section id="formas-de-criar" className="scroll-mt-20 border-y border-white/10 bg-[#090d1b] text-white">
       <div className="mx-auto grid max-w-[92rem] gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.15fr_.85fr] lg:items-end lg:px-10 lg:py-20">
         <div>
           <p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.positioning.eyebrow')}</p>
@@ -369,20 +360,9 @@ function PositioningStrip() {
         </div>
         <div className="border-l-2 border-violet-500 pl-6 sm:pl-8">
           <p className="text-2xl font-black tracking-[-.035em] text-violet-300 sm:text-3xl">{t('landing.positioning.callout.title')}</p>
-          <p className="mt-4 text-sm font-medium leading-7 text-slate-400">{t('landing.positioning.callout.description')}</p>
         </div>
       </div>
     </section>
-    <section className="bg-white pb-12 pt-20 sm:pb-14 sm:pt-24">
-      <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
-        <p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.positioning.startingPoints.eyebrow')}</p>
-        <h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.04] tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.positioning.startingPoints.title')}</h2>
-        <div className="mt-12 grid gap-px overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-200 md:grid-cols-2">
-          {startingPoints.map(([title, copy], index) => <article key={title} className="bg-[#f8f7fb] p-7 sm:p-10"><span className="text-xs font-black text-violet-700">0{index + 1}</span><h3 className="mt-8 text-2xl font-black tracking-[-.035em] text-slate-950">{title}</h3><p className="mt-4 max-w-xl text-sm font-medium leading-7 text-slate-600">{copy}</p></article>)}
-        </div>
-      </div>
-    </section>
-  </>
 }
 
 function ListingXraySpotlight() {
@@ -430,7 +410,7 @@ function DeliveryPanel({ group }) {
         <h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{group.title}</h2>
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2" aria-label={t('landing.products.videoCreations')}>{groups.map((items, index) => <VideoCreationGroup key={index} items={items} onPlay={handlePlay} />)}</div>
-      <div className="mt-6 flex flex-col justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{group.ctaLabel}<ArrowRight className="h-4 w-4" /></Link></div>
+      <div className="mt-6 flex flex-col justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" onClick={() => trackCta('explore_products')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{t('landing.trial.exploreProducts')}<ArrowRight className="h-4 w-4" /></Link></div>
     </div>
   </section>
 }
@@ -459,6 +439,7 @@ function ImagePreviewCard({ item }) {
 }
 
 function ImageShowcase({ group }) {
+  const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(0)
   const trackCta = useLandingCtaTracking('product_section')
   return <section id={group.id} className="scroll-mt-20 bg-[#f4f3f8] py-12 text-slate-950">
@@ -467,7 +448,7 @@ function ImageShowcase({ group }) {
       <h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{group.title}</h2>
       <div className={`mx-auto mt-7 hidden gap-6 md:grid ${group.items.length === 1 ? 'max-w-2xl grid-cols-1' : 'max-w-5xl grid-cols-2'}`}>{group.items.map(item => <ImagePreviewCard key={item.id} item={item} />)}</div>
       <div className="mt-8 md:hidden"><div className="flex flex-wrap gap-2 pb-4">{group.items.map((item, index) => <button key={item.id} type="button" onClick={() => setActiveIndex(index)} aria-pressed={activeIndex === index} className={`rounded-full border px-4 py-2 text-xs font-black ${activeIndex === index ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-300 bg-white text-slate-600'} ${focusRing}`}>{item.title}</button>)}</div><ImagePreviewCard item={group.items[activeIndex]} /></div>
-      <div className="mt-8 flex flex-col justify-between gap-4 border-t border-slate-300 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{group.ctaLabel}<ArrowRight className="h-4 w-4" /></Link></div>
+      <div className="mt-8 flex flex-col justify-between gap-4 border-t border-slate-300 pt-6 sm:flex-row sm:items-center"><p className="text-lg font-black tracking-[-.03em]">{group.ctaTitle}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{t('landing.trial.banner')}<ArrowRight className="h-4 w-4" /></Link></div>
     </div>
   </section>
 }
@@ -475,13 +456,13 @@ function ImageShowcase({ group }) {
 function TextCampaignSection() {
   const { t } = useLocale()
   const trackCta = useLandingCtaTracking('product_section')
-  return <section id="textos-campanhas" className="scroll-mt-20 bg-[#080c19] py-14 text-white sm:py-16"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.products.textCampaign.eyebrow')}</p><h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{t('landing.products.textCampaign.title')}</h2><p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-300">{t('landing.products.textCampaign.description')}</p><div className="mt-8"><TextCampaignPreview /></div><div className="mt-6 flex justify-end"><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link></div></div></section>
+  return <section id="textos-campanhas" className="scroll-mt-20 bg-[#080c19] py-14 text-white sm:py-16"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.products.textCampaign.eyebrow')}</p><h2 className="mt-3 text-4xl font-black tracking-[-.05em] sm:text-5xl">{t('landing.products.textCampaign.title')}</h2><p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-300">{t('landing.products.textCampaign.description')}</p><div className="mt-8"><TextCampaignPreview /></div><div className="mt-6 flex justify-end"><Link to="/cadastro" onClick={() => trackCta('explore_text_campaign')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white ${focusRing}`}>{t('landing.products.textCampaign.cta')}<ArrowRight className="h-4 w-4" /></Link></div></div></section>
 }
 
 function DeliveryShowcase() {
   const { t } = useLocale()
   const groups = localizedDeliveryGroups(t)
-  return <div id="produtos"><section className="bg-[#f4f3f8] pb-14 pt-12 text-slate-950 sm:pb-16 sm:pt-14"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.products.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">{t('landing.products.title')}</h2><p className="mt-6 max-w-4xl text-base font-medium leading-7 text-slate-600">{t('landing.products.description')}</p><p className="mt-6 text-xs font-black uppercase tracking-[.12em] text-violet-700">{t('landing.products.uses.sale')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.rental')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.developments')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.properties')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.professionals')}</p></div></section>{groups.map(group => group.id === 'videos' ? <DeliveryPanel key={group.id} group={group} /> : group.id === 'imagens-campanhas' ? <ImageShowcase key={group.id} group={group} /> : <TextCampaignSection key={group.id} />)}</div>
+  return <div id="produtos"><section className="bg-[#f4f3f8] pb-14 pt-12 text-slate-950 sm:pb-16 sm:pt-14"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.products.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.05em] sm:text-6xl">{t('landing.products.title')}</h2><p className="mt-6 max-w-4xl text-base font-medium leading-7 text-slate-600">{t('landing.products.description')}</p><p className="mt-6 text-xs font-black uppercase tracking-[.12em] text-violet-700">{t('landing.products.uses.sale')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.rental')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.developments')} <span className="mx-2 text-slate-300">·</span> {t('landing.products.uses.properties')}</p></div></section>{groups.filter(group => group.id !== 'textos-campanhas').map(group => group.id === 'videos' ? <DeliveryPanel key={group.id} group={group} /> : <ImageShowcase key={group.id} group={group} />)}</div>
 }
 
 function VirtualStagingPhone({ sequence, slot, reducedMotion }) {
@@ -549,6 +530,16 @@ function HowItWorks() {
   return <section id="como-funciona" className="scroll-mt-20 bg-white py-20 sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.howItWorks.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black tracking-[-.05em] text-slate-950 sm:text-5xl">{t('landing.howItWorks.title')}</h2><p className="mt-5 max-w-3xl text-base font-medium leading-7 text-slate-600">{t('landing.howItWorks.description')}</p><div className="mt-12 grid border-y border-slate-200 md:grid-cols-3">{steps.map(([number, title, description], index) => <article key={number} className={`py-8 md:px-8 md:py-10 ${index > 0 ? 'border-t border-slate-200 md:border-l md:border-t-0' : ''}`}><span className="text-sm font-black text-violet-600">{number}</span><h3 className="mt-10 text-2xl font-black text-slate-950">{title}</h3><p className="mt-3 text-sm font-medium leading-6 text-slate-600">{description}</p></article>)}</div><div className="mt-8 flex flex-col justify-between gap-6 rounded-2xl bg-[#f4f3f8] p-6 sm:flex-row sm:items-center"><p className="max-w-3xl text-sm font-bold leading-6 text-slate-700">{t('landing.howItWorks.note')}</p><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white ${focusRing}`}>{t('landing.navigation.tryFree')}<ArrowRight className="h-4 w-4" /></Link></div></div></section>
 }
 
+function DistributionSection() {
+  const { t } = useLocale()
+  const channels = [
+    ['instagram', t('landing.distribution.instagram')],
+    ['facebook', t('landing.distribution.facebook')],
+    ['tiktok', t('landing.distribution.tiktok')],
+  ]
+  return <section id="distribuicao" className="bg-[#090d1b] py-20 text-white sm:py-24"><div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-300">{t('landing.distribution.eyebrow')}</p><h2 className="mt-4 max-w-4xl text-4xl font-black tracking-[-.05em] sm:text-5xl">{t('landing.distribution.title')}</h2><p className="mt-5 max-w-3xl text-base font-medium leading-7 text-slate-300">{t('landing.distribution.description')}</p><div className="mt-10 grid gap-3 sm:grid-cols-3">{channels.map(([channel, action]) => <article key={channel} className="rounded-2xl border border-white/10 bg-white/[.04] p-6"><p className="text-xs font-black uppercase tracking-[.16em] text-violet-200">{t(`landing.distribution.channels.${channel}`)}</p><p className="mt-3 text-lg font-black text-white">{action}</p></article>)}</div></div></section>
+}
+
 function BenefitsSection() {
   const { t } = useLocale()
   return <>
@@ -596,5 +587,5 @@ function LandingFooter() {
 }
 
 export default function LandingPage() {
-  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><FirstCreationEntry /><div id="conheca-a-plataforma" className="scroll-mt-20"><Hero /></div><PositioningStrip />{RAIO_X_AVAILABLE && <ListingXraySpotlight />}<DeliveryShowcase /><VirtualStagingSpotlight /><BenefitsSection /><HowItWorks /><TokensSection /><SocialProof /><FaqSection /><FinalCta /></main><LandingFooter /></div>
+  return <div className="min-h-screen overflow-x-hidden bg-[#050816] text-slate-950 selection:bg-violet-300 selection:text-violet-950"><LandingHeader /><main><div id="conheca-a-plataforma" className="scroll-mt-20"><Hero /></div><VirtualStagingSpotlight /><DeliveryShowcase /><PositioningStrip /><TextCampaignSection /><HowItWorks /><DistributionSection /><TokensSection /><FaqSection />{RAIO_X_AVAILABLE && <ListingXraySpotlight />}<BenefitsSection /><SocialProof /><FinalCta /></main><LandingFooter /></div>
 }
