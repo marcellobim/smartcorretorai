@@ -618,12 +618,12 @@ export default function SmartTourAI() {
   ].filter(item => Boolean(item.label))
   const visualStep = status === 'idle' ? question[1] : 5
   return <>
-    <Header title={SMART_TOUR_PRODUCT_NAME} subtitle={t('smartTour.headerSubtitle')} />
+    <Header title={SMART_TOUR_PRODUCT_NAME} />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="smart-tour-title"
         productName={t('smartTour.productName')}
-        headline={t('smartTour.heroHeadline')}
+        headline={t('smartTour.headerSubtitle')}
         description={t('smartTour.heroDescription')}
       />
 

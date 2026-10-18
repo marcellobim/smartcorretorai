@@ -113,6 +113,29 @@ test('keeps the concise localized multichannel hero and removes the intermediate
   assert.equal(config.getTextCampaignDeliverableLabel('instagram_commercial', 'en-US'), 'Instagram — commercial')
 })
 
+test('keeps Final Review navigation localized and scoped to the current draft', () => {
+  const review = page.slice(page.indexOf('function ReviewQuestion'), page.indexOf('\n\nasync function readTextCampaignFunctionError'))
+  const hook = read('src/hooks/useGuidedConversation.js')
+  assert.deepEqual(
+    ['back', 'restartCampaign', 'cancel', 'create'].map(key => conversationCopy.getTextCampaignUiCopy('en-US')[key]),
+    ['Back', 'Restart campaign', 'Cancel', 'Create Text Campaign'],
+  )
+  assert.deepEqual(
+    ['back', 'restartCampaign', 'cancel', 'create'].map(key => conversationCopy.getTextCampaignUiCopy('pt-BR')[key]),
+    ['Voltar', 'Recomeçar campanha', 'Desistir', 'Criar Campanha de Textos'],
+  )
+  assert.match(review, /onClick=\{onBack\}>\{copy\.back\}/)
+  assert.match(review, /onClick=\{onRestart\}>\{copy\.restartCampaign\}/)
+  assert.match(review, /onClick=\{onCancel\}>\{copy\.cancel\}/)
+  assert.match(page, /onBack=\{conversation\.goBack\}/)
+  assert.match(page, /onRestart=\{createNewCampaign\}/)
+  assert.match(page, /onCancel=\{cancelDraft\}/)
+  assert.match(hook, /const goBack = useCallback\(\(\) => \{[\s\S]*?setHistory\(history\.slice\(0, -1\)\)[\s\S]*?setActiveQuestionId\(previous\.questionId\)/)
+  const cancelBlock = page.slice(page.indexOf('const cancelDraft'), page.indexOf('\n\n  return <div'))
+  assert.match(cancelBlock, /textDraft\.clear\(\)/)
+  assert.match(cancelBlock, /navigate\('\/dashboard'\)/)
+})
+
 test('exposes loading, disabled and aria-busy states', () => {
   assert.match(page, /setGenerationStatus\('loading'\)/)
   assert.match(page, /loading=\{loading\}/)

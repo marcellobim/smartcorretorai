@@ -313,10 +313,6 @@ export default function TextCampaign() {
     <Header title={copy.productName} />
     <main className={`${campaign ? 'mx-auto w-full max-w-[96rem] px-smart-page py-6 sm:py-8' : SMART_UI.page} min-w-0 space-y-6`}>
       {campaign ? <TextCampaignResult campaign={campaign} onNewCampaign={createNewCampaign} /> : <>
-      <div className="flex flex-wrap gap-3">
-        <ProductButton type="button" variant="secondary" onClick={() => navigate(-1)}>{locale === 'en-US' ? 'Back' : 'Voltar'}</ProductButton>
-        <ProductButton type="button" variant="ghost" disabled={generationStatus === 'loading'} onClick={cancelDraft}>{locale === 'en-US' ? 'Cancel' : 'Cancelar'}</ProductButton>
-      </div>
       <ProductCard className="overflow-hidden">
         <ProductHero
           id="text-campaign-title"
@@ -372,6 +368,9 @@ export default function TextCampaign() {
           onGenerate={generateCampaign}
           onRetry={generateCampaign}
           onReview={() => setGenerationError('')}
+          onBack={conversation.goBack}
+          onRestart={createNewCampaign}
+          onCancel={cancelDraft}
         />
       </GuidedConversation>
       </>}
@@ -611,7 +610,7 @@ function PhoneQuestion({ answers, setAnswers, commit, professionalPhone, locale 
   </div>
 }
 
-function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview, locale, market, copy }) {
+function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, generationStatus, generationError, onGenerate, onRetry, onReview, onBack, onRestart, onCancel, locale, market, copy }) {
   const groups = buildReviewGroups(answers, briefing, locale, market)
   const loading = generationStatus === 'loading'
   return <div className="space-y-5" aria-busy={busy || loading}>
@@ -624,7 +623,12 @@ function ReviewQuestion({ answers, briefing, onEdit, busy, briefingValid, genera
       <div className="mt-4 flex flex-wrap gap-3"><ProductButton variant="danger" disabled={loading} onClick={onRetry}>{copy.retry}</ProductButton><ProductButton variant="ghost" disabled={loading} onClick={onReview}>{copy.backToReview}</ProductButton></div>
     </ProductCard>}
     <SmartTokenEstimate cost={SMART_TOKEN_COSTS.textCampaign} quantityLabel={locale === 'en-US' ? 'Google Ads included' : 'Google Ads incluído'} />
-    <ProductButton disabled={!briefingValid || loading} loading={loading} onClick={onGenerate} className="w-full sm:w-auto"><Sparkles className="h-4 w-4" />{copy.create}</ProductButton>
+    <div className="flex flex-wrap gap-3">
+      <ProductButton type="button" variant="secondary" disabled={loading || busy} onClick={onBack}>{copy.back}</ProductButton>
+      <ProductButton type="button" variant="ghost" disabled={loading || busy} onClick={onRestart}>{copy.restartCampaign}</ProductButton>
+      <ProductButton type="button" variant="ghost" disabled={loading || busy} onClick={onCancel}>{copy.cancel}</ProductButton>
+      <ProductButton disabled={!briefingValid || loading} loading={loading} onClick={onGenerate}><Sparkles className="h-4 w-4" />{copy.create}</ProductButton>
+    </div>
   </div>
 }
 

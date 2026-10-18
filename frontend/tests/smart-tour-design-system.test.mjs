@@ -12,6 +12,9 @@ test('Real Estate Video opens directly into its concise guided workflow', () => 
   assert.doesNotMatch(page.slice(page.indexOf('return <>'), page.indexOf('function SmartTourGuide')), /<SmartTourGuide \/>/)
   assert.match(page, /Choose your video style/)
   assert.match(page, /Escolha o estilo do vídeo/)
+  assert.match(page, /headline=\{t\('smartTour\.headerSubtitle'\)\}/)
+  const creationView = page.slice(page.indexOf('const measureFields'), page.indexOf('function SmartTourShowcase'))
+  assert.doesNotMatch(creationView, /<Header title=\{SMART_TOUR_PRODUCT_NAME\} subtitle=/)
 })
 
 test('Real Estate Video keeps the approved concise BR and US copy', () => {

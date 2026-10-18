@@ -55,6 +55,17 @@ export function useGuidedConversation({ initialQuestionId, initialState = null, 
     lockedRef.current = false
   }, [clearTimers, history])
 
+  const goBack = useCallback(() => {
+    const previous = history.at(-1)
+    if (!previous) return false
+    clearTimers()
+    setHistory(history.slice(0, -1))
+    setActiveQuestionId(previous.questionId)
+    setPhase(CONVERSATION_PHASE.QUESTION)
+    lockedRef.current = false
+    return true
+  }, [clearTimers, history])
+
   const resetConversation = useCallback(() => {
     clearTimers()
     setHistory([])
@@ -70,6 +81,7 @@ export function useGuidedConversation({ initialQuestionId, initialState = null, 
     isTransitioning: phase !== CONVERSATION_PHASE.QUESTION,
     submitAnswer,
     editAnswer,
+    goBack,
     resetConversation,
   }
 }
