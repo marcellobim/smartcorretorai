@@ -31,3 +31,19 @@ test('Virtual Staging trial migration gate accepts exactly one pending migration
   assert.throws(() => verifyVirtualStagingTrialMigrationList(list.replace('` `', '`20261016010000`')), /somente a migration autorizada/)
   assert.throws(() => verifyVirtualStagingTrialMigrationList(list.replace('`20261017010000` | ` `', '`20261017010000` | ` `\n   `20261018010000` | ` `')), /somente a migration autorizada/)
 })
+
+test('Virtual Staging trial migration gate consumes the Supabase CLI JSON comparison', () => {
+  const list = JSON.stringify({
+    migrations: [
+      { local: '001', remote: '001', time: '2024-01-01T00:00:00Z' },
+      { local: '20261016010000', remote: '20261016010000', time: '2026-10-16T01:00:00Z' },
+      { local: '20261017010000', remote: '', time: '2026-10-17T01:00:00Z' },
+    ],
+    message: 'Migrations listed',
+  })
+  assert.deepEqual(verifyVirtualStagingTrialMigrationList(list), {
+    applied: ['001', '20261016010000'],
+    pending: ['20261017010000'],
+  })
+  assert.throws(() => verifyVirtualStagingTrialMigrationList(list.replace('"remote":""', '"remote":"20261016020000"')), /somente a migration autorizada/)
+})

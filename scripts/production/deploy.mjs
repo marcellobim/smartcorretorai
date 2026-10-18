@@ -507,14 +507,16 @@ function isAncestor(ancestor,descendant){return spawnSync('git',['merge-base','-
 
 export function verifyVirtualStagingTrialMigrationList(output,allowedPending=['20261017010000']){
  if(!Array.isArray(allowedPending)||allowedPending.some(version=>!/^\d+$/.test(String(version))))throw Error('DEPLOY BLOQUEADO: lista de migrations autorizadas inválida')
- const rows=[]
- for(const line of String(output||'').split(/\r?\n/)){
-  const match=line.match(/^\s*`?([^`|]*)`?\s*\|\s*`?([^`|]*)`?\s*\|/)
-  if(!match)continue
-  const local=match[1].trim(),remote=match[2].trim()
-  if(local==='Local'||/^[-]+$/.test(local))continue
-  rows.push({local,remote})
- }
+ const source=String(output||'')
+ const json=source.match(/\{"migrations":\[[\s\S]*?\],"message":"Migrations listed"\}/)
+ const rows=json
+  ? JSON.parse(json[0]).migrations.map(({local='',remote=''})=>({local:String(local||'').trim(),remote:String(remote||'').trim()}))
+  : source.split(/\r?\n/).flatMap(line=>{
+    const match=line.match(/^\s*`?([^`|]*)`?\s*\|\s*`?([^`|]*)`?\s*\|/)
+    if(!match)return []
+    const local=match[1].trim(),remote=match[2].trim()
+    return local==='Local'||/^[-]+$/.test(local)?[]:[{local,remote}]
+   })
  if(!rows.length)throw Error('DEPLOY BLOQUEADO: não foi possível comparar migrations local × remoto')
  const remoteOnly=rows.filter(row=>!row.local&&row.remote)
  const pending=rows.filter(row=>row.local&&!row.remote).map(row=>row.local)
@@ -897,11 +899,13 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  if(deployVirtualStagingTrial){
   const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/'))
   if(!existsSync(migrationPath)||hash(readFileSync(migrationPath))!==hash(readFileSync(path.join(root,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de trial divergente no artefato isolado')
-  const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root))
+  const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root))
   if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261017010000']))throw Error('DEPLOY BLOQUEADO: migration de trial não está isolada')
+  console.log(JSON.stringify({virtualStagingTrialMigrationValidation:{applied:beforeMigrations.applied.length,pending:beforeMigrations.pending}}))
   run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
-  const afterMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root),[])
+  const afterMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root),[])
   if(afterMigrations.pending.length)throw Error('DEPLOY BLOQUEADO: migration pendente após publicação do trial')
+  console.log(JSON.stringify({virtualStagingTrialMigrationValidation:{applied:afterMigrations.applied.length,pending:afterMigrations.pending}}))
   const afterMigration=await official()
   if(afterMigration.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a migration do trial')
  }
